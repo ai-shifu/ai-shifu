@@ -7,6 +7,7 @@ import '@/assets/css/markdown.css';
 import { ConfigProvider } from '@/components/config-provider';
 import { UserProvider } from '@/store';
 import '@/i18n';
+import I18nGlobalLoading from '@/components/I18nGlobalLoading';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -32,6 +33,7 @@ export default function RootLayout({
           <ConfigProvider>
             <UserProvider>
               <AlertProvider>
+                <I18nGlobalLoading />
                 {children}
                 <Toaster />
               </AlertProvider>
