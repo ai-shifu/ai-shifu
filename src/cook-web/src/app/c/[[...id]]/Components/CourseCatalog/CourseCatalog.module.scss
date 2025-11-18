@@ -22,12 +22,6 @@
   }
 
   &.collapse {
-    .titleRow {
-      .collapseBtn {
-        transform: rotate(-180deg);
-      }
-    }
-
     .sectionList {
       height: 0;
       overflow: hidden;
