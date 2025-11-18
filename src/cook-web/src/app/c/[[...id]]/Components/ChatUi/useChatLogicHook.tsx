@@ -99,6 +99,11 @@ export interface UseChatSessionResult {
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onRefresh: (generatedBlockBid: string) => void;
   toggleAskExpanded: (parentBlockBid: string) => void;
+  reGenerateConfirm: {
+    open: boolean;
+    onConfirm: () => void;
+    onCancel: () => void;
+  };
 }
 
 /**
@@ -157,6 +162,11 @@ function useChatLogicHook({
   const sseRef = useRef<any>(null);
   const lastInteractionBlockRef = useRef<ChatContentItem | null>(null);
   const hasScrolledToBottomRef = useRef<boolean>(false);
+  const [pendingRegenerate, setPendingRegenerate] = useState<{
+    content: OnSendContentParams;
+    blockBid: string;
+  } | null>(null);
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
 
   const effectivePreviewMode = previewMode ?? false;
   const getAskButtonMarkup = useCallback(
@@ -879,8 +889,12 @@ function useChatLogicHook({
   /**
    * onSend processes user interactions and continues streaming responses.
    */
-  const onSend = useCallback(
-    (content: OnSendContentParams, blockBid: string) => {
+  const processSend = useCallback(
+    (
+      content: OnSendContentParams,
+      blockBid: string,
+      options?: { skipConfirm?: boolean },
+    ) => {
       if (isStreamingRef.current) {
         showOutputInProgressToast();
         return;
@@ -918,6 +932,12 @@ function useChatLogicHook({
       if (currentList.length > 0) {
         isReGenerate =
           blockBid !== currentList[currentList.length - 1].generated_block_bid;
+      }
+
+      if (isReGenerate && !options?.skipConfirm) {
+        setPendingRegenerate({ content, blockBid });
+        setShowRegenerateConfirm(true);
+        return;
       }
 
       const { newList, needChangeItemIndex } = updateContentListWithUserOperate(
@@ -975,6 +995,30 @@ function useChatLogicHook({
       t,
     ],
   );
+
+  const onSend = useCallback(
+    (content: OnSendContentParams, blockBid: string) => {
+      processSend(content, blockBid);
+    },
+    [processSend],
+  );
+
+  const handleConfirmRegenerate = useCallback(() => {
+    if (!pendingRegenerate) {
+      setShowRegenerateConfirm(false);
+      return;
+    }
+    processSend(pendingRegenerate.content, pendingRegenerate.blockBid, {
+      skipConfirm: true,
+    });
+    setPendingRegenerate(null);
+    setShowRegenerateConfirm(false);
+  }, [pendingRegenerate, processSend]);
+
+  const handleCancelRegenerate = useCallback(() => {
+    setPendingRegenerate(null);
+    setShowRegenerateConfirm(false);
+  }, []);
 
   /**
    * toggleAskExpanded toggles the expanded state of the ask panel for a specific block
@@ -1046,6 +1090,11 @@ function useChatLogicHook({
     onSend,
     onRefresh,
     toggleAskExpanded,
+    reGenerateConfirm: {
+      open: showRegenerateConfirm,
+      onConfirm: handleConfirmRegenerate,
+      onCancel: handleCancelRegenerate,
+    },
   };
 }
 
