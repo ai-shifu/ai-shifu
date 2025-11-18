@@ -14,6 +14,14 @@ import {
 import { OnSendContentParams } from 'markdown-flow-ui';
 import styles from './LessonPreview.module.scss';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
 interface LessonPreviewProps {
   loading: boolean;
   isStreaming?: boolean;
@@ -22,6 +30,11 @@ interface LessonPreviewProps {
   shifuBid: string;
   onRefresh: (generatedBlockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
+  reGenerateConfirm?: {
+    open: boolean;
+    onConfirm: () => void;
+    onCancel: () => void;
+  };
 }
 
 const noop = () => {};
@@ -32,6 +45,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   shifuBid,
   onRefresh,
   onSend,
+  reGenerateConfirm,
 }) => {
   const { t } = useTranslation();
   const showEmpty = !loading && items.length === 0;
@@ -111,6 +125,39 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           </div>
         )}
       </div>
+      <Dialog
+        open={reGenerateConfirm?.open ?? false}
+        onOpenChange={open => {
+          if (!open && reGenerateConfirm?.onCancel) {
+            reGenerateConfirm.onCancel();
+          }
+        }}
+      >
+        <DialogContent className='sm:max-w-md'>
+          <DialogHeader>
+            <DialogTitle>{t('module.chat.regenerateConfirmTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('module.chat.regenerateConfirmDescription')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className='flex gap-2 sm:gap-2'>
+            <button
+              type='button'
+              onClick={reGenerateConfirm?.onCancel}
+              className='px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50'
+            >
+              {t('common.core.cancel')}
+            </button>
+            <button
+              type='button'
+              onClick={reGenerateConfirm?.onConfirm}
+              className='px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-lighter'
+            >
+              {t('common.core.ok')}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

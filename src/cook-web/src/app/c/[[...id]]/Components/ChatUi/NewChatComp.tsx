@@ -30,6 +30,14 @@ import useChatLogicHook, {
 import AskBlock from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
 
 export const NewChatComponents = ({
   className,
@@ -98,26 +106,32 @@ export const NewChatComponents = ({
   });
   const [longPressedBlockBid, setLongPressedBlockBid] = useState<string>('');
 
-  const { items, isLoading, onSend, onRefresh, toggleAskExpanded } =
-    useChatLogicHook({
-      onGoChapter,
-      shifuBid,
-      outlineBid: lessonId,
-      lessonId,
-      chapterId,
-      previewMode,
-      trackEvent,
-      chatBoxBottomRef,
-      trackTrailProgress,
-      lessonUpdate,
-      chapterUpdate,
-      updateSelectedLesson,
-      getNextLessonId,
-      scrollToLesson,
-      scrollToBottom,
-      showOutputInProgressToast,
-      onPayModalOpen,
-    });
+  const {
+    items,
+    isLoading,
+    onSend,
+    onRefresh,
+    toggleAskExpanded,
+    reGenerateConfirm,
+  } = useChatLogicHook({
+    onGoChapter,
+    shifuBid,
+    outlineBid: lessonId,
+    lessonId,
+    chapterId,
+    previewMode,
+    trackEvent,
+    chatBoxBottomRef,
+    trackTrailProgress,
+    lessonUpdate,
+    chapterUpdate,
+    updateSelectedLesson,
+    getNextLessonId,
+    scrollToLesson,
+    scrollToBottom,
+    showOutputInProgressToast,
+    onPayModalOpen,
+  });
 
   const handleLongPress = useCallback(
     (event: any, currentBlock: ChatContentItem) => {
@@ -309,6 +323,39 @@ export const NewChatComponents = ({
           onRefresh={onRefresh}
         />
       )}
+      <Dialog
+        open={reGenerateConfirm.open}
+        onOpenChange={open => {
+          if (!open) {
+            reGenerateConfirm.onCancel();
+          }
+        }}
+      >
+        <DialogContent className='sm:max-w-md'>
+          <DialogHeader>
+            <DialogTitle>{t('module.chat.regenerateConfirmTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('module.chat.regenerateConfirmDescription')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className='flex gap-2 sm:gap-2'>
+            <button
+              type='button'
+              onClick={reGenerateConfirm.onCancel}
+              className='px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50'
+            >
+              {t('common.core.cancel')}
+            </button>
+            <button
+              type='button'
+              onClick={reGenerateConfirm.onConfirm}
+              className='px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-lighter'
+            >
+              {t('common.core.ok')}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -138,6 +138,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     resetPreview,
     onRefresh,
     onSend,
+    reGenerateConfirm,
   } = usePreviewChat();
   const editModeOptions = useMemo(
     () => [
@@ -576,6 +577,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                     shifuBid={currentShifu?.bid || ''}
                     onRefresh={onRefresh}
                     onSend={onSend}
+                    reGenerateConfirm={reGenerateConfirm}
                   />
                 </div>
               </div>

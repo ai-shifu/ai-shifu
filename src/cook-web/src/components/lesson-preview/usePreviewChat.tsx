@@ -62,6 +62,11 @@ export function usePreviewChat() {
   const tryAutoSubmitInteractionRef = useRef<
     (blockId: string, content?: string | null) => void
   >(() => {});
+  const [pendingRegenerate, setPendingRegenerate] = useState<{
+    content: OnSendContentParams;
+    blockBid: string;
+  } | null>(null);
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   const showOutputInProgressToast = useCallback(() => {
     toast({
       title: t('module.chat.outputInProgress'),
@@ -558,7 +563,7 @@ export function usePreviewChat() {
     (
       content: OnSendContentParams,
       blockBid: string,
-      options?: { skipStreamCheck?: boolean },
+      options?: { skipStreamCheck?: boolean; skipConfirm?: boolean },
     ) => {
       if (!options?.skipStreamCheck && isStreamingRef.current) {
         showOutputInProgressToast();
@@ -580,6 +585,12 @@ export function usePreviewChat() {
         isReGenerate =
           blockBid !== currentList[currentList.length - 1].generated_block_bid;
       }
+      if (isReGenerate && !options?.skipConfirm) {
+        setPendingRegenerate({ content: listUpdateContent, blockBid });
+        setShowRegenerateConfirm(true);
+        return false;
+      }
+
       const { newList, needChangeItemIndex } = updateContentListWithUserOperate(
         listUpdateContent,
         blockBid,
@@ -747,6 +758,23 @@ export function usePreviewChat() {
     tryAutoSubmitInteractionRef.current = tryAutoSubmitInteraction;
   }, [tryAutoSubmitInteraction]);
 
+  const handleConfirmRegenerate = useCallback(() => {
+    if (!pendingRegenerate) {
+      setShowRegenerateConfirm(false);
+      return;
+    }
+    performSend(pendingRegenerate.content, pendingRegenerate.blockBid, {
+      skipConfirm: true,
+    });
+    setPendingRegenerate(null);
+    setShowRegenerateConfirm(false);
+  }, [pendingRegenerate, performSend]);
+
+  const handleCancelRegenerate = useCallback(() => {
+    setPendingRegenerate(null);
+    setShowRegenerateConfirm(false);
+  }, []);
+
   const nullRenderBar = useCallback(() => null, []);
 
   const items = useMemo(
@@ -768,5 +796,10 @@ export function usePreviewChat() {
     resetPreview,
     onSend,
     onRefresh,
+    reGenerateConfirm: {
+      open: showRegenerateConfirm,
+      onConfirm: handleConfirmRegenerate,
+      onCancel: handleCancelRegenerate,
+    },
   };
 }
