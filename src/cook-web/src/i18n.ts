@@ -79,7 +79,8 @@ if (typeof window !== 'undefined' && !i18n.isInitialized) {
         namespaces: fileNamespaces,
         includeMetadata: false,
       },
-    }).finally(() => {
+    })
+    .finally(() => {
       setI18nLoading(false);
     });
 }
@@ -89,13 +90,13 @@ const originalChangeLanguage = i18n.changeLanguage.bind(i18n) as ChangeLanguage;
 
 i18n.changeLanguage = ((...args: Parameters<ChangeLanguage>) => {
   try {
-  setI18nLoading(true);
-  const result = originalChangeLanguage(...args);
-  if (result && typeof (result as Promise<unknown>).finally === 'function') {
-    return (result as Promise<unknown>).finally(() => {
-      setI18nLoading(false);
-    }) as ReturnType<ChangeLanguage>;
-  }
+    setI18nLoading(true);
+    const result = originalChangeLanguage(...args);
+    if (result && typeof (result as Promise<unknown>).finally === 'function') {
+      return (result as Promise<unknown>).finally(() => {
+        setI18nLoading(false);
+      }) as ReturnType<ChangeLanguage>;
+    }
     setI18nLoading(false);
     return result;
   } catch (error) {
