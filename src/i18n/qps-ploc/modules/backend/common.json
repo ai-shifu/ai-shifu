@@ -5,6 +5,7 @@
     "paramsError": "⟦Ƥåřåmš Ēřřøř {param_message}⟧",
     "nicknameNotAllowed": "⟦Øøƥš, įŀŀēǥåŀ ňįćķňåmē.⟧",
     "backgroundNotAllowed": "⟦Øøƥš, įŀŀēǥåŀ ƀåćķǥřøųňđ.⟧",
-    "startTimeNotAllowed": "⟦Šŧåřŧ ŧįmē ćåňňøŧ ƀē ŀåŧēř ŧħåň ēňđ ŧįmē⟧"
+    "startTimeNotAllowed": "⟦Šŧåřŧ ŧįmē ćåňňøŧ ƀē ŀåŧēř ŧħåň ēňđ ŧįmē⟧",
+    "outputLanguage": "⟦Ēňǥŀįšħ⟧"
   }
 }

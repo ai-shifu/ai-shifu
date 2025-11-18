@@ -9,6 +9,7 @@ from markdown_flow.enums import BlockType as MFBlockType
 from markdown_flow.llm import LLMResult
 
 from flaskr.api.langfuse import langfuse_client as langfuse
+from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.service.learn.context_v2 import RUNLLMProvider
 from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
 from flaskr.service.shifu.struct_utils import find_node_with_parents
@@ -98,7 +99,7 @@ class MarkdownFlowPreviewService:
             document_prompt=document_prompt,
             interaction_prompt=preview_request.interaction_prompt,
             interaction_error_prompt=preview_request.interaction_error_prompt,
-        )
+        ).set_output_language(get_markdownflow_output_language())
 
         block_index = preview_request.block_index
         result = mf.process(

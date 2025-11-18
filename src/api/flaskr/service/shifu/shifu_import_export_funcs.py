@@ -6,6 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Dict, Optional
 
+from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
 from flaskr.util import generate_id
 from flaskr.service.common.models import raise_error
@@ -374,7 +375,9 @@ def import_shifu(
                 elif item_type == "outline":
                     if old_bid in created_items:
                         item_id = created_items[old_bid].id
-                        mdflow = MarkdownFlow(created_items[old_bid].content)
+                        mdflow = MarkdownFlow(
+                            created_items[old_bid].content
+                        ).set_output_language(get_markdownflow_output_language())
                         block_list = mdflow.get_all_blocks()
                         child_count = len(block_list)
                     else:

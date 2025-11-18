@@ -20,6 +20,7 @@ from markdown_flow import (
     InteractionParser,
 )
 from flask import Flask
+from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
 from flaskr.service.shifu.shifu_struct_manager import (
     ShifuOutlineItemDto,
@@ -667,7 +668,9 @@ class RunScriptContextV2:
 
         self.app.logger.info(f"outline_item_info: {outline_item_info.mdflow}")
 
-        mddoc = MarkdownFlow(outline_item_info.mdflow)
+        mddoc = MarkdownFlow(outline_item_info.mdflow).set_output_language(
+            get_markdownflow_output_language()
+        )
         block_list = mddoc.get_all_blocks()
         self.app.logger.info(
             f"attend position: {attend.block_position} blocks:{len(block_list)}"
@@ -748,7 +751,7 @@ class RunScriptContextV2:
             llm_provider=RUNLLMProvider(
                 app, llm_settings, self._trace, self._trace_args
             ),
-        )
+        ).set_output_language(get_markdownflow_output_language())
         block_list = mdflow.get_all_blocks()
 
         if self._input_type == "ask":

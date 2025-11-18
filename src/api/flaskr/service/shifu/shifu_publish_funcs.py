@@ -37,6 +37,7 @@ from markdown_flow import (
     MarkdownFlow,
     BlockType,
 )
+from flaskr.common.i18n_utils import get_markdownflow_output_language
 
 
 def _build_frontend_url(base_url: str, path: str) -> str:
@@ -135,7 +136,9 @@ def publish_shifu_draft(app, user_id: str, shifu_id: str, base_url: str):
             outline_item.content = draft_outline_item.content
             db.session.add(outline_item)
             db.session.flush()
-            markdown_flow = MarkdownFlow(draft_outline_item.content)
+            markdown_flow = MarkdownFlow(
+                draft_outline_item.content
+            ).set_output_language(get_markdownflow_output_language())
             blocks = markdown_flow.get_all_blocks()
             outline_item_history_item = HistoryItem(
                 bid=node.outline_id,
@@ -314,7 +317,9 @@ def _generate_summaries(
                 app.logger.info(
                     f"outline_item: {outline_item.outline_item_bid} has mdflow content,make summary from mdflow"
                 )
-                mdflow = MarkdownFlow(outline_item.content)
+                mdflow = MarkdownFlow(outline_item.content).set_output_language(
+                    get_markdownflow_output_language()
+                )
                 blocks = mdflow.get_all_blocks()
                 for block in blocks:
                     if block.block_type == BlockType.CONTENT:
