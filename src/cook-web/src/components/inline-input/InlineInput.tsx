@@ -97,7 +97,7 @@ export const InlineInput: React.FC<InlineInputProps> = ({
       ) : (
         <span
           title={value}
-          className='w-full block whitespace-nowrap  max-w-52 2xl:max-w-72 overflow-hidden text-ellipsis'
+          className='w-full block whitespace-nowrap max-w-full overflow-hidden text-ellipsis'
           onDoubleClick={handleDoubleClick}
         >
           {value}

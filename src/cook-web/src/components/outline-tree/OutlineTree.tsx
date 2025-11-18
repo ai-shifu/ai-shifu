@@ -211,7 +211,7 @@ const MinimalTreeItemComponent = React.forwardRef<
           )}
           onClick={onSelect}
         >
-          <span className='flex flex-row items-center whitespace-nowrap overflow-hidden text-ellipsis'>
+          <span className='flex flex-row items-center whitespace-nowrap overflow-hidden text-ellipsis flex-1 min-w-0'>
             <InlineInput
               isEdit={focusId === props.item.id}
               value={cataData[props.item.id!]?.name || ''}
