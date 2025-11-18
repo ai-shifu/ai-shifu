@@ -4,12 +4,9 @@ import { AppContext } from '../AppContext';
 import CourseSection from './CourseSection';
 import styles from './CourseCatalog.module.scss';
 
-import ResetChapterButton from './ResetChapterButton';
-import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
-
 import { cn } from '@/lib/utils';
 
-import { ChevronDownIcon } from 'lucide-react';
+import { ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
 
 export const CourseCatalog = ({
   id = 0,
@@ -30,7 +27,7 @@ export const CourseCatalog = ({
   );
 
   const onTitleRowClick = useCallback(() => {
-    onCollapse?.({ id });
+    onCollapse?.(id);
   }, [id, onCollapse]);
 
   const { mobileStyle } = useContext(AppContext);
@@ -48,18 +45,11 @@ export const CourseCatalog = ({
       >
         <div className={styles.leftSection}>{name}</div>
         <div className={styles.rightSection}>
-          {/* {status === LESSON_STATUS_VALUE.LEARNING ||
-          status === LESSON_STATUS_VALUE.COMPLETED ? (
-            // @ts-expect-error EXPECT
-            <ResetChapterButton
-              onClick={onResetButtonClick}
-              chapterId={id}
-              className={styles.resetButton}
-              // @ts-expect-error EXPECT
-              lessonId={lessons?.[0]?.id}
-            />
-          ) : null} */}
-          <ChevronDownIcon className={styles.collapseBtn} />
+          {collapse ? (
+            <ChevronDownIcon className={styles.collapseBtn} />
+          ) : (
+            <ChevronUpIcon className={styles.collapseBtn} />
+          )}
         </div>
       </div>
       <div className={styles.sectionList}>
