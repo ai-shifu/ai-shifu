@@ -31,7 +31,6 @@ from flaskr.service.user.models import UserConversion
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import (
     load_user_aggregate,
-    load_user_aggregate_by_identifier,
     set_user_state,
 )
 from flaskr.api.doc.feishu import send_notify
@@ -603,7 +602,7 @@ def _generate_pingxx_charge(
         charge_extra = {}
         qr_url_key = "alipay_qr"
     elif channel == "wx_pub":  # wxpay JSAPI
-        user = load_user_aggregate_by_identifier(buy_record.user_bid)
+        user = load_user_aggregate(buy_record.user_bid)
         charge_extra = {"open_id": user.wechat_open_id} if user else {}
         qr_url_key = "wx_pub"
     elif channel == "wx_wap":  # wxpay H5
