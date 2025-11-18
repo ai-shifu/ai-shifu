@@ -6,8 +6,7 @@ import Loading from '@/components/loading';
 const I18nGlobalLoading = () => {
   const isLoading = useI18nLoadingStore(state => state.isLoading);
   const shouldSkipLoading =
-    typeof window !== 'undefined' &&
-    window.location.pathname.startsWith('/c/');
+    typeof window !== 'undefined' && window.location.pathname.startsWith('/c/');
 
   if (!isLoading || shouldSkipLoading) {
     return null;
@@ -18,7 +17,7 @@ const I18nGlobalLoading = () => {
       id='root-loading'
       className='pointer-events-none fixed inset-0 z-[9999] flex items-center justify-center bg-white'
     >
-      <Loading/>
+      <Loading />
     </div>
   );
 };
