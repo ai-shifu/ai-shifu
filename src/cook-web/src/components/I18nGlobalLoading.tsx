@@ -2,12 +2,13 @@
 
 import { useI18nLoadingStore } from '@/store/useI18nLoadingStore';
 import Loading from '@/components/loading';
+import { usePathname } from 'next/navigation';
 
 const I18nGlobalLoading = () => {
   const isLoading = useI18nLoadingStore(state => state.isLoading);
-  const shouldSkipLoading =
-    typeof window !== 'undefined' && window.location.pathname.startsWith('/c/');
 
+  const pathname = usePathname();
+  const shouldSkipLoading = pathname.startsWith('/c/');
   if (!isLoading || shouldSkipLoading) {
     return null;
   }

@@ -79,6 +79,8 @@ if (typeof window !== 'undefined' && !i18n.isInitialized) {
         namespaces: fileNamespaces,
         includeMetadata: false,
       },
+    }).finally(() => {
+      setI18nLoading(false);
     });
 }
 
@@ -86,6 +88,7 @@ type ChangeLanguage = typeof i18n.changeLanguage;
 const originalChangeLanguage = i18n.changeLanguage.bind(i18n) as ChangeLanguage;
 
 i18n.changeLanguage = ((...args: Parameters<ChangeLanguage>) => {
+  try {
   setI18nLoading(true);
   const result = originalChangeLanguage(...args);
   if (result && typeof (result as Promise<unknown>).finally === 'function') {
@@ -93,8 +96,13 @@ i18n.changeLanguage = ((...args: Parameters<ChangeLanguage>) => {
       setI18nLoading(false);
     }) as ReturnType<ChangeLanguage>;
   }
-  setI18nLoading(false);
-  return result;
+    setI18nLoading(false);
+    return result;
+  } catch (error) {
+    console.error('Failed to change language', error);
+    setI18nLoading(false);
+    return null;
+  }
 }) as ChangeLanguage;
 
 export default i18n;
