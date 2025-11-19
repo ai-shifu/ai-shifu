@@ -759,10 +759,10 @@ function useChatLogicHook({
             content: item.content,
             customRenderBar: () => null,
             defaultButtonText: interactionDefaults
-              ? interactionDefaults.buttonText ?? ''
+              ? (interactionDefaults.buttonText ?? '')
               : item.user_input || '',
             defaultInputText: interactionDefaults
-              ? interactionDefaults.inputText ?? ''
+              ? (interactionDefaults.inputText ?? '')
               : item.user_input || '',
             defaultSelectedValues: interactionDefaults
               ? interactionDefaults.selectedValues
