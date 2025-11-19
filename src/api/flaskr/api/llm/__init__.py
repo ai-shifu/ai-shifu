@@ -1,4 +1,5 @@
-from typing import Generator
+from dataclasses import dataclass, field
+from typing import Callable, Dict, Generator, List, Optional, Tuple
 from datetime import datetime
 import logging
 import requests
@@ -16,6 +17,35 @@ from ..ark.sign import request
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class ProviderConfig:
+    key: str
+    api_key_env: str
+    base_url_env: str | None = None
+    default_base_url: str | None = None
+    prefix: str = ""
+    fetch_models: bool = True
+    filter_fn: Callable[[str], bool] | None = None
+    static_models: List[str] = field(default_factory=list)
+    extra_models: List[str] = field(default_factory=list)
+    wildcard_prefixes: Tuple[str, ...] = ()
+    config_hint: str = ""
+    custom_llm_provider: str | None = None
+
+
+@dataclass
+class ProviderState:
+    enabled: bool
+    params: Optional[Dict[str, str]]
+    models: List[str]
+    prefix: str = ""
+    wildcard_prefixes: Tuple[str, ...] = ()
+
+
+MODEL_ALIAS_MAP: Dict[str, Tuple[str, str]] = {}
+PROVIDER_STATES: Dict[str, ProviderState] = {}
+
+
 def _log(level: str, message: str) -> None:
     try:
         getattr(current_app.logger, level)(message)
@@ -29,6 +59,60 @@ def _log_info(message: str) -> None:
 
 def _log_warning(message: str) -> None:
     _log("warning", message)
+
+
+def _register_provider_models(
+    config: ProviderConfig, raw_models: List[str]
+) -> List[str]:
+    seen = set()
+    display_models: List[str] = []
+    for model_id in raw_models:
+        if not model_id:
+            continue
+        display = f"{config.prefix}{model_id}" if config.prefix else model_id
+        if display in seen:
+            continue
+        seen.add(display)
+        MODEL_ALIAS_MAP[display] = (config.key, model_id)
+        display_models.append(display)
+    return display_models
+
+
+def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
+    api_key = get_config(config.api_key_env)
+    if not api_key:
+        _log_warning(f"{config.api_key_env} not configured")
+        return ProviderState(False, None, [], config.prefix, config.wildcard_prefixes)
+    base_url = None
+    if config.base_url_env:
+        base_url = get_config(config.base_url_env)
+    if not base_url:
+        base_url = config.default_base_url
+    params: Dict[str, str] = {"api_key": api_key}
+    if base_url:
+        params["api_base"] = base_url
+    if config.custom_llm_provider:
+        params["custom_llm_provider"] = config.custom_llm_provider
+    raw_models = list(config.static_models)
+    if config.fetch_models:
+        try:
+            fetched_models = _fetch_provider_models(api_key, base_url)
+            if config.filter_fn:
+                fetched_models = [m for m in fetched_models if config.filter_fn(m)]
+            raw_models.extend(fetched_models)
+        except Exception as exc:
+            _log_warning(f"load {config.key} models error: {exc}")
+    raw_models.extend(config.extra_models)
+    display_models = _register_provider_models(config, raw_models)
+    if display_models:
+        _log_info(f"{config.key} models: {display_models}")
+    return ProviderState(
+        True,
+        params,
+        display_models,
+        config.prefix,
+        config.wildcard_prefixes,
+    )
 
 
 def _build_models_url(base_url: str | None) -> str:
@@ -68,72 +152,27 @@ def _stream_litellm_completion(model: str, messages: list, params: dict, kwargs:
         )
 
 
-openai_enabled = False
-openai_params = None
-
-OPENAI_MODELS = []
-openai_api_key = get_config("OPENAI_API_KEY")
-if openai_api_key:
-    openai_enabled = True
-    openai_base_url = get_config("OPENAI_BASE_URL") or "https://api.openai.com/v1"
-    openai_params = {"api_key": openai_api_key, "api_base": openai_base_url}
-    try:
-        OPENAI_MODELS = [
-            model_id
-            for model_id in _fetch_provider_models(openai_api_key, openai_base_url)
-            if model_id.startswith("gpt")
-        ]
-    except Exception as e:
-        _log_warning(f"get openai models error: {e}")
-        OPENAI_MODELS = []
-else:
-    _log_warning("OPENAI_API_KEY not configured")
-
-deepseek_enabled = False
-deepseek_params = None
-deepseek_api_key = get_config("DEEPSEEK_API_KEY")
-if deepseek_api_key:
-    deepseek_enabled = True
-    deepseek_params = {
-        "api_key": deepseek_api_key,
-        "api_base": get_config("DEEPSEEK_API_URL") or "https://api.deepseek.com",
-    }
-else:
-    _log_warning("DEEPSEEK_API_KEY not configured")
+def _resolve_provider_for_model(model: str) -> Tuple[Optional[str], str]:
+    alias = MODEL_ALIAS_MAP.get(model)
+    if alias:
+        return alias
+    for provider_key, state in PROVIDER_STATES.items():
+        for prefix in state.wildcard_prefixes:
+            if model.startswith(prefix):
+                normalized = model
+                if state.prefix and model.startswith(state.prefix):
+                    normalized = model.replace(state.prefix, "", 1)
+                return provider_key, normalized
+    return None, model
 
 
-# qwen
-qwen_enabled = False
-QWEN_MODELS = []
 QWEN_PREFIX = "qwen/"
-qwen_params = None
-qwen_api_key = get_config("QWEN_API_KEY")
-if qwen_api_key:
-    try:
-        qwen_enabled = True
-        qwen_base_url = (
-            get_config("QWEN_API_URL")
-            or "https://dashscope.aliyuncs.com/compatible-mode/v1"
-        )
-        qwen_params = {"api_key": qwen_api_key, "api_base": qwen_base_url}
-        fetched_models = _fetch_provider_models(qwen_api_key, qwen_base_url)
-        QWEN_MODELS = [QWEN_PREFIX + model_id for model_id in fetched_models]
-        QWEN_MODELS = QWEN_MODELS + [
-            QWEN_PREFIX + "deepseek-r1",
-            QWEN_PREFIX + "deepseek-v3",
-        ]
-        _log_info(f"qwen models: {QWEN_MODELS}")
-    except Exception as e:
-        _log_warning(f"load qwen models error: {e}")
-        qwen_enabled = False
-        QWEN_MODELS = []
-else:
-    _log_warning("QWEN_API_KEY not configured")
-
-# ernie v2
-ernie_v2_enabled = False
 ERNIE_V2_PREFIX = "ernie/"
-ERNIE_V2_MODELS = [
+GLM_PREFIX = "glm/"
+SILICON_PREFIX = "silicon/"
+DEEPSEEK_EXTRA_MODELS = ["deepseek-chat"]
+
+ERNIE_V2_BASE_MODELS = [
     "ernie-4.0-8k-latest",
     "ernie-4.0-8k-preview",
     "ernie-4.0-8k",
@@ -156,24 +195,81 @@ ERNIE_V2_MODELS = [
     "deepseek-v3",
     "deepseek-r1",
 ]
-ernie_v2_params = None
-ernie_v2_api_key = get_config("ERNIE_API_KEY")
-if ernie_v2_api_key:
-    try:
-        ernie_v2_enabled = True
-        ernie_v2_params = {
-            "api_key": ernie_v2_api_key,
-            "api_base": "https://qianfan.baidubce.com/v2",
-        }
-        ERNIE_V2_MODELS = [ERNIE_V2_PREFIX + i for i in ERNIE_V2_MODELS]
-        _log_info(f"ernie v2 models: {ERNIE_V2_MODELS}")
-    except Exception as e:
-        _log_warning(f"load ernie v2 models error: {e}")
-        ernie_v2_enabled = False
-else:
-    _log_warning("ERNIE_API_TOKEN not configured")
 
-# ernie
+LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
+    ProviderConfig(
+        key="openai",
+        api_key_env="OPENAI_API_KEY",
+        base_url_env="OPENAI_BASE_URL",
+        default_base_url="https://api.openai.com/v1",
+        filter_fn=lambda model_id: model_id.startswith("gpt"),
+        wildcard_prefixes=("gpt",),
+        config_hint="OPENAI_API_KEY,OPENAI_BASE_URL",
+    ),
+    ProviderConfig(
+        key="qwen",
+        api_key_env="QWEN_API_KEY",
+        base_url_env="QWEN_API_URL",
+        default_base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        prefix=QWEN_PREFIX,
+        extra_models=["deepseek-r1", "deepseek-v3"],
+        config_hint="QWEN_API_KEY,QWEN_API_URL",
+        custom_llm_provider="openai",
+    ),
+    ProviderConfig(
+        key="ernie_v2",
+        api_key_env="ERNIE_API_KEY",
+        default_base_url="https://qianfan.baidubce.com/v2",
+        prefix=ERNIE_V2_PREFIX,
+        static_models=ERNIE_V2_BASE_MODELS,
+        config_hint="ERNIE_API_KEY",
+        custom_llm_provider="openai",
+    ),
+    ProviderConfig(
+        key="deepseek",
+        api_key_env="DEEPSEEK_API_KEY",
+        base_url_env="DEEPSEEK_API_URL",
+        default_base_url="https://api.deepseek.com",
+        extra_models=DEEPSEEK_EXTRA_MODELS,
+        config_hint="DEEPSEEK_API_KEY,DEEPSEEK_API_URL",
+        custom_llm_provider="openai",
+    ),
+    ProviderConfig(
+        key="glm",
+        api_key_env="BIGMODEL_API_KEY",
+        default_base_url="https://open.bigmodel.cn/api/paas/v4",
+        prefix=GLM_PREFIX,
+        config_hint="BIGMODEL_API_KEY",
+        custom_llm_provider="openai",
+    ),
+    ProviderConfig(
+        key="silicon",
+        api_key_env="SILICON_API_KEY",
+        default_base_url="https://api.siliconflow.cn/v1",
+        prefix=SILICON_PREFIX,
+        config_hint="SILICON_API_KEY,SILICON_API_URL",
+        custom_llm_provider="openai",
+    ),
+]
+
+PROVIDER_CONFIG_HINTS: Dict[str, str] = {}
+for config in LITELLM_PROVIDER_CONFIGS:
+    PROVIDER_STATES[config.key] = _init_litellm_provider(config)
+    PROVIDER_CONFIG_HINTS[config.key] = config.config_hint or config.api_key_env
+
+OPENAI_MODELS = PROVIDER_STATES["openai"].models
+QWEN_MODELS = PROVIDER_STATES["qwen"].models
+ERNIE_V2_MODELS = PROVIDER_STATES["ernie_v2"].models
+GLM_MODELS = PROVIDER_STATES["glm"].models
+SILICON_MODELS = PROVIDER_STATES["silicon"].models
+DEEP_SEEK_MODELS = PROVIDER_STATES["deepseek"].models
+openai_enabled = PROVIDER_STATES["openai"].enabled
+qwen_enabled = PROVIDER_STATES["qwen"].enabled
+ernie_v2_enabled = PROVIDER_STATES["ernie_v2"].enabled
+glm_enabled = PROVIDER_STATES["glm"].enabled
+silicon_enabled = PROVIDER_STATES["silicon"].enabled
+
+# Legacy ERNIE (non OpenAI-compatible HTTP)
 ernie_enabled = False
 ERNIE_MODELS = []
 
@@ -190,11 +286,12 @@ else:
 
 current_app.logger.info(f"ernie models: {ERNIE_MODELS}")
 
-# ark
+# Ark (ByteDance Volcengine)
 ark_enabled = False
 ARK_MODELS = []
 ARK_PREFIX = "ark/"
 ARK_MODELS_MAP = {}
+ARK_ENDPOINTS = set()
 ark_params = None
 ark_api_key = get_config("ARK_API_KEY")
 ark_access_key = get_config("ARK_ACCESS_KEY_ID")
@@ -224,11 +321,14 @@ if ark_api_key and ark_access_key and ark_secret_key:
                     .get("Name", "")
                 )
                 _log_info(f"ark endpoint: {endpoint_id}, model: {model_name}")
-                ARK_MODELS.append(ARK_PREFIX + model_name)
-                ARK_MODELS_MAP[ARK_PREFIX + model_name] = endpoint_id
+                alias = ARK_PREFIX + model_name
+                ARK_MODELS.append(alias)
+                ARK_MODELS_MAP[alias] = endpoint_id
+                ARK_ENDPOINTS.add(endpoint_id)
         ark_params = {
             "api_key": ark_api_key,
             "api_base": "https://ark.cn-beijing.volces.com/api/v3",
+            "custom_llm_provider": "openai",
         }
         _log_info(f"ark models: {ARK_MODELS}")
     except Exception as e:
@@ -239,66 +339,9 @@ if ark_api_key and ark_access_key and ark_secret_key:
 else:
     _log_warning("ARK credentials not fully configured")
 
-
-# special model glm
-GLM_PREFIX = "glm/"
-glm_enabled = False
-GLM_MODELS = []
-glm_params = None
-glm_api_key = get_config("BIGMODEL_API_KEY")
-if glm_api_key:
-    try:
-        glm_enabled = True
-        glm_base_url = "https://open.bigmodel.cn/api/paas/v4"
-        glm_params = {"api_key": glm_api_key, "api_base": glm_base_url}
-        fetched_glm_models = _fetch_provider_models(glm_api_key, glm_base_url)
-        GLM_MODELS = [GLM_PREFIX + i for i in fetched_glm_models]
-        _log_info(f"GLM_MODELS: {GLM_MODELS}")
-    except Exception as e:
-        _log_warning(f"load glm models error: {e}")
-        glm_enabled = False
-        GLM_MODELS = []
-else:
-    _log_warning("BIGMODEL_API_KEY not configured")
-if (
-    openai_enabled
-    or deepseek_enabled
-    or qwen_enabled
-    or ernie_enabled
-    or glm_enabled
-    or ark_enabled
-):
-    pass
-else:
+any_litellm_enabled = any(state.enabled for state in PROVIDER_STATES.values())
+if not (any_litellm_enabled or ernie_enabled or ark_enabled):
     _log_warning("No LLM Configured")
-
-
-# silicon
-silicon_enabled = False
-SILICON_MODELS = []
-SILICON_PREFIX = "silicon/"
-silicon_params = None
-silicon_api_key = get_config("SILICON_API_KEY")
-if silicon_api_key:
-    try:
-        silicon_enabled = True
-        _log_info("SILICON CONFIGURED")
-        silicon_base_url = "https://api.siliconflow.cn/v1"
-        silicon_params = {"api_key": silicon_api_key, "api_base": silicon_base_url}
-        fetched_silicon_models = _fetch_provider_models(
-            silicon_api_key, silicon_base_url
-        )
-        SILICON_MODELS = [SILICON_PREFIX + i for i in fetched_silicon_models]
-        _log_info(f"SILICON_MODELS: {SILICON_MODELS}")
-    except Exception as e:
-        _log_warning(f"load silicon models error: {e}")
-        silicon_enabled = False
-        SILICON_MODELS = []
-else:
-    _log_warning("SILICON_API_KEY not configured")
-
-ERNIE_MODELS = get_erine_models(Flask(__name__))
-DEEP_SEEK_MODELS = ["deepseek-chat"]
 
 DIFY_MODELS = []
 
@@ -327,79 +370,31 @@ class LLMStreamResponse:
 
 
 def get_litellm_params_and_model(model: str):
-    params = None
-    if (
-        model in OPENAI_MODELS
-        or model.startswith("gpt")
-        or model in QWEN_MODELS
-        or model in DEEP_SEEK_MODELS
-        or model in SILICON_MODELS
-        or model in ERNIE_V2_MODELS
-        or model in ARK_MODELS
-        or model in GLM_MODELS
-    ):
-        if model in OPENAI_MODELS or model.startswith("gpt"):
-            params = openai_params
-            if not params:
-                raise_error_with_args(
-                    "server.llm.specifiedLlmNotConfigured",
-                    model=model,
-                    config_var="OPENAI_API_KEY,OPENAI_BASE_URL",
-                )
-        elif model in QWEN_MODELS:
-            params = qwen_params
-            model = model.replace(QWEN_PREFIX, "")
-            if not params:
-                raise_error_with_args(
-                    "server.llm.specifiedLlmNotConfigured",
-                    model=model,
-                    config_var="QWEN_API_KEY,QWEN_API_URL",
-                )
-        elif model in DEEP_SEEK_MODELS:
-            params = deepseek_params
-            if not params:
-                raise_error_with_args(
-                    "server.llm.specifiedLlmNotConfigured",
-                    model=model,
-                    config_var="DEEPSEEK_API_KEY,DEEPSEEK_API_URL",
-                )
-        elif model in SILICON_MODELS:
-            params = silicon_params
-            model = model.replace(SILICON_PREFIX, "")
-            if not params:
-                raise_error_with_args(
-                    "server.llm.specifiedLlmNotConfigured",
-                    model=model,
-                    config_var="SILICON_API_KEY,SILICON_API_URL",
-                )
-        elif model in ERNIE_V2_MODELS:
-            params = ernie_v2_params
-            model = model.replace(ERNIE_V2_PREFIX, "")
-            if not params:
-                raise_error_with_args(
-                    "server.llm.specifiedLlmNotConfigured",
-                    model=model,
-                    config_var="ERNIE_API_KEY",
-                )
-        elif model in ARK_MODELS:
-            params = ark_params
-            model = ARK_MODELS_MAP[model]
-            if not params:
-                raise_error_with_args(
-                    "server.llm.specifiedLlmNotConfigured",
-                    model=model,
-                    config_var="ARK_ACCESS_KEY_ID,ARK_SECRET_ACCESS_KEY",
-                )
-        elif model in GLM_MODELS:
-            params = glm_params
-            model = model.replace(GLM_PREFIX, "")
-            if not params:
-                raise_error_with_args(
-                    "server.llm.specifiedLlmNotConfigured",
-                    model=model,
-                    config_var="BIGMODEL_API_KEY",
-                )
-    return params, model
+    requested_model = model
+    provider_key, invoke_model = _resolve_provider_for_model(model)
+    if provider_key:
+        state = PROVIDER_STATES.get(provider_key)
+        params = state.params if state else None
+        if not params:
+            raise_error_with_args(
+                "server.llm.specifiedLlmNotConfigured",
+                model=requested_model,
+                config_var=PROVIDER_CONFIG_HINTS.get(
+                    provider_key, provider_key.upper()
+                ),
+            )
+        return params, invoke_model
+    if model in ARK_MODELS or model in ARK_ENDPOINTS:
+        params = ark_params
+        invoke_model = ARK_MODELS_MAP.get(model, model)
+        if not params:
+            raise_error_with_args(
+                "server.llm.specifiedLlmNotConfigured",
+                model=model,
+                config_var="ARK_ACCESS_KEY_ID,ARK_SECRET_ACCESS_KEY",
+            )
+        return params, invoke_model
+    return None, model
 
 
 def invoke_llm(
@@ -458,12 +453,13 @@ def invoke_llm(
                     res.choices[0].finish_reason,
                     None,
                 )
-            if res.usage:
+            res_usage = getattr(res, "usage", None)
+            if res_usage:
                 usage = ModelUsage(
                     unit="TOKENS",
-                    input=res.usage.prompt_tokens,
-                    output=res.usage.completion_tokens,
-                    total=res.usage.total_tokens,
+                    input=res_usage.prompt_tokens,
+                    output=res_usage.completion_tokens,
+                    total=res_usage.total_tokens,
                 )
     elif model in ERNIE_MODELS:
         if not ernie_enabled:
@@ -483,12 +479,13 @@ def invoke_llm(
             if start_completion_time is None:
                 start_completion_time = datetime.now()
             response_text += res.result
-            if res.usage:
+            res_usage = getattr(res, "usage", None)
+            if res_usage:
                 usage = ModelUsage(
                     unit="TOKENS",
-                    input=res.usage.prompt_tokens,
-                    output=res.usage.completion_tokens,
-                    total=res.usage.total_tokens,
+                    input=res_usage.prompt_tokens,
+                    output=res_usage.completion_tokens,
+                    total=res_usage.total_tokens,
                 )
             yield LLMStreamResponse(
                 res.id,

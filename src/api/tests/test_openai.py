@@ -48,10 +48,16 @@ def test_invoke_llm_streams_via_litellm(monkeypatch, app):
         return iter(chunks)
 
     monkeypatch.setattr(llm.litellm, "completion", fake_completion)
-    monkeypatch.setattr(
-        llm, "openai_params", {"api_key": "test-key", "api_base": "https://example.com"}
+    provider_state = llm.ProviderState(
+        enabled=True,
+        params={"api_key": "test-key", "api_base": "https://example.com"},
+        models=["gpt-test"],
+        prefix="",
+        wildcard_prefixes=("gpt",),
     )
-    monkeypatch.setattr(llm, "OPENAI_MODELS", ["gpt-test"])
+    monkeypatch.setattr(llm, "PROVIDER_STATES", {"openai": provider_state})
+    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
+    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
 
     span = DummySpan()
     responses = list(
