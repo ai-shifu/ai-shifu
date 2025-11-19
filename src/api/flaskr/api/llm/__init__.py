@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Generator, List, Optional, Tuple
+from typing import Callable, Dict, Generator, List, Optional, Tuple, Union
 from datetime import datetime
 import logging
 import requests
@@ -30,6 +30,12 @@ class ProviderConfig:
     wildcard_prefixes: Tuple[str, ...] = ()
     config_hint: str = ""
     custom_llm_provider: str | None = None
+    model_loader: Optional[
+        Callable[
+            ["ProviderConfig", Dict[str, str], Optional[str]],
+            List[Union[str, Tuple[str, str]]],
+        ]
+    ] = None
 
 
 @dataclass
@@ -61,18 +67,25 @@ def _log_warning(message: str) -> None:
 
 
 def _register_provider_models(
-    config: ProviderConfig, raw_models: List[str]
+    config: ProviderConfig, raw_models: List[Union[str, Tuple[str, str]]]
 ) -> List[str]:
     seen = set()
     display_models: List[str] = []
     for model_id in raw_models:
-        if not model_id:
+        actual_model = None
+        if isinstance(model_id, tuple):
+            model_name, actual_model = model_id
+        else:
+            model_name = model_id
+        if not model_name:
             continue
-        display = f"{config.prefix}{model_id}" if config.prefix else model_id
+        display = f"{config.prefix}{model_name}" if config.prefix else model_name
         if display in seen:
             continue
         seen.add(display)
-        MODEL_ALIAS_MAP[display] = (config.key, model_id)
+        MODEL_ALIAS_MAP[display] = (config.key, actual_model or model_name)
+        if actual_model and actual_model not in MODEL_ALIAS_MAP:
+            MODEL_ALIAS_MAP[actual_model] = (config.key, actual_model)
         display_models.append(display)
     return display_models
 
@@ -92,16 +105,19 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
         params["api_base"] = base_url
     if config.custom_llm_provider:
         params["custom_llm_provider"] = config.custom_llm_provider
-    raw_models = list(config.static_models)
-    if config.fetch_models:
-        try:
-            fetched_models = _fetch_provider_models(api_key, base_url)
-            if config.filter_fn:
-                fetched_models = [m for m in fetched_models if config.filter_fn(m)]
-            raw_models.extend(fetched_models)
-        except Exception as exc:
-            _log_warning(f"load {config.key} models error: {exc}")
-    raw_models.extend(config.extra_models)
+    if config.model_loader:
+        raw_models = config.model_loader(config, params, base_url)
+    else:
+        raw_models: List[Union[str, Tuple[str, str]]] = list(config.static_models)
+        if config.fetch_models:
+            try:
+                fetched_models = _fetch_provider_models(api_key, base_url)
+                if config.filter_fn:
+                    fetched_models = [m for m in fetched_models if config.filter_fn(m)]
+                raw_models.extend(fetched_models)
+            except Exception as exc:
+                _log_warning(f"load {config.key} models error: {exc}")
+        raw_models.extend(config.extra_models)
     display_models = _register_provider_models(config, raw_models)
     if display_models:
         _log_info(f"{config.key} models: {display_models}")
@@ -163,6 +179,45 @@ def _resolve_provider_for_model(model: str) -> Tuple[Optional[str], str]:
                     normalized = model.replace(state.prefix, "", 1)
                 return provider_key, normalized
     return None, model
+
+
+def _load_ark_models(
+    config: ProviderConfig, params: Dict[str, str], base_url: Optional[str]
+) -> List[Union[str, Tuple[str, str]]]:
+    access_key = get_config("ARK_ACCESS_KEY_ID")
+    secret_key = get_config("ARK_SECRET_ACCESS_KEY")
+    if not access_key or not secret_key:
+        _log_warning("ARK credentials not fully configured")
+        return []
+    try:
+        ark_list_endpoints = request(
+            "POST",
+            datetime.now(),
+            {},
+            {},
+            access_key,
+            secret_key,
+            "ListEndpoints",
+            None,
+        )
+        _log_info(str(ark_list_endpoints))
+        ark_endpoints = ark_list_endpoints.get("Result", {}).get("Items", [])
+        models: List[Tuple[str, str]] = []
+        if ark_endpoints:
+            for endpoint in ark_endpoints:
+                endpoint_id = endpoint.get("Id")
+                model_name = (
+                    endpoint.get("ModelReference", {})
+                    .get("FoundationModel", {})
+                    .get("Name", "")
+                )
+                _log_info(f"ark endpoint: {endpoint_id}, model: {model_name}")
+                if endpoint_id and model_name:
+                    models.append((model_name, endpoint_id))
+        return models
+    except Exception as exc:
+        _log_warning(f"load ark models error: {exc}")
+        return []
 
 
 QWEN_PREFIX = "qwen/"
@@ -249,6 +304,16 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         config_hint="SILICON_API_KEY,SILICON_API_URL",
         custom_llm_provider="openai",
     ),
+    ProviderConfig(
+        key="ark",
+        api_key_env="ARK_API_KEY",
+        default_base_url="https://ark.cn-beijing.volces.com/api/v3",
+        prefix="ark/",
+        config_hint="ARK_ACCESS_KEY_ID,ARK_SECRET_ACCESS_KEY",
+        custom_llm_provider="openai",
+        fetch_models=False,
+        model_loader=_load_ark_models,
+    ),
 ]
 
 PROVIDER_CONFIG_HINTS: Dict[str, str] = {}
@@ -257,61 +322,8 @@ for config in LITELLM_PROVIDER_CONFIGS:
     PROVIDER_CONFIG_HINTS[config.key] = config.config_hint or config.api_key_env
 
 
-# Ark (ByteDance Volcengine)
-ark_enabled = False
-ARK_MODELS = []
-ARK_PREFIX = "ark/"
-ARK_MODELS_MAP = {}
-ARK_ENDPOINTS = set()
-ark_params = None
-ark_api_key = get_config("ARK_API_KEY")
-ark_access_key = get_config("ARK_ACCESS_KEY_ID")
-ark_secret_key = get_config("ARK_SECRET_ACCESS_KEY")
-if ark_api_key and ark_access_key and ark_secret_key:
-    try:
-        ark_list_endpoints = request(
-            "POST",
-            datetime.now(),
-            {},
-            {},
-            ark_access_key,
-            ark_secret_key,
-            "ListEndpoints",
-            None,
-        )
-        _log_info(str(ark_list_endpoints))
-        ark_enabled = True
-        _log_info("ARK CONFIGURED")
-        ark_endpoints = ark_list_endpoints.get("Result", {}).get("Items", [])
-        if ark_endpoints and len(ark_endpoints) > 0:
-            for endpoint in ark_endpoints:
-                endpoint_id = endpoint.get("Id")
-                model_name = (
-                    endpoint.get("ModelReference", {})
-                    .get("FoundationModel", {})
-                    .get("Name", "")
-                )
-                _log_info(f"ark endpoint: {endpoint_id}, model: {model_name}")
-                alias = ARK_PREFIX + model_name
-                ARK_MODELS.append(alias)
-                ARK_MODELS_MAP[alias] = endpoint_id
-                ARK_ENDPOINTS.add(endpoint_id)
-        ark_params = {
-            "api_key": ark_api_key,
-            "api_base": "https://ark.cn-beijing.volces.com/api/v3",
-            "custom_llm_provider": "openai",
-        }
-        _log_info(f"ark models: {ARK_MODELS}")
-    except Exception as e:
-        _log_warning(f"load ark models error: {e}")
-        ark_enabled = False
-        ARK_MODELS = []
-        ARK_MODELS_MAP = {}
-else:
-    _log_warning("ARK credentials not fully configured")
-
 any_litellm_enabled = any(state.enabled for state in PROVIDER_STATES.values())
-if not (any_litellm_enabled or ark_enabled):
+if not any_litellm_enabled:
     _log_warning("No LLM Configured")
 
 DIFY_MODELS = []
@@ -353,16 +365,6 @@ def get_litellm_params_and_model(model: str):
                 config_var=PROVIDER_CONFIG_HINTS.get(
                     provider_key, provider_key.upper()
                 ),
-            )
-        return params, invoke_model
-    if model in ARK_MODELS or model in ARK_ENDPOINTS:
-        params = ark_params
-        invoke_model = ARK_MODELS_MAP.get(model, model)
-        if not params:
-            raise_error_with_args(
-                "server.llm.specifiedLlmNotConfigured",
-                model=model,
-                config_var="ARK_ACCESS_KEY_ID,ARK_SECRET_ACCESS_KEY",
             )
         return params, invoke_model
     return None, model
@@ -553,5 +555,5 @@ def get_current_models(app: Flask) -> list[str]:
     litellm_models: list[str] = []
     for state in PROVIDER_STATES.values():
         litellm_models.extend(state.models)
-    combined = litellm_models + DIFY_MODELS + ARK_MODELS
+    combined = litellm_models + DIFY_MODELS
     return list(dict.fromkeys(combined))
