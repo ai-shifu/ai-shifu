@@ -207,7 +207,12 @@ export class Request {
 
       // Check business status code
       if (Object.prototype.hasOwnProperty.call(res, 'code')) {
-        if (location.pathname.includes('/login')) return res;
+        const isAuthError = AUTH_ERROR_CODES.has(res.code);
+        // If it's login page, we only skip non-auth errors to allow UI to handle business errors
+        // But Auth errors (1001, 1004, 1005) MUST be handled by global handler to clear token
+        if (location.pathname.includes('/login') && !isAuthError) {
+          return res;
+        }
         return handleBusinessCode(res);
       }
 
