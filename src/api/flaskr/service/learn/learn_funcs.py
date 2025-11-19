@@ -290,13 +290,35 @@ def get_learn_record(
             -1: LikeStatus.DISLIKE,
             0: LikeStatus.NONE,
         }
-        for generated_block in generated_blocks:
+        # First pass: identify which student records are user inputs for interaction blocks
+        from flaskr.service.learn.const import ROLE_STUDENT
+
+        skip_indices = set()
+        for i, generated_block in enumerate(generated_blocks):
+            block_type = BLOCK_TYPE_MAP.get(generated_block.type, BlockType.CONTENT)
+            if block_type == BlockType.INTERACTION:
+                # Check if next record is user input (ROLE_STUDENT at same position)
+                if i + 1 < len(generated_blocks):
+                    next_block = generated_blocks[i + 1]
+                    if (
+                        next_block.role == ROLE_STUDENT
+                        and next_block.position == generated_block.position
+                    ):
+                        skip_indices.add(i + 1)  # Mark student record to skip
+
+        # Second pass: build records
+        for i, generated_block in enumerate(generated_blocks):
+            # Skip student records that are already included as user_input
+            if i in skip_indices:
+                continue
+
             block_type = BLOCK_TYPE_MAP.get(generated_block.type, BlockType.CONTENT)
             if block_type == BlockType.ASK and generated_block.role == ROLE_TEACHER:
                 block_type = BlockType.ANSWER
 
-            record = GeneratedBlockDTO(
-                generated_block.generated_block_bid,
+            # For interaction blocks, use generated_content (rendered) for content
+            # For other blocks, keep original logic
+            content = (
                 generated_block.generated_content
                 if block_type
                 in (
@@ -304,13 +326,29 @@ def get_learn_record(
                     BlockType.ERROR_MESSAGE,
                     BlockType.ASK,
                     BlockType.ANSWER,
+                    BlockType.INTERACTION,  # Changed: use generated_content for interaction
                 )
-                else generated_block.block_content_conf,
+                else generated_block.block_content_conf
+            )
+
+            # For interaction blocks, check if next record is user input
+            user_input = ""
+            if block_type == BlockType.INTERACTION:
+                # Check if next record exists and is user input (ROLE_STUDENT)
+                if i + 1 < len(generated_blocks):
+                    next_block = generated_blocks[i + 1]
+                    if (
+                        next_block.role == ROLE_STUDENT
+                        and next_block.position == generated_block.position
+                    ):
+                        user_input = next_block.generated_content
+
+            record = GeneratedBlockDTO(
+                generated_block.generated_block_bid,
+                content,
                 LIKE_STATUS_MAP.get(generated_block.liked, LikeStatus.NONE),
                 block_type,
-                generated_block.generated_content
-                if block_type == BlockType.INTERACTION
-                else "",
+                user_input,
             )
             records.append(record)
         if len(records) > 0:
