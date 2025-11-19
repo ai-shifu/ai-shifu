@@ -8,7 +8,6 @@ from flask import Flask, current_app
 from langfuse.client import StatefulSpanClient
 from langfuse.model import ModelUsage
 
-from .ernie import get_ernie_response, get_erine_models, chat_ernie
 from .dify import DifyChunkChatCompletionResponse, dify_chat_message
 from flaskr.common.config import get_config
 from flaskr.service.common.models import raise_error_with_args
@@ -257,34 +256,6 @@ for config in LITELLM_PROVIDER_CONFIGS:
     PROVIDER_STATES[config.key] = _init_litellm_provider(config)
     PROVIDER_CONFIG_HINTS[config.key] = config.config_hint or config.api_key_env
 
-OPENAI_MODELS = PROVIDER_STATES["openai"].models
-QWEN_MODELS = PROVIDER_STATES["qwen"].models
-ERNIE_V2_MODELS = PROVIDER_STATES["ernie_v2"].models
-GLM_MODELS = PROVIDER_STATES["glm"].models
-SILICON_MODELS = PROVIDER_STATES["silicon"].models
-DEEP_SEEK_MODELS = PROVIDER_STATES["deepseek"].models
-openai_enabled = PROVIDER_STATES["openai"].enabled
-qwen_enabled = PROVIDER_STATES["qwen"].enabled
-ernie_v2_enabled = PROVIDER_STATES["ernie_v2"].enabled
-glm_enabled = PROVIDER_STATES["glm"].enabled
-silicon_enabled = PROVIDER_STATES["silicon"].enabled
-
-# Legacy ERNIE (non OpenAI-compatible HTTP)
-ernie_enabled = False
-ERNIE_MODELS = []
-
-if get_config("ERNIE_API_ID") and get_config("ERNIE_API_SECRET"):
-    try:
-        ernie_enabled = True
-        ERNIE_MODELS = get_erine_models(current_app)
-    except Exception as e:
-        current_app.logger.warning(f"load ernie models error: {e}")
-        ernie_enabled = False
-        ERNIE_MODELS = []
-else:
-    current_app.logger.warning("ERNIE_API_ID and ERNIE_API_SECRET not configured")
-
-current_app.logger.info(f"ernie models: {ERNIE_MODELS}")
 
 # Ark (ByteDance Volcengine)
 ark_enabled = False
@@ -340,7 +311,7 @@ else:
     _log_warning("ARK credentials not fully configured")
 
 any_litellm_enabled = any(state.enabled for state in PROVIDER_STATES.values())
-if not (any_litellm_enabled or ernie_enabled or ark_enabled):
+if not (any_litellm_enabled or ark_enabled):
     _log_warning("No LLM Configured")
 
 DIFY_MODELS = []
@@ -461,40 +432,6 @@ def invoke_llm(
                     output=res_usage.completion_tokens,
                     total=res_usage.total_tokens,
                 )
-    elif model in ERNIE_MODELS:
-        if not ernie_enabled:
-            raise_error_with_args(
-                "server.llm.specifiedLlmNotConfigured",
-                model=model,
-                config_var="ERNIE_API_ID,ERNIE_API_SECRET",
-            )
-        if system:
-            kwargs.update({"system": system})
-        if json:
-            kwargs["response_format"] = "json_object"
-        if kwargs.get("temperature", None) is not None:
-            kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
-        response = get_ernie_response(app, model, message, **kwargs)
-        for res in response:
-            if start_completion_time is None:
-                start_completion_time = datetime.now()
-            response_text += res.result
-            res_usage = getattr(res, "usage", None)
-            if res_usage:
-                usage = ModelUsage(
-                    unit="TOKENS",
-                    input=res_usage.prompt_tokens,
-                    output=res_usage.completion_tokens,
-                    total=res_usage.total_tokens,
-                )
-            yield LLMStreamResponse(
-                res.id,
-                res.is_end,
-                res.is_truncated,
-                res.result,
-                res.finish_reason,
-                res.usage.__dict__,
-            )
     elif model in DIFY_MODELS:
         response = dify_chat_message(app, message, user_id)
         for res in response:
@@ -578,35 +515,6 @@ def chat_llm(
                     output=res.usage.completion_tokens,
                     total=res.usage.total_tokens,
                 )
-    elif model in ERNIE_MODELS:
-        if not ernie_enabled:
-            raise_error_with_args(
-                "server.llm.specifiedLlmNotConfigured",
-                model=model,
-                config_var="ERNIE_API_ID,ERNIE_API_SECRET",
-            )
-        if kwargs.get("temperature", None) is not None:
-            kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
-        response = chat_ernie(app, model, messages, **kwargs)
-        for res in response:
-            if start_completion_time is None:
-                start_completion_time = datetime.now()
-            response_text += res.result
-            if res.usage:
-                usage = ModelUsage(
-                    unit="TOKENS",
-                    input=res.usage.prompt_tokens,
-                    output=res.usage.completion_tokens,
-                    total=res.usage.total_tokens,
-                )
-            yield LLMStreamResponse(
-                res.id,
-                res.is_end,
-                res.is_truncated,
-                res.result,
-                res.finish_reason,
-                res.usage.__dict__,
-            )
     elif model in DIFY_MODELS:
         response: Generator[DifyChunkChatCompletionResponse, None, None] = (
             dify_chat_message(app, messages[-1]["content"], user_id)
@@ -642,16 +550,8 @@ def chat_llm(
 
 
 def get_current_models(app: Flask) -> list[str]:
-    return list(
-        dict.fromkeys(
-            OPENAI_MODELS
-            + ERNIE_MODELS
-            + GLM_MODELS
-            + QWEN_MODELS
-            + DEEP_SEEK_MODELS
-            + DIFY_MODELS
-            + SILICON_MODELS
-            + ERNIE_V2_MODELS
-            + ARK_MODELS
-        )
-    )
+    litellm_models: list[str] = []
+    for state in PROVIDER_STATES.values():
+        litellm_models.extend(state.models)
+    combined = litellm_models + DIFY_MODELS + ARK_MODELS
+    return list(dict.fromkeys(combined))
