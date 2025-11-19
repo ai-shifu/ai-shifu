@@ -100,7 +100,7 @@ const handleBusinessCode = async (response: any) => {
     // Related file: src/store/useUserStore.ts
     if (
       typeof window !== 'undefined' &&
-      location.pathname !== '/login' &&
+      !location.pathname.includes('/login') &&
       isAuthError &&
       !window.__IS_LOGGING_OUT__ // Added: skip redirects while logout is in progress
     ) {
@@ -207,7 +207,7 @@ export class Request {
 
       // Check business status code
       if (Object.prototype.hasOwnProperty.call(res, 'code')) {
-        if (location.pathname === '/login') return res;
+        if (location.pathname.includes('/login')) return res;
         return handleBusinessCode(res);
       }
 
