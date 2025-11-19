@@ -36,12 +36,27 @@ import {
 } from '@/app/c/[[...id]]/events';
 import { EVENT_NAMES } from '@/c-common/hooks/useTracking';
 import { OnSendContentParams } from 'markdown-flow-ui';
+import { createInteractionParser } from 'remark-flow';
 import LoadingBar from './LoadingBar';
 import { useTranslation } from 'react-i18next';
 import { show as showToast } from '@/hooks/useToast';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import { AppContext } from '../AppContext';
 import { appendCustomButtonAfterContent } from './chatUiUtils';
+
+interface InteractionParseResult {
+  variableName?: string;
+  buttonTexts?: string[];
+  buttonValues?: string[];
+  placeholder?: string;
+  isMultiSelect?: boolean;
+}
+
+interface InteractionDefaultValues {
+  buttonText?: string;
+  inputText?: string;
+  selectedValues?: string[];
+}
 
 export enum ChatContentItemType {
   CONTENT = 'content',
@@ -159,6 +174,7 @@ function useChatLogicHook({
   const currentContentRef = useRef<string>('');
   const currentBlockIdRef = useRef<string | null>(null);
   const runRef = useRef<((params: SSEParams) => void) | null>(null);
+  const interactionParserRef = useRef(createInteractionParser());
   const sseRef = useRef<any>(null);
   const lastInteractionBlockRef = useRef<ChatContentItem | null>(null);
   const hasScrolledToBottomRef = useRef<boolean>(false);
@@ -173,6 +189,122 @@ function useChatLogicHook({
     () =>
       `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
     [t],
+  );
+
+  const parseInteractionBlock = useCallback(
+    (content?: string | null): InteractionParseResult | null => {
+      if (!content) {
+        return null;
+      }
+      try {
+        return interactionParserRef.current.parseToRemarkFormat(
+          content,
+        ) as InteractionParseResult;
+      } catch (error) {
+        console.warn('Failed to parse interaction block', error);
+        return null;
+      }
+    },
+    [],
+  );
+
+  const normalizeButtonValue = useCallback(
+    (
+      token: string,
+      info: InteractionParseResult,
+    ): { value: string; display?: string } | null => {
+      if (!token) {
+        return null;
+      }
+      const cleaned = token.trim();
+      const buttonValues = info.buttonValues || [];
+      const buttonTexts = info.buttonTexts || [];
+      const valueIndex = buttonValues.indexOf(cleaned);
+      if (valueIndex > -1) {
+        return {
+          value: buttonValues[valueIndex],
+          display: buttonTexts[valueIndex],
+        };
+      }
+      const textIndex = buttonTexts.indexOf(cleaned);
+      if (textIndex > -1) {
+        return {
+          value: buttonValues[textIndex] || buttonTexts[textIndex],
+          display: buttonTexts[textIndex],
+        };
+      }
+      return null;
+    },
+    [],
+  );
+
+  const splitPresetValues = useCallback((raw: string) => {
+    return raw
+      .split(/[,，\n]/)
+      .map(item => item.trim())
+      .filter(Boolean);
+  }, []);
+
+  const getInteractionDefaultValues = useCallback(
+    (
+      content?: string | null,
+      rawValue?: string | null,
+    ): InteractionDefaultValues => {
+      const normalized = rawValue?.toString().trim();
+      if (!normalized) {
+        return {};
+      }
+
+      const interactionInfo = parseInteractionBlock(content);
+      if (!interactionInfo) {
+        return {
+          buttonText: normalized,
+          inputText: normalized,
+        };
+      }
+
+      if (interactionInfo.isMultiSelect) {
+        const tokens = splitPresetValues(normalized);
+        if (!tokens.length) {
+          return {};
+        }
+        const selectedValues: string[] = [];
+        const customInputs: string[] = [];
+        tokens.forEach(token => {
+          const mapped = normalizeButtonValue(token, interactionInfo);
+          if (mapped) {
+            selectedValues.push(mapped.value);
+          } else if (interactionInfo.placeholder) {
+            customInputs.push(token);
+          } else {
+            selectedValues.push(token);
+          }
+        });
+        return {
+          selectedValues: selectedValues.length ? selectedValues : undefined,
+          inputText: customInputs.length ? customInputs.join(', ') : undefined,
+        };
+      }
+
+      const mapped = normalizeButtonValue(normalized, interactionInfo);
+      if (mapped) {
+        return {
+          buttonText: mapped.value || mapped.display || normalized,
+        };
+      }
+
+      if (interactionInfo.placeholder) {
+        return {
+          inputText: normalized,
+        };
+      }
+
+      return {
+        buttonText: normalized,
+        inputText: normalized,
+      };
+    },
+    [normalizeButtonValue, parseInteractionBlock, splitPresetValues],
   );
 
   // Use react-use hooks for safer state management
@@ -616,19 +748,30 @@ function useChatLogicHook({
           // flush and handle other types (including INTERACTION)
           flushBuffer();
 
+          const interactionDefaults =
+            item.block_type === BLOCK_TYPE.INTERACTION
+              ? getInteractionDefaultValues(item.content, item.user_input)
+              : null;
+
           // Use markdown-flow-ui default rendering for all interactions
           result.push({
             generated_block_bid: item.generated_block_bid,
             content: item.content,
             customRenderBar: () => null,
-            defaultButtonText: item.user_input || '',
-            defaultInputText: item.user_input || '',
-            defaultSelectedValues: item.user_input
-              ? item.user_input
-                  .split(',')
-                  .map(v => v.trim())
-                  .filter(v => v)
-              : undefined,
+            defaultButtonText: interactionDefaults
+              ? (interactionDefaults.buttonText ?? '')
+              : item.user_input || '',
+            defaultInputText: interactionDefaults
+              ? (interactionDefaults.inputText ?? '')
+              : item.user_input || '',
+            defaultSelectedValues: interactionDefaults
+              ? interactionDefaults.selectedValues
+              : item.user_input
+                ? item.user_input
+                    .split(',')
+                    .map(v => v.trim())
+                    .filter(v => v)
+                : undefined,
             readonly: false,
             isHistory: true,
             type: item.block_type,
