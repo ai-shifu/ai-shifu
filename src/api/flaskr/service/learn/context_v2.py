@@ -838,8 +838,9 @@ class RunScriptContextV2:
                         if not self._is_paid:
                             # Use translated content from database if available
                             interaction_content = (
-                                generated_block.generated_content
-                                if generated_block and generated_block.generated_content
+                                generated_block.block_content_conf
+                                if generated_block
+                                and generated_block.block_content_conf
                                 else block.content
                             )
                             yield RunMarkdownFlowDTO(
@@ -869,8 +870,9 @@ class RunScriptContextV2:
                         else:
                             # Use translated content from database if available
                             interaction_content = (
-                                generated_block.generated_content
-                                if generated_block and generated_block.generated_content
+                                generated_block.block_content_conf
+                                if generated_block
+                                and generated_block.block_content_conf
                                 else block.content
                             )
                             yield RunMarkdownFlowDTO(
@@ -900,15 +902,17 @@ class RunScriptContextV2:
                 )
 
                 # Render interaction content with translation (INPUT mode, no cached block)
+                # Note: Do NOT pass variables here - we only want translation, not variable replacement
                 interaction_result = mdflow.process(
                     run_script_info.block_position,
                     ProcessMode.COMPLETE,
-                    variables=user_profile,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
                 )
 
+                # Store translated interaction block for future retrieval
+                generated_block.block_content_conf = rendered_content
                 # Keep generated_content empty, will be filled with user input later
                 generated_block.generated_content = ""
                 yield RunMarkdownFlowDTO(
@@ -938,7 +942,15 @@ class RunScriptContextV2:
                 )
             generated_block.role = ROLE_STUDENT
             generated_block.position = run_script_info.block_position
-            generated_block.block_content_conf = block.content
+            # For STUDENT records, also store translated interaction block
+            # (in case this record is returned instead of TEACHER record)
+            interaction_result = mdflow.process(
+                run_script_info.block_position,
+                ProcessMode.COMPLETE,
+            )
+            generated_block.block_content_conf = (
+                interaction_result.content if interaction_result else block.content
+            )
             generated_block.status = 1
             db.session.flush()
             res = check_text_with_llm_response(
@@ -977,15 +989,17 @@ class RunScriptContextV2:
                 )
 
                 # Render interaction content with translation after risk check
+                # Note: Do NOT pass variables here - we only want translation, not variable replacement
                 interaction_result = mdflow.process(
                     run_script_info.block_position,
                     ProcessMode.COMPLETE,
-                    variables=user_profile,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
                 )
 
+                # Store translated interaction block for future retrieval
+                generated_block.block_content_conf = rendered_content
                 # Keep generated_content empty, will be filled with user input later
                 generated_block.generated_content = ""
                 yield RunMarkdownFlowDTO(
@@ -1125,15 +1139,17 @@ class RunScriptContextV2:
                 db.session.flush()
 
                 # Render interaction content with translation after validation error
+                # Note: Do NOT pass variables here - we only want translation, not variable replacement
                 interaction_result = mdflow.process(
                     run_script_info.block_position,
                     ProcessMode.COMPLETE,
-                    variables=user_profile,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
                 )
 
+                # Store translated interaction block for future retrieval
+                generated_block.block_content_conf = rendered_content
                 # Keep generated_content empty, will be filled with user input later
                 generated_block.generated_content = ""
                 yield RunMarkdownFlowDTO(
@@ -1185,13 +1201,12 @@ class RunScriptContextV2:
 
                 # Render interaction content with translation (markdown-flow 0.2.34+)
                 # Call process() without user_input to trigger interaction rendering
+                # Note: Do NOT pass variables here - we only want translation, not variable replacement
                 app.logger.info(f"render_interaction: {run_script_info.block_position}")
-                app.logger.info(f"variables: {user_profile}")
 
                 interaction_result = mdflow.process(
                     run_script_info.block_position,
                     ProcessMode.COMPLETE,
-                    variables=user_profile,
                 )
 
                 # Get rendered interaction content
@@ -1200,6 +1215,8 @@ class RunScriptContextV2:
                 )
 
                 generated_block.type = BLOCK_TYPE_MDINTERACTION_VALUE
+                # Store translated interaction block for future retrieval
+                generated_block.block_content_conf = rendered_content
                 # Keep generated_content empty, will be filled with user input later
                 generated_block.generated_content = ""
                 yield RunMarkdownFlowDTO(

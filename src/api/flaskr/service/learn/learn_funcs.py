@@ -235,36 +235,6 @@ def get_outline_item_tree(
         )
 
 
-def _render_interaction_block(
-    app: Flask, block_content: str, user_bid: str, shifu_bid: str
-) -> str:
-    """Render interaction block content with current user language."""
-    try:
-        from markdown_flow import MarkdownFlow, ProcessMode
-        from flaskr.common.i18n_utils import get_markdownflow_output_language
-        from flaskr.service.learn.utils_v2 import get_fmt_prompt
-
-        # Get user profile for variable replacement
-        user_profile = get_fmt_prompt(
-            app=app,
-            user_id=user_bid,
-            course_id=shifu_bid,
-            profile_tmplate="",  # Not used for variable replacement
-        )
-
-        # Create a temporary MarkdownFlow instance for rendering
-        mf = MarkdownFlow(
-            document=block_content, llm_provider=None
-        ).set_output_language(get_markdownflow_output_language())
-
-        # Render without LLM (just variable replacement and translation)
-        result = mf.process(0, ProcessMode.COMPLETE, variables=user_profile)
-        return result.content if result else block_content
-    except Exception as e:
-        app.logger.warning(f"Failed to render interaction block: {e}")
-        return block_content
-
-
 def get_learn_record(
     app: Flask, shifu_bid: str, outline_bid: str, user_bid: str, preview_mode: bool
 ) -> LearnRecordDTO:
@@ -325,12 +295,9 @@ def get_learn_record(
             if block_type == BlockType.ASK and generated_block.role == ROLE_TEACHER:
                 block_type = BlockType.ANSWER
 
-            # For interaction blocks, render the content with translation
-            if block_type == BlockType.INTERACTION:
-                content = _render_interaction_block(
-                    app, generated_block.block_content_conf, user_bid, shifu_bid
-                )
-            elif block_type in (
+            # For interaction blocks, use block_content_conf (already translated during OUTPUT)
+            # For other blocks, use generated_content
+            if block_type in (
                 BlockType.CONTENT,
                 BlockType.ERROR_MESSAGE,
                 BlockType.ASK,
@@ -338,6 +305,7 @@ def get_learn_record(
             ):
                 content = generated_block.generated_content
             else:
+                # INTERACTION and other types use block_content_conf
                 content = generated_block.block_content_conf
 
             record = GeneratedBlockDTO(
