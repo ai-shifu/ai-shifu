@@ -290,26 +290,11 @@ def get_learn_record(
             -1: LikeStatus.DISLIKE,
             0: LikeStatus.NONE,
         }
-        # First pass: identify which student records are user inputs for interaction blocks
         from flaskr.service.learn.const import ROLE_STUDENT
 
-        skip_indices = set()
         for i, generated_block in enumerate(generated_blocks):
-            block_type = BLOCK_TYPE_MAP.get(generated_block.type, BlockType.CONTENT)
-            if block_type == BlockType.INTERACTION:
-                # Check if next record is user input (ROLE_STUDENT at same position)
-                if i + 1 < len(generated_blocks):
-                    next_block = generated_blocks[i + 1]
-                    if (
-                        next_block.role == ROLE_STUDENT
-                        and next_block.position == generated_block.position
-                    ):
-                        skip_indices.add(i + 1)  # Mark student record to skip
-
-        # Second pass: build records
-        for i, generated_block in enumerate(generated_blocks):
-            # Skip student records that are already included as user_input
-            if i in skip_indices:
+            # Skip all ROLE_STUDENT records as they are user inputs, not display blocks
+            if generated_block.role == ROLE_STUDENT:
                 continue
 
             block_type = BLOCK_TYPE_MAP.get(generated_block.type, BlockType.CONTENT)
@@ -331,17 +316,18 @@ def get_learn_record(
                 else generated_block.block_content_conf
             )
 
-            # For interaction blocks, check if next record is user input
+            # For interaction blocks, find corresponding user input (ROLE_STUDENT)
             user_input = ""
             if block_type == BlockType.INTERACTION:
-                # Check if next record exists and is user input (ROLE_STUDENT)
-                if i + 1 < len(generated_blocks):
-                    next_block = generated_blocks[i + 1]
+                # Find next ROLE_STUDENT record at same position
+                for j in range(i + 1, len(generated_blocks)):
+                    next_block = generated_blocks[j]
                     if (
                         next_block.role == ROLE_STUDENT
                         and next_block.position == generated_block.position
                     ):
                         user_input = next_block.generated_content
+                        break
 
             record = GeneratedBlockDTO(
                 generated_block.generated_block_bid,
