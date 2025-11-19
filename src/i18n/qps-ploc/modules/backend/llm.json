@@ -2,6 +2,7 @@
   "__namespace__": "⟦šēřṽēř.ŀŀm⟧",
   "__flat__": {
     "specifiedLlmNotConfigured": "⟦Μøđēŀ {model} įš ňøŧ ćøňƒįǥųřēđ. Ćħēćķ .ēňṽ ƒįŀē ṽåřįåƀŀē: {config_var}⟧",
-    "modelNotSupported": "⟦Μøđēŀ {model} įš ňøŧ šųƥƥøřŧēđ⟧"
+    "modelNotSupported": "⟦Μøđēŀ {model} įš ňøŧ šųƥƥøřŧēđ⟧",
+    "requestFailed": "⟦Μøđēŀ {model} įňṽøćåŧįøň ƒåįŀēđ: {message}⟧"
   }
 }

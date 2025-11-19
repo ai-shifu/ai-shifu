@@ -1,29 +1,73 @@
-def testopenai(app):
-    app.logger.info("testopenai")
-    from pydantic import BaseModel
-    from openai import OpenAI
-    import openai
+from types import SimpleNamespace
+from flaskr.api import llm
 
-    app.logger.info(openai.__version__)
 
-    client = OpenAI()
+class DummySpan:
+    def __init__(self):
+        self.generation_args = None
+        self.end_args = None
+        self.updated = None
 
-    class CalendarEvent(BaseModel):
-        name: str
-        date: str
-        address: str
-        participants: list[str]
+    def generation(self, **kwargs):
+        self.generation_args = kwargs
+        return self
 
-    completion = client.beta.chat.completions.parse(  # 使用 beta 接口
-        model="gpt-4o-mini-2024-07-18",  # 必须是版本大于 gpt-4o-mini-2024-07-18 或 gpt-4o-2024-08-06 的模型
-        messages=[
-            {"role": "system", "content": "解析出事件信息。"},
-            {
-                "role": "user",
-                "content": "一般在周一晚上，孙志岗会在他的视频号邀请一名 AI 全栈工程师课程的学员连麦直播。",
-            },
-        ],
-        response_format=CalendarEvent,
+    def end(self, **kwargs):
+        self.end_args = kwargs
+
+    def update(self, **kwargs):
+        self.updated = kwargs
+
+
+class FakeResponse:
+    def __init__(self, chunk_id, content=None, finish_reason=None, usage=None):
+        self.id = chunk_id
+        delta = SimpleNamespace(content=content)
+        self.choices = [SimpleNamespace(delta=delta, finish_reason=finish_reason)]
+        self.usage = usage
+
+
+class FakeUsage:
+    def __init__(self, prompt_tokens, completion_tokens, total_tokens):
+        self.prompt_tokens = prompt_tokens
+        self.completion_tokens = completion_tokens
+        self.total_tokens = total_tokens
+
+
+def test_invoke_llm_streams_via_litellm(monkeypatch, app):
+    captured_kwargs = {}
+
+    def fake_completion(*args, **kwargs):
+        captured_kwargs["args"] = args
+        captured_kwargs["kwargs"] = kwargs
+        usage = FakeUsage(prompt_tokens=5, completion_tokens=4, total_tokens=9)
+        chunks = [
+            FakeResponse("chunk-1", content="Hello "),
+            FakeResponse("chunk-2", content="world", finish_reason="stop", usage=usage),
+        ]
+        return iter(chunks)
+
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    monkeypatch.setattr(
+        llm, "openai_params", {"api_key": "test-key", "api_base": "https://example.com"}
     )
-    event = completion.choices[0].message.parsed
-    app.logger.info(event)
+    monkeypatch.setattr(llm, "OPENAI_MODELS", ["gpt-test"])
+
+    span = DummySpan()
+    responses = list(
+        llm.invoke_llm(
+            app,
+            user_id="user-1",
+            span=span,
+            model="gpt-test",
+            message="Hello world",
+            generation_name="unit-test",
+        )
+    )
+
+    assert [resp.result for resp in responses] == ["Hello ", "world"]
+    assert captured_kwargs["kwargs"]["api_key"] == "test-key"
+    assert captured_kwargs["kwargs"]["api_base"] == "https://example.com"
+    assert captured_kwargs["kwargs"]["stream"] is True
+    assert span.generation_args["name"] == "unit-test"
+    assert span.end_args is not None
