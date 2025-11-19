@@ -235,6 +235,36 @@ def get_outline_item_tree(
         )
 
 
+def _render_interaction_block(
+    app: Flask, block_content: str, user_bid: str, shifu_bid: str
+) -> str:
+    """Render interaction block content with current user language."""
+    try:
+        from markdown_flow import MarkdownFlow, ProcessMode
+        from flaskr.common.i18n_utils import get_markdownflow_output_language
+        from flaskr.service.learn.utils_v2 import get_fmt_prompt
+
+        # Get user profile for variable replacement
+        user_profile = get_fmt_prompt(
+            app=app,
+            user_id=user_bid,
+            course_id=shifu_bid,
+            profile_tmplate="",  # Not used for variable replacement
+        )
+
+        # Create a temporary MarkdownFlow instance for rendering
+        mf = MarkdownFlow(
+            document=block_content, llm_provider=None
+        ).set_output_language(get_markdownflow_output_language())
+
+        # Render without LLM (just variable replacement and translation)
+        result = mf.process(0, ProcessMode.COMPLETE, variables=user_profile)
+        return result.content if result else block_content
+    except Exception as e:
+        app.logger.warning(f"Failed to render interaction block: {e}")
+        return block_content
+
+
 def get_learn_record(
     app: Flask, shifu_bid: str, outline_bid: str, user_bid: str, preview_mode: bool
 ) -> LearnRecordDTO:
@@ -290,51 +320,34 @@ def get_learn_record(
             -1: LikeStatus.DISLIKE,
             0: LikeStatus.NONE,
         }
-        from flaskr.service.learn.const import ROLE_STUDENT
-
-        for i, generated_block in enumerate(generated_blocks):
-            # Skip all ROLE_STUDENT records as they are user inputs, not display blocks
-            if generated_block.role == ROLE_STUDENT:
-                continue
-
+        for generated_block in generated_blocks:
             block_type = BLOCK_TYPE_MAP.get(generated_block.type, BlockType.CONTENT)
             if block_type == BlockType.ASK and generated_block.role == ROLE_TEACHER:
                 block_type = BlockType.ANSWER
 
-            # For interaction blocks, use generated_content (rendered) for content
-            # For other blocks, keep original logic
-            content = (
-                generated_block.generated_content
-                if block_type
-                in (
-                    BlockType.CONTENT,
-                    BlockType.ERROR_MESSAGE,
-                    BlockType.ASK,
-                    BlockType.ANSWER,
-                    BlockType.INTERACTION,  # Changed: use generated_content for interaction
-                )
-                else generated_block.block_content_conf
-            )
-
-            # For interaction blocks, find corresponding user input (ROLE_STUDENT)
-            user_input = ""
+            # For interaction blocks, render the content with translation
             if block_type == BlockType.INTERACTION:
-                # Find next ROLE_STUDENT record at same position
-                for j in range(i + 1, len(generated_blocks)):
-                    next_block = generated_blocks[j]
-                    if (
-                        next_block.role == ROLE_STUDENT
-                        and next_block.position == generated_block.position
-                    ):
-                        user_input = next_block.generated_content
-                        break
+                content = _render_interaction_block(
+                    app, generated_block.block_content_conf, user_bid, shifu_bid
+                )
+            elif block_type in (
+                BlockType.CONTENT,
+                BlockType.ERROR_MESSAGE,
+                BlockType.ASK,
+                BlockType.ANSWER,
+            ):
+                content = generated_block.generated_content
+            else:
+                content = generated_block.block_content_conf
 
             record = GeneratedBlockDTO(
                 generated_block.generated_block_bid,
                 content,
                 LIKE_STATUS_MAP.get(generated_block.liked, LikeStatus.NONE),
                 block_type,
-                user_input,
+                generated_block.generated_content
+                if block_type == BlockType.INTERACTION
+                else "",
             )
             records.append(record)
         if len(records) > 0:

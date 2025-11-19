@@ -909,7 +909,8 @@ class RunScriptContextV2:
                     interaction_result.content if interaction_result else block.content
                 )
 
-                generated_block.generated_content = rendered_content
+                # Keep generated_content empty, will be filled with user input later
+                generated_block.generated_content = ""
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
@@ -985,7 +986,8 @@ class RunScriptContextV2:
                     interaction_result.content if interaction_result else block.content
                 )
 
-                generated_block.generated_content = rendered_content
+                # Keep generated_content empty, will be filled with user input later
+                generated_block.generated_content = ""
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
@@ -1132,7 +1134,8 @@ class RunScriptContextV2:
                     interaction_result.content if interaction_result else block.content
                 )
 
-                generated_block.generated_content = rendered_content
+                # Keep generated_content empty, will be filled with user input later
+                generated_block.generated_content = ""
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
@@ -1197,7 +1200,8 @@ class RunScriptContextV2:
                 )
 
                 generated_block.type = BLOCK_TYPE_MDINTERACTION_VALUE
-                generated_block.generated_content = rendered_content
+                # Keep generated_content empty, will be filled with user input later
+                generated_block.generated_content = ""
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
