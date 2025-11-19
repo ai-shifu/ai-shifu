@@ -27,6 +27,7 @@ from flaskr.service.profile.models import (
     PROFILE_TYPE_INPUT_SELECT,
     PROFILE_TYPE_INPUT_TEXT,
     CONST_PROFILE_TYPE_OPTION,
+    PROFILE_TYPE_VLUES,
 )
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.user.dtos import UserProfileLabelDTO, UserProfileLabelItemDTO
@@ -579,6 +580,7 @@ def update_user_profile_with_lable(
                     profile_value = source_value
                     break
 
+        app.logger.info("profile_value:%s", profile_value)
         mapping = profile_lable.get("mapping") if profile_lable else None
         if mapping and (
             update_all
@@ -597,10 +599,15 @@ def update_user_profile_with_lable(
         elif not profile_lable:
             app.logger.info("profile_lable not found:%s", key)
 
+        profile_type = (
+            PROFILE_TYPE_VLUES.get(profile_item.profile_type, PROFILE_TYPE_INPUT_TEXT)
+            if profile_item
+            else PROFILE_TYPE_INPUT_TEXT
+        )
         if user_profile:
             if profile_item:
                 user_profile.profile_id = profile_item.profile_id
-                user_profile.profile_type = profile_item.profile_type
+                user_profile.profile_type = profile_type
             else:
                 app.logger.warning("profile_item not found:%s", key)
             user_profile.status = 1
@@ -611,7 +618,6 @@ def update_user_profile_with_lable(
             ):
                 user_profile.profile_value = profile_value
         elif not profile_lable or not profile_lable.get("mapping"):
-            profile_type = profile_item.profile_type if profile_item else 1
             profile_id = profile_item.profile_id if profile_item else ""
             db.session.add(
                 UserProfile(
