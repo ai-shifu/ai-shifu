@@ -387,19 +387,22 @@ export default function AskBlock({
 
     return (
       // <div className={cn(styles.userInput, extraClass)}>
-        <MarkdownFlowInput
-          placeholder={t('module.chat.askContent')}
-          value={inputValue}
-          onChange={handleInputChange}
-          onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSendCustomQuestion();
-            }
-          }}
-          onSend={handleSendCustomQuestion}
-          className={cn(styles.inputGroup, isStreamingRef.current ? styles.isSending : '')}
-        />
+      <MarkdownFlowInput
+        placeholder={t('module.chat.askContent')}
+        value={inputValue}
+        onChange={handleInputChange}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendCustomQuestion();
+          }
+        }}
+        onSend={handleSendCustomQuestion}
+        className={cn(
+          styles.inputGroup,
+          isStreamingRef.current ? styles.isSending : '',
+        )}
+      />
       // </div>
     );
   };
