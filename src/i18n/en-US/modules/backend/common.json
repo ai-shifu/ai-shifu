@@ -6,8 +6,6 @@
 
     "nicknameNotAllowed": "Oops, illegal nickname.",
     "backgroundNotAllowed": "Oops, illegal background.",
-    "startTimeNotAllowed": "Start time cannot be later than end time",
-
-    "outputLanguage": "English"
+    "startTimeNotAllowed": "Start time cannot be later than end time"
   }
 }
