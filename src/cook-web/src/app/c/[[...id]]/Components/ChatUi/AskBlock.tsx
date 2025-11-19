@@ -7,8 +7,8 @@ import React, {
 } from 'react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
-import { Send, Maximize2, Minimize2, X } from 'lucide-react';
-import { ContentRender } from 'markdown-flow-ui';
+import { Maximize2, Minimize2, X } from 'lucide-react';
+import { ContentRender, MarkdownFlowInput } from 'markdown-flow-ui';
 // TODO@XJL
 // import ContentRender from '../../../../../../../../../markdown-flow-ui/src/components/ContentRender/ContentRender';
 import {
@@ -67,7 +67,7 @@ export default function AskBlock({
     }));
   });
 
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [inputValue, setInputValue] = useState('');
   const sseRef = useRef<any>(null);
   const currentContentRef = useRef<string>('');
   const isStreamingRef = useRef(false);
@@ -81,7 +81,7 @@ export default function AskBlock({
   }, [t]);
 
   const handleSendCustomQuestion = useCallback(async () => {
-    const question = inputRef.current?.value.trim() || '';
+    const question = inputValue.trim();
     if (isStreamingRef.current) {
       showOutputInProgressToast();
       return;
@@ -109,10 +109,7 @@ export default function AskBlock({
       },
     ]);
 
-    // Clear the input box
-    if (inputRef.current) {
-      inputRef.current.value = '';
-    }
+    setInputValue('');
 
     // Add an empty teacher reply placeholder to receive streaming content
     setDisplayList(prev => [
@@ -233,8 +230,15 @@ export default function AskBlock({
     outline_bid,
     preview_mode,
     generated_block_bid,
+    inputValue,
     showOutputInProgressToast,
   ]);
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setInputValue(e.target.value);
+    },
+    [],
+  );
 
   // Decide which messages to display
   const messagesToShow = isExpanded ? displayList : displayList.slice(0, 1);
@@ -382,29 +386,21 @@ export default function AskBlock({
     }
 
     return (
-      <div className={cn(styles.userInput, extraClass)}>
-        <input
-          ref={inputRef}
-          type='text'
+      // <div className={cn(styles.userInput, extraClass)}>
+        <MarkdownFlowInput
           placeholder={t('module.chat.askContent')}
-          className={cn('flex-1 outline-none border-none bg-transparent')}
+          value={inputValue}
+          onChange={handleInputChange}
           onKeyDown={e => {
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
               handleSendCustomQuestion();
             }
           }}
+          onSend={handleSendCustomQuestion}
+          className={cn(styles.inputGroup, isStreamingRef.current ? styles.isSending : '')}
         />
-        <button
-          onClick={handleSendCustomQuestion}
-          className={cn(
-            'flex items-center justify-center',
-            'cursor-pointer',
-            isStreamingRef.current ? styles.isSending : '',
-          )}
-        >
-          <Send size={mobileStyle ? 18 : 12} />
-        </button>
-      </div>
+      // </div>
     );
   };
 
