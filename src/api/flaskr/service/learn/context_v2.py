@@ -836,13 +836,19 @@ class RunScriptContextV2:
                 for button in parsed_interaction.get("buttons"):
                     if button.get("value") == "_sys_pay":
                         if not self._is_paid:
+                            # Use translated content from database if available
+                            interaction_content = (
+                                generated_block.generated_content
+                                if generated_block and generated_block.generated_content
+                                else block.content
+                            )
                             yield RunMarkdownFlowDTO(
                                 outline_bid=run_script_info.outline_bid,
                                 generated_block_bid=generated_block.generated_block_bid
                                 if generated_block
                                 else generate_id(app),
                                 type=GeneratedType.INTERACTION,
-                                content=block.content,
+                                content=interaction_content,
                             )
                             self._can_continue = False
                             db.session.flush()
@@ -861,13 +867,19 @@ class RunScriptContextV2:
                             db.session.flush()
                             return
                         else:
+                            # Use translated content from database if available
+                            interaction_content = (
+                                generated_block.generated_content
+                                if generated_block and generated_block.generated_content
+                                else block.content
+                            )
                             yield RunMarkdownFlowDTO(
                                 outline_bid=run_script_info.outline_bid,
                                 generated_block_bid=generated_block.generated_block_bid
                                 if generated_block
                                 else generate_id(app),
                                 type=GeneratedType.INTERACTION,
-                                content=block.content,
+                                content=interaction_content,
                             )
                             self._can_continue = False
                             db.session.flush()
@@ -1131,13 +1143,30 @@ class RunScriptContextV2:
                                 self._run_type = RunType.OUTPUT
                                 db.session.flush()
                                 return
+
+                # Render interaction content with translation (markdown-flow 0.2.34+)
+                # Call process() without user_input to trigger interaction rendering
+                app.logger.info(f"render_interaction: {run_script_info.block_position}")
+                app.logger.info(f"variables: {user_profile}")
+
+                interaction_result = mdflow.process(
+                    run_script_info.block_position,
+                    ProcessMode.COMPLETE,
+                    variables=user_profile,
+                )
+
+                # Get translated interaction content
+                translated_content = (
+                    interaction_result.content if interaction_result else block.content
+                )
+
                 generated_block.type = BLOCK_TYPE_MDINTERACTION_VALUE
-                generated_block.generated_content = ""
+                generated_block.generated_content = translated_content
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
                     type=GeneratedType.INTERACTION,
-                    content=block.content,
+                    content=translated_content,
                 )
                 self._can_continue = False
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS

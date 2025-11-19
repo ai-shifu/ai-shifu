@@ -194,7 +194,8 @@ class MarkdownFlowPreviewService:
                     )
                 return None
 
-            rendered_content = getattr(current_block, "content", None) or content or ""
+            # Use translated content from LLM if available, otherwise fallback to original
+            rendered_content = content or getattr(current_block, "content", "")
             variable_name = (
                 current_block.variables[0]
                 if getattr(current_block, "variables", None)
