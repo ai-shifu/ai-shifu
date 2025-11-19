@@ -1,11 +1,5 @@
 'use client';
-import React, {
-  useState,
-  useEffect,
-  useMemo,
-  useRef,
-  useCallback,
-} from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Columns2, ListCollapse, Loader2, Plus, Sparkles } from 'lucide-react';
 import { useShifu } from '@/store';
@@ -27,13 +21,9 @@ import { EnvStoreState } from '@/c-types/store';
 import { getBoolEnv } from '@/c-utils/envUtils';
 import LessonPreview from '@/components/lesson-preview';
 import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
-import {
-  Panel,
-  PanelGroup,
-  PanelResizeHandle,
-  ImperativePanelGroupHandle,
-} from 'react-resizable-panels';
-import { useEditorLayoutState } from '@/hooks/useEditorLayoutState';
+
+const OUTLINE_DEFAULT_WIDTH = 320;
+const OUTLINE_COLLAPSED_WIDTH = 60;
 
 const initializeEnvData = async (): Promise<void> => {
   const {
@@ -114,20 +104,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [isPreviewPanelOpen, setIsPreviewPanelOpen] = useState(false);
   const [isPreviewPreparing, setIsPreviewPreparing] = useState(false);
 
-  // Layout state management with localStorage persistence
-  const {
-    layout,
-    handleLayoutChange,
-    saveCurrentWidth,
-    clearSavedWidth,
-    restoreDefaultLayout,
-    getLayoutArray,
-    getDefaultLayoutArray,
-    config: layoutConfig,
-  } = useEditorLayoutState();
-
-  // Ref for imperative control of PanelGroup (required for setLayout() calls)
-  const panelGroupRef = useRef<ImperativePanelGroupHandle>(null);
   const {
     items: previewItems,
     isLoading: previewLoading,
@@ -325,72 +301,24 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const previewDisabledReason = t('module.shifu.previewArea.disabled');
 
-  // Handle double-click on resize handle to restore default width
-  const handleResizeHandleDoubleClick = () => {
-    restoreDefaultLayout();
-    // Immediately apply the default layout using imperative API
-    if (panelGroupRef.current) {
-      panelGroupRef.current.setLayout(getDefaultLayoutArray());
-    }
-  };
-
   // Toggle outline tree collapse/expand
   const toggle = () => {
-    const willCollapse = !foldOutlineTree;
-
-    if (willCollapse) {
-      // About to collapse: save current width
-      saveCurrentWidth();
-    }
-
-    setFoldOutlineTree(willCollapse);
+    setFoldOutlineTree(prev => !prev);
   };
-
-  useEffect(() => {
-    if (panelGroupRef.current) {
-      const targetLayout = getLayoutArray(foldOutlineTree);
-      panelGroupRef.current.setLayout(targetLayout);
-    }
-  }, [foldOutlineTree, getLayoutArray]);
-
-  useEffect(() => {
-    if (!foldOutlineTree && layout.savedOutlineWidth !== undefined) {
-      clearSavedWidth();
-    }
-  }, [foldOutlineTree, layout.savedOutlineWidth, clearSavedWidth]);
 
   return (
     <div className='flex flex-col h-screen bg-gray-50'>
       <Header />
-      <PanelGroup
-        direction='horizontal'
-        className='flex-1 overflow-hidden'
-        ref={panelGroupRef}
-        onLayout={handleLayoutChange}
-      >
-        {/* Left Panel: Outline Tree */}
-        <Panel
+      <div className='flex flex-1 overflow-hidden'>
+        <div
           id='outline-panel'
-          order={1}
-          defaultSize={getLayoutArray(foldOutlineTree)[0]}
-          minSize={
-            foldOutlineTree
-              ? layoutConfig.OUTLINE_COLLAPSED_SIZE
-              : layoutConfig.OUTLINE_MIN_SIZE
-          }
-          maxSize={
-            foldOutlineTree
-              ? layoutConfig.OUTLINE_COLLAPSED_SIZE
-              : layoutConfig.OUTLINE_MAX_SIZE
-          }
-          collapsible={false}
           className={cn(
-            'bg-white',
-            // Only transition max-width and opacity for collapse/expand animation
-            // Remove transition-all to avoid interfering with drag responsiveness
-            'transition-[max-width,opacity] duration-200',
-            foldOutlineTree && 'max-w-[60px]',
+            'bg-white h-full transition-[width] duration-200 border-r',
+            foldOutlineTree ? 'max-w-[60px]' : 'min-w-[256px]',
           )}
+          style={{
+            width: `${foldOutlineTree ? OUTLINE_COLLAPSED_WIDTH : OUTLINE_DEFAULT_WIDTH}px`,
+          }}
         >
           <div className='p-4 flex flex-col h-full'>
             <div className='flex items-center justify-between gap-3'>
@@ -427,164 +355,149 @@ const ScriptEditor = ({ id }: { id: string }) => {
               </div>
             )}
           </div>
-        </Panel>
+        </div>
 
-        {/* Resize Handle (only shown when outline tree is expanded) */}
-        {!foldOutlineTree && (
-          <PanelResizeHandle
-            className='group relative bg-transparent cursor-col-resize flex items-center justify-center'
-            onDoubleClick={handleResizeHandleDoubleClick}
+        <div className='flex flex-1 h-full overflow-hidden text-sm'>
+          <div
+            className={cn(
+              'flex-1 overflow-auto',
+              !isPreviewPanelOpen && 'relative',
+            )}
           >
-            {/* Visual indicator (thin line) */}
-            <div className='w-[2px] h-full bg-gray-200 group-hover:bg-blue-500 group-active:bg-blue-600 transition-colors' />
-          </PanelResizeHandle>
-        )}
-
-        {/* Right Panel: Editor + Preview */}
-        <Panel
-          id='editor-panel'
-          order={2}
-          defaultSize={getLayoutArray(foldOutlineTree)[1]}
-          minSize={30}
-          className='overflow-hidden relative text-sm'
-        >
-          <div className='flex h-full overflow-hidden'>
             <div
               className={cn(
-                'flex-1 overflow-auto',
-                !isPreviewPanelOpen && 'relative',
+                'pt-5 px-6 pb-10 flex flex-col h-full w-full',
+                isPreviewPanelOpen
+                  ? 'max-w-[900px] pr-0'
+                  : 'max-w-[900px] mx-auto relative',
               )}
             >
-              <div
-                className={cn(
-                  'pt-5 px-6 pb-10 flex flex-col h-full w-full',
-                  isPreviewPanelOpen
-                    ? 'max-w-[900px] pr-0'
-                    : 'max-w-[900px] mx-auto relative',
-                )}
-              >
-                {currentNode?.depth && currentNode.depth > 0 ? (
-                  <>
-                    <div className='flex items-center gap-3 pb-2'>
-                      <div className='flex flex-1 min-w-0 items-baseline gap-2'>
-                        <h2 className='text-base font-semibold text-foreground whitespace-nowrap shrink-0'>
-                          {t('module.shifu.creationArea.title')}
-                        </h2>
-                        <p className='flex-1 min-w-0 text-xs leading-3 text-[rgba(0,0,0,0.45)] truncate'>
-                          {t('module.shifu.creationArea.description')}
-                        </p>
-                      </div>
-                      <div className='ml-auto flex flex-nowrap items-center gap-2 relative shrink-0'>
-                        <Tabs
-                          value={editMode}
-                          onValueChange={value =>
-                            setEditMode(value as EditMode)
-                          }
-                          className='shrink-0'
-                        >
-                          <TabsList className='h-8 rounded-full bg-muted/60 p-0 text-xs'>
-                            {editModeOptions.map(option => (
-                              <TabsTrigger
-                                key={option.value}
-                                value={option.value}
-                                className={cn(
-                                  'mode-btn rounded-full px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground',
-                                )}
-                              >
-                                {option.label}
-                              </TabsTrigger>
-                            ))}
-                          </TabsList>
-                        </Tabs>
-                        <Button
-                          type='button'
-                          size='sm'
-                          className='h-8 px-3 text-xs font-semibold text-[14px] shrink-0'
-                          onClick={handlePreview}
-                          disabled={!canPreview || isPreviewPreparing}
-                          title={
-                            !canPreview ? previewDisabledReason : undefined
-                          }
-                        >
-                          {isPreviewPreparing ? (
-                            <Loader2 className='h-4 w-4 animate-spin' />
-                          ) : (
-                            <Sparkles className='h-4 w-4' />
-                          )}
-                          {t('module.shifu.previewArea.action')}
-                        </Button>
-                      </div>
+              {currentNode?.depth && currentNode.depth > 0 ? (
+                <>
+                  <div className='flex items-center gap-3 pb-2'>
+                    <div className='flex flex-1 min-w-0 items-baseline gap-2'>
+                      <h2 className='text-base font-semibold text-foreground whitespace-nowrap shrink-0'>
+                        {t('module.shifu.creationArea.title')}
+                      </h2>
+                      <p className='flex-1 min-w-0 text-xs leading-3 text-[rgba(0,0,0,0.45)] truncate'>
+                        {t('module.shifu.creationArea.description')}
+                      </p>
                     </div>
-                    {!isPreviewPanelOpen && (
+                    <div className='ml-auto flex flex-nowrap items-center gap-2 relative shrink-0'>
+                      <Tabs
+                        value={editMode}
+                        onValueChange={value => setEditMode(value as EditMode)}
+                        className='shrink-0'
+                      >
+                        <TabsList className='h-8 rounded-full bg-muted/60 p-0 text-xs'>
+                          {editModeOptions.map(option => (
+                            <TabsTrigger
+                              key={option.value}
+                              value={option.value}
+                              className={cn(
+                                'mode-btn rounded-full px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground',
+                              )}
+                            >
+                              {option.label}
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+                      </Tabs>
                       <Button
                         type='button'
-                        variant='outline'
-                        size='icon'
-                        className='h-8 w-8 absolute top-[60px] right-[-13px] z-10'
-                        onClick={handleTogglePreviewPanel}
-                        aria-label={previewToggleLabel}
-                        title={previewToggleLabel}
+                        size='sm'
+                        className='h-8 px-3 text-xs font-semibold text-[14px] shrink-0'
+                        onClick={handlePreview}
+                        disabled={!canPreview || isPreviewPreparing}
+                        title={!canPreview ? previewDisabledReason : undefined}
                       >
-                        <Columns2 className='h-4 w-4' />
+                        {isPreviewPreparing ? (
+                          <Loader2 className='h-4 w-4 animate-spin' />
+                        ) : (
+                          <Sparkles className='h-4 w-4' />
+                        )}
+                        {t('module.shifu.previewArea.action')}
                       </Button>
-                    )}
-                    {isLoading ? (
-                      <div className='h-40 flex items-center justify-center'>
-                        <Loading />
-                      </div>
-                    ) : (
-                      <MarkdownFlowEditor
-                        locale={
-                          normalizeLanguage(
-                            (i18n.resolvedLanguage ?? i18n.language) as string,
-                          ) as 'en-US' | 'zh-CN'
-                        }
-                        content={mdflow}
-                        variables={variablesList}
-                        systemVariables={systemVariablesList as any[]}
-                        onChange={onChangeMdflow}
-                        editMode={editMode}
-                        uploadProps={uploadProps}
-                      />
-                    )}
-                  </>
-                ) : null}
-              </div>
+                    </div>
+                  </div>
+                  {!isPreviewPanelOpen && (
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='icon'
+                      className='h-8 w-8 absolute top-[60px] right-[-13px] z-10'
+                      onClick={handleTogglePreviewPanel}
+                      aria-label={previewToggleLabel}
+                      title={previewToggleLabel}
+                    >
+                      <Columns2 className='h-4 w-4' />
+                    </Button>
+                  )}
+                  {isLoading ? (
+                    <div className='h-40 flex items-center justify-center'>
+                      <Loading />
+                    </div>
+                  ) : (
+                    <MarkdownFlowEditor
+                      locale={
+                        normalizeLanguage(
+                          (i18n.resolvedLanguage ?? i18n.language) as string,
+                        ) as 'en-US' | 'zh-CN'
+                      }
+                      content={mdflow}
+                      variables={variablesList}
+                      systemVariables={systemVariablesList as any[]}
+                      onChange={onChangeMdflow}
+                      editMode={editMode}
+                      uploadProps={uploadProps}
+                    />
+                  )}
+                </>
+              ) : null}
             </div>
-            {isPreviewPanelOpen ? (
-              <div className='shrink-0 px-1 pt-[60px]'>
+          </div>
+
+          <div
+            className={cn(
+              'border-l border-gray-200 bg-white transition-all duration-300 overflow-hidden',
+              isPreviewPanelOpen
+                ? 'w-[480px] opacity-100'
+                : 'w-0 opacity-0 pointer-events-none',
+            )}
+          >
+            <div className='h-full flex flex-col'>
+              <div className='flex items-center justify-between px-4 py-3 border-b'>
+                <div className='flex flex-col'>
+                  <h3 className='text-sm font-semibold'>
+                    {t('module.shifu.previewArea.title')}
+                  </h3>
+                  <p className='text-xs text-muted-foreground'>
+                    {t('module.shifu.previewArea.description')}
+                  </p>
+                </div>
                 <Button
-                  type='button'
-                  variant='outline'
+                  variant='ghost'
                   size='icon'
                   className='h-8 w-8'
                   onClick={handleTogglePreviewPanel}
-                  aria-label={previewToggleLabel}
-                  title={previewToggleLabel}
                 >
                   <Columns2 className='h-4 w-4' />
                 </Button>
               </div>
-            ) : null}
-            {isPreviewPanelOpen ? (
-              <div className='flex-1 overflow-auto pt-5 px-6 pb-10 pl-0'>
-                <div className='h-full'>
-                  <LessonPreview
-                    loading={previewLoading}
-                    isStreaming={previewStreaming}
-                    errorMessage={previewError || undefined}
-                    items={previewItems}
-                    shifuBid={currentShifu?.bid || ''}
-                    onRefresh={onRefresh}
-                    onSend={onSend}
-                    reGenerateConfirm={reGenerateConfirm}
-                  />
-                </div>
-              </div>
-            ) : null}
+              <LessonPreview
+                loading={previewLoading}
+                isStreaming={previewStreaming}
+                errorMessage={previewError}
+                items={previewItems ?? []}
+                shifuBid={currentShifu?.bid || ''}
+                onRefresh={onRefresh}
+                onSend={onSend}
+                reGenerateConfirm={reGenerateConfirm}
+              />
+            </div>
           </div>
-        </Panel>
-      </PanelGroup>
+        </div>
+      </div>
     </div>
   );
 };
