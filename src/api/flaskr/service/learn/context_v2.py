@@ -898,11 +898,23 @@ class RunScriptContextV2:
                 app.logger.info(
                     f"generated_block not found, init new one: {generated_block.generated_block_bid}"
                 )
+
+                # Render interaction content with translation (INPUT mode, no cached block)
+                interaction_result = mdflow.process(
+                    run_script_info.block_position,
+                    ProcessMode.COMPLETE,
+                    variables=user_profile,
+                )
+                rendered_content = (
+                    interaction_result.content if interaction_result else block.content
+                )
+
+                generated_block.generated_content = rendered_content
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
                     type=GeneratedType.INTERACTION,
-                    content=block.content,
+                    content=rendered_content,
                 )
                 self._can_continue = False
                 db.session.add(generated_block)
@@ -962,11 +974,23 @@ class RunScriptContextV2:
                     type=GeneratedType.BREAK,
                     content="",
                 )
+
+                # Render interaction content with translation after risk check
+                interaction_result = mdflow.process(
+                    run_script_info.block_position,
+                    ProcessMode.COMPLETE,
+                    variables=user_profile,
+                )
+                rendered_content = (
+                    interaction_result.content if interaction_result else block.content
+                )
+
+                generated_block.generated_content = rendered_content
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
                     type=GeneratedType.INTERACTION,
-                    content=block.content,
+                    content=rendered_content,
                 )
 
                 db.session.flush()
@@ -1097,11 +1121,23 @@ class RunScriptContextV2:
                 generated_block.role = ROLE_TEACHER
                 db.session.add(generated_block)
                 db.session.flush()
+
+                # Render interaction content with translation after validation error
+                interaction_result = mdflow.process(
+                    run_script_info.block_position,
+                    ProcessMode.COMPLETE,
+                    variables=user_profile,
+                )
+                rendered_content = (
+                    interaction_result.content if interaction_result else block.content
+                )
+
+                generated_block.generated_content = rendered_content
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
                     type=GeneratedType.INTERACTION,
-                    content=block.content,
+                    content=rendered_content,
                 )
                 self._can_continue = False
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
@@ -1155,18 +1191,18 @@ class RunScriptContextV2:
                     variables=user_profile,
                 )
 
-                # Get translated interaction content
-                translated_content = (
+                # Get rendered interaction content
+                rendered_content = (
                     interaction_result.content if interaction_result else block.content
                 )
 
                 generated_block.type = BLOCK_TYPE_MDINTERACTION_VALUE
-                generated_block.generated_content = translated_content
+                generated_block.generated_content = rendered_content
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
                     type=GeneratedType.INTERACTION,
-                    content=translated_content,
+                    content=rendered_content,
                 )
                 self._can_continue = False
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
