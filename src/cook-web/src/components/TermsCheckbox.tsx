@@ -56,9 +56,7 @@ export function TermsCheckbox({
   const agreementUrl = legalUrls.agreement[currentLang] || '';
   const privacyUrl = legalUrls.privacy[currentLang] || '';
   return (
-    <div
-      className={cn('flex flex-row items-start gap-2 text-left', className)}
-    >
+    <div className={cn('flex flex-row items-start gap-2 text-left', className)}>
       <Checkbox
         id='terms'
         checked={checked}
