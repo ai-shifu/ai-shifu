@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/button';
-import { Loader2, PlayIcon } from 'lucide-react';
+import { Loader2, MonitorPlay, PlayIcon } from 'lucide-react';
 import { useShifu } from '@/store';
 import api from '@/api';
 import { useTranslation } from 'react-i18next';
@@ -33,17 +33,19 @@ const PreviewSettingsModal = () => {
     }
   };
   return (
-    <Button
-      variant='ghost'
-      size='sm'
-      className='h-8 px-2 text-xs font-normal'
-      onClick={handleStartPreview}
-      disabled={loading}
-      loading={loading}
-    >
-      {loading ? null : <PlayIcon className='h-4 w-4' />}{' '}
-      {t('module.preview.previewAll')}
-    </Button>
+    <div className='flex items-center justify-center h-9 rounded-lg cursor-pointer shifu-setting-icon-container ml-2'>
+      <Button
+        variant='ghost'
+        size='sm'
+        className='h-8 px-2 text-xs font-normal'
+        onClick={handleStartPreview}
+        disabled={loading}
+        loading={loading}
+      >
+        {loading ? null : <MonitorPlay className='h-4 w-4 mr-[5px]' />}{' '}
+        <span className='title'>{t('module.preview.previewAll')}</span>
+      </Button>
+    </div>
   );
 };
 

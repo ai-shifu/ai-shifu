@@ -6,6 +6,7 @@ import {
   Plus,
   Minus,
   CircleHelp,
+  Settings,
 } from 'lucide-react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -355,13 +356,15 @@ export default function ShifuSettingDialog({
       onOpenChange={handleOpenChange}
     >
       <SheetTrigger asChild>
-        <SlidersVertical className='cursor-pointer h-4 w-4 text-gray-500' />
+        <div className='flex items-center justify-center w-9 h-9 rounded-lg cursor-pointer shifu-setting-icon-container'>
+          <Settings size={16} />
+        </div>
       </SheetTrigger>
       <SheetContent
         side='right'
         className='w-full sm:w-[420px] md:w-[480px] h-full flex flex-col p-0'
       >
-        <SheetHeader className='px-6 pt-6'>
+        <SheetHeader className='px-6 pt-[19px]'>
           <SheetTitle className='text-lg font-medium'>
             {t('module.shifuSetting.title')}
           </SheetTitle>
