@@ -485,11 +485,14 @@ export default function ShifuSettingDialog({
                   {imageError && (
                     <p className='text-xs text-destructive'>{imageError}</p>
                   )}
-                  {shifuImage && !isUploading && !uploadedImageUrl && (
-                    <p className='text-xs text-emerald-600'>
-                      {t('module.shifuSetting.selected')}: {shifuImage?.name}
-                    </p>
-                  )}
+                  {!imageError &&
+                    shifuImage &&
+                    !isUploading &&
+                    !uploadedImageUrl && (
+                      <p className='text-xs text-emerald-600'>
+                        {t('module.shifuSetting.selected')}: {shifuImage?.name}
+                      </p>
+                    )}
                 </div>
               </div>
 
