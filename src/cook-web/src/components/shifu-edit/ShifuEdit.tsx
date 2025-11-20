@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Columns2, ListCollapse, Loader2, Plus, Sparkles } from 'lucide-react';
 import { useShifu } from '@/store';
@@ -21,6 +21,7 @@ import { EnvStoreState } from '@/c-types/store';
 import { getBoolEnv } from '@/c-utils/envUtils';
 import LessonPreview from '@/components/lesson-preview';
 import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
+import { Rnd } from 'react-rnd';
 
 const OUTLINE_DEFAULT_WIDTH = 320;
 const OUTLINE_COLLAPSED_WIDTH = 60;
@@ -100,6 +101,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const { t } = useTranslation();
   const profile = useUserStore(state => state.userInfo);
   const [foldOutlineTree, setFoldOutlineTree] = useState(false);
+  const [outlineWidth, setOutlineWidth] = useState(OUTLINE_DEFAULT_WIDTH);
+  const previousOutlineWidthRef = useRef(OUTLINE_DEFAULT_WIDTH);
   const [editMode, setEditMode] = useState<EditMode>('quickEdit' as EditMode);
   const [isPreviewPanelOpen, setIsPreviewPanelOpen] = useState(false);
   const [isPreviewPreparing, setIsPreviewPreparing] = useState(false);
@@ -301,24 +304,76 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const previewDisabledReason = t('module.shifu.previewArea.disabled');
 
+  const updateOutlineWidthFromElement = useCallback((element: HTMLElement) => {
+    const width = Math.round(element.getBoundingClientRect().width);
+    setOutlineWidth(width);
+    return width;
+  }, []);
+
+  const handleOutlineResize = useCallback(
+    (_event: unknown, _direction: unknown, ref: HTMLElement) => {
+      updateOutlineWidthFromElement(ref);
+    },
+    [updateOutlineWidthFromElement],
+  );
+
+  const handleOutlineResizeStop = useCallback(
+    (_event: unknown, _direction: unknown, ref: HTMLElement) => {
+      const width = updateOutlineWidthFromElement(ref);
+      previousOutlineWidthRef.current = width;
+    },
+    [updateOutlineWidthFromElement],
+  );
+
   // Toggle outline tree collapse/expand
   const toggle = () => {
-    setFoldOutlineTree(prev => !prev);
+    setFoldOutlineTree(prev => {
+      const next = !prev;
+      if (next) {
+        previousOutlineWidthRef.current =
+          outlineWidth > OUTLINE_COLLAPSED_WIDTH
+            ? outlineWidth
+            : OUTLINE_DEFAULT_WIDTH;
+        setOutlineWidth(OUTLINE_COLLAPSED_WIDTH);
+      } else {
+        const restoredWidth =
+          previousOutlineWidthRef.current > OUTLINE_COLLAPSED_WIDTH
+            ? previousOutlineWidthRef.current
+            : OUTLINE_DEFAULT_WIDTH;
+        setOutlineWidth(restoredWidth);
+      }
+      return next;
+    });
   };
 
   return (
     <div className='flex flex-col h-screen bg-gray-50'>
       <Header />
       <div className='flex flex-1 overflow-hidden'>
-        <div
+        <Rnd
           id='outline-panel'
-          className={cn(
-            'bg-white h-full transition-[width] duration-200 border-r',
-            foldOutlineTree ? 'max-w-[60px]' : 'min-w-[256px]',
-          )}
-          style={{
-            width: `${foldOutlineTree ? OUTLINE_COLLAPSED_WIDTH : OUTLINE_DEFAULT_WIDTH}px`,
+          disableDragging
+          enableResizing={{
+            bottom: false,
+            bottomLeft: false,
+            bottomRight: false,
+            left: false,
+            right: !foldOutlineTree,
+            top: false,
+            topLeft: false,
+            topRight: false,
           }}
+          size={{
+            width: `${outlineWidth}px`,
+            height: '100%',
+          }}
+          minWidth={`${OUTLINE_COLLAPSED_WIDTH}px`}
+          onResize={handleOutlineResize}
+          onResizeStop={handleOutlineResizeStop}
+          className={cn(
+            'bg-white h-full transition-[width] duration-200 border-r flex-shrink-0 overflow-hidden',
+          )}
+          style={{ position: 'relative' }}
         >
           <div className='p-4 flex flex-col h-full'>
             <div className='flex items-center justify-between gap-3'>
@@ -355,7 +410,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
               </div>
             )}
           </div>
-        </div>
+        </Rnd>
 
         <div className='flex flex-1 h-full overflow-hidden text-sm'>
           <div
