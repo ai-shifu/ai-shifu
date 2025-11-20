@@ -36,6 +36,8 @@ from .shifu_history_manager import (
 from datetime import datetime
 from markdown_flow import MarkdownFlow
 
+from flaskr.common.i18n_utils import get_markdownflow_output_language
+
 
 def convert_outline_to_reorder_outline_item_dto(
     json_array: list[dict],
@@ -477,7 +479,9 @@ def reorder_outline_tree(
                             bid=outline_dto.bid, id=item.id, type="outline", children=[]
                         )
                     if history_info.child_count == 0 and bool(item.content):
-                        mdflow = MarkdownFlow(item.content)
+                        mdflow = MarkdownFlow(item.content).set_output_language(
+                            get_markdownflow_output_language()
+                        )
                         block_list = mdflow.get_all_blocks()
                         history_info.child_count = len(block_list)
 

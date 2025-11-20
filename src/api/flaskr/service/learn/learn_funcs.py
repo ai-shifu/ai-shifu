@@ -295,17 +295,22 @@ def get_learn_record(
             if block_type == BlockType.ASK and generated_block.role == ROLE_TEACHER:
                 block_type = BlockType.ANSWER
 
+            # For interaction blocks, use block_content_conf (already translated during OUTPUT)
+            # For other blocks, use generated_content
+            if block_type in (
+                BlockType.CONTENT,
+                BlockType.ERROR_MESSAGE,
+                BlockType.ASK,
+                BlockType.ANSWER,
+            ):
+                content = generated_block.generated_content
+            else:
+                # INTERACTION and other types use block_content_conf
+                content = generated_block.block_content_conf
+
             record = GeneratedBlockDTO(
                 generated_block.generated_block_bid,
-                generated_block.generated_content
-                if block_type
-                in (
-                    BlockType.CONTENT,
-                    BlockType.ERROR_MESSAGE,
-                    BlockType.ASK,
-                    BlockType.ANSWER,
-                )
-                else generated_block.block_content_conf,
+                content,
                 LIKE_STATUS_MAP.get(generated_block.liked, LikeStatus.NONE),
                 block_type,
                 generated_block.generated_content

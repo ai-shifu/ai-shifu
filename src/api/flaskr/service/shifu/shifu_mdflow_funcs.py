@@ -1,5 +1,6 @@
 from markdown_flow import MarkdownFlow
 from flask import Flask
+from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.service.common import raise_error
 from flaskr.dao import db
@@ -60,7 +61,9 @@ def save_shifu_mdflow(
             new_outline.updated_at = datetime.now()
             db.session.add(new_outline)
             db.session.flush()
-            markdown_flow = MarkdownFlow(content)
+            markdown_flow = MarkdownFlow(content).set_output_language(
+                get_markdownflow_output_language()
+            )
             blocks = markdown_flow.get_all_blocks()
             variable_definitions = get_profile_item_definition_list(
                 app, outline_item.shifu_bid
@@ -105,7 +108,9 @@ def parse_shifu_mdflow(
         mdflow = outline_item.content
         if data:
             mdflow = data
-        markdown_flow = MarkdownFlow(mdflow)
+        markdown_flow = MarkdownFlow(mdflow).set_output_language(
+            get_markdownflow_output_language()
+        )
         blocks = markdown_flow.get_all_blocks()
 
         raw_variables = markdown_flow.extract_variables() or []
