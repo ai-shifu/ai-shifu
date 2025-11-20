@@ -287,7 +287,6 @@ export default function AuthPage() {
     if (!googleTermsAccepted) {
       toast({
         title: t('module.auth.termsError'),
-        variant: 'destructive',
       });
       return;
     }
@@ -378,10 +377,10 @@ export default function AuthPage() {
     );
   }
   return (
-    <div className='min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4'>
+    <div className='min-h-screen flex items-center justify-center p-4'>
       <div className='w-full max-w-md space-y-2'>
         <div className='flex flex-col items-center relative'>
-          <h2 className='text-primary flex items-center font-semibold pb-2  w-full justify-center'>
+          <h2 className='flex items-center font-semibold pb-2 w-full justify-center'>
             <Image
               className='dark:invert'
               src={resolvedLogo}
@@ -390,15 +389,14 @@ export default function AuthPage() {
               height={40}
               priority
             />
-
-            <div className='absolute top-0 right-0'>
-              <LanguageSelect
-                language={language}
-                onSetLanguage={handleManualLanguageChange}
-                variant='login'
-              />
-            </div>
           </h2>
+          <div className='absolute top-0 right-0 z-10'>
+            <LanguageSelect
+              language={language}
+              onSetLanguage={handleManualLanguageChange}
+              variant='login'
+            />
+          </div>
         </div>
         <Card>
           <CardHeader>
@@ -493,7 +491,7 @@ export default function AuthPage() {
                 {t('module.auth.problem')}
                 <button
                   onClick={handleFeedback}
-                  className='text-primary hover:underline'
+                  className='hover:underline'
                 >
                   {t('module.auth.submitFeedback')}
                 </button>

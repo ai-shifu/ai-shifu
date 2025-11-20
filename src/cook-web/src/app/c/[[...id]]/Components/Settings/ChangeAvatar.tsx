@@ -68,7 +68,7 @@ export const ChangeAvatar = ({ className, image, onChange }) => {
           onClick={onAvatarClick}
         >
           <Avatar>
-            <AvatarImage src={img} />
+            <AvatarImage src={img || 'https://github.com/shadcn.png'} />
           </Avatar>
           <input
             type='file'

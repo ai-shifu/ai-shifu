@@ -69,7 +69,6 @@ export function PhoneLogin({ onLoginSuccess, loginContext }: PhoneLoginProps) {
     if (!termsAccepted) {
       toast({
         title: t('module.auth.termsError'),
-        variant: 'destructive',
       });
       return;
     }
@@ -117,7 +116,6 @@ export function PhoneLogin({ onLoginSuccess, loginContext }: PhoneLoginProps) {
     if (!termsAccepted) {
       toast({
         title: t('module.auth.termsError'),
-        variant: 'destructive',
       });
       return;
     }
