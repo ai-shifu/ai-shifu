@@ -572,6 +572,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   shifuBid={currentShifu?.bid || ''}
                   onRefresh={onRefresh}
                   onSend={onSend}
+                  reGenerateConfirm={reGenerateConfirm}
                 />
               </div>
             </div>
