@@ -34,7 +34,7 @@ export const LogoWithText = ({ direction, size = 64 }) => {
         // ...commonStyles,
       }}
     >
-      <a href={homeUrl || 'https://ai-shifu.cn/'}>
+      <a href={homeUrl || 'https://ai-shifu.cn/'} target='_blank'>
         <Image
           src={logoSrc}
           alt='logo'
