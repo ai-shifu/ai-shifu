@@ -485,12 +485,13 @@ def chat_llm(
                     res.choices[0].finish_reason,
                     None,
                 )
-            if res.usage:
+            res_usage = getattr(res, "usage", None)
+            if res_usage:
                 usage = ModelUsage(
                     unit="TOKENS",
-                    input=res.usage.prompt_tokens,
-                    output=res.usage.completion_tokens,
-                    total=res.usage.total_tokens,
+                    input=res_usage.prompt_tokens,
+                    output=res_usage.completion_tokens,
+                    total=res_usage.total_tokens,
                 )
     elif model in DIFY_MODELS:
         response: Generator[DifyChunkChatCompletionResponse, None, None] = (
