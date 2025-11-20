@@ -2,6 +2,7 @@
   "__namespace__": "server.llm",
   "__flat__": {
     "specifiedLlmNotConfigured": "模型 {model} 没有配置，请检查 .env 中的变量：{config_var}",
-    "modelNotSupported": "模型 {model} 不支持"
+    "modelNotSupported": "模型 {model} 不支持",
+    "requestFailed": "模型 {model} 调用失败：{message}"
   }
 }

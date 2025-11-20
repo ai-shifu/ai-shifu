@@ -73,6 +73,12 @@ The project follows a microservices architecture with 2 main components:
 - Database migrations managed with Alembic (`migrations/`)
 - Internationalization support with separate locale files (`i18n/`)
 
+#### LLM Integration
+
+- All server-side LLM calls are routed through [LiteLLM](https://github.com/BerriAI/litellm) inside `src/api/flaskr/api/llm/__init__.py`, which proxies OpenAI-compatible providers (OpenAI, DeepSeek, Qwen, GLM, SiliconFlow, Ark, etc.) while keeping custom HTTP flows (ERNIE legacy/Dify).
+- Provider credentials continue to live in `.env` via the existing keys (`OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `QWEN_API_KEY`, `BIGMODEL_API_KEY`, ...). When the API key + base URL are set, LiteLLM automatically registers the provider and its models.
+- When adding a new provider, prefer exposing an OpenAI-compatible HTTP endpoint so the LiteLLM wrapper can just receive `api_key` + `api_base`. For incompatible providers, follow the ERNIE/Dify helper patterns.
+
 ### Frontend
 
 - **Cook Web (`src/cook-web/`)**: Next.js with TypeScript and Tailwind CSS, providing both the public learner experience and authoring tools

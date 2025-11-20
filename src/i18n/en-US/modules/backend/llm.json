@@ -2,6 +2,7 @@
   "__namespace__": "server.llm",
   "__flat__": {
     "specifiedLlmNotConfigured": "Model {model} is not configured. Check .env file variable: {config_var}",
-    "modelNotSupported": "Model {model} is not supported"
+    "modelNotSupported": "Model {model} is not supported",
+    "requestFailed": "Model {model} invocation failed: {message}"
   }
 }
