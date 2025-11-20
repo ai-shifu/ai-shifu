@@ -29,7 +29,7 @@ import LessonPreview from '@/components/lesson-preview';
 import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
 import { Rnd } from 'react-rnd';
 
-const OUTLINE_DEFAULT_WIDTH = 280;
+const OUTLINE_DEFAULT_WIDTH = 256;
 const OUTLINE_COLLAPSED_WIDTH = 60;
 const OUTLINE_STORAGE_KEY = 'shifu-outline-panel-width';
 
@@ -546,45 +546,36 @@ const ScriptEditor = ({ id }: { id: string }) => {
             </div>
           </div>
 
-          <div
-            className={cn(
-              'border-l border-gray-200 bg-white transition-all duration-300 overflow-hidden',
-              isPreviewPanelOpen
-                ? 'w-[480px] opacity-100'
-                : 'w-0 opacity-0 pointer-events-none',
-            )}
-          >
-            <div className='h-full flex flex-col'>
-              <div className='flex items-center justify-between px-4 py-3 border-b'>
-                <div className='flex flex-col'>
-                  <h3 className='text-sm font-semibold'>
-                    {t('module.shifu.previewArea.title')}
-                  </h3>
-                  <p className='text-xs text-muted-foreground'>
-                    {t('module.shifu.previewArea.description')}
-                  </p>
-                </div>
-                <Button
-                  variant='ghost'
-                  size='icon'
-                  className='h-8 w-8'
-                  onClick={handleTogglePreviewPanel}
-                >
-                  <Columns2 className='h-4 w-4' />
-                </Button>
-              </div>
-              <LessonPreview
-                loading={previewLoading}
-                isStreaming={previewStreaming}
-                errorMessage={previewError}
-                items={previewItems ?? []}
-                shifuBid={currentShifu?.bid || ''}
-                onRefresh={onRefresh}
-                onSend={onSend}
-                reGenerateConfirm={reGenerateConfirm}
-              />
+          {isPreviewPanelOpen ? (
+            <div className='shrink-0 px-1 pt-[60px]'>
+              <Button
+                type='button'
+                variant='outline'
+                size='icon'
+                className='h-8 w-8'
+                onClick={handleTogglePreviewPanel}
+                aria-label={previewToggleLabel}
+                title={previewToggleLabel}
+              >
+                <Columns2 className='h-4 w-4' />
+              </Button>
             </div>
-          </div>
+          ) : null}
+          {isPreviewPanelOpen ? (
+            <div className='flex-1 overflow-auto pt-5 px-6 pb-10 pl-0'>
+              <div className='h-full'>
+                <LessonPreview
+                  loading={previewLoading}
+                  isStreaming={previewStreaming}
+                  errorMessage={previewError || undefined}
+                  items={previewItems}
+                  shifuBid={currentShifu?.bid || ''}
+                  onRefresh={onRefresh}
+                  onSend={onSend}
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
