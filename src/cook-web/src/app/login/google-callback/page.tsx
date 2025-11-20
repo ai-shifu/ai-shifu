@@ -60,7 +60,7 @@ export default function GoogleCallbackPage() {
   }, [code, finalizeGoogleLogin, redirect, router, state, t]);
 
   return (
-    <div className='min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4'>
+    <div className='min-h-screen flex items-center justify-center p-4'>
       <Card className='w-full max-w-sm'>
         <CardHeader>
           <CardTitle className='text-center'>
