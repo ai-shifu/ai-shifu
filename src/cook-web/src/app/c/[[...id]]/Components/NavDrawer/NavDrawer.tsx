@@ -193,6 +193,7 @@ const NavDrawer = ({
           // @ts-expect-error EXPECT
           isCollapse={isCollapse}
           onClick={onFooterClick}
+          isMenuOpen={mainModalOpen}
         />
         <MainMenuModal
           open={mainModalOpen}
