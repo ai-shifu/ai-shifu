@@ -327,10 +327,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     if (typeof window === 'undefined') {
       return;
     }
-    const normalizedWidth = Math.max(
-      OUTLINE_DEFAULT_WIDTH,
-      Math.round(width),
-    );
+    const normalizedWidth = Math.max(OUTLINE_DEFAULT_WIDTH, Math.round(width));
     window.localStorage.setItem(
       OUTLINE_STORAGE_KEY,
       normalizedWidth.toString(),
