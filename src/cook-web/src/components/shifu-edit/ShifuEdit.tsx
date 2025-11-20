@@ -29,8 +29,9 @@ import LessonPreview from '@/components/lesson-preview';
 import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
 import { Rnd } from 'react-rnd';
 
-const OUTLINE_DEFAULT_WIDTH = 320;
+const OUTLINE_DEFAULT_WIDTH = 280;
 const OUTLINE_COLLAPSED_WIDTH = 60;
+const OUTLINE_STORAGE_KEY = 'shifu-outline-panel-width';
 
 const initializeEnvData = async (): Promise<void> => {
   const {
@@ -147,6 +148,18 @@ const ScriptEditor = ({ id }: { id: string }) => {
       }
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const storedWidth = window.localStorage.getItem(OUTLINE_STORAGE_KEY);
+    const parsedWidth = storedWidth ? Number.parseInt(storedWidth, 10) : NaN;
+    if (!Number.isNaN(parsedWidth) && parsedWidth >= OUTLINE_DEFAULT_WIDTH) {
+      setOutlineWidth(parsedWidth);
+      previousOutlineWidthRef.current = parsedWidth;
+    }
+  }, []);
 
   const {
     mdflow,
@@ -310,10 +323,25 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const previewDisabledReason = t('module.shifu.previewArea.disabled');
 
+  const persistOutlineWidth = useCallback((width: number) => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const normalizedWidth = Math.max(
+      OUTLINE_DEFAULT_WIDTH,
+      Math.round(width),
+    );
+    window.localStorage.setItem(
+      OUTLINE_STORAGE_KEY,
+      normalizedWidth.toString(),
+    );
+  }, []);
+
   const updateOutlineWidthFromElement = useCallback((element: HTMLElement) => {
     const width = Math.round(element.getBoundingClientRect().width);
-    setOutlineWidth(width);
-    return width;
+    const normalizedWidth = Math.max(OUTLINE_DEFAULT_WIDTH, width);
+    setOutlineWidth(normalizedWidth);
+    return normalizedWidth;
   }, []);
 
   const handleOutlineResize = useCallback(
@@ -327,8 +355,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
     (_event: unknown, _direction: unknown, ref: HTMLElement) => {
       const width = updateOutlineWidthFromElement(ref);
       previousOutlineWidthRef.current = width;
+      persistOutlineWidth(width);
     },
-    [updateOutlineWidthFromElement],
+    [persistOutlineWidth, updateOutlineWidthFromElement],
   );
 
   // Toggle outline tree collapse/expand
@@ -373,7 +402,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
             width: `${outlineWidth}px`,
             height: '100%',
           }}
-          minWidth={`${OUTLINE_COLLAPSED_WIDTH}px`}
+          minWidth={`${
+            foldOutlineTree ? OUTLINE_COLLAPSED_WIDTH : OUTLINE_DEFAULT_WIDTH
+          }px`}
           onResize={handleOutlineResize}
           onResizeStop={handleOutlineResizeStop}
           className={cn(
