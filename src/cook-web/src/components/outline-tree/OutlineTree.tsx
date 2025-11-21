@@ -168,6 +168,10 @@ const MinimalTreeItemComponent = React.forwardRef<
       return;
     }
 
+    if(currentNode?.id == props.item.id){
+      return;
+    }
+
     if (props.item.depth == 0) {
       await actions.setCurrentNode(props.item);
       actions.setBlocks([]);
