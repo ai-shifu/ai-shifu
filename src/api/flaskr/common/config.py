@@ -7,6 +7,9 @@ from flask import Flask
 from flask import Config as FlaskConfig
 
 
+import secrets
+
+
 class EnvironmentConfigError(Exception):
     """Exception raised for environment configuration errors."""
 
@@ -280,11 +283,12 @@ DeepSeek: deepseek-chat""",
     # Database Configuration
     "SQLALCHEMY_DATABASE_URI": EnvVar(
         name="SQLALCHEMY_DATABASE_URI",
-        required=True,
+        required=False,
         description="""MySQL database connection URI
 Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""",
         secret=True,
         group="database",
+        default="mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4",
     ),
     "SQLALCHEMY_POOL_SIZE": EnvVar(
         name="SQLALCHEMY_POOL_SIZE",
@@ -317,7 +321,7 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
     # Redis Configuration
     "REDIS_HOST": EnvVar(
         name="REDIS_HOST",
-        default="localhost",
+        default="ai-shifu-redis",
         description="Redis server host",
         group="redis",
     ),
@@ -409,7 +413,7 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
     # Authentication Configuration
     "SECRET_KEY": EnvVar(
         name="SECRET_KEY",
-        required=True,
+        required=False,
         description="""Secret key for JWT token signing and verification
 CRITICAL: Used to encrypt/decrypt user authentication tokens
 - Must be a strong random string (at least 32 characters recommended)
@@ -418,6 +422,7 @@ CRITICAL: Used to encrypt/decrypt user authentication tokens
 - Never commit to version control
 Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))" """,
         secret=True,
+        default=secrets.token_urlsafe(32),
         group="auth",
         validator=lambda value: bool(value and str(value).strip()),
     ),
@@ -523,13 +528,14 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     ),
     "ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO": EnvVar(
         name="ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO",
-        default=False,
+        default=True,
         type=bool,
         description=(
-            "When enabled, users logging in from the admin interface are "
-            "automatically marked as creators and granted demo course "
-            "permissions (DEMO_SHIFU_BID / DEMO_EN_SHIFU_BID if configured). "
-            "Intended for demo and staging environments only."
+            "Automatically grant creator role and demo course access to admin users upon login.\n"
+            "When enabled, users logging in from the admin interface are \n"
+            "automatically marked as creators and granted demo course \n"
+            "permissions (DEMO_SHIFU_BID / DEMO_EN_SHIFU_BID if configured).\n"
+            "⚠️  WARNING: Only use for demo and staging environments, NOT for production.\n"
         ),
         group="auth",
     ),
