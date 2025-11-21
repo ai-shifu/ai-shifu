@@ -286,7 +286,7 @@ DeepSeek: deepseek-chat""",
         required=False,
         description="""MySQL database connection URI
 Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""",
-        secret=True,
+        secret=False,
         group="database",
         default="mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4",
     ),
@@ -518,6 +518,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     ),
     "UNIVERSAL_VERIFICATION_CODE": EnvVar(
         name="UNIVERSAL_VERIFICATION_CODE",
+        default="1024",
         description=(
             "Universal verification code for testing.\n"
             "**SECURITY WARNING:** Do NOT set this in production environments.\n"
