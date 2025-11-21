@@ -168,7 +168,7 @@ const MinimalTreeItemComponent = React.forwardRef<
       return;
     }
 
-    if(currentNode?.id === props.item.id){
+    if (currentNode?.id === props.item.id) {
       return;
     }
 
