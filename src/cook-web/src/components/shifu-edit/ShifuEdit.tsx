@@ -455,10 +455,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
           >
             <div
               className={cn(
-                'pt-5 px-6 pb-10 flex flex-col h-full w-full',
+                'pt-5 px-6 pb-10 flex flex-col h-full w-full mx-auto',
                 isPreviewPanelOpen
-                  ? 'max-w-[900px] pr-0'
-                  : 'max-w-[900px] mx-auto relative',
+                  ? 'pr-0'
+                  : 'max-w-[900px] relative',
               )}
             >
               {currentNode?.depth && currentNode.depth > 0 ? (
