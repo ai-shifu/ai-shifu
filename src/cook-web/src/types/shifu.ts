@@ -123,11 +123,6 @@ export interface ShifuActions {
   createOutline: (outline: Outline) => Promise<void>;
   createSiblingUnit: (chapter: Outline) => Promise<void>;
   loadBlocks: (outlineId: string, shifuId: string) => void;
-  addBlock: (
-    index: number,
-    type: BlockType,
-    shifuId: string,
-  ) => Promise<string>;
   setBlockContentPropertiesById: (
     id: string,
     properties: AIBlockProperties | SolidContentBlockProperties,

@@ -16,8 +16,6 @@ import {
   SaveMdflowPayload,
 } from '../types/shifu';
 import api from '@/api';
-import { useContentTypes } from '@/components/render-block';
-// import { useUITypes } from '@/components/render-ui'
 import { debounce } from 'lodash';
 import {
   createContext,
@@ -109,7 +107,6 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
   // Ensure UI types and content types are fetched only in the client environment
   // const UITypes = useUITypes()
-  const ContentTypes = useContentTypes();
 
   const loadShifu = async (
     shifuId: string,
@@ -479,52 +476,6 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     },
     [blocks, isLoading, blockTypes, currentNode],
   );
-
-  const addBlock = async (
-    index: number,
-    blockType: string = 'ai',
-    shifu_id: string,
-  ): Promise<string> => {
-    setIsSaving(true);
-    setError(null);
-    try {
-      const item = ContentTypes.find(p => p.type == blockType);
-
-      const block = await api.addBlock({
-        block: {
-          properties: item?.properties,
-          type: blockType,
-        },
-        block_index: index,
-        outline_bid: currentNode!.bid,
-        shifu_bid: shifu_id,
-      });
-
-      blocks.splice(index, 0, block);
-      const list = [...blocks];
-      setBlockTypes({
-        ...blockTypes,
-        [block.bid]: blockType,
-      });
-      updateBlockProperties(block.bid, block);
-      setBlockContentStateById(block.bid, 'edit');
-      setBlocks(list);
-      setLastSaveTime(new Date());
-
-      setTimeout(() => {
-        document.getElementById(block.bid)?.scrollIntoView({
-          behavior: 'smooth',
-        });
-      }, 500);
-      return block.bid;
-    } catch (error) {
-      console.error(error);
-      setError('Failed to add block');
-      return '';
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const addSubOutline = async (parent: Outline, name = '') => {
     if (cataData['new_chapter']) {
@@ -1147,7 +1098,6 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       createSiblingUnit,
       createOutline,
       loadBlocks,
-      addBlock,
       updateBlockProperties,
       setBlockContentPropertiesById,
       setBlockContentTypesById,
