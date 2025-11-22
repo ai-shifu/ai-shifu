@@ -54,7 +54,7 @@ const handleAuthRecovery = async () => {
   if (
     isHandlingAuthError ||
     typeof window === 'undefined' ||
-    window.__IS_LOGGING_OUT__
+    (window as any).__IS_LOGGING_OUT__
   ) {
     return;
   }
@@ -102,7 +102,7 @@ const handleBusinessCode = async (response: any) => {
       typeof window !== 'undefined' &&
       !location.pathname.includes('/login') &&
       isAuthError &&
-      !window.__IS_LOGGING_OUT__ // Added: skip redirects while logout is in progress
+      !(window as any).__IS_LOGGING_OUT__ // Added: skip redirects while logout is in progress
     ) {
       const currentPath = encodeURIComponent(
         location.pathname + location.search,
