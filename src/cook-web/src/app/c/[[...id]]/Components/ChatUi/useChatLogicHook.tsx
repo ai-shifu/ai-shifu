@@ -67,7 +67,7 @@ export enum ChatContentItemType {
 
 export interface ChatContentItem {
   content?: string;
-  customRenderBar?: (() => JSX.Element | null) | ComponentType<any>;
+  customRenderBar?: (() => React.ReactNode | null) | ComponentType<any>;
   defaultButtonText?: string;
   defaultInputText?: string;
   defaultSelectedValues?: string[]; // for multi-select interactions

@@ -91,12 +91,12 @@ export const useUserStore = create<
       let didTriggerReload = false;
       const resetLogoutFlag = () => {
         if (typeof window !== 'undefined') {
-          window.__IS_LOGGING_OUT__ = false;
+          (window as any).__IS_LOGGING_OUT__ = false;
         }
       };
 
       if (typeof window !== 'undefined') {
-        window.__IS_LOGGING_OUT__ = true;
+        (window as any).__IS_LOGGING_OUT__ = true;
       }
 
       try {

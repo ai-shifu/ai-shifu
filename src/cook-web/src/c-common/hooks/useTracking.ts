@@ -32,7 +32,7 @@ export const useTracking = () => {
     // Set global debounced timeout
     identifyState.timeout = setTimeout(() => {
       try {
-        const umami = window.umami;
+        const umami = (window as any).umami;
         if (!umami) {
           return;
         }

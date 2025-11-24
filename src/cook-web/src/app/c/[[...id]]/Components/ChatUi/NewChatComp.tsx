@@ -1,5 +1,3 @@
-import './ForkChatUI/styles/index.scss';
-// TODO@XJL
 import 'markdown-flow-ui/dist/markdown-flow-ui.css';
 import styles from './ChatComponents.module.scss';
 import {
