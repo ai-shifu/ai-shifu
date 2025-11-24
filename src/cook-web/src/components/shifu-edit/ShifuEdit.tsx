@@ -11,7 +11,6 @@ import { Columns2, ListCollapse, Loader2, Plus, Sparkles } from 'lucide-react';
 import { useShifu } from '@/store';
 import { useUserStore } from '@/store';
 import OutlineTree from '@/components/outline-tree';
-import '@mdxeditor/editor/style.css';
 import Header from '../header';
 import { UploadProps, MarkdownFlowEditor, EditMode } from 'markdown-flow-ui';
 // TODO@XJL
