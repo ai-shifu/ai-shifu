@@ -41,7 +41,7 @@ const noop = () => {};
 
 const LessonPreview: React.FC<LessonPreviewProps> = ({
   loading,
-  items,
+  items = [],
   shifuBid,
   onRefresh,
   onSend,

@@ -74,9 +74,9 @@ export const NewChatComponents = ({
     appendMsg: () => {},
     deleteMsg: () => {},
   });
-  const { scrollToBottom } = useAutoScroll(chatRef as any, {
-    threshold: 120,
-  });
+  // const { scrollToBottom } = useAutoScroll(chatRef as any, {
+  //   threshold: 120,
+  // });
 
   const { openPayModal, payModalResult } = useCourseStore(
     useShallow(state => ({
@@ -126,7 +126,7 @@ export const NewChatComponents = ({
     updateSelectedLesson,
     getNextLessonId,
     scrollToLesson,
-    scrollToBottom,
+    // scrollToBottom,
     showOutputInProgressToast,
     onPayModalOpen,
   });

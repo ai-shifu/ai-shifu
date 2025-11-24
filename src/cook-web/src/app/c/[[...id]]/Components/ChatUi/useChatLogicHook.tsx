@@ -101,7 +101,7 @@ export interface UseChatSessionParams {
   updateSelectedLesson: (lessonId: string, forceExpand?: boolean) => void;
   getNextLessonId: (lessonId?: string | null) => string | null;
   scrollToLesson: (lessonId: string) => void;
-  scrollToBottom: (behavior?: ScrollBehavior) => void;
+  // scrollToBottom: (behavior?: ScrollBehavior) => void;
   showOutputInProgressToast: () => void;
   onPayModalOpen: () => void;
   chatBoxBottomRef: React.RefObject<HTMLDivElement | null>;
@@ -139,7 +139,7 @@ function useChatLogicHook({
   updateSelectedLesson,
   getNextLessonId,
   scrollToLesson,
-  scrollToBottom,
+  // scrollToBottom,
   showOutputInProgressToast,
   onPayModalOpen,
 }: UseChatSessionParams): UseChatSessionResult {
