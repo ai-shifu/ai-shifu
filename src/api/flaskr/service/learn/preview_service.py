@@ -46,7 +46,9 @@ class MarkdownFlowPreviewService:
         session_id: str,
     ) -> Generator[PreviewSSEMessage, None, None]:
         outline = self._get_outline_record(shifu_bid, outline_bid)
-        shifu = self._get_shifu_record(shifu_bid, outline is not None)
+        # Preview is a Draft editing feature, always prioritize DraftShifu configuration
+        # Falls back to PublishedShifu if DraftShifu doesn't exist (backward compatible)
+        shifu = self._get_shifu_record(shifu_bid, True)
         document_prompt = self._resolve_document_prompt(
             preview_request, outline, shifu, shifu_bid, outline_bid
         )
@@ -382,15 +384,23 @@ class MarkdownFlowPreviewService:
         self, shifu_bid: str, has_draft_outline: bool
     ) -> Optional[DraftShifu | PublishedShifu]:
         if has_draft_outline:
-            shifu = DraftShifu.query.filter(
-                DraftShifu.shifu_bid == shifu_bid, DraftShifu.deleted == 0
-            ).first()
+            shifu = (
+                DraftShifu.query.filter(
+                    DraftShifu.shifu_bid == shifu_bid, DraftShifu.deleted == 0
+                )
+                .order_by(DraftShifu.id.desc())  # Always get the latest version
+                .first()
+            )
             if shifu:
                 return shifu
-        return PublishedShifu.query.filter(
-            PublishedShifu.shifu_bid == shifu_bid,
-            PublishedShifu.deleted == 0,
-        ).first()
+        return (
+            PublishedShifu.query.filter(
+                PublishedShifu.shifu_bid == shifu_bid,
+                PublishedShifu.deleted == 0,
+            )
+            .order_by(PublishedShifu.id.desc())  # Always get the latest version
+            .first()
+        )
 
     def _convert_context_to_dict(
         self, context: Optional[Iterable[Dict[str, str]]]
