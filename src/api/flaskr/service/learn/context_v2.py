@@ -960,8 +960,8 @@ class RunScriptContextV2:
                 generated_block.generated_content,  # Use converted string value
                 self._trace,
                 self._outline_item_info.bid,
-                self._outline_item_info.position,
                 self._outline_item_info.shifu_bid,
+                self._outline_item_info.position,
                 llm_settings,
                 self._current_attend.progress_record_bid,
                 "",
@@ -1002,6 +1002,7 @@ class RunScriptContextV2:
                 generated_block.block_content_conf = rendered_content
                 # Keep generated_content empty, will be filled with user input later
                 generated_block.generated_content = ""
+                generated_block.generated_block_bid = generate_id(app)
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
