@@ -268,6 +268,7 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
         profile_rows = (
             UserProfile.query.filter(
                 UserProfile.user_id == user_bid,
+                UserProfile.status == 1,
                 UserProfile.profile_key.in_(
                     ["sys_user_nickname", "avatar", "language", "birth"]
                 ),

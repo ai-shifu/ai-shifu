@@ -91,7 +91,7 @@ DEFAULT_BIRTHDAY = Date(2003, 1, 1)
 
 def _resolve_user_sex(user_bid: str) -> int:
     profile = (
-        UserProfile.query.filter_by(user_id=user_bid, profile_key="sex")
+        UserProfile.query.filter_by(user_id=user_bid, profile_key="sex", status=1)
         .order_by(UserProfile.id.desc())
         .first()
     )

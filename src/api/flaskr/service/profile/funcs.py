@@ -93,26 +93,27 @@ def _fetch_latest_profile(
     Fetch the newest profile row for a user using the given key/profile_id.
     Tries profile_id first (when provided) and falls back to profile_key.
     """
-    profile = None
     if profile_id:
         profile = (
             UserProfile.query.filter(
                 UserProfile.user_id == user_id,
                 UserProfile.profile_id == profile_id,
+                UserProfile.status == 1,
             )
             .order_by(UserProfile.id.desc())
             .first()
         )
-    if profile is None:
-        profile = (
-            UserProfile.query.filter(
-                UserProfile.user_id == user_id,
-                UserProfile.profile_key == profile_key,
-            )
-            .order_by(UserProfile.id.desc())
-            .first()
+        if profile:
+            return profile
+    return (
+        UserProfile.query.filter(
+            UserProfile.user_id == user_id,
+            UserProfile.profile_key == profile_key,
+            UserProfile.status == 1,
         )
-    return profile
+        .order_by(UserProfile.id.desc())
+        .first()
+    )
 
 
 def _ensure_user_aggregate(user_id: str) -> Optional[UserAggregate]:
@@ -337,7 +338,7 @@ def save_user_profiles(
     aggregate = _ensure_user_aggregate(user_id)
     profiles_items = get_profile_item_definition_list(app, course_id)
     user_profiles: list[UserProfile] = (
-        UserProfile.query.filter_by(user_id=user_id)
+        UserProfile.query.filter_by(user_id=user_id, status=1)
         .order_by(UserProfile.id.desc())
         .all()
     )
@@ -396,7 +397,7 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     """
     profiles_items = get_profile_item_definition_list(app, course_id)
     user_profiles = (
-        UserProfile.query.filter_by(user_id=user_id)
+        UserProfile.query.filter_by(user_id=user_id, status=1)
         .order_by(UserProfile.id.desc())
         .all()
     )
@@ -448,7 +449,7 @@ def get_user_profile_labels(
     """
     app.logger.info("get user profile labels:{}".format(course_id))
     user_profiles: list[UserProfile] = (
-        UserProfile.query.filter_by(user_id=user_id)
+        UserProfile.query.filter_by(user_id=user_id, status=1)
         .order_by(UserProfile.id.desc())
         .all()
     )
@@ -575,7 +576,7 @@ def update_user_profile_with_lable(
         raise_error("server.common.backgroundNotAllowed")
 
     user_profiles = (
-        UserProfile.query.filter_by(user_id=user_id)
+        UserProfile.query.filter_by(user_id=user_id, status=1)
         .order_by(UserProfile.id.desc())
         .all()
     )
@@ -629,7 +630,9 @@ def update_user_profile_with_lable(
             if profile_item
             else PROFILE_TYPE_INPUT_TEXT
         )
-        should_persist_value = bool(profile_value) and profile_value != default_value
+        should_persist_value = (
+            profile_value not in (None, "") and profile_value != default_value
+        )
         latest_profile = _get_latest_profile(
             user_profiles, key, profile_item.profile_id if profile_item else None
         )
@@ -654,7 +657,9 @@ def update_user_profile_with_lable(
 def get_user_variable_by_variable_id(app: Flask, user_id: str, variable_id: str):
     user_profile = (
         UserProfile.query.filter(
-            UserProfile.user_id == user_id, UserProfile.profile_id == variable_id
+            UserProfile.user_id == user_id,
+            UserProfile.profile_id == variable_id,
+            UserProfile.status == 1,
         )
         .order_by(UserProfile.id.desc())
         .first()
