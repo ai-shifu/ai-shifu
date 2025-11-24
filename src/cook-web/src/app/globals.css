@@ -119,7 +119,7 @@ html {
 
 /* HACK: mdf-ui not support hsl, so we need to use var(--primary-color) and var(--primary-foreground-color) */
 .content-render-theme {
-  --primary: var(--primary-color);
+  /* --primary: var(--primary-color); */
   --primary-foreground: var(--primary-foreground-color);
   .content-render-custom-button-after-content {
     width: 58px;
@@ -138,7 +138,7 @@ html {
   }
 
   &.mobile {
-    .custom-variable-container {
+    /* .custom-variable-container {
       width: 100%;
       > span {
         width: 100%;
@@ -150,7 +150,7 @@ html {
     .markdown-body textarea {
       min-width: 0;
       width: 100%;
-    }
+    } */
   }
 }
 
