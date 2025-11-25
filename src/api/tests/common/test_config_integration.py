@@ -220,11 +220,12 @@ class TestConfigurationExport:
 
         # Secret values should be empty in export
         lines = output.split("\n")
-        for line in lines:
-            if "SECRET_KEY=" in line:
-                assert line == 'SECRET_KEY=""'
-            elif "OPENAI_API_KEY=" in line:
-                assert line == 'OPENAI_API_KEY=""'
+        assert 'SECRET_KEY="ai-shifu"' in lines
+        assert (
+            'SQLALCHEMY_DATABASE_URI="mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4"'
+            in lines
+        )
+        assert 'OPENAI_API_KEY=""' in lines
 
 
 class TestConfigurationCaching:
@@ -389,7 +390,7 @@ class TestBackwardCompatibility:
             # Test with known ENV_VAR key not in environment - should return default from ENV_VARS
             monkeypatch.delenv("REDIS_HOST", raising=False)
             value = get_config("REDIS_HOST")
-            assert value == "localhost"  # Default value from ENV_VARS
+            assert value == "ai-shifu-redis"  # Default value from ENV_VARS
         finally:
             config_module.__INSTANCE__ = original_instance
 

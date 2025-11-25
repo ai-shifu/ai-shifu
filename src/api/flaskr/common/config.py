@@ -20,6 +20,7 @@ class EnvVar:
     name: str
     required: bool = False  # Whether variable must be explicitly set in environment
     default: Any = None  # Default value if not set (only if required=False)
+    example: Any = None  # Optional value to emit in generated example files
     type: Type = str  # Using Type annotation to avoid conflict
     description: str = ""
     validator: Optional[Callable[[Any], bool]] = None
@@ -80,32 +81,6 @@ class EnvVar:
 # Environment variable registry
 ENV_VARS: Dict[str, EnvVar] = {
     # Application Configuration
-    "WEB_URL": EnvVar(
-        name="WEB_URL",
-        default="UNCONFIGURED",
-        description="Website access domain name",
-        group="app",
-    ),
-    "NEXT_PUBLIC_LOGIN_METHODS_ENABLED": EnvVar(
-        name="NEXT_PUBLIC_LOGIN_METHODS_ENABLED",
-        default="phone",
-        description="""Login method configuration (phone, email, or both)
-Values: "phone" | "email" | "phone,email"
-Default: "phone" (phone-only login if not configured)""",
-        group="app",
-    ),
-    "NEXT_PUBLIC_DEFAULT_LOGIN_METHOD": EnvVar(
-        name="NEXT_PUBLIC_DEFAULT_LOGIN_METHOD",
-        default="phone",
-        description='Default login method tab. Values: "phone" | "email"',
-        group="app",
-    ),
-    "REACT_APP_ALWAYS_SHOW_LESSON_TREE": EnvVar(
-        name="REACT_APP_ALWAYS_SHOW_LESSON_TREE",
-        default="true",
-        description="Always show lesson tree",
-        group="app",
-    ),
     "LOGGING_PATH": EnvVar(
         name="LOGGING_PATH",
         default="logs/ai-shifu.log",
@@ -121,7 +96,8 @@ Default: "phone" (phone-only login if not configured)""",
     ),
     "SHIFU_PERMISSION_CACHE_EXPIRE": EnvVar(
         name="SHIFU_PERMISSION_CACHE_EXPIRE",
-        default="1",
+        default=300,
+        type=int,
         description="Shifu permission cache expiration time in seconds",
         group="app",
     ),
@@ -130,6 +106,121 @@ Default: "phone" (phone-only login if not configured)""",
         default="UTC",
         description="Timezone setting for the application",
         group="app",
+    ),
+    # Frontend Configuration
+    "CURRENCY_SYMBOL": EnvVar(
+        name="CURRENCY_SYMBOL",
+        default="\u00a5",
+        description="Currency symbol used in Cook Web (default: ¥)",
+        group="frontend",
+    ),
+    "HOME_URL": EnvVar(
+        name="HOME_URL",
+        default="/admin",
+        description="Default redirect path after login",
+        group="frontend",
+    ),
+    "LOGO_URL": EnvVar(
+        name="LOGO_URL",
+        default="",
+        description="Custom logo URL override returned by /api/config",
+        group="frontend",
+    ),
+    "NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT": EnvVar(
+        name="NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT",
+        default="",
+        description="Umami analytics script URL",
+        group="frontend",
+    ),
+    "NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID": EnvVar(
+        name="NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID",
+        default="",
+        description="Umami analytics site identifier",
+        group="frontend",
+    ),
+    "NEXT_PUBLIC_API_BASE_URL": EnvVar(
+        name="NEXT_PUBLIC_API_BASE_URL",
+        default="http://localhost:8080",
+        description="Cook Web API base URL (Nginx 8080 default in docker-compose)",
+        group="frontend",
+    ),
+    "NEXT_PUBLIC_DEFAULT_COURSE_ID": EnvVar(
+        name="NEXT_PUBLIC_DEFAULT_COURSE_ID",
+        default="",
+        description="Default course id for Cook Web",
+        group="frontend",
+    ),
+    "NEXT_PUBLIC_DEFAULT_LOGIN_METHOD": EnvVar(
+        name="NEXT_PUBLIC_DEFAULT_LOGIN_METHOD",
+        default="phone",
+        description='Default login method tab. Values: "phone" | "email" | "google"',
+        group="frontend",
+    ),
+    "NEXT_PUBLIC_DEBUG_ERUDA_ENABLED": EnvVar(
+        name="NEXT_PUBLIC_DEBUG_ERUDA_ENABLED",
+        default=False,
+        type=bool,
+        description="Enable Eruda debug console",
+        group="frontend",
+    ),
+    "NEXT_PUBLIC_LOGIN_METHODS_ENABLED": EnvVar(
+        name="NEXT_PUBLIC_LOGIN_METHODS_ENABLED",
+        default="phone",
+        description="""Login methods exposed to users.
+Values: "phone" | "email" | "google" combinations (comma-separated)
+Default: "phone".""",
+        group="frontend",
+    ),
+    "NEXT_PUBLIC_PAYMENT_CHANNELS_ENABLED": EnvVar(
+        name="NEXT_PUBLIC_PAYMENT_CHANNELS_ENABLED",
+        default="pingxx,stripe",
+        description="Payment channels enabled on Cook Web (comma separated)",
+        group="frontend",
+    ),
+    "NEXT_PUBLIC_STRIPE_ENABLED": EnvVar(
+        name="NEXT_PUBLIC_STRIPE_ENABLED",
+        default=False,
+        type=bool,
+        description="Enable Stripe payment entry points on Cook Web",
+        group="frontend",
+    ),
+    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": EnvVar(
+        name="NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+        default="",
+        description="Stripe publishable key for Cook Web",
+        group="frontend",
+    ),
+    "NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE": EnvVar(
+        name="NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE",
+        default=False,
+        type=bool,
+        description="Always show lesson tree in Cook Web",
+        group="frontend",
+    ),
+    "NEXT_PUBLIC_UI_LOGO_HORIZONTAL": EnvVar(
+        name="NEXT_PUBLIC_UI_LOGO_HORIZONTAL",
+        default="",
+        description="Horizontal logo URL for Cook Web",
+        group="frontend",
+    ),
+    "NEXT_PUBLIC_UI_LOGO_VERTICAL": EnvVar(
+        name="NEXT_PUBLIC_UI_LOGO_VERTICAL",
+        default="",
+        description="Vertical logo URL for Cook Web",
+        group="frontend",
+    ),
+    "NEXT_PUBLIC_WECHAT_APP_ID": EnvVar(
+        name="NEXT_PUBLIC_WECHAT_APP_ID",
+        default="",
+        description="WeChat App ID for QR login",
+        group="frontend",
+    ),
+    "NEXT_PUBLIC_WECHAT_CODE_ENABLED": EnvVar(
+        name="NEXT_PUBLIC_WECHAT_CODE_ENABLED",
+        default=True,
+        type=bool,
+        description="Enable WeChat QR login",
+        group="frontend",
     ),
     # Legal Documents Configuration
     "LEGAL_AGREEMENT_URL_ZH_CN": EnvVar(
@@ -281,6 +372,7 @@ DeepSeek: deepseek-chat""",
     "SQLALCHEMY_DATABASE_URI": EnvVar(
         name="SQLALCHEMY_DATABASE_URI",
         required=True,
+        example="mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4",
         description="""MySQL database connection URI
 Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""",
         secret=True,
@@ -317,8 +409,8 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
     # Redis Configuration
     "REDIS_HOST": EnvVar(
         name="REDIS_HOST",
-        default="localhost",
-        description="Redis server host",
+        default="ai-shifu-redis",
+        description="Redis server host (docker-compose service name by default)",
         group="redis",
     ),
     "REDIS_PORT": EnvVar(
@@ -352,64 +444,11 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Redis key prefix",
         group="redis",
     ),
-    "REDIS_KEY_PREFIX_USER": EnvVar(
-        name="REDIS_KEY_PREFIX_USER",
-        default="ai-shifu:user:",
-        description="Redis key prefix for user data",
-        group="redis",
-    ),
-    "REDIS_KEY_PREFIX_RESET_PWD": EnvVar(
-        name="REDIS_KEY_PREFIX_RESET_PWD",
-        default="ai-shifu:reset_pwd:",
-        description="Redis key prefix for password reset",
-        group="redis",
-    ),
-    "REDIS_KEY_PREFIX_PHONE": EnvVar(
-        name="REDIS_KEY_PREFIX_PHONE",
-        default="ai-shifu:phone:",
-        description="Redis key prefix for phone",
-        group="redis",
-    ),
-    "REDIS_KEY_PREFIX_PHONE_CODE": EnvVar(
-        name="REDIS_KEY_PREFIX_PHONE_CODE",
-        default="ai-shifu:phone_code:",
-        description="Redis key prefix for phone verification code",
-        group="redis",
-    ),
-    "REDIS_KEY_PREFIX_MAIL_CODE": EnvVar(
-        name="REDIS_KEY_PREFIX_MAIL_CODE",
-        default="ai-shifu:mail_code:",
-        description="Prefix of email verification code",
-        group="redis",
-    ),
-    "REDIS_KEY_PREFIX_MAIL_LIMIT": EnvVar(
-        name="REDIS_KEY_PREFIX_MAIL_LIMIT",
-        default="ai-shifu:mail_limit:",
-        description="The Redis key prefix for email sending restrictions",
-        group="redis",
-    ),
-    "REDIS_KEY_PREFIX_PHONE_LIMIT": EnvVar(
-        name="REDIS_KEY_PREFIX_PHONE_LIMIT",
-        default="ai-shifu:phone_limit:",
-        description="The prefix of Redis key for mobile phone number sending restrictions",
-        group="redis",
-    ),
-    "REDIS_KEY_PREFIX_IP_BAN": EnvVar(
-        name="REDIS_KEY_PREFIX_IP_BAN",
-        default="ai-shifu:ip_ban:",
-        description="The prefix of Redis key in the IP banned state",
-        group="redis",
-    ),
-    "REDIS_KEY_PREFIX_IP_LIMIT": EnvVar(
-        name="REDIS_KEY_PREFIX_IP_LIMIT",
-        default="ai-shifu:ip_limit:",
-        description="The Redis key prefix with a limit on the number of IP transmissions",
-        group="redis",
-    ),
     # Authentication Configuration
     "SECRET_KEY": EnvVar(
         name="SECRET_KEY",
         required=True,
+        example="ai-shifu",
         description="""Secret key for JWT token signing and verification
 CRITICAL: Used to encrypt/decrypt user authentication tokens
 - Must be a strong random string (at least 32 characters recommended)
@@ -513,6 +552,8 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     ),
     "UNIVERSAL_VERIFICATION_CODE": EnvVar(
         name="UNIVERSAL_VERIFICATION_CODE",
+        required=True,
+        example="1024",
         description=(
             "Universal verification code for testing.\n"
             "**SECURITY WARNING:** Do NOT set this in production environments.\n"
@@ -836,33 +877,6 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Environment (development/production)",
         group="flask",
     ),
-    # Frontend Configuration
-    "REACT_APP_BASEURL": EnvVar(
-        name="REACT_APP_BASEURL",
-        default="",
-        description="React app base URL",
-        group="frontend",
-    ),
-    "PORT": EnvVar(
-        name="PORT",
-        default=5000,
-        type=int,
-        description="Frontend server port",
-        group="frontend",
-        validator=lambda x: 1 <= int(x) <= 65535,
-    ),
-    "SITE_HOST": EnvVar(
-        name="SITE_HOST",
-        default="http://localhost:8080/",
-        description="Site host URL",
-        group="frontend",
-    ),
-    "REACT_APP_ENABLE_ERUDA": EnvVar(
-        name="REACT_APP_ENABLE_ERUDA",
-        default="",
-        description="Enable Eruda console for debugging",
-        group="frontend",
-    ),
     # Testing Configuration
     "DJANGO_SETTINGS_MODULE": EnvVar(
         name="DJANGO_SETTINGS_MODULE",
@@ -880,6 +894,19 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     ),
 }
 
+# Derived Redis prefixes built from REDIS_KEY_PREFIX
+REDIS_KEY_SUFFIXES: Dict[str, str] = {
+    "REDIS_KEY_PREFIX_USER": "user:",
+    "REDIS_KEY_PREFIX_RESET_PWD": "reset_pwd:",
+    "REDIS_KEY_PREFIX_PHONE": "phone:",
+    "REDIS_KEY_PREFIX_PHONE_CODE": "phone_code:",
+    "REDIS_KEY_PREFIX_MAIL_CODE": "mail_code:",
+    "REDIS_KEY_PREFIX_MAIL_LIMIT": "mail_limit:",
+    "REDIS_KEY_PREFIX_PHONE_LIMIT": "phone_limit:",
+    "REDIS_KEY_PREFIX_IP_BAN": "ip_ban:",
+    "REDIS_KEY_PREFIX_IP_LIMIT": "ip_limit:",
+}
+
 
 class EnhancedConfig:
     """Enhanced configuration management with validation and type safety."""
@@ -889,7 +916,7 @@ class EnhancedConfig:
         self._cache: Dict[str, Any] = {}
         self._validated = False
 
-    def validate_environment(self) -> None:
+    def validate_environment(self, allow_conversion_errors: bool = False) -> None:
         """Validate all required environment variables at startup."""
         errors = []
         missing_required = []
@@ -930,7 +957,15 @@ class EnhancedConfig:
                             f"- {var_name}: Invalid value '{value}' - {env_var.description}"
                         )
                 except Exception as e:
-                    validation_errors.append(f"- {var_name}: {str(e)}")
+                    # For optional fields, log and continue; required fields remain fatal
+                    if env_var.required or not allow_conversion_errors:
+                        validation_errors.append(f"- {var_name}: {str(e)}")
+                    else:
+                        logging.getLogger(__name__).warning(
+                            "Non-fatal config conversion issue for %s: %s",
+                            var_name,
+                            str(e),
+                        )
         if missing_required:
             errors.append(
                 "Missing required environment variables (must be set in environment):\n"
@@ -1046,6 +1081,10 @@ class EnhancedConfig:
                 print(item)
         print("\n" + "=" * 30 + "\n")
 
+    def export_env_example(self) -> str:
+        """Export full environment variable definitions as .env.example format."""
+        return self.export_env_example_filtered(filter_type="all")
+
     def export_env_example_filtered(self, filter_type: str = "all") -> str:
         """Export environment variable definitions as .env.example format with filtering.
 
@@ -1064,8 +1103,8 @@ class EnhancedConfig:
         else:
             header_lines = [
                 "# AI-Shifu Environment Configuration - COMPLETE SET",
-                "# Copy this file to .env for Docker usage and update at least one LLM API key",
-                "# Example keys: OPENAI_API_KEY, ERNIE_API_KEY, GLM_API_KEY, etc.\n",
+                "# Copy this file to docker/.env (or .env) to boot the Docker stack with sane defaults",
+                "# Set at least one LLM API key (e.g., OPENAI_API_KEY) before using in production.\n",
             ]
 
         lines = header_lines
@@ -1092,6 +1131,9 @@ class EnhancedConfig:
             lines.append(f"#{'=' * 60}\n")
 
             for env_var in sorted(vars, key=lambda x: x.name):
+                example_value = (
+                    env_var.example if env_var.example is not None else env_var.default
+                )
                 if env_var.description:
                     # Handle multi-line descriptions
                     description_lines = env_var.description.strip().split("\n")
@@ -1105,34 +1147,43 @@ class EnhancedConfig:
                 elif env_var.default is None:
                     metadata.append("Optional - handled by libraries")
                 else:
-                    metadata.append(f"Optional - default: {env_var.default}")
+                    # Avoid leaking secret defaults
+                    default_display = (
+                        env_var.default
+                        if not (
+                            env_var.secret
+                            and env_var.example is None
+                            and env_var.default not in (None, "")
+                        )
+                        else ""
+                    )
+                    metadata.append(f"Optional - default: {default_display}")
 
+                # Emit metadata on separate lines for readability and testing expectations
+                for item in metadata:
+                    lines.append(f"# ({item})")
                 if env_var.type is not str:
-                    metadata.append(f"Type: {env_var.type.__name__}")
-
+                    lines.append(f"# Type: {env_var.type.__name__}")
                 if env_var.validator:
-                    metadata.append("Has validation")
-
+                    lines.append("# (Has validation)")
                 if env_var.secret:
-                    metadata.append("Secret value")
-
-                if metadata:
-                    lines.append(f"# ({', '.join(metadata)})")
+                    lines.append("# Secret value")
 
                 # Set the value
                 if env_var.required:
-                    # Required variables should not have a preset value
-                    value = ""
+                    # Required variables can expose a sample value if provided
+                    value = example_value if example_value is not None else ""
                 else:
-                    default_value = (
-                        env_var.default if env_var.default is not None else ""
-                    )
-                    if env_var.secret and default_value:
+                    value = example_value if example_value is not None else ""
+                    if (
+                        env_var.secret
+                        and env_var.example is None
+                        and env_var.default not in (None, "")
+                    ):
                         value = ""
-                    else:
-                        value = default_value
 
-                lines.append(f'{env_var.name}="{value}"')
+                value_str = "" if value is None else str(value)
+                lines.append(f'{env_var.name}="{value_str}"')
                 lines.append("")
 
         # Add footer
@@ -1161,14 +1212,18 @@ class Config(FlaskConfig):
         self.parent = parent
         self.app = app
         self.enhanced = __ENHANCED_CONFIG__
+        # Reset shared cache per initialization to avoid cross-app contamination
+        self.enhanced._cache.clear()
+        self.enhanced._validated = False
         __INSTANCE__ = self
         # Validate environment on initialization
         try:
-            self.enhanced.validate_environment()
+            self.enhanced.validate_environment(allow_conversion_errors=True)
             app.logger.info("Environment configuration validated successfully")
         except EnvironmentConfigError as e:
             app.logger.error(f"Environment configuration error: {e}")
             raise
+        self._populate_redis_prefixes()
 
     def __getitem__(self, key: Any) -> Any:
         """Get configuration value using enhanced config first, with fallback to parent."""
@@ -1178,8 +1233,11 @@ class Config(FlaskConfig):
         """Get configuration attribute using enhanced config first."""
         try:
             return self.enhanced.get(key)
+        except EnvironmentConfigError:
+            # Fall back to parent on validation errors
+            return getattr(self.parent, key)
         except Exception:
-            return self.parent.__getattr__(key)
+            return getattr(self.parent, key)
 
     def __setitem__(self, key: Any, value: Any) -> None:
         """Set configuration value."""
@@ -1188,6 +1246,18 @@ class Config(FlaskConfig):
         # Clear cache
         if key in self.enhanced._cache:
             del self.enhanced._cache[key]
+
+    def _populate_redis_prefixes(self) -> None:
+        """Populate derived Redis key prefixes from the global prefix."""
+        base_prefix = self.enhanced.get_str("REDIS_KEY_PREFIX")
+        for key, suffix in REDIS_KEY_SUFFIXES.items():
+            env_value = os.environ.get(key)
+            derived_value = (
+                env_value.strip()
+                if env_value is not None and env_value.strip()
+                else f"{base_prefix}{suffix}"
+            )
+            self.parent.setdefault(key, derived_value)
 
     def get(self, key: Any, default: Any = None) -> Any:
         """Get configuration value with fallback to parent and optional default.
@@ -1202,12 +1272,23 @@ class Config(FlaskConfig):
             The configuration value, or default if not found
         """
         # Try enhanced config first
-        value = self.enhanced.get(key)
-        if value is not None:
-            return value
+        try:
+            value = self.enhanced.get(key)
+            if value is not None:
+                return value
+        except EnvironmentConfigError:
+            # Defer to parent/default when enhanced config refuses
+            # Try parent __getitem__ as next priority
+            try:
+                return self.parent.__getitem__(key)
+            except Exception:
+                return default
 
         # Fallback to parent Flask config
-        value = self.parent.get(key, None)
+        try:
+            value = self.parent.get(key, None)
+        except Exception:
+            value = None
         if value is not None:
             return value
 
@@ -1253,9 +1334,12 @@ class Config(FlaskConfig):
         This method maintains compatibility with Flask's Config.setdefault() API.
         """
         # Check enhanced config first
-        value = self.enhanced.get(key)
-        if value is not None:
-            return value
+        try:
+            value = self.enhanced.get(key)
+            if value is not None:
+                return value
+        except EnvironmentConfigError:
+            pass
 
         # Use parent's setdefault for consistency
         return self.parent.setdefault(key, default)

@@ -1,5 +1,10 @@
 import os
 import pytest
+
+# Prevent accidental loading of user/global .env files during tests
+os.environ.setdefault("SKIP_LOAD_DOTENV", "1")
+os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
+
 from app import create_app
 from flask_migrate import upgrade
 
@@ -10,6 +15,9 @@ from flask_migrate import upgrade
 #
 @pytest.fixture(scope="session", autouse=True)
 def app():
+    if os.getenv("SKIP_APP_FIXTURE"):
+        yield None
+        return
     app = create_app()
 
     with app.app_context():
