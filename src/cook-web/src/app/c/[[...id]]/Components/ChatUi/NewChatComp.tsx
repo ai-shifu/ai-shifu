@@ -67,10 +67,6 @@ export const NewChatComponents = ({
   const { mobileStyle } = useContext(AppContext);
 
   const chatRef = useRef<HTMLDivElement | null>(null);
-  const [isScrolling, setIsScrolling] = useState(false);
-  const scrollActivityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
   const { scrollToLesson } = useChatComponentsScroll({
     chatRef,
     containerStyle: styles.chatComponents,
@@ -111,7 +107,6 @@ export const NewChatComponents = ({
   const {
     items,
     isLoading,
-    isStreaming,
     onSend,
     onRefresh,
     toggleAskExpanded,
@@ -164,58 +159,6 @@ export const NewChatComponents = ({
     },
     [items],
   );
-
-  useEffect(() => {
-    const chatContainer = chatRef.current;
-    const parentContainer = chatContainer?.parentElement;
-
-    const handleScrollActivity = () => {
-      setIsScrolling(true);
-      if (scrollActivityTimeoutRef.current) {
-        clearTimeout(scrollActivityTimeoutRef.current);
-      }
-      scrollActivityTimeoutRef.current = setTimeout(() => {
-        setIsScrolling(false);
-        scrollActivityTimeoutRef.current = null;
-      }, 200);
-    };
-
-    const listeners: Array<{ element: EventTarget; handler: () => void }> = [];
-
-    if (chatContainer) {
-      chatContainer.addEventListener('scroll', handleScrollActivity, {
-        passive: true,
-      });
-      listeners.push({ element: chatContainer, handler: handleScrollActivity });
-    }
-
-    if (parentContainer && parentContainer !== chatContainer) {
-      parentContainer.addEventListener('scroll', handleScrollActivity, {
-        passive: true,
-      });
-      listeners.push({
-        element: parentContainer,
-        handler: handleScrollActivity,
-      });
-    }
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('scroll', handleScrollActivity, {
-        passive: true,
-      });
-      listeners.push({ element: window, handler: handleScrollActivity });
-    }
-
-    return () => {
-      listeners.forEach(({ element, handler }) => {
-        element.removeEventListener('scroll', handler);
-      });
-      if (scrollActivityTimeoutRef.current) {
-        clearTimeout(scrollActivityTimeoutRef.current);
-        scrollActivityTimeoutRef.current = null;
-      }
-    };
-  }, []);
 
   // Close interaction popover when scrolling
   useEffect(() => {
@@ -353,7 +296,7 @@ export const NewChatComponents = ({
                 onClickCustomButtonAfterContent={handleClickAskButton}
                 onSend={memoizedOnSend}
                 onLongPress={handleLongPress}
-                longPressEnabled={!isScrolling && !isStreaming}
+                longPressEnabled={!isScrolling}
               />
             </div>
           );
