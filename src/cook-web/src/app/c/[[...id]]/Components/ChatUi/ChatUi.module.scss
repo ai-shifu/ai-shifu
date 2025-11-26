@@ -1,6 +1,8 @@
 .ChatUi {
   position: relative;
   flex: 1;
+  box-sizing: border-box;
+  min-height: 100vh;
 
   .header {
     position: absolute;
