@@ -1,7 +1,7 @@
 {
   "__namespace__": "common.core",
-  "all": "All",
   "adminTitle": "Admin",
+  "all": "All",
   "cancel": "Cancel",
   "companyAddress": "Room 163, 19th Floor, Donghuan Building, Wangjing, Chaoyang District, Beijing",
   "companyName": "Beijing Chanchanshanmu Technology Co., Ltd.",
@@ -16,19 +16,17 @@
   "follow": "Follow",
   "home": "Home",
   "logout": "Logout",
+  "more": "More",
   "networkError": "Network error, please try again later",
   "noMoreShifus": "No more Shifus",
   "noShifus": "No Shifus available",
   "ok": "OK",
-  "more": "More",
   "retry": "Retry",
   "selectModel": "Model",
   "settings": "Settings",
   "shifu": "Shifu",
   "shortcut": {
     "key": {
-
-
       "cmd": "⌘",
       "ctrl": "Ctrl",
       "shift": "⇧",

@@ -1,20 +1,20 @@
 {
   "__namespace__": "module.shifu",
-  "newChapter": "Add Chapter",
   "creationArea": {
     "description": "Write a creation guide for AI, and let it generate the final content",
-    "title": "Creation Area",
+    "modeCode": "Raw",
     "modeText": "Visual",
-    "modeCode": "Raw"
+    "title": "Creation Area"
   },
+  "newChapter": "Add Chapter",
   "previewArea": {
-    "title": "Preview Area",
+    "action": "Preview",
+    "close": "Hide preview panel",
     "description": "Different results for each run.",
+    "disabled": "Select a unit before previewing.",
     "empty": "Add content on the left, then click “Preview” to create a result.",
     "loading": "Generating preview...",
-    "action": "Preview",
     "open": "Show preview panel",
-    "close": "Hide preview panel",
-    "disabled": "Select a unit before previewing."
+    "title": "Preview Area"
   }
 }
