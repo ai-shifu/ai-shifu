@@ -121,6 +121,9 @@ html {
 .content-render-theme {
   --primary: var(--primary-color);
   --primary-foreground: var(--primary-foreground-color);
+  strong {
+    color: var(--primary);
+  }
   .content-render-custom-button-after-content {
     width: 58px;
     height: 20px;
@@ -138,7 +141,7 @@ html {
   }
 
   &.mobile {
-    .custom-variable-container {
+    /* .custom-variable-container {
       width: 100%;
       > span {
         width: 100%;
@@ -150,7 +153,7 @@ html {
     .markdown-body textarea {
       min-width: 0;
       width: 100%;
-    }
+    } */
   }
 }
 
