@@ -111,6 +111,7 @@ export const NewChatComponents = ({
   const {
     items,
     isLoading,
+    isStreaming,
     onSend,
     onRefresh,
     toggleAskExpanded,
@@ -352,7 +353,7 @@ export const NewChatComponents = ({
                 onClickCustomButtonAfterContent={handleClickAskButton}
                 onSend={memoizedOnSend}
                 onLongPress={handleLongPress}
-                longPressEnabled={!isScrolling}
+                longPressEnabled={!isScrolling && !isStreaming}
               />
             </div>
           );

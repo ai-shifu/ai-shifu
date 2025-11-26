@@ -111,6 +111,7 @@ export interface UseChatSessionParams {
 export interface UseChatSessionResult {
   items: ChatContentItem[];
   isLoading: boolean;
+  isStreaming: boolean;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onRefresh: (generatedBlockBid: string) => void;
   toggleAskExpanded: (parentBlockBid: string) => void;
@@ -178,6 +179,7 @@ function useChatLogicHook({
   const sseRef = useRef<any>(null);
   const lastInteractionBlockRef = useRef<ChatContentItem | null>(null);
   const hasScrolledToBottomRef = useRef<boolean>(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [pendingRegenerate, setPendingRegenerate] = useState<{
     content: OnSendContentParams;
     blockBid: string;
@@ -638,9 +640,11 @@ function useChatLogicHook({
         // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
         if (source.readyState === 1) {
           isStreamingRef.current = true;
+          setIsStreaming(true);
         }
         if (source.readyState === 2) {
           isStreamingRef.current = false;
+          setIsStreaming(false);
         }
       });
       source.addEventListener('error', () => {
@@ -648,6 +652,7 @@ function useChatLogicHook({
           return prev.filter(item => item.generated_block_bid !== 'loading');
         });
         isStreamingRef.current = false;
+        setIsStreaming(false);
       });
       sseRef.current = source;
     },
@@ -1230,6 +1235,7 @@ function useChatLogicHook({
   return {
     items,
     isLoading,
+    isStreaming,
     onSend,
     onRefresh,
     toggleAskExpanded,
