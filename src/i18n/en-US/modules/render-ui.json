@@ -5,7 +5,7 @@
   "buttonText": "Button Text",
   "cancel": "Cancel",
   "collapse": "Collapse",
-  "confirm": "Confirm",
+  "confirm": "Submit",
   "confirmChange": "Confirm Change",
   "confirmChangeDescription": "This operation will cause the current content to be lost. Are you sure?",
   "content": "Content",
