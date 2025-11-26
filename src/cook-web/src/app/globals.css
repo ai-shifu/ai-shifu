@@ -119,7 +119,7 @@ html {
 
 /* HACK: mdf-ui not support hsl, so we need to use var(--primary-color) and var(--primary-foreground-color) */
 .content-render-theme {
-  /* --primary: var(--primary-color); */
+  --primary: var(--primary-color);
   --primary-foreground: var(--primary-foreground-color);
   strong {
     color: var(--primary);
