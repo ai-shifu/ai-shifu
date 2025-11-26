@@ -15,6 +15,7 @@ interface ContentBlockProps {
   onClickCustomButtonAfterContent?: (blockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onLongPress?: (event: any, item: ChatContentItem) => void;
+  longPressEnabled?: boolean;
 }
 
 const ContentBlock = memo(
@@ -26,6 +27,7 @@ const ContentBlock = memo(
     onClickCustomButtonAfterContent,
     onSend,
     onLongPress,
+    longPressEnabled = true,
   }: ContentBlockProps) => {
     const handleClick = useCallback(() => {
       onClickCustomButtonAfterContent?.(blockBid);
@@ -55,7 +57,7 @@ const ContentBlock = memo(
     return (
       <div
         className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
-        {...(mobileStyle ? longPressEvent : {})}
+        {...(mobileStyle && longPressEnabled ? longPressEvent : {})}
       >
         <ContentRender
           // typingSpeed={20}
@@ -86,7 +88,8 @@ const ContentBlock = memo(
       prevProps.item.content === nextProps.item.content &&
       prevProps.mobileStyle === nextProps.mobileStyle &&
       prevProps.blockBid === nextProps.blockBid &&
-      prevProps.confirmButtonText === nextProps.confirmButtonText
+      prevProps.confirmButtonText === nextProps.confirmButtonText &&
+      prevProps.longPressEnabled === nextProps.longPressEnabled
     );
   },
 );
