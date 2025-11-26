@@ -121,7 +121,7 @@ html {
 .content-render-theme {
   /* --primary: var(--primary-color); */
   --primary-foreground: var(--primary-foreground-color);
-  strong{
+  strong {
     color: var(--primary);
   }
   .content-render-custom-button-after-content {
