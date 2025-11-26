@@ -5,12 +5,12 @@
       "label": "English",
       "rtl": false
     },
-    "zh-CN": {
-      "label": "中文",
-      "rtl": false
-    },
     "qps-ploc": {
       "label": "⟦Ēňǥŀįšħ⟧",
+      "rtl": false
+    },
+    "zh-CN": {
+      "label": "中文",
       "rtl": false
     }
   },

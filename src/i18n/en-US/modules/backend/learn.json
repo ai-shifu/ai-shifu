@@ -1,8 +1,8 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
-    "nextChapterButton": "Next",
     "generatedBlockNotFound": "Generated block not found",
-    "invalidAction": "Invalid action"
+    "invalidAction": "Invalid action",
+    "nextChapterButton": "Next"
   }
 }

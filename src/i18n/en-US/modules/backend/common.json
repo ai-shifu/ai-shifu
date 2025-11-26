@@ -1,11 +1,10 @@
 {
   "__namespace__": "server.common",
   "__flat__": {
-    "unknownError": "Unknown Error",
-    "paramsError": "Params Error {param_message}",
-
-    "nicknameNotAllowed": "Oops, illegal nickname.",
     "backgroundNotAllowed": "Oops, illegal background.",
-    "startTimeNotAllowed": "Start time cannot be later than end time"
+    "nicknameNotAllowed": "Oops, illegal nickname.",
+    "paramsError": "Params Error {param_message}",
+    "startTimeNotAllowed": "Start time cannot be later than end time",
+    "unknownError": "Unknown Error"
   }
 }

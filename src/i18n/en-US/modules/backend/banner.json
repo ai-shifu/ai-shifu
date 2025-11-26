@@ -1,10 +1,10 @@
 {
   "__namespace__": "server.banner",
   "__flat__": {
-    "bannerTitle": "Unlock All",
-    "bannerPopUpTitle": "Unlock All Content Anytime",
-    "bannerPopUpContent": "Gain unlimited access and enjoy stress-free learning",
+    "bannerPopUpCancelText": "Keep Exploring",
     "bannerPopUpConfirmText": "Unlock Now!",
-    "bannerPopUpCancelText": "Keep Exploring"
+    "bannerPopUpContent": "Gain unlimited access and enjoy stress-free learning",
+    "bannerPopUpTitle": "Unlock All Content Anytime",
+    "bannerTitle": "Unlock All"
   }
 }

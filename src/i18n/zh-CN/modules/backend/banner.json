@@ -1,10 +1,10 @@
 {
   "__namespace__": "server.banner",
   "__flat__": {
-    "bannerTitle": "解锁全部",
-    "bannerPopUpTitle": "在此随时解锁全部内容",
-    "bannerPopUpContent": "立即获得无限追问等诸多权益，让学习从容无忧",
+    "bannerPopUpCancelText": "再学学看",
     "bannerPopUpConfirmText": "立即解锁",
-    "bannerPopUpCancelText": "再学学看"
+    "bannerPopUpContent": "立即获得无限追问等诸多权益，让学习从容无忧",
+    "bannerPopUpTitle": "在此随时解锁全部内容",
+    "bannerTitle": "解锁全部"
   }
 }
