@@ -108,6 +108,14 @@ ENV_VARS: Dict[str, EnvVar] = {
         group="app",
     ),
     # Frontend Configuration
+    "PORT": EnvVar(
+        name="PORT",
+        default=5000,
+        type=int,
+        description="Frontend server port",
+        group="frontend",
+        validator=lambda x: 1 <= int(x) <= 65535,
+    ),
     "CURRENCY_SYMBOL": EnvVar(
         name="CURRENCY_SYMBOL",
         default="\u00a5",
@@ -564,7 +572,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     ),
     "ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO": EnvVar(
         name="ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO",
-        default=False,
+        default=True,
         type=bool,
         description=(
             "When enabled, users logging in from the admin interface are "
