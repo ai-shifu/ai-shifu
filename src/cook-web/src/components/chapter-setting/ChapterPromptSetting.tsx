@@ -67,7 +67,6 @@ const ChapterPromptSetting = ({
 
   useEffect(() => {
     if (!open) {
-      setSystemPrompt('');
       setIsDirty(false);
     } else {
       fetchOutlineInfo();
