@@ -7,6 +7,7 @@ import {
   useCallback,
   useState,
   useEffect,
+  useMemo,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -102,13 +103,6 @@ export const NewChatComponents = ({
     likeStatus: null as any,
   });
   const [longPressedBlockBid, setLongPressedBlockBid] = useState<string>('');
-  const [isScrolling, setIsScrolling] = useState(false);
-  const touchStartRef = useRef({ x: 0, y: 0 });
-  const isScrollingRef = useRef(false);
-
-  useEffect(() => {
-    isScrollingRef.current = isScrolling;
-  }, [isScrolling]);
 
   const {
     items,
@@ -139,9 +133,6 @@ export const NewChatComponents = ({
 
   const handleLongPress = useCallback(
     (event: any, currentBlock: ChatContentItem) => {
-      if (isScrollingRef.current) {
-        return;
-      }
       if (currentBlock.type !== ChatContentItemType.CONTENT) {
         return;
       }
@@ -218,81 +209,6 @@ export const NewChatComponents = ({
 
   // Memoize onSend to prevent new function references
   const memoizedOnSend = useCallback(onSend, [onSend]);
-
-  useEffect(() => {
-    if (!mobileStyle) {
-      setIsScrolling(false);
-      return;
-    }
-
-    const chatContainer = chatRef.current;
-    if (!chatContainer) {
-      return;
-    }
-
-    const threshold = 10;
-
-    const handleTouchStart = (event: TouchEvent) => {
-      const touch = event.touches[0];
-      if (!touch) {
-        return;
-      }
-
-      touchStartRef.current = {
-        x: touch.clientX,
-        y: touch.clientY,
-      };
-      setIsScrolling(false);
-    };
-
-    const handleTouchMove = (event: TouchEvent) => {
-      const touch = event.touches[0];
-      if (!touch) {
-        return;
-      }
-
-      const dx = Math.abs(touch.clientX - touchStartRef.current.x);
-      const dy = Math.abs(touch.clientY - touchStartRef.current.y);
-
-      if (dx > threshold || dy > threshold) {
-        if (!isScrollingRef.current) {
-          setIsScrolling(true);
-          setLongPressedBlockBid('');
-          setMobileInteraction(prev =>
-            prev.open ? { ...prev, open: false } : prev,
-          );
-        }
-      }
-    };
-
-    const resetScrolling = () => {
-      if (isScrollingRef.current) {
-        requestAnimationFrame(() => {
-          setIsScrolling(false);
-        });
-      }
-    };
-
-    chatContainer.addEventListener('touchstart', handleTouchStart, {
-      passive: true,
-    });
-    chatContainer.addEventListener('touchmove', handleTouchMove, {
-      passive: true,
-    });
-    chatContainer.addEventListener('touchend', resetScrolling, {
-      passive: true,
-    });
-    chatContainer.addEventListener('touchcancel', resetScrolling, {
-      passive: true,
-    });
-
-    return () => {
-      chatContainer.removeEventListener('touchstart', handleTouchStart);
-      chatContainer.removeEventListener('touchmove', handleTouchMove);
-      chatContainer.removeEventListener('touchend', resetScrolling);
-      chatContainer.removeEventListener('touchcancel', resetScrolling);
-    };
-  }, [mobileStyle, chatRef]);
 
   return (
     <div
