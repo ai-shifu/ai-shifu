@@ -29,17 +29,16 @@ const stripStreamingMarker = (text: string) =>
   text.replace(STREAMING_MARKER_REGEX, `${MERMAID_FENCE}\n`);
 
 const getMermaidPlaceholderContent = () => {
-  const translated = i18n.t('module.chat.generating');
-  const fallback = i18n.t('module.chat.thinking');
-  const message = (() => {
-    if (typeof translated === 'string' && translated.trim().length) {
-      return translated;
-    }
-    if (typeof fallback === 'string' && fallback.trim().length) {
-      return fallback;
-    }
-    return 'Loading...';
-  })();
+  const generatingKey = 'module.chat.generating';
+  const thinkingKey = 'module.chat.thinking';
+  const translated = i18n.t(generatingKey);
+  const fallback = i18n.t(thinkingKey);
+  let message = 'Loading...';
+  if (typeof translated === 'string' && translated.trim().length && translated !== generatingKey) {
+    message = translated;
+  } else if (typeof fallback === 'string' && fallback.trim().length && fallback !== thinkingKey) {
+    message = fallback;
+  }
   return `graph TD\n${message}`;
 };
 
