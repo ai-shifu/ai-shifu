@@ -19,7 +19,7 @@
   margin-right: 3px;
 }
 .ask-button:not(:disabled):hover {
-  background: hsl(var(--primary));
+  background: var(--primary);
 }
 .ask-button:disabled {
   cursor: not-allowed;

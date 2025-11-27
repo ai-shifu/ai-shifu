@@ -23,7 +23,7 @@
   margin-right: 3px;
 
   &:not(:disabled):hover {
-    background: hsl(var(--primary));
+    background: var(--primary);
   }
 
   &:disabled {
