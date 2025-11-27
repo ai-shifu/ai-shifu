@@ -296,7 +296,6 @@ export const NewChatComponents = ({
                 onClickCustomButtonAfterContent={handleClickAskButton}
                 onSend={memoizedOnSend}
                 onLongPress={handleLongPress}
-                longPressEnabled={!isScrolling}
               />
             </div>
           );
