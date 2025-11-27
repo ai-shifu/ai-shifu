@@ -229,7 +229,7 @@ def _load_ark_models(
 def _load_gemini_models(
     config: ProviderConfig, params: Dict[str, str], base_url: Optional[str]
 ) -> List[Union[str, Tuple[str, str]]]:
-    models: List[Union[str, Tuple[str, str]]] = list(GEMINI_MODEL_ALIASES)
+    models: List[Union[str, Tuple[str, str]]] = []
     api_key = params.get("api_key")
     if not api_key:
         return models
@@ -269,9 +269,6 @@ GLM_PREFIX = "glm/"
 SILICON_PREFIX = "silicon/"
 GEMINI_PREFIX = ""
 DEEPSEEK_EXTRA_MODELS = ["deepseek-chat"]
-GEMINI_MODEL_ALIASES: List[Tuple[str, str]] = [
-    ("gemini-1.5-pro-latest", "gemini-1.5-pro")
-]
 
 LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
     ProviderConfig(
