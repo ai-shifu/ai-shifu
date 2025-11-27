@@ -224,7 +224,14 @@ QWEN_PREFIX = "qwen/"
 ERNIE_V2_PREFIX = "ernie/"
 GLM_PREFIX = "glm/"
 SILICON_PREFIX = "silicon/"
+GEMINI_PREFIX = "gemini/"
 DEEPSEEK_EXTRA_MODELS = ["deepseek-chat"]
+GEMINI_STATIC_MODELS = [
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-8b",
+    "gemini-1.5-pro",
+    "gemini-1.5-pro-latest",
+]
 
 LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
     ProviderConfig(
@@ -262,6 +269,18 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         extra_models=DEEPSEEK_EXTRA_MODELS,
         config_hint="DEEPSEEK_API_KEY,DEEPSEEK_API_URL",
         custom_llm_provider="openai",
+    ),
+    ProviderConfig(
+        key="gemini",
+        api_key_env="GEMINI_API_KEY",
+        base_url_env="GEMINI_API_URL",
+        default_base_url="https://generativelanguage.googleapis.com",
+        prefix=GEMINI_PREFIX,
+        static_models=GEMINI_STATIC_MODELS,
+        fetch_models=False,
+        wildcard_prefixes=("gemini-",),
+        config_hint="GEMINI_API_KEY,GEMINI_API_URL",
+        custom_llm_provider="gemini",
     ),
     ProviderConfig(
         key="glm",

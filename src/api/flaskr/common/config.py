@@ -344,6 +344,19 @@ Default: "phone".""",
         description="DeepSeek API URL",
         group="llm",
     ),
+    "GEMINI_API_KEY": EnvVar(
+        name="GEMINI_API_KEY",
+        default="",
+        description="Google Gemini API key",
+        secret=True,
+        group="llm",
+    ),
+    "GEMINI_API_URL": EnvVar(
+        name="GEMINI_API_URL",
+        default="https://generativelanguage.googleapis.com",
+        description="Google Gemini API base URL",
+        group="llm",
+    ),
     "QWEN_API_KEY": EnvVar(
         name="QWEN_API_KEY",
         default="",
@@ -365,7 +378,8 @@ OpenAI: gpt-4o-latest, gpt-4o-mini, gpt-4, gpt-3.5-turbo, chatgpt-4o-latest
 ERNIE: ERNIE-4.0-8K, ERNIE-3.5-8K, ERNIE-3.5-128K, ERNIE-Speed-8K, ERNIE-Speed-128K
 GLM: glm-4, glm-4-air, glm-4-airx, glm-4-flash, glm-4v, glm-3-turbo
 Qwen: qwen-long, qwen-max, qwen-max-longcontext, qwen-plus, qwen-turbo, qwen2-*
-DeepSeek: deepseek-chat""",
+DeepSeek: deepseek-chat
+Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
         group="llm",
     ),
     "DEFAULT_LLM_TEMPERATURE": EnvVar(
@@ -951,6 +965,7 @@ class EnhancedConfig:
             "ARK_API_KEY",
             "SILICON_API_KEY",
             "GLM_API_KEY",
+            "GEMINI_API_KEY",
             "DEEPSEEK_API_KEY",
             "QWEN_API_KEY",
             "BIGMODEL_API_KEY",
