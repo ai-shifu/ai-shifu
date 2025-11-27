@@ -30,7 +30,10 @@ const stripStreamingMarker = (text: string) =>
 
 const getMermaidPlaceholderContent = () => {
   const translated = i18n.t('module.chat.generating');
-  return `graph TD\n${translated}`;
+  return `graph TD
+    placeholder["${translated}"]
+    classDef ghost stroke-dasharray:4 3;
+    class placeholder ghost;`;
 };
 
 /**
