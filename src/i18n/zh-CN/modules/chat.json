@@ -10,6 +10,6 @@
   "regenerate": "重新生成",
   "regenerateConfirmDescription": "选择重新生成后，此内容及其以后的内容将会重新生成，当前的内容将被清空。",
   "regenerateConfirmTitle": "确定重新生成此内容？",
-  "generating": "生成中...",
+  "generating": "插图生成中...",
   "thinking": "思考中..."
 }
