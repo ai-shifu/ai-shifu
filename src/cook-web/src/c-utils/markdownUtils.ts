@@ -1,3 +1,5 @@
+import i18n from '@/i18n';
+
 export const fixMarkdown = text => {
   return fixCode(text);
 };
@@ -21,7 +23,25 @@ export const fixCodeStream = (text, curr) => {
 };
 
 const MERMAID_FENCE = '```mermaid';
-const MERMAID_PLACEHOLDER = '```mermaid_streaming';
+const STREAMING_MARKER_REGEX = /```mermaid\s*_streaming\s*/gi;
+
+const stripStreamingMarker = (text: string) =>
+  text.replace(STREAMING_MARKER_REGEX, `${MERMAID_FENCE}\n`);
+
+const getMermaidPlaceholderContent = () => {
+  const translated = i18n.t('module.chat.generating');
+  const fallback = i18n.t('module.chat.thinking');
+  const message = (() => {
+    if (typeof translated === 'string' && translated.trim().length) {
+      return translated;
+    }
+    if (typeof fallback === 'string' && fallback.trim().length) {
+      return fallback;
+    }
+    return 'Loading...';
+  })();
+  return `graph TD\n${message}`;
+};
 
 /**
  * Prevent mermaid from rendering while the fenced block is still streaming.
@@ -44,10 +64,9 @@ export const maskIncompleteMermaidBlock = (text: string): string => {
   if (closingIdx === -1) {
     return (
       text.slice(0, fenceIdx) +
-      MERMAID_PLACEHOLDER +
-      text.slice(fenceIdx + MERMAID_FENCE.length)
+      `${MERMAID_FENCE}\n${getMermaidPlaceholderContent()}\n\`\`\``
     );
   }
 
-  return text;
+  return stripStreamingMarker(text);
 };

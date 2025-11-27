@@ -168,6 +168,7 @@ export type I18nKey =
   | 'module.chat.regenerate'
   | 'module.chat.regenerateConfirmDescription'
   | 'module.chat.regenerateConfirmTitle'
+  | 'module.chat.generating'
   | 'module.chat.thinking'
   | 'module.feedback.feedbackError'
   | 'module.feedback.feedbackPlaceholder'
