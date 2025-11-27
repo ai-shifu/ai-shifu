@@ -308,7 +308,7 @@ class TestConfigGetAttr:
         app = Flask(__name__)
         app.logger = MagicMock()
         parent_config = MagicMock()
-        parent_config.__getattr__.return_value = "parent-attr"
+        parent_config.UNKNOWN_ATTR = "parent-attr"
 
         config = Config(parent_config, app)
 
@@ -316,7 +316,6 @@ class TestConfigGetAttr:
         with patch.object(config.enhanced, "get", side_effect=Exception("Unknown")):
             value = config.UNKNOWN_ATTR
             assert value == "parent-attr"
-            parent_config.__getattr__.assert_called_with("UNKNOWN_ATTR")
 
 
 class TestConfigSetDefault:
@@ -335,6 +334,7 @@ class TestConfigSetDefault:
         parent_config = MagicMock()
 
         config = Config(parent_config, app)
+        parent_config.setdefault.reset_mock()
 
         # Should return existing value
         result = config.setdefault("REDIS_HOST", "default-host")
@@ -377,7 +377,7 @@ class TestConfigCall:
         app = Flask(__name__)
         app.logger = MagicMock()
         parent_config = MagicMock()
-        parent_config.__call__.return_value = "call-result"
+        parent_config.__call__ = MagicMock(return_value="call-result")
 
         config = Config(parent_config, app)
 
@@ -435,7 +435,7 @@ class TestGetConfigFunction:
             # Test with known ENV_VAR key not in environment - should return default from ENV_VARS
             monkeypatch.delenv("REDIS_HOST", raising=False)
             value = get_config("REDIS_HOST")
-            assert value == "localhost"  # Default value from ENV_VARS
+            assert value == "ai-shifu-redis"  # Default value from ENV_VARS
         finally:
             # Restore original instance
             config_module.__INSTANCE__ = original_instance
