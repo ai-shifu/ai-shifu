@@ -235,6 +235,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         filter_fn=lambda model_id: model_id.startswith("gpt"),
         wildcard_prefixes=("gpt",),
         config_hint="OPENAI_API_KEY,OPENAI_BASE_URL",
+        custom_llm_provider="openai",
     ),
     ProviderConfig(
         key="qwen",
