@@ -45,7 +45,7 @@ html {
     --destructive-foreground: #f9fafb;
     --border: #e5e7eb;
     --input: #e5e7eb;
-    --ring: #0f63ee;
+    --ring: var(--primary);
     --radius: 0.5rem;
     --chart-1: #e76e50;
     --chart-2: #2a9d90;
@@ -76,7 +76,7 @@ html {
     --destructive-foreground: #f9fafb;
     --border: #1f2937;
     --input: #1f2937;
-    --ring: #0f63ee;
+    --ring: var(--primary);
     --chart-1: #2662d9;
     --chart-2: #2eb88a;
     --chart-3: #e88c30;
