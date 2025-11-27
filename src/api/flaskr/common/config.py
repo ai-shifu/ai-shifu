@@ -353,8 +353,8 @@ Default: "phone".""",
     ),
     "GEMINI_API_URL": EnvVar(
         name="GEMINI_API_URL",
-        default="https://generativelanguage.googleapis.com",
-        description="Google Gemini API base URL",
+        default="",
+        description="Optional Google Gemini API base URL (leave blank to use default)",
         group="llm",
     ),
     "QWEN_API_KEY": EnvVar(
