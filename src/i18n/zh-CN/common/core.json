@@ -1,7 +1,7 @@
 {
   "__namespace__": "common.core",
-  "all": "全部",
   "adminTitle": "管理后台",
+  "all": "全部",
   "cancel": "取消",
   "companyAddress": "北京朝阳区望京东煌大厦19层163室",
   "companyName": "北京潺潺山木科技有限公司",
@@ -16,19 +16,17 @@
   "follow": "关注",
   "home": "首页",
   "logout": "退出",
+  "more": "更多",
   "networkError": "网络错误,请稍后重试",
   "noMoreShifus": "没有更多师傅了",
   "noShifus": "暂无师傅",
   "ok": "确定",
-  "more": "更多",
   "retry": "重试",
   "selectModel": "模型",
   "settings": "设置",
   "shifu": "师傅",
   "shortcut": {
     "key": {
-
-
       "cmd": "⌘",
       "ctrl": "Ctrl",
       "shift": "⇧",

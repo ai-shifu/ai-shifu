@@ -1,8 +1,8 @@
 {
   "__namespace__": "module.feedback",
+  "feedbackError": "Feedback submission failed",
   "feedbackPlaceholder": "Please enter feedback",
   "feedbackSubmit": "Submit",
-  "feedbackError": "Feedback submission failed",
   "feedbackSuccess": "Feedback submitted successfully",
   "feedbackTitle": "Feedback"
 }

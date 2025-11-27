@@ -155,7 +155,7 @@ class TestEnhancedConfigGet:
         config = EnhancedConfig(FULL_TEST_ENV_VARS)
 
         # Should return default value
-        assert config.get("REDIS_HOST") == "localhost"
+        assert config.get("REDIS_HOST") == "ai-shifu-redis"
 
     def test_get_with_type_conversion(self, monkeypatch):
         """Test getting variable with type conversion."""
@@ -205,7 +205,7 @@ class TestEnhancedConfigGet:
 
         config = EnhancedConfig(FULL_TEST_ENV_VARS)
 
-        assert config.get("REDIS_HOST") == "localhost"  # Should return default
+        assert config.get("REDIS_HOST") == "ai-shifu-redis"  # Should return default
 
 
 class TestEnhancedConfigDebugPrint:

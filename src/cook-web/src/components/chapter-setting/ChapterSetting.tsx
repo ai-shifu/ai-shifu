@@ -97,9 +97,6 @@ const ChapterSettingsDialog = ({
 
   useEffect(() => {
     if (!open) {
-      setLearningPermission(LEARNING_PERMISSION.NORMAL);
-      setSystemPrompt('');
-      setHideChapter(false);
       setIsDirty(false);
     } else {
       fetchOutlineInfo();
@@ -131,13 +128,6 @@ const ChapterSettingsDialog = ({
     <Sheet
       open={open}
       onOpenChange={newOpen => {
-        if (
-          document.activeElement?.tagName === 'INPUT' ||
-          document.activeElement?.tagName === 'TEXTAREA' ||
-          document.activeElement?.getAttribute('role') === 'radio'
-        ) {
-          return;
-        }
         onOpenChange?.(newOpen);
       }}
     >

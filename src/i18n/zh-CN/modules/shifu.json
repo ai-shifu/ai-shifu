@@ -1,20 +1,20 @@
 {
   "__namespace__": "module.shifu",
-  "newChapter": "添加章",
   "creationArea": {
     "description": "给 AI 撰写创作指南，让它生成最终内容",
-    "title": "创作区",
+    "modeCode": "文本",
     "modeText": "可视",
-    "modeCode": "文本"
+    "title": "创作区"
   },
+  "newChapter": "添加章",
   "previewArea": {
-    "title": "预览区",
+    "action": "预览",
+    "close": "收起预览区",
     "description": "每人每次，效果不同",
+    "disabled": "请选择具体小节后再预览",
     "empty": "请在左侧输入内容，然后点击“预览”按钮开始",
     "loading": "正在生成预览...",
-    "action": "预览",
     "open": "展开预览区",
-    "close": "收起预览区",
-    "disabled": "请选择具体小节后再预览"
+    "title": "预览区"
   }
 }

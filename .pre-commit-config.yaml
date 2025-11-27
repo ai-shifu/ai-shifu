@@ -11,8 +11,8 @@ repos:
     -   id: end-of-file-fixer
     -   id: trailing-whitespace
     -   id: pretty-format-json
-        args: ['--autofix', '--indent=2', '--no-ensure-ascii', '--top-keys=langName']
-        files: ^src/cook-web/public/locales/.*\.json$
+        args: ['--autofix', '--indent=2', '--no-ensure-ascii', '--top-keys=__namespace__']
+        files: ^src/i18n/.*\.json$
     -   id: requirements-txt-fixer
         exclude: ^src/api/requirements\.txt$
 -   repo: https://github.com/astral-sh/ruff-pre-commit

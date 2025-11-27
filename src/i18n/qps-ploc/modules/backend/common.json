@@ -1,10 +1,10 @@
 {
   "__namespace__": "⟦šēřṽēř.ćømmøň⟧",
   "__flat__": {
-    "unknownError": "⟦Ųňķňøŵň Ēřřøř⟧",
-    "paramsError": "⟦Ƥåřåmš Ēřřøř {param_message}⟧",
-    "nicknameNotAllowed": "⟦Øøƥš, įŀŀēǥåŀ ňįćķňåmē.⟧",
     "backgroundNotAllowed": "⟦Øøƥš, įŀŀēǥåŀ ƀåćķǥřøųňđ.⟧",
-    "startTimeNotAllowed": "⟦Šŧåřŧ ŧįmē ćåňňøŧ ƀē ŀåŧēř ŧħåň ēňđ ŧįmē⟧"
+    "nicknameNotAllowed": "⟦Øøƥš, įŀŀēǥåŀ ňįćķňåmē.⟧",
+    "paramsError": "⟦Ƥåřåmš Ēřřøř {param_message}⟧",
+    "startTimeNotAllowed": "⟦Šŧåřŧ ŧįmē ćåňňøŧ ƀē ŀåŧēř ŧħåň ēňđ ŧįmē⟧",
+    "unknownError": "⟦Ųňķňøŵň Ēřřøř⟧"
   }
 }

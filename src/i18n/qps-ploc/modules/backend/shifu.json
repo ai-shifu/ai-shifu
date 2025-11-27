@@ -1,21 +1,21 @@
 {
   "__namespace__": "⟦šēřṽēř.šħįƒų⟧",
   "__flat__": {
+    "importFileInvalid": "⟦Īňƥųŧ ēɱǥ ŀøňǥ įš įɴƥųŧ⟧",
     "noPermission": "⟦Ňø ƥēřmįššįøň⟧",
     "outlineDeleted": "⟦Øųŧŀįňē ħåš ƀēēň đēŀēŧēđ⟧",
     "outlineItemNotFound": "⟦Øųŧŀįňē įŧēm ňøŧ ƒøųňđ⟧",
     "outlineNameTooLong": "⟦Øųŧŀįňē ňåmē įš ŧøø ŀøňǥ⟧",
+    "outlineNotFound": "⟦Øųŧŀįňē ňøŧ ƒøųňđ⟧",
     "parentOutlineNotFound": "⟦Ƥåřēňŧ øųŧŀįňē ňøŧ ƒøųňđ⟧",
+    "shifuDescriptionTooLong": "⟦Šħįƒų đēšćřįƥŧįøň įš ŧøø ŀøňǥ (måẋ 500 ćħåřåćŧēřš)⟧",
+    "shifuNameAlreadyExists": "⟦Šħįƒų ňåmē åŀřēåđŷ ēẋįšŧš⟧",
+    "shifuNameRequired": "⟦Šħįƒų ňåmē įš řēɋųįřēđ⟧",
+    "shifuNameTooLong": "⟦Šħįƒų ňåmē įš ŧøø ŀøňǥ (måẋ {max_length} ćħåřåćŧēřš)⟧",
     "shifuNotFound": "⟦Šħįƒų ňøŧ ƒøųňđ⟧",
+    "shifuPriceTooLow": "⟦Šħįƒų ƥŗįƈē įš ŧøø ŀøňǥ (mįñ {min_shifu_price})⟧",
     "shifuStructNotFound": "⟦Šħįƒų šŧřųćŧųřē ňøŧ ƒøųňđ⟧",
     "unitNameTooLong": "⟦Ųňįŧ ňåmē įš ŧøø ŀøňǥ⟧",
-    "unitNotFound": "⟦Ųňįŧ ňøŧ ƒøųňđ⟧",
-    "shifuNameRequired": "⟦Šħįƒų ňåmē įš řēɋųįřēđ⟧",
-    "shifuNameAlreadyExists": "⟦Šħįƒų ňåmē åŀřēåđŷ ēẋįšŧš⟧",
-    "outlineNotFound": "⟦Øųŧŀįňē ňøŧ ƒøųňđ⟧",
-    "shifuNameTooLong": "⟦Šħįƒų ňåmē įš ŧøø ŀøňǥ (måẋ {max_length} ćħåřåćŧēřš)⟧",
-    "shifuDescriptionTooLong": "⟦Šħįƒų đēšćřįƥŧįøň įš ŧøø ŀøňǥ (måẋ 500 ćħåřåćŧēřš)⟧",
-    "importFileInvalid": "⟦Īňƥųŧ ēɱǥ ŀøňǥ įš įɴƥųŧ⟧",
-    "shifuPriceTooLow": "⟦Šħįƒų ƥŗįƈē įš ŧøø ŀøňǥ (mįñ {min_shifu_price})⟧"
+    "unitNotFound": "⟦Ųňįŧ ňøŧ ƒøųňđ⟧"
   }
 }

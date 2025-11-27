@@ -100,6 +100,12 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
         base_url = get_config(config.base_url_env)
     if not base_url:
         base_url = config.default_base_url
+    if config.key == "gemini" and base_url:
+        if "generativelanguage.googleapis.com" in base_url:
+            base_url = None
+            _log_info(
+                "Skipping GEMINI_API_URL override to use LiteLLM default endpoint"
+            )
     params: Dict[str, str] = {"api_key": api_key}
     if base_url:
         params["api_base"] = base_url
@@ -220,10 +226,48 @@ def _load_ark_models(
         return []
 
 
+def _load_gemini_models(
+    config: ProviderConfig, params: Dict[str, str], base_url: Optional[str]
+) -> List[Union[str, Tuple[str, str]]]:
+    models: List[Union[str, Tuple[str, str]]] = []
+    api_key = params.get("api_key")
+    if not api_key:
+        return models
+
+    # If a custom proxy is provided, try the generic OpenAI-compatible fetcher first.
+    if base_url and "generativelanguage.googleapis.com" not in base_url:
+        try:
+            models.extend(_fetch_provider_models(api_key, base_url))
+            return models
+        except Exception as exc:
+            _log_warning(f"load gemini models via custom base error: {exc}")
+
+    # Default to Google Gemini ListModels endpoint (v1beta).
+    google_base = base_url or "https://generativelanguage.googleapis.com"
+    url = f"{google_base.rstrip('/')}/v1beta/models?key={api_key}"
+    try:
+        response = requests.get(url, timeout=20)
+        response.raise_for_status()
+        data = response.json()
+        for item in data.get("models", []):
+            name = item.get("name", "") or ""
+            if name.startswith("models/"):
+                name = name.split("/", 1)[1]
+            methods = item.get("supportedGenerationMethods", []) or []
+            if methods and "generateContent" not in methods:
+                continue
+            if name:
+                models.append(name)
+    except Exception as exc:
+        _log_warning(f"load gemini models error: {exc}")
+    return models
+
+
 QWEN_PREFIX = "qwen/"
 ERNIE_V2_PREFIX = "ernie/"
 GLM_PREFIX = "glm/"
 SILICON_PREFIX = "silicon/"
+GEMINI_PREFIX = ""
 DEEPSEEK_EXTRA_MODELS = ["deepseek-chat"]
 
 LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
@@ -235,6 +279,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         filter_fn=lambda model_id: model_id.startswith("gpt"),
         wildcard_prefixes=("gpt",),
         config_hint="OPENAI_API_KEY,OPENAI_BASE_URL",
+        custom_llm_provider="openai",
     ),
     ProviderConfig(
         key="qwen",
@@ -262,6 +307,18 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         extra_models=DEEPSEEK_EXTRA_MODELS,
         config_hint="DEEPSEEK_API_KEY,DEEPSEEK_API_URL",
         custom_llm_provider="openai",
+    ),
+    ProviderConfig(
+        key="gemini",
+        api_key_env="GEMINI_API_KEY",
+        base_url_env="GEMINI_API_URL",
+        default_base_url=None,
+        prefix=GEMINI_PREFIX,
+        fetch_models=False,
+        wildcard_prefixes=("gemini-",),
+        config_hint="GEMINI_API_KEY,GEMINI_API_URL",
+        custom_llm_provider="gemini",
+        model_loader=_load_gemini_models,
     ),
     ProviderConfig(
         key="glm",
