@@ -33,8 +33,6 @@ html {
     --primary: #0f63ee;
     --primary-lighter: #3e84f4;
     --primary-foreground: #f9fafb;
-    --primary-color: var(--primary);
-    --primary-foreground-color: var(--primary-foreground);
     --secondary: #f3f4f6;
     --secondary-foreground: #111827;
     --muted: #f3f4f6;
@@ -65,7 +63,6 @@ html {
     --primary-lighter: #3e84f4;
     --primary-foreground: #f9fafb;
     --primary-color: var(--primary);
-    --primary-foreground-color: var(--primary-foreground);
     --secondary: #1f2937;
     --secondary-foreground: #f9fafb;
     --muted: #1f2937;
