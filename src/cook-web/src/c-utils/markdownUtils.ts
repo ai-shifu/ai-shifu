@@ -34,9 +34,17 @@ const getMermaidPlaceholderContent = () => {
   const translated = i18n.t(generatingKey);
   const fallback = i18n.t(thinkingKey);
   let message = 'Loading...';
-  if (typeof translated === 'string' && translated.trim().length && translated !== generatingKey) {
+  if (
+    typeof translated === 'string' &&
+    translated.trim().length &&
+    translated !== generatingKey
+  ) {
     message = translated;
-  } else if (typeof fallback === 'string' && fallback.trim().length && fallback !== thinkingKey) {
+  } else if (
+    typeof fallback === 'string' &&
+    fallback.trim().length &&
+    fallback !== thinkingKey
+  ) {
     message = fallback;
   }
   return `graph TD\n${message}`;
