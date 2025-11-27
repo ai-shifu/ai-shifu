@@ -13,7 +13,8 @@ if os.name == "nt":
     os.system('tzutil /s "UTC"')
 else:
     # Load environment variables first so we can use get_config
-    load_dotenv()
+    if not os.getenv("SKIP_LOAD_DOTENV"):
+        load_dotenv()
     from flaskr.common.config import get_config
 
     timezone = get_config("TZ")
@@ -97,10 +98,11 @@ if __name__ == "__main__":
     # Only enable debug mode if explicitly running in development environment
     app.run(host="0.0.0.0", port=5800, debug=app.config.get("ENV") == "development")
 else:
-    app = create_app()
-    from flaskr.framework.plugin.enable_plugin import enable_plugins
+    if not os.getenv("SKIP_APP_AUTOCREATE"):
+        app = create_app()
+        from flaskr.framework.plugin.enable_plugin import enable_plugins
 
-    enable_plugins(app)
-    from flaskr.command import enable_commands
+        enable_plugins(app)
+        from flaskr.command import enable_commands
 
-    enable_commands(app)
+        enable_commands(app)
