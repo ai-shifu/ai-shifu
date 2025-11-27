@@ -646,6 +646,20 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Default currency code used for Stripe payments",
         group="payment",
     ),
+    "STRIPE_WECHAT_PAY_ENABLED": EnvVar(
+        name="STRIPE_WECHAT_PAY_ENABLED",
+        default=False,
+        type=bool,
+        description="Enable WeChat Pay",
+        group="payment",
+    ),
+    "STRIPE_ALIPAY_ENABLED": EnvVar(
+        name="STRIPE_ALIPAY_ENABLED",
+        default=False,
+        type=bool,
+        description="Enable Alipay for Stripe",
+        group="payment",
+    ),
     "PAYMENT_CHANNELS_ENABLED": EnvVar(
         name="PAYMENT_CHANNELS_ENABLED",
         default="pingxx,stripe",
