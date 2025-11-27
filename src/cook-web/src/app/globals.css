@@ -1,10 +1,24 @@
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/600.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body,
 html {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family:
+  /* English CJK fonts */
+    Inter,
+    /* Chinese CJK fonts */ 'PingFang SC',
+    'Microsoft YaHei',
+    'Source Han Sans SC',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
   font-size: 16px;
 }
 
@@ -121,6 +135,9 @@ html {
 .content-render-theme {
   --primary: var(--primary-color);
   --primary-foreground: var(--primary-foreground-color);
+  strong {
+    color: var(--primary);
+  }
   .content-render-custom-button-after-content {
     width: 58px;
     height: 20px;
@@ -138,7 +155,7 @@ html {
   }
 
   &.mobile {
-    .custom-variable-container {
+    /* .custom-variable-container {
       width: 100%;
       > span {
         width: 100%;
@@ -150,7 +167,7 @@ html {
     .markdown-body textarea {
       min-width: 0;
       width: 100%;
-    }
+    } */
   }
 }
 

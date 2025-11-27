@@ -1,10 +1,10 @@
 {
   "__namespace__": "⟦šēřṽēř.ƀåňňēř⟧",
   "__flat__": {
-    "bannerTitle": "⟦Ųňŀøćķ Åŀŀ⟧",
-    "bannerPopUpTitle": "⟦Ųňŀøćķ Åŀŀ Ćøňŧēňŧ Åňŷŧįmē⟧",
-    "bannerPopUpContent": "⟦Ǥåįň ųňŀįmįŧēđ åććēšš åňđ ēňĵøŷ šŧřēšš-ƒřēē ŀēåřňįňǥ⟧",
+    "bannerPopUpCancelText": "⟦Ķēēƥ Ēẋƥŀøřįňǥ⟧",
     "bannerPopUpConfirmText": "⟦Ųňŀøćķ Ňøŵ!⟧",
-    "bannerPopUpCancelText": "⟦Ķēēƥ Ēẋƥŀøřįňǥ⟧"
+    "bannerPopUpContent": "⟦Ǥåįň ųňŀįmįŧēđ åććēšš åňđ ēňĵøŷ šŧřēšš-ƒřēē ŀēåřňįňǥ⟧",
+    "bannerPopUpTitle": "⟦Ųňŀøćķ Åŀŀ Ćøňŧēňŧ Åňŷŧįmē⟧",
+    "bannerTitle": "⟦Ųňŀøćķ Åŀŀ⟧"
   }
 }

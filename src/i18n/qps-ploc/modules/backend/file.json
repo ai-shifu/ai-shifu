@@ -1,17 +1,17 @@
 {
   "__namespace__": "⟦šēřṽēř.ƒįŀē⟧",
   "__flat__": {
+    "fileDownloadFailed": "⟦Ғįŀē đøŵňŀøåđ ƒåįŀēđ⟧",
     "fileTypeNotSupport": "⟦Ųňšųƥƥøřŧēđ Ғįŀē Ŧŷƥē⟧",
-    "videoInvalidBilibiliLink": "⟦Įňṽåŀįđ Ƀįŀįƀįŀį Ŀįňķ⟧",
+    "fileUploadFailed": "⟦Ғįŀē ųƥŀøåđ ƒåįŀēđ⟧",
     "videoBilibiliApiError": "⟦Ƀįŀįƀįŀį ÅƤĮ Ēřřøř⟧",
     "videoBilibiliApiRequestFailed": "⟦Řēɋųēšŧ Ƀįŀįƀįŀį ÅƤĮ Ғåįŀēđ⟧",
-    "videoUnsupportedVideoSite": "⟦Ųňšųƥƥøřŧēđ Ṽįđēø Šįŧē⟧",
     "videoGetInfoError": "⟦Ēřřøř Ǥēŧŧįňǥ Ṽįđēø Įňƒø⟧",
-    "fileDownloadFailed": "⟦Ғįŀē đøŵňŀøåđ ƒåįŀēđ⟧",
-    "fileUploadFailed": "⟦Ғįŀē ųƥŀøåđ ƒåįŀēđ⟧",
+    "videoInvalidBilibiliLink": "⟦Įňṽåŀįđ Ƀįŀįƀįŀį Ŀįňķ⟧",
     "videoInvalidUrlFormat": "⟦Įňṽåŀįđ ṽįđēø ŲŘĿ ƒøřmåŧ⟧",
     "videoNetworkError": "⟦Ṽįđēø ňēŧŵøřķ ēřřøř⟧",
     "videoParseError": "⟦Ṽįđēø ƥåřšē ēřřøř⟧",
+    "videoUnsupportedVideoSite": "⟦Ųňšųƥƥøřŧēđ Ṽįđēø Šįŧē⟧",
     "videoUrlRequired": "⟦Ṽįđēø ŲŘĿ įš řēɋųįřēđ⟧"
   }
 }
