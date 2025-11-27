@@ -4,6 +4,7 @@
   "ask": "追问",
   "askContent": "请输入你想追问的问题",
   "dislike": "点踩",
+  "generating": "插图生成中...",
   "like": "点赞",
   "noMoreLessons": "已学习完所有章节",
   "outputInProgress": "正在有内容输出中，请等待输出结束后再重试",

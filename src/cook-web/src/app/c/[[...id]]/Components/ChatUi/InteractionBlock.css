@@ -1,6 +1,5 @@
 .interaction-block {
   padding-top: 12px;
-  margin: 0 auto;
   max-width: 1000px;
 }
 .interaction-block button:disabled {

@@ -4,6 +4,7 @@
   "ask": "Ask",
   "askContent": "Please enter your follow-up question",
   "dislike": "Dislike",
+  "generating": "Generating...",
   "like": "Like",
   "noMoreLessons": "You’ve completed all available sections.",
   "outputInProgress": "Content is still generating. Please wait before retrying.",
