@@ -101,7 +101,6 @@ class StripeProvider(PaymentProvider):
                 params["payment_method_types"].append("alipay")
             if get_config("STRIPE_WECHAT_PAY_ENABLED"):
                 params["payment_method_types"].append("wechat_pay")
-            if get_config("STRIPE_WECHAT_PAY_ENABLED"):
                 params["payment_method_options"] = {"wechat_pay": {"client": "web"}}
 
             session = stripe.checkout.Session.create(**params)
