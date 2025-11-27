@@ -30,17 +30,7 @@ const stripStreamingMarker = (text: string) =>
 
 const getMermaidPlaceholderContent = () => {
   const translated = i18n.t('module.chat.generating');
-  const fallback = i18n.t('module.chat.thinking');
-  const message = (() => {
-    if (typeof translated === 'string' && translated.trim().length) {
-      return translated;
-    }
-    if (typeof fallback === 'string' && fallback.trim().length) {
-      return fallback;
-    }
-    return 'Loading...';
-  })();
-  return `graph TD\n${message}`;
+  return `graph TD\n${translated}`;
 };
 
 /**
