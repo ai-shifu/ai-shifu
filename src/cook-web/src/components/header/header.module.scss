@@ -1,0 +1,15 @@
+.readonly{
+    overflow: hidden;
+    color: rgba(10, 10, 10, 0.45);
+    text-overflow: ellipsis;
+    font-family: var(--font-font-sans, Geist);
+    font-size: 14px;
+    font-style: normal;
+    font-weight: var(--font-weight-medium, 500);
+    line-height: 20px; /* 133.333% */
+    border-radius: 4px;
+    margin-left: 8px;
+    border: 0.5px solid rgba(0, 0, 0, 0.10);
+    background: var(--base-muted, #F5F5F5);
+    padding: 0 4px;
+}

@@ -23,6 +23,7 @@ from .models import DraftShifu, AiCourseAuth
 from .shifu_history_manager import save_shifu_history
 from ..common.dtos import PageNationDTO
 from ...common.config import get_config
+from .funcs import shifu_permission_verification
 
 
 def get_latest_shifu_draft(shifu_id: str) -> DraftShifu:
@@ -44,12 +45,15 @@ def get_latest_shifu_draft(shifu_id: str) -> DraftShifu:
     return shifu_draft
 
 
-def return_shifu_draft_dto(shifu_draft: DraftShifu, base_url: str) -> ShifuDetailDto:
+def return_shifu_draft_dto(
+    shifu_draft: DraftShifu, base_url: str, readonly: bool
+) -> ShifuDetailDto:
     """
     Return shifu draft dto
     Args:
         shifu_draft: Shifu draft
         base_url: Base URL to build shifu links
+        readonly: Whether the current user has read-only permission
     Returns:
         ShifuDetailDto: Shifu detail dto
     """
@@ -74,6 +78,7 @@ def return_shifu_draft_dto(shifu_draft: DraftShifu, base_url: str) -> ShifuDetai
         shifu_url=shifu_url,
         shifu_preview_url=shifu_preview_url,
         shifu_system_prompt=shifu_draft.llm_system_prompt,
+        readonly=readonly,
     )
 
 
@@ -182,7 +187,11 @@ def get_shifu_draft_info(
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
             raise_error("server.shifu.shifuNotFound")
-        return return_shifu_draft_dto(shifu_draft, base_url)
+        has_edit_permission = shifu_permission_verification(
+            app, user_id, shifu_id, "edit"
+        )
+        readonly = not has_edit_permission
+        return return_shifu_draft_dto(shifu_draft, base_url, readonly)
 
 
 def save_shifu_draft_info(
@@ -276,7 +285,11 @@ def save_shifu_draft_info(
                 save_shifu_history(app, user_id, shifu_id, new_shifu_draft.id)
                 db.session.commit()
                 shifu_draft = new_shifu_draft
-        return return_shifu_draft_dto(shifu_draft, base_url)
+        has_edit_permission = shifu_permission_verification(
+            app, user_id, shifu_id, "edit"
+        )
+        readonly = not has_edit_permission
+        return return_shifu_draft_dto(shifu_draft, base_url, readonly)
 
 
 def get_shifu_draft_list(
@@ -421,4 +434,8 @@ def save_shifu_draft_detail(
                 db.session.flush()
                 save_shifu_history(app, user_id, shifu_id, new_shifu.id)
             db.session.commit()
-            return return_shifu_draft_dto(new_shifu, base_url)
+            has_edit_permission = shifu_permission_verification(
+                app, user_id, shifu_id, "edit"
+            )
+            readonly = not has_edit_permission
+            return return_shifu_draft_dto(new_shifu, base_url, readonly)

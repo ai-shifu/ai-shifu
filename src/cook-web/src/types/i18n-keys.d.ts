@@ -72,6 +72,7 @@ export type I18nKey =
   | 'component.header.publish'
   | 'component.header.publishSuccess'
   | 'component.header.publishSuccessDescription'
+  | 'component.header.readonly'
   | 'component.header.saved'
   | 'component.menus.navigationMenus.basicInfo'
   | 'component.menus.navigationMenus.language'
