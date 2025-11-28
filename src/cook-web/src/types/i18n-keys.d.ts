@@ -77,7 +77,6 @@ export type I18nKey =
   | 'component.menus.navigationMenus.language'
   | 'component.menus.navigationMenus.personalInfo'
   | 'component.navigation.contactUs'
-  | 'component.navigation.courseList'
   | 'component.navigation.feedbackTitle'
   | 'component.navigation.filing'
   | 'component.navigation.gongan'

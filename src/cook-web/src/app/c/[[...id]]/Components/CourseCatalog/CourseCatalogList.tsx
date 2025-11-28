@@ -8,9 +8,6 @@ import CourseCatalog from './CourseCatalog';
 import { TRAIL_NODE_POSITION } from './TrialNodeBottomArea';
 import TrialNodeOuter from './TrialNodeOuter';
 import { AppContext } from '../AppContext';
-import Image from 'next/image';
-import imgCourseList from '@/c-assets/newchat/light/icon16-course-list.png';
-
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 export const CourseCatalogList = ({
   courseName = '',
