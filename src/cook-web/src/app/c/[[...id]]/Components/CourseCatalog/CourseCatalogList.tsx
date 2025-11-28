@@ -1,5 +1,5 @@
 // Course catalog
-import { memo, useCallback, useState, useEffect } from 'react';
+import { memo, useCallback, useState, useEffect, useContext } from 'react';
 import styles from './CourseCatalogList.module.scss';
 import { useTranslation } from 'react-i18next';
 import { shifu } from '@/c-service/Shifu';
@@ -7,12 +7,15 @@ import TrialNodeBottomArea from './TrialNodeBottomArea';
 import CourseCatalog from './CourseCatalog';
 import { TRAIL_NODE_POSITION } from './TrialNodeBottomArea';
 import TrialNodeOuter from './TrialNodeOuter';
-
+import { AppContext } from '../AppContext';
 import Image from 'next/image';
 import imgCourseList from '@/c-assets/newchat/light/icon16-course-list.png';
 
+
+import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 export const CourseCatalogList = ({
   courseName = '',
+  courseAvatar = '',
   catalogs = [],
   containerScrollTop = 0,
   containerHeight = 0,
@@ -23,6 +26,8 @@ export const CourseCatalogList = ({
   bannerInfo = null,
 }) => {
   const { t } = useTranslation();
+  const { mobileStyle } = useContext(AppContext);
+
   const [trialNodePosition, setTrialNodePosition] = useState(
     TRAIL_NODE_POSITION.NORMAL,
   );
@@ -51,7 +56,7 @@ export const CourseCatalogList = ({
     <>
       <div className={styles.courseCatalogList}>
         <div className={styles.titleRow}>
-          <div className={styles.titleArea}>
+        {!mobileStyle ? <div className={styles.titleArea}>
             <Image
               className={styles.icon}
               width={16}
@@ -60,7 +65,13 @@ export const CourseCatalogList = ({
               alt={t('component.navigation.courseList')}
             />
             <div className={styles.titleName}>{courseName}</div>
-          </div>
+        </div>:
+         <div className={styles.titleArea}>
+            {courseAvatar && <Avatar className='w-6 h-6'>
+              <AvatarImage src={courseAvatar} />
+            </Avatar>}
+            <div className={styles.titleName}>{courseName}</div>
+          </div>}
         </div>
         <div className={styles.listRow}>
           {catalogs.map(catalog => {
