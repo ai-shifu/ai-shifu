@@ -22,6 +22,10 @@
   color: rgba(0, 0, 0, 0.65);
   line-height: 20px;
 }
+.ChatUi .headerMobile {
+  height: 80px;
+  width: 100%;
+}
 .ChatUi .footer {
   position: absolute;
   left: 0;
@@ -51,7 +55,6 @@
 }
 .ChatUi.mobile {
   width: 100%;
-  padding-top: 80px;
   padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
 }
 .ChatUi.mobile .chatComponents {

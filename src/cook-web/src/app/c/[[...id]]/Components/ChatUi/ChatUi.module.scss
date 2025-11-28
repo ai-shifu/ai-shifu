@@ -23,6 +23,11 @@
     line-height: 20px;
   }
 
+  .headerMobile {
+    height: 80px;
+    width: 100%;
+  }
+
   .footer {
     position: absolute;
     left: 0;
@@ -54,7 +59,7 @@
 
   &.mobile {
     width: 100%;
-    padding-top: 80px;
+    // padding-top: 80px;
     padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
     .chatComponents {
       padding-top: 0;

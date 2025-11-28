@@ -11,7 +11,7 @@
     align-items: center;
   }
   .userSection {
-    padding: 0 18px;
+    padding: 0 20px;
     display: flex;
     align-items: center;
     cursor: pointer;
@@ -25,7 +25,6 @@
     }
 
     .userName {
-      margin-left: 8px;
       overflow: hidden;
       color: var(--base-sidebar-foreground, #0a0a0a);
       text-overflow: ellipsis;

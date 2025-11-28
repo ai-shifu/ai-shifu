@@ -7,7 +7,6 @@ import { useUserStore } from '@/store';
 
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
-import imgUser from '@/c-assets/newchat/light/user.png';
 
 export const NavFooter = forwardRef(
   // @ts-expect-error EXPECT
