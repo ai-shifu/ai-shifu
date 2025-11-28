@@ -62,6 +62,10 @@ const ChapterSettingsDialog = ({
   const onConfirm = useCallback(
     async (needClose = true) => {
       try{
+        if(currentShifu?.readonly){
+          onOpenChange?.(false);
+          return
+        }
         if (!outlineBid) {
           return;
         }
@@ -86,9 +90,7 @@ const ChapterSettingsDialog = ({
           onOpenChange?.(false);
         }
       }catch{
-        if(currentShifu?.readonly){
-          onOpenChange?.(false);
-        }
+        
       }
     },
     [
@@ -115,7 +117,9 @@ const ChapterSettingsDialog = ({
     if (!open || loading || !isDirty) {
       return;
     }
-
+    if(currentShifu?.readonly){
+      return;
+    }
     const timer = setTimeout(() => {
       onConfirm(false);
     }, 3000);
@@ -129,6 +133,7 @@ const ChapterSettingsDialog = ({
     hideChapter,
     systemPrompt,
     onConfirm,
+    currentShifu?.readonly,
   ]);
 
   return (
@@ -169,6 +174,7 @@ const ChapterSettingsDialog = ({
                   {t('module.chapterSetting.learningPermission')}
                 </div>
                 <RadioGroup
+                  disabled={currentShifu?.readonly}
                   value={learningPermission}
                   onValueChange={value => {
                     setLearningPermission(value as LearningPermission);
@@ -220,6 +226,7 @@ const ChapterSettingsDialog = ({
                   {t('module.chapterSetting.isHidden')}
                 </div>
                 <RadioGroup
+                  disabled={currentShifu?.readonly}
                   value={hideChapter ? 'hidden' : 'visible'}
                   onValueChange={value => {
                     setHideChapter(value === 'hidden');
@@ -271,6 +278,7 @@ const ChapterSettingsDialog = ({
                     setSystemPrompt(event.target.value);
                     setIsDirty(true);
                   }}
+                  disabled={currentShifu?.readonly}
                   maxLength={20000}
                   minRows={3}
                   maxRows={30}
