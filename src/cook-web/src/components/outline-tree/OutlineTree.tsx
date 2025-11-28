@@ -217,6 +217,7 @@ const MinimalTreeItemComponent = React.forwardRef<
         >
           <span className='flex flex-row items-center whitespace-nowrap overflow-hidden text-ellipsis flex-1 min-w-0'>
             <InlineInput
+              disabled={currentShifu?.readonly}
               isEdit={focusId === props.item.id}
               value={cataData[props.item.id!]?.name || ''}
               onChange={onNodeChange}
