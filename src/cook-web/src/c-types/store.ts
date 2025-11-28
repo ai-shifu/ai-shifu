@@ -54,6 +54,8 @@ export interface SystemStoreState {
 
 export interface CourseStoreState {
   courseName: string;
+  courseAvatar: string;
+  updateCourseAvatar: (avatar: string) => void;
   updateCourseName: (name: string) => void;
   lessonId: string | undefined;
   updateLessonId: (id: string) => void;

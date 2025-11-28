@@ -36,9 +36,6 @@ export const NavFooter = forwardRef(
       >
         <div className={styles.userSection}>
           <div className={styles.userInfo}>
-            <Avatar className='w-8 h-8'>
-              <AvatarImage src={avatar} />
-            </Avatar>
             <div className={styles.userName}>
               {isLoggedIn
                 ? userInfo?.name || t('module.user.defaultUserName')

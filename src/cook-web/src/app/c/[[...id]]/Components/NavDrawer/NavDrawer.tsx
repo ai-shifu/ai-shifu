@@ -69,6 +69,7 @@ const COLLAPSE_WIDTH = NAV_DRAWER_COLLAPSE_WIDTH;
 const NavDrawer = ({
   // showType = NAV_SHOW_TYPE_NORMAL,
   courseName = '',
+  courseAvatar = '',
   onLoginClick = () => {},
   lessonTree,
   selectedLessonId = '',
@@ -169,6 +170,7 @@ const NavDrawer = ({
             {!isCollapse &&
               (delayedIsLoggedIn || alwaysShowLessonTree ? (
                 <CourseCatalogList
+                  courseAvatar={courseAvatar}
                   courseName={courseName}
                   selectedLessonId={selectedLessonId}
                   catalogs={lessonTree?.catalogs || []}

@@ -9,7 +9,8 @@ import ChatComponents from './NewChatComp';
 import UserSettings from '../Settings/UserSettings';
 import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';
 import { useSystemStore } from '@/c-store/useSystemStore';
-import { useUiLayoutStore } from '@/c-store';
+import { useCourseStore, useUiLayoutStore } from '@/c-store';
+import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 
 /**
  * Overall canvas for the chat area
@@ -38,6 +39,8 @@ export const ChatUi = ({
       previewMode: state.previewMode,
     })),
   );
+
+  const { courseAvatar, courseName } = useCourseStore(state => state);
   const hideMobileFooter = frameLayout === FRAME_LAYOUT_MOBILE && isNavOpen;
 
   return (

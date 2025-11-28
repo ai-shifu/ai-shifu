@@ -154,9 +154,10 @@ export default function ChatLayout({
     (state: EnvStoreState) => state.enableWxcode,
   );
 
-  const { updateCourseName } = useCourseStore(
+  const { updateCourseName, updateCourseAvatar } = useCourseStore(
     useShallow((state: CourseStoreState) => ({
       updateCourseName: state.updateCourseName,
+      updateCourseAvatar: state.updateCourseAvatar,
     })),
   );
 
@@ -235,6 +236,7 @@ export default function ChatLayout({
           if (resp) {
             setShowVip(resp.course_price > 0);
             updateCourseName(resp.course_name);
+            updateCourseAvatar(resp.course_avatar);
             document.title = resp.course_name + ' - AI 师傅';
             const metaDescription = document.querySelector(
               'meta[name="description"]',
