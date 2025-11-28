@@ -48,9 +48,9 @@ export const ChatUi = ({
         hideMobileFooter ? styles.hideMobileFooter : '',
       )}
     >
-      {frameLayout !== FRAME_LAYOUT_MOBILE && (
-        <div className={styles.header}></div>
-      )}
+      {frameLayout !== FRAME_LAYOUT_MOBILE ? 
+        <div className={styles.header}></div> : <div className={styles.headerMobile}></div>
+      }
       {
         <ChatComponents
           chapterId={chapterId}
