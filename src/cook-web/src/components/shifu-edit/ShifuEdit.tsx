@@ -533,6 +533,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                           (i18n.resolvedLanguage ?? i18n.language) as string,
                         ) as 'en-US' | 'zh-CN'
                       }
+                      disabled={currentShifu?.readonly}
                       content={mdflow}
                       variables={variablesList}
                       systemVariables={systemVariablesList as any[]}
