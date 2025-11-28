@@ -21,21 +21,6 @@
     font-size: 14px;
     color: rgba(0, 0, 0, 0.65);
     line-height: 20px;
-    .courseInfo {
-      display: flex;
-      max-width: 1000px;
-      margin: 0 auto;
-      padding: 0 20px;
-      flex: 1;
-      align-items: center;
-    }
-    .courseName {
-      color: var(--base-foreground, #0a0a0a);
-      font-size: 16px;
-      font-style: normal;
-      font-weight: 600;
-      line-height: var(--text-sm-line-height, 20px); /* 125% */
-    }
   }
 
   .footer {

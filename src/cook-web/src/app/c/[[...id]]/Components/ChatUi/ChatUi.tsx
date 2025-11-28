@@ -52,16 +52,7 @@ export const ChatUi = ({
       )}
     >
       {frameLayout !== FRAME_LAYOUT_MOBILE && (
-        <div className={styles.header}>
-          <div className={styles.courseInfo}>
-            {courseAvatar && (
-              <Avatar className='w-8 h-8 mr-3'>
-                <AvatarImage src={courseAvatar} />
-              </Avatar>
-            )}
-            <div className={styles.courseName}>{courseName}</div>
-          </div>
-        </div>
+        <div className={styles.header}></div>
       )}
       {
         <ChatComponents

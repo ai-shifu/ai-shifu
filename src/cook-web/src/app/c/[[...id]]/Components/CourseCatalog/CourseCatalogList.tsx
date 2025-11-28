@@ -55,27 +55,12 @@ export const CourseCatalogList = ({
     <>
       <div className={styles.courseCatalogList}>
         <div className={styles.titleRow}>
-          {!mobileStyle ? (
-            <div className={styles.titleArea}>
-              <Image
-                className={styles.icon}
-                width={16}
-                height={16}
-                src={imgCourseList.src}
-                alt={t('component.navigation.courseList')}
-              />
-              <div className={styles.titleName}>{courseName}</div>
-            </div>
-          ) : (
-            <div className={styles.titleArea}>
-              {courseAvatar && (
-                <Avatar className='w-6 h-6'>
-                  <AvatarImage src={courseAvatar} />
-                </Avatar>
-              )}
-              <div className={styles.titleName}>{courseName}</div>
-            </div>
-          )}
+         <div className={styles.titleArea}>
+            {courseAvatar && <Avatar className='w-8 h-8 mr-3'>
+              <AvatarImage src={courseAvatar} />
+            </Avatar>}
+            <div className={styles.titleName}>{courseName}</div>
+          </div>
         </div>
         <div className={styles.listRow}>
           {catalogs.map(catalog => {
