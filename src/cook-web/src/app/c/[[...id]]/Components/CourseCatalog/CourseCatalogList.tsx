@@ -11,7 +11,6 @@ import { AppContext } from '../AppContext';
 import Image from 'next/image';
 import imgCourseList from '@/c-assets/newchat/light/icon16-course-list.png';
 
-
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 export const CourseCatalogList = ({
   courseName = '',
@@ -56,22 +55,27 @@ export const CourseCatalogList = ({
     <>
       <div className={styles.courseCatalogList}>
         <div className={styles.titleRow}>
-        {!mobileStyle ? <div className={styles.titleArea}>
-            <Image
-              className={styles.icon}
-              width={16}
-              height={16}
-              src={imgCourseList.src}
-              alt={t('component.navigation.courseList')}
-            />
-            <div className={styles.titleName}>{courseName}</div>
-        </div>:
-         <div className={styles.titleArea}>
-            {courseAvatar && <Avatar className='w-6 h-6'>
-              <AvatarImage src={courseAvatar} />
-            </Avatar>}
-            <div className={styles.titleName}>{courseName}</div>
-          </div>}
+          {!mobileStyle ? (
+            <div className={styles.titleArea}>
+              <Image
+                className={styles.icon}
+                width={16}
+                height={16}
+                src={imgCourseList.src}
+                alt={t('component.navigation.courseList')}
+              />
+              <div className={styles.titleName}>{courseName}</div>
+            </div>
+          ) : (
+            <div className={styles.titleArea}>
+              {courseAvatar && (
+                <Avatar className='w-6 h-6'>
+                  <AvatarImage src={courseAvatar} />
+                </Avatar>
+              )}
+              <div className={styles.titleName}>{courseName}</div>
+            </div>
+          )}
         </div>
         <div className={styles.listRow}>
           {catalogs.map(catalog => {
