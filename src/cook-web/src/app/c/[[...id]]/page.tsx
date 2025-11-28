@@ -154,16 +154,23 @@ export default function ChatPage() {
     }
   }, [i18n.language, tree, currentLanguage, reloadTree]);
 
-  const { lessonId, updateLessonId, chapterId, updateChapterId, courseName } =
-    useCourseStore(
-      useShallow(state => ({
-        courseName: state.courseName,
-        lessonId: state.lessonId,
-        updateLessonId: state.updateLessonId,
-        chapterId: state.chapterId,
-        updateChapterId: state.updateChapterId,
-      })),
-    );
+  const {
+    lessonId,
+    updateLessonId,
+    chapterId,
+    updateChapterId,
+    courseName,
+    courseAvatar,
+  } = useCourseStore(
+    useShallow(state => ({
+      courseName: state.courseName,
+      courseAvatar: state.courseAvatar,
+      lessonId: state.lessonId,
+      updateLessonId: state.updateLessonId,
+      chapterId: state.chapterId,
+      updateChapterId: state.updateChapterId,
+    })),
+  );
 
   useEffect(() => {
     if (!courseName) {
@@ -404,6 +411,7 @@ export default function ChatPage() {
         {initialized && navOpen ? (
           <NavDrawer
             courseName={courseName}
+            courseAvatar={courseAvatar}
             onLoginClick={() => {
               // setLoginModalOpen(true)
               gotoLogin();

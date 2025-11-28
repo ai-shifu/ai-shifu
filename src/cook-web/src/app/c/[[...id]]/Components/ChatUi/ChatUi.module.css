@@ -8,7 +8,6 @@
   left: 0;
   right: 0;
   height: 64px;
-  padding: 0 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -53,10 +52,18 @@
 .ChatUi.mobile {
   width: 100%;
   padding-top: 80px;
-  padding-bottom: max(80px, 40px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
 }
 .ChatUi.mobile .chatComponents {
   padding-top: 0;
+  padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+}
+.ChatUi.mobile .footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .ChatUi .chatComponents {
   width: 100%;
@@ -80,6 +87,9 @@
   height: 100%;
   z-index: 2;
   margin-top: 64px;
+}
+.hideMobileFooter .footer {
+  display: none;
 }
 .previewMode {
   position: fixed;

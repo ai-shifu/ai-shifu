@@ -24,13 +24,13 @@
   width: 16px;
 }
 .courseCatalogList .titleRow .titleArea .titleName {
-  margin-left: 12px;
   font-weight: var(--font-weight-bold);
   color: #0a0a0a;
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
   padding-right: 0.5em;
+  font-size: 16px;
 }
 .courseCatalogList .titleRow .chapterCount {
   font-size: var(--font-size-5);
