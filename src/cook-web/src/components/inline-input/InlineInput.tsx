@@ -36,7 +36,7 @@ export const InlineInput: React.FC<InlineInputProps> = ({
   }, [isEdit]);
 
   const handleDoubleClick = () => {
-    if(disabled) return;
+    if (disabled) return;
     setIsEditing(true);
     onFocus?.();
   };
