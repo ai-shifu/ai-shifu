@@ -251,7 +251,7 @@ export default function ShifuSettingDialog({
         }
       }
     },
-    [shifuId, keywords, uploadedImageUrl, onSave, setOpen],
+    [shifuId, keywords, uploadedImageUrl, onSave, currentShifu?.readonly],
   );
 
   const init = async () => {
