@@ -252,11 +252,13 @@ const ScriptEditor = ({ id }: { id: string }) => {
     resetPreview();
 
     try {
-      await actions.saveMdflow({
-        shifu_bid: currentShifu.bid,
-        outline_bid: currentNode.bid,
-        data: mdflow,
-      });
+      if(!currentShifu?.readonly){
+        await actions.saveMdflow({
+          shifu_bid: currentShifu.bid,
+          outline_bid: currentNode.bid,
+          data: mdflow,
+        });
+      }
       const {
         variables: parsedVariablesMap,
         blocksCount,
@@ -421,6 +423,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   variant='outline'
                   className='h-8 bottom-0 left-4 flex-1'
                   size='sm'
+                  disabled={currentShifu?.readonly}
                   onClick={onAddChapter}
                 >
                   <Plus />

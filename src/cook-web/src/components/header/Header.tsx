@@ -144,6 +144,7 @@ const Header = () => {
           <Button
             size='sm'
             className=''
+            disabled={currentShifu?.readonly}
             onClick={publish}
           >
             {publishing && <Loading className='h-4 w-4 mr-1' />}
