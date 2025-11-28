@@ -4,13 +4,12 @@
   "ask": "Ask",
   "askContent": "Please enter your follow-up question",
   "dislike": "Dislike",
-  "generating": "Generating diagram...",
+  "generating": "Generating...",
   "like": "Like",
   "noMoreLessons": "You’ve completed all available sections.",
   "outputInProgress": "Content is still generating. Please wait before retrying.",
   "regenerate": "Regenerate",
   "regenerateConfirmDescription": "Regenerating will replace this content and all subsequent content. The current content will be cleared.",
   "regenerateConfirmTitle": "Confirm regenerate this content?",
-  "generating": "Generating...",
   "thinking": "Thinking..."
 }
