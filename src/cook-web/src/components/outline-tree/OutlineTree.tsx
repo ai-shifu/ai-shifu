@@ -258,10 +258,10 @@ const MinimalTreeItemComponent = React.forwardRef<
                     alignOffset={-5}
                     className='w-[160px]'
                   >
-                    <DropdownMenuItem onClick={editNode}>
+                    {!currentShifu?.readonly && <DropdownMenuItem onClick={editNode}>
                       <Edit className='mr-2 h-4 w-4' />
                       <span>{t('component.outlineTree.rename')}</span>
-                    </DropdownMenuItem>
+                    </DropdownMenuItem>}
                     <DropdownMenuItem
                       onClick={e => {
                         e.stopPropagation();
@@ -271,14 +271,14 @@ const MinimalTreeItemComponent = React.forwardRef<
                       <SlidersHorizontal className='mr-2 h-4 w-4' />
                       <span>{t('component.outlineTree.setting')}</span>
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
+                    {!currentShifu?.readonly && <DropdownMenuSeparator />}
+                    {!currentShifu?.readonly && <DropdownMenuItem
                       onClick={removeNode}
                       className='text-destructive'
                     >
                       <Trash2 className='mr-2 h-4 w-4' />
                       <span>{t('component.outlineTree.delete')}</span>
-                    </DropdownMenuItem>
+                    </DropdownMenuItem>}
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
@@ -318,10 +318,10 @@ const MinimalTreeItemComponent = React.forwardRef<
                       alignOffset={-5}
                       className='w-[160px]'
                     >
-                      <DropdownMenuItem onClick={editNode}>
+                      {!currentShifu?.readonly && <DropdownMenuItem onClick={editNode}>
                         <Edit className='mr-2 h-4 w-4' />
                         <span>{t('component.outlineTree.rename')}</span>
-                      </DropdownMenuItem>
+                      </DropdownMenuItem>}
                       <DropdownMenuItem
                         onClick={e => {
                           e.stopPropagation();
@@ -331,20 +331,20 @@ const MinimalTreeItemComponent = React.forwardRef<
                         <SlidersHorizontal className='mr-2 h-4 w-4' />
                         <span>{t('component.outlineTree.setting')}</span>
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
+                      {!currentShifu?.readonly && <DropdownMenuSeparator />}
+                      {!currentShifu?.readonly && <DropdownMenuItem
                         onClick={removeNode}
                         className='text-destructive'
                       >
                         <Trash2 className='mr-2 h-4 w-4' />
                         <span>{t('component.outlineTree.delete')}</span>
-                      </DropdownMenuItem>
+                      </DropdownMenuItem>}
                     </DropdownMenuContent>
                   </DropdownMenu>
                   {cataData[props.item.id!]?.status == 'saving' && (
                     <Loading className='h-4 w-4' />
                   )}
-                  {cataData[props.item.id!]?.status !== 'saving' && (
+                  {cataData[props.item.id!]?.status !== 'saving' && !currentShifu?.readonly && (
                     <Button
                       variant='ghost'
                       size='icon'

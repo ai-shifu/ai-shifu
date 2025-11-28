@@ -395,6 +395,7 @@ export default function ShifuSettingDialog({
                     <FormControl>
                       <Input
                         {...field}
+                        disabled={currentShifu?.readonly}
                         maxLength={TITLE_MAX_LENGTH}
                         placeholder={t('module.shifuSetting.placeholder')}
                       />
@@ -421,6 +422,7 @@ export default function ShifuSettingDialog({
                         maxLength={500}
                         placeholder={t('module.shifuSetting.placeholder')}
                         rows={4}
+                        disabled={currentShifu?.readonly}
                       />
                     </FormControl>
                     {/* <div className='text-xs text-muted-foreground text-right'>
@@ -475,6 +477,7 @@ export default function ShifuSettingDialog({
                     accept='image/jpeg,image/png'
                     onChange={handleImageUpload}
                     className='hidden'
+                    disabled={currentShifu?.readonly}
                   />
 
                   {isUploading && (
