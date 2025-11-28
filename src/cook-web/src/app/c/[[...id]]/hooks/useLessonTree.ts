@@ -99,6 +99,14 @@ export const useLessonTree = () => {
           return;
         }
         setSelectedLessonId(lesson.id);
+      } else {
+          // find the last chapter that is completed
+          const lastChapter = tree.catalogs.findLast(
+            v => v.status_value === LESSON_STATUS_VALUE.COMPLETED,
+          );
+          if (lastChapter) {
+            setSelectedLessonId(lastChapter.lessons[lastChapter.lessons.length - 1].id);
+          }
       }
     },
     [isLoggedIn, openPayModal],
