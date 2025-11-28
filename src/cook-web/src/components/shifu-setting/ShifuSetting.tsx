@@ -38,6 +38,7 @@ import api from '@/api';
 import ModelList from '@/components/model-list';
 import { useEnvStore } from '@/c-store';
 import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
+import { useShifu } from '@/store';
 
 interface Shifu {
   description: string;
@@ -85,7 +86,7 @@ export default function ShifuSettingDialog({
     previewUrl: false,
     url: false,
   });
-
+  const { currentShifu } = useShifu();
   // Define the validation schema using Zod
   const shifuSchema = z.object({
     previewUrl: z.string(),
@@ -224,26 +225,33 @@ export default function ShifuSettingDialog({
   };
 
   // Handle form submission
-  const onSubmit = async (data: any, needClose = true) => {
-    await api.saveShifuDetail({
-      description: data.description,
-      shifu_bid: shifuId,
-      keywords: keywords,
-      model: data.model,
-      name: data.name,
-      price: Number(data.price),
-      avatar: uploadedImageUrl,
-      temperature: Number(data.temperature),
-      system_prompt: data.systemPrompt,
-    });
+  const onSubmit = useCallback(async (data: any, needClose = true) => {
+    try{
+      await api.saveShifuDetail({
+        description: data.description,
+        shifu_bid: shifuId,
+        keywords: keywords,
+        model: data.model,
+        name: data.name,
+        price: Number(data.price),
+        avatar: uploadedImageUrl,
+        temperature: Number(data.temperature),
+        system_prompt: data.systemPrompt,
+      });
+      if (onSave) {
+        onSave();
+      }
+      if (needClose) {
+        setOpen(false);
+      }
+    }catch{
+      if(currentShifu?.readonly){
+        setOpen(false);
+      }
+    }
+   
+  }, [shifuId, keywords, uploadedImageUrl, onSave, setOpen]);
 
-    if (onSave) {
-      await onSave();
-    }
-    if (needClose) {
-      setOpen(false);
-    }
-  };
   const init = async () => {
     const result = (await api.getShifuDetail({
       shifu_bid: shifuId,

@@ -47,22 +47,27 @@ const ChapterPromptSetting = ({
 
   const onConfirm = useCallback(
     async (needClose = true) => {
-      if (!outlineBid) {
-        return;
-      }
+      try{
+        if (!outlineBid) {
+          return;
+        }
 
-      await api.modifyOutline({
-        outline_bid: outlineBid,
-        shifu_bid: currentShifu?.bid,
-        system_prompt: systemPrompt,
-      });
-
-      setIsDirty(false);
-      if (needClose) {
-        onOpenChange?.(false);
+        await api.modifyOutline({
+          outline_bid: outlineBid,
+          shifu_bid: currentShifu?.bid,
+          system_prompt: systemPrompt,
+        });
+        setIsDirty(false);
+        if (needClose) {
+          onOpenChange?.(false);
+        }
+      }catch{
+        if(currentShifu?.readonly){
+          onOpenChange?.(false);
+        }
       }
     },
-    [outlineBid, currentShifu?.bid, systemPrompt, onOpenChange],
+    [outlineBid, currentShifu?.bid, systemPrompt, onOpenChange, currentShifu?.readonly],
   );
 
   useEffect(() => {

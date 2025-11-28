@@ -61,28 +61,34 @@ const ChapterSettingsDialog = ({
 
   const onConfirm = useCallback(
     async (needClose = true) => {
-      if (!outlineBid) {
-        return;
-      }
-
-      const isPaid = learningPermission === LEARNING_PERMISSION.NORMAL;
-      const requiresLogin = learningPermission !== LEARNING_PERMISSION.GUEST;
-
-      await api.modifyOutline({
-        outline_bid: outlineBid,
-        shifu_bid: currentShifu?.bid,
-        type: learningPermission,
-        is_hidden: hideChapter,
-        system_prompt: systemPrompt,
-        is_paid: isPaid,
-        require_login: requiresLogin,
-        need_login: requiresLogin,
-        login_required: requiresLogin,
-      });
-
-      setIsDirty(false);
-      if (needClose) {
-        onOpenChange?.(false);
+      try{
+        if (!outlineBid) {
+          return;
+        }
+  
+        const isPaid = learningPermission === LEARNING_PERMISSION.NORMAL;
+        const requiresLogin = learningPermission !== LEARNING_PERMISSION.GUEST;
+  
+        await api.modifyOutline({
+          outline_bid: outlineBid,
+          shifu_bid: currentShifu?.bid,
+          type: learningPermission,
+          is_hidden: hideChapter,
+          system_prompt: systemPrompt,
+          is_paid: isPaid,
+          require_login: requiresLogin,
+          need_login: requiresLogin,
+          login_required: requiresLogin,
+        });
+  
+        setIsDirty(false);
+        if (needClose) {
+          onOpenChange?.(false);
+        }
+      }catch{
+        if(currentShifu?.readonly){
+          onOpenChange?.(false);
+        }
       }
     },
     [
@@ -92,6 +98,7 @@ const ChapterSettingsDialog = ({
       systemPrompt,
       currentShifu?.bid,
       onOpenChange,
+      currentShifu?.readonly,
     ],
   );
 
