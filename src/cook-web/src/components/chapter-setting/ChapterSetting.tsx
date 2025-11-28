@@ -61,18 +61,18 @@ const ChapterSettingsDialog = ({
 
   const onConfirm = useCallback(
     async (needClose = true) => {
-      try{
-        if(currentShifu?.readonly){
+      try {
+        if (currentShifu?.readonly) {
           onOpenChange?.(false);
-          return
+          return;
         }
         if (!outlineBid) {
           return;
         }
-  
+
         const isPaid = learningPermission === LEARNING_PERMISSION.NORMAL;
         const requiresLogin = learningPermission !== LEARNING_PERMISSION.GUEST;
-  
+
         await api.modifyOutline({
           outline_bid: outlineBid,
           shifu_bid: currentShifu?.bid,
@@ -84,14 +84,12 @@ const ChapterSettingsDialog = ({
           need_login: requiresLogin,
           login_required: requiresLogin,
         });
-  
+
         setIsDirty(false);
         if (needClose) {
           onOpenChange?.(false);
         }
-      }catch{
-        
-      }
+      } catch {}
     },
     [
       outlineBid,
@@ -117,7 +115,7 @@ const ChapterSettingsDialog = ({
     if (!open || loading || !isDirty) {
       return;
     }
-    if(currentShifu?.readonly){
+    if (currentShifu?.readonly) {
       return;
     }
     const timer = setTimeout(() => {

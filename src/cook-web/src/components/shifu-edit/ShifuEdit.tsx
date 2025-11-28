@@ -252,7 +252,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     resetPreview();
 
     try {
-      if(!currentShifu?.readonly){
+      if (!currentShifu?.readonly) {
         await actions.saveMdflow({
           shifu_bid: currentShifu.bid,
           outline_bid: currentNode.bid,

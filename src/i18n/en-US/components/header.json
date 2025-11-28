@@ -9,6 +9,6 @@
   "publish": "Publish",
   "publishSuccess": "Published Successfully",
   "publishSuccessDescription": "Published successfully, please go to view",
-  "saved": "Saved",
-  "readonly": "Readonly"
+  "readonly": "Readonly",
+  "saved": "Saved"
 }

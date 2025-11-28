@@ -47,10 +47,10 @@ const ChapterPromptSetting = ({
 
   const onConfirm = useCallback(
     async (needClose = true) => {
-      try{
-        if(currentShifu?.readonly){
+      try {
+        if (currentShifu?.readonly) {
           onOpenChange?.(false);
-          return
+          return;
         }
         if (!outlineBid) {
           return;
@@ -65,11 +65,15 @@ const ChapterPromptSetting = ({
         if (needClose) {
           onOpenChange?.(false);
         }
-      }catch{
-       
-      }
+      } catch {}
     },
-    [outlineBid, currentShifu?.bid, systemPrompt, onOpenChange, currentShifu?.readonly],
+    [
+      outlineBid,
+      currentShifu?.bid,
+      systemPrompt,
+      onOpenChange,
+      currentShifu?.readonly,
+    ],
   );
 
   useEffect(() => {

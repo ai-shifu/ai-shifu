@@ -225,32 +225,34 @@ export default function ShifuSettingDialog({
   };
 
   // Handle form submission
-  const onSubmit = useCallback(async (data: any, needClose = true) => {
-    try{
-      await api.saveShifuDetail({
-        description: data.description,
-        shifu_bid: shifuId,
-        keywords: keywords,
-        model: data.model,
-        name: data.name,
-        price: Number(data.price),
-        avatar: uploadedImageUrl,
-        temperature: Number(data.temperature),
-        system_prompt: data.systemPrompt,
-      });
-      if (onSave) {
-        onSave();
+  const onSubmit = useCallback(
+    async (data: any, needClose = true) => {
+      try {
+        await api.saveShifuDetail({
+          description: data.description,
+          shifu_bid: shifuId,
+          keywords: keywords,
+          model: data.model,
+          name: data.name,
+          price: Number(data.price),
+          avatar: uploadedImageUrl,
+          temperature: Number(data.temperature),
+          system_prompt: data.systemPrompt,
+        });
+        if (onSave) {
+          onSave();
+        }
+        if (needClose) {
+          setOpen(false);
+        }
+      } catch {
+        if (currentShifu?.readonly) {
+          setOpen(false);
+        }
       }
-      if (needClose) {
-        setOpen(false);
-      }
-    }catch{
-      if(currentShifu?.readonly){
-        setOpen(false);
-      }
-    }
-   
-  }, [shifuId, keywords, uploadedImageUrl, onSave, setOpen]);
+    },
+    [shifuId, keywords, uploadedImageUrl, onSave, setOpen],
+  );
 
   const init = async () => {
     const result = (await api.getShifuDetail({
@@ -288,8 +290,8 @@ export default function ShifuSettingDialog({
 
   const submitForm = useCallback(
     async (needClose = true) => {
-      if(currentShifu?.readonly){
-        setOpen(false)
+      if (currentShifu?.readonly) {
+        setOpen(false);
         return true;
       }
       const isNameValid = await form.trigger('name');
@@ -645,26 +647,28 @@ export default function ShifuSettingDialog({
                           className='h-9'
                         />
                       </FormControl>
-                      {currentShifu?.readonly ? null : <div className='flex items-center gap-2'>
-                        <Button
-                          type='button'
-                          variant='outline'
-                          size='icon'
-                          onClick={() => adjustTemperature(-0.1)}
-                          className='h-9 w-9'
-                        >
-                          <Minus className='h-4 w-4' />
-                        </Button>
-                        <Button
-                          type='button'
-                          variant='outline'
-                          size='icon'
-                          onClick={() => adjustTemperature(0.1)}
-                          className='h-9 w-9'
-                        >
-                          <Plus className='h-4 w-4' />
-                        </Button>
-                      </div>}
+                      {currentShifu?.readonly ? null : (
+                        <div className='flex items-center gap-2'>
+                          <Button
+                            type='button'
+                            variant='outline'
+                            size='icon'
+                            onClick={() => adjustTemperature(-0.1)}
+                            className='h-9 w-9'
+                          >
+                            <Minus className='h-4 w-4' />
+                          </Button>
+                          <Button
+                            type='button'
+                            variant='outline'
+                            size='icon'
+                            onClick={() => adjustTemperature(0.1)}
+                            className='h-9 w-9'
+                          >
+                            <Plus className='h-4 w-4' />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                     <FormMessage />
                   </FormItem>
@@ -741,14 +745,16 @@ export default function ShifuSettingDialog({
                     placeholder={t('module.shifuSetting.inputKeywords')}
                     className='flex-1 h-9'
                   />
-                  {!currentShifu?.readonly && <Button
-                    type='button'
-                    onClick={handleAddKeyword}
-                    variant='outline'
-                    size='sm'
-                  >
-                    {t('module.shifuSetting.addKeyword')}
-                  </Button>}
+                  {!currentShifu?.readonly && (
+                    <Button
+                      type='button'
+                      onClick={handleAddKeyword}
+                      variant='outline'
+                      size='sm'
+                    >
+                      {t('module.shifuSetting.addKeyword')}
+                    </Button>
+                  )}
                 </div>
               </div>
 

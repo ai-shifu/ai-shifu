@@ -17,7 +17,7 @@ const PreviewSettingsModal = () => {
 
     try {
       setLoading(true);
-      if(!currentShifu?.readonly){
+      if (!currentShifu?.readonly) {
         await actions.saveMdflow();
       }
       const result = await api.previewShifu({
