@@ -55,10 +55,12 @@ export const CourseCatalogList = ({
     <>
       <div className={styles.courseCatalogList}>
         <div className={styles.titleRow}>
-         <div className={styles.titleArea}>
-            {courseAvatar && <Avatar className='w-8 h-8 mr-3'>
-              <AvatarImage src={courseAvatar} />
-            </Avatar>}
+          <div className={styles.titleArea}>
+            {courseAvatar && (
+              <Avatar className='w-8 h-8 mr-3'>
+                <AvatarImage src={courseAvatar} />
+              </Avatar>
+            )}
             <div className={styles.titleName}>{courseName}</div>
           </div>
         </div>
