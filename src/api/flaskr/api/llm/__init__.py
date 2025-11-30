@@ -486,7 +486,14 @@ def invoke_llm(
             kwargs["response_format"] = {"type": "json_object"}
         # kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
         kwargs["stream_options"] = {"include_usage": True}
-        kwargs.update(reload_params(model, float(kwargs.get("temperature", 0.8))))
+        if reload_params:
+            kwargs.update(reload_params(model, float(kwargs.get("temperature", 0.8))))
+        else:
+            kwargs.update(
+                {
+                    "temperature": float(kwargs.get("temperature", 0.8)),
+                }
+            )
         response = _stream_litellm_completion(
             app,
             invoke_model,
@@ -571,7 +578,14 @@ def chat_llm(
     start_completion_time = None
     params, invoke_model, reload_params = get_litellm_params_and_model(model)
     if params:
-        kwargs.update(reload_params(model, kwargs.get("temperature", 0.3)))
+        if reload_params:
+            kwargs.update(reload_params(model, kwargs.get("temperature", 0.3)))
+        else:
+            kwargs.update(
+                {
+                    "temperature": kwargs.get("temperature", 0.3),
+                }
+            )
         response = _stream_litellm_completion(
             app,
             invoke_model,
