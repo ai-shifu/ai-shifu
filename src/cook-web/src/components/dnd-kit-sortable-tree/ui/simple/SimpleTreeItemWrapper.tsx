@@ -6,9 +6,13 @@ import React, { forwardRef } from 'react';
 import type { TreeItemComponentProps } from '../../types';
 import './SimpleTreeItemWrapper.css';
 
+interface SimpleTreeItemWrapperProps<T = {}> extends TreeItemComponentProps<T> {
+  onChapterSelect?: () => void;
+}
+
 export const SimpleTreeItemWrapper = forwardRef<
   HTMLDivElement,
-  React.PropsWithChildren<TreeItemComponentProps<{}>>
+  React.PropsWithChildren<SimpleTreeItemWrapperProps<{}>>
 >((props, ref) => {
   const {
     clone,
@@ -92,6 +96,6 @@ export const SimpleTreeItemWrapper = forwardRef<
   );
 }) as <T>(
   p: React.PropsWithChildren<
-    TreeItemComponentProps<T> & React.RefAttributes<HTMLDivElement>
+    SimpleTreeItemWrapperProps<T> & React.RefAttributes<HTMLDivElement>
   >,
 ) => React.ReactElement;
