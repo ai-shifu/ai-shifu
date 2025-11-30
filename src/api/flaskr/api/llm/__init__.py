@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from datetime import datetime
 import logging
 import requests
@@ -36,6 +36,7 @@ class ProviderConfig:
             List[Union[str, Tuple[str, str]]],
         ]
     ] = None
+    extra_kwargs: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -45,6 +46,7 @@ class ProviderState:
     models: List[str]
     prefix: str = ""
     wildcard_prefixes: Tuple[str, ...] = ()
+    extra_kwargs: Dict[str, Any] = field(default_factory=dict)
 
 
 MODEL_ALIAS_MAP: Dict[str, Tuple[str, str]] = {}
@@ -94,7 +96,14 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
     api_key = get_config(config.api_key_env)
     if not api_key:
         _log_warning(f"{config.api_key_env} not configured")
-        return ProviderState(False, None, [], config.prefix, config.wildcard_prefixes)
+        return ProviderState(
+            False,
+            None,
+            [],
+            config.prefix,
+            config.wildcard_prefixes,
+            config.extra_kwargs,
+        )
     base_url = None
     if config.base_url_env:
         base_url = get_config(config.base_url_env)
@@ -133,6 +142,7 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
         display_models,
         config.prefix,
         config.wildcard_prefixes,
+        config.extra_kwargs,
     )
 
 
@@ -280,6 +290,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         wildcard_prefixes=("gpt",),
         config_hint="OPENAI_API_KEY,OPENAI_BASE_URL",
         custom_llm_provider="openai",
+        extra_kwargs={"reasoning_effort": "minimal"},
     ),
     ProviderConfig(
         key="qwen",
@@ -319,6 +330,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         config_hint="GEMINI_API_KEY,GEMINI_API_URL",
         custom_llm_provider="gemini",
         model_loader=_load_gemini_models,
+        extra_kwargs={"reasoning_effort": "none"},
     ),
     ProviderConfig(
         key="glm",
@@ -390,6 +402,7 @@ def get_litellm_params_and_model(model: str):
     if provider_key:
         state = PROVIDER_STATES.get(provider_key)
         params = state.params if state else None
+        extra_kwargs = state.extra_kwargs if state else None
         if not params:
             raise_error_with_args(
                 "server.llm.specifiedLlmNotConfigured",
@@ -398,7 +411,7 @@ def get_litellm_params_and_model(model: str):
                     provider_key, provider_key.upper()
                 ),
             )
-        return params, invoke_model
+        return params, invoke_model, extra_kwargs
     return None, model
 
 
@@ -427,7 +440,7 @@ def invoke_llm(
     )
     response_text = ""
     usage = None
-    params, invoke_model = get_litellm_params_and_model(model)
+    params, invoke_model, extra_kwargs = get_litellm_params_and_model(model)
     start_completion_time = None
     if params:
         messages = []
@@ -438,6 +451,8 @@ def invoke_llm(
             kwargs["response_format"] = {"type": "json_object"}
         kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
         kwargs["stream_options"] = {"include_usage": True}
+        kwargs.update(extra_kwargs)
+        app.logger.info(f"invoke_llm kwargs: {kwargs}")
         response = _stream_litellm_completion(
             invoke_model,
             messages,
@@ -521,8 +536,9 @@ def chat_llm(
     start_completion_time = None
     if kwargs.get("temperature", None) is not None:
         kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
-    params, invoke_model = get_litellm_params_and_model(model)
+    params, invoke_model, extra_kwargs = get_litellm_params_and_model(model)
     if params:
+        kwargs.update(extra_kwargs)
         response = _stream_litellm_completion(
             invoke_model,
             messages,
