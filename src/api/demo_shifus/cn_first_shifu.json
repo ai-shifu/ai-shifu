@@ -1,9 +1,9 @@
 {
   "version": "1.0",
-  "exported_at": "2025-11-17T06:50:50.894574",
+  "exported_at": "2025-11-29T07:44:57.671990",
   "shifu": {
     "shifu_bid": "f199b2107c6a415199d2432bfc1b737d",
-    "title": "⭐️点击这里开始第一课⭐️",
+    "title": "⭐️点击这里开始⭐️",
     "keywords": "",
     "description": "完成你的第一个师傅！",
     "avatar_res_bid": "76eb74b5f99a4d7186aa8ead40a1f9d4",
@@ -14,7 +14,7 @@
     "ask_llm": "",
     "ask_llm_temperature": 0.0,
     "ask_llm_system_prompt": "",
-    "price": 0.0
+    "price": 0.5
   },
   "outline_items": [
     {
@@ -49,12 +49,12 @@
       "ask_llm": "",
       "ask_llm_temperature": 0.3,
       "ask_llm_system_prompt": "",
-      "content": "🎉 欢迎使用 AI 师傅！！🎉\n你只需要讲解知识要点， AI 师傅会千人千面的做讲解。\n\n\n👉第一步：请在这里写下任意的讲解要求。\n\n比如：讲解金字塔原理\n \n👉第二步： 请点击预览查看效果。\n\n👉第三步：回到主界面，查看《AI 师傅创作指导课》，正式开启创作。\n\n\n现在让我们开始吧！！\n请删除这里所有内容，写一个你想要讲述的内容吧。"
+      "content": "!===\n\n🎉 欢迎使用 AI 师傅！！🎉\n你只需要给到内容， AI 师傅会做千人千面的讲解。\n\n👉第一步：请在这里写下任意的讲解要求。\n比如：讲解金字塔原理\n \n👉第二步： 请点击 **完整预览** 查看效果。\n\n👉第三步：回到上一级 **师傅** 主界面，查看 [AI 师傅创作指导课](https://app.ai-shifu.cn/c/3aab99292889400f9f3c935a45ab2b0e)，了解如何使用AI 师傅进行创作。\n\n\n现在让我们开始吧！！\n请删除这里所有内容，写一个你想要讲述的内容吧。\n\n!==="
     }
   ],
   "structure": {
     "bid": "f199b2107c6a415199d2432bfc1b737d",
-    "id": 284,
+    "id": 311,
     "type": "shifu",
     "children": [
       {
@@ -64,7 +64,7 @@
         "children": [
           {
             "bid": "aa9f3fa5d8934543ae6e4569bdf35c7c",
-            "id": 5196,
+            "id": 6381,
             "type": "outline",
             "children": [
               {
