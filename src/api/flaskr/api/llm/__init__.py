@@ -165,8 +165,13 @@ def _fetch_provider_models(api_key: str, base_url: str | None) -> list[str]:
     return [item.get("id", "") for item in data.get("data", []) if item.get("id")]
 
 
-def _stream_litellm_completion(model: str, messages: list, params: dict, kwargs: dict):
+def _stream_litellm_completion(
+    app: Flask, model: str, messages: list, params: dict, kwargs: dict
+):
     try:
+        app.logger.info(
+            f"stream_litellm_completion: {model} {messages} {params} {kwargs}"
+        )
         return litellm.completion(
             model=model,
             messages=messages,
@@ -426,9 +431,6 @@ def invoke_llm(
     generation_name: str = "invoke_llm",
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
-    app.logger.info(
-        f"invoke_llm [{model}] {message} ,system:{system} ,json:{json} ,kwargs:{kwargs}"
-    )
     kwargs.pop("stream", None)
     model = model.strip()
     generation_input = []
@@ -452,8 +454,8 @@ def invoke_llm(
         kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
         kwargs["stream_options"] = {"include_usage": True}
         kwargs.update(extra_kwargs)
-        app.logger.info(f"invoke_llm kwargs: {kwargs}")
         response = _stream_litellm_completion(
+            app,
             invoke_model,
             messages,
             params,
@@ -540,6 +542,7 @@ def chat_llm(
     if params:
         kwargs.update(extra_kwargs)
         response = _stream_litellm_completion(
+            app,
             invoke_model,
             messages,
             params,
