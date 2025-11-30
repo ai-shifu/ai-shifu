@@ -1,4 +1,5 @@
 {
   "__namespace__": "module.preview",
-  "previewAll": "Preview all"
+  "previewAll": "Preview all",
+  "previewError": "Preview error"
 }
