@@ -44,6 +44,7 @@ enum PREVIEW_SSE_OUTPUT_TYPE {
   INTERACTION = 'interaction',
   CONTENT = 'content',
   TEXT_END = 'text_end',
+  ERROR = 'error',
 }
 
 export function usePreviewChat() {
@@ -360,6 +361,14 @@ export function usePreviewChat() {
             }
             return updatedList;
           });
+        } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.ERROR) {
+          toast({
+            title: t('module.preview.previewError'),
+            description: response.data,
+            variant: 'destructive',
+          });
+          setError(response.data);
+          stopPreview();
         }
       } catch (err) {
         console.warn('preview SSE handling error:', err);
