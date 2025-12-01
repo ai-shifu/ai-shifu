@@ -244,6 +244,7 @@ const ScriptManagementPage = () => {
         </div>
         <div className='flex space-x-3 mb-5'>
           <Button
+            data-umami-event='creator_shifu_create_click'
             size='sm'
             variant='outline'
             onClick={handleCreateShifuModal}

@@ -23,7 +23,6 @@ import { useTranslation } from 'react-i18next';
 import i18n, { normalizeLanguage } from '@/i18n';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
-import { getBoolEnv } from '@/c-utils/envUtils';
 import LessonPreview from '@/components/lesson-preview';
 import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
 import { Rnd } from 'react-rnd';
@@ -31,77 +30,6 @@ import { Rnd } from 'react-rnd';
 const OUTLINE_DEFAULT_WIDTH = 256;
 const OUTLINE_COLLAPSED_WIDTH = 60;
 const OUTLINE_STORAGE_KEY = 'shifu-outline-panel-width';
-
-const initializeEnvData = async (): Promise<void> => {
-  const {
-    updateAppId,
-    updateCourseId,
-    updateDefaultLlmModel,
-    updateAlwaysShowLessonTree,
-    updateUmamiWebsiteId,
-    updateUmamiScriptSrc,
-    updateEruda,
-    updateBaseURL,
-    updateLogoHorizontal,
-    updateLogoVertical,
-    updateLogoUrl,
-    updateEnableWxcode,
-    updateHomeUrl,
-    updateCurrencySymbol,
-  } = useEnvStore.getState() as EnvStoreState;
-
-  const fetchEnvData = async (): Promise<void> => {
-    try {
-      const res = await fetch('/api/config', {
-        method: 'GET',
-        referrer: 'no-referrer',
-      });
-      if (res.ok) {
-        const data = await res.json();
-
-        // await updateCourseId(data?.courseId || '');
-        await updateAppId(data?.wechatAppId || '');
-        await updateDefaultLlmModel(data?.defaultLlmModel || '');
-        await updateAlwaysShowLessonTree(data?.alwaysShowLessonTree || 'false');
-        await updateUmamiWebsiteId(data?.umamiWebsiteId || '');
-        await updateUmamiScriptSrc(data?.umamiScriptSrc || '');
-        await updateEruda(data?.enableEruda || 'false');
-        await updateBaseURL(data?.apiBaseUrl || '');
-        await updateLogoHorizontal(data?.logoHorizontal || '');
-        await updateLogoVertical(data?.logoVertical || '');
-        await updateLogoUrl(data?.logoUrl || '');
-        await updateEnableWxcode(data?.enableWechatCode?.toString() || 'true');
-        await updateHomeUrl(data?.homeUrl || '');
-        await updateCurrencySymbol(data?.currencySymbol || '¥');
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      const { umamiWebsiteId, umamiScriptSrc } =
-        useEnvStore.getState() as EnvStoreState;
-      if (getBoolEnv('eruda')) {
-        import('eruda').then(eruda => eruda.default.init());
-      }
-
-      const loadUmamiScript = (): void => {
-        if (umamiScriptSrc && umamiWebsiteId) {
-          const script = document.createElement('script');
-          script.defer = true;
-          script.src = umamiScriptSrc;
-          script.setAttribute('data-website-id', umamiWebsiteId);
-          document.head.appendChild(script);
-        }
-      };
-
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', loadUmamiScript);
-      } else {
-        loadUmamiScript();
-      }
-    }
-  };
-  await fetchEnvData();
-};
 
 const ScriptEditor = ({ id }: { id: string }) => {
   const { t } = useTranslation();
@@ -179,10 +107,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const token = useUserStore(state => state.getToken());
   const baseURL = useEnvStore((state: EnvStoreState) => state.baseURL);
-
-  useEffect(() => {
-    void initializeEnvData();
-  }, []);
 
   useEffect(() => {
     return () => {
