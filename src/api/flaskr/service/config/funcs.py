@@ -87,7 +87,7 @@ def _get_config_lock_key(app: Flask, key: str) -> str:
 
 
 @extensible
-def get_config(key: str) -> str:
+def get_config(key: str, default: str = None) -> str:
     """
     Get config value by key, automatically decrypt if is_secret=1.
 
@@ -104,10 +104,10 @@ def get_config(key: str) -> str:
     from flask import current_app, has_app_context
 
     if not has_app_context():
-        return get_config_from_common(key, None)
+        return get_config_from_common(key, default)
     app = current_app
     with app.app_context():
-        env_value = get_config_from_common(key, None)
+        env_value = get_config_from_common(key, default)
         if env_value:
             return env_value
         cache_key = _get_config_cache_key(app, key)
@@ -130,7 +130,7 @@ def get_config(key: str) -> str:
                     .first()
                 )
                 if not config:
-                    return None
+                    return default
                 raw_value = config.value
                 if bool(config.is_encrypted):
                     value = _decrypt_config(app, raw_value)
@@ -147,7 +147,7 @@ def get_config(key: str) -> str:
                 return value
             finally:
                 lock.release()
-        return None
+        return default
 
 
 def add_config(
