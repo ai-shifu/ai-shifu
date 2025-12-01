@@ -58,7 +58,7 @@ export default function AskBlock({
 }: AskBlockProps) {
   const { t } = useTranslation();
   const { mobileStyle } = useContext(AppContext);
-  const courseAvatar  = useCourseStore(state => state.courseAvatar);
+  const courseAvatar = useCourseStore(state => state.courseAvatar);
   const [displayList, setDisplayList] = useState<AskMessage[]>(() => {
     return askList.map(item => ({
       content: item.content || '',
@@ -418,9 +418,11 @@ export default function AskBlock({
             >
               <div className={styles.mobileHeader}>
                 <div className={styles.mobileTitle}>
-                  {courseAvatar && <Avatar className='w-7 h-7 mr-2'>
-                    <AvatarImage src={courseAvatar} />
-                  </Avatar>}
+                  {courseAvatar && (
+                    <Avatar className='w-7 h-7 mr-2'>
+                      <AvatarImage src={courseAvatar} />
+                    </Avatar>
+                  )}
                   <span>{t('module.chat.ask')}</span>
                 </div>
                 <div className={styles.mobileActions}>

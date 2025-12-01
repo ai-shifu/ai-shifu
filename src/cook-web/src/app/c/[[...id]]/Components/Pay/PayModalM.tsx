@@ -374,7 +374,6 @@ export const PayModalM = ({
     trackEvent,
   ]);
 
-
   const triggerCancel = useCallback(() => {
     skipNextCancelEventRef.current = true;
     emitCancelEvent();

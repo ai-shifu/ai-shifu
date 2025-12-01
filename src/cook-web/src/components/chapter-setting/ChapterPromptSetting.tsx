@@ -10,7 +10,7 @@ import api from '@/api';
 import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
 import { useShifu } from '@/store';
-  import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/c-common/hooks/useTracking';
 
 const ChapterPromptSetting = ({
   outlineBid,

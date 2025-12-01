@@ -148,7 +148,7 @@ const ScriptManagementPage = () => {
       currentPage.current = 1;
       fetchShifus();
       setShowCreateShifuModal(false);
-      trackEvent('creator_shifu_create_success',{
+      trackEvent('creator_shifu_create_success', {
         shifu_bid: response.bid,
         shifu_name: response.name,
       });
@@ -165,7 +165,7 @@ const ScriptManagementPage = () => {
   };
 
   const handleCreateShifuModal = () => {
-    trackEvent('creator_shifu_create_click',{});
+    trackEvent('creator_shifu_create_click', {});
     setShowCreateShifuModal(true);
   };
 

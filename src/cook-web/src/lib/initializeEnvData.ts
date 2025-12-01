@@ -57,9 +57,7 @@ const loadRuntimeConfig = async () => {
   await updateCurrencySymbol(data?.currencySymbol || '¥');
   await updateStripePublishableKey(data?.stripePublishableKey || '');
   await updateStripeEnabled(
-    data?.stripeEnabled !== undefined
-      ? data.stripeEnabled.toString()
-      : 'false',
+    data?.stripeEnabled !== undefined ? data.stripeEnabled.toString() : 'false',
   );
   await updatePaymentChannels(
     Array.isArray(data?.paymentChannels) && data.paymentChannels.length > 0

@@ -830,10 +830,10 @@ function useChatLogicHook({
           input: '',
           input_type: SSE_INPUT_TYPE.NORMAL,
         });
-        if(!effectivePreviewMode) {
+        if (!effectivePreviewMode) {
           trackEvent('learner_lesson_start', {
-              shifu_bid: shifuBid,
-              outline_bid: outlineBid,
+            shifu_bid: shifuBid,
+            outline_bid: outlineBid,
           });
         }
       }
