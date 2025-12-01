@@ -290,7 +290,7 @@ def ensure_admin_creator_and_demo_permissions(
     # Grant demo course permissions if demo shifus are configured
     demo_ids = set()
     for key in ("DEMO_SHIFU_BID", "DEMO_EN_SHIFU_BID"):
-        bid = get_dynamic_config(app, key)
+        bid = get_dynamic_config(key)
         if bid:
             demo_ids.add(bid)
 
