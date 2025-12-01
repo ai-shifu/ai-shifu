@@ -26,6 +26,7 @@ import { EnvStoreState } from '@/c-types/store';
 import LessonPreview from '@/components/lesson-preview';
 import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
 import { Rnd } from 'react-rnd';
+import { useTracking } from '@/c-common/hooks/useTracking';
 
 const OUTLINE_DEFAULT_WIDTH = 256;
 const OUTLINE_COLLAPSED_WIDTH = 60;
@@ -33,6 +34,7 @@ const OUTLINE_STORAGE_KEY = 'shifu-outline-panel-width';
 
 const ScriptEditor = ({ id }: { id: string }) => {
   const { t } = useTranslation();
+  const { trackEvent } = useTracking();
   const profile = useUserStore(state => state.userInfo);
   const [foldOutlineTree, setFoldOutlineTree] = useState(false);
   const [outlineWidth, setOutlineWidth] = useState(OUTLINE_DEFAULT_WIDTH);
@@ -171,6 +173,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
     if (!canPreview || !currentShifu?.bid || !currentNode?.bid) {
       return;
     }
+    trackEvent('creator_lesson_preview_click', {
+      shifu_bid: currentShifu.bid,
+      outline_bid: currentNode.bid,
+    });
     setIsPreviewPanelOpen(true);
     setIsPreviewPreparing(true);
     resetPreview();
