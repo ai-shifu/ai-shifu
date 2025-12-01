@@ -27,7 +27,6 @@ export const CourseCatalogList = ({
   selectedLessonId = '',
   bannerInfo = null,
 }) => {
-
   const [trialNodePosition, setTrialNodePosition] = useState(
     TRAIL_NODE_POSITION.NORMAL,
   );

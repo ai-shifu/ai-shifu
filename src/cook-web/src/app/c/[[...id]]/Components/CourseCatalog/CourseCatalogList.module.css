@@ -1,1 +1,40 @@
-.courseCatalogList{height:100%;display:flex;padding:10px 20px;flex-flow:column nowrap;box-sizing:border-box;position:relative}.courseCatalogList .titleRow{flex:0 0 auto;display:flex;flex-flow:row nowrap;justify-content:space-between;align-items:center}.courseCatalogList .titleRow .titleArea{display:flex;flex-flow:row nowrap;align-items:center;flex:1 1 0;overflow:hidden}.courseCatalogList .titleRow .titleArea .icon{width:16px}.courseCatalogList .titleRow .titleArea .titleName{font-weight:var(--font-weight-bold);color:#0a0a0a;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:16px}.courseCatalogList .titleRow .chapterCount{font-size:var(--font-size-5);color:var(--color-8)}.courseCatalogList .listRow{margin-top:5px}
+.courseCatalogList {
+  height: 100%;
+  display: flex;
+  padding: 10px 20px;
+  flex-flow: column nowrap;
+  box-sizing: border-box;
+  position: relative;
+}
+.courseCatalogList .titleRow {
+  flex: 0 0 auto;
+  display: flex;
+  flex-flow: row nowrap;
+  justify-content: space-between;
+  align-items: center;
+}
+.courseCatalogList .titleRow .titleArea {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  flex: 1 1 0;
+  overflow: hidden;
+}
+.courseCatalogList .titleRow .titleArea .icon {
+  width: 16px;
+}
+.courseCatalogList .titleRow .titleArea .titleName {
+  font-weight: var(--font-weight-bold);
+  color: #0a0a0a;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  font-size: 16px;
+}
+.courseCatalogList .titleRow .chapterCount {
+  font-size: var(--font-size-5);
+  color: var(--color-8);
+}
+.courseCatalogList .listRow {
+  margin-top: 5px;
+}
