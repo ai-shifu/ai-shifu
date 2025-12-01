@@ -77,6 +77,7 @@ class ShifuDetailDto(BaseModel):
     preview_url: str = Field(..., description="shifu preview url", required=False)
     url: str = Field(..., description="shifu url", required=False)
     system_prompt: str = Field(..., description="shifu system prompt", required=False)
+    readonly: bool = Field(..., description="is shifu readonly", required=False)
 
     def __init__(
         self,
@@ -91,6 +92,7 @@ class ShifuDetailDto(BaseModel):
         shifu_preview_url: str,
         shifu_url: str,
         shifu_system_prompt: str,
+        readonly: bool,
     ):
         super().__init__(
             bid=shifu_id,
@@ -104,6 +106,7 @@ class ShifuDetailDto(BaseModel):
             preview_url=shifu_preview_url,
             url=shifu_url,
             system_prompt=shifu_system_prompt,
+            readonly=readonly,
         )
 
     def __json__(self):
@@ -119,6 +122,7 @@ class ShifuDetailDto(BaseModel):
             "url": self.url,
             "temperature": self.temperature,
             "system_prompt": self.system_prompt,
+            "readonly": self.readonly,
         }
 
 

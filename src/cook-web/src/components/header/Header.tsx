@@ -17,6 +17,8 @@ import {
 import Preivew from '@/components/preview';
 import ShifuSetting from '@/components/shifu-setting';
 import { useTranslation } from 'react-i18next';
+import s from './header.module.scss';
+
 const Header = () => {
   const { t } = useTranslation();
   const alert = useAlert();
@@ -91,6 +93,11 @@ const Header = () => {
               <span className='text-black text-base not-italic font-semibold leading-7'>
                 {currentShifu?.name}
               </span>
+              {currentShifu?.readonly && (
+                <span className={s.readonly}>
+                  {t('component.header.readonly')}
+                </span>
+              )}
             </div>
 
             <div className='flex items-center'>
@@ -137,6 +144,7 @@ const Header = () => {
           <Button
             size='sm'
             className=''
+            disabled={currentShifu?.readonly}
             onClick={publish}
           >
             {publishing && <Loading className='h-4 w-4 mr-1' />}

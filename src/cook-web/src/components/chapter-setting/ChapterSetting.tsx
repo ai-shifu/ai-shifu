@@ -61,29 +61,35 @@ const ChapterSettingsDialog = ({
 
   const onConfirm = useCallback(
     async (needClose = true) => {
-      if (!outlineBid) {
-        return;
-      }
+      try {
+        if (currentShifu?.readonly) {
+          onOpenChange?.(false);
+          return;
+        }
+        if (!outlineBid) {
+          return;
+        }
 
-      const isPaid = learningPermission === LEARNING_PERMISSION.NORMAL;
-      const requiresLogin = learningPermission !== LEARNING_PERMISSION.GUEST;
+        const isPaid = learningPermission === LEARNING_PERMISSION.NORMAL;
+        const requiresLogin = learningPermission !== LEARNING_PERMISSION.GUEST;
 
-      await api.modifyOutline({
-        outline_bid: outlineBid,
-        shifu_bid: currentShifu?.bid,
-        type: learningPermission,
-        is_hidden: hideChapter,
-        system_prompt: systemPrompt,
-        is_paid: isPaid,
-        require_login: requiresLogin,
-        need_login: requiresLogin,
-        login_required: requiresLogin,
-      });
+        await api.modifyOutline({
+          outline_bid: outlineBid,
+          shifu_bid: currentShifu?.bid,
+          type: learningPermission,
+          is_hidden: hideChapter,
+          system_prompt: systemPrompt,
+          is_paid: isPaid,
+          require_login: requiresLogin,
+          need_login: requiresLogin,
+          login_required: requiresLogin,
+        });
 
-      setIsDirty(false);
-      if (needClose) {
-        onOpenChange?.(false);
-      }
+        setIsDirty(false);
+        if (needClose) {
+          onOpenChange?.(false);
+        }
+      } catch {}
     },
     [
       outlineBid,
@@ -92,6 +98,7 @@ const ChapterSettingsDialog = ({
       systemPrompt,
       currentShifu?.bid,
       onOpenChange,
+      currentShifu?.readonly,
     ],
   );
 
@@ -108,7 +115,9 @@ const ChapterSettingsDialog = ({
     if (!open || loading || !isDirty) {
       return;
     }
-
+    if (currentShifu?.readonly) {
+      return;
+    }
     const timer = setTimeout(() => {
       onConfirm(false);
     }, 3000);
@@ -122,6 +131,7 @@ const ChapterSettingsDialog = ({
     hideChapter,
     systemPrompt,
     onConfirm,
+    currentShifu?.readonly,
   ]);
 
   return (
@@ -162,6 +172,7 @@ const ChapterSettingsDialog = ({
                   {t('module.chapterSetting.learningPermission')}
                 </div>
                 <RadioGroup
+                  disabled={currentShifu?.readonly}
                   value={learningPermission}
                   onValueChange={value => {
                     setLearningPermission(value as LearningPermission);
@@ -213,6 +224,7 @@ const ChapterSettingsDialog = ({
                   {t('module.chapterSetting.isHidden')}
                 </div>
                 <RadioGroup
+                  disabled={currentShifu?.readonly}
                   value={hideChapter ? 'hidden' : 'visible'}
                   onValueChange={value => {
                     setHideChapter(value === 'hidden');
@@ -264,6 +276,7 @@ const ChapterSettingsDialog = ({
                     setSystemPrompt(event.target.value);
                     setIsDirty(true);
                   }}
+                  disabled={currentShifu?.readonly}
                   maxLength={20000}
                   minRows={3}
                   maxRows={30}

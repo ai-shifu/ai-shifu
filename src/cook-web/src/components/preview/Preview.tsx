@@ -17,7 +17,9 @@ const PreviewSettingsModal = () => {
 
     try {
       setLoading(true);
-      await actions.saveMdflow();
+      if (!currentShifu?.readonly) {
+        await actions.saveMdflow();
+      }
       const result = await api.previewShifu({
         shifu_bid: currentShifu?.bid || '',
         skip: false,

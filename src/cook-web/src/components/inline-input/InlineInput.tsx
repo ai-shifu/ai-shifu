@@ -10,6 +10,7 @@ interface InlineInputProps {
   onChange: (value: string) => void;
   className?: string;
   onFocus?: () => void;
+  disabled?: boolean;
 }
 
 export const InlineInput: React.FC<InlineInputProps> = ({
@@ -17,6 +18,7 @@ export const InlineInput: React.FC<InlineInputProps> = ({
   value,
   onChange,
   className,
+  disabled,
   onFocus,
 }) => {
   const { t } = useTranslation();
@@ -34,6 +36,7 @@ export const InlineInput: React.FC<InlineInputProps> = ({
   }, [isEdit]);
 
   const handleDoubleClick = () => {
+    if (disabled) return;
     setIsEditing(true);
     onFocus?.();
   };
@@ -88,6 +91,7 @@ export const InlineInput: React.FC<InlineInputProps> = ({
           onChange={handleChange}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
+          disabled={disabled}
           className='w-full h-6 border-none focus:outline-none focus:ring-0 px-2'
           onClick={e => e.stopPropagation()}
           onDrag={e => e.stopPropagation()}

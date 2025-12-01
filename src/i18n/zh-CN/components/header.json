@@ -9,5 +9,6 @@
   "publish": "发布",
   "publishSuccess": "发布成功",
   "publishSuccessDescription": "发布成功，请前往查看",
+  "readonly": "只读",
   "saved": "已保存"
 }

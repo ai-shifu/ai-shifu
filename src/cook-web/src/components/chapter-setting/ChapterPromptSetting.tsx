@@ -47,22 +47,33 @@ const ChapterPromptSetting = ({
 
   const onConfirm = useCallback(
     async (needClose = true) => {
-      if (!outlineBid) {
-        return;
-      }
+      try {
+        if (currentShifu?.readonly) {
+          onOpenChange?.(false);
+          return;
+        }
+        if (!outlineBid) {
+          return;
+        }
 
-      await api.modifyOutline({
-        outline_bid: outlineBid,
-        shifu_bid: currentShifu?.bid,
-        system_prompt: systemPrompt,
-      });
-
-      setIsDirty(false);
-      if (needClose) {
-        onOpenChange?.(false);
-      }
+        await api.modifyOutline({
+          outline_bid: outlineBid,
+          shifu_bid: currentShifu?.bid,
+          system_prompt: systemPrompt,
+        });
+        setIsDirty(false);
+        if (needClose) {
+          onOpenChange?.(false);
+        }
+      } catch {}
     },
-    [outlineBid, currentShifu?.bid, systemPrompt, onOpenChange],
+    [
+      outlineBid,
+      currentShifu?.bid,
+      systemPrompt,
+      onOpenChange,
+      currentShifu?.readonly,
+    ],
   );
 
   useEffect(() => {
@@ -75,7 +86,7 @@ const ChapterPromptSetting = ({
   }, [open, outlineBid, onOpenChange, fetchOutlineInfo]);
 
   useEffect(() => {
-    if (!open || loading || !isDirty) {
+    if (!open || loading || !isDirty || currentShifu?.readonly) {
       return;
     }
 
@@ -84,7 +95,7 @@ const ChapterPromptSetting = ({
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [open, loading, isDirty, systemPrompt, onConfirm]);
+  }, [open, loading, isDirty, systemPrompt, onConfirm, currentShifu?.readonly]);
 
   return (
     <Sheet
@@ -130,6 +141,7 @@ const ChapterPromptSetting = ({
                 {t('module.chapterSetting.chapterPromptHint')}
               </div>
               <Textarea
+                disabled={currentShifu?.readonly}
                 value={systemPrompt}
                 onChange={event => {
                   setSystemPrompt(event.target.value);

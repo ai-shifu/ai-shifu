@@ -13,10 +13,12 @@ export default function ModelList({
   value,
   className,
   onChange,
+  disabled,
 }: {
   value: string;
   className?: string;
   onChange: (value: string) => void;
+  disabled?: boolean;
 }) {
   const { models } = useShifu();
   const { t } = useTranslation();
@@ -37,6 +39,7 @@ export default function ModelList({
     <Select
       onValueChange={handleChange}
       value={displayValue}
+      disabled={disabled}
     >
       <SelectTrigger className={cn('w-full', className)}>
         <SelectValue placeholder={t('common.core.selectModel')} />
