@@ -830,6 +830,12 @@ function useChatLogicHook({
           input: '',
           input_type: SSE_INPUT_TYPE.NORMAL,
         });
+        if(!effectivePreviewMode) {
+          trackEvent('learner_lesson_start', {
+              shifu_bid: shifuBid,
+              outline_bid: outlineBid,
+          });
+        }
       }
     } catch (error) {
       console.warn('refreshData error:', error);
