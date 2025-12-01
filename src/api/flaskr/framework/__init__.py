@@ -5,7 +5,6 @@ from .plugin.plugin_manager import (
     extensible_generic_register,
 )
 
-
 __all__ = [
     "extensible",
     "extension",
