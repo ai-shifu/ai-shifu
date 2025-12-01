@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next';
 import { ErrorWithCode } from '@/lib/request';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { useUserStore } from '@/store';
+import { useTracking } from '@/c-common/hooks/useTracking';
 interface ShifuCardProps {
   id: string;
   image: string | undefined;
@@ -77,6 +78,7 @@ const ShifuCard = ({
 
 const ScriptManagementPage = () => {
   const { toast } = useToast();
+  const { trackEvent } = useTracking();
   const { t, i18n } = useTranslation();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
@@ -136,7 +138,7 @@ const ScriptManagementPage = () => {
   fetchShifusRef.current = fetchShifus;
   const onCreateShifu = async (values: any) => {
     try {
-      await api.createShifu(values);
+      const response = await api.createShifu(values);
       toast({
         title: t('common.core.createSuccess'),
         description: t('common.core.createSuccessDescription'),
@@ -146,6 +148,10 @@ const ScriptManagementPage = () => {
       currentPage.current = 1;
       fetchShifus();
       setShowCreateShifuModal(false);
+      trackEvent('creator_shifu_create_success',{
+        shifu_bid: response.bid,
+        shifu_name: response.name,
+      });
     } catch (error) {
       toast({
         title: t('common.core.createFailed'),
@@ -158,7 +164,10 @@ const ScriptManagementPage = () => {
     }
   };
 
-  const handleCreateShifuModal = () => setShowCreateShifuModal(true);
+  const handleCreateShifuModal = () => {
+    trackEvent('creator_shifu_create_click',{});
+    setShowCreateShifuModal(true);
+  };
 
   useEffect(() => {
     setShifus([]);
@@ -244,7 +253,6 @@ const ScriptManagementPage = () => {
         </div>
         <div className='flex space-x-3 mb-5'>
           <Button
-            data-umami-event='creator_shifu_create_click'
             size='sm'
             variant='outline'
             onClick={handleCreateShifuModal}
