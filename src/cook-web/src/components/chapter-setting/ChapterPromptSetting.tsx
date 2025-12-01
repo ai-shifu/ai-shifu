@@ -10,6 +10,7 @@ import api from '@/api';
 import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
 import { useShifu } from '@/store';
+  import { useTracking } from '@/c-common/hooks/useTracking';
 
 const ChapterPromptSetting = ({
   outlineBid,
@@ -21,6 +22,7 @@ const ChapterPromptSetting = ({
   onOpenChange?: (open: boolean) => void;
 }) => {
   const { currentShifu } = useShifu();
+  const { trackEvent } = useTracking();
   const { t } = useTranslation();
   const [systemPrompt, setSystemPrompt] = useState('');
   const [loading, setLoading] = useState(false);
@@ -46,7 +48,7 @@ const ChapterPromptSetting = ({
   }, [outlineBid, currentShifu?.bid]);
 
   const onConfirm = useCallback(
-    async (needClose = true) => {
+    async (needClose = true, saveType: 'auto' | 'manual' = 'manual') => {
       try {
         if (currentShifu?.readonly) {
           onOpenChange?.(false);
@@ -60,6 +62,12 @@ const ChapterPromptSetting = ({
           outline_bid: outlineBid,
           shifu_bid: currentShifu?.bid,
           system_prompt: systemPrompt,
+        });
+        trackEvent('creator_outline_prompt_save', {
+          outline_bid: outlineBid,
+          shifu_bid: currentShifu?.bid,
+          system_prompt: systemPrompt,
+          save_type: saveType,
         });
         setIsDirty(false);
         if (needClose) {
@@ -91,7 +99,7 @@ const ChapterPromptSetting = ({
     }
 
     const timer = setTimeout(() => {
-      onConfirm(false);
+      onConfirm(false, 'auto');
     }, 3000);
 
     return () => clearTimeout(timer);
@@ -114,10 +122,10 @@ const ChapterPromptSetting = ({
         side='right'
         className='flex w-full flex-col overflow-hidden border-l border-border bg-white p-0 sm:w-[360px] md:w-[420px] lg:w-[480px]'
         onInteractOutside={() => {
-          onConfirm();
+          onConfirm(true, 'manual');
         }}
         onCloseIconClick={() => {
-          onConfirm();
+          onConfirm(true, 'manual');
         }}
       >
         <div className='border-b border-border px-6 py-5 pr-12'>
