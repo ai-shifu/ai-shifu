@@ -387,6 +387,7 @@ class PreviewSSEMessageType(Enum):
     CONTENT = "content"
     INTERACTION = "interaction"
     TEXT_END = "text_end"
+    ERROR = "error"
 
     def __json__(self):
         return self.value
@@ -410,7 +411,9 @@ class PreviewSSEMessage(BaseModel):
         ..., description="client-side identifier of the block", required=True
     )
     type: PreviewSSEMessageType = Field(..., description="SSE message type")
-    data: PreviewContentSSEData | PreviewInteractionSSEData | PreviewTextEndSSEData
+    data: (
+        PreviewContentSSEData | PreviewInteractionSSEData | PreviewTextEndSSEData | str
+    )
 
     def __json__(self):
         payload = self.model_dump()

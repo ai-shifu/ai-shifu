@@ -1,4 +1,5 @@
 {
   "__namespace__": "module.preview",
-  "previewAll": "完整预览"
+  "previewAll": "完整预览",
+  "previewError": "预览错误"
 }

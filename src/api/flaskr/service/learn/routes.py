@@ -18,6 +18,8 @@ from flaskr.service.learn.learn_funcs import (
 from flaskr.service.learn.runscript_v2 import run_script, get_run_status
 from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
 from flaskr.service.learn.preview_service import MarkdownFlowPreviewService
+from flaskr.service.learn.learn_dtos import PreviewSSEMessage, PreviewSSEMessageType
+from flaskr.util import generate_id
 
 
 def _normalize_user_input(value):
@@ -332,7 +334,18 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                 raise
             except Exception as exc:
                 app.logger.error("preview outline block failed", exc_info=True)
-                yield f"data: [ERROR] {str(exc)}\n\n"
+                yield (
+                    "data: "
+                    + json.dumps(
+                        PreviewSSEMessage(
+                            generated_block_bid=generate_id(app),
+                            type=PreviewSSEMessageType.ERROR,
+                            data=str(exc),
+                        ).__json__(),
+                        ensure_ascii=False,
+                    )
+                    + "\n\n".encode("utf-8").decode("utf-8")
+                )
 
         return Response(
             stream_with_context(event_stream()),

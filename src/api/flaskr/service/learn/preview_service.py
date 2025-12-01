@@ -330,15 +330,11 @@ class MarkdownFlowPreviewService:
     ) -> Tuple[str, float]:
         model_candidates = [
             preview_request.model,
-            getattr(outline, "llm", None) if outline else None,
             getattr(shifu, "llm", None) if shifu else None,
             self.app.config.get("DEFAULT_LLM_MODEL"),
         ]
         temperature_candidates = [
             preview_request.temperature,
-            self._decimal_to_float(getattr(outline, "llm_temperature", None))
-            if outline
-            else None,
             self._decimal_to_float(getattr(shifu, "llm_temperature", None))
             if shifu
             else None,
