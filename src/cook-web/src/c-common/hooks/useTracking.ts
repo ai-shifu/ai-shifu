@@ -4,7 +4,6 @@ import { useUserStore } from '@/store';
 import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
 import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';
 import { getScriptInfo } from '@/c-api/lesson';
-import { timeStamp } from 'console';
 export { EVENT_NAMES } from '@/c-common/tools/tracking';
 
 const USER_STATE_DICT = {
@@ -103,7 +102,7 @@ export const useTracking = () => {
           ...basicData,
           timeStamp: new Date().toLocaleString(),
         };
-        console.log('trackEvent', eventName, data);
+        // console.log('trackEvent', eventName, data);
         tracking(eventName, data);
       } catch {}
     },
