@@ -49,6 +49,7 @@ from .consts import UNIT_TYPE_GUEST
 from functools import wraps
 from enum import Enum
 from flaskr.service.shifu.shifu_import_export_funcs import export_shifu
+from flaskr.common.shifu_context import with_shifu_context
 
 
 from flaskr.service.shifu.shifu_draft_funcs import (
@@ -272,6 +273,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/detail", methods=["GET"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
+    @with_shifu_context()
     def get_shifu_detail_api(shifu_bid: str):
         """
         get shifu detail
@@ -308,6 +310,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/detail", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.EDIT)
+    @with_shifu_context()
     def save_shifu_detail_api(shifu_bid: str):
         """
         save shifu detail
@@ -394,6 +397,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/favorite", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
+    @with_shifu_context()
     def mark_favorite_shifu_api():
         """
         mark favorite shifu
@@ -445,6 +449,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/publish", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.PUBLISH)
+    @with_shifu_context()
     def publish_shifu_api(shifu_bid: str):
         """
         publish shifu
@@ -480,6 +485,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/preview", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
+    @with_shifu_context()
     def preview_shifu_api(shifu_bid: str):
         """
         preview shifu
@@ -525,6 +531,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/outlines/reorder", methods=["PATCH"])
     @ShifuTokenValidation(ShifuPermission.EDIT)
+    @with_shifu_context()
     def update_chapter_order_api(shifu_bid: str):
         """
         update chapter order
@@ -574,6 +581,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/outlines", methods=["PUT"])
     @ShifuTokenValidation(ShifuPermission.EDIT)
+    @with_shifu_context()
     def create_outline_api(shifu_bid: str):
         """
         create unit
@@ -728,6 +736,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>", methods=["GET"]
     )
     @ShifuTokenValidation(ShifuPermission.VIEW)
+    @with_shifu_context()
     def get_unit_info_api(shifu_bid: str, outline_bid: str):
         """
         get unit info
@@ -763,6 +772,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         methods=["DELETE"],
     )
     @ShifuTokenValidation(ShifuPermission.EDIT)
+    @with_shifu_context()
     def delete_unit_api(shifu_bid: str, outline_bid: str):
         """
         delete unit
@@ -801,6 +811,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         methods=["GET"],
     )
     @ShifuTokenValidation(ShifuPermission.VIEW)
+    @with_shifu_context()
     def get_mdflow_api(shifu_bid: str, outline_bid: str):
         """
         get mdflow
@@ -889,6 +900,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         methods=["POST"],
     )
     @ShifuTokenValidation(ShifuPermission.VIEW)
+    @with_shifu_context()
     def parse_mdflow_api(shifu_bid: str, outline_bid: str):
         """
         parse mdflow
@@ -946,6 +958,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/outlines", methods=["GET"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
+    @with_shifu_context()
     def get_outline_tree_api(shifu_bid: str):
         """
         get outline tree

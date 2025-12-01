@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from datetime import datetime
@@ -14,6 +15,36 @@ from flaskr.service.common.models import raise_error_with_args
 from ..ark.sign import request
 
 logger = logging.getLogger(__name__)
+
+# Global asyncio.run patch to avoid RuntimeError when called from a running
+# event loop (seen in LiteLLM logging threads under gunicorn/gevent). For the
+# specific case where a loop is already running, we fall back to scheduling
+# the coroutine on the existing loop instead of raising.
+_original_asyncio_run = asyncio.run
+
+
+def _safe_asyncio_run(coro, *args, **kwargs):
+    try:
+        return _original_asyncio_run(coro, *args, **kwargs)
+    except RuntimeError as exc:
+        message = str(exc)
+        if "cannot be called from a running event loop" not in message:
+            # Preserve original behaviour for unrelated errors.
+            raise
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop available, re-raise the original error.
+            raise
+        try:
+            loop.create_task(coro)
+        except Exception:
+            # If even scheduling fails, swallow the error so logging/caching
+            # failures do not break the main application.
+            return
+
+
+asyncio.run = _safe_asyncio_run
 
 
 @dataclass

@@ -45,6 +45,8 @@ from flaskr.service.common.models import raise_error
 from flaskr.service.order.models import Order, PingxxOrder, StripeOrder
 import pytz
 from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
+from flaskr.common.shifu_context import set_shifu_context
+from flaskr.service.shifu.utils import get_shifu_creator_bid
 
 
 @register_schema_to_swagger
@@ -233,6 +235,7 @@ def is_order_has_timeout(app: Flask, origin_record: Order):
 
 def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = None):
     with app.app_context():
+        set_shifu_context(course_id, get_shifu_creator_bid(app, course_id))
         order_timeout_make_new_order = False
         find_active_id = None
         shifu_info: LearnShifuInfoDTO = get_shifu_info(app, course_id, False)
@@ -386,6 +389,10 @@ def generate_charge(
         ).first()
         if not buy_record:
             raise_error("server.order.orderNotFound")
+        set_shifu_context(
+            buy_record.shifu_bid,
+            get_shifu_creator_bid(app, buy_record.shifu_bid),
+        )
         shifu_info: LearnShifuInfoDTO = get_shifu_info(app, buy_record.shifu_bid, False)
         if not shifu_info:
             raise_error("server.shifu.shifuNotFound")
@@ -1224,6 +1231,11 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
                     buy_record: Order = Order.query.filter(
                         Order.order_bid == pingxx_order.order_bid,
                     ).first()
+                    if buy_record:
+                        set_shifu_context(
+                            buy_record.shifu_bid,
+                            get_shifu_creator_bid(app, buy_record.shifu_bid),
+                        )
 
                     if buy_record and buy_record.status == ORDER_STATUS_TO_BE_PAID:
                         try:
@@ -1259,6 +1271,10 @@ def success_buy_record(app: Flask, record_id: str):
         app.logger.info('success buy record:"{}"'.format(record_id))
         buy_record = Order.query.filter(Order.order_bid == record_id).first()
         if buy_record:
+            set_shifu_context(
+                buy_record.shifu_bid,
+                get_shifu_creator_bid(app, buy_record.shifu_bid),
+            )
             try:
                 set_user_state(buy_record.user_bid, USER_STATE_PAID)
             except Exception as e:

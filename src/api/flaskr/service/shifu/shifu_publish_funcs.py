@@ -38,6 +38,10 @@ from markdown_flow import (
     BlockType,
 )
 from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.common.shifu_context import (
+    get_shifu_context_snapshot,
+    apply_shifu_context_snapshot,
+)
 
 
 def _build_frontend_url(base_url: str, path: str) -> str:
@@ -166,8 +170,10 @@ def publish_shifu_draft(app, user_id: str, shifu_id: str, base_url: str):
         shifu_log_published_struct.created_at = now_time
         db.session.add(shifu_log_published_struct)
         db.session.commit()
+        parent_shifu_context = get_shifu_context_snapshot()
         thread = threading.Thread(
-            target=_run_summary_with_error_handling, args=(app, shifu_id)
+            target=_run_summary_with_error_handling,
+            args=(app, shifu_id, parent_shifu_context),
         )
         thread.daemon = True  # Ensure thread doesn't prevent app shutdown
         thread.start()
@@ -175,7 +181,7 @@ def publish_shifu_draft(app, user_id: str, shifu_id: str, base_url: str):
         return _build_frontend_url(base_url, f"/c/{shifu_id}")
 
 
-def _run_summary_with_error_handling(app, shifu_id):
+def _run_summary_with_error_handling(app, shifu_id, shifu_context_snapshot=None):
     """
     Run shifu summary generation with error handling
     Args:
@@ -183,6 +189,7 @@ def _run_summary_with_error_handling(app, shifu_id):
         shifu_id: Shifu ID
     """
     try:
+        apply_shifu_context_snapshot(shifu_context_snapshot)
         get_shifu_summary(app, shifu_id)
     except Exception as e:
         app.logger.error(f"Failed to generate shifu summary for {shifu_id}: {str(e)}")
