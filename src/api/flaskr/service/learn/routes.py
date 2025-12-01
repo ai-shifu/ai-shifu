@@ -20,6 +20,7 @@ from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
 from flaskr.service.learn.preview_service import MarkdownFlowPreviewService
 from flaskr.service.learn.learn_dtos import PreviewSSEMessage, PreviewSSEMessageType
 from flaskr.util import generate_id
+from flaskr.common.shifu_context import with_shifu_context
 
 
 def _normalize_user_input(value):
@@ -53,6 +54,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
 
     @app.route(path_prefix + "/shifu/<shifu_bid>", methods=["GET"])
     @bypass_token_validation
+    @with_shifu_context()
     def get_shifu_api(shifu_bid: str):
         """
         get shifu
@@ -92,6 +94,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         return make_common_response(get_shifu_info(app, shifu_bid, preview_mode))
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/outline-item-tree", methods=["GET"])
+    @with_shifu_context()
     def get_outline_item_tree_api(shifu_bid: str):
         """
         get outline item tree
@@ -132,6 +135,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         )
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/run/<outline_bid>", methods=["PUT"])
+    @with_shifu_context()
     def run_outline_item_api(shifu_bid: str, outline_bid: str):
         """
         run the MarkdownFlow of the outline
@@ -206,6 +210,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         path_prefix + "/shifu/<shifu_bid>/preview/<outline_bid>",
         methods=["POST"],
     )
+    @with_shifu_context()
     def preview_outline_block_api(shifu_bid: str, outline_bid: str):
         """
         preview a specific outline block
@@ -357,6 +362,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         path_prefix + "/shifu/<shifu_bid>/run/<outline_bid>",
         methods=["GET"],
     )
+    @with_shifu_context()
     def get_run_status_api(shifu_bid: str, outline_bid: str):
         """
         get run status
@@ -388,7 +394,6 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                                     $ref: "#/components/schemas/RunStatusDTO"
         """
         user_bid = request.user.user_id
-
         return make_common_response(
             get_run_status(app, shifu_bid, outline_bid, user_bid)
         )
@@ -396,6 +401,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @app.route(
         path_prefix + "/shifu/<shifu_bid>/records/<outline_bid>", methods=["GET"]
     )
+    @with_shifu_context()
     def get_record_api(shifu_bid: str, outline_bid: str):
         """
         get learn records of the outline
@@ -439,6 +445,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @app.route(
         path_prefix + "/shifu/<shifu_bid>/records/<outline_bid>", methods=["DELETE"]
     )
+    @with_shifu_context()
     def delete_record_api(shifu_bid: str, outline_bid: str):
         """
         reset the record of the outline
@@ -468,7 +475,6 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
 
         """
         user_bid = request.user.user_id
-
         return make_common_response(
             reset_learn_record(app, shifu_bid, outline_bid, user_bid)
         )
@@ -478,6 +484,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         + "/shifu/<shifu_bid>/generated-contents/<generated_block_bid>/<action>",
         methods=["POST"],
     )
+    @with_shifu_context()
     def generate_content_api(shifu_bid: str, generated_block_bid: str, action: str):
         """
         generate the content of the generated block
@@ -519,6 +526,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         path_prefix + "/shifu/<shifu_bid>/generated-contents/<generated_block_bid>",
         methods=["GET"],
     )
+    @with_shifu_context()
     def get_generated_content_api(shifu_bid: str, generated_block_bid: str):
         """
         get the content of the generated block
