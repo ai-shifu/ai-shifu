@@ -10,7 +10,7 @@ from langfuse.client import StatefulSpanClient
 from langfuse.model import ModelUsage
 
 from .dify import DifyChunkChatCompletionResponse, dify_chat_message
-from flaskr.common.config import get_config
+from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
 from ..ark.sign import request
 
@@ -481,7 +481,7 @@ def get_litellm_params_and_model(model: str):
                 ),
             )
         return params, invoke_model, reload_params
-    return None, model
+    return None, model, None
 
 
 def invoke_llm(

@@ -9,7 +9,7 @@ from flask import Flask
 from urllib.parse import urlencode
 from gmssl import sm3, func
 import requests
-from flaskr.common.config import get_config
+from flaskr.service.config import get_config
 from .dto import (
     CheckResultDTO,
     CHECK_RESULT_PASS,

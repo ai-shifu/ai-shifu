@@ -10,7 +10,7 @@ Date: 2025-08-07
 from ...dao import redis_client as redis, db
 from .models import FavoriteScenario, AiCourseAuth
 from ..common.models import raise_error, raise_error_with_args
-from ...common.config import get_config
+from flaskr.service.config import get_config
 import oss2
 import uuid
 import json
