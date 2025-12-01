@@ -7,6 +7,10 @@ Author: yfge
 Date: 2025-08-07
 """
 
+from typing import Optional
+
+from flask import Flask
+
 from flaskr.service.resource.models import Resource
 
 
@@ -56,3 +60,42 @@ def parse_shifu_res_bid(res_url: str):
     if res_url:
         return res_url.split("/")[-1]
     return ""
+
+
+def get_shifu_creator_bid(app: Flask, shifu_bid: str) -> Optional[str]:
+    """
+    Resolve the creator user business identifier for a given shifu.
+
+    Args:
+        app: Flask application instance
+        shifu_bid: Shifu business identifier
+
+    Returns:
+        Optional[str]: Creator user business identifier if found, otherwise None
+    """
+    from flaskr.service.shifu.models import DraftShifu, PublishedShifu
+
+    with app.app_context():
+        draft = (
+            DraftShifu.query.filter(
+                DraftShifu.shifu_bid == shifu_bid,
+                DraftShifu.deleted == 0,
+            )
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
+        if draft and draft.created_user_bid:
+            return draft.created_user_bid
+
+        published = (
+            PublishedShifu.query.filter(
+                PublishedShifu.shifu_bid == shifu_bid,
+                PublishedShifu.deleted == 0,
+            )
+            .order_by(PublishedShifu.id.desc())
+            .first()
+        )
+        if published and published.created_user_bid:
+            return published.created_user_bid
+
+    return None

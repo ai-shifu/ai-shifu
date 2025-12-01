@@ -22,7 +22,7 @@ from .utils import (
 from .models import DraftShifu, AiCourseAuth
 from .shifu_history_manager import save_shifu_history
 from ..common.dtos import PageNationDTO
-from ...common.config import get_config
+from ...service.config import get_config
 from .funcs import shifu_permission_verification
 
 

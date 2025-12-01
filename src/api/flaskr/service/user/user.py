@@ -6,7 +6,7 @@
 import uuid
 from flask import Flask, current_app
 
-from ...common.config import get_config
+from ...service.config import get_config
 from ..common.models import raise_error, raise_error_with_args
 
 from .utils import generate_token

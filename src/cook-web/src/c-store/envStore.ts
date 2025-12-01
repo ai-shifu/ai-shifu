@@ -45,4 +45,7 @@ export const useEnvStore = create<EnvStoreState>(set => ({
   paymentChannels: environment.paymentChannels,
   updatePaymentChannels: async (paymentChannels: string[]) =>
     set({ paymentChannels }),
+  runtimeConfigLoaded: false,
+  setRuntimeConfigLoaded: (runtimeConfigLoaded: boolean) =>
+    set({ runtimeConfigLoaded }),
 }));

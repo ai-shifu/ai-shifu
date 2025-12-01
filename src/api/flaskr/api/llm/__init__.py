@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from datetime import datetime
@@ -9,11 +10,41 @@ from langfuse.client import StatefulSpanClient
 from langfuse.model import ModelUsage
 
 from .dify import DifyChunkChatCompletionResponse, dify_chat_message
-from flaskr.common.config import get_config
+from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
 from ..ark.sign import request
 
 logger = logging.getLogger(__name__)
+
+# Global asyncio.run patch to avoid RuntimeError when called from a running
+# event loop (seen in LiteLLM logging threads under gunicorn/gevent). For the
+# specific case where a loop is already running, we fall back to scheduling
+# the coroutine on the existing loop instead of raising.
+_original_asyncio_run = asyncio.run
+
+
+def _safe_asyncio_run(coro, *args, **kwargs):
+    try:
+        return _original_asyncio_run(coro, *args, **kwargs)
+    except RuntimeError as exc:
+        message = str(exc)
+        if "cannot be called from a running event loop" not in message:
+            # Preserve original behaviour for unrelated errors.
+            raise
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop available, re-raise the original error.
+            raise
+        try:
+            loop.create_task(coro)
+        except Exception:
+            # If even scheduling fails, swallow the error so logging/caching
+            # failures do not break the main application.
+            return
+
+
+asyncio.run = _safe_asyncio_run
 
 
 @dataclass
@@ -290,7 +321,7 @@ def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
     if model_id.startswith("gpt-5.1"):
         return {
             "reasoning_effort": "none",
-            "temperature": temperature,
+            "temperature": 1,
         }
     if model_id.startswith("gpt-5-pro"):
         return {
@@ -450,7 +481,7 @@ def get_litellm_params_and_model(model: str):
                 ),
             )
         return params, invoke_model, reload_params
-    return None, model
+    return None, model, None
 
 
 def invoke_llm(

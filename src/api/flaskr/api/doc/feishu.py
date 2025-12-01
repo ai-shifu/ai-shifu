@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 import pytz
 import urllib.parse
-from flaskr.common.config import get_config
+from flaskr.service.config import get_config
 
 # feishu api
 # ref: https://open.feishu.cn/document/server-docs/docs/docs-overview

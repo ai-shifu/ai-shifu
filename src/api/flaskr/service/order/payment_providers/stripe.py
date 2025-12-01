@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 from flask import Flask
 
-from flaskr.common.config import get_config
+from flaskr.service.config import get_config
 
 from .base import (
     PaymentProvider,

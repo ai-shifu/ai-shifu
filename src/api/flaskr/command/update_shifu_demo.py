@@ -29,7 +29,7 @@ def _process_demo_shifu(
         str: The shifu_bid of the processed shifu
     """
     # Check if config exists
-    existing_shifu_bid = get_config(app, config_key)
+    existing_shifu_bid = get_config(config_key, None)
 
     # Read file content
     # File is in src/api/demo_shifus/ directory, command is in src/api/flaskr/command/

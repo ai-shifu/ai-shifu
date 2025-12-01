@@ -9,8 +9,6 @@ import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { Maximize2, Minimize2, X } from 'lucide-react';
 import { ContentRender, MarkdownFlowInput } from 'markdown-flow-ui';
-// TODO@XJL
-// import ContentRender from '../../../../../../../../../markdown-flow-ui/src/components/ContentRender/ContentRender';
 import {
   checkIsRunning,
   getRunMessage,
@@ -25,7 +23,8 @@ import { AppContext } from '../AppContext';
 import Image from 'next/image';
 import ShifuIcon from '@/c-assets/newchat/light/icon_shifu.svg';
 import { BLOCK_TYPE } from '@/c-api/studyV2';
-
+import { Avatar, AvatarImage } from '@/components/ui/Avatar';
+import { useCourseStore } from '@/c-store/useCourseStore';
 export interface AskMessage {
   type: typeof BLOCK_TYPE.ASK | typeof BLOCK_TYPE.ANSWER;
   content: string;
@@ -59,7 +58,7 @@ export default function AskBlock({
 }: AskBlockProps) {
   const { t } = useTranslation();
   const { mobileStyle } = useContext(AppContext);
-
+  const courseAvatar = useCourseStore(state => state.courseAvatar);
   const [displayList, setDisplayList] = useState<AskMessage[]>(() => {
     return askList.map(item => ({
       content: item.content || '',
@@ -386,18 +385,18 @@ export default function AskBlock({
     }
 
     return (
-      // <div className={cn(styles.userInput, extraClass)}>
-      <MarkdownFlowInput
-        placeholder={t('module.chat.askContent')}
-        value={inputValue}
-        onChange={handleInputChange}
-        onSend={handleSendCustomQuestion}
-        className={cn(
-          styles.inputGroup,
-          isStreamingRef.current ? styles.isSending : '',
-        )}
-      />
-      // </div>
+      <div className={cn(extraClass)}>
+        <MarkdownFlowInput
+          placeholder={t('module.chat.askContent')}
+          value={inputValue}
+          onChange={handleInputChange}
+          onSend={handleSendCustomQuestion}
+          className={cn(
+            styles.inputGroup,
+            isStreamingRef.current ? styles.isSending : '',
+          )}
+        />
+      </div>
     );
   };
 
@@ -419,13 +418,11 @@ export default function AskBlock({
             >
               <div className={styles.mobileHeader}>
                 <div className={styles.mobileTitle}>
-                  <Image
-                    src={ShifuIcon.src}
-                    alt='shifu icon'
-                    width={20}
-                    height={20}
-                    className={styles.mobileIcon}
-                  />
+                  {courseAvatar && (
+                    <Avatar className='w-7 h-7 mr-2'>
+                      <AvatarImage src={courseAvatar} />
+                    </Avatar>
+                  )}
                   <span>{t('module.chat.ask')}</span>
                 </div>
                 <div className={styles.mobileActions}>

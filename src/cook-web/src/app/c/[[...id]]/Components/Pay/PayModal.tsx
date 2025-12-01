@@ -34,6 +34,8 @@ import { useEnvStore } from '@/c-store/envStore';
 import { usePaymentFlow } from './hooks/usePaymentFlow';
 import { useToast } from '@/hooks/useToast';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
+import { useTracking } from '@/c-common/hooks/useTracking';
+import { getCurrencyCode } from '@/c-utils/currency';
 
 import paySucessBg from '@/c-assets/newchat/pay-success@2x.png';
 import payInfoBgCn from '@/c-assets/newchat/pay-info-bg-cn.png';
@@ -67,6 +69,7 @@ export const PayModal = ({
   payload = {},
 }) => {
   const { t } = useTranslation();
+  const { trackEvent } = useTracking();
   const [payChannel, setPayChannel] = useState(PAY_CHANNEL_WECHAT);
   const [previewPrice, setPreviewPrice] = useState('0');
   const [previewInitLoading, setPreviewInitLoading] = useState(true);
@@ -112,6 +115,8 @@ export const PayModal = ({
   const ready = isLoggedIn ? !initLoading : !previewInitLoading;
   const { toast } = useToast();
   const initialPaymentRequestedRef = useRef(false);
+  const modalViewTrackedRef = useRef(false);
+  const skipNextCancelEventRef = useRef(false);
 
   const {
     stripePublishableKey,
@@ -245,10 +250,30 @@ export const PayModal = ({
     qrcodeStatus = 'expired';
   }
 
+  const emitCancelEvent = useCallback(
+    (cancelStage: 'modal' | 'payment_page') => {
+      trackEvent('learner_pay_cancel', {
+        shifu_bid: courseId,
+        order_id: orderId || '',
+        cancel_stage: cancelStage,
+      });
+    },
+    [courseId, orderId, trackEvent],
+  );
+
+  const triggerCancel = useCallback(
+    (stage: 'modal' | 'payment_page') => {
+      skipNextCancelEventRef.current = true;
+      emitCancelEvent(stage);
+      onCancel?.();
+    },
+    [emitCancelEvent, onCancel],
+  );
+
   const onLoginButtonClick = useCallback(() => {
-    onCancel?.();
+    triggerCancel('modal');
     shifu.loginTools.openLogin();
-  }, [onCancel]);
+  }, [triggerCancel]);
 
   const {
     open: couponCodeModalOpen,
@@ -267,9 +292,13 @@ export const PayModal = ({
         channel: payChannel,
         paymentChannel: payChannel.startsWith('stripe') ? 'stripe' : undefined,
       });
+      trackEvent('learner_coupon_apply', {
+        shifu_bid: courseId,
+        coupon_code: values.couponCode,
+      });
       onCouponCodeModalClose();
     },
-    [applyCoupon, onCouponCodeModalClose, payChannel],
+    [applyCoupon, courseId, onCouponCodeModalClose, payChannel, trackEvent],
   );
 
   const handleStripeSuccess = useCallback(async () => {
@@ -331,6 +360,30 @@ export const PayModal = ({
     }
   }, [orderId]);
 
+  const currencyCode = useMemo(
+    () => getCurrencyCode(currencySymbol),
+    [currencySymbol],
+  );
+
+  useEffect(() => {
+    if (!open) {
+      modalViewTrackedRef.current = false;
+      return;
+    }
+    if (!ready) {
+      return;
+    }
+    if (modalViewTrackedRef.current) {
+      return;
+    }
+    modalViewTrackedRef.current = true;
+    trackEvent('learner_pay_modal_view', {
+      shifu_bid: courseId,
+      price: displayPrice || '0',
+      currency: currencyCode,
+    });
+  }, [courseId, currencyCode, displayPrice, open, ready, trackEvent]);
+
   useEffect(() => {
     if (!open || isLoggedIn) {
       return;
@@ -338,9 +391,14 @@ export const PayModal = ({
     loadCourseInfo();
   }, [isLoggedIn, loadCourseInfo, open]);
 
-  function handleOpenChange(open: boolean) {
-    if (!open) {
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen) {
       initialPaymentRequestedRef.current = false;
+      if (skipNextCancelEventRef.current) {
+        skipNextCancelEventRef.current = false;
+        return;
+      }
+      emitCancelEvent('modal');
       onCancel?.();
     }
   }
