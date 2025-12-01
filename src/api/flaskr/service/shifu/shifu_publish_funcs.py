@@ -104,6 +104,7 @@ def publish_shifu_draft(app, user_id: str, shifu_id: str, base_url: str):
         shifu_published.llm = shifu_draft.llm
         shifu_published.llm_temperature = shifu_draft.llm_temperature
         shifu_published.price = shifu_draft.price
+        shifu_published.created_user_bid = shifu_draft.created_user_bid
         shifu_published.updated_user_bid = user_id
         shifu_published.updated_at = now_time
         shifu_published.llm_system_prompt = shifu_draft.llm_system_prompt
