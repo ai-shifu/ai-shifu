@@ -10,6 +10,7 @@ from flaskr.service.order import (
     get_payment_details,
     sync_stripe_checkout_session,
 )
+from flaskr.common.shifu_context import with_shifu_context
 
 
 def register_order_handler(app: Flask, path_prefix: str):
@@ -69,6 +70,7 @@ def register_order_handler(app: Flask, path_prefix: str):
         )
 
     @app.route(path_prefix + "/init-order", methods=["POST"])
+    @with_shifu_context()
     def init_order():
         """
         初始化订单
