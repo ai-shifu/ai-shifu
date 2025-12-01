@@ -39,6 +39,7 @@ import ModelList from '@/components/model-list';
 import { useEnvStore } from '@/c-store';
 import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
 import { useShifu } from '@/store';
+import { useTracking } from '@/c-common/hooks/useTracking';
 
 interface Shifu {
   description: string;
@@ -87,6 +88,7 @@ export default function ShifuSettingDialog({
     url: false,
   });
   const { currentShifu } = useShifu();
+  const { trackEvent } = useTracking();
   // Define the validation schema using Zod
   const shifuSchema = z.object({
     previewUrl: z.string(),
@@ -226,9 +228,13 @@ export default function ShifuSettingDialog({
 
   // Handle form submission
   const onSubmit = useCallback(
-    async (data: any, needClose = true) => {
+    async (
+      data: any,
+      needClose = true,
+      saveType: 'auto' | 'manual' = 'manual',
+    ) => {
       try {
-        await api.saveShifuDetail({
+        const payload = {
           description: data.description,
           shifu_bid: shifuId,
           keywords: keywords,
@@ -238,6 +244,13 @@ export default function ShifuSettingDialog({
           avatar: uploadedImageUrl,
           temperature: Number(data.temperature),
           system_prompt: data.systemPrompt,
+        };
+        await api.saveShifuDetail({
+          ...payload,
+        });
+        trackEvent('creator_shifu_setting_save', {
+          ...payload,
+          save_type: saveType,
         });
         if (onSave) {
           onSave();
@@ -251,7 +264,14 @@ export default function ShifuSettingDialog({
         }
       }
     },
-    [shifuId, keywords, uploadedImageUrl, onSave, currentShifu?.readonly],
+    [
+      shifuId,
+      keywords,
+      uploadedImageUrl,
+      onSave,
+      currentShifu?.readonly,
+      trackEvent,
+    ],
   );
 
   const init = async () => {
@@ -289,7 +309,7 @@ export default function ShifuSettingDialog({
   }, [form]);
 
   const submitForm = useCallback(
-    async (needClose = true) => {
+    async (needClose = true, saveType: 'auto' | 'manual' = 'manual') => {
       if (currentShifu?.readonly) {
         setOpen(false);
         return true;
@@ -321,10 +341,10 @@ export default function ShifuSettingDialog({
         }
         return false;
       }
-      await onSubmit(form.getValues(), needClose);
+      await onSubmit(form.getValues(), needClose, saveType);
       return true;
     },
-    [form, onSubmit, setOpen, t],
+    [form, onSubmit, setOpen, t, currentShifu?.readonly],
   );
 
   useEffect(() => {
@@ -335,7 +355,7 @@ export default function ShifuSettingDialog({
       return;
     }
     const timer = setTimeout(() => {
-      submitForm(false);
+      submitForm(false, 'auto');
     }, 3000);
     return () => clearTimeout(timer);
   }, [open, submitForm, isDirty]);
@@ -343,7 +363,7 @@ export default function ShifuSettingDialog({
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       if (!nextOpen) {
-        submitForm(true);
+        submitForm(true, 'manual');
         return;
       }
       setOpen(true);
@@ -386,7 +406,7 @@ export default function ShifuSettingDialog({
         <div className='h-px w-full bg-border' />
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(data => onSubmit(data, true))}
+            onSubmit={form.handleSubmit(data => onSubmit(data, true, 'manual'))}
             className='flex-1 flex flex-col overflow-hidden'
           >
             <div className='flex-1 overflow-y-auto px-6'>

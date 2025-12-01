@@ -46,6 +46,8 @@ import { useSystemStore } from '@/c-store/useSystemStore';
 import type { StripePaymentPayload } from '@/c-api/order';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 import { getCourseInfo } from '@/c-api/course';
+import { useTracking } from '@/c-common/hooks/useTracking';
+import { getCurrencyCode } from '@/c-utils/currency';
 const CompletedSection = memo(() => {
   const { t } = useTranslation();
   return (
@@ -80,10 +82,13 @@ export const PayModalM = ({
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [previewPrice, setPreviewPrice] = useState('0');
   const [previewInitLoading, setPreviewInitLoading] = useState(true);
+  const modalViewTrackedRef = useRef(false);
+  const skipNextCancelEventRef = useRef(false);
 
   const courseId = getStringEnv('courseId');
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const { t } = useTranslation();
+  const { trackEvent } = useTracking();
   const { payByJsApi } = useWechat();
   const {
     open: couponCodeModalOpen,
@@ -135,6 +140,36 @@ export const PayModalM = ({
     })),
   );
   const initialPaymentRequestedRef = useRef(false);
+  const currencyCode = useMemo(
+    () => getCurrencyCode(currencySymbol),
+    [currencySymbol],
+  );
+  const emitCancelEvent = useCallback(() => {
+    trackEvent('learner_pay_cancel', {
+      shifu_bid: courseId,
+      order_id: orderId || '',
+      cancel_stage: 'modal',
+    });
+  }, [courseId, orderId, trackEvent]);
+
+  useEffect(() => {
+    if (!open) {
+      modalViewTrackedRef.current = false;
+      return;
+    }
+    if (!ready) {
+      return;
+    }
+    if (modalViewTrackedRef.current) {
+      return;
+    }
+    modalViewTrackedRef.current = true;
+    trackEvent('learner_pay_modal_view', {
+      shifu_bid: courseId,
+      price: displayPrice || '0',
+      currency: currencyCode,
+    });
+  }, [courseId, currencyCode, displayPrice, open, ready, trackEvent]);
   const normalizedPaymentChannels = useMemo(
     () => (paymentChannels || []).map(channel => channel.trim().toLowerCase()),
     [paymentChannels],
@@ -325,13 +360,30 @@ export const PayModalM = ({
       paymentChannel: payChannel.startsWith('stripe') ? 'stripe' : undefined,
     });
     setCouponCodeInput('');
+    trackEvent('learner_coupon_apply', {
+      shifu_bid: courseId,
+      coupon_code: couponCodeInput,
+    });
     onCouponCodeModalClose();
-  }, [applyCoupon, couponCodeInput, onCouponCodeModalClose, payChannel]);
+  }, [
+    applyCoupon,
+    couponCodeInput,
+    courseId,
+    onCouponCodeModalClose,
+    payChannel,
+    trackEvent,
+  ]);
+
+  const triggerCancel = useCallback(() => {
+    skipNextCancelEventRef.current = true;
+    emitCancelEvent();
+    onCancel?.();
+  }, [emitCancelEvent, onCancel]);
 
   const onLoginButtonClick = useCallback(() => {
-    onCancel?.();
+    triggerCancel();
     shifu.loginTools.openLogin();
-  }, [onCancel]);
+  }, [triggerCancel]);
 
   useEffect(() => {
     if (!open || !isLoggedIn) {
@@ -358,9 +410,14 @@ export const PayModalM = ({
     loadCourseInfo();
   }, [isLoggedIn, loadCourseInfo, open]);
 
-  function handleCancel(open: boolean) {
-    if (!open) {
+  function handleCancel(nextOpen: boolean) {
+    if (!nextOpen) {
       initialPaymentRequestedRef.current = false;
+      if (skipNextCancelEventRef.current) {
+        skipNextCancelEventRef.current = false;
+        return;
+      }
+      emitCancelEvent();
       onCancel?.();
     }
   }

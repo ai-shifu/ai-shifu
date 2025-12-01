@@ -4,10 +4,12 @@ import { Loader2, MonitorPlay, PlayIcon } from 'lucide-react';
 import { useShifu } from '@/store';
 import api from '@/api';
 import { useTranslation } from 'react-i18next';
+import { useTracking } from '@/c-common/hooks/useTracking';
 
 const PreviewSettingsModal = () => {
   const { t } = useTranslation();
   const { currentShifu, actions } = useShifu();
+  const { trackEvent } = useTracking();
   const [loading, setLoading] = useState(false);
 
   const handleStartPreview = async () => {
@@ -20,6 +22,9 @@ const PreviewSettingsModal = () => {
       if (!currentShifu?.readonly) {
         await actions.saveMdflow();
       }
+      trackEvent('creator_shifu_preview_click', {
+        shifu_bid: currentShifu?.bid || '',
+      });
       const result = await api.previewShifu({
         shifu_bid: currentShifu?.bid || '',
         skip: false,

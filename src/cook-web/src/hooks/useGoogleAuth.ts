@@ -15,6 +15,7 @@ import {
   setGoogleOAuthRedirect,
   setGoogleOAuthState,
 } from '@/lib/google-oauth-session';
+import { useTracking } from '@/c-common/hooks/useTracking';
 
 interface OAuthStartPayload {
   authorization_url: string;
@@ -88,6 +89,7 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
   const login = useUserStore(state => state.login);
   const ensureGuestToken = useUserStore(state => state.ensureGuestToken);
   const { callWithTokenRefresh } = useAuth();
+  const { trackEvent } = useTracking();
 
   const clearGoogleSession = useCallback(() => {
     clearGoogleOAuthSession();
@@ -176,6 +178,11 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
         }
 
         await login(payload.userInfo, payload.token);
+
+        trackEvent('learner_login_success', {
+          user_id: payload.userInfo?.user_id || '',
+          login_method: 'google',
+        });
 
         const redirectTarget =
           fallbackRedirect || getGoogleOAuthRedirect() || '/admin';

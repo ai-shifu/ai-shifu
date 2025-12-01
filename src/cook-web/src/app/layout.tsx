@@ -3,6 +3,8 @@ import { Toaster } from '@/components/ui/Toaster';
 import { AlertProvider } from '@/components/ui/UseAlert';
 import './globals.css';
 import { ConfigProvider } from '@/components/config-provider';
+import UmamiLoader from '@/components/analytics/UmamiLoader';
+import RuntimeConfigInitializer from '@/components/RuntimeConfigInitializer';
 import { UserProvider } from '@/store';
 import '@/i18n';
 import I18nGlobalLoading from '@/components/I18nGlobalLoading';
@@ -29,6 +31,8 @@ export default function RootLayout({
       >
         <div id='root'>
           <ConfigProvider>
+            <RuntimeConfigInitializer />
+            <UmamiLoader />
             <UserProvider>
               <AlertProvider>
                 <I18nGlobalLoading />

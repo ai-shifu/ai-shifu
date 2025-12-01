@@ -33,6 +33,7 @@ import {
   savePreviewVariables,
   StoredVariablesByScope,
 } from '@/components/lesson-preview/variableStorage';
+import { useTracking } from '@/c-common/hooks/useTracking';
 
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
 
@@ -56,6 +57,7 @@ const buildBlockListWithAllInfo = (
 export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
+  const { trackEvent } = useTracking();
   const [currentShifu, setCurrentShifu] = useState<Shifu | null>(null);
   const [chapters, setChapters] = useState<Outline[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -643,6 +645,12 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
           position: '',
           children: [],
         });
+        trackEvent('creator_outline_create', {
+          shifu_bid: currentShifu?.bid || '',
+          outline_bid: newChapter.bid,
+          outline_name: newChapter.name,
+          parent_bid: data.parent_bid || '',
+        });
         setFocusId('');
         setLastSaveTime(new Date());
       } else {
@@ -710,6 +718,12 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
           name: newUnit.name,
           position: '',
           children: [],
+        });
+        trackEvent('creator_outline_create', {
+          shifu_bid: currentShifu?.bid || '',
+          outline_bid: newUnit.bid,
+          outline_name: newUnit.name,
+          parent_bid: data.parent_bid || '',
         });
         setFocusId('');
         setLastSaveTime(new Date());

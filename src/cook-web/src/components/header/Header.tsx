@@ -18,12 +18,14 @@ import Preivew from '@/components/preview';
 import ShifuSetting from '@/components/shifu-setting';
 import { useTranslation } from 'react-i18next';
 import s from './header.module.scss';
+import { useTracking } from '@/c-common/hooks/useTracking';
 
 const Header = () => {
   const { t } = useTranslation();
   const alert = useAlert();
   const router = useRouter();
   const [publishing, setPublishing] = useState(false);
+  const { trackEvent } = useTracking();
   const { isSaving, lastSaveTime, currentShifu, error, actions } = useShifu();
   const onShifuSave = async () => {
     if (currentShifu) {
@@ -31,6 +33,9 @@ const Header = () => {
     }
   };
   const publish = async () => {
+    trackEvent('creator_publish_click', {
+      shifu_bid: currentShifu?.bid || '',
+    });
     // TODO: publish
     // actions.publishScenario();
     // await actions.saveBlocks(currentShifu?.bid || '');
@@ -41,6 +46,9 @@ const Header = () => {
       title: t('component.header.confirmPublish'),
       description: t('component.header.confirmPublishDescription'),
       async onConfirm() {
+        trackEvent('creator_publish_confirm', {
+          shifu_bid: currentShifu?.bid || '',
+        });
         setPublishing(true);
         const result = await api.publishShifu({
           shifu_bid: currentShifu?.bid || '',
@@ -66,6 +74,11 @@ const Header = () => {
           onConfirm() {
             window.open(result, '_blank');
           },
+        });
+      },
+      onCancel() {
+        trackEvent('creator_publish_cancel', {
+          shifu_bid: currentShifu?.bid || '',
         });
       },
     });
