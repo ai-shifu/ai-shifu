@@ -7,6 +7,7 @@ from flaskr.common.config import get_config as get_config_from_common
 from flaskr.dao import db, redis_client as redis
 from flaskr.util import generate_id
 from pydantic import BaseModel, Field
+from flaskr.framework import extensible
 import random
 
 
@@ -85,7 +86,8 @@ def _get_config_lock_key(app: Flask, key: str) -> str:
     return app.config["REDIS_KEY_PREFIX"] + "sys:config:lock:" + key
 
 
-def get_config(app: Flask, key: str) -> str:
+@extensible
+def get_config(key: str) -> str:
     """
     Get config value by key, automatically decrypt if is_secret=1.
 
@@ -99,6 +101,11 @@ def get_config(app: Flask, key: str) -> str:
     Raises:
         ValueError: If config not found or decryption fails
     """
+    from flask import current_app, has_app_context
+
+    if not has_app_context():
+        return get_config_from_common(key, None)
+    app = current_app
     with app.app_context():
         env_value = get_config_from_common(key, None)
         if env_value:

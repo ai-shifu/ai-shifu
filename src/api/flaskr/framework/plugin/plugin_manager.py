@@ -116,6 +116,9 @@ def extensible_generic_register(func_name):
 def extensible(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
+        print(f"extensible: {func.__name__}")
+        print(f"args: {args}")
+        print(f"kwargs: {kwargs}")
         result = func(*args, **kwargs)
         result = plugin_manager.execute_extensions(
             func.__name__, result, *args, **kwargs

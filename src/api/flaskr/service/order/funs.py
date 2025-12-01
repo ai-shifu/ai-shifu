@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from flask import Flask
 
-from flaskr.common.config import get_config
+from flaskr.service.config import get_config
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.i18n import _
 from flaskr.service.active import (
