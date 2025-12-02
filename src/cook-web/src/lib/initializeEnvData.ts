@@ -42,20 +42,41 @@ const loadRuntimeConfig = async () => {
     updateLoginMethodsEnabled,
     updateDefaultLoginMethod,
     updateLegalUrls,
+    updateCourseId,
   } = useEnvStore.getState() as EnvStoreState;
 
   const apiBaseUrl = (await getDynamicApiBaseUrl()) || '';
   const normalizedBase = apiBaseUrl.replace(/\/$/, '');
-  let runtimeUrl = `${normalizedBase}/api/config`;
 
-  try {
-    const parsed = new URL(normalizedBase);
-    const path = parsed.pathname.replace(/\/+$/, '');
-    const endsWithApi = path.endsWith('/api');
-    runtimeUrl = `${normalizedBase}${endsWithApi ? '/config' : '/api/config'}`;
-  } catch {
-    // If apiBaseUrl is not a valid absolute URL, keep the default guess
-  }
+  const buildRuntimeUrl = () => {
+    // Absolute URL: respect whether path already includes /api
+    if (normalizedBase.startsWith('http')) {
+      try {
+        const parsed = new URL(normalizedBase);
+        const path = parsed.pathname.replace(/\/+$/, '');
+        const endsWithApi = path.endsWith('/api');
+        return `${normalizedBase}${endsWithApi ? '/config' : '/api/config'}`;
+      } catch {
+        // fall through to relative handling
+      }
+    }
+
+    // Relative URL (e.g. "/api" or "/backend")
+    const cleanBase = normalizedBase || '';
+    const endsWithApi =
+      cleanBase === '/api' ||
+      cleanBase.endsWith('/api') ||
+      cleanBase === 'api' ||
+      cleanBase.endsWith('api');
+    const baseWithLeading = cleanBase.startsWith('/')
+      ? cleanBase
+      : `/${cleanBase}`;
+    return endsWithApi
+      ? `${baseWithLeading}/config`
+      : `${baseWithLeading}/api/config`;
+  };
+
+  const runtimeUrl = buildRuntimeUrl();
 
   const fetchRuntimeConfig = async () => {
     // Prefer backend /api/config using discovered apiBaseUrl
@@ -92,6 +113,7 @@ const loadRuntimeConfig = async () => {
   );
 
   // await updateCourseId(data?.courseId || '');
+  await updateCourseId(runtimeConfig?.courseId || '');
   await updateAppId(runtimeConfig?.wechatAppId || '');
   await updateAlwaysShowLessonTree(
     runtimeConfig?.alwaysShowLessonTree?.toString() || 'false',
