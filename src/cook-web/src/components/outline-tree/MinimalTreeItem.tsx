@@ -260,7 +260,7 @@ const MinimalTreeItemComponent = React.forwardRef<
         <div
           id={props.item.id}
           className={cn(
-            'outline-tree_node flex items-center flex-1 justify-between w-full group rounded-md',
+            'outline-tree_node flex items-center flex-1 justify-between w-full group rounded-md min-w-0 ',
             isChapterNode ? 'pl-0' : 'pl-2',
             shouldHighlight ? 'bg-gray-200' : '',
           )}
@@ -268,13 +268,13 @@ const MinimalTreeItemComponent = React.forwardRef<
         >
           <div className='flex flex-row items-center flex-1 min-w-0 gap-2'>
             <span
-              className='outline-tree_title flex flex-row items-center flex-1 min-w-0'
+              className='outline-tree_title flex-1 min-w-0'
               title={chapterName}
             >
               {chapterName}
             </span>
             {!isChapterNode && (
-              <div className='outline-tree_badges flex items-center gap-2'>
+              <div className='outline-tree_badges flex items-center gap-2 flex-shrink-0'>
                 {renderLessonBadges()}
               </div>
             )}
