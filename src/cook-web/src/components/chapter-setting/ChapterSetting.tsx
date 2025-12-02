@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -67,6 +67,17 @@ const ChapterSettingsDialog = ({
   const [loading, setLoading] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [title, setTitle] = useState('');
+  const initialValuesRef = useRef<{
+    title: string;
+    systemPrompt: string;
+    hideChapter: boolean;
+    learningPermission: LearningPermission;
+  }>({
+    title: '',
+    systemPrompt: '',
+    hideChapter: false,
+    learningPermission: LEARNING_PERMISSION.NORMAL,
+  });
 
   const fetchOutlineInfo = useCallback(async () => {
     if (!outlineBid) {
@@ -75,6 +86,12 @@ const ChapterSettingsDialog = ({
       setHideChapter(false);
       setIsDirty(false);
       setTitle('');
+      initialValuesRef.current = {
+        title: '',
+        systemPrompt: '',
+        hideChapter: false,
+        learningPermission: LEARNING_PERMISSION.NORMAL,
+      };
       return;
     }
     setLoading(true);
@@ -87,16 +104,48 @@ const ChapterSettingsDialog = ({
         return;
       }
 
-      setLearningPermission(result.type || LEARNING_PERMISSION.NORMAL);
-      setSystemPrompt(result.system_prompt ?? '');
+      const normalizedLearningPermission =
+        (result.type as LearningPermission) || LEARNING_PERMISSION.NORMAL;
+      const normalizedSystemPrompt = result.system_prompt ?? '';
       const normalizedHidden = result.is_hidden ?? false;
+      const normalizedTitle = result.name ?? '';
+
+      setLearningPermission(normalizedLearningPermission);
+      setSystemPrompt(normalizedSystemPrompt);
       setHideChapter(normalizedHidden);
       setIsDirty(false);
-      setTitle(result.name ?? '');
+      setTitle(normalizedTitle);
+      initialValuesRef.current = {
+        title: normalizedTitle.trim(),
+        systemPrompt: normalizedSystemPrompt,
+        hideChapter: normalizedHidden,
+        learningPermission: normalizedLearningPermission,
+      };
     } finally {
       setLoading(false);
     }
   }, [outlineBid, currentShifu?.bid]);
+
+  const hasFormChanges = useCallback(
+    (trimmedTitle: string) => {
+      const initial = initialValuesRef.current;
+      if (initial.title !== trimmedTitle) {
+        return true;
+      }
+      if (initial.systemPrompt !== systemPrompt) {
+        return true;
+      }
+      if (
+        isLesson &&
+        (initial.hideChapter !== hideChapter ||
+          initial.learningPermission !== learningPermission)
+      ) {
+        return true;
+      }
+      return false;
+    },
+    [systemPrompt, hideChapter, learningPermission, isLesson],
+  );
 
   const onConfirm = useCallback(
     async (needClose = true, saveType: 'auto' | 'manual' = 'manual') => {
@@ -114,6 +163,13 @@ const ChapterSettingsDialog = ({
 
         const trimmedTitle = title.trim();
         if (!trimmedTitle) {
+          return;
+        }
+        if (!hasFormChanges(trimmedTitle)) {
+          setIsDirty(false);
+          if (needClose) {
+            onOpenChange?.(false);
+          }
           return;
         }
 
@@ -144,6 +200,12 @@ const ChapterSettingsDialog = ({
         }
 
         await api.modifyOutline(payload);
+        initialValuesRef.current = {
+          title: trimmedTitle,
+          systemPrompt,
+          hideChapter,
+          learningPermission,
+        };
 
         onChange?.({
           learningPermission,
@@ -188,6 +250,7 @@ const ChapterSettingsDialog = ({
       isLesson,
       variant,
       title,
+      hasFormChanges,
     ],
   );
 

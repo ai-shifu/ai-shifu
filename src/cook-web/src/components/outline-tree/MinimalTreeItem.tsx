@@ -260,7 +260,7 @@ const MinimalTreeItemComponent = React.forwardRef<
         <div
           id={props.item.id}
           className={cn(
-            'outline-tree_node flex items-center flex-1 justify-between w-full group p-2 rounded-md',
+            'outline-tree_node flex items-center flex-1 justify-between w-full group rounded-md',
             isChapterNode ? 'pl-0' : 'pl-2',
             shouldHighlight ? 'bg-gray-200' : '',
           )}
