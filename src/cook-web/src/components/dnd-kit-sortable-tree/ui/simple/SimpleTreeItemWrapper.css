@@ -4,6 +4,10 @@
   margin-bottom: -1px;
 }
 
+.dnd-sortable-tree_simple_wrapper:hover{
+  background: #e5e5e5
+}
+
 .dnd-sortable-tree_simple_tree-item {
   position: relative;
   display: flex;
@@ -21,11 +25,13 @@
 
 .dnd-sortable-tree_simple_wrapper.select > .dnd-sortable-tree_simple_tree-item {
   background: #e5e5e5;
-  font-weight: 500;
 }
 
 .dnd-sortable-tree_simple_wrapper.select > .dnd-sortable-tree_simple_tree-item:hover {
   background: #e5e5e5;
+}
+
+.dnd-sortable-tree_simple_wrapper.select .outline-tree_title {
   font-weight: 500;
 }
 
