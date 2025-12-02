@@ -4,7 +4,7 @@ import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
 import { redirectToHomeUrlIfRootPath } from '@/lib/utils';
 import { getBoolEnv } from '@/c-utils/envUtils';
-import apiService from '@/api';
+import { getDynamicApiBaseUrl } from '@/config/environment';
 
 const normalizeStringArray = (value: unknown, fallback: string[]): string[] => {
   if (Array.isArray(value)) {
@@ -44,7 +44,15 @@ const loadRuntimeConfig = async () => {
     updateLegalUrls,
   } = useEnvStore.getState() as EnvStoreState;
 
-  const runtimeConfig = await apiService.getRuntimeConfig({});
+  const apiBaseUrl = (await getDynamicApiBaseUrl()) || '';
+  const runtimeUrl = `${apiBaseUrl.replace(/\/$/, '')}/api/config`;
+
+  const res = await fetch(runtimeUrl, { cache: 'no-store' });
+  if (!res.ok) {
+    throw new Error(`Failed to load runtime config: ${res.status}`);
+  }
+  const payload = await res.json();
+  const runtimeConfig = payload?.data ?? payload;
   if (redirectToHomeUrlIfRootPath(runtimeConfig?.homeUrl)) {
     return;
   }
