@@ -28,7 +28,7 @@ type ChapterSettingsDialogProps = {
     learningPermission: LearningPermission;
     isHidden: boolean;
     systemPrompt: string;
-    title: string;
+    name: string;
   }) => void;
 };
 
@@ -362,7 +362,7 @@ const ChapterSettingsDialog = ({
                   learningPermission,
                   isHidden: hideChapter,
                   systemPrompt,
-                  title: title.trim(),
+                  name: title.trim(),
                 })
               }
               disabled={currentShifu?.readonly}

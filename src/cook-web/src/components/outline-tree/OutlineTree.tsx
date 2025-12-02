@@ -6,7 +6,7 @@ import {
   TreeItems,
 } from '../dnd-kit-sortable-tree';
 import React, { useMemo, useState } from 'react';
-import { Outline } from '@/types/shifu';
+import { LessonCreationSettings, Outline } from '@/types/shifu';
 import { cn } from '@/lib/utils';
 import {
   Trash2,
@@ -169,19 +169,22 @@ const MinimalTreeItemComponent = React.forwardRef<
     e.stopPropagation();
     setAddLessonDialogOpen(true);
   };
-  const handleConfirmAddLesson = ({
-    title,
-  }: {
-    title: string;
-  }) => {
-    onAddNodeClick(props.item, title);
-    setAddLessonDialogOpen(false);
+  const handleConfirmAddLesson = async (settings: LessonCreationSettings) => {
+    try {
+      await onAddNodeClick(props.item, settings);
+      setAddLessonDialogOpen(false);
+    } catch (error) {
+      console.error(error);
+    }
   };
-  const onAddNodeClick = (node: Outline, name = '') => {
+  const onAddNodeClick = async (
+    node: Outline,
+    settings: LessonCreationSettings,
+  ) => {
     if (node.depth && node.depth >= 1) {
-      actions.addSiblingOutline(node, name);
+      await actions.addSiblingOutline(node, settings);
     } else {
-      actions.addSubOutline(node, name);
+      await actions.addSubOutline(node, settings);
     }
   };
   const removeNode = async e => {
@@ -278,11 +281,7 @@ const MinimalTreeItemComponent = React.forwardRef<
           onOpenChange={setAddLessonDialogOpen}
           variant='lesson'
           footerActionLabel={t('module.chapterSetting.addLesson')}
-          onFooterAction={({ title }) =>
-            handleConfirmAddLesson({
-              title,
-            })
-          }
+          onFooterAction={handleConfirmAddLesson}
         />
       )}
       <AlertDialog

@@ -1,4 +1,5 @@
 import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
+import type { LearningPermission } from '@/c-api/studyV2';
 
 export type BlockType =
   | 'content'
@@ -30,6 +31,13 @@ export interface Outline {
   depth?: number;
   status?: 'new' | 'edit' | 'saving';
   shifu_bid?: string;
+}
+
+export interface LessonCreationSettings {
+  name: string;
+  learningPermission: LearningPermission;
+  isHidden: boolean;
+  systemPrompt: string;
 }
 
 export interface Block {
@@ -117,8 +125,14 @@ export interface ShifuActions {
   setFocusId: (id: string) => void;
   setFocusValue: (value: string) => void;
   updateOuline: (id: string, chapter: Outline) => Promise<void>;
-  addSubOutline: (parent: Outline, name: string) => Promise<void>;
-  addSiblingOutline: (item: Outline, name: string) => Promise<void>;
+  addSubOutline: (
+    parent: Outline,
+    settings: LessonCreationSettings,
+  ) => Promise<void>;
+  addSiblingOutline: (
+    item: Outline,
+    settings: LessonCreationSettings,
+  ) => Promise<void>;
   removeOutline: (item: Outline) => Promise<void>;
   replaceOutline: (id: string, outline: Outline) => Promise<void>;
   createOutline: (outline: Outline) => Promise<void>;
