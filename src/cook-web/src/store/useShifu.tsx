@@ -543,6 +543,58 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
+  const addRootOutline = async (settings: LessonCreationSettings) => {
+    const shifuBid = currentShifu?.bid;
+    if (!shifuBid) {
+      return;
+    }
+    setIsSaving(true);
+    setError(null);
+    try {
+      const index = chapters.length;
+      const created = await api.createOutline({
+        parent_bid: '',
+        index,
+        name: settings.name,
+        description: settings.name,
+        type: LEARNING_PERMISSION.TRIAL,
+        system_prompt: settings.systemPrompt,
+        is_hidden: false,
+        shifu_bid: shifuBid,
+      });
+      const newOutline: Outline = {
+        id: created.bid,
+        bid: created.bid,
+        parent_bid: '',
+        name: created.name,
+        children: [],
+        position: '',
+        depth: 0,
+      };
+      setChapters([...chapters, newOutline]);
+      setCataData({
+        ...cataData,
+        [newOutline.id]: {
+          ...newOutline,
+          status: 'edit',
+        },
+      });
+      trackEvent('creator_outline_create', {
+        shifu_bid: shifuBid,
+        outline_bid: newOutline.bid,
+        outline_name: newOutline.name,
+        parent_bid: '',
+      });
+      setLastSaveTime(new Date());
+    } catch (error) {
+      console.error(error);
+      setError('Failed to create chapter');
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const saveCurrentBlocks = useCallback(
     async (
       outline: string,
@@ -1170,6 +1222,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     actions: {
       setFocusId,
       addChapter,
+      addRootOutline,
       setChapters,
       loadShifu,
       loadChapters,

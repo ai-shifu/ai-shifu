@@ -118,6 +118,7 @@ export interface SaveMdflowPayload {
 
 export interface ShifuActions {
   addChapter: (chapter: Outline) => void;
+  addRootOutline: (settings: LessonCreationSettings) => Promise<void>;
   loadShifu: (shifuId: string, options?: { silent?: boolean }) => Promise<void>;
   loadChapters: (shifuId: string) => Promise<void>;
   createChapter: (chapter: Omit<Outline, 'chapter_id'>) => Promise<void>;

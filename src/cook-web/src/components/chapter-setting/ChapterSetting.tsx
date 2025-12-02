@@ -91,6 +91,9 @@ const ChapterSettingsDialog = ({
           return;
         }
         if (!outlineBid) {
+          if (needClose) {
+            onOpenChange?.(false);
+          }
           return;
         }
 
