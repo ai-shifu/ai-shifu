@@ -10,6 +10,7 @@ import { Outline } from '@/types/shifu';
 import { cn } from '@/lib/utils';
 import {
   Plus,
+  Settings,
   Trash2,
   Edit,
   SlidersHorizontal,
@@ -42,6 +43,7 @@ import { useAlert } from '@/components/ui/UseAlert';
 import ChapterSettingsDialog, {
   ChapterPromptSetting,
 } from '../chapter-setting';
+import './OutlineTree.css';
 
 interface ICataTreeProps {
   currentNode?: Outline;
@@ -122,6 +124,15 @@ const MinimalTreeItemComponent = React.forwardRef<
   const { t } = useTranslation();
   const outlineVariant = (props.item?.depth ?? 0) <= 0 ? 'chapter' : 'lesson';
   const alert = useAlert();
+  const isChapterNode = (props.item?.depth || 0) === 0;
+  const isPlaceholderNode = props.item.id === 'new_chapter';
+  const isSelectedChapter =
+    isChapterNode && currentNode?.id === props.item.id;
+  const shouldHighlight =
+    (!isChapterNode && currentNode?.id == props.item.id) || isPlaceholderNode;
+  const showChapterMeta = isChapterNode && !isPlaceholderNode;
+  const lessonCount = props.item?.children?.length || 0;
+  const chapterName = cataData[props.item.id!]?.name || '';
   const onNodeChange = async (value: string) => {
     if (!value || value.trim() === '') {
       alert.showAlert({
@@ -147,6 +158,14 @@ const MinimalTreeItemComponent = React.forwardRef<
       children: [],
       position: '',
     });
+  };
+  const handleChapterSettingsClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSettingsDialogOpen(true);
+  };
+  const handleAddSectionClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onAddNodeClick(props.item);
   };
   const onAddNodeClick = (node: Outline) => {
     if (node.depth && node.depth >= 1) {
@@ -205,177 +224,44 @@ const MinimalTreeItemComponent = React.forwardRef<
         <div
           id={props.item.id}
           className={cn(
-            'flex items-center flex-1 justify-between w-full group p-2 rounded-md',
-            (props.item?.children?.length || 0) > 0 ? 'pl-0' : 'pl-4',
-            (currentNode?.id == props.item.id &&
-              (props.item?.depth || 0) > 0) ||
-              props.item.id === 'new_chapter'
-              ? 'bg-gray-200'
-              : '',
+            'outline-tree_node flex items-center flex-1 justify-between w-full group p-2 rounded-md',
+            (props.item?.children?.length || 0) > 0 ? 'pl-0' : 'pl-10',
+            shouldHighlight ? 'bg-gray-200' : '',
+            isSelectedChapter ? 'select' : '',
           )}
           onClick={onSelect}
         >
-          <span className='flex flex-row items-center whitespace-nowrap overflow-hidden text-ellipsis flex-1 min-w-0'>
-            <InlineInput
-              disabled={currentShifu?.readonly}
-              isEdit={focusId === props.item.id}
-              value={cataData[props.item.id!]?.name || ''}
-              onChange={onNodeChange}
-              onFocus={() => {
-                actions.setFocusId(props.item.id || '');
-              }}
-            />
+          <span
+            className='outline-tree_title flex flex-row items-center flex-1 min-w-0'
+            title={chapterName}
+          >
+            {chapterName}
           </span>
-          {(props.item?.depth || 0) > 0 && (
-            <div className='flex items-center space-x-1'>
-              {cataData[props.item.id!]?.status == 'saving' && (
-                <Loading className='h-4 w-4' />
-              )}
-            </div>
-          )}
-          {(props.item?.depth || 0) > 0 && (
-            <div
-              className={cn(
-                'items-center space-x-2 flex',
-                !dropdownOpen
-                  ? 'group-hover:opacity-100 opacity-0 transition-opacity'
-                  : 'opacity-100',
-              )}
-            >
-              {props.item.id !== 'new_chapter' ? (
-                <DropdownMenu onOpenChange={setDropdownOpen}>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      className='h-8 w-8'
-                    >
-                      <MoreVertical className='h-4 w-4' />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align='start'
-                    side='bottom'
-                    alignOffset={-5}
-                    className='w-[160px]'
-                  >
-                    {!currentShifu?.readonly && (
-                      <DropdownMenuItem onClick={editNode}>
-                        <Edit className='mr-2 h-4 w-4' />
-                        <span>{t('component.outlineTree.rename')}</span>
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem
-                      onClick={e => {
-                        e.stopPropagation();
-                        setSettingsDialogOpen(true);
-                      }}
-                    >
-                      <SlidersHorizontal className='mr-2 h-4 w-4' />
-                      <span>{t('component.outlineTree.setting')}</span>
-                    </DropdownMenuItem>
-                    {!currentShifu?.readonly && <DropdownMenuSeparator />}
-                    {!currentShifu?.readonly && (
-                      <DropdownMenuItem
-                        onClick={removeNode}
-                        className='text-destructive'
-                      >
-                        <Trash2 className='mr-2 h-4 w-4' />
-                        <span>{t('component.outlineTree.delete')}</span>
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <>
-                  <Trash2
-                    className='mr-2 h-4 w-4'
-                    onClick={removeNode}
-                  />
-                </>
-              )}
-            </div>
-          )}
-          {(props.item?.depth || 0) <= 0 && (
-            <div
-              className={cn(
-                'items-center space-x-2 flex',
-                !dropdownOpen
-                  ? 'group-hover:opacity-100 opacity-0 transition-opacity'
-                  : 'opacity-100',
-              )}
-            >
-              {props.item.id !== 'new_chapter' ? (
-                <>
-                  <DropdownMenu onOpenChange={setDropdownOpen}>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        className='h-8 w-8'
-                      >
-                        <MoreVertical className='h-4 w-4' />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align='start'
-                      side='bottom'
-                      alignOffset={-5}
-                      className='w-[160px]'
-                    >
-                      {!currentShifu?.readonly && (
-                        <DropdownMenuItem onClick={editNode}>
-                          <Edit className='mr-2 h-4 w-4' />
-                          <span>{t('component.outlineTree.rename')}</span>
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem
-                        onClick={e => {
-                          e.stopPropagation();
-                          setChapterSettingsOpen(true);
-                        }}
-                      >
-                        <SlidersHorizontal className='mr-2 h-4 w-4' />
-                        <span>{t('component.outlineTree.setting')}</span>
-                      </DropdownMenuItem>
-                      {!currentShifu?.readonly && <DropdownMenuSeparator />}
-                      {!currentShifu?.readonly && (
-                        <DropdownMenuItem
-                          onClick={removeNode}
-                          className='text-destructive'
-                        >
-                          <Trash2 className='mr-2 h-4 w-4' />
-                          <span>{t('component.outlineTree.delete')}</span>
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  {cataData[props.item.id!]?.status == 'saving' && (
-                    <Loading className='h-4 w-4' />
-                  )}
-                  {cataData[props.item.id!]?.status !== 'saving' &&
-                    !currentShifu?.readonly && (
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        className='h-8 w-8'
-                        onClick={e => {
-                          e.stopPropagation();
-                          onAddNodeClick?.(props.item);
-                        }}
-                      >
-                        <Plus className='h-4 w-4' />
-                      </Button>
-                    )}
-                </>
-              ) : (
-                <>
-                  <Trash2
-                    className='mr-2 h-4 w-4'
-                    onClick={removeNode}
-                  />
-                </>
-              )}
+          {showChapterMeta && (
+            <div className='outline-tree_actions ml-2 flex items-center gap-2'>
+              <span className='outline-tree_section-count group-hover:hidden'>
+                {t('component.outlineTree.lessonCount', {
+                  count: lessonCount,
+                })}
+              </span>
+              <div className='outline-tree_action-buttons hidden group-hover:flex items-center gap-2'>
+                <button
+                  type='button'
+                  className='outline-tree_action-button'
+                  onClick={handleChapterSettingsClick}
+                  aria-label='chapter-settings'
+                >
+                  <Settings size={16} />
+                </button>
+                <button
+                  type='button'
+                  className='outline-tree_action-button'
+                  onClick={handleAddSectionClick}
+                  aria-label='chapter-add-section'
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
             </div>
           )}
         </div>

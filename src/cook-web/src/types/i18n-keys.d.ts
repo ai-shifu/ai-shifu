@@ -93,6 +93,7 @@ export type I18nKey =
   | 'component.outlineTree.nameRequired'
   | 'component.outlineTree.rename'
   | 'component.outlineTree.setting'
+  | 'component.outlineTree.lessonCount'
   | 'component.profileSelectModal.add'
   | 'component.profileSelectModal.addVariable'
   | 'module.auth.backToLogin'

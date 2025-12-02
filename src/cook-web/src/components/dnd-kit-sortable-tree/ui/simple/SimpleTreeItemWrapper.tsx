@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import clsx from 'clsx';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import React, { forwardRef } from 'react';
 import type { TreeItemComponentProps } from '../../types';
 import './SimpleTreeItemWrapper.css';
@@ -59,7 +60,7 @@ export const SimpleTreeItemWrapper = forwardRef<
       )}
       style={{
         ...style,
-        paddingLeft: clone ? indentationWidth : indentationWidth * depth,
+        // paddingLeft: clone ? indentationWidth : indentationWidth * depth,
       }}
     >
       <div
@@ -76,6 +77,7 @@ export const SimpleTreeItemWrapper = forwardRef<
         )}
         {!manualDrag && !hideCollapseButton && !!onCollapse && !!childCount && (
           <button
+            type="button"
             onClick={e => {
               if (!disableCollapseOnItemClick) {
                 return;
@@ -85,10 +87,14 @@ export const SimpleTreeItemWrapper = forwardRef<
             }}
             className={clsx(
               'dnd-sortable-tree_simple_tree-item-collapse_button',
-              collapsed &&
-                'dnd-sortable-tree_folder_simple-item-collapse_button-collapsed',
             )}
-          />
+          >
+            {collapsed ? (
+              <ChevronRight size={16} />
+            ) : (
+              <ChevronDown size={16} />
+            )}
+          </button>
         )}
         {props.children}
       </div>
