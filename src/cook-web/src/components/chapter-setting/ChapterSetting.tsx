@@ -17,6 +17,10 @@ import { useTracking } from '@/c-common/hooks/useTracking';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
+import Image from 'next/image';
+import guestIcon from './icons/setting/svg-guest.svg';
+import trialIcon from './icons/setting/svg-trial.svg';
+import normalIcon from './icons/setting/svg-normal.svg';
 
 type ChapterSettingsDialogProps = {
   outlineBid?: string;
@@ -288,38 +292,41 @@ const ChapterSettingsDialog = ({
                     }}
                     className='flex flex-row flex-wrap gap-x-10 gap-y-2'
                   >
-                    <div className='flex items-center gap-2'>
+                    <div className='flex items-center'>
                       <RadioGroupItem
                         value={LEARNING_PERMISSION.GUEST}
                         id='chapter-guest'
                       />
+                      <Image className='ml-2 mr-1' src={guestIcon} alt='guest' width={16} height={16} />
                       <Label
                         htmlFor='chapter-guest'
-                        className='text-sm font-normal text-foreground'
+                        className='text-sm font-medium text-foreground'
                       >
                         {t('module.chapterSetting.guest')}
                       </Label>
                     </div>
-                    <div className='flex items-center gap-2'>
+                    <div className='flex items-center'>
                       <RadioGroupItem
                         value={LEARNING_PERMISSION.TRIAL}
                         id='chapter-trial'
                       />
+                      <Image className='ml-2 mr-1' src={trialIcon} alt='guest' width={16} height={16} />
                       <Label
                         htmlFor='chapter-trial'
-                        className='text-sm font-normal text-foreground'
+                        className='text-sm font-medium text-foreground'
                       >
                         {t('module.chapterSetting.free')}
                       </Label>
                     </div>
-                    <div className='flex items-center gap-2'>
+                    <div className='flex items-center'>
                       <RadioGroupItem
                         value={LEARNING_PERMISSION.NORMAL}
                         id='chapter-normal'
                       />
+                      <Image className='ml-2 mr-1' src={normalIcon} alt='paid' width={16} height={16} />
                       <Label
                         htmlFor='chapter-normal'
-                        className='text-sm font-normal text-foreground'
+                        className='text-sm font-medium text-foreground'
                       >
                         {t('module.chapterSetting.paid')}
                       </Label>
@@ -349,7 +356,7 @@ const ChapterSettingsDialog = ({
                       />
                       <Label
                         htmlFor='chapter-visible'
-                        className='text-sm font-normal text-foreground'
+                        className='text-sm font-medium text-foreground'
                       >
                         {t('module.chapterSetting.visible')}
                       </Label>
@@ -361,7 +368,7 @@ const ChapterSettingsDialog = ({
                       />
                       <Label
                         htmlFor='chapter-hidden'
-                        className='text-sm font-normal text-foreground'
+                        className='text-sm font-medium text-foreground'
                       >
                         {t('module.chapterSetting.hidden')}
                       </Label>
