@@ -113,13 +113,13 @@ export const SimpleTreeItemWrapper = forwardRef<
         )}
         {props.children}
         {chapterMeta && (
-          <div className='outline-tree_actions mx-2'>
+          <div className='outline-tree_actions'>
             {chapterMeta.label ? (
-              <span className='outline-tree_section-count group-hover:hidden'>
+              <span className='outline-tree_section-count group-hover:hidden mx-2'>
                 {chapterMeta.label}
               </span>
             ) : null}
-            <div className='outline-tree_action-buttons hidden group-hover:flex'>
+            <div className='outline-tree_action-buttons hidden group-hover:flex mx-2'>
               {chapterMeta.onSettingsClick && (
                 <button
                   type='button'

@@ -237,7 +237,7 @@ const ChapterSettingsDialog = ({
           onConfirm(true, 'manual');
         }}
       >
-        <div className='border-b border-border px-6 py-5 pr-12'>
+        <div className='border-b border-border px-6 py-[20px] pr-12'>
           <SheetHeader className='space-y-1 text-left'>
             <SheetTitle className='text-lg font-medium text-foreground'>
               {isChapter
