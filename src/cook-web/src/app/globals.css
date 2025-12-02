@@ -118,10 +118,7 @@ html {
 .dnd-sortable-tree_simple_wrapper {
   transition: none !important;
   margin-top: 5px;
-  border-radius: 4px;
-}
-.dnd-sortable-tree_simple_wrapper:hover {
-  background-color: rgb(229 231 235 / var(--tw-bg-opacity, 1));
+  border-radius: 8px;
 }
 
 .dnd-sortable-tree_simple_handle {

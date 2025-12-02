@@ -30,6 +30,8 @@ type ChapterSettingsDialogProps = {
     systemPrompt: string;
     name: string;
   }) => void;
+  onDeleteRequest?: () => void;
+  deleteButtonLabel?: string;
 };
 
 const ChapterSettingsDialog = ({
@@ -39,6 +41,8 @@ const ChapterSettingsDialog = ({
   variant = 'lesson',
   footerActionLabel,
   onFooterAction,
+  onDeleteRequest,
+  deleteButtonLabel,
 }: ChapterSettingsDialogProps) => {
   const isChapter = variant === 'chapter';
   const isLesson = !isChapter;
@@ -387,24 +391,37 @@ const ChapterSettingsDialog = ({
             </div>
           </div>
         )}
-        {footerActionLabel && onFooterAction && (
-          <div className='border-t border-border px-6 py-4 text-right'>
-            <Button
-              type='button'
-              onClick={() =>
-                onFooterAction({
-                  learningPermission,
-                  isHidden: hideChapter,
-                  systemPrompt,
-                  name: title.trim(),
-                })
-              }
-              disabled={currentShifu?.readonly || !title.trim()}
-            >
-              {footerActionLabel}
-            </Button>
+        {(footerActionLabel && onFooterAction) || onDeleteRequest ? (
+          <div className='border-t border-border px-6 py-4 flex justify-end gap-3'>
+            {onDeleteRequest && outlineBid && (
+              <Button
+                type='button'
+                variant='outline'
+                className='text-red-500 border-red-500 hover:bg-red-50'
+                onClick={onDeleteRequest}
+                disabled={currentShifu?.readonly}
+              >
+                {deleteButtonLabel ?? t('component.outlineTree.delete')}
+              </Button>
+            )}
+            {footerActionLabel && onFooterAction && (
+              <Button
+                type='button'
+                onClick={() =>
+                  onFooterAction({
+                    learningPermission,
+                    isHidden: hideChapter,
+                    systemPrompt,
+                    name: title.trim(),
+                  })
+                }
+                disabled={currentShifu?.readonly || !title.trim()}
+              >
+                {footerActionLabel}
+              </Button>
+            )}
           </div>
-        )}
+        ) : null}
       </SheetContent>
     </Sheet>
   );

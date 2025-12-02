@@ -11,10 +11,22 @@
   justify-content: flex-start;
   align-items: center;
   padding: 10px 10px;
-  border: 1px solid #dedede;
   color: #222;
   box-sizing: border-box;
   height: 32px;
+  border-radius: var(--border-radius-rounded-md, 8px);
+  background: transparent;
+  transition: background-color 0.2s ease;
+}
+
+.dnd-sortable-tree_simple_wrapper.select > .dnd-sortable-tree_simple_tree-item {
+  background: #e5e5e5;
+  font-weight: 500;
+}
+
+.dnd-sortable-tree_simple_wrapper.select > .dnd-sortable-tree_simple_tree-item:hover {
+  background: #e5e5e5;
+  font-weight: 500;
 }
 
 .dnd-sortable-tree_simple_clone {
@@ -73,8 +85,15 @@
   padding: 0;
   margin: 0 8px;
   cursor: pointer;
+  width: 20px;
+  height: 20px;
 }
 
 .dnd-sortable-tree_folder_simple-item-collapse_button-collapsed {
   transform: none;
+}
+
+.dnd-sortable-tree_simple_tree-item-collapse_button.spacer {
+  cursor: default;
+  visibility: hidden;
 }

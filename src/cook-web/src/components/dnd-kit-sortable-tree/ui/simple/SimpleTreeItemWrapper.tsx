@@ -85,7 +85,7 @@ export const SimpleTreeItemWrapper = forwardRef<
             {...handleProps}
           />
         )}
-        {!manualDrag && !hideCollapseButton && !!onCollapse && !!childCount && (
+        {!manualDrag && !hideCollapseButton && !!onCollapse && !!childCount ? (
           <button
             type="button"
             onClick={e => {
@@ -105,10 +105,15 @@ export const SimpleTreeItemWrapper = forwardRef<
               <ChevronDown size={16} />
             )}
           </button>
+        ) : (
+          <div
+            className='dnd-sortable-tree_simple_tree-item-collapse_button spacer'
+            aria-hidden='true'
+          />
         )}
         {props.children}
         {chapterMeta && (
-          <div className='outline-tree_actions ml-2'>
+          <div className='outline-tree_actions mx-2'>
             {chapterMeta.label ? (
               <span className='outline-tree_section-count group-hover:hidden'>
                 {chapterMeta.label}

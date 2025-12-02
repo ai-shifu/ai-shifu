@@ -168,6 +168,10 @@ const MinimalTreeItemComponent = React.forwardRef<
     e.stopPropagation();
     setAddLessonDialogOpen(true);
   };
+  const handleSettingsDeleteRequest = () => {
+    setSettingsDialogOpen(false);
+    setShowDeleteDialog(true);
+  };
   const handleConfirmAddLesson = async (settings: LessonCreationSettings) => {
     try {
       await onAddNodeClick(props.item, settings);
@@ -232,6 +236,9 @@ const MinimalTreeItemComponent = React.forwardRef<
         {...props}
         ref={ref}
         disableCollapseOnItemClick={false}
+        className={cn(
+          shouldHighlight && !isChapterNode && 'select',
+        )}
         chapterMeta={
           shouldShowMeta
             ? {
@@ -247,7 +254,7 @@ const MinimalTreeItemComponent = React.forwardRef<
           id={props.item.id}
           className={cn(
             'outline-tree_node flex items-center flex-1 justify-between w-full group p-2 rounded-md',
-            (props.item?.children?.length || 0) > 0 ? 'pl-0' : 'pl-10',
+            isChapterNode ? 'pl-0' : 'pl-2',
             shouldHighlight ? 'bg-gray-200' : '',
             // isSelectedChapter ? 'select' : '',
           )}
@@ -267,6 +274,8 @@ const MinimalTreeItemComponent = React.forwardRef<
         open={settingsDialogOpen}
         onOpenChange={setSettingsDialogOpen}
         variant={outlineVariant}
+        onDeleteRequest={handleSettingsDeleteRequest}
+        deleteButtonLabel={t('component.outlineTree.delete')}
       />
       {/* add lesson dialog */}
       {showChapterMeta && (
