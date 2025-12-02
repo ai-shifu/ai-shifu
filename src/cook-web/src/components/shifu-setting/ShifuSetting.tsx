@@ -398,7 +398,7 @@ export default function ShifuSettingDialog({
         side='right'
         className='w-full sm:w-[420px] md:w-[480px] h-full flex flex-col p-0'
       >
-        <SheetHeader className='px-6 pt-[19px]'>
+        <SheetHeader className='px-6 pt-[19px] pb-4'>
           <SheetTitle className='text-lg font-medium'>
             {t('module.shifuSetting.title')}
           </SheetTitle>
