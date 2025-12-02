@@ -31,6 +31,9 @@ export interface Outline {
   depth?: number;
   status?: 'new' | 'edit' | 'saving';
   shifu_bid?: string;
+  is_hidden?: boolean;
+  type?: LearningPermission;
+  system_prompt?: string;
 }
 
 export interface LessonCreationSettings {
@@ -125,7 +128,7 @@ export interface ShifuActions {
   setChapters: (chapters: Outline[]) => void;
   setFocusId: (id: string) => void;
   setFocusValue: (value: string) => void;
-  updateOuline: (id: string, chapter: Outline) => Promise<void>;
+  updateOutline: (id: string, chapter: Outline) => Promise<void>;
   addSubOutline: (
     parent: Outline,
     settings: LessonCreationSettings,

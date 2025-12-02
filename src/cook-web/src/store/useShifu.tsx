@@ -933,7 +933,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     });
   };
 
-  const updateOuline = async (id: string, value: Outline) => {
+  const updateOutline = async (id: string, value: Outline) => {
     setCataData({
       ...cataData,
       [id]: {
@@ -941,6 +941,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         ...value,
       },
     });
+    setLastSaveTime(new Date());
   };
 
   const addChapter = async (chapter: Outline) => {
@@ -951,7 +952,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       return;
     }
     setChapters([...chapters, chapter]);
-    updateOuline(chapter.id, {
+    updateOutline(chapter.id, {
       ...chapter,
       status: 'new',
     });
@@ -1228,7 +1229,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       loadChapters,
       createChapter,
       setFocusValue,
-      updateOuline,
+      updateOutline,
       addSubOutline,
       addSiblingOutline,
       removeOutline,

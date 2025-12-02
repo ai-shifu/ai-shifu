@@ -7,16 +7,9 @@ import {
 } from '../dnd-kit-sortable-tree';
 import React, { useMemo, useState } from 'react';
 import { LessonCreationSettings, Outline } from '@/types/shifu';
+import { LearningPermission } from '@/c-api/studyV2';
 import { cn } from '@/lib/utils';
-import {
-  Trash2,
-  Edit,
-  SlidersHorizontal,
-  MoreVertical,
-} from 'lucide-react';
-import { InlineInput } from '../inline-input';
 import { useShifu } from '@/store/useShifu';
-import Loading from '../loading';
 import { ItemChangedReason } from '../dnd-kit-sortable-tree/types';
 import {
   AlertDialog,
@@ -28,14 +21,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../ui/AlertDialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from '../ui/DropdownMenu';
-import { Button } from '@/components/ui/Button';
 import { useTranslation } from 'react-i18next';
 import { useAlert } from '@/components/ui/UseAlert';
 import ChapterSettingsDialog from '../chapter-setting';
@@ -114,7 +99,6 @@ const MinimalTreeItemComponent = React.forwardRef<
 >((props, ref) => {
   const { focusId, actions, cataData, currentNode, currentShifu } = useShifu();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [addLessonDialogOpen, setAddLessonDialogOpen] = useState(false);
   const { t } = useTranslation();
@@ -171,6 +155,28 @@ const MinimalTreeItemComponent = React.forwardRef<
   const handleSettingsDeleteRequest = () => {
     setSettingsDialogOpen(false);
     setShowDeleteDialog(true);
+  };
+  const handleSettingsChange = ({
+    name,
+    isHidden,
+    learningPermission,
+  }: {
+    name: string;
+    isHidden: boolean;
+    learningPermission: LearningPermission;
+  }) => {
+    if (!props.item.id) {
+      return;
+    }
+    const current = cataData[props.item.id] || props.item;
+    const updatedOutline: Outline = {
+      ...current,
+      name,
+      is_hidden: isHidden,
+      type: learningPermission,
+    };
+    actions.updateOutline(props.item.id, updatedOutline);
+    // props.onChange?.(updatedOutline);
   };
   const handleConfirmAddLesson = async (settings: LessonCreationSettings) => {
     try {
@@ -256,7 +262,6 @@ const MinimalTreeItemComponent = React.forwardRef<
             'outline-tree_node flex items-center flex-1 justify-between w-full group p-2 rounded-md',
             isChapterNode ? 'pl-0' : 'pl-2',
             shouldHighlight ? 'bg-gray-200' : '',
-            // isSelectedChapter ? 'select' : '',
           )}
           onClick={onSelect}
         >
@@ -276,6 +281,7 @@ const MinimalTreeItemComponent = React.forwardRef<
         variant={outlineVariant}
         onDeleteRequest={handleSettingsDeleteRequest}
         deleteButtonLabel={t('component.outlineTree.delete')}
+        onChange={handleSettingsChange}
       />
       {/* add lesson dialog */}
       {showChapterMeta && (

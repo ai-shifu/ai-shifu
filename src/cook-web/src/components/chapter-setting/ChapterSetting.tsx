@@ -32,6 +32,12 @@ type ChapterSettingsDialogProps = {
   }) => void;
   onDeleteRequest?: () => void;
   deleteButtonLabel?: string;
+  onChange?: (data: {
+    learningPermission: LearningPermission;
+    isHidden: boolean;
+    name: string;
+    variant: 'chapter' | 'lesson';
+  }) => void;
 };
 
 const ChapterSettingsDialog = ({
@@ -43,6 +49,7 @@ const ChapterSettingsDialog = ({
   onFooterAction,
   onDeleteRequest,
   deleteButtonLabel,
+  onChange,
 }: ChapterSettingsDialogProps) => {
   const isChapter = variant === 'chapter';
   const isLesson = !isChapter;
@@ -133,6 +140,13 @@ const ChapterSettingsDialog = ({
         }
 
         await api.modifyOutline(payload);
+
+        onChange?.({
+          learningPermission,
+          isHidden: hideChapter,
+          name: trimmedTitle,
+          variant,
+        });
 
         if (isLesson) {
           trackEvent(eventName, {
