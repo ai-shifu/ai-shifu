@@ -27,6 +27,12 @@ import { useAlert } from '@/components/ui/UseAlert';
 import ChapterSettingsDialog from '../chapter-setting';
 import './OutlineTree.css';
 import { LEARNING_PERMISSION } from '@/c-api/studyV2';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export type TreeItemProps = {
   currentNode?: Outline;
@@ -93,11 +99,25 @@ const MinimalTreeItemComponent = React.forwardRef<
     if (!badges.length) {
       return null;
     }
-    return badges.map(({ icon, label, className = '' }) => (
-      <span className={cn('outline-tree_badge', className)} key={label} title={label}>
-        <img src={icon} alt={label} />
-      </span>
-    ));
+    return (
+      <TooltipProvider delayDuration={200}>
+        {badges.map(({ icon, label, className = '' }) => (
+          <Tooltip key={`${label}-${icon}`}>
+            <TooltipTrigger asChild>
+              <span className={cn('outline-tree_badge', className)}>
+                <img src={icon} alt={label} />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent
+              side='top'
+              className='bg-[#0A0A0A] text-white border-transparent text-xs'
+            >
+              {label}
+            </TooltipContent>
+          </Tooltip>
+        ))}
+      </TooltipProvider>
+    );
   };
   const onNodeChange = async (value: string) => {
     if (!value || value.trim() === '') {
