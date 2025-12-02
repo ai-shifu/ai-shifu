@@ -1,7 +1,13 @@
 .dnd-sortable-tree_simple_wrapper {
   list-style: none;
   box-sizing: border-box;
-  margin-bottom: -1px;
+  transition: none !important;
+  margin-top: 8px;
+  border-radius: 8px;
+}
+
+.dnd-sortable-tree_simple_handle {
+  display: none !important;
 }
 
 .dnd-sortable-tree_simple_wrapper:hover{
@@ -14,7 +20,8 @@
   flex-direction: row;
   justify-content: flex-start;
   align-items: center;
-  padding: 10px 10px;
+  border: none !important;
+  padding: 0px 0px 0px 0px;
   color: #222;
   box-sizing: border-box;
   height: 32px;
