@@ -140,11 +140,14 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   const recursiveCataData = (cataTree: Outline[]): any => {
     const result: any = {};
     const processItem = (item: any, parentId = '', depth = 0) => {
+      console.log('item', item);
       result[item.id] = {
         ...cataData[item.id],
         parent_bid: parentId,
         parentId: parentId,
         name: item.name,
+        type: item.type,
+        is_hidden: item.is_hidden,
         depth: depth,
         status: 'edit',
       };
@@ -159,6 +162,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     cataTree.forEach((child: any) => {
       processItem(child, '', 0);
     });
+    console.log('result', result);
     return result;
   };
   const buildOutlineTree = (items: Outline[]) => {
@@ -328,6 +332,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     return items.map((item: any) => {
       return {
         id: item.bid,
+        type: item.type,
+        is_hidden: item.is_hidden,
         name: item.name,
         bid: item.bid,
         position: item.position,
@@ -364,6 +370,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         shifu_bid: shifuId,
       });
       const list = remapOutlineTree(chaptersData);
+      console.log('list', list);
       if (list.length > 0) {
         if (list[0].children && list[0].children.length > 0) {
           setCurrentNode({

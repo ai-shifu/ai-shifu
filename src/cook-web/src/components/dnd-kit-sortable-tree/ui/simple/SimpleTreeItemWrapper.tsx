@@ -9,7 +9,7 @@ import './SimpleTreeItemWrapper.css';
 
 interface SimpleTreeItemWrapperProps<T = {}> extends TreeItemComponentProps<T> {
   onChapterSelect?: () => void;
-  chapterMeta?: {
+  chapter?: {
     label?: string;
     onSettingsClick?: React.MouseEventHandler<HTMLButtonElement>;
     onAddClick?: React.MouseEventHandler<HTMLButtonElement>;
@@ -49,7 +49,7 @@ export const SimpleTreeItemWrapper = forwardRef<
     isOver,
     isOverParent,
     onChapterSelect,
-    chapterMeta,
+    chapter,
     ...rest
   } = props;
 
@@ -112,29 +112,29 @@ export const SimpleTreeItemWrapper = forwardRef<
           />
         )}
         {props.children}
-        {chapterMeta && (
+        {chapter && (
           <div className='outline-tree_actions'>
-            {chapterMeta.label ? (
+            {chapter.label ? (
               <span className='outline-tree_section-count group-hover:hidden mx-2'>
-                {chapterMeta.label}
+                {chapter.label}
               </span>
             ) : null}
             <div className='outline-tree_action-buttons hidden group-hover:flex mx-2'>
-              {chapterMeta.onSettingsClick && (
+              {chapter.onSettingsClick && (
                 <button
                   type='button'
                   className='outline-tree_action-button mr-1'
-                  onClick={chapterMeta.onSettingsClick}
+                  onClick={chapter.onSettingsClick}
                   aria-label='chapter-settings'
                 >
                   <Settings size={16} />
                 </button>
               )}
-              {chapterMeta.showAdd !== false && chapterMeta.onAddClick && (
+              {chapter.showAdd !== false && chapter.onAddClick && (
                 <button
                   type='button'
                   className='outline-tree_action-button'
-                  onClick={chapterMeta.onAddClick}
+                  onClick={chapter.onAddClick}
                   aria-label='chapter-add-section'
                 >
                   <Plus size={16} />

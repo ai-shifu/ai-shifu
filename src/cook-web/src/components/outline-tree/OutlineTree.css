@@ -33,6 +33,18 @@
   line-height: 100%;
 }
 
+.outline-tree_badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.outline-tree_badge img {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
 .outline-tree_actions {
 }
 

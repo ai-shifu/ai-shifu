@@ -18,9 +18,9 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
 import Image from 'next/image';
-import guestIcon from './icons/setting/svg-guest.svg';
-import trialIcon from './icons/setting/svg-trial.svg';
-import normalIcon from './icons/setting/svg-normal.svg';
+import guestIcon from './icons/svg-guest.svg';
+import trialIcon from './icons/svg-trial.svg';
+import normalIcon from './icons/svg-normal.svg';
 
 type ChapterSettingsDialogProps = {
   outlineBid?: string;
