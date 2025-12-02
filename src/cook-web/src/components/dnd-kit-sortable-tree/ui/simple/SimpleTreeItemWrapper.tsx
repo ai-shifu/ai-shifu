@@ -10,9 +10,10 @@ import './SimpleTreeItemWrapper.css';
 interface SimpleTreeItemWrapperProps<T = {}> extends TreeItemComponentProps<T> {
   onChapterSelect?: () => void;
   chapterMeta?: {
-    label: string;
+    label?: string;
     onSettingsClick?: React.MouseEventHandler<HTMLButtonElement>;
     onAddClick?: React.MouseEventHandler<HTMLButtonElement>;
+    showAdd?: boolean;
   };
 }
 
@@ -108,26 +109,32 @@ export const SimpleTreeItemWrapper = forwardRef<
         {props.children}
         {chapterMeta && (
           <div className='outline-tree_actions ml-2'>
-            <span className='outline-tree_section-count group-hover:hidden'>
-              {chapterMeta.label}
-            </span>
+            {chapterMeta.label ? (
+              <span className='outline-tree_section-count group-hover:hidden'>
+                {chapterMeta.label}
+              </span>
+            ) : null}
             <div className='outline-tree_action-buttons hidden group-hover:flex'>
-              <button
-                type='button'
-                className='outline-tree_action-button mr-1'
-                onClick={chapterMeta.onSettingsClick}
-                aria-label='chapter-settings'
-              >
-                <Settings size={16} />
-              </button>
-              <button
-                type='button'
-                className='outline-tree_action-button'
-                onClick={chapterMeta.onAddClick}
-                aria-label='chapter-add-section'
-              >
-                <Plus size={16} />
-              </button>
+              {chapterMeta.onSettingsClick && (
+                <button
+                  type='button'
+                  className='outline-tree_action-button mr-1'
+                  onClick={chapterMeta.onSettingsClick}
+                  aria-label='chapter-settings'
+                >
+                  <Settings size={16} />
+                </button>
+              )}
+              {chapterMeta.showAdd !== false && chapterMeta.onAddClick && (
+                <button
+                  type='button'
+                  className='outline-tree_action-button'
+                  onClick={chapterMeta.onAddClick}
+                  aria-label='chapter-add-section'
+                >
+                  <Plus size={16} />
+                </button>
+              )}
             </div>
           </div>
         )}

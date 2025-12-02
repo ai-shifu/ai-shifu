@@ -127,11 +127,13 @@ const MinimalTreeItemComponent = React.forwardRef<
   const shouldHighlight =
     (!isChapterNode && currentNode?.id == props.item.id) || isPlaceholderNode;
   const showChapterMeta = isChapterNode && !isPlaceholderNode;
+  const showLessonSettings = !isChapterNode && !isPlaceholderNode;
   const lessonCount = props.item?.children?.length || 0;
   const lessonCountLabel = t('component.outlineTree.lessonCount', {
     count: lessonCount,
   });
   const chapterName = cataData[props.item.id!]?.name || '';
+  const shouldShowMeta = showChapterMeta || showLessonSettings;
   const onNodeChange = async (value: string) => {
     if (!value || value.trim() === '') {
       alert.showAlert({
@@ -231,11 +233,12 @@ const MinimalTreeItemComponent = React.forwardRef<
         ref={ref}
         disableCollapseOnItemClick={false}
         chapterMeta={
-          showChapterMeta
+          shouldShowMeta
             ? {
-                label: lessonCountLabel,
+                label: showChapterMeta ? lessonCountLabel : undefined,
                 onSettingsClick: handleChapterSettingsClick,
-                onAddClick: handleAddSectionClick,
+                onAddClick: showChapterMeta ? handleAddSectionClick : undefined,
+                showAdd: showChapterMeta,
               }
             : undefined
         }
