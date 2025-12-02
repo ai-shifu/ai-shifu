@@ -115,7 +115,7 @@ export const SimpleTreeItemWrapper = forwardRef<
         {chapter && (
           <div className='outline-tree_actions'>
             {chapter.label ? (
-              <span className='outline-tree_section-count group-hover:hidden mx-2'>
+              <span className='outline-tree_section-count group-hover:hidden ml-2'>
                 {chapter.label}
               </span>
             ) : null}
