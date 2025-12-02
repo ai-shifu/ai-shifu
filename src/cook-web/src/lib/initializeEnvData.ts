@@ -4,6 +4,20 @@ import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
 import { redirectToHomeUrlIfRootPath } from '@/lib/utils';
 import { getBoolEnv } from '@/c-utils/envUtils';
+import apiService from '@/api';
+
+const normalizeStringArray = (value: unknown, fallback: string[]): string[] => {
+  if (Array.isArray(value)) {
+    return value.filter(item => typeof item === 'string' && item.trim() !== '');
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map(item => item.trim())
+      .filter(Boolean);
+  }
+  return fallback;
+};
 
 let initPromise: Promise<void> | null = null;
 
@@ -25,44 +39,59 @@ const loadRuntimeConfig = async () => {
     updateStripePublishableKey,
     updateStripeEnabled,
     updatePaymentChannels,
+    updateLoginMethodsEnabled,
+    updateDefaultLoginMethod,
+    updateLegalUrls,
   } = useEnvStore.getState() as EnvStoreState;
 
-  const res = await fetch('/api/config', {
-    method: 'GET',
-    referrer: 'no-referrer',
-  });
-
-  if (!res.ok) {
+  const runtimeConfig = await apiService.getRuntimeConfig({});
+  if (redirectToHomeUrlIfRootPath(runtimeConfig?.homeUrl)) {
     return;
   }
 
-  const data = await res.json();
-  if (redirectToHomeUrlIfRootPath(data?.homeUrl)) {
-    return;
-  }
+  const paymentChannels = normalizeStringArray(
+    runtimeConfig?.paymentChannels,
+    (useEnvStore.getState() as EnvStoreState).paymentChannels,
+  );
+  const loginMethods = normalizeStringArray(
+    runtimeConfig?.loginMethodsEnabled,
+    (useEnvStore.getState() as EnvStoreState).loginMethodsEnabled,
+  );
 
   // await updateCourseId(data?.courseId || '');
-  await updateAppId(data?.wechatAppId || '');
-  await updateAlwaysShowLessonTree(data?.alwaysShowLessonTree || 'false');
-  await updateUmamiWebsiteId(data?.umamiWebsiteId || '');
-  await updateUmamiScriptSrc(data?.umamiScriptSrc || '');
-  await updateEruda(data?.enableEruda || 'false');
-  await updateBaseURL(data?.apiBaseUrl || '');
-  await updateLogoHorizontal(data?.logoHorizontal || '');
-  await updateLogoVertical(data?.logoVertical || '');
-  await updateLogoUrl(data?.logoUrl || '');
-  await updateEnableWxcode(data?.enableWechatCode?.toString() || 'true');
-  await updateDefaultLlmModel(data?.defaultLlmModel || '');
-  await updateHomeUrl(data?.homeUrl || '');
-  await updateCurrencySymbol(data?.currencySymbol || '¥');
-  await updateStripePublishableKey(data?.stripePublishableKey || '');
-  await updateStripeEnabled(
-    data?.stripeEnabled !== undefined ? data.stripeEnabled.toString() : 'false',
+  await updateAppId(runtimeConfig?.wechatAppId || '');
+  await updateAlwaysShowLessonTree(
+    runtimeConfig?.alwaysShowLessonTree?.toString() || 'false',
   );
-  await updatePaymentChannels(
-    Array.isArray(data?.paymentChannels) && data.paymentChannels.length > 0
-      ? data.paymentChannels
-      : (useEnvStore.getState() as EnvStoreState).paymentChannels,
+  await updateUmamiWebsiteId(runtimeConfig?.umamiWebsiteId || '');
+  await updateUmamiScriptSrc(runtimeConfig?.umamiScriptSrc || '');
+  await updateEruda(runtimeConfig?.enableEruda?.toString() || 'false');
+  await updateBaseURL(runtimeConfig?.apiBaseUrl || '');
+  await updateLogoHorizontal(runtimeConfig?.logoHorizontal || '');
+  await updateLogoVertical(runtimeConfig?.logoVertical || '');
+  await updateLogoUrl(runtimeConfig?.logoUrl || '');
+  await updateEnableWxcode(
+    runtimeConfig?.enableWechatCode?.toString() || 'true',
+  );
+  await updateDefaultLlmModel(runtimeConfig?.defaultLlmModel || '');
+  await updateHomeUrl(runtimeConfig?.homeUrl || '');
+  await updateCurrencySymbol(runtimeConfig?.currencySymbol || '¥');
+  await updateStripePublishableKey(runtimeConfig?.stripePublishableKey || '');
+  await updateStripeEnabled(
+    runtimeConfig?.stripeEnabled !== undefined
+      ? runtimeConfig.stripeEnabled.toString()
+      : 'false',
+  );
+  await updatePaymentChannels(paymentChannels);
+  await updateLoginMethodsEnabled(loginMethods);
+  await updateDefaultLoginMethod(
+    typeof runtimeConfig?.defaultLoginMethod === 'string'
+      ? runtimeConfig.defaultLoginMethod
+      : (useEnvStore.getState() as EnvStoreState).defaultLoginMethod,
+  );
+  await updateLegalUrls(
+    runtimeConfig?.legalUrls ??
+      (useEnvStore.getState() as EnvStoreState).legalUrls,
   );
 };
 

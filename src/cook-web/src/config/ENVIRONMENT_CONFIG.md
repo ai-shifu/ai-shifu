@@ -70,7 +70,7 @@
 | `LEGAL_PRIVACY_URL_ZH_CN`   | 中文隐私政策URL | 空字符串 | 留空则不显示链接，显示为纯文本 |
 | `LEGAL_PRIVACY_URL_EN_US`   | 英文隐私政策URL | 空字符串 | 留空则不显示链接，显示为纯文本 |
 
-**注意**: 这些配置通过 `/api/config` API 传递给前端，不需要 `NEXT_PUBLIC_` 前缀。组件会根据当前语言自动选择对应的URL。
+**注意**: 这些配置由后端 `/api/config` API 返回。Cook Web 内置的 `/api/config` 仅返回后端地址 (`apiBaseUrl`)，实际配置均通过后端接口获取。
 
 ## 使用方式
 
@@ -112,9 +112,7 @@ import { environment } from '@/config/environment';
 
 export async function GET() {
   return NextResponse.json({
-    apiBaseUrl: environment.apiBaseUrl,
-    courseId: environment.courseId,
-    // ... other settings
+    apiBaseUrl: environment.apiBaseUrl, // Cook Web 本地接口只暴露后端地址
   });
 }
 ```
