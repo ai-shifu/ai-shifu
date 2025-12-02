@@ -217,6 +217,7 @@ export function usePreviewChat() {
       sseRef.current = null;
     }
     isStreamingRef.current = false;
+    setIsLoading(false);
   }, []);
 
   const resetPreview = useCallback(() => {
