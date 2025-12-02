@@ -38,9 +38,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { useTranslation } from 'react-i18next';
 import { useAlert } from '@/components/ui/UseAlert';
-import ChapterSettingsDialog, {
-  ChapterPromptSetting,
-} from '../chapter-setting';
+import ChapterSettingsDialog from '../chapter-setting';
 import './OutlineTree.css';
 
 interface ICataTreeProps {
@@ -118,7 +116,6 @@ const MinimalTreeItemComponent = React.forwardRef<
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
-  const [chapterSettingsOpen, setChapterSettingsOpen] = useState(false);
   const [addLessonDialogOpen, setAddLessonDialogOpen] = useState(false);
   const { t } = useTranslation();
   const outlineVariant = (props.item?.depth ?? 0) <= 0 ? 'chapter' : 'lesson';
@@ -261,19 +258,14 @@ const MinimalTreeItemComponent = React.forwardRef<
           </span>
         </div>
       </SimpleTreeItemWrapper>
+      {/* edit lesson settings dialog */}
       <ChapterSettingsDialog
         outlineBid={props.item.bid}
         open={settingsDialogOpen}
         onOpenChange={setSettingsDialogOpen}
         variant={outlineVariant}
       />
-      {outlineVariant === 'chapter' && props.item.id !== 'new_chapter' && (
-        <ChapterPromptSetting
-          outlineBid={props.item.bid}
-          open={chapterSettingsOpen}
-          onOpenChange={setChapterSettingsOpen}
-        />
-      )}
+      {/* add lesson dialog */}
       {showChapterMeta && (
         <ChapterSettingsDialog
           outlineBid=''

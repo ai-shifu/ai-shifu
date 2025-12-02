@@ -41,6 +41,7 @@ const ChapterSettingsDialog = ({
   onFooterAction,
 }: ChapterSettingsDialogProps) => {
   const isChapter = variant === 'chapter';
+  const isLesson = !isChapter;
   const { currentShifu } = useShifu();
   const { trackEvent } = useTracking();
   const { t } = useTranslation();
@@ -93,36 +94,57 @@ const ChapterSettingsDialog = ({
           return;
         }
 
-        const isPaid = learningPermission === LEARNING_PERMISSION.NORMAL;
-        const requiresLogin = learningPermission !== LEARNING_PERMISSION.GUEST;
+        const trimmedTitle = title.trim();
+        if (!trimmedTitle) {
+          return;
+        }
 
-        await api.modifyOutline({
+        const payload: Record<string, unknown> = {
           outline_bid: outlineBid,
           shifu_bid: currentShifu?.bid,
-          type: learningPermission,
-          is_hidden: hideChapter,
           system_prompt: systemPrompt,
-          is_paid: isPaid,
-          require_login: requiresLogin,
-          need_login: requiresLogin,
-          login_required: requiresLogin,
-          ...(isChapter
-            ? {}
-            : {
-                name: title,
-                description: title,
-              }),
-        });
+          name: trimmedTitle,
+          description: trimmedTitle,
+        };
+        let eventName: 'creator_outline_setting_save' | 'creator_outline_prompt_save' =
+          'creator_outline_setting_save';
 
-        trackEvent('creator_outline_setting_save', {
-          outline_bid: outlineBid,
-          shifu_bid: currentShifu?.bid,
-          save_type: saveType,
-          variant,
-          learning_permission: learningPermission,
-          hide_chapter: hideChapter,
-          system_prompt: systemPrompt,
-        });
+        if (isLesson) {
+          const isPaid = learningPermission === LEARNING_PERMISSION.NORMAL;
+          const requiresLogin =
+            learningPermission !== LEARNING_PERMISSION.GUEST;
+          Object.assign(payload, {
+            type: learningPermission,
+            is_hidden: hideChapter,
+            is_paid: isPaid,
+            require_login: requiresLogin,
+            need_login: requiresLogin,
+            login_required: requiresLogin,
+          });
+        } else {
+          eventName = 'creator_outline_prompt_save';
+        }
+
+        await api.modifyOutline(payload);
+
+        if (isLesson) {
+          trackEvent(eventName, {
+            outline_bid: outlineBid,
+            shifu_bid: currentShifu?.bid,
+            save_type: saveType,
+            variant,
+            learning_permission: learningPermission,
+            hide_chapter: hideChapter,
+            system_prompt: systemPrompt,
+          });
+        } else {
+          trackEvent(eventName, {
+            outline_bid: outlineBid,
+            shifu_bid: currentShifu?.bid,
+            system_prompt: systemPrompt,
+            save_type: saveType,
+          });
+        }
         setIsDirty(false);
         if (needClose) {
           onOpenChange?.(false);
@@ -138,7 +160,9 @@ const ChapterSettingsDialog = ({
       onOpenChange,
       currentShifu?.readonly,
       trackEvent,
+      isLesson,
       variant,
+      title,
     ],
   );
 
@@ -172,6 +196,7 @@ const ChapterSettingsDialog = ({
     systemPrompt,
     onConfirm,
     currentShifu?.readonly,
+    title,
   ]);
 
   return (
@@ -207,116 +232,122 @@ const ChapterSettingsDialog = ({
         ) : (
           <div className='flex-1 overflow-y-auto px-6 py-6'>
             <div className='space-y-8'>
-              {!isChapter && (
-                <div className='space-y-2'>
+              <div className='space-y-2'>
+                <div className='text-sm font-medium text-foreground'>
+                  {isChapter
+                    ? t('module.chapterSetting.chapterName')
+                    : t('module.chapterSetting.lessonName')}
+                </div>
+                <Input
+                  value={title}
+                  maxLength={TITLE_MAX_LENGTH}
+                  placeholder={
+                    isChapter
+                      ? t('module.chapterSetting.chapterNamePlaceholder')
+                      : t('module.chapterSetting.lessonNamePlaceholder')
+                  }
+                  disabled={currentShifu?.readonly}
+                  onChange={event => {
+                    setTitle(event.target.value);
+                    setIsDirty(true);
+                  }}
+                />
+              </div>
+              {isLesson && (
+                <div className='space-y-3'>
                   <div className='text-sm font-medium text-foreground'>
-                    {t('module.chapterSetting.lessonName')}
+                    {t('module.chapterSetting.learningPermission')}
                   </div>
-                  <Input
-                    value={title}
-                    maxLength={TITLE_MAX_LENGTH}
-                    placeholder={t(
-                      'module.chapterSetting.lessonNamePlaceholder',
-                    )}
+                  <RadioGroup
                     disabled={currentShifu?.readonly}
-                    onChange={event => {
-                      setTitle(event.target.value);
+                    value={learningPermission}
+                    onValueChange={value => {
+                      setLearningPermission(value as LearningPermission);
                       setIsDirty(true);
                     }}
-                  />
+                    className='flex flex-row flex-wrap gap-x-10 gap-y-2'
+                  >
+                    <div className='flex items-center gap-2'>
+                      <RadioGroupItem
+                        value={LEARNING_PERMISSION.GUEST}
+                        id='chapter-guest'
+                      />
+                      <Label
+                        htmlFor='chapter-guest'
+                        className='text-sm font-normal text-foreground'
+                      >
+                        {t('module.chapterSetting.guest')}
+                      </Label>
+                    </div>
+                    <div className='flex items-center gap-2'>
+                      <RadioGroupItem
+                        value={LEARNING_PERMISSION.TRIAL}
+                        id='chapter-trial'
+                      />
+                      <Label
+                        htmlFor='chapter-trial'
+                        className='text-sm font-normal text-foreground'
+                      >
+                        {t('module.chapterSetting.free')}
+                      </Label>
+                    </div>
+                    <div className='flex items-center gap-2'>
+                      <RadioGroupItem
+                        value={LEARNING_PERMISSION.NORMAL}
+                        id='chapter-normal'
+                      />
+                      <Label
+                        htmlFor='chapter-normal'
+                        className='text-sm font-normal text-foreground'
+                      >
+                        {t('module.chapterSetting.paid')}
+                      </Label>
+                    </div>
+                  </RadioGroup>
                 </div>
               )}
-              <div className='space-y-3'>
-                <div className='text-sm font-medium text-foreground'>
-                  {t('module.chapterSetting.learningPermission')}
-                </div>
-                <RadioGroup
-                  disabled={currentShifu?.readonly}
-                  value={learningPermission}
-                  onValueChange={value => {
-                    setLearningPermission(value as LearningPermission);
-                    setIsDirty(true);
-                  }}
-                  className='flex flex-row flex-wrap gap-x-10 gap-y-2'
-                >
-                  <div className='flex items-center gap-2'>
-                    <RadioGroupItem
-                      value={LEARNING_PERMISSION.GUEST}
-                      id='chapter-guest'
-                    />
-                    <Label
-                      htmlFor='chapter-guest'
-                      className='text-sm font-normal text-foreground'
-                    >
-                      {t('module.chapterSetting.guest')}
-                    </Label>
-                  </div>
-                  <div className='flex items-center gap-2'>
-                    <RadioGroupItem
-                      value={LEARNING_PERMISSION.TRIAL}
-                      id='chapter-trial'
-                    />
-                    <Label
-                      htmlFor='chapter-trial'
-                      className='text-sm font-normal text-foreground'
-                    >
-                      {t('module.chapterSetting.free')}
-                    </Label>
-                  </div>
-                  <div className='flex items-center gap-2'>
-                    <RadioGroupItem
-                      value={LEARNING_PERMISSION.NORMAL}
-                      id='chapter-normal'
-                    />
-                    <Label
-                      htmlFor='chapter-normal'
-                      className='text-sm font-normal text-foreground'
-                    >
-                      {t('module.chapterSetting.paid')}
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
 
-              <div className='space-y-3'>
-                <div className='text-sm font-medium text-foreground'>
-                  {t('module.chapterSetting.isHidden')}
+              {isLesson && (
+                <div className='space-y-3'>
+                  <div className='text-sm font-medium text-foreground'>
+                    {t('module.chapterSetting.isHidden')}
+                  </div>
+                  <RadioGroup
+                    disabled={currentShifu?.readonly}
+                    value={hideChapter ? 'hidden' : 'visible'}
+                    onValueChange={value => {
+                      setHideChapter(value === 'hidden');
+                      setIsDirty(true);
+                    }}
+                    className='flex flex-row flex-wrap gap-x-10 gap-y-2'
+                  >
+                    <div className='flex items-center gap-2'>
+                      <RadioGroupItem
+                        value='visible'
+                        id='chapter-visible'
+                      />
+                      <Label
+                        htmlFor='chapter-visible'
+                        className='text-sm font-normal text-foreground'
+                      >
+                        {t('module.chapterSetting.visible')}
+                      </Label>
+                    </div>
+                    <div className='flex items-center gap-2'>
+                      <RadioGroupItem
+                        value='hidden'
+                        id='chapter-hidden'
+                      />
+                      <Label
+                        htmlFor='chapter-hidden'
+                        className='text-sm font-normal text-foreground'
+                      >
+                        {t('module.chapterSetting.hidden')}
+                      </Label>
+                    </div>
+                  </RadioGroup>
                 </div>
-                <RadioGroup
-                  disabled={currentShifu?.readonly}
-                  value={hideChapter ? 'hidden' : 'visible'}
-                  onValueChange={value => {
-                    setHideChapter(value === 'hidden');
-                    setIsDirty(true);
-                  }}
-                  className='flex flex-row flex-wrap gap-x-10 gap-y-2'
-                >
-                  <div className='flex items-center gap-2'>
-                    <RadioGroupItem
-                      value='visible'
-                      id='chapter-visible'
-                    />
-                    <Label
-                      htmlFor='chapter-visible'
-                      className='text-sm font-normal text-foreground'
-                    >
-                      {t('module.chapterSetting.visible')}
-                    </Label>
-                  </div>
-                  <div className='flex items-center gap-2'>
-                    <RadioGroupItem
-                      value='hidden'
-                      id='chapter-hidden'
-                    />
-                    <Label
-                      htmlFor='chapter-hidden'
-                      className='text-sm font-normal text-foreground'
-                    >
-                      {t('module.chapterSetting.hidden')}
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
+              )}
 
               <div className='space-y-2'>
                 <div className='text-sm font-medium text-foreground'>
@@ -324,11 +355,11 @@ const ChapterSettingsDialog = ({
                     ? t('module.chapterSetting.chapterPrompt')
                     : t('module.chapterSetting.lessonPrompt')}
                 </div>
-                {!isChapter && (
-                  <div className='text-xs text-muted-foreground'>
-                    {t('module.chapterSetting.lessonPromptHint')}
-                  </div>
-                )}
+                <div className='text-xs text-muted-foreground'>
+                  {isChapter
+                    ? t('module.chapterSetting.chapterPromptHint')
+                    : t('module.chapterSetting.lessonPromptHint')}
+                </div>
                 <Textarea
                   value={systemPrompt}
                   onChange={event => {
@@ -340,9 +371,9 @@ const ChapterSettingsDialog = ({
                   minRows={3}
                   maxRows={30}
                   placeholder={
-                    !isChapter
-                      ? t('module.chapterSetting.lessonPromptPlaceholder')
-                      : t('module.chapterSetting.promptPlaceholder')
+                    isChapter
+                      ? t('module.chapterSetting.promptPlaceholder')
+                      : t('module.chapterSetting.lessonPromptPlaceholder')
                   }
                   className='min-h-[220px]'
                 />
@@ -365,7 +396,7 @@ const ChapterSettingsDialog = ({
                   name: title.trim(),
                 })
               }
-              disabled={currentShifu?.readonly}
+              disabled={currentShifu?.readonly || !title.trim()}
             >
               {footerActionLabel}
             </Button>

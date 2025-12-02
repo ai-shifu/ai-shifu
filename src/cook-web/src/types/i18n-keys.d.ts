@@ -147,6 +147,8 @@ export type I18nKey =
   | 'module.chapterSetting.chapterPromptHint'
   | 'module.chapterSetting.chapterPromptPlaceholder'
   | 'module.chapterSetting.chapterSettingsTitle'
+  | 'module.chapterSetting.chapterName'
+  | 'module.chapterSetting.chapterNamePlaceholder'
   | 'module.chapterSetting.free'
   | 'module.chapterSetting.guest'
   | 'module.chapterSetting.hidden'

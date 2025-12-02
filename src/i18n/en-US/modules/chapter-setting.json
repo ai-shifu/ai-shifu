@@ -4,6 +4,8 @@
   "chapterPromptHint": "Define the chapter's content generation, audience, tone, and guardrails",
   "chapterPromptPlaceholder": "Please enter the prompt. If this is empty, the chapter content generation will be constrained by the shifu prompt content",
   "chapterSettingsTitle": "Chapter Settings",
+  "chapterName": "Chapter Name",
+  "chapterNamePlaceholder": "Name this chapter",
   "free": "Free",
   "guest": "Login-free",
   "hidden": "Hidden",
