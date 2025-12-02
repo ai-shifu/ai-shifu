@@ -31,7 +31,7 @@ def _to_list(value, default=None):
 
 
 def register_config_handler(app: Flask, path_prefix: str) -> Flask:
-    @app.route(path_prefix + "/config", methods=["GET"])
+    @app.route(path_prefix + "/runtime-config", methods=["GET"])
     @bypass_token_validation
     def get_runtime_config():
         origin = request.host_url.rstrip("/")

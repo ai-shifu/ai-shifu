@@ -55,7 +55,9 @@ const loadRuntimeConfig = async () => {
         const parsed = new URL(normalizedBase);
         const path = parsed.pathname.replace(/\/+$/, '');
         const endsWithApi = path.endsWith('/api');
-        return `${normalizedBase}${endsWithApi ? '/config' : '/api/config'}`;
+        return `${normalizedBase}${
+          endsWithApi ? '/runtime-config' : '/api/runtime-config'
+        }`;
       } catch {
         // fall through to relative handling
       }
@@ -72,8 +74,8 @@ const loadRuntimeConfig = async () => {
       ? cleanBase
       : `/${cleanBase}`;
     return endsWithApi
-      ? `${baseWithLeading}/config`
-      : `${baseWithLeading}/api/config`;
+      ? `${baseWithLeading}/runtime-config`
+      : `${baseWithLeading}/api/runtime-config`;
   };
 
   const runtimeUrl = buildRuntimeUrl();
