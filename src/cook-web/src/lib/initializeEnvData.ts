@@ -45,13 +45,38 @@ const loadRuntimeConfig = async () => {
   } = useEnvStore.getState() as EnvStoreState;
 
   const apiBaseUrl = (await getDynamicApiBaseUrl()) || '';
-  const runtimeUrl = `${apiBaseUrl.replace(/\/$/, '')}/api/config`;
+  const normalizedBase = apiBaseUrl.replace(/\/$/, '');
+  let runtimeUrl = `${normalizedBase}/api/config`;
 
-  const res = await fetch(runtimeUrl, { cache: 'no-store' });
-  if (!res.ok) {
-    throw new Error(`Failed to load runtime config: ${res.status}`);
+  try {
+    const parsed = new URL(normalizedBase);
+    const path = parsed.pathname.replace(/\/+$/, '');
+    const endsWithApi = path.endsWith('/api');
+    runtimeUrl = `${normalizedBase}${endsWithApi ? '/config' : '/api/config'}`;
+  } catch {
+    // If apiBaseUrl is not a valid absolute URL, keep the default guess
   }
-  const payload = await res.json();
+
+  const fetchRuntimeConfig = async () => {
+    // Prefer backend /api/config using discovered apiBaseUrl
+    if (apiBaseUrl) {
+      const res = await fetch(runtimeUrl, { cache: 'no-store' });
+      if (res.ok) {
+        return res.json();
+      }
+      console.warn('Backend runtime config fetch failed, status:', res.status);
+    }
+    // Fallback to local Next route (still returns base url)
+    const fallbackRes = await fetch('/api/config', { cache: 'no-store' });
+    if (!fallbackRes.ok) {
+      throw new Error(
+        `Failed to load runtime config (fallback): ${fallbackRes.status}`,
+      );
+    }
+    return fallbackRes.json();
+  };
+
+  const payload = await fetchRuntimeConfig();
   const runtimeConfig = payload?.data ?? payload;
   if (redirectToHomeUrlIfRootPath(runtimeConfig?.homeUrl)) {
     return;
