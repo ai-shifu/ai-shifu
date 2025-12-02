@@ -339,6 +339,11 @@ def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
 
 
 def _reload_gemini_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    if model_id.startswith("gemini-2.5-pro"):
+        return {
+            "reasoning_effort": "low",
+            "temperature": temperature,
+        }
     if model_id.startswith("gemini"):
         return {
             "reasoning_effort": "none",
