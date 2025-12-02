@@ -104,7 +104,7 @@ const MinimalTreeItemComponent = React.forwardRef<
         {badges.map(({ icon, label, className = '' }) => (
           <Tooltip key={`${label}-${icon}`}>
             <TooltipTrigger asChild>
-              <span className={cn('outline-tree_badge', className)}>
+              <span className={cn('outline-tree_badge ml-1', className)}>
                 <img src={icon} alt={label} />
               </span>
             </TooltipTrigger>
@@ -266,7 +266,7 @@ const MinimalTreeItemComponent = React.forwardRef<
           )}
           onClick={onSelect}
         >
-          <div className='flex flex-row items-center flex-1 min-w-0 gap-2'>
+          <div className='flex flex-row items-center flex-1 min-w-0'>
             <span
               className='outline-tree_title flex-1 min-w-0'
               title={chapterName}
@@ -274,7 +274,7 @@ const MinimalTreeItemComponent = React.forwardRef<
               {chapterName}
             </span>
             {!isChapterNode && (
-              <div className='outline-tree_badges flex items-center gap-2 flex-shrink-0'>
+              <div className='outline-tree_badges flex items-center flex-shrink-0'>
                 {renderLessonBadges()}
               </div>
             )}
