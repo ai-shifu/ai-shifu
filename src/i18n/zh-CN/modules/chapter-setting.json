@@ -13,6 +13,9 @@
   "lessonPromptHint": "对本节的整体内容生成，进行对象、语气和注意事项等约束",
   "lessonPromptPlaceholder": "请输入提示词。如果此处为空，则本节内容生成将通过所属章的章提示词内容进行约束",
   "lessonSettingsTitle": "节设置",
+  "addLesson": "添加",
+  "lessonName": "节名称",
+  "lessonNamePlaceholder": "请输入节名称",
   "paid": "付费",
   "promptPlaceholder": "请输入提示词",
   "visible": "可见"

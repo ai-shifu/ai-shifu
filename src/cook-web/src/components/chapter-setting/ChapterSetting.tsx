@@ -14,18 +14,32 @@ import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
 import { useShifu } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
+
+type ChapterSettingsDialogProps = {
+  outlineBid?: string;
+  open: boolean;
+  onOpenChange?: (open: boolean) => void;
+  variant?: 'chapter' | 'lesson';
+  footerActionLabel?: string;
+  onFooterAction?: (data: {
+    learningPermission: LearningPermission;
+    isHidden: boolean;
+    systemPrompt: string;
+    title: string;
+  }) => void;
+};
 
 const ChapterSettingsDialog = ({
   outlineBid,
   open,
   onOpenChange,
   variant = 'lesson',
-}: {
-  outlineBid: string;
-  open: boolean;
-  onOpenChange?: (open: boolean) => void;
-  variant?: 'chapter' | 'lesson';
-}) => {
+  footerActionLabel,
+  onFooterAction,
+}: ChapterSettingsDialogProps) => {
   const isChapter = variant === 'chapter';
   const { currentShifu } = useShifu();
   const { trackEvent } = useTracking();
@@ -36,9 +50,15 @@ const ChapterSettingsDialog = ({
   const [hideChapter, setHideChapter] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [title, setTitle] = useState('');
 
   const fetchOutlineInfo = useCallback(async () => {
     if (!outlineBid) {
+      setLearningPermission(LEARNING_PERMISSION.NORMAL);
+      setSystemPrompt('');
+      setHideChapter(false);
+      setIsDirty(false);
+      setTitle('');
       return;
     }
     setLoading(true);
@@ -56,6 +76,7 @@ const ChapterSettingsDialog = ({
       const normalizedHidden = result.is_hidden ?? false;
       setHideChapter(normalizedHidden);
       setIsDirty(false);
+      setTitle(result.name ?? '');
     } finally {
       setLoading(false);
     }
@@ -85,6 +106,12 @@ const ChapterSettingsDialog = ({
           require_login: requiresLogin,
           need_login: requiresLogin,
           login_required: requiresLogin,
+          ...(isChapter
+            ? {}
+            : {
+                name: title,
+                description: title,
+              }),
         });
 
         trackEvent('creator_outline_setting_save', {
@@ -180,6 +207,25 @@ const ChapterSettingsDialog = ({
         ) : (
           <div className='flex-1 overflow-y-auto px-6 py-6'>
             <div className='space-y-8'>
+              {!isChapter && (
+                <div className='space-y-2'>
+                  <div className='text-sm font-medium text-foreground'>
+                    {t('module.chapterSetting.lessonName')}
+                  </div>
+                  <Input
+                    value={title}
+                    maxLength={TITLE_MAX_LENGTH}
+                    placeholder={t(
+                      'module.chapterSetting.lessonNamePlaceholder',
+                    )}
+                    disabled={currentShifu?.readonly}
+                    onChange={event => {
+                      setTitle(event.target.value);
+                      setIsDirty(true);
+                    }}
+                  />
+                </div>
+              )}
               <div className='space-y-3'>
                 <div className='text-sm font-medium text-foreground'>
                   {t('module.chapterSetting.learningPermission')}
@@ -305,6 +351,24 @@ const ChapterSettingsDialog = ({
                 </div> */}
               </div>
             </div>
+          </div>
+        )}
+        {footerActionLabel && onFooterAction && (
+          <div className='border-t border-border px-6 py-4 text-right'>
+            <Button
+              type='button'
+              onClick={() =>
+                onFooterAction({
+                  learningPermission,
+                  isHidden: hideChapter,
+                  systemPrompt,
+                  title: title.trim(),
+                })
+              }
+              disabled={currentShifu?.readonly}
+            >
+              {footerActionLabel}
+            </Button>
           </div>
         )}
       </SheetContent>

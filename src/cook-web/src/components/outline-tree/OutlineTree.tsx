@@ -9,8 +9,6 @@ import React, { useMemo, useState } from 'react';
 import { Outline } from '@/types/shifu';
 import { cn } from '@/lib/utils';
 import {
-  Plus,
-  Settings,
   Trash2,
   Edit,
   SlidersHorizontal,
@@ -121,6 +119,7 @@ const MinimalTreeItemComponent = React.forwardRef<
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [chapterSettingsOpen, setChapterSettingsOpen] = useState(false);
+  const [addLessonDialogOpen, setAddLessonDialogOpen] = useState(false);
   const { t } = useTranslation();
   const outlineVariant = (props.item?.depth ?? 0) <= 0 ? 'chapter' : 'lesson';
   const alert = useAlert();
@@ -132,6 +131,9 @@ const MinimalTreeItemComponent = React.forwardRef<
     (!isChapterNode && currentNode?.id == props.item.id) || isPlaceholderNode;
   const showChapterMeta = isChapterNode && !isPlaceholderNode;
   const lessonCount = props.item?.children?.length || 0;
+  const lessonCountLabel = t('component.outlineTree.lessonCount', {
+    count: lessonCount,
+  });
   const chapterName = cataData[props.item.id!]?.name || '';
   const onNodeChange = async (value: string) => {
     if (!value || value.trim() === '') {
@@ -165,13 +167,21 @@ const MinimalTreeItemComponent = React.forwardRef<
   };
   const handleAddSectionClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onAddNodeClick(props.item);
+    setAddLessonDialogOpen(true);
   };
-  const onAddNodeClick = (node: Outline) => {
+  const handleConfirmAddLesson = ({
+    title,
+  }: {
+    title: string;
+  }) => {
+    onAddNodeClick(props.item, title);
+    setAddLessonDialogOpen(false);
+  };
+  const onAddNodeClick = (node: Outline, name = '') => {
     if (node.depth && node.depth >= 1) {
-      actions.addSiblingOutline(node, '');
+      actions.addSiblingOutline(node, name);
     } else {
-      actions.addSubOutline(node, '');
+      actions.addSubOutline(node, name);
     }
   };
   const removeNode = async e => {
@@ -220,6 +230,15 @@ const MinimalTreeItemComponent = React.forwardRef<
         {...props}
         ref={ref}
         disableCollapseOnItemClick={false}
+        chapterMeta={
+          showChapterMeta
+            ? {
+                label: lessonCountLabel,
+                onSettingsClick: handleChapterSettingsClick,
+                onAddClick: handleAddSectionClick,
+              }
+            : undefined
+        }
       >
         <div
           id={props.item.id}
@@ -227,7 +246,7 @@ const MinimalTreeItemComponent = React.forwardRef<
             'outline-tree_node flex items-center flex-1 justify-between w-full group p-2 rounded-md',
             (props.item?.children?.length || 0) > 0 ? 'pl-0' : 'pl-10',
             shouldHighlight ? 'bg-gray-200' : '',
-            isSelectedChapter ? 'select' : '',
+            // isSelectedChapter ? 'select' : '',
           )}
           onClick={onSelect}
         >
@@ -237,33 +256,6 @@ const MinimalTreeItemComponent = React.forwardRef<
           >
             {chapterName}
           </span>
-          {showChapterMeta && (
-            <div className='outline-tree_actions ml-2 flex items-center gap-2'>
-              <span className='outline-tree_section-count group-hover:hidden'>
-                {t('component.outlineTree.lessonCount', {
-                  count: lessonCount,
-                })}
-              </span>
-              <div className='outline-tree_action-buttons hidden group-hover:flex items-center gap-2'>
-                <button
-                  type='button'
-                  className='outline-tree_action-button'
-                  onClick={handleChapterSettingsClick}
-                  aria-label='chapter-settings'
-                >
-                  <Settings size={16} />
-                </button>
-                <button
-                  type='button'
-                  className='outline-tree_action-button'
-                  onClick={handleAddSectionClick}
-                  aria-label='chapter-add-section'
-                >
-                  <Plus size={16} />
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </SimpleTreeItemWrapper>
       <ChapterSettingsDialog
@@ -277,6 +269,20 @@ const MinimalTreeItemComponent = React.forwardRef<
           outlineBid={props.item.bid}
           open={chapterSettingsOpen}
           onOpenChange={setChapterSettingsOpen}
+        />
+      )}
+      {showChapterMeta && (
+        <ChapterSettingsDialog
+          outlineBid=''
+          open={addLessonDialogOpen}
+          onOpenChange={setAddLessonDialogOpen}
+          variant='lesson'
+          footerActionLabel={t('module.chapterSetting.addLesson')}
+          onFooterAction={({ title }) =>
+            handleConfirmAddLesson({
+              title,
+            })
+          }
         />
       )}
       <AlertDialog

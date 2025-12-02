@@ -13,6 +13,9 @@
   "lessonPromptHint": "Define the lesson's content generation, audience, tone, and guardrails",
   "lessonPromptPlaceholder": "Please enter the prompt. If this is empty, the lesson content generation will be constrained by the chapter prompt content",
   "lessonSettingsTitle": "Lesson Settings",
+  "addLesson": "Add Lesson",
+  "lessonName": "Lesson Name",
+  "lessonNamePlaceholder": "Name this lesson",
   "paid": "Paid",
   "promptPlaceholder": "Please enter the prompt",
   "visible": "Visible"

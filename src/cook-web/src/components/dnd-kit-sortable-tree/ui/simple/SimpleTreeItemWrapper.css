@@ -14,6 +14,7 @@
   border: 1px solid #dedede;
   color: #222;
   box-sizing: border-box;
+  height: 32px;
 }
 
 .dnd-sortable-tree_simple_clone {
