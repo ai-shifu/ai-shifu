@@ -61,7 +61,7 @@ const ChapterSettingsDialog = ({
   const { trackEvent } = useTracking();
   const { t } = useTranslation();
   const [learningPermission, setLearningPermission] =
-    useState<LearningPermission>(LEARNING_PERMISSION.NORMAL);
+    useState<LearningPermission>(LEARNING_PERMISSION.TRIAL);
   const [systemPrompt, setSystemPrompt] = useState('');
   const [hideChapter, setHideChapter] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -76,12 +76,12 @@ const ChapterSettingsDialog = ({
     title: '',
     systemPrompt: '',
     hideChapter: false,
-    learningPermission: LEARNING_PERMISSION.NORMAL,
+    learningPermission: LEARNING_PERMISSION.TRIAL,
   });
 
   const fetchOutlineInfo = useCallback(async () => {
     if (!outlineBid) {
-      setLearningPermission(LEARNING_PERMISSION.NORMAL);
+      setLearningPermission(LEARNING_PERMISSION.TRIAL);
       setSystemPrompt('');
       setHideChapter(false);
       setIsDirty(false);
@@ -90,7 +90,7 @@ const ChapterSettingsDialog = ({
         title: '',
         systemPrompt: '',
         hideChapter: false,
-        learningPermission: LEARNING_PERMISSION.NORMAL,
+        learningPermission: LEARNING_PERMISSION.TRIAL,
       };
       return;
     }
@@ -105,7 +105,7 @@ const ChapterSettingsDialog = ({
       }
 
       const normalizedLearningPermission =
-        (result.type as LearningPermission) || LEARNING_PERMISSION.NORMAL;
+        (result.type as LearningPermission) || LEARNING_PERMISSION.TRIAL;
       const normalizedSystemPrompt = result.system_prompt ?? '';
       const normalizedHidden = result.is_hidden ?? false;
       const normalizedTitle = result.name ?? '';
