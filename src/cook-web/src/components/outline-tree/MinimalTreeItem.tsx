@@ -268,7 +268,7 @@ const MinimalTreeItemComponent = React.forwardRef<
         >
           <div className='flex flex-row items-center flex-1 min-w-0'>
             <span
-              className='outline-tree_title flex-1 min-w-0'
+              className='outline-tree_title truncate'
               title={chapterName}
             >
               {chapterName}
