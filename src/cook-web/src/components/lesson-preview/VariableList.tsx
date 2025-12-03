@@ -28,9 +28,9 @@ const VariableList: React.FC<VariableListProps> = ({ variables }) => {
           </div>
           <div className={styles.description}>
             {t('module.shifu.previewArea.variablesDescription')}
-            <span className={styles.link}>
+            {/* <span className={styles.link}>
               {t('module.shifu.previewArea.variablesLearnMore')}
-            </span>
+            </span> */}
           </div>
         </div>
       </div>
