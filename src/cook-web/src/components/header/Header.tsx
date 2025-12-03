@@ -17,11 +17,15 @@ import {
 import Preivew from '@/components/preview';
 import ShifuSetting from '@/components/shifu-setting';
 import { useTranslation } from 'react-i18next';
+import s from './header.module.scss';
+import { useTracking } from '@/c-common/hooks/useTracking';
+
 const Header = () => {
   const { t } = useTranslation();
   const alert = useAlert();
   const router = useRouter();
   const [publishing, setPublishing] = useState(false);
+  const { trackEvent } = useTracking();
   const { isSaving, lastSaveTime, currentShifu, error, actions } = useShifu();
   const onShifuSave = async () => {
     if (currentShifu) {
@@ -29,6 +33,9 @@ const Header = () => {
     }
   };
   const publish = async () => {
+    trackEvent('creator_publish_click', {
+      shifu_bid: currentShifu?.bid || '',
+    });
     // TODO: publish
     // actions.publishScenario();
     // await actions.saveBlocks(currentShifu?.bid || '');
@@ -39,6 +46,9 @@ const Header = () => {
       title: t('component.header.confirmPublish'),
       description: t('component.header.confirmPublishDescription'),
       async onConfirm() {
+        trackEvent('creator_publish_confirm', {
+          shifu_bid: currentShifu?.bid || '',
+        });
         setPublishing(true);
         const result = await api.publishShifu({
           shifu_bid: currentShifu?.bid || '',
@@ -66,6 +76,11 @@ const Header = () => {
           },
         });
       },
+      onCancel() {
+        trackEvent('creator_publish_cancel', {
+          shifu_bid: currentShifu?.bid || '',
+        });
+      },
     });
   };
   return (
@@ -91,6 +106,11 @@ const Header = () => {
               <span className='text-black text-base not-italic font-semibold leading-7'>
                 {currentShifu?.name}
               </span>
+              {currentShifu?.readonly && (
+                <span className={s.readonly}>
+                  {t('component.header.readonly')}
+                </span>
+              )}
             </div>
 
             <div className='flex items-center'>
@@ -137,6 +157,7 @@ const Header = () => {
           <Button
             size='sm'
             className=''
+            disabled={currentShifu?.readonly}
             onClick={publish}
           >
             {publishing && <Loading className='h-4 w-4 mr-1' />}

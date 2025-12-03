@@ -100,7 +100,9 @@ export const useTracking = () => {
         const data = {
           ...eventData,
           ...basicData,
+          timeStamp: new Date().toLocaleString(),
         };
+        // console.log('trackEvent', eventName, data);
         tracking(eventName, data);
       } catch {}
     },

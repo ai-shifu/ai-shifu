@@ -9,5 +9,6 @@
   "publish": "Publish",
   "publishSuccess": "Published Successfully",
   "publishSuccessDescription": "Published successfully, please go to view",
+  "readonly": "Readonly",
   "saved": "Saved"
 }

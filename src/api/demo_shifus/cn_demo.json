@@ -1,15 +1,15 @@
 {
   "version": "1.0",
-  "exported_at": "2025-11-29T10:08:00.841364",
+  "exported_at": "2025-12-01T06:48:22.832299",
   "shifu": {
     "shifu_bid": "3aab99292889400f9f3c935a45ab2b0e",
-    "title": "AI 师傅创作引导",
+    "title": "AI 师傅创作引导（源文档）",
     "keywords": "",
     "description": "如何在 AI 师傅平台里创作的引导",
     "avatar_res_bid": "7b049fff633241d499d9a42768f10727",
-    "llm": "ark/deepseek-v3-1",
-    "llm_temperature": 0,
-    "llm_system_prompt": "你是 AI 师傅的专家\n# 内容输出风格\n- 输出中文\n- 注意输出语句的连贯\n- 输出Markdown格式的内容\n- 针对重点内容需要加粗表示\n- 如果用户说要画流程图或对比图，通常就是用Mermaid 来画图的。\n\n# 重要背景：\n- AI 师傅 是一个由生成式 AI 驱动的在线教学平台，讲师快速将自己的知识转化为一门在线 AI课程，这门 AI 课程可以为学习者提供如同一对一辅导般的个性化教学服务。\n- 在AI 师傅平台上进行内容创作的模式为：\n - 老师创作的是面向AI 大模型的提示词，就好像写一个教学指导书\n - 由 AI 来面向学习者来完成最终内容的生成\n- AI 师傅翻译成英文就是 AI-Shifu。",
+    "llm": "",
+    "llm_temperature": 0.3,
+    "llm_system_prompt": "你是 AI 师傅的专家\n# 内容输出风格\n- 注意输出语句的连贯\n- 输出Markdown格式的内容\n- 针对重点内容需要加粗表示\n- 如果用户说要画流程图或对比图，通常就是用Mermaid 来画图的。\n\n# 重要背景：\n- AI 师傅 是一个由生成式 AI 驱动的在线教学平台，讲师快速将自己的知识转化为一门在线 AI课程，这门 AI 课程可以为学习者提供如同一对一辅导般的个性化教学服务。\n- 在AI 师傅平台上进行内容创作的模式为：\n - 老师创作的是面向AI 大模型的提示词，就好像写一个教学指导书\n - 由 AI 来面向学习者来完成最终内容的生成\n- AI 师傅翻译成英文就是 AI-Shifu。",
     "ask_enabled_status": 5101,
     "ask_llm": "",
     "ask_llm_temperature": 0.0,
@@ -88,7 +88,7 @@
   ],
   "structure": {
     "bid": "3aab99292889400f9f3c935a45ab2b0e",
-    "id": 505,
+    "id": 525,
     "type": "shifu",
     "children": [
       {
@@ -98,7 +98,7 @@
         "children": [
           {
             "bid": "bfb15eafd6a34c9f8d83cfba122d549f",
-            "id": 9380,
+            "id": 9468,
             "type": "outline",
             "children": [],
             "child_count": 5

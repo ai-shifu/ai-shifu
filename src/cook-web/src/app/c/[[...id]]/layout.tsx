@@ -11,7 +11,6 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 
 import { inWechat, wechatLogin } from '@/c-constants/uiConstants';
-import { getBoolEnv } from '@/c-utils/envUtils';
 import { getCourseInfo } from '@/c-api/course';
 import {
   EnvStoreState,
@@ -21,96 +20,6 @@ import {
 
 import { useEnvStore, useCourseStore } from '@/c-store';
 import { UserProvider, useUserStore } from '@/store';
-import { redirectToHomeUrlIfRootPath } from '@/lib/utils';
-
-const initializeEnvData = async (): Promise<void> => {
-  const {
-    updateAppId,
-    updateCourseId,
-    updateDefaultLlmModel,
-    updateAlwaysShowLessonTree,
-    updateUmamiWebsiteId,
-    updateUmamiScriptSrc,
-    updateEruda,
-    updateBaseURL,
-    updateLogoHorizontal,
-    updateLogoVertical,
-    updateLogoUrl,
-    updateEnableWxcode,
-    updateHomeUrl,
-    updateCurrencySymbol,
-    updateStripePublishableKey,
-    updateStripeEnabled,
-    updatePaymentChannels,
-  } = useEnvStore.getState() as EnvStoreState;
-
-  const fetchEnvData = async (): Promise<void> => {
-    try {
-      const res = await fetch('/api/config', {
-        method: 'GET',
-        referrer: 'no-referrer',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (redirectToHomeUrlIfRootPath(data?.homeUrl)) {
-          return;
-        }
-
-        // await updateCourseId(data?.courseId || '');
-        await updateAppId(data?.wechatAppId || '');
-        await updateAlwaysShowLessonTree(data?.alwaysShowLessonTree || 'false');
-        await updateUmamiWebsiteId(data?.umamiWebsiteId || '');
-        await updateUmamiScriptSrc(data?.umamiScriptSrc || '');
-        await updateEruda(data?.enableEruda || 'false');
-        await updateBaseURL(data?.apiBaseUrl || '');
-        await updateLogoHorizontal(data?.logoHorizontal || '');
-        await updateLogoVertical(data?.logoVertical || '');
-        await updateLogoUrl(data?.logoUrl || '');
-        await updateEnableWxcode(data?.enableWechatCode?.toString() || 'true');
-        await updateDefaultLlmModel(data?.defaultLlmModel || '');
-        await updateHomeUrl(data?.homeUrl || '');
-        await updateCurrencySymbol(data?.currencySymbol || '¥');
-        await updateStripePublishableKey(data?.stripePublishableKey || '');
-        await updateStripeEnabled(
-          data?.stripeEnabled !== undefined
-            ? data.stripeEnabled.toString()
-            : 'false',
-        );
-        await updatePaymentChannels(
-          Array.isArray(data?.paymentChannels) &&
-            data.paymentChannels.length > 0
-            ? data.paymentChannels
-            : (useEnvStore.getState() as EnvStoreState).paymentChannels,
-        );
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      const { umamiWebsiteId, umamiScriptSrc } =
-        useEnvStore.getState() as EnvStoreState;
-      if (getBoolEnv('eruda')) {
-        import('eruda').then(eruda => eruda.default.init());
-      }
-
-      const loadUmamiScript = (): void => {
-        if (umamiScriptSrc && umamiWebsiteId) {
-          const script = document.createElement('script');
-          script.defer = true;
-          script.src = umamiScriptSrc;
-          script.setAttribute('data-website-id', umamiWebsiteId);
-          document.head.appendChild(script);
-        }
-      };
-
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', loadUmamiScript);
-      } else {
-        loadUmamiScript();
-      }
-    }
-  };
-  await fetchEnvData();
-};
 
 export default function ChatLayout({
   children,
@@ -119,16 +28,10 @@ export default function ChatLayout({
 }) {
   const { i18n } = useTranslation();
 
-  const [envDataInitialized, setEnvDataInitialized] = useState<boolean>(false);
   const [checkWxcode, setCheckWxcode] = useState<boolean>(false);
-
-  useEffect(() => {
-    const initialize = async (): Promise<void> => {
-      await initializeEnvData();
-      setEnvDataInitialized(true);
-    };
-    initialize();
-  }, []);
+  const envDataInitialized = useEnvStore(
+    (state: EnvStoreState) => state.runtimeConfigLoaded,
+  );
 
   const {
     updateChannel,

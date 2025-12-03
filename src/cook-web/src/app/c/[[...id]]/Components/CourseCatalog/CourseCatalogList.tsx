@@ -9,6 +9,12 @@ import { TRAIL_NODE_POSITION } from './TrialNodeBottomArea';
 import TrialNodeOuter from './TrialNodeOuter';
 import { AppContext } from '../AppContext';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 export const CourseCatalogList = ({
   courseName = '',
   courseAvatar = '',
@@ -21,21 +27,10 @@ export const CourseCatalogList = ({
   selectedLessonId = '',
   bannerInfo = null,
 }) => {
-  const { t } = useTranslation();
-  const { mobileStyle } = useContext(AppContext);
-
   const [trialNodePosition, setTrialNodePosition] = useState(
     TRAIL_NODE_POSITION.NORMAL,
   );
   const [trialNodePayload, setTrialNodePayload] = useState(null);
-
-  const getRightAreaControl = useCallback(() => {
-    const Control = shifu.getControl(
-      shifu.ControlTypes.NAVIGATOR_TITLE_RIGHT_AREA,
-    );
-
-    return Control && bannerInfo ? <Control payload={bannerInfo} /> : <></>;
-  }, [bannerInfo]);
 
   useEffect(() => {
     setTrialNodePayload(
@@ -58,7 +53,19 @@ export const CourseCatalogList = ({
                 <AvatarImage src={courseAvatar} />
               </Avatar>
             )}
-            <div className={styles.titleName}>{courseName}</div>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className={styles.titleName}>{courseName}</div>
+                </TooltipTrigger>
+                <TooltipContent
+                  side='top'
+                  className='bg-[#0A0A0A] text-white border-transparent text-xs'
+                >
+                  {courseName}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
         <div className={styles.listRow}>

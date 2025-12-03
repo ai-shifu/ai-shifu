@@ -13,6 +13,7 @@ import { LEARNING_PERMISSION, LearningPermission } from '@/c-api/studyV2';
 import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
 import { useShifu } from '@/store';
+import { useTracking } from '@/c-common/hooks/useTracking';
 
 const ChapterSettingsDialog = ({
   outlineBid,
@@ -27,6 +28,7 @@ const ChapterSettingsDialog = ({
 }) => {
   const isChapter = variant === 'chapter';
   const { currentShifu } = useShifu();
+  const { trackEvent } = useTracking();
   const { t } = useTranslation();
   const [learningPermission, setLearningPermission] =
     useState<LearningPermission>(LEARNING_PERMISSION.NORMAL);
@@ -60,30 +62,45 @@ const ChapterSettingsDialog = ({
   }, [outlineBid, currentShifu?.bid]);
 
   const onConfirm = useCallback(
-    async (needClose = true) => {
-      if (!outlineBid) {
-        return;
-      }
+    async (needClose = true, saveType: 'auto' | 'manual' = 'manual') => {
+      try {
+        if (currentShifu?.readonly) {
+          onOpenChange?.(false);
+          return;
+        }
+        if (!outlineBid) {
+          return;
+        }
 
-      const isPaid = learningPermission === LEARNING_PERMISSION.NORMAL;
-      const requiresLogin = learningPermission !== LEARNING_PERMISSION.GUEST;
+        const isPaid = learningPermission === LEARNING_PERMISSION.NORMAL;
+        const requiresLogin = learningPermission !== LEARNING_PERMISSION.GUEST;
 
-      await api.modifyOutline({
-        outline_bid: outlineBid,
-        shifu_bid: currentShifu?.bid,
-        type: learningPermission,
-        is_hidden: hideChapter,
-        system_prompt: systemPrompt,
-        is_paid: isPaid,
-        require_login: requiresLogin,
-        need_login: requiresLogin,
-        login_required: requiresLogin,
-      });
+        await api.modifyOutline({
+          outline_bid: outlineBid,
+          shifu_bid: currentShifu?.bid,
+          type: learningPermission,
+          is_hidden: hideChapter,
+          system_prompt: systemPrompt,
+          is_paid: isPaid,
+          require_login: requiresLogin,
+          need_login: requiresLogin,
+          login_required: requiresLogin,
+        });
 
-      setIsDirty(false);
-      if (needClose) {
-        onOpenChange?.(false);
-      }
+        trackEvent('creator_outline_setting_save', {
+          outline_bid: outlineBid,
+          shifu_bid: currentShifu?.bid,
+          save_type: saveType,
+          variant,
+          learning_permission: learningPermission,
+          hide_chapter: hideChapter,
+          system_prompt: systemPrompt,
+        });
+        setIsDirty(false);
+        if (needClose) {
+          onOpenChange?.(false);
+        }
+      } catch {}
     },
     [
       outlineBid,
@@ -92,6 +109,9 @@ const ChapterSettingsDialog = ({
       systemPrompt,
       currentShifu?.bid,
       onOpenChange,
+      currentShifu?.readonly,
+      trackEvent,
+      variant,
     ],
   );
 
@@ -108,9 +128,11 @@ const ChapterSettingsDialog = ({
     if (!open || loading || !isDirty) {
       return;
     }
-
+    if (currentShifu?.readonly) {
+      return;
+    }
     const timer = setTimeout(() => {
-      onConfirm(false);
+      onConfirm(false, 'auto');
     }, 3000);
 
     return () => clearTimeout(timer);
@@ -122,6 +144,7 @@ const ChapterSettingsDialog = ({
     hideChapter,
     systemPrompt,
     onConfirm,
+    currentShifu?.readonly,
   ]);
 
   return (
@@ -135,10 +158,10 @@ const ChapterSettingsDialog = ({
         side='right'
         className='flex w-full flex-col overflow-hidden border-l border-border bg-white p-0 sm:w-[360px] md:w-[420px] lg:w-[480px]'
         onInteractOutside={() => {
-          onConfirm();
+          onConfirm(true, 'manual');
         }}
         onCloseIconClick={() => {
-          onConfirm();
+          onConfirm(true, 'manual');
         }}
       >
         <div className='border-b border-border px-6 py-5 pr-12'>
@@ -162,6 +185,7 @@ const ChapterSettingsDialog = ({
                   {t('module.chapterSetting.learningPermission')}
                 </div>
                 <RadioGroup
+                  disabled={currentShifu?.readonly}
                   value={learningPermission}
                   onValueChange={value => {
                     setLearningPermission(value as LearningPermission);
@@ -213,6 +237,7 @@ const ChapterSettingsDialog = ({
                   {t('module.chapterSetting.isHidden')}
                 </div>
                 <RadioGroup
+                  disabled={currentShifu?.readonly}
                   value={hideChapter ? 'hidden' : 'visible'}
                   onValueChange={value => {
                     setHideChapter(value === 'hidden');
@@ -264,6 +289,7 @@ const ChapterSettingsDialog = ({
                     setSystemPrompt(event.target.value);
                     setIsDirty(true);
                   }}
+                  disabled={currentShifu?.readonly}
                   maxLength={20000}
                   minRows={3}
                   maxRows={30}

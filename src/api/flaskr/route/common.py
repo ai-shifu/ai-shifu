@@ -6,6 +6,7 @@ from ..service.common import AppException
 import json
 import traceback
 import decimal
+from flaskr.common.shifu_context import clear_shifu_context
 
 
 by_pass_login_func = [
@@ -49,6 +50,11 @@ def register_common_handler(app: Flask) -> Flask:
         response = jsonify({"code": -1, "message": "系统异常"})
         response.status_code = 200
         return response
+
+    @app.teardown_request
+    def teardown_shifu_context(exception):
+        # Ensure shifu context does not leak between requests on the same worker thread
+        clear_shifu_context()
 
     return app
 

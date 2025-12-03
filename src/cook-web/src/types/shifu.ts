@@ -16,6 +16,7 @@ export interface Shifu {
   avatar?: string;
   state?: number;
   is_favorite?: boolean;
+  readonly?: boolean;
 }
 
 export interface Outline {

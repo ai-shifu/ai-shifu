@@ -3,6 +3,7 @@ import { useUserStore } from '@/store';
 import apiService from '@/api';
 import { useTranslation } from 'react-i18next';
 import type { UserInfo } from '@/c-types';
+import { useTracking } from '@/c-common/hooks/useTracking';
 
 interface ApiResponse {
   code: number;
@@ -28,6 +29,7 @@ export function useAuth(options: UseAuthOptions = {}) {
   const { toast } = useToast();
   const { login, logout } = useUserStore();
   const { t } = useTranslation();
+  const { trackEvent } = useTracking();
 
   // Generic wrapper for API calls with automatic token refresh on expiration
   const callWithTokenRefresh = async <T extends ApiResponse>(
@@ -81,13 +83,22 @@ export function useAuth(options: UseAuthOptions = {}) {
   };
 
   // Process login response
-  const processLoginResponse = async (response: LoginResponse) => {
+  const processLoginResponse = async (
+    response: LoginResponse,
+    loginMethod?: string,
+  ) => {
     if (response.code === 0 && response.data) {
       toast({
         title: t('module.auth.success'),
       });
       await login(response.data.userInfo, response.data.token);
       options.onSuccess?.(response.data.userInfo);
+      if (loginMethod) {
+        trackEvent('learner_login_success', {
+          user_id: response.data.userInfo?.user_id || '',
+          login_method: loginMethod,
+        });
+      }
       return true;
     }
     return false;
@@ -109,7 +120,7 @@ export function useAuth(options: UseAuthOptions = {}) {
         }),
       );
 
-      const success = await processLoginResponse(response);
+      const success = await processLoginResponse(response, 'sms');
       if (!success) {
         handleLoginError(
           response.code,

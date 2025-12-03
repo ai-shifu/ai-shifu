@@ -38,6 +38,8 @@ import api from '@/api';
 import ModelList from '@/components/model-list';
 import { useEnvStore } from '@/c-store';
 import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
+import { useShifu } from '@/store';
+import { useTracking } from '@/c-common/hooks/useTracking';
 
 interface Shifu {
   description: string;
@@ -85,7 +87,8 @@ export default function ShifuSettingDialog({
     previewUrl: false,
     url: false,
   });
-
+  const { currentShifu } = useShifu();
+  const { trackEvent } = useTracking();
   // Define the validation schema using Zod
   const shifuSchema = z.object({
     previewUrl: z.string(),
@@ -224,26 +227,53 @@ export default function ShifuSettingDialog({
   };
 
   // Handle form submission
-  const onSubmit = async (data: any, needClose = true) => {
-    await api.saveShifuDetail({
-      description: data.description,
-      shifu_bid: shifuId,
-      keywords: keywords,
-      model: data.model,
-      name: data.name,
-      price: Number(data.price),
-      avatar: uploadedImageUrl,
-      temperature: Number(data.temperature),
-      system_prompt: data.systemPrompt,
-    });
+  const onSubmit = useCallback(
+    async (
+      data: any,
+      needClose = true,
+      saveType: 'auto' | 'manual' = 'manual',
+    ) => {
+      try {
+        const payload = {
+          description: data.description,
+          shifu_bid: shifuId,
+          keywords: keywords,
+          model: data.model,
+          name: data.name,
+          price: Number(data.price),
+          avatar: uploadedImageUrl,
+          temperature: Number(data.temperature),
+          system_prompt: data.systemPrompt,
+        };
+        await api.saveShifuDetail({
+          ...payload,
+        });
+        trackEvent('creator_shifu_setting_save', {
+          ...payload,
+          save_type: saveType,
+        });
+        if (onSave) {
+          onSave();
+        }
+        if (needClose) {
+          setOpen(false);
+        }
+      } catch {
+        if (currentShifu?.readonly) {
+          setOpen(false);
+        }
+      }
+    },
+    [
+      shifuId,
+      keywords,
+      uploadedImageUrl,
+      onSave,
+      currentShifu?.readonly,
+      trackEvent,
+    ],
+  );
 
-    if (onSave) {
-      await onSave();
-    }
-    if (needClose) {
-      setOpen(false);
-    }
-  };
   const init = async () => {
     const result = (await api.getShifuDetail({
       shifu_bid: shifuId,
@@ -279,7 +309,11 @@ export default function ShifuSettingDialog({
   }, [form]);
 
   const submitForm = useCallback(
-    async (needClose = true) => {
+    async (needClose = true, saveType: 'auto' | 'manual' = 'manual') => {
+      if (currentShifu?.readonly) {
+        setOpen(false);
+        return true;
+      }
       const isNameValid = await form.trigger('name');
       const isPriceValid = await form.trigger('price');
       if (!isPriceValid) {
@@ -307,10 +341,10 @@ export default function ShifuSettingDialog({
         }
         return false;
       }
-      await onSubmit(form.getValues(), needClose);
+      await onSubmit(form.getValues(), needClose, saveType);
       return true;
     },
-    [form, onSubmit, setOpen, t],
+    [form, onSubmit, setOpen, t, currentShifu?.readonly],
   );
 
   useEffect(() => {
@@ -321,15 +355,15 @@ export default function ShifuSettingDialog({
       return;
     }
     const timer = setTimeout(() => {
-      submitForm(false);
+      submitForm(false, 'auto');
     }, 3000);
     return () => clearTimeout(timer);
-  }, [formSnapshot, open, submitForm, isDirty]);
+  }, [open, submitForm, isDirty]);
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       if (!nextOpen) {
-        submitForm(true);
+        submitForm(true, 'manual');
         return;
       }
       setOpen(true);
@@ -372,7 +406,7 @@ export default function ShifuSettingDialog({
         <div className='h-px w-full bg-border' />
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(data => onSubmit(data, true))}
+            onSubmit={form.handleSubmit(data => onSubmit(data, true, 'manual'))}
             className='flex-1 flex flex-col overflow-hidden'
           >
             <div className='flex-1 overflow-y-auto px-6'>
@@ -387,6 +421,7 @@ export default function ShifuSettingDialog({
                     <FormControl>
                       <Input
                         {...field}
+                        disabled={currentShifu?.readonly}
                         maxLength={TITLE_MAX_LENGTH}
                         placeholder={t('module.shifuSetting.placeholder')}
                       />
@@ -413,6 +448,7 @@ export default function ShifuSettingDialog({
                         maxLength={500}
                         placeholder={t('module.shifuSetting.placeholder')}
                         rows={4}
+                        disabled={currentShifu?.readonly}
                       />
                     </FormControl>
                     {/* <div className='text-xs text-muted-foreground text-right'>
@@ -467,6 +503,7 @@ export default function ShifuSettingDialog({
                     accept='image/jpeg,image/png'
                     onChange={handleImageUpload}
                     className='hidden'
+                    disabled={currentShifu?.readonly}
                   />
 
                   {isUploading && (
@@ -593,6 +630,7 @@ export default function ShifuSettingDialog({
                     </p>
                     <FormControl>
                       <ModelList
+                        disabled={currentShifu?.readonly}
                         className='h-9'
                         value={field.value}
                         onChange={field.onChange}
@@ -622,32 +660,35 @@ export default function ShifuSettingDialog({
                           {...field}
                           value={field.value}
                           onChange={field.onChange}
+                          disabled={currentShifu?.readonly}
                           type='text'
                           inputMode='decimal'
                           placeholder={t('module.shifuSetting.number')}
                           className='h-9'
                         />
                       </FormControl>
-                      <div className='flex items-center gap-2'>
-                        <Button
-                          type='button'
-                          variant='outline'
-                          size='icon'
-                          onClick={() => adjustTemperature(-0.1)}
-                          className='h-9 w-9'
-                        >
-                          <Minus className='h-4 w-4' />
-                        </Button>
-                        <Button
-                          type='button'
-                          variant='outline'
-                          size='icon'
-                          onClick={() => adjustTemperature(0.1)}
-                          className='h-9 w-9'
-                        >
-                          <Plus className='h-4 w-4' />
-                        </Button>
-                      </div>
+                      {currentShifu?.readonly ? null : (
+                        <div className='flex items-center gap-2'>
+                          <Button
+                            type='button'
+                            variant='outline'
+                            size='icon'
+                            onClick={() => adjustTemperature(-0.1)}
+                            className='h-9 w-9'
+                          >
+                            <Minus className='h-4 w-4' />
+                          </Button>
+                          <Button
+                            type='button'
+                            variant='outline'
+                            size='icon'
+                            onClick={() => adjustTemperature(0.1)}
+                            className='h-9 w-9'
+                          >
+                            <Plus className='h-4 w-4' />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                     <FormMessage />
                   </FormItem>
@@ -676,6 +717,7 @@ export default function ShifuSettingDialog({
                     </p>
                     <FormControl>
                       <Textarea
+                        disabled={currentShifu?.readonly}
                         {...field}
                         maxLength={20000}
                         placeholder={t(
@@ -707,6 +749,7 @@ export default function ShifuSettingDialog({
                       {keyword}
                       <button
                         type='button'
+                        disabled={currentShifu?.readonly}
                         onClick={() => handleRemoveKeyword(keyword)}
                         className='text-xs ml-1 hover:text-destructive'
                       >
@@ -718,17 +761,20 @@ export default function ShifuSettingDialog({
                 <div className='flex gap-2'>
                   <Input
                     id='keywordInput'
+                    disabled={currentShifu?.readonly}
                     placeholder={t('module.shifuSetting.inputKeywords')}
                     className='flex-1 h-9'
                   />
-                  <Button
-                    type='button'
-                    onClick={handleAddKeyword}
-                    variant='outline'
-                    size='sm'
-                  >
-                    {t('module.shifuSetting.addKeyword')}
-                  </Button>
+                  {!currentShifu?.readonly && (
+                    <Button
+                      type='button'
+                      onClick={handleAddKeyword}
+                      variant='outline'
+                      size='sm'
+                    >
+                      {t('module.shifuSetting.addKeyword')}
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -754,6 +800,7 @@ export default function ShifuSettingDialog({
                     </p>
                     <FormControl>
                       <Input
+                        disabled={currentShifu?.readonly}
                         className='h-9'
                         {...field}
                         placeholder={t('module.shifuSetting.number')}

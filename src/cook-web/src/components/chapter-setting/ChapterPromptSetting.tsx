@@ -10,6 +10,7 @@ import api from '@/api';
 import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
 import { useShifu } from '@/store';
+import { useTracking } from '@/c-common/hooks/useTracking';
 
 const ChapterPromptSetting = ({
   outlineBid,
@@ -21,6 +22,7 @@ const ChapterPromptSetting = ({
   onOpenChange?: (open: boolean) => void;
 }) => {
   const { currentShifu } = useShifu();
+  const { trackEvent } = useTracking();
   const { t } = useTranslation();
   const [systemPrompt, setSystemPrompt] = useState('');
   const [loading, setLoading] = useState(false);
@@ -46,23 +48,40 @@ const ChapterPromptSetting = ({
   }, [outlineBid, currentShifu?.bid]);
 
   const onConfirm = useCallback(
-    async (needClose = true) => {
-      if (!outlineBid) {
-        return;
-      }
+    async (needClose = true, saveType: 'auto' | 'manual' = 'manual') => {
+      try {
+        if (currentShifu?.readonly) {
+          onOpenChange?.(false);
+          return;
+        }
+        if (!outlineBid) {
+          return;
+        }
 
-      await api.modifyOutline({
-        outline_bid: outlineBid,
-        shifu_bid: currentShifu?.bid,
-        system_prompt: systemPrompt,
-      });
-
-      setIsDirty(false);
-      if (needClose) {
-        onOpenChange?.(false);
-      }
+        await api.modifyOutline({
+          outline_bid: outlineBid,
+          shifu_bid: currentShifu?.bid,
+          system_prompt: systemPrompt,
+        });
+        trackEvent('creator_outline_prompt_save', {
+          outline_bid: outlineBid,
+          shifu_bid: currentShifu?.bid,
+          system_prompt: systemPrompt,
+          save_type: saveType,
+        });
+        setIsDirty(false);
+        if (needClose) {
+          onOpenChange?.(false);
+        }
+      } catch {}
     },
-    [outlineBid, currentShifu?.bid, systemPrompt, onOpenChange],
+    [
+      outlineBid,
+      currentShifu?.bid,
+      systemPrompt,
+      onOpenChange,
+      currentShifu?.readonly,
+    ],
   );
 
   useEffect(() => {
@@ -75,16 +94,16 @@ const ChapterPromptSetting = ({
   }, [open, outlineBid, onOpenChange, fetchOutlineInfo]);
 
   useEffect(() => {
-    if (!open || loading || !isDirty) {
+    if (!open || loading || !isDirty || currentShifu?.readonly) {
       return;
     }
 
     const timer = setTimeout(() => {
-      onConfirm(false);
+      onConfirm(false, 'auto');
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [open, loading, isDirty, systemPrompt, onConfirm]);
+  }, [open, loading, isDirty, systemPrompt, onConfirm, currentShifu?.readonly]);
 
   return (
     <Sheet
@@ -103,10 +122,10 @@ const ChapterPromptSetting = ({
         side='right'
         className='flex w-full flex-col overflow-hidden border-l border-border bg-white p-0 sm:w-[360px] md:w-[420px] lg:w-[480px]'
         onInteractOutside={() => {
-          onConfirm();
+          onConfirm(true, 'manual');
         }}
         onCloseIconClick={() => {
-          onConfirm();
+          onConfirm(true, 'manual');
         }}
       >
         <div className='border-b border-border px-6 py-5 pr-12'>
@@ -130,6 +149,7 @@ const ChapterPromptSetting = ({
                 {t('module.chapterSetting.chapterPromptHint')}
               </div>
               <Textarea
+                disabled={currentShifu?.readonly}
                 value={systemPrompt}
                 onChange={event => {
                   setSystemPrompt(event.target.value);

@@ -6,7 +6,7 @@ from typing import Dict, Any
 import pingpp
 from flask import Flask
 
-from flaskr.common.config import get_config
+from flaskr.service.config import get_config
 
 from .base import PaymentProvider, PaymentRequest, PaymentCreationResult
 from . import register_payment_provider

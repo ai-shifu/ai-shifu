@@ -1,5 +1,6 @@
+import asyncio
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from datetime import datetime
 import logging
 import requests
@@ -9,11 +10,41 @@ from langfuse.client import StatefulSpanClient
 from langfuse.model import ModelUsage
 
 from .dify import DifyChunkChatCompletionResponse, dify_chat_message
-from flaskr.common.config import get_config
+from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
 from ..ark.sign import request
 
 logger = logging.getLogger(__name__)
+
+# Global asyncio.run patch to avoid RuntimeError when called from a running
+# event loop (seen in LiteLLM logging threads under gunicorn/gevent). For the
+# specific case where a loop is already running, we fall back to scheduling
+# the coroutine on the existing loop instead of raising.
+_original_asyncio_run = asyncio.run
+
+
+def _safe_asyncio_run(coro, *args, **kwargs):
+    try:
+        return _original_asyncio_run(coro, *args, **kwargs)
+    except RuntimeError as exc:
+        message = str(exc)
+        if "cannot be called from a running event loop" not in message:
+            # Preserve original behaviour for unrelated errors.
+            raise
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop available, re-raise the original error.
+            raise
+        try:
+            loop.create_task(coro)
+        except Exception:
+            # If even scheduling fails, swallow the error so logging/caching
+            # failures do not break the main application.
+            return
+
+
+asyncio.run = _safe_asyncio_run
 
 
 @dataclass
@@ -36,6 +67,7 @@ class ProviderConfig:
             List[Union[str, Tuple[str, str]]],
         ]
     ] = None
+    reload_params: Optional[Callable[[str, float], Dict[str, Any]]] = None
 
 
 @dataclass
@@ -45,6 +77,7 @@ class ProviderState:
     models: List[str]
     prefix: str = ""
     wildcard_prefixes: Tuple[str, ...] = ()
+    reload_params: Optional[Callable[[str, float], Dict[str, Any]]] = None
 
 
 MODEL_ALIAS_MAP: Dict[str, Tuple[str, str]] = {}
@@ -94,7 +127,14 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
     api_key = get_config(config.api_key_env)
     if not api_key:
         _log_warning(f"{config.api_key_env} not configured")
-        return ProviderState(False, None, [], config.prefix, config.wildcard_prefixes)
+        return ProviderState(
+            False,
+            None,
+            [],
+            config.prefix,
+            config.wildcard_prefixes,
+            config.reload_params,
+        )
     base_url = None
     if config.base_url_env:
         base_url = get_config(config.base_url_env)
@@ -133,6 +173,7 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
         display_models,
         config.prefix,
         config.wildcard_prefixes,
+        config.reload_params,
     )
 
 
@@ -155,8 +196,13 @@ def _fetch_provider_models(api_key: str, base_url: str | None) -> list[str]:
     return [item.get("id", "") for item in data.get("data", []) if item.get("id")]
 
 
-def _stream_litellm_completion(model: str, messages: list, params: dict, kwargs: dict):
+def _stream_litellm_completion(
+    app: Flask, model: str, messages: list, params: dict, kwargs: dict
+):
     try:
+        app.logger.info(
+            f"stream_litellm_completion: {model} {messages} {params} {kwargs}"
+        )
         return litellm.completion(
             model=model,
             messages=messages,
@@ -270,6 +316,49 @@ SILICON_PREFIX = "silicon/"
 GEMINI_PREFIX = ""
 DEEPSEEK_EXTRA_MODELS = ["deepseek-chat"]
 
+
+def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    if model_id.startswith("gpt-5.1"):
+        return {
+            "reasoning_effort": "none",
+            "temperature": 1,
+        }
+    if model_id.startswith("gpt-5-pro"):
+        return {
+            "reasoning_effort": "none",
+        }
+
+    if model_id.startswith("gpt-5"):
+        return {
+            "reasoning_effort": "minimal",
+            "temperature": 1,
+        }
+    return {
+        "temperature": temperature,
+    }
+
+
+def _reload_gemini_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    if model_id.startswith("gemini-2.5-pro"):
+        return {
+            "reasoning_effort": "low",
+            "temperature": temperature,
+        }
+    if model_id.startswith("gemini-3"):
+        return {
+            "reasoning_effort": "low",
+            "temperature": temperature,
+        }
+    if model_id.startswith("gemini"):
+        return {
+            "reasoning_effort": "none",
+            "temperature": temperature,
+        }
+    return {
+        "temperature": temperature,
+    }
+
+
 LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
     ProviderConfig(
         key="openai",
@@ -280,6 +369,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         wildcard_prefixes=("gpt",),
         config_hint="OPENAI_API_KEY,OPENAI_BASE_URL",
         custom_llm_provider="openai",
+        reload_params=_reload_openai_params,
     ),
     ProviderConfig(
         key="qwen",
@@ -319,6 +409,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         config_hint="GEMINI_API_KEY,GEMINI_API_URL",
         custom_llm_provider="gemini",
         model_loader=_load_gemini_models,
+        reload_params=_reload_gemini_params,
     ),
     ProviderConfig(
         key="glm",
@@ -390,6 +481,7 @@ def get_litellm_params_and_model(model: str):
     if provider_key:
         state = PROVIDER_STATES.get(provider_key)
         params = state.params if state else None
+        reload_params = state.reload_params if state else None
         if not params:
             raise_error_with_args(
                 "server.llm.specifiedLlmNotConfigured",
@@ -398,8 +490,8 @@ def get_litellm_params_and_model(model: str):
                     provider_key, provider_key.upper()
                 ),
             )
-        return params, invoke_model
-    return None, model
+        return params, invoke_model, reload_params
+    return None, model, None
 
 
 def invoke_llm(
@@ -413,9 +505,6 @@ def invoke_llm(
     generation_name: str = "invoke_llm",
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
-    app.logger.info(
-        f"invoke_llm [{model}] {message} ,system:{system} ,json:{json} ,kwargs:{kwargs}"
-    )
     kwargs.pop("stream", None)
     model = model.strip()
     generation_input = []
@@ -427,7 +516,7 @@ def invoke_llm(
     )
     response_text = ""
     usage = None
-    params, invoke_model = get_litellm_params_and_model(model)
+    params, invoke_model, reload_params = get_litellm_params_and_model(model)
     start_completion_time = None
     if params:
         messages = []
@@ -436,9 +525,17 @@ def invoke_llm(
         messages.append({"content": message, "role": "user"})
         if json:
             kwargs["response_format"] = {"type": "json_object"}
-        kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
         kwargs["stream_options"] = {"include_usage": True}
+        if reload_params:
+            kwargs.update(reload_params(model, float(kwargs.get("temperature", 0.3))))
+        else:
+            kwargs.update(
+                {
+                    "temperature": float(kwargs.get("temperature", 0.3)),
+                }
+            )
         response = _stream_litellm_completion(
+            app,
             invoke_model,
             messages,
             params,
@@ -519,11 +616,18 @@ def chat_llm(
     response_text = ""
     usage = None
     start_completion_time = None
-    if kwargs.get("temperature", None) is not None:
-        kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
-    params, invoke_model = get_litellm_params_and_model(model)
+    params, invoke_model, reload_params = get_litellm_params_and_model(model)
     if params:
+        if reload_params:
+            kwargs.update(reload_params(model, float(kwargs.get("temperature", 0.3))))
+        else:
+            kwargs.update(
+                {
+                    "temperature": float(kwargs.get("temperature", 0.3)),
+                }
+            )
         response = _stream_litellm_completion(
+            app,
             invoke_model,
             messages,
             params,
