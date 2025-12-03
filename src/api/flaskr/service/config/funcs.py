@@ -108,7 +108,7 @@ def get_config(key: str, default: str = None) -> str:
     app = current_app
     with app.app_context():
         env_value = get_config_from_common(key, default)
-        if env_value:
+        if env_value is not None:
             return env_value
         cache_key = _get_config_cache_key(app, key)
         cache = redis.get(cache_key)
@@ -161,7 +161,7 @@ def add_config(
             f"Adding config: {key}, value: {value}, is_secret: {is_secret}, remark: {remark}"
         )
         env_value = get_config_from_common(key, None)
-        if env_value:
+        if env_value is not None:
             return
         # Check if config already exists in database
         existing_config = (
