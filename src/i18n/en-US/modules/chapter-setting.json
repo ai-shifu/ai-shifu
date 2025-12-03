@@ -5,7 +5,6 @@
   "chapterNamePlaceholder": "Please enter the chapter name",
   "chapterPrompt": "Chapter Prompt",
   "chapterPromptHint": "Define the chapter's content generation, audience, tone, and guardrails",
-  "chapterPromptPlaceholder": "Please enter the prompt. If this is empty, the chapter content generation will be constrained by the course prompt content",
   "chapterSettingsTitle": "Chapter Settings",
   "free": "Free",
   "guest": "Login-free",

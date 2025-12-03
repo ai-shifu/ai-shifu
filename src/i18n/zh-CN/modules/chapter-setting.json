@@ -5,7 +5,6 @@
   "chapterNamePlaceholder": "请输入章名称",
   "chapterPrompt": "章提示词",
   "chapterPromptHint": "对本章的整体内容生成，进行对象、语气和注意事项等约束",
-  "chapterPromptPlaceholder": "请输入提示词。如果此处为空，则本章内容生成将通过课程提示词进行约束",
   "chapterSettingsTitle": "章设置",
   "free": "免费",
   "guest": "免登录",
