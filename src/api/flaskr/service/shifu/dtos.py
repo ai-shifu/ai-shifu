@@ -158,16 +158,7 @@ class SimpleOutlineDto(BaseModel):
         if children:
             for child in children:
                 if isinstance(child, SimpleOutlineDto):
-                    normalized_children.append(
-                        SimpleOutlineDto(
-                            child.bid,
-                            child.position,
-                            child.name,
-                            child.children,
-                            child.type,
-                            child.is_hidden,
-                        )
-                    )
+                    normalized_children.append(child)
                 elif isinstance(child, dict):
                     normalized_children.append(
                         SimpleOutlineDto(
