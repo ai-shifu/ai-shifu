@@ -80,6 +80,7 @@ export interface ChatContentItem {
   type: ChatContentItemType | BlockType;
   ask_list?: ChatContentItem[]; // list of ask records for this content block
   isAskExpanded?: boolean; // whether the ask panel is expanded
+  generateTime?: number;
 }
 
 interface SSEParams {

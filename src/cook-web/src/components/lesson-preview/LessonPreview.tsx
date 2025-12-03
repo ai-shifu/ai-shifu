@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import ScrollText from './ScrollText.svg';
@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
+import TimeBar from './TimeBar';
 interface LessonPreviewProps {
   loading: boolean;
   isStreaming?: boolean;
@@ -46,9 +47,11 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   onRefresh,
   onSend,
   reGenerateConfirm,
+  isStreaming: _isStreaming = false,
 }) => {
   const { t } = useTranslation();
   const showEmpty = !loading && items.length === 0;
+  let lastRenderedTimestamp: number | null = null;
   return (
     <div className={cn(styles.lessonPreview, 'flex h-full flex-col text-sm')}>
       <div className='flex flex-wrap items-baseline gap-2 pt-[5px]'>
@@ -78,48 +81,71 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
         ) : (
           <div className='flex h-full flex-col overflow-y-auto p-6'>
             {items.map((item, idx) => {
+              const currentTimestamp =
+                typeof item.generateTime === 'number'
+                  ? item.generateTime
+                  : null;
+              const shouldRenderTimeBar =
+                currentTimestamp !== null &&
+                currentTimestamp !== lastRenderedTimestamp;
+              if (shouldRenderTimeBar) {
+                lastRenderedTimestamp = currentTimestamp;
+              }
+
               if (item.type === ChatContentItemType.LIKE_STATUS) {
                 return (
-                  <div
-                    key={`${idx}-interaction`}
-                    style={{
-                      maxWidth: '100%',
-                      padding: '0',
-                    }}
+                  <React.Fragment
+                    key={`${idx}-${item.generated_block_bid || 'interaction'}`}
                   >
-                    <InteractionBlock
-                      shifu_bid={shifuBid}
-                      generated_block_bid={item.parent_block_bid || ''}
-                      like_status={item.like_status}
-                      onRefresh={onRefresh}
-                      onToggleAskExpanded={noop}
-                      disableAskButton={true}
-                      disableInteractionButtons={true}
-                    />
-                  </div>
+                    {shouldRenderTimeBar && currentTimestamp !== null ? (
+                      <TimeBar timestamp={currentTimestamp} />
+                    ) : null}
+                    <div
+                      style={{
+                        maxWidth: '100%',
+                        padding: '0',
+                      }}
+                    >
+                      <InteractionBlock
+                        shifu_bid={shifuBid}
+                        generated_block_bid={item.parent_block_bid || ''}
+                        like_status={item.like_status}
+                        onRefresh={onRefresh}
+                        onToggleAskExpanded={noop}
+                        disableAskButton={true}
+                        disableInteractionButtons={true}
+                      />
+                    </div>
+                  </React.Fragment>
                 );
               }
               return (
-                <div
-                  key={`${idx}-content`}
-                  style={{
-                    position: 'relative',
-                    maxWidth: '100%',
-                    padding: '0',
-                    margin:
-                      !idx || item.type === ChatContentItemType.INTERACTION
-                        ? '0'
-                        : '40px 0 0 0',
-                  }}
+                <React.Fragment
+                  key={`${idx}-${item.generated_block_bid || 'content'}`}
                 >
-                  <ContentBlock
-                    item={item}
-                    mobileStyle={false}
-                    blockBid={item.generated_block_bid}
-                    confirmButtonText={t('module.renderUi.core.confirm')}
-                    onSend={onSend}
-                  />
-                </div>
+                  {shouldRenderTimeBar && currentTimestamp !== null ? (
+                    <TimeBar timestamp={currentTimestamp} />
+                  ) : null}
+                  <div
+                    style={{
+                      position: 'relative',
+                      maxWidth: '100%',
+                      padding: '0',
+                      margin:
+                        !idx || item.type === ChatContentItemType.INTERACTION
+                          ? '0'
+                          : '40px 0 0 0',
+                    }}
+                  >
+                    <ContentBlock
+                      item={item}
+                      mobileStyle={false}
+                      blockBid={item.generated_block_bid}
+                      confirmButtonText={t('module.renderUi.core.confirm')}
+                      onSend={onSend}
+                    />
+                  </div>
+                </React.Fragment>
               );
             })}
           </div>
