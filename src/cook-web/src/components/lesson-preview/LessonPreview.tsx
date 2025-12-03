@@ -13,7 +13,10 @@ import {
 } from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
 import { OnSendContentParams } from 'markdown-flow-ui';
 import VariableList from './VariableList';
-import type { PreviewVariablesMap } from './variableStorage';
+import {
+  getStoredPreviewVariables,
+  type PreviewVariablesMap,
+} from './variableStorage';
 import styles from './LessonPreview.module.scss';
 import { cn } from '@/lib/utils';
 import {
@@ -55,7 +58,25 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
 }) => {
   const { t } = useTranslation();
   const showEmpty = !loading && items.length === 0;
-  const resolvedVariables = variables || items[0]?.variables;
+  const fallbackVariables = React.useMemo(() => {
+    if (!shifuBid) {
+      return {} as PreviewVariablesMap;
+    }
+    const stored = getStoredPreviewVariables(shifuBid);
+    return {
+      ...(stored.system || {}),
+      ...(stored.custom || {}),
+    } as PreviewVariablesMap;
+  }, [shifuBid]);
+  const resolvedVariables = React.useMemo(() => {
+    const candidates = [variables, items[0]?.variables];
+    for (const candidate of candidates) {
+      if (candidate && Object.keys(candidate).length) {
+        return candidate;
+      }
+    }
+    return Object.keys(fallbackVariables).length ? fallbackVariables : undefined;
+  }, [fallbackVariables, items, variables]);
   // let lastRenderedTimestamp: number | null = null;
   return (
     <div className={cn(styles.lessonPreview, 'flex h-full flex-col text-sm')}>
@@ -69,7 +90,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
       </div>
       <div className='mt-[10px] flex-1 overflow-hidden bg-white'>
         <VariableList variables={resolvedVariables} />
-        <TimeBar timestamp={items[0]?.generateTime || Date.now()} />
+        {items[0]?.generateTime && <TimeBar timestamp={items[0].generateTime} />}
         {loading && items.length === 0 ? (
           <div className='flex h-full flex-col items-center justify-center gap-2 p-6 text-xs text-muted-foreground'>
             <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
@@ -86,7 +107,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
             <span>{t('module.shifu.previewArea.empty')}</span>
           </div>
         ) : (
-          <div className='flex h-full flex-col overflow-y-auto p-6'>
+          <div className='flex h-full flex-col overflow-y-auto p-6 pt-0'>
             {items.map((item, idx) => {
               if (item.type === ChatContentItemType.LIKE_STATUS) {
                 return (
