@@ -12,6 +12,8 @@ import {
   ChatContentItemType,
 } from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
 import { OnSendContentParams } from 'markdown-flow-ui';
+import VariableList from './VariableList';
+import type { PreviewVariablesMap } from './variableStorage';
 import styles from './LessonPreview.module.scss';
 import { cn } from '@/lib/utils';
 import {
@@ -28,6 +30,7 @@ interface LessonPreviewProps {
   isStreaming?: boolean;
   errorMessage?: string | null;
   items: ChatContentItem[];
+  variables?: PreviewVariablesMap;
   shifuBid: string;
   onRefresh: (generatedBlockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
@@ -43,6 +46,7 @@ const noop = () => {};
 const LessonPreview: React.FC<LessonPreviewProps> = ({
   loading,
   items = [],
+  variables,
   shifuBid,
   onRefresh,
   onSend,
@@ -51,7 +55,8 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
 }) => {
   const { t } = useTranslation();
   const showEmpty = !loading && items.length === 0;
-  let lastRenderedTimestamp: number | null = null;
+  const resolvedVariables = variables || items[0]?.variables;
+  // let lastRenderedTimestamp: number | null = null;
   return (
     <div className={cn(styles.lessonPreview, 'flex h-full flex-col text-sm')}>
       <div className='flex flex-wrap items-baseline gap-2 pt-[5px]'>
@@ -63,6 +68,8 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
         </p>
       </div>
       <div className='mt-[10px] flex-1 overflow-hidden bg-white'>
+        <VariableList variables={resolvedVariables} />
+        <TimeBar timestamp={items[0]?.generateTime || Date.now()} />
         {loading && items.length === 0 ? (
           <div className='flex h-full flex-col items-center justify-center gap-2 p-6 text-xs text-muted-foreground'>
             <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
@@ -79,32 +86,18 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
             <span>{t('module.shifu.previewArea.empty')}</span>
           </div>
         ) : (
-          <div className='flex h-full flex-col overflow-y-auto'>
+          <div className='flex h-full flex-col overflow-y-auto p-6'>
             {items.map((item, idx) => {
-              const currentTimestamp =
-                typeof item.generateTime === 'number'
-                  ? item.generateTime
-                  : null;
-              const shouldRenderTimeBar =
-                currentTimestamp !== null &&
-                currentTimestamp !== lastRenderedTimestamp;
-              if (shouldRenderTimeBar) {
-                lastRenderedTimestamp = currentTimestamp;
-              }
-
               if (item.type === ChatContentItemType.LIKE_STATUS) {
                 return (
                   <React.Fragment
                     key={`${idx}-${item.generated_block_bid || 'interaction'}`}
                   >
-                    {shouldRenderTimeBar && currentTimestamp !== null ? (
-                      <TimeBar timestamp={currentTimestamp} />
-                    ) : null}
                     <div
                       style={{
                         maxWidth: '100%',
                       }}
-                      className='p-6'
+                      className='p-0'
                     >
                       <InteractionBlock
                         shifu_bid={shifuBid}
@@ -123,9 +116,6 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                 <React.Fragment
                   key={`${idx}-${item.generated_block_bid || 'content'}`}
                 >
-                  {shouldRenderTimeBar && currentTimestamp !== null ? (
-                    <TimeBar timestamp={currentTimestamp} />
-                  ) : null}
                   <div
                     style={{
                       maxWidth: '100%',
@@ -134,7 +124,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                           ? '0'
                           : '40px 0 0 0',
                     }}
-                    className='p-6 relative'
+                    className='p-0 relative'
                   >
                     <ContentBlock
                       item={item}

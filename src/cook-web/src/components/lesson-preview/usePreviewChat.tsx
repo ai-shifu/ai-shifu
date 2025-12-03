@@ -19,7 +19,10 @@ import {
 import { useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
-import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
+import {
+  PreviewVariablesMap,
+  savePreviewVariables,
+} from './variableStorage';
 
 interface InteractionParseResult {
   variableName?: string;
@@ -47,6 +50,28 @@ enum PREVIEW_SSE_OUTPUT_TYPE {
   ERROR = 'error',
 }
 
+const buildVariablesSnapshot = (
+  variables?: Record<string, unknown>,
+): PreviewVariablesMap => {
+  if (!variables) {
+    return {};
+  }
+  return Object.entries(variables).reduce<PreviewVariablesMap>((acc, entry) => {
+    const [key, value] = entry;
+    if (value === undefined || value === null) {
+      acc[key] = '';
+    } else if (Array.isArray(value)) {
+      acc[key] = value
+        .map(item => (item === undefined || item === null ? '' : `${item}`))
+        .filter(Boolean)
+        .join(', ');
+    } else {
+      acc[key] = `${value}`;
+    }
+    return acc;
+  }, {});
+};
+
 export function usePreviewChat() {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
@@ -59,6 +84,8 @@ export function usePreviewChat() {
   const sseRef = useRef<any>(null);
   const isStreamingRef = useRef(false);
   const previewTimestampRef = useRef<number | null>(null);
+  const [variablesSnapshot, setVariablesSnapshot] =
+    useState<PreviewVariablesMap>({});
   const interactionParserRef = useRef(createInteractionParser());
   const autoSubmittedBlocksRef = useRef<Set<string>>(new Set());
   const tryAutoSubmitInteractionRef = useRef<
@@ -229,6 +256,7 @@ export function usePreviewChat() {
     currentContentIdRef.current = null;
     autoSubmittedBlocksRef.current.clear();
     previewTimestampRef.current = null;
+    setVariablesSnapshot({});
   }, [stopPreview, setTrackedContentList]);
 
   const ensureContentItem = useCallback(
@@ -435,6 +463,7 @@ export function usePreviewChat() {
         max_block_count: finalMaxBlockCount,
       } = mergedParams;
       sseParams.current = mergedParams;
+      setVariablesSnapshot(buildVariablesSnapshot(finalVariables));
 
       if (finalBlockIndex === 0) {
         previewTimestampRef.current = Date.now();
@@ -649,6 +678,7 @@ export function usePreviewChat() {
           [normalizedVariableName]: nextValue,
         };
         sseParams.current.variables = nextVariables;
+        setVariablesSnapshot(buildVariablesSnapshot(nextVariables));
         savePreviewVariables(
           sseParams.current.shifuBid,
           { [normalizedVariableName]: nextValue },
@@ -817,6 +847,7 @@ export function usePreviewChat() {
     resetPreview,
     onSend,
     onRefresh,
+    variables: variablesSnapshot,
     reGenerateConfirm: {
       open: showRegenerateConfirm,
       onConfirm: handleConfirmRegenerate,

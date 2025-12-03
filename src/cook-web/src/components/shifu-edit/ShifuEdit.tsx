@@ -53,6 +53,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     resetPreview,
     onRefresh,
     onSend,
+    variables: previewVariables,
     reGenerateConfirm,
   } = usePreviewChat();
   const editModeOptions = useMemo(
@@ -500,6 +501,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   isStreaming={previewStreaming}
                   errorMessage={previewError || undefined}
                   items={previewItems}
+                  variables={previewVariables}
                   shifuBid={currentShifu?.bid || ''}
                   onRefresh={onRefresh}
                   onSend={onSend}
