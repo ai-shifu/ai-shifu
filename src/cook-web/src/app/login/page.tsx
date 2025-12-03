@@ -25,6 +25,8 @@ import { TermsCheckbox } from '@/components/TermsCheckbox';
 import { useToast } from '@/hooks/useToast';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { useUserStore } from '@/store';
+import { useEnvStore } from '@/c-store';
+import { EnvStoreState } from '@/c-types/store';
 
 type LoginMethod = 'phone' | 'email' | 'google';
 
@@ -37,67 +39,44 @@ export default function AuthPage() {
     environment.logoUrl || logoHorizontal,
   );
 
-  const [loginConfig, setLoginConfig] = useState(() => ({
-    methods: environment.loginMethodsEnabled,
-    defaultMethod: environment.defaultLoginMethod,
-  }));
+  const logoUrl = useEnvStore((state: EnvStoreState) => state.logoUrl);
+  const runtimeLoginMethods = useEnvStore(
+    (state: EnvStoreState) => state.loginMethodsEnabled,
+  );
+  const runtimeDefaultLoginMethod = useEnvStore(
+    (state: EnvStoreState) => state.defaultLoginMethod,
+  );
 
   useEffect(() => {
-    let isActive = true;
+    setLogoSrc(logoUrl || environment.logoUrl || logoHorizontal);
+  }, [logoUrl]);
 
-    const loadLoginConfig = async () => {
-      try {
-        const response = await fetch('/api/config', { cache: 'no-store' });
-        if (!response.ok) {
-          throw new Error(`Failed to load config: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const rawMethods =
-          data?.loginMethodsEnabled ?? environment.loginMethodsEnabled;
-        const normalizedMethods = Array.isArray(rawMethods)
-          ? rawMethods
-          : typeof rawMethods === 'string'
-            ? rawMethods
-                .split(',')
-                .map(method => method.trim())
-                .filter(Boolean)
-            : environment.loginMethodsEnabled;
-
-        if (!isActive) {
-          return;
-        }
-
-        setLogoSrc(data?.logoUrl || environment.logoUrl || logoHorizontal);
-        setLoginConfig({
-          methods:
-            normalizedMethods.length > 0
-              ? normalizedMethods
-              : environment.loginMethodsEnabled,
-          defaultMethod:
-            typeof data?.defaultLoginMethod === 'string' &&
-            data.defaultLoginMethod.trim() !== ''
-              ? data.defaultLoginMethod
-              : environment.defaultLoginMethod,
-        });
-      } catch (error) {
-        console.error('Failed to load login config', error);
+  const normalizedMethods = useMemo(() => {
+    const fallback = environment.loginMethodsEnabled;
+    if (Array.isArray(runtimeLoginMethods) && runtimeLoginMethods.length > 0) {
+      return runtimeLoginMethods;
+    }
+    if (typeof runtimeLoginMethods === 'string') {
+      const parsed = runtimeLoginMethods
+        .split(',')
+        .map(method => method.trim())
+        .filter(Boolean);
+      if (parsed.length > 0) {
+        return parsed;
       }
-    };
+    }
+    return fallback;
+  }, [runtimeLoginMethods]);
 
-    void loadLoginConfig();
+  const defaultMethod =
+    typeof runtimeDefaultLoginMethod === 'string' &&
+    runtimeDefaultLoginMethod.trim() !== ''
+      ? runtimeDefaultLoginMethod
+      : environment.defaultLoginMethod;
 
-    return () => {
-      isActive = false;
-    };
-  }, []);
-
-  const enabledMethods = loginConfig.methods;
-  const defaultMethod = loginConfig.defaultMethod;
-
-  const isPhoneEnabled = enabledMethods.includes('phone');
-  const isEmailEnabled = enabledMethods.includes('email');
-  const isGoogleEnabled = enabledMethods.includes('google');
+  const isPhoneEnabled = normalizedMethods.includes('phone');
+  const isEmailEnabled = normalizedMethods.includes('email');
+  const isGoogleEnabled = normalizedMethods.includes('google');
 
   const availableMethods = useMemo<LoginMethod[]>(() => {
     const methods: LoginMethod[] = [];

@@ -14,6 +14,8 @@ import defaultLogo from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
 import adminSidebarStyles from './AdminSidebar.module.scss';
 import styles from './layout.module.scss';
 import { cn } from '@/lib/utils';
+import { useEnvStore } from '@/c-store';
+import { EnvStoreState } from '@/c-types/store';
 
 type MenuItem = {
   type?: string;
@@ -159,31 +161,11 @@ const MainInterface = ({
     environment.logoUrl,
   );
 
+  const logoUrl = useEnvStore((state: EnvStoreState) => state.logoUrl);
+
   useEffect(() => {
-    let isMounted = true;
-
-    const loadLogo = async (): Promise<void> => {
-      try {
-        const res = await fetch('/api/config', { cache: 'no-store' });
-        if (!res.ok) {
-          return;
-        }
-        const data = await res.json();
-        if (isMounted) {
-          setLogoSrc(data?.logoUrl || environment.logoUrl || defaultLogo);
-        }
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to load config for logo', error);
-      }
-    };
-
-    void loadLogo();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    setLogoSrc(logoUrl || environment.logoUrl || defaultLogo);
+  }, [logoUrl]);
 
   const resolvedLogo = logoSrc || defaultLogo;
 
