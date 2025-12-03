@@ -180,8 +180,9 @@ const ChapterSettingsDialog = ({
           name: trimmedTitle,
           description: trimmedTitle,
         };
-        let eventName: 'creator_outline_setting_save' | 'creator_outline_prompt_save' =
-          'creator_outline_setting_save';
+        let eventName:
+          | 'creator_outline_setting_save'
+          | 'creator_outline_prompt_save' = 'creator_outline_setting_save';
 
         if (isLesson) {
           const isPaid = learningPermission === LEARNING_PERMISSION.NORMAL;
@@ -360,7 +361,13 @@ const ChapterSettingsDialog = ({
                         value={LEARNING_PERMISSION.GUEST}
                         id='chapter-guest'
                       />
-                      <Image className='ml-2 mr-1' src={guestIcon} alt='guest' width={16} height={16} />
+                      <Image
+                        className='ml-2 mr-1'
+                        src={guestIcon}
+                        alt='guest'
+                        width={16}
+                        height={16}
+                      />
                       <Label
                         htmlFor='chapter-guest'
                         className='text-sm font-medium text-foreground'
@@ -373,7 +380,13 @@ const ChapterSettingsDialog = ({
                         value={LEARNING_PERMISSION.TRIAL}
                         id='chapter-trial'
                       />
-                      <Image className='ml-2 mr-1' src={trialIcon} alt='guest' width={16} height={16} />
+                      <Image
+                        className='ml-2 mr-1'
+                        src={trialIcon}
+                        alt='guest'
+                        width={16}
+                        height={16}
+                      />
                       <Label
                         htmlFor='chapter-trial'
                         className='text-sm font-medium text-foreground'
@@ -386,7 +399,13 @@ const ChapterSettingsDialog = ({
                         value={LEARNING_PERMISSION.NORMAL}
                         id='chapter-normal'
                       />
-                      <Image className='ml-2 mr-1' src={normalIcon} alt='paid' width={16} height={16} />
+                      <Image
+                        className='ml-2 mr-1'
+                        src={normalIcon}
+                        alt='paid'
+                        width={16}
+                        height={16}
+                      />
                       <Label
                         htmlFor='chapter-normal'
                         className='text-sm font-medium text-foreground'

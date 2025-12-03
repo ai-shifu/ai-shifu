@@ -707,9 +707,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         shifu_bid: shifuBid,
       });
       const depth =
-        item.depth !== undefined
-          ? item.depth
-          : (parentNode.depth || 0) + 1;
+        item.depth !== undefined ? item.depth : (parentNode.depth || 0) + 1;
       const newOutline: Outline = {
         id: created.bid,
         bid: created.bid,

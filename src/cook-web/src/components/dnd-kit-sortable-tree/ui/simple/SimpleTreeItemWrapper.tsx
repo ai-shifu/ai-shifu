@@ -87,7 +87,7 @@ export const SimpleTreeItemWrapper = forwardRef<
         )}
         {!manualDrag && !hideCollapseButton && !!onCollapse && !!childCount ? (
           <button
-            type="button"
+            type='button'
             onClick={e => {
               if (!disableCollapseOnItemClick) {
                 return;
@@ -99,11 +99,7 @@ export const SimpleTreeItemWrapper = forwardRef<
               'dnd-sortable-tree_simple_tree-item-collapse_button',
             )}
           >
-            {collapsed ? (
-              <ChevronRight size={16} />
-            ) : (
-              <ChevronDown size={16} />
-            )}
+            {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
           </button>
         ) : (
           <div

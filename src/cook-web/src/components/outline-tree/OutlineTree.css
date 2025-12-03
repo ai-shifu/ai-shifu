@@ -7,7 +7,7 @@
   background: transparent;
   transition: background-color 0.2s ease;
 }
-/* 
+/*
 .outline-tree_node.select {
   background: #e5e5e5;
   font-weight: 500;
@@ -18,15 +18,15 @@
 } */
 
 .outline-tree_title {
-  display: inline-block;   /* 宽度由内容决定 */
-  max-width: 100%;         /* 可以被压缩 */
+  display: inline-block; /* 宽度由内容决定 */
+  max-width: 100%; /* 可以被压缩 */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .outline-tree_node > .flex {
-  min-width: 0;   /* 必须保留 */
+  min-width: 0; /* 必须保留 */
 }
 
 .outline-tree_badges {

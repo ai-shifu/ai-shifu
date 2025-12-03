@@ -68,26 +68,27 @@ const MinimalTreeItemComponent = React.forwardRef<
     if (isChapterNode) {
       return null;
     }
-    const badges: Array<{ icon: string; label: string; className?: string }> = [];
+    const badges: Array<{ icon: string; label: string; className?: string }> =
+      [];
     const lessonType = lesson?.type as LearningPermission | undefined;
     const lessonHidden = lesson?.is_hidden;
     if (lessonType === LEARNING_PERMISSION.GUEST) {
       badges.push({
         icon: guestIcon.src,
         label: t('module.chapterSetting.guest'),
-        className: 'opacity-50'
+        className: 'opacity-50',
       });
     } else if (lessonType === LEARNING_PERMISSION.TRIAL) {
       badges.push({
         icon: trialIcon.src,
         label: t('module.chapterSetting.free'),
-        className: 'opacity-50'
+        className: 'opacity-50',
       });
     } else if (lessonType === LEARNING_PERMISSION.NORMAL) {
       badges.push({
         icon: normalIcon.src,
         label: t('module.chapterSetting.paid'),
-        className: 'opacity-50'
+        className: 'opacity-50',
       });
     }
     if (lessonHidden) {
@@ -105,7 +106,10 @@ const MinimalTreeItemComponent = React.forwardRef<
           <Tooltip key={`${label}-${icon}`}>
             <TooltipTrigger asChild>
               <span className={cn('outline-tree_badge ml-1', className)}>
-                <img src={icon} alt={label} />
+                <img
+                  src={icon}
+                  alt={label}
+                />
               </span>
             </TooltipTrigger>
             <TooltipContent
@@ -243,9 +247,7 @@ const MinimalTreeItemComponent = React.forwardRef<
         {...props}
         ref={ref}
         disableCollapseOnItemClick={false}
-        className={cn(
-          shouldHighlight && !isChapterNode && 'select',
-        )}
+        className={cn(shouldHighlight && !isChapterNode && 'select')}
         chapter={
           shouldShowMeta
             ? {
