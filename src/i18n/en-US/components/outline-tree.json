@@ -5,9 +5,8 @@
   "confirmDelete": "Confirm Delete",
   "confirmDeleteDescription": "This action cannot be undone. Are you sure you want to delete?",
   "delete": "Delete",
-  "lessonCount": "{count} lesson(s)",
+  "lessonCount": "{count} lesson{suffix}",
   "nameRequired": "Chapter name cannot be empty",
   "rename": "Rename",
-  "setting": "Settings",
-  "lessonCount": "{count} lesson{suffix}"
+  "setting": "Settings"
 }
