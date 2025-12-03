@@ -129,6 +129,7 @@
   margin: 0;
   display: flex;
   pointer-events: auto;
+  box-shadow: 0 4px 12px rgba(63, 118, 255, 0.22);
 }
 .courseSection:not(.mobile).available:hover,
 .courseSection:not(.mobile).available:focus-within {
