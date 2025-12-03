@@ -390,7 +390,7 @@ export default function ShifuSettingDialog({
       onOpenChange={handleOpenChange}
     >
       <SheetTrigger asChild>
-        <div className='flex items-center justify-center w-9 h-9 rounded-lg cursor-pointer shifu-setting-icon-container'>
+        <div className='flex items-center justify-center rounded-lg cursor-pointer'>
           <Settings size={16} />
         </div>
       </SheetTrigger>
