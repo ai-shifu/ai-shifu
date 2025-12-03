@@ -15,6 +15,9 @@
     "empty": "Add content on the left, then click “Preview” to create a result.",
     "loading": "Generating preview...",
     "open": "Show preview panel",
-    "title": "Preview Area"
+    "title": "Preview Area",
+    "variablesTitle": "Variables",
+    "variablesDescription": "Personalize the output with these variable values. ",
+    "variablesLearnMore": "Learn more"
   }
 }

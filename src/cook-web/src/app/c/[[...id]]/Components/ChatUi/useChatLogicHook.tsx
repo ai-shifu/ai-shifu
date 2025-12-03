@@ -38,6 +38,7 @@ import { EVENT_NAMES } from '@/c-common/hooks/useTracking';
 import { OnSendContentParams } from 'markdown-flow-ui';
 import { createInteractionParser } from 'remark-flow';
 import LoadingBar from './LoadingBar';
+import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
 import { useTranslation } from 'react-i18next';
 import { show as showToast } from '@/hooks/useToast';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
@@ -81,6 +82,7 @@ export interface ChatContentItem {
   ask_list?: ChatContentItem[]; // list of ask records for this content block
   isAskExpanded?: boolean; // whether the ask panel is expanded
   generateTime?: number;
+  variables?: PreviewVariablesMap;
 }
 
 interface SSEParams {

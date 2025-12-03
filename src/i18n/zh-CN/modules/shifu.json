@@ -15,6 +15,9 @@
     "empty": "请在左侧输入内容，然后点击“预览”按钮开始",
     "loading": "正在生成预览...",
     "open": "展开预览区",
-    "title": "预览区"
+    "title": "预览区",
+    "variablesTitle": "变量",
+    "variablesDescription": "基于变量值生成个性化的内容，",
+    "variablesLearnMore": "了解更多"
   }
 }
