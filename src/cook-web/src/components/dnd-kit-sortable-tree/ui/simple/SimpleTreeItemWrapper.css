@@ -42,6 +42,10 @@
   font-weight: 500;
 }
 
+.dnd-sortable-tree_simple_wrapper.select .outline-tree_badges{
+  margin-right: 8px;
+}
+
 .dnd-sortable-tree_simple_clone {
   display: inline-block;
   pointer-events: none;

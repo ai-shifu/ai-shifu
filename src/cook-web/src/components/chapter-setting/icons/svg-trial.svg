@@ -1,13 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
      viewBox="0 0 24 24" fill="none"
-     stroke="#55575e" stroke-width="2"
+     stroke="#555753" stroke-width="2"
      stroke-linecap="round" stroke-linejoin="round"
-     class="lucide lucide-credit-card-icon lucide-credit-card">
+     class="lucide lucide-circle-dollar-sign-icon lucide-circle-dollar-sign">
 
-  <!-- 原图形 -->
-  <rect width="20" height="14" x="2" y="5" rx="2" />
-  <line x1="2" x2="22" y1="10" y2="10" />
+  <circle cx="12" cy="12" r="10"/>
+  <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/>
+  <path d="M12 18V6"/>
 
-  <!-- 删除线：左上 → 右下 -->
-  <line x1="3" y1="3" x2="21" y2="21" />
+  <!-- 删除线：从左上到右下 -->
+  <line x1="3" y1="3" x2="21" y2="21"
+        stroke="#555753" stroke-width="2"
+        stroke-linecap="round"/>
 </svg>
