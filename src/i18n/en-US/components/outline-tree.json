@@ -8,5 +8,6 @@
   "lessonCount": "{count} lesson(s)",
   "nameRequired": "Chapter name cannot be empty",
   "rename": "Rename",
-  "setting": "Settings"
+  "setting": "Settings",
+  "lessonCount": "{count} lesson{suffix}"
 }

@@ -60,6 +60,7 @@ const MinimalTreeItemComponent = React.forwardRef<
   const lessonCount = props.item?.children?.length || 0;
   const lessonCountLabel = t('component.outlineTree.lessonCount', {
     count: lessonCount,
+    suffix: lessonCount <= 1 ? '' : 's',
   });
   const lesson = cataData[props.item.id!] || props.item;
   const chapterName = lesson?.name || '';
