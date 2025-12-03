@@ -61,7 +61,7 @@ from flaskr.service.learn.learn_dtos import (
     OutlineItemUpdateDTO,
     LearnStatus,
 )
-from flaskr.api.llm import invoke_llm
+from flaskr.api.llm import chat_llm
 from flaskr.service.learn.handle_input_ask import handle_input_ask
 from flaskr.service.profile.funcs import save_user_profiles, ProfileToSave
 from flaskr.service.profile.profile_manage import (
@@ -130,24 +130,17 @@ class RUNLLMProvider(LLMProvider):
         # Extract the last message content as the main prompt
         if not messages:
             raise ValueError("No messages provided")
-
-        # Get the last message content
-        system_prompt = messages[0].get("content", "")
-        last_message = messages[-1]
-        prompt = last_message.get("content", "")
-
         # Use provided model/temperature or fall back to settings
         actual_model = model or self.llm_settings.model
         actual_temperature = (
             temperature if temperature is not None else self.llm_settings.temperature
         )
 
-        res = invoke_llm(
+        res = chat_llm(
             self.app,
             self.trace_args.get("user_id", ""),
             self.trace,
-            message=prompt,
-            system=system_prompt,
+            messages=messages,
             model=actual_model,
             stream=False,
             generation_name="run_llm",
@@ -170,10 +163,10 @@ class RUNLLMProvider(LLMProvider):
         if not messages:
             raise ValueError("No messages provided")
 
-        system_prompt = messages[0].get("content", "")
+        # system_prompt = messages[0].get("content", "")
         # Get the last message content
-        last_message = messages[-1]
-        prompt = last_message.get("content", "")
+        # last_message = messages[-1]
+        # prompt = last_message.get("content", "")
 
         # Use provided model/temperature or fall back to settings
         actual_model = model or self.llm_settings.model
@@ -183,13 +176,12 @@ class RUNLLMProvider(LLMProvider):
 
         # Check if there's a system message
         self.app.logger.info("stream invoke_llm begin")
-        res = invoke_llm(
+        res = chat_llm(
             self.app,
             self.trace_args["user_id"],
             self.trace,
-            message=prompt,
-            system=system_prompt,
             model=actual_model,
+            messages=messages,
             stream=True,
             generation_name="run_llm",
             temperature=actual_temperature,
@@ -783,8 +775,8 @@ class RunScriptContextV2:
                 LearnGeneratedBlock.outline_item_bid == run_script_info.outline_bid,
                 LearnGeneratedBlock.deleted == 0,
                 LearnGeneratedBlock.status == 1,
-                LearnGeneratedBlock.type._in_(
-                    BLOCK_TYPE_MDCONTENT_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE
+                LearnGeneratedBlock.type.in_(
+                    [BLOCK_TYPE_MDCONTENT_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]
                 ),
             )
             .order_by(LearnGeneratedBlock.position.asc(), LearnGeneratedBlock.id.asc())
@@ -811,7 +803,6 @@ class RunScriptContextV2:
                 message_list[-1]["content"] += "\n" + generated_block.generated_content
 
         mdflow = MarkdownFlow(
-            context=message_list,
             document=run_script_info.mdflow,
             document_prompt=system_prompt,
             llm_provider=RUNLLMProvider(
