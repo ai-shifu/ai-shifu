@@ -745,14 +745,6 @@ class RunScriptContextV2:
             return
         llm_settings = self.get_llm_settings(run_script_info.outline_bid)
         system_prompt = self.get_system_prompt(run_script_info.outline_bid)
-        mdflow = MarkdownFlow(
-            document=run_script_info.mdflow,
-            document_prompt=system_prompt,
-            llm_provider=RUNLLMProvider(
-                app, llm_settings, self._trace, self._trace_args
-            ),
-        ).set_output_language(get_markdownflow_output_language())
-        block_list = mdflow.get_all_blocks()
 
         if self._input_type == "ask":
             if self._last_position == -1:
@@ -782,7 +774,51 @@ class RunScriptContextV2:
             self._can_continue = False
             db.session.flush()
             return
+        generated_blocks: list[LearnGeneratedBlock] = (
+            LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                LearnGeneratedBlock.shifu_bid == run_script_info.attend.shifu_bid,
+                LearnGeneratedBlock.progress_record_bid
+                == self._current_attend.progress_record_bid,
+                LearnGeneratedBlock.outline_item_bid == run_script_info.outline_bid,
+                LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.status == 1,
+                LearnGeneratedBlock.type._in_(
+                    BLOCK_TYPE_MDCONTENT_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE
+                ),
+            )
+            .order_by(LearnGeneratedBlock.position.asc(), LearnGeneratedBlock.id.asc())
+            .all()
+        )
 
+        message_list = []
+        last_role = None
+        for generated_block in generated_blocks:
+            role = None
+            if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
+                role = "assistant"
+            elif generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
+                role = "user"
+            if role != last_role:
+                message_list.append(
+                    {
+                        "role": role,
+                        "content": generated_block.generated_content,
+                    }
+                )
+                last_role = role
+            else:
+                message_list[-1]["content"] += "\n" + generated_block.generated_content
+
+        mdflow = MarkdownFlow(
+            context=message_list,
+            document=run_script_info.mdflow,
+            document_prompt=system_prompt,
+            llm_provider=RUNLLMProvider(
+                app, llm_settings, self._trace, self._trace_args
+            ),
+        ).set_output_language(get_markdownflow_output_language())
+        block_list = mdflow.get_all_blocks()
         user_profile = get_user_profiles(
             app, self._user_info.user_id, self._outline_item_info.shifu_bid
         )
@@ -906,6 +942,7 @@ class RunScriptContextV2:
                 interaction_result = mdflow.process(
                     run_script_info.block_position,
                     ProcessMode.COMPLETE,
+                    context=message_list,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
@@ -947,6 +984,7 @@ class RunScriptContextV2:
             interaction_result = mdflow.process(
                 run_script_info.block_position,
                 ProcessMode.COMPLETE,
+                context=message_list,
             )
             generated_block.block_content_conf = (
                 interaction_result.content if interaction_result else block.content
@@ -993,6 +1031,7 @@ class RunScriptContextV2:
                 interaction_result = mdflow.process(
                     run_script_info.block_position,
                     ProcessMode.COMPLETE,
+                    context=message_list,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
@@ -1144,6 +1183,7 @@ class RunScriptContextV2:
                 interaction_result = mdflow.process(
                     run_script_info.block_position,
                     ProcessMode.COMPLETE,
+                    context=message_list,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content

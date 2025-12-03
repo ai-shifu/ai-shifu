@@ -364,7 +364,7 @@ export function usePreviewChat() {
           });
         } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.ERROR) {
           toast({
-            title: t('module.preview.previewError'),
+            title: t('module.preview.llmError'),
             description: response.data,
             variant: 'destructive',
           });
