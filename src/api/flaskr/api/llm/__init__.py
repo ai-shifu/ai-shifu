@@ -344,6 +344,11 @@ def _reload_gemini_params(model_id: str, temperature: float) -> Dict[str, Any]:
             "reasoning_effort": "low",
             "temperature": temperature,
         }
+    if model_id.startswith("gemini-3"):
+        return {
+            "reasoning_effort": "low",
+            "temperature": temperature,
+        }
     if model_id.startswith("gemini"):
         return {
             "reasoning_effort": "none",
