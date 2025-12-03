@@ -53,11 +53,13 @@ export default function AuthPage() {
 
   const normalizedMethods = useMemo(() => {
     const fallback = environment.loginMethodsEnabled;
-    if (Array.isArray(runtimeLoginMethods) && runtimeLoginMethods.length > 0) {
-      return runtimeLoginMethods;
+    const runtimeValue = runtimeLoginMethods as string | string[] | undefined;
+
+    if (Array.isArray(runtimeValue) && runtimeValue.length > 0) {
+      return runtimeValue;
     }
-    if (typeof runtimeLoginMethods === 'string') {
-      const parsed = runtimeLoginMethods
+    if (typeof runtimeValue === 'string') {
+      const parsed = runtimeValue
         .split(',')
         .map(method => method.trim())
         .filter(Boolean);
