@@ -114,8 +114,31 @@ const loadRuntimeConfig = async () => {
     (useEnvStore.getState() as EnvStoreState).loginMethodsEnabled,
   );
 
-  // await updateCourseId(data?.courseId || '');
-  await updateCourseId(runtimeConfig?.courseId || '');
+  /**
+   * Course id resolution priority
+   *
+   * 1. If URL path is /c/<shifu_bid>, keep using the path parameter.
+   *    Runtime default course id from backend MUST NOT override it.
+   * 2. Otherwise, fall back to backend-provided default course id.
+   */
+  const hasPathCourseId =
+    typeof window !== 'undefined' &&
+    (() => {
+      try {
+        const pathname = window.location.pathname || '';
+        const segments = pathname.split('/').filter(Boolean);
+        // Match /c/<shifu_bid> or /c/<shifu_bid>/...
+        return segments[0] === 'c' && !!segments[1];
+      } catch {
+        return false;
+      }
+    })();
+
+  if (!hasPathCourseId) {
+    // Only apply backend default when there is no explicit course id in the URL path
+    await updateCourseId(runtimeConfig?.courseId || '');
+  }
+
   await updateAppId(runtimeConfig?.wechatAppId || '');
   await updateAlwaysShowLessonTree(
     runtimeConfig?.alwaysShowLessonTree?.toString() || 'false',
