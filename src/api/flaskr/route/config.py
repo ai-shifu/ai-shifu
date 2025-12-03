@@ -1,6 +1,6 @@
 from flask import Flask, request
 
-from flaskr.common.config import get_config
+from flaskr.service.config.funcs import get_config
 
 from .common import bypass_token_validation, make_common_response
 
