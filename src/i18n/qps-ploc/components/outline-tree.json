@@ -5,7 +5,6 @@
   "confirmDelete": "⟦Ćøňƒįřm Đēŀēŧē⟧",
   "confirmDeleteDescription": "⟦Ŧħįš åćŧįøň ćåňňøŧ ƀē ųňđøňē. Åřē ŷøų šųřē ŷøų ŵåňŧ ŧø đēŀēŧē?⟧",
   "delete": "⟦Đēŀēŧē⟧",
-  "nameRequired": "⟦Ćħåƥŧēř ňåmē ćåňňøŧ ƀē ēmƥŧŷ⟧",
-  "rename": "⟦Řēňåmē⟧",
-  "setting": "⟦Šēŧŧįňǥš⟧"
+  "lessonCount": "⟦{count} ŀēššøň{suffix}⟧",
+  "nameRequired": "⟦Ćħåƥŧēř ňåmē ćåňňøŧ ƀē ēmƥŧŷ⟧"
 }
