@@ -62,7 +62,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           {t('module.shifu.previewArea.description')}
         </p>
       </div>
-      <div className='mt-[10px] flex-1 overflow-hidden rounded-xl border bg-white'>
+      <div className='mt-[10px] flex-1 overflow-hidden bg-white'>
         {loading && items.length === 0 ? (
           <div className='flex h-full flex-col items-center justify-center gap-2 p-6 text-xs text-muted-foreground'>
             <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
@@ -79,7 +79,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
             <span>{t('module.shifu.previewArea.empty')}</span>
           </div>
         ) : (
-          <div className='flex h-full flex-col overflow-y-auto p-6'>
+          <div className='flex h-full flex-col overflow-y-auto'>
             {items.map((item, idx) => {
               const currentTimestamp =
                 typeof item.generateTime === 'number'
@@ -103,8 +103,8 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                     <div
                       style={{
                         maxWidth: '100%',
-                        padding: '0',
                       }}
+                      className='p-6'
                     >
                       <InteractionBlock
                         shifu_bid={shifuBid}
@@ -128,14 +128,13 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   ) : null}
                   <div
                     style={{
-                      position: 'relative',
                       maxWidth: '100%',
-                      padding: '0',
                       margin:
                         !idx || item.type === ChatContentItemType.INTERACTION
                           ? '0'
                           : '40px 0 0 0',
                     }}
+                    className='p-6 relative'
                   >
                     <ContentBlock
                       item={item}
