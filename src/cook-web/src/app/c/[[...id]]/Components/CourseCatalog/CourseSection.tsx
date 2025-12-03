@@ -120,7 +120,10 @@ export const CourseSection = ({
     <div
       className={cn(styles.leftSection, isNormalNotPaid ? styles.notPaid : '')}
     >
-      <div className={styles.courseTitle} lang={courseTitleLang}>
+      <div
+        className={styles.courseTitle}
+        lang={courseTitleLang}
+      >
         {name}
       </div>
     </div>
