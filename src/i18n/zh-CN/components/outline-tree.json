@@ -5,6 +5,6 @@
   "confirmDelete": "确认删除",
   "confirmDeleteDescription": "删除后将无法恢复，是否确认删除？",
   "delete": "删除",
-  "lessonCount": "{count}节",
+  "lessonCount": "{count}节{suffix}",
   "nameRequired": "章节名称不能为空"
 }

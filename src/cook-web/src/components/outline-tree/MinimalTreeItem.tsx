@@ -48,7 +48,7 @@ const MinimalTreeItemComponent = React.forwardRef<
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [addLessonDialogOpen, setAddLessonDialogOpen] = useState(false);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const outlineVariant = (props.item?.depth ?? 0) <= 0 ? 'chapter' : 'lesson';
   const alert = useAlert();
   const isChapterNode = (props.item?.depth || 0) === 0;
@@ -58,9 +58,14 @@ const MinimalTreeItemComponent = React.forwardRef<
   const showChapter = isChapterNode && !isPlaceholderNode;
   const showLessonSettings = !isChapterNode && !isPlaceholderNode;
   const lessonCount = props.item?.children?.length || 0;
+  const localeWithSuffix = ['en-us'];
+  const currentLanguage = i18n.language?.toLowerCase() || '';
+  const shouldUseSuffix = localeWithSuffix.some((code) =>
+    currentLanguage.startsWith(code)
+  );
   const lessonCountLabel = t('component.outlineTree.lessonCount', {
     count: lessonCount,
-    suffix: lessonCount <= 1 ? '' : 's',
+    suffix: shouldUseSuffix && lessonCount > 1 ? 's' : '',
   });
   const lesson = cataData[props.item.id!] || props.item;
   const chapterName = lesson?.name || '';
