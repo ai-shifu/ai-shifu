@@ -24,6 +24,16 @@ import {
 } from '@/components/ui/tooltip';
 import { useTranslation } from 'react-i18next';
 
+const getCourseTitleLang = (title: string) => {
+  const trimmed = title.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const containsLatin = /[A-Za-z]/.test(trimmed);
+  const containsCJK = /[\u4E00-\u9FFF]/.test(trimmed);
+  return containsLatin && !containsCJK ? 'en' : undefined;
+};
+
 export const CourseSection = ({
   id,
   name = '',
@@ -37,6 +47,7 @@ export const CourseSection = ({
   onTrySelect,
 }) => {
   const { t } = useTranslation();
+  const courseTitleLang = getCourseTitleLang(name);
   const { mobileStyle } = useContext(AppContext);
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const { openPayModal } = useCourseStore(
@@ -109,7 +120,9 @@ export const CourseSection = ({
     <div
       className={cn(styles.leftSection, isNormalNotPaid ? styles.notPaid : '')}
     >
-      <div className={styles.courseTitle}>{name}</div>
+      <div className={styles.courseTitle} lang={courseTitleLang}>
+        {name}
+      </div>
     </div>
   );
 

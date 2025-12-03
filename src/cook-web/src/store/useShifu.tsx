@@ -520,6 +520,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         children: [],
         position: '',
         depth,
+        type: settings.learningPermission,
+        is_hidden: settings.isHidden,
       };
       parentNode.children = [...(parentNode.children || []), newOutline];
       setChapters([...chapters]);
@@ -707,9 +709,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         shifu_bid: shifuBid,
       });
       const depth =
-        item.depth !== undefined
-          ? item.depth
-          : (parentNode.depth || 0) + 1;
+        item.depth !== undefined ? item.depth : (parentNode.depth || 0) + 1;
       const newOutline: Outline = {
         id: created.bid,
         bid: created.bid,
@@ -718,6 +718,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         children: [],
         position: '',
         depth,
+        type: settings.learningPermission,
+        is_hidden: settings.isHidden,
       };
       const children = [...(parentNode.children || [])];
       children.splice(insertIndex, 0, newOutline);

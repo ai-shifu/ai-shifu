@@ -10,8 +10,8 @@
   display: none !important;
 }
 
-.dnd-sortable-tree_simple_wrapper:hover{
-  background: #e5e5e5
+.dnd-sortable-tree_simple_wrapper:hover {
+  background: #e5e5e5;
 }
 
 .dnd-sortable-tree_simple_tree-item {
@@ -34,7 +34,8 @@
   background: #e5e5e5;
 }
 
-.dnd-sortable-tree_simple_wrapper.select > .dnd-sortable-tree_simple_tree-item:hover {
+.dnd-sortable-tree_simple_wrapper.select
+  > .dnd-sortable-tree_simple_tree-item:hover {
   background: #e5e5e5;
 }
 
@@ -42,7 +43,7 @@
   font-weight: 500;
 }
 
-.dnd-sortable-tree_simple_wrapper.select .outline-tree_badges{
+.dnd-sortable-tree_simple_wrapper.select .outline-tree_badges {
   margin-right: 8px;
 }
 
