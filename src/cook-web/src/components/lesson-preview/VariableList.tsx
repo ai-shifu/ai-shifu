@@ -95,7 +95,6 @@ const VariableList: React.FC<VariableListProps> = ({
                   placeholder={t('module.shifu.previewArea.variablesPlaceholder')}
                   onChange={e => {
                     const nextValue = e.target.value;
-                    console.log('e', nextValue);
                     onChange?.(name, nextValue);
                   }}
                 />

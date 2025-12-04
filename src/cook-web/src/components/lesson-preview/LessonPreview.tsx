@@ -92,7 +92,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           {t('module.shifu.previewArea.description')}
         </p>
       </div>
-      <div className='mt-[10px] flex-1 overflow-hidden bg-white'>
+      <div className={cn(styles.previewArea, 'mt-[10px] flex-1 overflow-hidden bg-white')}>
         {!showEmpty && (
           <VariableList
             variables={resolvedVariables}
