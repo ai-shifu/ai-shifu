@@ -1,1 +1,1 @@
-.lessonPreview .previewArea{border-radius:10px;border:1px solid #e5e5e5}
+.lessonPreview{height:calc(100vh - 140px);display:flex;flex-direction:column}.previewArea{flex:1;display:flex;flex-direction:column;border-radius:10px;border:1px solid #e5e5e5;background:#fff;overflow:hidden}.previewAreaContent{flex:1;overflow-y:auto;padding:24px}.variableListWrapper{position:sticky;top:0;z-index:30;background:#fff}

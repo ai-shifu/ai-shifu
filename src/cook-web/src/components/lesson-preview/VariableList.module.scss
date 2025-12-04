@@ -4,7 +4,12 @@
   max-height: 236px;
   overflow: auto;
   border-bottom: 1px solid #E5E5E5;
-
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  
+   
+  
 
 
   .header {

@@ -17,7 +17,7 @@ import {
   getStoredPreviewVariables,
   type PreviewVariablesMap,
 } from './variableStorage';
-import styles from './LessonPreview.module.scss';
+import styles from './LessonPreview.module.css';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
+
 interface LessonPreviewProps {
   loading: boolean;
   isStreaming?: boolean;
@@ -61,29 +62,30 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
 }) => {
   const { t } = useTranslation();
   const [variablesCollapsed, setVariablesCollapsed] = React.useState(false);
+
   const showEmpty = !loading && items.length === 0;
+
   const fallbackVariables = React.useMemo(() => {
-    if (!shifuBid) {
-      return {} as PreviewVariablesMap;
-    }
+    if (!shifuBid) return {} as PreviewVariablesMap;
     const stored = getStoredPreviewVariables(shifuBid);
     return {
       ...(stored.system || {}),
       ...(stored.custom || {}),
     } as PreviewVariablesMap;
   }, [shifuBid]);
+
   const resolvedVariables = React.useMemo(() => {
     const candidates = [variables, items[0]?.variables];
     for (const candidate of candidates) {
-      if (candidate && Object.keys(candidate).length) {
-        return candidate;
-      }
+      if (candidate && Object.keys(candidate).length) return candidate;
     }
     return Object.keys(fallbackVariables).length ? fallbackVariables : undefined;
   }, [fallbackVariables, items, variables]);
-  // let lastRenderedTimestamp: number | null = null;
+
   return (
-    <div className={cn(styles.lessonPreview, 'flex h-full flex-col text-sm')}>
+    <div className={cn(styles.lessonPreview, 'text-sm')}>
+      
+      {/* 顶部标题 */}
       <div className='flex flex-wrap items-baseline gap-2 pt-[5px]'>
         <h2 className='text-base font-semibold text-foreground'>
           {t('module.shifu.previewArea.title')}
@@ -92,93 +94,87 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           {t('module.shifu.previewArea.description')}
         </p>
       </div>
-      <div className={cn(styles.previewArea, 'mt-[10px] flex-1 overflow-hidden bg-white')}>
+
+      {/* 主体区域（不滚动，用于 sticky） */}
+      <div className={styles.previewArea}>
+        
+        {/* VariableList（吸顶固定） */}
         {!showEmpty && (
-          <VariableList
-            variables={resolvedVariables}
-            collapsed={variablesCollapsed}
-            onToggle={() => setVariablesCollapsed(prev => !prev)}
-            onChange={onVariableChange}
-            variableOrder={variableOrder}
-          />
-        )}
-        {loading && items.length === 0 ? (
-          <div className='flex h-full flex-col items-center justify-center gap-2 p-6 text-xs text-muted-foreground'>
-            <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
-            <span>{t('module.shifu.previewArea.loading')}</span>
-          </div>
-        ) : showEmpty ? (
-          <div className='flex h-full flex-col items-center justify-center gap-[13px] px-8 text-center text-[14px] leading-5 text-[rgba(10,10,10,0.45)]'>
-            <Image
-              src={ScrollText.src}
-              alt='scroll-text'
-              width={64}
-              height={64}
+          <div className={styles.variableListWrapper}>
+            <VariableList
+              variables={resolvedVariables}
+              collapsed={variablesCollapsed}
+              onToggle={() => setVariablesCollapsed(prev => !prev)}
+              onChange={onVariableChange}
+              variableOrder={variableOrder}
             />
-            <span>{t('module.shifu.previewArea.empty')}</span>
           </div>
-        ) : (
-          <div className='flex h-full flex-col overflow-y-auto p-6'>
-            {items.map((item, idx) => {
+        )}
+
+        {/* 内容滚动区（唯一 overflow 区域） */}
+        <div className={styles.previewAreaContent}>
+          
+          {/* 加载状态 */}
+          {loading && items.length === 0 && (
+            <div className='flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground'>
+              <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
+              <span>{t('module.shifu.previewArea.loading')}</span>
+            </div>
+          )}
+
+          {/* 空状态 */}
+          {showEmpty && !loading && (
+            <div className='flex flex-col items-center justify-center gap-[13px] px-8 text-center text-[14px] leading-5 text-[rgba(10,10,10,0.45)]'>
+              <Image src={ScrollText.src} alt='scroll-text' width={64} height={64} />
+              <span>{t('module.shifu.previewArea.empty')}</span>
+            </div>
+          )}
+
+          {/* 渲染内容 */}
+          {!showEmpty &&
+            items.map((item, idx) => {
               if (item.type === ChatContentItemType.LIKE_STATUS) {
                 return (
-                  <React.Fragment
-                    key={`${idx}-${item.generated_block_bid || 'interaction'}`}
-                  >
-                    <div
-                      style={{
-                        maxWidth: '100%',
-                      }}
-                      className='p-0'
-                    >
-                      <InteractionBlock
-                        shifu_bid={shifuBid}
-                        generated_block_bid={item.parent_block_bid || ''}
-                        like_status={item.like_status}
-                        onRefresh={onRefresh}
-                        onToggleAskExpanded={noop}
-                        disableAskButton={true}
-                        disableInteractionButtons={true}
-                      />
-                    </div>
-                  </React.Fragment>
-                );
-              }
-              return (
-                <React.Fragment
-                  key={`${idx}-${item.generated_block_bid || 'content'}`}
-                >
-                  <div
-                    style={{
-                      maxWidth: '100%',
-                      margin:
-                        !idx || item.type === ChatContentItemType.INTERACTION
-                          ? '0'
-                          : '40px 0 0 0',
-                    }}
-                    className='p-0 relative'
-                  >
-                    <ContentBlock
-                      item={item}
-                      mobileStyle={false}
-                      blockBid={item.generated_block_bid}
-                      confirmButtonText={t('module.renderUi.core.confirm')}
-                      onSend={onSend}
+                  <div key={`${idx}-like`} className="p-0" style={{ maxWidth: '100%' }}>
+                    <InteractionBlock
+                      shifu_bid={shifuBid}
+                      generated_block_bid={item.parent_block_bid || ''}
+                      like_status={item.like_status}
+                      onRefresh={onRefresh}
+                      onToggleAskExpanded={noop}
+                      disableAskButton
+                      disableInteractionButtons
                     />
                   </div>
-                </React.Fragment>
+                );
+              }
+
+              return (
+                <div
+                  key={`${idx}-content`}
+                  className="p-0 relative"
+                  style={{
+                    maxWidth: '100%',
+                    margin: !idx ? '0' : '40px 0 0 0',
+                  }}
+                >
+                  <ContentBlock
+                    item={item}
+                    mobileStyle={false}
+                    blockBid={item.generated_block_bid}
+                    confirmButtonText={t('module.renderUi.core.confirm')}
+                    onSend={onSend}
+                  />
+                </div>
               );
             })}
-          </div>
-        )}
+        </div>
       </div>
+
+      {/* 再生成确认弹窗 */}
       <Dialog
         open={reGenerateConfirm?.open ?? false}
-        onOpenChange={open => {
-          if (!open && reGenerateConfirm?.onCancel) {
-            reGenerateConfirm.onCancel();
-          }
-        }}
+        onOpenChange={open => !open && reGenerateConfirm?.onCancel?.()}
       >
         <DialogContent className='sm:max-w-md'>
           <DialogHeader>
@@ -205,6 +201,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 };
