@@ -9,6 +9,8 @@
   .userInfo {
     display: flex;
     align-items: center;
+    min-width: 0;
+    flex: 1;
   }
   .userSection {
     padding: 0 20px;
@@ -28,6 +30,9 @@
       overflow: hidden;
       color: var(--base-sidebar-foreground, #0a0a0a);
       text-overflow: ellipsis;
+      white-space: nowrap;
+      display: block;
+      max-width: 100%;
 
       /* text-sm/leading-none/semibold */
       font-family: var(--font-font-sans, Geist);
