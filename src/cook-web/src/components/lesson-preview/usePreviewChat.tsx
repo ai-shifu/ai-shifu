@@ -259,19 +259,26 @@ export function usePreviewChat() {
           return null;
         }
         const selectedValues: string[] = [];
+        const customInputs: string[] = [];
         for (const token of tokens) {
           const mapped = normalizeButtonValue(token, info);
-          if (!mapped) {
-            return null;
+          if (mapped) {
+            selectedValues.push(mapped.value);
+            continue;
           }
-          selectedValues.push(mapped.value);
+          if (info.placeholder) {
+            customInputs.push(token);
+            continue;
+          }
+          return null;
         }
-        if (!selectedValues.length) {
+        if (!selectedValues.length && !customInputs.length) {
           return null;
         }
         return {
           variableName: info.variableName,
-          selectedValues,
+          selectedValues: selectedValues.length ? selectedValues : undefined,
+          inputText: customInputs.length ? customInputs.join(', ') : undefined,
         };
       }
 
