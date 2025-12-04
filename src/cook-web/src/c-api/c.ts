@@ -1,9 +1,7 @@
 import { SSE } from 'sse.js';
 import request from '@/lib/request';
 import { v4 as uuid4 } from 'uuid';
-import { getStringEnv } from '@/c-utils/envUtils';
-const token = getStringEnv('token');
-const url = (getStringEnv('baseURL') || '') + '/api/study/run';
+import { getResolvedBaseURL, getStringEnv } from '@/c-utils/envUtils';
 
 export const RunScript = (
   course_id,
@@ -12,6 +10,8 @@ export const RunScript = (
   input_type,
   onMessage,
 ) => {
+  const token = getStringEnv('token');
+  const url = `${getResolvedBaseURL()}/api/study/run`;
   const request_id = uuid4();
   const source = new SSE(url + '?token=' + token, {
     headers: { 'Content-Type': 'application/json', 'X-Request-ID': request_id },

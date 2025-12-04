@@ -77,6 +77,11 @@ function getRuntimeEnv(key: string): string | undefined {
 let cachedApiBaseUrl: string = '';
 let configFetchPromise: Promise<string> | null = null;
 
+const normalizeApiBaseUrl = (value?: string): string => {
+  if (!value) return '';
+  return value.replace(/\/+$/, '');
+};
+
 async function getClientApiBaseUrl(): Promise<string> {
   if (cachedApiBaseUrl && cachedApiBaseUrl !== '') {
     return cachedApiBaseUrl;
@@ -93,7 +98,8 @@ async function getClientApiBaseUrl(): Promise<string> {
       if (response.ok) {
         const config = await response.json();
         if (config.apiBaseUrl) {
-          cachedApiBaseUrl = config.apiBaseUrl;
+          cachedApiBaseUrl =
+            normalizeApiBaseUrl(config.apiBaseUrl) || 'http://localhost:8080';
           return cachedApiBaseUrl;
         }
       }
@@ -117,13 +123,18 @@ async function getClientApiBaseUrl(): Promise<string> {
  */
 function getApiBaseUrl(): string {
   // 1. Prefer runtime environment variables on the server
-  const runtimeApiUrl = getRuntimeEnv('NEXT_PUBLIC_API_BASE_URL');
+  const runtimeApiUrl = normalizeApiBaseUrl(
+    getRuntimeEnv('NEXT_PUBLIC_API_BASE_URL'),
+  );
   if (runtimeApiUrl) {
     return runtimeApiUrl;
   }
 
   // 2. Clients fall back to the build value and update dynamically later
-  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+  const buildTimeValue = normalizeApiBaseUrl(
+    process.env.NEXT_PUBLIC_API_BASE_URL,
+  );
+  return buildTimeValue || 'http://localhost:8080';
 }
 
 /**
