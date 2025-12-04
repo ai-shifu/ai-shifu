@@ -37,6 +37,7 @@ interface LessonPreviewProps {
   onRefresh: (generatedBlockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onVariableChange?: (name: string, value: string) => void;
+  variableOrder?: string[];
   reGenerateConfirm?: {
     open: boolean;
     onConfirm: () => void;
@@ -54,6 +55,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   onRefresh,
   onSend,
   onVariableChange,
+  variableOrder,
   reGenerateConfirm,
   isStreaming: _isStreaming = false,
 }) => {
@@ -97,6 +99,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
             collapsed={variablesCollapsed}
             onToggle={() => setVariablesCollapsed(prev => !prev)}
             onChange={onVariableChange}
+            variableOrder={variableOrder}
           />
         )}
         {loading && items.length === 0 ? (

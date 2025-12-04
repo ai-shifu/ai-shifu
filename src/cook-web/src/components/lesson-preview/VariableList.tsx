@@ -12,6 +12,7 @@ interface VariableListProps {
   collapsed?: boolean;
   onToggle?: () => void;
   onChange?: (name: string, value: string) => void;
+  variableOrder?: string[];
 }
 
 const VariableList: React.FC<VariableListProps> = ({
@@ -19,11 +20,27 @@ const VariableList: React.FC<VariableListProps> = ({
   collapsed = false,
   onToggle,
   onChange,
+  variableOrder = [],
 }) => {
   const { t } = useTranslation();
   const entries = useMemo(() => {
-    return Object.entries(variables || {});
-  }, [variables]);
+    const sourceEntries = Object.entries(variables || {});
+    if (!variableOrder.length) {
+      return sourceEntries;
+    }
+    const sourceMap = new Map(sourceEntries);
+    const orderedEntries: [string, string][] = [];
+    variableOrder.forEach(key => {
+      if (sourceMap.has(key)) {
+        orderedEntries.push([key, sourceMap.get(key) || '']);
+        sourceMap.delete(key);
+      }
+    });
+    sourceMap.forEach((value, key) => {
+      orderedEntries.push([key, value]);
+    });
+    return orderedEntries;
+  }, [variableOrder, variables]);
 
   if (!entries.length) {
     return null;

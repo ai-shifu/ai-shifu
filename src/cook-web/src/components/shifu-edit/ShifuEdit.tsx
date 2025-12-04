@@ -236,6 +236,13 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }));
   }, [systemVariables]);
 
+  const variableOrder = useMemo(() => {
+    return [
+      ...systemVariablesList.map(variable => variable.name),
+      ...variablesList.map(variable => variable.name),
+    ];
+  }, [systemVariablesList, variablesList]);
+
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);
     // Pass snapshot so autosave persists pre-switch content + chapter id
@@ -527,6 +534,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   onRefresh={onRefresh}
                   onSend={onSend}
                   onVariableChange={onVariableChange}
+                  variableOrder={variableOrder}
                   reGenerateConfirm={reGenerateConfirm}
                 />
               </div>
