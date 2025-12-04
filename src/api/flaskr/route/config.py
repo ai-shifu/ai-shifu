@@ -47,10 +47,6 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         }
 
         config = {
-            # Core API Configuration
-            "apiBaseUrl": get_config(
-                "NEXT_PUBLIC_API_BASE_URL", "http://localhost:8080"
-            ),
             # Content & Course Configuration
             "courseId": get_config("NEXT_PUBLIC_DEFAULT_COURSE_ID", ""),
             "defaultLlmModel": get_config("DEFAULT_LLM_MODEL", ""),

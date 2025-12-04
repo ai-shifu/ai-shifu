@@ -46,16 +46,27 @@ const loadRuntimeConfig = async () => {
   } = useEnvStore.getState() as EnvStoreState;
 
   const apiBaseUrl = (await getDynamicApiBaseUrl()) || '';
-  const normalizedBase = apiBaseUrl.replace(/\/$/, '');
+  const normalizedBase = apiBaseUrl.replace(/\/+$/, '');
+  const resolvedBase =
+    normalizedBase ||
+    ((useEnvStore.getState() as EnvStoreState).baseURL || '').replace(
+      /\/+$/,
+      '',
+    ) ||
+    '';
+
+  if (resolvedBase) {
+    await updateBaseURL(resolvedBase);
+  }
 
   const buildRuntimeUrl = () => {
     // Absolute URL: respect whether path already includes /api
-    if (normalizedBase.startsWith('http')) {
+    if (resolvedBase.startsWith('http')) {
       try {
-        const parsed = new URL(normalizedBase);
+        const parsed = new URL(resolvedBase);
         const path = parsed.pathname.replace(/\/+$/, '');
         const endsWithApi = path.endsWith('/api');
-        return `${normalizedBase}${
+        return `${resolvedBase}${
           endsWithApi ? '/runtime-config' : '/api/runtime-config'
         }`;
       } catch {
@@ -64,7 +75,7 @@ const loadRuntimeConfig = async () => {
     }
 
     // Relative URL (e.g. "/api" or "/backend")
-    const cleanBase = normalizedBase || '';
+    const cleanBase = resolvedBase || '';
     const endsWithApi =
       cleanBase === '/api' ||
       cleanBase.endsWith('/api') ||
@@ -146,7 +157,6 @@ const loadRuntimeConfig = async () => {
   await updateUmamiWebsiteId(runtimeConfig?.umamiWebsiteId || '');
   await updateUmamiScriptSrc(runtimeConfig?.umamiScriptSrc || '');
   await updateEruda(runtimeConfig?.enableEruda?.toString() || 'false');
-  await updateBaseURL(runtimeConfig?.apiBaseUrl || '');
   await updateLogoHorizontal(runtimeConfig?.logoHorizontal || '');
   await updateLogoVertical(runtimeConfig?.logoVertical || '');
   await updateLogoUrl(runtimeConfig?.logoUrl || '');
