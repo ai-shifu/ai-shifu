@@ -45,6 +45,15 @@ export const useEnvStore = create<EnvStoreState>(set => ({
   paymentChannels: environment.paymentChannels,
   updatePaymentChannels: async (paymentChannels: string[]) =>
     set({ paymentChannels }),
+  loginMethodsEnabled: environment.loginMethodsEnabled,
+  updateLoginMethodsEnabled: async (loginMethodsEnabled: string[]) =>
+    set({ loginMethodsEnabled }),
+  defaultLoginMethod: environment.defaultLoginMethod,
+  updateDefaultLoginMethod: async (defaultLoginMethod: string) =>
+    set({ defaultLoginMethod }),
+  legalUrls: environment.legalUrls,
+  updateLegalUrls: async (legalUrls: EnvStoreState['legalUrls']) =>
+    set({ legalUrls }),
   runtimeConfigLoaded: false,
   setRuntimeConfigLoaded: (runtimeConfigLoaded: boolean) =>
     set({ runtimeConfigLoaded }),

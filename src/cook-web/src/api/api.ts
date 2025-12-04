@@ -12,6 +12,9 @@
  */
 
 const api = {
+  // config
+  getRuntimeConfig: 'GET /config',
+
   // auth
   sendSmsCode: 'POST /user/send_sms_code',
   requireTmp: 'POST /user/require_tmp',
