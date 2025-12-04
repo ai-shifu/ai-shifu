@@ -36,6 +36,7 @@ interface LessonPreviewProps {
   shifuBid: string;
   onRefresh: (generatedBlockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
+  onVariableChange?: (name: string, value: string) => void;
   reGenerateConfirm?: {
     open: boolean;
     onConfirm: () => void;
@@ -52,6 +53,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   shifuBid,
   onRefresh,
   onSend,
+  onVariableChange,
   reGenerateConfirm,
   isStreaming: _isStreaming = false,
 }) => {
@@ -94,6 +96,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
             variables={resolvedVariables}
             collapsed={variablesCollapsed}
             onToggle={() => setVariablesCollapsed(prev => !prev)}
+            onChange={onVariableChange}
           />
         )}
         {loading && items.length === 0 ? (

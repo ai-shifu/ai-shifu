@@ -56,6 +56,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
     resetPreview,
     onRefresh,
     onSend,
+    persistVariables,
+    onVariableChange,
     variables: previewVariables,
     reGenerateConfirm,
   } = usePreviewChat();
@@ -197,7 +199,15 @@ const ScriptEditor = ({ id }: { id: string }) => {
         blocksCount,
         systemVariableKeys,
       } = await actions.previewParse(mdflow, currentShifu.bid, currentNode.bid);
-      const previewVariablesMap = { ...parsedVariablesMap };
+      const previewVariablesMap = {
+        ...parsedVariablesMap,
+        ...previewVariables,
+      };
+      persistVariables({
+        shifuBid: currentShifu.bid,
+        systemVariableKeys,
+        variables: previewVariablesMap,
+      });
       void startPreview({
         shifuBid: currentShifu.bid,
         outlineBid: currentNode.bid,
@@ -516,6 +526,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   shifuBid={currentShifu?.bid || ''}
                   onRefresh={onRefresh}
                   onSend={onSend}
+                  onVariableChange={onVariableChange}
                   reGenerateConfirm={reGenerateConfirm}
                 />
               </div>

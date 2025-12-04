@@ -11,12 +11,14 @@ interface VariableListProps {
   variables?: PreviewVariablesMap;
   collapsed?: boolean;
   onToggle?: () => void;
+  onChange?: (name: string, value: string) => void;
 }
 
 const VariableList: React.FC<VariableListProps> = ({
   variables,
   collapsed = false,
   onToggle,
+  onChange,
 }) => {
   const { t } = useTranslation();
   const entries = useMemo(() => {
@@ -70,11 +72,16 @@ const VariableList: React.FC<VariableListProps> = ({
             <div className={styles.item} key={name}>
               <div className={styles.name} title={name}>{name}</div>
               <div className={styles.value} title={displayValue}>
-                <Input type="text" value={displayValue} 
+                <Input
+                  type='text'
+                  value={displayValue}
                   placeholder={t('module.shifu.previewArea.variablesPlaceholder')}
-                  onChange={(e) => {
-                  console.log('e', e.target.value);
-                }} />
+                  onChange={e => {
+                    const nextValue = e.target.value;
+                    console.log('e', nextValue);
+                    onChange?.(name, nextValue);
+                  }}
+                />
               </div>
             </div>
           );

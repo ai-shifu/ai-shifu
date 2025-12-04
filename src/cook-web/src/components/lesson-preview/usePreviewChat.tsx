@@ -129,6 +129,49 @@ export function usePreviewChat() {
     [],
   );
 
+  const handleVariableChange = useCallback((name: string, value: string) => {
+    if (!name) {
+      return;
+    }
+    setVariablesSnapshot(prev => {
+      const mergedVariables = {
+        ...((sseParams.current.variables as PreviewVariablesMap) || prev),
+        [name]: value,
+      };
+      sseParams.current.variables = mergedVariables;
+      return mergedVariables;
+    });
+  }, []);
+
+  const persistVariables = useCallback(
+    ({
+      shifuBid,
+      systemVariableKeys,
+      variables,
+    }: {
+      shifuBid?: string;
+      systemVariableKeys?: string[];
+      variables?: PreviewVariablesMap;
+    }) => {
+      const resolvedVariables =
+        variables ||
+        (sseParams.current.variables as PreviewVariablesMap) ||
+        variablesSnapshot;
+      const resolvedShifuBid = shifuBid || sseParams.current.shifuBid;
+      const resolvedSystemKeys =
+        systemVariableKeys || sseParams.current.systemVariableKeys || [];
+      if (!resolvedShifuBid) {
+        return;
+      }
+      savePreviewVariables(
+        resolvedShifuBid,
+        resolvedVariables,
+        resolvedSystemKeys,
+      );
+    },
+    [variablesSnapshot],
+  );
+
   const parseInteractionBlock = useCallback(
     (content?: string | null): InteractionParseResult | null => {
       if (!content) {
@@ -836,6 +879,8 @@ export function usePreviewChat() {
     resetPreview,
     onSend,
     onRefresh,
+    persistVariables,
+    onVariableChange: handleVariableChange,
     variables: variablesSnapshot,
     reGenerateConfirm: {
       open: showRegenerateConfirm,
