@@ -2,7 +2,7 @@ import { SSE } from 'sse.js';
 import request from '@/lib/request';
 import { tokenStore } from '@/c-service/storeUtil';
 import { v4 } from 'uuid';
-import { getStringEnv } from '@/c-utils/envUtils';
+import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import { useUserStore } from '@/store/useUserStore';
 
@@ -123,10 +123,7 @@ export const getRunMessage = (
   const token = useUserStore.getState().getToken();
   const payload = { ...body };
 
-  let baseURL = getStringEnv('baseURL');
-  if (baseURL === '' || baseURL === '/') {
-    baseURL = window.location.origin;
-  }
+  const baseURL = getResolvedBaseURL();
 
   // Convert input values to array format for markdown-flow 0.2.27+
   // Backend expects: { "variableName": ["value1", "value2"] }

@@ -632,7 +632,7 @@ export default function ShifuSettingDialog({
                       <ModelList
                         disabled={currentShifu?.readonly}
                         className='h-9'
-                        value={field.value}
+                        value={field.value ?? ''}
                         onChange={field.onChange}
                       />
                     </FormControl>

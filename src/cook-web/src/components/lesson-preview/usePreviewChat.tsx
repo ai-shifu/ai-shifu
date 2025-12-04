@@ -16,6 +16,7 @@ import {
   fixMarkdownStream,
   maskIncompleteMermaidBlock,
 } from '@/c-utils/markdownUtils';
+import { getDynamicApiBaseUrl } from '@/config/environment';
 import { useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
@@ -74,6 +75,19 @@ const buildVariablesSnapshot = (
 
 export function usePreviewChat() {
   const { t } = useTranslation();
+  const resolveBaseUrl = useCallback(async () => {
+    const dynamicBase = await getDynamicApiBaseUrl();
+    const candidate =
+      dynamicBase || getStringEnv('baseURL') || 'http://localhost:8080';
+    const normalized = candidate.replace(/\/$/, '');
+    if (normalized && normalized !== '') {
+      return normalized;
+    }
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      return window.location.origin;
+    }
+    return '';
+  }, []);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const contentListRef = useRef<ChatContentItem[]>([]);
@@ -462,7 +476,7 @@ export function usePreviewChat() {
   }, [stopPreview]);
 
   const startPreview = useCallback(
-    ({
+    async ({
       shifuBid,
       outlineBid,
       mdflow,
@@ -517,6 +531,11 @@ export function usePreviewChat() {
       }
 
       stopPreview();
+      const resolvedBaseUrl = await resolveBaseUrl();
+      if (!resolvedBaseUrl) {
+        setError('Missing API base URL');
+        return;
+      }
       setTrackedContentList(prev => [
         ...prev.filter(item => item.generated_block_bid !== 'loading'),
         {
@@ -532,10 +551,6 @@ export function usePreviewChat() {
       currentContentIdRef.current = null;
 
       try {
-        let baseURL = getStringEnv('baseURL');
-        if (!baseURL || baseURL === '' || baseURL === '/') {
-          baseURL = typeof window !== 'undefined' ? window.location.origin : '';
-        }
         const tokenValue = useUserStore.getState().getToken();
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
@@ -554,7 +569,7 @@ export function usePreviewChat() {
           payload.user_input = normalizedUserInput;
         }
         const source = new SSE(
-          `${baseURL}/api/learn/shifu/${finalShifuBid}/preview/${finalOutlineBid}`,
+          `${resolvedBaseUrl}/api/learn/shifu/${finalShifuBid}/preview/${finalOutlineBid}`,
           {
             headers,
             payload: JSON.stringify(payload),
@@ -584,7 +599,7 @@ export function usePreviewChat() {
         setIsLoading(false);
       }
     },
-    [handlePayload, setTrackedContentList, stopPreview],
+    [handlePayload, resolveBaseUrl, setTrackedContentList, stopPreview],
   );
 
   const updateContentListWithUserOperate = useCallback(
