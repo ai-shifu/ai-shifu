@@ -60,8 +60,8 @@ const MinimalTreeItemComponent = React.forwardRef<
   const lessonCount = props.item?.children?.length || 0;
   const localeWithSuffix = ['en-us'];
   const currentLanguage = i18n.language?.toLowerCase() || '';
-  const shouldUseSuffix = localeWithSuffix.some((code) =>
-    currentLanguage.startsWith(code)
+  const shouldUseSuffix = localeWithSuffix.some(code =>
+    currentLanguage.startsWith(code),
   );
   const lessonCountLabel = t('component.outlineTree.lessonCount', {
     count: lessonCount,

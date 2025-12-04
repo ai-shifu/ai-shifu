@@ -1,5 +1,16 @@
 import { UserInfo } from './index';
 
+export interface LegalUrls {
+  agreement: {
+    'zh-CN': string;
+    'en-US': string;
+  };
+  privacy: {
+    'zh-CN': string;
+    'en-US': string;
+  };
+}
+
 export interface EnvStoreState {
   courseId: string;
   defaultLlmModel: string;
@@ -18,6 +29,9 @@ export interface EnvStoreState {
   stripePublishableKey: string;
   stripeEnabled: string;
   paymentChannels: string[];
+  loginMethodsEnabled: string[];
+  defaultLoginMethod: string;
+  legalUrls: LegalUrls;
   runtimeConfigLoaded: boolean;
   updateCourseId: (courseId: string) => Promise<void>;
   updateDefaultLlmModel: (model: string) => Promise<void>;
@@ -36,6 +50,9 @@ export interface EnvStoreState {
   updateStripePublishableKey: (key: string) => Promise<void>;
   updateStripeEnabled: (value: string) => Promise<void>;
   updatePaymentChannels: (channels: string[]) => Promise<void>;
+  updateLoginMethodsEnabled: (methods: string[]) => Promise<void>;
+  updateDefaultLoginMethod: (method: string) => Promise<void>;
+  updateLegalUrls: (legalUrls: LegalUrls) => Promise<void>;
   setRuntimeConfigLoaded: (loaded: boolean) => void;
 }
 

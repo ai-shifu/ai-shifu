@@ -60,5 +60,15 @@ def load_plugins_from_dir(
                         wrapped_func()
 
     with app.app_context():
-        load_from_directory(plugins_dir, plugin_manager)
+        files = os.listdir(plugins_dir)
+        for file in files:
+            if os.path.isdir(os.path.join(plugins_dir, file)):
+                app.logger.info("begin load plugin: {}".format(file))
+                try:
+                    load_from_directory(os.path.join(plugins_dir, file), plugin_manager)
+                    app.logger.info("load plugin: {} success".format(file))
+                except Exception as e:
+                    app.logger.error("load plugin: {} error: {}".format(file, e))
+            else:
+                app.logger.warning("skip non-directory file: {}".format(file))
     return plugins

@@ -1174,6 +1174,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         systemVariableKeys,
       );
       savePreviewVariables(resolvedShifuId, variablesMap, systemVariableKeys);
+      console.log('variablesMap', variablesMap);  
       return {
         variables: variablesMap,
         blocksCount: result?.blocks_count ?? 0,
