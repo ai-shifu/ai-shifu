@@ -27,7 +27,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import TimeBar from './TimeBar';
 interface LessonPreviewProps {
   loading: boolean;
   isStreaming?: boolean;
@@ -90,7 +89,6 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
       </div>
       <div className='mt-[10px] flex-1 overflow-hidden bg-white'>
         <VariableList variables={resolvedVariables} />
-        {items[0]?.generateTime && <TimeBar timestamp={items[0].generateTime} />}
         {loading && items.length === 0 ? (
           <div className='flex h-full flex-col items-center justify-center gap-2 p-6 text-xs text-muted-foreground'>
             <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />

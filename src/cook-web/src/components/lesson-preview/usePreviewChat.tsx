@@ -83,7 +83,6 @@ export function usePreviewChat() {
   const sseParams = useRef<StartPreviewParams>({});
   const sseRef = useRef<any>(null);
   const isStreamingRef = useRef(false);
-  const previewTimestampRef = useRef<number | null>(null);
   const [variablesSnapshot, setVariablesSnapshot] =
     useState<PreviewVariablesMap>({});
   const interactionParserRef = useRef(createInteractionParser());
@@ -255,7 +254,6 @@ export function usePreviewChat() {
     currentContentRef.current = '';
     currentContentIdRef.current = null;
     autoSubmittedBlocksRef.current.clear();
-    previewTimestampRef.current = null;
     setVariablesSnapshot({});
   }, [stopPreview, setTrackedContentList]);
 
@@ -272,7 +270,6 @@ export function usePreviewChat() {
           content: '',
           readonly: false,
           type: ChatContentItemType.CONTENT,
-          generateTime: previewTimestampRef.current ?? Date.now(),
         },
       ]);
       return blockId;
@@ -318,7 +315,6 @@ export function usePreviewChat() {
               defaultInputText: autoParams?.inputText || '',
               defaultSelectedValues: autoParams?.selectedValues,
               type: ChatContentItemType.INTERACTION,
-              generateTime: previewTimestampRef.current ?? Date.now(),
             };
             const lastContent = prev[prev.length - 1];
             if (
@@ -332,7 +328,6 @@ export function usePreviewChat() {
                   generated_block_bid: `${lastContent.generated_block_bid}-feedback`,
                   like_status: LIKE_STATUS.NONE,
                   type: ChatContentItemType.LIKE_STATUS,
-                  generateTime: previewTimestampRef.current ?? Date.now(),
                 },
                 interactionBlock,
               ];
@@ -377,7 +372,6 @@ export function usePreviewChat() {
                 content: '',
                 like_status: LIKE_STATUS.NONE,
                 type: ChatContentItemType.LIKE_STATUS,
-                generateTime: previewTimestampRef.current ?? Date.now(),
               });
               const nextIndex = (sseParams.current?.block_index || 0) + 1;
               const totalBlocks = sseParams.current?.max_block_count;
@@ -465,10 +459,6 @@ export function usePreviewChat() {
       sseParams.current = mergedParams;
       setVariablesSnapshot(buildVariablesSnapshot(finalVariables));
 
-      if (finalBlockIndex === 0) {
-        previewTimestampRef.current = Date.now();
-      }
-
       if (!finalShifuBid || !finalOutlineBid) {
         setError('Invalid preview params');
         return;
@@ -491,7 +481,6 @@ export function usePreviewChat() {
           content: '',
           customRenderBar: () => <LoadingBar />,
           type: ChatContentItemType.CONTENT,
-          generateTime: previewTimestampRef.current ?? Date.now(),
         },
       ]);
       setIsLoading(true);
