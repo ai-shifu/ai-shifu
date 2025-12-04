@@ -56,6 +56,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   isStreaming: _isStreaming = false,
 }) => {
   const { t } = useTranslation();
+  const [variablesCollapsed, setVariablesCollapsed] = React.useState(false);
   const showEmpty = !loading && items.length === 0;
   const fallbackVariables = React.useMemo(() => {
     if (!shifuBid) {
@@ -88,7 +89,13 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
         </p>
       </div>
       <div className='mt-[10px] flex-1 overflow-hidden bg-white'>
-        <VariableList variables={resolvedVariables} />
+        {!showEmpty && (
+          <VariableList
+            variables={resolvedVariables}
+            collapsed={variablesCollapsed}
+            onToggle={() => setVariablesCollapsed(prev => !prev)}
+          />
+        )}
         {loading && items.length === 0 ? (
           <div className='flex h-full flex-col items-center justify-center gap-2 p-6 text-xs text-muted-foreground'>
             <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
@@ -105,7 +112,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
             <span>{t('module.shifu.previewArea.empty')}</span>
           </div>
         ) : (
-          <div className='flex h-full flex-col overflow-y-auto p-6 pt-0'>
+          <div className='flex h-full flex-col overflow-y-auto p-6'>
             {items.map((item, idx) => {
               if (item.type === ChatContentItemType.LIKE_STATUS) {
                 return (

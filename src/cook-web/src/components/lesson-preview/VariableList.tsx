@@ -5,12 +5,19 @@ import { useTranslation } from 'react-i18next';
 import styles from './VariableList.module.scss';
 import type { PreviewVariablesMap } from './variableStorage';
 import { Input } from '../ui/Input';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface VariableListProps {
   variables?: PreviewVariablesMap;
+  collapsed?: boolean;
+  onToggle?: () => void;
 }
 
-const VariableList: React.FC<VariableListProps> = ({ variables }) => {
+const VariableList: React.FC<VariableListProps> = ({
+  variables,
+  collapsed = false,
+  onToggle,
+}) => {
   const { t } = useTranslation();
   const entries = useMemo(() => {
     return Object.entries(variables || {});
@@ -34,8 +41,29 @@ const VariableList: React.FC<VariableListProps> = ({ variables }) => {
             </span> */}
           </div>
         </div>
+        {onToggle && (
+          <button
+            type='button'
+            className={styles.toggle}
+            onClick={onToggle}
+          >
+            {collapsed ? (
+              <ChevronDown size={16} strokeWidth={2} />
+            ) : (
+              <ChevronUp size={16} strokeWidth={2} />
+            )}
+            <span>
+              {collapsed
+                ? t('module.shifu.previewArea.variablesExpand')
+                : t('module.shifu.previewArea.variablesCollapse')}
+            </span>
+          </button>
+        )}
       </div>
-      <div className={styles.grid}>
+      <div
+        className={`${styles.grid} ${collapsed ? styles.collapsed : ''}`}
+        aria-hidden={collapsed}
+      >
         {entries.map(([name, value]) => {
           const displayValue = value || '';
           return (

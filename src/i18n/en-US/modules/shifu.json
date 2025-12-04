@@ -19,6 +19,8 @@
     "variablesTitle": "Variables",
     "variablesDescription": "Personalize the output with these variable values",
     "variablesLearnMore": "Learn more",
-    "variablesPlaceholder": "UNKNOWN"
+    "variablesPlaceholder": "UNKNOWN",
+    "variablesCollapse": "Collapse",
+    "variablesExpand": "Expand"
   }
 }
