@@ -3,30 +3,30 @@
     height: calc(100vh - 140px); /* 可按页面头部高度自行微调 */
     display: flex;
     flex-direction: column;
-  }
-  
-  .previewArea {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    border-radius: 10px;
-    border: 1px solid #e5e5e5;
-    background: #fff;
-    overflow: hidden; /* 固定 sticky 容器必须为非 scroll */
-  }
-  
-  /* 唯一滚动区域 */
-  .previewAreaContent {
-    flex: 1;
-    overflow-y: auto;
-    padding: 24px;
-  }
-  
-  /* 强制 VariableList 吸顶正常工作 */
-  .variableListWrapper {
-    position: sticky;
-    top: 0;
-    z-index: 30;
-    background: #fff;
-  }
-  
+    .previewArea {
+        margin-top: 12px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        border-radius: 10px;
+        border: 1px solid #e5e5e5;
+        background: #fff;
+        overflow: hidden; /* 固定 sticky 容器必须为非 scroll */
+    }
+    
+    /* 唯一滚动区域 */
+    .previewAreaContent {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px;
+    }
+    
+    /* 强制 VariableList 吸顶正常工作 */
+    .variableListWrapper {
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        background: #fff;
+    }
+      
+}
