@@ -75,7 +75,7 @@ const MinimalTreeItemComponent = React.forwardRef<
       <div
         className={cn(
           'flex text-sm items-center flex-1 px-0 py-1 justify-between w-full',
-          (props.item?.children?.length || 0) > 0 ? 'pl-0' : 'pl-4',
+          (props.item?.children?.length || 0) > 0 ? 'pl-0' : 'pl-10',
         )}
         onClick={onSelect}
       >

@@ -9,6 +9,8 @@
 .navFooter .userInfo {
   display: flex;
   align-items: center;
+  min-width: 0;
+  flex: 1;
 }
 .navFooter .userSection {
   padding: 0 20px;
@@ -27,6 +29,9 @@
   overflow: hidden;
   color: var(--base-sidebar-foreground, #0a0a0a);
   text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  max-width: 100%;
   font-family: var(--font-font-sans, Geist);
   font-size: var(--text-sm-font-size, 14px);
   font-style: normal;

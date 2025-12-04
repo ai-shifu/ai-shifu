@@ -132,8 +132,23 @@ def get_outline_tree_dto(
     """
     result = []
     for node in outline_tree:
+        node_outline = node.outline
+        outline_title = node_outline.title if node_outline else ""
+        outline_type = (
+            UNIT_TYPE_VALUES_REVERSE.get(node_outline.type, UNIT_TYPE_TRIAL)
+            if node_outline
+            else UNIT_TYPE_TRIAL
+        )
+        is_hidden = bool(node_outline.hidden) if node_outline else False
         result.append(
-            SimpleOutlineDto(node.outline_id, node.position, node.outline.title, [])
+            SimpleOutlineDto(
+                node.outline_id,
+                node.position,
+                outline_title,
+                [],
+                outline_type,
+                is_hidden,
+            )
         )
         if node.children:
             result[-1].children = get_outline_tree_dto(node.children)
@@ -223,7 +238,10 @@ def create_outline(
                 max([int(item.position) for item in root_items]) if root_items else 0
             )
             new_position = f"{max_index + 1:02d}"
-        type = UNIT_TYPE_VALUES.get(outline_type, UNIT_TYPE_VALUE_TRIAL)
+        type_value = UNIT_TYPE_VALUES.get(outline_type, UNIT_TYPE_VALUE_TRIAL)
+        type_label = UNIT_TYPE_VALUES_REVERSE.get(
+            type_value, outline_type or UNIT_TYPE_TRIAL
+        )
 
         # create new outline
         new_outline = DraftOutlineItem(
@@ -245,7 +263,7 @@ def create_outline(
             updated_at=now_time,
             created_user_bid=user_id,
             updated_user_bid=user_id,
-            type=type,
+            type=type_value,
             hidden=is_hidden,
         )
 
@@ -263,7 +281,12 @@ def create_outline(
         db.session.commit()
 
         return SimpleOutlineDto(
-            bid=outline_bid, position=new_position, name=outline_name, children=[]
+            bid=outline_bid,
+            position=new_position,
+            name=outline_name,
+            children=[],
+            type=type_label,
+            is_hidden=is_hidden,
         )
 
 
@@ -337,11 +360,19 @@ def modify_outline(
             save_outline_history(app, user_id, shifu_id, outline_id, new_outline.id)
             db.session.commit()
 
+        outline_type_value = existing_outline.type
+        type_label = UNIT_TYPE_VALUES_REVERSE.get(
+            outline_type_value, outline_type or UNIT_TYPE_TRIAL
+        )
+        hidden_flag = bool(existing_outline.hidden)
+
         return SimpleOutlineDto(
             bid=outline_id,
             position=existing_outline.position,
             name=outline_name,
             children=[],
+            type=type_label,
+            is_hidden=hidden_flag,
         )
 
 

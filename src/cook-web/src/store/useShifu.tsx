@@ -14,6 +14,7 @@ import {
   BlockDTO,
   BlockType,
   SaveMdflowPayload,
+  LessonCreationSettings,
 } from '../types/shifu';
 import api from '@/api';
 import { debounce } from 'lodash';
@@ -144,6 +145,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         parent_bid: parentId,
         parentId: parentId,
         name: item.name,
+        type: item.type,
+        is_hidden: item.is_hidden,
         depth: depth,
         status: 'edit',
       };
@@ -327,6 +330,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     return items.map((item: any) => {
       return {
         id: item.bid,
+        type: item.type,
+        is_hidden: item.is_hidden,
         name: item.name,
         bid: item.bid,
         position: item.position,
@@ -479,37 +484,121 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     [blocks, isLoading, blockTypes, currentNode],
   );
 
-  const addSubOutline = async (parent: Outline, name = '') => {
-    if (cataData['new_chapter']) {
+  const addSubOutline = async (
+    parent: Outline,
+    settings: LessonCreationSettings,
+  ) => {
+    const shifuBid = currentShifu?.bid;
+    if (!shifuBid) {
       return;
     }
-    if (parent.children?.find((child: any) => child.id === 'new_chapter')) {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const parentNode = findNode(parent.id);
+      if (!parentNode) {
+        throw new Error('Parent node not found');
+      }
+      const parentId = parentNode.id;
+      const index = parentNode.children?.length || 0;
+      const created = await api.createOutline({
+        parent_bid: parentId,
+        index,
+        name: settings.name,
+        description: settings.name,
+        type: settings.learningPermission,
+        system_prompt: settings.systemPrompt,
+        is_hidden: settings.isHidden,
+        shifu_bid: shifuBid,
+      });
+      const depth = (parentNode.depth || parent.depth || 0) + 1;
+      const newOutline: Outline = {
+        id: created.bid,
+        bid: created.bid,
+        parent_bid: parentId,
+        name: created.name,
+        children: [],
+        position: '',
+        depth,
+        type: settings.learningPermission,
+        is_hidden: settings.isHidden,
+      };
+      parentNode.children = [...(parentNode.children || []), newOutline];
+      setChapters([...chapters]);
+      setCataData({
+        ...cataData,
+        [newOutline.id]: {
+          ...newOutline,
+          parentId: parentId,
+          status: 'edit',
+        },
+      });
+      trackEvent('creator_outline_create', {
+        shifu_bid: shifuBid,
+        outline_bid: newOutline.bid,
+        outline_name: newOutline.name,
+        parent_bid: parentId,
+      });
+      setLastSaveTime(new Date());
+    } catch (error) {
+      console.error(error);
+      setError('Failed to create lesson');
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const addRootOutline = async (settings: LessonCreationSettings) => {
+    const shifuBid = currentShifu?.bid;
+    if (!shifuBid) {
       return;
     }
-    const id = 'new_chapter';
-    parent.children?.push({
-      id,
-      bid: id,
-      parent_bid: parent.id,
-      name: name,
-      children: [],
-      position: '',
-      depth: (parent?.depth || 0) + 1,
-    });
-
-    updateOuline(id, {
-      parent_bid: parent.id,
-      id,
-      bid: id,
-      name: name,
-      children: [],
-      position: '',
-      depth: (parent?.depth || 0) + 1,
-    });
-
-    setChapters([...chapters]);
-
-    setFocusId(id);
+    setIsSaving(true);
+    setError(null);
+    try {
+      const index = chapters.length;
+      const created = await api.createOutline({
+        parent_bid: '',
+        index,
+        name: settings.name,
+        description: settings.name,
+        type: LEARNING_PERMISSION.TRIAL,
+        system_prompt: settings.systemPrompt,
+        is_hidden: false,
+        shifu_bid: shifuBid,
+      });
+      const newOutline: Outline = {
+        id: created.bid,
+        bid: created.bid,
+        parent_bid: '',
+        name: created.name,
+        children: [],
+        position: '',
+        depth: 0,
+      };
+      setChapters([...chapters, newOutline]);
+      setCataData({
+        ...cataData,
+        [newOutline.id]: {
+          ...newOutline,
+          status: 'edit',
+        },
+      });
+      trackEvent('creator_outline_create', {
+        shifu_bid: shifuBid,
+        outline_bid: newOutline.bid,
+        outline_name: newOutline.name,
+        parent_bid: '',
+      });
+      setLastSaveTime(new Date());
+    } catch (error) {
+      console.error(error);
+      setError('Failed to create chapter');
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const saveCurrentBlocks = useCallback(
@@ -589,35 +678,75 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     debouncedAutoSaveRef.current.cancel();
   };
 
-  const addSiblingOutline = async (item: Outline, name = '') => {
-    const id = 'new_chapter';
-    const parent = findNode(item.parent_bid || '');
-    const index = parent?.children?.findIndex(
-      (child: any) => child.id === item.id,
-    );
-    // insert item after index;
-    parent.children?.splice(index + 1, 0, {
-      id,
-      parent_bid: parent.id,
-      name: name,
-      children: [],
-      position: '',
-      depth: (parent?.depth || 0) + 1,
-    });
-
-    updateOuline(id, {
-      parent_bid: parent.id,
-      bid: id,
-      id,
-      name: name,
-      children: [],
-      position: '',
-      depth: (parent?.depth || 0) + 1,
-    });
-
-    setChapters([...chapters]);
-
-    setFocusId(id);
+  const addSiblingOutline = async (
+    item: Outline,
+    settings: LessonCreationSettings,
+  ) => {
+    const shifuBid = currentShifu?.bid;
+    if (!shifuBid) {
+      return;
+    }
+    setIsSaving(true);
+    setError(null);
+    try {
+      const parentNode = findNode(item.parent_bid || '');
+      if (!parentNode) {
+        throw new Error('Parent node not found');
+      }
+      const parentId = parentNode.id;
+      const currentIndex =
+        parentNode.children?.findIndex(child => child.id === item.id) ?? -1;
+      const insertIndex =
+        currentIndex >= 0 ? currentIndex + 1 : parentNode.children?.length || 0;
+      const created = await api.createOutline({
+        parent_bid: parentId,
+        index: insertIndex,
+        name: settings.name,
+        description: settings.name,
+        type: settings.learningPermission,
+        system_prompt: settings.systemPrompt,
+        is_hidden: settings.isHidden,
+        shifu_bid: shifuBid,
+      });
+      const depth =
+        item.depth !== undefined ? item.depth : (parentNode.depth || 0) + 1;
+      const newOutline: Outline = {
+        id: created.bid,
+        bid: created.bid,
+        parent_bid: parentId,
+        name: created.name,
+        children: [],
+        position: '',
+        depth,
+        type: settings.learningPermission,
+        is_hidden: settings.isHidden,
+      };
+      const children = [...(parentNode.children || [])];
+      children.splice(insertIndex, 0, newOutline);
+      parentNode.children = children;
+      setChapters([...chapters]);
+      setCataData({
+        ...cataData,
+        [newOutline.id]: {
+          ...newOutline,
+          parentId: parentId,
+          status: 'edit',
+        },
+      });
+      trackEvent('creator_outline_create', {
+        shifu_bid: shifuBid,
+        outline_bid: newOutline.bid,
+        outline_name: newOutline.name,
+        parent_bid: parentId,
+      });
+      setLastSaveTime(new Date());
+    } catch (error) {
+      console.error(error);
+      setError('Failed to create lesson');
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const createChapter = async (data: Outline) => {
@@ -810,7 +939,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     });
   };
 
-  const updateOuline = async (id: string, value: Outline) => {
+  const updateOutline = async (id: string, value: Outline) => {
     setCataData({
       ...cataData,
       [id]: {
@@ -818,6 +947,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         ...value,
       },
     });
+    setLastSaveTime(new Date());
   };
 
   const addChapter = async (chapter: Outline) => {
@@ -828,7 +958,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       return;
     }
     setChapters([...chapters, chapter]);
-    updateOuline(chapter.id, {
+    updateOutline(chapter.id, {
       ...chapter,
       status: 'new',
     });
@@ -1099,12 +1229,13 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     actions: {
       setFocusId,
       addChapter,
+      addRootOutline,
       setChapters,
       loadShifu,
       loadChapters,
       createChapter,
       setFocusValue,
-      updateOuline,
+      updateOutline,
       addSubOutline,
       addSiblingOutline,
       removeOutline,

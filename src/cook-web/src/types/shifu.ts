@@ -1,4 +1,5 @@
 import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
+import type { LearningPermission } from '@/c-api/studyV2';
 
 export type BlockType =
   | 'content'
@@ -30,6 +31,16 @@ export interface Outline {
   depth?: number;
   status?: 'new' | 'edit' | 'saving';
   shifu_bid?: string;
+  is_hidden?: boolean;
+  type?: LearningPermission;
+  system_prompt?: string;
+}
+
+export interface LessonCreationSettings {
+  name: string;
+  learningPermission: LearningPermission;
+  isHidden: boolean;
+  systemPrompt: string;
 }
 
 export interface Block {
@@ -110,15 +121,22 @@ export interface SaveMdflowPayload {
 
 export interface ShifuActions {
   addChapter: (chapter: Outline) => void;
+  addRootOutline: (settings: LessonCreationSettings) => Promise<void>;
   loadShifu: (shifuId: string, options?: { silent?: boolean }) => Promise<void>;
   loadChapters: (shifuId: string) => Promise<void>;
   createChapter: (chapter: Omit<Outline, 'chapter_id'>) => Promise<void>;
   setChapters: (chapters: Outline[]) => void;
   setFocusId: (id: string) => void;
   setFocusValue: (value: string) => void;
-  updateOuline: (id: string, chapter: Outline) => Promise<void>;
-  addSubOutline: (parent: Outline, name: string) => Promise<void>;
-  addSiblingOutline: (item: Outline, name: string) => Promise<void>;
+  updateOutline: (id: string, chapter: Outline) => Promise<void>;
+  addSubOutline: (
+    parent: Outline,
+    settings: LessonCreationSettings,
+  ) => Promise<void>;
+  addSiblingOutline: (
+    item: Outline,
+    settings: LessonCreationSettings,
+  ) => Promise<void>;
   removeOutline: (item: Outline) => Promise<void>;
   replaceOutline: (id: string, outline: Outline) => Promise<void>;
   createOutline: (outline: Outline) => Promise<void>;
