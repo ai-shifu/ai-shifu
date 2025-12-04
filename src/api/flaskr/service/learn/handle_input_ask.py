@@ -18,6 +18,8 @@ from flaskr.service.learn.utils_v2 import (
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDASK_VALUE,
     BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDCONTENT_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
 )
 from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO, GeneratedType
 from flaskr.service.learn.llmsetting import LLMSettings
@@ -58,6 +60,7 @@ def handle_input_ask(
     history_scripts: list[LearnGeneratedBlock] = (
         LearnGeneratedBlock.query.filter(
             LearnGeneratedBlock.progress_record_bid == attend_id,
+            LearnGeneratedBlock.deleted == 0,
         )
         .order_by(LearnGeneratedBlock.id.desc())
         .limit(ask_max_history_len)
@@ -87,11 +90,11 @@ def handle_input_ask(
     messages.append({"role": "system", "content": system_prompt})
     # Add historical conversation records to system messages
     for script in history_scripts:
-        if script.role == ROLE_STUDENT:
+        if script.type in [BLOCK_TYPE_MDASK_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]:
             messages.append(
                 {"role": "user", "content": script.generated_content}
             )  # Add user message
-        elif script.role == ROLE_TEACHER:
+        elif script.type in [BLOCK_TYPE_MDANSWER_VALUE, BLOCK_TYPE_MDCONTENT_VALUE]:
             messages.append(
                 {"role": "assistant", "content": script.generated_content}
             )  # Add assistant message
