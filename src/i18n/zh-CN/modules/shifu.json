@@ -18,6 +18,7 @@
     "title": "预览区",
     "variablesTitle": "变量",
     "variablesDescription": "基于变量值生成个性化的内容",
-    "variablesLearnMore": "了解更多"
+    "variablesLearnMore": "了解更多",
+    "variablesPlaceholder": "UNKNOWN"
   }
 }

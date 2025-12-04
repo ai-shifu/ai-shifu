@@ -56,25 +56,47 @@
   }
 
   .item {
-    gap: 4px;
     display: flex;
   }
 
   .name {
-    font-size: 12px;
-    color: rgba(0, 0, 0, 0.55);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: var(--base-secondary-foreground, #171717);
+    font-size: var(--text-xs-font-size, 12px);
+    font-style: normal;
+    font-weight: bold;
+    line-height: var(--text-xs-line-height, 16px); /* 133.333% */
+    border-radius: var(--border-radius-rounded-md, 8px) 0 0 var(--border-radius-rounded-md, 8px);
+    background: var(--base-secondary, #F5F5F5);
+    box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px) var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0) var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
+    padding: 8px 12px;
+    width: 50%;
+    text-align: center;
   }
 
   .value {
     font-size: 13px;
     font-weight: 600;
-    color: #0a0a0a;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    overflow: hidden;
+    color: #171717;
+    text-overflow: ellipsis;
+
+    font-size: var(--text-sm-font-size, 14px);
+    font-style: normal;
+    font-weight: var(--font-weight-normal, 400);
+    line-height: var(--text-sm-line-height, 20px); /* 142.857% */
+    input{
+      border-radius: 0 var(--border-radius-rounded-md, 8px) var(--border-radius-rounded-md, 8px) 0;
+      border: var(--border-width-border, 1px) solid var(--base-input, #E5E5E5);
+      background: var(--custom-background-dark-input-30, #FFF);
+      padding: 8px 12px;
+      box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px) var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0) var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
+    }
   }
 
 }

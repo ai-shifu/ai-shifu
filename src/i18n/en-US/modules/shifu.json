@@ -18,6 +18,7 @@
     "title": "Preview Area",
     "variablesTitle": "Variables",
     "variablesDescription": "Personalize the output with these variable values",
-    "variablesLearnMore": "Learn more"
+    "variablesLearnMore": "Learn more",
+    "variablesPlaceholder": "UNKNOWN"
   }
 }

@@ -4,6 +4,7 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from './VariableList.module.scss';
 import type { PreviewVariablesMap } from './variableStorage';
+import { Input } from '../ui/Input';
 
 interface VariableListProps {
   variables?: PreviewVariablesMap;
@@ -38,9 +39,15 @@ const VariableList: React.FC<VariableListProps> = ({ variables }) => {
         {entries.map(([name, value]) => {
           const displayValue = value || '';
           return (
-            <div className={styles.item} key={name} title={`${name}: ${displayValue}`}>
-              <div className={styles.name}>{name}</div>
-              <div className={styles.value}>{displayValue}</div>
+            <div className={styles.item} key={name}>
+              <div className={styles.name} title={name}>{name}</div>
+              <div className={styles.value} title={displayValue}>
+                <Input type="text" value={displayValue} 
+                  placeholder={t('module.shifu.previewArea.variablesPlaceholder')}
+                  onChange={(e) => {
+                  console.log('e', e.target.value);
+                }} />
+              </div>
             </div>
           );
         })}
