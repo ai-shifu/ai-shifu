@@ -1,27 +1,24 @@
 .lessonPreview {
-    /* 自动高度：让整个预览模块基于视口高度布局 */
-    height: calc(100vh - 140px); /* 可按页面头部高度自行微调 */
+    height: calc(100vh - 123px);
     display: flex;
     flex-direction: column;
     .previewArea {
-        margin-top: 12px;
+        margin-top: 11px;
         flex: 1;
         display: flex;
         flex-direction: column;
         border-radius: 10px;
         border: 1px solid #e5e5e5;
         background: #fff;
-        overflow: hidden; /* 固定 sticky 容器必须为非 scroll */
+        overflow: hidden; 
     }
     
-    /* 唯一滚动区域 */
     .previewAreaContent {
         flex: 1;
         overflow-y: auto;
         padding: 24px;
     }
     
-    /* 强制 VariableList 吸顶正常工作 */
     .variableListWrapper {
         position: sticky;
         top: 0;
