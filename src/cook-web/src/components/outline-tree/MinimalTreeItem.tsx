@@ -248,6 +248,7 @@ const MinimalTreeItemComponent = React.forwardRef<
     <>
       <SimpleTreeItemWrapper
         {...props}
+        readonly={currentShifu?.readonly}
         ref={ref}
         disableCollapseOnItemClick={false}
         className={cn(shouldHighlight && !isChapterNode && 'select')}

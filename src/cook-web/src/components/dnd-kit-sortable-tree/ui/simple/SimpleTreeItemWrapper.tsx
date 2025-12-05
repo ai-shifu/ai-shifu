@@ -9,6 +9,7 @@ import './SimpleTreeItemWrapper.css';
 
 interface SimpleTreeItemWrapperProps<T = {}> extends TreeItemComponentProps<T> {
   onChapterSelect?: () => void;
+  readonly: boolean;
   chapter?: {
     label?: string;
     onSettingsClick?: React.MouseEventHandler<HTMLButtonElement>;
@@ -50,6 +51,7 @@ export const SimpleTreeItemWrapper = forwardRef<
     isOverParent,
     onChapterSelect,
     chapter,
+    readonly,
     ...rest
   } = props;
 
@@ -125,7 +127,7 @@ export const SimpleTreeItemWrapper = forwardRef<
                   <Settings size={16} />
                 </button>
               )}
-              {chapter.showAdd !== false && chapter.onAddClick && (
+              {chapter.showAdd !== false && chapter.onAddClick && !readonly &&(
                 <button
                   type='button'
                   className='outline-tree_action-button'
