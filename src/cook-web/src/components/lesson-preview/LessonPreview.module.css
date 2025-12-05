@@ -1,0 +1,26 @@
+.lessonPreview {
+  height: calc(100vh - 123px);
+  display: flex;
+  flex-direction: column;
+}
+.lessonPreview .previewArea {
+  margin-top: 11px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  border: 1px solid #e5e5e5;
+  background: #fff;
+  overflow: hidden;
+}
+.lessonPreview .previewAreaContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+.lessonPreview .variableListWrapper {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: #fff;
+}

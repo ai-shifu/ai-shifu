@@ -48,6 +48,28 @@ enum PREVIEW_SSE_OUTPUT_TYPE {
   ERROR = 'error',
 }
 
+const buildVariablesSnapshot = (
+  variables?: Record<string, unknown>,
+): PreviewVariablesMap => {
+  if (!variables) {
+    return {};
+  }
+  return Object.entries(variables).reduce<PreviewVariablesMap>((acc, entry) => {
+    const [key, value] = entry;
+    if (value === undefined || value === null) {
+      acc[key] = '';
+    } else if (Array.isArray(value)) {
+      acc[key] = value
+        .map(item => (item === undefined || item === null ? '' : `${item}`))
+        .filter(Boolean)
+        .join(', ');
+    } else {
+      acc[key] = `${value}`;
+    }
+    return acc;
+  }, {});
+};
+
 export function usePreviewChat() {
   const { t } = useTranslation();
   const resolveBaseUrl = useCallback(async () => {
@@ -72,6 +94,8 @@ export function usePreviewChat() {
   const sseParams = useRef<StartPreviewParams>({});
   const sseRef = useRef<any>(null);
   const isStreamingRef = useRef(false);
+  const [variablesSnapshot, setVariablesSnapshot] =
+    useState<PreviewVariablesMap>({});
   const interactionParserRef = useRef(createInteractionParser());
   const autoSubmittedBlocksRef = useRef<Set<string>>(new Set());
   const tryAutoSubmitInteractionRef = useRef<
@@ -114,6 +138,49 @@ export function usePreviewChat() {
       });
     },
     [],
+  );
+
+  const handleVariableChange = useCallback((name: string, value: string) => {
+    if (!name) {
+      return;
+    }
+    setVariablesSnapshot(prev => {
+      const mergedVariables = {
+        ...((sseParams.current.variables as PreviewVariablesMap) || prev),
+        [name]: value,
+      };
+      sseParams.current.variables = mergedVariables;
+      return mergedVariables;
+    });
+  }, []);
+
+  const persistVariables = useCallback(
+    ({
+      shifuBid,
+      systemVariableKeys,
+      variables,
+    }: {
+      shifuBid?: string;
+      systemVariableKeys?: string[];
+      variables?: PreviewVariablesMap;
+    }) => {
+      const resolvedVariables =
+        variables ||
+        (sseParams.current.variables as PreviewVariablesMap) ||
+        variablesSnapshot;
+      const resolvedShifuBid = shifuBid || sseParams.current.shifuBid;
+      const resolvedSystemKeys =
+        systemVariableKeys || sseParams.current.systemVariableKeys || [];
+      if (!resolvedShifuBid) {
+        return;
+      }
+      savePreviewVariables(
+        resolvedShifuBid,
+        resolvedVariables,
+        resolvedSystemKeys,
+      );
+    },
+    [variablesSnapshot],
   );
 
   const parseInteractionBlock = useCallback(
@@ -189,19 +256,26 @@ export function usePreviewChat() {
           return null;
         }
         const selectedValues: string[] = [];
+        const customInputs: string[] = [];
         for (const token of tokens) {
           const mapped = normalizeButtonValue(token, info);
-          if (!mapped) {
-            return null;
+          if (mapped) {
+            selectedValues.push(mapped.value);
+            continue;
           }
-          selectedValues.push(mapped.value);
+          if (info.placeholder) {
+            customInputs.push(token);
+            continue;
+          }
+          return null;
         }
-        if (!selectedValues.length) {
+        if (!selectedValues.length && !customInputs.length) {
           return null;
         }
         return {
           variableName: info.variableName,
-          selectedValues,
+          selectedValues: selectedValues.length ? selectedValues : undefined,
+          inputText: customInputs.length ? customInputs.join(', ') : undefined,
         };
       }
 
@@ -241,6 +315,7 @@ export function usePreviewChat() {
     currentContentRef.current = '';
     currentContentIdRef.current = null;
     autoSubmittedBlocksRef.current.clear();
+    setVariablesSnapshot({});
   }, [stopPreview, setTrackedContentList]);
 
   const ensureContentItem = useCallback(
@@ -443,6 +518,7 @@ export function usePreviewChat() {
         max_block_count: finalMaxBlockCount,
       } = mergedParams;
       sseParams.current = mergedParams;
+      setVariablesSnapshot(buildVariablesSnapshot(finalVariables));
 
       if (!finalShifuBid || !finalOutlineBid) {
         setError('Invalid preview params');
@@ -653,6 +729,7 @@ export function usePreviewChat() {
           [normalizedVariableName]: nextValue,
         };
         sseParams.current.variables = nextVariables;
+        setVariablesSnapshot(buildVariablesSnapshot(nextVariables));
         savePreviewVariables(
           sseParams.current.shifuBid,
           { [normalizedVariableName]: nextValue },
@@ -821,6 +898,9 @@ export function usePreviewChat() {
     resetPreview,
     onSend,
     onRefresh,
+    persistVariables,
+    onVariableChange: handleVariableChange,
+    variables: variablesSnapshot,
     reGenerateConfirm: {
       open: showRegenerateConfirm,
       onConfirm: handleConfirmRegenerate,

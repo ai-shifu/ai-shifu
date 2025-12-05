@@ -49,13 +49,15 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const {
     items: previewItems,
     isLoading: previewLoading,
-    isStreaming: previewStreaming,
     error: previewError,
     startPreview,
     stopPreview,
     resetPreview,
     onRefresh,
     onSend,
+    persistVariables,
+    onVariableChange,
+    variables: previewVariables,
     reGenerateConfirm,
   } = usePreviewChat();
   const editModeOptions = useMemo(
@@ -196,7 +198,15 @@ const ScriptEditor = ({ id }: { id: string }) => {
         blocksCount,
         systemVariableKeys,
       } = await actions.previewParse(mdflow, currentShifu.bid, currentNode.bid);
-      const previewVariablesMap = { ...parsedVariablesMap };
+      const previewVariablesMap = {
+        ...parsedVariablesMap,
+        ...previewVariables,
+      };
+      persistVariables({
+        shifuBid: currentShifu.bid,
+        systemVariableKeys,
+        variables: previewVariablesMap,
+      });
       void startPreview({
         shifuBid: currentShifu.bid,
         outlineBid: currentNode.bid,
@@ -224,6 +234,13 @@ const ScriptEditor = ({ id }: { id: string }) => {
       label: variable.label,
     }));
   }, [systemVariables]);
+
+  const variableOrder = useMemo(() => {
+    return [
+      ...systemVariablesList.map(variable => variable.name),
+      ...variablesList.map(variable => variable.name),
+    ];
+  }, [systemVariablesList, variablesList]);
 
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);
@@ -508,12 +525,14 @@ const ScriptEditor = ({ id }: { id: string }) => {
               <div className='h-full'>
                 <LessonPreview
                   loading={previewLoading}
-                  isStreaming={previewStreaming}
                   errorMessage={previewError || undefined}
                   items={previewItems}
+                  variables={previewVariables}
                   shifuBid={currentShifu?.bid || ''}
                   onRefresh={onRefresh}
                   onSend={onSend}
+                  onVariableChange={onVariableChange}
+                  variableOrder={variableOrder}
                   reGenerateConfirm={reGenerateConfirm}
                 />
               </div>
