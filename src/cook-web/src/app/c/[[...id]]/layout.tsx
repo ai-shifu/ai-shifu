@@ -90,9 +90,7 @@ export default function ChatLayout({
   useEffect(() => {
     if (!envDataInitialized) return;
     const wxcodeEnabled =
-      enableWxcode === true ||
-      (typeof enableWxcode === 'string' &&
-        enableWxcode.toLowerCase() === 'true');
+      typeof enableWxcode === 'string' && enableWxcode.toLowerCase() === 'true';
     if (!wxcodeEnabled || !inWechat()) {
       setCheckWxcode(true);
       return;
