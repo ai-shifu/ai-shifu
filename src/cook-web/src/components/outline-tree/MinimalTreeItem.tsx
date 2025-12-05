@@ -3,7 +3,7 @@ import {
   SimpleTreeItemWrapper,
   TreeItemComponentProps,
 } from '../dnd-kit-sortable-tree';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { LessonCreationSettings, Outline } from '@/types/shifu';
 import { LearningPermission } from '@/c-api/studyV2';
 import guestIcon from '../chapter-setting/icons/svg-guest.svg';
@@ -127,6 +127,18 @@ const MinimalTreeItemComponent = React.forwardRef<
   const placeholderText = isChapterNode
     ? t('module.chapterSetting.chapterNamePlaceholder')
     : t('module.chapterSetting.lessonNamePlaceholder');
+  const placeholderParentKey =
+    (props.parent?.id as string) ||
+    (props.item.parentId as string) ||
+    (props.item.parent_bid as string) ||
+    '';
+
+  useEffect(() => {
+    if (isPlaceholderNode) {
+      // Reset placeholder input when switching target chapter
+      setInputValue('');
+    }
+  }, [isPlaceholderNode, placeholderParentKey]);
 
   const handleChapterSettingsClick = (e: React.MouseEvent) => {
     e.stopPropagation();
