@@ -9,7 +9,7 @@ import './SimpleTreeItemWrapper.css';
 
 interface SimpleTreeItemWrapperProps<T = {}> extends TreeItemComponentProps<T> {
   onChapterSelect?: () => void;
-  readonly: boolean;
+  readonly?: boolean;
   chapter?: {
     label?: string;
     onSettingsClick?: React.MouseEventHandler<HTMLButtonElement>;
@@ -51,7 +51,7 @@ export const SimpleTreeItemWrapper = forwardRef<
     isOverParent,
     onChapterSelect,
     chapter,
-    readonly,
+    readonly = false,
     ...rest
   } = props;
 
