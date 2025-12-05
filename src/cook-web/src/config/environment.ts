@@ -154,11 +154,7 @@ export async function getDynamicApiBaseUrl(): Promise<string> {
  * Gets course ID
  */
 function getCourseId(): string {
-  const runtimeCourseId = getRuntimeEnv('NEXT_PUBLIC_DEFAULT_COURSE_ID');
-  if (runtimeCourseId) {
-    return runtimeCourseId;
-  }
-  return process.env.NEXT_PUBLIC_DEFAULT_COURSE_ID || '';
+  return '';
 }
 
 /**
@@ -174,46 +170,28 @@ function getDefaultLlmModel(): string {
  * Gets WeChat App ID
  */
 function getWeChatAppId(): string {
-  const runtimeAppId = getRuntimeEnv('NEXT_PUBLIC_WECHAT_APP_ID');
-  if (runtimeAppId) {
-    return runtimeAppId;
-  }
-  return process.env.NEXT_PUBLIC_WECHAT_APP_ID || '';
+  return '';
 }
 
 /**
  * Gets WeChat code enabled status
  */
 function getWeChatCodeEnabled(): boolean {
-  const runtimeEnabled = getRuntimeEnv('NEXT_PUBLIC_WECHAT_CODE_ENABLED');
-  if (runtimeEnabled !== undefined) {
-    return getBooleanValue(runtimeEnabled, true);
-  }
-  const value = process.env.NEXT_PUBLIC_WECHAT_CODE_ENABLED;
-  return getBooleanValue(value, true);
+  return true;
 }
 
 /**
  * Gets Stripe publishable key
  */
 function getStripePublishableKey(): string {
-  const runtimeKey = getRuntimeEnv('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY');
-  if (runtimeKey) {
-    return runtimeKey;
-  }
-  return process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+  return '';
 }
 
 /**
  * Gets Stripe enable flag
  */
 function getStripeEnabled(): boolean {
-  const runtimeEnabled = getRuntimeEnv('NEXT_PUBLIC_STRIPE_ENABLED');
-  if (runtimeEnabled !== undefined) {
-    return getBooleanValue(runtimeEnabled, false);
-  }
-  const value = process.env.NEXT_PUBLIC_STRIPE_ENABLED;
-  return getBooleanValue(value, false);
+  return false;
 }
 
 function parsePaymentChannels(value?: string): string[] {
@@ -226,50 +204,28 @@ function parsePaymentChannels(value?: string): string[] {
 }
 
 function getPaymentChannels(): string[] {
-  const runtime =
-    getRuntimeEnv('PAYMENT_CHANNELS_ENABLED') ||
-    getRuntimeEnv('NEXT_PUBLIC_PAYMENT_CHANNELS_ENABLED');
-  if (runtime) {
-    return parsePaymentChannels(runtime);
-  }
-  const buildValue =
-    process.env.PAYMENT_CHANNELS_ENABLED ||
-    process.env.NEXT_PUBLIC_PAYMENT_CHANNELS_ENABLED;
-  return parsePaymentChannels(buildValue);
+  return parsePaymentChannels();
 }
 
 /**
  * Gets UI always show lesson tree
  */
 function getUIAlwaysShowLessonTree(): boolean {
-  const runtimeValue = getRuntimeEnv('NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE');
-  if (runtimeValue !== undefined) {
-    return getBooleanValue(runtimeValue, false);
-  }
-  const value = process.env.NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE;
-  return getBooleanValue(value, false);
+  return false;
 }
 
 /**
  * Gets UI logo horizontal
  */
 function getUILogoHorizontal(): string {
-  const runtimeLogo = getRuntimeEnv('NEXT_PUBLIC_UI_LOGO_HORIZONTAL');
-  if (runtimeLogo) {
-    return runtimeLogo;
-  }
-  return process.env.NEXT_PUBLIC_UI_LOGO_HORIZONTAL || '';
+  return '';
 }
 
 /**
  * Gets UI logo vertical
  */
 function getUILogoVertical(): string {
-  const runtimeLogo = getRuntimeEnv('NEXT_PUBLIC_UI_LOGO_VERTICAL');
-  if (runtimeLogo) {
-    return runtimeLogo;
-  }
-  return process.env.NEXT_PUBLIC_UI_LOGO_VERTICAL || '';
+  return '';
 }
 
 /**
@@ -283,66 +239,35 @@ function getLogoUrl(): string {
  * Gets analytics Umami script
  */
 function getAnalyticsUmamiScript(): string {
-  const runtimeScript = getRuntimeEnv('NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT');
-  if (runtimeScript) {
-    return runtimeScript;
-  }
-  return process.env.NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT || '';
+  return '';
 }
 
 /**
  * Gets analytics Umami site ID
  */
 function getAnalyticsUmamiSiteId(): string {
-  const runtimeSiteId = getRuntimeEnv('NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID');
-  if (runtimeSiteId) {
-    return runtimeSiteId;
-  }
-  return process.env.NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID || '';
+  return '';
 }
 
 /**
  * Gets debug Eruda enabled
  */
 function getDebugErudaEnabled(): boolean {
-  const runtimeEruda = getRuntimeEnv('NEXT_PUBLIC_DEBUG_ERUDA_ENABLED');
-  if (runtimeEruda !== undefined) {
-    return getBooleanValue(runtimeEruda, false);
-  }
-  const value = process.env.NEXT_PUBLIC_DEBUG_ERUDA_ENABLED;
-  return getBooleanValue(value, false);
+  return false;
 }
 
 /**
  * Gets enabled login methods
  */
 function getLoginMethodsEnabled(): string[] {
-  const runtimeMethods = getRuntimeEnv('NEXT_PUBLIC_LOGIN_METHODS_ENABLED');
-  if (runtimeMethods) {
-    const methods = runtimeMethods
-      .split(',')
-      .map(method => method.trim())
-      .filter(Boolean);
-    return methods.length > 0 ? methods : ['phone'];
-  }
-
-  const value = process.env.NEXT_PUBLIC_LOGIN_METHODS_ENABLED || 'phone';
-  const methods = value
-    .split(',')
-    .map(method => method.trim())
-    .filter(Boolean);
-  return methods.length > 0 ? methods : ['phone'];
+  return ['phone'];
 }
 
 /**
  * Gets default login method
  */
 function getDefaultLoginMethod(): string {
-  return (
-    getRuntimeEnv('NEXT_PUBLIC_DEFAULT_LOGIN_METHOD') ||
-    process.env.NEXT_PUBLIC_DEFAULT_LOGIN_METHOD ||
-    'phone'
-  );
+  return 'phone';
 }
 
 /**
@@ -351,17 +276,6 @@ function getDefaultLoginMethod(): string {
  * does not need to know the full deployment origin. When necessary, the value
  * can still be overridden with an absolute URL via `NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT`.
  */
-/**
- * Converts string boolean values to actual booleans
- */
-function getBooleanValue(
-  value: string | undefined,
-  defaultValue: boolean = false,
-): boolean {
-  if (value === undefined) return defaultValue;
-  return value.toLowerCase() === 'true';
-}
-
 /**
  * Gets home URL
  */

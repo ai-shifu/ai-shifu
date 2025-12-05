@@ -72,6 +72,8 @@
 
 **注意**: 这些配置由后端 `/api/config` API 返回。Cook Web 内置的 `/api/config` 仅返回后端地址 (`apiBaseUrl`)，实际配置均通过后端接口获取。
 
+- 前端不再读取除 `NEXT_PUBLIC_API_BASE_URL` 以外的 `NEXT_PUBLIC_*` 变量；这些值统一在后端环境/DB 中配置，并通过 `/api/runtime-config` 返回，避免前后端重复设置。
+
 ## 使用方式
 
 ### 在组件中使用
