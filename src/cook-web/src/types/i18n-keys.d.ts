@@ -91,7 +91,6 @@ export type I18nKey =
   | 'component.outlineTree.confirmDeleteDescription'
   | 'component.outlineTree.delete'
   | 'component.outlineTree.nameRequired'
-  | 'component.outlineTree.lessonCount'
   | 'component.profileSelectModal.add'
   | 'component.profileSelectModal.addVariable'
   | 'module.auth.backToLogin'
