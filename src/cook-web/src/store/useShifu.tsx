@@ -835,7 +835,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       parent?.children?.findIndex((child: Outline) => child.bid === data.bid) ||
       0;
 
-    const isNew = data.bid === 'new_chapter' || data.bid === 'new_lesson'; // ← 新增这一句
+    const isNew = data.bid === 'new_chapter' || data.bid === 'new_lesson';
 
     try {
       if (isNew) {
@@ -1212,7 +1212,6 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     setMdflow(value || '');
   };
   const insertPlaceholderChapter = () => {
-    // 若已存在未提交的新章节，禁止重复创建
     if (chapters.some(ch => ch.id === 'new_chapter')) return;
 
     const placeholder: Outline = {
@@ -1238,7 +1237,6 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       },
     });
 
-    // 让 UI 自动 focus 输入框
     setFocusId('new_chapter');
   };
 
@@ -1276,7 +1274,6 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       },
     });
 
-    // 让 UI 自动 focus 输入框
     setFocusId('new_lesson');
   };
 
