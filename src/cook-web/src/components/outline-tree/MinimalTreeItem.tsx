@@ -52,7 +52,8 @@ const MinimalTreeItemComponent = React.forwardRef<
   const { t } = useTranslation();
   const outlineVariant = (props.item?.depth ?? 0) <= 0 ? 'chapter' : 'lesson';
   const isChapterNode = (props.item?.depth || 0) === 0;
-  const isPlaceholderNode = props.item.id === 'new_chapter' || props.item.id === 'new_lesson';
+  const isPlaceholderNode =
+    props.item.id === 'new_chapter' || props.item.id === 'new_lesson';
   const shouldHighlight =
     !isPlaceholderNode && !isChapterNode && currentNode?.id == props.item.id;
   const showChapter = isChapterNode && !isPlaceholderNode;
@@ -120,7 +121,6 @@ const MinimalTreeItemComponent = React.forwardRef<
     );
   };
 
-
   const [inputValue, setInputValue] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -133,7 +133,7 @@ const MinimalTreeItemComponent = React.forwardRef<
     e.stopPropagation();
     actions.insertPlaceholderLesson(props.item);
   };
-  
+
   const handleSettingsDeleteRequest = () => {
     setSettingsDialogOpen(false);
     setShowDeleteDialog(true);
@@ -211,9 +211,9 @@ const MinimalTreeItemComponent = React.forwardRef<
 
   const handleCreate = async () => {
     if (!isPlaceholderNode) return;
-  
+
     const value = inputValue.trim();
-  
+
     if (value === '') {
       actions.removeOutline({
         parent_bid: props.item.parentId,
@@ -221,9 +221,9 @@ const MinimalTreeItemComponent = React.forwardRef<
       });
       return;
     }
-  
+
     setIsSaving(true);
-  
+
     try {
       await actions.createOutline({
         shifu_bid: currentShifu?.bid || '',
@@ -234,7 +234,7 @@ const MinimalTreeItemComponent = React.forwardRef<
         children: [],
         position: '',
       });
-  
+
       actions.setFocusId('');
     } catch (e) {
       console.error(e);
@@ -242,7 +242,6 @@ const MinimalTreeItemComponent = React.forwardRef<
       setIsSaving(false);
     }
   };
-  
 
   return (
     <>
@@ -270,12 +269,12 @@ const MinimalTreeItemComponent = React.forwardRef<
           )}
           onClick={onSelect}
         >
-          <div className="flex flex-row items-center flex-1 min-w-0">
+          <div className='flex flex-row items-center flex-1 min-w-0'>
             {isPlaceholderNode ? (
-              <div className="flex items-center w-full">
+              <div className='flex items-center w-full'>
                 <Input
                   ref={inputRef}
-                  className="outline-none px-2 py-1 mr-1 h-[26px] rounded bg-white text-sm border border-gray-300 w-full"
+                  className='outline-none px-2 py-1 mr-1 h-[26px] rounded bg-white text-sm border border-gray-300 w-full'
                   placeholder={
                     isChapterNode
                       ? t('module.chapterSetting.chapterNamePlaceholder')
@@ -283,8 +282,8 @@ const MinimalTreeItemComponent = React.forwardRef<
                   }
                   autoFocus
                   value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={async (e) => {
+                  onChange={e => setInputValue(e.target.value)}
+                  onKeyDown={async e => {
                     if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
                       await handleCreate();
                     }
@@ -295,12 +294,15 @@ const MinimalTreeItemComponent = React.forwardRef<
                 />
 
                 {isSaving ? (
-                  <Loader2 className="animate-spin ml-2 h-4 w-4 text-primary" />
+                  <Loader2 className='animate-spin ml-2 h-4 w-4 text-primary' />
                 ) : null}
               </div>
             ) : (
               <>
-                <span className='outline-tree_title truncate' title={chapterName}>
+                <span
+                  className='outline-tree_title truncate'
+                  title={chapterName}
+                >
                   {chapterName}
                 </span>
 
@@ -312,7 +314,6 @@ const MinimalTreeItemComponent = React.forwardRef<
               </>
             )}
           </div>
-
         </div>
       </SimpleTreeItemWrapper>
       {/* edit lesson settings dialog */}

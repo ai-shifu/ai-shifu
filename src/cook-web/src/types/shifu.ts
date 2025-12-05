@@ -198,8 +198,8 @@ export interface ShifuActions {
     blocksCount: number;
     systemVariableKeys: string[];
   }>;
-  insertPlaceholderChapter: () => void,
-  insertPlaceholderLesson: (parent: Outline) => void,
+  insertPlaceholderChapter: () => void;
+  insertPlaceholderLesson: (parent: Outline) => void;
 }
 
 export interface ShifuContextType extends ShifuState {
