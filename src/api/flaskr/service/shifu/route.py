@@ -937,11 +937,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     type: object
                                     $ref: "#/components/schemas/MdflowDTOParseResult"
         """
-        payload = request.get_json(silent=True) or {}
-        data = payload.get("data", None)
-        include_all_outlines = bool(payload.get("include_all_outlines", False))
+        data = request.get_json().get("data", None)
         return make_common_response(
-            parse_shifu_mdflow(app, shifu_bid, outline_bid, data, include_all_outlines)
+            parse_shifu_mdflow(app, shifu_bid, outline_bid, data)
         )
 
     @app.route(
