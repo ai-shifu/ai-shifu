@@ -67,8 +67,9 @@ const MinimalTreeItemComponent = React.forwardRef<
     }
     const badges: Array<{ icon: string; label: string; className?: string }> =
       [];
-    const lessonType = lesson?.type as LearningPermission | undefined;
-    const lessonHidden = lesson?.is_hidden;
+    const lessonType =
+      (lesson?.type as LearningPermission | undefined) ?? LEARNING_PERMISSION.TRIAL;
+    const lessonHidden = !!lesson?.is_hidden;
     if (lessonType === LEARNING_PERMISSION.GUEST) {
       badges.push({
         icon: guestIcon.src,
