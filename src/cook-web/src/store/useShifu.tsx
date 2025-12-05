@@ -291,6 +291,13 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     setFocusId('');
   };
 
+  // Remove placeholder nodes locally without hitting APIs
+  const removePlaceholderOutline = (outline: Outline) => {
+    removeOutlineFromTree(outline);
+    cleanupCatalogData(outline);
+    setFocusId('');
+  };
+
   const removeOutline = async (outline: Outline) => {
     setIsSaving(true);
     setError(null);
@@ -828,11 +835,13 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       parent?.children?.findIndex((child: Outline) => child.bid === data.bid) ||
       0;
 
+    const isNew = data.bid === 'new_chapter' || data.bid === 'new_lesson';
+
     try {
-      if (data.bid === 'new_chapter') {
+      if (isNew) {
         const newUnit = await api.createOutline({
           parent_bid: data.parent_bid,
-          index: index,
+          index,
           name: data.name,
           description: data.name,
           type: LEARNING_PERMISSION.TRIAL,
@@ -841,13 +850,14 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
           shifu_bid: currentShifu?.bid || '',
         });
 
-        replaceOutline('new_chapter', {
+        replaceOutline(data.bid, {
           id: newUnit.bid,
           bid: newUnit.bid,
           name: newUnit.name,
           position: '',
           children: [],
         });
+
         trackEvent('creator_outline_create', {
           shifu_bid: currentShifu?.bid || '',
           outline_bid: newUnit.bid,
@@ -1202,6 +1212,107 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     setMdflow(value || '');
   };
 
+  const removePlaceholderLessons = (nodes: Outline[] = []): Outline[] => {
+    return nodes
+      .filter(node => node.id !== 'new_lesson')
+      .map(node => ({
+        ...node,
+        children: removePlaceholderLessons(node.children || []),
+      }));
+  };
+
+  const findNodeInList = (nodes: Outline[], id: string): Outline | null => {
+    for (const node of nodes) {
+      if (node.id === id) return node;
+      const found = findNodeInList(node.children || [], id);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  const insertPlaceholderChapter = () => {
+    if (chapters.some(ch => ch.id === 'new_chapter')) return;
+
+    const placeholder: Outline = {
+      id: 'new_chapter',
+      bid: 'new_chapter',
+      name: '',
+      parent_bid: '',
+      children: [],
+      depth: 0,
+      position: '',
+      type: LEARNING_PERMISSION.TRIAL,
+      is_hidden: false,
+    };
+
+    setChapters([...chapters, placeholder]);
+
+    setCataData({
+      ...cataData,
+      ['new_chapter']: {
+        ...placeholder,
+        parentId: '',
+        status: 'new',
+      },
+    });
+
+    setFocusId('new_chapter');
+  };
+
+  const insertPlaceholderLesson = (parent: Outline) => {
+    if (!parent) return;
+
+    let addedPlaceholder: Outline | null = null;
+    let placeholderParentId: string | null = null;
+
+    setChapters(prev => {
+      const cleaned = removePlaceholderLessons(prev);
+      const parentNode = findNodeInList(cleaned, parent.id);
+      if (!parentNode) {
+        return cleaned;
+      }
+
+      if (parentNode.children?.some(ch => ch.id === 'new_lesson')) {
+        return cleaned;
+      }
+
+      const placeholder: Outline = {
+        id: 'new_lesson',
+        bid: 'new_lesson',
+        name: '',
+        parent_bid: parentNode.id,
+        children: [],
+        depth: (parentNode.depth || parent.depth || 0) + 1,
+        position: '',
+        type: LEARNING_PERMISSION.TRIAL,
+        is_hidden: false,
+      };
+
+      parentNode.children = [...(parentNode.children || []), placeholder];
+      addedPlaceholder = placeholder;
+      placeholderParentId = parentNode.id;
+      return cleaned;
+    });
+
+    // prevent duplicate placeholder lesson
+    setCataData(prev => {
+      const next = { ...prev };
+      delete next['new_lesson'];
+      if (addedPlaceholder && placeholderParentId) {
+        next['new_lesson'] = {
+          ...addedPlaceholder,
+          parentId: placeholderParentId,
+          status: 'new',
+        };
+      }
+      return next;
+    });
+
+    if (addedPlaceholder) {
+      setFocusId('new_lesson');
+    }
+  };
+
   const value: ShifuContextType = {
     currentShifu,
     chapters,
@@ -1267,6 +1378,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       setCurrentMdflow,
       flushAutoSaveBlocks,
       cancelAutoSaveBlocks,
+      insertPlaceholderChapter,
+      insertPlaceholderLesson,
+      removePlaceholderOutline,
     },
   };
 

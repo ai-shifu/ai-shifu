@@ -9,6 +9,7 @@ import './SimpleTreeItemWrapper.css';
 
 interface SimpleTreeItemWrapperProps<T = {}> extends TreeItemComponentProps<T> {
   onChapterSelect?: () => void;
+  readonly: boolean;
   chapter?: {
     label?: string;
     onSettingsClick?: React.MouseEventHandler<HTMLButtonElement>;
@@ -50,6 +51,7 @@ export const SimpleTreeItemWrapper = forwardRef<
     isOverParent,
     onChapterSelect,
     chapter,
+    readonly,
     ...rest
   } = props;
 
@@ -67,7 +69,6 @@ export const SimpleTreeItemWrapper = forwardRef<
       )}
       style={{
         ...style,
-        // paddingLeft: clone ? indentationWidth : indentationWidth * depth,
       }}
     >
       <div
@@ -120,16 +121,25 @@ export const SimpleTreeItemWrapper = forwardRef<
                 <button
                   type='button'
                   className='outline-tree_action-button mr-1'
+                  onMouseDown={e => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
                   onClick={chapter.onSettingsClick}
                   aria-label='chapter-settings'
                 >
                   <Settings size={16} />
                 </button>
               )}
-              {chapter.showAdd !== false && chapter.onAddClick && (
+              {chapter.showAdd !== false && chapter.onAddClick && !readonly && (
                 <button
                   type='button'
                   className='outline-tree_action-button'
+                  onMouseDown={e => {
+                    // prevent drag/collapse event intercept, ensure click takes effect immediately
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
                   onClick={chapter.onAddClick}
                   aria-label='chapter-add-section'
                 >

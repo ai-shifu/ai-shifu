@@ -134,7 +134,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
     if (currentShifu?.readonly) {
       return;
     }
-    setAddChapterDialogOpen(true);
+    actions.insertPlaceholderChapter();
+    // setAddChapterDialogOpen(true);
   };
 
   const handleAddChapterConfirm = async (settings: LessonCreationSettings) => {
