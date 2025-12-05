@@ -308,13 +308,6 @@ Default: "phone".""",
         description="Enable WeChat QR login",
         group="frontend",
     ),
-    "WECHAT_CODE_ENABLED": EnvVar(
-        name="WECHAT_CODE_ENABLED",
-        default=True,
-        type=bool,
-        description="Enable WeChat QR login",
-        group="frontend",
-    ),
     # Legal Documents Configuration
     "LEGAL_AGREEMENT_URL_ZH_CN": EnvVar(
         name="LEGAL_AGREEMENT_URL_ZH_CN",
