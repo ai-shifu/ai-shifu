@@ -48,7 +48,9 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
 
         config = {
             # Content & Course Configuration
-            "courseId": get_config("NEXT_PUBLIC_DEFAULT_COURSE_ID", ""),
+            "courseId": get_config(
+                "DEFAULT_COURSE_ID", get_config("NEXT_PUBLIC_DEFAULT_COURSE_ID", "")
+            ),
             "defaultLlmModel": get_config("DEFAULT_LLM_MODEL", ""),
             # WeChat Integration
             "wechatAppId": get_config("WECHAT_APP_ID", "")
@@ -57,38 +59,74 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                 get_config("WECHAT_APP_ID", "")
                 or get_config("NEXT_PUBLIC_WECHAT_APP_ID", "")
             )
-            and _to_bool(get_config("NEXT_PUBLIC_WECHAT_CODE_ENABLED", True), True),
+            and _to_bool(
+                get_config(
+                    "WECHAT_CODE_ENABLED",
+                    get_config("NEXT_PUBLIC_WECHAT_CODE_ENABLED", True),
+                ),
+                True,
+            ),
             # Payment Configuration
             "stripePublishableKey": get_config(
-                "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", ""
+                "STRIPE_PUBLISHABLE_KEY",
+                get_config("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", ""),
             ),
             "stripeEnabled": _to_bool(
-                get_config("NEXT_PUBLIC_STRIPE_ENABLED", False), False
+                get_config(
+                    "STRIPE_ENABLED", get_config("NEXT_PUBLIC_STRIPE_ENABLED", False)
+                ),
+                False,
             ),
             "paymentChannels": _to_list(
-                get_config("NEXT_PUBLIC_PAYMENT_CHANNELS_ENABLED", "pingxx,stripe"),
+                get_config(
+                    "PAYMENT_CHANNELS_ENABLED",
+                    get_config("NEXT_PUBLIC_PAYMENT_CHANNELS_ENABLED", "pingxx,stripe"),
+                ),
                 ["pingxx", "stripe"],
             ),
             # UI Configuration
             "alwaysShowLessonTree": _to_bool(
-                get_config("NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE", False), False
+                get_config(
+                    "UI_ALWAYS_SHOW_LESSON_TREE",
+                    get_config("NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE", False),
+                ),
+                False,
             ),
-            "logoHorizontal": get_config("NEXT_PUBLIC_UI_LOGO_HORIZONTAL", ""),
-            "logoVertical": get_config("NEXT_PUBLIC_UI_LOGO_VERTICAL", ""),
+            "logoHorizontal": get_config(
+                "UI_LOGO_HORIZONTAL", get_config("NEXT_PUBLIC_UI_LOGO_HORIZONTAL", "")
+            ),
+            "logoVertical": get_config(
+                "UI_LOGO_VERTICAL", get_config("NEXT_PUBLIC_UI_LOGO_VERTICAL", "")
+            ),
             "logoUrl": get_config("LOGO_URL", ""),
             # Analytics & Tracking
-            "umamiScriptSrc": get_config("NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT", ""),
-            "umamiWebsiteId": get_config("NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID", ""),
+            "umamiScriptSrc": get_config(
+                "ANALYTICS_UMAMI_SCRIPT",
+                get_config("NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT", ""),
+            ),
+            "umamiWebsiteId": get_config(
+                "ANALYTICS_UMAMI_SITE_ID",
+                get_config("NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID", ""),
+            ),
             # Development & Debugging Tools
             "enableEruda": _to_bool(
-                get_config("NEXT_PUBLIC_DEBUG_ERUDA_ENABLED", False), False
+                get_config(
+                    "DEBUG_ERUDA_ENABLED",
+                    get_config("NEXT_PUBLIC_DEBUG_ERUDA_ENABLED", False),
+                ),
+                False,
             ),
             # Authentication Configuration
             "loginMethodsEnabled": _to_list(
-                get_config("NEXT_PUBLIC_LOGIN_METHODS_ENABLED", "phone"), ["phone"]
+                get_config(
+                    "LOGIN_METHODS_ENABLED",
+                    get_config("NEXT_PUBLIC_LOGIN_METHODS_ENABLED", "phone"),
+                ),
+                ["phone"],
             ),
             "defaultLoginMethod": get_config(
-                "NEXT_PUBLIC_DEFAULT_LOGIN_METHOD", "phone"
+                "DEFAULT_LOGIN_METHOD",
+                get_config("NEXT_PUBLIC_DEFAULT_LOGIN_METHOD", "phone"),
             ),
             "googleOauthRedirect": f"{origin}/login/google-callback",
             # Redirect Configuration

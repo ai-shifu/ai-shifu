@@ -134,10 +134,22 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Custom logo URL override returned by /api/config",
         group="frontend",
     ),
+    "ANALYTICS_UMAMI_SCRIPT": EnvVar(
+        name="ANALYTICS_UMAMI_SCRIPT",
+        default="",
+        description="Umami analytics script URL",
+        group="frontend",
+    ),
     "NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT": EnvVar(
         name="NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT",
         default="",
         description="Umami analytics script URL",
+        group="frontend",
+    ),
+    "ANALYTICS_UMAMI_SITE_ID": EnvVar(
+        name="ANALYTICS_UMAMI_SITE_ID",
+        default="",
+        description="Umami analytics site identifier",
         group="frontend",
     ),
     "NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID": EnvVar(
@@ -152,6 +164,12 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Cook Web API base URL (Nginx 8080 default in docker-compose)",
         group="frontend",
     ),
+    "DEFAULT_COURSE_ID": EnvVar(
+        name="DEFAULT_COURSE_ID",
+        default="",
+        description="Default course id for Cook Web",
+        group="frontend",
+    ),
     "NEXT_PUBLIC_DEFAULT_COURSE_ID": EnvVar(
         name="NEXT_PUBLIC_DEFAULT_COURSE_ID",
         default="",
@@ -164,6 +182,12 @@ ENV_VARS: Dict[str, EnvVar] = {
         description='Default login method tab. Values: "phone" | "email" | "google"',
         group="frontend",
     ),
+    "DEFAULT_LOGIN_METHOD": EnvVar(
+        name="DEFAULT_LOGIN_METHOD",
+        default="phone",
+        description='Default login method tab. Values: "phone" | "email" | "google"',
+        group="frontend",
+    ),
     "NEXT_PUBLIC_DEBUG_ERUDA_ENABLED": EnvVar(
         name="NEXT_PUBLIC_DEBUG_ERUDA_ENABLED",
         default=False,
@@ -171,8 +195,23 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Enable Eruda debug console",
         group="frontend",
     ),
+    "DEBUG_ERUDA_ENABLED": EnvVar(
+        name="DEBUG_ERUDA_ENABLED",
+        default=False,
+        type=bool,
+        description="Enable Eruda debug console",
+        group="frontend",
+    ),
     "NEXT_PUBLIC_LOGIN_METHODS_ENABLED": EnvVar(
         name="NEXT_PUBLIC_LOGIN_METHODS_ENABLED",
+        default="phone",
+        description="""Login methods exposed to users.
+Values: "phone" | "email" | "google" combinations (comma-separated)
+Default: "phone".""",
+        group="frontend",
+    ),
+    "LOGIN_METHODS_ENABLED": EnvVar(
+        name="LOGIN_METHODS_ENABLED",
         default="phone",
         description="""Login methods exposed to users.
 Values: "phone" | "email" | "google" combinations (comma-separated)
@@ -192,6 +231,13 @@ Default: "phone".""",
         description="Enable Stripe payment entry points on Cook Web",
         group="frontend",
     ),
+    "STRIPE_ENABLED": EnvVar(
+        name="STRIPE_ENABLED",
+        default=False,
+        type=bool,
+        description="Enable Stripe payment entry points on Cook Web",
+        group="frontend",
+    ),
     "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": EnvVar(
         name="NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
         default="",
@@ -205,14 +251,33 @@ Default: "phone".""",
         description="Always show lesson tree in Cook Web",
         group="frontend",
     ),
+    "UI_ALWAYS_SHOW_LESSON_TREE": EnvVar(
+        name="UI_ALWAYS_SHOW_LESSON_TREE",
+        default=False,
+        type=bool,
+        description="Always show lesson tree in Cook Web",
+        group="frontend",
+    ),
     "NEXT_PUBLIC_UI_LOGO_HORIZONTAL": EnvVar(
         name="NEXT_PUBLIC_UI_LOGO_HORIZONTAL",
         default="",
         description="Horizontal logo URL for Cook Web",
         group="frontend",
     ),
+    "UI_LOGO_HORIZONTAL": EnvVar(
+        name="UI_LOGO_HORIZONTAL",
+        default="",
+        description="Horizontal logo URL for Cook Web",
+        group="frontend",
+    ),
     "NEXT_PUBLIC_UI_LOGO_VERTICAL": EnvVar(
         name="NEXT_PUBLIC_UI_LOGO_VERTICAL",
+        default="",
+        description="Vertical logo URL for Cook Web",
+        group="frontend",
+    ),
+    "UI_LOGO_VERTICAL": EnvVar(
+        name="UI_LOGO_VERTICAL",
         default="",
         description="Vertical logo URL for Cook Web",
         group="frontend",
@@ -238,6 +303,13 @@ Default: "phone".""",
     ),
     "NEXT_PUBLIC_WECHAT_CODE_ENABLED": EnvVar(
         name="NEXT_PUBLIC_WECHAT_CODE_ENABLED",
+        default=True,
+        type=bool,
+        description="Enable WeChat QR login",
+        group="frontend",
+    ),
+    "WECHAT_CODE_ENABLED": EnvVar(
+        name="WECHAT_CODE_ENABLED",
         default=True,
         type=bool,
         description="Enable WeChat QR login",
