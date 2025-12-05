@@ -1237,7 +1237,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   };
   
   const insertPlaceholderLesson = (parent: Outline) => {
-    debugger
+
     if (!parent) return;
   
     const parentNode = findNode(parent.id);

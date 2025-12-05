@@ -34,6 +34,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Input } from '../ui/Input';
 
 export type TreeItemProps = {
   currentNode?: Outline;
@@ -326,21 +327,25 @@ const MinimalTreeItemComponent = React.forwardRef<
           <div className="flex flex-row items-center flex-1 min-w-0">
             {isPlaceholderNode ? (
               <div className="flex items-center w-full">
-                <input
+                <Input
                   ref={inputRef}
-                  className="outline-none px-2 py-1 rounded bg-white text-sm border border-gray-300 w-full"
-                  placeholder={isChapterNode ? "新章节名称" : "新小节名称"}
+                  className="outline-none px-2 py-1 mr-1 h-[26px] rounded bg-white text-sm border border-gray-300 w-full"
+                  placeholder={
+                    isChapterNode
+                      ? t('module.chapterSetting.chapterNamePlaceholder')
+                      : t('module.chapterSetting.lessonNamePlaceholder')
+                  }
                   autoFocus
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={async (e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
                       await handleCreate();
                     }
                   }}
-                  onBlur={async () => {
-                    await handleCreate();
-                  }}
+                  // onBlur={async () => {
+                  //   await handleCreate();
+                  // }}
                 />
 
                 {isSaving ? (
