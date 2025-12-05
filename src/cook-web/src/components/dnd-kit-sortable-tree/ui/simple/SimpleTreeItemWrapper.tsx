@@ -121,6 +121,10 @@ export const SimpleTreeItemWrapper = forwardRef<
                 <button
                   type='button'
                   className='outline-tree_action-button mr-1'
+                  onMouseDown={e => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
                   onClick={chapter.onSettingsClick}
                   aria-label='chapter-settings'
                 >
@@ -131,6 +135,11 @@ export const SimpleTreeItemWrapper = forwardRef<
                 <button
                   type='button'
                   className='outline-tree_action-button'
+                  onMouseDown={e => {
+                    // prevent drag/collapse event intercept, ensure click takes effect immediately
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
                   onClick={chapter.onAddClick}
                   aria-label='chapter-add-section'
                 >
