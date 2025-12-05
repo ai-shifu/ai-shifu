@@ -108,8 +108,6 @@ LANGUAGE_NAME_MAP = {
     "bn-BD": "বাংলা",
     "bn-IN": "বাংলা",
     "bn": "বাংলা",
-    # Pseudo-locale for testing
-    "qps-ploc": "English",
 }
 
 
