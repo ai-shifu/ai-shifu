@@ -1211,6 +1211,25 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     currentMdflow.current = value;
     setMdflow(value || '');
   };
+
+  const removePlaceholderLessons = (nodes: Outline[] = []): Outline[] => {
+    return nodes
+      .filter(node => node.id !== 'new_lesson')
+      .map(node => ({
+        ...node,
+        children: removePlaceholderLessons(node.children || []),
+      }));
+  };
+
+  const findNodeInList = (nodes: Outline[], id: string): Outline | null => {
+    for (const node of nodes) {
+      if (node.id === id) return node;
+      const found = findNodeInList(node.children || [], id);
+      if (found) return found;
+    }
+    return null;
+  };
+
   const insertPlaceholderChapter = () => {
     if (chapters.some(ch => ch.id === 'new_chapter')) return;
 
@@ -1243,38 +1262,55 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   const insertPlaceholderLesson = (parent: Outline) => {
     if (!parent) return;
 
-    const parentNode = findNode(parent.id);
-    if (!parentNode) return;
+    let addedPlaceholder: Outline | null = null;
+    let placeholderParentId: string | null = null;
 
-    // 若已有 placeholder lesson，禁止重复创建
-    if (parentNode.children?.some(ch => ch.id === 'new_lesson')) return;
+    setChapters(prev => {
+      const cleaned = removePlaceholderLessons(prev);
+      const parentNode = findNodeInList(cleaned, parent.id);
+      if (!parentNode) {
+        return cleaned;
+      }
 
-    const placeholder: Outline = {
-      id: 'new_lesson',
-      bid: 'new_lesson',
-      name: '',
-      parent_bid: parentNode.id,
-      children: [],
-      depth: (parentNode.depth || 0) + 1,
-      position: '',
-      type: LEARNING_PERMISSION.TRIAL,
-      is_hidden: false,
-    };
+      if (parentNode.children?.some(ch => ch.id === 'new_lesson')) {
+        return cleaned;
+      }
 
-    parentNode.children = [...(parentNode.children || []), placeholder];
+      const placeholder: Outline = {
+        id: 'new_lesson',
+        bid: 'new_lesson',
+        name: '',
+        parent_bid: parentNode.id,
+        children: [],
+        depth: (parentNode.depth || parent.depth || 0) + 1,
+        position: '',
+        type: LEARNING_PERMISSION.TRIAL,
+        is_hidden: false,
+      };
 
-    setChapters([...chapters]);
-
-    setCataData({
-      ...cataData,
-      ['new_lesson']: {
-        ...placeholder,
-        parentId: parentNode.id,
-        status: 'new',
-      },
+      parentNode.children = [...(parentNode.children || []), placeholder];
+      addedPlaceholder = placeholder;
+      placeholderParentId = parentNode.id;
+      return cleaned;
     });
 
-    setFocusId('new_lesson');
+    // 同步 cataData，保证仅保留最新占位
+    setCataData(prev => {
+      const next = { ...prev };
+      delete next['new_lesson'];
+      if (addedPlaceholder && placeholderParentId) {
+        next['new_lesson'] = {
+          ...addedPlaceholder,
+          parentId: placeholderParentId,
+          status: 'new',
+        };
+      }
+      return next;
+    });
+
+    if (addedPlaceholder) {
+      setFocusId('new_lesson');
+    }
   };
 
   const value: ShifuContextType = {
