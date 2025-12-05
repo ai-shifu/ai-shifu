@@ -17,7 +17,7 @@ import {
   getStoredPreviewVariables,
   type PreviewVariablesMap,
 } from './variableStorage';
-import styles from './LessonPreview.module.css';
+import styles from './LessonPreview.module.scss';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -30,7 +30,6 @@ import {
 
 interface LessonPreviewProps {
   loading: boolean;
-  isStreaming?: boolean;
   errorMessage?: string | null;
   items: ChatContentItem[];
   variables?: PreviewVariablesMap;
@@ -58,7 +57,6 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   onVariableChange,
   variableOrder,
   reGenerateConfirm,
-  isStreaming: _isStreaming = false,
 }) => {
   const { t } = useTranslation();
   const [variablesCollapsed, setVariablesCollapsed] = React.useState(false);

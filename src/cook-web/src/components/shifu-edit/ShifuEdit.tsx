@@ -49,7 +49,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const {
     items: previewItems,
     isLoading: previewLoading,
-    isStreaming: previewStreaming,
     error: previewError,
     startPreview,
     stopPreview,
@@ -526,7 +525,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
               <div className='h-full'>
                 <LessonPreview
                   loading={previewLoading}
-                  isStreaming={previewStreaming}
                   errorMessage={previewError || undefined}
                   items={previewItems}
                   variables={previewVariables}
