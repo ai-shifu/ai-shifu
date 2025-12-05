@@ -4,6 +4,5 @@
   "confirm": "Confirm",
   "confirmDelete": "Confirm Delete",
   "confirmDeleteDescription": "This action cannot be undone. Are you sure you want to delete?",
-  "delete": "Delete",
-  "nameRequired": "Chapter name cannot be empty"
+  "delete": "Delete"
 }

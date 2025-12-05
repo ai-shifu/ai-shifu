@@ -1294,7 +1294,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       return cleaned;
     });
 
-    // 同步 cataData，保证仅保留最新占位
+    // prevent duplicate placeholder lesson
     setCataData(prev => {
       const next = { ...prev };
       delete next['new_lesson'];
