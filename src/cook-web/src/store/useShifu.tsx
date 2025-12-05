@@ -827,12 +827,15 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     const index =
       parent?.children?.findIndex((child: Outline) => child.bid === data.bid) ||
       0;
+    
+    const isNew =
+      data.bid === 'new_chapter' || data.bid === 'new_lesson'; // ← 新增这一句
 
     try {
-      if (data.bid === 'new_chapter') {
+      if (isNew) {
         const newUnit = await api.createOutline({
           parent_bid: data.parent_bid,
-          index: index,
+          index,
           name: data.name,
           description: data.name,
           type: LEARNING_PERMISSION.TRIAL,
@@ -840,14 +843,15 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
           is_hidden: false,
           shifu_bid: currentShifu?.bid || '',
         });
-
-        replaceOutline('new_chapter', {
+  
+        replaceOutline(data.bid, {
           id: newUnit.bid,
           bid: newUnit.bid,
           name: newUnit.name,
           position: '',
           children: [],
         });
+  
         trackEvent('creator_outline_create', {
           shifu_bid: currentShifu?.bid || '',
           outline_bid: newUnit.bid,
@@ -1201,6 +1205,77 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     currentMdflow.current = value;
     setMdflow(value || '');
   };
+  const insertPlaceholderChapter = () => {
+    // 若已存在未提交的新章节，禁止重复创建
+    if (chapters.some(ch => ch.id === 'new_chapter')) return;
+  
+    const placeholder: Outline = {
+      id: 'new_chapter',
+      bid: 'new_chapter',
+      name: '',
+      parent_bid: '',
+      children: [],
+      depth: 0,
+      position: '',
+      type: LEARNING_PERMISSION.TRIAL,
+      is_hidden: false,
+    };
+  
+    setChapters([...chapters, placeholder]);
+  
+    setCataData({
+      ...cataData,
+      ['new_chapter']: {
+        ...placeholder,
+        parentId: '',
+        status: 'new',
+      },
+    });
+  
+    // 让 UI 自动 focus 输入框
+    setFocusId('new_chapter');
+  };
+  
+  const insertPlaceholderLesson = (parent: Outline) => {
+    debugger
+    if (!parent) return;
+  
+    const parentNode = findNode(parent.id);
+    if (!parentNode) return;
+  
+    // 若已有 placeholder lesson，禁止重复创建
+    if (parentNode.children?.some(ch => ch.id === 'new_lesson')) return;
+  
+    const placeholder: Outline = {
+      id: 'new_lesson',
+      bid: 'new_lesson',
+      name: '',
+      parent_bid: parentNode.id,
+      children: [],
+      depth: (parentNode.depth || 0) + 1,
+      position: '',
+      type: LEARNING_PERMISSION.TRIAL,
+      is_hidden: false,
+    };
+  
+    parentNode.children = [...(parentNode.children || []), placeholder];
+  
+    setChapters([...chapters]);
+  
+    setCataData({
+      ...cataData,
+      ['new_lesson']: {
+        ...placeholder,
+        parentId: parentNode.id,
+        status: 'new',
+      },
+    });
+  
+    // 让 UI 自动 focus 输入框
+    setFocusId('new_lesson');
+  };
+  
+  
 
   const value: ShifuContextType = {
     currentShifu,
@@ -1267,6 +1342,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       setCurrentMdflow,
       flushAutoSaveBlocks,
       cancelAutoSaveBlocks,
+      insertPlaceholderChapter,
+      insertPlaceholderLesson,
     },
   };
 

@@ -12,6 +12,7 @@ import normalIcon from '../chapter-setting/icons/svg-normal.svg';
 import hiddenIcon from '../chapter-setting/icons/svg-hidden.svg';
 import { cn } from '@/lib/utils';
 import { useShifu } from '@/store/useShifu';
+import { Loader2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,7 +53,7 @@ const MinimalTreeItemComponent = React.forwardRef<
   const outlineVariant = (props.item?.depth ?? 0) <= 0 ? 'chapter' : 'lesson';
   const alert = useAlert();
   const isChapterNode = (props.item?.depth || 0) === 0;
-  const isPlaceholderNode = props.item.id === 'new_chapter';
+  const isPlaceholderNode = props.item.id === 'new_chapter' || props.item.id === 'new_lesson';
   const shouldHighlight =
     (!isChapterNode && currentNode?.id == props.item.id) || isPlaceholderNode;
   const showChapter = isChapterNode && !isPlaceholderNode;
@@ -119,6 +120,13 @@ const MinimalTreeItemComponent = React.forwardRef<
       </TooltipProvider>
     );
   };
+
+
+  const [inputValue, setInputValue] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+
   const onNodeChange = async (value: string) => {
     if (!value || value.trim() === '') {
       alert.showAlert({
@@ -151,8 +159,10 @@ const MinimalTreeItemComponent = React.forwardRef<
   };
   const handleAddSectionClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setAddLessonDialogOpen(true);
+    console.log("insertPlaceholderLesson props.item", props.item)
+    actions.insertPlaceholderLesson(props.item); // 传入当前章节
   };
+  
   const handleSettingsDeleteRequest = () => {
     setSettingsDialogOpen(false);
     setShowDeleteDialog(true);
@@ -237,6 +247,43 @@ const MinimalTreeItemComponent = React.forwardRef<
     setShowDeleteDialog(false);
   };
 
+  const handleCreate = async () => {
+    if (!isPlaceholderNode) return;
+  
+    const value = inputValue.trim();
+  
+    if (value === '') {
+      // 输入为空 → 删除 placeholder 节点
+      actions.removeOutline({
+        parent_bid: props.item.parentId,
+        ...props.item,
+      });
+      return;
+    }
+  
+    setIsSaving(true);
+  
+    try {
+      await actions.createOutline({
+        shifu_bid: currentShifu?.bid || '',
+        id: props.item.id,
+        parent_bid: props.item.parent_bid || '',
+        bid: props.item.bid,
+        name: value,
+        children: [],
+        position: '',
+      });
+  
+      actions.setFocusId(''); // 确保选中新节点
+    } catch (e) {
+      console.error(e);
+      // 保存失败 → 允许继续编辑
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+
   return (
     <>
       <SimpleTreeItemWrapper
@@ -263,7 +310,7 @@ const MinimalTreeItemComponent = React.forwardRef<
           )}
           onClick={onSelect}
         >
-          <div className='flex flex-row items-center flex-1 min-w-0'>
+          {/* <div className='flex flex-row items-center flex-1 min-w-0'>
             <span
               className='outline-tree_title truncate'
               title={chapterName}
@@ -275,7 +322,46 @@ const MinimalTreeItemComponent = React.forwardRef<
                 {renderLessonBadges()}
               </div>
             )}
+          </div> */}
+          <div className="flex flex-row items-center flex-1 min-w-0">
+            {isPlaceholderNode ? (
+              <div className="flex items-center w-full">
+                <input
+                  ref={inputRef}
+                  className="outline-none px-2 py-1 rounded bg-white text-sm border border-gray-300 w-full"
+                  placeholder={isChapterNode ? "新章节名称" : "新小节名称"}
+                  autoFocus
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter') {
+                      await handleCreate();
+                    }
+                  }}
+                  onBlur={async () => {
+                    await handleCreate();
+                  }}
+                />
+
+                {isSaving ? (
+                  <Loader2 className="animate-spin ml-2 h-4 w-4 text-primary" />
+                ) : null}
+              </div>
+            ) : (
+              <>
+                <span className='outline-tree_title truncate' title={chapterName}>
+                  {chapterName}
+                </span>
+
+                {!isChapterNode && (
+                  <div className='outline-tree_badges flex items-center flex-shrink-0'>
+                    {renderLessonBadges()}
+                  </div>
+                )}
+              </>
+            )}
           </div>
+
         </div>
       </SimpleTreeItemWrapper>
       {/* edit lesson settings dialog */}
