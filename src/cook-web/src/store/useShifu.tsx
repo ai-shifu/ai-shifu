@@ -376,13 +376,24 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       });
       const list = remapOutlineTree(chaptersData);
       if (list.length > 0) {
-        if (list[0].children && list[0].children.length > 0) {
+        // Find the first leaf node (lesson) to select by default
+        let firstLesson: Outline | null = null;
+
+        // Look for the first lesson node (depth > 0, typically chapter's child)
+        for (const chapter of list) {
+          if (chapter.children && chapter.children.length > 0) {
+            firstLesson = chapter.children[0];
+            break;
+          }
+        }
+
+        if (firstLesson) {
           setCurrentNode({
-            ...list[0].children[0],
+            ...firstLesson,
             depth: 1,
           });
-          await loadMdflow(list[0].children[0].bid, shifuId);
-          // await loadBlocks(list[0].children[0].bid, shifuId);
+          await loadMdflow(firstLesson.bid, shifuId);
+          // await loadBlocks(firstLesson.bid, shifuId);
         }
       }
       setChapters(list);
