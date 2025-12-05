@@ -124,6 +124,9 @@ const MinimalTreeItemComponent = React.forwardRef<
   const [inputValue, setInputValue] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const placeholderText = isChapterNode
+    ? t('module.chapterSetting.chapterNamePlaceholder')
+    : t('module.chapterSetting.lessonNamePlaceholder');
 
   const handleChapterSettingsClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -213,12 +216,10 @@ const MinimalTreeItemComponent = React.forwardRef<
     if (!isPlaceholderNode) return;
 
     const value = inputValue.trim();
-
+    setInputValue(value);
+  
     if (value === '') {
-      actions.removeOutline({
-        parent_bid: props.item.parentId,
-        ...props.item,
-      });
+      actions.removePlaceholderOutline(props.item);
       return;
     }
 
@@ -271,31 +272,32 @@ const MinimalTreeItemComponent = React.forwardRef<
         >
           <div className='flex flex-row items-center flex-1 min-w-0'>
             {isPlaceholderNode ? (
-              <div className='flex items-center w-full'>
-                <Input
-                  ref={inputRef}
-                  className='outline-none px-2 py-1 mr-1 h-[26px] rounded bg-white text-sm border border-gray-300 w-full'
-                  placeholder={
-                    isChapterNode
-                      ? t('module.chapterSetting.chapterNamePlaceholder')
-                      : t('module.chapterSetting.lessonNamePlaceholder')
-                  }
-                  autoFocus
-                  value={inputValue}
-                  onChange={e => setInputValue(e.target.value)}
-                  onKeyDown={async e => {
-                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                      await handleCreate();
-                    }
-                  }}
-                  onBlur={async () => {
-                    await handleCreate();
-                  }}
-                />
-
+              <div className="flex items-center w-full">
                 {isSaving ? (
-                  <Loader2 className='animate-spin ml-2 h-4 w-4 text-primary' />
-                ) : null}
+                  <>
+                    <span className="outline-none px-2 py-1 mr-1 h-[26px] rounded bg-white text-sm border border-gray-300 w-full text-left flex items-center">
+                      {inputValue || placeholderText}
+                    </span>
+                    <Loader2 className="animate-spin ml-2 h-4 w-4 text-primary" />
+                  </>
+                ) : (
+                  <Input
+                    ref={inputRef}
+                    className="outline-none px-2 py-1 mr-1 h-[26px] rounded bg-white text-sm border border-gray-300 w-full"
+                    placeholder={placeholderText}
+                    autoFocus
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                        await handleCreate();
+                      }
+                    }}
+                    onBlur={async () => {
+                      await handleCreate();
+                    }}
+                  />
+                )}
               </div>
             ) : (
               <>

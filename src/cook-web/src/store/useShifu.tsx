@@ -291,6 +291,13 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     setFocusId('');
   };
 
+  // Remove placeholder nodes locally without hitting APIs
+  const removePlaceholderOutline = (outline: Outline) => {
+    removeOutlineFromTree(outline);
+    cleanupCatalogData(outline);
+    setFocusId('');
+  };
+
   const removeOutline = async (outline: Outline) => {
     setIsSaving(true);
     setError(null);
@@ -1340,6 +1347,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       cancelAutoSaveBlocks,
       insertPlaceholderChapter,
       insertPlaceholderLesson,
+      removePlaceholderOutline,
     },
   };
 
