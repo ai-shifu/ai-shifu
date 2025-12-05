@@ -20,10 +20,7 @@ import { getDynamicApiBaseUrl } from '@/config/environment';
 import { useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
-import {
-  PreviewVariablesMap,
-  savePreviewVariables,
-} from './variableStorage';
+import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
 
 interface InteractionParseResult {
   variableName?: string;

@@ -1,1 +1,9 @@
-.timeBar{background:#f9fafb;color:#737373;font-size:14px;font-style:normal;font-weight:400;line-height:20px;padding:10px 16px}
+.timeBar {
+  background: #f9fafb;
+  color: #737373;
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 20px;
+  padding: 10px 16px;
+}

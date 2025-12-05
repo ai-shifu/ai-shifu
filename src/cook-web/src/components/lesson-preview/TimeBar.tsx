@@ -6,7 +6,9 @@ interface TimeBarProps {
 }
 
 const TimeBar: React.FC<TimeBarProps> = ({ timestamp }) => {
-  return <div className={s.timeBar}>{new Date(timestamp).toLocaleString()}</div>;
+  return (
+    <div className={s.timeBar}>{new Date(timestamp).toLocaleString()}</div>
+  );
 };
 
 export default TimeBar;

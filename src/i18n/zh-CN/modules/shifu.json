@@ -16,11 +16,11 @@
     "loading": "正在生成预览...",
     "open": "展开预览区",
     "title": "预览区",
-    "variablesTitle": "变量",
+    "variablesCollapse": "收起",
     "variablesDescription": "基于变量值生成个性化的内容",
+    "variablesExpand": "展开",
     "variablesLearnMore": "了解更多",
     "variablesPlaceholder": "UNKNOWN",
-    "variablesCollapse": "收起",
-    "variablesExpand": "展开"
+    "variablesTitle": "变量"
   }
 }

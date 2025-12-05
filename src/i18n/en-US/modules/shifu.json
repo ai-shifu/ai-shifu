@@ -16,11 +16,11 @@
     "loading": "Generating preview...",
     "open": "Show preview panel",
     "title": "Preview Area",
-    "variablesTitle": "Variables",
+    "variablesCollapse": "Collapse",
     "variablesDescription": "Personalize the output with these variable values",
+    "variablesExpand": "Expand",
     "variablesLearnMore": "Learn more",
     "variablesPlaceholder": "UNKNOWN",
-    "variablesCollapse": "Collapse",
-    "variablesExpand": "Expand"
+    "variablesTitle": "Variables"
   }
 }

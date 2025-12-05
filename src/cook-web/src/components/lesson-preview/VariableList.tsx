@@ -67,9 +67,15 @@ const VariableList: React.FC<VariableListProps> = ({
             onClick={onToggle}
           >
             {collapsed ? (
-              <ChevronDown size={16} strokeWidth={2} />
+              <ChevronDown
+                size={16}
+                strokeWidth={2}
+              />
             ) : (
-              <ChevronUp size={16} strokeWidth={2} />
+              <ChevronUp
+                size={16}
+                strokeWidth={2}
+              />
             )}
             <span>
               {collapsed
@@ -86,13 +92,26 @@ const VariableList: React.FC<VariableListProps> = ({
         {entries.map(([name, value]) => {
           const displayValue = value || '';
           return (
-            <div className={styles.item} key={name}>
-              <div className={styles.name} title={name}>{name}</div>
-              <div className={styles.value} title={displayValue}>
+            <div
+              className={styles.item}
+              key={name}
+            >
+              <div
+                className={styles.name}
+                title={name}
+              >
+                {name}
+              </div>
+              <div
+                className={styles.value}
+                title={displayValue}
+              >
                 <Input
                   type='text'
                   value={displayValue}
-                  placeholder={t('module.shifu.previewArea.variablesPlaceholder')}
+                  placeholder={t(
+                    'module.shifu.previewArea.variablesPlaceholder',
+                  )}
                   onChange={e => {
                     const nextValue = e.target.value;
                     onChange?.(name, nextValue);

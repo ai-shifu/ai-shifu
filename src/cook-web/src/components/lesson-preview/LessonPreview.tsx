@@ -79,12 +79,13 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     for (const candidate of candidates) {
       if (candidate && Object.keys(candidate).length) return candidate;
     }
-    return Object.keys(fallbackVariables).length ? fallbackVariables : undefined;
+    return Object.keys(fallbackVariables).length
+      ? fallbackVariables
+      : undefined;
   }, [fallbackVariables, items, variables]);
 
   return (
     <div className={cn(styles.lessonPreview, 'text-sm')}>
-      
       {/* 顶部标题 */}
       <div className='flex flex-wrap items-baseline gap-2 pt-[4px]'>
         <h2 className='text-base font-semibold text-foreground'>
@@ -97,7 +98,6 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
 
       {/* 主体区域（不滚动，用于 sticky） */}
       <div className={styles.previewArea}>
-        
         {/* VariableList（吸顶固定） */}
         {!showEmpty && (
           <div className={styles.variableListWrapper}>
@@ -113,7 +113,6 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
 
         {/* 内容滚动区（唯一 overflow 区域） */}
         <div className={styles.previewAreaContent}>
-          
           {/* 加载状态 */}
           {loading && items.length === 0 && (
             <div className='flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground'>
@@ -125,7 +124,12 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           {/* 空状态 */}
           {showEmpty && !loading && (
             <div className='h-full flex flex-col items-center justify-center gap-[13px] px-8 text-center text-[14px] leading-5 text-[rgba(10,10,10,0.45)]'>
-              <Image src={ScrollText.src} alt='scroll-text' width={64} height={64} />
+              <Image
+                src={ScrollText.src}
+                alt='scroll-text'
+                width={64}
+                height={64}
+              />
               <span>{t('module.shifu.previewArea.empty')}</span>
             </div>
           )}
@@ -135,7 +139,11 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
             items.map((item, idx) => {
               if (item.type === ChatContentItemType.LIKE_STATUS) {
                 return (
-                  <div key={`${idx}-like`} className="p-0" style={{ maxWidth: '100%' }}>
+                  <div
+                    key={`${idx}-like`}
+                    className='p-0'
+                    style={{ maxWidth: '100%' }}
+                  >
                     <InteractionBlock
                       shifu_bid={shifuBid}
                       generated_block_bid={item.parent_block_bid || ''}
@@ -152,7 +160,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
               return (
                 <div
                   key={`${idx}-content`}
-                  className="p-0 relative"
+                  className='p-0 relative'
                   style={{
                     maxWidth: '100%',
                     margin: !idx ? '0' : '40px 0 0 0',
@@ -201,7 +209,6 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 };

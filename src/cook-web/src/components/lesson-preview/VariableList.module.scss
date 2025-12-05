@@ -3,14 +3,10 @@
   padding: 16px;
   max-height: 236px;
   overflow: auto;
-  border-bottom: 1px solid #E5E5E5;
+  border-bottom: 1px solid #e5e5e5;
   position: sticky;
   top: 0;
   z-index: 20;
-  
-   
-  
-
 
   .header {
     display: flex;
@@ -86,9 +82,12 @@
     font-style: normal;
     font-weight: bold;
     line-height: var(--text-xs-line-height, 16px); /* 133.333% */
-    border-radius: var(--border-radius-rounded-md, 8px) 0 0 var(--border-radius-rounded-md, 8px);
-    background: var(--base-secondary, #F5F5F5);
-    box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px) var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0) var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
+    border-radius: var(--border-radius-rounded-md, 8px) 0 0
+      var(--border-radius-rounded-md, 8px);
+    background: var(--base-secondary, #f5f5f5);
+    box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
+      var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
+      var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
     padding: 8px 12px;
     width: 50%;
     text-align: center;
@@ -108,13 +107,15 @@
     font-style: normal;
     font-weight: var(--font-weight-normal, 400);
     line-height: var(--text-sm-line-height, 20px); /* 142.857% */
-    input{
-      border-radius: 0 var(--border-radius-rounded-md, 8px) var(--border-radius-rounded-md, 8px) 0;
-      border: var(--border-width-border, 1px) solid var(--base-input, #E5E5E5);
-      background: var(--custom-background-dark-input-30, #FFF);
+    input {
+      border-radius: 0 var(--border-radius-rounded-md, 8px)
+        var(--border-radius-rounded-md, 8px) 0;
+      border: var(--border-width-border, 1px) solid var(--base-input, #e5e5e5);
+      background: var(--custom-background-dark-input-30, #fff);
       padding: 8px 12px;
-      box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px) var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0) var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
+      box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
+        var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
+        var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
     }
   }
-
 }
