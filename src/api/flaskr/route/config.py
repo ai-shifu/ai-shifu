@@ -51,10 +51,13 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             "courseId": get_config("NEXT_PUBLIC_DEFAULT_COURSE_ID", ""),
             "defaultLlmModel": get_config("DEFAULT_LLM_MODEL", ""),
             # WeChat Integration
-            "wechatAppId": get_config("NEXT_PUBLIC_WECHAT_APP_ID", ""),
-            "enableWechatCode": _to_bool(
-                get_config("NEXT_PUBLIC_WECHAT_CODE_ENABLED", True), True
-            ),
+            "wechatAppId": get_config("WECHAT_APP_ID", "")
+            or get_config("NEXT_PUBLIC_WECHAT_APP_ID", ""),
+            "enableWechatCode": bool(
+                get_config("WECHAT_APP_ID", "")
+                or get_config("NEXT_PUBLIC_WECHAT_APP_ID", "")
+            )
+            and _to_bool(get_config("NEXT_PUBLIC_WECHAT_CODE_ENABLED", True), True),
             # Payment Configuration
             "stripePublishableKey": get_config(
                 "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", ""
