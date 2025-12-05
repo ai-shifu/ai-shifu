@@ -127,7 +127,7 @@ export const SimpleTreeItemWrapper = forwardRef<
                   <Settings size={16} />
                 </button>
               )}
-              {chapter.showAdd !== false && chapter.onAddClick && !readonly &&(
+              {chapter.showAdd !== false && chapter.onAddClick && !readonly && (
                 <button
                   type='button'
                   className='outline-tree_action-button'
