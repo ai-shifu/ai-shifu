@@ -1162,6 +1162,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         shifu_bid: resolvedShifuId,
         outline_bid: resolvedOutlineId,
         data: value,
+        include_all_outlines: !!currentShifu?.readonly,
       });
       const variableKeys = result?.variables || [];
       const systemVariableKeys =

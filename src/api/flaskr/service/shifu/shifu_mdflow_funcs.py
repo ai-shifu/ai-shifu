@@ -12,6 +12,23 @@ from flaskr.service.profile.profile_manage import (
     add_profile_item_quick,
 )
 from datetime import datetime
+from typing import Sequence
+
+
+def _get_latest_outline_items_by_shifu(shifu_bid: str) -> Sequence[DraftOutlineItem]:
+    """
+    Fetch latest non-deleted outline items for the given shifu.
+    """
+    sub_query = (
+        db.session.query(db.func.max(DraftOutlineItem.id))
+        .filter(DraftOutlineItem.shifu_bid == shifu_bid)
+        .group_by(DraftOutlineItem.outline_item_bid)
+    )
+    outline_items = DraftOutlineItem.query.filter(
+        DraftOutlineItem.id.in_(sub_query),
+        DraftOutlineItem.deleted == 0,
+    ).all()
+    return sorted(outline_items, key=lambda item: (len(item.position), item.position))
 
 
 def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
@@ -90,12 +107,57 @@ def save_shifu_mdflow(
 
 
 def parse_shifu_mdflow(
-    app: Flask, shifu_bid: str, outline_bid: str, data: str = None
+    app: Flask,
+    shifu_bid: str,
+    outline_bid: str,
+    data: str = None,
+    include_all_outlines: bool = False,
 ) -> MdflowDTOParseResult:
     """
     Parse shifu mdflow
     """
     with app.app_context():
+        if include_all_outlines:
+            outline_items = _get_latest_outline_items_by_shifu(shifu_bid)
+            if not outline_items:
+                raise_error("server.shifu.outlineItemNotFound")
+
+            variables: list[str] = []
+            seen = set()
+            blocks_count = 0
+
+            # Prefer incoming mdflow content for the current outline when provided
+            for item in outline_items:
+                mdflow = (
+                    data
+                    if data and item.outline_item_bid == outline_bid
+                    else item.content
+                )
+                if not mdflow:
+                    continue
+                markdown_flow = MarkdownFlow(mdflow).set_output_language(
+                    get_markdownflow_output_language()
+                )
+                blocks = markdown_flow.get_all_blocks()
+                blocks_count += len(blocks)
+
+                raw_variables = markdown_flow.extract_variables() or []
+                for var in raw_variables:
+                    if not var or var in seen:
+                        continue
+                    variables.append(var)
+                    seen.add(var)
+
+            profile_definitions = get_profile_item_definition_list(app, shifu_bid)
+            for item in profile_definitions:
+                key = item.profile_key
+                if not key or key in seen:
+                    continue
+                variables.append(key)
+                seen.add(key)
+
+            return MdflowDTOParseResult(variables=variables, blocks_count=blocks_count)
+
         outline_item = (
             DraftOutlineItem.query.filter(
                 DraftOutlineItem.outline_item_bid == outline_bid
@@ -105,9 +167,7 @@ def parse_shifu_mdflow(
         )
         if not outline_item:
             raise_error("server.shifu.outlineItemNotFound")
-        mdflow = outline_item.content
-        if data:
-            mdflow = data
+        mdflow = data if data else outline_item.content
         markdown_flow = MarkdownFlow(mdflow).set_output_language(
             get_markdownflow_output_language()
         )
