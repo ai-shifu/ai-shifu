@@ -3,7 +3,7 @@ import {
   SimpleTreeItemWrapper,
   TreeItemComponentProps,
 } from '../dnd-kit-sortable-tree';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { LessonCreationSettings, Outline } from '@/types/shifu';
 import { LearningPermission } from '@/c-api/studyV2';
 import guestIcon from '../chapter-setting/icons/svg-guest.svg';
@@ -24,7 +24,6 @@ import {
   AlertDialogTitle,
 } from '../ui/AlertDialog';
 import { useTranslation } from 'react-i18next';
-import { useAlert } from '@/components/ui/UseAlert';
 import ChapterSettingsDialog from '../chapter-setting';
 import './OutlineTree.css';
 import { LEARNING_PERMISSION } from '@/c-api/studyV2';
@@ -46,17 +45,16 @@ const MinimalTreeItemComponent = React.forwardRef<
   HTMLDivElement,
   TreeItemComponentProps<Outline> & TreeItemProps
 >((props, ref) => {
-  const { focusId, actions, cataData, currentNode, currentShifu } = useShifu();
+  const { actions, cataData, currentNode, currentShifu } = useShifu();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [addLessonDialogOpen, setAddLessonDialogOpen] = useState(false);
   const { t } = useTranslation();
   const outlineVariant = (props.item?.depth ?? 0) <= 0 ? 'chapter' : 'lesson';
-  const alert = useAlert();
   const isChapterNode = (props.item?.depth || 0) === 0;
   const isPlaceholderNode = props.item.id === 'new_chapter' || props.item.id === 'new_lesson';
   const shouldHighlight =
-    (!isChapterNode && currentNode?.id == props.item.id) || isPlaceholderNode;
+    !isPlaceholderNode && !isChapterNode && currentNode?.id == props.item.id;
   const showChapter = isChapterNode && !isPlaceholderNode;
   const showLessonSettings = !isChapterNode && !isPlaceholderNode;
   const lesson = cataData[props.item.id!] || props.item;
@@ -127,41 +125,13 @@ const MinimalTreeItemComponent = React.forwardRef<
   const [isSaving, setIsSaving] = useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-
-  const onNodeChange = async (value: string) => {
-    if (!value || value.trim() === '') {
-      alert.showAlert({
-        title: t('component.outlineTree.nameRequired'),
-        description: '',
-        confirmText: t('common.core.confirm'),
-        onConfirm() {
-          actions.removeOutline({
-            parent_bid: props.item.parentId,
-            ...props.item,
-          });
-          actions.setFocusId('');
-        },
-      });
-      return;
-    }
-    await actions.createOutline({
-      shifu_bid: currentShifu?.bid || '',
-      id: props.item.id,
-      parent_bid: props.item.parent_bid || '',
-      bid: props.item.bid,
-      name: value,
-      children: [],
-      position: '',
-    });
-  };
   const handleChapterSettingsClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setSettingsDialogOpen(true);
   };
   const handleAddSectionClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    console.log("insertPlaceholderLesson props.item", props.item)
-    actions.insertPlaceholderLesson(props.item); // 传入当前章节
+    actions.insertPlaceholderLesson(props.item);
   };
   
   const handleSettingsDeleteRequest = () => {
@@ -208,14 +178,6 @@ const MinimalTreeItemComponent = React.forwardRef<
       await actions.addSubOutline(node, settings);
     }
   };
-  const removeNode = async e => {
-    e.stopPropagation();
-    setShowDeleteDialog(true);
-  };
-  const editNode = e => {
-    e.stopPropagation();
-    actions.setFocusId(props.item.id || '');
-  };
   const onSelect = async () => {
     if (props.item.id == 'new_chapter') {
       return;
@@ -237,7 +199,6 @@ const MinimalTreeItemComponent = React.forwardRef<
 
     await actions.setCurrentNode(props.item);
     await actions.loadMdflow(props.item.bid || '', currentShifu?.bid || '');
-    // await actions.loadBlocks(props.item.bid || '', currentShifu?.bid || '');
   };
 
   const handleConfirmDelete = async () => {
@@ -254,7 +215,6 @@ const MinimalTreeItemComponent = React.forwardRef<
     const value = inputValue.trim();
   
     if (value === '') {
-      // 输入为空 → 删除 placeholder 节点
       actions.removeOutline({
         parent_bid: props.item.parentId,
         ...props.item,
@@ -275,10 +235,9 @@ const MinimalTreeItemComponent = React.forwardRef<
         position: '',
       });
   
-      actions.setFocusId(''); // 确保选中新节点
+      actions.setFocusId('');
     } catch (e) {
       console.error(e);
-      // 保存失败 → 允许继续编辑
     } finally {
       setIsSaving(false);
     }
@@ -311,19 +270,6 @@ const MinimalTreeItemComponent = React.forwardRef<
           )}
           onClick={onSelect}
         >
-          {/* <div className='flex flex-row items-center flex-1 min-w-0'>
-            <span
-              className='outline-tree_title truncate'
-              title={chapterName}
-            >
-              {chapterName}
-            </span>
-            {!isChapterNode && (
-              <div className='outline-tree_badges flex items-center flex-shrink-0'>
-                {renderLessonBadges()}
-              </div>
-            )}
-          </div> */}
           <div className="flex flex-row items-center flex-1 min-w-0">
             {isPlaceholderNode ? (
               <div className="flex items-center w-full">
@@ -343,9 +289,9 @@ const MinimalTreeItemComponent = React.forwardRef<
                       await handleCreate();
                     }
                   }}
-                  // onBlur={async () => {
-                  //   await handleCreate();
-                  // }}
+                  onBlur={async () => {
+                    await handleCreate();
+                  }}
                 />
 
                 {isSaving ? (

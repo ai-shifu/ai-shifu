@@ -67,7 +67,6 @@ export const SimpleTreeItemWrapper = forwardRef<
       )}
       style={{
         ...style,
-        // paddingLeft: clone ? indentationWidth : indentationWidth * depth,
       }}
     >
       <div

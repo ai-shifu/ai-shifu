@@ -1,11 +1,10 @@
 'use client';
 import {
   SortableTree,
-  SimpleTreeItemWrapper,
   TreeItemComponentProps,
   TreeItems,
 } from '../dnd-kit-sortable-tree';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Outline } from '@/types/shifu';
 import { useShifu } from '@/store/useShifu';
 import { ItemChangedReason } from '../dnd-kit-sortable-tree/types';
