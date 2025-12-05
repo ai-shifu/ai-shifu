@@ -1,5 +1,5 @@
 {
   "__namespace__": "module.preview",
-  "previewAll": "预览课程",
-  "previewError": "预览错误"
+  "llmError": "LLM 调用错误",
+  "previewAll": "预览课程"
 }

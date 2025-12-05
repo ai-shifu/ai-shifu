@@ -61,7 +61,7 @@ from flaskr.service.learn.learn_dtos import (
     OutlineItemUpdateDTO,
     LearnStatus,
 )
-from flaskr.api.llm import invoke_llm
+from flaskr.api.llm import chat_llm
 from flaskr.service.learn.handle_input_ask import handle_input_ask
 from flaskr.service.profile.funcs import save_user_profiles, ProfileToSave
 from flaskr.service.profile.profile_manage import (
@@ -130,24 +130,17 @@ class RUNLLMProvider(LLMProvider):
         # Extract the last message content as the main prompt
         if not messages:
             raise ValueError("No messages provided")
-
-        # Get the last message content
-        system_prompt = messages[0].get("content", "")
-        last_message = messages[-1]
-        prompt = last_message.get("content", "")
-
         # Use provided model/temperature or fall back to settings
         actual_model = model or self.llm_settings.model
         actual_temperature = (
             temperature if temperature is not None else self.llm_settings.temperature
         )
 
-        res = invoke_llm(
+        res = chat_llm(
             self.app,
             self.trace_args.get("user_id", ""),
             self.trace,
-            message=prompt,
-            system=system_prompt,
+            messages=messages,
             model=actual_model,
             stream=False,
             generation_name="run_llm",
@@ -170,10 +163,10 @@ class RUNLLMProvider(LLMProvider):
         if not messages:
             raise ValueError("No messages provided")
 
-        system_prompt = messages[0].get("content", "")
+        # system_prompt = messages[0].get("content", "")
         # Get the last message content
-        last_message = messages[-1]
-        prompt = last_message.get("content", "")
+        # last_message = messages[-1]
+        # prompt = last_message.get("content", "")
 
         # Use provided model/temperature or fall back to settings
         actual_model = model or self.llm_settings.model
@@ -183,13 +176,12 @@ class RUNLLMProvider(LLMProvider):
 
         # Check if there's a system message
         self.app.logger.info("stream invoke_llm begin")
-        res = invoke_llm(
+        res = chat_llm(
             self.app,
             self.trace_args["user_id"],
             self.trace,
-            message=prompt,
-            system=system_prompt,
             model=actual_model,
+            messages=messages,
             stream=True,
             generation_name="run_llm",
             temperature=actual_temperature,
@@ -745,14 +737,6 @@ class RunScriptContextV2:
             return
         llm_settings = self.get_llm_settings(run_script_info.outline_bid)
         system_prompt = self.get_system_prompt(run_script_info.outline_bid)
-        mdflow = MarkdownFlow(
-            document=run_script_info.mdflow,
-            document_prompt=system_prompt,
-            llm_provider=RUNLLMProvider(
-                app, llm_settings, self._trace, self._trace_args
-            ),
-        ).set_output_language(get_markdownflow_output_language())
-        block_list = mdflow.get_all_blocks()
 
         if self._input_type == "ask":
             if self._last_position == -1:
@@ -782,7 +766,50 @@ class RunScriptContextV2:
             self._can_continue = False
             db.session.flush()
             return
+        generated_blocks: list[LearnGeneratedBlock] = (
+            LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                LearnGeneratedBlock.shifu_bid == run_script_info.attend.shifu_bid,
+                LearnGeneratedBlock.progress_record_bid
+                == self._current_attend.progress_record_bid,
+                LearnGeneratedBlock.outline_item_bid == run_script_info.outline_bid,
+                LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.status == 1,
+                LearnGeneratedBlock.type.in_(
+                    [BLOCK_TYPE_MDCONTENT_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]
+                ),
+            )
+            .order_by(LearnGeneratedBlock.position.asc(), LearnGeneratedBlock.id.asc())
+            .all()
+        )
 
+        message_list = []
+        last_role = None
+        for generated_block in generated_blocks:
+            role = None
+            if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
+                role = "assistant"
+            elif generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
+                role = "user"
+            if role != last_role:
+                message_list.append(
+                    {
+                        "role": role,
+                        "content": generated_block.generated_content,
+                    }
+                )
+                last_role = role
+            else:
+                message_list[-1]["content"] += "\n" + generated_block.generated_content
+
+        mdflow = MarkdownFlow(
+            document=run_script_info.mdflow,
+            document_prompt=system_prompt,
+            llm_provider=RUNLLMProvider(
+                app, llm_settings, self._trace, self._trace_args
+            ),
+        ).set_output_language(get_markdownflow_output_language())
+        block_list = mdflow.get_all_blocks()
         user_profile = get_user_profiles(
             app, self._user_info.user_id, self._outline_item_info.shifu_bid
         )
@@ -906,6 +933,7 @@ class RunScriptContextV2:
                 interaction_result = mdflow.process(
                     run_script_info.block_position,
                     ProcessMode.COMPLETE,
+                    context=message_list,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
@@ -947,6 +975,7 @@ class RunScriptContextV2:
             interaction_result = mdflow.process(
                 run_script_info.block_position,
                 ProcessMode.COMPLETE,
+                context=message_list,
             )
             generated_block.block_content_conf = (
                 interaction_result.content if interaction_result else block.content
@@ -993,6 +1022,7 @@ class RunScriptContextV2:
                 interaction_result = mdflow.process(
                     run_script_info.block_position,
                     ProcessMode.COMPLETE,
+                    context=message_list,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
@@ -1045,6 +1075,7 @@ class RunScriptContextV2:
                 run_script_info.block_position,
                 ProcessMode.COMPLETE,
                 user_input=user_input_param,
+                context=message_list,
             )
 
             if (
@@ -1144,6 +1175,7 @@ class RunScriptContextV2:
                 interaction_result = mdflow.process(
                     run_script_info.block_position,
                     ProcessMode.COMPLETE,
+                    context=message_list,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
@@ -1208,6 +1240,7 @@ class RunScriptContextV2:
                 interaction_result = mdflow.process(
                     run_script_info.block_position,
                     ProcessMode.COMPLETE,
+                    context=message_list,
                 )
 
                 # Get rendered interaction content
@@ -1243,6 +1276,7 @@ class RunScriptContextV2:
                     run_script_info.block_position,
                     ProcessMode.STREAM,
                     variables=user_profile,
+                    context=message_list,
                 )
 
                 # Handle both Generator and single LLMResult (markdown-flow 0.2.27+)

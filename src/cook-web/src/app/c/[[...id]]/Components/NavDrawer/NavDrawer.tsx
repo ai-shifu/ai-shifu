@@ -176,7 +176,6 @@ const NavDrawer = ({
                   catalogs={lessonTree?.catalogs || []}
                   // @ts-expect-error EXPECT
                   catalogCount={lessonTree?.catalogCount || 0}
-                  lessonCount={lessonTree?.lessonCount || 0}
                   onChapterCollapse={onChapterCollapse}
                   onLessonSelect={onLessonSelect}
                   onTryLessonSelect={onTryLessonSelect}

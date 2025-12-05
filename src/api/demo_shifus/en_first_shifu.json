@@ -49,7 +49,7 @@
       "ask_llm": "",
       "ask_llm_temperature": 0.3,
       "ask_llm_system_prompt": "",
-      "content": "🎉 Welcome to AI Mentor! 🎉 You only need to explain the key points, and the AI ​​Mentor will provide personalized explanations for each user.\n\n👉 Step 1: Please write down your explanation needs here.\n\nFor example: Explain the Pyramid Principle\n\n👉 Step 2: Please click to preview the effect.\n\n👉 Step 3: Return to the main interface and view the \"AI Mentor Creation Guide\" to officially begin creation.\n\nLet's get started!\n\nPlease delete all content here and write down the content you want to explain."
+      "content": "🎉 Welcome to AI Mentor! 🎉 You only need to explain the key points, and the AI ​​Mentor will provide personalized explanations for each user.\n\n👉 Step 1: Please write down your explanation needs here.\n\nFor example: Explain the Pyramid Principle\n\n👉 Step 2: Please click \"Preview Course\" to preview the effect.\n\n👉 Step 3: Return to the main interface and view the \"AI Mentor Creation Guide\" to officially begin creation.\n\nLet's get started!\n\nPlease delete all content here and write down the content you want to explain."
     }
   ],
   "structure": {

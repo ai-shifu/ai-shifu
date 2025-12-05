@@ -1,0 +1,11 @@
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+     xmlns="http://www.w3.org/2000/svg">
+  <g stroke="#55575E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- lucide log-in 原图形（方向保持不变） -->
+    <path d="M15 3h4v18h-4"/>
+    <path d="M3 12h13"/>
+    <path d="M10 7l5 5-5 5"/>
+    <!-- 左上 → 右下 删除线 -->
+    <line x1="4" y1="4" x2="20" y2="20"/>
+  </g>
+</svg>

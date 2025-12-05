@@ -11,6 +11,7 @@ import { Columns2, ListCollapse, Loader2, Plus, Sparkles } from 'lucide-react';
 import { useShifu } from '@/store';
 import { useUserStore } from '@/store';
 import OutlineTree from '@/components/outline-tree';
+import ChapterSettingsDialog from '@/components/chapter-setting';
 import Header from '../header';
 import { UploadProps, MarkdownFlowEditor, EditMode } from 'markdown-flow-ui';
 // TODO@XJL
@@ -27,6 +28,7 @@ import LessonPreview from '@/components/lesson-preview';
 import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
 import { Rnd } from 'react-rnd';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import { LessonCreationSettings } from '@/types/shifu';
 
 const OUTLINE_DEFAULT_WIDTH = 256;
 const OUTLINE_COLLAPSED_WIDTH = 60;
@@ -42,17 +44,20 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [editMode, setEditMode] = useState<EditMode>('quickEdit' as EditMode);
   const [isPreviewPanelOpen, setIsPreviewPanelOpen] = useState(false);
   const [isPreviewPreparing, setIsPreviewPreparing] = useState(false);
+  const [addChapterDialogOpen, setAddChapterDialogOpen] = useState(false);
 
   const {
     items: previewItems,
     isLoading: previewLoading,
-    isStreaming: previewStreaming,
     error: previewError,
     startPreview,
     stopPreview,
     resetPreview,
     onRefresh,
     onSend,
+    persistVariables,
+    onVariableChange,
+    variables: previewVariables,
     reGenerateConfirm,
   } = usePreviewChat();
   const editModeOptions = useMemo(
@@ -125,21 +130,21 @@ const ScriptEditor = ({ id }: { id: string }) => {
     resetPreview();
   }, [currentNode?.bid, resetPreview, stopPreview]);
 
-  const onAddChapter = () => {
-    actions.addChapter({
-      parent_bid: '',
-      bid: 'new_chapter',
-      id: 'new_chapter',
-      name: ``,
-      children: [],
-      position: '',
-      depth: 0,
-    });
-    setTimeout(() => {
-      document.getElementById('new_chapter')?.scrollIntoView({
-        behavior: 'smooth',
-      });
-    }, 800);
+  const handleAddChapterClick = () => {
+    if (currentShifu?.readonly) {
+      return;
+    }
+    actions.insertPlaceholderChapter();
+    // setAddChapterDialogOpen(true);
+  };
+
+  const handleAddChapterConfirm = async (settings: LessonCreationSettings) => {
+    try {
+      await actions.addRootOutline(settings);
+      setAddChapterDialogOpen(false);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   useEffect(() => {
@@ -194,7 +199,15 @@ const ScriptEditor = ({ id }: { id: string }) => {
         blocksCount,
         systemVariableKeys,
       } = await actions.previewParse(mdflow, currentShifu.bid, currentNode.bid);
-      const previewVariablesMap = { ...parsedVariablesMap };
+      const previewVariablesMap = {
+        ...parsedVariablesMap,
+        ...previewVariables,
+      };
+      persistVariables({
+        shifuBid: currentShifu.bid,
+        systemVariableKeys,
+        variables: previewVariablesMap,
+      });
       void startPreview({
         shifuBid: currentShifu.bid,
         outlineBid: currentNode.bid,
@@ -222,6 +235,13 @@ const ScriptEditor = ({ id }: { id: string }) => {
       label: variable.label,
     }));
   }, [systemVariables]);
+
+  const variableOrder = useMemo(() => {
+    return [
+      ...systemVariablesList.map(variable => variable.name),
+      ...variablesList.map(variable => variable.name),
+    ];
+  }, [systemVariablesList, variablesList]);
 
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);
@@ -354,7 +374,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   className='h-8 bottom-0 left-4 flex-1'
                   size='sm'
                   disabled={currentShifu?.readonly}
-                  onClick={onAddChapter}
+                  onClick={handleAddChapterClick}
                 >
                   <Plus />
                   {t('module.shifu.newChapter')}
@@ -377,6 +397,15 @@ const ScriptEditor = ({ id }: { id: string }) => {
             )}
           </div>
         </Rnd>
+
+        <ChapterSettingsDialog
+          outlineBid=''
+          open={addChapterDialogOpen}
+          onOpenChange={setAddChapterDialogOpen}
+          variant='chapter'
+          footerActionLabel={t('module.shifu.newChapter')}
+          onFooterAction={handleAddChapterConfirm}
+        />
 
         <div className='flex flex-1 h-full overflow-hidden text-sm'>
           <div
@@ -497,12 +526,14 @@ const ScriptEditor = ({ id }: { id: string }) => {
               <div className='h-full'>
                 <LessonPreview
                   loading={previewLoading}
-                  isStreaming={previewStreaming}
                   errorMessage={previewError || undefined}
                   items={previewItems}
+                  variables={previewVariables}
                   shifuBid={currentShifu?.bid || ''}
                   onRefresh={onRefresh}
                   onSend={onSend}
+                  onVariableChange={onVariableChange}
+                  variableOrder={variableOrder}
                   reGenerateConfirm={reGenerateConfirm}
                 />
               </div>
