@@ -941,9 +941,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         data = payload.get("data", None)
         include_all_outlines = bool(payload.get("include_all_outlines", False))
         return make_common_response(
-            parse_shifu_mdflow(
-                app, shifu_bid, outline_bid, data, include_all_outlines
-            )
+            parse_shifu_mdflow(app, shifu_bid, outline_bid, data, include_all_outlines)
         )
 
     @app.route(
