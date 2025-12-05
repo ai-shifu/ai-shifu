@@ -24,6 +24,9 @@ from .shifu_history_manager import save_shifu_history
 from ..common.dtos import PageNationDTO
 from ...service.config import get_config
 from .funcs import shifu_permission_verification
+from .shifu_outline_funcs import create_outline
+from .consts import UNIT_TYPE_NORMAL
+from flaskr.i18n import get_current_language
 
 
 def get_latest_shifu_draft(shifu_id: str) -> DraftShifu:
@@ -158,6 +161,52 @@ def create_shifu_draft(
         db.session.flush()
 
         save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
+
+        # Initialize default chapter and lesson
+        try:
+            # Get the user's language preference to determine default names
+            current_language = get_current_language()
+
+            # Set default names based on user's language
+            if current_language == "zh-CN":
+                chapter_name = "未命名章"
+                lesson_name = "未命名节"
+            else:  # Default to English for all other languages
+                chapter_name = "Untitled Chapter"
+                lesson_name = "Untitled Lesson"
+
+            # Create default chapter
+            chapter = create_outline(
+                app=app,
+                user_id=user_id,
+                shifu_id=shifu_id,
+                parent_id="",  # Root level
+                outline_name=chapter_name,
+                outline_description="",
+                outline_index=0,
+                outline_type=UNIT_TYPE_NORMAL,
+                system_prompt=None,
+                is_hidden=False,
+            )
+
+            # Create default lesson under the chapter
+            create_outline(
+                app=app,
+                user_id=user_id,
+                shifu_id=shifu_id,
+                parent_id=chapter.bid,  # Under the chapter
+                outline_name=lesson_name,
+                outline_description="",
+                outline_index=0,
+                outline_type=UNIT_TYPE_NORMAL,
+                system_prompt=None,
+                is_hidden=False,
+            )
+
+        except Exception as e:
+            app.logger.error(f"Failed to initialize default chapter and lesson: {e}")
+            # Don't fail the entire creation process if chapter initialization fails
+
         db.session.commit()
 
         return ShifuDto(
