@@ -165,8 +165,8 @@ def create_shifu_draft(
         # Initialize default chapter and lesson
         try:
             # Get default names using i18n system
-            chapter_name = _("module.shifu.defaultChapterName")
-            lesson_name = _("module.shifu.defaultLessonName")
+            chapter_name = _("server.shifu.defaultChapterName")
+            lesson_name = _("server.shifu.defaultLessonName")
 
             # Create default chapter
             chapter = create_outline(
