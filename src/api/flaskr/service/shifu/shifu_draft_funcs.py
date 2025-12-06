@@ -26,7 +26,7 @@ from ...service.config import get_config
 from .funcs import shifu_permission_verification
 from .shifu_outline_funcs import create_outline
 from .consts import UNIT_TYPE_NORMAL
-from flaskr.i18n import get_current_language
+from flaskr.i18n import _
 
 
 def get_latest_shifu_draft(shifu_id: str) -> DraftShifu:
@@ -164,16 +164,9 @@ def create_shifu_draft(
 
         # Initialize default chapter and lesson
         try:
-            # Get the user's language preference to determine default names
-            current_language = get_current_language()
-
-            # Set default names based on user's language
-            if current_language == "zh-CN":
-                chapter_name = "未命名章"
-                lesson_name = "未命名节"
-            else:  # Default to English for all other languages
-                chapter_name = "Untitled Chapter"
-                lesson_name = "Untitled Lesson"
+            # Get default names using i18n system
+            chapter_name = _("module.shifu.defaultChapterName")
+            lesson_name = _("module.shifu.defaultLessonName")
 
             # Create default chapter
             chapter = create_outline(
@@ -203,8 +196,8 @@ def create_shifu_draft(
                 is_hidden=False,
             )
 
-        except Exception as e:
-            app.logger.error(f"Failed to initialize default chapter and lesson: {e}")
+        except Exception:
+            app.logger.exception("Failed to initialize default chapter and lesson")
             # Don't fail the entire creation process if chapter initialization fails
 
         db.session.commit()
