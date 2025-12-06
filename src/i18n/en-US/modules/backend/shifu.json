@@ -1,6 +1,8 @@
 {
   "__namespace__": "server.shifu",
   "__flat__": {
+    "defaultChapterName": "Untitled Chapter",
+    "defaultLessonName": "Untitled Lesson",
     "importFileInvalid": "Import file is invalid",
     "noPermission": "No permission",
     "outlineDeleted": "Outline has been deleted",
