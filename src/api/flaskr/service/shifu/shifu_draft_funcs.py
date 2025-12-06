@@ -25,7 +25,7 @@ from ..common.dtos import PageNationDTO
 from ...service.config import get_config
 from .funcs import shifu_permission_verification
 from .shifu_outline_funcs import create_outline
-from .consts import UNIT_TYPE_NORMAL
+from .consts import UNIT_TYPE_TRIAL
 from flaskr.i18n import _
 
 
@@ -177,7 +177,7 @@ def create_shifu_draft(
                 outline_name=chapter_name,
                 outline_description="",
                 outline_index=0,
-                outline_type=UNIT_TYPE_NORMAL,
+                outline_type=UNIT_TYPE_TRIAL,
                 system_prompt=None,
                 is_hidden=False,
             )
@@ -191,7 +191,7 @@ def create_shifu_draft(
                 outline_name=lesson_name,
                 outline_description="",
                 outline_index=0,
-                outline_type=UNIT_TYPE_NORMAL,
+                outline_type=UNIT_TYPE_TRIAL,
                 system_prompt=None,
                 is_hidden=False,
             )
