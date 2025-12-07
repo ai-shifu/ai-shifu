@@ -75,18 +75,30 @@ const handleAuthRecovery = async () => {
 };
 
 // Check response status code and handle business logic
-const handleBusinessCode = async (response: any) => {
+const handleBusinessCode = async (
+  response: { code: number; message?: string; data?: unknown },
+  requestToken?: string,
+) => {
   const error = new ErrorWithCode(
     response.message || i18n.t('common.core.unknownError'),
     response.code || -1,
   );
 
-  if (response.code !== 0) {
-    const isAuthError = AUTH_ERROR_CODES.has(response.code);
+  const isAuthError = AUTH_ERROR_CODES.has(response.code);
+  const currentToken = useUserStore.getState().getToken?.();
+  const tokenChangedDuringRequest =
+    isAuthError && currentToken && requestToken !== currentToken;
 
+  if (response.code !== 0) {
     // Special status codes do not show toast
     if (!isAuthError) {
       handleApiError(error);
+    }
+
+    // If the token has changed since this request was sent, treat the auth error
+    // as stale and avoid logging the user out with a newer session active.
+    if (tokenChangedDuringRequest) {
+      return Promise.reject(error);
     }
 
     if (isAuthError) {
@@ -144,7 +156,10 @@ export class Request {
     this.defaultConfig = defaultConfig;
   }
 
-  private async prepareConfig(url: string, config: RequestInit) {
+  private async prepareConfig(
+    url: string,
+    config: RequestInit,
+  ): Promise<{ url: string; config: RequestInit; tokenUsed: string }> {
     const mergedConfig = {
       ...this.defaultConfig,
       ...config,
@@ -174,7 +189,7 @@ export class Request {
     }
 
     // Add authentication headers
-    const token = useUserStore.getState().getToken();
+    const token = useUserStore.getState().getToken() || '';
     if (token) {
       mergedConfig.headers = {
         Authorization: `Bearer ${token}`,
@@ -184,15 +199,16 @@ export class Request {
       } as HeadersInit;
     }
 
-    return { url: fullUrl, config: mergedConfig };
+    return { url: fullUrl, config: mergedConfig, tokenUsed: token };
   }
 
   private async interceptFetch(url: string, config: RequestConfig) {
     try {
-      const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(
-        url,
-        config,
-      );
+      const {
+        url: fullUrl,
+        config: mergedConfig,
+        tokenUsed,
+      } = await this.prepareConfig(url, config);
       const response = await fetch(fullUrl, mergedConfig);
 
       if (!response.ok) {
@@ -213,7 +229,7 @@ export class Request {
         if (location.pathname.includes('/login') && !isAuthError) {
           return res;
         }
-        return handleBusinessCode(res);
+        return handleBusinessCode(res, tokenUsed);
       }
 
       return res;
@@ -306,10 +322,11 @@ export class Request {
     config: StreamRequestConfig = {},
     callback?: StreamCallback,
   ) {
-    const { url: fullUrl, config: preparedConfig } = await this.prepareConfig(
-      url,
-      config,
-    );
+    const {
+      url: fullUrl,
+      config: preparedConfig,
+      tokenUsed,
+    } = await this.prepareConfig(url, config);
 
     try {
       const { parseChunk, ...rest } = config as any;
@@ -360,7 +377,7 @@ export class Request {
 
       const result = parseJson(text);
       if (typeof result === 'object' && result.code !== undefined) {
-        return handleBusinessCode(result);
+        return handleBusinessCode(result, tokenUsed);
       }
 
       return result;
@@ -377,10 +394,11 @@ export class Request {
     config: StreamRequestConfig = {},
     callback?: StreamCallback,
   ) {
-    const { url: fullUrl, config: preparedConfig } = await this.prepareConfig(
-      url,
-      config,
-    );
+    const {
+      url: fullUrl,
+      config: preparedConfig,
+      tokenUsed,
+    } = await this.prepareConfig(url, config);
 
     try {
       const { parseChunk, ...rest } = config as any;
@@ -456,6 +474,16 @@ export class Request {
 
       if (callback) {
         callback(true, '', stop);
+      }
+
+      // Check the last non-empty line for auth error codes to maintain
+      // consistent stale-token detection across all request types
+      const lastLine = lines.findLast(line => line.trim() !== '');
+      if (lastLine) {
+        const parsed = parseJson(lastLine);
+        if (typeof parsed === 'object' && parsed.code !== undefined) {
+          await handleBusinessCode(parsed, tokenUsed);
+        }
       }
 
       return lines;
