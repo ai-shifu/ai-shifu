@@ -99,6 +99,21 @@ def _log_warning(message: str) -> None:
     _log("warning", message)
 
 
+def _normalize_model_config(value: Any) -> list[str]:
+    if not value:
+        return []
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    if isinstance(value, (list, tuple, set)):
+        normalized = []
+        for item in value:
+            text = str(item).strip()
+            if text:
+                normalized.append(text)
+        return normalized
+    return []
+
+
 def _register_provider_models(
     config: ProviderConfig, raw_models: List[Union[str, Tuple[str, str]]]
 ) -> List[str]:
@@ -688,9 +703,52 @@ def chat_llm(
     )
 
 
-def get_current_models(app: Flask) -> list[str]:
+def _build_model_options(
+    app: Flask, available_models: list[str]
+) -> list[dict[str, str]]:
+    recommended = _normalize_model_config(get_config("LLM_RECOMMENDED_MODELS", []))
+    display_names = _normalize_model_config(
+        get_config("LLM_RECOMMENDED_MODEL_DISPLAY_NAMES", [])
+    )
+
+    if not recommended:
+        return [{"model": model, "display_name": model} for model in available_models]
+
+    available_set = set(available_models)
+    filtered_models: list[str] = []
+    for model in recommended:
+        if model in available_set and model not in filtered_models:
+            filtered_models.append(model)
+
+    if not filtered_models:
+        _log_warning(
+            "LLM_RECOMMENDED_MODELS configured but no matching models are available"
+        )
+        return []
+
+    display_names_enabled = recommended and len(display_names) == len(recommended)
+    if display_names and not display_names_enabled:
+        _log_warning(
+            "LLM_RECOMMENDED_MODEL_DISPLAY_NAMES ignored: length must match "
+            "LLM_RECOMMENDED_MODELS"
+        )
+    display_map: dict[str, str] = (
+        dict(zip(recommended, display_names)) if display_names_enabled else {}
+    )
+
+    return [
+        {
+            "model": model,
+            "display_name": display_map.get(model, model),
+        }
+        for model in filtered_models
+    ]
+
+
+def get_current_models(app: Flask) -> list[dict[str, str]]:
     litellm_models: list[str] = []
     for state in PROVIDER_STATES.values():
         litellm_models.extend(state.models)
     combined = litellm_models + DIFY_MODELS
-    return list(dict.fromkeys(combined))
+    available_models = list(dict.fromkeys(combined))
+    return _build_model_options(app, available_models)
