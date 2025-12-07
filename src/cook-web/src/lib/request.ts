@@ -76,24 +76,20 @@ const handleAuthRecovery = async () => {
 
 // Check response status code and handle business logic
 const handleBusinessCode = async (
-  response: any,
-  requestToken?: string | null,
+  response: { code: number; message?: string; data?: unknown },
+  requestToken?: string,
 ) => {
   const error = new ErrorWithCode(
     response.message || i18n.t('common.core.unknownError'),
     response.code || -1,
   );
 
+  const isAuthError = AUTH_ERROR_CODES.has(response.code);
   const currentToken = useUserStore.getState().getToken?.();
   const tokenChangedDuringRequest =
-    AUTH_ERROR_CODES.has(response.code) &&
-    requestToken &&
-    currentToken &&
-    requestToken !== currentToken;
+    isAuthError && currentToken && requestToken !== currentToken;
 
   if (response.code !== 0) {
-    const isAuthError = AUTH_ERROR_CODES.has(response.code);
-
     // Special status codes do not show toast
     if (!isAuthError) {
       handleApiError(error);
@@ -163,7 +159,7 @@ export class Request {
   private async prepareConfig(
     url: string,
     config: RequestInit,
-  ): Promise<{ url: string; config: RequestInit; tokenUsed?: string | null }> {
+  ): Promise<{ url: string; config: RequestInit; tokenUsed: string }> {
     const mergedConfig = {
       ...this.defaultConfig,
       ...config,
@@ -193,7 +189,7 @@ export class Request {
     }
 
     // Add authentication headers
-    const token = useUserStore.getState().getToken();
+    const token = useUserStore.getState().getToken() || '';
     if (token) {
       mergedConfig.headers = {
         Authorization: `Bearer ${token}`,
@@ -480,7 +476,9 @@ export class Request {
         callback(true, '', stop);
       }
 
-      const lastLine = [...lines].reverse().find(line => line.trim() !== '');
+      // Check the last non-empty line for auth error codes to maintain
+      // consistent stale-token detection across all request types
+      const lastLine = lines.findLast(line => line.trim() !== '');
       if (lastLine) {
         const parsed = parseJson(lastLine);
         if (typeof parsed === 'object' && parsed.code !== undefined) {
