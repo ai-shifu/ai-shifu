@@ -160,7 +160,10 @@ export class Request {
     this.defaultConfig = defaultConfig;
   }
 
-  private async prepareConfig(url: string, config: RequestInit) {
+  private async prepareConfig(
+    url: string,
+    config: RequestInit,
+  ): Promise<{ url: string; config: RequestInit; tokenUsed?: string | null }> {
     const mergedConfig = {
       ...this.defaultConfig,
       ...config,
@@ -475,6 +478,14 @@ export class Request {
 
       if (callback) {
         callback(true, '', stop);
+      }
+
+      const lastLine = [...lines].reverse().find(line => line.trim() !== '');
+      if (lastLine) {
+        const parsed = parseJson(lastLine);
+        if (typeof parsed === 'object' && parsed.code !== undefined) {
+          await handleBusinessCode(parsed, tokenUsed);
+        }
       }
 
       return lines;
