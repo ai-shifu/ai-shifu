@@ -1,6 +1,8 @@
 {
   "__namespace__": "server.shifu",
   "__flat__": {
+    "defaultChapterName": "未命名章",
+    "defaultLessonName": "未命名节",
     "importFileInvalid": "导入文件无效",
     "noPermission": "没有权限",
     "outlineDeleted": "大纲已被删除",
