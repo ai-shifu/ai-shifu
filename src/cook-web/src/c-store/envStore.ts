@@ -21,8 +21,9 @@ export const useEnvStore = create<EnvStoreState>(set => ({
     set({ umamiScriptSrc }),
   eruda: environment.enableEruda.toString(),
   updateEruda: async (eruda: string) => set({ eruda }),
-  baseURL: environment.apiBaseUrl,
-  updateBaseURL: async (baseURL: string) => set({ baseURL }),
+  baseURL: environment.apiBaseUrl.replace(/\/+$/, ''),
+  updateBaseURL: async (baseURL: string) =>
+    set({ baseURL: baseURL.replace(/\/+$/, '') }),
   logoHorizontal: environment.logoHorizontal,
   updateLogoHorizontal: async (logoHorizontal: string) =>
     set({ logoHorizontal }),

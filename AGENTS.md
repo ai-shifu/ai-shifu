@@ -637,8 +637,7 @@ Cook Web provides tools for:
 - Shared translation files are located in `src/i18n/<locale>`. Cook Web and
   the backend share the same JSON; do not add primary translations under
   `public/locales`.
-- The frontend language list shows only `en-US` and `zh-CN`. The pseudo-locale
-  `qps-ploc` is for validation only (hidden in the UI).
+- The frontend language list shows only `en-US` and `zh-CN`.
 - When adding a new namespace, update both languages and run:
   - `python scripts/generate_languages.py && git diff -- src/i18n/locales.json`
   - `python scripts/check_translations.py`

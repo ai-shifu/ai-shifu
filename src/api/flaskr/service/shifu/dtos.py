@@ -138,6 +138,12 @@ class SimpleOutlineDto(BaseModel):
     children: list["SimpleOutlineDto"] = Field(
         ..., description="outline children", required=False
     )
+    type: str | None = Field(
+        None, description="outline type (trial,normal,guest)", required=False
+    )
+    is_hidden: bool | None = Field(
+        None, description="outline hidden flag", required=False
+    )
 
     def __init__(
         self,
@@ -145,21 +151,32 @@ class SimpleOutlineDto(BaseModel):
         position: str,
         name: str,
         children: list,
+        type: str | None = None,
+        is_hidden: bool | None = None,
     ):
+        normalized_children: list["SimpleOutlineDto"] = []
+        if children:
+            for child in children:
+                if isinstance(child, SimpleOutlineDto):
+                    normalized_children.append(child)
+                elif isinstance(child, dict):
+                    normalized_children.append(
+                        SimpleOutlineDto(
+                            child.get("bid"),
+                            child.get("position", ""),
+                            child.get("name", ""),
+                            child.get("children", []),
+                            child.get("type"),
+                            child.get("is_hidden"),
+                        )
+                    )
         super().__init__(
             bid=bid,
             position=position,
             name=name,
-            children=(
-                [
-                    SimpleOutlineDto(
-                        child.bid, child.position, child.name, child.children
-                    )
-                    for child in children
-                ]
-                if children
-                else []
-            ),
+            children=normalized_children,
+            type=type,
+            is_hidden=is_hidden,
         )
 
     def __json__(self):
@@ -168,6 +185,8 @@ class SimpleOutlineDto(BaseModel):
             "position": self.position,
             "name": self.name,
             "children": self.children,
+            "type": self.type,
+            "is_hidden": self.is_hidden,
         }
 
 

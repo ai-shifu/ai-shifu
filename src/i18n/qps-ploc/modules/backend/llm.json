@@ -1,8 +1,0 @@
-{
-  "__namespace__": "⟦šēřṽēř.ŀŀm⟧",
-  "__flat__": {
-    "modelNotSupported": "⟦Μøđēŀ {model} įš ňøŧ šųƥƥøřŧēđ⟧",
-    "requestFailed": "⟦Μøđēŀ {model} įňṽøćåŧįøň ƒåįŀēđ: {message}⟧",
-    "specifiedLlmNotConfigured": "⟦Μøđēŀ {model} įš ňøŧ ćøňƒįǥųřēđ. Ćħēćķ .ēňṽ ƒįŀē ṽåřįåƀŀē: {config_var}⟧"
-  }
-}

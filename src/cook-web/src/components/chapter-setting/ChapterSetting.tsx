@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -14,31 +14,84 @@ import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
 import { useShifu } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
+import Image from 'next/image';
+import guestIcon from './icons/svg-guest.svg';
+import trialIcon from './icons/svg-trial.svg';
+import normalIcon from './icons/svg-normal.svg';
+
+type ChapterSettingsDialogProps = {
+  outlineBid?: string;
+  open: boolean;
+  onOpenChange?: (open: boolean) => void;
+  variant?: 'chapter' | 'lesson';
+  footerActionLabel?: string;
+  onFooterAction?: (data: {
+    learningPermission: LearningPermission;
+    isHidden: boolean;
+    systemPrompt: string;
+    name: string;
+  }) => void;
+  onDeleteRequest?: () => void;
+  deleteButtonLabel?: string;
+  onChange?: (data: {
+    learningPermission: LearningPermission;
+    isHidden: boolean;
+    name: string;
+    variant: 'chapter' | 'lesson';
+  }) => void;
+};
 
 const ChapterSettingsDialog = ({
   outlineBid,
   open,
   onOpenChange,
   variant = 'lesson',
-}: {
-  outlineBid: string;
-  open: boolean;
-  onOpenChange?: (open: boolean) => void;
-  variant?: 'chapter' | 'lesson';
-}) => {
+  footerActionLabel,
+  onFooterAction,
+  onDeleteRequest,
+  deleteButtonLabel,
+  onChange,
+}: ChapterSettingsDialogProps) => {
   const isChapter = variant === 'chapter';
+  const isLesson = !isChapter;
   const { currentShifu } = useShifu();
   const { trackEvent } = useTracking();
   const { t } = useTranslation();
   const [learningPermission, setLearningPermission] =
-    useState<LearningPermission>(LEARNING_PERMISSION.NORMAL);
+    useState<LearningPermission>(LEARNING_PERMISSION.TRIAL);
   const [systemPrompt, setSystemPrompt] = useState('');
   const [hideChapter, setHideChapter] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [title, setTitle] = useState('');
+  const initialValuesRef = useRef<{
+    title: string;
+    systemPrompt: string;
+    hideChapter: boolean;
+    learningPermission: LearningPermission;
+  }>({
+    title: '',
+    systemPrompt: '',
+    hideChapter: false,
+    learningPermission: LEARNING_PERMISSION.TRIAL,
+  });
 
   const fetchOutlineInfo = useCallback(async () => {
     if (!outlineBid) {
+      setLearningPermission(LEARNING_PERMISSION.TRIAL);
+      setSystemPrompt('');
+      setHideChapter(false);
+      setIsDirty(false);
+      setTitle('');
+      initialValuesRef.current = {
+        title: '',
+        systemPrompt: '',
+        hideChapter: false,
+        learningPermission: LEARNING_PERMISSION.TRIAL,
+      };
       return;
     }
     setLoading(true);
@@ -51,15 +104,48 @@ const ChapterSettingsDialog = ({
         return;
       }
 
-      setLearningPermission(result.type || LEARNING_PERMISSION.NORMAL);
-      setSystemPrompt(result.system_prompt ?? '');
+      const normalizedLearningPermission =
+        (result.type as LearningPermission) || LEARNING_PERMISSION.TRIAL;
+      const normalizedSystemPrompt = result.system_prompt ?? '';
       const normalizedHidden = result.is_hidden ?? false;
+      const normalizedTitle = result.name ?? '';
+
+      setLearningPermission(normalizedLearningPermission);
+      setSystemPrompt(normalizedSystemPrompt);
       setHideChapter(normalizedHidden);
       setIsDirty(false);
+      setTitle(normalizedTitle);
+      initialValuesRef.current = {
+        title: normalizedTitle.trim(),
+        systemPrompt: normalizedSystemPrompt,
+        hideChapter: normalizedHidden,
+        learningPermission: normalizedLearningPermission,
+      };
     } finally {
       setLoading(false);
     }
   }, [outlineBid, currentShifu?.bid]);
+
+  const hasFormChanges = useCallback(
+    (trimmedTitle: string) => {
+      const initial = initialValuesRef.current;
+      if (initial.title !== trimmedTitle) {
+        return true;
+      }
+      if (initial.systemPrompt !== systemPrompt) {
+        return true;
+      }
+      if (
+        isLesson &&
+        (initial.hideChapter !== hideChapter ||
+          initial.learningPermission !== learningPermission)
+      ) {
+        return true;
+      }
+      return false;
+    },
+    [systemPrompt, hideChapter, learningPermission, isLesson],
+  );
 
   const onConfirm = useCallback(
     async (needClose = true, saveType: 'auto' | 'manual' = 'manual') => {
@@ -69,33 +155,84 @@ const ChapterSettingsDialog = ({
           return;
         }
         if (!outlineBid) {
+          if (needClose) {
+            onOpenChange?.(false);
+          }
           return;
         }
 
-        const isPaid = learningPermission === LEARNING_PERMISSION.NORMAL;
-        const requiresLogin = learningPermission !== LEARNING_PERMISSION.GUEST;
+        const trimmedTitle = title.trim();
+        if (!trimmedTitle) {
+          return;
+        }
+        if (!hasFormChanges(trimmedTitle)) {
+          setIsDirty(false);
+          if (needClose) {
+            onOpenChange?.(false);
+          }
+          return;
+        }
 
-        await api.modifyOutline({
+        const payload: Record<string, unknown> = {
           outline_bid: outlineBid,
           shifu_bid: currentShifu?.bid,
-          type: learningPermission,
-          is_hidden: hideChapter,
           system_prompt: systemPrompt,
-          is_paid: isPaid,
-          require_login: requiresLogin,
-          need_login: requiresLogin,
-          login_required: requiresLogin,
-        });
+          name: trimmedTitle,
+          description: trimmedTitle,
+        };
+        let eventName:
+          | 'creator_outline_setting_save'
+          | 'creator_outline_prompt_save' = 'creator_outline_setting_save';
 
-        trackEvent('creator_outline_setting_save', {
-          outline_bid: outlineBid,
-          shifu_bid: currentShifu?.bid,
-          save_type: saveType,
+        if (isLesson) {
+          const isPaid = learningPermission === LEARNING_PERMISSION.NORMAL;
+          const requiresLogin =
+            learningPermission !== LEARNING_PERMISSION.GUEST;
+          Object.assign(payload, {
+            type: learningPermission,
+            is_hidden: hideChapter,
+            is_paid: isPaid,
+            require_login: requiresLogin,
+            need_login: requiresLogin,
+            login_required: requiresLogin,
+          });
+        } else {
+          eventName = 'creator_outline_prompt_save';
+        }
+
+        await api.modifyOutline(payload);
+        initialValuesRef.current = {
+          title: trimmedTitle,
+          systemPrompt,
+          hideChapter,
+          learningPermission,
+        };
+
+        onChange?.({
+          learningPermission,
+          isHidden: hideChapter,
+          name: trimmedTitle,
           variant,
-          learning_permission: learningPermission,
-          hide_chapter: hideChapter,
-          system_prompt: systemPrompt,
         });
+
+        if (isLesson) {
+          trackEvent(eventName, {
+            outline_bid: outlineBid,
+            shifu_bid: currentShifu?.bid,
+            save_type: saveType,
+            variant,
+            learning_permission: learningPermission,
+            hide_chapter: hideChapter,
+            system_prompt: systemPrompt,
+          });
+        } else {
+          trackEvent(eventName, {
+            outline_bid: outlineBid,
+            shifu_bid: currentShifu?.bid,
+            system_prompt: systemPrompt,
+            save_type: saveType,
+          });
+        }
         setIsDirty(false);
         if (needClose) {
           onOpenChange?.(false);
@@ -111,7 +248,10 @@ const ChapterSettingsDialog = ({
       onOpenChange,
       currentShifu?.readonly,
       trackEvent,
+      isLesson,
       variant,
+      title,
+      hasFormChanges,
     ],
   );
 
@@ -145,6 +285,7 @@ const ChapterSettingsDialog = ({
     systemPrompt,
     onConfirm,
     currentShifu?.readonly,
+    title,
   ]);
 
   return (
@@ -164,7 +305,7 @@ const ChapterSettingsDialog = ({
           onConfirm(true, 'manual');
         }}
       >
-        <div className='border-b border-border px-6 py-5 pr-12'>
+        <div className='border-b border-border px-6 py-[17.5px] pr-12'>
           <SheetHeader className='space-y-1 text-left'>
             <SheetTitle className='text-lg font-medium text-foreground'>
               {isChapter
@@ -180,97 +321,143 @@ const ChapterSettingsDialog = ({
         ) : (
           <div className='flex-1 overflow-y-auto px-6 py-6'>
             <div className='space-y-8'>
-              <div className='space-y-3'>
+              <div className='space-y-2'>
                 <div className='text-sm font-medium text-foreground'>
-                  {t('module.chapterSetting.learningPermission')}
+                  {isChapter
+                    ? t('module.chapterSetting.chapterName')
+                    : t('module.chapterSetting.lessonName')}
                 </div>
-                <RadioGroup
+                <Input
+                  value={title}
+                  maxLength={TITLE_MAX_LENGTH}
+                  placeholder={
+                    isChapter
+                      ? t('module.chapterSetting.chapterNamePlaceholder')
+                      : t('module.chapterSetting.lessonNamePlaceholder')
+                  }
                   disabled={currentShifu?.readonly}
-                  value={learningPermission}
-                  onValueChange={value => {
-                    setLearningPermission(value as LearningPermission);
+                  onChange={event => {
+                    setTitle(event.target.value);
                     setIsDirty(true);
                   }}
-                  className='flex flex-row flex-wrap gap-x-10 gap-y-2'
-                >
-                  <div className='flex items-center gap-2'>
-                    <RadioGroupItem
-                      value={LEARNING_PERMISSION.GUEST}
-                      id='chapter-guest'
-                    />
-                    <Label
-                      htmlFor='chapter-guest'
-                      className='text-sm font-normal text-foreground'
-                    >
-                      {t('module.chapterSetting.guest')}
-                    </Label>
-                  </div>
-                  <div className='flex items-center gap-2'>
-                    <RadioGroupItem
-                      value={LEARNING_PERMISSION.TRIAL}
-                      id='chapter-trial'
-                    />
-                    <Label
-                      htmlFor='chapter-trial'
-                      className='text-sm font-normal text-foreground'
-                    >
-                      {t('module.chapterSetting.free')}
-                    </Label>
-                  </div>
-                  <div className='flex items-center gap-2'>
-                    <RadioGroupItem
-                      value={LEARNING_PERMISSION.NORMAL}
-                      id='chapter-normal'
-                    />
-                    <Label
-                      htmlFor='chapter-normal'
-                      className='text-sm font-normal text-foreground'
-                    >
-                      {t('module.chapterSetting.paid')}
-                    </Label>
-                  </div>
-                </RadioGroup>
+                />
               </div>
+              {isLesson && (
+                <div className='space-y-3'>
+                  <div className='text-sm font-medium text-foreground'>
+                    {t('module.chapterSetting.learningPermission')}
+                  </div>
+                  <RadioGroup
+                    disabled={currentShifu?.readonly}
+                    value={learningPermission}
+                    onValueChange={value => {
+                      setLearningPermission(value as LearningPermission);
+                      setIsDirty(true);
+                    }}
+                    className='flex flex-row flex-wrap gap-x-10 gap-y-2'
+                  >
+                    <div className='flex items-center'>
+                      <RadioGroupItem
+                        value={LEARNING_PERMISSION.GUEST}
+                        id='chapter-guest'
+                      />
+                      <Image
+                        className='ml-2 mr-1'
+                        src={guestIcon}
+                        alt='guest'
+                        width={16}
+                        height={16}
+                      />
+                      <Label
+                        htmlFor='chapter-guest'
+                        className='text-sm font-medium text-foreground'
+                      >
+                        {t('module.chapterSetting.guest')}
+                      </Label>
+                    </div>
+                    <div className='flex items-center'>
+                      <RadioGroupItem
+                        value={LEARNING_PERMISSION.TRIAL}
+                        id='chapter-trial'
+                      />
+                      <Image
+                        className='ml-2 mr-1'
+                        src={trialIcon}
+                        alt='guest'
+                        width={16}
+                        height={16}
+                      />
+                      <Label
+                        htmlFor='chapter-trial'
+                        className='text-sm font-medium text-foreground'
+                      >
+                        {t('module.chapterSetting.free')}
+                      </Label>
+                    </div>
+                    <div className='flex items-center'>
+                      <RadioGroupItem
+                        value={LEARNING_PERMISSION.NORMAL}
+                        id='chapter-normal'
+                      />
+                      <Image
+                        className='ml-2 mr-1'
+                        src={normalIcon}
+                        alt='paid'
+                        width={16}
+                        height={16}
+                      />
+                      <Label
+                        htmlFor='chapter-normal'
+                        className='text-sm font-medium text-foreground'
+                      >
+                        {t('module.chapterSetting.paid')}
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              )}
 
-              <div className='space-y-3'>
-                <div className='text-sm font-medium text-foreground'>
-                  {t('module.chapterSetting.isHidden')}
+              {isLesson && (
+                <div className='space-y-3'>
+                  <div className='text-sm font-medium text-foreground'>
+                    {t('module.chapterSetting.isHidden')}
+                  </div>
+                  <RadioGroup
+                    disabled={currentShifu?.readonly}
+                    value={hideChapter ? 'hidden' : 'visible'}
+                    onValueChange={value => {
+                      setHideChapter(value === 'hidden');
+                      setIsDirty(true);
+                    }}
+                    className='flex flex-row flex-wrap gap-x-10 gap-y-2'
+                  >
+                    <div className='flex items-center gap-2'>
+                      <RadioGroupItem
+                        value='visible'
+                        id='chapter-visible'
+                      />
+                      <Label
+                        htmlFor='chapter-visible'
+                        className='text-sm font-medium text-foreground'
+                      >
+                        {t('module.chapterSetting.visible')}
+                      </Label>
+                    </div>
+                    <div className='flex items-center gap-2'>
+                      <RadioGroupItem
+                        value='hidden'
+                        id='chapter-hidden'
+                      />
+                      <Label
+                        htmlFor='chapter-hidden'
+                        className='text-sm font-medium text-foreground'
+                      >
+                        {t('module.chapterSetting.hidden')}
+                      </Label>
+                    </div>
+                  </RadioGroup>
                 </div>
-                <RadioGroup
-                  disabled={currentShifu?.readonly}
-                  value={hideChapter ? 'hidden' : 'visible'}
-                  onValueChange={value => {
-                    setHideChapter(value === 'hidden');
-                    setIsDirty(true);
-                  }}
-                  className='flex flex-row flex-wrap gap-x-10 gap-y-2'
-                >
-                  <div className='flex items-center gap-2'>
-                    <RadioGroupItem
-                      value='visible'
-                      id='chapter-visible'
-                    />
-                    <Label
-                      htmlFor='chapter-visible'
-                      className='text-sm font-normal text-foreground'
-                    >
-                      {t('module.chapterSetting.visible')}
-                    </Label>
-                  </div>
-                  <div className='flex items-center gap-2'>
-                    <RadioGroupItem
-                      value='hidden'
-                      id='chapter-hidden'
-                    />
-                    <Label
-                      htmlFor='chapter-hidden'
-                      className='text-sm font-normal text-foreground'
-                    >
-                      {t('module.chapterSetting.hidden')}
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
+              )}
 
               <div className='space-y-2'>
                 <div className='text-sm font-medium text-foreground'>
@@ -278,11 +465,11 @@ const ChapterSettingsDialog = ({
                     ? t('module.chapterSetting.chapterPrompt')
                     : t('module.chapterSetting.lessonPrompt')}
                 </div>
-                {!isChapter && (
-                  <div className='text-xs text-muted-foreground'>
-                    {t('module.chapterSetting.lessonPromptHint')}
-                  </div>
-                )}
+                <div className='text-xs text-muted-foreground'>
+                  {isChapter
+                    ? t('module.chapterSetting.chapterPromptHint')
+                    : t('module.chapterSetting.lessonPromptHint')}
+                </div>
                 <Textarea
                   value={systemPrompt}
                   onChange={event => {
@@ -294,9 +481,9 @@ const ChapterSettingsDialog = ({
                   minRows={3}
                   maxRows={30}
                   placeholder={
-                    !isChapter
-                      ? t('module.chapterSetting.lessonPromptPlaceholder')
-                      : t('module.chapterSetting.promptPlaceholder')
+                    isChapter
+                      ? t('module.chapterSetting.promptPlaceholder')
+                      : t('module.chapterSetting.lessonPromptPlaceholder')
                   }
                   className='min-h-[220px]'
                 />
@@ -307,6 +494,37 @@ const ChapterSettingsDialog = ({
             </div>
           </div>
         )}
+        {(footerActionLabel && onFooterAction) || onDeleteRequest ? (
+          <div className='border-t border-border px-6 py-4 flex justify-end gap-3'>
+            {onDeleteRequest && outlineBid && (
+              <Button
+                type='button'
+                variant='outline'
+                className='text-red-500 border-red-500 hover:bg-red-50'
+                onClick={onDeleteRequest}
+                disabled={currentShifu?.readonly}
+              >
+                {deleteButtonLabel ?? t('component.outlineTree.delete')}
+              </Button>
+            )}
+            {footerActionLabel && onFooterAction && (
+              <Button
+                type='button'
+                onClick={() =>
+                  onFooterAction({
+                    learningPermission,
+                    isHidden: hideChapter,
+                    systemPrompt,
+                    name: title.trim(),
+                  })
+                }
+                disabled={currentShifu?.readonly || !title.trim()}
+              >
+                {footerActionLabel}
+              </Button>
+            )}
+          </div>
+        ) : null}
       </SheetContent>
     </Sheet>
   );

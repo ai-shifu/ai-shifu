@@ -131,10 +131,8 @@ export const useLessonTree = () => {
     //   await updateCourseId(treeData.course_id);
     // }
 
-    let lessonCount = 0;
     const catalogs = (treeData.outline_items || []).map(l => {
       const lessons = l.children.map(c => {
-        lessonCount += 1;
         return {
           id: c.bid,
           name: c.title,
@@ -161,7 +159,6 @@ export const useLessonTree = () => {
     const newTree = {
       catalogCount: catalogs.length,
       catalogs,
-      lessonCount,
       bannerInfo: treeData.banner_info,
     };
 

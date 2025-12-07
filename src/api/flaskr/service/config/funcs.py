@@ -8,6 +8,7 @@ from flaskr.dao import db, redis_client as redis
 from flaskr.util import generate_id
 from pydantic import BaseModel, Field
 from flaskr.framework import extensible
+from sqlalchemy.exc import SQLAlchemyError
 import random
 
 
@@ -92,8 +93,8 @@ def get_config(key: str, default: str = None) -> str:
     Get config value by key, automatically decrypt if is_secret=1.
 
     Args:
-        app: Flask application instance
         key: Config key
+        default: Default value if config is not found
 
     Returns:
         Config value (decrypted if is_secret=1, plain text otherwise)
@@ -110,44 +111,48 @@ def get_config(key: str, default: str = None) -> str:
         env_value = get_config_from_common(key, default)
         if env_value is not None:
             return env_value
-        cache_key = _get_config_cache_key(app, key)
-        cache = redis.get(cache_key)
-        if cache:
-            cache_config = ConfigCache.model_validate_json(cache)
-            if cache_config.is_encrypted:
-                return _decrypt_config(app, cache_config.value)
-            return cache_config.value
-        lock_key = _get_config_lock_key(app, key)
-        lock = redis.lock(lock_key, timeout=1, blocking_timeout=1)
-        if lock.acquire(blocking=False):
-            try:
-                config = (
-                    Config.query.filter(
-                        Config.key == key,
-                        Config.deleted == 0,
+        try:
+            cache_key = _get_config_cache_key(app, key)
+            cache = redis.get(cache_key)
+            if cache:
+                cache_config = ConfigCache.model_validate_json(cache)
+                if cache_config.is_encrypted:
+                    return _decrypt_config(app, cache_config.value)
+                return cache_config.value
+            lock_key = _get_config_lock_key(app, key)
+            lock = redis.lock(lock_key, timeout=1, blocking_timeout=1)
+            if lock.acquire(blocking=False):
+                try:
+                    config = (
+                        Config.query.filter(
+                            Config.key == key,
+                            Config.deleted == 0,
+                        )
+                        .order_by(Config.created_at.desc())
+                        .first()
                     )
-                    .order_by(Config.created_at.desc())
-                    .first()
-                )
-                if not config:
-                    return default
-                raw_value = config.value
-                if bool(config.is_encrypted):
-                    value = _decrypt_config(app, raw_value)
-                else:
-                    value = raw_value
-                redis.set(
-                    cache_key,
-                    ConfigCache(
-                        is_encrypted=bool(config.is_encrypted),
-                        value=raw_value,
-                    ).model_dump_json(),
-                    ex=86400 + random.randint(0, 3600),
-                )
-                return value
-            finally:
-                lock.release()
-        return default
+                    if not config:
+                        return default
+                    raw_value = config.value
+                    if bool(config.is_encrypted):
+                        value = _decrypt_config(app, raw_value)
+                    else:
+                        value = raw_value
+                    redis.set(
+                        cache_key,
+                        ConfigCache(
+                            is_encrypted=bool(config.is_encrypted),
+                            value=raw_value,
+                        ).model_dump_json(),
+                        ex=86400 + random.randint(0, 3600),
+                    )
+                    return value
+                finally:
+                    lock.release()
+            return default
+        except (SQLAlchemyError, RuntimeError) as exc:
+            app.logger.warning("Database not ready for get_config(%s): %s", key, exc)
+            return get_config_from_common(key, default)
 
 
 def add_config(

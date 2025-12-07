@@ -10,7 +10,7 @@ This repository includes a small set of scripts focused on internationalization 
 
 - scripts/check_translations.py
   - Validates that every locale has the same files and JSON structure, and that values are strings.
-  - Prevents shape drift between `en-US`, `zh-CN`, and the pseudo‑locale `qps-ploc`.
+  - Prevents shape drift between `en-US` and `zh-CN`.
 
 - scripts/create_translation_namespace.py
   - Scaffolds a new namespace across locales with the correct `__namespace__` header.
@@ -19,9 +19,6 @@ This repository includes a small set of scripts focused on internationalization 
 - scripts/generate_languages.py
   - Generates/refreshes `src/i18n/locales.json` from existing locale folders.
   - CI ensures this file stays in sync.
-
-- scripts/generate_pseudo_locale.py
-  - Builds or refreshes the pseudo‑locale (`qps-ploc`) from `en-US` for visual QA of missing/concatenated strings.
 
 - scripts/generate_i18n_keys.js
   - Generates a TypeScript union of translation keys for Cook Web at `src/cook-web/src/types/i18n-keys.d.ts`.

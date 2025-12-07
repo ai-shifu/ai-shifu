@@ -16,6 +16,7 @@ import {
   fixMarkdownStream,
   maskIncompleteMermaidBlock,
 } from '@/c-utils/markdownUtils';
+import { getDynamicApiBaseUrl } from '@/config/environment';
 import { useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
@@ -47,8 +48,43 @@ enum PREVIEW_SSE_OUTPUT_TYPE {
   ERROR = 'error',
 }
 
+const buildVariablesSnapshot = (
+  variables?: Record<string, unknown>,
+): PreviewVariablesMap => {
+  if (!variables) {
+    return {};
+  }
+  return Object.entries(variables).reduce<PreviewVariablesMap>((acc, entry) => {
+    const [key, value] = entry;
+    if (value === undefined || value === null) {
+      acc[key] = '';
+    } else if (Array.isArray(value)) {
+      acc[key] = value
+        .map(item => (item === undefined || item === null ? '' : `${item}`))
+        .filter(Boolean)
+        .join(', ');
+    } else {
+      acc[key] = `${value}`;
+    }
+    return acc;
+  }, {});
+};
+
 export function usePreviewChat() {
   const { t } = useTranslation();
+  const resolveBaseUrl = useCallback(async () => {
+    const dynamicBase = await getDynamicApiBaseUrl();
+    const candidate =
+      dynamicBase || getStringEnv('baseURL') || 'http://localhost:8080';
+    const normalized = candidate.replace(/\/$/, '');
+    if (normalized && normalized !== '') {
+      return normalized;
+    }
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      return window.location.origin;
+    }
+    return '';
+  }, []);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const contentListRef = useRef<ChatContentItem[]>([]);
@@ -58,6 +94,8 @@ export function usePreviewChat() {
   const sseParams = useRef<StartPreviewParams>({});
   const sseRef = useRef<any>(null);
   const isStreamingRef = useRef(false);
+  const [variablesSnapshot, setVariablesSnapshot] =
+    useState<PreviewVariablesMap>({});
   const interactionParserRef = useRef(createInteractionParser());
   const autoSubmittedBlocksRef = useRef<Set<string>>(new Set());
   const tryAutoSubmitInteractionRef = useRef<
@@ -100,6 +138,49 @@ export function usePreviewChat() {
       });
     },
     [],
+  );
+
+  const handleVariableChange = useCallback((name: string, value: string) => {
+    if (!name) {
+      return;
+    }
+    setVariablesSnapshot(prev => {
+      const mergedVariables = {
+        ...((sseParams.current.variables as PreviewVariablesMap) || prev),
+        [name]: value,
+      };
+      sseParams.current.variables = mergedVariables;
+      return mergedVariables;
+    });
+  }, []);
+
+  const persistVariables = useCallback(
+    ({
+      shifuBid,
+      systemVariableKeys,
+      variables,
+    }: {
+      shifuBid?: string;
+      systemVariableKeys?: string[];
+      variables?: PreviewVariablesMap;
+    }) => {
+      const resolvedVariables =
+        variables ||
+        (sseParams.current.variables as PreviewVariablesMap) ||
+        variablesSnapshot;
+      const resolvedShifuBid = shifuBid || sseParams.current.shifuBid;
+      const resolvedSystemKeys =
+        systemVariableKeys || sseParams.current.systemVariableKeys || [];
+      if (!resolvedShifuBid) {
+        return;
+      }
+      savePreviewVariables(
+        resolvedShifuBid,
+        resolvedVariables,
+        resolvedSystemKeys,
+      );
+    },
+    [variablesSnapshot],
   );
 
   const parseInteractionBlock = useCallback(
@@ -175,19 +256,26 @@ export function usePreviewChat() {
           return null;
         }
         const selectedValues: string[] = [];
+        const customInputs: string[] = [];
         for (const token of tokens) {
           const mapped = normalizeButtonValue(token, info);
-          if (!mapped) {
-            return null;
+          if (mapped) {
+            selectedValues.push(mapped.value);
+            continue;
           }
-          selectedValues.push(mapped.value);
+          if (info.placeholder) {
+            customInputs.push(token);
+            continue;
+          }
+          return null;
         }
-        if (!selectedValues.length) {
+        if (!selectedValues.length && !customInputs.length) {
           return null;
         }
         return {
           variableName: info.variableName,
-          selectedValues,
+          selectedValues: selectedValues.length ? selectedValues : undefined,
+          inputText: customInputs.length ? customInputs.join(', ') : undefined,
         };
       }
 
@@ -227,6 +315,7 @@ export function usePreviewChat() {
     currentContentRef.current = '';
     currentContentIdRef.current = null;
     autoSubmittedBlocksRef.current.clear();
+    setVariablesSnapshot({});
   }, [stopPreview, setTrackedContentList]);
 
   const ensureContentItem = useCallback(
@@ -391,7 +480,7 @@ export function usePreviewChat() {
   }, [stopPreview]);
 
   const startPreview = useCallback(
-    ({
+    async ({
       shifuBid,
       outlineBid,
       mdflow,
@@ -429,6 +518,7 @@ export function usePreviewChat() {
         max_block_count: finalMaxBlockCount,
       } = mergedParams;
       sseParams.current = mergedParams;
+      setVariablesSnapshot(buildVariablesSnapshot(finalVariables));
 
       if (!finalShifuBid || !finalOutlineBid) {
         setError('Invalid preview params');
@@ -445,6 +535,11 @@ export function usePreviewChat() {
       }
 
       stopPreview();
+      const resolvedBaseUrl = await resolveBaseUrl();
+      if (!resolvedBaseUrl) {
+        setError('Missing API base URL');
+        return;
+      }
       setTrackedContentList(prev => [
         ...prev.filter(item => item.generated_block_bid !== 'loading'),
         {
@@ -460,10 +555,6 @@ export function usePreviewChat() {
       currentContentIdRef.current = null;
 
       try {
-        let baseURL = getStringEnv('baseURL');
-        if (!baseURL || baseURL === '' || baseURL === '/') {
-          baseURL = typeof window !== 'undefined' ? window.location.origin : '';
-        }
         const tokenValue = useUserStore.getState().getToken();
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
@@ -482,7 +573,7 @@ export function usePreviewChat() {
           payload.user_input = normalizedUserInput;
         }
         const source = new SSE(
-          `${baseURL}/api/learn/shifu/${finalShifuBid}/preview/${finalOutlineBid}`,
+          `${resolvedBaseUrl}/api/learn/shifu/${finalShifuBid}/preview/${finalOutlineBid}`,
           {
             headers,
             payload: JSON.stringify(payload),
@@ -512,7 +603,7 @@ export function usePreviewChat() {
         setIsLoading(false);
       }
     },
-    [handlePayload, setTrackedContentList, stopPreview],
+    [handlePayload, resolveBaseUrl, setTrackedContentList, stopPreview],
   );
 
   const updateContentListWithUserOperate = useCallback(
@@ -638,6 +729,7 @@ export function usePreviewChat() {
           [normalizedVariableName]: nextValue,
         };
         sseParams.current.variables = nextVariables;
+        setVariablesSnapshot(buildVariablesSnapshot(nextVariables));
         savePreviewVariables(
           sseParams.current.shifuBid,
           { [normalizedVariableName]: nextValue },
@@ -806,6 +898,9 @@ export function usePreviewChat() {
     resetPreview,
     onSend,
     onRefresh,
+    persistVariables,
+    onVariableChange: handleVariableChange,
+    variables: variablesSnapshot,
     reGenerateConfirm: {
       open: showRegenerateConfirm,
       onConfirm: handleConfirmRegenerate,

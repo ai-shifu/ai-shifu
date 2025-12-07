@@ -267,13 +267,13 @@ class TestConfigGetMethods:
         monkeypatch.setenv("SECRET_KEY", "test-key")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-        monkeypatch.setenv("NEXT_PUBLIC_LOGIN_METHODS_ENABLED", "phone,email,oauth")
+        monkeypatch.setenv("LOGIN_METHODS_ENABLED", "phone,email,oauth")
 
         app = Flask(__name__)
         app.logger = MagicMock()
         config = Config(MagicMock(), app)
 
-        methods = config.get_list("NEXT_PUBLIC_LOGIN_METHODS_ENABLED")
+        methods = config.get_list("LOGIN_METHODS_ENABLED")
         assert methods == ["phone", "email", "oauth"]
         assert isinstance(methods, list)
 

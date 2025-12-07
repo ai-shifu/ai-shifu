@@ -134,101 +134,83 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Custom logo URL override returned by /api/config",
         group="frontend",
     ),
-    "NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT": EnvVar(
-        name="NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT",
+    "ANALYTICS_UMAMI_SCRIPT": EnvVar(
+        name="ANALYTICS_UMAMI_SCRIPT",
         default="",
         description="Umami analytics script URL",
         group="frontend",
     ),
-    "NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID": EnvVar(
-        name="NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID",
+    "ANALYTICS_UMAMI_SITE_ID": EnvVar(
+        name="ANALYTICS_UMAMI_SITE_ID",
         default="",
         description="Umami analytics site identifier",
         group="frontend",
     ),
-    "NEXT_PUBLIC_API_BASE_URL": EnvVar(
-        name="NEXT_PUBLIC_API_BASE_URL",
-        default="http://localhost:8080",
-        description="Cook Web API base URL (Nginx 8080 default in docker-compose)",
-        group="frontend",
-    ),
-    "NEXT_PUBLIC_DEFAULT_COURSE_ID": EnvVar(
-        name="NEXT_PUBLIC_DEFAULT_COURSE_ID",
+    "DEFAULT_COURSE_ID": EnvVar(
+        name="DEFAULT_COURSE_ID",
         default="",
         description="Default course id for Cook Web",
         group="frontend",
     ),
-    "NEXT_PUBLIC_DEFAULT_LOGIN_METHOD": EnvVar(
-        name="NEXT_PUBLIC_DEFAULT_LOGIN_METHOD",
+    "DEFAULT_LOGIN_METHOD": EnvVar(
+        name="DEFAULT_LOGIN_METHOD",
         default="phone",
         description='Default login method tab. Values: "phone" | "email" | "google"',
         group="frontend",
     ),
-    "NEXT_PUBLIC_DEBUG_ERUDA_ENABLED": EnvVar(
-        name="NEXT_PUBLIC_DEBUG_ERUDA_ENABLED",
+    "DEBUG_ERUDA_ENABLED": EnvVar(
+        name="DEBUG_ERUDA_ENABLED",
         default=False,
         type=bool,
         description="Enable Eruda debug console",
         group="frontend",
     ),
-    "NEXT_PUBLIC_LOGIN_METHODS_ENABLED": EnvVar(
-        name="NEXT_PUBLIC_LOGIN_METHODS_ENABLED",
+    "LOGIN_METHODS_ENABLED": EnvVar(
+        name="LOGIN_METHODS_ENABLED",
         default="phone",
         description="""Login methods exposed to users.
 Values: "phone" | "email" | "google" combinations (comma-separated)
 Default: "phone".""",
         group="frontend",
     ),
-    "NEXT_PUBLIC_PAYMENT_CHANNELS_ENABLED": EnvVar(
-        name="NEXT_PUBLIC_PAYMENT_CHANNELS_ENABLED",
-        default="pingxx,stripe",
-        description="Payment channels enabled on Cook Web (comma separated)",
-        group="frontend",
-    ),
-    "NEXT_PUBLIC_STRIPE_ENABLED": EnvVar(
-        name="NEXT_PUBLIC_STRIPE_ENABLED",
+    "STRIPE_ENABLED": EnvVar(
+        name="STRIPE_ENABLED",
         default=False,
         type=bool,
         description="Enable Stripe payment entry points on Cook Web",
         group="frontend",
     ),
-    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": EnvVar(
-        name="NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
-        default="",
-        description="Stripe publishable key for Cook Web",
-        group="frontend",
-    ),
-    "NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE": EnvVar(
-        name="NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE",
+    "UI_ALWAYS_SHOW_LESSON_TREE": EnvVar(
+        name="UI_ALWAYS_SHOW_LESSON_TREE",
         default=False,
         type=bool,
         description="Always show lesson tree in Cook Web",
         group="frontend",
     ),
-    "NEXT_PUBLIC_UI_LOGO_HORIZONTAL": EnvVar(
-        name="NEXT_PUBLIC_UI_LOGO_HORIZONTAL",
+    "UI_LOGO_HORIZONTAL": EnvVar(
+        name="UI_LOGO_HORIZONTAL",
         default="",
         description="Horizontal logo URL for Cook Web",
         group="frontend",
     ),
-    "NEXT_PUBLIC_UI_LOGO_VERTICAL": EnvVar(
-        name="NEXT_PUBLIC_UI_LOGO_VERTICAL",
+    "UI_LOGO_VERTICAL": EnvVar(
+        name="UI_LOGO_VERTICAL",
         default="",
         description="Vertical logo URL for Cook Web",
         group="frontend",
     ),
-    "NEXT_PUBLIC_WECHAT_APP_ID": EnvVar(
-        name="NEXT_PUBLIC_WECHAT_APP_ID",
+    "WECHAT_APP_ID": EnvVar(
+        name="WECHAT_APP_ID",
         default="",
-        description="WeChat App ID for QR login",
-        group="frontend",
+        description="WeChat App ID for OAuth / QR login",
+        group="auth",
     ),
-    "NEXT_PUBLIC_WECHAT_CODE_ENABLED": EnvVar(
-        name="NEXT_PUBLIC_WECHAT_CODE_ENABLED",
-        default=True,
-        type=bool,
-        description="Enable WeChat QR login",
-        group="frontend",
+    "WECHAT_APP_SECRET": EnvVar(
+        name="WECHAT_APP_SECRET",
+        default="",
+        description="WeChat App secret for server-side exchanges",
+        group="auth",
+        secret=True,
     ),
     # Legal Documents Configuration
     "LEGAL_AGREEMENT_URL_ZH_CN": EnvVar(
