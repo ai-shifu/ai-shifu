@@ -373,6 +373,7 @@ Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
             "When empty, all detected models are shown."
         ),
         group="llm",
+        required=False,
     ),
     "LLM_RECOMMENDED_MODEL_DISPLAY_NAMES": EnvVar(
         name="LLM_RECOMMENDED_MODEL_DISPLAY_NAMES",
@@ -383,6 +384,7 @@ Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
             "length and order of LLM_RECOMMENDED_MODELS. Ignored otherwise."
         ),
         group="llm",
+        required=False,
     ),
     "DEFAULT_LLM_TEMPERATURE": EnvVar(
         name="DEFAULT_LLM_TEMPERATURE",
