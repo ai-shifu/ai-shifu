@@ -196,7 +196,7 @@ const MinimalTreeItemComponent = React.forwardRef<
     }
   };
   const onSelect = async () => {
-    if (props.item.id == 'new_chapter') {
+    if (props.item.id == 'new_chapter' || props.item.id == 'new_lesson') {
       return;
     }
 
