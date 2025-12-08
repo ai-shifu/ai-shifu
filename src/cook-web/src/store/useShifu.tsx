@@ -348,7 +348,11 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const loadMdflow = async (outlineId: string, shifuId: string) => {
-    if(outlineId === '' || outlineId === 'new_lesson' || outlineId === 'new_chapter') {
+    if (
+      outlineId === '' ||
+      outlineId === 'new_lesson' ||
+      outlineId === 'new_chapter'
+    ) {
       return;
     }
     setIsLoading(true);
