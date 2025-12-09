@@ -48,19 +48,26 @@ def import_user(
                     defaults=defaults,
                 )
         else:
-            entity = get_user_entity_by_bid(aggregate.user_bid, include_deleted=True)
-            updates = {"identify": normalized_mobile}
-            if aggregate.state == USER_STATE_UNREGISTERED:
-                updates["state"] = USER_STATE_REGISTERED
-            if user_nick_name:
-                updates["nickname"] = user_nick_name
-            update_user_entity_fields(entity, **updates)
             aggregate = load_user_aggregate(aggregate.user_bid)
 
         if not aggregate:
             raise RuntimeError("Failed to resolve user aggregate during import")
 
         user_id = aggregate.user_bid
+        entity = get_user_entity_by_bid(user_id, include_deleted=True)
+        updates = {}
+        if normalized_mobile:
+            updates["identify"] = normalized_mobile
+        if aggregate.state == USER_STATE_UNREGISTERED:
+            updates["state"] = USER_STATE_REGISTERED
+        if user_nick_name:
+            updates["nickname"] = user_nick_name
+        if updates:
+            update_user_entity_fields(entity, **updates)
+            aggregate = load_user_aggregate(user_id)
+            if not aggregate:
+                raise RuntimeError("Failed to refresh user aggregate during import")
+
         if normalized_mobile:
             upsert_credential(
                 app,
