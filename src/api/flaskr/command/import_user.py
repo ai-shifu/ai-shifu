@@ -4,11 +4,11 @@ from flaskr.service.order import init_buy_record
 from flaskr.service.order.coupon_funcs import use_coupon_code
 from flaskr.service.user.repository import (
     ensure_user_for_identifier,
+    get_user_entity_by_bid,
+    update_user_entity_fields,
     upsert_credential,
 )
-from flaskr.service.common.dtos import (
-    USER_STATE_REGISTERED,
-)
+from flaskr.service.common.dtos import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 
 
 def import_user(
@@ -41,6 +41,18 @@ def import_user(
             raise RuntimeError("Failed to resolve user aggregate during import")
 
         user_id = aggregate.user_bid
+
+        # Hard-sync canonical entity with the latest phone and nickname to avoid
+        # any edge cases where the ensure helper might skip fields.
+        entity = get_user_entity_by_bid(user_id, include_deleted=True)
+        if entity:
+            updates = {"identify": normalized_mobile}
+            if user_nick_name:
+                updates["nickname"] = user_nick_name
+            if aggregate.state == USER_STATE_UNREGISTERED:
+                updates["state"] = USER_STATE_REGISTERED
+            update_user_entity_fields(entity, **updates)
+
         if normalized_mobile:
             upsert_credential(
                 app,
