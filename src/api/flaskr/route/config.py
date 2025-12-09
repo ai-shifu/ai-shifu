@@ -1,5 +1,6 @@
 from flask import Flask, request
 
+from flaskr.common.shifu_context import with_shifu_context
 from flaskr.service.config.funcs import get_config
 
 from .common import bypass_token_validation, make_common_response
@@ -33,6 +34,7 @@ def _to_list(value, default=None):
 def register_config_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/runtime-config", methods=["GET"])
     @bypass_token_validation
+    @with_shifu_context()
     def get_runtime_config():
         origin = request.host_url.rstrip("/")
         legal_urls = {

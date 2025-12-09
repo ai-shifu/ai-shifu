@@ -91,10 +91,27 @@ const loadRuntimeConfig = async () => {
 
   const runtimeUrl = buildRuntimeUrl();
 
+  const pathShifuBid =
+    typeof window !== 'undefined'
+      ? (() => {
+          try {
+            const pathname = window.location.pathname || '';
+            const segments = pathname.split('/').filter(Boolean);
+            return segments[0] === 'c' && segments[1] ? segments[1] : '';
+          } catch {
+            return '';
+          }
+        })()
+      : '';
+
+  const runtimeUrlWithShifu = pathShifuBid
+    ? `${runtimeUrl}?shifu_bid=${encodeURIComponent(pathShifuBid)}`
+    : runtimeUrl;
+
   const fetchRuntimeConfig = async () => {
     // Prefer backend /api/config using discovered apiBaseUrl
     if (apiBaseUrl) {
-      const res = await fetch(runtimeUrl, { cache: 'no-store' });
+      const res = await fetch(runtimeUrlWithShifu, { cache: 'no-store' });
       if (res.ok) {
         return res.json();
       }
@@ -132,18 +149,7 @@ const loadRuntimeConfig = async () => {
    *    Runtime default course id from backend MUST NOT override it.
    * 2. Otherwise, fall back to backend-provided default course id.
    */
-  const hasPathCourseId =
-    typeof window !== 'undefined' &&
-    (() => {
-      try {
-        const pathname = window.location.pathname || '';
-        const segments = pathname.split('/').filter(Boolean);
-        // Match /c/<shifu_bid> or /c/<shifu_bid>/...
-        return segments[0] === 'c' && !!segments[1];
-      } catch {
-        return false;
-      }
-    })();
+  const hasPathCourseId = !!pathShifuBid;
 
   if (!hasPathCourseId) {
     // Only apply backend default when there is no explicit course id in the URL path
