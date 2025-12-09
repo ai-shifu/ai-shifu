@@ -9,6 +9,7 @@ from flaskr.service.user.repository import (
     get_user_entity_by_bid,
     load_user_aggregate,
     load_user_aggregate_by_identifier,
+    upsert_credential,
     update_user_entity_fields,
 )
 from flaskr.service.common.dtos import (
@@ -60,5 +61,16 @@ def import_user(
             raise RuntimeError("Failed to resolve user aggregate during import")
 
         user_id = aggregate.user_bid
+        if normalized_mobile:
+            upsert_credential(
+                app,
+                user_bid=user_id,
+                provider_name="phone",
+                subject_id=normalized_mobile,
+                subject_format="phone",
+                identifier=normalized_mobile,
+                metadata={"course_id": course_id},
+                verified=True,
+            )
         order = init_buy_record(app, user_id, course_id)
         use_coupon_code(app, user_id, discount_code, order.order_id)
