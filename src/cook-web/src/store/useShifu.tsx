@@ -383,16 +383,10 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       });
       const list = remapOutlineTree(chaptersData);
       if (list.length > 0) {
-        // Find the first leaf node (lesson) to select by default
-        let firstLesson: Outline | null = null;
-
-        // Look for the first lesson node (depth > 0, typically chapter's child)
-        for (const chapter of list) {
-          if (chapter.children && chapter.children.length > 0) {
-            firstLesson = chapter.children[0];
-            break;
-          }
-        }
+        // Find the first lesson to select by default
+        const firstLesson = list.find(
+          (chapter) => chapter.children && chapter.children.length > 0
+        )?.children?.[0];
 
         if (firstLesson) {
           setCurrentNode({
