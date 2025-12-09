@@ -24,7 +24,8 @@ from .shifu_history_manager import save_shifu_history
 from ..common.dtos import PageNationDTO
 from ...service.config import get_config
 from .funcs import shifu_permission_verification
-from .shifu_outline_funcs import create_default_outlines_batch
+from .shifu_outline_funcs import create_outline
+from .consts import UNIT_TYPE_TRIAL
 from flaskr.i18n import _
 
 
@@ -161,51 +162,43 @@ def create_shifu_draft(
 
         save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
 
-        # Initialize default chapter and lesson using batch operation
+        # Initialize default chapter and lesson
         try:
-            app.logger.info(
-                f"Starting default chapter and lesson creation for shifu {shifu_id}"
-            )
-
             # Get default names using i18n system
             chapter_name = _("server.shifu.defaultChapterName")
             lesson_name = _("server.shifu.defaultLessonName")
 
-            app.logger.info(
-                f"Retrieved i18n names - chapter: '{chapter_name}', lesson: '{lesson_name}'"
-            )
-
-            # Validate that we got actual translated values, not the keys
-            if chapter_name == "server.shifu.defaultChapterName" or not chapter_name:
-                app.logger.warning(
-                    "Failed to get translated chapter name, using fallback"
-                )
-                chapter_name = "Untitled Chapter"
-            if lesson_name == "server.shifu.defaultLessonName" or not lesson_name:
-                app.logger.warning(
-                    "Failed to get translated lesson name, using fallback"
-                )
-                lesson_name = "Untitled Lesson"
-
-            # Create both chapter and lesson in the same transaction as shifu draft
-            chapter_dto, lesson_dto = create_default_outlines_batch(
+            # Create default chapter
+            chapter = create_outline(
                 app=app,
                 user_id=user_id,
                 shifu_id=shifu_id,
-                chapter_name=chapter_name,
-                lesson_name=lesson_name,
-                auto_commit=True,  # Let batch function manage its own transaction
+                parent_id="",  # Root level
+                outline_name=chapter_name,
+                outline_description="",
+                outline_index=0,
+                outline_type=UNIT_TYPE_TRIAL,
+                system_prompt=None,
+                is_hidden=False,
             )
 
-            app.logger.info(
-                f"Successfully created default outlines - chapter: {chapter_dto.bid}, lesson: {lesson_dto.bid}"
+            # Create default lesson under the chapter
+            create_outline(
+                app=app,
+                user_id=user_id,
+                shifu_id=shifu_id,
+                parent_id=chapter.bid,  # Under the chapter
+                outline_name=lesson_name,
+                outline_description="",
+                outline_index=0,
+                outline_type=UNIT_TYPE_TRIAL,
+                system_prompt=None,
+                is_hidden=False,
             )
 
-        except Exception as e:
-            app.logger.error(f"Failed to initialize default chapter and lesson for shifu {shifu_id}: {str(e)}")
-            app.logger.exception("Full exception details:")
+        except Exception:
+            app.logger.exception("Failed to initialize default chapter and lesson")
             # Don't fail the entire creation process if chapter initialization fails
-            # But log detailed error information for debugging
 
         db.session.commit()
 

@@ -19,7 +19,6 @@ from .consts import (
     UNIT_TYPE_VALUE_TRIAL,
     UNIT_TYPE_NORMAL,
     UNIT_TYPE_TRIAL,
-    ASK_MODE_DEFAULT,
 )
 from .models import DraftOutlineItem
 from ...dao import db
@@ -38,181 +37,6 @@ from datetime import datetime
 from markdown_flow import MarkdownFlow
 
 from flaskr.common.i18n_utils import get_markdownflow_output_language
-
-
-def create_default_outlines_batch(
-    app,
-    user_id: str,
-    shifu_id: str,
-    chapter_name: str,
-    lesson_name: str,
-    auto_commit: bool = True,
-):
-    """
-    Create default chapter and lesson in a single transaction
-    Args:
-        app: Flask application instance
-        user_id: User ID
-        shifu_id: Shifu ID
-        chapter_name: Default chapter name
-        lesson_name: Default lesson name
-        auto_commit: Whether to commit the transaction automatically
-    Returns:
-        tuple: (chapter_outline_dto, lesson_outline_dto)
-    """
-    with app.app_context():
-        app.logger.info(
-            f"create_default_outlines_batch called with shifu_id={shifu_id}, user_id={user_id}"
-        )
-
-        now_time = datetime.now()
-
-        # Generate IDs for both outlines
-        chapter_bid = generate_id(app)
-        lesson_bid = generate_id(app)
-
-        app.logger.info(
-            f"Generated IDs - chapter_bid: {chapter_bid}, lesson_bid: {lesson_bid}"
-        )
-
-        # Validate name lengths
-        if len(chapter_name) > 100:
-            raise_error("server.shifu.outlineNameTooLong")
-        if len(lesson_name) > 100:
-            raise_error("server.shifu.outlineNameTooLong")
-
-        # Get existing items to determine positions
-        existing_items = __get_existing_outline_items(shifu_id)
-
-        # Determine chapter position (root level) - should be 2 digits
-        root_items = [item for item in existing_items if len(item.position) == 2]
-        max_index = (
-            max([int(item.position) for item in root_items]) if root_items else 0
-        )
-        chapter_position = f"{max_index + 1:02d}"
-
-        # Determine lesson position (under chapter) - should be parent position + 2 digits
-        lesson_position = f"{chapter_position}01"
-
-        app.logger.info(
-            f"Position calculation - existing_items count: {len(existing_items)}, "
-            f"root_items count: {len(root_items)}, max_index: {max_index}, "
-            f"chapter_position: {chapter_position}, lesson_position: {lesson_position}"
-        )
-
-        # Risk check for both outlines
-        chapter_check_content = chapter_name
-        lesson_check_content = lesson_name
-
-        check_text_with_risk_control(app, chapter_bid, user_id, chapter_check_content)
-        check_text_with_risk_control(app, lesson_bid, user_id, lesson_check_content)
-
-        # Create chapter outline
-        chapter_outline = DraftOutlineItem(
-            outline_item_bid=chapter_bid,
-            shifu_bid=shifu_id,
-            parent_bid="",  # Root level
-            position=chapter_position,
-            title=chapter_name,
-            type=UNIT_TYPE_VALUES.get(UNIT_TYPE_TRIAL, UNIT_TYPE_VALUE_TRIAL),
-            hidden=0,
-            prerequisite_item_bids="",
-            llm="",
-            llm_temperature=0.0,
-            llm_system_prompt="",
-            ask_enabled_status=ASK_MODE_DEFAULT,
-            ask_llm="",
-            ask_llm_temperature=0.0,
-            ask_llm_system_prompt="",
-            content="",
-            deleted=0,
-            created_user_bid=user_id,
-            created_at=now_time,
-            updated_user_bid=user_id,
-            updated_at=now_time,
-        )
-
-        # Create lesson outline
-        lesson_outline = DraftOutlineItem(
-            outline_item_bid=lesson_bid,
-            shifu_bid=shifu_id,
-            parent_bid=chapter_bid,  # Under the chapter
-            position=lesson_position,
-            title=lesson_name,
-            type=UNIT_TYPE_VALUES.get(UNIT_TYPE_TRIAL, UNIT_TYPE_VALUE_TRIAL),
-            hidden=0,
-            prerequisite_item_bids="",
-            llm="",
-            llm_temperature=0.0,
-            llm_system_prompt="",
-            ask_enabled_status=ASK_MODE_DEFAULT,
-            ask_llm="",
-            ask_llm_temperature=0.0,
-            ask_llm_system_prompt="",
-            content="",
-            deleted=0,
-            created_user_bid=user_id,
-            created_at=now_time,
-            updated_user_bid=user_id,
-            updated_at=now_time,
-        )
-
-        # Add both to session but don't commit yet
-        app.logger.info("Adding chapter and lesson outlines to database session")
-        db.session.add(chapter_outline)
-        db.session.add(lesson_outline)
-        db.session.flush()  # Get IDs without committing
-        app.logger.info(
-            f"Database flush completed - chapter.id: {chapter_outline.id}, lesson.id: {lesson_outline.id}"
-        )
-
-        # Save history for both outlines with error handling
-        try:
-            save_new_outline_history(
-                app, user_id, shifu_id, chapter_bid, chapter_outline.id, "", max_index
-            )
-            save_new_outline_history(
-                app,
-                user_id,
-                shifu_id,
-                lesson_bid,
-                lesson_outline.id,
-                chapter_bid,
-                0,
-            )
-            app.logger.info("History records saved successfully")
-        except Exception as e:
-            app.logger.error(f"Failed to save outline history: {str(e)}")
-            app.logger.exception("History save error details:")
-            # Continue with commit even if history fails
-            # History is not critical for basic functionality
-
-        # Commit only if requested
-        if auto_commit:
-            app.logger.info("Committing outline transaction")
-            db.session.commit()
-            app.logger.info("Outline transaction committed successfully")
-
-        # Return DTOs
-        chapter_dto = SimpleOutlineDto(
-            bid=chapter_bid,
-            position=chapter_position,
-            name=chapter_name,
-            children=[],
-            type=UNIT_TYPE_TRIAL,
-            is_hidden=False,
-        )
-
-        lesson_dto = SimpleOutlineDto(
-            bid=lesson_bid,
-            position=lesson_position,
-            name=lesson_name,
-            children=[],
-            type=UNIT_TYPE_TRIAL,
-            is_hidden=False,
-        )
-
-        return chapter_dto, lesson_dto
 
 
 def convert_outline_to_reorder_outline_item_dto(
@@ -245,22 +69,6 @@ def __get_existing_outline_items(shifu_bid: str) -> list[DraftOutlineItem]:
     Returns:
         list[DraftOutlineItem]: Outline items
     """
-    # Debug: First, let's see all items for this shifu regardless of the subquery
-    all_items_for_shifu = DraftOutlineItem.query.filter(
-        DraftOutlineItem.shifu_bid == shifu_bid,
-        DraftOutlineItem.deleted == 0,
-    ).all()
-
-    from flask import current_app
-
-    current_app.logger.info(
-        f"DEBUG: Found {len(all_items_for_shifu)} total items for shifu {shifu_bid}"
-    )
-    for item in all_items_for_shifu:
-        current_app.logger.info(
-            f"  All items: id={item.id}, outline_item_bid={item.outline_item_bid}, position={item.position}, title={item.title}"
-        )
-
     sub_query = (
         db.session.query(db.func.max(DraftOutlineItem.id))
         .filter(
@@ -272,14 +80,6 @@ def __get_existing_outline_items(shifu_bid: str) -> list[DraftOutlineItem]:
         DraftOutlineItem.id.in_(sub_query),
         DraftOutlineItem.deleted == 0,
     ).all()
-
-    current_app.logger.info(
-        f"__get_existing_outline_items: found {len(outline_items)} items for shifu {shifu_bid} after subquery"
-    )
-    for item in outline_items:
-        current_app.logger.info(
-            f"  Item: bid={item.outline_item_bid}, position={item.position}, title={item.title}"
-        )
 
     return sorted(outline_items, key=lambda x: (len(x.position), x.position))
 
@@ -297,15 +97,10 @@ def build_outline_tree(app, shifu_bid: str) -> list[ShifuOutlineTreeNode]:
     sorted_items = sorted(outline_items, key=lambda x: (len(x.position), x.position))
     outline_tree = []
 
-    app.logger.info(
-        f"build_outline_tree: processing {len(sorted_items)} items for shifu {shifu_bid}"
-    )
-
     nodes_map = {}
     for item in sorted_items:
         node = ShifuOutlineTreeNode(item)
         nodes_map[item.position] = node
-        app.logger.info(f"  Created node: position={item.position}, title={item.title}")
 
     # build tree structure
     for position, node in nodes_map.items():
