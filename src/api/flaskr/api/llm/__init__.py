@@ -706,17 +706,17 @@ def chat_llm(
 def _build_model_options(
     app: Flask, available_models: list[str]
 ) -> list[dict[str, str]]:
-    recommended = _normalize_model_config(get_config("LLM_ALLOWED_MODELS", []))
+    allowed = _normalize_model_config(get_config("LLM_ALLOWED_MODELS", []))
     display_names = _normalize_model_config(
         get_config("LLM_ALLOWED_MODEL_DISPLAY_NAMES", [])
     )
 
-    if not recommended:
+    if not allowed:
         return [{"model": model, "display_name": model} for model in available_models]
 
     available_set = set(available_models)
     filtered_models: list[str] = []
-    for model in recommended:
+    for model in allowed:
         if model in available_set and model not in filtered_models:
             filtered_models.append(model)
 
@@ -726,14 +726,14 @@ def _build_model_options(
         )
         return []
 
-    display_names_enabled = recommended and len(display_names) == len(recommended)
+    display_names_enabled = allowed and len(display_names) == len(allowed)
     if display_names and not display_names_enabled:
         _log_warning(
             "LLM_ALLOWED_MODEL_DISPLAY_NAMES ignored: length must match "
             "LLM_ALLOWED_MODELS"
         )
     display_map: dict[str, str] = (
-        dict(zip(recommended, display_names)) if display_names_enabled else {}
+        dict(zip(allowed, display_names)) if display_names_enabled else {}
     )
 
     return [
