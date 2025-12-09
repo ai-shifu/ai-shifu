@@ -169,7 +169,11 @@ def with_shifu_context(
 
             if not shifu_bid:
                 view_args = getattr(request, "view_args", {}) or {}
-                shifu_bid = view_args.get("shifu_bid") or request.args.get("shifu_bid")
+                shifu_bid = (
+                    view_args.get("shifu_bid")
+                    or request.args.get("shifu_bid")
+                    or request.args.get("shifu-bid")
+                )
                 if (
                     not shifu_bid
                     and request.method.upper() in {"POST", "PUT", "PATCH"}
