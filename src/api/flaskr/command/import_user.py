@@ -9,6 +9,7 @@ from flaskr.service.user.repository import (
     upsert_credential,
 )
 from flaskr.service.common.dtos import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
+from flaskr.dao import db
 
 
 def import_user(
@@ -64,5 +65,6 @@ def import_user(
                 metadata={"course_id": course_id},
                 verified=True,
             )
+        db.session.commit()
         order = init_buy_record(app, user_id, course_id)
         use_coupon_code(app, user_id, discount_code, order.order_id)
