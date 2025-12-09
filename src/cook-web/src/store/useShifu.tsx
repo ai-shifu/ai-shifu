@@ -385,7 +385,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       if (list.length > 0) {
         // Find the first lesson to select by default
         const firstLesson = list.find(
-          (chapter) => chapter.children && chapter.children.length > 0
+          chapter => chapter.children && chapter.children.length > 0,
         )?.children?.[0];
 
         if (firstLesson) {
