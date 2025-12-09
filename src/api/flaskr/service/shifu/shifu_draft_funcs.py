@@ -8,12 +8,13 @@ Date: 2025-08-07
 """
 
 from ...dao import db
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from datetime import datetime
 from .dtos import ShifuDto, ShifuDetailDto
 from ...util import generate_id
 from .consts import STATUS_DRAFT, SHIFU_NAME_MAX_LENGTH
 from ..check_risk.funcs import check_text_with_risk_control
-from ..common.models import raise_error, raise_error_with_args
+from ..common.models import raise_error, raise_error_with_args, AppException
 from .utils import (
     get_shifu_res_url,
     parse_shifu_res_bid,
@@ -196,8 +197,11 @@ def create_shifu_draft(
                 is_hidden=False,
             )
 
-        except Exception:
-            app.logger.exception("Failed to initialize default chapter and lesson")
+        except (AppException, SQLAlchemyError, IntegrityError) as e:
+            app.logger.warning(
+                f"Failed to initialize default chapter and lesson: "
+                f"{type(e).__name__}: {e}"
+            )
             # Don't fail the entire creation process if chapter initialization fails
 
         db.session.commit()
