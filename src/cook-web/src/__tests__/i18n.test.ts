@@ -11,7 +11,6 @@ describe('i18n language normalization', () => {
       locales: {
         'en-US': { label: 'English' },
         'zh-CN': { label: '中文' },
-        'qps-ploc': { label: 'Pseudo' },
       },
     };
 

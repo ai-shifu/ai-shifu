@@ -89,24 +89,33 @@ export default function ChatLayout({
 
   useEffect(() => {
     if (!envDataInitialized) return;
-    if (enableWxcode && inWechat()) {
-      const { appId } = useEnvStore.getState() as EnvStoreState;
-      // setLoading(true);
-      const currCode = params.code;
-      if (!currCode) {
-        wechatLogin({
-          appId,
-        });
-        return;
-      }
-      if (currCode !== wechatCode) {
-        updateWechatCode(currCode);
-        setCheckWxcode(true);
-      }
-    } else {
+    const wxcodeEnabled =
+      typeof enableWxcode === 'string' && enableWxcode.toLowerCase() === 'true';
+    if (!wxcodeEnabled || !inWechat()) {
       setCheckWxcode(true);
+      return;
     }
-    // setLoading(false);
+
+    const { appId } = useEnvStore.getState() as EnvStoreState;
+    const currCode = params.code;
+
+    if (!appId) {
+      console.warn('WeChat appId missing, skip OAuth redirect');
+      setCheckWxcode(true);
+      return;
+    }
+
+    if (!currCode) {
+      wechatLogin({
+        appId,
+      });
+      return;
+    }
+
+    if (currCode !== wechatCode) {
+      updateWechatCode(currCode);
+    }
+    setCheckWxcode(true);
   }, [
     params.code,
     updateWechatCode,
