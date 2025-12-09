@@ -364,6 +364,28 @@ DeepSeek: deepseek-chat
 Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
         group="llm",
     ),
+    "LLM_ALLOWED_MODELS": EnvVar(
+        name="LLM_ALLOWED_MODELS",
+        default=[],
+        type=list,
+        description=(
+            "Comma separated list of allowed LLM models to expose in UI. "
+            "When empty, all detected models are shown."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "LLM_ALLOWED_MODEL_DISPLAY_NAMES": EnvVar(
+        name="LLM_ALLOWED_MODEL_DISPLAY_NAMES",
+        default=[],
+        type=list,
+        description=(
+            "Optional display names for allowed LLM models. Must match the "
+            "length and order of LLM_ALLOWED_MODELS. Ignored otherwise."
+        ),
+        group="llm",
+        required=False,
+    ),
     "DEFAULT_LLM_TEMPERATURE": EnvVar(
         name="DEFAULT_LLM_TEMPERATURE",
         default=0.3,

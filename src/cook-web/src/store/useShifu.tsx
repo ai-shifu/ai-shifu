@@ -13,6 +13,7 @@ import {
   ReorderOutlineItemDto,
   BlockDTO,
   BlockType,
+  ModelOption,
   SaveMdflowPayload,
   LessonCreationSettings,
 } from '../types/shifu';
@@ -94,7 +95,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   const [profileItemDefinations, setProfileItemDefinations] = useState<
     ProfileItem[]
   >([]);
-  const [models, setModels] = useState<string[]>([]);
+  const [models, setModels] = useState<ModelOption[]>([]);
   const [mdflow, setMdflow] = useState<string>('');
   const [variables, setVariables] = useState<string[]>([]);
   const currentMdflow = useRef<string>('');
@@ -1106,9 +1107,40 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     );
   };
 
+  const normalizeModelOptions = (list: any): ModelOption[] => {
+    if (!Array.isArray(list)) return [];
+    const seen = new Set<string>();
+    const options: ModelOption[] = [];
+
+    list.forEach(item => {
+      if (typeof item === 'string') {
+        const value = item.trim();
+        if (value && !seen.has(value)) {
+          seen.add(value);
+          options.push({ value, label: value });
+        }
+        return;
+      }
+
+      if (item && typeof item === 'object') {
+        const value = String(item.model || item.value || '').trim();
+        if (!value || seen.has(value)) {
+          return;
+        }
+        const labelSource =
+          item.display_name || item.displayName || item.label || value;
+        const label = String(labelSource || value).trim() || value;
+        seen.add(value);
+        options.push({ value, label });
+      }
+    });
+
+    return options;
+  };
+
   const loadModels = async () => {
     const list = await api.getModelList({});
-    setModels(list);
+    setModels(normalizeModelOptions(list));
   };
 
   const setBlockError = (blockId: string, error: string | null) => {

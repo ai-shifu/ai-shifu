@@ -8,6 +8,7 @@ import {
 } from '../ui/Select';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
+import { ModelOption } from '@/types/shifu';
 
 export default function ModelList({
   value,
@@ -22,6 +23,8 @@ export default function ModelList({
 }) {
   const { models } = useShifu();
   const { t } = useTranslation();
+
+  const options: ModelOption[] = models || [];
 
   // Empty string is used to represent using the default model. However, the Select component uses empty string as unselected.
   // So we need to use a special value to represent the empty state in the Select component.
@@ -51,13 +54,13 @@ export default function ModelList({
         >
           {t('common.core.default')}
         </SelectItem>
-        {models.map((item, i) => {
+        {options.map(item => {
           return (
             <SelectItem
-              key={i}
-              value={item}
+              key={item.value}
+              value={item.value}
             >
-              {item}
+              {item.label}
             </SelectItem>
           );
         })}

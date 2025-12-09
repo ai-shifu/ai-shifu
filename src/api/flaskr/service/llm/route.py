@@ -24,7 +24,14 @@ def register_llm_routes(app: Flask, path_prefix="/api/llm"):
                         schema:
                             type: array
                             items:
-                                type: string
+                                type: object
+                                properties:
+                                    model:
+                                        type: string
+                                        description: actual model identifier
+                                    display_name:
+                                        type: string
+                                        description: display label for UI
         """
         return make_common_response(get_current_models(app))
 
