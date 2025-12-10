@@ -77,6 +77,7 @@ const ShifuCard = ({
 };
 
 const ScriptManagementPage = () => {
+  const router = useRouter();
   const { toast } = useToast();
   const { trackEvent } = useTracking();
   const { t, i18n } = useTranslation();
@@ -143,15 +144,13 @@ const ScriptManagementPage = () => {
         title: t('common.core.createSuccess'),
         description: t('common.core.createSuccessDescription'),
       });
-      setShifus([]);
-      setHasMore(true);
-      currentPage.current = 1;
-      fetchShifus();
       setShowCreateShifuModal(false);
       trackEvent('creator_shifu_create_success', {
         shifu_bid: response.bid,
         shifu_name: response.name,
       });
+      // Redirect to edit page instead of refreshing list
+      router.push(`/shifu/${response.bid}`);
     } catch (error) {
       toast({
         title: t('common.core.createFailed'),

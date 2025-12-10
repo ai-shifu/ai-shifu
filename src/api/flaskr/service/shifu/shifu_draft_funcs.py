@@ -8,12 +8,13 @@ Date: 2025-08-07
 """
 
 from ...dao import db
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from datetime import datetime
 from .dtos import ShifuDto, ShifuDetailDto
 from ...util import generate_id
 from .consts import STATUS_DRAFT, SHIFU_NAME_MAX_LENGTH
 from ..check_risk.funcs import check_text_with_risk_control
-from ..common.models import raise_error, raise_error_with_args
+from ..common.models import raise_error, raise_error_with_args, AppException
 from .utils import (
     get_shifu_res_url,
     parse_shifu_res_bid,
@@ -24,6 +25,9 @@ from .shifu_history_manager import save_shifu_history
 from ..common.dtos import PageNationDTO
 from ...service.config import get_config
 from .funcs import shifu_permission_verification
+from .shifu_outline_funcs import create_outline
+from .consts import UNIT_TYPE_TRIAL
+from flaskr.i18n import _
 
 
 def get_latest_shifu_draft(shifu_id: str) -> DraftShifu:
@@ -158,6 +162,48 @@ def create_shifu_draft(
         db.session.flush()
 
         save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
+
+        # Initialize default chapter and lesson
+        try:
+            # Get default names using i18n system
+            chapter_name = _("server.shifu.defaultChapterName")
+            lesson_name = _("server.shifu.defaultLessonName")
+
+            # Create default chapter
+            chapter = create_outline(
+                app=app,
+                user_id=user_id,
+                shifu_id=shifu_id,
+                parent_id="",  # Root level
+                outline_name=chapter_name,
+                outline_description="",
+                outline_index=0,
+                outline_type=UNIT_TYPE_TRIAL,
+                system_prompt=None,
+                is_hidden=False,
+            )
+
+            # Create default lesson under the chapter
+            create_outline(
+                app=app,
+                user_id=user_id,
+                shifu_id=shifu_id,
+                parent_id=chapter.bid,  # Under the chapter
+                outline_name=lesson_name,
+                outline_description="",
+                outline_index=0,
+                outline_type=UNIT_TYPE_TRIAL,
+                system_prompt=None,
+                is_hidden=False,
+            )
+
+        except (AppException, SQLAlchemyError, IntegrityError) as e:
+            app.logger.warning(
+                f"Failed to initialize default chapter and lesson: "
+                f"{type(e).__name__}: {e}"
+            )
+            # Don't fail the entire creation process if chapter initialization fails
+
         db.session.commit()
 
         return ShifuDto(
