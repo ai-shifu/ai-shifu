@@ -45,6 +45,16 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [isPreviewPanelOpen, setIsPreviewPanelOpen] = useState(false);
   const [isPreviewPreparing, setIsPreviewPreparing] = useState(false);
   const [addChapterDialogOpen, setAddChapterDialogOpen] = useState(false);
+  const {
+    mdflow,
+    chapters,
+    actions,
+    isLoading,
+    variables,
+    systemVariables,
+    currentShifu,
+    currentNode,
+  } = useShifu();
 
   const {
     items: previewItems,
@@ -94,17 +104,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
       previousOutlineWidthRef.current = parsedWidth;
     }
   }, []);
-
-  const {
-    mdflow,
-    chapters,
-    actions,
-    isLoading,
-    variables,
-    systemVariables,
-    currentShifu,
-    currentNode,
-  } = useShifu();
 
   useEffect(() => {
     const baseTitle = t('common.core.adminTitle');
