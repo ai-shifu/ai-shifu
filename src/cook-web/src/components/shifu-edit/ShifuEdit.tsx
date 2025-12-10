@@ -282,14 +282,14 @@ const ScriptEditor = ({ id }: { id: string }) => {
     const merged = new Map<string, { name: string }>();
     // Prioritize freshly added variables, then actual markdown ones, then persisted ones
     [...recentVariables, ...mdflowVariableNames, ...variables].forEach(
-      (variableName) => {
+      variableName => {
         if (!variableName) {
           return;
         }
         if (!merged.has(variableName)) {
           merged.set(variableName, { name: variableName });
         }
-      }
+      },
     );
     return Array.from(merged.values());
   }, [recentVariables, mdflowVariableNames, variables]);
