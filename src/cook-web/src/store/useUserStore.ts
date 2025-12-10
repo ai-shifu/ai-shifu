@@ -144,40 +144,68 @@ export const useUserStore = create<
 
       const initPromise = (async () => {
         const tokenData = tokenTool.get();
+        const initialToken = tokenData.token;
+        let tokenChangedDuringFetch = false;
 
-        // If no token, register as guest
-        if (!tokenData.token) {
-          await registerAsGuest();
-          set(() => ({
-            userInfo: null,
-          }));
-          get()._updateUserStatus();
-          return;
-        }
-
-        // If already has token, try to get user info
         try {
-          let userInfo = await getUserInfo();
-          // because request in login page will all response
-          if (location.pathname.includes('login')) {
-            userInfo = userInfo.data;
+          // If no token, register as guest
+          if (!initialToken) {
+            await registerAsGuest();
+            set(() => ({
+              userInfo: null,
+            }));
+            return;
           }
+
+          const response = await getUserInfo();
+          const normalizedUserInfo =
+            response && typeof response === 'object' && 'data' in response
+              ? ((response as { data?: unknown }).data ?? response)
+              : response;
+
+          const latestTokenData = tokenTool.get();
+          tokenChangedDuringFetch =
+            !!latestTokenData.token && latestTokenData.token !== initialToken;
+
+          // Another login just updated the token while this request was in flight
+          // (common for OAuth flows). Respect the newer token and skip overwriting
+          // state with stale guest data.
+          if (tokenChangedDuringFetch) {
+            return;
+          }
+
           // Determine if user is authenticated based on mobile number or email
-          const isAuthenticated = !!(userInfo.mobile || userInfo.email);
-          tokenTool.set({ token: tokenData.token, faked: !isAuthenticated });
+          const isAuthenticated = !!(
+            normalizedUserInfo?.mobile || normalizedUserInfo?.email
+          );
+          tokenTool.set({
+            token: latestTokenData.token || initialToken,
+            faked: !isAuthenticated,
+          });
 
           set(() => ({
-            userInfo,
+            userInfo: normalizedUserInfo,
           }));
-          if (userInfo.language) {
-            i18n.changeLanguage(userInfo.language);
+          if (normalizedUserInfo?.language) {
+            i18n.changeLanguage(normalizedUserInfo.language);
           }
         } catch (err) {
-          // @ts-expect-error EXPECT
+          const error = err as any;
+          const latestTokenData = tokenTool.get();
+          tokenChangedDuringFetch =
+            !!latestTokenData.token && latestTokenData.token !== initialToken;
+
+          if (tokenChangedDuringFetch) {
+            return;
+          }
+
           // Only reset to guest if it's a clear authentication error (not network or server issues)
-          if (err.status === 403 || err.code === 1005 || err.code === 1001) {
-            const tokenDataAfterFailure = tokenTool.get();
-            if (!tokenDataAfterFailure.faked) {
+          if (
+            error?.status === 403 ||
+            error?.code === 1005 ||
+            error?.code === 1001
+          ) {
+            if (!latestTokenData.faked) {
               await registerAsGuest();
             }
             set(() => ({
@@ -192,9 +220,9 @@ export const useUserStore = create<
               err,
             );
           }
+        } finally {
+          get()._updateUserStatus();
         }
-
-        get()._updateUserStatus();
       })();
 
       // Store the promise to prevent concurrent calls
