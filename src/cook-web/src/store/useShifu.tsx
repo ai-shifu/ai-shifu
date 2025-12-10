@@ -1251,6 +1251,10 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     setMdflow(value || '');
   };
 
+  const getCurrentMdflow = () => {
+    return currentMdflow.current;
+  };
+
   const removePlaceholderLessons = (nodes: Outline[] = []): Outline[] => {
     return nodes
       .filter(node => node.id !== 'new_lesson')
@@ -1415,6 +1419,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       parseMdflow,
       previewParse,
       setCurrentMdflow,
+      getCurrentMdflow,
       flushAutoSaveBlocks,
       cancelAutoSaveBlocks,
       insertPlaceholderChapter,
