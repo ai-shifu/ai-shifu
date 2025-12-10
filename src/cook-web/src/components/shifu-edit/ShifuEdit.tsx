@@ -66,6 +66,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [isPreviewPanelOpen, setIsPreviewPanelOpen] = useState(false);
   const [isPreviewPreparing, setIsPreviewPreparing] = useState(false);
   const [addChapterDialogOpen, setAddChapterDialogOpen] = useState(false);
+  const [recentVariables, setRecentVariables] = useState<string[]>([]);
+  const seenVariableNamesRef = useRef<Set<string>>(new Set());
   const {
     mdflow,
     chapters,
@@ -247,19 +249,50 @@ const ScriptEditor = ({ id }: { id: string }) => {
     () => extractVariableNames(mdflow),
     [mdflow],
   );
+  useEffect(() => {
+    const previousSeen = seenVariableNamesRef.current;
+    const currentSet = new Set<string>();
+    const newNames: string[] = [];
+    mdflowVariableNames.forEach(name => {
+      if (!name) {
+        return;
+      }
+      currentSet.add(name);
+      if (!previousSeen.has(name)) {
+        newNames.push(name);
+      }
+    });
+    seenVariableNamesRef.current = currentSet;
+    const currentNamesSet = new Set(mdflowVariableNames);
+    if (!newNames.length) {
+      setRecentVariables(prev =>
+        prev.filter(name => currentNamesSet.has(name)),
+      );
+      return;
+    }
+    setRecentVariables(prev => {
+      const filteredPrev = prev.filter(
+        name => !newNames.includes(name) && currentNamesSet.has(name),
+      );
+      return [...newNames, ...filteredPrev];
+    });
+  }, [mdflowVariableNames]);
 
   const variablesList = useMemo(() => {
     const merged = new Map<string, { name: string }>();
-    [...variables, ...mdflowVariableNames].forEach(variableName => {
-      if (!variableName) {
-        return;
-      }
-      if (!merged.has(variableName)) {
-        merged.set(variableName, { name: variableName });
-      }
-    });
+    // Prioritize freshly added variables, then actual markdown ones, then persisted ones
+    [...recentVariables, ...mdflowVariableNames, ...variables].forEach(
+      variableName => {
+        if (!variableName) {
+          return;
+        }
+        if (!merged.has(variableName)) {
+          merged.set(variableName, { name: variableName });
+        }
+      },
+    );
     return Array.from(merged.values());
-  }, [variables, mdflowVariableNames]);
+  }, [recentVariables, mdflowVariableNames, variables]);
 
   const systemVariablesList = useMemo(() => {
     return systemVariables.map((variable: Record<string, string>) => ({
