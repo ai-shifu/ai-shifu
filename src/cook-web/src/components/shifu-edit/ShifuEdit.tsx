@@ -13,9 +13,8 @@ import { useUserStore } from '@/store';
 import OutlineTree from '@/components/outline-tree';
 import ChapterSettingsDialog from '@/components/chapter-setting';
 import Header from '../header';
-import MarkdownFlowEditor from '../../../../../../markdown-flow-ui/src/components/MarkdownFlowEditor';
-import { UploadProps, EditMode } from 'markdown-flow-ui';
-// TODO@XJL
+// import MarkdownFlowEditor from '../../../../../../markdown-flow-ui/src/components/MarkdownFlowEditor';
+import { UploadProps, MarkdownFlowEditor, EditMode } from 'markdown-flow-ui';
 import 'markdown-flow-ui/dist/markdown-flow-ui.css';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
