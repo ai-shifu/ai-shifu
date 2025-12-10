@@ -104,11 +104,9 @@ export function usePreviewChat() {
     (blockId: string, content?: string | null) => void
   >(() => {});
   const resolveLatestMdflow = useCallback(() => {
-    if (typeof getCurrentMdflow === 'function') {
-      const latest = getCurrentMdflow();
-      if (typeof latest === 'string') {
-        return latest;
-      }
+    const latest = getCurrentMdflow?.();
+    if (typeof latest === 'string') {
+      return latest;
     }
     return (sseParams.current?.mdflow as string) || '';
   }, [getCurrentMdflow]);
