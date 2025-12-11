@@ -98,8 +98,7 @@ async function getClientApiBaseUrl(): Promise<string> {
       if (response.ok) {
         const config = await response.json();
         if (config.apiBaseUrl) {
-          cachedApiBaseUrl =
-            normalizeApiBaseUrl(config.apiBaseUrl) || 'http://localhost:8080';
+          cachedApiBaseUrl = normalizeApiBaseUrl(config.apiBaseUrl) || '';
           return cachedApiBaseUrl;
         }
       }
@@ -107,8 +106,8 @@ async function getClientApiBaseUrl(): Promise<string> {
       console.warn('Failed to fetch runtime config:', error);
     }
 
-    // Fallback to the default value when fetching fails
-    cachedApiBaseUrl = 'http://localhost:8080';
+    // Fallback to empty string when fetching fails or no config
+    cachedApiBaseUrl = '';
     return cachedApiBaseUrl;
   })();
 
@@ -119,7 +118,7 @@ async function getClientApiBaseUrl(): Promise<string> {
 
 /**
  * Gets the unified API base URL
- * Priority: runtime env > build-time env > default
+ * Priority: runtime env > build-time env > empty string
  */
 function getApiBaseUrl(): string {
   // 1. Prefer runtime environment variables on the server
@@ -134,7 +133,7 @@ function getApiBaseUrl(): string {
   const buildTimeValue = normalizeApiBaseUrl(
     process.env.NEXT_PUBLIC_API_BASE_URL,
   );
-  return buildTimeValue || 'http://localhost:8080';
+  return buildTimeValue || '';
 }
 
 /**
