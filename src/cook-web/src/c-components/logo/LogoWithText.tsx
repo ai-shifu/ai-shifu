@@ -1,8 +1,8 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
+import Image, { type StaticImageData } from 'next/image';
 
 import { useEnvStore } from '@/c-store/envStore';
 
-import Image from 'next/image';
 import imgLogoRow from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
 import imgLogoColumn from '@/c-assets/logos/ai-shifu-logo-vertical.png';
 
@@ -19,11 +19,12 @@ export const LogoWithText = ({ direction, size = 64 }) => {
   const logoVertical = useEnvStore(state => state.logoVertical);
   const logoUrl = useEnvStore(state => state.logoUrl);
   const homeUrl = useEnvStore(state => state.homeUrl);
-  const width = isRow ? size * 3.8125 : size;
-  const height = isRow ? size : size * 2.5;
-  const logoSrc = isRow
-    ? logoUrl || logoHorizontal || imgLogoRow.src
-    : logoVertical || imgLogoColumn.src;
+  const logoSrc: string | StaticImageData = useMemo(() => {
+    if (isRow) {
+      return logoUrl || logoHorizontal || imgLogoRow;
+    }
+    return logoVertical || imgLogoColumn;
+  }, [isRow, logoHorizontal, logoVertical, logoUrl]);
 
   return (
     <div
@@ -38,17 +39,23 @@ export const LogoWithText = ({ direction, size = 64 }) => {
         href={homeUrl || 'https://ai-shifu.cn/'}
         target='_blank'
       >
-        <Image
+        {isRow ? <Image
           src={logoSrc}
           alt='logo'
-          width={Math.round(width)}
-          height={Math.round(height)}
+          height={size}
+          priority
+        /> : <Image
+          src={logoSrc}
+          alt='logo'
           style={{
-            width,
-            height: isRow ? height : 34,
+            width: 'size',
+            height: size,
             objectFit: 'contain',
           }}
-        />
+          width={size}
+          height={size}
+          priority
+        />}
       </a>
     </div>
   );

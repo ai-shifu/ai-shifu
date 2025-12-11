@@ -50,8 +50,7 @@ const SidebarContent = ({
         <Image
           className='dark:invert'
           src={logoSrc}
-          alt='AI-Shifu'
-          width={117}
+          alt='logo'
           height={32}
           priority
         />
