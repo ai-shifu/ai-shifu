@@ -1135,6 +1135,17 @@ class EnhancedConfig:
         Returns:
             Formatted .env.example content as string
         """
+
+        # Format values for .env output, handling lists as comma-separated strings
+        def format_value(env_var: EnvVar, value: Any) -> str:
+            if value is None:
+                return ""
+            if env_var.type is list:
+                if isinstance(value, list):
+                    return ",".join(str(item) for item in value)
+                return str(value)
+            return str(value)
+
         if filter_type == "required":
             header_lines = [
                 "# AI-Shifu Environment Configuration - REQUIRED VARIABLES",
@@ -1189,15 +1200,13 @@ class EnhancedConfig:
                     metadata.append("Optional - handled by libraries")
                 else:
                     # Avoid leaking secret defaults
-                    default_display = (
-                        env_var.default
-                        if not (
-                            env_var.secret
-                            and env_var.example is None
-                            and env_var.default not in (None, "")
-                        )
-                        else ""
-                    )
+                    default_display = ""
+                    if not (
+                        env_var.secret
+                        and env_var.example is None
+                        and env_var.default not in (None, "")
+                    ):
+                        default_display = format_value(env_var, env_var.default)
                     metadata.append(f"Optional - default: {default_display}")
 
                 # Emit metadata on separate lines for readability and testing expectations
@@ -1223,7 +1232,7 @@ class EnhancedConfig:
                     ):
                         value = ""
 
-                value_str = "" if value is None else str(value)
+                value_str = format_value(env_var, value)
                 lines.append(f'{env_var.name}="{value_str}"')
                 lines.append("")
 

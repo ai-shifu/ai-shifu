@@ -359,6 +359,33 @@ Line 3 of description""",
         assert 'SECRET_WITH_DEFAULT=""' in output
         assert "secret-value" not in output
 
+    def test_export_lists_render_without_brackets(self):
+        """Lists should render as comma-separated strings without brackets."""
+        env_vars = {
+            "EMPTY_LIST": EnvVar(
+                name="EMPTY_LIST",
+                default=[],
+                type=list,
+                description="Empty list example",
+                group="test",
+            ),
+            "PRESET_LIST": EnvVar(
+                name="PRESET_LIST",
+                default=["alpha", "beta"],
+                type=list,
+                description="Preset list example",
+                group="test",
+            ),
+        }
+
+        config = EnhancedConfig(env_vars)
+        output = config.export_env_example()
+
+        assert 'EMPTY_LIST=""' in output
+        assert 'PRESET_LIST="alpha,beta"' in output
+        assert "Optional - default: alpha,beta" in output
+        assert "[]" not in output
+
     def test_export_groups_sorted(self):
         """Test that groups are sorted in output."""
         config = EnhancedConfig(FULL_TEST_ENV_VARS)
