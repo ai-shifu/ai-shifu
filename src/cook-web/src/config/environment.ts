@@ -75,6 +75,7 @@ function getRuntimeEnv(key: string): string | undefined {
  * Fetches /api/config at runtime so npm start can pick up env overrides
  */
 let cachedApiBaseUrl: string = '';
+let configFetched: boolean = false;
 let configFetchPromise: Promise<string> | null = null;
 
 const normalizeApiBaseUrl = (value?: string): string => {
@@ -83,7 +84,8 @@ const normalizeApiBaseUrl = (value?: string): string => {
 };
 
 async function getClientApiBaseUrl(): Promise<string> {
-  if (cachedApiBaseUrl && cachedApiBaseUrl !== '') {
+  // Return cached value if already fetched
+  if (configFetched) {
     return cachedApiBaseUrl;
   }
 
@@ -97,17 +99,14 @@ async function getClientApiBaseUrl(): Promise<string> {
       const response = await fetch('/api/config');
       if (response.ok) {
         const config = await response.json();
-        if (config.apiBaseUrl) {
-          cachedApiBaseUrl = normalizeApiBaseUrl(config.apiBaseUrl) || '';
-          return cachedApiBaseUrl;
-        }
+        cachedApiBaseUrl = normalizeApiBaseUrl(config.apiBaseUrl) || '';
       }
     } catch (error) {
       console.warn('Failed to fetch runtime config:', error);
+      cachedApiBaseUrl = '';
     }
 
-    // Fallback to empty string when fetching fails or no config
-    cachedApiBaseUrl = '';
+    configFetched = true;
     return cachedApiBaseUrl;
   })();
 
