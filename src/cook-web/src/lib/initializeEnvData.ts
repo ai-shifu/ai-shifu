@@ -74,8 +74,13 @@ const loadRuntimeConfig = async () => {
       }
     }
 
+    // Handle empty base - use simple relative path
+    if (!resolvedBase) {
+      return '/api/runtime-config';
+    }
+
     // Relative URL (e.g. "/api" or "/backend")
-    const cleanBase = resolvedBase || '';
+    const cleanBase = resolvedBase;
     const endsWithApi =
       cleanBase === '/api' ||
       cleanBase.endsWith('/api') ||
