@@ -109,13 +109,15 @@ const loadRuntimeConfig = async () => {
     : runtimeUrl;
 
   const fetchRuntimeConfig = async () => {
-    // Prefer backend /api/config using discovered apiBaseUrl
-    if (apiBaseUrl) {
+    // Always try to fetch backend runtime-config (using absolute or relative URL)
+    try {
       const res = await fetch(runtimeUrlWithShifu, { cache: 'no-store' });
       if (res.ok) {
         return res.json();
       }
       console.warn('Backend runtime config fetch failed, status:', res.status);
+    } catch (error) {
+      console.warn('Backend runtime config fetch error:', error);
     }
     // Fallback to local Next route (still returns base url)
     const fallbackRes = await fetch('/api/config', { cache: 'no-store' });
