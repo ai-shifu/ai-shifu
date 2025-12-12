@@ -50,7 +50,7 @@ export const NavHeader = ({
       >
         <LogoWithText
           direction={isCollapse ? 'col' : 'row'}
-          size={30}
+          size={32}
         />
       </div>
 

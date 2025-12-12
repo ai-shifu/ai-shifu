@@ -36,10 +36,10 @@ export default function AuthPage() {
   const [isI18nReady, setIsI18nReady] = useState(false);
   const userInfo = useUserStore(state => state.userInfo);
   const [logoSrc, setLogoSrc] = useState<string | StaticImageData>(
-    environment.logoUrl || logoHorizontal,
+    environment.logoWideUrl || logoHorizontal,
   );
 
-  const logoUrl = useEnvStore((state: EnvStoreState) => state.logoUrl);
+  const logoWideUrl = useEnvStore((state: EnvStoreState) => state.logoWideUrl);
   const runtimeLoginMethods = useEnvStore(
     (state: EnvStoreState) => state.loginMethodsEnabled,
   );
@@ -48,8 +48,8 @@ export default function AuthPage() {
   );
 
   useEffect(() => {
-    setLogoSrc(logoUrl || environment.logoUrl || logoHorizontal);
-  }, [logoUrl]);
+    setLogoSrc(logoWideUrl || environment.logoWideUrl || logoHorizontal);
+  }, [logoWideUrl]);
 
   const normalizedMethods = useMemo(() => {
     const fallback = environment.loginMethodsEnabled;

@@ -22,7 +22,9 @@ export interface EnvStoreState {
   baseURL: string;
   logoHorizontal: string;
   logoVertical: string;
-  logoUrl: string;
+  logoWideUrl: string;
+  logoSquareUrl: string;
+  faviconUrl: string;
   enableWxcode: string;
   homeUrl: string;
   currencySymbol: string;
@@ -43,7 +45,9 @@ export interface EnvStoreState {
   updateBaseURL: (url: string) => Promise<void>;
   updateLogoHorizontal: (logo: string) => Promise<void>;
   updateLogoVertical: (logo: string) => Promise<void>;
-  updateLogoUrl: (logo: string) => Promise<void>;
+  updateLogoWideUrl: (logo: string) => Promise<void>;
+  updateLogoSquareUrl: (logo: string) => Promise<void>;
+  updateFaviconUrl: (icon: string) => Promise<void>;
   updateEnableWxcode: (value: string) => Promise<void>;
   updateHomeUrl: (url: string) => Promise<void>;
   updateCurrencySymbol: (symbol: string) => Promise<void>;
