@@ -30,9 +30,9 @@ const loadRuntimeConfig = async () => {
     updateUmamiScriptSrc,
     updateEruda,
     updateBaseURL,
-    updateLogoHorizontal,
-    updateLogoVertical,
-    updateLogoUrl,
+    updateLogoWideUrl,
+    updateLogoSquareUrl,
+    updateFaviconUrl,
     updateEnableWxcode,
     updateHomeUrl,
     updateCurrencySymbol,
@@ -163,9 +163,9 @@ const loadRuntimeConfig = async () => {
   await updateUmamiWebsiteId(runtimeConfig?.umamiWebsiteId || '');
   await updateUmamiScriptSrc(runtimeConfig?.umamiScriptSrc || '');
   await updateEruda(runtimeConfig?.enableEruda?.toString() || 'false');
-  await updateLogoHorizontal(runtimeConfig?.logoHorizontal || '');
-  await updateLogoVertical(runtimeConfig?.logoVertical || '');
-  await updateLogoUrl(runtimeConfig?.logoUrl || '');
+  await updateLogoWideUrl(runtimeConfig?.logoWideUrl || '');
+  await updateLogoSquareUrl(runtimeConfig?.logoSquareUrl || '');
+  await updateFaviconUrl(runtimeConfig?.faviconUrl || '');
   await updateEnableWxcode(
     runtimeConfig?.enableWechatCode?.toString() || 'true',
   );

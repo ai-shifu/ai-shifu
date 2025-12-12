@@ -29,7 +29,9 @@ interface EnvironmentConfig {
   alwaysShowLessonTree: boolean;
   logoHorizontal: string;
   logoVertical: string;
-  logoUrl: string;
+  logoWideUrl: string;
+  logoSquareUrl: string;
+  faviconUrl: string;
 
   // Analytics & Tracking
   umamiScriptSrc: string;
@@ -229,10 +231,26 @@ function getUILogoVertical(): string {
 }
 
 /**
- * Gets custom logo URL (runtime override)
+ * Gets custom wide logo URL (runtime override)
  */
-function getLogoUrl(): string {
-  return getRuntimeEnv('LOGO_URL') || process.env.LOGO_URL || '';
+function getLogoWideUrl(): string {
+  return getRuntimeEnv('LOGO_WIDE_URL') || process.env.LOGO_WIDE_URL || '';
+}
+
+/**
+ * Gets custom square logo URL (runtime override)
+ */
+function getLogoSquareUrl(): string {
+  return (
+    getRuntimeEnv('LOGO_SQUARE_URL') || process.env.LOGO_SQUARE_URL || ''
+  );
+}
+
+/**
+ * Gets custom favicon URL (runtime override)
+ */
+function getFaviconUrl(): string {
+  return getRuntimeEnv('FAVICON_URL') || process.env.FAVICON_URL || '';
 }
 
 /**
@@ -345,7 +363,9 @@ export const environment: EnvironmentConfig = {
   alwaysShowLessonTree: getUIAlwaysShowLessonTree(),
   logoHorizontal: getUILogoHorizontal(),
   logoVertical: getUILogoVertical(),
-  logoUrl: getLogoUrl(),
+  logoWideUrl: getLogoWideUrl(),
+  logoSquareUrl: getLogoSquareUrl(),
+  faviconUrl: getFaviconUrl(),
 
   // Analytics & Tracking
   umamiScriptSrc: getAnalyticsUmamiScript(),

@@ -8,6 +8,7 @@ import RuntimeConfigInitializer from '@/components/RuntimeConfigInitializer';
 import { UserProvider } from '@/store';
 import '@/i18n';
 import I18nGlobalLoading from '@/components/I18nGlobalLoading';
+import { environment } from '@/config/environment';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -24,8 +25,15 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const faviconHref = environment.faviconUrl || '/favicon.ico';
   return (
     <html lang='en'>
+      <head>
+        <link
+          rel='icon'
+          href={faviconHref}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-hidden`}
       >

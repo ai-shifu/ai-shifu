@@ -17,14 +17,21 @@ export const LogoWithText = ({ direction, size = 64 }) => {
   const flexFlow = isRow ? 'row nowrap' : 'column nowrap';
   const logoHorizontal = useEnvStore(state => state.logoHorizontal);
   const logoVertical = useEnvStore(state => state.logoVertical);
-  const logoUrl = useEnvStore(state => state.logoUrl);
+  const logoWideUrl = useEnvStore(state => state.logoWideUrl);
+  const logoSquareUrl = useEnvStore(state => state.logoSquareUrl);
   const homeUrl = useEnvStore(state => state.homeUrl);
   const logoSrc: string | StaticImageData = useMemo(() => {
     if (isRow) {
-      return logoUrl || logoHorizontal || imgLogoRow;
+      return logoWideUrl || logoHorizontal || imgLogoRow;
     }
-    return logoVertical || imgLogoColumn;
-  }, [isRow, logoHorizontal, logoVertical, logoUrl]);
+    return logoSquareUrl || logoVertical || imgLogoColumn;
+  }, [
+    isRow,
+    logoHorizontal,
+    logoWideUrl,
+    logoVertical,
+    logoSquareUrl,
+  ]);
 
   return (
     <div

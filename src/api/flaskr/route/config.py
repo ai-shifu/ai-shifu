@@ -67,9 +67,9 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                 get_config("UI_ALWAYS_SHOW_LESSON_TREE", False),
                 False,
             ),
-            "logoHorizontal": get_config("UI_LOGO_HORIZONTAL", ""),
-            "logoVertical": get_config("UI_LOGO_VERTICAL", ""),
-            "logoUrl": get_config("LOGO_URL", ""),
+            "logoWideUrl": get_config("LOGO_WIDE_URL", ""),
+            "logoSquareUrl": get_config("LOGO_SQUARE_URL", ""),
+            "faviconUrl": get_config("FAVICON_URL", ""),
             # Analytics & Tracking
             "umamiScriptSrc": get_config(
                 "ANALYTICS_UMAMI_SCRIPT",

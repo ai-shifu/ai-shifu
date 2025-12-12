@@ -157,14 +157,16 @@ const MainInterface = ({
   ];
 
   const [logoSrc, setLogoSrc] = useState<string | StaticImageData>(
-    environment.logoUrl,
+    environment.logoWideUrl,
   );
 
-  const logoUrl = useEnvStore((state: EnvStoreState) => state.logoUrl);
+  const logoWideUrl = useEnvStore(
+    (state: EnvStoreState) => state.logoWideUrl,
+  );
 
   useEffect(() => {
-    setLogoSrc(logoUrl || environment.logoUrl || defaultLogo);
-  }, [logoUrl]);
+    setLogoSrc(logoWideUrl || environment.logoWideUrl || defaultLogo);
+  }, [logoWideUrl]);
 
   const resolvedLogo = logoSrc || defaultLogo;
 

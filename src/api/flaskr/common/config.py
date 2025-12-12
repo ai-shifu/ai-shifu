@@ -128,10 +128,22 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Default redirect path after login",
         group="frontend",
     ),
-    "LOGO_URL": EnvVar(
-        name="LOGO_URL",
+    "LOGO_WIDE_URL": EnvVar(
+        name="LOGO_WIDE_URL",
         default="",
-        description="Custom logo URL override returned by /api/config",
+        description="Custom wide logo URL override returned by /api/config",
+        group="frontend",
+    ),
+    "LOGO_SQUARE_URL": EnvVar(
+        name="LOGO_SQUARE_URL",
+        default="",
+        description="Custom square logo URL override returned by /api/config",
+        group="frontend",
+    ),
+    "FAVICON_URL": EnvVar(
+        name="FAVICON_URL",
+        default="",
+        description="Custom favicon URL override returned by /api/config",
         group="frontend",
     ),
     "ANALYTICS_UMAMI_SCRIPT": EnvVar(
