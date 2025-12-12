@@ -241,9 +241,7 @@ function getLogoWideUrl(): string {
  * Gets custom square logo URL (runtime override)
  */
 function getLogoSquareUrl(): string {
-  return (
-    getRuntimeEnv('LOGO_SQUARE_URL') || process.env.LOGO_SQUARE_URL || ''
-  );
+  return getRuntimeEnv('LOGO_SQUARE_URL') || process.env.LOGO_SQUARE_URL || '';
 }
 
 /**

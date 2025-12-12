@@ -39,9 +39,7 @@ export default function AuthPage() {
     environment.logoWideUrl || logoHorizontal,
   );
 
-  const logoWideUrl = useEnvStore(
-    (state: EnvStoreState) => state.logoWideUrl,
-  );
+  const logoWideUrl = useEnvStore((state: EnvStoreState) => state.logoWideUrl);
   const runtimeLoginMethods = useEnvStore(
     (state: EnvStoreState) => state.loginMethodsEnabled,
   );

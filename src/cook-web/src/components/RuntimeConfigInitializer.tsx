@@ -21,9 +21,7 @@ const RuntimeConfigInitializer = () => {
     ];
     const existingLinks = selectors
       .map(selector =>
-        Array.from(
-          document.head.querySelectorAll<HTMLLinkElement>(selector),
-        ),
+        Array.from(document.head.querySelectorAll<HTMLLinkElement>(selector)),
       )
       .flat();
 
@@ -55,7 +53,6 @@ const RuntimeConfigInitializer = () => {
       }
     };
   }, [faviconUrl]);
-  
 
   return null;
 };

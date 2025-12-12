@@ -1,5 +1,11 @@
 'use client';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Button } from '@/components/ui/Button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/Sheet';
 import { Bars3Icon, DocumentIcon } from '@heroicons/react/24/outline';
@@ -65,11 +71,11 @@ const SidebarContent = ({
           alt='logo'
           height={logoHeight}
           width={logoWidth}
-          style={{ 
+          style={{
             width: logoWidth,
             height: logoHeight,
-            objectFit: 'contain'
-           }}
+            objectFit: 'contain',
+          }}
           priority
         />
       </h1>
@@ -178,9 +184,7 @@ const MainInterface = ({
     environment.logoWideUrl,
   );
 
-  const logoWideUrl = useEnvStore(
-    (state: EnvStoreState) => state.logoWideUrl,
-  );
+  const logoWideUrl = useEnvStore((state: EnvStoreState) => state.logoWideUrl);
 
   useEffect(() => {
     setLogoSrc(logoWideUrl || environment.logoWideUrl || defaultLogo);
