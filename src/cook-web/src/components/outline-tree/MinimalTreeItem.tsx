@@ -196,8 +196,10 @@ const MinimalTreeItemComponent = React.forwardRef<
     }
   };
   const onSelect = async (event?: React.MouseEvent<HTMLDivElement>) => {
-    event?.preventDefault();
-    event?.stopPropagation();
+    if (!isChapterNode) {
+      event?.preventDefault();
+      event?.stopPropagation();
+    }
     if (isPlaceholderNode) {
       return;
     }
@@ -266,7 +268,7 @@ const MinimalTreeItemComponent = React.forwardRef<
         {...props}
         readonly={currentShifu?.readonly || false}
         ref={ref}
-        disableCollapseOnItemClick
+        disableCollapseOnItemClick={!isChapterNode}
         className={cn(shouldHighlight && !isChapterNode && 'select')}
         onItemClick={onSelect}
         chapter={
