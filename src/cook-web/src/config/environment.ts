@@ -77,6 +77,7 @@ function getRuntimeEnv(key: string): string | undefined {
  * Fetches /api/config at runtime so npm start can pick up env overrides
  */
 let cachedApiBaseUrl: string = '';
+let configFetched: boolean = false;
 let configFetchPromise: Promise<string> | null = null;
 
 const normalizeApiBaseUrl = (value?: string): string => {
@@ -85,7 +86,8 @@ const normalizeApiBaseUrl = (value?: string): string => {
 };
 
 async function getClientApiBaseUrl(): Promise<string> {
-  if (cachedApiBaseUrl && cachedApiBaseUrl !== '') {
+  // Return cached value if already fetched
+  if (configFetched) {
     return cachedApiBaseUrl;
   }
 
@@ -99,18 +101,14 @@ async function getClientApiBaseUrl(): Promise<string> {
       const response = await fetch('/api/config');
       if (response.ok) {
         const config = await response.json();
-        if (config.apiBaseUrl) {
-          cachedApiBaseUrl =
-            normalizeApiBaseUrl(config.apiBaseUrl) || 'http://localhost:8080';
-          return cachedApiBaseUrl;
-        }
+        cachedApiBaseUrl = normalizeApiBaseUrl(config.apiBaseUrl) || '';
       }
     } catch (error) {
       console.warn('Failed to fetch runtime config:', error);
+      cachedApiBaseUrl = '';
     }
 
-    // Fallback to the default value when fetching fails
-    cachedApiBaseUrl = 'http://localhost:8080';
+    configFetched = true;
     return cachedApiBaseUrl;
   })();
 
@@ -121,7 +119,7 @@ async function getClientApiBaseUrl(): Promise<string> {
 
 /**
  * Gets the unified API base URL
- * Priority: runtime env > build-time env > default
+ * Priority: runtime env > build-time env > empty string
  */
 function getApiBaseUrl(): string {
   // 1. Prefer runtime environment variables on the server
@@ -136,7 +134,7 @@ function getApiBaseUrl(): string {
   const buildTimeValue = normalizeApiBaseUrl(
     process.env.NEXT_PUBLIC_API_BASE_URL,
   );
-  return buildTimeValue || 'http://localhost:8080';
+  return buildTimeValue || '';
 }
 
 /**
