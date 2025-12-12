@@ -20,18 +20,27 @@ export const LogoWithText = ({ direction, size = 64 }) => {
   const logoWideUrl = useEnvStore(state => state.logoWideUrl);
   const logoSquareUrl = useEnvStore(state => state.logoSquareUrl);
   const homeUrl = useEnvStore(state => state.homeUrl);
-  const logoSrc: string | StaticImageData = useMemo(() => {
-    if (isRow) {
-      return logoWideUrl || logoHorizontal || imgLogoRow;
-    }
+  const wideLogoSrc: string | StaticImageData = useMemo(() => {
+    return logoWideUrl || logoHorizontal || imgLogoRow;
+  }, [logoHorizontal, logoWideUrl]);
+
+  const squareLogoSrc: string | StaticImageData = useMemo(() => {
     return logoSquareUrl || logoVertical || imgLogoColumn;
-  }, [
-    isRow,
-    logoHorizontal,
-    logoWideUrl,
-    logoVertical,
-    logoSquareUrl,
-  ]);
+  }, [logoSquareUrl, logoVertical]);
+
+  const wideWidth = useMemo(() => {
+    if (
+      typeof wideLogoSrc === 'object' &&
+      'width' in wideLogoSrc &&
+      wideLogoSrc.width &&
+      wideLogoSrc.height
+    ) {
+      return Math.round((size * wideLogoSrc.width) / wideLogoSrc.height);
+    }
+    return Math.round(size * (imgLogoRow.width / imgLogoRow.height));
+  }, [size, wideLogoSrc]);
+
+  const containerWidth = isRow ? wideWidth : size;
 
   return (
     <div
@@ -46,23 +55,46 @@ export const LogoWithText = ({ direction, size = 64 }) => {
         href={homeUrl || 'https://ai-shifu.cn/'}
         target='_blank'
       >
-        {isRow ? <Image
-          src={logoSrc}
-          alt='logo'
-          height={size}
-          priority
-        /> : <Image
-          src={logoSrc}
-          alt='logo'
+        <div
           style={{
-            width: 'size',
+            width: containerWidth,
             height: size,
-            objectFit: 'contain',
+            position: 'relative',
           }}
-          width={size}
-          height={size}
-          priority
-        />}
+        >
+          <Image
+            src={wideLogoSrc}
+            alt='logo'
+            width={wideWidth}
+            height={size}
+            style={{
+              width: wideWidth,
+              height: size,
+              objectFit: 'contain',
+              position: 'absolute',
+              inset: 0,
+              opacity: isRow ? 1 : 0,
+              transition: 'opacity 200ms ease',
+            }}
+            priority
+          />
+          <Image
+            src={squareLogoSrc}
+            alt='logo'
+            width={size}
+            height={size}
+            style={{
+              width: size,
+              height: size,
+              objectFit: 'contain',
+              position: 'absolute',
+              inset: 0,
+              opacity: isRow ? 0 : 1,
+              transition: 'opacity 200ms ease',
+            }}
+            priority
+          />
+        </div>
       </a>
     </div>
   );

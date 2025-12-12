@@ -1,5 +1,5 @@
 'use client';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/Sheet';
 import { Bars3Icon, DocumentIcon } from '@heroicons/react/24/outline';
@@ -44,6 +44,18 @@ const SidebarContent = ({
   userMenuClassName,
   logoSrc,
 }: SidebarContentProps) => {
+  const logoHeight = 32;
+  const logoWidth = useMemo(() => {
+    if (
+      typeof logoSrc === 'object' &&
+      'width' in logoSrc &&
+      logoSrc.width &&
+      logoSrc.height
+    ) {
+      return Math.round((logoHeight * logoSrc.width) / logoSrc.height);
+    }
+    return Math.round(logoHeight * (defaultLogo.width / defaultLogo.height));
+  }, [logoSrc]);
   return (
     <div className={cn('flex flex-col h-full relative', styles.adminLayout)}>
       <h1 className={cn('text-xl font-bold p-4', styles.adminLogo)}>
@@ -51,7 +63,13 @@ const SidebarContent = ({
           className='dark:invert'
           src={logoSrc}
           alt='logo'
-          height={32}
+          height={logoHeight}
+          width={logoWidth}
+          style={{ 
+            width: logoWidth,
+            height: logoHeight,
+            objectFit: 'contain'
+           }}
           priority
         />
       </h1>
