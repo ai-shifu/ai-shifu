@@ -16,6 +16,7 @@ interface SimpleTreeItemWrapperProps<T = {}> extends TreeItemComponentProps<T> {
     onAddClick?: React.MouseEventHandler<HTMLButtonElement>;
     showAdd?: boolean;
   };
+  onItemClick?: React.MouseEventHandler<HTMLDivElement>;
 }
 
 export const SimpleTreeItemWrapper = forwardRef<
@@ -52,8 +53,26 @@ export const SimpleTreeItemWrapper = forwardRef<
     onChapterSelect,
     chapter,
     readonly = false,
+    onItemClick,
     ...rest
   } = props;
+
+  const shouldHandleCollapse = !disableCollapseOnItemClick && !!onCollapse;
+  const hasCustomItemClick = typeof onItemClick === 'function';
+  const handleWrapperClick =
+    shouldHandleCollapse || hasCustomItemClick
+      ? (event: React.MouseEvent<HTMLDivElement>) => {
+          onItemClick?.(event);
+
+          if (event.defaultPrevented) {
+            return;
+          }
+
+          if (shouldHandleCollapse) {
+            onCollapse?.();
+          }
+        }
+      : undefined;
 
   return (
     <li
@@ -78,7 +97,7 @@ export const SimpleTreeItemWrapper = forwardRef<
         )}
         ref={ref}
         {...(manualDrag ? undefined : handleProps)}
-        onClick={disableCollapseOnItemClick ? undefined : onCollapse}
+        onClick={handleWrapperClick}
       >
         {!disableSorting && showDragHandle !== false && (
           <div
@@ -94,6 +113,7 @@ export const SimpleTreeItemWrapper = forwardRef<
                 return;
               }
               e.preventDefault();
+              e.stopPropagation();
               onCollapse?.();
             }}
             className={clsx(
