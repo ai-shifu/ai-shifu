@@ -20,19 +20,15 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const faviconHref = environment.faviconUrl || '/favicon.ico';
   return (
     <html lang='en'>
       <head>
-        <link
-          rel='icon'
-          href={faviconHref}
-        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-hidden`}
