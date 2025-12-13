@@ -88,14 +88,17 @@ export const ChatUi = ({
             {t('module.chat.aiGenerated')}
           </span>
           <span className={styles.separator}>|</span>
-          <a
-            href="https://markdownflow.ai/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.footerLink}
-          >
-            {t('module.chat.poweredBy')}
-          </a>
+          <span className={styles.footerText}>
+            <a
+              href="https://markdownflow.ai/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.footerLink}
+            >
+              {t('module.chat.markdownFlow')}
+            </a>
+            {' '}{t('module.chat.poweredByText')}
+          </span>
         </div>
       </div>
     </div>

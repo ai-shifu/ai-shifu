@@ -607,14 +607,17 @@ const ScriptEditor = ({ id }: { id: string }) => {
             ) : null}
           </div>
           <div className="shifu-editor-footer">
-            <a
-              href="https://markdownflow.ai/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shifu-footer-link"
-            >
-              {t('module.chat.poweredBy')}
-            </a>
+            <span className="shifu-footer-text">
+              <a
+                href="https://markdownflow.ai/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shifu-footer-link"
+              >
+                {t('module.chat.markdownFlow')}
+              </a>
+              {' '}{t('module.chat.poweredByText')}
+            </span>
           </div>
         </div>
       </div>
