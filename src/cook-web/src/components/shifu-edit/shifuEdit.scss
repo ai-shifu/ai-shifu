@@ -15,3 +15,28 @@
         var(--shadow-sm-2-color, rgba(0, 0, 0, 0.1));
   }
 }
+
+.shifu-editor-footer {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f8f9fa;
+  
+  .shifu-footer-link {
+    color: rgba(10, 10, 10, 0.45);
+    text-align: center;
+    font-family: 'PingFang SC';
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 24px;
+    text-decoration: none;
+    cursor: pointer;
+
+    &:hover {
+      color: rgba(10, 10, 10, 0.65);
+      text-decoration: underline;
+    }
+  }
+}

@@ -1,6 +1,7 @@
 {
   "__namespace__": "module.chat",
   "aiGenerated": "内容由 AI 在人类指导下生成",
+  "poweredBy": "由 MarkdownFlow 提供技术支持",
   "ask": "追问",
   "askContent": "请输入你想追问的问题",
   "dislike": "点踩",
