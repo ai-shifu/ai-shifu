@@ -1,12 +1,10 @@
 .lessonPreview {
-  height: 100%;
+  height: calc(100vh - 123px);
   display: flex;
   flex-direction: column;
-  
   .previewArea {
     margin-top: 11px;
     flex: 1;
-    min-height: 0;
     display: flex;
     flex-direction: column;
     border-radius: 10px;
@@ -17,9 +15,7 @@
 
   .previewAreaContent {
     flex: 1;
-    min-height: 0;
     overflow-y: auto;
-    overflow-x: hidden;
     padding: 24px;
   }
 
@@ -28,6 +24,5 @@
     top: 0;
     z-index: 30;
     background: #fff;
-    flex-shrink: 0;
   }
 }
