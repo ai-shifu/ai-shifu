@@ -200,10 +200,8 @@ const MinimalTreeItemComponent = React.forwardRef<
       actions.flushAutoSaveBlocks();
       return;
     }
-    const latestMdflow = actions?.getCurrentMdflow?.() || ''
-    if (
-      !actions.hasUnsavedMdflow(currentNode.bid, latestMdflow)
-    ) {
+    const latestMdflow = actions?.getCurrentMdflow?.() || '';
+    if (!actions.hasUnsavedMdflow(currentNode.bid, latestMdflow)) {
       return;
     }
     actions.flushAutoSaveBlocks({
