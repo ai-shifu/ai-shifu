@@ -209,11 +209,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
     const targetShifu = currentShifu.bid;
     const targetMdflow = mdflow;
     const outlineChanged = () => {
-      const latestBid =
-        currentNodeBidRef.current !== null
-          ? currentNodeBidRef.current
-          : (currentNode?.bid ?? null);
-      return targetOutline !== currentNode?.bid || targetOutline !== latestBid;
+      // `currentNodeBidRef.current` holds the latest outline bid, updated via useEffect.
+      // This check correctly detects if the user has navigated to a different outline item
+      // since the preview was initiated.
+      return targetOutline !== currentNodeBidRef.current;
     };
     trackEvent('creator_lesson_preview_click', {
       shifu_bid: targetShifu,
