@@ -390,7 +390,6 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         config_hint="OPENAI_API_KEY,OPENAI_BASE_URL",
         custom_llm_provider="openai",
         reload_params=_reload_openai_params,
-        fetch_models=True,
     ),
     ProviderConfig(
         key="qwen",
