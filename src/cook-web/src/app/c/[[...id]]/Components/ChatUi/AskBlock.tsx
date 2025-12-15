@@ -57,6 +57,8 @@ export default function AskBlock({
   onToggleAskExpanded,
 }: AskBlockProps) {
   const { t } = useTranslation();
+  const copyButtonText = t('module.renderUi.core.copyCode');
+  const copiedButtonText = t('module.renderUi.core.copied');
   const { mobileStyle } = useContext(AppContext);
   const courseAvatar = useCourseStore(state => state.courseAvatar);
   const [displayList, setDisplayList] = useState<AskMessage[]>(() => {
@@ -370,6 +372,8 @@ export default function AskBlock({
                   enableTypewriter={false}
                   typingSpeed={20}
                   readonly={true}
+                  copyButtonText={copyButtonText}
+                  copiedButtonText={copiedButtonText}
                 />
               </div>
             )}
