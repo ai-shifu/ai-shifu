@@ -208,6 +208,9 @@ def _fetch_provider_models(api_key: str, base_url: str | None) -> list[str]:
     response = requests.get(url, headers=headers, timeout=20)
     response.raise_for_status()
     data = response.json()
+    from flask import current_app
+
+    current_app.logger.info(f"fetch_provider_models: {data}")
     return [item.get("id", "") for item in data.get("data", []) if item.get("id")]
 
 
@@ -333,6 +336,11 @@ DEEPSEEK_EXTRA_MODELS = ["deepseek-chat"]
 
 
 def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    if model_id.startswith("gpt-5.2"):
+        return {
+            "reasoning_effort": "none",
+            "temperature": temperature,
+        }
     if model_id.startswith("gpt-5.1"):
         return {
             "reasoning_effort": "none",
@@ -385,6 +393,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         config_hint="OPENAI_API_KEY,OPENAI_BASE_URL",
         custom_llm_provider="openai",
         reload_params=_reload_openai_params,
+        fetch_models=True,
     ),
     ProviderConfig(
         key="qwen",
