@@ -68,6 +68,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [addChapterDialogOpen, setAddChapterDialogOpen] = useState(false);
   const [recentVariables, setRecentVariables] = useState<string[]>([]);
   const seenVariableNamesRef = useRef<Set<string>>(new Set());
+  const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async preview is pending
   const {
     mdflow,
     chapters,
@@ -187,6 +188,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
     });
   };
 
+  useEffect(() => {
+    currentNodeBidRef.current = currentNode?.bid ?? null;
+  }, [currentNode?.bid]);
+
   const handleChapterSelect = useCallback(() => {
     if (!isPreviewPanelOpen) {
       return;
@@ -200,9 +205,19 @@ const ScriptEditor = ({ id }: { id: string }) => {
     if (!canPreview || !currentShifu?.bid || !currentNode?.bid) {
       return;
     }
+    const targetOutline = currentNode.bid;
+    const targetShifu = currentShifu.bid;
+    const targetMdflow = mdflow;
+    const outlineChanged = () => {
+      const latestBid =
+        currentNodeBidRef.current !== null
+          ? currentNodeBidRef.current
+          : currentNode?.bid ?? null;
+      return targetOutline !== currentNode?.bid || targetOutline !== latestBid;
+    };
     trackEvent('creator_lesson_preview_click', {
-      shifu_bid: currentShifu.bid,
-      outline_bid: currentNode.bid,
+      shifu_bid: targetShifu,
+      outline_bid: targetOutline,
     });
     setIsPreviewPanelOpen(true);
     setIsPreviewPreparing(true);
@@ -211,29 +226,35 @@ const ScriptEditor = ({ id }: { id: string }) => {
     try {
       if (!currentShifu?.readonly) {
         await actions.saveMdflow({
-          shifu_bid: currentShifu.bid,
-          outline_bid: currentNode.bid,
-          data: mdflow,
+          shifu_bid: targetShifu,
+          outline_bid: targetOutline,
+          data: targetMdflow,
         });
+        if (outlineChanged()) {
+          return;
+        }
       }
       const {
         variables: parsedVariablesMap,
         blocksCount,
         systemVariableKeys,
-      } = await actions.previewParse(mdflow, currentShifu.bid, currentNode.bid);
+      } = await actions.previewParse(targetMdflow, targetShifu, targetOutline);
+      if (outlineChanged()) {
+        return;
+      }
       const previewVariablesMap = {
         ...parsedVariablesMap,
         ...previewVariables,
       };
       persistVariables({
-        shifuBid: currentShifu.bid,
+        shifuBid: targetShifu,
         systemVariableKeys,
         variables: previewVariablesMap,
       });
       void startPreview({
-        shifuBid: currentShifu.bid,
-        outlineBid: currentNode.bid,
-        mdflow,
+        shifuBid: targetShifu,
+        outlineBid: targetOutline,
+        mdflow: targetMdflow,
         variables: previewVariablesMap,
         max_block_count: blocksCount,
         systemVariableKeys,
