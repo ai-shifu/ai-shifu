@@ -222,7 +222,7 @@ const MinimalTreeItemComponent = React.forwardRef<
     if (currentNode?.id === props.item.id) {
       return;
     }
-    
+
     flushCurrentLessonSnapshot();
 
     if (props.item.depth == 0) {
