@@ -208,9 +208,6 @@ def _fetch_provider_models(api_key: str, base_url: str | None) -> list[str]:
     response = requests.get(url, headers=headers, timeout=20)
     response.raise_for_status()
     data = response.json()
-    from flask import current_app
-
-    current_app.logger.info(f"fetch_provider_models: {data}")
     return [item.get("id", "") for item in data.get("data", []) if item.get("id")]
 
 
