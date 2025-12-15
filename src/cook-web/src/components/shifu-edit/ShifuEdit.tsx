@@ -212,7 +212,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
       const latestBid =
         currentNodeBidRef.current !== null
           ? currentNodeBidRef.current
-          : currentNode?.bid ?? null;
+          : (currentNode?.bid ?? null);
       return targetOutline !== currentNode?.bid || targetOutline !== latestBid;
     };
     trackEvent('creator_lesson_preview_click', {
