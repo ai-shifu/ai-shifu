@@ -195,6 +195,24 @@ const MinimalTreeItemComponent = React.forwardRef<
       await actions.addSubOutline(node, settings);
     }
   };
+  const flushCurrentLessonSnapshot = () => {
+    if (!currentShifu?.bid || !currentNode?.bid) {
+      actions.flushAutoSaveBlocks();
+      return;
+    }
+    const latestMdflow = actions?.getCurrentMdflow?.() || ''
+    if (
+      !actions.hasUnsavedMdflow(currentNode.bid, latestMdflow)
+    ) {
+      return;
+    }
+    actions.flushAutoSaveBlocks({
+      shifu_bid: currentShifu.bid,
+      outline_bid: currentNode.bid,
+      data: latestMdflow,
+    });
+  };
+
   const onSelect = async (event?: React.MouseEvent<HTMLDivElement>) => {
     if (!isChapterNode) {
       event?.preventDefault();
@@ -208,15 +226,14 @@ const MinimalTreeItemComponent = React.forwardRef<
       return;
     }
 
+    flushCurrentLessonSnapshot();
+
     if (props.item.depth == 0) {
       await actions.setCurrentNode(props.item);
       actions.setBlocks([]);
       props.onChapterSelect?.();
       return;
     }
-
-    // Flush pending autosave with the latest snapshot before switching
-    actions.flushAutoSaveBlocks();
 
     await actions.setCurrentNode(props.item);
     await actions.loadMdflow(props.item.bid || '', currentShifu?.bid || '');
