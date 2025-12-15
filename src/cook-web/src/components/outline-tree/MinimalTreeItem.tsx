@@ -196,8 +196,7 @@ const MinimalTreeItemComponent = React.forwardRef<
     }
   };
   const flushCurrentLessonSnapshot = () => {
-    if (!currentShifu?.bid || !currentNode?.bid) {
-      actions.flushAutoSaveBlocks();
+    if (!currentShifu?.bid || !currentNode?.bid || currentNode.depth === 0) {
       return;
     }
     const latestMdflow = actions?.getCurrentMdflow?.() || '';
@@ -223,7 +222,7 @@ const MinimalTreeItemComponent = React.forwardRef<
     if (currentNode?.id === props.item.id) {
       return;
     }
-
+    
     flushCurrentLessonSnapshot();
 
     if (props.item.depth == 0) {
