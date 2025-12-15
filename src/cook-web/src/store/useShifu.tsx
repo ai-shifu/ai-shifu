@@ -99,6 +99,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   const [mdflow, setMdflow] = useState<string>('');
   const [variables, setVariables] = useState<string[]>([]);
   const currentMdflow = useRef<string>('');
+  const lastPersistedMdflowRef = useRef<Record<string, string>>({});
   const [systemVariables, setSystemVariables] = useState<
     Record<string, string>[]
   >([]);
@@ -364,6 +365,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     });
     setMdflow(mdflow);
     setCurrentMdflow(mdflow);
+    lastPersistedMdflowRef.current[outlineId] = mdflow || '';
     // if (mdflow) {
     await parseMdflow(mdflow, shifuId, outlineId);
     // } else {
@@ -1248,6 +1250,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       outline_bid,
       data,
     });
+    if (outline_bid) {
+      lastPersistedMdflowRef.current[outline_bid] = data || '';
+    }
     setLastSaveTime(new Date());
   };
 
@@ -1258,6 +1263,16 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
   const getCurrentMdflow = () => {
     return currentMdflow.current;
+  };
+
+  const hasUnsavedMdflow = (outlineId?: string, value?: string) => {
+    const targetOutlineId = outlineId || currentNode?.bid || '';
+    if (!targetOutlineId) {
+      return false;
+    }
+    const latest = value ?? currentMdflow.current ?? '';
+    const last = lastPersistedMdflowRef.current[targetOutlineId] ?? '';
+    return latest !== last;
   };
 
   const removePlaceholderLessons = (nodes: Outline[] = []): Outline[] => {
@@ -1425,6 +1440,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       previewParse,
       setCurrentMdflow,
       getCurrentMdflow,
+      hasUnsavedMdflow,
       flushAutoSaveBlocks,
       cancelAutoSaveBlocks,
       insertPlaceholderChapter,
