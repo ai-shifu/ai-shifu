@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 @import '@fontsource/inter/400.css';
 @import '@fontsource/inter/600.css';
 
@@ -86,7 +86,8 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --font-sans: Inter, 'PingFang SC', 'Microsoft YaHei', 'Source Han Sans SC',
+  --font-sans:
+    Inter, 'PingFang SC', 'Microsoft YaHei', 'Source Han Sans SC',
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
     sans-serif;
   --radius-lg: var(--radius);
