@@ -205,6 +205,7 @@ export interface ShifuActions {
     blocksCount: number;
     systemVariableKeys: string[];
   }>;
+  hasUnsavedMdflow: (outlineId?: string, value?: string) => boolean;
   insertPlaceholderChapter: () => void;
   insertPlaceholderLesson: (parent: Outline) => void;
   removePlaceholderOutline: (outline: Outline) => void;
