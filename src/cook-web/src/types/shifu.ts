@@ -10,6 +10,11 @@ export type BlockType =
   | 'goto'
   | 'input';
 
+export interface ModelOption {
+  value: string;
+  label: string;
+}
+
 export interface Shifu {
   bid: string;
   name?: string;
@@ -90,7 +95,7 @@ export interface ShifuState {
   blockErrors: { [x: string]: string | null };
   profileItemDefinations: ProfileItem[];
   currentNode: Outline | null;
-  models: string[];
+  models: ModelOption[];
   mdflow: string;
   variables: string[];
   systemVariables: Record<string, string>[];
@@ -176,7 +181,7 @@ export interface ShifuActions {
   ) => Promise<ApiResponse<SaveBlockListResult> | null>;
   removeBlock: (id: string, shifuId: string) => Promise<void>;
   setCurrentNode: (node: Outline) => void;
-  loadModels: () => void;
+  loadModels: () => Promise<void>;
   setBlockError: (blockId: string, error: string | null) => void;
   clearBlockErrors: () => void;
   reorderOutlineTree: (outlines: ReorderOutlineItemDto[]) => Promise<void>;
@@ -184,6 +189,7 @@ export interface ShifuActions {
   loadMdflow: (outlineId: string, shifuId: string) => Promise<void>;
   saveMdflow: (payload?: SaveMdflowPayload) => Promise<void>;
   setCurrentMdflow: (value: string) => void;
+  getCurrentMdflow: () => string;
   parseMdflow: (
     value: string,
     shifuId: string,

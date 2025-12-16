@@ -128,10 +128,22 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Default redirect path after login",
         group="frontend",
     ),
-    "LOGO_URL": EnvVar(
-        name="LOGO_URL",
+    "LOGO_WIDE_URL": EnvVar(
+        name="LOGO_WIDE_URL",
         default="",
-        description="Custom logo URL override returned by /api/config",
+        description="Custom wide logo URL override returned by /api/config",
+        group="frontend",
+    ),
+    "LOGO_SQUARE_URL": EnvVar(
+        name="LOGO_SQUARE_URL",
+        default="",
+        description="Custom square logo URL override returned by /api/config",
+        group="frontend",
+    ),
+    "FAVICON_URL": EnvVar(
+        name="FAVICON_URL",
+        default="",
+        description="Custom favicon URL override returned by /api/config",
         group="frontend",
     ),
     "ANALYTICS_UMAMI_SCRIPT": EnvVar(
@@ -363,6 +375,28 @@ Qwen: qwen-long, qwen-max, qwen-max-longcontext, qwen-plus, qwen-turbo, qwen2-*
 DeepSeek: deepseek-chat
 Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
         group="llm",
+    ),
+    "LLM_ALLOWED_MODELS": EnvVar(
+        name="LLM_ALLOWED_MODELS",
+        default=[],
+        type=list,
+        description=(
+            "Comma separated list of allowed LLM models to expose in UI. "
+            "When empty, all detected models are shown."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "LLM_ALLOWED_MODEL_DISPLAY_NAMES": EnvVar(
+        name="LLM_ALLOWED_MODEL_DISPLAY_NAMES",
+        default=[],
+        type=list,
+        description=(
+            "Optional display names for allowed LLM models. Must match the "
+            "length and order of LLM_ALLOWED_MODELS. Ignored otherwise."
+        ),
+        group="llm",
+        required=False,
     ),
     "DEFAULT_LLM_TEMPERATURE": EnvVar(
         name="DEFAULT_LLM_TEMPERATURE",
@@ -1113,6 +1147,17 @@ class EnhancedConfig:
         Returns:
             Formatted .env.example content as string
         """
+
+        # Format values for .env output, handling lists as comma-separated strings
+        def format_value(env_var: EnvVar, value: Any) -> str:
+            if value is None:
+                return ""
+            if env_var.type is list:
+                if isinstance(value, list):
+                    return ",".join(str(item) for item in value)
+                return str(value)
+            return str(value)
+
         if filter_type == "required":
             header_lines = [
                 "# AI-Shifu Environment Configuration - REQUIRED VARIABLES",
@@ -1167,15 +1212,13 @@ class EnhancedConfig:
                     metadata.append("Optional - handled by libraries")
                 else:
                     # Avoid leaking secret defaults
-                    default_display = (
-                        env_var.default
-                        if not (
-                            env_var.secret
-                            and env_var.example is None
-                            and env_var.default not in (None, "")
-                        )
-                        else ""
-                    )
+                    default_display = ""
+                    if not (
+                        env_var.secret
+                        and env_var.example is None
+                        and env_var.default not in (None, "")
+                    ):
+                        default_display = format_value(env_var, env_var.default)
                     metadata.append(f"Optional - default: {default_display}")
 
                 # Emit metadata on separate lines for readability and testing expectations
@@ -1201,7 +1244,7 @@ class EnhancedConfig:
                     ):
                         value = ""
 
-                value_str = "" if value is None else str(value)
+                value_str = format_value(env_var, value)
                 lines.append(f'{env_var.name}="{value_str}"')
                 lines.append("")
 

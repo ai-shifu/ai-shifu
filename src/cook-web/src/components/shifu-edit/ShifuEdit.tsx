@@ -13,8 +13,8 @@ import { useUserStore } from '@/store';
 import OutlineTree from '@/components/outline-tree';
 import ChapterSettingsDialog from '@/components/chapter-setting';
 import Header from '../header';
+// import MarkdownFlowEditor from '../../../../../../markdown-flow-ui/src/components/MarkdownFlowEditor';
 import { UploadProps, MarkdownFlowEditor, EditMode } from 'markdown-flow-ui';
-// TODO@XJL
 import 'markdown-flow-ui/dist/markdown-flow-ui.css';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
@@ -34,6 +34,27 @@ const OUTLINE_DEFAULT_WIDTH = 256;
 const OUTLINE_COLLAPSED_WIDTH = 60;
 const OUTLINE_STORAGE_KEY = 'shifu-outline-panel-width';
 
+const VARIABLE_NAME_REGEXP = /\{\{([\p{L}\p{N}_]+)\}\}/gu;
+
+// Collect variable names that truly exist in current markdown content
+const extractVariableNames = (text?: string | null) => {
+  if (!text) {
+    return [];
+  }
+  const collected = new Set<string>();
+  let match: RegExpExecArray | null;
+  while ((match = VARIABLE_NAME_REGEXP.exec(text)) !== null) {
+    if (match[1]) {
+      collected.add(match[1]);
+    }
+    if (VARIABLE_NAME_REGEXP.lastIndex === match.index) {
+      VARIABLE_NAME_REGEXP.lastIndex += 1;
+    }
+  }
+  VARIABLE_NAME_REGEXP.lastIndex = 0;
+  return Array.from(collected);
+};
+
 const ScriptEditor = ({ id }: { id: string }) => {
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
@@ -45,6 +66,18 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [isPreviewPanelOpen, setIsPreviewPanelOpen] = useState(false);
   const [isPreviewPreparing, setIsPreviewPreparing] = useState(false);
   const [addChapterDialogOpen, setAddChapterDialogOpen] = useState(false);
+  const [recentVariables, setRecentVariables] = useState<string[]>([]);
+  const seenVariableNamesRef = useRef<Set<string>>(new Set());
+  const {
+    mdflow,
+    chapters,
+    actions,
+    isLoading,
+    variables,
+    systemVariables,
+    currentShifu,
+    currentNode,
+  } = useShifu();
 
   const {
     items: previewItems,
@@ -94,17 +127,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
       previousOutlineWidthRef.current = parsedWidth;
     }
   }, []);
-
-  const {
-    mdflow,
-    chapters,
-    actions,
-    isLoading,
-    variables,
-    systemVariables,
-    currentShifu,
-    currentNode,
-  } = useShifu();
 
   useEffect(() => {
     const baseTitle = t('common.core.adminTitle');
@@ -223,11 +245,54 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
   };
 
+  const mdflowVariableNames = useMemo(
+    () => extractVariableNames(mdflow),
+    [mdflow],
+  );
+  useEffect(() => {
+    const previousSeen = seenVariableNamesRef.current;
+    const currentSet = new Set<string>();
+    const newNames: string[] = [];
+    mdflowVariableNames.forEach(name => {
+      if (!name) {
+        return;
+      }
+      currentSet.add(name);
+      if (!previousSeen.has(name)) {
+        newNames.push(name);
+      }
+    });
+    seenVariableNamesRef.current = currentSet;
+    const currentNamesSet = new Set(mdflowVariableNames);
+    if (!newNames.length) {
+      setRecentVariables(prev =>
+        prev.filter(name => currentNamesSet.has(name)),
+      );
+      return;
+    }
+    setRecentVariables(prev => {
+      const filteredPrev = prev.filter(
+        name => !newNames.includes(name) && currentNamesSet.has(name),
+      );
+      return [...newNames, ...filteredPrev];
+    });
+  }, [mdflowVariableNames]);
+
   const variablesList = useMemo(() => {
-    return variables.map((variable: string) => ({
-      name: variable,
-    }));
-  }, [variables]);
+    const merged = new Map<string, { name: string }>();
+    // Prioritize freshly added variables, then actual markdown ones, then persisted ones
+    [...recentVariables, ...mdflowVariableNames, ...variables].forEach(
+      variableName => {
+        if (!variableName) {
+          return;
+        }
+        if (!merged.has(variableName)) {
+          merged.set(variableName, { name: variableName });
+        }
+      },
+    );
+    return Array.from(merged.values());
+  }, [recentVariables, mdflowVariableNames, variables]);
 
   const systemVariablesList = useMemo(() => {
     return systemVariables.map((variable: Record<string, string>) => ({

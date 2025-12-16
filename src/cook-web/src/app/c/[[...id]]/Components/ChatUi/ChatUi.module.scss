@@ -46,6 +46,12 @@
     );
     z-index: 10;
 
+    .footerContent {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
     .footerText {
       color: rgba(10, 10, 10, 0.45);
       text-align: center;
@@ -54,6 +60,32 @@
       font-style: normal;
       font-weight: 400;
       line-height: 24px; /* 200% */
+    }
+
+    .separator {
+      color: rgba(10, 10, 10, 0.45);
+      font-family: 'PingFang SC';
+      font-size: 12px;
+      font-style: normal;
+      font-weight: 400;
+      line-height: 24px;
+    }
+
+    .footerLink {
+      color: rgba(10, 10, 10, 0.45);
+      text-align: center;
+      font-family: 'PingFang SC';
+      font-size: 12px;
+      font-style: normal;
+      font-weight: 400;
+      line-height: 24px;
+      text-decoration: none;
+      cursor: pointer;
+
+      &:hover {
+        color: rgba(10, 10, 10, 0.65);
+        text-decoration: underline;
+      }
     }
   }
 

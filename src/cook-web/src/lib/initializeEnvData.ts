@@ -30,9 +30,9 @@ const loadRuntimeConfig = async () => {
     updateUmamiScriptSrc,
     updateEruda,
     updateBaseURL,
-    updateLogoHorizontal,
-    updateLogoVertical,
-    updateLogoUrl,
+    updateLogoWideUrl,
+    updateLogoSquareUrl,
+    updateFaviconUrl,
     updateEnableWxcode,
     updateHomeUrl,
     updateCurrencySymbol,
@@ -74,8 +74,13 @@ const loadRuntimeConfig = async () => {
       }
     }
 
+    // Handle empty base - use simple relative path
+    if (!resolvedBase) {
+      return '/api/runtime-config';
+    }
+
     // Relative URL (e.g. "/api" or "/backend")
-    const cleanBase = resolvedBase || '';
+    const cleanBase = resolvedBase;
     const endsWithApi =
       cleanBase === '/api' ||
       cleanBase.endsWith('/api') ||
@@ -91,14 +96,33 @@ const loadRuntimeConfig = async () => {
 
   const runtimeUrl = buildRuntimeUrl();
 
+  const pathShifuBid =
+    typeof window !== 'undefined'
+      ? (() => {
+          try {
+            const pathname = window.location.pathname || '';
+            const segments = pathname.split('/').filter(Boolean);
+            return segments[0] === 'c' && segments[1] ? segments[1] : '';
+          } catch {
+            return '';
+          }
+        })()
+      : '';
+
+  const runtimeUrlWithShifu = pathShifuBid
+    ? `${runtimeUrl}?shifu_bid=${encodeURIComponent(pathShifuBid)}`
+    : runtimeUrl;
+
   const fetchRuntimeConfig = async () => {
-    // Prefer backend /api/config using discovered apiBaseUrl
-    if (apiBaseUrl) {
-      const res = await fetch(runtimeUrl, { cache: 'no-store' });
+    // Always try to fetch backend runtime-config (using absolute or relative URL)
+    try {
+      const res = await fetch(runtimeUrlWithShifu, { cache: 'no-store' });
       if (res.ok) {
         return res.json();
       }
       console.warn('Backend runtime config fetch failed, status:', res.status);
+    } catch (error) {
+      console.warn('Backend runtime config fetch error:', error);
     }
     // Fallback to local Next route (still returns base url)
     const fallbackRes = await fetch('/api/config', { cache: 'no-store' });
@@ -132,18 +156,7 @@ const loadRuntimeConfig = async () => {
    *    Runtime default course id from backend MUST NOT override it.
    * 2. Otherwise, fall back to backend-provided default course id.
    */
-  const hasPathCourseId =
-    typeof window !== 'undefined' &&
-    (() => {
-      try {
-        const pathname = window.location.pathname || '';
-        const segments = pathname.split('/').filter(Boolean);
-        // Match /c/<shifu_bid> or /c/<shifu_bid>/...
-        return segments[0] === 'c' && !!segments[1];
-      } catch {
-        return false;
-      }
-    })();
+  const hasPathCourseId = !!pathShifuBid;
 
   if (!hasPathCourseId) {
     // Only apply backend default when there is no explicit course id in the URL path
@@ -157,9 +170,9 @@ const loadRuntimeConfig = async () => {
   await updateUmamiWebsiteId(runtimeConfig?.umamiWebsiteId || '');
   await updateUmamiScriptSrc(runtimeConfig?.umamiScriptSrc || '');
   await updateEruda(runtimeConfig?.enableEruda?.toString() || 'false');
-  await updateLogoHorizontal(runtimeConfig?.logoHorizontal || '');
-  await updateLogoVertical(runtimeConfig?.logoVertical || '');
-  await updateLogoUrl(runtimeConfig?.logoUrl || '');
+  await updateLogoWideUrl(runtimeConfig?.logoWideUrl || '');
+  await updateLogoSquareUrl(runtimeConfig?.logoSquareUrl || '');
+  await updateFaviconUrl(runtimeConfig?.faviconUrl || '');
   await updateEnableWxcode(
     runtimeConfig?.enableWechatCode?.toString() || 'true',
   );

@@ -1,5 +1,11 @@
 'use client';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Button } from '@/components/ui/Button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/Sheet';
 import { Bars3Icon, DocumentIcon } from '@heroicons/react/24/outline';
@@ -44,15 +50,32 @@ const SidebarContent = ({
   userMenuClassName,
   logoSrc,
 }: SidebarContentProps) => {
+  const logoHeight = 32;
+  const logoWidth = useMemo(() => {
+    if (
+      typeof logoSrc === 'object' &&
+      'width' in logoSrc &&
+      logoSrc.width &&
+      logoSrc.height
+    ) {
+      return Math.round((logoHeight * logoSrc.width) / logoSrc.height);
+    }
+    return Math.round(logoHeight * (defaultLogo.width / defaultLogo.height));
+  }, [logoSrc]);
   return (
     <div className={cn('flex flex-col h-full relative', styles.adminLayout)}>
       <h1 className={cn('text-xl font-bold p-4', styles.adminLogo)}>
         <Image
           className='dark:invert'
           src={logoSrc}
-          alt='AI-Shifu'
-          width={117}
-          height={32}
+          alt='logo'
+          height={logoHeight}
+          width={logoWidth}
+          style={{
+            width: logoWidth,
+            height: logoHeight,
+            objectFit: 'contain',
+          }}
           priority
         />
       </h1>
@@ -158,14 +181,14 @@ const MainInterface = ({
   ];
 
   const [logoSrc, setLogoSrc] = useState<string | StaticImageData>(
-    environment.logoUrl,
+    environment.logoWideUrl,
   );
 
-  const logoUrl = useEnvStore((state: EnvStoreState) => state.logoUrl);
+  const logoWideUrl = useEnvStore((state: EnvStoreState) => state.logoWideUrl);
 
   useEffect(() => {
-    setLogoSrc(logoUrl || environment.logoUrl || defaultLogo);
-  }, [logoUrl]);
+    setLogoSrc(logoWideUrl || environment.logoWideUrl || defaultLogo);
+  }, [logoWideUrl]);
 
   const resolvedLogo = logoSrc || defaultLogo;
 

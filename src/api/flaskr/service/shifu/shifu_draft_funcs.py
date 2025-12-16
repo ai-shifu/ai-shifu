@@ -165,38 +165,37 @@ def create_shifu_draft(
 
         # Initialize default chapter and lesson
         try:
-            with db.session.begin_nested():
-                # Get default names using i18n system
-                chapter_name = _("server.shifu.defaultChapterName")
-                lesson_name = _("server.shifu.defaultLessonName")
+            # Get default names using i18n system
+            chapter_name = _("server.shifu.defaultChapterName")
+            lesson_name = _("server.shifu.defaultLessonName")
 
-                # Create default chapter
-                chapter = create_outline(
-                    app=app,
-                    user_id=user_id,
-                    shifu_id=shifu_id,
-                    parent_id="",  # Root level
-                    outline_name=chapter_name,
-                    outline_description="",
-                    outline_index=0,
-                    outline_type=UNIT_TYPE_TRIAL,
-                    system_prompt=None,
-                    is_hidden=False,
-                )
+            # Create default chapter
+            chapter = create_outline(
+                app=app,
+                user_id=user_id,
+                shifu_id=shifu_id,
+                parent_id="",  # Root level
+                outline_name=chapter_name,
+                outline_description="",
+                outline_index=0,
+                outline_type=UNIT_TYPE_TRIAL,
+                system_prompt=None,
+                is_hidden=False,
+            )
 
-                # Create default lesson under the chapter
-                create_outline(
-                    app=app,
-                    user_id=user_id,
-                    shifu_id=shifu_id,
-                    parent_id=chapter.bid,  # Under the chapter
-                    outline_name=lesson_name,
-                    outline_description="",
-                    outline_index=0,
-                    outline_type=UNIT_TYPE_TRIAL,
-                    system_prompt=None,
-                    is_hidden=False,
-                )
+            # Create default lesson under the chapter
+            create_outline(
+                app=app,
+                user_id=user_id,
+                shifu_id=shifu_id,
+                parent_id=chapter.bid,  # Under the chapter
+                outline_name=lesson_name,
+                outline_description="",
+                outline_index=0,
+                outline_type=UNIT_TYPE_TRIAL,
+                system_prompt=None,
+                is_hidden=False,
+            )
 
         except (AppException, SQLAlchemyError, IntegrityError) as e:
             app.logger.warning(

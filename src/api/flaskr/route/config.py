@@ -1,5 +1,6 @@
 from flask import Flask, request
 
+from flaskr.common.shifu_context import with_shifu_context
 from flaskr.service.config.funcs import get_config
 
 from .common import bypass_token_validation, make_common_response
@@ -33,6 +34,7 @@ def _to_list(value, default=None):
 def register_config_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/runtime-config", methods=["GET"])
     @bypass_token_validation
+    @with_shifu_context()
     def get_runtime_config():
         origin = request.host_url.rstrip("/")
         legal_urls = {
@@ -65,9 +67,9 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                 get_config("UI_ALWAYS_SHOW_LESSON_TREE", False),
                 False,
             ),
-            "logoHorizontal": get_config("UI_LOGO_HORIZONTAL", ""),
-            "logoVertical": get_config("UI_LOGO_VERTICAL", ""),
-            "logoUrl": get_config("LOGO_URL", ""),
+            "logoWideUrl": get_config("LOGO_WIDE_URL", ""),
+            "logoSquareUrl": get_config("LOGO_SQUARE_URL", ""),
+            "faviconUrl": get_config("FAVICON_URL", ""),
             # Analytics & Tracking
             "umamiScriptSrc": get_config(
                 "ANALYTICS_UMAMI_SCRIPT",

@@ -8,6 +8,7 @@ import RuntimeConfigInitializer from '@/components/RuntimeConfigInitializer';
 import { UserProvider } from '@/store';
 import '@/i18n';
 import I18nGlobalLoading from '@/components/I18nGlobalLoading';
+import { environment } from '@/config/environment';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -26,6 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang='en'>
+      <head></head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-hidden`}
       >

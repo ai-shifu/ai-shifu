@@ -195,7 +195,11 @@ const MinimalTreeItemComponent = React.forwardRef<
       await actions.addSubOutline(node, settings);
     }
   };
-  const onSelect = async () => {
+  const onSelect = async (event?: React.MouseEvent<HTMLDivElement>) => {
+    if (!isChapterNode) {
+      event?.preventDefault();
+      event?.stopPropagation();
+    }
     if (isPlaceholderNode) {
       return;
     }
@@ -264,8 +268,9 @@ const MinimalTreeItemComponent = React.forwardRef<
         {...props}
         readonly={currentShifu?.readonly || false}
         ref={ref}
-        disableCollapseOnItemClick={false}
+        disableCollapseOnItemClick={!isChapterNode}
         className={cn(shouldHighlight && !isChapterNode && 'select')}
+        onItemClick={onSelect}
         chapter={
           shouldShowMeta
             ? {
@@ -283,7 +288,6 @@ const MinimalTreeItemComponent = React.forwardRef<
             isChapterNode ? 'pl-0' : 'pl-2',
             shouldHighlight ? 'bg-gray-200' : '',
           )}
-          onClick={onSelect}
         >
           <div className='flex flex-row items-center flex-1 min-w-0'>
             {isPlaceholderNode ? (

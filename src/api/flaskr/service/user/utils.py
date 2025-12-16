@@ -267,24 +267,14 @@ def create_and_commit_user_verify_code(
     return user_verify_code
 
 
-def ensure_admin_creator_and_demo_permissions(
-    app: Flask, user_id: str, language: str, login_context: str | None = None
+def ensure_creator_demo_permissions_and_first_lesson(
+    app: Flask, user_id: str, language: str
 ) -> None:
     """
-    Ensure that an admin-login user is a creator and has demo course permissions.
-
-    This helper is controlled by the ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO flag and
-    is intended for demo/staging environments.
+    Ensure that a user is marked as creator, has demo course permissions,
+    and a first lesson draft.
     """
-    # Only apply when the feature flag is enabled
-    if not app.config.get("ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO", False):
-        return
-
-    # Only act on explicit admin logins
-    if login_context != "admin":
-        return
-
-    # Mark user as creator
+    # Mark user as creator in canonical user entity
     mark_user_roles(user_id, is_creator=True)
 
     # Grant demo course permissions if demo shifus are configured
@@ -325,7 +315,8 @@ def ensure_admin_creator_and_demo_permissions(
             )
             db.session.add(auth)
             db.session.flush()
-    # create first lesson
+
+    # Create first lesson draft if none exists
     draft_shifu = DraftShifu.query.filter(
         DraftShifu.created_user_bid == user_id
     ).first()
@@ -383,4 +374,24 @@ def ensure_admin_creator_and_demo_permissions(
     )
 
     # Import or update shifu (don't commit inside transactional_session)
-    shifu_bid = import_shifu(app, None, file_storage, user_id, commit=True)
+    import_shifu(app, None, file_storage, user_id, commit=True)
+
+
+def ensure_admin_creator_and_demo_permissions(
+    app: Flask, user_id: str, language: str, login_context: str | None = None
+) -> None:
+    """
+    Ensure that an admin-login user is a creator and has demo course permissions.
+
+    This helper is controlled by the ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO flag and
+    is intended for demo/staging environments.
+    """
+    # Only apply when the feature flag is enabled
+    if not app.config.get("ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO", False):
+        return
+
+    # Only act on explicit admin logins
+    if login_context != "admin":
+        return
+
+    ensure_creator_demo_permissions_and_first_lesson(app, user_id, language)

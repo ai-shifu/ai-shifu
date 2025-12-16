@@ -1,8 +1,8 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
+import Image, { type StaticImageData } from 'next/image';
 
 import { useEnvStore } from '@/c-store/envStore';
 
-import Image from 'next/image';
 import imgLogoRow from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
 import imgLogoColumn from '@/c-assets/logos/ai-shifu-logo-vertical.png';
 
@@ -17,13 +17,30 @@ export const LogoWithText = ({ direction, size = 64 }) => {
   const flexFlow = isRow ? 'row nowrap' : 'column nowrap';
   const logoHorizontal = useEnvStore(state => state.logoHorizontal);
   const logoVertical = useEnvStore(state => state.logoVertical);
-  const logoUrl = useEnvStore(state => state.logoUrl);
+  const logoWideUrl = useEnvStore(state => state.logoWideUrl);
+  const logoSquareUrl = useEnvStore(state => state.logoSquareUrl);
   const homeUrl = useEnvStore(state => state.homeUrl);
-  const width = isRow ? size * 3.8125 : size;
-  const height = isRow ? size : size * 2.5;
-  const logoSrc = isRow
-    ? logoUrl || logoHorizontal || imgLogoRow.src
-    : logoVertical || imgLogoColumn.src;
+  const wideLogoSrc: string | StaticImageData = useMemo(() => {
+    return logoWideUrl || logoHorizontal || imgLogoRow;
+  }, [logoHorizontal, logoWideUrl]);
+
+  const squareLogoSrc: string | StaticImageData = useMemo(() => {
+    return logoSquareUrl || logoVertical || imgLogoColumn;
+  }, [logoSquareUrl, logoVertical]);
+
+  const wideWidth = useMemo(() => {
+    if (
+      typeof wideLogoSrc === 'object' &&
+      'width' in wideLogoSrc &&
+      wideLogoSrc.width &&
+      wideLogoSrc.height
+    ) {
+      return Math.round((size * wideLogoSrc.width) / wideLogoSrc.height);
+    }
+    return Math.round(size * (imgLogoRow.width / imgLogoRow.height));
+  }, [size, wideLogoSrc]);
+
+  const containerWidth = isRow ? wideWidth : size;
 
   return (
     <div
@@ -38,17 +55,46 @@ export const LogoWithText = ({ direction, size = 64 }) => {
         href={homeUrl || 'https://ai-shifu.cn/'}
         target='_blank'
       >
-        <Image
-          src={logoSrc}
-          alt='logo'
-          width={Math.round(width)}
-          height={Math.round(height)}
+        <div
           style={{
-            width,
-            height: isRow ? height : 34,
-            objectFit: 'contain',
+            width: containerWidth,
+            height: size,
+            position: 'relative',
           }}
-        />
+        >
+          <Image
+            src={wideLogoSrc}
+            alt='logo'
+            width={wideWidth}
+            height={size}
+            style={{
+              width: wideWidth,
+              height: size,
+              objectFit: 'contain',
+              position: 'absolute',
+              inset: 0,
+              opacity: isRow ? 1 : 0,
+              transition: 'opacity 200ms ease',
+            }}
+            priority
+          />
+          <Image
+            src={squareLogoSrc}
+            alt='logo'
+            width={size}
+            height={size}
+            style={{
+              width: size,
+              height: size,
+              objectFit: 'contain',
+              position: 'absolute',
+              inset: 0,
+              opacity: isRow ? 0 : 1,
+              transition: 'opacity 200ms ease',
+            }}
+            priority
+          />
+        </div>
       </a>
     </div>
   );
