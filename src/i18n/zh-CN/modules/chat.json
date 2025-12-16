@@ -1,7 +1,8 @@
 {
   "__namespace__": "module.chat",
   "aiGenerated": "内容由 AI 在人类指导下生成",
-  "poweredByText": "提供技术支持",
+  "poweredByPrefix": "由",
+  "poweredBySuffix": "驱动",
   "markdownFlow": "MarkdownFlow",
   "ask": "追问",
   "askContent": "请输入你想追问的问题",
