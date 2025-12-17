@@ -68,9 +68,8 @@ export const LogoWithText = ({ direction, size = 64 }) => {
             width={wideWidth}
             height={size}
             style={{
-              width: wideWidth,
+              width: 'auto',
               height: size,
-              objectFit: 'contain',
               position: 'absolute',
               inset: 0,
               opacity: isRow ? 1 : 0,
@@ -86,7 +85,6 @@ export const LogoWithText = ({ direction, size = 64 }) => {
             style={{
               width: size,
               height: size,
-              objectFit: 'contain',
               position: 'absolute',
               inset: 0,
               opacity: isRow ? 0 : 1,

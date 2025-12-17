@@ -333,6 +333,11 @@ DEEPSEEK_EXTRA_MODELS = ["deepseek-chat"]
 
 
 def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    if model_id.startswith("gpt-5.2"):
+        return {
+            "reasoning_effort": "none",
+            "temperature": temperature,
+        }
     if model_id.startswith("gpt-5.1"):
         return {
             "reasoning_effort": "none",
