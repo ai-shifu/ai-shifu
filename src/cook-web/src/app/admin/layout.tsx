@@ -72,9 +72,8 @@ const SidebarContent = ({
           height={logoHeight}
           width={logoWidth}
           style={{
-            width: logoWidth,
+            width: 'auto',
             height: logoHeight,
-            objectFit: 'contain',
           }}
           priority
         />

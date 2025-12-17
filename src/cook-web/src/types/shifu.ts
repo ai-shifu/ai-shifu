@@ -190,6 +190,7 @@ export interface ShifuActions {
   saveMdflow: (payload?: SaveMdflowPayload) => Promise<void>;
   setCurrentMdflow: (value: string) => void;
   getCurrentMdflow: () => string;
+  hasUnsavedMdflow: (outlineId?: string, value?: string) => boolean;
   parseMdflow: (
     value: string,
     shifuId: string,

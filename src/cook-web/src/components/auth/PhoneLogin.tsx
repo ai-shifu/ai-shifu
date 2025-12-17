@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/Label';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { TermsCheckbox } from '@/components/TermsCheckbox';
+import { TermsConfirmDialog } from '@/components/auth/TermsConfirmDialog';
 import { isValidPhoneNumber } from '@/lib/validators';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
@@ -31,6 +32,7 @@ export function PhoneLogin({ onLoginSuccess, loginContext }: PhoneLoginProps) {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [phoneError, setPhoneError] = useState('');
+  const [showTermsDialog, setShowTermsDialog] = useState(false);
   const { t } = useTranslation();
   const { loginWithSmsCode, sendSmsCode } = useAuth({
     onSuccess: onLoginSuccess,
@@ -61,18 +63,7 @@ export function PhoneLogin({ onLoginSuccess, loginContext }: PhoneLoginProps) {
     }
   };
 
-  const handleSendOtp = async () => {
-    if (!validatePhone(phoneNumber)) {
-      return;
-    }
-
-    if (!termsAccepted) {
-      toast({
-        title: t('module.auth.termsError'),
-      });
-      return;
-    }
-
+  const doSendSmsCode = async () => {
     try {
       setIsLoading(true);
 
@@ -104,6 +95,19 @@ export function PhoneLogin({ onLoginSuccess, loginContext }: PhoneLoginProps) {
     }
   };
 
+  const handleSendOtp = async () => {
+    if (!validatePhone(phoneNumber)) {
+      return;
+    }
+
+    if (!termsAccepted) {
+      setShowTermsDialog(true);
+      return;
+    }
+
+    await doSendSmsCode();
+  };
+
   const handleVerifyOtp = async () => {
     if (!phoneOtp) {
       toast({
@@ -114,9 +118,7 @@ export function PhoneLogin({ onLoginSuccess, loginContext }: PhoneLoginProps) {
     }
 
     if (!termsAccepted) {
-      toast({
-        title: t('module.auth.termsError'),
-      });
+      setShowTermsDialog(true);
       return;
     }
 
@@ -135,8 +137,26 @@ export function PhoneLogin({ onLoginSuccess, loginContext }: PhoneLoginProps) {
     }
   };
 
+  const handleTermsConfirm = async () => {
+    setTermsAccepted(true);
+    setShowTermsDialog(false);
+    // Auto send SMS code after terms accepted
+    await doSendSmsCode();
+  };
+
+  const handleTermsCancel = () => {
+    setShowTermsDialog(false);
+  };
+
   return (
-    <div className='space-y-4'>
+    <>
+      <TermsConfirmDialog
+        open={showTermsDialog}
+        onOpenChange={setShowTermsDialog}
+        onConfirm={handleTermsConfirm}
+        onCancel={handleTermsCancel}
+      />
+      <div className='space-y-4'>
       <div className='space-y-2'>
         <Label
           htmlFor='phone'
@@ -204,6 +224,7 @@ export function PhoneLogin({ onLoginSuccess, loginContext }: PhoneLoginProps) {
           {t('module.auth.login')}
         </Button>
       )}
-    </div>
+      </div>
+    </>
   );
 }

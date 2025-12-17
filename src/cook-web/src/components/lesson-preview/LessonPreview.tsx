@@ -59,6 +59,9 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   reGenerateConfirm,
 }) => {
   const { t } = useTranslation();
+  const confirmButtonText = t('module.renderUi.core.confirm');
+  const copyButtonText = t('module.renderUi.core.copyCode');
+  const copiedButtonText = t('module.renderUi.core.copied');
   const [variablesCollapsed, setVariablesCollapsed] = React.useState(false);
 
   const showEmpty = !loading && items.length === 0;
@@ -161,7 +164,9 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                     item={item}
                     mobileStyle={false}
                     blockBid={item.generated_block_bid}
-                    confirmButtonText={t('module.renderUi.core.confirm')}
+                    confirmButtonText={confirmButtonText}
+                    copyButtonText={copyButtonText}
+                    copiedButtonText={copiedButtonText}
                     onSend={onSend}
                   />
                 </div>
