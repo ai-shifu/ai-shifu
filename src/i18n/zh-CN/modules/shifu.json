@@ -1,26 +1,26 @@
 {
   "__namespace__": "module.shifu",
   "creationArea": {
-    "description": "给 AI 撰写创作指南，让它生成最终内容",
-    "modeCode": "文本",
-    "modeText": "可视",
-    "title": "创作区"
+    "description": "给 AI 写教学脚本",
+    "modeCode": "友好",
+    "modeText": "专业",
+    "title": "教学准备区"
   },
   "newChapter": "添加章",
   "previewArea": {
-    "action": "预览",
-    "close": "收起预览区",
-    "description": "每人每次，效果不同",
-    "disabled": "请选择具体小节后再预览",
-    "empty": "请在左侧输入内容，然后点击“预览”按钮开始",
-    "loading": "正在生成预览...",
-    "open": "展开预览区",
-    "title": "预览区",
+    "action": "模拟教学",
+    "close": "收起模拟教学区",
+    "description": "AI 进行教学",
+    "disabled": "请选择具体小节后再模拟教学",
+    "empty": "在左侧编辑框内输入教学脚本，然后点击“模拟教学”体验教学效果",
+    "loading": "正在生成模拟教学...",
+    "open": "展开模拟教学区",
+    "title": "模拟教学区",
     "variablesCollapse": "收起",
-    "variablesDescription": "基于变量值生成个性化的内容",
+    "variablesDescription": "基于学员偏好，进行1对1教学",
     "variablesExpand": "展开",
     "variablesLearnMore": "了解更多",
     "variablesPlaceholder": "UNKNOWN",
-    "variablesTitle": "变量"
+    "variablesTitle": "模拟学员"
   }
 }
