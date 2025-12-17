@@ -22,6 +22,7 @@ import i18n, { browserLanguage, normalizeLanguage } from '@/i18n';
 import { environment } from '@/config/environment';
 import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
 import { TermsCheckbox } from '@/components/TermsCheckbox';
+import { TermsConfirmDialog } from '@/components/auth/TermsConfirmDialog';
 import { useToast } from '@/hooks/useToast';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { useUserStore } from '@/store';
@@ -250,6 +251,7 @@ export default function AuthPage() {
 
   const [googleTermsAccepted, setGoogleTermsAccepted] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [showTermsDialog, setShowTermsDialog] = useState(false);
 
   const { startGoogleLogin } = useGoogleAuth({
     onSuccess: (_, redirectPath) => {
@@ -260,18 +262,7 @@ export default function AuthPage() {
     },
   });
 
-  const handleGoogleSignIn = useCallback(async () => {
-    if (!isGoogleEnabled) {
-      return;
-    }
-
-    if (!googleTermsAccepted) {
-      toast({
-        title: t('module.auth.termsError'),
-      });
-      return;
-    }
-
+  const doGoogleLogin = useCallback(async () => {
     try {
       setIsGoogleLoading(true);
       await startGoogleLogin({
@@ -282,14 +273,38 @@ export default function AuthPage() {
       setIsGoogleLoading(false);
     }
   }, [
-    googleTermsAccepted,
-    isGoogleEnabled,
     language,
     resolveRedirectPath,
     startGoogleLogin,
-    t,
-    toast,
   ]);
+
+  const handleGoogleSignIn = useCallback(async () => {
+    if (!isGoogleEnabled) {
+      return;
+    }
+
+    if (!googleTermsAccepted) {
+      setShowTermsDialog(true);
+      return;
+    }
+
+    await doGoogleLogin();
+  }, [
+    doGoogleLogin,
+    googleTermsAccepted,
+    isGoogleEnabled,
+  ]);
+
+  const handleTermsConfirm = useCallback(async () => {
+    setGoogleTermsAccepted(true);
+    setShowTermsDialog(false);
+    // Auto start Google login after terms accepted
+    await doGoogleLogin();
+  }, [doGoogleLogin]);
+
+  const handleTermsCancel = useCallback(() => {
+    setShowTermsDialog(false);
+  }, []);
 
   const renderLoginContent = useCallback(
     (method: LoginMethod) => {
@@ -358,7 +373,14 @@ export default function AuthPage() {
     );
   }
   return (
-    <div className='min-h-screen flex items-center justify-center p-4'>
+    <>
+      <TermsConfirmDialog
+        open={showTermsDialog}
+        onOpenChange={setShowTermsDialog}
+        onConfirm={handleTermsConfirm}
+        onCancel={handleTermsCancel}
+      />
+      <div className='min-h-screen flex items-center justify-center p-4'>
       <div className='w-full max-w-md space-y-2'>
         <div className='flex flex-col items-center relative'>
           <h2 className='flex items-center font-semibold pb-2 w-full justify-center'>
@@ -481,6 +503,7 @@ export default function AuthPage() {
           </CardFooter>
         </Card>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
