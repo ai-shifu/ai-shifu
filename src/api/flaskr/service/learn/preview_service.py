@@ -10,6 +10,7 @@ from markdown_flow.llm import LLMResult
 
 from flaskr.api.langfuse import langfuse_client as langfuse
 from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.dao import redis_client
 from flaskr.service.learn.context_v2 import RUNLLMProvider
 from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
 from flaskr.service.shifu.struct_utils import find_node_with_parents
@@ -65,6 +66,18 @@ class MarkdownFlowPreviewService:
         if not document:
             raise ValueError("Markdown-Flow content is empty")
 
+        stored_context = (
+            []
+            if preview_request.block_index == 0
+            else self._load_cached_context(user_bid, outline_bid)
+        )
+        request_context = self._convert_context_to_dict(preview_request.context)
+        if preview_request.block_index == 0:
+            self._clear_cached_context(user_bid, outline_bid)
+        effective_context = self._merge_contexts(list(stored_context), request_context)
+        user_message = self._format_user_input(preview_request.user_input)
+        assistant_chunks: list[str] = []
+
         trace_args = {
             "user_id": user_bid,
             "name": "preview_outline_block",
@@ -107,7 +120,7 @@ class MarkdownFlowPreviewService:
         result = mf.process(
             block_index=block_index,
             mode=ProcessMode.STREAM,
-            context=self._convert_context_to_dict(preview_request.context),
+            context=effective_context or None,
             variables=preview_request.variables,
             user_input=preview_request.user_input,
         )
@@ -124,6 +137,8 @@ class MarkdownFlowPreviewService:
                     block_index,
                 )
                 if message:
+                    if message.type == PreviewSSEMessageType.CONTENT:
+                        assistant_chunks.append(message.data.mdflow)
                     yield message
                     if message.type == PreviewSSEMessageType.INTERACTION:
                         break
@@ -143,6 +158,8 @@ class MarkdownFlowPreviewService:
                 block_index,
             )
             if message:
+                if message.type == PreviewSSEMessageType.CONTENT:
+                    assistant_chunks.append(message.data.mdflow)
                 yield message
             yield self._convert_to_sse_message(
                 LLMResult(content=""),
@@ -151,7 +168,129 @@ class MarkdownFlowPreviewService:
                 is_user_input_validation,
                 block_index,
             )
+        assistant_response = "".join(assistant_chunks).strip()
+        updated_context = list(effective_context or [])
+        if user_message:
+            self._append_message(updated_context, "user", user_message)
+        if assistant_response:
+            self._append_message(updated_context, "assistant", assistant_response)
+        if updated_context:
+            self._save_cached_context(user_bid, outline_bid, updated_context)
+        else:
+            self._clear_cached_context(user_bid, outline_bid)
         trace.update(**trace_args)
+
+    def _context_cache_key(self, user_bid: str, outline_bid: str) -> str:
+        prefix = self.app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
+        return f"{prefix}:preview_context:{user_bid}:{outline_bid}"
+
+    def _load_cached_context(
+        self, user_bid: str, outline_bid: str
+    ) -> list[Dict[str, str]]:
+        if not redis_client:
+            return []
+        try:
+            cache_key = self._context_cache_key(user_bid, outline_bid)
+            raw = redis_client.get(cache_key)
+            if not raw:
+                return []
+            if isinstance(raw, bytes):
+                raw = raw.decode("utf-8")
+            data = json.loads(raw)
+            merged: list[Dict[str, str]] = []
+            if isinstance(data, list):
+                for item in data:
+                    if not isinstance(item, dict):
+                        continue
+                    role = item.get("role")
+                    content = item.get("content")
+                    self._append_message(
+                        merged,
+                        role if isinstance(role, str) else "",
+                        content if isinstance(content, str) else "",
+                    )
+            return merged
+        except Exception:
+            self.app.logger.warning("preview context load failed", exc_info=True)
+            return []
+
+    def _save_cached_context(
+        self, user_bid: str, outline_bid: str, context: list[Dict[str, str]]
+    ) -> None:
+        if not redis_client:
+            return
+        try:
+            cache_key = self._context_cache_key(user_bid, outline_bid)
+            redis_client.setex(
+                cache_key,
+                3600,
+                json.dumps(context, ensure_ascii=False),
+            )
+        except Exception:
+            self.app.logger.warning("preview context save failed", exc_info=True)
+
+    def _clear_cached_context(self, user_bid: str, outline_bid: str) -> None:
+        if not redis_client:
+            return
+        try:
+            redis_client.delete(self._context_cache_key(user_bid, outline_bid))
+        except Exception:
+            self.app.logger.warning("preview context clear failed", exc_info=True)
+
+    def _merge_contexts(
+        self,
+        stored_context: Optional[list[Dict[str, str]]],
+        incoming_context: Optional[list[Dict[str, str]]],
+    ) -> list[Dict[str, str]]:
+        merged: list[Dict[str, str]] = []
+        for msg in stored_context or []:
+            self._append_message(
+                merged,
+                str(msg.get("role", "") or ""),
+                str(msg.get("content", "") or ""),
+            )
+        for msg in incoming_context or []:
+            self._append_message(
+                merged,
+                str(msg.get("role", "") or ""),
+                str(msg.get("content", "") or ""),
+            )
+        return merged
+
+    def _append_message(
+        self, messages: list[Dict[str, str]], role: str, content: str
+    ) -> None:
+        if not role or not content:
+            return
+        if not isinstance(content, str):
+            content = str(content)
+        content = content.strip()
+        if not content:
+            return
+        if messages and messages[-1].get("role") == role:
+            messages[-1]["content"] = (
+                messages[-1].get("content", "") + "\n" + content
+            ).strip()
+            return
+        messages.append({"role": role, "content": content})
+
+    def _format_user_input(self, user_input: Optional[Dict[str, list[str]]]) -> str:
+        if not user_input:
+            return ""
+        if isinstance(user_input, dict):
+            parts = []
+            for key, values in user_input.items():
+                if values is None:
+                    continue
+                if isinstance(values, list):
+                    cleaned = [str(v) for v in values if v is not None]
+                    if not cleaned:
+                        continue
+                    parts.append(f"{key}: {', '.join(cleaned)}")
+                else:
+                    parts.append(f"{key}: {values}")
+            return "\n".join(parts).strip()
+        return str(user_input).strip()
 
     def _convert_to_sse_message(
         self,
