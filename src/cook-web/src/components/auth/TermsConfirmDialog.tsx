@@ -46,14 +46,14 @@ export function TermsConfirmDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="sm:max-w-md">
+      <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="text-center">
             {t('module.auth.termsDialogTitle')}
           </AlertDialogTitle>
         </AlertDialogHeader>
         
-        <div className="py-4 text-center">
+        <div className="py-4 text-left">
           <p className="text-sm text-muted-foreground">
             {t('module.auth.termsDialogDescription')}{' '}
             <Trans
@@ -64,7 +64,7 @@ export function TermsConfirmDialog({
                     href={agreementUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary hover:underline mx-1"
+                    className="text-primary hover:underline mx-1 whitespace-nowrap"
                   />
                 ) : (
                   <span className="mx-1" />
@@ -74,7 +74,7 @@ export function TermsConfirmDialog({
                     href={privacyUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary hover:underline mx-1"
+                    className="text-primary hover:underline mx-1 whitespace-nowrap"
                   />
                 ) : (
                   <span className="mx-1" />
