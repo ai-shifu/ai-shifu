@@ -140,19 +140,19 @@ export const CourseSection = ({
       onClick={onSectionClick}
     >
       <div className={classNames(styles.iconWrapper, genIconClassName())}>
-        <div className={styles.topLine}></div>
+        {/* <div className={styles.topLine}></div> */}
         <div className={styles.icon}>
           {type === LEARNING_PERMISSION.NORMAL && !is_paid ? (
             <CircleDotDashed
               className={styles.bigIcon}
-              color='rgba(10, 10, 10, 0.1)'
+              color='rgba(10, 10, 10, 0.45)'
             />
           ) : (
             <>
               {status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING && (
                 <CircleDotDashed
                   className={styles.bigIcon}
-                  color={selected ? '#0A0A0A' : 'rgba(10, 10, 10, 0.1)'}
+                  color={selected ? '#0A0A0A' : 'rgba(10, 10, 10, 0.45)'}
                 />
               )}
 
@@ -165,7 +165,7 @@ export const CourseSection = ({
             </>
           )}
         </div>
-        <div className={styles.bottomLine}></div>
+        {/* <div className={styles.bottomLine}></div> */}
       </div>
       <div className={styles.textArea}>
         {isNormalNotPaid ? (

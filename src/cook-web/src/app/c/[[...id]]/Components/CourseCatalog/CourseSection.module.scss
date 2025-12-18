@@ -1,5 +1,6 @@
 .courseSection {
   display: flex;
+  align-items: center;
   flex-flow: row nowrap;
 
   &.mobile {
@@ -77,7 +78,6 @@
   }
 
   .iconWrapper {
-    width: 16px;
     display: flex;
     flex-flow: column nowrap;
     align-items: center;
