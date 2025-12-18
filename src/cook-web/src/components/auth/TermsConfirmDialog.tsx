@@ -1,13 +1,14 @@
 'use client';
 
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/Dialog';
-import { Button } from '@/components/ui/Button';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/AlertDialog';
 import { Trans, useTranslation } from 'react-i18next';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
@@ -44,20 +45,17 @@ export function TermsConfirmDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-center">
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="sm:max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-center">
             {t('module.auth.termsDialogTitle')}
-          </DialogTitle>
-        </DialogHeader>
+          </AlertDialogTitle>
+        </AlertDialogHeader>
         
         <div className="py-4 text-center">
-          <p className="text-sm text-muted-foreground mb-4">
-            {t('module.auth.termsDialogDescription')}
-          </p>
-          
-          <div className="text-sm">
+          <p className="text-sm text-muted-foreground">
+            {t('module.auth.termsDialogDescription')}{' '}
             <Trans
               i18nKey="module.auth.readAndAgreeLinks"
               components={{
@@ -87,25 +85,18 @@ export function TermsConfirmDialog({
                 privacyLabel: t('module.auth.privacyPolicy'),
               }}
             />
-          </div>
+          </p>
         </div>
 
-        <DialogFooter className="grid grid-cols-2 gap-2">
-          <Button
-            variant="outline"
-            onClick={handleCancel}
-            className="w-full"
-          >
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={handleCancel}>
             {t('module.auth.disagree')}
-          </Button>
-          <Button
-            onClick={handleConfirm}
-            className="w-full"
-          >
+          </AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirm}>
             {t('module.auth.agree')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
