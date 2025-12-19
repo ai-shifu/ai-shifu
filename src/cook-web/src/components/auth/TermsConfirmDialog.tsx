@@ -45,39 +45,42 @@ export function TermsConfirmDialog({
   };
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog
+      open={open}
+      onOpenChange={onOpenChange}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle className="text-center">
+          <AlertDialogTitle className='text-center'>
             {t('module.auth.termsDialogTitle')}
           </AlertDialogTitle>
         </AlertDialogHeader>
-        
-        <div className="py-4 text-left">
-          <p className="text-sm text-muted-foreground">
+
+        <div className='py-4 text-left'>
+          <p className='text-sm text-muted-foreground'>
             {t('module.auth.termsDialogDescription')}{' '}
             <Trans
-              i18nKey="module.auth.readAndAgreeLinks"
+              i18nKey='module.auth.readAndAgreeLinks'
               components={{
                 serviceAgreement: agreementUrl ? (
                   <a
                     href={agreementUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline mx-1 whitespace-nowrap"
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='text-primary hover:underline mx-1 whitespace-nowrap'
                   />
                 ) : (
-                  <span className="mx-1" />
+                  <span className='mx-1' />
                 ),
                 privacyPolicy: privacyUrl ? (
                   <a
                     href={privacyUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline mx-1 whitespace-nowrap"
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='text-primary hover:underline mx-1 whitespace-nowrap'
                   />
                 ) : (
-                  <span className="mx-1" />
+                  <span className='mx-1' />
                 ),
               }}
               values={{
