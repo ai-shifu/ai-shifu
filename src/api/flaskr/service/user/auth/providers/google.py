@@ -124,10 +124,11 @@ class GoogleAuthProvider(AuthProvider):
         ui_language_from_frontend = metadata.get("language")
         ui_language = ui_language_from_frontend or _extract_browser_language()
 
-        create_url_kwargs: Dict[str, Any] = {
-            "prompt": "consent",
-            "access_type": "offline",
-        }
+        # Do not force re-consent/offline access by default. For a simple web login
+        # flow we only need an authorization code to fetch basic profile info.
+        # Forcing "prompt=consent" and "access_type=offline" can add extra Google
+        # interstitial/confirmation steps and degrades UX.
+        create_url_kwargs: Dict[str, Any] = {}
         # Google respects both "hl" and (for some flows) "ui_locales".
         if ui_language:
             create_url_kwargs["hl"] = ui_language
