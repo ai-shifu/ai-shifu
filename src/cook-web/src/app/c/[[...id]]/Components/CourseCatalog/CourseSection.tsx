@@ -165,7 +165,7 @@ export const CourseSection = ({
             </>
           )}
         </div>
-        {/* <div className={styles.bottomLine}></div> */}
+        <div className={styles.bottomLine}></div>
       </div>
       <div className={styles.textArea}>
         {isNormalNotPaid ? (
