@@ -90,7 +90,6 @@ export function PhoneLogin({ onLoginSuccess, loginContext }: PhoneLoginProps) {
     } catch {
       // Error already handled in sendSmsCode
     } finally {
-      setShowOtpInput(true);
       setIsLoading(false);
     }
   };
@@ -140,8 +139,10 @@ export function PhoneLogin({ onLoginSuccess, loginContext }: PhoneLoginProps) {
   const handleTermsConfirm = async () => {
     setTermsAccepted(true);
     setShowTermsDialog(false);
-    // Auto send SMS code after terms accepted
-    await doSendSmsCode();
+    // Auto send SMS code after terms accepted, but only if OTP input is not already shown
+    if (!showOtpInput) {
+      await doSendSmsCode();
+    }
   };
 
   const handleTermsCancel = () => {

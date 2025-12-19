@@ -334,6 +334,7 @@ export default function AuthPage() {
       handleGoogleSignIn,
       googleTermsAccepted,
       isGoogleLoading,
+      loginContext,
     ],
   );
 

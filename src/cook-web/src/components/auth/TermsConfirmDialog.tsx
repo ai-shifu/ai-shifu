@@ -29,19 +29,21 @@ export function TermsConfirmDialog({
   const { t, i18n } = useTranslation();
   const legalUrls = useEnvStore((state: EnvStoreState) => state.legalUrls);
 
-  // Get current language URL
-  const currentLang = (i18n.language || 'en-US') as 'zh-CN' | 'en-US';
-  const agreementUrl = legalUrls?.agreement?.[currentLang] || '';
-  const privacyUrl = legalUrls?.privacy?.[currentLang] || '';
+  // Get current language URL with fallback
+  const currentLang = i18n.language || 'en-US';
+  const agreementUrl = 
+    legalUrls?.agreement?.[currentLang as keyof typeof legalUrls.agreement] || 
+    legalUrls?.agreement?.['en-US'] || '';
+  const privacyUrl = 
+    legalUrls?.privacy?.[currentLang as keyof typeof legalUrls.privacy] || 
+    legalUrls?.privacy?.['en-US'] || '';
 
   const handleConfirm = () => {
     onConfirm();
-    onOpenChange(false);
   };
 
   const handleCancel = () => {
     onCancel();
-    onOpenChange(false);
   };
 
   return (
