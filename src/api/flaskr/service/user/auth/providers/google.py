@@ -100,6 +100,12 @@ class GoogleAuthProvider(AuthProvider):
     provider_name = "google"
     supports_oauth = True
 
+    def _resolve_token_endpoint(self, app) -> str:
+        return app.config.get("GOOGLE_OAUTH_TOKEN_ENDPOINT", TOKEN_ENDPOINT)
+
+    def _resolve_userinfo_endpoint(self, app) -> str:
+        return app.config.get("GOOGLE_OAUTH_USERINFO_ENDPOINT", USERINFO_ENDPOINT)
+
     def verify(self, app, request):
         raise NotImplementedError("GoogleAuthProvider only supports OAuth flows")
 
@@ -197,11 +203,11 @@ class GoogleAuthProvider(AuthProvider):
         session = self._create_session(app, redirect_uri)
 
         token = session.fetch_token(
-            TOKEN_ENDPOINT,
+            self._resolve_token_endpoint(app),
             code=request.code,
         )
 
-        resp = session.get(USERINFO_ENDPOINT)
+        resp = session.get(self._resolve_userinfo_endpoint(app))
         resp.raise_for_status()
         profile = resp.json()
 
