@@ -57,7 +57,7 @@ export const LogoWithText = ({ direction, size = 64 }) => {
       >
         <div
           style={{
-            width: containerWidth,
+            // width: containerWidth,
             height: size,
             position: 'relative',
           }}
@@ -70,8 +70,9 @@ export const LogoWithText = ({ direction, size = 64 }) => {
             style={{
               width: 'auto',
               height: size,
-              position: 'absolute',
-              inset: 0,
+              position: isRow ? 'relative' : 'absolute',
+              top: 0,
+              left: 0,
               opacity: isRow ? 1 : 0,
               transition: 'opacity 200ms ease',
             }}
@@ -85,8 +86,9 @@ export const LogoWithText = ({ direction, size = 64 }) => {
             style={{
               width: size,
               height: size,
-              position: 'absolute',
-              inset: 0,
+              position: !isRow ? 'relative' : 'absolute',
+              top: 0,
+              left: 0,
               opacity: isRow ? 0 : 1,
               transition: 'opacity 200ms ease',
             }}

@@ -2,6 +2,7 @@ from flask import Flask
 from typing import Generator
 import requests
 import json
+from flaskr.service.config.funcs import get_config
 
 
 class DifyChunkChatCompletionResponse:
@@ -23,8 +24,8 @@ class DifyChunkChatCompletionResponse:
 def dify_chat_message(
     app: Flask, message: str, user_id: str
 ) -> Generator[DifyChunkChatCompletionResponse, None, None]:
-    url = app.config.get("DIFY_URL") + "/chat-messages"
-    api_key = app.config.get("DIFY_API_KEY")
+    url = get_config("DIFY_URL") + "/chat-messages"
+    api_key = get_config("DIFY_API_KEY")
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",

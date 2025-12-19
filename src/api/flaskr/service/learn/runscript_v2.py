@@ -2,7 +2,7 @@ import traceback
 import threading
 import queue
 import contextlib
-from typing import Generator
+from typing import Any, Generator, Optional
 from flask import Flask
 
 from flaskr.service.common.models import AppException, raise_error
@@ -156,6 +156,7 @@ def run_script(
     input_type: str = None,
     reload_generated_block_bid: str = None,
     preview_mode: bool = False,
+    shifu_context_snapshot: Optional[dict[str, Any]] = None,
 ) -> Generator[str, None, None]:
     timeout = 5 * 60
     blocking_timeout = 1
@@ -179,8 +180,8 @@ def run_script(
         parent_client_ip = getattr(log_thread_local, "client_ip", None)
         # Capture language context from the request thread so i18n works in the producer thread
         parent_language = get_current_language()
-        # Capture shifu context so background thread can reuse it
-        parent_shifu_context = get_shifu_context_snapshot()
+        # Capture shifu context so background thread can reuse it (may be provided by caller)
+        parent_shifu_context = shifu_context_snapshot or get_shifu_context_snapshot()
         res = run_script_inner(
             app=app,
             user_bid=user_bid,
