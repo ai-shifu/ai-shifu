@@ -310,7 +310,6 @@ export default function AskBlock({
   }, []);
 
   const focusAskInput = useCallback(() => {
-    // 自动聚焦追问输入框，展开后光标立即可输入
     // Auto focus the follow-up textarea so the cursor is ready after expanding
     if (!inputWrapperRef.current) {
       return null;
@@ -332,7 +331,6 @@ export default function AskBlock({
     }
     const rafId = focusAskInput() ?? null;
     return () => {
-      // 清理 requestAnimationFrame，防止组件卸载后仍尝试 focus
       // Cancel RAF to avoid focusing after unmount or quick collapse
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
