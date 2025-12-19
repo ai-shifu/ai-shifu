@@ -135,7 +135,6 @@ export type I18nKey =
   | 'module.auth.serviceAgreement'
   | 'module.auth.submitFeedback'
   | 'module.auth.success'
-  | 'module.auth.termsError'
   | 'module.auth.title'
   | 'module.auth.yourEmail'
   | 'module.chapterSetting.chapterPrompt'
