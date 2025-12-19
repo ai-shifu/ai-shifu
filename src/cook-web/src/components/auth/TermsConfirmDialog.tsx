@@ -30,15 +30,13 @@ export function TermsConfirmDialog({
   const legalUrls = useEnvStore((state: EnvStoreState) => state.legalUrls);
 
   // Get current language URL with fallback
-  const langKey = (i18n.language || 'en-US').startsWith('zh') ? 'zh-CN' : 'en-US';
+  const langKey = (i18n.language || 'en-US').startsWith('zh')
+    ? 'zh-CN'
+    : 'en-US';
   const agreementUrl =
-    legalUrls?.agreement?.[langKey] ||
-    legalUrls?.agreement?.['en-US'] ||
-    '';
+    legalUrls?.agreement?.[langKey] || legalUrls?.agreement?.['en-US'] || '';
   const privacyUrl =
-    legalUrls?.privacy?.[langKey] ||
-    legalUrls?.privacy?.['en-US'] ||
-    '';
+    legalUrls?.privacy?.[langKey] || legalUrls?.privacy?.['en-US'] || '';
 
   const handleConfirm = () => {
     onConfirm();
