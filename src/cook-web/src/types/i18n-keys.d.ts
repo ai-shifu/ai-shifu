@@ -267,7 +267,6 @@ export type I18nKey =
   | 'module.renderUi.core.confirm'
   | 'module.renderUi.core.copyCode'
   | 'module.renderUi.core.copied'
-  | 'module.renderUi.core.generatingSvg'
   | 'module.renderUi.inlineInput.unnamed'
   | 'module.settings.basicInfo'
   | 'module.settings.birth'
