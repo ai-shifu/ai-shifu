@@ -157,73 +157,77 @@ export function PhoneLogin({ onLoginSuccess, loginContext }: PhoneLoginProps) {
         onCancel={handleTermsCancel}
       />
       <div className='space-y-4'>
-      <div className='space-y-2'>
-        <Label
-          htmlFor='phone'
-          className={phoneError ? 'text-red-500' : ''}
-        >
-          {t('module.auth.phone')}
-        </Label>
-        <Input
-          id='phone'
-          placeholder={t('module.auth.phonePlaceholder')}
-          value={phoneNumber}
-          onChange={handlePhoneChange}
-          disabled={isLoading}
-          className={cn(
-            'text-base sm:text-sm',
-            phoneError &&
-              'border-red-500 focus-visible:ring-red-500 placeholder:text-muted-foreground',
-          )}
-        />
-        {phoneError && <p className='text-xs text-red-500'>{phoneError}</p>}
-      </div>
-
-      <div className='flex space-x-2'>
-        <div className='flex-1'>
+        <div className='space-y-2'>
+          <Label
+            htmlFor='phone'
+            className={phoneError ? 'text-red-500' : ''}
+          >
+            {t('module.auth.phone')}
+          </Label>
           <Input
-            id='otp'
-            placeholder={t('module.auth.otpPlaceholder')}
-            value={phoneOtp}
-            onChange={e => setPhoneOtp(e.target.value)}
-            onKeyDown={handleOtpKeyDown}
-            disabled={isLoading || !showOtpInput}
-            className='text-base sm:text-sm'
+            id='phone'
+            placeholder={t('module.auth.phonePlaceholder')}
+            value={phoneNumber}
+            onChange={handlePhoneChange}
+            disabled={isLoading}
+            className={cn(
+              'text-base sm:text-sm',
+              phoneError &&
+                'border-red-500 focus-visible:ring-red-500 placeholder:text-muted-foreground',
+            )}
+          />
+          {phoneError && <p className='text-xs text-red-500'>{phoneError}</p>}
+        </div>
+
+        <div className='flex space-x-2'>
+          <div className='flex-1'>
+            <Input
+              id='otp'
+              placeholder={t('module.auth.otpPlaceholder')}
+              value={phoneOtp}
+              onChange={e => setPhoneOtp(e.target.value)}
+              onKeyDown={handleOtpKeyDown}
+              disabled={isLoading || !showOtpInput}
+              className='text-base sm:text-sm'
+            />
+          </div>
+          <Button
+            onClick={handleSendOtp}
+            disabled={
+              isLoading || countdown > 0 || !phoneNumber || !!phoneError
+            }
+            className='whitespace-nowrap h-8'
+          >
+            {isLoading && !showOtpInput ? (
+              <Loader2 className='h-4 w-4 animate-spin mr-2' />
+            ) : countdown > 0 ? (
+              t('module.auth.secondsLater', { count: countdown })
+            ) : (
+              t('module.auth.getOtp')
+            )}
+          </Button>
+        </div>
+
+        <div className='mt-2'>
+          <TermsCheckbox
+            checked={termsAccepted}
+            onCheckedChange={setTermsAccepted}
+            disabled={isLoading}
           />
         </div>
-        <Button
-          onClick={handleSendOtp}
-          disabled={isLoading || countdown > 0 || !phoneNumber || !!phoneError}
-          className='whitespace-nowrap h-8'
-        >
-          {isLoading && !showOtpInput ? (
-            <Loader2 className='h-4 w-4 animate-spin mr-2' />
-          ) : countdown > 0 ? (
-            t('module.auth.secondsLater', { count: countdown })
-          ) : (
-            t('module.auth.getOtp')
-          )}
-        </Button>
-      </div>
 
-      <div className='mt-2'>
-        <TermsCheckbox
-          checked={termsAccepted}
-          onCheckedChange={setTermsAccepted}
-          disabled={isLoading}
-        />
-      </div>
-
-      {showOtpInput && (
-        <Button
-          className='w-full h-8'
-          onClick={handleVerifyOtp}
-          disabled={isLoading || !phoneOtp}
-        >
-          {isLoading ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
-          {t('module.auth.login')}
-        </Button>
-      )}
+        {showOtpInput && (
+          <Button
+            className='w-full h-8'
+            onClick={handleVerifyOtp}
+            disabled={isLoading || !phoneOtp}
+          >
+            {isLoading ? (
+              <Loader2 className='h-4 w-4 animate-spin mr-2' />
+            ) : null}
+            {t('module.auth.login')}
+          </Button>
+        )}
       </div>
     </>
   );
