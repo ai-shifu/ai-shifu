@@ -1,6 +1,7 @@
 import { memo, useCallback } from 'react';
 import { useLongPress } from 'react-use';
 import { isEqual } from 'lodash';
+import { useTranslation } from 'react-i18next';
 // TODO@XJL
 // import ContentRender from '../../../../../../../../../markdown-flow-ui/src/components/ContentRender/ContentRender';
 import { ContentRender, type OnSendContentParams } from 'markdown-flow-ui';
@@ -31,6 +32,8 @@ const ContentBlock = memo(
     onSend,
     onLongPress,
   }: ContentBlockProps) => {
+    const { t } = useTranslation();
+
     const handleClick = useCallback(() => {
       onClickCustomButtonAfterContent?.(blockBid);
     }, [blockBid, onClickCustomButtonAfterContent]);
@@ -74,6 +77,7 @@ const ContentBlock = memo(
           confirmButtonText={confirmButtonText}
           copyButtonText={copyButtonText}
           copiedButtonText={copiedButtonText}
+          svgLoadingText={t('module.renderUi.core.generatingSvg')}
           onSend={_onSend}
         />
       </div>

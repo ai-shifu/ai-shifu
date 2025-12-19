@@ -374,6 +374,7 @@ export default function AskBlock({
                   readonly={true}
                   copyButtonText={copyButtonText}
                   copiedButtonText={copiedButtonText}
+                  svgLoadingText={t('module.renderUi.core.generatingSvg')}
                 />
               </div>
             )}
