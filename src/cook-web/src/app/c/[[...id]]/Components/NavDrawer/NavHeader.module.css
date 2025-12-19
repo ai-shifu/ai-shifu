@@ -6,7 +6,6 @@
   align-items: center;
   justify-content: space-between;
   transition: width 3s ease;
-  border-bottom: 1px solid #e5e5e5;
 }
 .navHeader.mobile {
   height: 76px;
