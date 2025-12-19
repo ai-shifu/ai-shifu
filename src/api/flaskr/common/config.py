@@ -532,6 +532,20 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         secret=True,
         group="auth",
     ),
+    "GOOGLE_OAUTH_TOKEN_ENDPOINT": EnvVar(
+        name="GOOGLE_OAUTH_TOKEN_ENDPOINT",
+        default="https://oauth2.googleapis.com/token",
+        description=(
+            "Google OAuth token endpoint URL used by the backend to exchange auth codes."
+        ),
+        group="auth",
+    ),
+    "GOOGLE_OAUTH_USERINFO_ENDPOINT": EnvVar(
+        name="GOOGLE_OAUTH_USERINFO_ENDPOINT",
+        default="https://openidconnect.googleapis.com/v1/userinfo",
+        description="Google OpenID Connect userinfo endpoint URL used by the backend.",
+        group="auth",
+    ),
     "MAIL_CODE_EXPIRE_TIME": EnvVar(
         name="MAIL_CODE_EXPIRE_TIME",
         default=300,

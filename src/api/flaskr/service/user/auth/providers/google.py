@@ -100,6 +100,12 @@ class GoogleAuthProvider(AuthProvider):
     provider_name = "google"
     supports_oauth = True
 
+    def _resolve_token_endpoint(self, app) -> str:
+        return app.config.get("GOOGLE_OAUTH_TOKEN_ENDPOINT", TOKEN_ENDPOINT)
+
+    def _resolve_userinfo_endpoint(self, app) -> str:
+        return app.config.get("GOOGLE_OAUTH_USERINFO_ENDPOINT", USERINFO_ENDPOINT)
+
     def verify(self, app, request):
         raise NotImplementedError("GoogleAuthProvider only supports OAuth flows")
 
@@ -124,10 +130,11 @@ class GoogleAuthProvider(AuthProvider):
         ui_language_from_frontend = metadata.get("language")
         ui_language = ui_language_from_frontend or _extract_browser_language()
 
-        create_url_kwargs: Dict[str, Any] = {
-            "prompt": "consent",
-            "access_type": "offline",
-        }
+        # Do not force re-consent/offline access by default. For a simple web login
+        # flow we only need an authorization code to fetch basic profile info.
+        # Forcing "prompt=consent" and "access_type=offline" can add extra Google
+        # interstitial/confirmation steps and degrades UX.
+        create_url_kwargs: Dict[str, Any] = {}
         # Google respects both "hl" and (for some flows) "ui_locales".
         if ui_language:
             create_url_kwargs["hl"] = ui_language
@@ -196,11 +203,11 @@ class GoogleAuthProvider(AuthProvider):
         session = self._create_session(app, redirect_uri)
 
         token = session.fetch_token(
-            TOKEN_ENDPOINT,
+            self._resolve_token_endpoint(app),
             code=request.code,
         )
 
-        resp = session.get(USERINFO_ENDPOINT)
+        resp = session.get(self._resolve_userinfo_endpoint(app))
         resp.raise_for_status()
         profile = resp.json()
 
