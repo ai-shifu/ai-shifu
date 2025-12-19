@@ -1,1 +1,110 @@
-.variableList{background:var(--base-muted, #f5f5f5);padding:11px 16px;max-height:236px;overflow:auto;border-bottom:1px solid #e5e5e5;position:sticky;top:0;z-index:20}.variableList .header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.variableList .titleWrapper{display:flex;align-items:baseline}.variableList .title{font-size:16px;font-weight:600;color:#0a0a0a}.variableList .description{font-size:12px;margin-left:8px;color:rgba(0,0,0,.45)}.variableList .link{color:#2563eb;cursor:pointer}.variableList .toggle{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:#111827;cursor:pointer}.variableList .addButton{border:1px solid #e5e7eb;border-radius:999px;background:#fff;padding:6px 12px;font-size:12px;color:#111827;cursor:pointer}.variableList .grid{margin-top:12px;display:grid;grid-template-columns:repeat(2, minmax(140px, 1fr));grid-auto-rows:minmax(0, auto);gap:8px}.variableList .collapsed{display:none}.variableList .item{display:flex}.variableList .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--base-secondary-foreground, #171717);font-size:var(--text-xs-font-size, 12px);font-style:normal;font-weight:bold;line-height:var(--text-xs-line-height, 16px);border-radius:var(--border-radius-rounded-md, 8px) 0 0 var(--border-radius-rounded-md, 8px);background:#fff;box-shadow:var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px) var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0) var(--shadow-xs-color, rgba(0, 0, 0, 0.05));padding:7px 12px;width:50%;text-align:center;border:var(--border-width-border, 1px) solid var(--base-input, #e5e5e5);border-right:none}.variableList .value{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow:hidden;color:#171717;text-overflow:ellipsis;font-size:var(--text-sm-font-size, 14px);font-style:normal;font-weight:var(--font-weight-normal, 400);line-height:var(--text-sm-line-height, 20px)}.variableList .value input{border-radius:0 var(--border-radius-rounded-md, 8px) var(--border-radius-rounded-md, 8px) 0;border:var(--border-width-border, 1px) solid var(--base-input, #e5e5e5);background:var(--custom-background-dark-input-30, #fff);padding:8px 12px;box-shadow:var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px) var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0) var(--shadow-xs-color, rgba(0, 0, 0, 0.05))}
+.variableList {
+  background: var(--base-muted, #f5f5f5);
+  padding: 11px 16px;
+  max-height: 236px;
+  overflow: auto;
+  border-bottom: 1px solid #e5e5e5;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.variableList .header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.variableList .titleWrapper {
+  display: flex;
+  align-items: baseline;
+}
+.variableList .title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0a0a0a;
+}
+.variableList .description {
+  font-size: 12px;
+  margin-left: 8px;
+  color: rgba(0, 0, 0, 0.45);
+}
+.variableList .link {
+  color: #2563eb;
+  cursor: pointer;
+}
+.variableList .toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #111827;
+  cursor: pointer;
+}
+.variableList .addButton {
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #fff;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #111827;
+  cursor: pointer;
+}
+.variableList .grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  grid-auto-rows: minmax(0, auto);
+  gap: 8px;
+}
+.variableList .collapsed {
+  display: none;
+}
+.variableList .item {
+  display: flex;
+}
+.variableList .name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--base-secondary-foreground, #171717);
+  font-size: var(--text-xs-font-size, 12px);
+  font-style: normal;
+  font-weight: bold;
+  line-height: var(--text-xs-line-height, 16px);
+  border-radius: var(--border-radius-rounded-md, 8px) 0 0
+    var(--border-radius-rounded-md, 8px);
+  background: #fff;
+  box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
+    var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
+    var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
+  padding: 7px 12px;
+  width: 50%;
+  text-align: center;
+  border: var(--border-width-border, 1px) solid var(--base-input, #e5e5e5);
+  border-right: none;
+}
+.variableList .value {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  color: #171717;
+  text-overflow: ellipsis;
+  font-size: var(--text-sm-font-size, 14px);
+  font-style: normal;
+  font-weight: var(--font-weight-normal, 400);
+  line-height: var(--text-sm-line-height, 20px);
+}
+.variableList .value input {
+  border-radius: 0 var(--border-radius-rounded-md, 8px)
+    var(--border-radius-rounded-md, 8px) 0;
+  border: var(--border-width-border, 1px) solid var(--base-input, #e5e5e5);
+  background: var(--custom-background-dark-input-30, #fff);
+  padding: 8px 12px;
+  box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
+    var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
+    var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
+}
