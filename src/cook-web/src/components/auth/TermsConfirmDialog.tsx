@@ -31,12 +31,14 @@ export function TermsConfirmDialog({
 
   // Get current language URL with fallback
   const currentLang = i18n.language || 'en-US';
-  const agreementUrl = 
-    legalUrls?.agreement?.[currentLang as keyof typeof legalUrls.agreement] || 
-    legalUrls?.agreement?.['en-US'] || '';
-  const privacyUrl = 
-    legalUrls?.privacy?.[currentLang as keyof typeof legalUrls.privacy] || 
-    legalUrls?.privacy?.['en-US'] || '';
+  const agreementUrl =
+    legalUrls?.agreement?.[currentLang as keyof typeof legalUrls.agreement] ||
+    legalUrls?.agreement?.['en-US'] ||
+    '';
+  const privacyUrl =
+    legalUrls?.privacy?.[currentLang as keyof typeof legalUrls.privacy] ||
+    legalUrls?.privacy?.['en-US'] ||
+    '';
 
   const handleConfirm = () => {
     onConfirm();
