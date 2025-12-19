@@ -313,22 +313,31 @@ export default function AskBlock({
     // 自动聚焦追问输入框，展开后光标立即可输入
     // Auto focus the follow-up textarea so the cursor is ready after expanding
     if (!inputWrapperRef.current) {
-      return;
+      return null;
     }
     const focusable = inputWrapperRef.current.querySelector<
       HTMLTextAreaElement | HTMLInputElement | HTMLElement
     >('textarea, input, [contenteditable="true"]');
     if (focusable && typeof focusable.focus === 'function') {
-      requestAnimationFrame(() => {
+      return requestAnimationFrame(() => {
         focusable.focus();
       });
     }
+    return null;
   }, []);
 
   useEffect(() => {
-    if (isExpanded) {
-      focusAskInput();
+    if (!isExpanded) {
+      return;
     }
+    const rafId = focusAskInput() ?? null;
+    return () => {
+      // 清理 requestAnimationFrame，防止组件卸载后仍尝试 focus
+      // Cancel RAF to avoid focusing after unmount or quick collapse
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+    };
   }, [isExpanded, focusAskInput]);
 
   const handleClickTitle = useCallback(
