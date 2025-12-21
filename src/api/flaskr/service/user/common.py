@@ -48,7 +48,10 @@ def validate_user(app: Flask, token: str) -> UserInfo:
                 app.logger.info("user_id:" + user_id)
 
             app.logger.info("user_id:" + user_id)
-            redis_user_id = redis.get(app.config["REDIS_KEY_PREFIX_USER"] + token)
+            redis_user_id = redis.getex(
+                app.config["REDIS_KEY_PREFIX_USER"] + token,
+                ex=app.config.get("TOKEN_EXPIRE_TIME", 60 * 60 * 24 * 7),
+            )
             if redis_user_id is None:
                 raise_error("server.user.userTokenExpired")
             set_user_id = str(
