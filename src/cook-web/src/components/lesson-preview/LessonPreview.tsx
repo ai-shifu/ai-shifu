@@ -87,11 +87,14 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
 
   return (
     <div className={cn(styles.lessonPreview, 'text-sm')}>
-      <div className='flex flex-1 min-w-0 items-baseline gap-2 pt-[4px]'>
+      <div className='flex items-baseline gap-2 pt-[4px]'>
         <h2 className='text-base font-semibold text-foreground whitespace-nowrap shrink-0'>
           {t('module.shifu.previewArea.title')}
         </h2>
-        <span className='flex-1 min-w-0 text-xs text-[rgba(0,0,0,0.45)] truncate'>
+        <span 
+          className='flex-1 min-w-0 text-xs text-[rgba(0,0,0,0.45)] truncate'
+          title={t('module.shifu.previewArea.description')}
+        >
           {t('module.shifu.previewArea.description')}
         </span>
       </div>

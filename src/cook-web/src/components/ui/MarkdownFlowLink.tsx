@@ -7,6 +7,7 @@ interface MarkdownFlowLinkProps {
   linkText?: string;
   className?: string;
   linkClassName?: string;
+  title?: string;
 }
 
 /**
@@ -19,11 +20,12 @@ export const MarkdownFlowLink: React.FC<MarkdownFlowLinkProps> = ({
   linkText = 'MarkdownFlow',
   className = '',
   linkClassName = '',
+  title,
 }) => {
   const defaultLinkClass = "underline hover:opacity-80 transition-opacity duration-200 cursor-pointer";
   
   return (
-    <span className={cn('inline', className)}>
+    <span className={cn('inline', className)} title={title}>
       {prefix && <span>{prefix}</span>}
       {prefix && ' '}
       <a
