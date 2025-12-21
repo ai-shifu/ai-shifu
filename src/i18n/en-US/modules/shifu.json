@@ -11,7 +11,7 @@
   "previewArea": {
     "action": "Debug",
     "close": "Collapse learning simulation",
-    "description": "Simulate the learner's journey and experience 1-on-1 AI teaching based on the teaching prompts",
+    "description": "Simulate the learner's journey and experience 1-on-1 AI teaching",
     "disabled": "Select a unit before debugging.",
     "empty": "Enter teaching prompts on the left, then click \"Debug\" to experience learning simulation",
     "loading": "Generating learning simulation...",
