@@ -29,6 +29,7 @@ const identifyState = {
   pendingUserInfo: undefined as UmamiUserInfo | null | undefined,
   prevSnapshot: '',
   ready: false,
+  pageviewReady: false,
   queuedEvents: [] as Array<{ eventName: string; eventData: any }>,
   queuedPageviews: 0,
 };
@@ -100,6 +101,8 @@ const sendPageview = (umami: any) => {
     return false;
   }
 
+  identifyState.pageviewReady = true;
+  flushUmamiIdentify();
   return true;
 };
 
@@ -110,11 +113,6 @@ export const flushUmamiPageviews = () => {
 
   const umami = (window as any).umami;
   if (!umami) {
-    return;
-  }
-
-  if (identifyState.pendingUserInfo !== undefined && !identifyState.ready) {
-    flushUmamiIdentify();
     return;
   }
 
@@ -131,10 +129,17 @@ export const flushUmamiPageviews = () => {
       // swallow tracking errors
     }
   }
+
+  identifyState.pageviewReady = true;
+  flushUmamiIdentify();
 };
 
 export const flushUmamiIdentify = () => {
   if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (!identifyState.pageviewReady) {
     return;
   }
 
@@ -144,9 +149,6 @@ export const flushUmamiIdentify = () => {
 
   if (applyIdentify(identifyState.pendingUserInfo)) {
     identifyState.pendingUserInfo = undefined;
-    if (identifyState.queuedPageviews > 0) {
-      flushUmamiPageviews();
-    }
   }
 };
 
@@ -199,11 +201,6 @@ export const trackPageview = () => {
     const umami = (window as any).umami;
     if (!umami) {
       identifyState.queuedPageviews += 1;
-      return;
-    }
-    if (identifyState.pendingUserInfo !== undefined && !identifyState.ready) {
-      identifyState.queuedPageviews += 1;
-      flushUmamiIdentify();
       return;
     }
     if (!sendPageview(umami)) {

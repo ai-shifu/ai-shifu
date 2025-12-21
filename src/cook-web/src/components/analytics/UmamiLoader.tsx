@@ -5,7 +5,6 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useEnvStore } from '@/c-store';
 import { useShallow } from 'zustand/react/shallow';
 import { flushUmamiPageviews, trackPageview } from '@/c-common/tools/tracking';
-import { useUserStore } from '@/store';
 
 const SCRIPT_ID = 'umami-analytics-script';
 
@@ -39,8 +38,6 @@ export const UmamiLoader = () => {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const search = searchParams?.toString();
-  const isInitialized = useUserStore(state => state.isInitialized);
-
   useEffect(() => {
     if (!umamiScriptSrc || !umamiWebsiteId) {
       return;
@@ -49,11 +46,8 @@ export const UmamiLoader = () => {
   }, [umamiScriptSrc, umamiWebsiteId]);
 
   useEffect(() => {
-    if (!isInitialized) {
-      return;
-    }
     trackPageview();
-  }, [pathname, search, isInitialized]);
+  }, [pathname, search]);
 
   return null;
 };
