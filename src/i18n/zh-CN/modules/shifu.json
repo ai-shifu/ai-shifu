@@ -3,8 +3,8 @@
   "creationArea": {
     "descriptionPrefix": "用",
     "descriptionSuffix": "写授课提示词，教 AI 如何授课",
-    "modeCode": "友好",
-    "modeText": "专业",
+    "modeCode": "专业",
+    "modeText": "友好",
     "title": "授课提示词"
   },
   "newChapter": "添加章",

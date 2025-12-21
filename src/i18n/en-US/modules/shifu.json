@@ -3,8 +3,8 @@
   "creationArea": {
     "descriptionPrefix": "Use",
     "descriptionSuffix": "to write teaching prompts that guide the AI",
-    "modeCode": "Friendly",
-    "modeText": "Professional",
+    "modeCode": "Professional",
+    "modeText": "Friendly",
     "title": "Teaching Prompts"
   },
   "newChapter": "Add Chapter",
