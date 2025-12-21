@@ -11,6 +11,7 @@ import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import { useCourseStore, useUiLayoutStore } from '@/c-store';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
+import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
 
 /**
  * Overall canvas for the chat area
@@ -89,17 +90,11 @@ export const ChatUi = ({
           </span>
           <span className={styles.separator}>|</span>
           <span className={styles.footerText}>
-            {t('module.chat.poweredByPrefix')}{' '}
-            <a
-              href='https://markdownflow.ai/'
-              target='_blank'
-              rel='noopener noreferrer'
-              className={styles.footerLink}
-            >
-              {t('module.chat.markdownFlow')}
-            </a>
-            {t('module.chat.poweredBySuffix') && ' '}
-            {t('module.chat.poweredBySuffix')}
+            <MarkdownFlowLink 
+              prefix={t('module.chat.poweredByPrefix')}
+              suffix={t('module.chat.poweredBySuffix')}
+              linkText={t('module.chat.markdownFlow')}
+            />
           </span>
         </div>
       </div>
