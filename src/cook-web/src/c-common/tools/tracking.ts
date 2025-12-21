@@ -29,7 +29,9 @@ const identifyState = {
   pendingUserInfo: undefined as UmamiUserInfo | null | undefined,
   prevSnapshot: '',
   ready: false,
-  queuedCalls: [] as Array<{ args: any[] }>,
+  pageviewReady: false,
+  queuedEvents: [] as Array<{ eventName: string; eventData: any }>,
+  queuedPageviews: 0,
 };
 
 const buildUserSnapshot = (userInfo: UmamiUserInfo | null) => {
@@ -42,15 +44,15 @@ const buildUserSnapshot = (userInfo: UmamiUserInfo | null) => {
 };
 
 const drainQueuedEvents = (umami: any) => {
-  if (identifyState.queuedCalls.length === 0) {
+  if (identifyState.queuedEvents.length === 0) {
     return;
   }
 
-  const queued = identifyState.queuedCalls.slice();
-  identifyState.queuedCalls = [];
-  queued.forEach(({ args }) => {
+  const queued = identifyState.queuedEvents.slice();
+  identifyState.queuedEvents = [];
+  queued.forEach(({ eventName, eventData }) => {
     try {
-      umami.track(...args);
+      umami.track(eventName, eventData);
     } catch {
       // swallow tracking errors
     }
@@ -92,8 +94,52 @@ const applyIdentify = (userInfo: UmamiUserInfo | null) => {
   return true;
 };
 
+const sendPageview = (umami: any) => {
+  try {
+    umami.track();
+  } catch {
+    return false;
+  }
+
+  identifyState.pageviewReady = true;
+  flushUmamiIdentify();
+  return true;
+};
+
+export const flushUmamiPageviews = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const umami = (window as any).umami;
+  if (!umami) {
+    return;
+  }
+
+  if (identifyState.queuedPageviews <= 0) {
+    return;
+  }
+
+  const count = identifyState.queuedPageviews;
+  identifyState.queuedPageviews = 0;
+  for (let i = 0; i < count; i += 1) {
+    try {
+      umami.track();
+    } catch {
+      // swallow tracking errors
+    }
+  }
+
+  identifyState.pageviewReady = true;
+  flushUmamiIdentify();
+};
+
 export const flushUmamiIdentify = () => {
   if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (!identifyState.pageviewReady) {
     return;
   }
 
@@ -134,13 +180,13 @@ export const tracking = async (eventName, eventData) => {
   try {
     const umami = (window as any).umami;
     if (!umami) {
-      identifyState.queuedCalls.push({ args: [eventName, eventData] });
+      identifyState.queuedEvents.push({ eventName, eventData });
       return;
     }
     if (!identifyState.ready) {
       flushUmamiIdentify();
       if (!identifyState.ready) {
-        identifyState.queuedCalls.push({ args: [eventName, eventData] });
+        identifyState.queuedEvents.push({ eventName, eventData });
         return;
       }
     }
@@ -154,17 +200,12 @@ export const trackPageview = () => {
   try {
     const umami = (window as any).umami;
     if (!umami) {
-      identifyState.queuedCalls.push({ args: [] });
+      identifyState.queuedPageviews += 1;
       return;
     }
-    if (!identifyState.ready) {
-      flushUmamiIdentify();
-      if (!identifyState.ready) {
-        identifyState.queuedCalls.push({ args: [] });
-        return;
-      }
+    if (!sendPageview(umami)) {
+      identifyState.queuedPageviews += 1;
     }
-    umami.track();
   } catch {
     // swallow tracking errors
   }

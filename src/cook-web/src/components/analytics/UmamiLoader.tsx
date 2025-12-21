@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEnvStore } from '@/c-store';
 import { useShallow } from 'zustand/react/shallow';
-import { flushUmamiIdentify, trackPageview } from '@/c-common/tools/tracking';
+import { flushUmamiPageviews, trackPageview } from '@/c-common/tools/tracking';
 
 const SCRIPT_ID = 'umami-analytics-script';
 
@@ -12,7 +12,7 @@ const ensureUmamiScript = (src: string, websiteId: string) => {
   const existing = document.getElementById(SCRIPT_ID);
   if (existing) {
     existing.setAttribute('data-website-id', websiteId);
-    flushUmamiIdentify();
+    flushUmamiPageviews();
     return;
   }
 
@@ -23,7 +23,7 @@ const ensureUmamiScript = (src: string, websiteId: string) => {
   script.setAttribute('data-website-id', websiteId);
   script.setAttribute('data-auto-track', 'false');
   script.addEventListener('load', () => {
-    flushUmamiIdentify();
+    flushUmamiPageviews();
   });
   document.head.appendChild(script);
 };
