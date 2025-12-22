@@ -90,7 +90,7 @@ export const ChatUi = ({
           </span>
           <span className={styles.separator}>|</span>
           <span className={styles.footerText}>
-            <MarkdownFlowLink 
+            <MarkdownFlowLink
               prefix={t('module.chat.poweredByPrefix')}
               suffix={t('module.chat.poweredBySuffix')}
               linkText={t('module.chat.markdownFlow')}

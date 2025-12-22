@@ -514,12 +514,16 @@ const ScriptEditor = ({ id }: { id: string }) => {
                         {t('module.shifu.creationArea.title')}
                       </h2>
                       <p className='flex-1 min-w-0 text-xs leading-3 text-[rgba(0,0,0,0.45)] truncate'>
-                        <MarkdownFlowLink 
-                          prefix={t('module.shifu.creationArea.descriptionPrefix')}
-                          suffix={t('module.shifu.creationArea.descriptionSuffix')}
-                          linkText="MarkdownFlow"
+                        <MarkdownFlowLink
+                          prefix={t(
+                            'module.shifu.creationArea.descriptionPrefix',
+                          )}
+                          suffix={t(
+                            'module.shifu.creationArea.descriptionSuffix',
+                          )}
+                          linkText='MarkdownFlow'
                           title={`${t('module.shifu.creationArea.descriptionPrefix')} MarkdownFlow ${t('module.shifu.creationArea.descriptionSuffix')}`}
-                          targetUrl="https://markdownflow.ai/docs"
+                          targetUrl='https://markdownflow.ai/docs'
                         />
                       </p>
                     </div>

@@ -91,7 +91,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
         <h2 className='text-base font-semibold text-foreground whitespace-nowrap shrink-0'>
           {t('module.shifu.previewArea.title')}
         </h2>
-        <span 
+        <span
           className='flex-1 min-w-0 text-xs text-[rgba(0,0,0,0.45)] truncate'
           title={t('module.shifu.previewArea.description')}
         >
