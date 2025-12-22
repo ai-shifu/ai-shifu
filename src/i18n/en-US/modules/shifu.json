@@ -2,7 +2,7 @@
   "__namespace__": "module.shifu",
   "creationArea": {
     "descriptionPrefix": "Write in",
-    "descriptionSuffix": "to guide AI teaching",
+    "descriptionSuffix": "format to guide AI teaching",
     "modeCode": "Pro",
     "modeText": "Easy",
     "title": "Teaching Prompts"
