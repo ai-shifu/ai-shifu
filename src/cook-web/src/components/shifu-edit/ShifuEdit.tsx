@@ -28,6 +28,7 @@ import LessonPreview from '@/components/lesson-preview';
 import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
 import { Rnd } from 'react-rnd';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
 import { LessonCreationSettings } from '@/types/shifu';
 
 const OUTLINE_DEFAULT_WIDTH = 256;
@@ -513,7 +514,17 @@ const ScriptEditor = ({ id }: { id: string }) => {
                         {t('module.shifu.creationArea.title')}
                       </h2>
                       <p className='flex-1 min-w-0 text-xs leading-3 text-[rgba(0,0,0,0.45)] truncate'>
-                        {t('module.shifu.creationArea.description')}
+                        <MarkdownFlowLink
+                          prefix={t(
+                            'module.shifu.creationArea.descriptionPrefix',
+                          )}
+                          suffix={t(
+                            'module.shifu.creationArea.descriptionSuffix',
+                          )}
+                          linkText='MarkdownFlow'
+                          title={`${t('module.shifu.creationArea.descriptionPrefix')} MarkdownFlow ${t('module.shifu.creationArea.descriptionSuffix')}`}
+                          targetUrl='https://markdownflow.ai/docs'
+                        />
                       </p>
                     </div>
                     <div className='ml-auto flex flex-nowrap items-center gap-2 relative shrink-0'>
