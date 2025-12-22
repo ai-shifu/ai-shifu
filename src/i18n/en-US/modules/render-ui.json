@@ -2,6 +2,5 @@
   "__namespace__": "module.renderUi.core",
   "confirm": "Submit",
   "copied": "Copied",
-  "copyCode": "Copy",
-  "generatingSvg": "Generating SVG..."
+  "copyCode": "Copy"
 }
