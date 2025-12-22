@@ -2,7 +2,7 @@
   "__namespace__": "module.shifu",
   "creationArea": {
     "descriptionPrefix": "用",
-    "descriptionSuffix": "写授课提示词，教 AI 如何授课",
+    "descriptionSuffix": "格式撰写，指导 AI 如何授课",
     "modeCode": "专业",
     "modeText": "友好",
     "title": "授课提示词"
@@ -11,14 +11,14 @@
   "previewArea": {
     "action": "调试",
     "close": "收起学习模拟",
-    "description": "模拟学生学习过程，体验 AI 按授课提示词的一对一授课",
+    "description": "感受学习者的体验，看提示词生成个性化课程的效果",
     "disabled": "请选择具体小节后再调试",
     "empty": "在左侧输入授课提示词，然后点击“调试”体验学习模拟",
     "loading": "正在生成学习模拟...",
     "open": "展开学习模拟",
     "title": "学习模拟",
     "variablesCollapse": "收起",
-    "variablesDescription": "将变量值替换进授课提示词，用来控制 AI 的授课",
+    "variablesDescription": "不同学习者会给变量不同的值，得到不同的课程效果",
     "variablesExpand": "展开",
     "variablesLearnMore": "了解更多",
     "variablesPlaceholder": "UNKNOWN",
