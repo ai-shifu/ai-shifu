@@ -8,6 +8,7 @@ interface MarkdownFlowLinkProps {
   className?: string;
   linkClassName?: string;
   title?: string;
+  targetUrl?: string;
 }
 
 /**
@@ -21,6 +22,7 @@ export const MarkdownFlowLink: React.FC<MarkdownFlowLinkProps> = ({
   className = '',
   linkClassName = '',
   title,
+  targetUrl = 'https://markdownflow.ai/',
 }) => {
   const defaultLinkClass = "underline hover:opacity-80 transition-opacity duration-200 cursor-pointer";
   
@@ -29,7 +31,7 @@ export const MarkdownFlowLink: React.FC<MarkdownFlowLinkProps> = ({
       {prefix && <span>{prefix}</span>}
       {prefix && ' '}
       <a
-        href="https://markdownflow.ai/"
+        href={targetUrl}
         target="_blank"
         rel="noopener noreferrer"
         className={cn(defaultLinkClass, linkClassName)}

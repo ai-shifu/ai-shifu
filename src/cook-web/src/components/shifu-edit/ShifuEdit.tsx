@@ -519,6 +519,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                           suffix={t('module.shifu.creationArea.descriptionSuffix')}
                           linkText="MarkdownFlow"
                           title={`${t('module.shifu.creationArea.descriptionPrefix')} MarkdownFlow ${t('module.shifu.creationArea.descriptionSuffix')}`}
+                          targetUrl="https://markdownflow.ai/docs"
                         />
                       </p>
                     </div>
