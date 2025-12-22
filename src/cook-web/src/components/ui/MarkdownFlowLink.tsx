@@ -45,18 +45,14 @@ export const MarkdownFlowLink: React.FC<MarkdownFlowLinkProps> = ({
   ].filter(Boolean);
 
   // Use reduce to join parts with proper spacing
-  const renderedContent = contentParts.reduce<React.ReactNode[]>(
-    (acc, current, index) => {
-      if (index === 0) return [current];
-      return acc.concat(' ', current);
-    },
-    [],
-  );
+  const renderedContent = contentParts.length > 0
+    ? contentParts.reduce((prev, curr) => <>{prev} {curr}</>)
+    : null;
 
   return (
     <span
       className={cn('inline', className)}
-      title={title}
+      title={title ?? [prefix, linkText, suffix].filter(Boolean).join(' ')}
     >
       {renderedContent}
     </span>
