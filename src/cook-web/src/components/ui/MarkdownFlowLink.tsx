@@ -27,14 +27,12 @@ export const MarkdownFlowLink: React.FC<MarkdownFlowLinkProps> = ({
   const defaultLinkClass =
     'underline hover:opacity-80 transition-opacity duration-200 cursor-pointer';
 
-  return (
-    <span
-      className={cn('inline', className)}
-      title={title}
-    >
-      {prefix && <span>{prefix}</span>}
-      {prefix && ' '}
+  // Build content parts array and filter out empty elements
+  const contentParts: React.ReactNode[] = [
+    prefix && <span key="prefix">{prefix}</span>,
+    linkText && (
       <a
+        key="link"
         href={targetUrl}
         target='_blank'
         rel='noopener noreferrer'
@@ -42,8 +40,22 @@ export const MarkdownFlowLink: React.FC<MarkdownFlowLinkProps> = ({
       >
         {linkText}
       </a>
-      {suffix && ' '}
-      {suffix && <span>{suffix}</span>}
+    ),
+    suffix && <span key="suffix">{suffix}</span>,
+  ].filter(Boolean);
+
+  // Use reduce to join parts with proper spacing
+  const renderedContent = contentParts.reduce<React.ReactNode[]>((acc, current, index) => {
+    if (index === 0) return [current];
+    return acc.concat(' ', current);
+  }, []);
+
+  return (
+    <span
+      className={cn('inline', className)}
+      title={title}
+    >
+      {renderedContent}
     </span>
   );
 };
