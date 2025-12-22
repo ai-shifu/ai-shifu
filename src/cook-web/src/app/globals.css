@@ -1,15 +1,10 @@
-@import '@fontsource/inter/400.css';
-@import '@fontsource/inter/600.css';
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../../tailwind.config.ts";
 
 body,
 html {
   font-family:
-  /* English CJK fonts */
-    Inter,
-    /* Chinese CJK fonts */ 'PingFang SC',
+    'PingFang SC',
     'Microsoft YaHei',
     'Source Han Sans SC',
     -apple-system,
