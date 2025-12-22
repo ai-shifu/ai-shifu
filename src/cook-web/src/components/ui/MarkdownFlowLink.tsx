@@ -29,10 +29,10 @@ export const MarkdownFlowLink: React.FC<MarkdownFlowLinkProps> = ({
 
   // Build content parts array and filter out empty elements
   const contentParts: React.ReactNode[] = [
-    prefix && <span key="prefix">{prefix}</span>,
+    prefix && <span key='prefix'>{prefix}</span>,
     linkText && (
       <a
-        key="link"
+        key='link'
         href={targetUrl}
         target='_blank'
         rel='noopener noreferrer'
@@ -41,14 +41,17 @@ export const MarkdownFlowLink: React.FC<MarkdownFlowLinkProps> = ({
         {linkText}
       </a>
     ),
-    suffix && <span key="suffix">{suffix}</span>,
+    suffix && <span key='suffix'>{suffix}</span>,
   ].filter(Boolean);
 
   // Use reduce to join parts with proper spacing
-  const renderedContent = contentParts.reduce<React.ReactNode[]>((acc, current, index) => {
-    if (index === 0) return [current];
-    return acc.concat(' ', current);
-  }, []);
+  const renderedContent = contentParts.reduce<React.ReactNode[]>(
+    (acc, current, index) => {
+      if (index === 0) return [current];
+      return acc.concat(' ', current);
+    },
+    [],
+  );
 
   return (
     <span
