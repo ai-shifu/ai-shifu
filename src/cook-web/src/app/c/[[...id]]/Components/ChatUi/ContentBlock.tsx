@@ -27,10 +27,10 @@ const ContentBlock = memo(
     confirmButtonText,
     copyButtonText,
     copiedButtonText,
-  onClickCustomButtonAfterContent,
-  onSend,
-  onLongPress,
-}: ContentBlockProps) => {
+    onClickCustomButtonAfterContent,
+    onSend,
+    onLongPress,
+  }: ContentBlockProps) => {
     const handleClick = useCallback(() => {
       onClickCustomButtonAfterContent?.(blockBid);
     }, [blockBid, onClickCustomButtonAfterContent]);
