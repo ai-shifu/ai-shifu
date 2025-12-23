@@ -933,7 +933,7 @@ class RunScriptContextV2:
                 interaction_result = mdflow.process(
                     run_script_info.block_position,
                     ProcessMode.COMPLETE,
-                    context=message_list,
+                    # context=message_list,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
@@ -1022,7 +1022,7 @@ class RunScriptContextV2:
                 interaction_result = mdflow.process(
                     run_script_info.block_position,
                     ProcessMode.COMPLETE,
-                    context=message_list,
+                    # context=message_list,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
@@ -1075,7 +1075,7 @@ class RunScriptContextV2:
                 run_script_info.block_position,
                 ProcessMode.COMPLETE,
                 user_input=user_input_param,
-                context=message_list,
+                # context=message_list,
             )
 
             if (
@@ -1175,7 +1175,7 @@ class RunScriptContextV2:
                 interaction_result = mdflow.process(
                     run_script_info.block_position,
                     ProcessMode.COMPLETE,
-                    context=message_list,
+                    # context=message_list,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
@@ -1240,7 +1240,7 @@ class RunScriptContextV2:
                 interaction_result = mdflow.process(
                     run_script_info.block_position,
                     ProcessMode.COMPLETE,
-                    context=message_list,
+                    # context=message_list,
                 )
 
                 # Get rendered interaction content
@@ -1276,7 +1276,7 @@ class RunScriptContextV2:
                     run_script_info.block_position,
                     ProcessMode.STREAM,
                     variables=user_profile,
-                    context=message_list,
+                    # context=message_list,
                 )
 
                 # Handle both Generator and single LLMResult (markdown-flow 0.2.27+)
