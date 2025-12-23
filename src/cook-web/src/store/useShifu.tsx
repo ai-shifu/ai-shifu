@@ -100,6 +100,10 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   const [variables, setVariables] = useState<string[]>([]);
   const currentMdflow = useRef<string>('');
   const lastPersistedMdflowRef = useRef<Record<string, string>>({});
+  const saveMdflowLockRef = useRef<{ inflight: boolean; outlineId: string | null }>({
+    inflight: false,
+    outlineId: null,
+  });
   const [systemVariables, setSystemVariables] = useState<
     Record<string, string>[]
   >([]);
@@ -1245,15 +1249,26 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     const shifu_bid = payload?.shifu_bid ?? currentShifu?.bid ?? '';
     const outline_bid = payload?.outline_bid ?? (currentNode?.bid || '');
     const data = payload?.data ?? currentMdflow.current;
-    await api.saveMdflow({
-      shifu_bid,
-      outline_bid,
-      data,
-    });
-    if (outline_bid) {
-      lastPersistedMdflowRef.current[outline_bid] = data || '';
+    if (saveMdflowLockRef.current.inflight) {
+      if (outline_bid && saveMdflowLockRef.current.outlineId !== outline_bid) {
+        // When another outline save is in-flight, skip cross-outline saves
+        return;
+      }
     }
-    setLastSaveTime(new Date());
+    saveMdflowLockRef.current = { inflight: true, outlineId: outline_bid || null };
+    try {
+      await api.saveMdflow({
+        shifu_bid,
+        outline_bid,
+        data,
+      });
+      if (outline_bid) {
+        lastPersistedMdflowRef.current[outline_bid] = data || '';
+      }
+      setLastSaveTime(new Date());
+    } finally {
+      saveMdflowLockRef.current = { inflight: false, outlineId: null };
+    }
   };
 
   const setCurrentMdflow = (value: string) => {
