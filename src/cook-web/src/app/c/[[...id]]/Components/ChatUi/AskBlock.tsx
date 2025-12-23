@@ -312,18 +312,18 @@ export default function AskBlock({
 
   const focusAskInput = useCallback(() => {
     // Auto focus the follow-up textarea so the cursor is ready after expanding
-    if (!inputWrapperRef.current) {
-      return null;
-    }
-    const focusable = inputWrapperRef.current.querySelector<
-      HTMLTextAreaElement | HTMLInputElement | HTMLElement
-    >('textarea, input, [contenteditable="true"]');
-    if (focusable && typeof focusable.focus === 'function') {
-      return requestAnimationFrame(() => {
-        focusable.focus({ preventScroll: true });
-      });
-    }
-    return null;
+    // if (!inputWrapperRef.current) {
+    //   return null;
+    // }
+    // const focusable = inputWrapperRef.current.querySelector<
+    //   HTMLTextAreaElement | HTMLInputElement | HTMLElement
+    // >('textarea, input, [contenteditable="true"]');
+    // if (focusable && typeof focusable.focus === 'function') {
+    //   return requestAnimationFrame(() => {
+    //     focusable.focus({ preventScroll: true });
+    //   });
+    // }
+    // return null;
   }, []);
 
   useEffect(() => {
