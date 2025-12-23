@@ -8,12 +8,14 @@ import { removeParamFromUrl } from '@/c-utils/urlUtils';
 import i18n from '@/i18n';
 import { UserStoreState } from '@/c-types/store';
 import { clearGoogleOAuthSession } from '@/lib/google-oauth-session';
+import { identifyUmamiUser } from '@/c-common/tools/tracking';
 
 // Helper function to register as guest user
 const registerAsGuest = async (): Promise<string> => {
   // Always fetch a fresh guest token to avoid expiration issues
   tokenTool.remove();
   const res = await registerTmp({ temp_id: genUuid() });
+  identifyUmamiUser(res?.userInfo);
   const token = res.token;
   tokenTool.set({ token, faked: true });
   return token;
@@ -66,6 +68,7 @@ export const useUserStore = create<
       set(() => ({
         userInfo: normalizedUserInfo,
       }));
+      identifyUmamiUser(normalizedUserInfo);
 
       // Let i18next handle the language and its fallback mechanism
       if (normalizedUserInfo.language) {
@@ -186,6 +189,7 @@ export const useUserStore = create<
           set(() => ({
             userInfo: normalizedUserInfo,
           }));
+          identifyUmamiUser(normalizedUserInfo);
           if (normalizedUserInfo?.language) {
             i18n.changeLanguage(normalizedUserInfo.language);
           }
@@ -238,12 +242,14 @@ export const useUserStore = create<
 
     // Public API: Update user information
     updateUserInfo: userInfo => {
-      set(state => ({
-        userInfo: {
-          ...state.userInfo,
-          ...userInfo,
-        },
+      const nextUserInfo = {
+        ...get().userInfo,
+        ...userInfo,
+      };
+      set(() => ({
+        userInfo: nextUserInfo,
       }));
+      identifyUmamiUser(nextUserInfo);
     },
 
     // Public API: Refresh user information from server
@@ -254,6 +260,7 @@ export const useUserStore = create<
           ...res,
         },
       }));
+      identifyUmamiUser(res);
 
       // Let i18next handle the language and its fallback mechanism
       i18n.changeLanguage(res.language);

@@ -22,6 +22,7 @@ import i18n, { browserLanguage, normalizeLanguage } from '@/i18n';
 import { environment } from '@/config/environment';
 import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
 import { TermsCheckbox } from '@/components/TermsCheckbox';
+import { TermsConfirmDialog } from '@/components/auth/TermsConfirmDialog';
 import { useToast } from '@/hooks/useToast';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { useUserStore } from '@/store';
@@ -250,6 +251,7 @@ export default function AuthPage() {
 
   const [googleTermsAccepted, setGoogleTermsAccepted] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [showTermsDialog, setShowTermsDialog] = useState(false);
 
   const { startGoogleLogin } = useGoogleAuth({
     onSuccess: (_, redirectPath) => {
@@ -260,18 +262,7 @@ export default function AuthPage() {
     },
   });
 
-  const handleGoogleSignIn = useCallback(async () => {
-    if (!isGoogleEnabled) {
-      return;
-    }
-
-    if (!googleTermsAccepted) {
-      toast({
-        title: t('module.auth.termsError'),
-      });
-      return;
-    }
-
+  const doGoogleLogin = useCallback(async () => {
     try {
       setIsGoogleLoading(true);
       await startGoogleLogin({
@@ -281,15 +272,31 @@ export default function AuthPage() {
     } catch (error) {
       setIsGoogleLoading(false);
     }
-  }, [
-    googleTermsAccepted,
-    isGoogleEnabled,
-    language,
-    resolveRedirectPath,
-    startGoogleLogin,
-    t,
-    toast,
-  ]);
+  }, [language, resolveRedirectPath, startGoogleLogin]);
+
+  const handleGoogleSignIn = useCallback(async () => {
+    if (!isGoogleEnabled) {
+      return;
+    }
+
+    if (!googleTermsAccepted) {
+      setShowTermsDialog(true);
+      return;
+    }
+
+    await doGoogleLogin();
+  }, [doGoogleLogin, googleTermsAccepted, isGoogleEnabled]);
+
+  const handleTermsConfirm = useCallback(async () => {
+    setGoogleTermsAccepted(true);
+    setShowTermsDialog(false);
+    // Auto start Google login after terms accepted
+    await doGoogleLogin();
+  }, [doGoogleLogin]);
+
+  const handleTermsCancel = useCallback(() => {
+    setShowTermsDialog(false);
+  }, []);
 
   const renderLoginContent = useCallback(
     (method: LoginMethod) => {
@@ -327,6 +334,7 @@ export default function AuthPage() {
       handleGoogleSignIn,
       googleTermsAccepted,
       isGoogleLoading,
+      loginContext,
     ],
   );
 
@@ -358,129 +366,137 @@ export default function AuthPage() {
     );
   }
   return (
-    <div className='min-h-screen flex items-center justify-center p-4'>
-      <div className='w-full max-w-md space-y-2'>
-        <div className='flex flex-col items-center relative'>
-          <h2 className='flex items-center font-semibold pb-2 w-full justify-center'>
-            <Image
-              className='dark:invert'
-              src={resolvedLogo}
-              alt='AI-Shifu'
-              width={180}
-              height={40}
-              priority
-            />
-          </h2>
-          <div className='absolute top-0 right-0 z-10'>
-            <LanguageSelect
-              language={language}
-              onSetLanguage={handleManualLanguageChange}
-              variant='login'
-            />
+    <>
+      <TermsConfirmDialog
+        open={showTermsDialog}
+        onOpenChange={setShowTermsDialog}
+        onConfirm={handleTermsConfirm}
+        onCancel={handleTermsCancel}
+      />
+      <div className='min-h-screen flex items-center justify-center p-4'>
+        <div className='w-full max-w-md space-y-2'>
+          <div className='flex flex-col items-center relative'>
+            <h2 className='flex items-center font-semibold pb-2 w-full justify-center'>
+              <Image
+                className='dark:invert'
+                src={resolvedLogo}
+                alt='AI-Shifu'
+                width={180}
+                height={40}
+                priority
+              />
+            </h2>
+            <div className='absolute top-0 right-0 z-10'>
+              <LanguageSelect
+                language={language}
+                onSetLanguage={handleManualLanguageChange}
+                variant='login'
+              />
+            </div>
           </div>
-        </div>
-        <Card>
-          <CardHeader>
-            {authMode === 'login' && (
-              <CardTitle className='text-xl text-center'>
-                {t('module.auth.title')}
-              </CardTitle>
-            )}
-            {authMode === 'feedback' && (
-              <>
+          <Card>
+            <CardHeader>
+              {authMode === 'login' && (
                 <CardTitle className='text-xl text-center'>
-                  {t('module.auth.feedback')}
+                  {t('module.auth.title')}
                 </CardTitle>
-                <CardDescription className='text-sm text-center'>
-                  {t('module.auth.feedback')}
-                </CardDescription>
-              </>
-            )}
-          </CardHeader>
+              )}
+              {authMode === 'feedback' && (
+                <>
+                  <CardTitle className='text-xl text-center'>
+                    {t('module.auth.feedback')}
+                  </CardTitle>
+                  <CardDescription className='text-sm text-center'>
+                    {t('module.auth.feedback')}
+                  </CardDescription>
+                </>
+              )}
+            </CardHeader>
 
-          <CardContent>
-            {authMode === 'login' && (
-              <div className='space-y-6'>
-                {availableMethods.length > 0 ? (
-                  shouldShowTabs ? (
-                    <Tabs
-                      value={loginMethod}
-                      onValueChange={value =>
-                        setLoginMethod(value as LoginMethod)
-                      }
-                      className='w-full'
-                    >
-                      <TabsList
-                        className='grid w-full'
-                        style={{
-                          gridTemplateColumns: `repeat(${availableMethods.length}, minmax(0, 1fr))`,
-                        }}
+            <CardContent>
+              {authMode === 'login' && (
+                <div className='space-y-6'>
+                  {availableMethods.length > 0 ? (
+                    shouldShowTabs ? (
+                      <Tabs
+                        value={loginMethod}
+                        onValueChange={value =>
+                          setLoginMethod(value as LoginMethod)
+                        }
+                        className='w-full'
                       >
+                        <TabsList
+                          className='grid w-full'
+                          style={{
+                            gridTemplateColumns: `repeat(${availableMethods.length}, minmax(0, 1fr))`,
+                          }}
+                        >
+                          {availableMethods.map(method => (
+                            <TabsTrigger
+                              key={method}
+                              value={method}
+                            >
+                              {method === 'phone'
+                                ? t('module.auth.phone')
+                                : method === 'email'
+                                  ? t('module.auth.email')
+                                  : t('module.auth.googleTab')}
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+
                         {availableMethods.map(method => (
-                          <TabsTrigger
+                          <TabsContent
                             key={method}
                             value={method}
                           >
-                            {method === 'phone'
-                              ? t('module.auth.phone')
-                              : method === 'email'
-                                ? t('module.auth.email')
-                                : t('module.auth.googleTab')}
-                          </TabsTrigger>
+                            {renderLoginContent(method)}
+                          </TabsContent>
                         ))}
-                      </TabsList>
-
-                      {availableMethods.map(method => (
-                        <TabsContent
-                          key={method}
-                          value={method}
-                        >
-                          {renderLoginContent(method)}
-                        </TabsContent>
-                      ))}
-                    </Tabs>
+                      </Tabs>
+                    ) : (
+                      <div className='w-full'>
+                        {availableMethods[0]
+                          ? renderLoginContent(availableMethods[0])
+                          : null}
+                      </div>
+                    )
                   ) : (
-                    <div className='w-full'>
-                      {availableMethods[0]
-                        ? renderLoginContent(availableMethods[0])
-                        : null}
-                    </div>
-                  )
-                ) : (
-                  <p className='text-sm text-muted-foreground text-center'>
-                    {t('module.auth.noLoginMethods')}
-                  </p>
-                )}
-              </div>
-            )}
+                    <p className='text-sm text-muted-foreground text-center'>
+                      {t('module.auth.noLoginMethods')}
+                    </p>
+                  )}
+                </div>
+              )}
 
-            {authMode === 'feedback' && (
-              <FeedbackForm onComplete={handleBackToLogin} />
-            )}
-          </CardContent>
-          <CardFooter className='flex flex-col items-center space-y-2'>
-            {authMode === 'feedback' && (
-              <button
-                onClick={handleBackToLogin}
-                className='text-primary hover:underline'
-              >
-                {t('module.auth.backToLogin')}
-              </button>
-            )}
-            {authMode !== 'feedback' && (
-              <p className='text-sm text-muted-foreground'>
-                {t('module.auth.problem')}
+              {authMode === 'feedback' && (
+                <FeedbackForm onComplete={handleBackToLogin} />
+              )}
+            </CardContent>
+            <CardFooter className='flex flex-col items-center space-y-2'>
+              {authMode === 'feedback' && (
                 <button
-                  onClick={handleFeedback}
-                  className='hover:underline'
+                  onClick={handleBackToLogin}
+                  className='text-primary hover:underline'
                 >
-                  {t('module.auth.submitFeedback')}
+                  {t('module.auth.backToLogin')}
                 </button>
-              </p>
-            )}
-          </CardFooter>
-        </Card>
+              )}
+              {authMode !== 'feedback' && (
+                <p className='text-sm text-muted-foreground'>
+                  {t('module.auth.problem')}
+                  <button
+                    onClick={handleFeedback}
+                    className='hover:underline'
+                  >
+                    {t('module.auth.submitFeedback')}
+                  </button>
+                </p>
+              )}
+            </CardFooter>
+          </Card>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

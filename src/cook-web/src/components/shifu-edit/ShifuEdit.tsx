@@ -15,7 +15,6 @@ import ChapterSettingsDialog from '@/components/chapter-setting';
 import Header from '../header';
 // import MarkdownFlowEditor from '../../../../../../markdown-flow-ui/src/components/MarkdownFlowEditor';
 import { UploadProps, MarkdownFlowEditor, EditMode } from 'markdown-flow-ui';
-import 'markdown-flow-ui/dist/markdown-flow-ui.css';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import './shifuEdit.scss';
@@ -28,6 +27,7 @@ import LessonPreview from '@/components/lesson-preview';
 import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
 import { Rnd } from 'react-rnd';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
 import { LessonCreationSettings } from '@/types/shifu';
 
 const OUTLINE_DEFAULT_WIDTH = 256;
@@ -513,7 +513,17 @@ const ScriptEditor = ({ id }: { id: string }) => {
                         {t('module.shifu.creationArea.title')}
                       </h2>
                       <p className='flex-1 min-w-0 text-xs leading-3 text-[rgba(0,0,0,0.45)] truncate'>
-                        {t('module.shifu.creationArea.description')}
+                        <MarkdownFlowLink
+                          prefix={t(
+                            'module.shifu.creationArea.descriptionPrefix',
+                          )}
+                          suffix={t(
+                            'module.shifu.creationArea.descriptionSuffix',
+                          )}
+                          linkText='MarkdownFlow'
+                          title={`${t('module.shifu.creationArea.descriptionPrefix')} MarkdownFlow ${t('module.shifu.creationArea.descriptionSuffix')}`}
+                          targetUrl='https://markdownflow.ai/docs'
+                        />
                       </p>
                     </div>
                     <div className='ml-auto flex flex-nowrap items-center gap-2 relative shrink-0'>
