@@ -75,6 +75,7 @@ export default function AskBlock({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMobileDialog, setShowMobileDialog] = useState(askList.length > 0);
   const mobileContentRef = useRef<HTMLDivElement | null>(null);
+  const inputWrapperRef = useRef<HTMLDivElement | null>(null);
   const showOutputInProgressToast = useCallback(() => {
     toast({
       title: t('module.chat.outputInProgress'),
@@ -308,6 +309,35 @@ export default function AskBlock({
     setIsFullscreen(prev => !prev);
   }, []);
 
+  const focusAskInput = useCallback(() => {
+    // Auto focus the follow-up textarea so the cursor is ready after expanding
+    if (!inputWrapperRef.current) {
+      return null;
+    }
+    const focusable = inputWrapperRef.current.querySelector<
+      HTMLTextAreaElement | HTMLInputElement | HTMLElement
+    >('textarea, input, [contenteditable="true"]');
+    if (focusable && typeof focusable.focus === 'function') {
+      return requestAnimationFrame(() => {
+        focusable.focus();
+      });
+    }
+    return null;
+  }, []);
+
+  useEffect(() => {
+    if (!isExpanded) {
+      return;
+    }
+    const rafId = focusAskInput() ?? null;
+    return () => {
+      // Cancel RAF to avoid focusing after unmount or quick collapse
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+    };
+  }, [isExpanded, focusAskInput]);
+
   const handleClickTitle = useCallback(
     (index: number) => {
       if (index !== 0 || isExpanded || !mobileStyle) {
@@ -389,7 +419,10 @@ export default function AskBlock({
     }
 
     return (
-      <div className={cn(extraClass)}>
+      <div
+        className={cn(extraClass)}
+        ref={inputWrapperRef}
+      >
         <MarkdownFlowInput
           placeholder={t('module.chat.askContent')}
           value={inputValue}
