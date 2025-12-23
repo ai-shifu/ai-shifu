@@ -694,7 +694,7 @@ function useChatLogicHook({
           result.push({
             generated_block_bid: '',
             type: BLOCK_TYPE.ASK,
-            isAskExpanded: false,
+            isAskExpanded: !mobileStyle && buffer.length > 0,
             parent_block_bid: parentId,
             ask_list: buffer.map(item => ({
               ...item,
