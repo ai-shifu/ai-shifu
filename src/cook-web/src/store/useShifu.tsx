@@ -103,7 +103,10 @@ export const ShifuProvider = ({
   const [variables, setVariables] = useState<string[]>([]);
   const currentMdflow = useRef<string>('');
   const lastPersistedMdflowRef = useRef<Record<string, string>>({});
-  const saveMdflowLockRef = useRef<{ inflight: boolean; outlineId: string | null }>({
+  const saveMdflowLockRef = useRef<{
+    inflight: boolean;
+    outlineId: string | null;
+  }>({
     inflight: false,
     outlineId: null,
   });
@@ -1292,11 +1295,17 @@ export const ShifuProvider = ({
     if (saveMdflowLockRef.current.inflight) {
       if (outline_bid && saveMdflowLockRef.current.outlineId !== outline_bid) {
         // When another outline save is in-flight, skip cross-outline saves
-        console.log('outline save is in-flight, skip cross-outline saves', saveMdflowLockRef.current.outlineId);
+        console.log(
+          'outline save is in-flight, skip cross-outline saves',
+          saveMdflowLockRef.current.outlineId,
+        );
         return;
       }
     }
-    saveMdflowLockRef.current = { inflight: true, outlineId: outline_bid || null };
+    saveMdflowLockRef.current = {
+      inflight: true,
+      outlineId: outline_bid || null,
+    };
     try {
       await api.saveMdflow({
         shifu_bid,
