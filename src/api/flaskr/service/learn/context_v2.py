@@ -250,6 +250,83 @@ class MdflowContextV2:
             user_input=user_input,
         )
 
+    @staticmethod
+    def normalize_context_messages(
+        context: Optional[Iterable[dict[str, str]]],
+    ) -> Optional[list[dict[str, str]]]:
+        if not context:
+            return None
+        filtered: list[dict[str, str]] = []
+        for msg in context:
+            if not isinstance(msg, dict):
+                continue
+            role = msg.get("role")
+            content = msg.get("content", "")
+            if not role or not content or not str(content).strip():
+                continue
+            filtered.append({"role": role, "content": str(content)})
+        return filtered or None
+
+    @staticmethod
+    def normalize_user_input_map(
+        input_value: str | dict | list | None,
+        default_key: str = "input",
+    ) -> dict[str, list[str]]:
+        if input_value is None:
+            return {}
+        if isinstance(input_value, dict):
+            normalized = {}
+            for key, raw in input_value.items():
+                if raw is None:
+                    continue
+                if isinstance(raw, list):
+                    cleaned = [str(item) for item in raw if item is not None]
+                else:
+                    cleaned = [str(raw)]
+                if cleaned:
+                    normalized[str(key)] = cleaned
+            return normalized
+        if isinstance(input_value, list):
+            cleaned = [str(item) for item in input_value if item is not None]
+            return {default_key: cleaned} if cleaned else {}
+        return {default_key: [str(input_value)]}
+
+    @staticmethod
+    def flatten_user_input_map(
+        user_input: Optional[dict[str, list[str]]],
+    ) -> str:
+        if not user_input:
+            return ""
+        values: list[str] = []
+        for value in user_input.values():
+            if isinstance(value, list):
+                values.extend([str(item) for item in value if item is not None])
+            elif value is not None:
+                values.append(str(value))
+        return ",".join(values)
+
+    @staticmethod
+    def build_context_from_blocks(
+        blocks: Iterable["LearnGeneratedBlock"],
+    ) -> list[dict[str, str]]:
+        message_list: list[dict[str, str]] = []
+        last_role = None
+        for generated_block in blocks:
+            role = None
+            if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
+                role = "assistant"
+            elif generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
+                role = "user"
+            if not role:
+                continue
+            content = generated_block.generated_content or ""
+            if role != last_role:
+                message_list.append({"role": role, "content": content})
+                last_role = role
+            else:
+                message_list[-1]["content"] += "\n" + content
+        return message_list
+
 
 class _PreviewContextStore:
     _DEFAULT_TTL_SECONDS = 30 * 60
@@ -407,7 +484,9 @@ class RunScriptPreviewContextV2:
         )
 
         context_store = _PreviewContextStore(self.app, user_bid, shifu_bid, outline_bid)
-        request_context = self._convert_context_to_dict(preview_request.context)
+        request_context = MdflowContextV2.normalize_context_messages(
+            preview_request.context
+        )
         if request_context is None:
             context_messages = context_store.get_context(
                 document, preview_request.block_index
@@ -494,7 +573,9 @@ class RunScriptPreviewContextV2:
         content_chunks: list[str],
     ) -> None:
         new_messages: list[dict[str, str]] = []
-        user_input_text = self._flatten_user_input(preview_request.user_input)
+        user_input_text = MdflowContextV2.flatten_user_input_map(
+            preview_request.user_input
+        )
         if user_input_text:
             new_messages.append({"role": "user", "content": user_input_text})
         content_text = "".join(content_chunks).strip()
@@ -503,17 +584,6 @@ class RunScriptPreviewContextV2:
         if not new_messages:
             return
         context_store.append_context(document, new_messages)
-
-    def _flatten_user_input(self, user_input: Optional[dict[str, list[str]]]) -> str:
-        if not user_input:
-            return ""
-        values: list[str] = []
-        for value in user_input.values():
-            if isinstance(value, list):
-                values.extend([str(item) for item in value if item is not None])
-            elif value is not None:
-                values.append(str(value))
-        return ",".join(values)
 
     def _convert_to_sse_message(
         self,
@@ -761,20 +831,6 @@ class RunScriptPreviewContextV2:
             .order_by(PublishedShifu.id.desc())
             .first()
         )
-
-    def _convert_context_to_dict(
-        self, context: Optional[Iterable[dict[str, str]]]
-    ) -> Optional[list[dict[str, str]]]:
-        if not context:
-            return None
-        filtered: list[dict[str, str]] = []
-        for msg in context:
-            role = msg.get("role")
-            content = msg.get("content", "")
-            if not role or not content or not content.strip():
-                continue
-            filtered.append({"role": role, "content": content})
-        return filtered or None
 
     def _decimal_to_float(self, value) -> Optional[float]:
         if value is None:
@@ -1371,24 +1427,7 @@ class RunScriptContextV2:
             .all()
         )
 
-        message_list = []
-        last_role = None
-        for generated_block in generated_blocks:
-            role = None
-            if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
-                role = "assistant"
-            elif generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
-                role = "user"
-            if role != last_role:
-                message_list.append(
-                    {
-                        "role": role,
-                        "content": generated_block.generated_content,
-                    }
-                )
-                last_role = role
-            else:
-                message_list[-1]["content"] += "\n" + generated_block.generated_content
+        message_list = MdflowContextV2.build_context_from_blocks(generated_blocks)
 
         mdflow_context = MdflowContextV2(
             document=run_script_info.mdflow,
@@ -1541,21 +1580,10 @@ class RunScriptContextV2:
                 db.session.add(generated_block)
                 db.session.flush()
                 return
-            # Convert dict to string for database storage (markdown-flow 0.2.27+ sends dict)
-            if isinstance(self._input, dict):
-                # Convert {"var": ["val1", "val2"]} to "val1,val2" or just "val1"
-                values = []
-                for v in self._input.values():
-                    if isinstance(v, list):
-                        # Filter out None and convert to string
-                        values.extend([str(item) for item in v if item is not None])
-                    elif v is not None:
-                        values.append(str(v))
-                generated_block.generated_content = ",".join(values) if values else ""
-            else:
-                generated_block.generated_content = (
-                    str(self._input) if self._input is not None else ""
-                )
+            normalized_input = MdflowContextV2.normalize_user_input_map(self._input)
+            generated_block.generated_content = MdflowContextV2.flatten_user_input_map(
+                normalized_input
+            )
             generated_block.role = ROLE_STUDENT
             generated_block.position = run_script_info.block_position
             # For STUDENT records, also store translated interaction block
@@ -1638,26 +1666,10 @@ class RunScriptContextV2:
                 db.session.flush()
                 return
             # Direct synchronous call - no async wrapper needed (markdown-flow 0.2.27+)
-            # Prepare user_input based on input type
-            if isinstance(self._input, dict):
-                # Already in dict format from frontend, but need to filter out None values
-                user_input_param = {}
-                for key, value in self._input.items():
-                    if isinstance(value, list):
-                        # Filter out None values and ensure all are strings
-                        cleaned = [str(v) for v in value if v is not None]
-                        if cleaned:  # Only add if there are non-None values
-                            user_input_param[key] = cleaned
-                    elif value is not None:
-                        user_input_param[key] = [str(value)]
-            else:
-                # Legacy string format, wrap it
-                if self._input is not None:
-                    user_input_param = {
-                        parsed_interaction.get("variable", "input"): [str(self._input)]
-                    }
-                else:
-                    user_input_param = {}
+            user_input_param = MdflowContextV2.normalize_user_input_map(
+                self._input,
+                parsed_interaction.get("variable", "input"),
+            )
 
             validate_result = mdflow_context.process(
                 block_index=run_script_info.block_position,
