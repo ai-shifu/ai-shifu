@@ -43,7 +43,7 @@ const ShifuCard = ({
   const router = useRouter();
   return (
     <Card
-      className='w-full md:w-[calc(50%-1rem)] lg:w-[calc(33.33%-1rem)] cursor-pointer rounded-xl bg-background hover:scale-105 transition-all duration-200 ease-in-out'
+      className='w-full cursor-pointer rounded-xl bg-background hover:scale-105 transition-all duration-200 ease-in-out'
       onClick={() => router.push(`/shifu/${id}`)}
     >
       <CardContent className='p-4 cursor-pointer'>
@@ -297,7 +297,7 @@ const ScriptManagementPage = () => {
           <TabsContent value='favorites'></TabsContent>
         </Tabs>
         <div className='flex-1 overflow-auto'>
-          <div className='flex flex-wrap gap-4 p-3'>
+          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-3'>
             {shifus.map(shifu => (
               <ShifuCard
                 id={shifu.bid + ''}
