@@ -209,6 +209,48 @@ class RUNLLMProvider(LLMProvider):
         self.app.logger.info("stream invoke_llm end")
 
 
+class MdflowContextV2:
+    def __init__(
+        self,
+        *,
+        document: str,
+        document_prompt: Optional[str] = None,
+        llm_provider: Optional[LLMProvider] = None,
+        interaction_prompt: Optional[str] = None,
+        interaction_error_prompt: Optional[str] = None,
+    ):
+        self._mdflow = MarkdownFlow(
+            document=document,
+            llm_provider=llm_provider,
+            document_prompt=document_prompt,
+            interaction_prompt=interaction_prompt,
+            interaction_error_prompt=interaction_error_prompt,
+        ).set_output_language(get_markdownflow_output_language())
+
+    def get_block(self, block_index: int):
+        return self._mdflow.get_block(block_index)
+
+    def get_all_blocks(self):
+        return self._mdflow.get_all_blocks()
+
+    def process(
+        self,
+        *,
+        block_index: int,
+        mode: ProcessMode,
+        context: Optional[list[dict[str, str]]] = None,
+        variables: Optional[dict] = None,
+        user_input: Optional[dict[str, list[str]]] = None,
+    ):
+        return self._mdflow.process(
+            block_index=block_index,
+            mode=mode,
+            context=context,
+            variables=variables,
+            user_input=user_input,
+        )
+
+
 class _PreviewContextStore:
     _DEFAULT_TTL_SECONDS = 30 * 60
 
@@ -374,23 +416,23 @@ class RunScriptPreviewContextV2:
             context_messages = request_context
             context_store.replace_context(document, request_context)
 
-        mf = MarkdownFlow(
+        mdflow_context = MdflowContextV2(
             document=document,
             llm_provider=provider,
             document_prompt=document_prompt,
             interaction_prompt=preview_request.interaction_prompt,
             interaction_error_prompt=preview_request.interaction_error_prompt,
-        ).set_output_language(get_markdownflow_output_language())
+        )
 
         block_index = preview_request.block_index
-        result = mf.process(
+        result = mdflow_context.process(
             block_index=block_index,
             mode=ProcessMode.STREAM,
             context=context_messages or None,
             variables=preview_request.variables,
             user_input=preview_request.user_input,
         )
-        current_block = mf.get_block(block_index)
+        current_block = mdflow_context.get_block(block_index)
         is_user_input_validation = bool(preview_request.user_input)
         content_chunks: list[str] = []
 
@@ -1208,10 +1250,8 @@ class RunScriptContextV2:
 
         self.app.logger.info(f"outline_item_info: {outline_item_info.mdflow}")
 
-        mddoc = MarkdownFlow(outline_item_info.mdflow).set_output_language(
-            get_markdownflow_output_language()
-        )
-        block_list = mddoc.get_all_blocks()
+        mdflow_context = MdflowContextV2(document=outline_item_info.mdflow)
+        block_list = mdflow_context.get_all_blocks()
         self.app.logger.info(
             f"attend position: {attend.block_position} blocks:{len(block_list)}"
         )
@@ -1350,14 +1390,14 @@ class RunScriptContextV2:
             else:
                 message_list[-1]["content"] += "\n" + generated_block.generated_content
 
-        mdflow = MarkdownFlow(
+        mdflow_context = MdflowContextV2(
             document=run_script_info.mdflow,
             document_prompt=system_prompt,
             llm_provider=RUNLLMProvider(
                 app, llm_settings, self._trace, self._trace_args
             ),
-        ).set_output_language(get_markdownflow_output_language())
-        block_list = mdflow.get_all_blocks()
+        )
+        block_list = mdflow_context.get_all_blocks()
         user_profile = get_user_profiles(
             app, self._user_info.user_id, self._outline_item_info.shifu_bid
         )
@@ -1478,9 +1518,9 @@ class RunScriptContextV2:
 
                 # Render interaction content with translation (INPUT mode, no cached block)
                 # Note: Do NOT pass variables here - we only want translation, not variable replacement
-                interaction_result = mdflow.process(
-                    run_script_info.block_position,
-                    ProcessMode.COMPLETE,
+                interaction_result = mdflow_context.process(
+                    block_index=run_script_info.block_position,
+                    mode=ProcessMode.COMPLETE,
                     # context=message_list,
                 )
                 rendered_content = (
@@ -1520,9 +1560,9 @@ class RunScriptContextV2:
             generated_block.position = run_script_info.block_position
             # For STUDENT records, also store translated interaction block
             # (in case this record is returned instead of TEACHER record)
-            interaction_result = mdflow.process(
-                run_script_info.block_position,
-                ProcessMode.COMPLETE,
+            interaction_result = mdflow_context.process(
+                block_index=run_script_info.block_position,
+                mode=ProcessMode.COMPLETE,
                 context=message_list,
             )
             generated_block.block_content_conf = (
@@ -1567,9 +1607,9 @@ class RunScriptContextV2:
 
                 # Render interaction content with translation after risk check
                 # Note: Do NOT pass variables here - we only want translation, not variable replacement
-                interaction_result = mdflow.process(
-                    run_script_info.block_position,
-                    ProcessMode.COMPLETE,
+                interaction_result = mdflow_context.process(
+                    block_index=run_script_info.block_position,
+                    mode=ProcessMode.COMPLETE,
                     # context=message_list,
                 )
                 rendered_content = (
@@ -1619,9 +1659,9 @@ class RunScriptContextV2:
                 else:
                     user_input_param = {}
 
-            validate_result = mdflow.process(
-                run_script_info.block_position,
-                ProcessMode.COMPLETE,
+            validate_result = mdflow_context.process(
+                block_index=run_script_info.block_position,
+                mode=ProcessMode.COMPLETE,
                 user_input=user_input_param,
                 # context=message_list,
             )
@@ -1720,9 +1760,9 @@ class RunScriptContextV2:
 
                 # Render interaction content with translation after validation error
                 # Note: Do NOT pass variables here - we only want translation, not variable replacement
-                interaction_result = mdflow.process(
-                    run_script_info.block_position,
-                    ProcessMode.COMPLETE,
+                interaction_result = mdflow_context.process(
+                    block_index=run_script_info.block_position,
+                    mode=ProcessMode.COMPLETE,
                     # context=message_list,
                 )
                 rendered_content = (
@@ -1785,9 +1825,9 @@ class RunScriptContextV2:
                 # Note: Do NOT pass variables here - we only want translation, not variable replacement
                 app.logger.info(f"render_interaction: {run_script_info.block_position}")
 
-                interaction_result = mdflow.process(
-                    run_script_info.block_position,
-                    ProcessMode.COMPLETE,
+                interaction_result = mdflow_context.process(
+                    block_index=run_script_info.block_position,
+                    mode=ProcessMode.COMPLETE,
                     # context=message_list,
                 )
 
@@ -1820,9 +1860,9 @@ class RunScriptContextV2:
                 app.logger.info(f"variables: {user_profile}")
 
                 # For CONTENT blocks, no user_input is needed (only INTERACTION blocks have user input)
-                stream_result = mdflow.process(
-                    run_script_info.block_position,
-                    ProcessMode.STREAM,
+                stream_result = mdflow_context.process(
+                    block_index=run_script_info.block_position,
+                    mode=ProcessMode.STREAM,
                     variables=user_profile,
                     # context=message_list,
                 )
