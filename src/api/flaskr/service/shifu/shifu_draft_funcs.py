@@ -12,7 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from datetime import datetime
 from .dtos import ShifuDto, ShifuDetailDto
 from ...util import generate_id
-from .consts import STATUS_DRAFT, SHIFU_NAME_MAX_LENGTH
+from .consts import STATUS_DRAFT, SHIFU_NAME_MAX_LENGTH, UNIT_TYPE_GUEST
 from ..check_risk.funcs import check_text_with_risk_control
 from ..common.models import raise_error, raise_error_with_args, AppException
 from .utils import (
@@ -26,7 +26,6 @@ from ..common.dtos import PageNationDTO
 from ...service.config import get_config
 from .funcs import shifu_permission_verification
 from .shifu_outline_funcs import create_outline
-from .consts import UNIT_TYPE_TRIAL
 from flaskr.i18n import _
 
 
@@ -178,7 +177,7 @@ def create_shifu_draft(
                 outline_name=chapter_name,
                 outline_description="",
                 outline_index=0,
-                outline_type=UNIT_TYPE_TRIAL,
+                outline_type=UNIT_TYPE_GUEST,
                 system_prompt=None,
                 is_hidden=False,
             )
@@ -192,7 +191,7 @@ def create_shifu_draft(
                 outline_name=lesson_name,
                 outline_description="",
                 outline_index=0,
-                outline_type=UNIT_TYPE_TRIAL,
+                outline_type=UNIT_TYPE_GUEST,
                 system_prompt=None,
                 is_hidden=False,
             )
