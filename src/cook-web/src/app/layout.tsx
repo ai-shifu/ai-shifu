@@ -9,7 +9,8 @@ import { UserProvider } from '@/store';
 import '@/i18n';
 import I18nGlobalLoading from '@/components/I18nGlobalLoading';
 import 'markdown-flow-ui/dist/markdown-flow-ui.css';
-import 'markdown-flow-ui/dist/markdown-flow-ui-lib.css';
+// fix: dont't use, it will cause logo in dark mode is not blue
+// import 'markdown-flow-ui/dist/markdown-flow-ui-lib.css';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
