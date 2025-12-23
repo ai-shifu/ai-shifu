@@ -1252,6 +1252,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     if (saveMdflowLockRef.current.inflight) {
       if (outline_bid && saveMdflowLockRef.current.outlineId !== outline_bid) {
         // When another outline save is in-flight, skip cross-outline saves
+        console.log('outline save is in-flight, skip cross-outline saves', saveMdflowLockRef.current.outlineId);
         return;
       }
     }
