@@ -21,6 +21,7 @@ import api from '@/api';
 import { debounce } from 'lodash';
 import {
   createContext,
+  ReactElement,
   ReactNode,
   useContext,
   useState,
@@ -56,9 +57,11 @@ const buildBlockListWithAllInfo = (
   return list;
 };
 
-export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
+export const ShifuProvider = ({
   children,
-}) => {
+}: {
+  children: ReactNode;
+}): ReactElement => {
   const { trackEvent } = useTracking();
   const [currentShifu, setCurrentShifu] = useState<Shifu | null>(null);
   const [chapters, setChapters] = useState<Outline[]>([]);
@@ -100,9 +103,33 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   const [variables, setVariables] = useState<string[]>([]);
   const currentMdflow = useRef<string>('');
   const lastPersistedMdflowRef = useRef<Record<string, string>>({});
+  const saveMdflowLockRef = useRef<{
+    inflight: boolean;
+    outlineId: string | null;
+  }>({
+    inflight: false,
+    outlineId: null,
+  });
+  const mdflowRequestRef = useRef<{ id: number; outlineId: string | null }>({
+    id: 0,
+    outlineId: null,
+  });
+  const mdflowCacheRef = useRef<Record<string, string>>({});
   const [systemVariables, setSystemVariables] = useState<
     Record<string, string>[]
   >([]);
+  const currentOutlineRef = useRef<string | null>(null);
+
+  const internalSetCurrentNode = (node: Outline | null) => {
+    setCurrentNode(node);
+    currentOutlineRef.current = node?.bid || null;
+    const cacheKey = node?.bid;
+    if (cacheKey && mdflowCacheRef.current[cacheKey] !== undefined) {
+      const cached = mdflowCacheRef.current[cacheKey];
+      currentMdflow.current = cached;
+      setMdflow(cached);
+    }
+  };
   // Debounced autosave for mdflow; kept stable via ref
   const debouncedAutoSaveRef = useRef(
     debounce(async (payload?: SaveMdflowPayload) => {
@@ -279,7 +306,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   // Helper function to handle cursor positioning after deletion
   const handleCursorPositioning = async (nextNode: Outline | null) => {
     if (nextNode) {
-      setCurrentNode(nextNode);
+      internalSetCurrentNode(nextNode);
       if (nextNode.bid) {
         // await loadBlocks(nextNode.bid, currentShifu?.bid || '');
         await loadMdflow(nextNode.bid, currentShifu?.bid || '');
@@ -287,7 +314,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         setBlocks([]);
       }
     } else {
-      setCurrentNode(null);
+      internalSetCurrentNode(null);
       setBlocks([]);
     }
     setFocusId('');
@@ -357,22 +384,42 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     ) {
       return;
     }
+    const requestId = mdflowRequestRef.current.id + 1;
+    mdflowRequestRef.current = { id: requestId, outlineId };
     setIsLoading(true);
     setError(null);
-    const mdflow = await api.getMdflow({
-      shifu_bid: shifuId,
-      outline_bid: outlineId,
-    });
-    setMdflow(mdflow);
-    setCurrentMdflow(mdflow);
-    lastPersistedMdflowRef.current[outlineId] = mdflow || '';
-    // if (mdflow) {
-    await parseMdflow(mdflow, shifuId, outlineId);
-    // } else {
-    // setVariables([]);
-    // setSystemVariables([]);
-    // }
-    setIsLoading(false);
+    const isLatest = () =>
+      mdflowRequestRef.current.id === requestId &&
+      mdflowRequestRef.current.outlineId === outlineId;
+
+    try {
+      const mdflow = await api.getMdflow({
+        shifu_bid: shifuId,
+        outline_bid: outlineId,
+      });
+      mdflowCacheRef.current[outlineId] = mdflow || '';
+      if (!isLatest()) {
+        return;
+      }
+      // Only apply to state if this outline is still the current one
+      if (currentOutlineRef.current === outlineId) {
+        setMdflow(mdflow);
+        setCurrentMdflow(mdflow);
+      }
+      lastPersistedMdflowRef.current[outlineId] = mdflow || '';
+      if (currentOutlineRef.current === outlineId) {
+        await parseMdflow(mdflow, shifuId, outlineId);
+      }
+    } catch (error) {
+      if (isLatest()) {
+        console.error(error);
+        setError('Failed to load chapters');
+      }
+    } finally {
+      if (isLatest()) {
+        setIsLoading(false);
+      }
+    }
   };
 
   const loadChapters = async (shifuId: string) => {
@@ -392,7 +439,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         )?.children?.[0];
 
         if (firstLesson) {
-          setCurrentNode({
+          internalSetCurrentNode({
             ...firstLesson,
             depth: 1,
           });
@@ -1245,20 +1292,42 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     const shifu_bid = payload?.shifu_bid ?? currentShifu?.bid ?? '';
     const outline_bid = payload?.outline_bid ?? (currentNode?.bid || '');
     const data = payload?.data ?? currentMdflow.current;
-    await api.saveMdflow({
-      shifu_bid,
-      outline_bid,
-      data,
-    });
-    if (outline_bid) {
-      lastPersistedMdflowRef.current[outline_bid] = data || '';
+    if (saveMdflowLockRef.current.inflight) {
+      if (outline_bid && saveMdflowLockRef.current.outlineId !== outline_bid) {
+        // When another outline save is in-flight, skip cross-outline saves
+        console.log(
+          'outline save is in-flight, skip cross-outline saves',
+          saveMdflowLockRef.current.outlineId,
+        );
+        return;
+      }
     }
-    setLastSaveTime(new Date());
+    saveMdflowLockRef.current = {
+      inflight: true,
+      outlineId: outline_bid || null,
+    };
+    try {
+      await api.saveMdflow({
+        shifu_bid,
+        outline_bid,
+        data,
+      });
+      if (outline_bid) {
+        mdflowCacheRef.current[outline_bid] = data || '';
+        lastPersistedMdflowRef.current[outline_bid] = data || '';
+      }
+      setLastSaveTime(new Date());
+    } finally {
+      saveMdflowLockRef.current = { inflight: false, outlineId: null };
+    }
   };
 
   const setCurrentMdflow = (value: string) => {
     currentMdflow.current = value;
     setMdflow(value || '');
+    if (currentOutlineRef.current) {
+      mdflowCacheRef.current[currentOutlineRef.current] = value || '';
+    }
   };
 
   const getCurrentMdflow = () => {
@@ -1266,7 +1335,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const hasUnsavedMdflow = (outlineId?: string, value?: string) => {
-    const targetOutlineId = outlineId || currentNode?.bid || '';
+    const targetOutlineId = outlineId || currentOutlineRef.current || '';
     if (!targetOutlineId) {
       return false;
     }
@@ -1429,7 +1498,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       autoSaveBlocks,
       saveCurrentBlocks,
       removeBlock,
-      setCurrentNode,
+      setCurrentNode: internalSetCurrentNode,
       loadModels,
       setBlockError,
       clearBlockErrors,
