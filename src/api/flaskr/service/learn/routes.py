@@ -17,7 +17,7 @@ from flaskr.service.learn.learn_funcs import (
 )
 from flaskr.service.learn.runscript_v2 import run_script, get_run_status
 from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
-from flaskr.service.learn.preview_service import MarkdownFlowPreviewService
+from flaskr.service.learn.context_v2 import RunScriptPreviewContextV2
 from flaskr.service.learn.learn_dtos import PreviewSSEMessage, PreviewSSEMessageType
 from flaskr.util import generate_id
 from flaskr.common.shifu_context import with_shifu_context, get_shifu_context_snapshot
@@ -50,7 +50,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     register learn routes
     """
     app.logger.info(f"register learn routes {path_prefix}")
-    preview_service = MarkdownFlowPreviewService(app)
+    preview_service = RunScriptPreviewContextV2(app)
 
     @app.route(path_prefix + "/shifu/<shifu_bid>", methods=["GET"])
     @bypass_token_validation
