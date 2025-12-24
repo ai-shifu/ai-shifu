@@ -130,19 +130,29 @@ export const identifyUmamiUser = (userInfo?: UmamiUserInfo | null) => {
   flushUmamiIdentify();
 };
 
+const ensureIdentifyReady = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (identifyState.ready) {
+    return;
+  }
+
+  if (identifyState.pendingUserInfo === undefined) {
+    return;
+  }
+
+  flushUmamiIdentify();
+};
+
 export const tracking = async (eventName, eventData) => {
   try {
+    ensureIdentifyReady();
     const umami = (window as any).umami;
-    if (!umami) {
+    if (!umami || !identifyState.ready) {
       identifyState.queuedCalls.push({ args: [eventName, eventData] });
       return;
-    }
-    if (!identifyState.ready) {
-      flushUmamiIdentify();
-      if (!identifyState.ready) {
-        identifyState.queuedCalls.push({ args: [eventName, eventData] });
-        return;
-      }
     }
     umami.track(eventName, eventData);
   } catch {
@@ -152,17 +162,11 @@ export const tracking = async (eventName, eventData) => {
 
 export const trackPageview = () => {
   try {
+    ensureIdentifyReady();
     const umami = (window as any).umami;
-    if (!umami) {
+    if (!umami || !identifyState.ready) {
       identifyState.queuedCalls.push({ args: [] });
       return;
-    }
-    if (!identifyState.ready) {
-      flushUmamiIdentify();
-      if (!identifyState.ready) {
-        identifyState.queuedCalls.push({ args: [] });
-        return;
-      }
     }
     umami.track();
   } catch {
