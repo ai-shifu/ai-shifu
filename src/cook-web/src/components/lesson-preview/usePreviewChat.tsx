@@ -76,8 +76,7 @@ export function usePreviewChat() {
   const getCurrentMdflow = actions?.getCurrentMdflow;
   const resolveBaseUrl = useCallback(async () => {
     const dynamicBase = await getDynamicApiBaseUrl();
-    const candidate =
-      dynamicBase || getStringEnv('baseURL') || 'http://localhost:8080';
+    const candidate = dynamicBase || getStringEnv('baseURL') || '';
     const normalized = candidate.replace(/\/$/, '');
     if (normalized && normalized !== '') {
       return normalized;
