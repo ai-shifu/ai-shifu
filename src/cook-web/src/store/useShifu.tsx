@@ -426,11 +426,11 @@ export const ShifuProvider = ({
     try {
       setIsLoading(true);
       setError(null);
-      const shifuInfo = await api.getShifuDetail({ shifu_bid: shifuId });
+      const [shifuInfo, chaptersData] = await Promise.all([
+        api.getShifuDetail({ shifu_bid: shifuId }),
+        api.getShifuOutlineTree({ shifu_bid: shifuId }),
+      ]);
       setCurrentShifu(shifuInfo);
-      const chaptersData = await api.getShifuOutlineTree({
-        shifu_bid: shifuId,
-      });
       const list = remapOutlineTree(chaptersData);
       if (list.length > 0) {
         // Find the first lesson to select by default

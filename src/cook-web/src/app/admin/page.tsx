@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import {
   PlusIcon,
   StarIcon as StarOutlineIcon,
@@ -40,39 +41,37 @@ const ShifuCard = ({
   description,
   isFavorite,
 }: ShifuCardProps) => {
-  const router = useRouter();
   return (
-    <Card
-      className='w-full cursor-pointer rounded-xl bg-background hover:scale-105 transition-all duration-200 ease-in-out'
-      onClick={() => router.push(`/shifu/${id}`)}
-    >
-      <CardContent className='p-4 cursor-pointer'>
-        <div className='flex flex-row items-center justify-between'>
-          <div className='flex flex-row items-center mb-2 w-full'>
-            <div className='p-2 h-10 w-10 rounded-lg bg-primary/10 mr-4 flex items-center justify-center shrink-0'>
-              {image && (
-                <img
-                  src={image}
-                  alt='recipe'
-                  className='w-full h-full object-cover rounded-lg'
-                />
-              )}
-              {!image && <TrophyIcon className='w-6 h-6 text-primary' />}
-            </div>
+    <Link href={`/shifu/${id}`} className="block w-full h-full">
+      <Card className='w-full h-full cursor-pointer rounded-xl bg-background hover:scale-105 transition-all duration-200 ease-in-out'>
+        <CardContent className='p-4 cursor-pointer'>
+          <div className='flex flex-row items-center justify-between'>
+            <div className='flex flex-row items-center mb-2 w-full'>
+              <div className='p-2 h-10 w-10 rounded-lg bg-primary/10 mr-4 flex items-center justify-center shrink-0'>
+                {image && (
+                  <img
+                    src={image}
+                    alt='recipe'
+                    className='w-full h-full object-cover rounded-lg'
+                  />
+                )}
+                {!image && <TrophyIcon className='w-6 h-6 text-primary' />}
+              </div>
 
-            <h3 className='font-medium text-gray-900 leading-5 whitespace-nowrap overflow-hidden text-ellipsis'>
-              {title}
-            </h3>
+              <h3 className='font-medium text-gray-900 leading-5 whitespace-nowrap overflow-hidden text-ellipsis'>
+                {title}
+              </h3>
+            </div>
+            {isFavorite && <StarIcon className='w-5 h-5 text-yellow-400' />}
           </div>
-          {isFavorite && <StarIcon className='w-5 h-5 text-yellow-400' />}
-        </div>
-        <div>
-          <p className='mt-1 text-sm text-gray-500 line-clamp-3 break-words break-all'>
-            {description}
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+          <div>
+            <p className='mt-1 text-sm text-gray-500 line-clamp-3 break-words break-all'>
+              {description}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
   );
 };
 
