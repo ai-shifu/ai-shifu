@@ -14,12 +14,25 @@ import OutlineTree from '@/components/outline-tree';
 import ChapterSettingsDialog from '@/components/chapter-setting';
 import Header from '../header';
 // import MarkdownFlowEditor from '../../../../../../markdown-flow-ui/src/components/MarkdownFlowEditor';
-import { UploadProps, MarkdownFlowEditor, EditMode } from 'markdown-flow-ui';
+import { UploadProps, EditMode } from 'markdown-flow-ui';
+import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import './shifuEdit.scss';
 import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
+
+const MarkdownFlowEditor = dynamic(
+  () => import('markdown-flow-ui').then(mod => mod.MarkdownFlowEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className='h-40 flex items-center justify-center'>
+        <Loading />
+      </div>
+    ),
+  },
+);
 import i18n, { normalizeLanguage } from '@/i18n';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
