@@ -44,7 +44,7 @@ from flaskr.service.learn.models import LearnProgressRecord, LearnGeneratedBlock
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from langfuse.client import StatefulTraceClient
 from ...api.langfuse import langfuse_client as langfuse, MockClient
-from flaskr.service.common import raise_error
+from flaskr.service.common import raise_error, raise_error_with_args
 from flaskr.service.order.consts import (
     LEARN_STATUS_RESET,
     LEARN_STATUS_IN_PROGRESS,
@@ -73,7 +73,7 @@ from flaskr.service.learn.learn_dtos import (
     OutlineItemUpdateDTO,
     LearnStatus,
 )
-from flaskr.api.llm import chat_llm
+from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
 from flaskr.service.learn.handle_input_ask import handle_input_ask
 from flaskr.service.profile.funcs import save_user_profiles, ProfileToSave
 from flaskr.service.profile.profile_manage import (
@@ -759,11 +759,30 @@ class RunScriptPreviewContextV2:
         outline: Optional[DraftOutlineItem | PublishedOutlineItem],
         shifu: Optional[DraftShifu | PublishedShifu],
     ) -> tuple[str, float]:
-        model_candidates = [
-            preview_request.model,
-            getattr(outline, "llm", None) if outline else None,
-            getattr(shifu, "llm", None) if shifu else None,
-            self.app.config.get("DEFAULT_LLM_MODEL"),
+        def _normalize_model(value: object | None) -> str | None:
+            if value is None:
+                return None
+            text = str(value).strip()
+            return text or None
+
+        allowed_models = get_allowed_models()
+        allowlist_enabled = bool(allowed_models)
+        allowed_available_models: list[str] = []
+        if allowlist_enabled:
+            allowed_available_models = [
+                option.get("model", "")
+                for option in get_current_models(self.app)
+                if option.get("model")
+            ]
+
+        model_candidates: list[tuple[str, str | None]] = [
+            ("request", _normalize_model(preview_request.model)),
+            (
+                "outline",
+                _normalize_model(getattr(outline, "llm", None)) if outline else None,
+            ),
+            ("shifu", _normalize_model(getattr(shifu, "llm", None)) if shifu else None),
+            ("default", _normalize_model(self.app.config.get("DEFAULT_LLM_MODEL"))),
         ]
         temperature_candidates = [
             preview_request.temperature,
@@ -776,7 +795,28 @@ class RunScriptPreviewContextV2:
             float(self.app.config.get("DEFAULT_LLM_TEMPERATURE")),
         ]
 
-        model = next((m for m in model_candidates if m), None)
+        model_source = "unset"
+        model = None
+        for source, candidate in model_candidates:
+            if not candidate:
+                continue
+            if allowlist_enabled and candidate not in allowed_models:
+                if source == "request":
+                    raise_error_with_args(
+                        "server.llm.modelNotSupported", model=candidate
+                    )
+                continue
+            model = candidate
+            model_source = source
+            break
+
+        if allowlist_enabled and not model:
+            if allowed_available_models:
+                model = allowed_available_models[0]
+                model_source = "allowlist"
+            else:
+                raise ValueError("No allowed LLM models are available")
+
         temperature = next(
             (t for t in temperature_candidates if t is not None),
             float(self.app.config.get("DEFAULT_LLM_TEMPERATURE")),
@@ -785,6 +825,12 @@ class RunScriptPreviewContextV2:
         if not model:
             raise ValueError("LLM model is not configured")
 
+        self.app.logger.info(
+            "preview resolved llm settings | model=%s | temperature=%s | source=%s",
+            model,
+            temperature,
+            model_source,
+        )
         return model, float(temperature)
 
     def _get_outline_record(

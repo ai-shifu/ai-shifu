@@ -791,3 +791,8 @@ def get_current_models(app: Flask) -> list[dict[str, str]]:
     combined = litellm_models + DIFY_MODELS
     available_models = list(dict.fromkeys(combined))
     return _build_model_options(app, available_models)
+
+
+def get_allowed_models() -> list[str]:
+    allowed, _ = _resolve_allowed_model_config()
+    return allowed
