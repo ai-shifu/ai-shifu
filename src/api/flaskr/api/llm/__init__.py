@@ -1,4 +1,5 @@
 import asyncio
+import os
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from datetime import datetime
@@ -112,6 +113,42 @@ def _normalize_model_config(value: Any) -> list[str]:
                 normalized.append(text)
         return normalized
     return []
+
+
+def _env_has_value(key: str) -> bool:
+    value = os.environ.get(key)
+    if value is None:
+        return False
+    return bool(value.strip())
+
+
+def _resolve_allowed_model_config() -> tuple[list[str], list[str]]:
+    allowed_source = "default"
+    if _env_has_value("LLM_ALLOWED_MODELS"):
+        allowed = _normalize_model_config(os.environ.get("LLM_ALLOWED_MODELS", ""))
+        allowed_source = "env"
+    else:
+        legacy_allowed = _normalize_model_config(get_config("llm-allowed-models", None))
+        if legacy_allowed:
+            allowed = legacy_allowed
+            allowed_source = "legacy"
+        else:
+            allowed = _normalize_model_config(get_config("LLM_ALLOWED_MODELS", None))
+
+    if _env_has_value("LLM_ALLOWED_MODEL_DISPLAY_NAMES"):
+        display_names = _normalize_model_config(
+            os.environ.get("LLM_ALLOWED_MODEL_DISPLAY_NAMES", "")
+        )
+    elif allowed_source == "legacy":
+        display_names = _normalize_model_config(
+            get_config("llm-allowed-model-display-names", None)
+        )
+    else:
+        display_names = _normalize_model_config(
+            get_config("LLM_ALLOWED_MODEL_DISPLAY_NAMES", None)
+        )
+
+    return allowed, display_names
 
 
 def _register_provider_models(
@@ -333,6 +370,11 @@ DEEPSEEK_EXTRA_MODELS = ["deepseek-chat"]
 
 
 def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    if model_id.startswith("gpt-5.2"):
+        return {
+            "reasoning_effort": "none",
+            "temperature": temperature,
+        }
     if model_id.startswith("gpt-5.1"):
         return {
             "reasoning_effort": "none",
@@ -706,10 +748,7 @@ def chat_llm(
 def _build_model_options(
     app: Flask, available_models: list[str]
 ) -> list[dict[str, str]]:
-    allowed = _normalize_model_config(get_config("LLM_ALLOWED_MODELS", []))
-    display_names = _normalize_model_config(
-        get_config("LLM_ALLOWED_MODEL_DISPLAY_NAMES", [])
-    )
+    allowed, display_names = _resolve_allowed_model_config()
 
     if not allowed:
         return [{"model": model, "display_name": model} for model in available_models]
@@ -752,3 +791,8 @@ def get_current_models(app: Flask) -> list[dict[str, str]]:
     combined = litellm_models + DIFY_MODELS
     available_models = list(dict.fromkeys(combined))
     return _build_model_options(app, available_models)
+
+
+def get_allowed_models() -> list[str]:
+    allowed, _ = _resolve_allowed_model_config()
+    return allowed

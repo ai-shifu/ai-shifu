@@ -128,10 +128,22 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Default redirect path after login",
         group="frontend",
     ),
-    "LOGO_URL": EnvVar(
-        name="LOGO_URL",
+    "LOGO_WIDE_URL": EnvVar(
+        name="LOGO_WIDE_URL",
         default="",
-        description="Custom logo URL override returned by /api/config",
+        description="Custom wide logo URL override returned by /api/config",
+        group="frontend",
+    ),
+    "LOGO_SQUARE_URL": EnvVar(
+        name="LOGO_SQUARE_URL",
+        default="",
+        description="Custom square logo URL override returned by /api/config",
+        group="frontend",
+    ),
+    "FAVICON_URL": EnvVar(
+        name="FAVICON_URL",
+        default="",
+        description="Custom favicon URL override returned by /api/config",
         group="frontend",
     ),
     "ANALYTICS_UMAMI_SCRIPT": EnvVar(
@@ -518,6 +530,20 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         default="",
         description="OAuth client secret issued by Google",
         secret=True,
+        group="auth",
+    ),
+    "GOOGLE_OAUTH_TOKEN_ENDPOINT": EnvVar(
+        name="GOOGLE_OAUTH_TOKEN_ENDPOINT",
+        default="https://oauth2.googleapis.com/token",
+        description=(
+            "Google OAuth token endpoint URL used by the backend to exchange auth codes."
+        ),
+        group="auth",
+    ),
+    "GOOGLE_OAUTH_USERINFO_ENDPOINT": EnvVar(
+        name="GOOGLE_OAUTH_USERINFO_ENDPOINT",
+        default="https://openidconnect.googleapis.com/v1/userinfo",
+        description="Google OpenID Connect userinfo endpoint URL used by the backend.",
         group="auth",
     ),
     "MAIL_CODE_EXPIRE_TIME": EnvVar(
@@ -1135,6 +1161,17 @@ class EnhancedConfig:
         Returns:
             Formatted .env.example content as string
         """
+
+        # Format values for .env output, handling lists as comma-separated strings
+        def format_value(env_var: EnvVar, value: Any) -> str:
+            if value is None:
+                return ""
+            if env_var.type is list:
+                if isinstance(value, list):
+                    return ",".join(str(item) for item in value)
+                return str(value)
+            return str(value)
+
         if filter_type == "required":
             header_lines = [
                 "# AI-Shifu Environment Configuration - REQUIRED VARIABLES",
@@ -1189,15 +1226,13 @@ class EnhancedConfig:
                     metadata.append("Optional - handled by libraries")
                 else:
                     # Avoid leaking secret defaults
-                    default_display = (
-                        env_var.default
-                        if not (
-                            env_var.secret
-                            and env_var.example is None
-                            and env_var.default not in (None, "")
-                        )
-                        else ""
-                    )
+                    default_display = ""
+                    if not (
+                        env_var.secret
+                        and env_var.example is None
+                        and env_var.default not in (None, "")
+                    ):
+                        default_display = format_value(env_var, env_var.default)
                     metadata.append(f"Optional - default: {default_display}")
 
                 # Emit metadata on separate lines for readability and testing expectations
@@ -1223,7 +1258,7 @@ class EnhancedConfig:
                     ):
                         value = ""
 
-                value_str = "" if value is None else str(value)
+                value_str = format_value(env_var, value)
                 lines.append(f'{env_var.name}="{value_str}"')
                 lines.append("")
 

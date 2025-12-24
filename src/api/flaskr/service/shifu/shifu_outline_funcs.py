@@ -17,8 +17,8 @@ from .consts import (
     UNIT_TYPE_VALUES_REVERSE,
     UNIT_TYPE_VALUES,
     UNIT_TYPE_VALUE_TRIAL,
-    UNIT_TYPE_NORMAL,
     UNIT_TYPE_TRIAL,
+    UNIT_TYPE_GUEST,
 )
 from .models import DraftOutlineItem
 from ...dao import db
@@ -185,7 +185,7 @@ def create_outline(
     outline_name: str,
     outline_description: str,
     outline_index: int = 0,
-    outline_type: str = UNIT_TYPE_TRIAL,
+    outline_type: str = UNIT_TYPE_GUEST,
     system_prompt: str = None,
     is_hidden: bool = False,
 ):
@@ -298,7 +298,7 @@ def modify_outline(
     outline_name: str,
     outline_description: str,
     outline_index: int = 0,
-    outline_type: str = UNIT_TYPE_TRIAL,
+    outline_type: str = UNIT_TYPE_GUEST,
     system_prompt: str = None,
     is_hidden: bool = False,
 ):
@@ -580,7 +580,7 @@ def modify_unit(
     unit_index: int = 0,
     unit_system_prompt: str = None,
     unit_is_hidden: bool = False,
-    unit_type: str = UNIT_TYPE_NORMAL,
+    unit_type: str = UNIT_TYPE_GUEST,
 ):
     """
     Modify unit

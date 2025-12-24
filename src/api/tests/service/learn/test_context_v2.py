@@ -2,6 +2,7 @@ import asyncio
 import sys
 import types
 import unittest
+from unittest.mock import patch
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -26,11 +27,17 @@ if not hasattr(dao, "redis_client"):
 if "flaskr.api.llm" not in sys.modules:
     llm_stub = types.ModuleType("flaskr.api.llm")
     llm_stub.invoke_llm = lambda *args, **kwargs: []
+    llm_stub.chat_llm = lambda *args, **kwargs: []
+    llm_stub.get_allowed_models = lambda *args, **kwargs: []
+    llm_stub.get_current_models = lambda *args, **kwargs: []
     sys.modules["flaskr.api.llm"] = llm_stub
 
-from flaskr.service.learn.context_v2 import RunScriptContextV2
+from flaskr.service.learn.context_v2 import (
+    RunScriptContextV2,
+    RunScriptPreviewContextV2,
+)
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
-from flaskr.service.learn.learn_dtos import GeneratedType
+from flaskr.service.learn.learn_dtos import GeneratedType, PlaygroundPreviewRequest
 from flaskr.service.learn.models import LearnGeneratedBlock
 
 
@@ -144,6 +151,43 @@ class NextChapterInteractionTests(unittest.TestCase):
                 ).count(),
                 1,
             )
+
+
+class PreviewResolveLlmSettingsTests(unittest.TestCase):
+    def test_falls_back_to_allowlist_when_persisted_model_not_allowed(self):
+        app = Flask("preview-llm-settings")
+        app.config.update(
+            DEFAULT_LLM_MODEL="",
+            DEFAULT_LLM_TEMPERATURE=0.3,
+        )
+        preview_ctx = RunScriptPreviewContextV2(app)
+        preview_request = PlaygroundPreviewRequest(block_index=0)
+        outline = types.SimpleNamespace(
+            llm="silicon/fishaudio/fish-speech-1.5",
+            llm_temperature=None,
+        )
+        shifu = types.SimpleNamespace(llm=None, llm_temperature=None)
+
+        with (
+            patch(
+                "flaskr.service.learn.context_v2.get_allowed_models",
+                return_value=["ark/deepseek-v3-2"],
+            ),
+            patch(
+                "flaskr.service.learn.context_v2.get_current_models",
+                return_value=[
+                    {"model": "ark/deepseek-v3-2", "display_name": "DeepSeek V3.2"}
+                ],
+            ),
+        ):
+            model, temperature = preview_ctx._resolve_llm_settings(
+                preview_request,
+                outline,
+                shifu,
+            )
+
+        self.assertEqual(model, "ark/deepseek-v3-2")
+        self.assertEqual(temperature, 0.3)
 
 
 if __name__ == "__main__":

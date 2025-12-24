@@ -17,7 +17,7 @@ import {
   maskIncompleteMermaidBlock,
 } from '@/c-utils/markdownUtils';
 import { getDynamicApiBaseUrl } from '@/config/environment';
-import { useUserStore } from '@/store';
+import { useShifu, useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
 import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
@@ -72,10 +72,11 @@ const buildVariablesSnapshot = (
 
 export function usePreviewChat() {
   const { t } = useTranslation();
+  const { actions } = useShifu();
+  const getCurrentMdflow = actions?.getCurrentMdflow;
   const resolveBaseUrl = useCallback(async () => {
     const dynamicBase = await getDynamicApiBaseUrl();
-    const candidate =
-      dynamicBase || getStringEnv('baseURL') || 'http://localhost:8080';
+    const candidate = dynamicBase || getStringEnv('baseURL') || '';
     const normalized = candidate.replace(/\/$/, '');
     if (normalized && normalized !== '') {
       return normalized;
@@ -101,6 +102,13 @@ export function usePreviewChat() {
   const tryAutoSubmitInteractionRef = useRef<
     (blockId: string, content?: string | null) => void
   >(() => {});
+  const resolveLatestMdflow = useCallback(() => {
+    const latest = getCurrentMdflow?.();
+    if (typeof latest === 'string') {
+      return latest;
+    }
+    return (sseParams.current?.mdflow as string) || '';
+  }, [getCurrentMdflow]);
   const [pendingRegenerate, setPendingRegenerate] = useState<{
     content: OnSendContentParams;
     blockBid: string;
@@ -807,12 +815,15 @@ export function usePreviewChat() {
 
       newList.length = needChangeItemIndex;
       setTrackedContentList(newList);
+      const latestMdflow = resolveLatestMdflow();
       startPreview({
         ...sseParams.current,
+        mdflow: latestMdflow,
         block_index: nextBlockIndex,
       });
     },
     [
+      resolveLatestMdflow,
       removeAutoSubmittedBlocks,
       setTrackedContentList,
       showOutputInProgressToast,

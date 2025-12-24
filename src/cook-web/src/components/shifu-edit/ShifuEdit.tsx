@@ -13,14 +13,26 @@ import { useUserStore } from '@/store';
 import OutlineTree from '@/components/outline-tree';
 import ChapterSettingsDialog from '@/components/chapter-setting';
 import Header from '../header';
-import { UploadProps, MarkdownFlowEditor, EditMode } from 'markdown-flow-ui';
-// TODO@XJL
-import 'markdown-flow-ui/dist/markdown-flow-ui.css';
+// import MarkdownFlowEditor from '../../../../../../markdown-flow-ui/src/components/MarkdownFlowEditor';
+import { UploadProps, EditMode } from 'markdown-flow-ui';
+import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import './shifuEdit.scss';
 import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
+
+const MarkdownFlowEditor = dynamic(
+  () => import('markdown-flow-ui').then(mod => mod.MarkdownFlowEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className='h-40 flex items-center justify-center'>
+        <Loading />
+      </div>
+    ),
+  },
+);
 import i18n, { normalizeLanguage } from '@/i18n';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
@@ -28,11 +40,33 @@ import LessonPreview from '@/components/lesson-preview';
 import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
 import { Rnd } from 'react-rnd';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
 import { LessonCreationSettings } from '@/types/shifu';
 
 const OUTLINE_DEFAULT_WIDTH = 256;
 const OUTLINE_COLLAPSED_WIDTH = 60;
 const OUTLINE_STORAGE_KEY = 'shifu-outline-panel-width';
+
+const VARIABLE_NAME_REGEXP = /\{\{([\p{L}\p{N}_]+)\}\}/gu;
+
+// Collect variable names that truly exist in current markdown content
+const extractVariableNames = (text?: string | null) => {
+  if (!text) {
+    return [];
+  }
+  const collected = new Set<string>();
+  let match: RegExpExecArray | null;
+  while ((match = VARIABLE_NAME_REGEXP.exec(text)) !== null) {
+    if (match[1]) {
+      collected.add(match[1]);
+    }
+    if (VARIABLE_NAME_REGEXP.lastIndex === match.index) {
+      VARIABLE_NAME_REGEXP.lastIndex += 1;
+    }
+  }
+  VARIABLE_NAME_REGEXP.lastIndex = 0;
+  return Array.from(collected);
+};
 
 const ScriptEditor = ({ id }: { id: string }) => {
   const { t } = useTranslation();
@@ -45,6 +79,19 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [isPreviewPanelOpen, setIsPreviewPanelOpen] = useState(false);
   const [isPreviewPreparing, setIsPreviewPreparing] = useState(false);
   const [addChapterDialogOpen, setAddChapterDialogOpen] = useState(false);
+  const [recentVariables, setRecentVariables] = useState<string[]>([]);
+  const seenVariableNamesRef = useRef<Set<string>>(new Set());
+  const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async preview is pending
+  const {
+    mdflow,
+    chapters,
+    actions,
+    isLoading,
+    variables,
+    systemVariables,
+    currentShifu,
+    currentNode,
+  } = useShifu();
 
   const {
     items: previewItems,
@@ -94,17 +141,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
       previousOutlineWidthRef.current = parsedWidth;
     }
   }, []);
-
-  const {
-    mdflow,
-    chapters,
-    actions,
-    isLoading,
-    variables,
-    systemVariables,
-    currentShifu,
-    currentNode,
-  } = useShifu();
 
   useEffect(() => {
     const baseTitle = t('common.core.adminTitle');
@@ -165,6 +201,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
     });
   };
 
+  useEffect(() => {
+    currentNodeBidRef.current = currentNode?.bid ?? null;
+  }, [currentNode?.bid]);
+
   const handleChapterSelect = useCallback(() => {
     if (!isPreviewPanelOpen) {
       return;
@@ -178,9 +218,18 @@ const ScriptEditor = ({ id }: { id: string }) => {
     if (!canPreview || !currentShifu?.bid || !currentNode?.bid) {
       return;
     }
+    const targetOutline = currentNode.bid;
+    const targetShifu = currentShifu.bid;
+    const targetMdflow = mdflow;
+    const outlineChanged = () => {
+      // `currentNodeBidRef.current` holds the latest outline bid, updated via useEffect.
+      // This check correctly detects if the user has navigated to a different outline item
+      // since the preview was initiated.
+      return targetOutline !== currentNodeBidRef.current;
+    };
     trackEvent('creator_lesson_preview_click', {
-      shifu_bid: currentShifu.bid,
-      outline_bid: currentNode.bid,
+      shifu_bid: targetShifu,
+      outline_bid: targetOutline,
     });
     setIsPreviewPanelOpen(true);
     setIsPreviewPreparing(true);
@@ -189,29 +238,35 @@ const ScriptEditor = ({ id }: { id: string }) => {
     try {
       if (!currentShifu?.readonly) {
         await actions.saveMdflow({
-          shifu_bid: currentShifu.bid,
-          outline_bid: currentNode.bid,
-          data: mdflow,
+          shifu_bid: targetShifu,
+          outline_bid: targetOutline,
+          data: targetMdflow,
         });
+        if (outlineChanged()) {
+          return;
+        }
       }
       const {
         variables: parsedVariablesMap,
         blocksCount,
         systemVariableKeys,
-      } = await actions.previewParse(mdflow, currentShifu.bid, currentNode.bid);
+      } = await actions.previewParse(targetMdflow, targetShifu, targetOutline);
+      if (outlineChanged()) {
+        return;
+      }
       const previewVariablesMap = {
         ...parsedVariablesMap,
         ...previewVariables,
       };
       persistVariables({
-        shifuBid: currentShifu.bid,
+        shifuBid: targetShifu,
         systemVariableKeys,
         variables: previewVariablesMap,
       });
       void startPreview({
-        shifuBid: currentShifu.bid,
-        outlineBid: currentNode.bid,
-        mdflow,
+        shifuBid: targetShifu,
+        outlineBid: targetOutline,
+        mdflow: targetMdflow,
         variables: previewVariablesMap,
         max_block_count: blocksCount,
         systemVariableKeys,
@@ -223,11 +278,54 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
   };
 
+  const mdflowVariableNames = useMemo(
+    () => extractVariableNames(mdflow),
+    [mdflow],
+  );
+  useEffect(() => {
+    const previousSeen = seenVariableNamesRef.current;
+    const currentSet = new Set<string>();
+    const newNames: string[] = [];
+    mdflowVariableNames.forEach(name => {
+      if (!name) {
+        return;
+      }
+      currentSet.add(name);
+      if (!previousSeen.has(name)) {
+        newNames.push(name);
+      }
+    });
+    seenVariableNamesRef.current = currentSet;
+    const currentNamesSet = new Set(mdflowVariableNames);
+    if (!newNames.length) {
+      setRecentVariables(prev =>
+        prev.filter(name => currentNamesSet.has(name)),
+      );
+      return;
+    }
+    setRecentVariables(prev => {
+      const filteredPrev = prev.filter(
+        name => !newNames.includes(name) && currentNamesSet.has(name),
+      );
+      return [...newNames, ...filteredPrev];
+    });
+  }, [mdflowVariableNames]);
+
   const variablesList = useMemo(() => {
-    return variables.map((variable: string) => ({
-      name: variable,
-    }));
-  }, [variables]);
+    const merged = new Map<string, { name: string }>();
+    // Prioritize freshly added variables, then actual markdown ones, then persisted ones
+    [...recentVariables, ...mdflowVariableNames, ...variables].forEach(
+      variableName => {
+        if (!variableName) {
+          return;
+        }
+        if (!merged.has(variableName)) {
+          merged.set(variableName, { name: variableName });
+        }
+      },
+    );
+    return Array.from(merged.values());
+  }, [recentVariables, mdflowVariableNames, variables]);
 
   const systemVariablesList = useMemo(() => {
     return systemVariables.map((variable: Record<string, string>) => ({
@@ -428,7 +526,17 @@ const ScriptEditor = ({ id }: { id: string }) => {
                         {t('module.shifu.creationArea.title')}
                       </h2>
                       <p className='flex-1 min-w-0 text-xs leading-3 text-[rgba(0,0,0,0.45)] truncate'>
-                        {t('module.shifu.creationArea.description')}
+                        <MarkdownFlowLink
+                          prefix={t(
+                            'module.shifu.creationArea.descriptionPrefix',
+                          )}
+                          suffix={t(
+                            'module.shifu.creationArea.descriptionSuffix',
+                          )}
+                          linkText='MarkdownFlow'
+                          title={`${t('module.shifu.creationArea.descriptionPrefix')} MarkdownFlow ${t('module.shifu.creationArea.descriptionSuffix')}`}
+                          targetUrl='https://markdownflow.ai/docs'
+                        />
                       </p>
                     </div>
                     <div className='ml-auto flex flex-nowrap items-center gap-2 relative shrink-0'>

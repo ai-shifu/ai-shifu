@@ -17,10 +17,10 @@ from flaskr.service.learn.learn_funcs import (
 )
 from flaskr.service.learn.runscript_v2 import run_script, get_run_status
 from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
-from flaskr.service.learn.preview_service import MarkdownFlowPreviewService
+from flaskr.service.learn.context_v2 import RunScriptPreviewContextV2
 from flaskr.service.learn.learn_dtos import PreviewSSEMessage, PreviewSSEMessageType
 from flaskr.util import generate_id
-from flaskr.common.shifu_context import with_shifu_context
+from flaskr.common.shifu_context import with_shifu_context, get_shifu_context_snapshot
 
 
 def _normalize_user_input(value):
@@ -50,7 +50,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     register learn routes
     """
     app.logger.info(f"register learn routes {path_prefix}")
-    preview_service = MarkdownFlowPreviewService(app)
+    preview_service = RunScriptPreviewContextV2(app)
 
     @app.route(path_prefix + "/shifu/<shifu_bid>", methods=["GET"])
     @bypass_token_validation
@@ -187,6 +187,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             f"run outline item, shifu_bid: {shifu_bid}, outline_bid: {outline_bid}, preview_mode: {preview_mode}"
         )
         preview_mode = True if preview_mode.lower() == "true" else False
+        shifu_context_snapshot = get_shifu_context_snapshot()
         try:
             return Response(
                 run_script(
@@ -198,6 +199,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     input_type=input_type,
                     reload_generated_block_bid=reload_generated_block_bid,
                     preview_mode=preview_mode,
+                    shifu_context_snapshot=shifu_context_snapshot,
                 ),
                 headers={"Cache-Control": "no-cache"},
                 mimetype="text/event-stream",

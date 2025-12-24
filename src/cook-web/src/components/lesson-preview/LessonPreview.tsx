@@ -59,6 +59,9 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   reGenerateConfirm,
 }) => {
   const { t } = useTranslation();
+  const confirmButtonText = t('module.renderUi.core.confirm');
+  const copyButtonText = t('module.renderUi.core.copyCode');
+  const copiedButtonText = t('module.renderUi.core.copied');
   const [variablesCollapsed, setVariablesCollapsed] = React.useState(false);
 
   const showEmpty = !loading && items.length === 0;
@@ -84,19 +87,19 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
 
   return (
     <div className={cn(styles.lessonPreview, 'text-sm')}>
-      {/* 顶部标题 */}
-      <div className='flex flex-wrap items-baseline gap-2 pt-[4px]'>
-        <h2 className='text-base font-semibold text-foreground'>
+      <div className='flex items-baseline gap-2 pt-[4px]'>
+        <h2 className='text-base font-semibold text-foreground whitespace-nowrap shrink-0'>
           {t('module.shifu.previewArea.title')}
         </h2>
-        <p className='text-xs text-[rgba(0,0,0,0.45)]'>
+        <span
+          className='flex-1 min-w-0 text-xs text-[rgba(0,0,0,0.45)] truncate'
+          title={t('module.shifu.previewArea.description')}
+        >
           {t('module.shifu.previewArea.description')}
-        </p>
+        </span>
       </div>
 
-      {/* 主体区域（不滚动，用于 sticky） */}
       <div className={styles.previewArea}>
-        {/* VariableList（吸顶固定） */}
         {!showEmpty && (
           <div className={styles.variableListWrapper}>
             <VariableList
@@ -109,9 +112,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           </div>
         )}
 
-        {/* 内容滚动区（唯一 overflow 区域） */}
         <div className={styles.previewAreaContent}>
-          {/* 加载状态 */}
           {loading && items.length === 0 && (
             <div className='flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground'>
               <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
@@ -119,7 +120,6 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
             </div>
           )}
 
-          {/* 空状态 */}
           {showEmpty && !loading && (
             <div className='h-full flex flex-col items-center justify-center gap-[13px] px-8 text-center text-[14px] leading-5 text-[rgba(10,10,10,0.45)]'>
               <Image
@@ -132,7 +132,6 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
             </div>
           )}
 
-          {/* 渲染内容 */}
           {!showEmpty &&
             items.map((item, idx) => {
               if (item.type === ChatContentItemType.LIKE_STATUS) {
@@ -168,7 +167,9 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                     item={item}
                     mobileStyle={false}
                     blockBid={item.generated_block_bid}
-                    confirmButtonText={t('module.renderUi.core.confirm')}
+                    confirmButtonText={confirmButtonText}
+                    copyButtonText={copyButtonText}
+                    copiedButtonText={copiedButtonText}
                     onSend={onSend}
                   />
                 </div>
@@ -177,7 +178,6 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
         </div>
       </div>
 
-      {/* 再生成确认弹窗 */}
       <Dialog
         open={reGenerateConfirm?.open ?? false}
         onOpenChange={open => !open && reGenerateConfirm?.onCancel?.()}

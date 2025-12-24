@@ -1,7 +1,11 @@
+import hashlib
+import inspect
+import json
 import queue
 import threading
-from typing import Generator, Union
+from decimal import Decimal
 from enum import Enum
+from typing import Generator, Iterable, Optional, Union
 from flaskr.service.learn.const import (
     ROLE_STUDENT,
     ROLE_TEACHER,
@@ -19,13 +23,15 @@ from markdown_flow import (
     BlockType,
     InteractionParser,
 )
+from markdown_flow.llm import LLMResult
 from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
-from flaskr.dao import db
+from flaskr.dao import db, redis_client
 from flaskr.service.shifu.shifu_struct_manager import (
     ShifuOutlineItemDto,
     ShifuInfoDto,
     OutlineItemDtoWithMdflow,
+    get_shifu_struct,
     get_outline_item_dto_with_mdflow,
 )
 from flaskr.service.shifu.models import (
@@ -38,7 +44,7 @@ from flaskr.service.learn.models import LearnProgressRecord, LearnGeneratedBlock
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from langfuse.client import StatefulTraceClient
 from ...api.langfuse import langfuse_client as langfuse, MockClient
-from flaskr.service.common import raise_error
+from flaskr.service.common import raise_error, raise_error_with_args
 from flaskr.service.order.consts import (
     LEARN_STATUS_RESET,
     LEARN_STATUS_IN_PROGRESS,
@@ -56,12 +62,18 @@ from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.util import generate_id
 from flaskr.service.profile.funcs import get_user_profiles
 from flaskr.service.learn.learn_dtos import (
+    PlaygroundPreviewRequest,
+    PreviewContentSSEData,
+    PreviewInteractionSSEData,
+    PreviewSSEMessage,
+    PreviewSSEMessageType,
+    PreviewTextEndSSEData,
     RunMarkdownFlowDTO,
     GeneratedType,
     OutlineItemUpdateDTO,
     LearnStatus,
 )
-from flaskr.api.llm import chat_llm
+from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
 from flaskr.service.learn.handle_input_ask import handle_input_ask
 from flaskr.service.profile.funcs import save_user_profiles, ProfileToSave
 from flaskr.service.profile.profile_manage import (
@@ -195,6 +207,687 @@ class RUNLLMProvider(LLMProvider):
                     self.app.logger.info(f"stream first result: {i.result}")
                 yield i.result
         self.app.logger.info("stream invoke_llm end")
+
+
+class MdflowContextV2:
+    def __init__(
+        self,
+        *,
+        document: str,
+        document_prompt: Optional[str] = None,
+        llm_provider: Optional[LLMProvider] = None,
+        interaction_prompt: Optional[str] = None,
+        interaction_error_prompt: Optional[str] = None,
+    ):
+        self._mdflow = MarkdownFlow(
+            document=document,
+            llm_provider=llm_provider,
+            document_prompt=document_prompt,
+            interaction_prompt=interaction_prompt,
+            interaction_error_prompt=interaction_error_prompt,
+        ).set_output_language(get_markdownflow_output_language())
+
+    def get_block(self, block_index: int):
+        return self._mdflow.get_block(block_index)
+
+    def get_all_blocks(self):
+        return self._mdflow.get_all_blocks()
+
+    def process(
+        self,
+        *,
+        block_index: int,
+        mode: ProcessMode,
+        context: Optional[list[dict[str, str]]] = None,
+        variables: Optional[dict] = None,
+        user_input: Optional[dict[str, list[str]]] = None,
+    ):
+        return self._mdflow.process(
+            block_index=block_index,
+            mode=mode,
+            # context=context,
+            variables=variables,
+            user_input=user_input,
+        )
+
+    @staticmethod
+    def normalize_context_messages(
+        context: Optional[Iterable[dict[str, str]]],
+    ) -> Optional[list[dict[str, str]]]:
+        if not context:
+            return None
+        filtered: list[dict[str, str]] = []
+        for msg in context:
+            if not isinstance(msg, dict):
+                continue
+            role = msg.get("role")
+            content = msg.get("content", "")
+            if not role or not content or not str(content).strip():
+                continue
+            filtered.append({"role": role, "content": str(content)})
+        return filtered or None
+
+    @staticmethod
+    def normalize_user_input_map(
+        input_value: str | dict | list | None,
+        default_key: str = "input",
+    ) -> dict[str, list[str]]:
+        if input_value is None:
+            return {}
+        if isinstance(input_value, dict):
+            normalized = {}
+            for key, raw in input_value.items():
+                if raw is None:
+                    continue
+                if isinstance(raw, list):
+                    cleaned = [str(item) for item in raw if item is not None]
+                else:
+                    cleaned = [str(raw)]
+                if cleaned:
+                    normalized[str(key)] = cleaned
+            return normalized
+        if isinstance(input_value, list):
+            cleaned = [str(item) for item in input_value if item is not None]
+            return {default_key: cleaned} if cleaned else {}
+        return {default_key: [str(input_value)]}
+
+    @staticmethod
+    def flatten_user_input_map(
+        user_input: Optional[dict[str, list[str]]],
+    ) -> str:
+        if not user_input:
+            return ""
+        values: list[str] = []
+        for value in user_input.values():
+            if isinstance(value, list):
+                values.extend([str(item) for item in value if item is not None])
+            elif value is not None:
+                values.append(str(value))
+        return ",".join(values)
+
+    @staticmethod
+    def build_context_from_blocks(
+        blocks: Iterable["LearnGeneratedBlock"],
+    ) -> list[dict[str, str]]:
+        message_list: list[dict[str, str]] = []
+        last_role = None
+        for generated_block in blocks:
+            role = None
+            if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
+                role = "assistant"
+            elif generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
+                role = "user"
+            if not role:
+                continue
+            content = generated_block.generated_content or ""
+            if role != last_role:
+                message_list.append({"role": role, "content": content})
+                last_role = role
+            else:
+                message_list[-1]["content"] += "\n" + content
+        return message_list
+
+
+class _PreviewContextStore:
+    _DEFAULT_TTL_SECONDS = 30 * 60
+
+    def __init__(
+        self,
+        app: Flask,
+        user_bid: str,
+        shifu_bid: str,
+        outline_bid: str,
+        ttl_seconds: Optional[int] = None,
+    ):
+        self._redis = redis_client
+        self._ttl_seconds = ttl_seconds or self._DEFAULT_TTL_SECONDS
+        prefix = app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
+        self._key = f"{prefix}:preview_context:{user_bid}:{shifu_bid}:{outline_bid}"
+
+    def _hash_document(self, document: str) -> str:
+        if not document:
+            return ""
+        return hashlib.sha256(document.encode("utf-8")).hexdigest()
+
+    def load(self) -> dict:
+        if not self._redis:
+            return {}
+        try:
+            raw = self._redis.get(self._key)
+            if raw is None:
+                return {}
+            if isinstance(raw, bytes):
+                raw = raw.decode("utf-8")
+            return json.loads(raw) if raw else {}
+        except Exception:
+            return {}
+
+    def save(self, payload: dict) -> None:
+        if not self._redis:
+            return
+        try:
+            value = json.dumps(payload, ensure_ascii=False)
+            self._redis.setex(self._key, self._ttl_seconds, value)
+        except Exception:
+            return
+
+    def clear(self) -> None:
+        if not self._redis:
+            return
+        try:
+            self._redis.delete(self._key)
+        except Exception:
+            return
+
+    def get_context(self, document: str, block_index: int) -> list[dict[str, str]]:
+        payload = self.load()
+        if not payload:
+            return []
+        if block_index == 0:
+            self.clear()
+            return []
+        doc_hash = payload.get("document_hash")
+        if document and doc_hash and doc_hash != self._hash_document(document):
+            self.clear()
+            return []
+        context = payload.get("context")
+        if not isinstance(context, list):
+            return []
+        return [item for item in context if isinstance(item, dict)]
+
+    def replace_context(self, document: str, context: list[dict[str, str]]) -> None:
+        if not self._redis:
+            return
+        payload = {
+            "context": context,
+            "document_hash": self._hash_document(document),
+        }
+        self.save(payload)
+
+    def append_context(self, document: str, messages: list[dict[str, str]]) -> None:
+        if not messages:
+            return
+        payload = self.load()
+        context = payload.get("context")
+        if not isinstance(context, list):
+            context = []
+        context.extend(messages)
+        self.save(
+            {
+                "context": context,
+                "document_hash": self._hash_document(document),
+            }
+        )
+
+
+class RunScriptPreviewContextV2:
+    """MarkdownFlow preview using context v2 logic with optional Redis caching."""
+
+    def __init__(self, app: Flask):
+        self.app = app
+
+    def stream_preview(
+        self,
+        *,
+        preview_request: PlaygroundPreviewRequest,
+        shifu_bid: str,
+        outline_bid: str,
+        user_bid: str,
+        session_id: str,
+    ) -> Generator[PreviewSSEMessage, None, None]:
+        outline = self._get_outline_record(shifu_bid, outline_bid)
+        shifu = self._get_shifu_record(shifu_bid, True)
+        document_prompt = self._resolve_document_prompt(
+            preview_request, outline, shifu, shifu_bid, outline_bid
+        )
+        self.app.logger.info(
+            "preview document prompt | shifu_bid=%s | outline_bid=%s | prompt=%s",
+            shifu_bid,
+            outline_bid,
+            (document_prompt or "").strip(),
+        )
+        model, temperature = self._resolve_llm_settings(preview_request, outline, shifu)
+        document = preview_request.get_document() or (
+            outline.content if outline else ""
+        )
+        if not document:
+            raise ValueError("Markdown-Flow content is empty")
+
+        trace_args = {
+            "user_id": user_bid,
+            "name": "preview_outline_block",
+            "metadata": {
+                "shifu_bid": shifu_bid,
+                "outline_bid": outline_bid,
+                "session_id": session_id,
+            },
+        }
+        trace = langfuse.trace(**trace_args)
+        provider = RUNLLMProvider(
+            self.app,
+            LLMSettings(model=model, temperature=temperature),
+            trace,
+            trace_args,
+        )
+
+        final_payload = preview_request.model_dump()
+        final_payload["content"] = document
+        final_payload["document_prompt"] = document_prompt
+        final_payload["model"] = model
+        final_payload["temperature"] = temperature
+        self.app.logger.info(
+            "preview final payload | shifu_bid=%s | outline_bid=%s | user_bid=%s | payload=%s",
+            shifu_bid,
+            outline_bid,
+            user_bid,
+            json.dumps(final_payload, ensure_ascii=False),
+        )
+
+        context_store = _PreviewContextStore(self.app, user_bid, shifu_bid, outline_bid)
+        request_context = MdflowContextV2.normalize_context_messages(
+            preview_request.context
+        )
+        if request_context is None:
+            # context_messages = context_store.get_context(
+            # document, preview_request.block_index
+            # )
+            pass
+        else:
+            # context_messages = request_context
+            context_store.replace_context(document, request_context)
+
+        mdflow_context = MdflowContextV2(
+            document=document,
+            llm_provider=provider,
+            document_prompt=document_prompt,
+            interaction_prompt=preview_request.interaction_prompt,
+            interaction_error_prompt=preview_request.interaction_error_prompt,
+        )
+
+        block_index = preview_request.block_index
+        result = mdflow_context.process(
+            block_index=block_index,
+            mode=ProcessMode.STREAM,
+            # context=context_messages or None,
+            variables=preview_request.variables,
+            user_input=preview_request.user_input,
+        )
+        current_block = mdflow_context.get_block(block_index)
+        is_user_input_validation = bool(preview_request.user_input)
+        content_chunks: list[str] = []
+
+        if inspect.isgenerator(result):
+            for chunk in result:
+                message = self._convert_to_sse_message(
+                    chunk,
+                    False,
+                    current_block,
+                    is_user_input_validation,
+                    block_index,
+                )
+                if message:
+                    if message.type == PreviewSSEMessageType.CONTENT:
+                        content_chunks.append(message.data.mdflow)
+                    yield message
+                    if message.type == PreviewSSEMessageType.INTERACTION:
+                        break
+            yield self._convert_to_sse_message(
+                LLMResult(content=""),
+                True,
+                current_block,
+                is_user_input_validation,
+                block_index,
+            )
+        else:
+            message = self._convert_to_sse_message(
+                result,
+                False,
+                current_block,
+                is_user_input_validation,
+                block_index,
+            )
+            if message:
+                if message.type == PreviewSSEMessageType.CONTENT:
+                    content_chunks.append(message.data.mdflow)
+                yield message
+            yield self._convert_to_sse_message(
+                LLMResult(content=""),
+                True,
+                current_block,
+                is_user_input_validation,
+                block_index,
+            )
+
+        self._update_preview_context(
+            context_store,
+            document,
+            preview_request,
+            content_chunks,
+        )
+        trace.update(**trace_args)
+
+    def _update_preview_context(
+        self,
+        context_store: _PreviewContextStore,
+        document: str,
+        preview_request: PlaygroundPreviewRequest,
+        content_chunks: list[str],
+    ) -> None:
+        new_messages: list[dict[str, str]] = []
+        user_input_text = MdflowContextV2.flatten_user_input_map(
+            preview_request.user_input
+        )
+        if user_input_text:
+            new_messages.append({"role": "user", "content": user_input_text})
+        content_text = "".join(content_chunks).strip()
+        if content_text:
+            new_messages.append({"role": "assistant", "content": content_text})
+        if not new_messages:
+            return
+        context_store.append_context(document, new_messages)
+
+    def _convert_to_sse_message(
+        self,
+        llm_result: Optional[LLMResult],
+        finished: bool,
+        current_block,
+        is_user_input_validation: bool,
+        block_index: int,
+    ) -> PreviewSSEMessage | None:
+        if finished:
+            return PreviewSSEMessage(
+                generated_block_bid=str(block_index),
+                type=PreviewSSEMessageType.TEXT_END,
+                data=PreviewTextEndSSEData(),
+            )
+
+        content = ""
+        if llm_result is None:
+            content = ""
+        else:
+            if hasattr(llm_result, "content"):
+                content = llm_result.content or ""
+            else:
+                content = str(llm_result)
+
+        is_interaction_block = bool(
+            current_block
+            and hasattr(current_block, "block_type")
+            and (
+                current_block.block_type == BlockType.INTERACTION
+                or getattr(llm_result, "transformed_to_interaction", False)
+            )
+        )
+
+        if is_interaction_block:
+            if is_user_input_validation:
+                if content.strip():
+                    return PreviewSSEMessage(
+                        generated_block_bid=str(block_index),
+                        type=PreviewSSEMessageType.CONTENT,
+                        data=PreviewContentSSEData(mdflow=content),
+                    )
+                return None
+
+            rendered_content = content or getattr(current_block, "content", "")
+            variable_name = (
+                current_block.variables[0]
+                if getattr(current_block, "variables", None)
+                else "user_input"
+            )
+            return PreviewSSEMessage(
+                generated_block_bid=str(block_index),
+                type=PreviewSSEMessageType.INTERACTION,
+                data=PreviewInteractionSSEData(
+                    mdflow=rendered_content,
+                    variable=variable_name,
+                ),
+            )
+
+        if not content:
+            return None
+
+        return PreviewSSEMessage(
+            generated_block_bid=str(block_index),
+            type=PreviewSSEMessageType.CONTENT,
+            data=PreviewContentSSEData(mdflow=content),
+        )
+
+    def _resolve_document_prompt(
+        self,
+        preview_request: PlaygroundPreviewRequest,
+        outline: Optional[DraftOutlineItem | PublishedOutlineItem],
+        shifu: Optional[DraftShifu | PublishedShifu],
+        shifu_bid: str,
+        outline_bid: str,
+    ) -> Optional[str]:
+        if preview_request.document_prompt:
+            prompt = preview_request.document_prompt.strip()
+            if prompt:
+                return prompt
+
+        prompt = self._resolve_prompt_from_outline_chain(
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            outline_record=outline,
+        )
+        if prompt:
+            return prompt
+
+        if shifu:
+            prompt = (getattr(shifu, "llm_system_prompt", None) or "").strip()
+            if prompt:
+                return prompt
+        return None
+
+    def _resolve_prompt_from_outline_chain(
+        self,
+        shifu_bid: str,
+        outline_bid: str,
+        outline_record: Optional[DraftOutlineItem | PublishedOutlineItem],
+    ) -> Optional[str]:
+        target_bid = outline_record.outline_item_bid if outline_record else outline_bid
+        if not target_bid:
+            return None
+
+        preferred_is_draft = isinstance(outline_record, DraftOutlineItem)
+        visited_bids = set()
+
+        if outline_record:
+            prompt = (outline_record.llm_system_prompt or "").strip()
+            if prompt:
+                return prompt
+            visited_bids.add(outline_record.outline_item_bid)
+
+        hierarchy_records = self._load_outline_hierarchy_records(
+            shifu_bid=shifu_bid,
+            outline_bid=target_bid,
+            prefer_draft=preferred_is_draft,
+        )
+        for record in hierarchy_records:
+            if not record or record.outline_item_bid in visited_bids:
+                continue
+            prompt = (record.llm_system_prompt or "").strip()
+            if prompt:
+                return prompt
+            visited_bids.add(record.outline_item_bid)
+        return None
+
+    def _load_outline_hierarchy_records(
+        self,
+        shifu_bid: str,
+        outline_bid: str,
+        prefer_draft: bool,
+    ) -> list[DraftOutlineItem | PublishedOutlineItem]:
+        records: list[DraftOutlineItem | PublishedOutlineItem] = []
+        struct_modes = (
+            [prefer_draft, not prefer_draft]
+            if prefer_draft in (True, False)
+            else [True, False]
+        )
+        struct_modes = list(dict.fromkeys(struct_modes))
+
+        for is_preview in struct_modes:
+            try:
+                struct = get_shifu_struct(self.app, shifu_bid, is_preview)
+            except Exception:
+                continue
+            path = find_node_with_parents(struct, outline_bid)
+            if not path:
+                continue
+            path = list(reversed(path))
+            outline_ids = [item.id for item in path if item.type == "outline"]
+            if not outline_ids:
+                continue
+            outline_model = DraftOutlineItem if is_preview else PublishedOutlineItem
+            outline_items = outline_model.query.filter(
+                outline_model.id.in_(outline_ids),
+                outline_model.deleted == 0,
+            ).all()
+            outline_map = {item.id: item for item in outline_items}
+            for oid in outline_ids:
+                record = outline_map.get(oid)
+                if record:
+                    records.append(record)
+            if records:
+                break
+        return records
+
+    def _resolve_llm_settings(
+        self,
+        preview_request: PlaygroundPreviewRequest,
+        outline: Optional[DraftOutlineItem | PublishedOutlineItem],
+        shifu: Optional[DraftShifu | PublishedShifu],
+    ) -> tuple[str, float]:
+        def _normalize_model(value: object | None) -> str | None:
+            if value is None:
+                return None
+            text = str(value).strip()
+            return text or None
+
+        allowed_models = get_allowed_models()
+        allowlist_enabled = bool(allowed_models)
+        allowed_available_models: list[str] = []
+        if allowlist_enabled:
+            allowed_available_models = [
+                option.get("model", "")
+                for option in get_current_models(self.app)
+                if option.get("model")
+            ]
+
+        model_candidates: list[tuple[str, str | None]] = [
+            ("request", _normalize_model(preview_request.model)),
+            (
+                "outline",
+                _normalize_model(getattr(outline, "llm", None)) if outline else None,
+            ),
+            ("shifu", _normalize_model(getattr(shifu, "llm", None)) if shifu else None),
+            ("default", _normalize_model(self.app.config.get("DEFAULT_LLM_MODEL"))),
+        ]
+        temperature_candidates = [
+            preview_request.temperature,
+            self._decimal_to_float(getattr(outline, "llm_temperature", None))
+            if outline
+            else None,
+            self._decimal_to_float(getattr(shifu, "llm_temperature", None))
+            if shifu
+            else None,
+            float(self.app.config.get("DEFAULT_LLM_TEMPERATURE")),
+        ]
+
+        model_source = "unset"
+        model = None
+        for source, candidate in model_candidates:
+            if not candidate:
+                continue
+            if allowlist_enabled and candidate not in allowed_models:
+                if source == "request":
+                    raise_error_with_args(
+                        "server.llm.modelNotSupported", model=candidate
+                    )
+                continue
+            model = candidate
+            model_source = source
+            break
+
+        if allowlist_enabled and not model:
+            if allowed_available_models:
+                model = allowed_available_models[0]
+                model_source = "allowlist"
+            else:
+                raise ValueError("No allowed LLM models are available")
+
+        temperature = next(
+            (t for t in temperature_candidates if t is not None),
+            float(self.app.config.get("DEFAULT_LLM_TEMPERATURE")),
+        )
+
+        if not model:
+            raise ValueError("LLM model is not configured")
+
+        self.app.logger.info(
+            "preview resolved llm settings | model=%s | temperature=%s | source=%s",
+            model,
+            temperature,
+            model_source,
+        )
+        return model, float(temperature)
+
+    def _get_outline_record(
+        self, shifu_bid: str, outline_bid: str
+    ) -> Optional[DraftOutlineItem | PublishedOutlineItem]:
+        outline = (
+            DraftOutlineItem.query.filter(
+                DraftOutlineItem.shifu_bid == shifu_bid,
+                DraftOutlineItem.outline_item_bid == outline_bid,
+                DraftOutlineItem.deleted == 0,
+            )
+            .order_by(DraftOutlineItem.id.desc())
+            .first()
+        )
+        if outline:
+            return outline
+        return (
+            PublishedOutlineItem.query.filter(
+                PublishedOutlineItem.shifu_bid == shifu_bid,
+                PublishedOutlineItem.outline_item_bid == outline_bid,
+                PublishedOutlineItem.deleted == 0,
+            )
+            .order_by(PublishedOutlineItem.id.desc())
+            .first()
+        )
+
+    def _get_shifu_record(
+        self, shifu_bid: str, has_draft_outline: bool
+    ) -> Optional[DraftShifu | PublishedShifu]:
+        if has_draft_outline:
+            shifu = (
+                DraftShifu.query.filter(
+                    DraftShifu.shifu_bid == shifu_bid, DraftShifu.deleted == 0
+                )
+                .order_by(DraftShifu.id.desc())
+                .first()
+            )
+            if shifu:
+                return shifu
+        return (
+            PublishedShifu.query.filter(
+                PublishedShifu.shifu_bid == shifu_bid,
+                PublishedShifu.deleted == 0,
+            )
+            .order_by(PublishedShifu.id.desc())
+            .first()
+        )
+
+    def _decimal_to_float(self, value) -> Optional[float]:
+        if value is None:
+            return None
+        if isinstance(value, Decimal):
+            return float(value)
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
 
 
 class RunScriptContextV2:
@@ -660,10 +1353,8 @@ class RunScriptContextV2:
 
         self.app.logger.info(f"outline_item_info: {outline_item_info.mdflow}")
 
-        mddoc = MarkdownFlow(outline_item_info.mdflow).set_output_language(
-            get_markdownflow_output_language()
-        )
-        block_list = mddoc.get_all_blocks()
+        mdflow_context = MdflowContextV2(document=outline_item_info.mdflow)
+        block_list = mdflow_context.get_all_blocks()
         self.app.logger.info(
             f"attend position: {attend.block_position} blocks:{len(block_list)}"
         )
@@ -766,50 +1457,33 @@ class RunScriptContextV2:
             self._can_continue = False
             db.session.flush()
             return
-        generated_blocks: list[LearnGeneratedBlock] = (
-            LearnGeneratedBlock.query.filter(
-                LearnGeneratedBlock.user_bid == self._user_info.user_id,
-                LearnGeneratedBlock.shifu_bid == run_script_info.attend.shifu_bid,
-                LearnGeneratedBlock.progress_record_bid
-                == self._current_attend.progress_record_bid,
-                LearnGeneratedBlock.outline_item_bid == run_script_info.outline_bid,
-                LearnGeneratedBlock.deleted == 0,
-                LearnGeneratedBlock.status == 1,
-                LearnGeneratedBlock.type.in_(
-                    [BLOCK_TYPE_MDCONTENT_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]
-                ),
-            )
-            .order_by(LearnGeneratedBlock.position.asc(), LearnGeneratedBlock.id.asc())
-            .all()
-        )
+        # generated_blocks: list[LearnGeneratedBlock] = (
+        #     LearnGeneratedBlock.query.filter(
+        #         LearnGeneratedBlock.user_bid == self._user_info.user_id,
+        #         LearnGeneratedBlock.shifu_bid == run_script_info.attend.shifu_bid,
+        #         LearnGeneratedBlock.progress_record_bid
+        #         == self._current_attend.progress_record_bid,
+        #         LearnGeneratedBlock.outline_item_bid == run_script_info.outline_bid,
+        #         LearnGeneratedBlock.deleted == 0,
+        #         LearnGeneratedBlock.status == 1,
+        #         LearnGeneratedBlock.type.in_(
+        #             [BLOCK_TYPE_MDCONTENT_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]
+        #         ),
+        #     )
+        #     .order_by(LearnGeneratedBlock.position.asc(), LearnGeneratedBlock.id.asc())
+        #     .all()
+        # )
 
-        message_list = []
-        last_role = None
-        for generated_block in generated_blocks:
-            role = None
-            if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
-                role = "assistant"
-            elif generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
-                role = "user"
-            if role != last_role:
-                message_list.append(
-                    {
-                        "role": role,
-                        "content": generated_block.generated_content,
-                    }
-                )
-                last_role = role
-            else:
-                message_list[-1]["content"] += "\n" + generated_block.generated_content
+        # message_list = MdflowContextV2.build_context_from_blocks(generated_blocks)
 
-        mdflow = MarkdownFlow(
+        mdflow_context = MdflowContextV2(
             document=run_script_info.mdflow,
             document_prompt=system_prompt,
             llm_provider=RUNLLMProvider(
                 app, llm_settings, self._trace, self._trace_args
             ),
-        ).set_output_language(get_markdownflow_output_language())
-        block_list = mdflow.get_all_blocks()
+        )
+        block_list = mdflow_context.get_all_blocks()
         user_profile = get_user_profiles(
             app, self._user_info.user_id, self._outline_item_info.shifu_bid
         )
@@ -930,10 +1604,10 @@ class RunScriptContextV2:
 
                 # Render interaction content with translation (INPUT mode, no cached block)
                 # Note: Do NOT pass variables here - we only want translation, not variable replacement
-                interaction_result = mdflow.process(
-                    run_script_info.block_position,
-                    ProcessMode.COMPLETE,
-                    context=message_list,
+                interaction_result = mdflow_context.process(
+                    block_index=run_script_info.block_position,
+                    mode=ProcessMode.COMPLETE,
+                    # context=message_list,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
@@ -953,29 +1627,18 @@ class RunScriptContextV2:
                 db.session.add(generated_block)
                 db.session.flush()
                 return
-            # Convert dict to string for database storage (markdown-flow 0.2.27+ sends dict)
-            if isinstance(self._input, dict):
-                # Convert {"var": ["val1", "val2"]} to "val1,val2" or just "val1"
-                values = []
-                for v in self._input.values():
-                    if isinstance(v, list):
-                        # Filter out None and convert to string
-                        values.extend([str(item) for item in v if item is not None])
-                    elif v is not None:
-                        values.append(str(v))
-                generated_block.generated_content = ",".join(values) if values else ""
-            else:
-                generated_block.generated_content = (
-                    str(self._input) if self._input is not None else ""
-                )
+            normalized_input = MdflowContextV2.normalize_user_input_map(self._input)
+            generated_block.generated_content = MdflowContextV2.flatten_user_input_map(
+                normalized_input
+            )
             generated_block.role = ROLE_STUDENT
             generated_block.position = run_script_info.block_position
             # For STUDENT records, also store translated interaction block
             # (in case this record is returned instead of TEACHER record)
-            interaction_result = mdflow.process(
-                run_script_info.block_position,
-                ProcessMode.COMPLETE,
-                context=message_list,
+            interaction_result = mdflow_context.process(
+                block_index=run_script_info.block_position,
+                mode=ProcessMode.COMPLETE,
+                # context=message_list,
             )
             generated_block.block_content_conf = (
                 interaction_result.content if interaction_result else block.content
@@ -1019,10 +1682,10 @@ class RunScriptContextV2:
 
                 # Render interaction content with translation after risk check
                 # Note: Do NOT pass variables here - we only want translation, not variable replacement
-                interaction_result = mdflow.process(
-                    run_script_info.block_position,
-                    ProcessMode.COMPLETE,
-                    context=message_list,
+                interaction_result = mdflow_context.process(
+                    block_index=run_script_info.block_position,
+                    mode=ProcessMode.COMPLETE,
+                    # context=message_list,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
@@ -1050,32 +1713,16 @@ class RunScriptContextV2:
                 db.session.flush()
                 return
             # Direct synchronous call - no async wrapper needed (markdown-flow 0.2.27+)
-            # Prepare user_input based on input type
-            if isinstance(self._input, dict):
-                # Already in dict format from frontend, but need to filter out None values
-                user_input_param = {}
-                for key, value in self._input.items():
-                    if isinstance(value, list):
-                        # Filter out None values and ensure all are strings
-                        cleaned = [str(v) for v in value if v is not None]
-                        if cleaned:  # Only add if there are non-None values
-                            user_input_param[key] = cleaned
-                    elif value is not None:
-                        user_input_param[key] = [str(value)]
-            else:
-                # Legacy string format, wrap it
-                if self._input is not None:
-                    user_input_param = {
-                        parsed_interaction.get("variable", "input"): [str(self._input)]
-                    }
-                else:
-                    user_input_param = {}
+            user_input_param = MdflowContextV2.normalize_user_input_map(
+                self._input,
+                parsed_interaction.get("variable", "input"),
+            )
 
-            validate_result = mdflow.process(
-                run_script_info.block_position,
-                ProcessMode.COMPLETE,
+            validate_result = mdflow_context.process(
+                block_index=run_script_info.block_position,
+                mode=ProcessMode.COMPLETE,
                 user_input=user_input_param,
-                context=message_list,
+                # context=message_list,
             )
 
             if (
@@ -1172,10 +1819,10 @@ class RunScriptContextV2:
 
                 # Render interaction content with translation after validation error
                 # Note: Do NOT pass variables here - we only want translation, not variable replacement
-                interaction_result = mdflow.process(
-                    run_script_info.block_position,
-                    ProcessMode.COMPLETE,
-                    context=message_list,
+                interaction_result = mdflow_context.process(
+                    block_index=run_script_info.block_position,
+                    mode=ProcessMode.COMPLETE,
+                    # context=message_list,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
@@ -1237,10 +1884,10 @@ class RunScriptContextV2:
                 # Note: Do NOT pass variables here - we only want translation, not variable replacement
                 app.logger.info(f"render_interaction: {run_script_info.block_position}")
 
-                interaction_result = mdflow.process(
-                    run_script_info.block_position,
-                    ProcessMode.COMPLETE,
-                    context=message_list,
+                interaction_result = mdflow_context.process(
+                    block_index=run_script_info.block_position,
+                    mode=ProcessMode.COMPLETE,
+                    # context=message_list,
                 )
 
                 # Get rendered interaction content
@@ -1272,17 +1919,15 @@ class RunScriptContextV2:
                 app.logger.info(f"variables: {user_profile}")
 
                 # For CONTENT blocks, no user_input is needed (only INTERACTION blocks have user input)
-                stream_result = mdflow.process(
-                    run_script_info.block_position,
-                    ProcessMode.STREAM,
+                stream_result = mdflow_context.process(
+                    block_index=run_script_info.block_position,
+                    mode=ProcessMode.STREAM,
                     variables=user_profile,
-                    context=message_list,
+                    # context=message_list,
                 )
 
                 # Handle both Generator and single LLMResult (markdown-flow 0.2.27+)
                 # In some edge cases (e.g., no LLM provider), returns a single LLMResult instead of Generator
-                import inspect
-
                 if inspect.isgenerator(stream_result):
                     # It's a generator, iterate normally
                     for llm_result in stream_result:

@@ -21,6 +21,7 @@ import api from '@/api';
 import { debounce } from 'lodash';
 import {
   createContext,
+  ReactElement,
   ReactNode,
   useContext,
   useState,
@@ -56,9 +57,11 @@ const buildBlockListWithAllInfo = (
   return list;
 };
 
-export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
+export const ShifuProvider = ({
   children,
-}) => {
+}: {
+  children: ReactNode;
+}): ReactElement => {
   const { trackEvent } = useTracking();
   const [currentShifu, setCurrentShifu] = useState<Shifu | null>(null);
   const [chapters, setChapters] = useState<Outline[]>([]);
@@ -99,9 +102,34 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   const [mdflow, setMdflow] = useState<string>('');
   const [variables, setVariables] = useState<string[]>([]);
   const currentMdflow = useRef<string>('');
+  const lastPersistedMdflowRef = useRef<Record<string, string>>({});
+  const saveMdflowLockRef = useRef<{
+    inflight: boolean;
+    outlineId: string | null;
+  }>({
+    inflight: false,
+    outlineId: null,
+  });
+  const mdflowRequestRef = useRef<{ id: number; outlineId: string | null }>({
+    id: 0,
+    outlineId: null,
+  });
+  const mdflowCacheRef = useRef<Record<string, string>>({});
   const [systemVariables, setSystemVariables] = useState<
     Record<string, string>[]
   >([]);
+  const currentOutlineRef = useRef<string | null>(null);
+
+  const internalSetCurrentNode = (node: Outline | null) => {
+    setCurrentNode(node);
+    currentOutlineRef.current = node?.bid || null;
+    const cacheKey = node?.bid;
+    if (cacheKey && mdflowCacheRef.current[cacheKey] !== undefined) {
+      const cached = mdflowCacheRef.current[cacheKey];
+      currentMdflow.current = cached;
+      setMdflow(cached);
+    }
+  };
   // Debounced autosave for mdflow; kept stable via ref
   const debouncedAutoSaveRef = useRef(
     debounce(async (payload?: SaveMdflowPayload) => {
@@ -278,7 +306,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   // Helper function to handle cursor positioning after deletion
   const handleCursorPositioning = async (nextNode: Outline | null) => {
     if (nextNode) {
-      setCurrentNode(nextNode);
+      internalSetCurrentNode(nextNode);
       if (nextNode.bid) {
         // await loadBlocks(nextNode.bid, currentShifu?.bid || '');
         await loadMdflow(nextNode.bid, currentShifu?.bid || '');
@@ -286,7 +314,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         setBlocks([]);
       }
     } else {
-      setCurrentNode(null);
+      internalSetCurrentNode(null);
       setBlocks([]);
     }
     setFocusId('');
@@ -356,41 +384,67 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     ) {
       return;
     }
+    const requestId = mdflowRequestRef.current.id + 1;
+    mdflowRequestRef.current = { id: requestId, outlineId };
     setIsLoading(true);
     setError(null);
-    const mdflow = await api.getMdflow({
-      shifu_bid: shifuId,
-      outline_bid: outlineId,
-    });
-    setMdflow(mdflow);
-    setCurrentMdflow(mdflow);
-    // if (mdflow) {
-    await parseMdflow(mdflow, shifuId, outlineId);
-    // } else {
-    // setVariables([]);
-    // setSystemVariables([]);
-    // }
-    setIsLoading(false);
+    const isLatest = () =>
+      mdflowRequestRef.current.id === requestId &&
+      mdflowRequestRef.current.outlineId === outlineId;
+
+    try {
+      const mdflow = await api.getMdflow({
+        shifu_bid: shifuId,
+        outline_bid: outlineId,
+      });
+      mdflowCacheRef.current[outlineId] = mdflow || '';
+      if (!isLatest()) {
+        return;
+      }
+      // Only apply to state if this outline is still the current one
+      if (currentOutlineRef.current === outlineId) {
+        setMdflow(mdflow);
+        setCurrentMdflow(mdflow);
+      }
+      lastPersistedMdflowRef.current[outlineId] = mdflow || '';
+      if (currentOutlineRef.current === outlineId) {
+        await parseMdflow(mdflow, shifuId, outlineId);
+      }
+    } catch (error) {
+      if (isLatest()) {
+        console.error(error);
+        setError('Failed to load chapters');
+      }
+    } finally {
+      if (isLatest()) {
+        setIsLoading(false);
+      }
+    }
   };
 
   const loadChapters = async (shifuId: string) => {
     try {
       setIsLoading(true);
       setError(null);
-      const shifuInfo = await api.getShifuDetail({ shifu_bid: shifuId });
+      const [shifuInfo, chaptersData] = await Promise.all([
+        api.getShifuDetail({ shifu_bid: shifuId }),
+        api.getShifuOutlineTree({ shifu_bid: shifuId }),
+      ]);
       setCurrentShifu(shifuInfo);
-      const chaptersData = await api.getShifuOutlineTree({
-        shifu_bid: shifuId,
-      });
       const list = remapOutlineTree(chaptersData);
       if (list.length > 0) {
-        if (list[0].children && list[0].children.length > 0) {
-          setCurrentNode({
-            ...list[0].children[0],
+        // Find the first lesson to select by default
+        const firstLesson = list.find(
+          chapter => chapter.children && chapter.children.length > 0,
+        )?.children?.[0];
+
+        if (firstLesson) {
+          internalSetCurrentNode({
+            ...firstLesson,
             depth: 1,
           });
-          await loadMdflow(list[0].children[0].bid, shifuId);
-          // await loadBlocks(list[0].children[0].bid, shifuId);
+          await loadMdflow(firstLesson.bid, shifuId);
+          // await loadBlocks(firstLesson.bid, shifuId);
         }
       }
       setChapters(list);
@@ -1238,17 +1292,56 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     const shifu_bid = payload?.shifu_bid ?? currentShifu?.bid ?? '';
     const outline_bid = payload?.outline_bid ?? (currentNode?.bid || '');
     const data = payload?.data ?? currentMdflow.current;
-    await api.saveMdflow({
-      shifu_bid,
-      outline_bid,
-      data,
-    });
-    setLastSaveTime(new Date());
+    if (saveMdflowLockRef.current.inflight) {
+      if (outline_bid && saveMdflowLockRef.current.outlineId !== outline_bid) {
+        // When another outline save is in-flight, skip cross-outline saves
+        console.log(
+          'outline save is in-flight, skip cross-outline saves',
+          saveMdflowLockRef.current.outlineId,
+        );
+        return;
+      }
+    }
+    saveMdflowLockRef.current = {
+      inflight: true,
+      outlineId: outline_bid || null,
+    };
+    try {
+      await api.saveMdflow({
+        shifu_bid,
+        outline_bid,
+        data,
+      });
+      if (outline_bid) {
+        mdflowCacheRef.current[outline_bid] = data || '';
+        lastPersistedMdflowRef.current[outline_bid] = data || '';
+      }
+      setLastSaveTime(new Date());
+    } finally {
+      saveMdflowLockRef.current = { inflight: false, outlineId: null };
+    }
   };
 
   const setCurrentMdflow = (value: string) => {
     currentMdflow.current = value;
     setMdflow(value || '');
+    if (currentOutlineRef.current) {
+      mdflowCacheRef.current[currentOutlineRef.current] = value || '';
+    }
+  };
+
+  const getCurrentMdflow = () => {
+    return currentMdflow.current;
+  };
+
+  const hasUnsavedMdflow = (outlineId?: string, value?: string) => {
+    const targetOutlineId = outlineId || currentOutlineRef.current || '';
+    if (!targetOutlineId) {
+      return false;
+    }
+    const latest = value ?? currentMdflow.current ?? '';
+    const last = lastPersistedMdflowRef.current[targetOutlineId] ?? '';
+    return latest !== last;
   };
 
   const removePlaceholderLessons = (nodes: Outline[] = []): Outline[] => {
@@ -1405,7 +1498,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       autoSaveBlocks,
       saveCurrentBlocks,
       removeBlock,
-      setCurrentNode,
+      setCurrentNode: internalSetCurrentNode,
       loadModels,
       setBlockError,
       clearBlockErrors,
@@ -1415,6 +1508,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       parseMdflow,
       previewParse,
       setCurrentMdflow,
+      getCurrentMdflow,
+      hasUnsavedMdflow,
       flushAutoSaveBlocks,
       cancelAutoSaveBlocks,
       insertPlaceholderChapter,

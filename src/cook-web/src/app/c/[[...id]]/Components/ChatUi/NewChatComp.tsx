@@ -1,4 +1,3 @@
-import 'markdown-flow-ui/dist/markdown-flow-ui.css';
 import styles from './ChatComponents.module.scss';
 import {
   useContext,
@@ -51,6 +50,9 @@ export const NewChatComponents = ({
 }) => {
   const { trackEvent, trackTrailProgress } = useTracking();
   const { t } = useTranslation();
+  const confirmButtonText = t('module.renderUi.core.confirm');
+  const copyButtonText = t('module.renderUi.core.copyCode');
+  const copiedButtonText = t('module.renderUi.core.copied');
   const chatBoxBottomRef = useRef<HTMLDivElement | null>(null);
   const showOutputInProgressToast = useCallback(() => {
     toast({
@@ -292,7 +294,9 @@ export const NewChatComponents = ({
                 item={item}
                 mobileStyle={mobileStyle}
                 blockBid={item.generated_block_bid}
-                confirmButtonText={t('module.renderUi.core.confirm')}
+                confirmButtonText={confirmButtonText}
+                copyButtonText={copyButtonText}
+                copiedButtonText={copiedButtonText}
                 onClickCustomButtonAfterContent={handleClickAskButton}
                 onSend={memoizedOnSend}
                 onLongPress={handleLongPress}

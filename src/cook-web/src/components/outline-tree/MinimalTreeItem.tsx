@@ -195,7 +195,26 @@ const MinimalTreeItemComponent = React.forwardRef<
       await actions.addSubOutline(node, settings);
     }
   };
-  const onSelect = async () => {
+  const flushCurrentLessonSnapshot = () => {
+    if (!currentShifu?.bid || !currentNode?.bid || currentNode.depth === 0) {
+      return;
+    }
+    const latestMdflow = actions?.getCurrentMdflow?.() || '';
+    if (!actions.hasUnsavedMdflow(currentNode.bid, latestMdflow)) {
+      return;
+    }
+    actions.flushAutoSaveBlocks({
+      shifu_bid: currentShifu.bid,
+      outline_bid: currentNode.bid,
+      data: latestMdflow,
+    });
+  };
+
+  const onSelect = async (event?: React.MouseEvent<HTMLDivElement>) => {
+    if (!isChapterNode) {
+      event?.preventDefault();
+      event?.stopPropagation();
+    }
     if (isPlaceholderNode) {
       return;
     }
@@ -204,15 +223,14 @@ const MinimalTreeItemComponent = React.forwardRef<
       return;
     }
 
+    flushCurrentLessonSnapshot();
+
     if (props.item.depth == 0) {
       await actions.setCurrentNode(props.item);
       actions.setBlocks([]);
       props.onChapterSelect?.();
       return;
     }
-
-    // Flush pending autosave with the latest snapshot before switching
-    actions.flushAutoSaveBlocks();
 
     await actions.setCurrentNode(props.item);
     await actions.loadMdflow(props.item.bid || '', currentShifu?.bid || '');
@@ -264,8 +282,9 @@ const MinimalTreeItemComponent = React.forwardRef<
         {...props}
         readonly={currentShifu?.readonly || false}
         ref={ref}
-        disableCollapseOnItemClick={false}
+        disableCollapseOnItemClick={!isChapterNode}
         className={cn(shouldHighlight && !isChapterNode && 'select')}
+        onItemClick={onSelect}
         chapter={
           shouldShowMeta
             ? {
@@ -283,7 +302,6 @@ const MinimalTreeItemComponent = React.forwardRef<
             isChapterNode ? 'pl-0' : 'pl-2',
             shouldHighlight ? 'bg-gray-200' : '',
           )}
-          onClick={onSelect}
         >
           <div className='flex flex-row items-center flex-1 min-w-0'>
             {isPlaceholderNode ? (
