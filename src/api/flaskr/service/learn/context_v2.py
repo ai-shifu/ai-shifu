@@ -245,7 +245,7 @@ class MdflowContextV2:
         return self._mdflow.process(
             block_index=block_index,
             mode=mode,
-            context=context,
+            # context=context,
             variables=variables,
             user_input=user_input,
         )
@@ -488,11 +488,12 @@ class RunScriptPreviewContextV2:
             preview_request.context
         )
         if request_context is None:
-            context_messages = context_store.get_context(
-                document, preview_request.block_index
-            )
+            # context_messages = context_store.get_context(
+            # document, preview_request.block_index
+            # )
+            pass
         else:
-            context_messages = request_context
+            # context_messages = request_context
             context_store.replace_context(document, request_context)
 
         mdflow_context = MdflowContextV2(
@@ -507,7 +508,7 @@ class RunScriptPreviewContextV2:
         result = mdflow_context.process(
             block_index=block_index,
             mode=ProcessMode.STREAM,
-            context=context_messages or None,
+            # context=context_messages or None,
             variables=preview_request.variables,
             user_input=preview_request.user_input,
         )
@@ -1410,24 +1411,24 @@ class RunScriptContextV2:
             self._can_continue = False
             db.session.flush()
             return
-        generated_blocks: list[LearnGeneratedBlock] = (
-            LearnGeneratedBlock.query.filter(
-                LearnGeneratedBlock.user_bid == self._user_info.user_id,
-                LearnGeneratedBlock.shifu_bid == run_script_info.attend.shifu_bid,
-                LearnGeneratedBlock.progress_record_bid
-                == self._current_attend.progress_record_bid,
-                LearnGeneratedBlock.outline_item_bid == run_script_info.outline_bid,
-                LearnGeneratedBlock.deleted == 0,
-                LearnGeneratedBlock.status == 1,
-                LearnGeneratedBlock.type.in_(
-                    [BLOCK_TYPE_MDCONTENT_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]
-                ),
-            )
-            .order_by(LearnGeneratedBlock.position.asc(), LearnGeneratedBlock.id.asc())
-            .all()
-        )
+        # generated_blocks: list[LearnGeneratedBlock] = (
+        #     LearnGeneratedBlock.query.filter(
+        #         LearnGeneratedBlock.user_bid == self._user_info.user_id,
+        #         LearnGeneratedBlock.shifu_bid == run_script_info.attend.shifu_bid,
+        #         LearnGeneratedBlock.progress_record_bid
+        #         == self._current_attend.progress_record_bid,
+        #         LearnGeneratedBlock.outline_item_bid == run_script_info.outline_bid,
+        #         LearnGeneratedBlock.deleted == 0,
+        #         LearnGeneratedBlock.status == 1,
+        #         LearnGeneratedBlock.type.in_(
+        #             [BLOCK_TYPE_MDCONTENT_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]
+        #         ),
+        #     )
+        #     .order_by(LearnGeneratedBlock.position.asc(), LearnGeneratedBlock.id.asc())
+        #     .all()
+        # )
 
-        message_list = MdflowContextV2.build_context_from_blocks(generated_blocks)
+        # message_list = MdflowContextV2.build_context_from_blocks(generated_blocks)
 
         mdflow_context = MdflowContextV2(
             document=run_script_info.mdflow,
@@ -1591,7 +1592,7 @@ class RunScriptContextV2:
             interaction_result = mdflow_context.process(
                 block_index=run_script_info.block_position,
                 mode=ProcessMode.COMPLETE,
-                context=message_list,
+                # context=message_list,
             )
             generated_block.block_content_conf = (
                 interaction_result.content if interaction_result else block.content
