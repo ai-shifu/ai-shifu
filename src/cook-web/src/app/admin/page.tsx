@@ -42,7 +42,10 @@ const ShifuCard = ({
   isFavorite,
 }: ShifuCardProps) => {
   return (
-    <Link href={`/shifu/${id}`} className="block w-full h-full">
+    <Link
+      href={`/shifu/${id}`}
+      className='block w-full h-full'
+    >
       <Card className='w-full h-full cursor-pointer rounded-xl bg-background hover:scale-105 transition-all duration-200 ease-in-out'>
         <CardContent className='p-4 cursor-pointer'>
           <div className='flex flex-row items-center justify-between'>
