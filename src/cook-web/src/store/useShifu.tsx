@@ -632,7 +632,7 @@ export const ShifuProvider = ({
         index,
         name: settings.name,
         description: settings.name,
-        type: LEARNING_PERMISSION.TRIAL,
+        type: LEARNING_PERMISSION.GUEST,
         system_prompt: settings.systemPrompt,
         is_hidden: false,
         shifu_bid: shifuBid,
@@ -831,7 +831,7 @@ export const ShifuProvider = ({
           index: index,
           name: data.name,
           description: data.name,
-          type: LEARNING_PERMISSION.TRIAL,
+          type: LEARNING_PERMISSION.GUEST,
           system_prompt: '',
           is_hidden: false,
           shifu_id: currentShifu?.bid || '',
@@ -906,7 +906,7 @@ export const ShifuProvider = ({
           index,
           name: data.name,
           description: data.name,
-          type: LEARNING_PERMISSION.TRIAL,
+          type: LEARNING_PERMISSION.GUEST,
           system_prompt: '',
           is_hidden: false,
           shifu_bid: currentShifu?.bid || '',
@@ -976,7 +976,7 @@ export const ShifuProvider = ({
         index: Math.max(0, index - 1),
         name: data.name,
         description: data.name,
-        type: LEARNING_PERMISSION.TRIAL,
+        type: LEARNING_PERMISSION.GUEST,
         system_prompt: '',
         is_hidden: false,
         shifu_id: currentShifu?.bid || '',
@@ -1373,7 +1373,7 @@ export const ShifuProvider = ({
       children: [],
       depth: 0,
       position: '',
-      type: LEARNING_PERMISSION.TRIAL,
+      type: LEARNING_PERMISSION.GUEST,
       is_hidden: false,
     };
 
@@ -1416,7 +1416,7 @@ export const ShifuProvider = ({
         children: [],
         depth: (parentNode.depth || parent.depth || 0) + 1,
         position: '',
-        type: LEARNING_PERMISSION.TRIAL,
+        type: LEARNING_PERMISSION.GUEST,
         is_hidden: false,
       };
 
