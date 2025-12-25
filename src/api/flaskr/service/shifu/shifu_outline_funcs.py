@@ -20,7 +20,6 @@ from .consts import (
     UNIT_TYPE_VALUES,
     UNIT_TYPE_VALUE_TRIAL,
     UNIT_TYPE_TRIAL,
-    UNIT_TYPE_GUEST,
 )
 from .models import DraftOutlineItem
 from ...dao import db
@@ -353,9 +352,7 @@ def modify_outline(
         elif is_hidden is False:
             new_outline.hidden = 0
         if outline_type is not None:
-            new_outline.type = UNIT_TYPE_VALUES.get(
-                outline_type, UNIT_TYPE_VALUE_TRIAL
-            )
+            new_outline.type = UNIT_TYPE_VALUES.get(outline_type, UNIT_TYPE_VALUE_TRIAL)
 
         new_outline.updated_user_bid = user_id
         new_outline.updated_at = now_time
