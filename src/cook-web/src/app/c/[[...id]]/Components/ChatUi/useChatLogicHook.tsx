@@ -38,6 +38,7 @@ import { EVENT_NAMES } from '@/c-common/hooks/useTracking';
 import { OnSendContentParams } from 'markdown-flow-ui';
 import { createInteractionParser } from 'remark-flow';
 import LoadingBar from './LoadingBar';
+import { shifu } from '@/c-service/Shifu';
 import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
 import { useTranslation } from 'react-i18next';
 import { show as showToast } from '@/hooks/useToast';
@@ -181,6 +182,7 @@ function useChatLogicHook({
   const sseRef = useRef<any>(null);
   const lastInteractionBlockRef = useRef<ChatContentItem | null>(null);
   const hasScrolledToBottomRef = useRef<boolean>(false);
+  const loginPromptedRef = useRef(false);
   const [pendingRegenerate, setPendingRegenerate] = useState<{
     content: OnSendContentParams;
     blockBid: string;
@@ -247,6 +249,29 @@ function useChatLogicHook({
       .map(item => item.trim())
       .filter(Boolean);
   }, []);
+
+  const requestLogin = useCallback(() => {
+    if (loginPromptedRef.current) {
+      return;
+    }
+    loginPromptedRef.current = true;
+    shifu.loginTools.openLogin();
+  }, []);
+
+  const shouldTriggerLoginInteraction = useCallback(
+    (content?: string | null) => {
+      if (!content) {
+        return false;
+      }
+      const info = parseInteractionBlock(content);
+      if (!info) {
+        return false;
+      }
+      const values = info.buttonValues || [];
+      return values.some(value => value === SYS_INTERACTION_TYPE.LOGIN);
+    },
+    [parseInteractionBlock],
+  );
 
   const getInteractionDefaultValues = useCallback(
     (
@@ -489,6 +514,10 @@ function useChatLogicHook({
             }
 
             if (response.type === SSE_OUTPUT_TYPE.INTERACTION) {
+              if (shouldTriggerLoginInteraction(response.content)) {
+                requestLogin();
+                return;
+              }
               setTrackedContentList((prev: ChatContentItem[]) => {
                 // Use markdown-flow-ui default rendering for all interactions
                 const interactionBlock: ChatContentItem = {
@@ -666,6 +695,8 @@ function useChatLogicHook({
       mobileStyle,
       trackTrailProgress,
       updateUserInfo,
+      shouldTriggerLoginInteraction,
+      requestLogin,
     ],
   );
 
@@ -751,6 +782,14 @@ function useChatLogicHook({
           // flush and handle other types (including INTERACTION)
           flushBuffer();
 
+          if (
+            item.block_type === BLOCK_TYPE.INTERACTION &&
+            shouldTriggerLoginInteraction(item.content)
+          ) {
+            requestLogin();
+            return;
+          }
+
           const interactionDefaults =
             item.block_type === BLOCK_TYPE.INTERACTION
               ? getInteractionDefaultValues(item.content, item.user_input)
@@ -786,7 +825,13 @@ function useChatLogicHook({
       flushBuffer();
       return result;
     },
-    [mobileStyle, t],
+    [
+      mobileStyle,
+      getAskButtonMarkup,
+      getInteractionDefaultValues,
+      shouldTriggerLoginInteraction,
+      requestLogin,
+    ],
   );
 
   /**

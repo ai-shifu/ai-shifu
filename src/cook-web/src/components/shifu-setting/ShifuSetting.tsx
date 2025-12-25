@@ -57,6 +57,16 @@ interface Shifu {
 
 const MIN_SHIFU_PRICE = 0.5;
 
+type CopyingState = {
+  previewUrl: boolean;
+  url: boolean;
+};
+
+const defaultCopyingState: CopyingState = {
+  previewUrl: false,
+  url: false,
+};
+
 export default function ShifuSettingDialog({
   shifuId,
   onSave,
@@ -83,10 +93,7 @@ export default function ShifuSettingDialog({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedImageUrl, setUploadedImageUrl] = useState('');
-  const [copying, setCopying] = useState({
-    previewUrl: false,
-    url: false,
-  });
+  const [copying, setCopying] = useState<CopyingState>(defaultCopyingState);
   const { currentShifu } = useShifu();
   const { trackEvent } = useTracking();
   // Define the validation schema using Zod
@@ -146,12 +153,12 @@ export default function ShifuSettingDialog({
   const [formSnapshot, setFormSnapshot] = useState(form.getValues());
 
   // Handle copy to clipboard
-  const handleCopy = field => {
+  const handleCopy = (field: keyof CopyingState) => {
     navigator.clipboard.writeText(form.getValues(field));
-    setCopying({ ...copying, [field]: true });
+    setCopying({ ...defaultCopyingState, [field]: true });
 
     setTimeout(() => {
-      setCopying({ ...copying, [field]: false });
+      setCopying(prev => ({ ...prev, [field]: false }));
     }, 2000);
   };
 

@@ -23,6 +23,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useTranslation } from 'react-i18next';
+import { shifu } from '@/c-service/Shifu';
 
 const getCourseTitleLang = (title: string) => {
   const trimmed = title.trim();
@@ -82,7 +83,7 @@ export const CourseSection = ({
         type === LEARNING_PERMISSION.NORMAL) &&
       !isLoggedIn
     ) {
-      window.location.href = `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`;
+      shifu.loginTools.openLogin();
       return;
     }
 

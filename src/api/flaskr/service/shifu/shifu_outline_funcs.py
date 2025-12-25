@@ -7,6 +7,8 @@ Author: yfge
 Date: 2025-08-07
 """
 
+from typing import Optional
+
 from .dtos import (
     ReorderOutlineItemDto,
     SimpleOutlineDto,
@@ -185,7 +187,7 @@ def create_outline(
     outline_name: str,
     outline_description: str,
     outline_index: int = 0,
-    outline_type: str = UNIT_TYPE_GUEST,
+    outline_type: str = UNIT_TYPE_TRIAL,
     system_prompt: str = None,
     is_hidden: bool = False,
 ):
@@ -579,8 +581,8 @@ def modify_unit(
     unit_description: str = None,
     unit_index: int = 0,
     unit_system_prompt: str = None,
-    unit_is_hidden: bool = False,
-    unit_type: str = UNIT_TYPE_GUEST,
+    unit_is_hidden: Optional[bool] = None,
+    unit_type: Optional[str] = None,
 ):
     """
     Modify unit
@@ -631,8 +633,10 @@ def modify_unit(
             new_unit.hidden = 1
         elif unit_is_hidden is False:
             new_unit.hidden = 0
-        if unit_type:
-            new_unit.type = UNIT_TYPE_VALUES.get(unit_type, UNIT_TYPE_VALUE_TRIAL)
+        if unit_type is not None:
+            new_unit.type = UNIT_TYPE_VALUES.get(
+                unit_type, UNIT_TYPE_VALUE_TRIAL
+            )
 
         new_unit.updated_user_bid = user_id
         new_unit.updated_at = now_time
@@ -651,15 +655,20 @@ def modify_unit(
             )
             db.session.commit()
 
+        response_type = UNIT_TYPE_VALUES_REVERSE.get(
+            existing_unit.type, UNIT_TYPE_TRIAL
+        )
+        response_hidden = bool(existing_unit.hidden)
+
         return OutlineDto(
             bid=existing_unit.outline_item_bid,
             position=existing_unit.position,
             name=existing_unit.title,
             description=unit_description or "",
-            type=unit_type,
+            type=response_type,
             index=int(existing_unit.position),
             system_prompt=existing_unit.llm_system_prompt or "",
-            is_hidden=unit_is_hidden,
+            is_hidden=response_hidden,
         )
 
 
