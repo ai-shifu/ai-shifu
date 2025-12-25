@@ -209,36 +209,6 @@ const MainInterface = ({
           {children}
         </div>
       </div>
-      <div className='md:hidden w-full border-b p-4'>
-        <div className='flex items-center justify-between'>
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button
-                variant='ghost'
-                size='icon'
-              >
-                <Bars3Icon className='h-6 w-6' />
-              </Button>
-            </SheetTrigger>
-            <SheetContent
-              side='left'
-              className='w-64 p-0'
-            >
-              <SidebarContent
-                menuItems={menuItems}
-                footerRef={mobileFooterRef}
-                userMenuOpen={mobileMenuOpen}
-                onFooterClick={onMobileFooterClick}
-                onUserMenuClose={handleMobileMenuClose}
-                userMenuClassName={adminSidebarStyles.navMenuPopup}
-                logoSrc={resolvedLogo}
-              />
-            </SheetContent>
-          </Sheet>
-          <h1 className='text-xl font-bold'>{t('common.core.home')}</h1>
-          <div className='w-6' /> {/* Spacer for centering */}
-        </div>
-      </div>
     </div>
   );
 };
