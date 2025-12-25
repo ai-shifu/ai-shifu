@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Copy,
   Check,
@@ -94,6 +94,7 @@ export default function ShifuSettingDialog({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedImageUrl, setUploadedImageUrl] = useState('');
   const [copying, setCopying] = useState<CopyingState>(defaultCopyingState);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { currentShifu } = useShifu();
   const { trackEvent } = useTracking();
   // Define the validation schema using Zod
@@ -152,13 +153,26 @@ export default function ShifuSettingDialog({
 
   const [formSnapshot, setFormSnapshot] = useState(form.getValues());
 
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+        copyTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   // Handle copy to clipboard
   const handleCopy = (field: keyof CopyingState) => {
+    if (copyTimeoutRef.current) {
+      clearTimeout(copyTimeoutRef.current);
+    }
     navigator.clipboard.writeText(form.getValues(field));
     setCopying({ ...defaultCopyingState, [field]: true });
 
-    setTimeout(() => {
+    copyTimeoutRef.current = setTimeout(() => {
       setCopying(prev => ({ ...prev, [field]: false }));
+      copyTimeoutRef.current = null;
     }, 2000);
   };
 

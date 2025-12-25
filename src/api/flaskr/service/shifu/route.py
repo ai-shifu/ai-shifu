@@ -716,8 +716,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         description = request.get_json().get("description")
         index = request.get_json().get("index")
         system_prompt = request.get_json().get("system_prompt", None)
-        is_hidden = request.get_json().get("is_hidden", False)
-        type = request.get_json().get("type", UNIT_TYPE_GUEST)
+        is_hidden = request.get_json().get("is_hidden")
+        type = request.get_json().get("type")
         return make_common_response(
             modify_unit(
                 app,

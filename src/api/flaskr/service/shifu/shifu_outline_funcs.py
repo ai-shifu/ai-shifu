@@ -300,9 +300,9 @@ def modify_outline(
     outline_name: str,
     outline_description: str,
     outline_index: int = 0,
-    outline_type: str = UNIT_TYPE_GUEST,
+    outline_type: Optional[str] = None,
     system_prompt: str = None,
-    is_hidden: bool = False,
+    is_hidden: Optional[bool] = None,
 ):
     """
     Modify outline
@@ -348,6 +348,15 @@ def modify_outline(
         new_outline: DraftOutlineItem = existing_outline.clone()
         new_outline.title = outline_name
         new_outline.llm_system_prompt = system_prompt or ""
+        if is_hidden is True:
+            new_outline.hidden = 1
+        elif is_hidden is False:
+            new_outline.hidden = 0
+        if outline_type is not None:
+            new_outline.type = UNIT_TYPE_VALUES.get(
+                outline_type, UNIT_TYPE_VALUE_TRIAL
+            )
+
         new_outline.updated_user_bid = user_id
         new_outline.updated_at = now_time
         # risk check
@@ -361,6 +370,7 @@ def modify_outline(
             db.session.flush()
             save_outline_history(app, user_id, shifu_id, outline_id, new_outline.id)
             db.session.commit()
+            existing_outline = new_outline
 
         outline_type_value = existing_outline.type
         type_label = UNIT_TYPE_VALUES_REVERSE.get(
