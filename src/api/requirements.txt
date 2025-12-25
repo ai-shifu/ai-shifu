@@ -119,7 +119,7 @@ zope.event==5.0
 zope.interface==7.1.1
 
 
---extra-index-url https://pypi.org/simple/
- markdown-flow==0.2.37
-# --extra-index-url https://test.pypi.org/simple/
-# markdown-flow==0.2.34a3
+# --extra-index-url https://pypi.org/simple/
+#  markdown-flow==0.2.36
+--extra-index-url https://test.pypi.org/simple/
+markdown-flow==0.2.39a1
