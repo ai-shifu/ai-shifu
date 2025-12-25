@@ -634,9 +634,7 @@ def modify_unit(
         elif unit_is_hidden is False:
             new_unit.hidden = 0
         if unit_type is not None:
-            new_unit.type = UNIT_TYPE_VALUES.get(
-                unit_type, UNIT_TYPE_VALUE_TRIAL
-            )
+            new_unit.type = UNIT_TYPE_VALUES.get(unit_type, UNIT_TYPE_VALUE_TRIAL)
 
         new_unit.updated_user_bid = user_id
         new_unit.updated_at = now_time
