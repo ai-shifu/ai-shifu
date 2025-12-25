@@ -94,7 +94,12 @@ export default function ShifuSettingDialog({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedImageUrl, setUploadedImageUrl] = useState('');
   const [copying, setCopying] = useState<CopyingState>(defaultCopyingState);
-  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyTimeoutRef = useRef<
+    Record<keyof CopyingState, ReturnType<typeof setTimeout> | null>
+  >({
+    previewUrl: null,
+    url: null,
+  });
   const { currentShifu } = useShifu();
   const { trackEvent } = useTracking();
   // Define the validation schema using Zod
@@ -155,24 +160,30 @@ export default function ShifuSettingDialog({
 
   useEffect(() => {
     return () => {
-      if (copyTimeoutRef.current) {
-        clearTimeout(copyTimeoutRef.current);
-        copyTimeoutRef.current = null;
-      }
+      Object.keys(copyTimeoutRef.current).forEach(key => {
+        const timeout =
+          copyTimeoutRef.current[key as keyof CopyingState] ?? null;
+        if (timeout) {
+          clearTimeout(timeout);
+          copyTimeoutRef.current[key as keyof CopyingState] = null;
+        }
+      });
     };
   }, []);
 
   // Handle copy to clipboard
   const handleCopy = (field: keyof CopyingState) => {
-    if (copyTimeoutRef.current) {
-      clearTimeout(copyTimeoutRef.current);
+    const existingTimeout = copyTimeoutRef.current[field];
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      copyTimeoutRef.current[field] = null;
     }
     navigator.clipboard.writeText(form.getValues(field));
     setCopying({ ...defaultCopyingState, [field]: true });
 
-    copyTimeoutRef.current = setTimeout(() => {
+    copyTimeoutRef.current[field] = setTimeout(() => {
       setCopying(prev => ({ ...prev, [field]: false }));
-      copyTimeoutRef.current = null;
+      copyTimeoutRef.current[field] = null;
     }, 2000);
   };
 
