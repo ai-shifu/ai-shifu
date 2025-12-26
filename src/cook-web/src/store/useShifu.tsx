@@ -901,12 +901,15 @@ export const ShifuProvider = ({
 
     try {
       if (isNew) {
+        const defaultType = data.parent_bid
+          ? LEARNING_PERMISSION.TRIAL
+          : LEARNING_PERMISSION.GUEST;
         const newUnit = await api.createOutline({
           parent_bid: data.parent_bid,
           index,
           name: data.name,
           description: data.name,
-          type: LEARNING_PERMISSION.GUEST,
+          type: defaultType,
           system_prompt: '',
           is_hidden: false,
           shifu_bid: currentShifu?.bid || '',
@@ -918,6 +921,8 @@ export const ShifuProvider = ({
           name: newUnit.name,
           position: '',
           children: [],
+          type: defaultType,
+          is_hidden: false,
         });
 
         trackEvent('creator_outline_create', {
