@@ -394,7 +394,7 @@ def get_shifu_draft_list(
         shifu_drafts: list[DraftShifu] = (
             db.session.query(DraftShifu)
             .filter(DraftShifu.id.in_(union_subquery))
-            .order_by(DraftShifu.id.desc())
+            .order_by(DraftShifu.title.asc())
             .offset(page_offset)
             .limit(page_size)
             .all()
