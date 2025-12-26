@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Copy,
   Check,
@@ -57,6 +57,16 @@ interface Shifu {
 
 const MIN_SHIFU_PRICE = 0.5;
 
+type CopyingState = {
+  previewUrl: boolean;
+  url: boolean;
+};
+
+const defaultCopyingState: CopyingState = {
+  previewUrl: false,
+  url: false,
+};
+
 export default function ShifuSettingDialog({
   shifuId,
   onSave,
@@ -83,9 +93,12 @@ export default function ShifuSettingDialog({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedImageUrl, setUploadedImageUrl] = useState('');
-  const [copying, setCopying] = useState({
-    previewUrl: false,
-    url: false,
+  const [copying, setCopying] = useState<CopyingState>(defaultCopyingState);
+  const copyTimeoutRef = useRef<
+    Record<keyof CopyingState, ReturnType<typeof setTimeout> | null>
+  >({
+    previewUrl: null,
+    url: null,
   });
   const { currentShifu } = useShifu();
   const { trackEvent } = useTracking();
@@ -145,13 +158,32 @@ export default function ShifuSettingDialog({
 
   const [formSnapshot, setFormSnapshot] = useState(form.getValues());
 
-  // Handle copy to clipboard
-  const handleCopy = field => {
-    navigator.clipboard.writeText(form.getValues(field));
-    setCopying({ ...copying, [field]: true });
+  useEffect(() => {
+    return () => {
+      Object.keys(copyTimeoutRef.current).forEach(key => {
+        const timeout =
+          copyTimeoutRef.current[key as keyof CopyingState] ?? null;
+        if (timeout) {
+          clearTimeout(timeout);
+          copyTimeoutRef.current[key as keyof CopyingState] = null;
+        }
+      });
+    };
+  }, []);
 
-    setTimeout(() => {
-      setCopying({ ...copying, [field]: false });
+  // Handle copy to clipboard
+  const handleCopy = (field: keyof CopyingState) => {
+    const existingTimeout = copyTimeoutRef.current[field];
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      copyTimeoutRef.current[field] = null;
+    }
+    navigator.clipboard.writeText(form.getValues(field));
+    setCopying({ ...defaultCopyingState, [field]: true });
+
+    copyTimeoutRef.current[field] = setTimeout(() => {
+      setCopying(prev => ({ ...prev, [field]: false }));
+      copyTimeoutRef.current[field] = null;
     }, 2000);
   };
 
