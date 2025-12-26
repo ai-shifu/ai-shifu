@@ -39,6 +39,18 @@ jobs:
         with:
           python-version: '3.11'  # Stable version for commitizen
 
+      - name: Ensure node is available (act)
+        if: env.ACT == 'true'
+        run: |
+          # Some act runner images lose `node` in PATH during post-steps of node-based actions.
+          NODE_BIN="$(find /opt/acttoolcache/node -type f -name node -path '*/bin/node' 2>/dev/null | head -1 || true)"
+          if [ -n "$NODE_BIN" ]; then
+            echo "$(dirname "$NODE_BIN")" >> "$GITHUB_PATH"
+            echo "✅ Added node to PATH for act: $(dirname "$NODE_BIN")"
+          else
+            echo "⚠️ node not found under /opt/acttoolcache/node; post-steps may fail in act"
+          fi
+
       - name: Install commitizen
         run: |
           python -m pip install --upgrade pip
@@ -224,8 +236,12 @@ jobs:
         run: |
           echo "📝 Getting previous tag for changelog generation..."
 
-          # Ensure all tags are fetched
-          git fetch --tags --force
+          # Ensure all tags are fetched (skip in act because local git remotes are often SSH)
+          if [ "${ACT:-}" != "true" ]; then
+            git fetch --tags --force
+          else
+            echo "⚠️ Running under act; skipping 'git fetch --tags --force' and using local tags"
+          fi
 
           # List all tags for debugging
           echo "📋 All available tags:"
@@ -370,7 +386,74 @@ jobs:
 
           echo "✅ Changelog generated successfully"
 
+      - name: Generate contributors list
+        id: contributors
+        env:
+          PREV_TAG: ${{ steps.prev_tag.outputs.prev_tag }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import subprocess
+          from collections import defaultdict
+
+          prev_tag = os.environ.get("PREV_TAG", "").strip()
+          if prev_tag:
+              shortlog = subprocess.check_output(
+                  ["git", "shortlog", "-sne", f"{prev_tag}..HEAD"],
+                  text=True,
+              )
+          else:
+              shortlog = subprocess.check_output(["git", "shortlog", "-sne"], text=True)
+
+          contributors = defaultdict(int)
+          display_name = {}
+
+          for line in shortlog.splitlines():
+              line = line.strip()
+              if not line:
+                  continue
+              match = re.match(r"(\d+)\s+(.+?)\s+<([^>]+)>$", line)
+              if not match:
+                  continue
+              commit_count = int(match.group(1))
+              name = match.group(2).strip()
+              email = match.group(3).strip().lower()
+
+              handle_match = re.match(
+                  r"(?:\d+\+)?([^@]+)@users\.noreply\.github\.com$",
+                  email,
+              )
+              if handle_match:
+                  handle = handle_match.group(1)
+                  key = f"@{handle}"
+                  contributors[key] += commit_count
+                  display_name[key] = key
+              else:
+                  key = name.lower()
+                  contributors[key] += commit_count
+                  display_name[key] = name
+
+          # Sort by commit count (desc) then name for stable output
+          sorted_items = sorted(
+              contributors.items(),
+              key=lambda item: (-item[1], display_name[item[0]].lower()),
+          )
+
+          lines = []
+          for key, _count in sorted_items:
+              lines.append(f"- {display_name[key]}")
+
+          contributors_md = "\n".join(lines) if lines else "- (No contributors found)"
+          output_path = os.environ["GITHUB_OUTPUT"]
+          with open(output_path, "a", encoding="utf-8") as f:
+              f.write("contributors_md<<EOF\n")
+              f.write(contributors_md + "\n")
+              f.write("EOF\n")
+          PY
+
       - name: Create GitHub Release Draft
+        if: env.ACT != 'true'
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
@@ -380,6 +463,10 @@ jobs:
             # Release ${{ steps.version.outputs.tag }}
 
             ${{ steps.changelog.outputs.changelog_content }}
+
+            ## 🙌 Contributors
+
+            ${{ steps.contributors.outputs.contributors_md }}
 
             ## 📦 Installation
 
@@ -415,6 +502,7 @@ jobs:
 
       - name: Create PR with version changes
         id: cpr
+        if: env.ACT != 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
