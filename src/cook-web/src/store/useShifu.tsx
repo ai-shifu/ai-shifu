@@ -579,7 +579,6 @@ export const ShifuProvider = ({
         system_prompt: settings.systemPrompt,
         is_hidden: settings.isHidden,
         shifu_bid: shifuBid,
-        type: LEARNING_PERMISSION.TRIAL,
       });
       const depth = (parentNode.depth || parent.depth || 0) + 1;
       const newOutline: Outline = {
