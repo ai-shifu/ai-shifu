@@ -579,6 +579,7 @@ export const ShifuProvider = ({
         system_prompt: settings.systemPrompt,
         is_hidden: settings.isHidden,
         shifu_bid: shifuBid,
+        type: LEARNING_PERMISSION.TRIAL,
       });
       const depth = (parentNode.depth || parent.depth || 0) + 1;
       const newOutline: Outline = {
@@ -906,7 +907,7 @@ export const ShifuProvider = ({
           index,
           name: data.name,
           description: data.name,
-          type: LEARNING_PERMISSION.GUEST,
+          type: LEARNING_PERMISSION.TRIAL,
           system_prompt: '',
           is_hidden: false,
           shifu_bid: currentShifu?.bid || '',
@@ -976,7 +977,7 @@ export const ShifuProvider = ({
         index: Math.max(0, index - 1),
         name: data.name,
         description: data.name,
-        type: LEARNING_PERMISSION.GUEST,
+        type: LEARNING_PERMISSION.TRIAL,
         system_prompt: '',
         is_hidden: false,
         shifu_id: currentShifu?.bid || '',
