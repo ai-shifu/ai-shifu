@@ -12,7 +12,12 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from datetime import datetime
 from .dtos import ShifuDto, ShifuDetailDto
 from ...util import generate_id
-from .consts import STATUS_DRAFT, SHIFU_NAME_MAX_LENGTH, UNIT_TYPE_GUEST
+from .consts import (
+    STATUS_DRAFT,
+    SHIFU_NAME_MAX_LENGTH,
+    UNIT_TYPE_GUEST,
+    UNIT_TYPE_TRIAL,
+)
 from ..check_risk.funcs import check_text_with_risk_control
 from ..common.models import raise_error, raise_error_with_args, AppException
 from .utils import (
@@ -191,7 +196,7 @@ def create_shifu_draft(
                 outline_name=lesson_name,
                 outline_description="",
                 outline_index=0,
-                outline_type=UNIT_TYPE_GUEST,
+                outline_type=UNIT_TYPE_TRIAL,
                 system_prompt=None,
                 is_hidden=False,
             )
