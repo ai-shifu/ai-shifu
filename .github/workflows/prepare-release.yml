@@ -495,27 +495,23 @@ jobs:
 
             ${{ steps.changelog.outputs.changelog_content }}
 
-            ## 📦 Installation
+            ## 📦 Installation from Source
 
-            **Package Managers:**
             ```bash
-            # npm (if Node.js project)
-            npm install ${{ github.repository }}@${{ steps.version.outputs.tag }}
-
-            # pip (if Python project)
-            pip install ${{ github.event.repository.name }}==${{ steps.version.outputs.version }}
-
-            # From source
             git clone ${{ github.event.repository.clone_url }}
             cd ${{ github.event.repository.name }}
             git checkout ${{ steps.version.outputs.tag }}
+            cd docker
+            cp .env.example.full .env
+            # Fill in your LLM API key in the .env configuration file.
+            docker compose up
             ```
 
             ## 📖 Documentation
 
-            - 📚 [README](README.md)
-            - 🔧 [Contributing Guidelines](CONTRIBUTING.md)
-            - 📋 [Changelog](CHANGELOG.md)
+            - 📚 [README](${{ github.event.repository.html_url }}/blob/${{ github.event.repository.default_branch }}/README.md)
+            - 🔧 [Contributing Guidelines](${{ github.event.repository.html_url }}/blob/${{ github.event.repository.default_branch }}/CONTRIBUTING.md)
+            - 📋 [Changelog](${{ github.event.repository.html_url }}/releases)
 
             ## 🆘 Support
 
