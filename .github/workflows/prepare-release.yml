@@ -500,7 +500,7 @@ jobs:
             ```bash
             git clone ${{ github.event.repository.clone_url }}
             cd ${{ github.event.repository.name }}
-            git checkout v1.1.1
+            git checkout ${{ steps.version.outputs.tag }}
             cd docker
             cp .env.example.full .env
             # Fill in your LLM API key in the .env configuration file.
