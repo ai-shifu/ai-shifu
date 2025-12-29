@@ -253,14 +253,11 @@ def _stream_litellm_completion(
     app: Flask, model: str, messages: list, params: dict, kwargs: dict
 ):
     try:
-        max_tokens = get_max_tokens(model)
-        if max_tokens:
+        try:
+            max_tokens = get_max_tokens(model)
             kwargs["max_tokens"] = max_tokens
-        else:
-            _log_warning(f"get max tokens for {model} failed")
-        app.logger.info(
-            f"stream_litellm_completion: {model} {messages} {params} {kwargs}"
-        )
+        except Exception as exc:
+            _log_warning(f"get max tokens for {model} failed: {exc}")
         return litellm.completion(
             model=model,
             messages=messages,
