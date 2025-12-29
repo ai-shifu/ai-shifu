@@ -430,6 +430,32 @@ jobs:
               print("")
               sys.exit(0)
 
+          def normalize_changelog(raw: str) -> str:
+              lines = []
+              for line in raw.splitlines():
+                  if re.match(r"^##\s*\[?Unreleased\]?\s*$", line.strip()):
+                      continue
+
+                  line = re.sub(
+                      r"^###\s+Feat\b.*$",
+                      "### New Feature",
+                      line,
+                      flags=re.IGNORECASE,
+                  )
+                  line = re.sub(
+                      r"^###\s+Fix(?:es)?\b.*$",
+                      "### Bug Fixes",
+                      line,
+                      flags=re.IGNORECASE,
+                  )
+                  lines.append(line)
+
+              normalized = "\n".join(lines).strip("\n")
+              normalized = re.sub(r"\n{3,}", "\n\n", normalized)
+              return normalized
+
+          content = normalize_changelog(content)
+
           pr_numbers = sorted({int(n) for n in re.findall(r"\(#(\d+)\)", content)})
           if not pr_numbers or not repo:
               print(content)
@@ -491,8 +517,6 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           name: Release ${{ steps.version.outputs.tag }}
           body: |
-            # Release ${{ steps.version.outputs.tag }}
-
             ${{ steps.changelog.outputs.changelog_content }}
 
             ## 📦 Installation from Source
