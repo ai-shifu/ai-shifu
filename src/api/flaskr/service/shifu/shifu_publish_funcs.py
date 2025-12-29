@@ -190,7 +190,6 @@ def publish_shifu_draft(
             )
             thread.daemon = True  # Ensure thread doesn't prevent app shutdown
             thread.start()
-        db.session.commit()
         return _build_frontend_url(base_url, f"/c/{shifu_id}")
 
 
