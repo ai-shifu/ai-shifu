@@ -9,6 +9,8 @@ from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.util import generate_id
 from flaskr.service.config.funcs import add_config, get_config, update_config
 from flaskr.service.shifu.shifu_import_export_funcs import import_shifu
+from flaskr.service.shifu.shifu_publish_funcs import publish_shifu_draft
+
 
 import json
 from pathlib import Path
@@ -84,6 +86,9 @@ def _process_demo_shifu(
     else:
         # Import new shifu
         shifu_bid = import_shifu(app, None, file_storage, "system")
+
+    # Publish shifu
+    publish_shifu_draft(app, "system", shifu_bid, "")
 
     # Persist shifu bid and hash in configs
     _upsert_config(app, config_key, shifu_bid, config_remark)
