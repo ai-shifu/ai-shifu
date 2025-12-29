@@ -86,8 +86,10 @@ def _process_demo_shifu(
         # Import new shifu
         shifu_bid = import_shifu(app, None, file_storage, "system")
 
-    # Publish shifu
-    publish_shifu_draft(app, "system", shifu_bid, "")
+    # Publish shifu.
+    # This is a one-off console command; run summary/ask prompt generation
+    # synchronously to avoid being interrupted by process exit.
+    publish_shifu_draft(app, "system", shifu_bid, "", sync_summary=True)
 
     # Persist shifu bid and hash in configs
     _upsert_config(app, config_key, shifu_bid, config_remark)
