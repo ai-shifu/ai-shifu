@@ -258,6 +258,9 @@ def _stream_litellm_completion(
             kwargs["max_tokens"] = max_tokens
         except Exception as exc:
             _log_warning(f"get max tokens for {model} failed: {exc}")
+        app.logger.info(
+            f"stream_litellm_completion: {model} {messages} {params} {kwargs}"
+        )
         return litellm.completion(
             model=model,
             messages=messages,
