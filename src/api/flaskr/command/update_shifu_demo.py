@@ -11,7 +11,6 @@ from flaskr.service.config.funcs import add_config, get_config, update_config
 from flaskr.service.shifu.shifu_import_export_funcs import import_shifu
 from flaskr.service.shifu.shifu_publish_funcs import publish_shifu_draft
 
-
 import json
 from pathlib import Path
 
