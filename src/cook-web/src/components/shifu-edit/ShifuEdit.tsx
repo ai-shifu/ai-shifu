@@ -525,7 +525,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                       <h2 className='text-base font-semibold text-foreground whitespace-nowrap shrink-0'>
                         {t('module.shifu.creationArea.title')}
                       </h2>
-                      <p className='flex-1 min-w-0 text-xs leading-3 text-[rgba(0,0,0,0.45)] truncate'>
+                      <p className='flex-1 min-w-0 text-xs leading-5 text-[rgba(0,0,0,0.45)] truncate'>
                         <MarkdownFlowLink
                           prefix={t(
                             'module.shifu.creationArea.descriptionPrefix',
