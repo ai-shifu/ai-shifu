@@ -307,144 +307,23 @@ def _fetch_openai_compatible_models(api_key: str, base_url: str) -> List[str]:
     return [item.get("id", "") for item in data.get("data", []) if item.get("id")]
 
 
-# ---------------------------------------------------------------------------
-# Model rules imported from flaskr.api.llm.model_rules
-# - MAX_TOKENS_PATTERN_RULES: pattern-based max_tokens inference
-# - LITELLM_CANONICAL_RULES: canonicalization to LiteLLM keys
-# - infer_max_tokens_by_pattern(): infer max_tokens by pattern
-# - canonicalize_to_litellm(): map model names to LiteLLM keys
-# ---------------------------------------------------------------------------
-
-# Default max_tokens for models not in LiteLLM registry.
-# These are the ACTUAL limits from provider documentation.
-DEFAULT_MAX_TOKENS: Dict[str, int] = {
-    # DeepSeek (all v3 variants share same architecture)
-    "deepseek-v3": 8192,
-    "deepseek-v3-1": 8192,
-    "deepseek-v3-2": 8192,
-    "deepseek-chat": 8192,
-    "deepseek-r1": 8192,
-    "deepseek-reasoner": 8192,
-    # Doubao / ARK
-    "doubao-seed-1-6": 4096,
-    "doubao-seed-1-6-flash": 4096,
-    "doubao-seed-1-6-thinking": 16384,
-    "doubao-pro-32k": 4096,
-    "doubao-lite-32k": 4096,
-    # Kimi
-    "kimi-k2": 131072,
-    # ERNIE
-    "ernie-4-0-8k": 8192,
-    "ernie-3-5-8k": 8192,
-    "ernie-4-0-turbo-8k": 8192,
-    "ernie-4-0-turbo-128k": 4096,
-    "ernie-3-5-128k": 4096,
-    "ernie-speed-8k": 8192,
-    "ernie-speed-128k": 4096,
-    "ernie-lite-8k": 8192,
-    "ernie-tiny-8k": 8192,
-    # Qwen
-    "qwen-max": 8192,
-    "qwen-plus": 8192,
-    "qwen-turbo": 8192,
-    "qwen-long": 8192,
-    "qwen2-5-72b-instruct": 8192,
-    "qwen2-5-32b-instruct": 8192,
-    "qwen2-5-14b-instruct": 8192,
-    "qwen2-5-7b-instruct": 8192,
-    "qwen2-5-coder-32b-instruct": 8192,
-    "qwq-32b-preview": 16384,
-    # GLM
-    "glm-4": 4096,
-    "glm-4-flash": 4096,
-    "glm-4-air": 4096,
-    "glm-4-airx": 4096,
-    "glm-4v": 4096,
-    # Silicon common models
-    "deepseek-ai/deepseek-v3": 8192,
-    "deepseek-ai/deepseek-v3-1": 8192,
-    "deepseek-ai/deepseek-v3-2": 8192,
-    "deepseek-ai/deepseek-r1": 8192,
-    "qwen/qwen2-5-72b-instruct": 8192,
-}
-
-# Regex patterns to normalize model names for matching
-NORMALIZE_PATTERNS: List[Tuple[re.Pattern, str]] = [
-    (re.compile(r"[._]"), "-"),  # replace . and _ with -
-    (re.compile(r"-+"), "-"),  # collapse multiple -
-]
-
-
 def _canonicalize(model: str) -> str:
-    """Normalize model id to canonical form for token lookup."""
+    """Normalize model id: lowercase, strip prefix, replace . with -"""
     model = (model or "").strip().lower()
-    # Apply normalization patterns
-    for pattern, repl in NORMALIZE_PATTERNS:
-        model = pattern.sub(repl, model)
-    # Strip one provider prefix segment (ark/qwen/silicon/ernie/...)
-    if "/" in model:
-        _, rest = model.split("/", 1)
-        model = rest.strip() or model
+    model = re.sub(r"[._]", "-", model)
+    model = re.sub(r"-+", "-", model)
+    while "/" in model:
+        _, model = model.split("/", 1)
     return model.strip("-")
 
 
 def _get_litellm_canonical(model: str) -> Optional[str]:
-    """
-    Get the LiteLLM-recognized canonical key for a model using rule-based matching.
-    Returns None if no rule matches.
-    """
-    # Normalize: strip provider prefix for matching
-    normalized = model.strip().lower().replace(".", "-").replace("_", "-")
-    # Strip all provider prefixes (e.g., "silicon/pro/deepseek-ai/deepseek-v3" -> "deepseek-v3")
-    while "/" in normalized:
-        _, normalized = normalized.split("/", 1)
-
-    # Apply rules (first match wins)
+    """Get LiteLLM-recognized key using LITELLM_CANONICAL_RULES."""
+    normalized = _canonicalize(model)
     for pattern, litellm_key in LITELLM_CANONICAL_RULES:
         if pattern.search(normalized):
             return litellm_key
-
     return None
-
-
-def _generate_match_candidates(canonical: str) -> List[str]:
-    """
-    Generate multiple candidate keys to try against LiteLLM registry.
-    This is the "smart matching" logic.
-    """
-    candidates: List[str] = [canonical]
-
-    # Try LiteLLM canonical mapping first (highest priority)
-    litellm_key = _get_litellm_canonical(canonical)
-    if litellm_key:
-        candidates.insert(0, litellm_key)
-        # Also try with deepseek/ prefix since LiteLLM sometimes needs it
-        if not litellm_key.startswith("deepseek/") and litellm_key.startswith(
-            "deepseek"
-        ):
-            candidates.insert(1, f"deepseek/{litellm_key}")
-
-    # Try with common provider prefixes
-    for prefix in [
-        "deepseek/",
-        "qwen/",
-        "volcengine/",
-        "zhipuai/",
-        "moonshot/",
-        "openai/",
-    ]:
-        candidates.append(f"{prefix}{canonical}")
-
-    # Try stripping version suffixes (e.g. deepseek-v3-2 -> deepseek-v3)
-    if re.search(r"-\d+$", canonical):
-        candidates.append(re.sub(r"-\d+$", "", canonical))
-
-    # Try stripping -latest / -preview suffixes
-    for suffix in ["-latest", "-preview", "-beta"]:
-        if canonical.endswith(suffix):
-            candidates.append(canonical[: -len(suffix)])
-
-    return candidates
 
 
 def _load_existing(path: Path) -> Dict:
@@ -465,78 +344,31 @@ def _load_existing(path: Path) -> Dict:
     return data
 
 
-def _resolve_litellm_max_tokens(model: str) -> Optional[int]:
+def _resolve_max_tokens(model: str) -> Tuple[Optional[int], Optional[str]]:
+    """
+    Resolve max_tokens. Priority: 1) LiteLLM  2) Pattern rules
+    Returns (max_tokens, source) or (None, None) if not found.
+    """
+    canonical = _canonicalize(model)
+
+    # 1) Try LiteLLM with canonical key
+    litellm_key = _get_litellm_canonical(canonical)
     try:
         from litellm import get_max_tokens
+
+        for key in [litellm_key, canonical] if litellm_key else [canonical]:
+            if key:
+                try:
+                    return int(get_max_tokens(key)), f"litellm:{key}"
+                except Exception:
+                    pass
     except Exception:
-        return None
-    try:
-        return int(get_max_tokens(model))
-    except Exception:
-        return None
+        pass
 
-
-def _smart_resolve_max_tokens(canonical: str) -> Tuple[Optional[int], Optional[str]]:
-    """
-    Try multiple candidate keys to find max_tokens.
-    Order: 1) LiteLLM registry  2) DEFAULT_MAX_TOKENS  3) pattern-based defaults
-    Returns (max_tokens, matched_key) or (None, None) if not found.
-    """
-    candidates = _generate_match_candidates(canonical)
-
-    # 1) Try LiteLLM registry first
-    for candidate in candidates:
-        mt = _resolve_litellm_max_tokens(candidate)
-        if mt is not None:
-            return mt, candidate
-
-    # 2) Try DEFAULT_MAX_TOKENS
-    for candidate in [canonical] + candidates:
-        if candidate in DEFAULT_MAX_TOKENS:
-            return DEFAULT_MAX_TOKENS[candidate], f"default:{candidate}"
-
-    # 3) Pattern-based defaults for common model families
-    # DeepSeek v3 variants
-    if re.match(r"^deepseek-v3", canonical) or "deepseek-v3" in canonical:
-        return 8192, "pattern:deepseek-v3"
-    # DeepSeek R1 variants
-    if re.match(r"^deepseek-r1", canonical) or "deepseek-r1" in canonical:
-        return 8192, "pattern:deepseek-r1"
-    # DeepSeek general
-    if "deepseek" in canonical:
-        return 8192, "pattern:deepseek"
-    # ERNIE models (default to 8k)
-    if canonical.startswith("ernie-") or "/ernie" in canonical:
-        if "128k" in canonical:
-            return 4096, "pattern:ernie-128k"
-        return 8192, "pattern:ernie"
-    # Qwen models
-    if (
-        canonical.startswith("qwen")
-        or canonical.startswith("qwq")
-        or "/qwen" in canonical
-    ):
-        return 8192, "pattern:qwen"
-    # Doubao models
-    if canonical.startswith("doubao") or "doubao" in canonical:
-        if "thinking" in canonical:
-            return 16384, "pattern:doubao-thinking"
-        return 4096, "pattern:doubao"
-    # GLM models (including thudm/glm-*, zai-org/glm-*)
-    if canonical.startswith("glm-") or "/glm-" in canonical or "glm" in canonical:
-        if "rumination" in canonical or "thinking" in canonical:
-            return 16384, "pattern:glm-thinking"
-        return 4096, "pattern:glm"
-    # Silicon/HuggingFace style model paths
-    if "/" in canonical:
-        # Try to extract the model family from path
-        parts = canonical.split("/")
-        model_name = parts[-1] if parts else canonical
-        # Recursively try to match the model name part
-        if model_name != canonical:
-            mt, key = _smart_resolve_max_tokens(model_name)
-            if mt is not None:
-                return mt, f"path:{key}"
+    # 2) Pattern-based inference (shared rules)
+    mt = infer_max_tokens_by_pattern(canonical)
+    if mt is not None:
+        return mt, f"pattern:{canonical}"
 
     return None, None
 
@@ -666,21 +498,21 @@ Examples:
             print("[skip] ark: ARK_ACCESS_KEY_ID or ARK_SECRET_ACCESS_KEY not set")
 
     # ---------------------------------------------------------------------------
-    # Smart matching with LiteLLM
+    # Resolve max_tokens for discovered models
     # ---------------------------------------------------------------------------
     missing: Set[str] = set()
-    matched: Dict[str, str] = {}  # canonical -> matched litellm key
+    matched: Dict[str, str] = {}
 
     for display, canon, provider, extra in discovered:
         if canon in max_tokens and max_tokens[canon] > 0:
             continue
 
-        mt, matched_key = _smart_resolve_max_tokens(canon)
+        mt, source = _resolve_max_tokens(canon)
         if mt is not None:
             max_tokens[canon] = mt
-            matched[canon] = matched_key or canon
+            matched[canon] = source or canon
             if args.verbose:
-                print(f"  [match] {canon} -> {matched_key} (max_tokens={mt})")
+                print(f"  [match] {canon} -> {source} (max_tokens={mt})")
         else:
             missing.add(canon)
             if args.write_placeholders and canon not in max_tokens:
@@ -690,10 +522,7 @@ Examples:
     # Build aliases: display -> LiteLLM-recognized key (or canonical as fallback)
     # ---------------------------------------------------------------------------
     for display, canon, provider, extra in discovered:
-        key = display.strip().lower()
-        for pattern, repl in NORMALIZE_PATTERNS:
-            key = pattern.sub(repl, key)
-        key = key.strip("-")
+        key = _canonicalize(display)
 
         # Determine the best target: prefer LiteLLM-recognized key
         litellm_key = _get_litellm_canonical(canon)
