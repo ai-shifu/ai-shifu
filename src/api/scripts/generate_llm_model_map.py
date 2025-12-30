@@ -109,7 +109,10 @@ PROVIDERS: List[Provider] = [
 
 
 # ---------------------------------------------------------------------------
-# ARK signing (copied from flaskr/api/ark/sign.py to avoid import dependencies)
+# ARK signing logic (copied from flaskr/api/ark/sign.py)
+#
+# NOTE: This is duplicated to avoid Flask app initialization during script import.
+# If flaskr/api/ark/sign.py changes, update this section accordingly.
 # ---------------------------------------------------------------------------
 ARK_SERVICE = "ark"
 ARK_VERSION = "2024-01-01"
