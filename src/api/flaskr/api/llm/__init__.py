@@ -1,6 +1,5 @@
 import asyncio
 import os
-import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from datetime import datetime
@@ -13,6 +12,10 @@ from langfuse.model import ModelUsage
 from pathlib import Path
 
 from .dify import DifyChunkChatCompletionResponse, dify_chat_message
+from flaskr.common.llm_model_rules import (
+    MAX_TOKENS_PATTERN_RULES as MAX_TOKENS_PATTERN_RULES,
+    infer_max_tokens_by_pattern,
+)
 from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
 from ..ark.sign import request
@@ -206,75 +209,8 @@ if _file_max_tokens:
         }
     )
 
-# Pattern rules to infer max_tokens (output limit) at runtime.
-# NOTE: max_tokens is the OUTPUT limit, NOT context window (input+output).
-# Each rule is (pattern, max_tokens). First match wins.
-# Official documentation links are provided as comments.
-MAX_TOKENS_PATTERN_RULES: List[Tuple[re.Pattern, int]] = [
-    # -------------------------------------------------------------------------
-    # DeepSeek - max_tokens: 8192 (default 4096)
-    # Doc: https://api-docs.deepseek.com/api/create-chat-completion
-    # -------------------------------------------------------------------------
-    (re.compile(r"deepseek", re.IGNORECASE), 8192),
-    # -------------------------------------------------------------------------
-    # ERNIE (Baidu) - max_output_tokens varies by model
-    # Doc: https://cloud.baidu.com/doc/WENXINWORKSHOP/s/Nlks5zkzu
-    # ERNIE-*-128K: 4096 (larger context, but same output limit)
-    # ERNIE-*-8K: 4096 (most models support up to 4096 output)
-    # -------------------------------------------------------------------------
-    (re.compile(r"ernie.*128k", re.IGNORECASE), 4096),
-    (re.compile(r"ernie", re.IGNORECASE), 4096),
-    # -------------------------------------------------------------------------
-    # Qwen (Alibaba) - max_tokens: 8192 (default 1024 for most models)
-    # Doc: https://help.aliyun.com/zh/model-studio/developer-reference/use-qwen-by-calling-api
-    # qwen-max/plus/turbo: max 8192
-    # -------------------------------------------------------------------------
-    (re.compile(r"qwen|qvq|qwq", re.IGNORECASE), 8192),
-    # -------------------------------------------------------------------------
-    # GLM (Zhipu) - max_tokens: 4096
-    # Doc: https://bigmodel.cn/dev/api/normal-model/glm-4
-    # GLM-4/GLM-4-Flash/GLM-4-Air: max 4096
-    # GLM-4-Long: max 4096 (longer context, same output limit)
-    # -------------------------------------------------------------------------
-    (re.compile(r"glm.*(?:thinking|rumination)", re.IGNORECASE), 4096),
-    (re.compile(r"glm", re.IGNORECASE), 4096),
-    # -------------------------------------------------------------------------
-    # Doubao (ByteDance/Volcengine) - max_tokens: 4096
-    # Doc: https://www.volcengine.com/docs/82379/1298454
-    # Doubao-pro/lite-32k: max 4096
-    # Doubao-*-thinking: max 16384 (extended for reasoning output)
-    # -------------------------------------------------------------------------
-    (re.compile(r"doubao.*thinking", re.IGNORECASE), 16384),
-    (re.compile(r"doubao", re.IGNORECASE), 4096),
-    # -------------------------------------------------------------------------
-    # Kimi/Moonshot - max_tokens varies by model
-    # Doc: https://platform.moonshot.cn/docs/api/chat
-    # moonshot-v1-8k: max 4096, moonshot-v1-32k: max 4096, moonshot-v1-128k: max 4096
-    # kimi-k2: newer model with larger output capacity
-    # -------------------------------------------------------------------------
-    (re.compile(r"kimi-k2", re.IGNORECASE), 8192),
-    (re.compile(r"kimi|moonshot", re.IGNORECASE), 4096),
-    # -------------------------------------------------------------------------
-    # OpenAI GPT models (if not in LiteLLM registry)
-    # Doc: https://platform.openai.com/docs/models
-    # -------------------------------------------------------------------------
-    (re.compile(r"gpt-4o|gpt-4-turbo", re.IGNORECASE), 16384),
-    (re.compile(r"gpt-4", re.IGNORECASE), 8192),
-    (re.compile(r"gpt-3\.5", re.IGNORECASE), 4096),
-]
-
-
-def _infer_max_tokens_by_pattern(model: str) -> Optional[int]:
-    """Infer max_tokens using pattern rules. Returns None if no match."""
-    normalized = model.strip().lower()
-    # Strip provider prefixes
-    while "/" in normalized:
-        _, normalized = normalized.split("/", 1)
-
-    for pattern, max_tokens in MAX_TOKENS_PATTERN_RULES:
-        if pattern.search(normalized):
-            return max_tokens
-    return None
+# MAX_TOKENS_PATTERN_RULES and infer_max_tokens_by_pattern are imported
+# from .model_rules to avoid duplication with generate_llm_model_map.py
 
 
 def _resolve_max_tokens(requested_model: str, invoke_model: str) -> Optional[int]:
@@ -311,8 +247,8 @@ def _resolve_max_tokens(requested_model: str, invoke_model: str) -> Optional[int
         except Exception:
             pass
 
-        # 3. Try pattern-based inference
-        inferred = _infer_max_tokens_by_pattern(key)
+        # 3. Try pattern-based inference (from model_rules.py)
+        inferred = infer_max_tokens_by_pattern(key)
         if inferred is not None:
             return inferred
 

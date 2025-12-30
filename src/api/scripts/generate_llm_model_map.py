@@ -29,6 +29,7 @@ import hmac
 import json
 import os
 import re
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -36,6 +37,13 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from urllib.parse import quote
 
 import requests
+
+# Add parent directory to path for importing shared model rules
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from flaskr.common.llm_model_rules import (
+    LITELLM_CANONICAL_RULES,
+    infer_max_tokens_by_pattern,
+)
 
 
 @dataclass(frozen=True)
@@ -300,83 +308,12 @@ def _fetch_openai_compatible_models(api_key: str, base_url: str) -> List[str]:
 
 
 # ---------------------------------------------------------------------------
-# Canonical key + smart matching (rule-based, not hardcoded)
+# Model rules imported from flaskr.api.llm.model_rules
+# - MAX_TOKENS_PATTERN_RULES: pattern-based max_tokens inference
+# - LITELLM_CANONICAL_RULES: canonicalization to LiteLLM keys
+# - infer_max_tokens_by_pattern(): infer max_tokens by pattern
+# - canonicalize_to_litellm(): map model names to LiteLLM keys
 # ---------------------------------------------------------------------------
-# Rules to map model names to LiteLLM-recognized keys (for aliases).
-# Each rule is (pattern, litellm_key). First match wins.
-LITELLM_CANONICAL_RULES: List[Tuple[re.Pattern, str]] = [
-    # DeepSeek R1 variants -> deepseek-reasoner (must be before v3 rules)
-    (re.compile(r"deepseek-?r1", re.IGNORECASE), "deepseek-reasoner"),
-    (re.compile(r"deepseekr1", re.IGNORECASE), "deepseek-reasoner"),
-    # DeepSeek v2/v3 variants -> deepseek-chat
-    (re.compile(r"deepseek-?v[23]", re.IGNORECASE), "deepseek-chat"),
-    (re.compile(r"deepseek-chat", re.IGNORECASE), "deepseek-chat"),
-]
-
-# Rules to infer max_tokens (output limit) by pattern.
-# NOTE: max_tokens is the OUTPUT limit, NOT context window (input+output).
-# Each rule is (pattern, max_tokens). First match wins.
-# Official documentation links are provided as comments.
-MAX_TOKENS_PATTERN_RULES: List[Tuple[re.Pattern, int]] = [
-    # -------------------------------------------------------------------------
-    # DeepSeek - max_tokens: 8192 (default 4096)
-    # Doc: https://api-docs.deepseek.com/api/create-chat-completion
-    # -------------------------------------------------------------------------
-    (re.compile(r"deepseek", re.IGNORECASE), 8192),
-    # -------------------------------------------------------------------------
-    # ERNIE (Baidu) - max_output_tokens varies by model
-    # Doc: https://cloud.baidu.com/doc/WENXINWORKSHOP/s/Nlks5zkzu
-    # ERNIE-*-128K: 4096, ERNIE-*-8K: 4096
-    # -------------------------------------------------------------------------
-    (re.compile(r"ernie.*128k", re.IGNORECASE), 4096),
-    (re.compile(r"ernie", re.IGNORECASE), 4096),
-    # -------------------------------------------------------------------------
-    # Qwen (Alibaba) - max_tokens: 8192 (default 1024 for most models)
-    # Doc: https://help.aliyun.com/zh/model-studio/developer-reference/use-qwen-by-calling-api
-    # -------------------------------------------------------------------------
-    (re.compile(r"qwen|qvq|qwq", re.IGNORECASE), 8192),
-    # -------------------------------------------------------------------------
-    # GLM (Zhipu) - max_tokens: 4096
-    # Doc: https://bigmodel.cn/dev/api/normal-model/glm-4
-    # -------------------------------------------------------------------------
-    (re.compile(r"glm.*(?:thinking|rumination)", re.IGNORECASE), 4096),
-    (re.compile(r"glm", re.IGNORECASE), 4096),
-    # -------------------------------------------------------------------------
-    # Doubao (ByteDance/Volcengine) - max_tokens: 4096
-    # Doc: https://www.volcengine.com/docs/82379/1298454
-    # Doubao-*-thinking: max 16384 (extended for reasoning)
-    # -------------------------------------------------------------------------
-    (re.compile(r"doubao.*thinking", re.IGNORECASE), 16384),
-    (re.compile(r"doubao", re.IGNORECASE), 4096),
-    # -------------------------------------------------------------------------
-    # Kimi/Moonshot - max_tokens: 4096
-    # Doc: https://platform.moonshot.cn/docs/api/chat
-    # kimi-k2: newer model with larger output capacity
-    # -------------------------------------------------------------------------
-    (re.compile(r"kimi-k2", re.IGNORECASE), 8192),
-    (re.compile(r"kimi|moonshot", re.IGNORECASE), 4096),
-    # -------------------------------------------------------------------------
-    # OpenAI GPT models (if not in LiteLLM registry)
-    # Doc: https://platform.openai.com/docs/models
-    # -------------------------------------------------------------------------
-    (re.compile(r"gpt-4o|gpt-4-turbo", re.IGNORECASE), 16384),
-    (re.compile(r"gpt-4", re.IGNORECASE), 8192),
-    (re.compile(r"gpt-3\.5", re.IGNORECASE), 4096),
-]
-
-
-def _infer_max_tokens_by_pattern(model: str) -> Optional[int]:
-    """Infer max_tokens using pattern rules. Returns None if no match."""
-    normalized = model.strip().lower()
-    # Strip provider prefixes
-    while "/" in normalized:
-        _, normalized = normalized.split("/", 1)
-
-    for pattern, max_tokens in MAX_TOKENS_PATTERN_RULES:
-        if pattern.search(normalized):
-            return max_tokens
-    return None
-
 
 # Default max_tokens for models not in LiteLLM registry.
 # These are the ACTUAL limits from provider documentation.
@@ -794,7 +731,7 @@ Examples:
             redundant_keys.append(key)
             continue
         # 3. If this key can be inferred via pattern rules, and the inferred value matches
-        inferred = _infer_max_tokens_by_pattern(key)
+        inferred = infer_max_tokens_by_pattern(key)
         if inferred is not None and max_tokens[key] == inferred:
             redundant_keys.append(key)
             continue

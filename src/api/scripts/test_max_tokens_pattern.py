@@ -2,74 +2,22 @@
 """
 Test script for MAX_TOKENS_PATTERN_RULES inference mechanism.
 
-This script tests the pattern matching logic independently without Flask dependencies.
+This script tests the pattern matching logic from the shared model_rules module.
 
 Usage:
     cd src/api
     python scripts/test_max_tokens_pattern.py
 """
 
-import re
-from typing import List, Tuple, Optional
+import sys
+from pathlib import Path
 
-# Copy the MAX_TOKENS_PATTERN_RULES from llm/__init__.py
-# This ensures we test the exact same rules
-MAX_TOKENS_PATTERN_RULES: List[Tuple[re.Pattern, int]] = [
-    # -------------------------------------------------------------------------
-    # DeepSeek - max_tokens: 8192 (default 4096)
-    # Doc: https://api-docs.deepseek.com/api/create-chat-completion
-    # -------------------------------------------------------------------------
-    (re.compile(r"deepseek", re.IGNORECASE), 8192),
-    # -------------------------------------------------------------------------
-    # ERNIE (Baidu) - max_output_tokens varies by model
-    # Doc: https://cloud.baidu.com/doc/WENXINWORKSHOP/s/Nlks5zkzu
-    # ERNIE-*-128K: 4096 (larger context, but same output limit)
-    # ERNIE-*-8K: 4096 (most models support up to 4096 output)
-    # -------------------------------------------------------------------------
-    (re.compile(r"ernie.*128k", re.IGNORECASE), 4096),
-    (re.compile(r"ernie", re.IGNORECASE), 4096),
-    # -------------------------------------------------------------------------
-    # Qwen (Alibaba) - max_tokens: 8192 (default 1024 for most models)
-    # Doc: https://help.aliyun.com/zh/model-studio/developer-reference/use-qwen-by-calling-api
-    # qwen-max/plus/turbo: max 8192
-    # -------------------------------------------------------------------------
-    (re.compile(r"qwen|qvq|qwq", re.IGNORECASE), 8192),
-    # -------------------------------------------------------------------------
-    # GLM (Zhipu) - max_tokens: 4096
-    # Doc: https://bigmodel.cn/dev/api/normal-model/glm-4
-    # GLM-4/GLM-4-Flash/GLM-4-Air: max 4096
-    # GLM-4-Long: max 4096 (longer context, same output limit)
-    # -------------------------------------------------------------------------
-    (re.compile(r"glm.*(?:thinking|rumination)", re.IGNORECASE), 4096),
-    (re.compile(r"glm", re.IGNORECASE), 4096),
-    # -------------------------------------------------------------------------
-    # Doubao (ByteDance/Volcengine) - max_tokens: 4096
-    # Doc: https://www.volcengine.com/docs/82379/1298454
-    # Doubao-*-thinking: max 16384 (extended for reasoning)
-    # -------------------------------------------------------------------------
-    (re.compile(r"doubao.*thinking", re.IGNORECASE), 16384),
-    (re.compile(r"doubao", re.IGNORECASE), 4096),
-    # -------------------------------------------------------------------------
-    # Kimi/Moonshot - max_tokens: 4096 / 8192
-    # Doc: https://platform.moonshot.cn/docs/api/chat
-    # kimi-k2: newer model with larger output capacity
-    # -------------------------------------------------------------------------
-    (re.compile(r"kimi-k2", re.IGNORECASE), 8192),
-    (re.compile(r"kimi|moonshot", re.IGNORECASE), 4096),
-]
-
-
-def _infer_max_tokens_by_pattern(model: str) -> Optional[int]:
-    """Infer max_tokens using pattern rules. Returns None if no match."""
-    normalized = model.strip().lower()
-    # Strip provider prefixes (e.g., "ark/deepseek-v3" -> "deepseek-v3")
-    while "/" in normalized:
-        _, normalized = normalized.split("/", 1)
-
-    for pattern, max_tokens in MAX_TOKENS_PATTERN_RULES:
-        if pattern.search(normalized):
-            return max_tokens
-    return None
+# Add parent directory to path for importing shared model rules
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from flaskr.common.llm_model_rules import (
+    MAX_TOKENS_PATTERN_RULES,
+    infer_max_tokens_by_pattern,
+)
 
 
 def test_pattern_rules():
@@ -113,7 +61,7 @@ def test_pattern_rules():
         ("moonshot-v1-32k", 4096, "Moonshot V1 32K"),
         # Unknown models (should return None)
         ("unknown-model", None, "Unknown Model"),
-        ("gpt-4o", None, "GPT-4o (not in our rules)"),
+        ("gpt-4o", 16384, "GPT-4o"),
         ("claude-3-opus", None, "Claude 3 Opus (not in our rules)"),
     ]
 
@@ -121,7 +69,7 @@ def test_pattern_rules():
     failed = 0
 
     for model, expected, description in test_cases:
-        result = _infer_max_tokens_by_pattern(model)
+        result = infer_max_tokens_by_pattern(model)
         status = "✓" if result == expected else "✗"
         if result == expected:
             passed += 1
@@ -149,7 +97,7 @@ def test_provider_prefix_stripping():
         ("silicon/deepseek-chat", 8192, "Silicon prefix"),
         ("qwen/qwen-max", 8192, "Qwen prefix"),
         ("ernie/ernie-4.0-8k", 4096, "ERNIE prefix"),
-        ("openai/gpt-4", None, "OpenAI prefix (no match)"),
+        ("openai/gpt-4", 8192, "OpenAI prefix"),
         ("volcengine/doubao-seed-1-6", 4096, "Volcengine prefix"),
         # Nested prefixes
         ("provider/sub/deepseek-chat", 8192, "Nested prefix"),
@@ -159,7 +107,7 @@ def test_provider_prefix_stripping():
     failed = 0
 
     for model, expected, description in test_cases:
-        result = _infer_max_tokens_by_pattern(model)
+        result = infer_max_tokens_by_pattern(model)
         status = "✓" if result == expected else "✗"
         if result == expected:
             passed += 1
@@ -195,7 +143,7 @@ def test_case_insensitivity():
     failed = 0
 
     for model, expected in test_cases:
-        result = _infer_max_tokens_by_pattern(model)
+        result = infer_max_tokens_by_pattern(model)
         status = "✓" if result == expected else "✗"
         if result == expected:
             passed += 1
@@ -233,7 +181,7 @@ def test_pattern_priority():
     failed = 0
 
     for model, expected, description in test_cases:
-        result = _infer_max_tokens_by_pattern(model)
+        result = infer_max_tokens_by_pattern(model)
         status = "✓" if result == expected else "✗"
         if result == expected:
             passed += 1
@@ -251,7 +199,7 @@ def test_pattern_priority():
 def show_all_pattern_rules():
     """Display all configured pattern rules."""
     print("\n" + "=" * 70)
-    print("Configured MAX_TOKENS_PATTERN_RULES")
+    print("Configured MAX_TOKENS_PATTERN_RULES (from model_rules.py)")
     print("=" * 70)
 
     for i, (pattern, max_tokens) in enumerate(MAX_TOKENS_PATTERN_RULES, 1):
