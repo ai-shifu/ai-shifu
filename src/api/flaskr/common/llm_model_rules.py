@@ -20,13 +20,13 @@ MAX_TOKENS_PATTERN_RULES: List[Tuple[re.Pattern, int]] = [
     # -------------------------------------------------------------------------
     (re.compile(r"deepseek", re.IGNORECASE), 8192),
     # -------------------------------------------------------------------------
-    # ERNIE (Baidu) - max_output_tokens varies by model
+    # ERNIE (Baidu) - max_output_tokens: 8192 for most models
     # Doc: https://cloud.baidu.com/doc/WENXINWORKSHOP/s/Nlks5zkzu
-    # ERNIE-*-128K: 4096 (larger context, but same output limit)
-    # ERNIE-*-8K: 4096 (most models support up to 4096 output)
+    # ERNIE-4.0/4.5/5.0 series: max 8192
+    # ERNIE-*-128K: 4096 (larger context, limited output)
     # -------------------------------------------------------------------------
     (re.compile(r"ernie.*128k", re.IGNORECASE), 4096),
-    (re.compile(r"ernie", re.IGNORECASE), 4096),
+    (re.compile(r"ernie", re.IGNORECASE), 8192),
     # -------------------------------------------------------------------------
     # Qwen (Alibaba) - max_tokens: 8192 (default 1024 for most models)
     # Doc: https://help.aliyun.com/zh/model-studio/developer-reference/use-qwen-by-calling-api
