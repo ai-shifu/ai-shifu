@@ -174,31 +174,29 @@ if _file_max_tokens:
     )
 
 
-def _resolve_max_tokens(requested_model: str, invoke_model: str) -> Optional[int]:
+def _resolve_max_tokens(invoke_model: str) -> Optional[int]:
     """
     Resolve max_tokens for a model. Priority:
-    1. Static overrides (STATIC_MODEL_MAX_TOKENS from model-map.json)
-    2. LiteLLM registry (get_max_tokens)
+    1. Static overrides (model-map.json)
+    2. LiteLLM registry
     3. Pattern-based inference (fallback)
     """
-    # Get canonical model name from invoke map (e.g., ep-xxx -> deepseek-v3-2)
-    canonical = MODEL_INVOKE_CANONICAL_MAP.get(invoke_model, "") or requested_model
+    # Get canonical model name (e.g., ep-xxx -> deepseek-v3-2)
+    canonical = MODEL_INVOKE_CANONICAL_MAP.get(invoke_model, invoke_model)
     key = _canonicalize_model_key(canonical)
-
-    # Apply alias if exists
     key = STATIC_MODEL_ALIASES.get(key, key)
 
-    # 1. Check static overrides
+    # 1. Static overrides
     if key in STATIC_MODEL_MAX_TOKENS:
         return STATIC_MODEL_MAX_TOKENS[key]
 
-    # 2. Try LiteLLM registry (main source)
+    # 2. LiteLLM registry
     try:
         return get_max_tokens(key)
     except Exception:
         pass
 
-    # 3. Pattern-based inference (fallback)
+    # 3. Pattern fallback
     return infer_max_tokens_by_pattern(key)
 
 
@@ -377,18 +375,16 @@ def _stream_litellm_completion(
     messages: list,
     params: dict,
     kwargs: dict,
-    requested_model: Optional[str] = None,
 ):
     try:
-        try:
-            max_tokens = _resolve_max_tokens(requested_model or model, model)
-            if max_tokens is not None:
-                kwargs["max_tokens"] = max_tokens
-        except Exception as exc:
-            _log_warning(f"get max tokens for {model} failed: {exc}")
-        app.logger.info(
-            f"stream_litellm_completion: {model} {messages} {params} {kwargs}"
-        )
+        max_tokens = _resolve_max_tokens(model)
+        if max_tokens is not None:
+            kwargs["max_tokens"] = max_tokens
+    except Exception as exc:
+        _log_warning(f"get max tokens for {model} failed: {exc}")
+
+    app.logger.info(f"stream_litellm_completion: {model} {messages} {params} {kwargs}")
+    try:
         return litellm.completion(
             model=model,
             messages=messages,
@@ -726,12 +722,7 @@ def invoke_llm(
                 }
             )
         response = _stream_litellm_completion(
-            app,
-            invoke_model,
-            messages,
-            params,
-            kwargs,
-            requested_model=model,
+            app, invoke_model, messages, params, kwargs
         )
 
         for res in response:
@@ -819,12 +810,7 @@ def chat_llm(
                 }
             )
         response = _stream_litellm_completion(
-            app,
-            invoke_model,
-            messages,
-            params,
-            kwargs,
-            requested_model=model,
+            app, invoke_model, messages, params, kwargs
         )
         for res in response:
             if start_completion_time is None:
