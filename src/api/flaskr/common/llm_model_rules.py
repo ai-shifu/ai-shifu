@@ -50,10 +50,10 @@ MAX_TOKENS_PATTERN_RULES: List[Tuple[re.Pattern, int]] = [
     (re.compile(r"doubao.*thinking", re.IGNORECASE), 16384),
     (re.compile(r"doubao", re.IGNORECASE), 4096),
     # -------------------------------------------------------------------------
-    # Kimi/Moonshot - max_tokens varies by model
+    # Kimi/Moonshot - max_tokens varies by model and platform
     # Doc: https://platform.moonshot.cn/docs/api/chat
     # moonshot-v1-*: max 4096
-    # kimi-k2 via ARK: max 32768 (error: expected <= 32768)
+    # kimi-k2: 128K context window, but ARK platform limits output to 32768
     # -------------------------------------------------------------------------
     (re.compile(r"kimi-k2", re.IGNORECASE), 32768),
     (re.compile(r"kimi|moonshot", re.IGNORECASE), 4096),
