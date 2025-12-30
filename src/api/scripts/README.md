@@ -112,8 +112,8 @@ The script uses API keys from your `.env` file:
 
 - `DEEPSEEK_API_KEY` - DeepSeek models
 - `QWEN_API_KEY` - Alibaba Qwen models
-- `SILICONFLOW_API_KEY` - SiliconFlow models
-- `ARK_ACCESS_KEY` / `ARK_SECRET_KEY` - Volcengine ARK models
+- `SILICON_API_KEY` - SiliconFlow models
+- `ARK_ACCESS_KEY_ID` / `ARK_SECRET_ACCESS_KEY` - Volcengine ARK models
 - And more (see `config.py` for full list)
 
 ### When to Use
