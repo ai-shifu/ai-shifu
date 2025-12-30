@@ -580,10 +580,6 @@
     "gpt-5-mini-2025-08-07": 128000,
     "gpt-5-nano": 128000,
     "gpt-5-nano-2025-08-07": 128000,
-    "kimi-k2": 131072,
-    "kimi-k2-thinking": 262144,
-    "moonshotai/kimi-k2-thinking": 262144,
-    "pro/moonshotai/kimi-k2-thinking": 262144,
     "pro/thudm/glm-4-1v-9b-thinking": 16384,
     "thudm/glm-4-1v-9b-thinking": 16384,
     "thudm/glm-z1-rumination-32b-0414": 16384

@@ -52,10 +52,10 @@ MAX_TOKENS_PATTERN_RULES: List[Tuple[re.Pattern, int]] = [
     # -------------------------------------------------------------------------
     # Kimi/Moonshot - max_tokens varies by model
     # Doc: https://platform.moonshot.cn/docs/api/chat
-    # moonshot-v1-8k: max 4096, moonshot-v1-32k: max 4096, moonshot-v1-128k: max 4096
-    # kimi-k2: newer model with larger output capacity
+    # moonshot-v1-*: max 4096
+    # kimi-k2 via ARK: max 32768 (error: expected <= 32768)
     # -------------------------------------------------------------------------
-    (re.compile(r"kimi-k2", re.IGNORECASE), 8192),
+    (re.compile(r"kimi-k2", re.IGNORECASE), 32768),
     (re.compile(r"kimi|moonshot", re.IGNORECASE), 4096),
     # -------------------------------------------------------------------------
     # OpenAI GPT models (if not in LiteLLM registry)
