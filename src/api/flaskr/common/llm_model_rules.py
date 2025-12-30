@@ -15,8 +15,10 @@ from typing import List, Optional, Tuple
 # Official documentation links are provided as comments.
 MAX_TOKENS_PATTERN_RULES: List[Tuple[re.Pattern, int]] = [
     # -------------------------------------------------------------------------
-    # DeepSeek - max_tokens: 8192 (default 4096)
+    # DeepSeek - max_tokens: 8192 (DeepSeek API), 32768 (ARK platform)
     # Doc: https://api-docs.deepseek.com/api/create-chat-completion
+    # ARK: https://www.volcengine.com/docs/82379/1801298 (deepseek-v3.1: 32k)
+    # Using conservative 8192 for broad compatibility
     # -------------------------------------------------------------------------
     (re.compile(r"deepseek", re.IGNORECASE), 8192),
     # -------------------------------------------------------------------------
@@ -42,13 +44,15 @@ MAX_TOKENS_PATTERN_RULES: List[Tuple[re.Pattern, int]] = [
     (re.compile(r"glm.*(?:thinking|rumination)", re.IGNORECASE), 4096),
     (re.compile(r"glm", re.IGNORECASE), 4096),
     # -------------------------------------------------------------------------
-    # Doubao (ByteDance/Volcengine) - max_tokens: 4096
-    # Doc: https://www.volcengine.com/docs/82379/1298454
-    # Doubao-pro/lite-32k: max 4096
-    # Doubao-*-thinking: max 16384 (extended for reasoning output)
+    # Doubao (ByteDance/Volcengine) - max_tokens varies by version
+    # Doc: https://www.volcengine.com/docs/82379/1330310
+    # doubao-seed-1.6[-flash/-lite/-thinking]: 32k
+    # doubao-1.5-thinking-*: 16k
+    # doubao-1.5-pro-*: 12k
     # -------------------------------------------------------------------------
+    (re.compile(r"doubao-seed", re.IGNORECASE), 32768),
     (re.compile(r"doubao.*thinking", re.IGNORECASE), 16384),
-    (re.compile(r"doubao", re.IGNORECASE), 4096),
+    (re.compile(r"doubao", re.IGNORECASE), 12288),
     # -------------------------------------------------------------------------
     # Kimi/Moonshot - max_tokens varies by model and platform
     # Doc: https://platform.moonshot.cn/docs/api/chat
