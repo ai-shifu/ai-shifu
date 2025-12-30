@@ -19,7 +19,6 @@ from flaskr.common.llm_model_rules import (
 from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
 from ..ark.sign import request
-from litellm import get_max_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -161,106 +160,48 @@ def _load_local_model_map() -> tuple[Dict[str, str], Dict[str, int]]:
         return {}, {}
 
 
-def _normalize_model_key_for_tokens(model: str) -> str:
-    model = (model or "").strip()
-    # For display models like "ark/deepseek-v3-2", also try "deepseek-v3-2".
-    if "/" in model:
-        # Only strip the first prefix segment to preserve nested provider paths.
-        _, rest = model.split("/", 1)
-        return rest.strip() or model
-    return model
-
-
 def _canonicalize_model_key(model: str) -> str:
-    """
-    Canonicalize model ids for token limit lookup.
-
-    Rules:
-    - lowercase
-    - strip provider prefix (first segment before "/") for token lookup
-    - normalize separators (convert "." to "-")
-    - apply STATIC_MODEL_ALIASES
-    """
-    key = _normalize_model_key_for_tokens(model).strip().lower()
-    if not key:
-        return ""
-    key = key.replace(".", "-")
-    return STATIC_MODEL_ALIASES.get(key, key)
+    """Normalize model key: lowercase, strip prefix, replace . with -"""
+    key = (model or "").strip().lower()
+    while "/" in key:
+        _, key = key.split("/", 1)
+    return key.replace(".", "-")
 
 
 # Merge local model map (version-controlled) on import.
 _file_aliases, _file_max_tokens = _load_local_model_map()
 if _file_aliases:
-    # File-based aliases override built-in ones.
     STATIC_MODEL_ALIASES.update(
         {
-            str(k).strip().lower().replace(".", "-"): str(v)
-            .strip()
-            .lower()
-            .replace(".", "-")
+            _canonicalize_model_key(k): _canonicalize_model_key(v)
             for k, v in _file_aliases.items()
         }
     )
 if _file_max_tokens:
     STATIC_MODEL_MAX_TOKENS.update(
-        {
-            str(k).strip().lower().replace(".", "-"): int(v)
-            for k, v in _file_max_tokens.items()
-        }
+        {_canonicalize_model_key(k): int(v) for k, v in _file_max_tokens.items()}
     )
-
-# MAX_TOKENS_PATTERN_RULES and infer_max_tokens_by_pattern are imported
-# from .model_rules to avoid duplication with generate_llm_model_map.py
 
 
 def _resolve_max_tokens(requested_model: str, invoke_model: str) -> Optional[int]:
-    canonical_from_invoke = MODEL_INVOKE_CANONICAL_MAP.get(invoke_model, "")
+    """
+    Resolve max_tokens for a model. Priority:
+    1. Static overrides (STATIC_MODEL_MAX_TOKENS from model-map.json)
+    2. Pattern-based inference (infer_max_tokens_by_pattern)
+    """
+    # Get canonical model name from invoke map (e.g., ep-xxx -> deepseek-v3-2)
+    canonical = MODEL_INVOKE_CANONICAL_MAP.get(invoke_model, "") or requested_model
+    key = _canonicalize_model_key(canonical)
 
-    candidates: List[str] = []
-    # 1) Try invoke + requested + canonical (in that order)
-    candidates.extend([invoke_model, requested_model, canonical_from_invoke])
-    # 2) Normalize keys to increase hit rate in token lookup
-    candidates.extend(
-        [
-            _normalize_model_key_for_tokens(canonical_from_invoke),
-            _normalize_model_key_for_tokens(requested_model),
-            _normalize_model_key_for_tokens(invoke_model),
-        ]
-    )
+    # Apply alias if exists
+    key = STATIC_MODEL_ALIASES.get(key, key)
 
-    seen: set[str] = set()
-    attempted: List[str] = []
-    for candidate in candidates:
-        key = _canonicalize_model_key(candidate)
-        if not key or key in seen:
-            continue
-        seen.add(key)
-        attempted.append(key)
+    # 1. Check static overrides
+    if key in STATIC_MODEL_MAX_TOKENS:
+        return STATIC_MODEL_MAX_TOKENS[key]
 
-        # 1. Try static overrides (from model-map.json)
-        if key in STATIC_MODEL_MAX_TOKENS:
-            return STATIC_MODEL_MAX_TOKENS[key]
-
-        # 2. Try LiteLLM registry
-        try:
-            return get_max_tokens(key)
-        except Exception:
-            pass
-
-        # 3. Try pattern-based inference (from model_rules.py)
-        inferred = infer_max_tokens_by_pattern(key)
-        if inferred is not None:
-            return inferred
-
-    if attempted:
-        _log_warning(
-            "Unable to resolve max_tokens. "
-            f"requested_model={requested_model}, invoke_model={invoke_model}, "
-            f"canonical={canonical_from_invoke}, attempted={attempted}. "
-            "If this is a vendor deployment id or a new model name not present in "
-            "LiteLLM's model registry, add it to STATIC_MODEL_MAX_TOKENS or MAX_TOKENS_PATTERN_RULES."
-        )
-    return None
+    # 2. Pattern-based inference (handles most cases)
+    return infer_max_tokens_by_pattern(key)
 
 
 def _log(level: str, message: str) -> None:
