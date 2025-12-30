@@ -89,24 +89,14 @@ class ProviderState:
 
 MODEL_ALIAS_MAP: Dict[str, Tuple[str, str]] = {}
 PROVIDER_STATES: Dict[str, ProviderState] = {}
-# Map the *invoke model id* (e.g. ARK endpoint id) to a canonical model name used
-# for max_tokens resolution (e.g. foundation model name).
+
+# Runtime map: invoke model id (e.g. ep-xxx) -> canonical model name (e.g. deepseek-v3-2)
+# Populated by _register_provider_models() at startup
 MODEL_INVOKE_CANONICAL_MAP: Dict[str, str] = {}
 
-# Static aliases to normalize model ids across providers / display names.
-# Keep keys lowercase and use "-" separators.
-STATIC_MODEL_ALIASES: Dict[str, str] = {
-    # Examples for inconsistent naming (extend as needed):
-    # "ark/deepseek-3-1": "deepseek-v3-1",
-    # "ark/deepseek-v3.1": "deepseek-v3-1",
-}
-
-# Static max token limits for models missing from LiteLLM's built-in registry.
-# NOTE: Set the values to the true provider limits used in production.
-STATIC_MODEL_MAX_TOKENS: Dict[str, int] = {
-    # DeepSeek (example values; adjust to your actual limits)
-    "deepseek-v3-2": 8192,
-}
+# Loaded from model-map.json at import time
+STATIC_MODEL_ALIASES: Dict[str, str] = {}
+STATIC_MODEL_MAX_TOKENS: Dict[str, int] = {}
 
 
 def _load_local_model_map() -> tuple[Dict[str, str], Dict[str, int]]:
