@@ -99,6 +99,21 @@ STATIC_MODEL_ALIASES: Dict[str, str] = {}
 STATIC_MODEL_MAX_TOKENS: Dict[str, int] = {}
 
 
+def _log(level: str, message: str) -> None:
+    try:
+        getattr(current_app.logger, level)(message)
+    except Exception:
+        getattr(logger, level)(message)
+
+
+def _log_info(message: str) -> None:
+    _log("info", message)
+
+
+def _log_warning(message: str) -> None:
+    _log("warning", message)
+
+
 def _load_local_model_map() -> tuple[Dict[str, str], Dict[str, int]]:
     """
     Load a version-controlled local model map from JSON.
@@ -198,21 +213,6 @@ def _resolve_max_tokens(invoke_model: str) -> Optional[int]:
 
     # 3. Pattern fallback
     return infer_max_tokens_by_pattern(key)
-
-
-def _log(level: str, message: str) -> None:
-    try:
-        getattr(current_app.logger, level)(message)
-    except Exception:
-        getattr(logger, level)(message)
-
-
-def _log_info(message: str) -> None:
-    _log("info", message)
-
-
-def _log_warning(message: str) -> None:
-    _log("warning", message)
 
 
 def _normalize_model_config(value: Any) -> list[str]:
