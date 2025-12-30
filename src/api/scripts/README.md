@@ -120,6 +120,7 @@ The script uses API keys from your `.env` file:
 
 Run this script when:
 
+- **Upgrading LiteLLM** - Re-check model mappings against the updated registry
 - Adding support for a new LLM provider
 - Updating model mappings after provider changes
 - Debugging model resolution issues
