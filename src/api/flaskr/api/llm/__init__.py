@@ -19,6 +19,7 @@ from flaskr.common.llm_model_rules import (
 from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
 from ..ark.sign import request
+from litellm import get_max_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -187,7 +188,8 @@ def _resolve_max_tokens(requested_model: str, invoke_model: str) -> Optional[int
     """
     Resolve max_tokens for a model. Priority:
     1. Static overrides (STATIC_MODEL_MAX_TOKENS from model-map.json)
-    2. Pattern-based inference (infer_max_tokens_by_pattern)
+    2. LiteLLM registry (get_max_tokens)
+    3. Pattern-based inference (fallback)
     """
     # Get canonical model name from invoke map (e.g., ep-xxx -> deepseek-v3-2)
     canonical = MODEL_INVOKE_CANONICAL_MAP.get(invoke_model, "") or requested_model
@@ -200,7 +202,13 @@ def _resolve_max_tokens(requested_model: str, invoke_model: str) -> Optional[int
     if key in STATIC_MODEL_MAX_TOKENS:
         return STATIC_MODEL_MAX_TOKENS[key]
 
-    # 2. Pattern-based inference (handles most cases)
+    # 2. Try LiteLLM registry (main source)
+    try:
+        return get_max_tokens(key)
+    except Exception:
+        pass
+
+    # 3. Pattern-based inference (fallback)
     return infer_max_tokens_by_pattern(key)
 
 
