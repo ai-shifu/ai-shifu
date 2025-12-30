@@ -96,21 +96,33 @@ const loadRuntimeConfig = async () => {
 
   const runtimeUrl = buildRuntimeUrl();
 
-  const pathShifuBid =
+  const pathInfo =
     typeof window !== 'undefined'
       ? (() => {
           try {
             const pathname = window.location.pathname || '';
             const segments = pathname.split('/').filter(Boolean);
-            return segments[0] === 'c' && segments[1] ? segments[1] : '';
+            const prefix = segments[0] || '';
+            const shifuBidFromPath = segments[1] || '';
+
+            return {
+              // /c/<shifu_bid> is the learner route, where the first segment is always the course id.
+              pathCourseId:
+                prefix === 'c' && shifuBidFromPath ? shifuBidFromPath : '',
+              // runtime-config supports shifu-aware overrides via the `shifu_bid` query param.
+              runtimeShifuBid:
+                (prefix === 'c' || prefix === 'shifu') && shifuBidFromPath
+                  ? shifuBidFromPath
+                  : '',
+            };
           } catch {
-            return '';
+            return { pathCourseId: '', runtimeShifuBid: '' };
           }
         })()
-      : '';
+      : { pathCourseId: '', runtimeShifuBid: '' };
 
-  const runtimeUrlWithShifu = pathShifuBid
-    ? `${runtimeUrl}?shifu_bid=${encodeURIComponent(pathShifuBid)}`
+  const runtimeUrlWithShifu = pathInfo.runtimeShifuBid
+    ? `${runtimeUrl}?shifu_bid=${encodeURIComponent(pathInfo.runtimeShifuBid)}`
     : runtimeUrl;
 
   const fetchRuntimeConfig = async () => {
@@ -156,7 +168,7 @@ const loadRuntimeConfig = async () => {
    *    Runtime default course id from backend MUST NOT override it.
    * 2. Otherwise, fall back to backend-provided default course id.
    */
-  const hasPathCourseId = !!pathShifuBid;
+  const hasPathCourseId = !!pathInfo.pathCourseId;
 
   if (!hasPathCourseId) {
     // Only apply backend default when there is no explicit course id in the URL path
