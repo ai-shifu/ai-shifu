@@ -526,16 +526,6 @@
     "silicon/zai-org/glm-4-6v": "zai-org/glm-4-6v"
   },
   "max_tokens": {
-    "gpt-4-1": 4096,
-    "gpt-5": 128000,
-    "gpt-5-1": 128000,
-    "gpt-5-2": 128000,
-    "gpt-5-2025-08-07": 128000,
-    "gpt-5-codex": 128000,
-    "gpt-5-mini": 128000,
-    "gpt-5-mini-2025-08-07": 128000,
-    "gpt-5-nano": 128000,
-    "gpt-5-nano-2025-08-07": 128000,
     "pro/thudm/glm-4-1v-9b-thinking": 16384,
     "thudm/glm-4-1v-9b-thinking": 16384,
     "thudm/glm-z1-rumination-32b-0414": 16384
