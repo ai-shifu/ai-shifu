@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from datetime import datetime
@@ -9,6 +10,7 @@ import litellm
 from flask import Flask, current_app
 from langfuse.client import StatefulSpanClient
 from langfuse.model import ModelUsage
+from pathlib import Path
 
 from .dify import DifyChunkChatCompletionResponse, dify_chat_message
 from flaskr.service.config import get_config
@@ -84,6 +86,245 @@ class ProviderState:
 
 MODEL_ALIAS_MAP: Dict[str, Tuple[str, str]] = {}
 PROVIDER_STATES: Dict[str, ProviderState] = {}
+# Map the *invoke model id* (e.g. ARK endpoint id) to a canonical model name used
+# for max_tokens resolution (e.g. foundation model name).
+MODEL_INVOKE_CANONICAL_MAP: Dict[str, str] = {}
+
+# Static aliases to normalize model ids across providers / display names.
+# Keep keys lowercase and use "-" separators.
+STATIC_MODEL_ALIASES: Dict[str, str] = {
+    # Examples for inconsistent naming (extend as needed):
+    # "ark/deepseek-3-1": "deepseek-v3-1",
+    # "ark/deepseek-v3.1": "deepseek-v3-1",
+}
+
+# Static max token limits for models missing from LiteLLM's built-in registry.
+# NOTE: Set the values to the true provider limits used in production.
+STATIC_MODEL_MAX_TOKENS: Dict[str, int] = {
+    # DeepSeek (example values; adjust to your actual limits)
+    "deepseek-v3-2": 8192,
+}
+
+
+def _load_local_model_map() -> tuple[Dict[str, str], Dict[str, int]]:
+    """
+    Load a version-controlled local model map from JSON.
+
+    Path: src/api/flaskr/api/llm/model-map.json
+    Schema:
+      {
+        "aliases": {"ark/deepseek-3-1": "deepseek-v3-1"},
+        "max_tokens": {"deepseek-v3-2": 8192}
+      }
+    """
+    path = Path(__file__).with_name("model-map.json")
+    if not path.exists():
+        return {}, {}
+    try:
+        import json
+
+        raw = path.read_text(encoding="utf-8", errors="replace").strip()
+        if not raw:
+            return {}, {}
+        data = json.loads(raw)
+        if not isinstance(data, dict):
+            _log_warning("model-map.json must be a JSON object")
+            return {}, {}
+        aliases = data.get("aliases", {}) or {}
+        max_tokens_map = data.get("max_tokens", {}) or {}
+        if not isinstance(aliases, dict) or not isinstance(max_tokens_map, dict):
+            _log_warning(
+                "model-map.json must contain object fields: aliases, max_tokens"
+            )
+            return {}, {}
+        cleaned_aliases: Dict[str, str] = {}
+        for k, v in aliases.items():
+            kk = str(k).strip()
+            vv = str(v).strip()
+            if kk and vv:
+                cleaned_aliases[kk] = vv
+        cleaned_max_tokens: Dict[str, int] = {}
+        for k, v in max_tokens_map.items():
+            kk = str(k).strip()
+            if not kk:
+                continue
+            try:
+                cleaned_max_tokens[kk] = int(v)
+            except Exception:
+                continue
+        return cleaned_aliases, cleaned_max_tokens
+    except Exception as exc:
+        _log_warning(f"load model-map.json failed: {exc}")
+        return {}, {}
+
+
+def _normalize_model_key_for_tokens(model: str) -> str:
+    model = (model or "").strip()
+    # For display models like "ark/deepseek-v3-2", also try "deepseek-v3-2".
+    if "/" in model:
+        # Only strip the first prefix segment to preserve nested provider paths.
+        _, rest = model.split("/", 1)
+        return rest.strip() or model
+    return model
+
+
+def _canonicalize_model_key(model: str) -> str:
+    """
+    Canonicalize model ids for token limit lookup.
+
+    Rules:
+    - lowercase
+    - strip provider prefix (first segment before "/") for token lookup
+    - normalize separators (convert "." to "-")
+    - apply STATIC_MODEL_ALIASES
+    """
+    key = _normalize_model_key_for_tokens(model).strip().lower()
+    if not key:
+        return ""
+    key = key.replace(".", "-")
+    return STATIC_MODEL_ALIASES.get(key, key)
+
+
+# Merge local model map (version-controlled) on import.
+_file_aliases, _file_max_tokens = _load_local_model_map()
+if _file_aliases:
+    # File-based aliases override built-in ones.
+    STATIC_MODEL_ALIASES.update(
+        {
+            str(k).strip().lower().replace(".", "-"): str(v)
+            .strip()
+            .lower()
+            .replace(".", "-")
+            for k, v in _file_aliases.items()
+        }
+    )
+if _file_max_tokens:
+    STATIC_MODEL_MAX_TOKENS.update(
+        {
+            str(k).strip().lower().replace(".", "-"): int(v)
+            for k, v in _file_max_tokens.items()
+        }
+    )
+
+# Pattern rules to infer max_tokens (output limit) at runtime.
+# NOTE: max_tokens is the OUTPUT limit, NOT context window (input+output).
+# Each rule is (pattern, max_tokens). First match wins.
+# Official documentation links are provided as comments.
+MAX_TOKENS_PATTERN_RULES: List[Tuple[re.Pattern, int]] = [
+    # -------------------------------------------------------------------------
+    # DeepSeek - max_tokens: 8192 (default 4096)
+    # Doc: https://api-docs.deepseek.com/api/create-chat-completion
+    # -------------------------------------------------------------------------
+    (re.compile(r"deepseek", re.IGNORECASE), 8192),
+    # -------------------------------------------------------------------------
+    # ERNIE (Baidu) - max_output_tokens varies by model
+    # Doc: https://cloud.baidu.com/doc/WENXINWORKSHOP/s/Nlks5zkzu
+    # ERNIE-*-128K: 4096 (larger context, but same output limit)
+    # ERNIE-*-8K: 4096 (most models support up to 4096 output)
+    # -------------------------------------------------------------------------
+    (re.compile(r"ernie.*128k", re.IGNORECASE), 4096),
+    (re.compile(r"ernie", re.IGNORECASE), 4096),
+    # -------------------------------------------------------------------------
+    # Qwen (Alibaba) - max_tokens: 8192 (default 1024 for most models)
+    # Doc: https://help.aliyun.com/zh/model-studio/developer-reference/use-qwen-by-calling-api
+    # qwen-max/plus/turbo: max 8192
+    # -------------------------------------------------------------------------
+    (re.compile(r"qwen|qvq|qwq", re.IGNORECASE), 8192),
+    # -------------------------------------------------------------------------
+    # GLM (Zhipu) - max_tokens: 4096
+    # Doc: https://bigmodel.cn/dev/api/normal-model/glm-4
+    # GLM-4/GLM-4-Flash/GLM-4-Air: max 4096
+    # GLM-4-Long: max 4096 (longer context, same output limit)
+    # -------------------------------------------------------------------------
+    (re.compile(r"glm.*(?:thinking|rumination)", re.IGNORECASE), 4096),
+    (re.compile(r"glm", re.IGNORECASE), 4096),
+    # -------------------------------------------------------------------------
+    # Doubao (ByteDance/Volcengine) - max_tokens: 4096
+    # Doc: https://www.volcengine.com/docs/82379/1298454
+    # Doubao-pro/lite-32k: max 4096
+    # Doubao-*-thinking: max 16384 (extended for reasoning output)
+    # -------------------------------------------------------------------------
+    (re.compile(r"doubao.*thinking", re.IGNORECASE), 16384),
+    (re.compile(r"doubao", re.IGNORECASE), 4096),
+    # -------------------------------------------------------------------------
+    # Kimi/Moonshot - max_tokens varies by model
+    # Doc: https://platform.moonshot.cn/docs/api/chat
+    # moonshot-v1-8k: max 4096, moonshot-v1-32k: max 4096, moonshot-v1-128k: max 4096
+    # kimi-k2: newer model with larger output capacity
+    # -------------------------------------------------------------------------
+    (re.compile(r"kimi-k2", re.IGNORECASE), 8192),
+    (re.compile(r"kimi|moonshot", re.IGNORECASE), 4096),
+    # -------------------------------------------------------------------------
+    # OpenAI GPT models (if not in LiteLLM registry)
+    # Doc: https://platform.openai.com/docs/models
+    # -------------------------------------------------------------------------
+    (re.compile(r"gpt-4o|gpt-4-turbo", re.IGNORECASE), 16384),
+    (re.compile(r"gpt-4", re.IGNORECASE), 8192),
+    (re.compile(r"gpt-3\.5", re.IGNORECASE), 4096),
+]
+
+
+def _infer_max_tokens_by_pattern(model: str) -> Optional[int]:
+    """Infer max_tokens using pattern rules. Returns None if no match."""
+    normalized = model.strip().lower()
+    # Strip provider prefixes
+    while "/" in normalized:
+        _, normalized = normalized.split("/", 1)
+
+    for pattern, max_tokens in MAX_TOKENS_PATTERN_RULES:
+        if pattern.search(normalized):
+            return max_tokens
+    return None
+
+
+def _resolve_max_tokens(requested_model: str, invoke_model: str) -> Optional[int]:
+    canonical_from_invoke = MODEL_INVOKE_CANONICAL_MAP.get(invoke_model, "")
+
+    candidates: List[str] = []
+    # 1) Try invoke + requested + canonical (in that order)
+    candidates.extend([invoke_model, requested_model, canonical_from_invoke])
+    # 2) Normalize keys to increase hit rate in token lookup
+    candidates.extend(
+        [
+            _normalize_model_key_for_tokens(canonical_from_invoke),
+            _normalize_model_key_for_tokens(requested_model),
+            _normalize_model_key_for_tokens(invoke_model),
+        ]
+    )
+
+    seen: set[str] = set()
+    attempted: List[str] = []
+    for candidate in candidates:
+        key = _canonicalize_model_key(candidate)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        attempted.append(key)
+
+        # 1. Try static overrides (from model-map.json)
+        if key in STATIC_MODEL_MAX_TOKENS:
+            return STATIC_MODEL_MAX_TOKENS[key]
+
+        # 2. Try LiteLLM registry
+        try:
+            return get_max_tokens(key)
+        except Exception:
+            pass
+
+        # 3. Try pattern-based inference
+        inferred = _infer_max_tokens_by_pattern(key)
+        if inferred is not None:
+            return inferred
+
+    if attempted:
+        _log_warning(
+            "Unable to resolve max_tokens. "
+            f"requested_model={requested_model}, invoke_model={invoke_model}, "
+            f"canonical={canonical_from_invoke}, attempted={attempted}. "
+            "If this is a vendor deployment id or a new model name not present in "
+            "LiteLLM's model registry, add it to STATIC_MODEL_MAX_TOKENS or MAX_TOKENS_PATTERN_RULES."
+        )
+    return None
 
 
 def _log(level: str, message: str) -> None:
@@ -172,6 +413,12 @@ def _register_provider_models(
         MODEL_ALIAS_MAP[display] = (config.key, actual_model or model_name)
         if actual_model and actual_model not in MODEL_ALIAS_MAP:
             MODEL_ALIAS_MAP[actual_model] = (config.key, actual_model)
+        # Keep a canonical mapping for max_tokens calculation.
+        # For providers like ARK, invoke_model is an endpoint id while model_name
+        # is the foundation model id that should be used for token limits.
+        invoke_key = actual_model or model_name
+        if invoke_key and model_name:
+            MODEL_INVOKE_CANONICAL_MAP[invoke_key] = model_name
         display_models.append(display)
     return display_models
 
@@ -250,12 +497,18 @@ def _fetch_provider_models(api_key: str, base_url: str | None) -> list[str]:
 
 
 def _stream_litellm_completion(
-    app: Flask, model: str, messages: list, params: dict, kwargs: dict
+    app: Flask,
+    model: str,
+    messages: list,
+    params: dict,
+    kwargs: dict,
+    requested_model: Optional[str] = None,
 ):
     try:
         try:
-            max_tokens = get_max_tokens(model)
-            kwargs["max_tokens"] = max_tokens
+            max_tokens = _resolve_max_tokens(requested_model or model, model)
+            if max_tokens is not None:
+                kwargs["max_tokens"] = max_tokens
         except Exception as exc:
             _log_warning(f"get max tokens for {model} failed: {exc}")
         app.logger.info(
@@ -603,6 +856,7 @@ def invoke_llm(
             messages,
             params,
             kwargs,
+            requested_model=model,
         )
 
         for res in response:
@@ -695,6 +949,7 @@ def chat_llm(
             messages,
             params,
             kwargs,
+            requested_model=model,
         )
         for res in response:
             if start_completion_time is None:
