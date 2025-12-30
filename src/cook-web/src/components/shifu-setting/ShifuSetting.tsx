@@ -162,12 +162,9 @@ export default function ShifuSettingDialog({
 
   useEffect(() => {
     return () => {
-      Object.keys(copyTimeoutRef.current).forEach(key => {
-        const timeout =
-          copyTimeoutRef.current[key as keyof CopyingState] ?? null;
+      Object.values(copyTimeoutRef.current).forEach(timeout => {
         if (timeout) {
           clearTimeout(timeout);
-          copyTimeoutRef.current[key as keyof CopyingState] = null;
         }
       });
     };
@@ -181,7 +178,7 @@ export default function ShifuSettingDialog({
       copyTimeoutRef.current[field] = null;
     }
     navigator.clipboard.writeText(form.getValues(field));
-    setCopying({ ...defaultCopyingState, [field]: true });
+    setCopying(prev => ({ ...prev, [field]: true }));
 
     copyTimeoutRef.current[field] = setTimeout(() => {
       setCopying(prev => ({ ...prev, [field]: false }));
