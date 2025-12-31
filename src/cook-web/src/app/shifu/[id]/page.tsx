@@ -1,10 +1,22 @@
-import ShifuRoot from '@/components/shifu-root';
-export default async function Page({
+'use client';
+import dynamic from 'next/dynamic';
+import Loading from '@/components/loading';
+
+const ShifuRoot = dynamic(() => import('@/components/shifu-root'), {
+  ssr: false,
+  loading: () => (
+    <div className='h-screen w-full flex items-center justify-center'>
+      <Loading />
+    </div>
+  ),
+});
+
+export default function Page({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
-  const id = (await params).id;
+  const { id } = params;
   return (
     <div className='h-screen w-full'>
       <ShifuRoot id={id} />
