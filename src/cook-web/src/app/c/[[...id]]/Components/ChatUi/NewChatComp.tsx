@@ -93,7 +93,9 @@ export const NewChatComponents = ({
       if (!chatRef.current) return;
       const { scrollTop, scrollHeight, clientHeight } = chatRef.current;
       // If content is not scrollable or at the bottom, don't show the button
-      const isBottom = scrollHeight <= clientHeight || scrollHeight - scrollTop - clientHeight < 150;
+      const isBottom =
+        scrollHeight <= clientHeight ||
+        scrollHeight - scrollTop - clientHeight < 150;
       setShowScrollDown(!isBottom);
     });
   }, []);
@@ -231,19 +233,19 @@ export const NewChatComponents = ({
     const container = chatRef.current;
     if (container) {
       container.addEventListener('scroll', checkScroll);
-      
+
       const resizeObserver = new ResizeObserver(() => {
         checkScroll();
       });
-      
+
       // Observe the container itself
       resizeObserver.observe(container);
-      
+
       // Observe the content inside (the first child div we added)
       if (container.firstElementChild) {
         resizeObserver.observe(container.firstElementChild);
       }
-      
+
       checkScroll();
 
       return () => {
