@@ -96,8 +96,6 @@ const ScriptManagementPage = () => {
   const pageSize = 30;
   const currentPage = useRef(1);
   const containerRef = useRef(null);
-  const hasPrefetchedShifu = useRef(false);
-
   const fetchShifusRef = useRef<(() => Promise<void>) | null>(null);
 
   const fetchShifus = useCallback(async () => {
