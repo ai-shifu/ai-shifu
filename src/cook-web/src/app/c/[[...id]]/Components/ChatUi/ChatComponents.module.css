@@ -204,7 +204,7 @@
   -webkit-touch-callout: none;
 }
 .chatComponents.mobile .scrollToBottom {
-  bottom: 145px;
+  bottom: 200px;
 }
 .chatComponents .messageContentOperation {
   display: flex;
