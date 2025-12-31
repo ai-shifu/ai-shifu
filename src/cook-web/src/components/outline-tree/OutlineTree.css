@@ -2,7 +2,7 @@
   font-size: var(--text-sm-font-size, 14px);
   font-style: normal;
   font-weight: 400;
-  line-height: 100%;
+  line-height: 1.4;
   border-radius: var(--border-radius-rounded-md, 8px);
   background: transparent;
   transition: background-color 0.2s ease;
@@ -53,7 +53,7 @@
   font-size: 14px;
   font-style: normal;
   font-weight: var(--font-weight-normal, 400);
-  line-height: 100%;
+  line-height: 1.4;
 }
 
 .outline-tree_action-button {

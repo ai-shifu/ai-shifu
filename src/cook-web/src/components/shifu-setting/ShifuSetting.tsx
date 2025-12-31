@@ -66,17 +66,20 @@ export default function ShifuSettingDialog({
 }) {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
+  const { currentShifu, models } = useShifu();
   const defaultLlmModel = useEnvStore(state => state.defaultLlmModel);
   const currencySymbol = useEnvStore(state => state.currencySymbol);
   const baseSelectModelHint = t('module.shifuSetting.selectModelHint');
-  const resolvedDefaultModel = defaultLlmModel;
+  const resolvedDefaultModel =
+    models.find(option => option.value === defaultLlmModel)?.label ||
+    defaultLlmModel;
   const isCjk = /[\u4e00-\u9fff]/.test(baseSelectModelHint);
-  const defatultLlmModel = defaultLlmModel
+  const defaultLlmModelSuffix = defaultLlmModel
     ? isCjk
       ? `（${resolvedDefaultModel}）`
       : ` (${resolvedDefaultModel})`
     : '';
-  const selectModelHint = `${baseSelectModelHint}${defatultLlmModel}`;
+  const selectModelHint = `${baseSelectModelHint}${defaultLlmModelSuffix}`;
   const [keywords, setKeywords] = useState(['AIGC']);
   const [shifuImage, setShifuImage] = useState<File | null>(null);
   const [imageError, setImageError] = useState('');
@@ -87,7 +90,6 @@ export default function ShifuSettingDialog({
     previewUrl: false,
     url: false,
   });
-  const { currentShifu } = useShifu();
   const { trackEvent } = useTracking();
   // Define the validation schema using Zod
   const shifuSchema = z.object({

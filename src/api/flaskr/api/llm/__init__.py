@@ -14,6 +14,7 @@ from .dify import DifyChunkChatCompletionResponse, dify_chat_message
 from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
 from ..ark.sign import request
+from litellm import get_max_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -252,6 +253,11 @@ def _stream_litellm_completion(
     app: Flask, model: str, messages: list, params: dict, kwargs: dict
 ):
     try:
+        try:
+            max_tokens = get_max_tokens(model)
+            kwargs["max_tokens"] = max_tokens
+        except Exception as exc:
+            _log_warning(f"get max tokens for {model} failed: {exc}")
         app.logger.info(
             f"stream_litellm_completion: {model} {messages} {params} {kwargs}"
         )
