@@ -226,7 +226,7 @@ const ScriptManagementPage = () => {
       }
     }
   }, [isInitialized]);
-  
+
   if (error) {
     return (
       <div className='h-full p-0'>

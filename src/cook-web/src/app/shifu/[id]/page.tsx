@@ -11,11 +11,7 @@ const ShifuRoot = dynamic(() => import('@/components/shifu-root'), {
   ),
 });
 
-export default function Page({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function Page({ params }: { params: { id: string } }) {
   const { id } = params;
   return (
     <div className='h-screen w-full'>
