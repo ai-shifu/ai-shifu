@@ -18,6 +18,11 @@ from litellm import get_max_tokens
 
 logger = logging.getLogger(__name__)
 
+# For some providers (e.g. Volcengine Ark), the model value passed to LiteLLM
+# is an endpoint identifier rather than the foundation model name. LiteLLM's
+# token helpers expect a model name, so we keep a reverse mapping here.
+ACTUAL_MODEL_NAME_MAP: Dict[str, str] = {}
+
 # Global asyncio.run patch to avoid RuntimeError when called from a running
 # event loop (seen in LiteLLM logging threads under gunicorn/gevent). For the
 # specific case where a loop is already running, we fall back to scheduling
@@ -165,6 +170,10 @@ def _register_provider_models(
             model_name = model_id
         if not model_name:
             continue
+        if actual_model:
+            # Preserve the foundation model name for token helpers, even when the
+            # invocation model is an endpoint identifier.
+            ACTUAL_MODEL_NAME_MAP[actual_model] = model_name
         display = f"{config.prefix}{model_name}" if config.prefix else model_name
         if display in seen:
             continue
@@ -254,7 +263,8 @@ def _stream_litellm_completion(
 ):
     try:
         try:
-            max_tokens = get_max_tokens(model)
+            token_model = ACTUAL_MODEL_NAME_MAP.get(model, model)
+            max_tokens = get_max_tokens(token_model)
             kwargs["max_tokens"] = max_tokens
         except Exception as exc:
             _log_warning(f"get max tokens for {model} failed: {exc}")
