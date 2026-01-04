@@ -31,7 +31,7 @@ export default function RootLayout({
     <html lang='en'>
       <head></head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-hidden`}
+        className={`${geistSans.variable} ${geistMono.variable} overflow-hidden`}
       >
         <div id='root'>
           <ConfigProvider>
