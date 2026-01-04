@@ -20,9 +20,6 @@
   "noShifus": "No Courses available",
   "ok": "OK",
   "retry": "Retry",
-  "unsupportedIOSMessageLine1": "Your iOS version is not supported",
-  "unsupportedIOSMessageLine2": "Please upgrade to the latest version (>=16) before accessing",
-  "unsupportedIOSTitle": "System update required",
   "selectModel": "Model",
   "settings": "Settings",
   "shifu": "Course",
@@ -42,5 +39,8 @@
   "submitFailed": "Submit failed",
   "submitting": "Submitting...",
   "unknownError": "Unknown error",
+  "unsupportedIOSMessageLine1": "Your iOS version is not supported",
+  "unsupportedIOSMessageLine2": "Please upgrade to the latest version (>=16) before accessing",
+  "unsupportedIOSTitle": "System update required",
   "waitingForCompletion": "Coming Soon"
 }

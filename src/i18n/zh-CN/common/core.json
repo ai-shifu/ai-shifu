@@ -20,9 +20,6 @@
   "noShifus": "暂无课程",
   "ok": "确定",
   "retry": "重试",
-  "unsupportedIOSMessageLine1": "当前 iOS 版本不支持",
-  "unsupportedIOSMessageLine2": "请升级到最新版本（>=16）再访问",
-  "unsupportedIOSTitle": "系统版本过低",
   "selectModel": "模型",
   "settings": "设置",
   "shifu": "课程",
@@ -42,5 +39,8 @@
   "submitFailed": "提交失败",
   "submitting": "提交中...",
   "unknownError": "未知错误",
+  "unsupportedIOSMessageLine1": "当前 iOS 版本不支持",
+  "unsupportedIOSMessageLine2": "请升级到最新版本（>=16）再访问",
+  "unsupportedIOSTitle": "系统版本过低",
   "waitingForCompletion": "敬请期待"
 }
