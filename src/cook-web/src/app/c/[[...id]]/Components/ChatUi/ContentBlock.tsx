@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 import { useLongPress } from 'react-use';
 import { isEqual } from 'lodash';
 // TODO@XJL
@@ -6,6 +6,7 @@ import { isEqual } from 'lodash';
 import { ContentRender, type OnSendContentParams } from 'markdown-flow-ui';
 import { cn } from '@/lib/utils';
 import type { ChatContentItem } from './useChatLogicHook';
+import { AudioPlayer } from '@/components/audio/AudioPlayer';
 
 interface ContentBlockProps {
   item: ChatContentItem;
@@ -17,6 +18,9 @@ interface ContentBlockProps {
   onClickCustomButtonAfterContent?: (blockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onLongPress?: (event: any, item: ChatContentItem) => void;
+  // Audio props for streaming TTS
+  autoPlayAudio?: boolean;
+  onAudioPlayStateChange?: (isPlaying: boolean) => void;
 }
 
 const ContentBlock = memo(
@@ -30,6 +34,8 @@ const ContentBlock = memo(
     onClickCustomButtonAfterContent,
     onSend,
     onLongPress,
+    autoPlayAudio = false,
+    onAudioPlayStateChange,
   }: ContentBlockProps) => {
     const handleClick = useCallback(() => {
       onClickCustomButtonAfterContent?.(blockBid);
@@ -56,6 +62,32 @@ const ContentBlock = memo(
       [onSend, blockBid],
     );
 
+    // Show audio player when streaming or has segments (keep it rendered to finish playing)
+    const hasAudioContent =
+      item.isAudioStreaming ||
+      (item.audioSegments && item.audioSegments.length > 0);
+    // Auto-play when it's this block's turn (controlled by parent's shouldAutoPlay)
+    const shouldAutoPlayInContentBlock = autoPlayAudio;
+
+    // Track previous autoPlayAudio to detect changes
+    const prevAutoPlayAudioRef = useRef(autoPlayAudio);
+
+    // Debug logging - only log when audio-related
+    useEffect(() => {
+      if (hasAudioContent || autoPlayAudio) {
+        const changed = prevAutoPlayAudioRef.current !== autoPlayAudio;
+        console.log('[ContentBlock] autoPlayAudio changed:', {
+          blockBid,
+          prevValue: prevAutoPlayAudioRef.current,
+          newValue: autoPlayAudio,
+          changed,
+          hasAudioContent,
+          audioSegmentsLength: item.audioSegments?.length,
+        });
+        prevAutoPlayAudioRef.current = autoPlayAudio;
+      }
+    }, [autoPlayAudio, blockBid, hasAudioContent, item.audioSegments?.length]);
+
     return (
       <div
         className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
@@ -76,11 +108,22 @@ const ContentBlock = memo(
           copiedButtonText={copiedButtonText}
           onSend={_onSend}
         />
+        {/* Audio player for streaming TTS - hidden but functional during streaming */}
+        {hasAudioContent && (
+          <AudioPlayer
+            streamingSegments={item.audioSegments}
+            isStreaming={item.isAudioStreaming}
+            autoPlay={shouldAutoPlayInContentBlock}
+            onPlayStateChange={onAudioPlayStateChange}
+            size={16}
+            className='hidden'
+          />
+        )}
       </div>
     );
   },
   (prevProps, nextProps) => {
-    // Only re-render when content, layout, or i18n-driven button texts actually change
+    // Only re-render when content, layout, audio, or i18n-driven button texts actually change
     return (
       prevProps.item.defaultButtonText === nextProps.item.defaultButtonText &&
       prevProps.item.defaultInputText === nextProps.item.defaultInputText &&
@@ -94,7 +137,12 @@ const ContentBlock = memo(
       prevProps.blockBid === nextProps.blockBid &&
       prevProps.confirmButtonText === nextProps.confirmButtonText &&
       prevProps.copyButtonText === nextProps.copyButtonText &&
-      prevProps.copiedButtonText === nextProps.copiedButtonText
+      prevProps.copiedButtonText === nextProps.copiedButtonText &&
+      // Audio props - re-render when audio segments change
+      prevProps.item.audioSegments?.length ===
+        nextProps.item.audioSegments?.length &&
+      prevProps.item.isAudioStreaming === nextProps.item.isAudioStreaming &&
+      prevProps.autoPlayAudio === nextProps.autoPlayAudio
     );
   },
 );

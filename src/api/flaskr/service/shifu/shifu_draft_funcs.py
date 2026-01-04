@@ -82,6 +82,11 @@ def return_shifu_draft_dto(
         shifu_preview_url=shifu_preview_url,
         shifu_system_prompt=shifu_draft.llm_system_prompt,
         readonly=readonly,
+        tts_enabled=bool(shifu_draft.tts_enabled),
+        tts_voice_id=shifu_draft.tts_voice_id or "",
+        tts_speed=float(shifu_draft.tts_speed) if shifu_draft.tts_speed else 1.0,
+        tts_pitch=int(shifu_draft.tts_pitch) if shifu_draft.tts_pitch else 0,
+        tts_emotion=shifu_draft.tts_emotion or "",
     )
 
 
@@ -252,6 +257,11 @@ def save_shifu_draft_info(
     shifu_price: float,
     shifu_system_prompt: str,
     base_url: str,
+    tts_enabled: bool = False,
+    tts_voice_id: str = "",
+    tts_speed: float = 1.0,
+    tts_pitch: int = 0,
+    tts_emotion: str = "",
 ):
     """
     Save shifu draft info
@@ -268,6 +278,11 @@ def save_shifu_draft_info(
         shifu_price: Shifu price
         shifu_system_prompt: Shifu system prompt
         base_url: Base URL to build shifu links
+        tts_enabled: Whether TTS is enabled
+        tts_voice_id: TTS voice ID
+        tts_speed: TTS speech speed
+        tts_pitch: TTS pitch adjustment
+        tts_emotion: TTS emotion setting
     Returns:
         ShifuDetailDto: Shifu detail dto
     """
@@ -297,6 +312,11 @@ def save_shifu_draft_info(
                 llm_temperature=shifu_temperature,
                 price=shifu_price,
                 llm_system_prompt=shifu_system_prompt if shifu_system_prompt else "",
+                tts_enabled=1 if tts_enabled else 0,
+                tts_voice_id=tts_voice_id or "",
+                tts_speed=tts_speed,
+                tts_pitch=tts_pitch,
+                tts_emotion=tts_emotion or "",
                 deleted=0,
                 created_user_bid=user_id,
                 updated_user_bid=user_id,
@@ -316,6 +336,11 @@ def save_shifu_draft_info(
             new_shifu_draft.llm = shifu_model
             new_shifu_draft.llm_temperature = shifu_temperature
             new_shifu_draft.price = shifu_price
+            new_shifu_draft.tts_enabled = 1 if tts_enabled else 0
+            new_shifu_draft.tts_voice_id = tts_voice_id or ""
+            new_shifu_draft.tts_speed = tts_speed
+            new_shifu_draft.tts_pitch = tts_pitch
+            new_shifu_draft.tts_emotion = tts_emotion or ""
             new_shifu_draft.updated_user_bid = user_id
             new_shifu_draft.updated_at = datetime.now()
             if shifu_system_prompt is not None:

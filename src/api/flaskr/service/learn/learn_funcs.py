@@ -24,6 +24,7 @@ from flaskr.service.shifu.models import (
     LogPublishedStruct,
 )
 from flaskr.service.learn.models import LearnProgressRecord, LearnGeneratedBlock
+from flaskr.service.tts.models import LearnGeneratedAudio, AUDIO_STATUS_COMPLETED
 from flaskr.service.common import raise_error
 from flaskr.service.shifu.utils import get_shifu_res_url
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
@@ -266,6 +267,15 @@ def get_learn_record(
             .all()
         )
 
+        # Get audio URLs for generated blocks
+        generated_block_bids = [b.generated_block_bid for b in generated_blocks]
+        audio_records = LearnGeneratedAudio.query.filter(
+            LearnGeneratedAudio.generated_block_bid.in_(generated_block_bids),
+            LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
+            LearnGeneratedAudio.deleted == 0,
+        ).all()
+        audio_url_map = {a.generated_block_bid: a.oss_url for a in audio_records}
+
         records: list[GeneratedBlockDTO] = []
         interaction = ""
         BLOCK_TYPE_MAP = {
@@ -316,6 +326,7 @@ def get_learn_record(
                 generated_block.generated_content
                 if block_type == BlockType.INTERACTION
                 else "",
+                audio_url=audio_url_map.get(generated_block.generated_block_bid),
             )
             records.append(record)
         if len(records) > 0:

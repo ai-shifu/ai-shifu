@@ -117,6 +117,12 @@ def publish_shifu_draft(
         shifu_published.updated_user_bid = user_id
         shifu_published.updated_at = now_time
         shifu_published.llm_system_prompt = shifu_draft.llm_system_prompt
+        # TTS Configuration
+        shifu_published.tts_enabled = shifu_draft.tts_enabled
+        shifu_published.tts_voice_id = shifu_draft.tts_voice_id
+        shifu_published.tts_speed = shifu_draft.tts_speed
+        shifu_published.tts_pitch = shifu_draft.tts_pitch
+        shifu_published.tts_emotion = shifu_draft.tts_emotion
         db.session.add(shifu_published)
         db.session.flush()
         outline_tree = build_outline_tree(app, shifu_id)

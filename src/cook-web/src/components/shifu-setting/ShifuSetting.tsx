@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   Copy,
   Check,
@@ -7,6 +7,9 @@ import {
   Minus,
   CircleHelp,
   Settings,
+  Volume2,
+  Loader2,
+  Square,
 } from 'lucide-react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -24,6 +27,14 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Textarea } from '@/components/ui/Textarea';
+import { Switch } from '@/components/ui/Switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select';
 import {
   Form,
   FormControl,
@@ -53,6 +64,12 @@ interface Shifu {
   url: string;
   temperature: number;
   system_prompt?: string;
+  // TTS Configuration
+  tts_enabled?: boolean;
+  tts_voice_id?: string;
+  tts_speed?: number;
+  tts_pitch?: number;
+  tts_emotion?: string;
 }
 
 const MIN_SHIFU_PRICE = 0.5;
@@ -91,6 +108,46 @@ export default function ShifuSettingDialog({
     url: false,
   });
   const { trackEvent } = useTracking();
+  // TTS Configuration state
+  const [ttsEnabled, setTtsEnabled] = useState(false);
+  const [ttsVoiceId, setTtsVoiceId] = useState('');
+  const [ttsSpeed, setTtsSpeed] = useState(1.0);
+  const [ttsPitch, setTtsPitch] = useState(0);
+  const [ttsEmotion, setTtsEmotion] = useState('');
+
+  // TTS Preview state
+  const [ttsPreviewLoading, setTtsPreviewLoading] = useState(false);
+  const [ttsPreviewPlaying, setTtsPreviewPlaying] = useState(false);
+  const ttsPreviewAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // TTS Voice options (Minimax voice IDs)
+  const ttsVoiceOptions = [
+    { value: 'male-qn-qingse', label: '青涩青年音色' },
+    { value: 'male-qn-jingying', label: '精英青年音色' },
+    { value: 'male-qn-badao', label: '霸道青年音色' },
+    { value: 'male-qn-daxuesheng', label: '青年大学生音色' },
+    { value: 'female-shaonv', label: '少女音色' },
+    { value: 'female-yujie', label: '御姐音色' },
+    { value: 'female-chengshu', label: '成熟女性音色' },
+    { value: 'female-tianmei', label: '甜美女性音色' },
+    { value: 'presenter_male', label: '男性主持人' },
+    { value: 'presenter_female', label: '女性主持人' },
+    { value: 'audiobook_male_1', label: '男性有声书1' },
+    { value: 'audiobook_male_2', label: '男性有声书2' },
+    { value: 'audiobook_female_1', label: '女性有声书1' },
+    { value: 'audiobook_female_2', label: '女性有声书2' },
+  ];
+
+  // TTS Emotion options
+  const ttsEmotionOptions = [
+    { value: '', label: t('module.shifuSetting.ttsEmotionDefault') },
+    { value: 'happy', label: t('module.shifuSetting.ttsEmotionHappy') },
+    { value: 'sad', label: t('module.shifuSetting.ttsEmotionSad') },
+    { value: 'angry', label: t('module.shifuSetting.ttsEmotionAngry') },
+    { value: 'fearful', label: t('module.shifuSetting.ttsEmotionFearful') },
+    { value: 'disgusted', label: t('module.shifuSetting.ttsEmotionDisgusted') },
+    { value: 'surprised', label: t('module.shifuSetting.ttsEmotionSurprised') },
+  ];
   // Define the validation schema using Zod
   const shifuSchema = z.object({
     previewUrl: z.string(),
@@ -246,6 +303,12 @@ export default function ShifuSettingDialog({
           avatar: uploadedImageUrl,
           temperature: Number(data.temperature),
           system_prompt: data.systemPrompt,
+          // TTS Configuration
+          tts_enabled: ttsEnabled,
+          tts_voice_id: ttsVoiceId,
+          tts_speed: ttsSpeed,
+          tts_pitch: ttsPitch,
+          tts_emotion: ttsEmotion,
         };
         await api.saveShifuDetail({
           ...payload,
@@ -273,6 +336,11 @@ export default function ShifuSettingDialog({
       onSave,
       currentShifu?.readonly,
       trackEvent,
+      ttsEnabled,
+      ttsVoiceId,
+      ttsSpeed,
+      ttsPitch,
+      ttsEmotion,
     ],
   );
 
@@ -294,8 +362,82 @@ export default function ShifuSettingDialog({
       });
       setKeywords(result.keywords || []);
       setUploadedImageUrl(result.avatar || '');
+      // Set TTS Configuration
+      setTtsEnabled(result.tts_enabled || false);
+      setTtsVoiceId(result.tts_voice_id || '');
+      setTtsSpeed(result.tts_speed ?? 1.0);
+      setTtsPitch(result.tts_pitch ?? 0);
+      setTtsEmotion(result.tts_emotion || '');
     }
   };
+
+  // TTS Preview handler
+  const handleTtsPreview = useCallback(async () => {
+    // Stop if already playing
+    if (ttsPreviewPlaying && ttsPreviewAudioRef.current) {
+      ttsPreviewAudioRef.current.pause();
+      ttsPreviewAudioRef.current.currentTime = 0;
+      setTtsPreviewPlaying(false);
+      return;
+    }
+
+    setTtsPreviewLoading(true);
+    try {
+      const response = await api.ttsPreview({
+        voice_id: ttsVoiceId || 'male-qn-qingse',
+        speed: ttsSpeed,
+        pitch: ttsPitch,
+        emotion: ttsEmotion || '',
+      });
+
+      if (response?.audio_data) {
+        // Create audio from base64
+        const audioBlob = new Blob(
+          [Uint8Array.from(atob(response.audio_data), c => c.charCodeAt(0))],
+          { type: 'audio/mpeg' },
+        );
+        const audioUrl = URL.createObjectURL(audioBlob);
+
+        // Cleanup previous audio
+        if (ttsPreviewAudioRef.current) {
+          ttsPreviewAudioRef.current.pause();
+          URL.revokeObjectURL(ttsPreviewAudioRef.current.src);
+        }
+
+        // Create and play new audio
+        const audio = new Audio(audioUrl);
+        ttsPreviewAudioRef.current = audio;
+
+        audio.onended = () => {
+          setTtsPreviewPlaying(false);
+          URL.revokeObjectURL(audioUrl);
+        };
+
+        audio.onerror = () => {
+          setTtsPreviewPlaying(false);
+          URL.revokeObjectURL(audioUrl);
+        };
+
+        await audio.play();
+        setTtsPreviewPlaying(true);
+      }
+    } catch (error) {
+      console.error('TTS preview failed:', error);
+    } finally {
+      setTtsPreviewLoading(false);
+    }
+  }, [ttsVoiceId, ttsSpeed, ttsPitch, ttsEmotion, ttsPreviewPlaying]);
+
+  // Cleanup TTS preview audio on unmount
+  useEffect(() => {
+    return () => {
+      if (ttsPreviewAudioRef.current) {
+        ttsPreviewAudioRef.current.pause();
+        URL.revokeObjectURL(ttsPreviewAudioRef.current.src);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     if (!open) {
       return;
@@ -736,6 +878,217 @@ export default function ShifuSettingDialog({
                   </FormItem>
                 )}
               />
+
+              {/* TTS Configuration Section */}
+              <div className='space-y-4 mb-4 p-4 border rounded-lg'>
+                <div className='flex items-center justify-between'>
+                  <div>
+                    <span className='text-sm font-medium text-foreground'>
+                      {t('module.shifuSetting.ttsTitle')}
+                    </span>
+                    <p className='text-xs text-muted-foreground'>
+                      {t('module.shifuSetting.ttsDescription')}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={ttsEnabled}
+                    onCheckedChange={setTtsEnabled}
+                    disabled={currentShifu?.readonly}
+                  />
+                </div>
+
+                {ttsEnabled && (
+                  <>
+                    {/* Voice Selection */}
+                    <div className='space-y-2'>
+                      <span className='text-sm font-medium text-foreground'>
+                        {t('module.shifuSetting.ttsVoice')}
+                      </span>
+                      <Select
+                        value={ttsVoiceId}
+                        onValueChange={setTtsVoiceId}
+                        disabled={currentShifu?.readonly}
+                      >
+                        <SelectTrigger className='h-9'>
+                          <SelectValue
+                            placeholder={t(
+                              'module.shifuSetting.ttsSelectVoice',
+                            )}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ttsVoiceOptions.map(option => (
+                            <SelectItem
+                              key={option.value}
+                              value={option.value}
+                            >
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Speed Adjustment */}
+                    <div className='space-y-2'>
+                      <span className='text-sm font-medium text-foreground'>
+                        {t('module.shifuSetting.ttsSpeed')}
+                      </span>
+                      <p className='text-xs text-muted-foreground'>
+                        {t('module.shifuSetting.ttsSpeedHint')}
+                      </p>
+                      <div className='flex items-center gap-2'>
+                        <Input
+                          type='number'
+                          min={0.5}
+                          max={2.0}
+                          step={0.1}
+                          value={ttsSpeed}
+                          onChange={e =>
+                            setTtsSpeed(parseFloat(e.target.value) || 1.0)
+                          }
+                          disabled={currentShifu?.readonly}
+                          className='h-9 w-24'
+                        />
+                        {!currentShifu?.readonly && (
+                          <div className='flex items-center gap-2'>
+                            <Button
+                              type='button'
+                              variant='outline'
+                              size='icon'
+                              onClick={() =>
+                                setTtsSpeed(Math.max(0.5, ttsSpeed - 0.1))
+                              }
+                              className='h-9 w-9'
+                            >
+                              <Minus className='h-4 w-4' />
+                            </Button>
+                            <Button
+                              type='button'
+                              variant='outline'
+                              size='icon'
+                              onClick={() =>
+                                setTtsSpeed(Math.min(2.0, ttsSpeed + 0.1))
+                              }
+                              className='h-9 w-9'
+                            >
+                              <Plus className='h-4 w-4' />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Pitch Adjustment */}
+                    <div className='space-y-2'>
+                      <span className='text-sm font-medium text-foreground'>
+                        {t('module.shifuSetting.ttsPitch')}
+                      </span>
+                      <p className='text-xs text-muted-foreground'>
+                        {t('module.shifuSetting.ttsPitchHint')}
+                      </p>
+                      <div className='flex items-center gap-2'>
+                        <Input
+                          type='number'
+                          min={-12}
+                          max={12}
+                          step={1}
+                          value={ttsPitch}
+                          onChange={e =>
+                            setTtsPitch(parseInt(e.target.value) || 0)
+                          }
+                          disabled={currentShifu?.readonly}
+                          className='h-9 w-24'
+                        />
+                        {!currentShifu?.readonly && (
+                          <div className='flex items-center gap-2'>
+                            <Button
+                              type='button'
+                              variant='outline'
+                              size='icon'
+                              onClick={() =>
+                                setTtsPitch(Math.max(-12, ttsPitch - 1))
+                              }
+                              className='h-9 w-9'
+                            >
+                              <Minus className='h-4 w-4' />
+                            </Button>
+                            <Button
+                              type='button'
+                              variant='outline'
+                              size='icon'
+                              onClick={() =>
+                                setTtsPitch(Math.min(12, ttsPitch + 1))
+                              }
+                              className='h-9 w-9'
+                            >
+                              <Plus className='h-4 w-4' />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Emotion Selection */}
+                    <div className='space-y-2'>
+                      <span className='text-sm font-medium text-foreground'>
+                        {t('module.shifuSetting.ttsEmotion')}
+                      </span>
+                      <Select
+                        value={ttsEmotion}
+                        onValueChange={setTtsEmotion}
+                        disabled={currentShifu?.readonly}
+                      >
+                        <SelectTrigger className='h-9'>
+                          <SelectValue
+                            placeholder={t(
+                              'module.shifuSetting.ttsSelectEmotion',
+                            )}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ttsEmotionOptions.map(option => (
+                            <SelectItem
+                              key={option.value || 'default'}
+                              value={option.value || 'default'}
+                            >
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* TTS Preview Button */}
+                    <div className='pt-2'>
+                      <Button
+                        type='button'
+                        variant='outline'
+                        onClick={handleTtsPreview}
+                        disabled={ttsPreviewLoading}
+                        className='w-full'
+                      >
+                        {ttsPreviewLoading ? (
+                          <>
+                            <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                            {t('module.shifuSetting.ttsPreviewLoading')}
+                          </>
+                        ) : ttsPreviewPlaying ? (
+                          <>
+                            <Square className='mr-2 h-4 w-4' />
+                            {t('module.shifuSetting.ttsPreviewStop')}
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className='mr-2 h-4 w-4' />
+                            {t('module.shifuSetting.ttsPreview')}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
 
               <div className='space-y-2 mb-4'>
                 <span className='text-sm font-medium text-foreground'>

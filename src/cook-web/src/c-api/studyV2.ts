@@ -57,6 +57,9 @@ export const SSE_OUTPUT_TYPE = {
   HEARTBEAT: 'heartbeat',
   VARIABLE_UPDATE: 'variable_update',
   PROFILE_UPDATE: 'update_user_info', // TODO: update user_info
+  // Audio types for TTS
+  AUDIO_SEGMENT: 'audio_segment',
+  AUDIO_COMPLETE: 'audio_complete',
 } as const;
 export type SSE_OUTPUT_TYPE =
   (typeof SSE_OUTPUT_TYPE)[keyof typeof SSE_OUTPUT_TYPE];
@@ -76,6 +79,7 @@ export interface StudyRecordItem {
   like_status?: LikeStatus;
   user_input?: string;
   isHistory?: boolean;
+  audio_url?: string;
 }
 
 export interface LessonStudyRecords {
@@ -111,6 +115,20 @@ export interface PostGeneratedContentActionData {
 export interface RunningResult {
   is_running: boolean;
   running_time: number;
+}
+
+// Audio types for TTS
+export interface AudioSegmentData {
+  segment_index: number;
+  audio_data: string; // Base64 encoded
+  duration_ms: number;
+  is_final: boolean;
+}
+
+export interface AudioCompleteData {
+  audio_url: string;
+  audio_bid: string;
+  duration_ms: number;
 }
 
 export const getRunMessage = (

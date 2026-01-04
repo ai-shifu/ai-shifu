@@ -42,7 +42,7 @@ from .funcs import (
     get_video_info,
     shifu_permission_verification,
 )
-from flaskr.route.common import make_common_response
+from flaskr.route.common import make_common_response, bypass_token_validation
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error, raise_error
 from .consts import UNIT_TYPE_GUEST
@@ -351,6 +351,21 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                     temperature:
                         type: number
                         description: shifu temperature
+                    tts_enabled:
+                        type: boolean
+                        description: TTS enabled
+                    tts_voice_id:
+                        type: string
+                        description: TTS voice ID
+                    tts_speed:
+                        type: number
+                        description: TTS speech speed (0.5-2.0)
+                    tts_pitch:
+                        type: integer
+                        description: TTS pitch adjustment (-12 to 12)
+                    tts_emotion:
+                        type: string
+                        description: TTS emotion setting
         responses:
             200:
                 description: save shifu detail success
@@ -369,14 +384,21 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     $ref: "#/components/schemas/ShifuDetailDto"
         """
         user_id = request.user.user_id
-        shifu_name = request.get_json().get("name")
-        shifu_description = request.get_json().get("description")
-        shifu_avatar = request.get_json().get("avatar")
-        shifu_keywords = request.get_json().get("keywords")
-        shifu_model = request.get_json().get("model")
-        shifu_price = request.get_json().get("price")
-        shifu_temperature = request.get_json().get("temperature")
-        shifu_system_prompt = request.get_json().get("system_prompt", None)
+        json_data = request.get_json()
+        shifu_name = json_data.get("name")
+        shifu_description = json_data.get("description")
+        shifu_avatar = json_data.get("avatar")
+        shifu_keywords = json_data.get("keywords")
+        shifu_model = json_data.get("model")
+        shifu_price = json_data.get("price")
+        shifu_temperature = json_data.get("temperature")
+        shifu_system_prompt = json_data.get("system_prompt", None)
+        # TTS Configuration
+        tts_enabled = json_data.get("tts_enabled", False)
+        tts_voice_id = json_data.get("tts_voice_id", "")
+        tts_speed = json_data.get("tts_speed", 1.0)
+        tts_pitch = json_data.get("tts_pitch", 0)
+        tts_emotion = json_data.get("tts_emotion", "")
         base_url = _get_request_base_url()
         return make_common_response(
             save_shifu_draft_info(
@@ -392,6 +414,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 shifu_price,
                 shifu_system_prompt,
                 base_url,
+                tts_enabled=tts_enabled,
+                tts_voice_id=tts_voice_id,
+                tts_speed=tts_speed,
+                tts_pitch=tts_pitch,
+                tts_emotion=tts_emotion,
             )
         )
 
@@ -1151,5 +1178,105 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             as_attachment=True,
             download_name=f"{shifu_bid}.json",
         )
+
+    @app.route(path_prefix + "/tts/preview", methods=["POST"])
+    @bypass_token_validation
+    def tts_preview_api():
+        """
+        Preview TTS with specified settings
+        ---
+        tags:
+            - tts
+        requestBody:
+            required: true
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            voice_id:
+                                type: string
+                                description: Voice ID for synthesis
+                            speed:
+                                type: number
+                                description: Speech speed (0.5-2.0)
+                            pitch:
+                                type: integer
+                                description: Pitch adjustment (-12 to 12)
+                            emotion:
+                                type: string
+                                description: Emotion setting
+                            text:
+                                type: string
+                                description: Optional custom text to preview
+        responses:
+            200:
+                description: TTS preview audio
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                audio_data:
+                                    type: string
+                                    description: Base64 encoded audio
+                                duration_ms:
+                                    type: integer
+                                    description: Audio duration in milliseconds
+        """
+        import base64
+        from flaskr.api.tts import (
+            synthesize_text,
+            is_tts_configured,
+            VoiceSettings,
+            get_default_audio_settings,
+        )
+
+        if not is_tts_configured():
+            raise_error(
+                "TTS_NOT_CONFIGURED",
+                "TTS is not configured. Please set MINIMAX_API_KEY.",
+            )
+
+        json_data = request.get_json() or {}
+        voice_id = json_data.get("voice_id", "male-qn-qingse")
+        speed = float(json_data.get("speed", 1.0))
+        pitch = int(json_data.get("pitch", 0))
+        emotion = json_data.get("emotion", "")
+        text = json_data.get(
+            "text",
+            "你好，这是语音合成的试听效果。Hello, this is a preview of text-to-speech.",
+        )
+
+        # Limit text length for preview
+        if len(text) > 200:
+            text = text[:200]
+
+        voice_settings = VoiceSettings(
+            voice_id=voice_id,
+            speed=speed,
+            pitch=pitch,
+            emotion=emotion if emotion else "neutral",
+            volume=1.0,
+        )
+
+        try:
+            result = synthesize_text(
+                text=text,
+                voice_settings=voice_settings,
+                audio_settings=get_default_audio_settings(),
+            )
+
+            audio_base64 = base64.b64encode(result.audio_data).decode("utf-8")
+
+            return make_common_response(
+                {
+                    "audio_data": audio_base64,
+                    "duration_ms": result.duration_ms,
+                }
+            )
+        except Exception as e:
+            current_app.logger.error(f"TTS preview failed: {e}")
+            raise_error("TTS_PREVIEW_FAILED", f"TTS preview failed: {str(e)}")
 
     return app

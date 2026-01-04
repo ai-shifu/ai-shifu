@@ -126,6 +126,129 @@ export const NewChatComponents = ({
   });
   const [longPressedBlockBid, setLongPressedBlockBid] = useState<string>('');
 
+  // Audio playback state management
+  // Auto-play is enabled by default for TTS - starts when first audio arrives
+  const [autoPlayAudio] = useState(true);
+  // Track which block is currently playing audio (for sequential playback)
+  // Use both state (for re-renders) and ref (for callbacks)
+  const [currentPlayingBlockBid, setCurrentPlayingBlockBid] = useState<
+    string | null
+  >(null);
+  const currentPlayingBlockBidRef = useRef<string | null>(null);
+  // Queue of blocks waiting to play
+  const audioQueueRef = useRef<string[]>([]);
+  // Track blocks that have already completed playing (don't auto-play again)
+  const playedBlocksRef = useRef<Set<string>>(new Set());
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    currentPlayingBlockBidRef.current = currentPlayingBlockBid;
+  }, [currentPlayingBlockBid]);
+
+  // Handle audio play state change - use ref to avoid stale closure
+  const handleAudioPlayStateChange = useCallback(
+    (blockBid: string, isPlaying: boolean) => {
+      console.log('[NewChatComp] handleAudioPlayStateChange:', {
+        blockBid,
+        isPlaying,
+        currentPlayingBlockBid: currentPlayingBlockBidRef.current,
+        queue: [...audioQueueRef.current],
+        playedBlocks: [...playedBlocksRef.current],
+      });
+
+      if (isPlaying) {
+        currentPlayingBlockBidRef.current = blockBid;
+        setCurrentPlayingBlockBid(blockBid);
+      } else {
+        // Check using ref for the most up-to-date value
+        if (currentPlayingBlockBidRef.current === blockBid) {
+          // Mark this block as played so it won't auto-play again
+          playedBlocksRef.current.add(blockBid);
+
+          // Current audio finished, play next in queue
+          const nextBlockBid = audioQueueRef.current.shift();
+          console.log(
+            '[NewChatComp] Block finished, next in queue:',
+            nextBlockBid,
+          );
+          if (nextBlockBid) {
+            currentPlayingBlockBidRef.current = nextBlockBid;
+            setCurrentPlayingBlockBid(nextBlockBid);
+          } else {
+            currentPlayingBlockBidRef.current = null;
+            setCurrentPlayingBlockBid(null);
+          }
+        } else {
+          console.log('[NewChatComp] Block mismatch, ignoring:', {
+            expected: currentPlayingBlockBidRef.current,
+            received: blockBid,
+          });
+        }
+      }
+    },
+    [],
+  ); // No dependencies - uses refs
+
+  // Check if a block should auto-play (first in queue or currently playing)
+  const shouldAutoPlay = useCallback(
+    (blockBid: string, hasAudio: boolean) => {
+      const result = (() => {
+        if (!autoPlayAudio || !hasAudio) return false;
+
+        // If this block has already completed playing, don't auto-play again
+        if (playedBlocksRef.current.has(blockBid)) {
+          return false;
+        }
+
+        // If nothing is playing, this block can play
+        if (!currentPlayingBlockBid) {
+          return true;
+        }
+
+        // If this block is the current playing one
+        if (currentPlayingBlockBid === blockBid) {
+          return true;
+        }
+
+        // Otherwise, add to queue if not already there
+        if (!audioQueueRef.current.includes(blockBid)) {
+          audioQueueRef.current.push(blockBid);
+          console.log('[NewChatComp] Added to queue:', blockBid, 'queue:', [
+            ...audioQueueRef.current,
+          ]);
+        }
+        return false;
+      })();
+
+      console.log('[NewChatComp] shouldAutoPlay:', {
+        blockBid,
+        hasAudio,
+        currentPlayingBlockBid,
+        result,
+      });
+
+      return result;
+    },
+    [autoPlayAudio, currentPlayingBlockBid],
+  );
+
+  // Reset audio state when lesson changes
+  useEffect(() => {
+    playedBlocksRef.current.clear();
+    audioQueueRef.current = [];
+    currentPlayingBlockBidRef.current = null;
+    setCurrentPlayingBlockBid(null);
+  }, [lessonId]);
+
+  // Debug: Log items audio state when currentPlayingBlockBid changes
+  useEffect(() => {
+    console.log('[NewChatComp] currentPlayingBlockBid changed:', {
+      currentPlayingBlockBid,
+      queue: [...audioQueueRef.current],
+      playedBlocks: [...playedBlocksRef.current],
+    });
+  }, [currentPlayingBlockBid]);
+
   const {
     items,
     isLoading,
@@ -152,6 +275,26 @@ export const NewChatComponents = ({
     showOutputInProgressToast,
     onPayModalOpen,
   });
+
+  // Debug: Log items with audio for visibility
+  useEffect(() => {
+    const itemsWithAudio = items.filter(
+      item =>
+        item.type === ChatContentItemType.CONTENT &&
+        (item.audioSegments?.length || item.isAudioStreaming),
+    );
+    if (itemsWithAudio.length > 0) {
+      console.log(
+        '[NewChatComp] Items with audio:',
+        itemsWithAudio.map(item => ({
+          blockBid: item.generated_block_bid,
+          segmentsCount: item.audioSegments?.length || 0,
+          isStreaming: item.isAudioStreaming,
+          hasAudioUrl: !!item.audioUrl,
+        })),
+      );
+    }
+  }, [items]);
 
   const handleLongPress = useCallback(
     (event: any, currentBlock: ChatContentItem) => {
@@ -309,6 +452,10 @@ export const NewChatComponents = ({
               }
 
               if (item.type === ChatContentItemType.LIKE_STATUS) {
+                // Find the parent content block to get audio info
+                const parentBlock = items.find(
+                  b => b.generated_block_bid === item.parent_block_bid,
+                );
                 return mobileStyle ? null : (
                   <div
                     key={`${idx}-interaction`}
@@ -325,10 +472,26 @@ export const NewChatComponents = ({
                       readonly={item.readonly}
                       onRefresh={onRefresh}
                       onToggleAskExpanded={toggleAskExpanded}
+                      audioUrl={parentBlock?.audioUrl}
+                      audioSegments={parentBlock?.audioSegments}
+                      isAudioStreaming={parentBlock?.isAudioStreaming}
+                      autoPlayAudio={false}
+                      onAudioPlayStateChange={isPlaying =>
+                        handleAudioPlayStateChange(
+                          parentBlock?.generated_block_bid || '',
+                          isPlaying,
+                        )
+                      }
                     />
                   </div>
                 );
               }
+
+              // Calculate autoPlay once to ensure consistent value
+              const blockAutoPlay = shouldAutoPlay(
+                item.generated_block_bid,
+                Boolean(item.audioSegments?.length || item.isAudioStreaming),
+              );
 
               return (
                 <div
@@ -356,6 +519,13 @@ export const NewChatComponents = ({
                     onClickCustomButtonAfterContent={handleClickAskButton}
                     onSend={memoizedOnSend}
                     onLongPress={handleLongPress}
+                    autoPlayAudio={blockAutoPlay}
+                    onAudioPlayStateChange={isPlaying =>
+                      handleAudioPlayStateChange(
+                        item.generated_block_bid,
+                        isPlaying,
+                      )
+                    }
                   />
                 </div>
               );

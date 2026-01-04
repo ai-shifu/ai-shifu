@@ -177,6 +177,37 @@ class DraftShifu(db.Model):
         comment="Ask agent LLM system prompt",
     )
     price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
+    # TTS Configuration
+    tts_enabled = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="TTS enabled: 0=disabled, 1=enabled",
+    )
+    tts_voice_id = Column(
+        String(64),
+        nullable=False,
+        default="",
+        comment="TTS voice ID",
+    )
+    tts_speed = Column(
+        DECIMAL(3, 2),
+        nullable=False,
+        default=1.0,
+        comment="TTS speech speed (0.5-2.0)",
+    )
+    tts_pitch = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="TTS pitch adjustment (-12 to 12)",
+    )
+    tts_emotion = Column(
+        String(32),
+        nullable=False,
+        default="",
+        comment="TTS emotion setting",
+    )
     deleted = Column(
         SmallInteger,
         nullable=False,
@@ -223,6 +254,11 @@ class DraftShifu(db.Model):
             ask_llm_temperature=self.ask_llm_temperature,
             ask_llm_system_prompt=self.ask_llm_system_prompt,
             price=self.price,
+            tts_enabled=self.tts_enabled,
+            tts_voice_id=self.tts_voice_id,
+            tts_speed=self.tts_speed,
+            tts_pitch=self.tts_pitch,
+            tts_emotion=self.tts_emotion,
             deleted=self.deleted,
             created_at=self.created_at,
             created_user_bid=self.created_user_bid,
@@ -245,6 +281,11 @@ class DraftShifu(db.Model):
             and compare_decimal(self.ask_llm_temperature, other.ask_llm_temperature)
             and self.ask_llm_system_prompt == other.ask_llm_system_prompt
             and compare_decimal(self.price, other.price)
+            and self.tts_enabled == other.tts_enabled
+            and self.tts_voice_id == other.tts_voice_id
+            and compare_decimal(self.tts_speed, other.tts_speed)
+            and self.tts_pitch == other.tts_pitch
+            and self.tts_emotion == other.tts_emotion
         )
 
     def get_str_to_check(self):
@@ -511,6 +552,37 @@ class PublishedShifu(db.Model):
         Text, nullable=False, default="", comment="Ask agent LLM system prompt"
     )
     price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
+    # TTS Configuration
+    tts_enabled = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="TTS enabled: 0=disabled, 1=enabled",
+    )
+    tts_voice_id = Column(
+        String(64),
+        nullable=False,
+        default="",
+        comment="TTS voice ID",
+    )
+    tts_speed = Column(
+        DECIMAL(3, 2),
+        nullable=False,
+        default=1.0,
+        comment="TTS speech speed (0.5-2.0)",
+    )
+    tts_pitch = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="TTS pitch adjustment (-12 to 12)",
+    )
+    tts_emotion = Column(
+        String(32),
+        nullable=False,
+        default="",
+        comment="TTS emotion setting",
+    )
     deleted = Column(
         SmallInteger,
         nullable=False,

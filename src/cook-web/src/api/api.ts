@@ -74,6 +74,9 @@ const api = {
   upfileByUrl: 'POST /shifu/url-upfile',
   // resource api end
 
+  // TTS api
+  ttsPreview: 'POST /shifu/tts/preview',
+
   // profile
 
   saveProfile: 'POST /profiles/save-profile-item',

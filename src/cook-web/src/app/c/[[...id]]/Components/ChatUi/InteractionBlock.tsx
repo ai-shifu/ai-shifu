@@ -16,6 +16,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/Dialog';
+import { AudioPlayer, type AudioSegment } from '@/components/audio/AudioPlayer';
 type Size = 'sm' | 'md' | 'lg';
 
 export interface InteractionBlockProps {
@@ -30,6 +31,13 @@ export interface InteractionBlockProps {
   onRefresh?: (generated_block_bid: string) => void;
   disableAskButton?: boolean;
   disableInteractionButtons?: boolean;
+  // Audio props for TTS
+  audioUrl?: string;
+  audioSegments?: AudioSegment[];
+  isAudioStreaming?: boolean;
+  // Auto-play props
+  autoPlayAudio?: boolean;
+  onAudioPlayStateChange?: (isPlaying: boolean) => void;
 }
 
 /**
@@ -47,6 +55,11 @@ export default function InteractionBlock({
   className,
   onRefresh,
   onToggleAskExpanded,
+  audioUrl,
+  audioSegments,
+  isAudioStreaming,
+  autoPlayAudio = false,
+  onAudioPlayStateChange,
 }: InteractionBlockProps) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<LikeStatus>(
@@ -240,6 +253,19 @@ export default function InteractionBlock({
             )}
           />
         </button>
+        {/* Audio player button */}
+        {(audioUrl || (audioSegments && audioSegments.length > 0)) && (
+          <AudioPlayer
+            audioUrl={audioUrl}
+            streamingSegments={audioSegments}
+            isStreaming={isAudioStreaming}
+            disabled={disabled || readonly}
+            size={16}
+            className={cn('interaction-icon-btn', canHover && 'group')}
+            autoPlay={autoPlayAudio}
+            onPlayStateChange={onAudioPlayStateChange}
+          />
+        )}
       </div>
 
       <Dialog

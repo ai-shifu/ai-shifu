@@ -73,6 +73,7 @@ from flaskr.service.learn.learn_dtos import (
     OutlineItemUpdateDTO,
     LearnStatus,
 )
+from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
 from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
 from flaskr.service.learn.handle_input_ask import handle_input_ask
 from flaskr.service.profile.funcs import save_user_profiles, ProfileToSave
@@ -1919,6 +1920,33 @@ class RunScriptContextV2:
                 app.logger.info(f"variables: {user_profile}")
 
                 # For CONTENT blocks, no user_input is needed (only INTERACTION blocks have user input)
+                # Initialize streaming TTS processor if enabled
+                shifu_model = self._shifu_model.query.filter(
+                    self._shifu_model.shifu_bid == self._shifu_info.bid,
+                    self._shifu_model.deleted == 0,
+                ).first()
+                tts_processor = None
+                if shifu_model and shifu_model.tts_enabled:
+                    app.logger.info(
+                        f"TTS enabled for shifu {self._shifu_info.bid}, initializing streaming TTS"
+                    )
+                    tts_processor = StreamingTTSProcessor(
+                        app=app,
+                        generated_block_bid=generated_block.generated_block_bid,
+                        outline_bid=run_script_info.outline_bid,
+                        progress_record_bid=self._current_attend.progress_record_bid,
+                        user_bid=self._user_info.user_id,
+                        shifu_bid=self._shifu_info.bid,
+                        voice_id=shifu_model.tts_voice_id or "",
+                        speed=float(shifu_model.tts_speed)
+                        if shifu_model.tts_speed
+                        else 1.0,
+                        pitch=int(shifu_model.tts_pitch)
+                        if shifu_model.tts_pitch
+                        else 0,
+                        emotion=shifu_model.tts_emotion or "",
+                    )
+
                 stream_result = mdflow_context.process(
                     block_index=run_script_info.block_position,
                     mode=ProcessMode.STREAM,
@@ -1944,6 +1972,16 @@ class RunScriptContextV2:
                                 type=GeneratedType.CONTENT,
                                 content=chunk_content,
                             )
+                            # Process TTS in real-time during streaming
+                            if tts_processor:
+                                try:
+                                    yield from tts_processor.process_chunk(
+                                        chunk_content
+                                    )
+                                except Exception as e:
+                                    app.logger.warning(
+                                        f"Streaming TTS chunk failed: {e}"
+                                    )
                 else:
                     # It's a single LLMResult object (edge case)
                     chunk_content = (
@@ -1959,6 +1997,13 @@ class RunScriptContextV2:
                             type=GeneratedType.CONTENT,
                             content=chunk_content,
                         )
+                        # Process TTS for single result
+                        if tts_processor:
+                            try:
+                                yield from tts_processor.process_chunk(chunk_content)
+                            except Exception as e:
+                                app.logger.warning(f"Streaming TTS chunk failed: {e}")
+
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
@@ -1971,6 +2016,13 @@ class RunScriptContextV2:
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                 self._current_attend.block_position += 1
                 db.session.flush()
+
+                # Finalize TTS - synthesize remaining buffer and upload to OSS
+                if tts_processor:
+                    try:
+                        yield from tts_processor.finalize()
+                    except Exception as e:
+                        app.logger.warning(f"TTS finalization failed: {e}")
 
         progress_record = self._current_attend
         outline_updates = self._get_next_outline_item()

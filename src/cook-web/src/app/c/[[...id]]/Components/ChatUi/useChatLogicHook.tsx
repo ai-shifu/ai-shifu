@@ -66,6 +66,13 @@ export enum ChatContentItemType {
   LIKE_STATUS = 'likeStatus',
 }
 
+export interface AudioSegment {
+  segmentIndex: number;
+  audioData: string; // Base64 encoded
+  durationMs: number;
+  isFinal: boolean;
+}
+
 export interface ChatContentItem {
   content?: string;
   customRenderBar?: (() => React.ReactNode | null) | ComponentType<any>;
@@ -83,6 +90,11 @@ export interface ChatContentItem {
   isAskExpanded?: boolean; // whether the ask panel is expanded
   generateTime?: number;
   variables?: PreviewVariablesMap;
+  // Audio properties for TTS
+  audioUrl?: string;
+  audioSegments?: AudioSegment[];
+  isAudioStreaming?: boolean;
+  audioDurationMs?: number;
 }
 
 interface SSEParams {
@@ -631,6 +643,56 @@ function useChatLogicHook({
                   name: response.content.variable_value,
                 });
               }
+            } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+              // Handle audio segment during TTS streaming
+              const audioSegment = response.content;
+              if (blockId) {
+                setTrackedContentList(prevState => {
+                  return prevState.map(item => {
+                    if (item.generated_block_bid === blockId) {
+                      const existingSegments = item.audioSegments || [];
+                      // Check if segment already exists
+                      const segmentExists = existingSegments.some(
+                        s => s.segmentIndex === audioSegment.segment_index,
+                      );
+                      if (segmentExists) return item;
+
+                      return {
+                        ...item,
+                        audioSegments: [
+                          ...existingSegments,
+                          {
+                            segmentIndex: audioSegment.segment_index,
+                            audioData: audioSegment.audio_data,
+                            durationMs: audioSegment.duration_ms,
+                            isFinal: audioSegment.is_final,
+                          },
+                        ].sort((a, b) => a.segmentIndex - b.segmentIndex),
+                        isAudioStreaming: !audioSegment.is_final,
+                      };
+                    }
+                    return item;
+                  });
+                });
+              }
+            } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+              // Handle audio completion with OSS URL
+              const audioComplete = response.content;
+              if (blockId) {
+                setTrackedContentList(prevState => {
+                  return prevState.map(item => {
+                    if (item.generated_block_bid === blockId) {
+                      return {
+                        ...item,
+                        audioUrl: audioComplete.audio_url,
+                        audioDurationMs: audioComplete.duration_ms,
+                        isAudioStreaming: false,
+                      };
+                    }
+                    return item;
+                  });
+                });
+              }
             }
           } catch (error) {
             console.warn('SSE handling error:', error);
@@ -730,6 +792,8 @@ function useChatLogicHook({
             readonly: false,
             isHistory: true,
             type: item.block_type,
+            // Include audio URL from history
+            audioUrl: item.audio_url,
           });
           lastContentId = item.generated_block_bid;
 
