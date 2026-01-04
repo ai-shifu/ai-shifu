@@ -327,11 +327,6 @@ class MdflowContextV2:
                         "content": generated_block.generated_content or "",
                     }
                 )
-            # elif generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
-            #     block = block_list[generated_block.position]
-            #     message_list.append({"role": "user", "content": block.content or ""})
-            #     role = "assistant"
-            #     content = block.content or ""
         return message_list
 
 
