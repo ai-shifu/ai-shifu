@@ -22,6 +22,7 @@ from markdown_flow import (
     LLMProvider,
     BlockType,
     InteractionParser,
+    replace_variables_in_text,
 )
 from markdown_flow.llm import LLMResult
 from flask import Flask
@@ -309,6 +310,7 @@ class MdflowContextV2:
     def build_context_from_blocks(
         blocks: Iterable["LearnGeneratedBlock"],
         document: str,
+        variables: Optional[dict] = None,
     ) -> list[dict[str, str]]:
         message_list: list[dict[str, str]] = []
         mdflow_context = MdflowContextV2(document=document)
@@ -320,7 +322,15 @@ class MdflowContextV2:
                 and generated_block.position < len(block_list)
             ):
                 block = block_list[generated_block.position]
-                message_list.append({"role": "user", "content": block.content or ""})
+                message_list.append(
+                    {
+                        "role": "user",
+                        "content": replace_variables_in_text(
+                            block.content or "", variables
+                        )
+                        or "",
+                    }
+                )
                 message_list.append(
                     {
                         "role": "assistant",
@@ -563,7 +573,10 @@ class RunScriptPreviewContextV2:
             document,
             preview_request,
             content_chunks,
-            current_block.content,
+            replace_variables_in_text(
+                current_block.content or "", preview_request.variables
+            )
+            or "",
         )
         trace.update(**trace_args)
 
