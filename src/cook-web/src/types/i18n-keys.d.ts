@@ -13,7 +13,6 @@ export type I18nKey =
   | 'common.core.errorSaveFailed'
   | 'common.core.favorites'
   | 'common.core.follow'
-  | 'common.core.home'
   | 'common.core.logout'
   | 'common.core.more'
   | 'common.core.networkError'
