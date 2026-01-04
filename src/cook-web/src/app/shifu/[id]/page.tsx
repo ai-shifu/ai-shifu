@@ -1,4 +1,5 @@
 'use client';
+import { use } from 'react'
 import dynamic from 'next/dynamic';
 import Loading from '@/components/loading';
 
@@ -18,7 +19,7 @@ export default function Page({
 }: {
   params: Promise<ShifuPageParams>;
 }) {
-  const { id } = params as unknown as ShifuPageParams;
+  const { id } = use(params);
   return (
     <div className='h-screen w-full'>
       <ShifuRoot id={id} />
