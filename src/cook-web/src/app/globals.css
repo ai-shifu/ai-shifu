@@ -4,17 +4,11 @@
 body,
 html {
   font-family:
-    'PingFang SC',
-    'Microsoft YaHei',
-    'Source Han Sans SC',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    Helvetica,
-    Arial,
-    sans-serif;
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
+    'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   font-size: 16px;
+  -webkit-font-smoothing: subpixel-antialiased;
+  -moz-osx-font-smoothing: auto;
 }
 
 @layer base {
@@ -99,6 +93,13 @@ html {
   button:focus {
     outline: none;
   }
+}
+
+/* Keep MarkdownFlow editor text crisp without grayscale smoothing */
+.markdown-flow-editor,
+.markdown-flow-editor .cm-line {
+  -webkit-font-smoothing: subpixel-antialiased;
+  -moz-osx-font-smoothing: auto;
 }
 
 /* HACK: markdown-flow-ui relies on CSS variables, so keep dedicated aliases for primary colors */

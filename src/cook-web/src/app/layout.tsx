@@ -9,6 +9,7 @@ import { UserProvider } from '@/store';
 import '@/i18n';
 import I18nGlobalLoading from '@/components/I18nGlobalLoading';
 import 'markdown-flow-ui/dist/markdown-flow-ui.css';
+import UnsupportedIOSNotice from '@/components/UnsupportedIOSNotice';
 // fix: dont't use, it will cause logo in dark mode is not blue
 // import 'markdown-flow-ui/dist/markdown-flow-ui-lib.css';
 
@@ -31,7 +32,7 @@ export default function RootLayout({
     <html lang='en'>
       <head></head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-hidden`}
+        className={`${geistSans.variable} ${geistMono.variable} overflow-hidden`}
       >
         <div id='root'>
           <ConfigProvider>
@@ -40,6 +41,7 @@ export default function RootLayout({
             <UserProvider>
               <AlertProvider>
                 <I18nGlobalLoading />
+                <UnsupportedIOSNotice />
                 {children}
                 <Toaster />
               </AlertProvider>
