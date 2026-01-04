@@ -13,7 +13,6 @@
   "errorSaveFailed": "Save failed: Invalid server response",
   "favorites": "Favorites",
   "follow": "Follow",
-  "home": "Home",
   "logout": "Logout",
   "more": "More",
   "networkError": "Network error, please try again later",
