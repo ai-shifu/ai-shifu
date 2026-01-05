@@ -14,7 +14,7 @@ import OutlineTree from '@/components/outline-tree';
 import ChapterSettingsDialog from '@/components/chapter-setting';
 import Header from '../header';
 // import MarkdownFlowEditor from '../../../../../../markdown-flow-ui/src/components/MarkdownFlowEditor';
-import { UploadProps, EditMode } from 'markdown-flow-ui';
+import { UploadProps, EditMode } from 'markdown-flow-ui/editor';
 import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
@@ -23,7 +23,7 @@ import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
 
 const MarkdownFlowEditor = dynamic(
-  () => import('markdown-flow-ui').then(mod => mod.MarkdownFlowEditor),
+  () => import('markdown-flow-ui/editor').then(mod => mod.MarkdownFlowEditor),
   {
     ssr: false,
     loading: () => (
