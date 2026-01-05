@@ -1621,6 +1621,7 @@ class RunScriptContextV2:
                     block_index=run_script_info.block_position,
                     mode=ProcessMode.COMPLETE,
                     context=message_list,
+                    variables=user_profile,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
@@ -1652,6 +1653,7 @@ class RunScriptContextV2:
                 block_index=run_script_info.block_position,
                 mode=ProcessMode.COMPLETE,
                 context=message_list,
+                variables=user_profile,
             )
             generated_block.block_content_conf = (
                 interaction_result.content if interaction_result else block.content
@@ -1699,6 +1701,7 @@ class RunScriptContextV2:
                     block_index=run_script_info.block_position,
                     mode=ProcessMode.COMPLETE,
                     context=message_list,
+                    variables=user_profile,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
@@ -1736,6 +1739,7 @@ class RunScriptContextV2:
                 mode=ProcessMode.COMPLETE,
                 user_input=user_input_param,
                 context=message_list,
+                variables=user_profile,
             )
 
             if (
@@ -1836,6 +1840,7 @@ class RunScriptContextV2:
                     block_index=run_script_info.block_position,
                     mode=ProcessMode.COMPLETE,
                     context=message_list,
+                    variables=user_profile,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
@@ -1901,6 +1906,7 @@ class RunScriptContextV2:
                     block_index=run_script_info.block_position,
                     mode=ProcessMode.COMPLETE,
                     context=message_list,
+                    variables=user_profile,
                 )
 
                 # Get rendered interaction content
