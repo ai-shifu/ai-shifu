@@ -3,6 +3,7 @@ import inspect
 import json
 import queue
 import threading
+import re
 from decimal import Decimal
 from enum import Enum
 from typing import Generator, Iterable, Optional, Union
@@ -121,6 +122,7 @@ class RUNLLMProvider(LLMProvider):
     llm_settings: LLMSettings
     trace: StatefulTraceClient
     trace_args: dict
+    _INTERACTION_RULE_MARKER = "<interaction_processing_rules>"
 
     def __init__(
         self,
@@ -164,7 +166,10 @@ class RUNLLMProvider(LLMProvider):
         for response in res:
             if response.result:
                 content_parts.append(response.result)
-        return "".join(content_parts)
+        content = "".join(content_parts)
+        if self._should_strip_interaction_json(messages):
+            content = self._strip_json_fences(content)
+        return content
 
     def stream(
         self,
@@ -201,6 +206,20 @@ class RUNLLMProvider(LLMProvider):
         )
         self.app.logger.info(f"stream invoke_llm res: {res}")
         first_result = False
+        if self._should_strip_interaction_json(messages):
+            content_parts = []
+            for i in res:
+                if i.result:
+                    if not first_result:
+                        first_result = True
+                        self.app.logger.info(f"stream first result: {i.result}")
+                    content_parts.append(i.result)
+            content = self._strip_json_fences("".join(content_parts))
+            if content:
+                yield content
+            self.app.logger.info("stream invoke_llm end")
+            return
+
         for i in res:
             if i.result:
                 if not first_result:
@@ -208,6 +227,19 @@ class RUNLLMProvider(LLMProvider):
                     self.app.logger.info(f"stream first result: {i.result}")
                 yield i.result
         self.app.logger.info("stream invoke_llm end")
+
+    def _should_strip_interaction_json(self, messages: list[dict[str, str]]) -> bool:
+        if not messages:
+            return False
+        system_prompt = messages[0].get("content", "")
+        return self._INTERACTION_RULE_MARKER in system_prompt
+
+    def _strip_json_fences(self, content: str) -> str:
+        stripped = content.strip()
+        match = re.match(r"^```(?:json)?\\s*(.*?)\\s*```$", stripped, flags=re.S)
+        if match:
+            return match.group(1).strip()
+        return content
 
 
 class MdflowContextV2:
