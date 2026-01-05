@@ -145,11 +145,17 @@ const UserProfileCard = () => {
               </a>
             );
           })}
-          <LanguageSelect
-            language={language}
-            onSetLanguage={updateLanguage}
-            variant='standard'
-          />
+          <div className='flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100'>
+            <LogOut className='w-4 h-4 opacity-0' />
+            <span className='flex-1 text-left'>Language</span>
+            <div className='w-36'>
+              <LanguageSelect
+                language={language}
+                onSetLanguage={updateLanguage}
+                variant='standard'
+              />
+            </div>
+          </div>
         </div>
         <hr />
         <div
