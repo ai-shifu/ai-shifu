@@ -119,6 +119,8 @@ def publish_shifu_draft(
         shifu_published.llm_system_prompt = shifu_draft.llm_system_prompt
         # TTS Configuration
         shifu_published.tts_enabled = shifu_draft.tts_enabled
+        shifu_published.tts_provider = getattr(shifu_draft, "tts_provider", "") or ""
+        shifu_published.tts_model = getattr(shifu_draft, "tts_model", "") or ""
         shifu_published.tts_voice_id = shifu_draft.tts_voice_id
         shifu_published.tts_speed = shifu_draft.tts_speed
         shifu_published.tts_pitch = shifu_draft.tts_pitch

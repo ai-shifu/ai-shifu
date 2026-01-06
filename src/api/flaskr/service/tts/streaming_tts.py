@@ -87,6 +87,8 @@ class StreamingTTSProcessor:
         pitch: int = 0,
         emotion: str = "",
         max_segment_chars: int = 300,
+        tts_provider: str = "",
+        tts_model: str = "",
     ):
         self.app = app
         self.generated_block_bid = generated_block_bid
@@ -95,9 +97,11 @@ class StreamingTTSProcessor:
         self.user_bid = user_bid
         self.shifu_bid = shifu_bid
         self.max_segment_chars = max_segment_chars
+        self.tts_provider = tts_provider
+        self.tts_model = tts_model
 
-        # Audio settings
-        self.voice_settings = get_default_voice_settings()
+        # Audio settings - use provider-specific defaults
+        self.voice_settings = get_default_voice_settings(tts_provider)
         if voice_id:
             self.voice_settings.voice_id = voice_id
         if speed:
@@ -106,7 +110,7 @@ class StreamingTTSProcessor:
             self.voice_settings.pitch = int(pitch)
         if emotion:
             self.voice_settings.emotion = emotion
-        self.audio_settings = get_default_audio_settings()
+        self.audio_settings = get_default_audio_settings(tts_provider)
 
         # State
         self._buffer = ""
@@ -124,10 +128,12 @@ class StreamingTTSProcessor:
         # List of (index, audio_data, duration_ms)
         self._all_audio_data: List[tuple] = []
 
-        # Check if TTS is configured
-        self._enabled = is_tts_configured()
+        # Check if TTS is configured for the specified provider
+        self._enabled = is_tts_configured(tts_provider)
         if not self._enabled:
-            logger.warning("TTS is not configured, streaming TTS disabled")
+            logger.warning(
+                f"TTS is not configured for provider '{tts_provider or 'default'}', streaming TTS disabled"
+            )
 
     def process_chunk(self, chunk: str) -> Generator[RunMarkdownFlowDTO, None, None]:
         """
@@ -218,13 +224,17 @@ class StreamingTTSProcessor:
 
         segment = TTSSegment(index=segment_index, text=text)
 
-        logger.info(f"Submitting TTS task {segment_index}: {len(text)} chars")
+        logger.info(
+            f"Submitting TTS task {segment_index}: {len(text)} chars, provider={self.tts_provider or 'default'}"
+        )
 
         future = _tts_executor.submit(
             self._synthesize_in_thread,
             segment,
             self.voice_settings,
             self.audio_settings,
+            self.tts_provider,
+            self.tts_model,
         )
         self._pending_futures.append(future)
 
@@ -233,6 +243,8 @@ class StreamingTTSProcessor:
         segment: TTSSegment,
         voice_settings: VoiceSettings,
         audio_settings: AudioSettings,
+        tts_provider: str = "",
+        tts_model: str = "",
     ) -> TTSSegment:
         """Synthesize a segment in a background thread."""
         try:
@@ -240,6 +252,8 @@ class StreamingTTSProcessor:
                 text=segment.text,
                 voice_settings=voice_settings,
                 audio_settings=audio_settings,
+                model=tts_model,
+                provider_name=tts_provider,
             )
             segment.audio_data = result.audio_data
             segment.duration_ms = result.duration_ms
@@ -402,7 +416,7 @@ class StreamingTTSProcessor:
                     "emotion": self.voice_settings.emotion,
                     "volume": self.voice_settings.volume,
                 },
-                model=get_config("MINIMAX_TTS_MODEL") or "speech-01-turbo",
+                model=self.tts_model or get_config("MINIMAX_TTS_MODEL") or "",
                 text_length=0,
                 segment_count=len(audio_data_list),
                 status=AUDIO_STATUS_COMPLETED,

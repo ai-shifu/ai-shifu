@@ -354,6 +354,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                     tts_enabled:
                         type: boolean
                         description: TTS enabled
+                    tts_provider:
+                        type: string
+                        description: TTS provider (minimax, volcengine)
+                    tts_model:
+                        type: string
+                        description: TTS model/resource ID
                     tts_voice_id:
                         type: string
                         description: TTS voice ID
@@ -395,6 +401,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         shifu_system_prompt = json_data.get("system_prompt", None)
         # TTS Configuration
         tts_enabled = json_data.get("tts_enabled", False)
+        tts_provider = json_data.get("tts_provider", "")
+        tts_model = json_data.get("tts_model", "")
         tts_voice_id = json_data.get("tts_voice_id", "")
         tts_speed = json_data.get("tts_speed", 1.0)
         tts_pitch = json_data.get("tts_pitch", 0)
@@ -415,6 +423,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 shifu_system_prompt,
                 base_url,
                 tts_enabled=tts_enabled,
+                tts_provider=tts_provider,
+                tts_model=tts_model,
                 tts_voice_id=tts_voice_id,
                 tts_speed=tts_speed,
                 tts_pitch=tts_pitch,
@@ -1178,6 +1188,34 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             as_attachment=True,
             download_name=f"{shifu_bid}.json",
         )
+
+    @app.route(path_prefix + "/tts/config", methods=["GET"])
+    @bypass_token_validation
+    def tts_config_api():
+        """
+        Get TTS provider configuration
+        ---
+        tags:
+            - tts
+        responses:
+            200:
+                description: TTS provider configuration
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                providers:
+                                    type: array
+                                    description: List of available providers with configs
+                                default_provider:
+                                    type: string
+                                    description: Default provider name
+        """
+        from flaskr.api.tts import get_all_provider_configs
+
+        config = get_all_provider_configs()
+        return make_common_response(config)
 
     @app.route(path_prefix + "/tts/preview", methods=["POST"])
     @bypass_token_validation

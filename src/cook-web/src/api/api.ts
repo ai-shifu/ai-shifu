@@ -76,6 +76,7 @@ const api = {
 
   // TTS api
   ttsPreview: 'POST /shifu/tts/preview',
+  ttsConfig: 'GET /shifu/tts/config',
 
   // profile
 

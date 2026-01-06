@@ -1,192 +1,105 @@
 """
-Minimax TTS API Client.
+TTS API Client.
 
-This module provides integration with Minimax's Text-to-Speech API (t2a_v2).
+This module provides integration with multiple Text-to-Speech providers:
+- Minimax (t2a_v2 API)
+- Volcengine (bidirectional WebSocket API)
+- Baidu (Short Text Online Synthesis API)
+
+The provider can be selected via TTS_PROVIDER config or per-Shifu configuration.
 """
 
 import base64
 import logging
-import requests
-from typing import Optional, Dict, Any, Tuple
-from dataclasses import dataclass
+from typing import Optional, Tuple
 
 from flaskr.common.config import get_config
+
+# Re-export base classes for backward compatibility
+from flaskr.api.tts.base import (
+    TTSProvider as TTSProvider,
+    TTSResult as TTSResult,
+    VoiceSettings as VoiceSettings,
+    AudioSettings as AudioSettings,
+    BaseTTSProvider as BaseTTSProvider,
+)
+from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
+from flaskr.api.tts.volcengine_provider import VolcengineTTSProvider
+from flaskr.api.tts.baidu_provider import BaiduTTSProvider
+from flaskr.api.tts.aliyun_provider import AliyunTTSProvider
 
 
 logger = logging.getLogger(__name__)
 
-# Minimax TTS API endpoint
-MINIMAX_TTS_API_URL = "https://api.minimax.chat/v1/t2a_v2"
-
-# Allowed emotion values for Minimax TTS
-ALLOWED_EMOTIONS = {
-    "happy",
-    "sad",
-    "angry",
-    "fearful",
-    "disgusted",
-    "surprised",
-    "calm",
-    "neutral",
-    "fluent",
-    "whisper",
-}
+# Provider instances (lazy initialized)
+_provider_instances: dict = {}
 
 
-@dataclass
-class TTSResult:
-    """Result of TTS synthesis."""
-
-    audio_data: bytes
-    duration_ms: int
-    sample_rate: int
-    format: str
-    word_count: int
-
-
-@dataclass
-class VoiceSettings:
-    """Voice settings for TTS synthesis."""
-
-    voice_id: str = "male-qn-qingse"
-    speed: float = 1.0
-    pitch: int = 0
-    emotion: str = "neutral"
-    volume: float = 1.0
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to API request format."""
-        settings = {
-            "voice_id": self.voice_id,
-            "speed": self.speed,
-            "vol": self.volume,
-        }
-        # Pitch must be an integer for Minimax API
-        if self.pitch is not None:
-            settings["pitch"] = int(self.pitch)
-        # Only include emotion if it's in allowed values
-        if self.emotion and self.emotion in ALLOWED_EMOTIONS:
-            settings["emotion"] = self.emotion
-        return settings
-
-
-@dataclass
-class AudioSettings:
-    """Audio settings for TTS synthesis."""
-
-    format: str = "mp3"
-    sample_rate: int = 24000
-    bitrate: int = 128000
-    channel: int = 1
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to API request format."""
-        return {
-            "format": self.format,
-            "sample_rate": self.sample_rate,
-            "bitrate": self.bitrate,
-            "channel": self.channel,
-        }
-
-
-def get_default_voice_settings() -> VoiceSettings:
-    """Get default voice settings from configuration."""
-    return VoiceSettings(
-        voice_id=get_config("MINIMAX_TTS_VOICE_ID") or "male-qn-qingse",
-        speed=get_config("MINIMAX_TTS_SPEED") or 1.0,
-        pitch=get_config("MINIMAX_TTS_PITCH") or 0,
-        emotion=get_config("MINIMAX_TTS_EMOTION") or "neutral",
-        volume=get_config("MINIMAX_TTS_VOLUME") or 1.0,
-    )
-
-
-def get_default_audio_settings() -> AudioSettings:
-    """Get default audio settings from configuration."""
-    return AudioSettings(
-        format="mp3",
-        sample_rate=get_config("MINIMAX_TTS_SAMPLE_RATE") or 24000,
-        bitrate=get_config("MINIMAX_TTS_BITRATE") or 128000,
-        channel=1,
-    )
-
-
-def call_minimax_tts(
-    text: str,
-    model: Optional[str] = None,
-    voice_settings: Optional[VoiceSettings] = None,
-    audio_settings: Optional[AudioSettings] = None,
-    output_format: str = "hex",
-) -> Dict[str, Any]:
+def get_tts_provider(provider_name: str = "") -> BaseTTSProvider:
     """
-    Call Minimax TTS API.
+    Get a TTS provider instance.
 
     Args:
-        text: Text to synthesize
-        model: TTS model name (default from config)
-        voice_settings: Voice settings (default from config)
-        audio_settings: Audio settings (default from config)
-        output_format: Output format - "hex" or "url"
+        provider_name: Provider name ("minimax", "volcengine", or "baidu").
+                      If empty, uses TTS_PROVIDER config or auto-detects.
 
     Returns:
-        API response dictionary
+        TTS provider instance
 
     Raises:
-        ValueError: If API key is not configured
-        requests.RequestException: If API call fails
+        ValueError: If no configured provider is available
     """
-    api_key = get_config("MINIMAX_API_KEY")
-    group_id = get_config("MINIMAX_GROUP_ID")
+    global _provider_instances
 
-    if not api_key:
-        raise ValueError("MINIMAX_API_KEY is not configured")
+    # Determine provider name
+    if not provider_name:
+        provider_name = get_config("TTS_PROVIDER") or ""
 
-    if not model:
-        model = get_config("MINIMAX_TTS_MODEL") or "speech-01-turbo"
+    # Normalize provider name
+    provider_name = provider_name.lower().strip()
 
-    if not voice_settings:
-        voice_settings = get_default_voice_settings()
+    # If still empty, auto-detect based on configuration
+    if not provider_name:
+        # Check Minimax first (existing behavior)
+        if get_config("MINIMAX_API_KEY"):
+            provider_name = "minimax"
+        elif get_config("VOLCENGINE_TTS_APP_KEY") and get_config(
+            "VOLCENGINE_TTS_ACCESS_KEY"
+        ):
+            provider_name = "volcengine"
+        elif get_config("BAIDU_TTS_API_KEY") and get_config("BAIDU_TTS_SECRET_KEY"):
+            provider_name = "baidu"
+        elif get_config("ALIYUN_TTS_APPKEY"):
+            provider_name = "aliyun"
+        else:
+            provider_name = "minimax"  # Default fallback
 
-    if not audio_settings:
-        audio_settings = get_default_audio_settings()
+    # Get or create provider instance
+    if provider_name not in _provider_instances:
+        if provider_name == "minimax":
+            _provider_instances[provider_name] = MinimaxTTSProvider()
+        elif provider_name == "volcengine":
+            _provider_instances[provider_name] = VolcengineTTSProvider()
+        elif provider_name == "baidu":
+            _provider_instances[provider_name] = BaiduTTSProvider()
+        elif provider_name == "aliyun":
+            _provider_instances[provider_name] = AliyunTTSProvider()
+        else:
+            raise ValueError(f"Unknown TTS provider: {provider_name}")
 
-    # Build API URL with group ID if provided
-    url = MINIMAX_TTS_API_URL
-    if group_id:
-        url = f"{url}?GroupId={group_id}"
+    return _provider_instances[provider_name]
 
-    # Build request payload
-    payload = {
-        "model": model,
-        "text": text,
-        "stream": False,
-        "voice_setting": voice_settings.to_dict(),
-        "audio_setting": audio_settings.to_dict(),
-        "output_format": output_format,
-        "subtitle_enable": False,
-        "aigc_watermark": False,
-    }
 
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}",
-    }
+def get_default_voice_settings(provider_name: str = "") -> VoiceSettings:
+    """Get default voice settings for the specified provider."""
+    provider = get_tts_provider(provider_name)
+    return provider.get_default_voice_settings()
 
-    logger.debug(f"Calling Minimax TTS API with model={model}, text_length={len(text)}")
 
-    response = requests.post(url, json=payload, headers=headers, timeout=60)
-    response.raise_for_status()
-
-    result = response.json()
-
-    # Check for API errors
-    base_resp = result.get("base_resp", {})
-    status_code = base_resp.get("status_code", 0)
-    if status_code != 0:
-        status_msg = base_resp.get("status_msg", "Unknown error")
-        logger.error(f"Minimax TTS API error: {status_code} - {status_msg}")
-        raise ValueError(f"Minimax TTS API error: {status_code} - {status_msg}")
-
-    return result
+def get_default_audio_settings(provider_name: str = "") -> AudioSettings:
+    """Get default audio settings for the specified provider."""
+    provider = get_tts_provider(provider_name)
+    return provider.get_default_audio_settings()
 
 
 def synthesize_text(
@@ -194,15 +107,17 @@ def synthesize_text(
     voice_settings: Optional[VoiceSettings] = None,
     audio_settings: Optional[AudioSettings] = None,
     model: Optional[str] = None,
+    provider_name: str = "",
 ) -> TTSResult:
     """
-    Synthesize text to speech using Minimax TTS.
+    Synthesize text to speech.
 
     Args:
         text: Text to synthesize
         voice_settings: Voice settings (optional)
         audio_settings: Audio settings (optional)
-        model: TTS model name (optional)
+        model: TTS model name (optional, provider-specific)
+        provider_name: Provider name (optional, uses config if empty)
 
     Returns:
         TTSResult with audio data and metadata
@@ -210,46 +125,12 @@ def synthesize_text(
     Raises:
         ValueError: If synthesis fails
     """
-    if not text or not text.strip():
-        raise ValueError("Text cannot be empty")
-
-    # Call API with hex output format
-    result = call_minimax_tts(
+    provider = get_tts_provider(provider_name)
+    return provider.synthesize(
         text=text,
-        model=model,
         voice_settings=voice_settings,
         audio_settings=audio_settings,
-        output_format="hex",
-    )
-
-    # Extract audio data
-    data = result.get("data", {})
-    audio_hex = data.get("audio")
-
-    if not audio_hex:
-        raise ValueError("No audio data in API response")
-
-    # Decode hex to bytes
-    audio_data = bytes.fromhex(audio_hex)
-
-    # Extract metadata
-    extra_info = result.get("extra_info", {})
-    duration_ms = extra_info.get("audio_length", 0)
-    sample_rate = extra_info.get("audio_sample_rate", 24000)
-    audio_format = extra_info.get("audio_format", "mp3")
-    word_count = extra_info.get("word_count", 0)
-
-    logger.info(
-        f"TTS synthesis completed: duration={duration_ms}ms, "
-        f"size={len(audio_data)} bytes, words={word_count}"
-    )
-
-    return TTSResult(
-        audio_data=audio_data,
-        duration_ms=duration_ms,
-        sample_rate=sample_rate,
-        format=audio_format,
-        word_count=word_count,
+        model=model,
     )
 
 
@@ -258,6 +139,7 @@ def synthesize_text_to_base64(
     voice_settings: Optional[VoiceSettings] = None,
     audio_settings: Optional[AudioSettings] = None,
     model: Optional[str] = None,
+    provider_name: str = "",
 ) -> Tuple[str, int]:
     """
     Synthesize text to speech and return base64 encoded audio.
@@ -267,6 +149,7 @@ def synthesize_text_to_base64(
         voice_settings: Voice settings (optional)
         audio_settings: Audio settings (optional)
         model: TTS model name (optional)
+        provider_name: Provider name (optional)
 
     Returns:
         Tuple of (base64_audio_data, duration_ms)
@@ -276,18 +159,121 @@ def synthesize_text_to_base64(
         voice_settings=voice_settings,
         audio_settings=audio_settings,
         model=model,
+        provider_name=provider_name,
     )
 
     base64_data = base64.b64encode(result.audio_data).decode("utf-8")
     return base64_data, result.duration_ms
 
 
-def is_tts_enabled() -> bool:
-    """Check if TTS is enabled in configuration."""
-    return get_config("TTS_ENABLED") is True
+def is_tts_configured(provider_name: str = "") -> bool:
+    """
+    Check if TTS is properly configured.
+
+    Args:
+        provider_name: Provider name (optional, checks all if empty)
+
+    Returns:
+        True if at least one provider is configured
+    """
+    if provider_name:
+        try:
+            provider = get_tts_provider(provider_name)
+            return provider.is_configured()
+        except ValueError:
+            return False
+    else:
+        # Check if any provider is configured
+        try:
+            minimax = MinimaxTTSProvider()
+            if minimax.is_configured():
+                return True
+        except Exception:
+            pass
+
+        try:
+            volcengine = VolcengineTTSProvider()
+            if volcengine.is_configured():
+                return True
+        except Exception:
+            pass
+
+        try:
+            baidu = BaiduTTSProvider()
+            if baidu.is_configured():
+                return True
+        except Exception:
+            pass
+
+        try:
+            aliyun = AliyunTTSProvider()
+            if aliyun.is_configured():
+                return True
+        except Exception:
+            pass
+
+        return False
 
 
-def is_tts_configured() -> bool:
-    """Check if TTS is properly configured."""
-    api_key = get_config("MINIMAX_API_KEY")
-    return bool(api_key)
+def get_all_provider_configs() -> dict:
+    """
+    Get configuration for all TTS providers.
+
+    Returns:
+        Dictionary with provider configurations for frontend
+    """
+    providers = []
+
+    # Get config from each provider
+    try:
+        minimax = MinimaxTTSProvider()
+        providers.append(minimax.get_provider_config().to_dict())
+    except Exception as e:
+        logger.warning(f"Failed to get Minimax config: {e}")
+
+    try:
+        volcengine = VolcengineTTSProvider()
+        providers.append(volcengine.get_provider_config().to_dict())
+    except Exception as e:
+        logger.warning(f"Failed to get Volcengine config: {e}")
+
+    try:
+        baidu = BaiduTTSProvider()
+        providers.append(baidu.get_provider_config().to_dict())
+    except Exception as e:
+        logger.warning(f"Failed to get Baidu config: {e}")
+
+    try:
+        aliyun = AliyunTTSProvider()
+        providers.append(aliyun.get_provider_config().to_dict())
+    except Exception as e:
+        logger.warning(f"Failed to get Aliyun config: {e}")
+
+    # Determine default provider
+    default_provider = get_config("TTS_PROVIDER") or ""
+    if not default_provider:
+        # Auto-detect based on configuration
+        if get_config("MINIMAX_API_KEY"):
+            default_provider = "minimax"
+        elif get_config("VOLCENGINE_TTS_APP_KEY") and get_config(
+            "VOLCENGINE_TTS_ACCESS_KEY"
+        ):
+            default_provider = "volcengine"
+        elif get_config("BAIDU_TTS_API_KEY") and get_config("BAIDU_TTS_SECRET_KEY"):
+            default_provider = "baidu"
+        elif get_config("ALIYUN_TTS_APPKEY"):
+            default_provider = "aliyun"
+
+    return {
+        "providers": providers,
+        "default_provider": default_provider,
+    }
+
+
+# Backward compatibility: expose Minimax-specific functions
+def call_minimax_tts(*args, **kwargs):
+    """Deprecated: Use get_tts_provider('minimax').synthesize() instead."""
+    from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
+
+    provider = MinimaxTTSProvider()
+    return provider._call_api(*args, **kwargs)
