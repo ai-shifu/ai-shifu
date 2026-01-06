@@ -70,7 +70,6 @@ export type I18nKey =
   | 'component.header.publishSuccessDescription'
   | 'component.header.readonly'
   | 'component.header.saved'
-  | 'component.menus.navigationMenus.basicInfo'
   | 'component.menus.navigationMenus.language'
   | 'component.menus.navigationMenus.personalInfo'
   | 'component.navigation.contactUs'
