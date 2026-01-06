@@ -277,7 +277,6 @@ export type I18nKey =
   | 'module.settings.nicknamePlaceholder'
   | 'module.settings.personalInfo'
   | 'module.settings.save'
-  | 'module.settings.settingTitle'
   | 'module.shifu.creationArea.description'
   | 'module.shifu.creationArea.modeCode'
   | 'module.shifu.creationArea.modeText'
