@@ -9,13 +9,11 @@ LANGUAGE_NAME_MAP = {
     "zh-CN": "简体中文",  # Simplified Chinese
     "zh-TW": "繁體中文",  # Traditional Chinese
     "zh-HK": "繁體中文",  # Traditional Chinese (Hong Kong)
-    "zh": "简体中文",
     # English
     "en-US": "English",  # English (United States)
     "en-GB": "English",  # English (United Kingdom)
     "en-AU": "English",  # English (Australia)
     "en-CA": "English",  # English (Canada)
-    "en": "English",
     # Japanese
     "ja-JP": "日本語",
     "ja": "日本語",
