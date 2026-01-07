@@ -317,6 +317,10 @@ class MdflowContextV2:
         mdflow_context = MdflowContextV2(document=document)
         block_list = mdflow_context.get_all_blocks()
 
+        from flask import current_app
+
+        current_app.logger.info(f"build_context_from_blocks variables: {variables}")
+
         for generated_block in blocks:
             if (
                 generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE
@@ -1548,10 +1552,6 @@ class RunScriptContextV2:
             .all()
         )
 
-        message_list = MdflowContextV2.build_context_from_blocks(
-            generated_blocks, run_script_info.mdflow
-        )
-
         mdflow_context = MdflowContextV2(
             document=run_script_info.mdflow,
             document_prompt=system_prompt,
@@ -1563,6 +1563,10 @@ class RunScriptContextV2:
         user_profile = get_user_profiles(
             app, self._user_info.user_id, self._outline_item_info.shifu_bid
         )
+        message_list = MdflowContextV2.build_context_from_blocks(
+            generated_blocks, run_script_info.mdflow, user_profile
+        )
+
         variable_definition: list[ProfileItemDefinition] = (
             get_profile_item_definition_list(
                 app, self._user_info.user_id, self._outline_item_info.shifu_bid
