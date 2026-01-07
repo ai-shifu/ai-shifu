@@ -283,11 +283,13 @@ export const NewChatComponents = ({
             items.map((item, idx) => {
               const isLongPressed =
                 longPressedBlockBid === item.generated_block_bid;
+              const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
+              const parentKey = item.parent_block_bid || baseKey;
 
               if (item.type === ChatContentItemType.ASK) {
                 return (
                   <div
-                    key={`${idx}-ask`}
+                    key={`ask-${parentKey}`}
                     style={{
                       position: 'relative',
                       margin: '0 auto',
@@ -311,7 +313,7 @@ export const NewChatComponents = ({
               if (item.type === ChatContentItemType.LIKE_STATUS) {
                 return mobileStyle ? null : (
                   <div
-                    key={`${idx}-interaction`}
+                    key={`like-${parentKey}`}
                     style={{
                       margin: '0 auto',
                       maxWidth: '1000px',
@@ -332,7 +334,7 @@ export const NewChatComponents = ({
 
               return (
                 <div
-                  key={`${idx}-content`}
+                  key={`content-${baseKey}`}
                   style={{
                     position: 'relative',
                     margin:

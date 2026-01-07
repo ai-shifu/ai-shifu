@@ -1,7 +1,6 @@
 {
   "__namespace__": "common.core",
   "adminTitle": "Admin",
-  "all": "All",
   "cancel": "Cancel",
   "companyAddress": "Room 163, 19th Floor, Donghuan Building, Wangjing, Chaoyang District, Beijing",
   "companyName": "Beijing Chanchanshanmu Technology Co., Ltd.",
@@ -11,7 +10,6 @@
   "createSuccessDescription": "New Course has been created",
   "default": "Default",
   "errorSaveFailed": "Save failed: Invalid server response",
-  "favorites": "Favorites",
   "follow": "Follow",
   "logout": "Logout",
   "more": "More",

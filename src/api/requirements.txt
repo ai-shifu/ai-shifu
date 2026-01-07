@@ -117,9 +117,4 @@ wrapt==1.16.0
 XlsxWriter==3.2.0
 zope.event==5.0
 zope.interface==7.1.1
-
-
---extra-index-url https://pypi.org/simple/
- markdown-flow==0.2.39
-# --extra-index-url https://test.pypi.org/simple/
-# markdown-flow==0.2.39a1
+markdown-flow==0.2.43

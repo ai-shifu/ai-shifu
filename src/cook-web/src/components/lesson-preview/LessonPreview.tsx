@@ -11,7 +11,7 @@ import {
   ChatContentItem,
   ChatContentItemType,
 } from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
-import { OnSendContentParams } from 'markdown-flow-ui';
+import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import VariableList from './VariableList';
 import {
   getStoredPreviewVariables,

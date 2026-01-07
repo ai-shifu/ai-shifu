@@ -16,6 +16,12 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/Dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 type Size = 'sm' | 'md' | 'lg';
 
 export interface InteractionBlockProps {
@@ -179,16 +185,28 @@ export default function InteractionBlock({
           onClick={handleRefreshClick}
           className={cn('interaction-icon-btn', canHover && 'group')}
         >
-          <RefreshCcw
-            size={16}
-            className={cn(
-              'text-[#55575E]',
-              'w-4',
-              'h-4',
-              'transition-colors',
-              'duration-200',
-            )}
-          />
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <RefreshCcw
+                  size={16}
+                  className={cn(
+                    'text-[#55575E]',
+                    'w-4',
+                    'h-4',
+                    'transition-colors',
+                    'duration-200',
+                  )}
+                />
+              </TooltipTrigger>
+              <TooltipContent
+                side='top'
+                className='bg-black text-white border-none'
+              >
+                {t('module.chat.regenerate')}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </button>
         <button
           type='button'
@@ -200,20 +218,32 @@ export default function InteractionBlock({
           style={likeBtnStyle}
           className={cn('interaction-icon-btn', canHover && 'group')}
         >
-          <ThumbsUp
-            size={16}
-            strokeWidth={2}
-            stroke='currentColor'
-            fill={isLike ? 'currentColor' : 'none'}
-            absoluteStrokeWidth={isLike}
-            className={cn(
-              'w-4',
-              'h-4',
-              'transition-colors',
-              'duration-200',
-              'text-[#55575E]',
-            )}
-          />
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ThumbsUp
+                  size={16}
+                  strokeWidth={2}
+                  stroke='currentColor'
+                  fill={isLike ? 'currentColor' : 'none'}
+                  absoluteStrokeWidth={isLike}
+                  className={cn(
+                    'w-4',
+                    'h-4',
+                    'transition-colors',
+                    'duration-200',
+                    'text-[#55575E]',
+                  )}
+                />
+              </TooltipTrigger>
+              <TooltipContent
+                side='top'
+                className='bg-black text-white border-none'
+              >
+                {t('module.chat.like')}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </button>
         <button
           type='button'
@@ -225,20 +255,32 @@ export default function InteractionBlock({
           style={dislikeBtnStyle}
           className={cn('interaction-icon-btn', canHover && 'group')}
         >
-          <ThumbsDown
-            size={16}
-            absoluteStrokeWidth={isDislike}
-            strokeWidth={2}
-            stroke='currentColor'
-            fill={isDislike ? 'currentColor' : 'none'}
-            className={cn(
-              'w-4',
-              'h-4',
-              'transition-colors',
-              'duration-200',
-              'text-[#55575E]',
-            )}
-          />
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ThumbsDown
+                  size={16}
+                  absoluteStrokeWidth={isDislike}
+                  strokeWidth={2}
+                  stroke='currentColor'
+                  fill={isDislike ? 'currentColor' : 'none'}
+                  className={cn(
+                    'w-4',
+                    'h-4',
+                    'transition-colors',
+                    'duration-200',
+                    'text-[#55575E]',
+                  )}
+                />
+              </TooltipTrigger>
+              <TooltipContent
+                side='top'
+                className='bg-black text-white border-none'
+              >
+                {t('module.chat.dislike')}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </button>
       </div>
 
