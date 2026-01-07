@@ -382,6 +382,21 @@ def _reload_gemini_params(model_id: str, temperature: float) -> Dict[str, Any]:
     }
 
 
+def _reload_ark_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    # doubao-seed models support thinking parameter, pass via extra_body for LiteLLM
+    return {
+        "temperature": temperature,
+        "extra_body": {"thinking": {"type": "disabled"}},
+    }
+
+
+def _reload_silicon_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    return {
+        "temperature": temperature,
+        "extra_body": {"enable_thinking": False},
+    }
+
+
 LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
     ProviderConfig(
         key="openai",
@@ -449,6 +464,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         prefix=SILICON_PREFIX,
         config_hint="SILICON_API_KEY,SILICON_API_URL",
         custom_llm_provider="openai",
+        reload_params=_reload_silicon_params,
     ),
     ProviderConfig(
         key="ark",
@@ -457,6 +473,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         prefix="ark/",
         config_hint="ARK_API_KEY",
         custom_llm_provider="openai",
+        reload_params=_reload_ark_params,
     ),
 ]
 
