@@ -22,6 +22,7 @@ from markdown_flow import (
     LLMProvider,
     BlockType,
     InteractionParser,
+    replace_variables_in_text,
 )
 from markdown_flow.llm import LLMResult
 from flask import Flask
@@ -246,7 +247,7 @@ class MdflowContextV2:
         return self._mdflow.process(
             block_index=block_index,
             mode=mode,
-            # context=context,
+            context=context,
             variables=variables,
             user_input=user_input,
         )
@@ -309,23 +310,38 @@ class MdflowContextV2:
     @staticmethod
     def build_context_from_blocks(
         blocks: Iterable["LearnGeneratedBlock"],
+        document: str,
+        variables: Optional[dict] = None,
     ) -> list[dict[str, str]]:
         message_list: list[dict[str, str]] = []
-        last_role = None
+        mdflow_context = MdflowContextV2(document=document)
+        block_list = mdflow_context.get_all_blocks()
+
+        from flask import current_app
+
+        current_app.logger.info(f"build_context_from_blocks variables: {variables}")
+
         for generated_block in blocks:
-            role = None
-            if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
-                role = "assistant"
-            elif generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
-                role = "user"
-            if not role:
-                continue
-            content = generated_block.generated_content or ""
-            if role != last_role:
-                message_list.append({"role": role, "content": content})
-                last_role = role
-            else:
-                message_list[-1]["content"] += "\n" + content
+            if (
+                generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE
+                and generated_block.position < len(block_list)
+            ):
+                block = block_list[generated_block.position]
+                message_list.append(
+                    {
+                        "role": "user",
+                        "content": replace_variables_in_text(
+                            block.content or "", variables
+                        )
+                        or "",
+                    }
+                )
+                message_list.append(
+                    {
+                        "role": "assistant",
+                        "content": generated_block.generated_content or "",
+                    }
+                )
         return message_list
 
 
@@ -506,12 +522,11 @@ class RunScriptPreviewContextV2:
                 preview_request.context
             )
             if request_context is None:
-                # context_messages = context_store.get_context(
-                # document, preview_request.block_index
-                # )
-                pass
+                context_messages = context_store.get_context(
+                    document, preview_request.block_index
+                )
             else:
-                # context_messages = request_context
+                context_messages = request_context
                 context_store.replace_context(document, request_context)
 
             mdflow_context = MdflowContextV2(
@@ -540,7 +555,7 @@ class RunScriptPreviewContextV2:
             result = mdflow_context.process(
                 block_index=block_index,
                 mode=mode,
-                # context=context_messages or None,
+                context=context_messages or None,
                 variables=resolved_variables,
                 user_input=user_input,
             )
@@ -587,11 +602,20 @@ class RunScriptPreviewContextV2:
                     block_index,
                 )
 
+            current_block_content = ""
+            if current_block:
+                current_block_content = (
+                    replace_variables_in_text(
+                        current_block.content or "", resolved_variables
+                    )
+                    or ""
+                )
             self._update_preview_context(
                 context_store,
                 document,
                 preview_request,
                 content_chunks,
+                current_block_content,
             )
             trace.update(**trace_args)
         finally:
@@ -604,16 +628,20 @@ class RunScriptPreviewContextV2:
         document: str,
         preview_request: PlaygroundPreviewRequest,
         content_chunks: list[str],
+        current_block_content: str,
     ) -> None:
         new_messages: list[dict[str, str]] = []
         user_input_text = MdflowContextV2.flatten_user_input_map(
             preview_request.user_input
         )
-        if user_input_text:
-            new_messages.append({"role": "user", "content": user_input_text})
         content_text = "".join(content_chunks).strip()
         if content_text:
+            user_message = user_input_text or current_block_content
+            if user_message:
+                new_messages.append({"role": "user", "content": user_message})
             new_messages.append({"role": "assistant", "content": content_text})
+        elif user_input_text:
+            new_messages.append({"role": "user", "content": user_input_text})
         if not new_messages:
             return
         context_store.append_context(document, new_messages)
@@ -1507,24 +1535,22 @@ class RunScriptContextV2:
             self._can_continue = False
             db.session.flush()
             return
-        # generated_blocks: list[LearnGeneratedBlock] = (
-        #     LearnGeneratedBlock.query.filter(
-        #         LearnGeneratedBlock.user_bid == self._user_info.user_id,
-        #         LearnGeneratedBlock.shifu_bid == run_script_info.attend.shifu_bid,
-        #         LearnGeneratedBlock.progress_record_bid
-        #         == self._current_attend.progress_record_bid,
-        #         LearnGeneratedBlock.outline_item_bid == run_script_info.outline_bid,
-        #         LearnGeneratedBlock.deleted == 0,
-        #         LearnGeneratedBlock.status == 1,
-        #         LearnGeneratedBlock.type.in_(
-        #             [BLOCK_TYPE_MDCONTENT_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]
-        #         ),
-        #     )
-        #     .order_by(LearnGeneratedBlock.position.asc(), LearnGeneratedBlock.id.asc())
-        #     .all()
-        # )
-
-        # message_list = MdflowContextV2.build_context_from_blocks(generated_blocks)
+        generated_blocks: list[LearnGeneratedBlock] = (
+            LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                LearnGeneratedBlock.shifu_bid == run_script_info.attend.shifu_bid,
+                LearnGeneratedBlock.progress_record_bid
+                == self._current_attend.progress_record_bid,
+                LearnGeneratedBlock.outline_item_bid == run_script_info.outline_bid,
+                LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.status == 1,
+                LearnGeneratedBlock.type.in_(
+                    [BLOCK_TYPE_MDCONTENT_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]
+                ),
+            )
+            .order_by(LearnGeneratedBlock.position.asc(), LearnGeneratedBlock.id.asc())
+            .all()
+        )
 
         mdflow_context = MdflowContextV2(
             document=run_script_info.mdflow,
@@ -1537,6 +1563,10 @@ class RunScriptContextV2:
         user_profile = get_user_profiles(
             app, self._user_info.user_id, self._outline_item_info.shifu_bid
         )
+        message_list = MdflowContextV2.build_context_from_blocks(
+            generated_blocks, run_script_info.mdflow, user_profile
+        )
+
         variable_definition: list[ProfileItemDefinition] = (
             get_profile_item_definition_list(
                 app, self._user_info.user_id, self._outline_item_info.shifu_bid
@@ -1657,7 +1687,8 @@ class RunScriptContextV2:
                 interaction_result = mdflow_context.process(
                     block_index=run_script_info.block_position,
                     mode=ProcessMode.COMPLETE,
-                    # context=message_list,
+                    context=message_list,
+                    variables=user_profile,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
@@ -1688,7 +1719,8 @@ class RunScriptContextV2:
             interaction_result = mdflow_context.process(
                 block_index=run_script_info.block_position,
                 mode=ProcessMode.COMPLETE,
-                # context=message_list,
+                context=message_list,
+                variables=user_profile,
             )
             generated_block.block_content_conf = (
                 interaction_result.content if interaction_result else block.content
@@ -1735,7 +1767,8 @@ class RunScriptContextV2:
                 interaction_result = mdflow_context.process(
                     block_index=run_script_info.block_position,
                     mode=ProcessMode.COMPLETE,
-                    # context=message_list,
+                    context=message_list,
+                    variables=user_profile,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
@@ -1772,7 +1805,8 @@ class RunScriptContextV2:
                 block_index=run_script_info.block_position,
                 mode=ProcessMode.COMPLETE,
                 user_input=user_input_param,
-                # context=message_list,
+                context=message_list,
+                variables=user_profile,
             )
 
             if (
@@ -1872,7 +1906,8 @@ class RunScriptContextV2:
                 interaction_result = mdflow_context.process(
                     block_index=run_script_info.block_position,
                     mode=ProcessMode.COMPLETE,
-                    # context=message_list,
+                    context=message_list,
+                    variables=user_profile,
                 )
                 rendered_content = (
                     interaction_result.content if interaction_result else block.content
@@ -1937,7 +1972,8 @@ class RunScriptContextV2:
                 interaction_result = mdflow_context.process(
                     block_index=run_script_info.block_position,
                     mode=ProcessMode.COMPLETE,
-                    # context=message_list,
+                    context=message_list,
+                    variables=user_profile,
                 )
 
                 # Get rendered interaction content
@@ -1973,7 +2009,7 @@ class RunScriptContextV2:
                     block_index=run_script_info.block_position,
                     mode=ProcessMode.STREAM,
                     variables=user_profile,
-                    # context=message_list,
+                    context=message_list,
                 )
 
                 # Handle both Generator and single LLMResult (markdown-flow 0.2.27+)
