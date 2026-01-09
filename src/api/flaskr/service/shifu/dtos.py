@@ -80,11 +80,17 @@ class ShifuDetailDto(BaseModel):
     readonly: bool = Field(..., description="is shifu readonly", required=False)
     # TTS Configuration
     tts_enabled: bool = Field(False, description="TTS enabled")
-    tts_provider: str = Field("", description="TTS provider: minimax, volcengine")
+    tts_provider: str = Field(
+        "", description="TTS provider: minimax, volcengine, baidu, aliyun"
+    )
     tts_model: str = Field("", description="TTS model/resource ID")
     tts_voice_id: str = Field("", description="TTS voice ID")
-    tts_speed: float = Field(1.0, description="TTS speech speed (0.5-2.0)")
-    tts_pitch: int = Field(0, description="TTS pitch adjustment (-12 to 12)")
+    tts_speed: float = Field(
+        1.0, description="TTS speech speed (provider-specific range)"
+    )
+    tts_pitch: int = Field(
+        0, description="TTS pitch adjustment (provider-specific range)"
+    )
     tts_emotion: str = Field("", description="TTS emotion setting")
 
     def __init__(

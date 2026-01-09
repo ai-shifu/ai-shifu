@@ -1190,8 +1190,11 @@ class AliyunTTSProvider(BaseTTSProvider):
 
     def is_configured(self) -> bool:
         """Check if Aliyun TTS is properly configured."""
-        appkey, token, region = self._get_credentials()
-        return bool(appkey)  # Token is optional
+        appkey, token, _region = self._get_credentials()
+        # Per Aliyun NLS RESTful TTS docs, token is required for authentication.
+        # It can be provided either as the `token` request parameter or as
+        # the `X-NLS-Token` header, but we still need a token value configured.
+        return bool(appkey and token)
 
     def get_default_voice_settings(self) -> VoiceSettings:
         """Get default voice settings from configuration."""
@@ -1261,6 +1264,11 @@ class AliyunTTSProvider(BaseTTSProvider):
             raise ValueError(
                 "Aliyun TTS credentials are not configured. Set ALIYUN_TTS_APPKEY"
             )
+        if not token:
+            raise ValueError(
+                "Aliyun TTS token is not configured. Set ALIYUN_TTS_TOKEN "
+                "(see Aliyun NLS docs: Token authentication is required)."
+            )
 
         # Get endpoint URL
         endpoint = ALIYUN_TTS_ENDPOINTS.get(
@@ -1272,24 +1280,30 @@ class AliyunTTSProvider(BaseTTSProvider):
         if audio_format not in ALIYUN_AUDIO_FORMATS:
             audio_format = "mp3"
 
-        # Map speed/pitch from our range to Aliyun's range
-        # Our speed: 0.5-2.0 (1.0 = normal) -> Aliyun: -500 to 500 (0 = normal)
-        # Map pitch similarly
+        # Use provider-native ranges for Aliyun
         aliyun_speed = (
-            int((voice_settings.speed - 1.0) * 500) if voice_settings.speed else 0
+            int(round(voice_settings.speed)) if voice_settings.speed is not None else 0
         )
         aliyun_speed = max(-500, min(500, aliyun_speed))
 
-        aliyun_pitch = int(voice_settings.pitch * 50) if voice_settings.pitch else 0
+        aliyun_pitch = (
+            int(round(voice_settings.pitch)) if voice_settings.pitch is not None else 0
+        )
         aliyun_pitch = max(-500, min(500, aliyun_pitch))
 
-        aliyun_volume = int(voice_settings.volume * 50) if voice_settings.volume else 50
+        aliyun_volume = (
+            int(round(voice_settings.volume))
+            if voice_settings.volume is not None
+            else 50
+        )
         aliyun_volume = max(0, min(100, aliyun_volume))
 
         # Build request payload
         payload = {
             "appkey": appkey,
             "text": text,
+            # Token can be passed in the request body (recommended by docs).
+            "token": token,
             "format": audio_format,
             "sample_rate": audio_settings.sample_rate,
             "voice": voice_settings.voice_id,

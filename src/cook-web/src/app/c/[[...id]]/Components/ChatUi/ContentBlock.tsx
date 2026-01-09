@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef } from 'react';
+import { memo, useCallback } from 'react';
 import { useLongPress } from 'react-use';
 import { isEqual } from 'lodash';
 // TODO@XJL
@@ -62,31 +62,13 @@ const ContentBlock = memo(
       [onSend, blockBid],
     );
 
-    // Show audio player when streaming or has segments (keep it rendered to finish playing)
+    // Show audio player when streaming/segments/url exist (keep it rendered to finish playing)
     const hasAudioContent =
       item.isAudioStreaming ||
-      (item.audioSegments && item.audioSegments.length > 0);
+      (item.audioSegments && item.audioSegments.length > 0) ||
+      Boolean(item.audioUrl);
     // Auto-play when it's this block's turn (controlled by parent's shouldAutoPlay)
     const shouldAutoPlayInContentBlock = autoPlayAudio;
-
-    // Track previous autoPlayAudio to detect changes
-    const prevAutoPlayAudioRef = useRef(autoPlayAudio);
-
-    // Debug logging - only log when audio-related
-    useEffect(() => {
-      if (hasAudioContent || autoPlayAudio) {
-        const changed = prevAutoPlayAudioRef.current !== autoPlayAudio;
-        console.log('[ContentBlock] autoPlayAudio changed:', {
-          blockBid,
-          prevValue: prevAutoPlayAudioRef.current,
-          newValue: autoPlayAudio,
-          changed,
-          hasAudioContent,
-          audioSegmentsLength: item.audioSegments?.length,
-        });
-        prevAutoPlayAudioRef.current = autoPlayAudio;
-      }
-    }, [autoPlayAudio, blockBid, hasAudioContent, item.audioSegments?.length]);
 
     return (
       <div
@@ -108,15 +90,15 @@ const ContentBlock = memo(
           copiedButtonText={copiedButtonText}
           onSend={_onSend}
         />
-        {/* Audio player for streaming TTS - hidden but functional during streaming */}
+        {/* Audio player for TTS */}
         {hasAudioContent && (
           <AudioPlayer
+            audioUrl={item.audioUrl}
             streamingSegments={item.audioSegments}
             isStreaming={item.isAudioStreaming}
             autoPlay={shouldAutoPlayInContentBlock}
             onPlayStateChange={onAudioPlayStateChange}
             size={16}
-            className='hidden'
           />
         )}
       </div>
@@ -142,6 +124,7 @@ const ContentBlock = memo(
       prevProps.item.audioSegments?.length ===
         nextProps.item.audioSegments?.length &&
       prevProps.item.isAudioStreaming === nextProps.item.isAudioStreaming &&
+      prevProps.item.audioUrl === nextProps.item.audioUrl &&
       prevProps.autoPlayAudio === nextProps.autoPlayAudio
     );
   },

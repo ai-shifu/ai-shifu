@@ -113,6 +113,7 @@ urllib3==2.5.0
 virtualenv==20.26.6
 waitress==3.0.1
 watchdog==6.0.0
+websocket-client==1.8.0
 Werkzeug==3.1.2
 wrapt==1.16.0
 XlsxWriter==3.2.0

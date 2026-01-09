@@ -101,7 +101,7 @@ const nextConfig: NextConfig = {
 
   // Effective only in Turbopack dev
   experimental: {
-    externalDir: true,
+    externalDir: process.env.NEXT_EXTERNAL_DIR === 'true',
   },
 
   reactStrictMode: false,

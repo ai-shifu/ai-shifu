@@ -57,6 +57,11 @@ export function AudioPlayer({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
+  // Track how many seconds have been played from streaming segments in this play session.
+  const playedSecondsRef = useRef(0);
+
+  const audioUrlRef = useRef(audioUrl);
+  audioUrlRef.current = audioUrl;
 
   // Use refs to track playback state across async callbacks
   const currentSegmentIndexRef = useRef(0);
@@ -100,20 +105,23 @@ export function AudioPlayer({
   }, []);
 
   // Play audio from OSS URL
-  const playFromUrl = useCallback(() => {
-    if (!audioUrl) return;
+  const playFromUrl = useCallback((startAtSeconds: number = 0) => {
+    const url = audioUrlRef.current;
+    if (!url) return;
 
     if (!audioRef.current) {
       audioRef.current = new Audio();
       audioRef.current.onended = () => {
         setIsPlaying(false);
         isPlayingRef.current = false;
+        setIsWaitingForSegment(false);
         onPlayStateChangeRef.current?.(false);
       };
       audioRef.current.onerror = () => {
         setIsPlaying(false);
         isPlayingRef.current = false;
         setIsLoading(false);
+        setIsWaitingForSegment(false);
         onPlayStateChangeRef.current?.(false);
       };
       audioRef.current.oncanplay = () => {
@@ -121,8 +129,21 @@ export function AudioPlayer({
       };
     }
 
-    audioRef.current.src = audioUrl;
+    audioRef.current.src = url;
     setIsLoading(true);
+    setIsWaitingForSegment(false);
+
+    const seekTarget = Number.isFinite(startAtSeconds)
+      ? Math.max(0, startAtSeconds)
+      : 0;
+    try {
+      if (seekTarget > 0 && audioRef.current) {
+        audioRef.current.currentTime = seekTarget;
+      }
+    } catch {
+      // Some browsers require metadata before seeking; we'll best-effort seek later.
+    }
+
     audioRef.current
       .play()
       .then(() => {
@@ -136,18 +157,12 @@ export function AudioPlayer({
         isPlayingRef.current = false;
         setIsLoading(false);
       });
-  }, [audioUrl]);
+  }, []);
 
   // Play a single segment by index
   const playSegmentByIndex = useCallback(async (index: number) => {
-    console.log('[AudioPlayer] playSegmentByIndex:', {
-      index,
-      segmentsCount: segmentsRef.current.length,
-    });
-
     // Prevent concurrent calls - if already playing a segment, skip
     if (isPlayingSegmentRef.current) {
-      console.log('[AudioPlayer] Skipping - already playing segment');
       return;
     }
 
@@ -158,13 +173,14 @@ export function AudioPlayer({
       // Segment not available yet
       if (isStreamingRef.current) {
         // Still streaming, wait for more segments
-        console.log('[AudioPlayer] Waiting for more segments (streaming)');
         setIsWaitingForSegment(true);
+        setIsLoading(true);
         currentSegmentIndexRef.current = index;
         return;
       } else {
-        // Streaming complete, no more segments - playback done
-        console.log('[AudioPlayer] All segments played, notifying completion');
+        // Streaming is complete and we reached the end of the received segments.
+        // Do NOT auto-switch to the final URL here: providers may report 0/incorrect
+        // `durationMs` per segment, which can cause overlap/replay when seeking.
         setIsPlaying(false);
         isPlayingRef.current = false;
         setIsLoading(false);
@@ -177,12 +193,12 @@ export function AudioPlayer({
     // Acquire lock
     isPlayingSegmentRef.current = true;
     setIsWaitingForSegment(false);
+    setIsLoading(true);
 
     // Initialize AudioContext if needed
     if (!audioContextRef.current) {
-      audioContextRef.current = new (
-        window.AudioContext || (window as any).webkitAudioContext
-      )();
+      audioContextRef.current = new (window.AudioContext ||
+        (window as any).webkitAudioContext)();
     }
 
     const audioContext = audioContextRef.current;
@@ -217,6 +233,7 @@ export function AudioPlayer({
       sourceNode.onended = () => {
         // Release lock before playing next segment
         isPlayingSegmentRef.current = false;
+        playedSecondsRef.current += audioBuffer.duration || 0;
         // Play next segment
         if (isPlayingRef.current) {
           playSegmentByIndex(index + 1);
@@ -241,31 +258,24 @@ export function AudioPlayer({
 
   // Start playback from segments
   const playFromSegments = useCallback(async () => {
-    console.log('[AudioPlayer] playFromSegments called:', {
-      segmentsCount: segmentsRef.current.length,
-      isStreaming: isStreamingRef.current,
-      isPlaying: isPlayingRef.current,
-    });
-
     if (segmentsRef.current.length === 0) {
       if (isStreamingRef.current) {
         // No segments yet but streaming, wait
-        console.log('[AudioPlayer] No segments yet, waiting for streaming');
         setIsWaitingForSegment(true);
         setIsLoading(true);
         setIsPlaying(true);
         isPlayingRef.current = true;
         currentSegmentIndexRef.current = 0;
+        playedSecondsRef.current = 0;
         onPlayStateChangeRef.current?.(true);
         return;
       }
-      console.log('[AudioPlayer] No segments and not streaming, returning');
       return;
     }
 
-    console.log('[AudioPlayer] Starting playback from segment 0');
     setIsLoading(true);
     currentSegmentIndexRef.current = 0;
+    playedSecondsRef.current = 0;
     await playSegmentByIndex(0);
   }, [playSegmentByIndex]);
 
@@ -275,11 +285,16 @@ export function AudioPlayer({
       const nextIndex = currentSegmentIndexRef.current;
       if (nextIndex < streamingSegments.length) {
         // New segment available, continue playback
-        console.log('[AudioPlayer] New segment available, continuing playback');
         playSegmentByIndex(nextIndex);
       } else if (!isStreaming) {
-        // Streaming finished and no more segments
-        console.log('[AudioPlayer] Streaming finished, completing playback');
+        // Streaming finished and no more segments. If final URL exists, continue playback with it.
+        if (audioUrl) {
+          const startAtSeconds = playedSecondsRef.current;
+          cleanupAudio();
+          playFromUrl(startAtSeconds);
+          return;
+        }
+
         setIsPlaying(false);
         isPlayingRef.current = false;
         setIsLoading(false);
@@ -292,34 +307,10 @@ export function AudioPlayer({
     isStreaming,
     isWaitingForSegment,
     playSegmentByIndex,
+    audioUrl,
+    cleanupAudio,
+    playFromUrl,
   ]);
-
-  // Timeout mechanism: if waiting for segment for too long, assume streaming is done
-  useEffect(() => {
-    if (!isWaitingForSegment || !isPlayingRef.current) {
-      return;
-    }
-
-    // Wait 2 seconds for new segment, if none arrives, assume done
-    console.log('[AudioPlayer] Starting wait timeout for next segment');
-    const timeoutId = setTimeout(() => {
-      if (isWaitingForSegment && isPlayingRef.current) {
-        const nextIndex = currentSegmentIndexRef.current;
-        if (nextIndex >= streamingSegments.length) {
-          console.log(
-            '[AudioPlayer] Timeout waiting for segment, completing playback',
-          );
-          setIsPlaying(false);
-          isPlayingRef.current = false;
-          setIsLoading(false);
-          setIsWaitingForSegment(false);
-          onPlayStateChangeRef.current?.(false);
-        }
-      }
-    }, 2000);
-
-    return () => clearTimeout(timeoutId);
-  }, [isWaitingForSegment, streamingSegments.length]);
 
   // Handle play/pause toggle
   const togglePlay = useCallback(() => {
@@ -359,39 +350,15 @@ export function AudioPlayer({
     };
   }, [cleanupAudio]);
 
-  // When audio URL becomes available, switch to it
-  useEffect(() => {
-    if (audioUrl && isPlaying && !useOssUrl) {
-      // Audio was streaming, now complete URL is available
-      // Continue playback from URL
-      cleanupAudio();
-      playFromUrl();
-    }
-  }, [audioUrl, isPlaying, useOssUrl, cleanupAudio, playFromUrl]);
-
   // Auto-play when enabled and audio is available
   // Track previous autoPlay value to detect changes
   const prevAutoPlayRef = useRef(autoPlay);
   const hasAutoPlayedForCurrentContentRef = useRef(false);
 
   useEffect(() => {
-    // Debug logging
-    console.log('[AudioPlayer] autoPlay effect:', {
-      autoPlay,
-      prevAutoPlay: prevAutoPlayRef.current,
-      isPlaying,
-      isLoading,
-      disabled,
-      hasAutoPlayed: hasAutoPlayedForCurrentContentRef.current,
-      segmentsLength: streamingSegments.length,
-      isStreaming,
-      audioUrl: !!audioUrl,
-    });
-
     // Reset auto-played flag when autoPlay changes from false to true
     // This allows queue-based playback to trigger
     if (autoPlay && !prevAutoPlayRef.current) {
-      console.log('[AudioPlayer] Resetting hasAutoPlayed flag');
       hasAutoPlayedForCurrentContentRef.current = false;
     }
     prevAutoPlayRef.current = autoPlay;
@@ -410,15 +377,11 @@ export function AudioPlayer({
       !hasAutoPlayedForCurrentContentRef.current
     ) {
       if (streamingSegments.length > 0 || isStreaming) {
-        console.log('[AudioPlayer] Starting playFromSegments');
         hasAutoPlayedForCurrentContentRef.current = true;
         playFromSegments();
       } else if (audioUrl) {
-        console.log('[AudioPlayer] Starting playFromUrl');
         hasAutoPlayedForCurrentContentRef.current = true;
         playFromUrl();
-      } else {
-        console.log('[AudioPlayer] No audio content to play');
       }
     }
   }, [

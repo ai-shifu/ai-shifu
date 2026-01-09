@@ -42,6 +42,77 @@ XML_BLOCK_PATTERN = re.compile(
     r"<(svg|math|script|style)[^>]*>[\s\S]*?</\1>", re.IGNORECASE
 )
 
+_FENCE = "```"
+
+
+def _strip_incomplete_fenced_code(text: str) -> tuple[str, bool]:
+    """
+    Strip an incomplete fenced code block from the end of the buffer.
+
+    For streaming text, it is common to receive the opening fence in one chunk
+    and the closing fence in a later chunk. In that case we should avoid letting
+    any of the (potentially non-speakable) code content reach TTS.
+
+    Returns:
+        (text_without_incomplete_block, had_incomplete_block)
+    """
+    fence_count = text.count(_FENCE)
+    if fence_count % 2 == 0:
+        return text, False
+
+    last_fence_pos = text.rfind(_FENCE)
+    if last_fence_pos == -1:
+        return text, False
+
+    return text[:last_fence_pos], True
+
+
+def _strip_incomplete_xml_block(text: str, tag_name: str) -> tuple[str, bool]:
+    """
+    Strip an incomplete XML/HTML block from the end of the buffer.
+
+    This is primarily used for <svg> blocks which are not meant to be spoken.
+    The implementation is intentionally tolerant of partial opening tags (e.g.
+    '<svg width=\"800\"' without a closing '>') which can happen in streaming.
+    """
+    if not text:
+        return text, False
+
+    tag = (tag_name or "").strip().lower()
+    if not tag:
+        return text, False
+
+    lower = text.lower()
+    start = lower.rfind(f"<{tag}")
+    if start == -1:
+        return text, False
+
+    end = lower.find(f"</{tag}>", start)
+    if end == -1:
+        return text[:start], True
+
+    return text, False
+
+
+def _strip_incomplete_blocks(text: str) -> tuple[str, bool]:
+    """
+    Strip known incomplete blocks from the end of the buffer.
+
+    Returns:
+        (text_without_incomplete_blocks, had_any_incomplete_block)
+    """
+    had_incomplete = False
+
+    text, removed = _strip_incomplete_fenced_code(text)
+    had_incomplete = had_incomplete or removed
+
+    # Strip incomplete non-speakable XML blocks (most important: SVG).
+    for tag in ("svg", "math", "script", "style"):
+        text, removed = _strip_incomplete_xml_block(text, tag)
+        had_incomplete = had_incomplete or removed
+
+    return text, had_incomplete
+
 
 def has_incomplete_block(text: str) -> bool:
     """
@@ -65,10 +136,10 @@ def has_incomplete_block(text: str) -> bool:
     if code_block_count % 2 == 1:
         return True
 
-    # Check for incomplete SVG
-    svg_opens = len(re.findall(r"<svg[^>]*>", text, re.IGNORECASE))
-    svg_closes = len(re.findall(r"</svg>", text, re.IGNORECASE))
-    if svg_opens > svg_closes:
+    # Check for incomplete SVG (tolerant of partial opening tags in streaming)
+    lower = text.lower()
+    last_svg_open = lower.rfind("<svg")
+    if last_svg_open != -1 and lower.find("</svg>", last_svg_open) == -1:
         return True
 
     # Check for incomplete mermaid (inside code blocks, but might be streaming)
@@ -91,6 +162,10 @@ def preprocess_for_tts(text: str) -> str:
     """
     if not text:
         return ""
+
+    # Strip incomplete blocks at the tail of the stream buffer. This prevents
+    # partial SVG/code blocks leaking into TTS between chunks.
+    text, _ = _strip_incomplete_blocks(text)
 
     # IMPORTANT: Remove code blocks FIRST (they may contain SVG, mermaid, etc.)
     text = CODE_BLOCK_PATTERN.sub("", text)

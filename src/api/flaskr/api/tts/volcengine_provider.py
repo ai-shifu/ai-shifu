@@ -45,21 +45,136 @@ VOLCENGINE_TTS_WS_URL = "wss://openspeech.bytedance.com/api/v3/tts/bidirection"
 
 # Volcengine TTS models
 VOLCENGINE_MODELS = [
-    {"value": "seed-tts-1.0", "label": "Seed-TTS-1.0"},
-    {"value": "seed-tts-2.0", "label": "Seed-TTS-2.0"},
-    {"value": "seed-icl-1.0", "label": "Seed-ICL-1.0"},
+    # Resource IDs used in the WebSocket handshake header (X-Api-Resource-Id).
+    {"value": "seed-tts-1.0", "label": "Seed-TTS-1.0 (resource)"},
+    {"value": "seed-tts-2.0", "label": "Seed-TTS-2.0 (resource)"},
+    {"value": "seed-icl-1.0", "label": "Seed-ICL-1.0 (resource)"},
 ]
 
 # Volcengine recommended voices
 VOLCENGINE_VOICES = [
-    {"value": "zh_female_shuangkuaisisi_moon_bigtts", "label": "爽快思思 (女)"},
-    {"value": "zh_male_abin_moon_bigtts", "label": "阿斌 (男)"},
-    {"value": "zh_female_cancan_mars_bigtts", "label": "灿灿 (女)"},
-    {"value": "zh_male_ahu_conversation_wvae_bigtts", "label": "阿虎 (男)"},
-    {"value": "zh_female_wanwanxiaohe_moon_bigtts", "label": "弯弯小何 (女)"},
-    {"value": "zh_male_shaonian_mars_bigtts", "label": "少年 (男)"},
-    {"value": "zh_female_linjie_moon_bigtts", "label": "邻家姐姐 (女)"},
-    {"value": "zh_male_yangguang_moon_bigtts", "label": "阳光男声 (男)"},
+    # Seed-TTS 1.0 voices
+    {
+        "value": "zh_female_shuangkuaisisi_moon_bigtts",
+        "label": "[1.0] 爽快思思 (女)",
+        "resource_id": "seed-tts-1.0",
+    },
+    {
+        "value": "zh_male_abin_moon_bigtts",
+        "label": "[1.0] 阿斌 (男)",
+        "resource_id": "seed-tts-1.0",
+    },
+    {
+        "value": "zh_female_cancan_mars_bigtts",
+        "label": "[1.0] 灿灿 (女)",
+        "resource_id": "seed-tts-1.0",
+    },
+    {
+        "value": "zh_male_ahu_conversation_wvae_bigtts",
+        "label": "[1.0] 阿虎 (男)",
+        "resource_id": "seed-tts-1.0",
+    },
+    {
+        "value": "zh_female_wanwanxiaohe_moon_bigtts",
+        "label": "[1.0] 弯弯小何 (女)",
+        "resource_id": "seed-tts-1.0",
+    },
+    {
+        "value": "zh_male_shaonian_mars_bigtts",
+        "label": "[1.0] 少年 (男)",
+        "resource_id": "seed-tts-1.0",
+    },
+    {
+        "value": "zh_female_linjie_moon_bigtts",
+        "label": "[1.0] 邻家姐姐 (女)",
+        "resource_id": "seed-tts-1.0",
+    },
+    {
+        "value": "zh_male_yangguang_moon_bigtts",
+        "label": "[1.0] 阳光男声 (男)",
+        "resource_id": "seed-tts-1.0",
+    },
+    # Seed-TTS 2.0 voices (examples, extend as needed)
+    {
+        "value": "zh_female_vv_uranus_bigtts",
+        "label": "[2.0] Vivi 2.0 (女)",
+        "resource_id": "seed-tts-2.0",
+    },
+    {
+        "value": "zh_female_xiaohe_uranus_bigtts",
+        "label": "[2.0] 小何 (女)",
+        "resource_id": "seed-tts-2.0",
+    },
+    {
+        "value": "zh_male_m191_uranus_bigtts",
+        "label": "[2.0] 云舟 (男)",
+        "resource_id": "seed-tts-2.0",
+    },
+    {
+        "value": "zh_male_taocheng_uranus_bigtts",
+        "label": "[2.0] 小天 (男)",
+        "resource_id": "seed-tts-2.0",
+    },
+    {
+        "value": "zh_male_dayi_saturn_bigtts",
+        "label": "[2.0] 大壹 (男)",
+        "resource_id": "seed-tts-2.0",
+    },
+    {
+        "value": "zh_female_mizai_saturn_bigtts",
+        "label": "[2.0] 黑猫侦探社咪仔 (女)",
+        "resource_id": "seed-tts-2.0",
+    },
+    {
+        "value": "zh_female_jitangnv_saturn_bigtts",
+        "label": "[2.0] 鸡汤女 (女)",
+        "resource_id": "seed-tts-2.0",
+    },
+    {
+        "value": "zh_female_meilinvyou_saturn_bigtts",
+        "label": "[2.0] 魅力女友 (女)",
+        "resource_id": "seed-tts-2.0",
+    },
+    {
+        "value": "zh_female_santongyongns_saturn_bigtts",
+        "label": "[2.0] 流畅女声 (女)",
+        "resource_id": "seed-tts-2.0",
+    },
+    {
+        "value": "zh_male_ruyayichen_saturn_bigtts",
+        "label": "[2.0] 儒雅逸辰 (男)",
+        "resource_id": "seed-tts-2.0",
+    },
+    {
+        "value": "zh_female_xueayi_saturn_bigtts",
+        "label": "[2.0] 儿童绘本 (女)",
+        "resource_id": "seed-tts-2.0",
+    },
+    {
+        "value": "saturn_zh_female_cancan_tob",
+        "label": "[2.0] 知性灿灿 (女)",
+        "resource_id": "seed-tts-2.0",
+    },
+    {
+        "value": "saturn_zh_female_keainvsheng_tob",
+        "label": "[2.0] 可爱女生 (女)",
+        "resource_id": "seed-tts-2.0",
+    },
+    {
+        "value": "saturn_zh_female_tiaopigongzhu_tob",
+        "label": "[2.0] 调皮公主 (女)",
+        "resource_id": "seed-tts-2.0",
+    },
+    {
+        "value": "saturn_zh_male_shuanglangshaonian_tob",
+        "label": "[2.0] 爽朗少年 (男)",
+        "resource_id": "seed-tts-2.0",
+    },
+    {
+        "value": "saturn_zh_male_tiancaitongzhuo_tob",
+        "label": "[2.0] 天才同桌 (男)",
+        "resource_id": "seed-tts-2.0",
+    },
 ]
 
 # Volcengine emotions
@@ -82,7 +197,19 @@ class VolcengineTTSProvider(BaseTTSProvider):
     def provider_name(self) -> str:
         return "volcengine"
 
-    def _get_credentials(self) -> tuple:
+    def _infer_resource_id_for_voice(self, voice_id: str) -> str:
+        """Infer Volcengine resource ID from a known voice ID."""
+        voice_id = (voice_id or "").strip()
+        if not voice_id:
+            return ""
+
+        for voice in VOLCENGINE_VOICES:
+            if voice.get("value") == voice_id:
+                return (voice.get("resource_id") or "").strip()
+
+        return ""
+
+    def _get_credentials(self, resource_id: str = "") -> tuple[str, str, str]:
         """
         Get Volcengine TTS credentials.
 
@@ -105,8 +232,13 @@ class VolcengineTTSProvider(BaseTTSProvider):
             or ""
         )
 
-        # Resource ID: specific to TTS
-        resource_id = get_config("VOLCENGINE_TTS_RESOURCE_ID") or "seed-tts-1.0"
+        # Resource ID (X-Api-Resource-Id) is required in the WebSocket handshake.
+        # The `model` argument is treated as a resource ID for this provider.
+        resource_id = (
+            (resource_id or "").strip()
+            or (get_config("VOLCENGINE_TTS_RESOURCE_ID") or "").strip()
+            or "seed-tts-1.0"
+        )
 
         return app_key, access_key, resource_id
 
@@ -116,14 +248,34 @@ class VolcengineTTSProvider(BaseTTSProvider):
             logger.warning("websocket-client package is not installed")
             return False
 
-        app_key, access_key, resource_id = self._get_credentials()
-        return bool(app_key and access_key and resource_id)
+        app_key, access_key, _resource_id = self._get_credentials()
+        return bool(app_key and access_key)
 
     def get_default_voice_settings(self) -> VoiceSettings:
         """Get default voice settings from configuration."""
+        configured_voice_id = (get_config("VOLCENGINE_TTS_VOICE_ID") or "").strip()
+        if configured_voice_id:
+            default_voice_id = configured_voice_id
+        else:
+            preferred_resource_id = (
+                get_config("VOLCENGINE_TTS_RESOURCE_ID") or ""
+            ).strip()
+            default_voice_id = ""
+            if preferred_resource_id:
+                default_voice_id = next(
+                    (
+                        (v.get("value") or "").strip()
+                        for v in VOLCENGINE_VOICES
+                        if (v.get("resource_id") or "").strip() == preferred_resource_id
+                    ),
+                    "",
+                )
+            default_voice_id = (
+                default_voice_id or "zh_female_shuangkuaisisi_moon_bigtts"
+            )
+
         return VoiceSettings(
-            voice_id=get_config("VOLCENGINE_TTS_VOICE_ID")
-            or "zh_female_shuangkuaisisi_moon_bigtts",
+            voice_id=default_voice_id,
             speed=get_config("VOLCENGINE_TTS_SPEED") or 1.0,
             pitch=get_config("VOLCENGINE_TTS_PITCH") or 0,
             emotion=get_config("VOLCENGINE_TTS_EMOTION") or "",
@@ -178,10 +330,24 @@ class VolcengineTTSProvider(BaseTTSProvider):
         if not audio_settings:
             audio_settings = self.get_default_audio_settings()
 
-        # Get credentials using shared ARK config
-        app_key, access_key, resource_id = self._get_credentials()
-        # Use provided model, or fall back to config
-        tts_model = model or get_config("VOLCENGINE_TTS_MODEL") or ""
+        # Resource ID for handshake comes from `model` (provider-specific semantics).
+        app_key, access_key, resource_id = self._get_credentials(
+            resource_id=model or ""
+        )
+        inferred_resource_id = self._infer_resource_id_for_voice(
+            voice_settings.voice_id
+        )
+        if inferred_resource_id and inferred_resource_id != resource_id:
+            logger.info(
+                "Volcengine voice implies resource id; overriding requested resource id (%s -> %s)",
+                resource_id,
+                inferred_resource_id,
+            )
+            resource_id = inferred_resource_id
+        # Optional model version for req_params.model (e.g. seed-tts-1.1)
+        model_version = (get_config("VOLCENGINE_TTS_MODEL") or "").strip()
+        if model_version in {m["value"] for m in VOLCENGINE_MODELS}:
+            model_version = ""
 
         if not app_key or not access_key or not resource_id:
             raise ValueError(
@@ -328,7 +494,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
                 pitch=voice_settings.pitch,
                 volume=voice_settings.volume,
                 emotion=voice_settings.emotion,
-                model=tts_model,
+                model=model_version,
             )
             ws.send(start_session_frame, opcode=websocket.ABNF.OPCODE_BINARY)
 

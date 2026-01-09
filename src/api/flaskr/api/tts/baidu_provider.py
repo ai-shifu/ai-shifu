@@ -13,7 +13,6 @@ import requests
 import time
 import hashlib
 from typing import Optional, List
-from urllib.parse import quote
 
 from flaskr.common.config import get_config
 from flaskr.api.tts.base import (
@@ -796,14 +795,16 @@ class BaiduTTSProvider(BaseTTSProvider):
         if not text or not text.strip():
             raise ValueError("Text cannot be empty")
 
-        # Check text length (1024 GBK bytes limit)
-        text_gbk = text.encode("gbk", errors="replace")
-        if len(text_gbk) > 1024:
+        # Check text length (1024 bytes limit, per Baidu docs).
+        # NOTE: `requests` will URL-encode query params using UTF-8; do not pre-encode `tex`,
+        # otherwise the value may be double-encoded and rejected by the API.
+        text_bytes = text.encode("utf-8", errors="replace")
+        if len(text_bytes) > 1024:
             logger.warning(
-                f"Text exceeds Baidu limit ({len(text_gbk)} > 1024 bytes), truncating"
+                f"Text exceeds Baidu limit ({len(text_bytes)} > 1024 bytes), truncating"
             )
             # Truncate to fit
-            text = text_gbk[:1024].decode("gbk", errors="ignore")
+            text = text_bytes[:1024].decode("utf-8", errors="ignore")
 
         if not voice_settings:
             voice_settings = self.get_default_voice_settings()
@@ -830,23 +831,28 @@ class BaiduTTSProvider(BaseTTSProvider):
         audio_format = audio_settings.format.lower()
         aue = BAIDU_AUDIO_FORMATS.get(audio_format, 3)  # Default to MP3
 
-        # Map speed/pitch from our 0-2.0 range to Baidu's 0-15 range
-        # Our speed: 0.5-2.0 (1.0 = normal) -> Baidu: 0-15 (5 = normal)
-        baidu_speed = int(voice_settings.speed * 5) if voice_settings.speed else 5
+        # Use provider-native ranges (0-15) for speed, pitch, and volume
+        baidu_speed = (
+            int(round(voice_settings.speed)) if voice_settings.speed is not None else 5
+        )
         baidu_speed = max(0, min(15, baidu_speed))
 
-        baidu_pitch = int(voice_settings.pitch + 5) if voice_settings.pitch else 5
+        baidu_pitch = (
+            int(round(voice_settings.pitch)) if voice_settings.pitch is not None else 5
+        )
         baidu_pitch = max(0, min(15, baidu_pitch))
 
-        baidu_volume = int(voice_settings.volume * 5) if voice_settings.volume else 5
+        baidu_volume = (
+            int(round(voice_settings.volume))
+            if voice_settings.volume is not None
+            else 5
+        )
         baidu_volume = max(0, min(15, baidu_volume))
 
         # Build request parameters
-        # Use double URL encoding for text as recommended by Baidu
-        encoded_text = quote(quote(text, safe=""), safe="")
-
+        # IMPORTANT: Do NOT pre-URL-encode `tex`. `requests` will encode query params.
         params = {
-            "tex": encoded_text,
+            "tex": text,
             "tok": access_token,
             "cuid": cuid,
             "ctp": 1,  # Client type, fixed to 1

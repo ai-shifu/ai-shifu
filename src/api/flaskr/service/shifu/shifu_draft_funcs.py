@@ -67,6 +67,10 @@ def return_shifu_draft_dto(
         f"{shifu_url}?preview=true" if normalized_base else f"{shifu_path}?preview=true"
     )
 
+    stored_provider = getattr(shifu_draft, "tts_provider", "") or ""
+    if stored_provider == "default":
+        stored_provider = ""
+
     return ShifuDetailDto(
         shifu_id=shifu_draft.shifu_bid,
         shifu_name=shifu_draft.title,
@@ -83,10 +87,12 @@ def return_shifu_draft_dto(
         shifu_system_prompt=shifu_draft.llm_system_prompt,
         readonly=readonly,
         tts_enabled=bool(shifu_draft.tts_enabled),
-        tts_provider=getattr(shifu_draft, "tts_provider", "") or "",
+        tts_provider=stored_provider,
         tts_model=getattr(shifu_draft, "tts_model", "") or "",
         tts_voice_id=shifu_draft.tts_voice_id or "",
-        tts_speed=float(shifu_draft.tts_speed) if shifu_draft.tts_speed else 1.0,
+        tts_speed=float(shifu_draft.tts_speed)
+        if shifu_draft.tts_speed is not None
+        else 1.0,
         tts_pitch=int(shifu_draft.tts_pitch) if shifu_draft.tts_pitch else 0,
         tts_emotion=shifu_draft.tts_emotion or "",
     )
@@ -283,7 +289,7 @@ def save_shifu_draft_info(
         shifu_system_prompt: Shifu system prompt
         base_url: Base URL to build shifu links
         tts_enabled: Whether TTS is enabled
-        tts_provider: TTS provider (minimax, volcengine)
+        tts_provider: TTS provider (minimax, volcengine, baidu, aliyun)
         tts_model: TTS model/resource ID
         tts_voice_id: TTS voice ID
         tts_speed: TTS speech speed

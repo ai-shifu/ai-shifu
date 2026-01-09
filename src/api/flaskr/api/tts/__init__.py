@@ -57,19 +57,22 @@ def get_tts_provider(provider_name: str = "") -> BaseTTSProvider:
 
     # Normalize provider name
     provider_name = provider_name.lower().strip()
+    if provider_name == "default":
+        provider_name = ""
 
     # If still empty, auto-detect based on configuration
     if not provider_name:
         # Check Minimax first (existing behavior)
         if get_config("MINIMAX_API_KEY"):
             provider_name = "minimax"
-        elif get_config("VOLCENGINE_TTS_APP_KEY") and get_config(
-            "VOLCENGINE_TTS_ACCESS_KEY"
-        ):
+        elif (
+            get_config("VOLCENGINE_TTS_APP_KEY")
+            and get_config("VOLCENGINE_TTS_ACCESS_KEY")
+        ) or (get_config("ARK_ACCESS_KEY_ID") and get_config("ARK_SECRET_ACCESS_KEY")):
             provider_name = "volcengine"
         elif get_config("BAIDU_TTS_API_KEY") and get_config("BAIDU_TTS_SECRET_KEY"):
             provider_name = "baidu"
-        elif get_config("ALIYUN_TTS_APPKEY"):
+        elif get_config("ALIYUN_TTS_APPKEY") and get_config("ALIYUN_TTS_TOKEN"):
             provider_name = "aliyun"
         else:
             provider_name = "minimax"  # Default fallback
@@ -255,13 +258,14 @@ def get_all_provider_configs() -> dict:
         # Auto-detect based on configuration
         if get_config("MINIMAX_API_KEY"):
             default_provider = "minimax"
-        elif get_config("VOLCENGINE_TTS_APP_KEY") and get_config(
-            "VOLCENGINE_TTS_ACCESS_KEY"
-        ):
+        elif (
+            get_config("VOLCENGINE_TTS_APP_KEY")
+            and get_config("VOLCENGINE_TTS_ACCESS_KEY")
+        ) or (get_config("ARK_ACCESS_KEY_ID") and get_config("ARK_SECRET_ACCESS_KEY")):
             default_provider = "volcengine"
         elif get_config("BAIDU_TTS_API_KEY") and get_config("BAIDU_TTS_SECRET_KEY"):
             default_provider = "baidu"
-        elif get_config("ALIYUN_TTS_APPKEY"):
+        elif get_config("ALIYUN_TTS_APPKEY") and get_config("ALIYUN_TTS_TOKEN"):
             default_provider = "aliyun"
 
     return {

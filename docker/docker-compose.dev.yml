@@ -16,10 +16,17 @@ services:
   ai-shifu-cook-web-dev:
     container_name: ai-shifu-cook-web-dev
     image: ai-shifu-cook-web-dev:latest
+    restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - cd /app && rm -rf .next && exec ./node_modules/.bin/next dev -H 0.0.0.0 -p "${PORT:-5000}"
     env_file:
       - ./.env
     environment:
       - I18N_ROOT=/app/src/i18n
+      - NEXT_TELEMETRY_DISABLED=1
+      - NODE_OPTIONS=--max-old-space-size=2048
     depends_on:
       - ai-shifu-api-dev
     volumes:

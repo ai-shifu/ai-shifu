@@ -188,7 +188,10 @@ class DraftShifu(db.Model):
         String(32),
         nullable=False,
         default="",
-        comment="TTS provider: minimax, volcengine (empty=use system default)",
+        comment=(
+            "TTS provider: minimax, volcengine, baidu, aliyun "
+            "(empty=use system default)"
+        ),
     )
     tts_model = Column(
         String(64),
@@ -203,16 +206,16 @@ class DraftShifu(db.Model):
         comment="TTS voice ID",
     )
     tts_speed = Column(
-        DECIMAL(3, 2),
+        DECIMAL(6, 2),
         nullable=False,
         default=1.0,
-        comment="TTS speech speed (0.5-2.0)",
+        comment="TTS speech speed (provider-specific range)",
     )
     tts_pitch = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="TTS pitch adjustment (-12 to 12)",
+        comment="TTS pitch adjustment (provider-specific range)",
     )
     tts_emotion = Column(
         String(32),
@@ -579,7 +582,10 @@ class PublishedShifu(db.Model):
         String(32),
         nullable=False,
         default="",
-        comment="TTS provider: minimax, volcengine (empty=use system default)",
+        comment=(
+            "TTS provider: minimax, volcengine, baidu, aliyun "
+            "(empty=use system default)"
+        ),
     )
     tts_model = Column(
         String(64),
@@ -594,16 +600,16 @@ class PublishedShifu(db.Model):
         comment="TTS voice ID",
     )
     tts_speed = Column(
-        DECIMAL(3, 2),
+        DECIMAL(6, 2),
         nullable=False,
         default=1.0,
-        comment="TTS speech speed (0.5-2.0)",
+        comment="TTS speech speed (provider-specific range)",
     )
     tts_pitch = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="TTS pitch adjustment (-12 to 12)",
+        comment="TTS pitch adjustment (provider-specific range)",
     )
     tts_emotion = Column(
         String(32),

@@ -1189,7 +1189,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     "ALIYUN_TTS_TOKEN": EnvVar(
         name="ALIYUN_TTS_TOKEN",
         default="",
-        description="Aliyun TTS access token (optional, for STS authentication)",
+        description="Aliyun NLS access token (required for RESTful TTS authentication)",
         secret=True,
         group="tts",
     ),

@@ -18,7 +18,6 @@ from concurrent.futures import ThreadPoolExecutor, Future
 
 from flask import Flask
 
-from flaskr.common.config import get_config
 from flaskr.dao import db
 from flaskr.api.tts import (
     synthesize_text,
@@ -28,7 +27,7 @@ from flaskr.api.tts import (
     get_default_voice_settings,
     get_default_audio_settings,
 )
-from flaskr.service.tts import preprocess_for_tts, has_incomplete_block
+from flaskr.service.tts import preprocess_for_tts
 from flaskr.service.tts.audio_utils import (
     concat_audio_mp3,
     get_audio_duration_ms,
@@ -104,9 +103,9 @@ class StreamingTTSProcessor:
         self.voice_settings = get_default_voice_settings(tts_provider)
         if voice_id:
             self.voice_settings.voice_id = voice_id
-        if speed:
+        if speed is not None:
             self.voice_settings.speed = float(speed)
-        if pitch:
+        if pitch is not None:
             self.voice_settings.pitch = int(pitch)
         if emotion:
             self.voice_settings.emotion = emotion
@@ -114,6 +113,7 @@ class StreamingTTSProcessor:
 
         # State
         self._buffer = ""
+        self._processed_text_offset = 0
         self._first_sentence_done = False
         self._segment_index = 0
         self._audio_bid = str(uuid.uuid4()).replace("-", "")
@@ -159,62 +159,61 @@ class StreamingTTSProcessor:
         if not self._buffer:
             return
 
-        # Check for incomplete blocks (SVG, code blocks, etc.)
-        # If incomplete, wait for more content before processing
-        if has_incomplete_block(self._buffer):
-            logger.debug(
-                f"TTS: waiting for incomplete block to complete, buffer_len={len(self._buffer)}"
-            )
-            return
-
         # Preprocess buffer to remove code blocks, SVG, etc.
         processable_text = preprocess_for_tts(self._buffer)
-        if not processable_text or len(processable_text) < 2:
+        if not processable_text:
             return
 
-        text_to_synthesize = None
+        # Keep the offset within bounds in case preprocessing shrunk the text.
+        if self._processed_text_offset > len(processable_text):
+            self._processed_text_offset = len(processable_text)
+
+        remaining_text = processable_text[self._processed_text_offset :]
+        if not remaining_text:
+            return
+
+        # Skip leading whitespace without producing a segment.
+        leading_ws = len(remaining_text) - len(remaining_text.lstrip())
+        if leading_ws:
+            self._processed_text_offset += leading_ws
+            remaining_text = remaining_text[leading_ws:]
+
+        if len(remaining_text) < 2:
+            return
+
+        text_to_synthesize: Optional[str] = None
+        consume_len = 0
 
         if not self._first_sentence_done:
             # Look for first sentence ending
-            match = SENTENCE_ENDINGS.search(processable_text)
+            match = SENTENCE_ENDINGS.search(remaining_text)
             if match:
-                end_pos = match.end()
-                text_to_synthesize = processable_text[:end_pos].strip()
+                consume_len = match.end()
+                candidate = remaining_text[:consume_len]
+                text_to_synthesize = candidate.strip()
                 if text_to_synthesize and len(text_to_synthesize) >= 2:
                     self._first_sentence_done = True
-                    self._consume_buffer(len(text_to_synthesize))
         else:
             # After first sentence, batch at ~300 chars at sentence boundaries
-            if len(processable_text) >= self.max_segment_chars:
-                chunk = processable_text[: self.max_segment_chars]
+            if len(remaining_text) >= self.max_segment_chars:
+                chunk = remaining_text[: self.max_segment_chars]
                 matches = list(SENTENCE_ENDINGS.finditer(chunk))
 
                 if matches:
-                    end_pos = matches[-1].end()
-                    text_to_synthesize = processable_text[:end_pos].strip()
+                    consume_len = matches[-1].end()
                 else:
                     # No sentence boundary, find word/char boundary
-                    text_to_synthesize = chunk.strip()
+                    consume_len = len(chunk)
 
-                if text_to_synthesize and len(text_to_synthesize) >= 2:
-                    self._consume_buffer(len(text_to_synthesize))
+                candidate = remaining_text[:consume_len]
+                text_to_synthesize = candidate.strip()
 
-        # Submit TTS task to background thread
+        if consume_len:
+            self._processed_text_offset += consume_len
+
+        # Submit TTS task to background thread.
         if text_to_synthesize:
             self._submit_tts_task(text_to_synthesize)
-
-    def _consume_buffer(self, chars_processed: int):
-        """Remove processed characters from buffer (approximate)."""
-        # Simple approach: estimate how much of original buffer to remove
-        original_len = len(self._buffer)
-        processable_len = len(preprocess_for_tts(self._buffer))
-
-        if processable_len > 0:
-            ratio = chars_processed / processable_len
-            chars_to_remove = min(int(original_len * ratio), original_len)
-            self._buffer = self._buffer[chars_to_remove:]
-        else:
-            self._buffer = ""
 
     def _submit_tts_task(self, text: str):
         """Submit a TTS synthesis task to the background thread pool."""
@@ -328,7 +327,11 @@ class StreamingTTSProcessor:
 
         # Submit any remaining buffer content
         if self._buffer:
-            remaining_text = preprocess_for_tts(self._buffer)
+            full_text = preprocess_for_tts(self._buffer)
+            if self._processed_text_offset > len(full_text):
+                self._processed_text_offset = len(full_text)
+
+            remaining_text = full_text[self._processed_text_offset :].strip()
             if remaining_text and len(remaining_text) >= 2:
                 self._submit_tts_task(remaining_text)
             self._buffer = ""
@@ -416,7 +419,7 @@ class StreamingTTSProcessor:
                     "emotion": self.voice_settings.emotion,
                     "volume": self.voice_settings.volume,
                 },
-                model=self.tts_model or get_config("MINIMAX_TTS_MODEL") or "",
+                model=self.tts_model or "",
                 text_length=0,
                 segment_count=len(audio_data_list),
                 status=AUDIO_STATUS_COMPLETED,

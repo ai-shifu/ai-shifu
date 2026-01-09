@@ -1930,6 +1930,10 @@ class RunScriptContextV2:
                     app.logger.info(
                         f"TTS enabled for shifu {self._shifu_info.bid}, initializing streaming TTS"
                     )
+                    tts_provider = (shifu_model.tts_provider or "").strip().lower()
+                    if tts_provider == "default":
+                        tts_provider = ""
+
                     tts_processor = StreamingTTSProcessor(
                         app=app,
                         generated_block_bid=generated_block.generated_block_bid,
@@ -1939,12 +1943,14 @@ class RunScriptContextV2:
                         shifu_bid=self._shifu_info.bid,
                         voice_id=shifu_model.tts_voice_id or "",
                         speed=float(shifu_model.tts_speed)
-                        if shifu_model.tts_speed
+                        if shifu_model.tts_speed is not None
                         else 1.0,
                         pitch=int(shifu_model.tts_pitch)
-                        if shifu_model.tts_pitch
+                        if shifu_model.tts_pitch is not None
                         else 0,
                         emotion=shifu_model.tts_emotion or "",
+                        tts_provider=tts_provider,
+                        tts_model=shifu_model.tts_model or "",
                     )
 
                 stream_result = mdflow_context.process(

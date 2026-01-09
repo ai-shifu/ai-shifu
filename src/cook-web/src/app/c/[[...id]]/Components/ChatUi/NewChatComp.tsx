@@ -1,5 +1,5 @@
 import styles from './ChatComponents.module.scss';
-import { ArrowDown, ChevronsDown } from 'lucide-react';
+import { ChevronsDown } from 'lucide-react';
 import {
   useContext,
   useRef,
@@ -7,14 +7,12 @@ import {
   useCallback,
   useState,
   useEffect,
-  useMemo,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
 import { AppContext } from '../AppContext';
 import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScroll';
-import useAutoScroll from './useAutoScroll';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { useEnvStore } from '@/c-store/envStore';
 import { useUserStore } from '@/store';
@@ -148,14 +146,6 @@ export const NewChatComponents = ({
   // Handle audio play state change - use ref to avoid stale closure
   const handleAudioPlayStateChange = useCallback(
     (blockBid: string, isPlaying: boolean) => {
-      console.log('[NewChatComp] handleAudioPlayStateChange:', {
-        blockBid,
-        isPlaying,
-        currentPlayingBlockBid: currentPlayingBlockBidRef.current,
-        queue: [...audioQueueRef.current],
-        playedBlocks: [...playedBlocksRef.current],
-      });
-
       if (isPlaying) {
         currentPlayingBlockBidRef.current = blockBid;
         setCurrentPlayingBlockBid(blockBid);
@@ -167,10 +157,6 @@ export const NewChatComponents = ({
 
           // Current audio finished, play next in queue
           const nextBlockBid = audioQueueRef.current.shift();
-          console.log(
-            '[NewChatComp] Block finished, next in queue:',
-            nextBlockBid,
-          );
           if (nextBlockBid) {
             currentPlayingBlockBidRef.current = nextBlockBid;
             setCurrentPlayingBlockBid(nextBlockBid);
@@ -178,11 +164,6 @@ export const NewChatComponents = ({
             currentPlayingBlockBidRef.current = null;
             setCurrentPlayingBlockBid(null);
           }
-        } else {
-          console.log('[NewChatComp] Block mismatch, ignoring:', {
-            expected: currentPlayingBlockBidRef.current,
-            received: blockBid,
-          });
         }
       }
     },
@@ -213,20 +194,9 @@ export const NewChatComponents = ({
         // Otherwise, add to queue if not already there
         if (!audioQueueRef.current.includes(blockBid)) {
           audioQueueRef.current.push(blockBid);
-          console.log('[NewChatComp] Added to queue:', blockBid, 'queue:', [
-            ...audioQueueRef.current,
-          ]);
         }
         return false;
       })();
-
-      console.log('[NewChatComp] shouldAutoPlay:', {
-        blockBid,
-        hasAudio,
-        currentPlayingBlockBid,
-        result,
-      });
-
       return result;
     },
     [autoPlayAudio, currentPlayingBlockBid],
@@ -239,15 +209,6 @@ export const NewChatComponents = ({
     currentPlayingBlockBidRef.current = null;
     setCurrentPlayingBlockBid(null);
   }, [lessonId]);
-
-  // Debug: Log items audio state when currentPlayingBlockBid changes
-  useEffect(() => {
-    console.log('[NewChatComp] currentPlayingBlockBid changed:', {
-      currentPlayingBlockBid,
-      queue: [...audioQueueRef.current],
-      playedBlocks: [...playedBlocksRef.current],
-    });
-  }, [currentPlayingBlockBid]);
 
   const {
     items,
@@ -275,26 +236,6 @@ export const NewChatComponents = ({
     showOutputInProgressToast,
     onPayModalOpen,
   });
-
-  // Debug: Log items with audio for visibility
-  useEffect(() => {
-    const itemsWithAudio = items.filter(
-      item =>
-        item.type === ChatContentItemType.CONTENT &&
-        (item.audioSegments?.length || item.isAudioStreaming),
-    );
-    if (itemsWithAudio.length > 0) {
-      console.log(
-        '[NewChatComp] Items with audio:',
-        itemsWithAudio.map(item => ({
-          blockBid: item.generated_block_bid,
-          segmentsCount: item.audioSegments?.length || 0,
-          isStreaming: item.isAudioStreaming,
-          hasAudioUrl: !!item.audioUrl,
-        })),
-      );
-    }
-  }, [items]);
 
   const handleLongPress = useCallback(
     (event: any, currentBlock: ChatContentItem) => {
@@ -452,10 +393,6 @@ export const NewChatComponents = ({
               }
 
               if (item.type === ChatContentItemType.LIKE_STATUS) {
-                // Find the parent content block to get audio info
-                const parentBlock = items.find(
-                  b => b.generated_block_bid === item.parent_block_bid,
-                );
                 return mobileStyle ? null : (
                   <div
                     key={`${idx}-interaction`}
@@ -472,25 +409,23 @@ export const NewChatComponents = ({
                       readonly={item.readonly}
                       onRefresh={onRefresh}
                       onToggleAskExpanded={toggleAskExpanded}
-                      audioUrl={parentBlock?.audioUrl}
-                      audioSegments={parentBlock?.audioSegments}
-                      isAudioStreaming={parentBlock?.isAudioStreaming}
-                      autoPlayAudio={false}
-                      onAudioPlayStateChange={isPlaying =>
-                        handleAudioPlayStateChange(
-                          parentBlock?.generated_block_bid || '',
-                          isPlaying,
-                        )
-                      }
                     />
                   </div>
                 );
               }
 
-              // Calculate autoPlay once to ensure consistent value
+              // Calculate autoPlay once to ensure consistent value.
+              // Do not auto-play historical audio on initial load.
+              const hasAudioForAutoPlay =
+                !item.isHistory &&
+                Boolean(
+                  item.audioUrl ||
+                    item.audioSegments?.length ||
+                    item.isAudioStreaming,
+                );
               const blockAutoPlay = shouldAutoPlay(
                 item.generated_block_bid,
-                Boolean(item.audioSegments?.length || item.isAudioStreaming),
+                hasAudioForAutoPlay,
               );
 
               return (

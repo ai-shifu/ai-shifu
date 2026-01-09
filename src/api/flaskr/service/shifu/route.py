@@ -356,7 +356,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                         description: TTS enabled
                     tts_provider:
                         type: string
-                        description: TTS provider (minimax, volcengine)
+                        description: TTS provider (minimax, volcengine, baidu, aliyun)
                     tts_model:
                         type: string
                         description: TTS model/resource ID
@@ -365,10 +365,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                         description: TTS voice ID
                     tts_speed:
                         type: number
-                        description: TTS speech speed (0.5-2.0)
+                        description: TTS speech speed (provider-specific range)
                     tts_pitch:
                         type: integer
-                        description: TTS pitch adjustment (-12 to 12)
+                        description: TTS pitch adjustment (provider-specific range)
                     tts_emotion:
                         type: string
                         description: TTS emotion setting
@@ -401,7 +401,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         shifu_system_prompt = json_data.get("system_prompt", None)
         # TTS Configuration
         tts_enabled = json_data.get("tts_enabled", False)
-        tts_provider = json_data.get("tts_provider", "")
+        tts_provider = json_data.get("tts_provider", "") or ""
+        tts_provider = tts_provider.strip().lower()
+        if tts_provider == "default":
+            tts_provider = ""
         tts_model = json_data.get("tts_model", "")
         tts_voice_id = json_data.get("tts_voice_id", "")
         tts_speed = json_data.get("tts_speed", 1.0)
@@ -1237,10 +1240,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                 description: Voice ID for synthesis
                             speed:
                                 type: number
-                                description: Speech speed (0.5-2.0)
+                                description: Speech speed (provider-specific range)
                             pitch:
                                 type: integer
-                                description: Pitch adjustment (-12 to 12)
+                                description: Pitch adjustment (provider-specific range)
                             emotion:
                                 type: string
                                 description: Emotion setting
@@ -1266,43 +1269,51 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         from flaskr.api.tts import (
             synthesize_text,
             is_tts_configured,
-            VoiceSettings,
+            get_default_voice_settings,
             get_default_audio_settings,
         )
 
-        if not is_tts_configured():
-            raise_error(
-                "TTS_NOT_CONFIGURED",
-                "TTS is not configured. Please set MINIMAX_API_KEY.",
-            )
-
         json_data = request.get_json() or {}
-        voice_id = json_data.get("voice_id", "male-qn-qingse")
-        speed = float(json_data.get("speed", 1.0))
-        pitch = int(json_data.get("pitch", 0))
+        provider_name = (json_data.get("provider") or "").strip().lower()
+        if provider_name == "default":
+            provider_name = ""
+        model = (json_data.get("model") or "").strip()
+        voice_id = json_data.get("voice_id") or ""
+        speed_raw = json_data.get("speed")
+        pitch_raw = json_data.get("pitch")
         emotion = json_data.get("emotion", "")
         text = json_data.get(
             "text",
             "你好，这是语音合成的试听效果。Hello, this is a preview of text-to-speech.",
         )
 
+        if provider_name:
+            if not is_tts_configured(provider_name):
+                raise_error("TTS_NOT_CONFIGURED")
+        elif not is_tts_configured():
+            raise_error("TTS_NOT_CONFIGURED")
+
         # Limit text length for preview
         if len(text) > 200:
             text = text[:200]
 
-        voice_settings = VoiceSettings(
-            voice_id=voice_id,
-            speed=speed,
-            pitch=pitch,
-            emotion=emotion if emotion else "neutral",
-            volume=1.0,
-        )
+        voice_settings = get_default_voice_settings(provider_name)
+        if voice_id:
+            voice_settings.voice_id = voice_id
+        if speed_raw is not None:
+            voice_settings.speed = float(speed_raw)
+        if pitch_raw is not None:
+            voice_settings.pitch = int(pitch_raw)
+        if emotion:
+            voice_settings.emotion = emotion
 
         try:
             result = synthesize_text(
                 text=text,
                 voice_settings=voice_settings,
-                audio_settings=get_default_audio_settings(),
+                audio_settings=get_default_audio_settings(provider_name),
+                model=model or None,
+                provider_name=provider_name,
             )
 
             audio_base64 = base64.b64encode(result.audio_data).decode("utf-8")
@@ -1315,6 +1326,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             )
         except Exception as e:
             current_app.logger.error(f"TTS preview failed: {e}")
-            raise_error("TTS_PREVIEW_FAILED", f"TTS preview failed: {str(e)}")
+            raise_error("TTS_PREVIEW_FAILED")
 
     return app

@@ -42,10 +42,8 @@ MINIMAX_ALLOWED_EMOTIONS = [
 MINIMAX_MODELS = [
     {"value": "speech-01-turbo", "label": "Speech-01-Turbo"},
     {"value": "speech-01-hd", "label": "Speech-01-HD"},
-    {"value": "speech-01", "label": "Speech-01"},
     {"value": "speech-02-turbo", "label": "Speech-02-Turbo"},
     {"value": "speech-02-hd", "label": "Speech-02-HD"},
-    {"value": "speech-02", "label": "Speech-02"},
 ]
 
 # Minimax TTS voices
@@ -205,7 +203,24 @@ class MinimaxTTSProvider(BaseTTSProvider):
         """
         api_key = get_config("MINIMAX_API_KEY")
         group_id = get_config("MINIMAX_GROUP_ID")
-        tts_model = model or get_config("MINIMAX_TTS_MODEL") or "speech-01-turbo"
+        valid_models = {m["value"] for m in MINIMAX_MODELS}
+        requested_model = (model or "").strip()
+        if requested_model and requested_model not in valid_models:
+            logger.warning(
+                "Ignoring invalid Minimax TTS model: %s (falling back to default)",
+                requested_model,
+            )
+            requested_model = ""
+
+        configured_model = (get_config("MINIMAX_TTS_MODEL") or "").strip()
+        if configured_model and configured_model not in valid_models:
+            logger.warning(
+                "Ignoring invalid MINIMAX_TTS_MODEL: %s (falling back to default)",
+                configured_model,
+            )
+            configured_model = ""
+
+        tts_model = requested_model or configured_model or "speech-01-turbo"
 
         if not api_key:
             raise ValueError("MINIMAX_API_KEY is not configured")
@@ -229,11 +244,15 @@ class MinimaxTTSProvider(BaseTTSProvider):
         }
         if voice_settings.pitch is not None:
             voice_setting_dict["pitch"] = int(voice_settings.pitch)
+        emotion = (voice_settings.emotion or "").strip()
+        emotion_supported_by_model = tts_model.startswith("speech-01")
         if (
-            voice_settings.emotion
-            and voice_settings.emotion in MINIMAX_ALLOWED_EMOTIONS
+            emotion_supported_by_model
+            and emotion
+            and emotion != "neutral"
+            and emotion in MINIMAX_ALLOWED_EMOTIONS
         ):
-            voice_setting_dict["emotion"] = voice_settings.emotion
+            voice_setting_dict["emotion"] = emotion
 
         # Build request payload
         payload = {
