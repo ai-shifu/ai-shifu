@@ -2086,7 +2086,7 @@ class RunScriptContextV2:
                 outline_bid=self._outline_item_info.bid,
                 generated_block_bid=generate_id(self.app),
                 type=GeneratedType.INTERACTION,
-                content=f"?[{_('USER.LOGIN')}//_sys_login]",
+                content=f"?[{_('server.user.login')}//_sys_login]",
             )
 
     def has_next(self) -> bool:
