@@ -422,8 +422,8 @@ export const NewChatComponents = ({
                 !item.isHistory &&
                 Boolean(
                   item.audioUrl ||
-                    item.audioSegments?.length ||
-                    item.isAudioStreaming,
+                  item.audioSegments?.length ||
+                  item.isAudioStreaming,
                 );
               const blockAutoPlay = shouldAutoPlay(
                 item.generated_block_bid,
