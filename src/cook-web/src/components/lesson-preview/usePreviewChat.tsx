@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SSE } from 'sse.js';
 import { v4 as uuidv4 } from 'uuid';
-import { OnSendContentParams } from 'markdown-flow-ui';
+import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { createInteractionParser } from 'remark-flow';
 import LoadingBar from '@/app/c/[[...id]]/Components/ChatUi/LoadingBar';
 import {

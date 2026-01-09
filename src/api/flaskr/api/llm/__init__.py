@@ -13,7 +13,6 @@ from langfuse.model import ModelUsage
 from .dify import DifyChunkChatCompletionResponse, dify_chat_message
 from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
-from ..ark.sign import request
 from litellm import get_max_tokens
 
 logger = logging.getLogger(__name__)
@@ -291,45 +290,6 @@ def _resolve_provider_for_model(model: str) -> Tuple[Optional[str], str]:
     return None, model
 
 
-def _load_ark_models(
-    config: ProviderConfig, params: Dict[str, str], base_url: Optional[str]
-) -> List[Union[str, Tuple[str, str]]]:
-    access_key = get_config("ARK_ACCESS_KEY_ID")
-    secret_key = get_config("ARK_SECRET_ACCESS_KEY")
-    if not access_key or not secret_key:
-        _log_warning("ARK credentials not fully configured")
-        return []
-    try:
-        ark_list_endpoints = request(
-            "POST",
-            datetime.now(),
-            {},
-            {},
-            access_key,
-            secret_key,
-            "ListEndpoints",
-            None,
-        )
-        _log_info(str(ark_list_endpoints))
-        ark_endpoints = ark_list_endpoints.get("Result", {}).get("Items", [])
-        models: List[Tuple[str, str]] = []
-        if ark_endpoints:
-            for endpoint in ark_endpoints:
-                endpoint_id = endpoint.get("Id")
-                model_name = (
-                    endpoint.get("ModelReference", {})
-                    .get("FoundationModel", {})
-                    .get("Name", "")
-                )
-                _log_info(f"ark endpoint: {endpoint_id}, model: {model_name}")
-                if endpoint_id and model_name:
-                    models.append((model_name, endpoint_id))
-        return models
-    except Exception as exc:
-        _log_warning(f"load ark models error: {exc}")
-        return []
-
-
 def _load_gemini_models(
     config: ProviderConfig, params: Dict[str, str], base_url: Optional[str]
 ) -> List[Union[str, Tuple[str, str]]]:
@@ -422,6 +382,21 @@ def _reload_gemini_params(model_id: str, temperature: float) -> Dict[str, Any]:
     }
 
 
+def _reload_ark_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    # doubao-seed models support thinking parameter, pass via extra_body for LiteLLM
+    return {
+        "temperature": temperature,
+        "extra_body": {"thinking": {"type": "disabled"}},
+    }
+
+
+def _reload_silicon_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    return {
+        "temperature": temperature,
+        "extra_body": {"enable_thinking": False},
+    }
+
+
 LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
     ProviderConfig(
         key="openai",
@@ -489,16 +464,16 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         prefix=SILICON_PREFIX,
         config_hint="SILICON_API_KEY,SILICON_API_URL",
         custom_llm_provider="openai",
+        reload_params=_reload_silicon_params,
     ),
     ProviderConfig(
         key="ark",
         api_key_env="ARK_API_KEY",
         default_base_url="https://ark.cn-beijing.volces.com/api/v3",
         prefix="ark/",
-        config_hint="ARK_ACCESS_KEY_ID,ARK_SECRET_ACCESS_KEY",
+        config_hint="ARK_API_KEY",
         custom_llm_provider="openai",
-        fetch_models=False,
-        model_loader=_load_ark_models,
+        reload_params=_reload_ark_params,
     ),
 ]
 

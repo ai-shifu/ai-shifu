@@ -3,7 +3,8 @@ import { useLongPress } from 'react-use';
 import { isEqual } from 'lodash';
 // TODO@XJL
 // import ContentRender from '../../../../../../../../../markdown-flow-ui/src/components/ContentRender/ContentRender';
-import { ContentRender, type OnSendContentParams } from 'markdown-flow-ui';
+import { ContentRender } from 'markdown-flow-ui/renderer';
+import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { cn } from '@/lib/utils';
 import type { ChatContentItem } from './useChatLogicHook';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
