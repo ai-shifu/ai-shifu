@@ -156,21 +156,6 @@ const MainMenuModal = ({
             <>
               <div
                 className={cn(styles.mainMenuModalRow, 'px-2.5')}
-                onClick={onUserInfoClick}
-              >
-                <Image
-                  className={styles.rowIcon}
-                  width={16}
-                  height={16}
-                  src={imgUserInfo.src}
-                  alt=''
-                />
-                <div className={styles.rowTitle}>
-                  {t('component.menus.navigationMenus.basicInfo')}
-                </div>
-              </div>
-              <div
-                className={cn(styles.mainMenuModalRow, 'px-2.5')}
                 onClick={_onPersonalInfoClick}
               >
                 <Image

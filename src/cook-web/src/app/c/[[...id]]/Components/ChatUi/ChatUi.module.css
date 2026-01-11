@@ -44,14 +44,39 @@
   );
   z-index: 10;
 }
+.ChatUi .footer .footerContent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .ChatUi .footer .footerText {
   color: rgba(10, 10, 10, 0.45);
   text-align: center;
-  font-family: 'PingFang SC';
   font-size: 12px;
   font-style: normal;
   font-weight: 400;
   line-height: 24px;
+}
+.ChatUi .footer .separator {
+  color: rgba(10, 10, 10, 0.45);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 24px;
+}
+.ChatUi .footer .footerLink {
+  color: rgba(10, 10, 10, 0.45);
+  text-align: center;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 24px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.ChatUi .footer .footerLink:hover {
+  color: rgba(10, 10, 10, 0.65);
+  text-decoration: underline;
 }
 .ChatUi.mobile {
   width: 100%;

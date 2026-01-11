@@ -898,15 +898,18 @@ export const ShifuProvider = ({
       0;
 
     const isNew = data.bid === 'new_chapter' || data.bid === 'new_lesson';
-
     try {
       if (isNew) {
+        const type =
+          data.bid === 'new_chapter'
+            ? LEARNING_PERMISSION.GUEST
+            : LEARNING_PERMISSION.TRIAL;
         const newUnit = await api.createOutline({
           parent_bid: data.parent_bid,
           index,
           name: data.name,
           description: data.name,
-          type: LEARNING_PERMISSION.GUEST,
+          type: type,
           system_prompt: '',
           is_hidden: false,
           shifu_bid: currentShifu?.bid || '',
@@ -976,7 +979,7 @@ export const ShifuProvider = ({
         index: Math.max(0, index - 1),
         name: data.name,
         description: data.name,
-        type: LEARNING_PERMISSION.GUEST,
+        type: LEARNING_PERMISSION.TRIAL,
         system_prompt: '',
         is_hidden: false,
         shifu_id: currentShifu?.bid || '',

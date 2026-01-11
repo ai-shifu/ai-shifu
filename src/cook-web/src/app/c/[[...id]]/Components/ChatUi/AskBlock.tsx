@@ -8,7 +8,7 @@ import React, {
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { Maximize2, Minimize2, X } from 'lucide-react';
-import { ContentRender, MarkdownFlowInput } from 'markdown-flow-ui';
+import { ContentRender, MarkdownFlowInput } from 'markdown-flow-ui/renderer';
 import {
   checkIsRunning,
   getRunMessage,

@@ -96,7 +96,6 @@ const ScriptManagementPage = () => {
   const pageSize = 30;
   const currentPage = useRef(1);
   const containerRef = useRef(null);
-
   const fetchShifusRef = useRef<(() => Promise<void>) | null>(null);
 
   const fetchShifus = useCallback(async () => {
@@ -267,37 +266,6 @@ const ScriptManagementPage = () => {
             onSubmit={onCreateShifu}
           />
         </div>
-        <Tabs
-          defaultValue='all'
-          className='mb-0'
-          onValueChange={setActiveTab}
-        >
-          <TabsList className='bg-stone-50 px-0'>
-            <TabsTrigger value='all'>
-              {activeTab == 'all' && (
-                <RectangleStackIcon className='w-5 h-5 mr-1 text-primary' />
-              )}
-              {activeTab != 'all' && (
-                <RectangleStackOutlineIcon className='w-5 h-5 mr-1' />
-              )}
-              {t('common.core.all')}
-            </TabsTrigger>
-            <TabsTrigger value='favorites'>
-              {activeTab == 'favorites' && (
-                <StarIcon className='w-5 h-5 mr-1 text-primary' />
-              )}
-              {activeTab != 'favorites' && (
-                <StarOutlineIcon className='w-5 h-5 mr-1' />
-              )}
-              {t('common.core.favorites')}
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent
-            value='all'
-            className=' flex-1 overflow-auto'
-          ></TabsContent>
-          <TabsContent value='favorites'></TabsContent>
-        </Tabs>
         <div className='flex-1 overflow-auto'>
           <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-3'>
             {shifus.map(shifu => (
