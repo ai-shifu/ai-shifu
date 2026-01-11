@@ -175,9 +175,6 @@ export function MdfConvertDialog({
                   <div className='flex items-start gap-2'>
                     <AlertCircle className='h-5 w-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5' />
                     <div className='flex-1 text-sm'>
-                      <p className='font-medium text-yellow-800 dark:text-yellow-200 mb-1'>
-                        {t('component.mdfConvert.configWarningTitle')}
-                      </p>
                       <p className='text-yellow-700 dark:text-yellow-300'>
                         {t('component.mdfConvert.configWarningMessage')}
                       </p>

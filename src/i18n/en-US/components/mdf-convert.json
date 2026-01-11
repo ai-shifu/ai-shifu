@@ -5,7 +5,6 @@
   "backButton": "Back",
   "cancelButton": "Cancel",
   "configWarningMessage": "You haven't configured the API service for intelligent MarkdownFlow generation. Please contact the AI-Shifu team for support at hello@ai-shifu.com",
-  "configWarningTitle": "API Service Not Configured?",
   "confirmApplyButton": "Confirm",
   "confirmApplyDescription": "This will overwrite the current content in the editor. Do you want to proceed?",
   "confirmApplyTitle": "Confirm Apply",
