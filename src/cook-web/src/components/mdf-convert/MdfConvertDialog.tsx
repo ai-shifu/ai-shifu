@@ -178,17 +178,9 @@ export function MdfConvertDialog({
                       <p className='font-medium text-yellow-800 dark:text-yellow-200 mb-1'>
                         {t('component.mdfConvert.configWarningTitle')}
                       </p>
-                      <p className='text-yellow-700 dark:text-yellow-300 mb-2'>
+                      <p className='text-yellow-700 dark:text-yellow-300'>
                         {t('component.mdfConvert.configWarningMessage')}
                       </p>
-                      <a
-                        href='https://github.com/ai-shifu/ai-shifu/issues'
-                        target='_blank'
-                        rel='noopener noreferrer'
-                        className='text-yellow-900 dark:text-yellow-200 underline hover:no-underline font-medium'
-                      >
-                        {t('component.mdfConvert.contactSupport')}
-                      </a>
                     </div>
                   </div>
                 </div>
