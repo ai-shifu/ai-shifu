@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Copy, Loader2, AlertCircle } from 'lucide-react';
 
 // Reuse ai-shifu's shadcn/ui components
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
   Dialog,
@@ -195,8 +196,11 @@ export function MdfConvertDialog({
         onInteractOutside={e => e.preventDefault()}
       >
         <DialogHeader className='px-6 pt-4 pb-2 border-0'>
-          <DialogTitle className='text-xl font-semibold tracking-tight'>
+          <DialogTitle className='text-xl font-semibold tracking-tight flex items-center gap-2'>
             {t('component.mdfConvert.dialogTitle')}
+            <Badge variant='default' className='text-[10px] px-1.5 py-0 font-medium'>
+              Beta
+            </Badge>
           </DialogTitle>
         </DialogHeader>
 
