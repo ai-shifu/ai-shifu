@@ -100,7 +100,7 @@ export async function convertToMdf(
   try {
     // Get API base URL from environment variable
     const baseUrl =
-      process.env.NEXT_PUBLIC_LLM_API_URL || 'http://localhost:8000';
+      process.env.NEXT_PUBLIC_GEN_MDF_API_URL || 'http://localhost:8000';
 
     const response = await fetch(`${baseUrl}/gen/mdf-convert`, {
       method: 'POST',
