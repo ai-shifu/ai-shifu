@@ -12,6 +12,7 @@ import { useShifu } from '@/store';
 import { useUserStore } from '@/store';
 import OutlineTree from '@/components/outline-tree';
 import ChapterSettingsDialog from '@/components/chapter-setting';
+import { MdfConvertDialog } from '@/components/mdf-convert';
 import Header from '../header';
 // import MarkdownFlowEditor from '../../../../../../markdown-flow-ui/src/components/MarkdownFlowEditor';
 import { UploadProps, EditMode } from 'markdown-flow-ui/editor';
@@ -79,6 +80,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [isPreviewPanelOpen, setIsPreviewPanelOpen] = useState(false);
   const [isPreviewPreparing, setIsPreviewPreparing] = useState(false);
   const [addChapterDialogOpen, setAddChapterDialogOpen] = useState(false);
+  const [isMdfConvertDialogOpen, setIsMdfConvertDialogOpen] = useState(false);
   const [recentVariables, setRecentVariables] = useState<string[]>([]);
   const seenVariableNamesRef = useRef<Set<string>>(new Set());
   const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async preview is pending
@@ -362,6 +364,41 @@ const ScriptEditor = ({ id }: { id: string }) => {
     };
   }, [token, baseURL]);
 
+  // Handle applying MDF converted content to editor
+  const handleApplyMdfContent = useCallback(
+    (contentPrompt: string) => {
+      actions.setCurrentMdflow(contentPrompt);
+      actions.autoSaveBlocks({
+        shifu_bid: currentShifu?.bid || '',
+        outline_bid: currentNode?.bid || '',
+        data: contentPrompt,
+      });
+    },
+    [actions, currentShifu?.bid, currentNode?.bid],
+  );
+
+  // Toolbar actions for MDF conversion
+  const toolbarActionsRight = useMemo(
+    () => [
+      {
+        key: 'mdfConvert',
+        label: '',
+        icon: (
+          <svg
+            aria-hidden='true'
+            viewBox='0 0 1024 1024'
+            className='h-5 w-5 fill-current'
+          >
+            <path d='M633.6 358.4l-473.6 460.8c0 12.8 6.4 19.2 12.8 19.2l51.2 51.2c6.4 6.4 12.8 6.4 19.2 12.8L704 441.6 633.6 358.4zM780.8 384c0 6.4 6.4 6.4 0 0l6.4 6.4h12.8l121.6-121.6c12.8-12.8 12.8-44.8-12.8-64l-51.2-51.2c-19.2-19.2-51.2-25.6-64-12.8l-121.6 121.6-6.4 6.4c0 6.4 0 6.4 6.4 6.4L780.8 384zM313.6 224l64 25.6c6.4 0 6.4 6.4 12.8 19.2l25.6 57.6h12.8l25.6-57.6c0-6.4 6.4-12.8 12.8-12.8l57.6-25.6v-6.4-6.4l-57.6-32c-6.4 0-12.8-6.4-12.8-12.8l-25.6-64h-12.8l-25.6 64c-6.4 6.4-6.4 12.8-19.2 12.8l-57.6 25.6-6.4 6.4 6.4 6.4zM166.4 531.2s6.4 0 0 0c6.4 0 6.4-6.4 0 0l25.6-51.2c0-6.4 6.4-12.8 12.8-12.8l44.8-19.2v-6.4l-44.8-19.2-12.8-12.8-19.2-44.8h-6.4l-19.2 44.8c0 6.4-6.4 12.8-12.8 12.8l-44.8 19.2 44.8 19.2c6.4 0 6.4 6.4 12.8 12.8l19.2 57.6c0-6.4 0 0 0 0zM934.4 774.4l-89.6-38.4c-12.8-6.4-19.2-12.8-25.6-25.6l-38.4-83.2s0-6.4-6.4-6.4H768s-6.4 0-6.4 6.4l-38.4 83.2c-6.4 12.8-12.8 19.2-19.2 25.6l-83.2 38.4h-6.4v12.8h6.4l83.2 38.4c12.8 6.4 19.2 12.8 25.6 25.6l38.4 83.2s0 6.4 6.4 6.4h6.4s6.4 0 6.4-6.4l38.4-83.2c6.4-12.8 12.8-19.2 19.2-25.6l83.2-38.4h6.4c6.4 0 6.4-6.4 0-12.8 6.4 6.4 6.4 6.4 0 0z' />
+          </svg>
+        ),
+        tooltip: t('component.mdfConvert.dialogTitle'),
+        onClick: () => setIsMdfConvertDialogOpen(true),
+      },
+    ],
+    [t],
+  );
+
   const canPreview = Boolean(
     currentNode?.depth && currentNode.depth > 0 && currentShifu?.bid,
   );
@@ -607,6 +644,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                       onChange={onChangeMdflow}
                       editMode={editMode}
                       uploadProps={uploadProps}
+                      toolbarActionsRight={toolbarActionsRight}
                     />
                   )}
                 </>
@@ -648,6 +686,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
             </div>
           ) : null}
         </div>
+
+        <MdfConvertDialog
+          open={isMdfConvertDialogOpen}
+          onOpenChange={setIsMdfConvertDialogOpen}
+          onApplyContent={handleApplyMdfContent}
+        />
       </div>
     </div>
   );
