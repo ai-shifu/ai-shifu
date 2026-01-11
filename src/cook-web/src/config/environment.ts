@@ -58,6 +58,10 @@ interface EnvironmentConfig {
       'en-US': string;
     };
   };
+
+  // MDF Conversion Configuration
+  mdfApiUrl: string;
+  mdfApiConfigured: boolean;
 }
 
 /**
@@ -336,6 +340,29 @@ function getLegalUrls(): {
 }
 
 /**
+ * Gets MDF conversion API URL
+ * Returns configured URL or empty string (no fallback)
+ */
+function getMdfApiUrl(): string {
+  return (
+    getRuntimeEnv('NEXT_PUBLIC_GEN_MDF_API_URL') ||
+    process.env.NEXT_PUBLIC_GEN_MDF_API_URL ||
+    ''
+  );
+}
+
+/**
+ * Checks if MDF API is explicitly configured
+ * Returns false if URL is empty or not set
+ */
+function isMdfApiConfigured(): boolean {
+  const url =
+    getRuntimeEnv('NEXT_PUBLIC_GEN_MDF_API_URL') ||
+    process.env.NEXT_PUBLIC_GEN_MDF_API_URL;
+  return Boolean(url && url.trim().length > 0);
+}
+
+/**
  * Environment configuration instance with new organized structure
  */
 export const environment: EnvironmentConfig = {
@@ -380,6 +407,10 @@ export const environment: EnvironmentConfig = {
 
   // Legal Documents Configuration
   legalUrls: getLegalUrls(),
+
+  // MDF Conversion Configuration
+  mdfApiUrl: getMdfApiUrl(),
+  mdfApiConfigured: isMdfApiConfigured(),
 };
 
 export default environment;

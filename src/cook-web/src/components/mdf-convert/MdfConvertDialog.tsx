@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, Loader2 } from 'lucide-react';
+import { Copy, Loader2, AlertCircle } from 'lucide-react';
 
 // Reuse ai-shifu's shadcn/ui components
 import { Button } from '@/components/ui/Button';
@@ -25,6 +25,9 @@ import { useAlert } from '@/components/ui/UseAlert';
 
 // Use unified Request system
 import http from '@/lib/request';
+
+// Use centralized environment configuration
+import environment from '@/config/environment';
 
 // MDF conversion response type
 interface MdfConvertResponse {
@@ -90,8 +93,7 @@ export function MdfConvertDialog({
 
     setIsConverting(true);
     try {
-      const baseUrl =
-        process.env.NEXT_PUBLIC_GEN_MDF_API_URL || 'http://localhost:8000';
+      const baseUrl = environment.mdfApiUrl;
 
       const response = (await http.post(`${baseUrl}/gen/mdf-convert`, {
         text: inputText.trim(),
@@ -101,9 +103,9 @@ export function MdfConvertDialog({
 
       setResult(response);
       show(t('component.mdfConvert.convertSuccess'));
-    } catch {
-      // Request class already shows toast for errors, just show a generic message
-      fail(t('component.mdfConvert.convertError'), 5000);
+    } catch (error: any) {
+      // Request 类已经显示了错误消息
+      // 这里不需要额外处理，避免重复提示
     } finally {
       setIsConverting(false);
     }
@@ -167,6 +169,30 @@ export function MdfConvertDialog({
           {!result ? (
             // Input Form
             <div className='flex flex-col flex-1 space-y-2'>
+              {/* Persistent warning when MDF API is not configured */}
+              {!environment.mdfApiConfigured && (
+                <div className='mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md'>
+                  <div className='flex items-start gap-2'>
+                    <AlertCircle className='h-5 w-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5' />
+                    <div className='flex-1 text-sm'>
+                      <p className='font-medium text-yellow-800 dark:text-yellow-200 mb-1'>
+                        {t('component.mdfConvert.configWarningTitle')}
+                      </p>
+                      <p className='text-yellow-700 dark:text-yellow-300 mb-2'>
+                        {t('component.mdfConvert.configWarningMessage')}
+                      </p>
+                      <a
+                        href='https://github.com/ai-shifu/ai-shifu/issues'
+                        target='_blank'
+                        rel='noopener noreferrer'
+                        className='text-yellow-900 dark:text-yellow-200 underline hover:no-underline font-medium'
+                      >
+                        {t('component.mdfConvert.contactSupport')}
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
               <Label
                 htmlFor='input-text'
                 className='text-sm font-medium'
@@ -238,7 +264,11 @@ export function MdfConvertDialog({
               </Button>
               <Button
                 onClick={handleConvert}
-                disabled={isConverting || !inputText.trim()}
+                disabled={
+                  !environment.mdfApiConfigured ||
+                  isConverting ||
+                  !inputText.trim()
+                }
                 className='flex items-center gap-2'
               >
                 {isConverting && <Loader2 className='h-4 w-4 animate-spin' />}
