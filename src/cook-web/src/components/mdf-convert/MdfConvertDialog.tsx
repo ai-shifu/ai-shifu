@@ -174,10 +174,10 @@ export function MdfConvertDialog({
         <div className='flex-1 flex flex-col overflow-hidden px-6 pb-6'>
           {!result ? (
             // Input Form
-            <div className='flex flex-col flex-1 space-y-2'>
+            <div className='flex-1 flex flex-col'>
               {/* Persistent warning when MDF API is not configured */}
               {!environment.mdfApiConfigured && (
-                <div className='mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md'>
+                <div className='mb-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md'>
                   <div className='flex items-start gap-2'>
                     <AlertCircle className='h-5 w-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5' />
                     <div className='flex-1 text-sm'>
@@ -194,62 +194,54 @@ export function MdfConvertDialog({
                   </div>
                 </div>
               )}
-              <Label
-                htmlFor='input-text'
-                className='text-sm font-medium'
-              >
-                {t('component.mdfConvert.inputLabel')}
-              </Label>
+              <div className='flex items-center justify-between min-h-[32px] mb-2'>
+                <Label
+                  htmlFor='input-text'
+                  className='text-sm font-medium'
+                >
+                  {t('component.mdfConvert.inputLabel')}
+                </Label>
+              </div>
               <Textarea
                 id='input-text'
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
                 placeholder={t('component.mdfConvert.inputPlaceholder')}
-                className='flex-1 min-h-[200px] resize-none border-slate-300/80 bg-background/90 focus-visible:ring-1 focus-visible:ring-primary/40'
+                className='flex-1 resize-none rounded-md border border-slate-300/80 bg-background/90 p-4 focus-visible:ring-1 focus-visible:ring-primary/40'
                 disabled={isConverting}
               />
-              <div className='text-xs text-muted-foreground text-right'>
-                {inputText.length} / 10,000
+              <div className='flex items-center justify-end min-h-[20px] mt-2'>
+                <div className='text-xs text-muted-foreground'>
+                  {inputText.length} / 10,000
+                </div>
               </div>
             </div>
           ) : (
             // Result Display
-            <ScrollArea className='flex-1'>
-              <div className='space-y-4'>
-                <div className='space-y-2'>
-                  <div className='flex items-center justify-between'>
-                    <h3 className='text-sm font-medium text-foreground'>
-                      {t('component.mdfConvert.contentPromptTitle')}
-                    </h3>
-                    <Button
-                      variant='ghost'
-                      size='sm'
-                      onClick={() => copyToClipboard(result.content_prompt)}
-                      className='h-8 px-2'
-                    >
-                      <Copy className='h-3 w-3 mr-1' />
-                      {t('component.mdfConvert.copyButton')}
-                    </Button>
-                  </div>
-                  <div className='min-h-[400px] max-h-[400px] overflow-y-auto rounded-md border border-slate-300/80 bg-background/90 p-4'>
-                    <pre className='text-sm whitespace-pre-wrap break-words font-mono leading-relaxed text-foreground'>
-                      {result.content_prompt}
-                    </pre>
-                  </div>
-                </div>
-
-                {/* Metadata */}
-                <div className='text-xs text-muted-foreground space-y-1'>
-                  <div>Request ID: {result.request_id}</div>
-                  {result.metadata.output_length && (
-                    <div>
-                      Input: {result.metadata.input_length} chars | Output:{' '}
-                      {result.metadata.output_length} chars
-                    </div>
-                  )}
-                </div>
+            <div className='flex-1 flex flex-col'>
+              <div className='flex items-center justify-between min-h-[32px] mb-2'>
+                <h3 className='text-sm font-medium text-foreground'>
+                  {t('component.mdfConvert.contentPromptTitle')}
+                </h3>
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  onClick={() => copyToClipboard(result.content_prompt)}
+                  className='h-8 px-2'
+                >
+                  <Copy className='h-3 w-3 mr-1' />
+                  {t('component.mdfConvert.copyButton')}
+                </Button>
               </div>
-            </ScrollArea>
+              <div className='flex-1 overflow-y-auto rounded-md border border-slate-300/80 bg-background/90 p-4'>
+                <pre className='text-sm whitespace-pre-wrap break-words font-mono leading-relaxed text-foreground'>
+                  {result.content_prompt}
+                </pre>
+              </div>
+              <div className='flex items-center justify-end min-h-[20px] mt-2'>
+                {/* Placeholder for alignment */}
+              </div>
+            </div>
           )}
         </div>
 
