@@ -162,10 +162,10 @@ export function MdfConvertDialog({
       onOpenChange={onOpenChange}
     >
       <DialogContent
-        className='sm:max-w-[820px] w-[92vw] h-[80vh] sm:max-h-[620px] max-h-[90vh] flex flex-col p-0 overflow-hidden'
+        className='w-[92vw] sm:max-w-[900px] h-[75vh] max-h-[75vh] flex flex-col p-0 overflow-hidden'
         onInteractOutside={e => e.preventDefault()}
       >
-        <DialogHeader className='px-6 pt-6 pb-4 border-0'>
+        <DialogHeader className='px-6 pt-4 pb-2 border-0'>
           <DialogTitle className='text-xl font-semibold tracking-tight'>
             {t('component.mdfConvert.dialogTitle')}
           </DialogTitle>
@@ -174,10 +174,10 @@ export function MdfConvertDialog({
         <div className='flex-1 flex flex-col overflow-hidden px-6 pb-6'>
           {!result ? (
             // Input Form
-            <div className='flex-1 flex flex-col'>
+            <div className='flex-1 flex flex-col min-h-0'>
               {/* Persistent warning when MDF API is not configured */}
               {!environment.mdfApiConfigured && (
-                <div className='mb-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md'>
+                <div className='flex-shrink-0 mb-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md'>
                   <div className='flex items-start gap-2'>
                     <AlertCircle className='h-5 w-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5' />
                     <div className='flex-1 text-sm'>
@@ -194,7 +194,7 @@ export function MdfConvertDialog({
                   </div>
                 </div>
               )}
-              <div className='flex items-center justify-between min-h-[32px] mb-2'>
+              <div className='flex-shrink-0 flex items-center justify-between mb-1'>
                 <Label
                   htmlFor='input-text'
                   className='text-sm font-medium'
@@ -207,10 +207,10 @@ export function MdfConvertDialog({
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
                 placeholder={t('component.mdfConvert.inputPlaceholder')}
-                className='flex-1 resize-none rounded-md border border-slate-300/80 bg-background/90 p-4 focus-visible:ring-1 focus-visible:ring-primary/40'
+                className='flex-1 min-h-0 resize-none rounded-md border border-slate-300/80 bg-background/90 p-4 focus-visible:ring-1 focus-visible:ring-primary/40'
                 disabled={isConverting}
               />
-              <div className='flex items-center justify-end min-h-[20px] mt-2'>
+              <div className='flex-shrink-0 flex items-center justify-end mt-1'>
                 <div className='text-xs text-muted-foreground'>
                   {inputText.length} / 10,000
                 </div>
@@ -218,8 +218,8 @@ export function MdfConvertDialog({
             </div>
           ) : (
             // Result Display
-            <div className='flex-1 flex flex-col'>
-              <div className='flex items-center justify-between min-h-[32px] mb-2'>
+            <div className='flex-1 flex flex-col min-h-0'>
+              <div className='flex-shrink-0 flex items-center justify-between mb-1'>
                 <h3 className='text-sm font-medium text-foreground'>
                   {t('component.mdfConvert.contentPromptTitle')}
                 </h3>
@@ -233,12 +233,12 @@ export function MdfConvertDialog({
                   {t('component.mdfConvert.copyButton')}
                 </Button>
               </div>
-              <div className='flex-1 overflow-y-auto rounded-md border border-slate-300/80 bg-background/90 p-4'>
+              <div className='flex-1 min-h-0 overflow-y-auto rounded-md border border-slate-300/80 bg-background/90 p-4'>
                 <pre className='text-sm whitespace-pre-wrap break-words font-mono leading-relaxed text-foreground'>
                   {result.content_prompt}
                 </pre>
               </div>
-              <div className='flex items-center justify-end min-h-[20px] mt-2'>
+              <div className='flex-shrink-0 flex items-center justify-end mt-1'>
                 {/* Placeholder for alignment */}
               </div>
             </div>
