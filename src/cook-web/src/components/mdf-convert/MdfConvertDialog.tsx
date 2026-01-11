@@ -20,11 +20,21 @@ import { Textarea } from '@/components/ui/Textarea';
 // Reuse ai-shifu's useToast hook
 import { fail, show } from '@/hooks/useToast';
 
-// Use existing user store for authentication
-import { useUserStore } from '@/store';
+// Use unified Request system
+import http from '@/lib/request';
 
-// Call third-party MDF API
-import { convertToMdf, type MdfConvertResponse, ApiError } from '@/lib/mdf-api';
+// MDF conversion response type
+interface MdfConvertResponse {
+  content_prompt: string;
+  request_id: string;
+  timestamp: string;
+  metadata: {
+    input_length: number;
+    output_length?: number;
+    language: string;
+    user_id: string;
+  };
+}
 
 interface MdfConvertDialogProps {
   open: boolean;
@@ -38,7 +48,6 @@ export function MdfConvertDialog({
   onApplyContent,
 }: MdfConvertDialogProps) {
   const { t, i18n } = useTranslation();
-  const token = useUserStore(state => state.getToken());
 
   const [inputText, setInputText] = useState('');
   const [isConverting, setIsConverting] = useState(false);
@@ -75,30 +84,22 @@ export function MdfConvertDialog({
       return;
     }
 
-    if (!token) {
-      fail('Authentication required');
-      return;
-    }
-
     setIsConverting(true);
     try {
-      const response = await convertToMdf({
+      const baseUrl =
+        process.env.NEXT_PUBLIC_GEN_MDF_API_URL || 'http://localhost:8000';
+
+      const response = (await http.post(`${baseUrl}/gen/mdf-convert`, {
         text: inputText.trim(),
         language: language,
-        token: token,
-      });
+        output_mode: 'content',
+      })) as MdfConvertResponse;
 
       setResult(response);
       show(t('component.mdfConvert.convertSuccess'));
-    } catch (error) {
-      let errorMessage = t('component.mdfConvert.convertError');
-      if (error instanceof ApiError) {
-        errorMessage = `${errorMessage}: ${error.message}`;
-      } else if (error instanceof Error) {
-        errorMessage = `${errorMessage}: ${error.message}`;
-      }
-
-      fail(errorMessage, 5000);
+    } catch {
+      // Request class already shows toast for errors, just show a generic message
+      fail(t('component.mdfConvert.convertError'), 5000);
     } finally {
       setIsConverting(false);
     }
