@@ -42,6 +42,9 @@ interface MdfConvertResponse {
   };
 }
 
+// Support email address
+const SUPPORT_EMAIL = 'hello@ai-shifu.com';
+
 interface MdfConvertDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -177,6 +180,12 @@ export function MdfConvertDialog({
                     <div className='flex-1 text-sm'>
                       <p className='text-yellow-700 dark:text-yellow-300'>
                         {t('component.mdfConvert.configWarningMessage')}
+                        <a
+                          href={`mailto:${SUPPORT_EMAIL}`}
+                          className='text-yellow-900 dark:text-yellow-100 underline hover:text-yellow-950 dark:hover:text-yellow-50 font-medium'
+                        >
+                          {SUPPORT_EMAIL}
+                        </a>
                       </p>
                     </div>
                   </div>
