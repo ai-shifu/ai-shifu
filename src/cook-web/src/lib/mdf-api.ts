@@ -3,8 +3,6 @@
  * Calls third-party MDF conversion service
  */
 
-import { getUserId, refreshUserIdExpiry } from './user';
-
 /**
  * MDF conversion request parameters
  */
@@ -12,6 +10,7 @@ export interface MdfConvertRequest {
   text: string;
   language?: 'Chinese' | 'English';
   output_mode?: 'content' | 'both';
+  token: string;
 }
 
 /**
@@ -46,13 +45,11 @@ export class ApiError extends Error {
 /**
  * Get common request headers
  */
-function getCommonHeaders(): HeadersInit {
-  const userId = getUserId();
-  refreshUserIdExpiry();
-
+function getCommonHeaders(token: string): HeadersInit {
   return {
     'Content-Type': 'application/json',
-    'User-Id': userId,
+    Authorization: `Bearer ${token}`,
+    Token: token,
   };
 }
 
@@ -81,7 +78,7 @@ async function handleApiResponse<T>(response: Response): Promise<T> {
 /**
  * Convert document to Markdown Flow format
  *
- * @param request - Conversion request parameters
+ * @param request - Conversion request parameters (including authentication token)
  * @returns Conversion result
  * @throws {ApiError} When API call fails
  *
@@ -90,6 +87,7 @@ async function handleApiResponse<T>(response: Response): Promise<T> {
  * const result = await convertToMdf({
  *   text: 'Document content',
  *   language: 'Chinese',
+ *   token: userToken,
  * })
  * console.log(result.content_prompt)
  * ```
@@ -104,12 +102,11 @@ export async function convertToMdf(
 
     const response = await fetch(`${baseUrl}/gen/mdf-convert`, {
       method: 'POST',
-      headers: getCommonHeaders(),
+      headers: getCommonHeaders(request.token),
       body: JSON.stringify({
         text: request.text,
         language: request.language || 'Chinese',
         output_mode: request.output_mode || 'content',
-        user_id: getUserId(),
       }),
     });
 

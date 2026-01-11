@@ -20,6 +20,9 @@ import { Textarea } from '@/components/ui/Textarea';
 // Reuse ai-shifu's useToast hook
 import { fail, show } from '@/hooks/useToast';
 
+// Use existing user store for authentication
+import { useUserStore } from '@/store';
+
 // Call third-party MDF API
 import { convertToMdf, type MdfConvertResponse, ApiError } from '@/lib/mdf-api';
 
@@ -35,6 +38,7 @@ export function MdfConvertDialog({
   onApplyContent,
 }: MdfConvertDialogProps) {
   const { t, i18n } = useTranslation();
+  const token = useUserStore(state => state.getToken());
 
   const [inputText, setInputText] = useState('');
   const [isConverting, setIsConverting] = useState(false);
@@ -71,11 +75,17 @@ export function MdfConvertDialog({
       return;
     }
 
+    if (!token) {
+      fail('Authentication required');
+      return;
+    }
+
     setIsConverting(true);
     try {
       const response = await convertToMdf({
         text: inputText.trim(),
         language: language,
+        token: token,
       });
 
       setResult(response);
