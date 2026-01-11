@@ -4,7 +4,7 @@
   "applySuccess": "内容已应用到编辑器",
   "backButton": "上一步",
   "cancelButton": "取消",
-  "configWarningMessage": "你未配置智能生成 MarkdownFlow 的 API 服务，请联系 AI-Shifu 团队(hello@ai-shifu.com)获得支持",
+  "configWarningMessage": "未配置智能转换 MarkdownFlow 的 API 服务，请联系 AI-Shifu 团队获得支持：",
   "confirmApplyButton": "确认",
   "confirmApplyDescription": "这将会覆盖当前编辑器中的内容,是否确认应用?",
   "confirmApplyTitle": "确认应用",
@@ -16,7 +16,7 @@
   "copySuccess": "内容已复制到剪贴板",
   "dialogTitle": "智能转换",
   "inputLabel": "待转换的内容",
-  "inputPlaceholder": "请输入完整的文章内容,AI 将智能转换为 Markdown Flow 格式",
+  "inputPlaceholder": "请输入完整的文档内容，AI 会把它智能转换为 MarkdownFlow 格式",
   "textTooLong": "文本内容过长,请控制在 10,000 字符以内",
   "textTooShort": "请输入内容"
 }
