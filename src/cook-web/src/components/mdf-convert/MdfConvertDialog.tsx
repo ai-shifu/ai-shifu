@@ -161,7 +161,10 @@ export function MdfConvertDialog({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <DialogContent className='sm:max-w-[820px] w-[92vw] h-[80vh] sm:max-h-[620px] max-h-[90vh] flex flex-col p-0 overflow-hidden'>
+      <DialogContent
+        className='sm:max-w-[820px] w-[92vw] h-[80vh] sm:max-h-[620px] max-h-[90vh] flex flex-col p-0 overflow-hidden'
+        onInteractOutside={e => e.preventDefault()}
+      >
         <DialogHeader className='px-6 pt-6 pb-4 border-0'>
           <DialogTitle className='text-xl font-semibold tracking-tight'>
             {t('component.mdfConvert.dialogTitle')}
