@@ -2112,12 +2112,12 @@ class RunScriptContextV2:
                     .first()
                 )
                 tts_processor = None
-                if self._preview_mode and shifu_model and shifu_model.tts_enabled:
+                if shifu_model and shifu_model.tts_enabled and (not self._preview_mode):
                     app.logger.info(
-                        "Preview mode enabled; skipping TTS generation for shifu %s",
+                        "Non-preview mode enabled; skipping TTS generation for shifu %s",
                         self._shifu_info.bid,
                     )
-                elif shifu_model and shifu_model.tts_enabled:
+                elif shifu_model and shifu_model.tts_enabled and self._preview_mode:
                     app.logger.info(
                         f"TTS enabled for shifu {self._shifu_info.bid}, initializing streaming TTS"
                     )
