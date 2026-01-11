@@ -85,6 +85,16 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
       : undefined;
   }, [fallbackVariables, items, variables]);
 
+  const itemByGeneratedBid = React.useMemo(() => {
+    const map = new Map<string, ChatContentItem>();
+    items.forEach(item => {
+      if (item.generated_block_bid) {
+        map.set(item.generated_block_bid, item);
+      }
+    });
+    return map;
+  }, [items]);
+
   return (
     <div className={cn(styles.lessonPreview, 'text-sm')}>
       <div className='flex items-baseline gap-2 pt-[4px]'>
@@ -135,6 +145,10 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           {!showEmpty &&
             items.map((item, idx) => {
               if (item.type === ChatContentItemType.LIKE_STATUS) {
+                const parentBlockBid = item.parent_block_bid || '';
+                const parentContentItem = parentBlockBid
+                  ? itemByGeneratedBid.get(parentBlockBid)
+                  : undefined;
                 return (
                   <div
                     key={`${idx}-like`}
@@ -143,12 +157,16 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   >
                     <InteractionBlock
                       shifu_bid={shifuBid}
-                      generated_block_bid={item.parent_block_bid || ''}
+                      generated_block_bid={parentBlockBid}
                       like_status={item.like_status}
                       onRefresh={onRefresh}
                       onToggleAskExpanded={noop}
                       disableAskButton
                       disableInteractionButtons
+                      showAudioPlayer
+                      audioUrl={parentContentItem?.audioUrl}
+                      audioSegments={parentContentItem?.audioSegments}
+                      isAudioStreaming={parentContentItem?.isAudioStreaming}
                     />
                   </div>
                 );

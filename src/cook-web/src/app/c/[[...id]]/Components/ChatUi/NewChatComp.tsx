@@ -7,6 +7,7 @@ import {
   useCallback,
   useState,
   useEffect,
+  useMemo,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -237,6 +238,16 @@ export const NewChatComponents = ({
     onPayModalOpen,
   });
 
+  const itemByGeneratedBid = useMemo(() => {
+    const map = new Map<string, ChatContentItem>();
+    items.forEach(item => {
+      if (item.generated_block_bid) {
+        map.set(item.generated_block_bid, item);
+      }
+    });
+    return map;
+  }, [items]);
+
   const handleLongPress = useCallback(
     (event: any, currentBlock: ChatContentItem) => {
       if (currentBlock.type !== ChatContentItemType.CONTENT) {
@@ -395,6 +406,24 @@ export const NewChatComponents = ({
               }
 
               if (item.type === ChatContentItemType.LIKE_STATUS) {
+                const parentBlockBid = item.parent_block_bid || '';
+                const parentContentItem =
+                  itemByGeneratedBid.get(parentBlockBid);
+
+                const hasAudioForAutoPlay =
+                  parentContentItem &&
+                  !parentContentItem.isHistory &&
+                  Boolean(
+                    parentContentItem.audioUrl ||
+                      parentContentItem.audioSegments?.length ||
+                      parentContentItem.isAudioStreaming,
+                  );
+
+                const blockAutoPlay = shouldAutoPlay(
+                  parentBlockBid,
+                  Boolean(hasAudioForAutoPlay),
+                );
+
                 return mobileStyle ? null : (
                   <div
                     key={`like-${parentKey}`}
@@ -406,29 +435,36 @@ export const NewChatComponents = ({
                   >
                     <InteractionBlock
                       shifu_bid={shifuBid}
-                      generated_block_bid={item.parent_block_bid || ''}
+                      generated_block_bid={parentBlockBid}
                       like_status={item.like_status}
                       readonly={item.readonly}
                       onRefresh={onRefresh}
                       onToggleAskExpanded={toggleAskExpanded}
+                      showAudioPlayer={previewMode}
+                      audioUrl={parentContentItem?.audioUrl}
+                      audioSegments={parentContentItem?.audioSegments}
+                      isAudioStreaming={parentContentItem?.isAudioStreaming}
+                      autoPlayAudio={blockAutoPlay}
+                      onAudioPlayStateChange={isPlaying =>
+                        handleAudioPlayStateChange(parentBlockBid, isPlaying)
+                      }
                     />
                   </div>
                 );
               }
 
-              // Calculate autoPlay once to ensure consistent value.
-              // Do not auto-play historical audio on initial load.
+              // Mobile renders the audio control below content; desktop renders it in InteractionBlock.
               const hasAudioForAutoPlay =
+                mobileStyle &&
                 !item.isHistory &&
                 Boolean(
                   item.audioUrl ||
-                  item.audioSegments?.length ||
-                  item.isAudioStreaming,
+                    item.audioSegments?.length ||
+                    item.isAudioStreaming,
                 );
-              const blockAutoPlay = shouldAutoPlay(
-                item.generated_block_bid,
-                hasAudioForAutoPlay,
-              );
+              const blockAutoPlay = mobileStyle
+                ? shouldAutoPlay(item.generated_block_bid, hasAudioForAutoPlay)
+                : false;
 
               return (
                 <div
@@ -456,6 +492,7 @@ export const NewChatComponents = ({
                     onClickCustomButtonAfterContent={handleClickAskButton}
                     onSend={memoizedOnSend}
                     onLongPress={handleLongPress}
+                    showAudioPlayer={previewMode}
                     autoPlayAudio={blockAutoPlay}
                     onAudioPlayStateChange={isPlaying =>
                       handleAudioPlayStateChange(

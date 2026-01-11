@@ -468,6 +468,9 @@ class PreviewSSEMessageType(Enum):
     INTERACTION = "interaction"
     TEXT_END = "text_end"
     ERROR = "error"
+    # Audio types for TTS (same literals as GeneratedType for consistency)
+    AUDIO_SEGMENT = "audio_segment"
+    AUDIO_COMPLETE = "audio_complete"
 
     def __json__(self):
         return self.value
@@ -492,7 +495,12 @@ class PreviewSSEMessage(BaseModel):
     )
     type: PreviewSSEMessageType = Field(..., description="SSE message type")
     data: (
-        PreviewContentSSEData | PreviewInteractionSSEData | PreviewTextEndSSEData | str
+        PreviewContentSSEData
+        | PreviewInteractionSSEData
+        | PreviewTextEndSSEData
+        | AudioSegmentDTO
+        | AudioCompleteDTO
+        | str
     )
 
     def __json__(self):

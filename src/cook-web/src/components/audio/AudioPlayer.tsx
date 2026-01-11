@@ -19,6 +19,8 @@ export interface AudioPlayerProps {
   streamingSegments?: AudioSegment[];
   /** Whether audio is still streaming */
   isStreaming?: boolean;
+  /** Keep the control visible even when no audio is available yet */
+  alwaysVisible?: boolean;
   /** Disable the player */
   disabled?: boolean;
   /** Icon size */
@@ -42,6 +44,7 @@ export function AudioPlayer({
   audioUrl,
   streamingSegments = [],
   isStreaming = false,
+  alwaysVisible = false,
   disabled = false,
   size = 16,
   className,
@@ -197,9 +200,8 @@ export function AudioPlayer({
 
     // Initialize AudioContext if needed
     if (!audioContextRef.current) {
-      audioContextRef.current = new (
-        window.AudioContext || (window as any).webkitAudioContext
-      )();
+      audioContextRef.current = new (window.AudioContext ||
+        (window as any).webkitAudioContext)();
     }
 
     const audioContext = audioContextRef.current;
@@ -398,7 +400,7 @@ export function AudioPlayer({
   ]);
 
   // Don't render if no audio available and not streaming
-  if (!hasAudio && !isStreaming) {
+  if (!hasAudio && !isStreaming && !alwaysVisible) {
     return null;
   }
 

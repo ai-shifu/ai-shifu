@@ -451,3 +451,61 @@ class StreamingTTSProcessor:
             import traceback
 
             logger.error(f"Failed to finalize TTS: {e}\n{traceback.format_exc()}")
+
+    def finalize_preview(self) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """
+        Finalize TTS processing for preview/debug flows without uploading or persisting.
+
+        The editor preview (learning simulation) only needs streamable segments for
+        playback, so we skip OSS upload and database writes to avoid polluting
+        learning records.
+        """
+        logger.info(
+            f"TTS preview finalize called: enabled={self._enabled}, "
+            f"buffer_len={len(self._buffer)}, "
+            f"segment_index={self._segment_index}, "
+            f"pending_futures={len(self._pending_futures)}, "
+            f"all_audio_data={len(self._all_audio_data)}"
+        )
+        if not self._enabled:
+            return
+
+        # Submit any remaining buffer content.
+        if self._buffer:
+            full_text = preprocess_for_tts(self._buffer)
+            if self._processed_text_offset > len(full_text):
+                self._processed_text_offset = len(full_text)
+
+            remaining_text = full_text[self._processed_text_offset :].strip()
+            if remaining_text and len(remaining_text) >= 2:
+                self._submit_tts_task(remaining_text)
+            self._buffer = ""
+
+        # Wait for all pending TTS tasks to complete.
+        for future in self._pending_futures:
+            try:
+                future.result(timeout=60)
+            except Exception as e:
+                logger.error(f"TTS preview future failed: {e}")
+
+        # Yield any remaining segments.
+        yield from self._yield_ready_segments()
+
+        with self._lock:
+            total_duration_ms = sum(seg[2] for seg in self._all_audio_data)
+            has_audio = bool(self._all_audio_data)
+
+        if not has_audio:
+            return
+
+        # Yield completion marker (no OSS URL in preview mode).
+        yield RunMarkdownFlowDTO(
+            outline_bid=self.outline_bid,
+            generated_block_bid=self.generated_block_bid,
+            type=GeneratedType.AUDIO_COMPLETE,
+            content=AudioCompleteDTO(
+                audio_url="",
+                audio_bid=self._audio_bid,
+                duration_ms=total_duration_ms,
+            ),
+        )

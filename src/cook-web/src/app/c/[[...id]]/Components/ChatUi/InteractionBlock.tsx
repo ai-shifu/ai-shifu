@@ -22,6 +22,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  AudioPlayer,
+  type AudioSegment as AudioPlayerSegment,
+} from '@/components/audio/AudioPlayer';
 type Size = 'sm' | 'md' | 'lg';
 
 export interface InteractionBlockProps {
@@ -36,6 +40,12 @@ export interface InteractionBlockProps {
   onRefresh?: (generated_block_bid: string) => void;
   disableAskButton?: boolean;
   disableInteractionButtons?: boolean;
+  showAudioPlayer?: boolean;
+  audioUrl?: string;
+  audioSegments?: AudioPlayerSegment[];
+  isAudioStreaming?: boolean;
+  autoPlayAudio?: boolean;
+  onAudioPlayStateChange?: (isPlaying: boolean) => void;
 }
 
 /**
@@ -53,6 +63,12 @@ export default function InteractionBlock({
   className,
   onRefresh,
   onToggleAskExpanded,
+  showAudioPlayer = false,
+  audioUrl,
+  audioSegments,
+  isAudioStreaming,
+  autoPlayAudio = false,
+  onAudioPlayStateChange,
 }: InteractionBlockProps) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<LikeStatus>(
@@ -208,6 +224,19 @@ export default function InteractionBlock({
             </Tooltip>
           </TooltipProvider>
         </button>
+        {showAudioPlayer && (
+          <AudioPlayer
+            audioUrl={audioUrl}
+            streamingSegments={audioSegments}
+            isStreaming={Boolean(isAudioStreaming)}
+            alwaysVisible={true}
+            disabled={disabled || readonly}
+            autoPlay={autoPlayAudio}
+            onPlayStateChange={onAudioPlayStateChange}
+            className={cn('interaction-icon-btn', canHover && 'group')}
+            size={16}
+          />
+        )}
         <button
           type='button'
           aria-label='Like'

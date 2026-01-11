@@ -19,7 +19,8 @@ interface ContentBlockProps {
   onClickCustomButtonAfterContent?: (blockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onLongPress?: (event: any, item: ChatContentItem) => void;
-  // Audio props for streaming TTS
+  // Audio props for streaming TTS (mobile only)
+  showAudioPlayer?: boolean;
   autoPlayAudio?: boolean;
   onAudioPlayStateChange?: (isPlaying: boolean) => void;
 }
@@ -35,6 +36,7 @@ const ContentBlock = memo(
     onClickCustomButtonAfterContent,
     onSend,
     onLongPress,
+    showAudioPlayer = false,
     autoPlayAudio = false,
     onAudioPlayStateChange,
   }: ContentBlockProps) => {
@@ -63,13 +65,13 @@ const ContentBlock = memo(
       [onSend, blockBid],
     );
 
-    // Show audio player when streaming/segments/url exist (keep it rendered to finish playing)
     const hasAudioContent =
       item.isAudioStreaming ||
       (item.audioSegments && item.audioSegments.length > 0) ||
       Boolean(item.audioUrl);
-    // Auto-play when it's this block's turn (controlled by parent's shouldAutoPlay)
-    const shouldAutoPlayInContentBlock = autoPlayAudio;
+
+    const shouldShowAudioPlayer =
+      mobileStyle && showAudioPlayer && hasAudioContent;
 
     return (
       <div
@@ -91,13 +93,12 @@ const ContentBlock = memo(
           copiedButtonText={copiedButtonText}
           onSend={_onSend}
         />
-        {/* Audio player for TTS */}
-        {hasAudioContent && (
+        {shouldShowAudioPlayer && (
           <AudioPlayer
             audioUrl={item.audioUrl}
             streamingSegments={item.audioSegments}
             isStreaming={item.isAudioStreaming}
-            autoPlay={shouldAutoPlayInContentBlock}
+            autoPlay={autoPlayAudio}
             onPlayStateChange={onAudioPlayStateChange}
             size={16}
           />
@@ -121,12 +122,16 @@ const ContentBlock = memo(
       prevProps.confirmButtonText === nextProps.confirmButtonText &&
       prevProps.copyButtonText === nextProps.copyButtonText &&
       prevProps.copiedButtonText === nextProps.copiedButtonText &&
-      // Audio props - re-render when audio segments change
-      prevProps.item.audioSegments?.length ===
-        nextProps.item.audioSegments?.length &&
-      prevProps.item.isAudioStreaming === nextProps.item.isAudioStreaming &&
-      prevProps.item.audioUrl === nextProps.item.audioUrl &&
-      prevProps.autoPlayAudio === nextProps.autoPlayAudio
+      // Audio props - only relevant on mobile
+      (!prevProps.mobileStyle ||
+        (prevProps.showAudioPlayer === nextProps.showAudioPlayer &&
+          (!nextProps.showAudioPlayer ||
+            (prevProps.item.audioSegments?.length ===
+              nextProps.item.audioSegments?.length &&
+              prevProps.item.isAudioStreaming ===
+                nextProps.item.isAudioStreaming &&
+              prevProps.item.audioUrl === nextProps.item.audioUrl &&
+              prevProps.autoPlayAudio === nextProps.autoPlayAudio))))
     );
   },
 );

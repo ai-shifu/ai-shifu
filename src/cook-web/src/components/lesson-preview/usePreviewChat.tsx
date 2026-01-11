@@ -46,6 +46,8 @@ enum PREVIEW_SSE_OUTPUT_TYPE {
   CONTENT = 'content',
   TEXT_END = 'text_end',
   ERROR = 'error',
+  AUDIO_SEGMENT = 'audio_segment',
+  AUDIO_COMPLETE = 'audio_complete',
 }
 
 const buildVariablesSnapshot = (
@@ -467,6 +469,89 @@ export function usePreviewChat() {
           });
           setError(response.data);
           stopPreview();
+        } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+          const audioSegment = response.data;
+          if (blockId) {
+            setTrackedContentList(prevState => {
+              const hasTarget = prevState.some(
+                item => item.generated_block_bid === blockId,
+              );
+              const nextState = hasTarget
+                ? prevState
+                : [
+                    ...prevState.filter(
+                      item => item.generated_block_bid !== 'loading',
+                    ),
+                    {
+                      generated_block_bid: blockId,
+                      content: '',
+                      readonly: false,
+                      type: ChatContentItemType.CONTENT,
+                    } as ChatContentItem,
+                  ];
+
+              return nextState.map(item => {
+                if (item.generated_block_bid !== blockId) {
+                  return item;
+                }
+                const existingSegments = item.audioSegments || [];
+                const segmentExists = existingSegments.some(
+                  s => s.segmentIndex === audioSegment.segment_index,
+                );
+                if (segmentExists) {
+                  return item;
+                }
+
+                return {
+                  ...item,
+                  audioSegments: [
+                    ...existingSegments,
+                    {
+                      segmentIndex: audioSegment.segment_index,
+                      audioData: audioSegment.audio_data,
+                      durationMs: audioSegment.duration_ms,
+                      isFinal: audioSegment.is_final,
+                    },
+                  ].sort((a, b) => a.segmentIndex - b.segmentIndex),
+                  isAudioStreaming: !audioSegment.is_final,
+                };
+              });
+            });
+          }
+        } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+          const audioComplete = response.data;
+          if (blockId) {
+            setTrackedContentList(prevState => {
+              const hasTarget = prevState.some(
+                item => item.generated_block_bid === blockId,
+              );
+              const nextState = hasTarget
+                ? prevState
+                : [
+                    ...prevState.filter(
+                      item => item.generated_block_bid !== 'loading',
+                    ),
+                    {
+                      generated_block_bid: blockId,
+                      content: '',
+                      readonly: false,
+                      type: ChatContentItemType.CONTENT,
+                    } as ChatContentItem,
+                  ];
+
+              return nextState.map(item => {
+                if (item.generated_block_bid !== blockId) {
+                  return item;
+                }
+                return {
+                  ...item,
+                  audioUrl: audioComplete.audio_url || undefined,
+                  audioDurationMs: audioComplete.duration_ms,
+                  isAudioStreaming: false,
+                };
+              });
+            });
+          }
         }
       } catch (err) {
         console.warn('preview SSE handling error:', err);
