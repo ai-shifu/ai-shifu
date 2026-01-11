@@ -20,6 +20,9 @@ import { Textarea } from '@/components/ui/Textarea';
 // Reuse ai-shifu's useToast hook
 import { fail, show } from '@/hooks/useToast';
 
+// Use alert dialog for confirmation
+import { useAlert } from '@/components/ui/UseAlert';
+
 // Use unified Request system
 import http from '@/lib/request';
 
@@ -48,6 +51,7 @@ export function MdfConvertDialog({
   onApplyContent,
 }: MdfConvertDialogProps) {
   const { t, i18n } = useTranslation();
+  const { showAlert } = useAlert();
 
   const [inputText, setInputText] = useState('');
   const [isConverting, setIsConverting] = useState(false);
@@ -133,9 +137,18 @@ export function MdfConvertDialog({
   const handleApply = () => {
     if (!result || !onApplyContent) return;
 
-    onApplyContent(result.content_prompt);
-    show(t('component.mdfConvert.applySuccess'));
-    onOpenChange(false);
+    // Show confirmation dialog before applying
+    showAlert({
+      title: t('component.mdfConvert.confirmApplyTitle'),
+      description: t('component.mdfConvert.confirmApplyDescription'),
+      confirmText: t('component.mdfConvert.confirmApplyButton'),
+      cancelText: t('component.mdfConvert.cancelButton'),
+      onConfirm: () => {
+        onApplyContent(result.content_prompt);
+        show(t('component.mdfConvert.applySuccess'));
+        onOpenChange(false);
+      },
+    });
   };
 
   return (
