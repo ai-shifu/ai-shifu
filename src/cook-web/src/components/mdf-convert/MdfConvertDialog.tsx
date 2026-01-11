@@ -29,6 +29,9 @@ import http from '@/lib/request';
 // Use centralized environment configuration
 import environment from '@/config/environment';
 
+// Analytics tracking
+import { useTracking } from '@/c-common/hooks/useTracking';
+
 // MDF conversion response type
 interface MdfConvertResponse {
   content_prompt: string;
@@ -58,6 +61,7 @@ export function MdfConvertDialog({
 }: MdfConvertDialogProps) {
   const { t, i18n } = useTranslation();
   const { showAlert } = useAlert();
+  const { trackEvent } = useTracking();
 
   const [inputText, setInputText] = useState('');
   const [isConverting, setIsConverting] = useState(false);
@@ -94,6 +98,14 @@ export function MdfConvertDialog({
       return;
     }
 
+    const inputLength = inputText.trim().length;
+    const startTime = Date.now();
+
+    // Track convert button click
+    trackEvent('creator_mdf_convert_click', {
+      input_length: inputLength,
+    });
+
     setIsConverting(true);
     try {
       const baseUrl = environment.mdfApiUrl;
@@ -104,9 +116,20 @@ export function MdfConvertDialog({
         output_mode: 'content',
       })) as MdfConvertResponse;
 
+      // Track successful conversion
+      trackEvent('creator_mdf_convert_success', {
+        input_length: inputLength,
+        duration_ms: Date.now() - startTime,
+      });
+
       setResult(response);
       show(t('component.mdfConvert.convertSuccess'));
     } catch (error: any) {
+      // Track conversion error
+      trackEvent('creator_mdf_convert_error', {
+        input_length: inputLength,
+        error_message: error?.message || 'Unknown error',
+      });
       // Request 类已经显示了错误消息
       // 这里不需要额外处理，避免重复提示
     } finally {
@@ -116,6 +139,9 @@ export function MdfConvertDialog({
 
   // Copy to clipboard
   const copyToClipboard = async (text: string) => {
+    // Track copy button click
+    trackEvent('creator_mdf_copy_click', {});
+
     try {
       await navigator.clipboard.writeText(text);
       show(t('component.mdfConvert.copySuccess'));
@@ -141,6 +167,9 @@ export function MdfConvertDialog({
   // Apply to editor
   const handleApply = () => {
     if (!result || !onApplyContent) return;
+
+    // Track apply button click
+    trackEvent('creator_mdf_apply_click', {});
 
     // Show confirmation dialog before applying
     showAlert({
@@ -251,7 +280,12 @@ export function MdfConvertDialog({
             <div className='flex w-full flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between'>
               <Button
                 variant='outline'
-                onClick={() => onOpenChange(false)}
+                onClick={() => {
+                  trackEvent('creator_mdf_cancel_click', {
+                    input_length: inputText.length,
+                  });
+                  onOpenChange(false);
+                }}
               >
                 {t('common.core.cancel')}
               </Button>
@@ -275,14 +309,20 @@ export function MdfConvertDialog({
             <div className='flex w-full flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between'>
               <Button
                 variant='outline'
-                onClick={() => setResult(null)}
+                onClick={() => {
+                  trackEvent('creator_mdf_back_click', {});
+                  setResult(null);
+                }}
               >
                 {t('component.mdfConvert.backButton')}
               </Button>
               <div className='flex gap-2'>
                 <Button
                   variant='outline'
-                  onClick={() => onOpenChange(false)}
+                  onClick={() => {
+                    trackEvent('creator_mdf_close_click', {});
+                    onOpenChange(false);
+                  }}
                 >
                   {t('common.core.close')}
                 </Button>

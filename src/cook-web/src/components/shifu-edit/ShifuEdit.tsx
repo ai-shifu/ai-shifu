@@ -396,10 +396,13 @@ const ScriptEditor = ({ id }: { id: string }) => {
           </svg>
         ),
         tooltip: t('component.mdfConvert.dialogTitle'),
-        onClick: () => setIsMdfConvertDialogOpen(true),
+        onClick: () => {
+          trackEvent('creator_mdf_dialog_open', {});
+          setIsMdfConvertDialogOpen(true);
+        },
       },
     ],
-    [t],
+    [t, trackEvent],
   );
 
   const canPreview = Boolean(
