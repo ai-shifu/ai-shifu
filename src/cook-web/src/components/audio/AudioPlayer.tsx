@@ -4,6 +4,12 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Volume2, Pause, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export interface AudioSegment {
   segmentIndex: number;
@@ -425,10 +431,9 @@ export function AudioPlayer({
       ? t('module.chat.pauseAudio')
       : playLabel;
 
-  return (
+  const button = (
     <button
       type='button'
-      title={ariaLabel}
       aria-label={ariaLabel}
       aria-pressed={isPlaying}
       disabled={isButtonDisabled}
@@ -466,6 +471,26 @@ export function AudioPlayer({
         />
       )}
     </button>
+  );
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          {isButtonDisabled ? (
+            <span className='inline-flex'>{button}</span>
+          ) : (
+            button
+          )}
+        </TooltipTrigger>
+        <TooltipContent
+          side='top'
+          className='bg-black text-white border-none'
+        >
+          {ariaLabel}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
