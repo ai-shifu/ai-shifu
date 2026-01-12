@@ -43,6 +43,7 @@ const loadRuntimeConfig = async () => {
     updateDefaultLoginMethod,
     updateLegalUrls,
     updateCourseId,
+    updateMdfApiUrl,
   } = useEnvStore.getState() as EnvStoreState;
 
   const apiBaseUrl = (await getDynamicApiBaseUrl()) || '';
@@ -196,6 +197,7 @@ const loadRuntimeConfig = async () => {
     runtimeConfig?.legalUrls ??
       (useEnvStore.getState() as EnvStoreState).legalUrls,
   );
+  await updateMdfApiUrl(runtimeConfig?.genMdfApiUrl || '');
 };
 
 export const initializeEnvData = async (): Promise<void> => {
