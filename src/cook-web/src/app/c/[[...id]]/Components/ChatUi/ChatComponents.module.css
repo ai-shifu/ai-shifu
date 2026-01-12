@@ -204,7 +204,9 @@
   -webkit-touch-callout: none;
 }
 .chatComponents.mobile .scrollToBottom {
-  bottom: 200px;
+  position: fixed;
+  bottom: calc(40px + env(safe-area-inset-bottom, 0px) + 20px);
+  z-index: 50;
 }
 .chatComponents .messageContentOperation {
   display: flex;
@@ -243,7 +245,7 @@
   font-size: 24px;
   color: rgba(0, 0, 0, 0.45);
 }
-.chatComponents .scrollToBottom {
+.scrollToBottom {
   position: absolute;
   bottom: 90px;
   left: 50%;
@@ -263,13 +265,21 @@
   transition: all 0.3s ease;
   opacity: 0;
   visibility: hidden;
+  pointer-events: auto;
 }
-.chatComponents .scrollToBottom.visible {
+.scrollToBottom.visible {
   opacity: 1;
   visibility: visible;
 }
-.chatComponents .scrollToBottom:hover {
+.scrollToBottom:hover {
   background-color: #f9f9f9;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   color: #333;
+}
+.scrollToBottom.mobileScrollBtn {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
 }
