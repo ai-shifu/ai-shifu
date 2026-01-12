@@ -200,8 +200,9 @@ export function AudioPlayer({
 
     // Initialize AudioContext if needed
     if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext ||
-        (window as any).webkitAudioContext)();
+      audioContextRef.current = new (
+        window.AudioContext || (window as any).webkitAudioContext
+      )();
     }
 
     const audioContext = audioContextRef.current;

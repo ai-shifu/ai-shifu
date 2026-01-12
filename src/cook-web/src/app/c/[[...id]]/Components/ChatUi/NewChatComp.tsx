@@ -415,8 +415,8 @@ export const NewChatComponents = ({
                   !parentContentItem.isHistory &&
                   Boolean(
                     parentContentItem.audioUrl ||
-                      parentContentItem.audioSegments?.length ||
-                      parentContentItem.isAudioStreaming,
+                    parentContentItem.audioSegments?.length ||
+                    parentContentItem.isAudioStreaming,
                   );
 
                 const blockAutoPlay = shouldAutoPlay(
@@ -459,8 +459,8 @@ export const NewChatComponents = ({
                 !item.isHistory &&
                 Boolean(
                   item.audioUrl ||
-                    item.audioSegments?.length ||
-                    item.isAudioStreaming,
+                  item.audioSegments?.length ||
+                  item.isAudioStreaming,
                 );
               const blockAutoPlay = mobileStyle
                 ? shouldAutoPlay(item.generated_block_bid, hasAudioForAutoPlay)
