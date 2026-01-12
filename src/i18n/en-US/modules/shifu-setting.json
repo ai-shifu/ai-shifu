@@ -52,7 +52,7 @@
   "ttsSelectVoice": "Select a voice",
   "ttsSpeed": "Speed",
   "ttsSpeedHint": "Adjust speech speed (provider-specific range)",
-  "ttsTitle": "Text-to-Speech",
+  "ttsTitle": "Text-to-Speech (Preview)",
   "ttsVoice": "Voice",
   "upload": "Upload",
   "uploadFailed": "Upload failed, please try again later",

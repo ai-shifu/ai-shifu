@@ -52,7 +52,7 @@
   "ttsSelectVoice": "选择音色",
   "ttsSpeed": "语速",
   "ttsSpeedHint": "调整语速（按所选服务商范围）",
-  "ttsTitle": "语音合成",
+  "ttsTitle": "语音合成（预览版）",
   "ttsVoice": "音色",
   "upload": "上传",
   "uploadFailed": "上传失败，请稍后再试",

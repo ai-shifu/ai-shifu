@@ -41,6 +41,7 @@ export interface InteractionBlockProps {
   disableAskButton?: boolean;
   disableInteractionButtons?: boolean;
   showAudioPlayer?: boolean;
+  audioPreviewMode?: boolean;
   audioUrl?: string;
   audioSegments?: AudioPlayerSegment[];
   isAudioStreaming?: boolean;
@@ -64,6 +65,7 @@ export default function InteractionBlock({
   onRefresh,
   onToggleAskExpanded,
   showAudioPlayer = false,
+  audioPreviewMode = false,
   audioUrl,
   audioSegments,
   isAudioStreaming,
@@ -229,6 +231,7 @@ export default function InteractionBlock({
             audioUrl={audioUrl}
             streamingSegments={audioSegments}
             isStreaming={Boolean(isAudioStreaming)}
+            previewMode={audioPreviewMode}
             alwaysVisible={true}
             disabled={disabled || readonly}
             autoPlay={autoPlayAudio}

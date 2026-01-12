@@ -98,6 +98,7 @@ const ContentBlock = memo(
             audioUrl={item.audioUrl}
             streamingSegments={item.audioSegments}
             isStreaming={item.isAudioStreaming}
+            previewMode={showAudioPlayer}
             autoPlay={autoPlayAudio}
             onPlayStateChange={onAudioPlayStateChange}
             size={16}

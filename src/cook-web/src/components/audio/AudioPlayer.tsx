@@ -19,6 +19,8 @@ export interface AudioPlayerProps {
   streamingSegments?: AudioSegment[];
   /** Whether audio is still streaming */
   isStreaming?: boolean;
+  /** Whether the current page is in preview mode (e.g. `?preview=true`) */
+  previewMode?: boolean;
   /** Keep the control visible even when no audio is available yet */
   alwaysVisible?: boolean;
   /** Disable the player */
@@ -44,6 +46,7 @@ export function AudioPlayer({
   audioUrl,
   streamingSegments = [],
   isStreaming = false,
+  previewMode = false,
   alwaysVisible = false,
   disabled = false,
   size = 16,
@@ -195,34 +198,34 @@ export function AudioPlayer({
 
     // Acquire lock
     isPlayingSegmentRef.current = true;
-    setIsWaitingForSegment(false);
-    setIsLoading(true);
-
-    // Initialize AudioContext if needed
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (
-        window.AudioContext || (window as any).webkitAudioContext
-      )();
-    }
-
-    const audioContext = audioContextRef.current;
-
-    // Resume context if suspended
-    if (audioContext.state === 'suspended') {
-      await audioContext.resume();
-    }
-
-    const segment = segments[index];
-    currentSegmentIndexRef.current = index;
-
-    // Decode base64 to ArrayBuffer
-    const binaryString = atob(segment.audioData);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
 
     try {
+      setIsWaitingForSegment(false);
+      setIsLoading(true);
+
+      // Initialize AudioContext if needed
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext ||
+          (window as any).webkitAudioContext)();
+      }
+
+      const audioContext = audioContextRef.current;
+
+      // Resume context if suspended (may fail without user gesture in some browsers)
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+
+      const segment = segments[index];
+      currentSegmentIndexRef.current = index;
+
+      // Decode base64 to ArrayBuffer
+      const binaryString = atob(segment.audioData);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
       const audioBuffer = await audioContext.decodeAudioData(
         bytes.buffer.slice(0),
       );
@@ -249,13 +252,17 @@ export function AudioPlayer({
       setIsPlaying(true);
       isPlayingRef.current = true;
       onPlayStateChangeRef.current?.(true);
-    } catch (decodeError) {
-      console.error('Failed to decode audio segment:', decodeError);
-      // Release lock before trying next segment
+    } catch (error) {
+      console.error('Failed to play audio segment:', error);
+      // Release lock so future attempts can proceed.
       isPlayingSegmentRef.current = false;
-      // Try next segment
+      setIsLoading(false);
+      setIsWaitingForSegment(false);
+
+      // Try next segment when we are already in a play session.
       if (isPlayingRef.current) {
         playSegmentByIndex(index + 1);
+        return;
       }
     }
   }, []);
@@ -407,15 +414,20 @@ export function AudioPlayer({
 
   const isButtonDisabled = disabled || (!hasAudio && !isStreaming);
 
+  const playLabel = previewMode
+    ? t('module.chat.ttsSynthesisPreview')
+    : t('module.chat.playAudio');
+
   const ariaLabel = isLoading
     ? t('module.chat.audioLoading')
     : isPlaying
       ? t('module.chat.pauseAudio')
-      : t('module.chat.playAudio');
+      : playLabel;
 
   return (
     <button
       type='button'
+      title={ariaLabel}
       aria-label={ariaLabel}
       aria-pressed={isPlaying}
       disabled={isButtonDisabled}

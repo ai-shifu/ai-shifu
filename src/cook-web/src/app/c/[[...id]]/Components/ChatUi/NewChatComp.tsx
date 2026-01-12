@@ -441,6 +441,7 @@ export const NewChatComponents = ({
                       onRefresh={onRefresh}
                       onToggleAskExpanded={toggleAskExpanded}
                       showAudioPlayer={previewMode}
+                      audioPreviewMode={previewMode}
                       audioUrl={parentContentItem?.audioUrl}
                       audioSegments={parentContentItem?.audioSegments}
                       isAudioStreaming={parentContentItem?.isAudioStreaming}
