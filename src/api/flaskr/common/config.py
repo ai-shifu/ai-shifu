@@ -211,6 +211,12 @@ Default: "phone".""",
         description="Vertical logo URL for Cook Web",
         group="frontend",
     ),
+    "GEN_MDF_API_URL": EnvVar(
+        name="GEN_MDF_API_URL",
+        default="",
+        description="API URL for generating MDF (Markdown Flow) content",
+        group="frontend",
+    ),
     "WECHAT_APP_ID": EnvVar(
         name="WECHAT_APP_ID",
         default="",
