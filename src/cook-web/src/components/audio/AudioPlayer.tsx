@@ -31,6 +31,8 @@ export interface AudioPlayerProps {
   alwaysVisible?: boolean;
   /** Disable the player */
   disabled?: boolean;
+  /** Request TTS synthesis when no audio is available yet */
+  onRequestAudio?: () => Promise<any>;
   /** Icon size */
   size?: number;
   /** Additional CSS classes */
@@ -55,6 +57,7 @@ export function AudioPlayer({
   previewMode = false,
   alwaysVisible = false,
   disabled = false,
+  onRequestAudio,
   size = 16,
   className,
   onPlayStateChange,
@@ -65,6 +68,9 @@ export function AudioPlayer({
   const [isLoading, setIsLoading] = useState(false);
   // Track if we're waiting for the next segment during streaming
   const [isWaitingForSegment, setIsWaitingForSegment] = useState(false);
+  const [localAudioUrl, setLocalAudioUrl] = useState<string | undefined>(
+    undefined,
+  );
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -72,8 +78,10 @@ export function AudioPlayer({
   // Track how many seconds have been played from streaming segments in this play session.
   const playedSecondsRef = useRef(0);
 
-  const audioUrlRef = useRef(audioUrl);
-  audioUrlRef.current = audioUrl;
+  const effectiveAudioUrl = audioUrl || localAudioUrl;
+
+  const audioUrlRef = useRef(effectiveAudioUrl);
+  audioUrlRef.current = effectiveAudioUrl;
 
   // Use refs to track playback state across async callbacks
   const currentSegmentIndexRef = useRef(0);
@@ -92,10 +100,10 @@ export function AudioPlayer({
   onPlayStateChangeRef.current = onPlayStateChange;
 
   // Check if we have audio to play
-  const hasAudio = Boolean(audioUrl) || streamingSegments.length > 0;
+  const hasAudio = Boolean(effectiveAudioUrl) || streamingSegments.length > 0;
 
   // Use OSS URL if available and streaming is complete
-  const useOssUrl = Boolean(audioUrl) && !isStreaming;
+  const useOssUrl = Boolean(effectiveAudioUrl) && !isStreaming;
 
   // Cleanup audio resources
   const cleanupAudio = useCallback(() => {
@@ -211,9 +219,8 @@ export function AudioPlayer({
 
       // Initialize AudioContext if needed
       if (!audioContextRef.current) {
-        audioContextRef.current = new (
-          window.AudioContext || (window as any).webkitAudioContext
-        )();
+        audioContextRef.current = new (window.AudioContext ||
+          (window as any).webkitAudioContext)();
       }
 
       const audioContext = audioContextRef.current;
@@ -306,7 +313,7 @@ export function AudioPlayer({
         playSegmentByIndex(nextIndex);
       } else if (!isStreaming) {
         // Streaming finished and no more segments. If final URL exists, continue playback with it.
-        if (audioUrl) {
+        if (effectiveAudioUrl) {
           const startAtSeconds = playedSecondsRef.current;
           cleanupAudio();
           playFromUrl(startAtSeconds);
@@ -325,13 +332,17 @@ export function AudioPlayer({
     isStreaming,
     isWaitingForSegment,
     playSegmentByIndex,
-    audioUrl,
+    effectiveAudioUrl,
     cleanupAudio,
     playFromUrl,
   ]);
 
   // Handle play/pause toggle
   const togglePlay = useCallback(() => {
+    if (isLoading) {
+      return;
+    }
+
     if (isPlaying) {
       // Pause
       cleanupAudio();
@@ -345,16 +356,44 @@ export function AudioPlayer({
         playFromUrl();
       } else if (streamingSegments.length > 0 || isStreaming) {
         playFromSegments();
+      } else if (onRequestAudio) {
+        setIsWaitingForSegment(false);
+        setIsLoading(true);
+        onRequestAudio()
+          .then(result => {
+            const url =
+              result?.audio_url ||
+              result?.audioUrl ||
+              result?.audio_url ||
+              undefined;
+            if (!url) {
+              setIsLoading(false);
+              return;
+            }
+            setLocalAudioUrl(url);
+            audioUrlRef.current = url;
+            playFromUrl();
+          })
+          .catch(err => {
+            console.error('Failed to request audio:', err);
+            setIsLoading(false);
+            setIsPlaying(false);
+            isPlayingRef.current = false;
+            setIsWaitingForSegment(false);
+            onPlayStateChangeRef.current?.(false);
+          });
       }
     }
   }, [
     isPlaying,
+    isLoading,
     useOssUrl,
     isStreaming,
     cleanupAudio,
     playFromUrl,
     playFromSegments,
     streamingSegments.length,
+    onRequestAudio,
   ]);
 
   // Cleanup on unmount
@@ -397,7 +436,7 @@ export function AudioPlayer({
       if (streamingSegments.length > 0 || isStreaming) {
         hasAutoPlayedForCurrentContentRef.current = true;
         playFromSegments();
-      } else if (audioUrl) {
+      } else if (effectiveAudioUrl) {
         hasAutoPlayedForCurrentContentRef.current = true;
         playFromUrl();
       }
@@ -409,7 +448,7 @@ export function AudioPlayer({
     disabled,
     streamingSegments.length,
     isStreaming,
-    audioUrl,
+    effectiveAudioUrl,
     playFromSegments,
     playFromUrl,
   ]);
@@ -419,7 +458,8 @@ export function AudioPlayer({
     return null;
   }
 
-  const isButtonDisabled = disabled || (!hasAudio && !isStreaming);
+  const isButtonDisabled =
+    disabled || (!hasAudio && !isStreaming && !onRequestAudio);
 
   const playLabel = previewMode
     ? t('module.chat.ttsSynthesisPreview')

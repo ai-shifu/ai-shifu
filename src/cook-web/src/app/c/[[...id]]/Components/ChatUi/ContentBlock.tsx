@@ -21,6 +21,7 @@ interface ContentBlockProps {
   onLongPress?: (event: any, item: ChatContentItem) => void;
   // Audio props for streaming TTS (mobile only)
   showAudioPlayer?: boolean;
+  onRequestAudio?: () => Promise<any>;
   autoPlayAudio?: boolean;
   onAudioPlayStateChange?: (isPlaying: boolean) => void;
 }
@@ -37,6 +38,7 @@ const ContentBlock = memo(
     onSend,
     onLongPress,
     showAudioPlayer = false,
+    onRequestAudio,
     autoPlayAudio = false,
     onAudioPlayStateChange,
   }: ContentBlockProps) => {
@@ -71,7 +73,9 @@ const ContentBlock = memo(
       Boolean(item.audioUrl);
 
     const shouldShowAudioPlayer =
-      mobileStyle && showAudioPlayer && hasAudioContent;
+      mobileStyle &&
+      showAudioPlayer &&
+      (hasAudioContent || Boolean(onRequestAudio));
 
     return (
       <div
@@ -99,6 +103,8 @@ const ContentBlock = memo(
             streamingSegments={item.audioSegments}
             isStreaming={item.isAudioStreaming}
             previewMode={showAudioPlayer}
+            alwaysVisible={true}
+            onRequestAudio={onRequestAudio}
             autoPlay={autoPlayAudio}
             onPlayStateChange={onAudioPlayStateChange}
             size={16}

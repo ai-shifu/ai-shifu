@@ -1,10 +1,8 @@
 import hashlib
 import inspect
 import json
-import base64
 import queue
 import threading
-import uuid
 from decimal import Decimal
 from enum import Enum
 from typing import Generator, Iterable, Optional, Union
@@ -74,18 +72,8 @@ from flaskr.service.learn.learn_dtos import (
     PreviewTextEndSSEData,
     RunMarkdownFlowDTO,
     GeneratedType,
-    AudioSegmentDTO,
-    AudioCompleteDTO,
     OutlineItemUpdateDTO,
     LearnStatus,
-)
-from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
-from flaskr.service.tts import preprocess_for_tts
-from flaskr.api.tts import (
-    synthesize_text,
-    is_tts_configured,
-    get_default_voice_settings,
-    get_default_audio_settings,
 )
 from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
 from flaskr.service.learn.handle_input_ask import handle_input_ask
@@ -455,56 +443,6 @@ class RunScriptPreviewContextV2:
     def __init__(self, app: Flask):
         self.app = app
 
-    @staticmethod
-    def _split_tts_segments(text: str, max_segment_chars: int = 300) -> list[str]:
-        if not text:
-            return []
-
-        # Split by sentence endings first to avoid chopping short sentences.
-        parts: list[str] = []
-        start = 0
-        for idx, ch in enumerate(text):
-            if ch in ".!?。！？；;":
-                segment = text[start : idx + 1].strip()
-                if segment:
-                    parts.append(segment)
-                start = idx + 1
-        tail = text[start:].strip()
-        if tail:
-            parts.append(tail)
-
-        # Merge sentence parts into chunks <= max_segment_chars.
-        merged: list[str] = []
-        buffer = ""
-        for part in parts:
-            if not buffer:
-                buffer = part
-                continue
-
-            next_len = len(buffer) + 1 + len(part)
-            if next_len > max_segment_chars and len(buffer.strip()) >= 2:
-                merged.append(buffer.strip())
-                buffer = part
-            else:
-                buffer = f"{buffer} {part}"
-
-        if buffer.strip():
-            merged.append(buffer.strip())
-
-        # Hard-split any overlong chunks to respect provider limits.
-        result: list[str] = []
-        for item in merged:
-            if len(item) <= max_segment_chars:
-                if len(item.strip()) >= 2:
-                    result.append(item.strip())
-                continue
-            for offset in range(0, len(item), max_segment_chars):
-                chunk = item[offset : offset + max_segment_chars].strip()
-                if len(chunk) >= 2:
-                    result.append(chunk)
-
-        return result
-
     def stream_preview(
         self,
         *,
@@ -603,122 +541,6 @@ class RunScriptPreviewContextV2:
             current_block = mdflow_context.get_block(block_index)
             is_user_input_validation = bool(preview_request.user_input)
             content_chunks: list[str] = []
-            tts_processor: Optional[StreamingTTSProcessor] = None
-            should_enable_tts = bool(
-                shifu
-                and getattr(shifu, "tts_enabled", False)
-                and current_block
-                and current_block.block_type != BlockType.INTERACTION
-            )
-            did_emit_tts = False
-
-            def _emit_preview_tts(run_event: RunMarkdownFlowDTO):
-                nonlocal did_emit_tts
-                if run_event.type == GeneratedType.AUDIO_SEGMENT:
-                    did_emit_tts = True
-                    yield PreviewSSEMessage(
-                        generated_block_bid=str(block_index),
-                        type=PreviewSSEMessageType.AUDIO_SEGMENT,
-                        data=run_event.content,
-                    )
-                elif run_event.type == GeneratedType.AUDIO_COMPLETE:
-                    did_emit_tts = True
-                    yield PreviewSSEMessage(
-                        generated_block_bid=str(block_index),
-                        type=PreviewSSEMessageType.AUDIO_COMPLETE,
-                        data=run_event.content,
-                    )
-
-            def _emit_preview_tts_fallback():
-                nonlocal did_emit_tts
-                if (
-                    not should_enable_tts
-                    or did_emit_tts
-                    or not content_chunks
-                    or not shifu
-                ):
-                    return
-
-                try:
-                    tts_provider = (
-                        (getattr(shifu, "tts_provider", "") or "").strip().lower()
-                    )
-                    if tts_provider == "default":
-                        tts_provider = ""
-
-                    if tts_provider:
-                        if not is_tts_configured(tts_provider):
-                            raise ValueError(
-                                f"TTS provider '{tts_provider}' is not configured"
-                            )
-                    elif not is_tts_configured():
-                        raise ValueError("No TTS provider is configured")
-
-                    voice_settings = get_default_voice_settings(tts_provider)
-                    voice_id = (getattr(shifu, "tts_voice_id", "") or "").strip()
-                    if voice_id:
-                        voice_settings.voice_id = voice_id
-
-                    raw_speed = getattr(shifu, "tts_speed", None)
-                    if raw_speed is not None:
-                        voice_settings.speed = float(raw_speed)
-                    raw_pitch = getattr(shifu, "tts_pitch", None)
-                    if raw_pitch is not None:
-                        voice_settings.pitch = int(raw_pitch)
-                    emotion = (getattr(shifu, "tts_emotion", "") or "").strip()
-                    if emotion:
-                        voice_settings.emotion = emotion
-
-                    audio_settings = get_default_audio_settings(tts_provider)
-                    tts_model = (getattr(shifu, "tts_model", "") or "").strip()
-
-                    full_text = preprocess_for_tts("".join(content_chunks))
-                    segments = self._split_tts_segments(full_text, 300)
-                    if not segments:
-                        return
-
-                    did_emit_tts = True
-                    audio_bid = uuid.uuid4().hex
-                    total_duration_ms = 0
-                    for idx, segment_text in enumerate(segments):
-                        try:
-                            result = synthesize_text(
-                                text=segment_text,
-                                voice_settings=voice_settings,
-                                audio_settings=audio_settings,
-                                model=tts_model or None,
-                                provider_name=tts_provider,
-                            )
-                            encoded = base64.b64encode(result.audio_data).decode(
-                                "utf-8"
-                            )
-                            total_duration_ms += int(result.duration_ms or 0)
-                            yield PreviewSSEMessage(
-                                generated_block_bid=str(block_index),
-                                type=PreviewSSEMessageType.AUDIO_SEGMENT,
-                                data=AudioSegmentDTO(
-                                    segment_index=idx,
-                                    audio_data=encoded,
-                                    duration_ms=int(result.duration_ms or 0),
-                                    is_final=idx == len(segments) - 1,
-                                ),
-                            )
-                        except Exception as exc:
-                            self.app.logger.warning(
-                                "preview TTS fallback segment failed: %s", exc
-                            )
-                    if total_duration_ms > 0:
-                        yield PreviewSSEMessage(
-                            generated_block_bid=str(block_index),
-                            type=PreviewSSEMessageType.AUDIO_COMPLETE,
-                            data=AudioCompleteDTO(
-                                audio_url="",
-                                audio_bid=audio_bid,
-                                duration_ms=total_duration_ms,
-                            ),
-                        )
-                except Exception as exc:
-                    self.app.logger.warning("preview TTS fallback failed: %s", exc)
 
             mode = ProcessMode.STREAM
             user_input = preview_request.user_input
@@ -729,37 +551,6 @@ class RunScriptPreviewContextV2:
             ):
                 mode = ProcessMode.COMPLETE
                 user_input = None
-
-            if should_enable_tts:
-                try:
-                    tts_provider = (
-                        (getattr(shifu, "tts_provider", "") or "").strip().lower()
-                    )
-                    if tts_provider == "default":
-                        tts_provider = ""
-
-                    raw_speed = getattr(shifu, "tts_speed", None)
-                    speed = float(raw_speed) if raw_speed is not None else 1.0
-                    raw_pitch = getattr(shifu, "tts_pitch", None)
-                    pitch = int(raw_pitch) if raw_pitch is not None else 0
-
-                    tts_processor = StreamingTTSProcessor(
-                        app=self.app,
-                        generated_block_bid=str(block_index),
-                        outline_bid=outline_bid,
-                        progress_record_bid="",
-                        user_bid=user_bid,
-                        shifu_bid=shifu_bid,
-                        voice_id=getattr(shifu, "tts_voice_id", "") or "",
-                        speed=speed,
-                        pitch=pitch,
-                        emotion=getattr(shifu, "tts_emotion", "") or "",
-                        tts_provider=tts_provider,
-                        tts_model=getattr(shifu, "tts_model", "") or "",
-                    )
-                except Exception as exc:
-                    self.app.logger.warning("preview TTS init failed: %s", exc)
-                    tts_processor = None
 
             result = mdflow_context.process(
                 block_index=block_index,
@@ -782,32 +573,8 @@ class RunScriptPreviewContextV2:
                         if message.type == PreviewSSEMessageType.CONTENT:
                             content_chunks.append(message.data.mdflow)
                         yield message
-                        if (
-                            tts_processor
-                            and message.type == PreviewSSEMessageType.CONTENT
-                            and message.data.mdflow
-                        ):
-                            try:
-                                for run_event in tts_processor.process_chunk(
-                                    message.data.mdflow
-                                ):
-                                    yield from _emit_preview_tts(run_event)
-                            except Exception as exc:
-                                self.app.logger.warning(
-                                    "preview TTS chunk failed: %s", exc
-                                )
                         if message.type == PreviewSSEMessageType.INTERACTION:
                             break
-                if tts_processor:
-                    try:
-                        for run_event in tts_processor.finalize_preview():
-                            yield from _emit_preview_tts(run_event)
-                    except Exception as exc:
-                        self.app.logger.warning(
-                            "preview TTS finalization failed: %s", exc
-                        )
-
-                yield from _emit_preview_tts_fallback()
 
                 yield self._convert_to_sse_message(
                     LLMResult(content=""),
@@ -828,29 +595,6 @@ class RunScriptPreviewContextV2:
                     if message.type == PreviewSSEMessageType.CONTENT:
                         content_chunks.append(message.data.mdflow)
                     yield message
-                    if (
-                        tts_processor
-                        and message.type == PreviewSSEMessageType.CONTENT
-                        and message.data.mdflow
-                    ):
-                        try:
-                            for run_event in tts_processor.process_chunk(
-                                message.data.mdflow
-                            ):
-                                yield from _emit_preview_tts(run_event)
-                        except Exception as exc:
-                            self.app.logger.warning("preview TTS chunk failed: %s", exc)
-
-                if tts_processor:
-                    try:
-                        for run_event in tts_processor.finalize_preview():
-                            yield from _emit_preview_tts(run_event)
-                    except Exception as exc:
-                        self.app.logger.warning(
-                            "preview TTS finalization failed: %s", exc
-                        )
-
-                yield from _emit_preview_tts_fallback()
 
                 yield self._convert_to_sse_message(
                     LLMResult(content=""),
@@ -2262,49 +2006,6 @@ class RunScriptContextV2:
                 app.logger.info(f"process_stream: {run_script_info.block_position}")
                 app.logger.info(f"variables: {user_profile}")
 
-                # For CONTENT blocks, no user_input is needed (only INTERACTION blocks have user input)
-                # Initialize streaming TTS processor if enabled
-                shifu_model = (
-                    self._shifu_model.query.filter(
-                        self._shifu_model.shifu_bid == self._shifu_info.bid,
-                        self._shifu_model.deleted == 0,
-                    )
-                    .order_by(self._shifu_model.id.desc())
-                    .first()
-                )
-                tts_processor = None
-                if shifu_model and shifu_model.tts_enabled and (not self._preview_mode):
-                    app.logger.info(
-                        "Non-preview mode enabled; skipping TTS generation for shifu %s",
-                        self._shifu_info.bid,
-                    )
-                elif shifu_model and shifu_model.tts_enabled and self._preview_mode:
-                    app.logger.info(
-                        f"TTS enabled for shifu {self._shifu_info.bid}, initializing streaming TTS"
-                    )
-                    tts_provider = (shifu_model.tts_provider or "").strip().lower()
-                    if tts_provider == "default":
-                        tts_provider = ""
-
-                    tts_processor = StreamingTTSProcessor(
-                        app=app,
-                        generated_block_bid=generated_block.generated_block_bid,
-                        outline_bid=run_script_info.outline_bid,
-                        progress_record_bid=self._current_attend.progress_record_bid,
-                        user_bid=self._user_info.user_id,
-                        shifu_bid=self._shifu_info.bid,
-                        voice_id=shifu_model.tts_voice_id or "",
-                        speed=float(shifu_model.tts_speed)
-                        if shifu_model.tts_speed is not None
-                        else 1.0,
-                        pitch=int(shifu_model.tts_pitch)
-                        if shifu_model.tts_pitch is not None
-                        else 0,
-                        emotion=shifu_model.tts_emotion or "",
-                        tts_provider=tts_provider,
-                        tts_model=shifu_model.tts_model or "",
-                    )
-
                 stream_result = mdflow_context.process(
                     block_index=run_script_info.block_position,
                     mode=ProcessMode.STREAM,
@@ -2330,16 +2031,6 @@ class RunScriptContextV2:
                                 type=GeneratedType.CONTENT,
                                 content=chunk_content,
                             )
-                            # Process TTS in real-time during streaming
-                            if tts_processor:
-                                try:
-                                    yield from tts_processor.process_chunk(
-                                        chunk_content
-                                    )
-                                except Exception as e:
-                                    app.logger.warning(
-                                        f"Streaming TTS chunk failed: {e}"
-                                    )
                 else:
                     # It's a single LLMResult object (edge case)
                     chunk_content = (
@@ -2355,12 +2046,6 @@ class RunScriptContextV2:
                             type=GeneratedType.CONTENT,
                             content=chunk_content,
                         )
-                        # Process TTS for single result
-                        if tts_processor:
-                            try:
-                                yield from tts_processor.process_chunk(chunk_content)
-                            except Exception as e:
-                                app.logger.warning(f"Streaming TTS chunk failed: {e}")
 
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
@@ -2374,13 +2059,6 @@ class RunScriptContextV2:
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                 self._current_attend.block_position += 1
                 db.session.flush()
-
-                # Finalize TTS - synthesize remaining buffer and upload to OSS
-                if tts_processor:
-                    try:
-                        yield from tts_processor.finalize()
-                    except Exception as e:
-                        app.logger.warning(f"TTS finalization failed: {e}")
 
         progress_record = self._current_attend
         outline_updates = self._get_next_outline_item()

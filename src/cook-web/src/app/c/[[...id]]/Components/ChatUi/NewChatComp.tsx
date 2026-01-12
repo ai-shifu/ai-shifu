@@ -218,6 +218,7 @@ export const NewChatComponents = ({
     onRefresh,
     toggleAskExpanded,
     reGenerateConfirm,
+    requestAudioForBlock,
   } = useChatLogicHook({
     onGoChapter,
     shifuBid,
@@ -415,8 +416,8 @@ export const NewChatComponents = ({
                   !parentContentItem.isHistory &&
                   Boolean(
                     parentContentItem.audioUrl ||
-                    parentContentItem.audioSegments?.length ||
-                    parentContentItem.isAudioStreaming,
+                      parentContentItem.audioSegments?.length ||
+                      parentContentItem.isAudioStreaming,
                   );
 
                 const blockAutoPlay = shouldAutoPlay(
@@ -445,6 +446,9 @@ export const NewChatComponents = ({
                       audioUrl={parentContentItem?.audioUrl}
                       audioSegments={parentContentItem?.audioSegments}
                       isAudioStreaming={parentContentItem?.isAudioStreaming}
+                      onRequestAudio={() =>
+                        requestAudioForBlock(parentBlockBid)
+                      }
                       autoPlayAudio={blockAutoPlay}
                       onAudioPlayStateChange={isPlaying =>
                         handleAudioPlayStateChange(parentBlockBid, isPlaying)
@@ -460,8 +464,8 @@ export const NewChatComponents = ({
                 !item.isHistory &&
                 Boolean(
                   item.audioUrl ||
-                  item.audioSegments?.length ||
-                  item.isAudioStreaming,
+                    item.audioSegments?.length ||
+                    item.isAudioStreaming,
                 );
               const blockAutoPlay = mobileStyle
                 ? shouldAutoPlay(item.generated_block_bid, hasAudioForAutoPlay)
@@ -494,6 +498,9 @@ export const NewChatComponents = ({
                     onSend={memoizedOnSend}
                     onLongPress={handleLongPress}
                     showAudioPlayer={previewMode}
+                    onRequestAudio={() =>
+                      requestAudioForBlock(item.generated_block_bid)
+                    }
                     autoPlayAudio={blockAutoPlay}
                     onAudioPlayStateChange={isPlaying =>
                       handleAudioPlayStateChange(

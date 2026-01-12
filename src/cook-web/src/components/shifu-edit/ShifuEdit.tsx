@@ -107,6 +107,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     persistVariables,
     onVariableChange,
     variables: previewVariables,
+    requestAudioForBlock: requestPreviewAudioForBlock,
     reGenerateConfirm,
   } = usePreviewChat();
   const editModeOptions = useMemo(
@@ -656,6 +657,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   onSend={onSend}
                   onVariableChange={onVariableChange}
                   variableOrder={variableOrder}
+                  onRequestAudioForBlock={requestPreviewAudioForBlock}
                   reGenerateConfirm={reGenerateConfirm}
                 />
               </div>

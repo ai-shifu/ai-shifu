@@ -19,6 +19,7 @@ import { useShallow } from 'zustand/react/shallow';
 import {
   StudyRecordItem,
   LikeStatus,
+  AudioCompleteData,
   getRunMessage,
   SSE_INPUT_TYPE,
   getLessonStudyRecord,
@@ -28,6 +29,7 @@ import {
   BLOCK_TYPE,
   BlockType,
   checkIsRunning,
+  synthesizeGeneratedBlockAudio,
 } from '@/c-api/studyV2';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import {
@@ -129,6 +131,9 @@ export interface UseChatSessionResult {
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onRefresh: (generatedBlockBid: string) => void;
   toggleAskExpanded: (parentBlockBid: string) => void;
+  requestAudioForBlock: (
+    generatedBlockBid: string,
+  ) => Promise<AudioCompleteData | null>;
   reGenerateConfirm: {
     open: boolean;
     onConfirm: () => void;
@@ -1300,12 +1305,47 @@ function useChatLogicHook({
     [contentList, nullRenderBar],
   );
 
+  const requestAudioForBlock = useCallback(
+    async (generatedBlockBid: string): Promise<AudioCompleteData | null> => {
+      if (!generatedBlockBid) {
+        return null;
+      }
+
+      const audio = await synthesizeGeneratedBlockAudio({
+        shifu_bid: shifuBid,
+        generated_block_bid: generatedBlockBid,
+        preview_mode: effectivePreviewMode,
+      });
+
+      if (audio?.audio_url) {
+        setTrackedContentList(prev =>
+          prev.map(item => {
+            if (item.generated_block_bid !== generatedBlockBid) {
+              return item;
+            }
+
+            return {
+              ...item,
+              audioUrl: audio.audio_url,
+              audioDurationMs: audio.duration_ms,
+              isAudioStreaming: false,
+            };
+          }),
+        );
+      }
+
+      return audio ?? null;
+    },
+    [effectivePreviewMode, setTrackedContentList, shifuBid],
+  );
+
   return {
     items,
     isLoading,
     onSend,
     onRefresh,
     toggleAskExpanded,
+    requestAudioForBlock,
     reGenerateConfirm: {
       open: showRegenerateConfirm,
       onConfirm: handleConfirmRegenerate,

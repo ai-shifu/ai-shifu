@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { LikeStatus } from '@/c-api/studyV2';
+import type { AudioCompleteData, LikeStatus } from '@/c-api/studyV2';
 import { postGeneratedContentAction, LIKE_STATUS } from '@/c-api/studyV2';
 import { RefreshCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -47,6 +47,7 @@ export interface InteractionBlockProps {
   isAudioStreaming?: boolean;
   autoPlayAudio?: boolean;
   onAudioPlayStateChange?: (isPlaying: boolean) => void;
+  onRequestAudio?: () => Promise<AudioCompleteData | null>;
 }
 
 /**
@@ -71,6 +72,7 @@ export default function InteractionBlock({
   isAudioStreaming,
   autoPlayAudio = false,
   onAudioPlayStateChange,
+  onRequestAudio,
 }: InteractionBlockProps) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<LikeStatus>(
@@ -236,6 +238,7 @@ export default function InteractionBlock({
             disabled={disabled || readonly}
             autoPlay={autoPlayAudio}
             onPlayStateChange={onAudioPlayStateChange}
+            onRequestAudio={onRequestAudio}
             className={cn('interaction-icon-btn', canHover && 'group')}
             size={16}
           />

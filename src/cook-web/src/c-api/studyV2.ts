@@ -131,6 +131,12 @@ export interface AudioCompleteData {
   duration_ms: number;
 }
 
+export interface SynthesizeGeneratedBlockAudioParams {
+  shifu_bid: string;
+  generated_block_bid: string;
+  preview_mode?: boolean;
+}
+
 export const getRunMessage = (
   shifu_bid: string,
   outline_bid: string,
@@ -238,4 +244,13 @@ export const checkIsRunning = async (
 ): Promise<RunningResult> => {
   const url = `/api/learn/shifu/${shifu_bid}/run/${outline_bid}`;
   return request.get(url);
+};
+
+export const synthesizeGeneratedBlockAudio = async ({
+  shifu_bid,
+  generated_block_bid,
+  preview_mode = false,
+}: SynthesizeGeneratedBlockAudioParams): Promise<AudioCompleteData> => {
+  const url = `/api/learn/shifu/${shifu_bid}/generated-blocks/${generated_block_bid}/tts?preview_mode=${preview_mode}`;
+  return request.post(url, {});
 };

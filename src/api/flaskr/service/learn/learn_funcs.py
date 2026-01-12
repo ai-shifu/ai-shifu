@@ -2,6 +2,7 @@ from markdown_flow import (
     InteractionParser,
 )
 from flask import Flask, request
+import uuid
 from flaskr.service.learn.learn_dtos import (
     LearnShifuInfoDTO,
     LearnOutlineItemInfoDTO,
@@ -25,7 +26,10 @@ from flaskr.service.shifu.models import (
 )
 from flaskr.service.learn.models import LearnProgressRecord, LearnGeneratedBlock
 from flaskr.service.tts.models import LearnGeneratedAudio, AUDIO_STATUS_COMPLETED
-from flaskr.service.common import raise_error
+from flaskr.service.tts.pipeline import synthesize_long_text_to_oss
+from flaskr.api.tts import get_default_audio_settings, get_default_voice_settings
+from flaskr.service.tts import preprocess_for_tts
+from flaskr.service.common import raise_error, raise_error_with_args
 from flaskr.service.shifu.utils import get_shifu_res_url
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.order.models import Order, BannerInfo
@@ -463,3 +467,223 @@ def get_generated_content(
             outline_name=outline_title,
             is_trial_lesson=is_trial_lesson,
         )
+
+
+def _resolve_shifu_tts_settings(
+    app: Flask,
+    *,
+    shifu_bid: str,
+    preview_mode: bool,
+):
+    shifu_model = DraftShifu if preview_mode else PublishedShifu
+    shifu = (
+        shifu_model.query.filter(
+            shifu_model.shifu_bid == shifu_bid,
+            shifu_model.deleted == 0,
+        )
+        .order_by(shifu_model.id.desc())
+        .first()
+    )
+    if not shifu:
+        raise_error("server.shifu.shifuNotFound")
+
+    if not getattr(shifu, "tts_enabled", False):
+        raise_error("server.shifu.ttsNotEnabled")
+
+    provider = (getattr(shifu, "tts_provider", "") or "").strip().lower()
+    if provider == "default":
+        provider = ""
+
+    voice_settings = get_default_voice_settings(provider)
+    voice_id = (getattr(shifu, "tts_voice_id", "") or "").strip()
+    if voice_id:
+        voice_settings.voice_id = voice_id
+
+    speed_raw = getattr(shifu, "tts_speed", None)
+    if speed_raw is not None:
+        voice_settings.speed = float(speed_raw)
+
+    pitch_raw = getattr(shifu, "tts_pitch", None)
+    if pitch_raw is not None:
+        voice_settings.pitch = int(pitch_raw)
+
+    emotion = (getattr(shifu, "tts_emotion", "") or "").strip()
+    if emotion:
+        voice_settings.emotion = emotion
+
+    audio_settings = get_default_audio_settings(provider)
+
+    tts_model = (getattr(shifu, "tts_model", "") or "").strip()
+
+    return provider, tts_model, voice_settings, audio_settings
+
+
+def synthesize_generated_block_audio(
+    app: Flask,
+    *,
+    shifu_bid: str,
+    generated_block_bid: str,
+    user_bid: str,
+    preview_mode: bool,
+) -> dict:
+    """
+    Synthesize audio for a generated content block and persist it for later playback.
+
+    Notes:
+    - Intended for the C-end learning UI.
+    - Uses Shifu-level TTS settings (provider/model/voice).
+    - Uploads the final audio to OSS and stores a record in `learn_generated_audios`.
+    """
+    with app.app_context():
+        generated_block = LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.user_bid == user_bid,
+            LearnGeneratedBlock.shifu_bid == shifu_bid,
+            LearnGeneratedBlock.generated_block_bid == generated_block_bid,
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+        ).first()
+        if not generated_block:
+            raise_error("server.learn.generatedBlockNotFound")
+
+        existing_audio = (
+            LearnGeneratedAudio.query.filter(
+                LearnGeneratedAudio.generated_block_bid == generated_block_bid,
+                LearnGeneratedAudio.user_bid == user_bid,
+                LearnGeneratedAudio.shifu_bid == shifu_bid,
+                LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
+                LearnGeneratedAudio.deleted == 0,
+            )
+            .order_by(LearnGeneratedAudio.id.desc())
+            .first()
+        )
+        if existing_audio and existing_audio.oss_url:
+            return {
+                "audio_url": existing_audio.oss_url,
+                "audio_bid": existing_audio.audio_bid,
+                "duration_ms": existing_audio.duration_ms,
+            }
+
+        provider, tts_model, voice_settings, audio_settings = (
+            _resolve_shifu_tts_settings(
+                app,
+                shifu_bid=shifu_bid,
+                preview_mode=preview_mode,
+            )
+        )
+
+        raw_text = generated_block.generated_content or ""
+        cleaned_text = preprocess_for_tts(raw_text)
+        if not cleaned_text or len(cleaned_text.strip()) < 2:
+            raise_error_with_args(
+                "server.common.paramsError",
+                param_message="No speakable text available for TTS synthesis",
+            )
+
+        audio_bid = uuid.uuid4().hex
+        try:
+            result = synthesize_long_text_to_oss(
+                app,
+                text=raw_text,
+                provider_name=provider,
+                model=tts_model,
+                voice_settings=voice_settings,
+                audio_settings=audio_settings,
+                audio_bid=audio_bid,
+            )
+        except ValueError as exc:
+            raise_error_with_args("server.common.paramsError", param_message=str(exc))
+        except Exception:
+            app.logger.error("TTS synthesis failed", exc_info=True)
+            raise_error("server.common.unknownError")
+
+        audio_record = LearnGeneratedAudio(
+            audio_bid=audio_bid,
+            generated_block_bid=generated_block_bid,
+            progress_record_bid=generated_block.progress_record_bid,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            oss_url=result.audio_url,
+            oss_bucket="",
+            oss_object_key="",
+            duration_ms=int(result.duration_ms or 0),
+            file_size=0,
+            audio_format="mp3",
+            sample_rate=24000,
+            voice_id=voice_settings.voice_id or "",
+            voice_settings={
+                "speed": voice_settings.speed,
+                "pitch": voice_settings.pitch,
+                "emotion": voice_settings.emotion,
+                "volume": voice_settings.volume,
+            },
+            model=tts_model or "",
+            text_length=len(cleaned_text),
+            segment_count=int(result.segment_count or 0),
+            status=AUDIO_STATUS_COMPLETED,
+        )
+        db.session.add(audio_record)
+        db.session.commit()
+
+        return {
+            "audio_url": result.audio_url,
+            "audio_bid": audio_bid,
+            "duration_ms": int(result.duration_ms or 0),
+        }
+
+
+def synthesize_preview_tts_audio(
+    app: Flask,
+    *,
+    shifu_bid: str,
+    user_bid: str,
+    text: str,
+    preview_mode: bool,
+) -> dict:
+    """
+    Synthesize audio for an arbitrary text without persisting any database record.
+
+    Notes:
+    - Intended for the editor preview.
+    - Uses Shifu-level TTS settings (provider/model/voice).
+    - Uploads the final audio to OSS for browser playback, but does not write to DB.
+    """
+    with app.app_context():
+        _unused_user_bid = user_bid  # reserved for future auditing/logging
+
+        provider, tts_model, voice_settings, audio_settings = (
+            _resolve_shifu_tts_settings(
+                app,
+                shifu_bid=shifu_bid,
+                preview_mode=preview_mode,
+            )
+        )
+
+        cleaned_text = preprocess_for_tts(text or "")
+        if not cleaned_text or len(cleaned_text.strip()) < 2:
+            raise_error_with_args(
+                "server.common.paramsError",
+                param_message="No speakable text available for TTS synthesis",
+            )
+
+        audio_bid = uuid.uuid4().hex
+        try:
+            result = synthesize_long_text_to_oss(
+                app,
+                text=text or "",
+                provider_name=provider,
+                model=tts_model,
+                voice_settings=voice_settings,
+                audio_settings=audio_settings,
+                audio_bid=audio_bid,
+            )
+        except ValueError as exc:
+            raise_error_with_args("server.common.paramsError", param_message=str(exc))
+        except Exception:
+            app.logger.error("Preview TTS synthesis failed", exc_info=True)
+            raise_error("server.common.unknownError")
+
+        return {
+            "audio_url": result.audio_url,
+            "audio_bid": audio_bid,
+            "duration_ms": int(result.duration_ms or 0),
+        }

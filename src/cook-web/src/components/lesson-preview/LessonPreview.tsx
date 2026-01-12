@@ -12,6 +12,7 @@ import {
   ChatContentItemType,
 } from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
+import type { AudioCompleteData } from '@/c-api/studyV2';
 import VariableList from './VariableList';
 import {
   getStoredPreviewVariables,
@@ -36,6 +37,11 @@ interface LessonPreviewProps {
   shifuBid: string;
   onRefresh: (generatedBlockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
+  onRequestAudioForBlock?: (params: {
+    shifuBid: string;
+    blockId: string;
+    text: string;
+  }) => Promise<AudioCompleteData | null>;
   onVariableChange?: (name: string, value: string) => void;
   variableOrder?: string[];
   reGenerateConfirm?: {
@@ -54,6 +60,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   shifuBid,
   onRefresh,
   onSend,
+  onRequestAudioForBlock,
   onVariableChange,
   variableOrder,
   reGenerateConfirm,
@@ -167,6 +174,16 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                       audioUrl={parentContentItem?.audioUrl}
                       audioSegments={parentContentItem?.audioSegments}
                       isAudioStreaming={parentContentItem?.isAudioStreaming}
+                      onRequestAudio={
+                        onRequestAudioForBlock
+                          ? () =>
+                              onRequestAudioForBlock({
+                                shifuBid,
+                                blockId: parentBlockBid,
+                                text: parentContentItem?.content || '',
+                              })
+                          : undefined
+                      }
                     />
                   </div>
                 );

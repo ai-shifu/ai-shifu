@@ -21,6 +21,8 @@ import { useShifu, useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
 import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
+import request from '@/lib/request';
+import type { AudioCompleteData } from '@/c-api/studyV2';
 
 interface InteractionParseResult {
   variableName?: string;
@@ -984,6 +986,49 @@ export function usePreviewChat() {
     [contentList, nullRenderBar],
   );
 
+  const requestAudioForBlock = useCallback(
+    async ({
+      shifuBid,
+      blockId,
+      text,
+    }: {
+      shifuBid: string;
+      blockId: string;
+      text: string;
+    }): Promise<AudioCompleteData | null> => {
+      if (!shifuBid || !blockId) {
+        return null;
+      }
+
+      const audio = await request.post(
+        `/api/learn/shifu/${shifuBid}/tts/preview?preview_mode=true`,
+        {
+          text: text || '',
+        },
+      );
+
+      if (audio?.audio_url) {
+        setTrackedContentList(prev =>
+          prev.map(item => {
+            if (item.generated_block_bid !== blockId) {
+              return item;
+            }
+
+            return {
+              ...item,
+              audioUrl: audio.audio_url,
+              audioDurationMs: audio.duration_ms,
+              isAudioStreaming: false,
+            };
+          }),
+        );
+      }
+
+      return audio ?? null;
+    },
+    [setTrackedContentList],
+  );
+
   return {
     items,
     isLoading,
@@ -997,6 +1042,7 @@ export function usePreviewChat() {
     persistVariables,
     onVariableChange: handleVariableChange,
     variables: variablesSnapshot,
+    requestAudioForBlock,
     reGenerateConfirm: {
       open: showRegenerateConfirm,
       onConfirm: handleConfirmRegenerate,
