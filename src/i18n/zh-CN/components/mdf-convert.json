@@ -4,7 +4,7 @@
   "applySuccess": "内容已应用到编辑器",
   "backButton": "上一步",
   "cancelButton": "取消",
-  "configWarningMessage": "未配置智能转换 MarkdownFlow 的 API 服务，请联系 AI-Shifu 团队获得支持：",
+  "configWarningMessage": "未配置智能转换 MarkdownFlow 的 API 服务，请联系 AI 师傅团队获得支持：",
   "confirmApplyButton": "确认",
   "confirmApplyDescription": "这将会覆盖当前编辑器中的内容,是否确认应用?",
   "confirmApplyTitle": "确认应用",
