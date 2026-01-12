@@ -27,8 +27,8 @@ import { useAlert } from '@/components/ui/UseAlert';
 // Use unified Request system
 import http from '@/lib/request';
 
-// Use centralized environment configuration
-import environment from '@/config/environment';
+// Use environment store for dynamic configuration
+import { useEnvStore } from '@/c-store';
 
 // Analytics tracking
 import { useTracking } from '@/c-common/hooks/useTracking';
@@ -63,10 +63,14 @@ export function MdfConvertDialog({
   const { t, i18n } = useTranslation();
   const { showAlert } = useAlert();
   const { trackEvent } = useTracking();
+  const mdfApiUrl = useEnvStore(state => state.mdfApiUrl);
 
   const [inputText, setInputText] = useState('');
   const [isConverting, setIsConverting] = useState(false);
   const [result, setResult] = useState<MdfConvertResponse | null>(null);
+
+  // Check if MDF API is configured
+  const isMdfApiConfigured = Boolean(mdfApiUrl && mdfApiUrl.trim().length > 0);
 
   // Determine language based on i18n
   const language = i18n.language === 'zh-CN' ? 'Chinese' : 'English';
@@ -109,9 +113,7 @@ export function MdfConvertDialog({
 
     setIsConverting(true);
     try {
-      const baseUrl = environment.mdfApiUrl;
-
-      const response = (await http.post(`${baseUrl}/gen/mdf-convert`, {
+      const response = (await http.post(`${mdfApiUrl}/gen/mdf-convert`, {
         text: inputText.trim(),
         language: language,
         output_mode: 'content',
@@ -198,7 +200,10 @@ export function MdfConvertDialog({
         <DialogHeader className='px-6 pt-4 pb-2 border-0'>
           <DialogTitle className='text-xl font-semibold tracking-tight flex items-center gap-2'>
             {t('component.mdfConvert.dialogTitle')}
-            <Badge variant='default' className='text-[10px] px-1.5 py-0 font-medium'>
+            <Badge
+              variant='default'
+              className='text-[10px] px-1.5 py-0 font-medium'
+            >
               Beta
             </Badge>
           </DialogTitle>
@@ -209,7 +214,7 @@ export function MdfConvertDialog({
             // Input Form
             <div className='flex-1 flex flex-col min-h-0'>
               {/* Persistent warning when MDF API is not configured */}
-              {!environment.mdfApiConfigured && (
+              {!isMdfApiConfigured && (
                 <div className='flex-shrink-0 mb-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md'>
                   <div className='flex items-start gap-2'>
                     <AlertCircle className='h-5 w-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5' />
@@ -296,9 +301,7 @@ export function MdfConvertDialog({
               <Button
                 onClick={handleConvert}
                 disabled={
-                  !environment.mdfApiConfigured ||
-                  isConverting ||
-                  !inputText.trim()
+                  !isMdfApiConfigured || isConverting || !inputText.trim()
                 }
                 className='flex items-center gap-2'
               >
