@@ -84,6 +84,7 @@ export const ChatUi = ({
       )}
 
       <div className={styles.footer}>
+        <div id='chat-scroll-target' className={styles.scrollTarget} />
         <div className={styles.footerContent}>
           <span className={styles.footerText}>
             {t('module.chat.aiGenerated')}
