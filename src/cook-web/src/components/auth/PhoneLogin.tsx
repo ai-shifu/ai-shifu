@@ -63,13 +63,13 @@ export function PhoneLogin({ onLoginSuccess, loginContext }: PhoneLoginProps) {
     }
   };
 
-  // Normalize OTP to prevent iOS Safari double-paste (e.g., 123456123456)
+  // Normalize OTP to prevent iOS Safari double-paste (e.g., 12341234)
   const normalizeOtp = (rawValue: string) => {
     const digits = rawValue.replace(/\D/g, '');
     if (!digits) {
       return '';
     }
-    const maxLength = 6;
+    const maxLength = 4;
     const capped = digits.slice(0, maxLength * 2);
     const primary = capped.slice(0, maxLength);
     if (capped.length > maxLength) {
