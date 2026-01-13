@@ -65,7 +65,9 @@ export function MdfConvertDialog({
   const [inputText, setInputText] = useState('');
   const [isConverting, setIsConverting] = useState(false);
   const [result, setResult] = useState<MdfConvertResponse | null>(null);
-  const [isMdfApiConfigured, setIsMdfApiConfigured] = useState<boolean | null>(null);
+  const [isMdfApiConfigured, setIsMdfApiConfigured] = useState<boolean | null>(
+    null,
+  );
   const [isCheckingConfig, setIsCheckingConfig] = useState(false);
 
   // Determine language based on i18n
@@ -312,7 +314,10 @@ export function MdfConvertDialog({
               <Button
                 onClick={handleConvert}
                 disabled={
-                  isMdfApiConfigured === false || isCheckingConfig || isConverting || !inputText.trim()
+                  isMdfApiConfigured === false ||
+                  isCheckingConfig ||
+                  isConverting ||
+                  !inputText.trim()
                 }
                 className='flex items-center gap-2'
               >
