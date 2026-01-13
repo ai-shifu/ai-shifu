@@ -106,10 +106,15 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
-    height: 100svh;
-    min-height: 100vh;
-    min-height: 100svh;
+    height: 100dvh;
     overflow: hidden;
+
+    &:has(input:focus),
+    &:has(textarea:focus) {
+      .footer {
+        display: none;
+      }
+    }
 
     .headerMobile {
       height: 80px;
@@ -139,6 +144,10 @@
       display: flex;
       align-items: center;
       justify-content: center;
+
+      &.hideMobileFooter {
+        display: none;
+      }
     }
   }
 
