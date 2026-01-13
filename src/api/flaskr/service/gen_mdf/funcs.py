@@ -7,7 +7,6 @@ Handles communication with external MDF API service.
 import requests
 import logging
 from typing import Dict, Any
-from flask import Flask
 from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
 
