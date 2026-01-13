@@ -71,7 +71,7 @@ const ContentBlock = memo(
       (item.audioSegments && item.audioSegments.length > 0) ||
       Boolean(item.audioUrl);
 
-    const outputCompleted = !item.isAudioStreaming;
+    const outputCompleted = Boolean(item.isOutputComplete);
 
     const shouldShowAudioPlayer =
       mobileStyle &&
