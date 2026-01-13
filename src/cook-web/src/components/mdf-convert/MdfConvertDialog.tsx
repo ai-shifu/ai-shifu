@@ -171,7 +171,7 @@ export function MdfConvertDialog({
       textArea.select();
       try {
         document.execCommand('copy');
-        show(t('component.mdfConvert.copySuccess'));
+        fail(t('component.mdfConvert.copyError'));
       } catch (err) {
         fail('Copy failed');
       } finally {
