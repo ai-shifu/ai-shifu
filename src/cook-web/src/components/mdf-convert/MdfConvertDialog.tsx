@@ -144,8 +144,8 @@ export function MdfConvertDialog({
       // Track conversion error
       trackEvent('creator_mdf_convert_error', {
         input_length: inputLength,
-        error_message: error?.message || 'Unknown error',
-      });
+      // The Request class already displays the error message,
+      // so no extra handling is needed here to avoid duplicate alerts.
       // Request 类已经显示了错误消息
       // 这里不需要额外处理，避免重复提示
     } finally {
