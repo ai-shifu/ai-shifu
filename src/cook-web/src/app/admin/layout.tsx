@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/Sheet';
 import { DocumentIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
 import Image, { type StaticImageData } from 'next/image';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import NavFooter from '@/app/c/[[...id]]/Components/NavDrawer/NavFooter';
 import MainMenuModal from '@/app/c/[[...id]]/Components/NavDrawer/MainMenuModal';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
@@ -39,6 +40,7 @@ type SidebarContentProps = {
   onUserMenuClose: (e?: Event | React.MouseEvent) => void;
   userMenuClassName?: string;
   logoSrc: string | StaticImageData;
+  activePath?: string;
 };
 
 const SidebarContent = ({
@@ -49,6 +51,7 @@ const SidebarContent = ({
   onUserMenuClose,
   userMenuClassName,
   logoSrc,
+  activePath,
 }: SidebarContentProps) => {
   const logoHeight = 32;
   const logoWidth = useMemo(() => {
@@ -62,6 +65,41 @@ const SidebarContent = ({
     }
     return Math.round(logoHeight * (defaultLogo.width / defaultLogo.height));
   }, [logoSrc]);
+
+  const normalizedPath = useMemo(() => {
+    if (!activePath) {
+      return '';
+    }
+    const trimmed = activePath.replace(/\/+$/, '');
+    return trimmed || '/';
+  }, [activePath]);
+
+  const activeHref = useMemo(() => {
+    if (!normalizedPath) {
+      return undefined;
+    }
+    let bestHref: string | undefined;
+    let bestLength = -1;
+    menuItems.forEach(item => {
+      if (!item.href) {
+        return;
+      }
+      const normalizedHref =
+        item.href === '/' ? '/' : item.href.replace(/\/+$/, '');
+      if (!normalizedHref) {
+        return;
+      }
+      const matches =
+        normalizedPath === normalizedHref ||
+        normalizedPath.startsWith(`${normalizedHref}/`);
+      if (matches && normalizedHref.length > bestLength) {
+        bestHref = item.href;
+        bestLength = normalizedHref.length;
+      }
+    });
+    return bestHref;
+  }, [menuItems, normalizedPath]);
+
   return (
     <div className={cn('flex flex-col h-full relative', styles.adminLayout)}>
       <h1 className={cn('text-xl font-bold p-4', styles.adminLogo)}>
@@ -89,11 +127,17 @@ const SidebarContent = ({
                 ></div>
               );
             }
+            const isActive =
+              Boolean(activeHref) && item.href === activeHref;
             return (
               <Link
                 key={index}
                 href={item.href || '#'}
-                className='flex items-center space-x-2 px-2 py-2 rounded-lg hover:bg-gray-100'
+                className={cn(
+                  'flex items-center space-x-2 px-2 py-2 rounded-lg hover:bg-gray-100',
+                  isActive && 'bg-gray-200 text-gray-900 font-semibold',
+                )}
+                aria-current={isActive ? 'page' : undefined}
               >
                 {item.icon}
                 <span>{item.label}</span>
@@ -125,6 +169,7 @@ const MainInterface = ({
   children: React.ReactNode;
 }>) => {
   const { t, i18n } = useTranslation();
+  const pathname = usePathname();
   useEffect(() => {
     document.title = t('common.core.adminTitle');
   }, [t, i18n.language]);
@@ -207,6 +252,7 @@ const MainInterface = ({
           onUserMenuClose={handleDesktopMenuClose}
           userMenuClassName={adminSidebarStyles.navMenuPopup}
           logoSrc={resolvedLogo}
+          activePath={pathname}
         />
       </div>
       <div className='flex-1 p-5  overflow-hidden bg-background'>
