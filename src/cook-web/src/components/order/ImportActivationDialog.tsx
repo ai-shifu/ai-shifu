@@ -25,6 +25,7 @@ import {
   FormMessage,
 } from '@/components/ui/Form';
 import { Input } from '@/components/ui/Input';
+import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import {
   Popover,
@@ -41,6 +42,8 @@ interface ImportActivationDialogProps {
   onOpenChange: (open: boolean) => void;
   onSuccess?: (orderBid: string) => void;
 }
+
+const MAX_BULK_MOBILE_COUNT = 50;
 
 const ImportActivationDialog = ({
   open,
@@ -106,22 +109,75 @@ const ImportActivationDialog = ({
     });
   }, [courseSearch, courses]);
 
+  const parseMobiles = React.useCallback((value: string) => {
+    return value
+      .split(/[,，\n]/)
+      .map(item => item.trim())
+      .filter(Boolean);
+  }, []);
+
   const handleSubmit = async (values: z.infer<typeof formSchema>) => {
+    const mobileInput = values.mobile || '';
+    const mobiles = parseMobiles(mobileInput);
+    if (mobiles.length === 0) {
+      form.setError('mobile', {
+        message: t('module.order.importActivation.mobileRequired'),
+      });
+      return;
+    }
+    if (mobiles.length > MAX_BULK_MOBILE_COUNT) {
+      form.setError('mobile', {
+        message: t('module.order.importActivation.mobileLimit', {
+          count: MAX_BULK_MOBILE_COUNT,
+        }),
+      });
+      return;
+    }
+
     const payload = {
-      mobile: values.mobile.trim(),
+      mobile: mobiles.join(','),
       course_id: values.course_id.trim(),
       user_nick_name: values.user_nick_name?.trim() || undefined,
     };
 
     try {
       const response = (await api.importActivationOrder(payload)) as {
-        order_bid?: string;
+        success?: { mobile: string; order_bid?: string }[];
+        failed?: { mobile: string; message?: string }[];
       };
+      const successCount = response?.success?.length ?? 0;
+      const failedCount = response?.failed?.length ?? 0;
+
+      if (failedCount === 0) {
+        toast({
+          title: t('module.order.importActivation.success'),
+          description: t('module.order.importActivation.successSummary', {
+            count: successCount,
+          }),
+        });
+        onSuccess?.('');
+        onOpenChange(false);
+        return;
+      }
+
+      const failedMessage = response?.failed
+        ?.slice(0, 5)
+        .map(item =>
+          item.message ? `${item.mobile}: ${item.message}` : item.mobile,
+        )
+        .join('\n');
+
       toast({
-        title: t('module.order.importActivation.success'),
+        title: t('module.order.importActivation.partialSummary', {
+          successCount,
+          failedCount,
+        }),
+        description: failedMessage,
+        variant: successCount > 0 ? 'default' : 'destructive',
       });
-      onSuccess?.(response?.order_bid || '');
-      onOpenChange(false);
+      if (successCount > 0) {
+        onSuccess?.('');
+      }
     } catch (error) {
       let message = t('module.order.importActivation.failed');
       if (error instanceof ErrorWithCode) {
@@ -233,11 +289,12 @@ const ImportActivationDialog = ({
                     {t('module.order.importActivation.mobileLabel')}
                   </FormLabel>
                   <FormControl>
-                    <Input
+                    <Textarea
                       autoComplete='off'
                       placeholder={t(
                         'module.order.importActivation.mobilePlaceholder',
                       )}
+                      className='min-h-[80px]'
                       {...field}
                     />
                   </FormControl>

@@ -17,7 +17,7 @@ from flaskr.service.common.dtos import (
     USER_STATE_REGISTERED,
     USER_STATE_UNREGISTERED,
 )
-from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.models import AppException, raise_error, raise_param_error
 from flaskr.service.order.admin_dtos import (
     OrderAdminActivityDTO,
     OrderAdminCouponDTO,
@@ -292,6 +292,32 @@ def import_activation_order(
         success_buy_record(app, order.order_bid)
 
         return {"order_bid": order.order_bid}
+
+
+def import_activation_orders(
+    app: Flask,
+    mobiles: List[str],
+    course_id: str,
+    user_nick_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    results: Dict[str, Any] = {"success": [], "failed": []}
+    for mobile in mobiles:
+        try:
+            order = import_activation_order(app, mobile, course_id, user_nick_name)
+            results["success"].append({"mobile": mobile, **order})
+        except AppException as exc:
+            if hasattr(app, "logger"):
+                app.logger.warning(
+                    "import activation failed for %s: %s", mobile, exc.message
+                )
+            results["failed"].append({"mobile": mobile, "message": exc.message})
+        except Exception as exc:  # noqa: BLE001
+            if hasattr(app, "logger"):
+                app.logger.exception(
+                    "import activation unexpected failure for %s", mobile
+                )
+            results["failed"].append({"mobile": mobile, "message": str(exc)})
+    return results
 
 
 def list_orders(

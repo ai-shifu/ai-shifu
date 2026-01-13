@@ -12,7 +12,7 @@ from flaskr.service.order import (
 )
 from flaskr.service.order.admin import (
     get_order_detail,
-    import_activation_order,
+    import_activation_orders,
     list_orders,
 )
 from flaskr.common.shifu_context import with_shifu_context
@@ -419,11 +419,21 @@ def register_order_handler(app: Flask, path_prefix: str):
         """
         _require_creator()
         payload = request.get_json() or {}
-        mobile = payload.get("mobile", "")
+        mobile_field = str(payload.get("mobile", "")).strip()
         course_id = payload.get("course_id", "")
         user_nick_name = payload.get("user_nick_name")
+
+        if not mobile_field:
+            raise_param_error("mobile")
+
+        mobiles = [item.strip() for item in mobile_field.split(",") if item.strip()]
+        if not mobiles:
+            raise_param_error("mobile")
+        if len(mobiles) > 50:
+            raise_param_error("mobile limit 50")
+
         return make_common_response(
-            import_activation_order(app, mobile, course_id, user_nick_name)
+            import_activation_orders(app, mobiles, course_id, user_nick_name)
         )
 
     @app.route(path_prefix + "/admin/orders/<order_bid>", methods=["GET"])
