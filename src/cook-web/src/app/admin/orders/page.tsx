@@ -66,17 +66,17 @@ type OrderFilters = {
 
 const PAGE_SIZE = 20;
 const COLUMN_MIN_WIDTH = 80;
-const COLUMN_MAX_WIDTH = 520;
+const COLUMN_MAX_WIDTH = 360;
 
 const DEFAULT_COLUMN_WIDTHS = {
   orderId: 260,
-  shifu: 170,
-  user: 210,
-  amount: 110,
-  status: 130,
-  payment: 120,
-  createdAt: 200,
-  action: 110,
+  shifu: 120,
+  user: 160,
+  amount: 70,
+  status: 110,
+  payment: 90,
+  createdAt: 170,
+  action: 100,
 };
 
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
@@ -365,7 +365,7 @@ const OrdersPage = () => {
     if (!text) {
       return COLUMN_MIN_WIDTH;
     }
-    const approx = text.length * multiplier + 48;
+    const approx = text.length * multiplier + 16;
     return approx;
   };
 
@@ -409,14 +409,14 @@ const OrdersPage = () => {
             return;
           }
           const multiplierMap: Partial<Record<ColumnKey, number>> = {
-            orderId: 7.4,
-            shifu: 7,
-            user: 7,
-            amount: 6,
-            status: 7,
-            payment: 6.5,
-            createdAt: 7,
-            action: 6,
+            orderId: 5,
+            shifu: 4.4,
+            user: 4.6,
+            amount: 4,
+            status: 4.4,
+            payment: 4.4,
+            createdAt: 4.8,
+            action: 4.4,
           };
           const multiplier = multiplierMap[key] ?? 7;
           const required = texts.reduce(
