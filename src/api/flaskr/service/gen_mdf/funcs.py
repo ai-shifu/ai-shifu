@@ -97,17 +97,17 @@ def convert_text_to_mdf(
         return result
 
     except requests.exceptions.Timeout:
-        logger.error(f"MDF API request timeout after {MDF_API_TIMEOUT}s")
+        logger.exception(f"MDF API request timeout after {MDF_API_TIMEOUT}s")
         raise_error_with_args("MDF_API_TIMEOUT")
 
     except requests.exceptions.ConnectionError as e:
-        logger.error(f"MDF API connection error: {str(e)}")
+        logger.exception(f"MDF API connection error: {str(e)}")
         raise_error_with_args("MDF_API_CONNECTION_ERROR")
 
     except requests.exceptions.RequestException as e:
-        logger.error(f"MDF API request failed: {str(e)}")
+        logger.exception(f"MDF API request failed: {str(e)}")
         raise_error_with_args("MDF_API_REQUEST_ERROR")
 
     except ValueError as e:
-        logger.error(f"Failed to parse MDF API response: {str(e)}")
+        logger.exception(f"Failed to parse MDF API response: {str(e)}")
         raise_error_with_args("MDF_API_INVALID_RESPONSE")
