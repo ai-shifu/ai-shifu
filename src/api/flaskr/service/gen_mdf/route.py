@@ -98,15 +98,16 @@ def register_gen_mdf_routes(app: Flask, path_prefix="/api/gen_mdf"):
 
         # Call business logic
         result = convert_text_to_mdf(
-            app=current_app,
-            text=text,
-            language=language,
-            output_mode=output_mode
+            app=current_app, text=text, language=language, output_mode=output_mode
         )
 
         return make_common_response(result)
 
-    @app.route(path_prefix + "/config-status", methods=["GET"], endpoint="gen_mdf_config_status")
+    @app.route(
+        path_prefix + "/config-status",
+        methods=["GET"],
+        endpoint="gen_mdf_config_status",
+    )
     def get_gen_mdf_config_status():
         """
         Check if MDF API is configured
@@ -127,10 +128,13 @@ def register_gen_mdf_routes(app: Flask, path_prefix="/api/gen_mdf"):
         from flaskr.common.config import get_config
 
         mdf_api_url = get_config("GEN_MDF_API_URL")
-        is_configured = bool(mdf_api_url and mdf_api_url.strip())
+        mdf_app_id = get_config("GEN_MDF_APP_ID")
 
-        return make_common_response({
-            "configured": is_configured
-        })
+        url_configured = bool(mdf_api_url and mdf_api_url.strip())
+        app_id_configured = bool(mdf_app_id and mdf_app_id.strip())
+
+        return make_common_response(
+            {"configured": url_configured and app_id_configured}
+        )
 
     return app
