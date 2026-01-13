@@ -1208,10 +1208,8 @@ export default function ShifuSettingDialog({
                       </p>
                       <div className='flex items-center gap-2'>
                         <Input
-                          type='number'
-                          min={speedMin}
-                          max={speedMax}
-                          step={speedStep}
+                          type='text'
+                          inputMode='decimal'
                           value={ttsSpeed}
                           onChange={e =>
                             setTtsSpeed(
@@ -1273,10 +1271,8 @@ export default function ShifuSettingDialog({
                       </p>
                       <div className='flex items-center gap-2'>
                         <Input
-                          type='number'
-                          min={pitchMin}
-                          max={pitchMax}
-                          step={pitchStep}
+                          type='text'
+                          inputMode='numeric'
                           value={ttsPitch}
                           onChange={e =>
                             setTtsPitch(
