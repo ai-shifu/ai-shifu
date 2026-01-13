@@ -18,7 +18,7 @@ import { Label } from '@/components/ui/Label';
 import { Textarea } from '@/components/ui/Textarea';
 
 // Reuse ai-shifu's useToast hook
-import { fail, show } from '@/hooks/useToast';
+import { fail, toast } from '@/hooks/useToast';
 
 // Use alert dialog for confirmation
 import { useAlert } from '@/components/ui/UseAlert';
@@ -140,7 +140,7 @@ export function MdfConvertDialog({
       });
 
       setResult(response);
-      show(t('component.mdfConvert.convertSuccess'));
+      toast({ title: t('component.mdfConvert.convertSuccess') });
     } catch (error: unknown) {
       // Track conversion error
       trackEvent('creator_mdf_convert_error', {
@@ -161,7 +161,7 @@ export function MdfConvertDialog({
 
     try {
       await navigator.clipboard.writeText(text);
-      show(t('component.mdfConvert.copySuccess'));
+      toast({ title: t('component.mdfConvert.copySuccess') });
     } catch {
       // Fallback for older browsers
       const textArea = document.createElement('textarea');
@@ -172,7 +172,7 @@ export function MdfConvertDialog({
       textArea.select();
       try {
         document.execCommand('copy');
-        show(t('component.mdfConvert.copySuccess'));
+        toast({ title: t('component.mdfConvert.copySuccess') });
       } catch {
         fail(t('component.mdfConvert.copyError'));
       } finally {
@@ -196,7 +196,7 @@ export function MdfConvertDialog({
       cancelText: t('component.mdfConvert.cancelButton'),
       onConfirm: () => {
         onApplyContent(result.content_prompt);
-        show(t('component.mdfConvert.applySuccess'));
+        toast({ title: t('component.mdfConvert.applySuccess') });
         onOpenChange(false);
       },
     });
