@@ -25,6 +25,7 @@
   :global(#chat-box-bottom) {
     height: 100px;
     width: 100%;
+    background: blue;
   }
   :global(.MessageContainer) {
     background-color: var(--color-4);
