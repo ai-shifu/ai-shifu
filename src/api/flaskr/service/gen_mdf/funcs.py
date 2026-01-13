@@ -23,7 +23,6 @@ def convert_text_to_mdf(
     Convert text to MDF format using external API
 
     Args:
-        app: Flask application instance
         text: Text content to convert
         language: Target language (Chinese/English)
         output_mode: Output mode (default: "content")
@@ -43,11 +42,11 @@ def convert_text_to_mdf(
     mdf_app_id = get_config("GEN_MDF_APP_ID")
 
     if not mdf_api_url:
-        app.logger.error("MDF API URL not configured")
+        logger.error("MDF API URL not configured")
         raise_error_with_args("MDF_API_NOT_CONFIGURED")
 
     if not mdf_app_id:
-        app.logger.error("MDF API App ID not configured")
+        logger.error("MDF API App ID not configured")
         raise_error_with_args("MDF_API_NOT_CONFIGURED")
 
     # Construct API endpoint (v1 API with X-App-Id authentication)
@@ -57,9 +56,7 @@ def convert_text_to_mdf(
     payload = {"text": text, "language": language, "output_mode": output_mode}
 
     try:
-        app.logger.info(
-            f"Calling MDF API at {api_endpoint} for text length {len(text)}"
-        )
+        logger.info(f"Calling MDF API at {api_endpoint} for text length {len(text)}")
 
         # Make HTTP request to external MDF API
         response = requests.post(
@@ -75,15 +72,15 @@ def convert_text_to_mdf(
 
         # Check response status
         if response.status_code == 401:
-            app.logger.error(f"MDF API authentication failed: {response.text[:500]}")
+            logger.error(f"MDF API authentication failed: {response.text[:500]}")
             raise_error_with_args("MDF_API_UNAUTHORIZED")
         elif response.status_code == 422:
-            app.logger.error(
+            logger.error(
                 f"MDF API validation error (missing X-App-Id?): {response.text[:500]}"
             )
             raise_error_with_args("MDF_API_ERROR")
         elif response.status_code != 200:
-            app.logger.error(
+            logger.error(
                 f"MDF API returned non-200 status: {response.status_code}, "
                 f"body: {response.text[:500]}"
             )
@@ -92,7 +89,7 @@ def convert_text_to_mdf(
         # Parse response
         result = response.json()
 
-        app.logger.info(
+        logger.info(
             f"MDF conversion successful, output length: "
             f"{result.get('metadata', {}).get('output_length', 'unknown')}"
         )
@@ -100,17 +97,17 @@ def convert_text_to_mdf(
         return result
 
     except requests.exceptions.Timeout:
-        app.logger.error(f"MDF API request timeout after {MDF_API_TIMEOUT}s")
+        logger.error(f"MDF API request timeout after {MDF_API_TIMEOUT}s")
         raise_error_with_args("MDF_API_TIMEOUT")
 
     except requests.exceptions.ConnectionError as e:
-        app.logger.error(f"MDF API connection error: {str(e)}")
+        logger.error(f"MDF API connection error: {str(e)}")
         raise_error_with_args("MDF_API_CONNECTION_ERROR")
 
     except requests.exceptions.RequestException as e:
-        app.logger.error(f"MDF API request failed: {str(e)}")
+        logger.error(f"MDF API request failed: {str(e)}")
         raise_error_with_args("MDF_API_REQUEST_ERROR")
 
     except ValueError as e:
-        app.logger.error(f"Failed to parse MDF API response: {str(e)}")
+        logger.error(f"Failed to parse MDF API response: {str(e)}")
         raise_error_with_args("MDF_API_INVALID_RESPONSE")

@@ -141,14 +141,14 @@ export function MdfConvertDialog({
 
       setResult(response);
       show(t('component.mdfConvert.convertSuccess'));
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Track conversion error
       trackEvent('creator_mdf_convert_error', {
         input_length: inputLength,
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+      });
       // The Request class already displays the error message,
       // so no extra handling is needed here to avoid duplicate alerts.
-      // Request 类已经显示了错误消息
-      // 这里不需要额外处理，避免重复提示
     } finally {
       setIsConverting(false);
     }
@@ -162,7 +162,7 @@ export function MdfConvertDialog({
     try {
       await navigator.clipboard.writeText(text);
       show(t('component.mdfConvert.copySuccess'));
-    } catch (error) {
+    } catch {
       // Fallback for older browsers
       const textArea = document.createElement('textarea');
       textArea.value = text;
@@ -172,9 +172,9 @@ export function MdfConvertDialog({
       textArea.select();
       try {
         document.execCommand('copy');
+        show(t('component.mdfConvert.copySuccess'));
+      } catch {
         fail(t('component.mdfConvert.copyError'));
-      } catch (err) {
-        fail('Copy failed');
       } finally {
         document.body.removeChild(textArea);
       }
