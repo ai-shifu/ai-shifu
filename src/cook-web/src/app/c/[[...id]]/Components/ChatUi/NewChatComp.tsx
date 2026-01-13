@@ -464,12 +464,9 @@ export const NewChatComponents = ({
               const hasAudioForAutoPlay =
                 mobileStyle &&
                 !isInteractionBlock &&
-                !item.isHistory &&
-                Boolean(
-                  item.audioUrl ||
-                    item.audioSegments?.length ||
-                    item.isAudioStreaming,
-                );
+                !item.isAudioStreaming &&
+                !item.isHistoryRecord &&
+                Boolean(item.audioUrl || item.audioSegments?.length);
               const blockAutoPlay =
                 mobileStyle && !isInteractionBlock
                   ? shouldAutoPlay(
@@ -477,7 +474,8 @@ export const NewChatComponents = ({
                       hasAudioForAutoPlay,
                     )
                   : false;
-              const canRequestAudio = !isInteractionBlock;
+              const canRequestAudio =
+                !isInteractionBlock && !item.isAudioStreaming;
               const shouldShowAudioPlayer =
                 previewMode && !isInteractionBlock;
 
