@@ -726,12 +726,16 @@ const OrdersPage = () => {
               </PopoverTrigger>
               <PopoverContent
                 align='start'
-                className='w-[--radix-popover-trigger-width] max-w-[--radix-popover-trigger-width] p-3'
+                className='p-3'
+                style={{
+                  width: 'var(--radix-popover-trigger-width)',
+                  maxWidth: 'var(--radix-popover-trigger-width)',
+                }}
               >
                 <Input
                   value={courseSearch}
                   onChange={event => setCourseSearch(event.target.value)}
-                  placeholder={t('module.order.filters.search')}
+                  placeholder={t('module.order.filters.searchCourseOrId')}
                   className='h-8'
                 />
                 <ScrollArea className='mt-3 h-48'>
@@ -772,8 +776,8 @@ const OrdersPage = () => {
                             >
                               <Check className='h-3 w-3' />
                             </span>
-                            <span className='flex flex-col'>
-                              <span className='text-sm text-foreground'>
+                            <span className='flex flex-col min-w-0'>
+                              <span className='text-sm text-foreground truncate'>
                                 {courseName}
                               </span>
                               {/* <span className='text-xs text-muted-foreground'>
@@ -864,7 +868,10 @@ const OrdersPage = () => {
           </div>
         </div>
 
-        <div className='flex-1 h-0 overflow-auto rounded-xl border border-border bg-white shadow-sm'>
+        <div
+          className='flex-1 overflow-auto rounded-xl border border-border bg-white shadow-sm'
+          style={{ maxHeight: 'calc(100vh - 340px)' }}
+        >
           {loading ? (
             <div className='flex items-center justify-center h-40'>
               <Loading />
