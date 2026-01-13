@@ -174,8 +174,10 @@
 
   &.mobile .chatComponents {
     height: auto;
-    min-height: auto;
+    // min-height: auto;
+    // min-height: 100vh;
     overflow-y: hidden;
+    background: yellow;
   }
 
   .chatComponentsHidden {
