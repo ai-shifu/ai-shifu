@@ -530,17 +530,27 @@ export const NewChatComponents = ({
               }
 
               // Mobile renders the audio control below content; desktop renders it in InteractionBlock.
+              const isInteractionBlock =
+                item.type === ChatContentItemType.INTERACTION;
               const hasAudioForAutoPlay =
                 mobileStyle &&
+                !isInteractionBlock &&
                 !item.isHistory &&
                 Boolean(
                   item.audioUrl ||
                   item.audioSegments?.length ||
                   item.isAudioStreaming,
                 );
-              const blockAutoPlay = mobileStyle
-                ? shouldAutoPlay(item.generated_block_bid, hasAudioForAutoPlay)
-                : false;
+              const blockAutoPlay =
+                mobileStyle && !isInteractionBlock
+                  ? shouldAutoPlay(
+                      item.generated_block_bid,
+                      hasAudioForAutoPlay,
+                    )
+                  : false;
+              const canRequestAudio = !isInteractionBlock;
+              const shouldShowAudioPlayer =
+                previewMode && !isInteractionBlock;
 
               return (
                 <div
@@ -568,9 +578,11 @@ export const NewChatComponents = ({
                     onClickCustomButtonAfterContent={handleClickAskButton}
                     onSend={memoizedOnSend}
                     onLongPress={handleLongPress}
-                    showAudioPlayer={previewMode}
-                    onRequestAudio={() =>
-                      requestAudioForBlock(item.generated_block_bid)
+                    showAudioPlayer={shouldShowAudioPlayer}
+                    onRequestAudio={
+                      canRequestAudio
+                        ? () => requestAudioForBlock(item.generated_block_bid)
+                        : undefined
                     }
                     autoPlayAudio={blockAutoPlay}
                     onAudioPlayStateChange={isPlaying =>
