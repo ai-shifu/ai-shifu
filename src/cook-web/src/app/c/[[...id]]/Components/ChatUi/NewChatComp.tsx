@@ -461,13 +461,14 @@ export const NewChatComponents = ({
               // Mobile renders the audio control below content; desktop renders it in InteractionBlock.
               const isInteractionBlock =
                 item.type === ChatContentItemType.INTERACTION;
-              const hasAudioForAutoPlay =
+              const hasAudioForAutoPlay = Boolean(
                 mobileStyle &&
-                !isInteractionBlock &&
-                !item.isAudioStreaming &&
-                !item.isHistoryRecord &&
-                item.isOutputComplete &&
-                Boolean(item.audioUrl || item.audioSegments?.length);
+                  !isInteractionBlock &&
+                  !item.isAudioStreaming &&
+                  !item.isHistoryRecord &&
+                  item.isOutputComplete &&
+                  (item.audioUrl || item.audioSegments?.length),
+              );
               const blockAutoPlay =
                 mobileStyle && !isInteractionBlock
                   ? shouldAutoPlay(
@@ -478,9 +479,9 @@ export const NewChatComponents = ({
               const canRequestAudio =
                 !isInteractionBlock &&
                 !item.isAudioStreaming &&
-                item.isOutputComplete;
+                !!item.isOutputComplete;
               const shouldShowAudioPlayer =
-                previewMode && !isInteractionBlock && item.isOutputComplete;
+                previewMode && !isInteractionBlock && !!item.isOutputComplete;
 
               return (
                 <div
