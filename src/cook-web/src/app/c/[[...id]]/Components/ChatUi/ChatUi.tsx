@@ -1,6 +1,6 @@
 import styles from './ChatUi.module.scss';
 
-import { memo } from 'react';
+import { memo, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
@@ -40,6 +40,33 @@ export const ChatUi = ({
       previewMode: state.previewMode,
     })),
   );
+
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Fix for iOS keyboard issue where page stays scrolled up leaving white space
+  useEffect(() => {
+    const isIOS =
+      typeof navigator !== 'undefined' &&
+      (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+    if (!isIOS) return;
+
+    const handleFocusOut = () => {
+      // Small delay to ensure keyboard is actually closing
+      setTimeout(() => {
+        window.scrollTo(0, 0);
+      }, 100);
+    };
+
+    document.addEventListener('focusout', handleFocusOut);
+    return () => {
+      document.removeEventListener('focusout', handleFocusOut);
+    };
+  }, []);
 
   const { courseAvatar, courseName } = useCourseStore(state => state);
   const hideMobileFooter = frameLayout === FRAME_LAYOUT_MOBILE && isNavOpen;
