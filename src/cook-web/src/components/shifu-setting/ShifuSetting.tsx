@@ -720,7 +720,10 @@ export default function ShifuSettingDialog({
       return;
     }
     const normalized = normalizeSpeedValue(parsed);
-    setTtsSpeed(normalized);
+    setTtsSpeedInput(normalized.toString());
+    if (Math.abs(normalized - ttsSpeed) > FLOAT_EPSILON) {
+      setTtsSpeed(normalized);
+    }
   }, [normalizeSpeedValue, ttsSpeed, ttsSpeedInput]);
 
   const commitPitchInput = useCallback(() => {
@@ -735,7 +738,10 @@ export default function ShifuSettingDialog({
       return;
     }
     const normalized = normalizePitchValue(parsed);
-    setTtsPitch(normalized);
+    setTtsPitchInput(normalized.toString());
+    if (Math.abs(normalized - ttsPitch) > FLOAT_EPSILON) {
+      setTtsPitch(normalized);
+    }
   }, [normalizePitchValue, ttsPitch, ttsPitchInput]);
 
   const handleSpeedInputKeyDown = useCallback(
