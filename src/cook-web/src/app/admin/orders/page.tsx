@@ -862,7 +862,7 @@ const OrdersPage = () => {
           </div>
         </div>
 
-        <div className='flex-1 overflow-auto'>
+        <div className='flex-1 h-0 overflow-auto rounded-xl border border-border bg-white shadow-sm'>
           {loading ? (
             <div className='flex items-center justify-center h-40'>
               <Loading />
