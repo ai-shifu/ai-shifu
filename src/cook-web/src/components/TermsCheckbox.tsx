@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import type { MouseEvent, TouchEvent } from 'react';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { cn } from '@/lib/utils';
@@ -20,12 +21,13 @@ export function TermsCheckbox({
 }: TermsCheckboxProps) {
   const { t, i18n } = useTranslation();
   const legalUrls = useEnvStore((state: EnvStoreState) => state.legalUrls);
-  const stopLabelInteraction = (
-    event: MouseEvent<HTMLAnchorElement> | TouchEvent<HTMLAnchorElement>,
-  ) => {
-    // Prevent the label from swallowing anchor clicks so the links remain clickable
-    event.stopPropagation();
-  };
+  const stopLabelInteraction = useCallback(
+    (event: MouseEvent<HTMLAnchorElement> | TouchEvent<HTMLAnchorElement>) => {
+      // Prevent the label from swallowing anchor clicks so the links remain clickable
+      event.stopPropagation();
+    },
+    [],
+  );
 
   // Get current language URL
   const currentLang = (i18n.language || 'en-US') as 'zh-CN' | 'en-US';
