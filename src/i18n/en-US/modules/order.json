@@ -59,10 +59,28 @@
     "status": "Status",
     "userBid": "User ID"
   },
+  "importActivation": {
+    "action": "Import Activation",
+    "courseLabel": "Course ID",
+    "coursePlaceholder": "Enter course ID",
+    "courseRequired": "Course ID is required",
+    "description": "Create a zero-amount order and activate the course.",
+    "failed": "Failed to import activation",
+    "mobileLabel": "Mobile",
+    "mobilePlaceholder": "Enter mobile number",
+    "mobileRequired": "Mobile is required",
+    "nicknameLabel": "Nickname (Optional)",
+    "nicknamePlaceholder": "Enter nickname",
+    "submit": "Import",
+    "submitting": "Importing...",
+    "success": "Activation imported",
+    "title": "Import Activation"
+  },
   "pagination": "Page {{page}} of {{total}}",
   "paginationNext": "Next",
   "paginationPrev": "Previous",
   "paymentChannel": {
+    "manual": "Manual",
     "pingxx": "Ping++",
     "stripe": "Stripe",
     "unknown": "Unknown"

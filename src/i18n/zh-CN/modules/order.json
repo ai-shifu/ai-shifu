@@ -59,10 +59,28 @@
     "status": "状态",
     "userBid": "用户 ID"
   },
+  "importActivation": {
+    "action": "导入开通",
+    "courseLabel": "课程 ID",
+    "coursePlaceholder": "请输入课程 ID",
+    "courseRequired": "请输入课程 ID",
+    "description": "创建 0 元订单并开通课程。",
+    "failed": "导入开通失败",
+    "mobileLabel": "手机号",
+    "mobilePlaceholder": "请输入手机号",
+    "mobileRequired": "请输入手机号",
+    "nicknameLabel": "昵称（可选）",
+    "nicknamePlaceholder": "请输入昵称",
+    "submit": "导入",
+    "submitting": "导入中...",
+    "success": "导入开通成功",
+    "title": "导入开通"
+  },
   "pagination": "第 {{page}} / {{total}} 页",
   "paginationNext": "下一页",
   "paginationPrev": "上一页",
   "paymentChannel": {
+    "manual": "人工",
     "pingxx": "Ping++",
     "stripe": "Stripe",
     "unknown": "未知"

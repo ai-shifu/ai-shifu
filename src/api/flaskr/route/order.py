@@ -10,7 +10,11 @@ from flaskr.service.order import (
     get_payment_details,
     sync_stripe_checkout_session,
 )
-from flaskr.service.order.admin import list_orders, get_order_detail
+from flaskr.service.order.admin import (
+    get_order_detail,
+    import_activation_order,
+    list_orders,
+)
 from flaskr.common.shifu_context import with_shifu_context
 
 
@@ -359,6 +363,55 @@ def register_order_handler(app: Flask, path_prefix: str):
         user_id = request.user.user_id
         return make_common_response(
             list_orders(app, user_id, page_index, page_size, filters)
+        )
+
+    @app.route(path_prefix + "/admin/orders/import-activation", methods=["POST"])
+    def admin_import_activation():
+        """
+        Admin import activation order
+        ---
+        tags:
+            - 订单
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    mobile:
+                        type: string
+                        description: User mobile
+                    course_id:
+                        type: string
+                        description: Course id
+                    user_nick_name:
+                        type: string
+                        description: User nickname
+        responses:
+            200:
+                description: Import success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    type: object
+                                    properties:
+                                        order_bid:
+                                            type: string
+        """
+        _require_creator()
+        payload = request.get_json() or {}
+        mobile = payload.get("mobile", "")
+        course_id = payload.get("course_id", "")
+        user_nick_name = payload.get("user_nick_name")
+        return make_common_response(
+            import_activation_order(app, mobile, course_id, user_nick_name)
         )
 
     @app.route(path_prefix + "/admin/orders/<order_bid>", methods=["GET"])

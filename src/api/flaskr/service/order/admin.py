@@ -11,8 +11,13 @@ from flaskr.service.active.consts import (
     ACTIVE_JOIN_STATUS_FAILURE,
 )
 from flaskr.service.active.models import ActiveUserRecord
-from flaskr.service.common.dtos import PageNationDTO
-from flaskr.service.common.models import raise_error
+from flaskr.dao import db
+from flaskr.service.common.dtos import (
+    PageNationDTO,
+    USER_STATE_REGISTERED,
+    USER_STATE_UNREGISTERED,
+)
+from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.order.admin_dtos import (
     OrderAdminActivityDTO,
     OrderAdminCouponDTO,
@@ -20,6 +25,7 @@ from flaskr.service.order.admin_dtos import (
     OrderAdminPaymentDTO,
     OrderAdminSummaryDTO,
 )
+from flaskr.service.order.funs import init_buy_record, success_buy_record
 from flaskr.service.order.consts import (
     ORDER_STATUS_INIT,
     ORDER_STATUS_REFUND,
@@ -44,6 +50,12 @@ from flaskr.service.shifu.permissions import (
     has_shifu_permission,
 )
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.repository import (
+    ensure_user_for_identifier,
+    get_user_entity_by_bid,
+    update_user_entity_fields,
+    upsert_credential,
+)
 
 
 ORDER_STATUS_KEY_MAP = {
@@ -82,6 +94,7 @@ COUPON_TYPE_KEY_MAP = {
 PAYMENT_CHANNEL_KEY_MAP = {
     "pingxx": "module.order.paymentChannel.pingxx",
     "stripe": "module.order.paymentChannel.stripe",
+    "manual": "module.order.paymentChannel.manual",
 }
 
 
@@ -190,6 +203,75 @@ def _build_order_item(
         created_at=_format_datetime(order.created_at),
         updated_at=_format_datetime(order.updated_at),
     )
+
+
+def import_activation_order(
+    app: Flask,
+    mobile: str,
+    course_id: str,
+    user_nick_name: Optional[str] = None,
+) -> Dict[str, str]:
+    with app.app_context():
+        normalized_mobile = str(mobile or "").strip()
+        if not normalized_mobile:
+            raise_param_error("mobile")
+
+        normalized_course_id = str(course_id or "").strip()
+        if not normalized_course_id:
+            raise_param_error("course_id")
+
+        normalized_nickname = str(user_nick_name or "").strip()
+        defaults = {
+            "identify": normalized_mobile,
+            "nickname": normalized_nickname or normalized_mobile,
+            "language": "en-US",
+            "state": USER_STATE_REGISTERED,
+        }
+        aggregate, _ = ensure_user_for_identifier(
+            app,
+            provider="phone",
+            identifier=normalized_mobile,
+            defaults=defaults,
+        )
+
+        if not aggregate:
+            raise_error("server.user.userNotFound")
+
+        user_id = aggregate.user_bid
+        entity = get_user_entity_by_bid(user_id, include_deleted=True)
+        if entity:
+            updates = {"identify": normalized_mobile}
+            if normalized_nickname:
+                updates["nickname"] = normalized_nickname
+            if aggregate.state == USER_STATE_UNREGISTERED:
+                updates["state"] = USER_STATE_REGISTERED
+            update_user_entity_fields(entity, **updates)
+
+        upsert_credential(
+            app,
+            user_bid=user_id,
+            provider_name="phone",
+            subject_id=normalized_mobile,
+            subject_format="phone",
+            identifier=normalized_mobile,
+            metadata={"course_id": normalized_course_id},
+            verified=True,
+        )
+        db.session.commit()
+
+        buy_record = init_buy_record(app, user_id, normalized_course_id)
+        order = Order.query.filter(Order.order_bid == buy_record.order_id).first()
+        if not order:
+            raise_error("server.order.orderNotFound")
+
+        order.payable_price = Decimal("0")
+        order.paid_price = Decimal("0")
+        order.payment_channel = "manual"
+        db.session.commit()
+
+        success_buy_record(app, order.order_bid)
+
+        return {"order_bid": order.order_bid}
 
 
 def list_orders(

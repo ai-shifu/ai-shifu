@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
 import OrderDetailSheet from '@/components/order/OrderDetailSheet';
+import ImportActivationDialog from '@/components/order/ImportActivationDialog';
 import type { OrderSummary } from '@/components/order/order-types';
 
 type OrderListResponse = {
@@ -59,6 +60,7 @@ const OrdersPage = () => {
   const [total, setTotal] = useState(0);
   const [selectedOrder, setSelectedOrder] = useState<OrderSummary | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [filters, setFilters] = useState({
     order_bid: '',
     user_bid: '',
@@ -87,6 +89,7 @@ const OrdersPage = () => {
       { value: '', label: t('module.order.filters.all') },
       { value: 'pingxx', label: t('module.order.paymentChannel.pingxx') },
       { value: 'stripe', label: t('module.order.paymentChannel.stripe') },
+      { value: 'manual', label: t('module.order.paymentChannel.manual') },
     ],
     [t],
   );
@@ -217,8 +220,16 @@ const OrdersPage = () => {
           <h1 className='text-2xl font-semibold text-gray-900'>
             {t('module.order.title')}
           </h1>
-          <div className='text-sm text-muted-foreground'>
-            {t('module.order.totalCount', { count: total })}
+          <div className='flex items-center gap-3'>
+            <div className='text-sm text-muted-foreground'>
+              {t('module.order.totalCount', { count: total })}
+            </div>
+            <Button
+              size='sm'
+              onClick={() => setImportOpen(true)}
+            >
+              {t('module.order.importActivation.action')}
+            </Button>
           </div>
         </div>
 
@@ -434,6 +445,12 @@ const OrdersPage = () => {
             setSelectedOrder(null);
           }
         }}
+      />
+
+      <ImportActivationDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onSuccess={() => fetchOrders(1)}
       />
     </div>
   );
