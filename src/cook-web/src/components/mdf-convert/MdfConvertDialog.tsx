@@ -74,22 +74,22 @@ export function MdfConvertDialog({
   // Determine language based on i18n
   const language = i18n.language === 'zh-CN' ? 'Chinese' : 'English';
 
-  // Check MDF API configuration status
-  const checkMdfApiConfig = async () => {
-    setIsCheckingConfig(true);
-    try {
-      const response = await api.genMdfConfigStatus({});
-      setIsMdfApiConfigured(response.configured);
-    } catch (error) {
-      console.error('Failed to check MDF API config:', error);
-      setIsMdfApiConfigured(false);
-    } finally {
-      setIsCheckingConfig(false);
-    }
-  };
-
   // Reset state when dialog opens
   useEffect(() => {
+    // Check MDF API configuration status
+    const checkMdfApiConfig = async () => {
+      setIsCheckingConfig(true);
+      try {
+        const response = await api.genMdfConfigStatus({});
+        setIsMdfApiConfigured(response.configured);
+      } catch (error) {
+        console.error('Failed to check MDF API config:', error);
+        setIsMdfApiConfigured(false);
+      } finally {
+        setIsCheckingConfig(false);
+      }
+    };
+
     if (open) {
       setInputText('');
       setResult(null);
