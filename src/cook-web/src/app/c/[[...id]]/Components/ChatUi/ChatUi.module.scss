@@ -108,6 +108,7 @@
     height: 100vh;
     height: 100dvh;
     overflow: hidden;
+    background: red;
 
     &:has(input:focus),
     &:has(textarea:focus) {
@@ -129,6 +130,7 @@
       height: auto;
       min-height: 0;
       overflow-y: hidden;
+      background: green;
     }
 
     .footer {
