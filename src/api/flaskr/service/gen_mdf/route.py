@@ -124,7 +124,7 @@ def register_gen_mdf_routes(app: Flask, path_prefix="/api/gen_mdf"):
                       type: boolean
                       description: Whether MDF API URL is configured
         """
-        from flaskr.common.config import get_config
+        from flaskr.service.config import get_config
 
         mdf_api_url = get_config("GEN_MDF_API_URL")
         mdf_app_id = get_config("GEN_MDF_APP_ID")

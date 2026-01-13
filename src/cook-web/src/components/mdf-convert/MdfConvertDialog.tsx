@@ -71,8 +71,8 @@ export function MdfConvertDialog({
   );
   const [isCheckingConfig, setIsCheckingConfig] = useState(false);
 
-  // Determine language based on i18n
-  const language = i18n.language === 'zh-CN' ? 'Chinese' : 'English';
+  // Pass i18n language code directly to backend (e.g., 'zh-CN', 'en-US')
+  const language = i18n.language;
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -81,7 +81,7 @@ export function MdfConvertDialog({
       setIsCheckingConfig(true);
       try {
         const response = await api.genMdfConfigStatus({});
-        setIsMdfApiConfigured(response.configured);
+        setIsMdfApiConfigured(response?.configured ?? false);
       } catch (error) {
         console.error('Failed to check MDF API config:', error);
         setIsMdfApiConfigured(false);
