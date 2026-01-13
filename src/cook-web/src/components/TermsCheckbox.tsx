@@ -1,3 +1,4 @@
+import type { MouseEvent, TouchEvent } from 'react';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { cn } from '@/lib/utils';
 import { Trans, useTranslation } from 'react-i18next';
@@ -19,6 +20,12 @@ export function TermsCheckbox({
 }: TermsCheckboxProps) {
   const { t, i18n } = useTranslation();
   const legalUrls = useEnvStore((state: EnvStoreState) => state.legalUrls);
+  const stopLabelInteraction = (
+    event: MouseEvent<HTMLAnchorElement> | TouchEvent<HTMLAnchorElement>,
+  ) => {
+    // Prevent the label from swallowing anchor clicks so the links remain clickable
+    event.stopPropagation();
+  };
 
   // Get current language URL
   const currentLang = (i18n.language || 'en-US') as 'zh-CN' | 'en-US';
@@ -46,6 +53,8 @@ export function TermsCheckbox({
                 target='_blank'
                 rel='noopener noreferrer'
                 className='text-primary hover:underline mx-1'
+                onClick={stopLabelInteraction}
+                onTouchStart={stopLabelInteraction}
               />
             ) : (
               <span className='mx-1' />
@@ -56,6 +65,8 @@ export function TermsCheckbox({
                 target='_blank'
                 rel='noopener noreferrer'
                 className='text-primary hover:underline mx-1'
+                onClick={stopLabelInteraction}
+                onTouchStart={stopLabelInteraction}
               />
             ) : (
               <span className='mx-1' />
