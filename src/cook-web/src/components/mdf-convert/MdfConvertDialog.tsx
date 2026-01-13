@@ -264,7 +264,8 @@ export function MdfConvertDialog({
               />
               <div className='flex-shrink-0 flex items-center justify-end mt-1'>
                 <div className='text-xs text-muted-foreground'>
-                  {inputText.length.toLocaleString()} / {MAX_TEXT_LENGTH.toLocaleString()}
+                  {inputText.length.toLocaleString()} /{' '}
+                  {MAX_TEXT_LENGTH.toLocaleString()}
                 </div>
               </div>
             </div>
