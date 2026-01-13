@@ -7,6 +7,7 @@ import { ContentRender } from 'markdown-flow-ui/renderer';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { cn } from '@/lib/utils';
 import type { ChatContentItem } from './useChatLogicHook';
+import { ChatContentItemType } from './useChatLogicHook';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 
 interface ContentBlockProps {
@@ -67,15 +68,18 @@ const ContentBlock = memo(
       [onSend, blockBid],
     );
 
+    const isPlayableBlock = item.type !== ChatContentItemType.INTERACTION;
+
     const hasAudioContent =
       item.isAudioStreaming ||
       (item.audioSegments && item.audioSegments.length > 0) ||
       Boolean(item.audioUrl);
 
     const shouldShowAudioPlayer =
+      isPlayableBlock &&
       mobileStyle &&
       showAudioPlayer &&
-      (hasAudioContent || Boolean(onRequestAudio));
+      (hasAudioContent || (isPlayableBlock && Boolean(onRequestAudio)));
 
     return (
       <div
@@ -104,7 +108,7 @@ const ContentBlock = memo(
             isStreaming={item.isAudioStreaming}
             previewMode={showAudioPlayer}
             alwaysVisible={true}
-            onRequestAudio={onRequestAudio}
+            onRequestAudio={isPlayableBlock ? onRequestAudio : undefined}
             autoPlay={autoPlayAudio}
             onPlayStateChange={onAudioPlayStateChange}
             size={16}
