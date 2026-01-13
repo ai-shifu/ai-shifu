@@ -135,6 +135,8 @@ export default function ShifuSettingDialog({
   const [ttsVoiceId, setTtsVoiceId] = useState('');
   const [ttsSpeed, setTtsSpeed] = useState(1.0);
   const [ttsPitch, setTtsPitch] = useState(0);
+  const [ttsSpeedInput, setTtsSpeedInput] = useState('1.0');
+  const [ttsPitchInput, setTtsPitchInput] = useState('0');
   const [ttsEmotion, setTtsEmotion] = useState('');
 
   // TTS Preview state
@@ -171,6 +173,14 @@ export default function ShifuSettingDialog({
     fetchTtsConfig();
   }, []);
 
+  useEffect(() => {
+    setTtsSpeedInput(ttsSpeed.toString());
+  }, [ttsSpeed]);
+
+  useEffect(() => {
+    setTtsPitchInput(ttsPitch.toString());
+  }, [ttsPitch]);
+
   const normalizedProvider = ttsProvider === 'default' ? '' : ttsProvider;
   const resolvedProvider =
     normalizedProvider || ttsConfig?.default_provider || '';
@@ -185,10 +195,29 @@ export default function ShifuSettingDialog({
   const pitchMin = currentProviderConfig?.pitch.min ?? -12;
   const pitchMax = currentProviderConfig?.pitch.max ?? 12;
   const pitchStep = currentProviderConfig?.pitch.step ?? 1;
+  const pitchDefault = currentProviderConfig?.pitch.default ?? 0;
   const atMinSpeed = ttsSpeed <= speedMin + FLOAT_EPSILON;
   const atMaxSpeed = ttsSpeed >= speedMax - FLOAT_EPSILON;
   const atMinPitch = ttsPitch <= pitchMin + FLOAT_EPSILON;
   const atMaxPitch = ttsPitch >= pitchMax - FLOAT_EPSILON;
+
+  const normalizePitchValue = useCallback(
+    (value: number) => {
+      if (Number.isNaN(value)) {
+        return pitchDefault;
+      }
+      const clamped = Math.min(pitchMax, Math.max(pitchMin, value));
+      const effectiveStep = pitchStep || 1;
+      const stepped =
+        Math.round(clamped / effectiveStep) * effectiveStep;
+      const finalValue = Math.min(
+        pitchMax,
+        Math.max(pitchMin, stepped),
+      );
+      return finalValue;
+    },
+    [pitchDefault, pitchMax, pitchMin, pitchStep],
+  );
 
   const normalizeSpeedValue = useCallback(
     (value: number) => {
@@ -678,6 +707,58 @@ export default function ShifuSettingDialog({
       shouldValidate: true,
     });
   };
+
+  const commitSpeedInput = useCallback(() => {
+    const raw = ttsSpeedInput.trim();
+    if (!raw) {
+      setTtsSpeedInput(ttsSpeed.toString());
+      return;
+    }
+    const parsed = parseFloat(raw);
+    if (Number.isNaN(parsed)) {
+      setTtsSpeedInput(ttsSpeed.toString());
+      return;
+    }
+    const normalized = normalizeSpeedValue(parsed);
+    setTtsSpeed(normalized);
+  }, [normalizeSpeedValue, ttsSpeed, ttsSpeedInput]);
+
+  const commitPitchInput = useCallback(() => {
+    const raw = ttsPitchInput.trim();
+    if (!raw) {
+      setTtsPitchInput(ttsPitch.toString());
+      return;
+    }
+    const parsed = parseFloat(raw);
+    if (Number.isNaN(parsed)) {
+      setTtsPitchInput(ttsPitch.toString());
+      return;
+    }
+    const normalized = normalizePitchValue(parsed);
+    setTtsPitch(normalized);
+  }, [normalizePitchValue, ttsPitch, ttsPitchInput]);
+
+  const handleSpeedInputKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        commitSpeedInput();
+        event.currentTarget.blur();
+      }
+    },
+    [commitSpeedInput],
+  );
+
+  const handlePitchInputKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        commitPitchInput();
+        event.currentTarget.blur();
+      }
+    },
+    [commitPitchInput],
+  );
 
   return (
     <Sheet
@@ -1210,14 +1291,10 @@ export default function ShifuSettingDialog({
                         <Input
                           type='text'
                           inputMode='decimal'
-                          value={ttsSpeed}
-                          onChange={e =>
-                            setTtsSpeed(
-                              normalizeSpeedValue(
-                                parseFloat(e.target.value),
-                              ),
-                            )
-                          }
+                          value={ttsSpeedInput}
+                          onChange={e => setTtsSpeedInput(e.target.value)}
+                          onBlur={commitSpeedInput}
+                          onKeyDown={handleSpeedInputKeyDown}
                           disabled={currentShifu?.readonly}
                           className='h-9 w-24'
                         />
@@ -1273,13 +1350,10 @@ export default function ShifuSettingDialog({
                         <Input
                           type='text'
                           inputMode='numeric'
-                          value={ttsPitch}
-                          onChange={e =>
-                            setTtsPitch(
-                              parseInt(e.target.value) ||
-                                (currentProviderConfig?.pitch.default ?? 0),
-                            )
-                          }
+                          value={ttsPitchInput}
+                          onChange={e => setTtsPitchInput(e.target.value)}
+                          onBlur={commitPitchInput}
+                          onKeyDown={handlePitchInputKeyDown}
                           disabled={currentShifu?.readonly}
                           className='h-9 w-24'
                         />
@@ -1292,10 +1366,7 @@ export default function ShifuSettingDialog({
                               disabled={atMinPitch}
                               onClick={() =>
                                 setTtsPitch(
-                                  Math.max(
-                                    pitchMin,
-                                    ttsPitch - pitchStep,
-                                  ),
+                                  normalizePitchValue(ttsPitch - pitchStep),
                                 )
                               }
                               className='h-9 w-9'
@@ -1309,10 +1380,7 @@ export default function ShifuSettingDialog({
                               disabled={atMaxPitch}
                               onClick={() =>
                                 setTtsPitch(
-                                  Math.min(
-                                    pitchMax,
-                                    ttsPitch + pitchStep,
-                                  ),
+                                  normalizePitchValue(ttsPitch + pitchStep),
                                 )
                               }
                               className='h-9 w-9'
