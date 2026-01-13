@@ -870,7 +870,10 @@ const OrdersPage = () => {
 
         <div
           className='flex-1 overflow-auto rounded-xl border border-border bg-white shadow-sm'
-          style={{ maxHeight: 'calc(100vh - 340px)' }}
+          style={{
+            minHeight: '420px',
+            maxHeight: 'calc(100vh - 280px)',
+          }}
         >
           {loading ? (
             <div className='flex items-center justify-center h-40'>
