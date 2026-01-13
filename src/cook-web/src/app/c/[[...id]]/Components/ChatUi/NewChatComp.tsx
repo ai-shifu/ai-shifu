@@ -396,10 +396,11 @@ export const NewChatComponents = ({
           ></div>
         </div>
       </div>
-      {shouldRenderScrollButton && (mobileStyle && portalTarget
-        ? createPortal(scrollButton, portalTarget)
-        : scrollButton)}
-      {mobileStyle && mobileInteraction?.generatedBlockBid && 
+      {shouldRenderScrollButton &&
+        (mobileStyle && portalTarget
+          ? createPortal(scrollButton, portalTarget)
+          : scrollButton)}
+      {mobileStyle && mobileInteraction?.generatedBlockBid && (
         <InteractionBlockM
           open={mobileInteraction.open}
           onOpenChange={open => {
@@ -413,7 +414,8 @@ export const NewChatComponents = ({
           generated_block_bid={mobileInteraction.generatedBlockBid}
           like_status={mobileInteraction.likeStatus}
           onRefresh={onRefresh}
-        />}
+        />
+      )}
       <Dialog
         open={reGenerateConfirm.open}
         onOpenChange={open => {
