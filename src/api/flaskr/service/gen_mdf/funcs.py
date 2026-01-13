@@ -18,7 +18,7 @@ MDF_API_TIMEOUT = 60  # 60 seconds timeout for MDF API calls
 
 
 def convert_text_to_mdf(
-    app: Flask, text: str, language: str, output_mode: str = "content"
+    text: str, language: str, output_mode: str = "content"
 ) -> Dict[str, Any]:
     """
     Convert text to MDF format using external API
