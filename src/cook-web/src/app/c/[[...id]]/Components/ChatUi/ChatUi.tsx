@@ -67,6 +67,7 @@ export const ChatUi = ({
             styles.chatComponents,
             showUserSettings ? styles.chatComponentsHidden : '',
           )}
+          isNavOpen={isNavOpen}
           previewMode={previewMode}
           onPurchased={onPurchased}
           chapterUpdate={chapterUpdate}

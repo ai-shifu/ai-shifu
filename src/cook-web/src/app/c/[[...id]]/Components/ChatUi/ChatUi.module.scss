@@ -95,6 +95,9 @@
         text-decoration: underline;
       }
     }
+    &.hideMobileFooter {
+      display: none !important;
+    }
   }
 
   &.mobile {
@@ -130,7 +133,7 @@
       min-height: 40px;
       flex-shrink: 0;
       background: #fff;
-      z-index: 1000;
+      z-index: 10;
       display: flex;
       align-items: center;
       justify-content: center;

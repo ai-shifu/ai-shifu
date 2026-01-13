@@ -14,7 +14,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(148, 163, 184, 0.12);
+    // background-color: rgba(148, 163, 184, 0.12);
     pointer-events: none;
     z-index: 1;
   }
@@ -265,6 +265,6 @@
     bottom: 40px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 50;
+    z-index: 10;
   }
 }
