@@ -31,10 +31,22 @@ Date: 2025-08-07
 
 import os
 import tempfile
+import base64
+import json
+import uuid
+from dataclasses import replace
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from flask import Flask, request, current_app, send_file, after_this_request
+from flask import (
+    Flask,
+    request,
+    current_app,
+    send_file,
+    after_this_request,
+    Response,
+    stream_with_context,
+)
 from .funcs import (
     mark_or_unmark_favorite_shifu,
     upload_file,
@@ -1252,26 +1264,20 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                 description: Optional custom text to preview
         responses:
             200:
-                description: TTS preview audio
+                description: stream TTS preview audio
                 content:
-                    application/json:
+                    text/event-stream:
                         schema:
-                            type: object
-                            properties:
-                                audio_data:
-                                    type: string
-                                    description: Base64 encoded audio
-                                duration_ms:
-                                    type: integer
-                                    description: Audio duration in milliseconds
+                            type: string
+                            example: 'data: {"type":"audio_segment","content":{"segment_index":0,"audio_data":"...","duration_ms":123,"is_final":false}}'
         """
-        import base64
         from flaskr.api.tts import (
             synthesize_text,
             is_tts_configured,
             get_default_voice_settings,
             get_default_audio_settings,
         )
+        from flaskr.service.tts.pipeline import split_text_for_tts
 
         json_data = request.get_json() or {}
         provider_name = (json_data.get("provider") or "").strip().lower()
@@ -1307,25 +1313,70 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         if emotion:
             voice_settings.emotion = emotion
 
-        try:
-            result = synthesize_text(
-                text=text,
-                voice_settings=voice_settings,
-                audio_settings=get_default_audio_settings(provider_name),
-                model=model or None,
-                provider_name=provider_name,
-            )
-
-            audio_base64 = base64.b64encode(result.audio_data).decode("utf-8")
-
-            return make_common_response(
-                {
-                    "audio_data": audio_base64,
-                    "duration_ms": result.duration_ms,
-                }
-            )
-        except Exception as e:
-            current_app.logger.error(f"TTS preview failed: {e}")
+        segments = split_text_for_tts(text, provider_name=provider_name)
+        if not segments:
             raise_error("TTS_PREVIEW_FAILED")
+
+        audio_settings = get_default_audio_settings(provider_name)
+        safe_audio_settings = replace(audio_settings, format="mp3")
+        audio_bid = uuid.uuid4().hex
+
+        def event_stream():
+            total_duration_ms = 0
+            try:
+                for index, segment_text in enumerate(segments):
+                    result = synthesize_text(
+                        text=segment_text,
+                        voice_settings=voice_settings,
+                        audio_settings=safe_audio_settings,
+                        model=model or None,
+                        provider_name=provider_name,
+                    )
+                    total_duration_ms += int(result.duration_ms or 0)
+                    audio_base64 = base64.b64encode(result.audio_data).decode("utf-8")
+                    payload = {
+                        "outline_bid": "",
+                        "generated_block_bid": "",
+                        "type": "audio_segment",
+                        "content": {
+                            "segment_index": index,
+                            "audio_data": audio_base64,
+                            "duration_ms": int(result.duration_ms or 0),
+                            "is_final": False,
+                        },
+                    }
+                    yield (
+                        "data: "
+                        + json.dumps(payload, ensure_ascii=False)
+                        + "\n\n".encode("utf-8").decode("utf-8")
+                    )
+
+                payload = {
+                    "outline_bid": "",
+                    "generated_block_bid": "",
+                    "type": "audio_complete",
+                    "content": {
+                        "audio_url": "",
+                        "audio_bid": audio_bid,
+                        "duration_ms": total_duration_ms,
+                    },
+                }
+                yield (
+                    "data: "
+                    + json.dumps(payload, ensure_ascii=False)
+                    + "\n\n".encode("utf-8").decode("utf-8")
+                )
+            except GeneratorExit:
+                current_app.logger.info("client closed tts preview stream early")
+                raise
+            except Exception:
+                current_app.logger.error("TTS preview stream failed", exc_info=True)
+                raise
+
+        return Response(
+            stream_with_context(event_stream()),
+            headers={"Cache-Control": "no-cache"},
+            mimetype="text/event-stream",
+        )
 
     return app

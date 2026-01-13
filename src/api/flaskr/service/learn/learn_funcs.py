@@ -2,6 +2,9 @@ from markdown_flow import (
     InteractionParser,
 )
 from flask import Flask, request
+import base64
+import logging
+from dataclasses import replace
 import uuid
 from flaskr.service.learn.learn_dtos import (
     LearnShifuInfoDTO,
@@ -15,6 +18,10 @@ from flaskr.service.learn.learn_dtos import (
     LearnBannerInfoDTO,
     OutlineType,
     GeneratedInfoDTO,
+    RunMarkdownFlowDTO,
+    GeneratedType,
+    AudioSegmentDTO,
+    AudioCompleteDTO,
 )
 from flaskr.service.shifu.models import (
     DraftShifu,
@@ -26,9 +33,23 @@ from flaskr.service.shifu.models import (
 )
 from flaskr.service.learn.models import LearnProgressRecord, LearnGeneratedBlock
 from flaskr.service.tts.models import LearnGeneratedAudio, AUDIO_STATUS_COMPLETED
-from flaskr.service.tts.pipeline import synthesize_long_text_to_oss
-from flaskr.api.tts import get_default_audio_settings, get_default_voice_settings
+from flaskr.service.tts.pipeline import (
+    synthesize_long_text_to_oss,
+    split_text_for_tts,
+)
+from flaskr.api.tts import (
+    get_default_audio_settings,
+    get_default_voice_settings,
+    synthesize_text,
+    is_tts_configured,
+)
 from flaskr.service.tts import preprocess_for_tts
+from flaskr.service.tts.audio_utils import (
+    concat_audio_mp3,
+    get_audio_duration_ms,
+    is_audio_processing_available,
+)
+from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.service.common import raise_error, raise_error_with_args
 from flaskr.service.shifu.utils import get_shifu_res_url
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
@@ -75,6 +96,8 @@ STATUS_MAP = {
     LEARN_STATUS_IN_PROGRESS: LearnStatus.IN_PROGRESS,
     LEARN_STATUS_COMPLETED: LearnStatus.COMPLETED,
 }
+
+logger = logging.getLogger(__name__)
 
 
 def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifuInfoDTO:
@@ -516,6 +539,263 @@ def _resolve_shifu_tts_settings(
     tts_model = (getattr(shifu, "tts_model", "") or "").strip()
 
     return provider, tts_model, voice_settings, audio_settings
+
+
+def _concat_audio_best_effort(audio_parts: list[bytes]) -> bytes:
+    if not audio_parts:
+        return b""
+    if len(audio_parts) == 1:
+        return audio_parts[0]
+    if is_audio_processing_available():
+        try:
+            return concat_audio_mp3(audio_parts)
+        except Exception:
+            logger.warning("Audio concatenation failed; falling back to raw join.")
+    return b"".join(audio_parts)
+
+
+def _yield_tts_segments(
+    *,
+    text: str,
+    provider: str,
+    tts_model: str,
+    voice_settings,
+    audio_settings,
+):
+    provider_name = (provider or "").strip().lower()
+    if provider_name == "default":
+        provider_name = ""
+    if not is_tts_configured(provider_name):
+        raise ValueError(
+            f"TTS provider is not configured: {provider_name or 'default'}"
+        )
+
+    segments = split_text_for_tts(text, provider_name=provider_name)
+    if not segments:
+        raise ValueError("No speakable text after preprocessing")
+
+    safe_audio_settings = replace(audio_settings, format="mp3")
+    for index, segment_text in enumerate(segments):
+        result = synthesize_text(
+            text=segment_text,
+            voice_settings=voice_settings,
+            audio_settings=safe_audio_settings,
+            model=(tts_model or "").strip() or None,
+            provider_name=provider_name,
+        )
+        yield index, result.audio_data, int(result.duration_ms or 0)
+
+
+def stream_generated_block_audio(
+    app: Flask,
+    *,
+    shifu_bid: str,
+    generated_block_bid: str,
+    user_bid: str,
+    preview_mode: bool,
+):
+    with app.app_context():
+        generated_block = LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.user_bid == user_bid,
+            LearnGeneratedBlock.shifu_bid == shifu_bid,
+            LearnGeneratedBlock.generated_block_bid == generated_block_bid,
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+        ).first()
+        if not generated_block:
+            raise_error("server.learn.generatedBlockNotFound")
+
+        existing_audio = (
+            LearnGeneratedAudio.query.filter(
+                LearnGeneratedAudio.generated_block_bid == generated_block_bid,
+                LearnGeneratedAudio.user_bid == user_bid,
+                LearnGeneratedAudio.shifu_bid == shifu_bid,
+                LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
+                LearnGeneratedAudio.deleted == 0,
+            )
+            .order_by(LearnGeneratedAudio.id.desc())
+            .first()
+        )
+        if existing_audio and existing_audio.oss_url:
+            yield RunMarkdownFlowDTO(
+                outline_bid=generated_block.outline_item_bid or "",
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_COMPLETE,
+                content=AudioCompleteDTO(
+                    audio_url=existing_audio.oss_url,
+                    audio_bid=existing_audio.audio_bid,
+                    duration_ms=existing_audio.duration_ms or 0,
+                ),
+            )
+            return
+
+        provider, tts_model, voice_settings, audio_settings = (
+            _resolve_shifu_tts_settings(
+                app,
+                shifu_bid=shifu_bid,
+                preview_mode=preview_mode,
+            )
+        )
+
+        raw_text = generated_block.generated_content or ""
+        cleaned_text = preprocess_for_tts(raw_text)
+        if not cleaned_text or len(cleaned_text.strip()) < 2:
+            raise_error_with_args(
+                "server.common.paramsError",
+                param_message="No speakable text available for TTS synthesis",
+            )
+
+        audio_bid = uuid.uuid4().hex
+        audio_parts: list[bytes] = []
+
+        try:
+            for index, audio_data, duration_ms in _yield_tts_segments(
+                text=raw_text,
+                provider=provider,
+                tts_model=tts_model,
+                voice_settings=voice_settings,
+                audio_settings=audio_settings,
+            ):
+                audio_parts.append(audio_data)
+                base64_audio = base64.b64encode(audio_data).decode("utf-8")
+                yield RunMarkdownFlowDTO(
+                    outline_bid=generated_block.outline_item_bid or "",
+                    generated_block_bid=generated_block_bid,
+                    type=GeneratedType.AUDIO_SEGMENT,
+                    content=AudioSegmentDTO(
+                        segment_index=index,
+                        audio_data=base64_audio,
+                        duration_ms=duration_ms,
+                        is_final=False,
+                    ),
+                )
+
+            final_audio = _concat_audio_best_effort(audio_parts)
+            if not final_audio:
+                raise ValueError("No audio data produced")
+
+            duration_ms = get_audio_duration_ms(final_audio, format="mp3")
+            oss_url, bucket_name = upload_audio_to_oss(app, final_audio, audio_bid)
+            segment_count = len(audio_parts)
+
+            audio_record = LearnGeneratedAudio(
+                audio_bid=audio_bid,
+                generated_block_bid=generated_block_bid,
+                progress_record_bid=generated_block.progress_record_bid,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                oss_url=oss_url,
+                oss_bucket=bucket_name or "",
+                oss_object_key="",
+                duration_ms=int(duration_ms or 0),
+                file_size=len(final_audio),
+                audio_format=audio_settings.format or "mp3",
+                sample_rate=audio_settings.sample_rate or 24000,
+                voice_id=voice_settings.voice_id or "",
+                voice_settings={
+                    "speed": voice_settings.speed,
+                    "pitch": voice_settings.pitch,
+                    "emotion": voice_settings.emotion,
+                    "volume": voice_settings.volume,
+                },
+                model=tts_model or "",
+                text_length=len(cleaned_text),
+                segment_count=segment_count,
+                status=AUDIO_STATUS_COMPLETED,
+            )
+            db.session.add(audio_record)
+            db.session.commit()
+
+            yield RunMarkdownFlowDTO(
+                outline_bid=generated_block.outline_item_bid or "",
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_COMPLETE,
+                content=AudioCompleteDTO(
+                    audio_url=oss_url,
+                    audio_bid=audio_bid,
+                    duration_ms=int(duration_ms or 0),
+                ),
+            )
+        except ValueError as exc:
+            raise_error_with_args("server.common.paramsError", param_message=str(exc))
+        except Exception:
+            app.logger.error("TTS streaming synthesis failed", exc_info=True)
+            raise_error("server.common.unknownError")
+
+
+def stream_preview_tts_audio(
+    app: Flask,
+    *,
+    shifu_bid: str,
+    user_bid: str,
+    text: str,
+    preview_mode: bool,
+):
+    with app.app_context():
+        _unused_user_bid = user_bid  # reserved for future auditing/logging
+
+        provider, tts_model, voice_settings, audio_settings = (
+            _resolve_shifu_tts_settings(
+                app,
+                shifu_bid=shifu_bid,
+                preview_mode=preview_mode,
+            )
+        )
+
+        cleaned_text = preprocess_for_tts(text or "")
+        if not cleaned_text or len(cleaned_text.strip()) < 2:
+            raise_error_with_args(
+                "server.common.paramsError",
+                param_message="No speakable text available for TTS synthesis",
+            )
+
+        audio_bid = uuid.uuid4().hex
+        audio_parts: list[bytes] = []
+
+        try:
+            for index, audio_data, duration_ms in _yield_tts_segments(
+                text=text or "",
+                provider=provider,
+                tts_model=tts_model,
+                voice_settings=voice_settings,
+                audio_settings=audio_settings,
+            ):
+                audio_parts.append(audio_data)
+                base64_audio = base64.b64encode(audio_data).decode("utf-8")
+                yield RunMarkdownFlowDTO(
+                    outline_bid="",
+                    generated_block_bid="",
+                    type=GeneratedType.AUDIO_SEGMENT,
+                    content=AudioSegmentDTO(
+                        segment_index=index,
+                        audio_data=base64_audio,
+                        duration_ms=duration_ms,
+                        is_final=False,
+                    ),
+                )
+
+            final_audio = _concat_audio_best_effort(audio_parts)
+            if not final_audio:
+                raise ValueError("No audio data produced")
+
+            duration_ms = get_audio_duration_ms(final_audio, format="mp3")
+            oss_url, _bucket_name = upload_audio_to_oss(app, final_audio, audio_bid)
+
+            yield RunMarkdownFlowDTO(
+                outline_bid="",
+                generated_block_bid="",
+                type=GeneratedType.AUDIO_COMPLETE,
+                content=AudioCompleteDTO(
+                    audio_url=oss_url,
+                    audio_bid=audio_bid,
+                    duration_ms=int(duration_ms or 0),
+                ),
+            )
+        except ValueError as exc:
+            raise_error_with_args("server.common.paramsError", param_message=str(exc))
+        except Exception:
+            app.logger.error("Preview TTS streaming failed", exc_info=True)
+            raise_error("server.common.unknownError")
 
 
 def synthesize_generated_block_audio(

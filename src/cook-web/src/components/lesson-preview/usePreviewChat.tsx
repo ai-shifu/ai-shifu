@@ -16,13 +16,13 @@ import {
   fixMarkdownStream,
   maskIncompleteMermaidBlock,
 } from '@/c-utils/markdownUtils';
+import { upsertAudioComplete, upsertAudioSegment } from '@/c-utils/audio-utils';
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import { useShifu, useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
 import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
-import request from '@/lib/request';
-import type { AudioCompleteData } from '@/c-api/studyV2';
+import type { AudioCompleteData, AudioSegmentData } from '@/c-api/studyV2';
 
 interface InteractionParseResult {
   variableName?: string;
@@ -98,6 +98,7 @@ export function usePreviewChat() {
   const currentContentIdRef = useRef<string | null>(null);
   const sseParams = useRef<StartPreviewParams>({});
   const sseRef = useRef<any>(null);
+  const ttsSseRef = useRef<Record<string, any>>({});
   const isStreamingRef = useRef(false);
   const [variablesSnapshot, setVariablesSnapshot] =
     useState<PreviewVariablesMap>({});
@@ -311,14 +312,31 @@ export function usePreviewChat() {
     [normalizeButtonValue, splitPresetValues],
   );
 
+  const closeTtsStream = useCallback((blockId: string) => {
+    const source = ttsSseRef.current[blockId];
+    if (!source) {
+      return;
+    }
+    source.close();
+    delete ttsSseRef.current[blockId];
+  }, []);
+
+  const closeAllTtsStreams = useCallback(() => {
+    Object.values(ttsSseRef.current).forEach(source => {
+      source?.close?.();
+    });
+    ttsSseRef.current = {};
+  }, []);
+
   const stopPreview = useCallback(() => {
     if (sseRef.current) {
       sseRef.current.close();
       sseRef.current = null;
     }
+    closeAllTtsStreams();
     isStreamingRef.current = false;
     setIsLoading(false);
-  }, []);
+  }, [closeAllTtsStreams]);
 
   const resetPreview = useCallback(() => {
     stopPreview();
@@ -348,6 +366,33 @@ export function usePreviewChat() {
       return blockId;
     },
     [setTrackedContentList],
+  );
+
+  const ensureAudioItem = useCallback(
+    (
+      items: ChatContentItem[],
+      blockId: string,
+      defaults: Partial<ChatContentItem> = {},
+    ) => {
+      const hasTarget = items.some(
+        item => item.generated_block_bid === blockId,
+      );
+      if (hasTarget) {
+        return items;
+      }
+
+      return [
+        ...items.filter(item => item.generated_block_bid !== 'loading'),
+        {
+          generated_block_bid: blockId,
+          content: '',
+          readonly: false,
+          type: ChatContentItemType.CONTENT,
+          ...defaults,
+        } as ChatContentItem,
+      ];
+    },
+    [],
   );
 
   const handlePayload = useCallback(
@@ -472,87 +517,32 @@ export function usePreviewChat() {
           setError(response.data);
           stopPreview();
         } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
-          const audioSegment = response.data;
+          const audioSegment = response.data as AudioSegmentData;
           if (blockId) {
-            setTrackedContentList(prevState => {
-              const hasTarget = prevState.some(
-                item => item.generated_block_bid === blockId,
-              );
-              const nextState = hasTarget
-                ? prevState
-                : [
-                    ...prevState.filter(
-                      item => item.generated_block_bid !== 'loading',
-                    ),
-                    {
-                      generated_block_bid: blockId,
-                      content: '',
-                      readonly: false,
-                      type: ChatContentItemType.CONTENT,
-                    } as ChatContentItem,
-                  ];
-
-              return nextState.map(item => {
-                if (item.generated_block_bid !== blockId) {
-                  return item;
-                }
-                const existingSegments = item.audioSegments || [];
-                const segmentExists = existingSegments.some(
-                  s => s.segmentIndex === audioSegment.segment_index,
-                );
-                if (segmentExists) {
-                  return item;
-                }
-
-                return {
-                  ...item,
-                  audioSegments: [
-                    ...existingSegments,
-                    {
-                      segmentIndex: audioSegment.segment_index,
-                      audioData: audioSegment.audio_data,
-                      durationMs: audioSegment.duration_ms,
-                      isFinal: audioSegment.is_final,
-                    },
-                  ].sort((a, b) => a.segmentIndex - b.segmentIndex),
-                  isAudioStreaming: !audioSegment.is_final,
-                };
-              });
-            });
+            setTrackedContentList(prevState =>
+              upsertAudioSegment(
+                prevState,
+                blockId,
+                audioSegment,
+                ensureAudioItem,
+              ),
+            );
           }
         } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
-          const audioComplete = response.data;
+          const audioComplete = response.data as AudioCompleteData;
+          const normalizedAudioComplete = {
+            ...audioComplete,
+            audio_url: audioComplete.audio_url || undefined,
+          };
           if (blockId) {
-            setTrackedContentList(prevState => {
-              const hasTarget = prevState.some(
-                item => item.generated_block_bid === blockId,
-              );
-              const nextState = hasTarget
-                ? prevState
-                : [
-                    ...prevState.filter(
-                      item => item.generated_block_bid !== 'loading',
-                    ),
-                    {
-                      generated_block_bid: blockId,
-                      content: '',
-                      readonly: false,
-                      type: ChatContentItemType.CONTENT,
-                    } as ChatContentItem,
-                  ];
-
-              return nextState.map(item => {
-                if (item.generated_block_bid !== blockId) {
-                  return item;
-                }
-                return {
-                  ...item,
-                  audioUrl: audioComplete.audio_url || undefined,
-                  audioDurationMs: audioComplete.duration_ms,
-                  isAudioStreaming: false,
-                };
-              });
-            });
+            setTrackedContentList(prevState =>
+              upsertAudioComplete(
+                prevState,
+                blockId,
+                normalizedAudioComplete,
+                ensureAudioItem,
+              ),
+            );
           }
         }
       } catch (err) {
@@ -561,6 +551,7 @@ export function usePreviewChat() {
     },
     [
       buildAutoSendParams,
+      ensureAudioItem,
       ensureContentItem,
       parseInteractionBlock,
       setTrackedContentList,
@@ -1000,33 +991,135 @@ export function usePreviewChat() {
         return null;
       }
 
-      const audio = await request.post(
-        `/api/learn/shifu/${shifuBid}/tts/preview?preview_mode=true`,
-        {
-          text: text || '',
-        },
+      const existingItem = contentListRef.current.find(
+        item => item.generated_block_bid === blockId,
       );
+      if (existingItem?.audioUrl && !existingItem.isAudioStreaming) {
+        return {
+          audio_url: existingItem.audioUrl,
+          audio_bid: '',
+          duration_ms: existingItem.audioDurationMs ?? 0,
+        };
+      }
 
-      if (audio?.audio_url) {
-        setTrackedContentList(prev =>
-          prev.map(item => {
+      if (ttsSseRef.current[blockId]) {
+        return null;
+      }
+
+      setTrackedContentList(prevState =>
+        ensureAudioItem(
+          prevState.map(item => {
             if (item.generated_block_bid !== blockId) {
               return item;
             }
-
             return {
               ...item,
-              audioUrl: audio.audio_url,
-              audioDurationMs: audio.duration_ms,
-              isAudioStreaming: false,
+              audioSegments: [],
+              audioUrl: undefined,
+              audioDurationMs: undefined,
+              isAudioStreaming: true,
             };
           }),
-        );
+          blockId,
+          {
+            audioSegments: [],
+            audioUrl: undefined,
+            audioDurationMs: undefined,
+            isAudioStreaming: true,
+          },
+        ),
+      );
+
+      const resolvedBaseUrl = await resolveBaseUrl();
+      const tokenValue = useUserStore.getState().getToken();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-Request-ID': uuidv4().replace(/-/g, ''),
+      };
+      if (tokenValue) {
+        headers.Authorization = `Bearer ${tokenValue}`;
+        headers.Token = tokenValue;
       }
 
-      return audio ?? null;
+      return new Promise((resolve, reject) => {
+        const source = new SSE(
+          `${resolvedBaseUrl}/api/learn/shifu/${shifuBid}/tts/preview?preview_mode=true`,
+          {
+            headers,
+            payload: JSON.stringify({ text: text || '' }),
+            method: 'POST',
+          },
+        );
+
+        source.addEventListener('message', event => {
+          const raw = event?.data;
+          if (!raw) return;
+          const payload = String(raw).trim();
+          if (!payload) return;
+
+          try {
+            const response = JSON.parse(payload);
+            if (response?.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+              const audioPayload = response.content ?? response.data;
+              setTrackedContentList(prevState =>
+                upsertAudioSegment(
+                  prevState,
+                  blockId,
+                  audioPayload as AudioSegmentData,
+                  ensureAudioItem,
+                ),
+              );
+              return;
+            }
+
+            if (response?.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+              const audioPayload = response.content ?? response.data;
+              const audioComplete = audioPayload as AudioCompleteData;
+              const normalizedAudioComplete = {
+                ...audioComplete,
+                audio_url: audioComplete.audio_url || undefined,
+              };
+              setTrackedContentList(prevState =>
+                upsertAudioComplete(
+                  prevState,
+                  blockId,
+                  normalizedAudioComplete,
+                  ensureAudioItem,
+                ),
+              );
+              closeTtsStream(blockId);
+              resolve(audioComplete ?? null);
+            }
+          } catch (err) {
+            console.warn('preview audio stream parse error:', err);
+          }
+        });
+
+        source.addEventListener('error', err => {
+          console.error('[preview audio sse error]', err);
+          setTrackedContentList(prevState =>
+            ensureAudioItem(
+              prevState.map(item => {
+                if (item.generated_block_bid !== blockId) {
+                  return item;
+                }
+                return {
+                  ...item,
+                  isAudioStreaming: false,
+                };
+              }),
+              blockId,
+            ),
+          );
+          closeTtsStream(blockId);
+          reject(new Error('Preview audio stream failed'));
+        });
+
+        source.stream();
+        ttsSseRef.current[blockId] = source;
+      });
     },
-    [setTrackedContentList],
+    [closeTtsStream, ensureAudioItem, resolveBaseUrl, setTrackedContentList],
   );
 
   return {

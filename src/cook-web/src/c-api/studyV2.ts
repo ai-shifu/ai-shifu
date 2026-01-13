@@ -1,9 +1,7 @@
 import { SSE } from 'sse.js';
 import request from '@/lib/request';
-import { tokenStore } from '@/c-service/storeUtil';
 import { v4 } from 'uuid';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
-import { useSystemStore } from '@/c-store/useSystemStore';
 import { useUserStore } from '@/store/useUserStore';
 
 // ===== Constants  Types for shared literals =====
@@ -131,10 +129,12 @@ export interface AudioCompleteData {
   duration_ms: number;
 }
 
-export interface SynthesizeGeneratedBlockAudioParams {
+export interface StreamGeneratedBlockAudioParams {
   shifu_bid: string;
   generated_block_bid: string;
   preview_mode?: boolean;
+  onMessage: (data: any) => void;
+  onError?: (error: unknown) => void;
 }
 
 export const getRunMessage = (
@@ -196,6 +196,58 @@ export const getRunMessage = (
   return source;
 };
 
+const createSseSource = (
+  url: string,
+  payload: Record<string, unknown>,
+  onMessage: (data: any) => void,
+  onError?: (error: unknown) => void,
+) => {
+  const token = useUserStore.getState().getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Request-ID': v4().replace(/-/g, ''),
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+    headers.Token = token;
+  }
+
+  const source = new SSE(url, {
+    headers,
+    payload: JSON.stringify(payload),
+    method: 'POST',
+  });
+
+  source.addEventListener('message', event => {
+    try {
+      const response = JSON.parse(event.data);
+      onMessage(response);
+    } catch {
+      // ignore malformed SSE payloads
+    }
+  });
+
+  source.addEventListener('error', e => {
+    onError?.(e);
+  });
+
+  source.stream();
+
+  return source;
+};
+
+export const streamGeneratedBlockAudio = ({
+  shifu_bid,
+  generated_block_bid,
+  preview_mode = false,
+  onMessage,
+  onError,
+}: StreamGeneratedBlockAudioParams) => {
+  const baseURL = getResolvedBaseURL();
+  const url = `${baseURL}/api/learn/shifu/${shifu_bid}/generated-blocks/${generated_block_bid}/tts?preview_mode=${preview_mode}`;
+  return createSseSource(url, {}, onMessage, onError);
+};
+
 /**
  * Fetch course study records
  * @param {*} lessonId
@@ -244,13 +296,4 @@ export const checkIsRunning = async (
 ): Promise<RunningResult> => {
   const url = `/api/learn/shifu/${shifu_bid}/run/${outline_bid}`;
   return request.get(url);
-};
-
-export const synthesizeGeneratedBlockAudio = async ({
-  shifu_bid,
-  generated_block_bid,
-  preview_mode = false,
-}: SynthesizeGeneratedBlockAudioParams): Promise<AudioCompleteData> => {
-  const url = `/api/learn/shifu/${shifu_bid}/generated-blocks/${generated_block_bid}/tts?preview_mode=${preview_mode}`;
-  return request.post(url, {});
 };

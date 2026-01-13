@@ -20,6 +20,7 @@ import {
   StudyRecordItem,
   LikeStatus,
   AudioCompleteData,
+  type AudioSegmentData,
   getRunMessage,
   SSE_INPUT_TYPE,
   getLessonStudyRecord,
@@ -29,8 +30,13 @@ import {
   BLOCK_TYPE,
   BlockType,
   checkIsRunning,
-  synthesizeGeneratedBlockAudio,
+  streamGeneratedBlockAudio,
 } from '@/c-api/studyV2';
+import {
+  upsertAudioComplete,
+  upsertAudioSegment,
+  type AudioSegment,
+} from '@/c-utils/audio-utils';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import {
   events,
@@ -66,13 +72,6 @@ export enum ChatContentItemType {
   INTERACTION = 'interaction',
   ASK = 'ask',
   LIKE_STATUS = 'likeStatus',
-}
-
-export interface AudioSegment {
-  segmentIndex: number;
-  audioData: string; // Base64 encoded
-  durationMs: number;
-  isFinal: boolean;
 }
 
 export interface ChatContentItem {
@@ -196,6 +195,7 @@ function useChatLogicHook({
   const runRef = useRef<((params: SSEParams) => void) | null>(null);
   const interactionParserRef = useRef(createInteractionParser());
   const sseRef = useRef<any>(null);
+  const ttsSseRef = useRef<Record<string, any>>({});
   const lastInteractionBlockRef = useRef<ChatContentItem | null>(null);
   const hasScrolledToBottomRef = useRef<boolean>(false);
   const [pendingRegenerate, setPendingRegenerate] = useState<{
@@ -650,53 +650,19 @@ function useChatLogicHook({
               }
             } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
               // Handle audio segment during TTS streaming
-              const audioSegment = response.content;
+              const audioSegment = response.content as AudioSegmentData;
               if (blockId) {
-                setTrackedContentList(prevState => {
-                  return prevState.map(item => {
-                    if (item.generated_block_bid === blockId) {
-                      const existingSegments = item.audioSegments || [];
-                      // Check if segment already exists
-                      const segmentExists = existingSegments.some(
-                        s => s.segmentIndex === audioSegment.segment_index,
-                      );
-                      if (segmentExists) return item;
-
-                      return {
-                        ...item,
-                        audioSegments: [
-                          ...existingSegments,
-                          {
-                            segmentIndex: audioSegment.segment_index,
-                            audioData: audioSegment.audio_data,
-                            durationMs: audioSegment.duration_ms,
-                            isFinal: audioSegment.is_final,
-                          },
-                        ].sort((a, b) => a.segmentIndex - b.segmentIndex),
-                        isAudioStreaming: !audioSegment.is_final,
-                      };
-                    }
-                    return item;
-                  });
-                });
+                setTrackedContentList(prevState =>
+                  upsertAudioSegment(prevState, blockId, audioSegment),
+                );
               }
             } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
               // Handle audio completion with OSS URL
-              const audioComplete = response.content;
+              const audioComplete = response.content as AudioCompleteData;
               if (blockId) {
-                setTrackedContentList(prevState => {
-                  return prevState.map(item => {
-                    if (item.generated_block_bid === blockId) {
-                      return {
-                        ...item,
-                        audioUrl: audioComplete.audio_url,
-                        audioDurationMs: audioComplete.duration_ms,
-                        isAudioStreaming: false,
-                      };
-                    }
-                    return item;
-                  });
-                });
+                setTrackedContentList(prevState =>
+                  upsertAudioComplete(prevState, blockId, audioComplete),
+                );
               }
             }
           } catch (error) {
@@ -1305,39 +1271,115 @@ function useChatLogicHook({
     [contentList, nullRenderBar],
   );
 
+  const closeTtsStream = useCallback((blockId: string) => {
+    const source = ttsSseRef.current[blockId];
+    if (!source) {
+      return;
+    }
+    source.close();
+    delete ttsSseRef.current[blockId];
+  }, []);
+
   const requestAudioForBlock = useCallback(
     async (generatedBlockBid: string): Promise<AudioCompleteData | null> => {
       if (!generatedBlockBid) {
         return null;
       }
 
-      const audio = await synthesizeGeneratedBlockAudio({
-        shifu_bid: shifuBid,
-        generated_block_bid: generatedBlockBid,
-        preview_mode: effectivePreviewMode,
-      });
-
-      if (audio?.audio_url) {
-        setTrackedContentList(prev =>
-          prev.map(item => {
-            if (item.generated_block_bid !== generatedBlockBid) {
-              return item;
-            }
-
-            return {
-              ...item,
-              audioUrl: audio.audio_url,
-              audioDurationMs: audio.duration_ms,
-              isAudioStreaming: false,
-            };
-          }),
-        );
+      const existingItem = contentListRef.current.find(
+        item => item.generated_block_bid === generatedBlockBid,
+      );
+      if (existingItem?.audioUrl && !existingItem.isAudioStreaming) {
+        return {
+          audio_url: existingItem.audioUrl,
+          audio_bid: '',
+          duration_ms: existingItem.audioDurationMs ?? 0,
+        };
       }
 
-      return audio ?? null;
+      if (ttsSseRef.current[generatedBlockBid]) {
+        return null;
+      }
+
+      setTrackedContentList(prev =>
+        prev.map(item => {
+          if (item.generated_block_bid !== generatedBlockBid) {
+            return item;
+          }
+
+          return {
+            ...item,
+            audioSegments: [],
+            audioUrl: undefined,
+            audioDurationMs: undefined,
+            isAudioStreaming: true,
+          };
+        }),
+      );
+
+      return new Promise((resolve, reject) => {
+        const source = streamGeneratedBlockAudio({
+          shifu_bid: shifuBid,
+          generated_block_bid: generatedBlockBid,
+          preview_mode: effectivePreviewMode,
+          onMessage: response => {
+            if (response?.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+              const audioPayload = response.content ?? response.data;
+              setTrackedContentList(prevState =>
+                upsertAudioSegment(
+                  prevState,
+                  generatedBlockBid,
+                  audioPayload as AudioSegmentData,
+                ),
+              );
+              return;
+            }
+
+            if (response?.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+              const audioPayload = response.content ?? response.data;
+              const audioComplete = audioPayload as AudioCompleteData;
+              setTrackedContentList(prevState =>
+                upsertAudioComplete(
+                  prevState,
+                  generatedBlockBid,
+                  audioComplete,
+                ),
+              );
+              closeTtsStream(generatedBlockBid);
+              resolve(audioComplete ?? null);
+            }
+          },
+          onError: () => {
+            setTrackedContentList(prev =>
+              prev.map(item => {
+                if (item.generated_block_bid !== generatedBlockBid) {
+                  return item;
+                }
+                return {
+                  ...item,
+                  isAudioStreaming: false,
+                };
+              }),
+            );
+            closeTtsStream(generatedBlockBid);
+            reject(new Error('TTS stream failed'));
+          },
+        });
+
+        ttsSseRef.current[generatedBlockBid] = source;
+      });
     },
-    [effectivePreviewMode, setTrackedContentList, shifuBid],
+    [closeTtsStream, effectivePreviewMode, setTrackedContentList, shifuBid],
   );
+
+  useEffect(() => {
+    return () => {
+      Object.values(ttsSseRef.current).forEach(source => {
+        source?.close?.();
+      });
+      ttsSseRef.current = {};
+    };
+  }, []);
 
   return {
     items,

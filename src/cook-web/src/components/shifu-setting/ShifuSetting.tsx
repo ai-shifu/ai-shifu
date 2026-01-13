@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { SSE } from 'sse.js';
+import { v4 as uuidv4 } from 'uuid';
 import {
   Copy,
   Check,
@@ -15,6 +17,8 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { uploadFile } from '@/lib/file';
+import { getResolvedBaseURL } from '@/c-utils/envUtils';
+import type { AudioSegment } from '@/c-utils/audio-utils';
 import {
   Sheet,
   SheetContent,
@@ -45,6 +49,7 @@ import {
 } from '@/components/ui/Form';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
+import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 
 import ModelList from '@/components/model-list';
 import { useEnvStore } from '@/c-store';
@@ -123,6 +128,7 @@ export default function ShifuSettingDialog({
     url: null,
   });
   const { trackEvent } = useTracking();
+  const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   // TTS Configuration state
   const [ttsEnabled, setTtsEnabled] = useState(false);
   const [ttsProvider, setTtsProvider] = useState('default');
@@ -135,7 +141,141 @@ export default function ShifuSettingDialog({
   // TTS Preview state
   const [ttsPreviewLoading, setTtsPreviewLoading] = useState(false);
   const [ttsPreviewPlaying, setTtsPreviewPlaying] = useState(false);
-  const ttsPreviewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const ttsPreviewSessionRef = useRef(0);
+  const ttsPreviewStreamRef = useRef<any>(null);
+  const ttsPreviewAudioContextRef = useRef<AudioContext | null>(null);
+  const ttsPreviewSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const ttsPreviewSegmentsRef = useRef<AudioSegment[]>([]);
+  const ttsPreviewSegmentIndexRef = useRef(0);
+  const ttsPreviewIsPlayingRef = useRef(false);
+  const ttsPreviewIsStreamingRef = useRef(false);
+  const ttsPreviewWaitingRef = useRef(false);
+
+  const closeTtsPreviewStream = useCallback(() => {
+    if (ttsPreviewStreamRef.current) {
+      ttsPreviewStreamRef.current.close();
+      ttsPreviewStreamRef.current = null;
+    }
+    ttsPreviewIsStreamingRef.current = false;
+  }, []);
+
+  const clearTtsPreviewAudio = useCallback(() => {
+    ttsPreviewIsPlayingRef.current = false;
+    ttsPreviewWaitingRef.current = false;
+    ttsPreviewSegmentsRef.current = [];
+    ttsPreviewSegmentIndexRef.current = 0;
+
+    if (ttsPreviewSourceRef.current) {
+      try {
+        ttsPreviewSourceRef.current.stop();
+        ttsPreviewSourceRef.current.disconnect();
+      } catch {
+        // Ignore stop errors
+      }
+      ttsPreviewSourceRef.current = null;
+    }
+
+    if (ttsPreviewAudioContextRef.current) {
+      const context = ttsPreviewAudioContextRef.current;
+      ttsPreviewAudioContextRef.current = null;
+      context.close().catch(() => {});
+    }
+  }, []);
+
+  const cleanupTtsPreview = useCallback(() => {
+    ttsPreviewSessionRef.current += 1;
+    closeTtsPreviewStream();
+    clearTtsPreviewAudio();
+    releaseExclusive();
+  }, [clearTtsPreviewAudio, closeTtsPreviewStream, releaseExclusive]);
+
+  const stopTtsPreview = useCallback(() => {
+    cleanupTtsPreview();
+    setTtsPreviewLoading(false);
+    setTtsPreviewPlaying(false);
+  }, [cleanupTtsPreview]);
+
+  const playPreviewSegment = useCallback(
+    async (index: number, sessionId: number) => {
+      if (ttsPreviewSessionRef.current !== sessionId) {
+        return;
+      }
+
+      ttsPreviewSegmentIndexRef.current = index;
+      const segments = ttsPreviewSegmentsRef.current;
+      if (index >= segments.length) {
+        if (ttsPreviewIsStreamingRef.current) {
+          ttsPreviewWaitingRef.current = true;
+          return;
+        }
+        stopTtsPreview();
+        return;
+      }
+
+      ttsPreviewWaitingRef.current = false;
+      setTtsPreviewLoading(true);
+
+      try {
+        let audioContext = ttsPreviewAudioContextRef.current;
+        if (!audioContext) {
+          audioContext = new (window.AudioContext ||
+            (window as any).webkitAudioContext)();
+          ttsPreviewAudioContextRef.current = audioContext;
+        }
+
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+          if (ttsPreviewSessionRef.current !== sessionId) {
+            return;
+          }
+        }
+
+        const segment = segments[index];
+        const binaryString = atob(segment.audioData);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i += 1) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        const audioBuffer = await audioContext.decodeAudioData(
+          bytes.buffer.slice(0),
+        );
+        if (ttsPreviewSessionRef.current !== sessionId) {
+          return;
+        }
+
+        const sourceNode = audioContext.createBufferSource();
+        sourceNode.buffer = audioBuffer;
+        sourceNode.connect(audioContext.destination);
+        ttsPreviewSourceRef.current = sourceNode;
+
+        sourceNode.onended = () => {
+          if (ttsPreviewSessionRef.current !== sessionId) {
+            return;
+          }
+          if (ttsPreviewIsPlayingRef.current) {
+            playPreviewSegment(index + 1, sessionId);
+          }
+        };
+
+        sourceNode.start();
+        setTtsPreviewLoading(false);
+        setTtsPreviewPlaying(true);
+        ttsPreviewIsPlayingRef.current = true;
+      } catch (error) {
+        console.error('Failed to play TTS preview segment:', error);
+        if (
+          ttsPreviewSessionRef.current === sessionId &&
+          ttsPreviewIsPlayingRef.current
+        ) {
+          playPreviewSegment(index + 1, sessionId);
+          return;
+        }
+        stopTtsPreview();
+      }
+    },
+    [stopTtsPreview],
+  );
 
   // TTS Config from backend
   interface TTSProviderConfig {
@@ -479,60 +619,110 @@ export default function ShifuSettingDialog({
   // TTS Preview handler
   const handleTtsPreview = useCallback(async () => {
     // Stop if already playing
-    if (ttsPreviewPlaying && ttsPreviewAudioRef.current) {
-      ttsPreviewAudioRef.current.pause();
-      ttsPreviewAudioRef.current.currentTime = 0;
-      setTtsPreviewPlaying(false);
+    if (ttsPreviewPlaying || ttsPreviewLoading) {
+      stopTtsPreview();
       return;
     }
 
+    const sessionId = ttsPreviewSessionRef.current + 1;
+    ttsPreviewSessionRef.current = sessionId;
+    requestExclusive(stopTtsPreview);
     setTtsPreviewLoading(true);
-    try {
-      const response = await api.ttsPreview({
+    setTtsPreviewPlaying(true);
+    ttsPreviewIsPlayingRef.current = true;
+    ttsPreviewIsStreamingRef.current = true;
+    ttsPreviewWaitingRef.current = true;
+    ttsPreviewSegmentsRef.current = [];
+    ttsPreviewSegmentIndexRef.current = 0;
+    closeTtsPreviewStream();
+
+    const baseUrl = getResolvedBaseURL();
+    const source = new SSE(`${baseUrl}/api/shifu/tts/preview`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Request-ID': uuidv4().replace(/-/g, ''),
+      },
+      payload: JSON.stringify({
         provider: normalizedProvider,
         model: ttsModel || '',
         voice_id: ttsVoiceId || '',
         speed: ttsSpeed,
         pitch: ttsPitch,
         emotion: ttsEmotion || '',
-      });
+      }),
+      method: 'POST',
+    });
 
-      if (response?.audio_data) {
-        // Create audio from base64
-        const audioBlob = new Blob(
-          [Uint8Array.from(atob(response.audio_data), c => c.charCodeAt(0))],
-          { type: 'audio/mpeg' },
-        );
-        const audioUrl = URL.createObjectURL(audioBlob);
+    source.addEventListener('message', event => {
+      const raw = event?.data;
+      if (!raw) return;
+      const payload = String(raw).trim();
+      if (!payload) return;
 
-        // Cleanup previous audio
-        if (ttsPreviewAudioRef.current) {
-          ttsPreviewAudioRef.current.pause();
-          URL.revokeObjectURL(ttsPreviewAudioRef.current.src);
+      try {
+        const response = JSON.parse(payload);
+        if (ttsPreviewSessionRef.current !== sessionId) {
+          return;
         }
 
-        // Create and play new audio
-        const audio = new Audio(audioUrl);
-        ttsPreviewAudioRef.current = audio;
+        if (response?.type === 'audio_segment') {
+          const segmentPayload = response.content ?? response.data;
+          if (!segmentPayload) return;
+          const mappedSegment: AudioSegment = {
+            segmentIndex:
+              segmentPayload.segment_index ?? segmentPayload.segmentIndex ?? 0,
+            audioData:
+              segmentPayload.audio_data ?? segmentPayload.audioData ?? '',
+            durationMs:
+              segmentPayload.duration_ms ?? segmentPayload.durationMs ?? 0,
+            isFinal: segmentPayload.is_final ?? segmentPayload.isFinal ?? false,
+          };
 
-        audio.onended = () => {
-          setTtsPreviewPlaying(false);
-          URL.revokeObjectURL(audioUrl);
-        };
+          if (!mappedSegment.audioData) {
+            return;
+          }
 
-        audio.onerror = () => {
-          setTtsPreviewPlaying(false);
-          URL.revokeObjectURL(audioUrl);
-        };
+          const existingSegments = ttsPreviewSegmentsRef.current;
+          if (
+            !existingSegments.some(
+              segment => segment.segmentIndex === mappedSegment.segmentIndex,
+            )
+          ) {
+            ttsPreviewSegmentsRef.current = [
+              ...existingSegments,
+              mappedSegment,
+            ].sort((a, b) => a.segmentIndex - b.segmentIndex);
+          }
 
-        await audio.play();
-        setTtsPreviewPlaying(true);
+          if (ttsPreviewWaitingRef.current) {
+            playPreviewSegment(ttsPreviewSegmentIndexRef.current, sessionId);
+          }
+          return;
+        }
+
+        if (response?.type === 'audio_complete') {
+          ttsPreviewIsStreamingRef.current = false;
+          setTtsPreviewLoading(false);
+          closeTtsPreviewStream();
+          if (ttsPreviewSegmentsRef.current.length === 0) {
+            stopTtsPreview();
+          }
+        }
+      } catch (error) {
+        console.warn('TTS preview stream parse error:', error);
       }
-    } catch (error) {
-      console.error('TTS preview failed:', error);
-    } finally {
-      setTtsPreviewLoading(false);
-    }
+    });
+
+    source.addEventListener('error', error => {
+      if (ttsPreviewSessionRef.current !== sessionId) {
+        return;
+      }
+      console.error('TTS preview stream failed:', error);
+      stopTtsPreview();
+    });
+
+    source.stream();
+    ttsPreviewStreamRef.current = source;
   }, [
     normalizedProvider,
     ttsModel,
@@ -541,17 +731,19 @@ export default function ShifuSettingDialog({
     ttsPitch,
     ttsEmotion,
     ttsPreviewPlaying,
+    ttsPreviewLoading,
+    closeTtsPreviewStream,
+    playPreviewSegment,
+    requestExclusive,
+    stopTtsPreview,
   ]);
 
   // Cleanup TTS preview audio on unmount
   useEffect(() => {
     return () => {
-      if (ttsPreviewAudioRef.current) {
-        ttsPreviewAudioRef.current.pause();
-        URL.revokeObjectURL(ttsPreviewAudioRef.current.src);
-      }
+      cleanupTtsPreview();
     };
-  }, []);
+  }, [cleanupTtsPreview]);
 
   useEffect(() => {
     if (!open) {
