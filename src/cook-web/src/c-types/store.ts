@@ -34,7 +34,6 @@ export interface EnvStoreState {
   loginMethodsEnabled: string[];
   defaultLoginMethod: string;
   legalUrls: LegalUrls;
-  mdfApiUrl: string;
   runtimeConfigLoaded: boolean;
   updateCourseId: (courseId: string) => Promise<void>;
   updateDefaultLlmModel: (model: string) => Promise<void>;
@@ -58,7 +57,6 @@ export interface EnvStoreState {
   updateLoginMethodsEnabled: (methods: string[]) => Promise<void>;
   updateDefaultLoginMethod: (method: string) => Promise<void>;
   updateLegalUrls: (legalUrls: LegalUrls) => Promise<void>;
-  updateMdfApiUrl: (url: string) => Promise<void>;
   setRuntimeConfigLoaded: (loaded: boolean) => void;
 }
 

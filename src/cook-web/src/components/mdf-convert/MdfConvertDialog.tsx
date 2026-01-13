@@ -15,7 +15,6 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { Label } from '@/components/ui/Label';
-import { ScrollArea } from '@/components/ui/ScrollArea';
 import { Textarea } from '@/components/ui/Textarea';
 
 // Reuse ai-shifu's useToast hook
@@ -25,11 +24,13 @@ import { fail, show } from '@/hooks/useToast';
 import { useAlert } from '@/components/ui/UseAlert';
 
 // Use unified Request system
-import http from '@/lib/request';
 import api from '@/api';
 
 // Analytics tracking
 import { useTracking } from '@/c-common/hooks/useTracking';
+
+// MDF text conversion limits
+const MAX_TEXT_LENGTH = 10000;
 
 // MDF conversion response type
 interface MdfConvertResponse {
@@ -65,28 +66,30 @@ export function MdfConvertDialog({
   const [inputText, setInputText] = useState('');
   const [isConverting, setIsConverting] = useState(false);
   const [result, setResult] = useState<MdfConvertResponse | null>(null);
-  const [isMdfApiConfigured, setIsMdfApiConfigured] = useState<boolean | null>(null);
+  const [isMdfApiConfigured, setIsMdfApiConfigured] = useState<boolean | null>(
+    null,
+  );
   const [isCheckingConfig, setIsCheckingConfig] = useState(false);
 
-  // Determine language based on i18n
-  const language = i18n.language === 'zh-CN' ? 'Chinese' : 'English';
-
-  // Check MDF API configuration status
-  const checkMdfApiConfig = async () => {
-    setIsCheckingConfig(true);
-    try {
-      const response = await api.genMdfConfigStatus({});
-      setIsMdfApiConfigured(response.configured);
-    } catch (error) {
-      console.error('Failed to check MDF API config:', error);
-      setIsMdfApiConfigured(false);
-    } finally {
-      setIsCheckingConfig(false);
-    }
-  };
+  // Pass i18n language code directly to backend (e.g., 'zh-CN', 'en-US')
+  const language = i18n.language;
 
   // Reset state when dialog opens
   useEffect(() => {
+    // Check MDF API configuration status
+    const checkMdfApiConfig = async () => {
+      setIsCheckingConfig(true);
+      try {
+        const response = await api.genMdfConfigStatus({});
+        setIsMdfApiConfigured(response?.configured ?? false);
+      } catch (error) {
+        console.error('Failed to check MDF API config:', error);
+        setIsMdfApiConfigured(false);
+      } finally {
+        setIsCheckingConfig(false);
+      }
+    };
+
     if (open) {
       setInputText('');
       setResult(null);
@@ -100,7 +103,7 @@ export function MdfConvertDialog({
     if (inputText.trim().length === 0) {
       return t('component.mdfConvert.textTooShort');
     }
-    if (inputText.length > 10000) {
+    if (inputText.length > MAX_TEXT_LENGTH) {
       return t('component.mdfConvert.textTooLong');
     }
     return null;
@@ -138,14 +141,14 @@ export function MdfConvertDialog({
 
       setResult(response);
       show(t('component.mdfConvert.convertSuccess'));
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Track conversion error
       trackEvent('creator_mdf_convert_error', {
         input_length: inputLength,
-        error_message: error?.message || 'Unknown error',
+        error_message: error instanceof Error ? error.message : 'Unknown error',
       });
-      // Request 类已经显示了错误消息
-      // 这里不需要额外处理，避免重复提示
+      // The Request class already displays the error message,
+      // so no extra handling is needed here to avoid duplicate alerts.
     } finally {
       setIsConverting(false);
     }
@@ -159,7 +162,7 @@ export function MdfConvertDialog({
     try {
       await navigator.clipboard.writeText(text);
       show(t('component.mdfConvert.copySuccess'));
-    } catch (error) {
+    } catch {
       // Fallback for older browsers
       const textArea = document.createElement('textarea');
       textArea.value = text;
@@ -170,8 +173,8 @@ export function MdfConvertDialog({
       try {
         document.execCommand('copy');
         show(t('component.mdfConvert.copySuccess'));
-      } catch (err) {
-        fail('Copy failed');
+      } catch {
+        fail(t('component.mdfConvert.copyError'));
       } finally {
         document.body.removeChild(textArea);
       }
@@ -261,7 +264,8 @@ export function MdfConvertDialog({
               />
               <div className='flex-shrink-0 flex items-center justify-end mt-1'>
                 <div className='text-xs text-muted-foreground'>
-                  {inputText.length} / 10,000
+                  {inputText.length.toLocaleString()} /{' '}
+                  {MAX_TEXT_LENGTH.toLocaleString()}
                 </div>
               </div>
             </div>
@@ -312,7 +316,10 @@ export function MdfConvertDialog({
               <Button
                 onClick={handleConvert}
                 disabled={
-                  isMdfApiConfigured === false || isCheckingConfig || isConverting || !inputText.trim()
+                  isMdfApiConfigured === false ||
+                  isCheckingConfig ||
+                  isConverting ||
+                  !inputText.trim()
                 }
                 className='flex items-center gap-2'
               >
