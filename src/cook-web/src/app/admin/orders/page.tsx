@@ -679,9 +679,7 @@ const OrdersPage = () => {
                   <TableHead>{t('module.order.table.status')}</TableHead>
                   <TableHead>{t('module.order.table.payment')}</TableHead>
                   <TableHead>{t('module.order.table.createdAt')}</TableHead>
-                  <TableHead className='text-right'>
-                    {t('module.order.table.action')}
-                  </TableHead>
+                  <TableHead>{t('module.order.table.action')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -726,7 +724,7 @@ const OrdersPage = () => {
                     <TableCell className='text-xs text-muted-foreground whitespace-nowrap'>
                       {order.created_at}
                     </TableCell>
-                    <TableCell className='text-right'>
+                    <TableCell>
                       <Button
                         size='sm'
                         variant='outline'
