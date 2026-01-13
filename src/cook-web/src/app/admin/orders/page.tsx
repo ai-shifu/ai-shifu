@@ -65,21 +65,25 @@ type OrderFilters = {
 };
 
 const PAGE_SIZE = 20;
-const COLUMN_MIN_WIDTH = 100;
+const COLUMN_MIN_WIDTH = 80;
 const COLUMN_MAX_WIDTH = 520;
+
 const DEFAULT_COLUMN_WIDTHS = {
-  orderId: 260,
+  orderId: 280,
   shifu: 220,
-  user: 220,
+  user: 240,
   amount: 140,
   status: 150,
-  payment: 150,
-  createdAt: 190,
+  payment: 160,
+  createdAt: 200,
   action: 130,
 };
 
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 type ColumnWidthState = Record<ColumnKey, number>;
+const COLUMN_KEYS = Object.keys(
+  DEFAULT_COLUMN_WIDTHS,
+) as ColumnKey[];
 
 const formatDateValue = (date: Date) => {
   const year = date.getFullYear();
@@ -214,13 +218,20 @@ const OrdersPage = () => {
     end_time: '',
   });
   const filtersRef = useRef<OrderFilters>(filters);
-  const [columnWidths, setColumnWidths] =
-    useState<ColumnWidthState>(DEFAULT_COLUMN_WIDTHS);
+  const [columnWidths, setColumnWidths] = useState<ColumnWidthState>(
+    DEFAULT_COLUMN_WIDTHS,
+  );
   const columnResizeRef = useRef<{
     key: ColumnKey;
     startX: number;
     startWidth: number;
   } | null>(null);
+  const manualResizeRef = useRef<Record<ColumnKey, boolean>>(
+    COLUMN_KEYS.reduce(
+      (acc, key) => ({ ...acc, [key]: false }),
+      {} as Record<ColumnKey, boolean>,
+    ),
+  );
 
   const ALL_OPTION_VALUE = '__all__';
 
@@ -299,6 +310,7 @@ const OrdersPage = () => {
         startX: clientX,
         startWidth: columnWidths[key],
       };
+      manualResizeRef.current[key] = true;
     },
     [columnWidths],
   );
@@ -345,6 +357,89 @@ const OrdersPage = () => {
       };
     },
     [columnWidths],
+  );
+
+  const estimateWidth = (text: string) => {
+    if (!text) {
+      return COLUMN_MIN_WIDTH;
+    }
+    const approx = text.length * 8 + 48;
+    return Math.min(
+      COLUMN_MAX_WIDTH,
+      Math.max(COLUMN_MIN_WIDTH, approx),
+    );
+  };
+
+  const autoAdjustColumns = useCallback(
+    (items: OrderSummary[]) => {
+      if (!items || items.length === 0) {
+        setColumnWidths(prev => {
+          const next = { ...prev };
+          COLUMN_KEYS.forEach(key => {
+            if (!manualResizeRef.current[key]) {
+              next[key] = DEFAULT_COLUMN_WIDTHS[key];
+            }
+          });
+          return next;
+        });
+        return;
+      }
+
+      const nextWidths: Partial<ColumnWidthState> = {};
+      const columnValueExtractors: Record<
+        ColumnKey,
+        (order: OrderSummary) => string[]
+      > = {
+        orderId: order => [order.order_bid],
+        shifu: order => [order.shifu_name || order.shifu_bid],
+        user: order => [
+          order.user_mobile || order.user_bid,
+          order.user_nickname || order.user_bid,
+        ],
+        amount: order => [String(order.payable_price)],
+        status: order => [t(order.status_key)],
+        payment: order => [t(order.payment_channel_key)],
+        createdAt: order => [order.created_at],
+        action: () => [t('module.order.table.view')],
+      };
+
+      items.forEach(order => {
+        COLUMN_KEYS.forEach(key => {
+          const texts = columnValueExtractors[key](order).filter(Boolean);
+          if (texts.length === 0) {
+            return;
+          }
+          const required = texts.reduce(
+            (maxWidth, text) =>
+              Math.max(maxWidth, estimateWidth(text)),
+            DEFAULT_COLUMN_WIDTHS[key],
+          );
+          if (
+            !nextWidths[key] ||
+            required > (nextWidths[key] ?? COLUMN_MIN_WIDTH)
+          ) {
+            nextWidths[key] = required;
+          }
+        });
+      });
+
+      setColumnWidths(prev => {
+        const updated = { ...prev };
+        COLUMN_KEYS.forEach(key => {
+          if (manualResizeRef.current[key]) {
+            return;
+          }
+          const fallback = DEFAULT_COLUMN_WIDTHS[key];
+          const calculated = nextWidths[key] ?? fallback;
+          updated[key] = Math.min(
+            COLUMN_MAX_WIDTH,
+            Math.max(fallback, calculated),
+          );
+        });
+        return updated;
+      });
+    },
+    [t],
   );
 
   const renderResizeHandle = (key: ColumnKey) => (
@@ -439,7 +534,9 @@ const OrdersPage = () => {
           end_time: resolvedFilters.end_time,
         })) as OrderListResponse;
 
-        setOrders(response.items || []);
+        const list = response.items || [];
+        setOrders(list);
+        autoAdjustColumns(list);
         setPageIndex(response.page || targetPage);
         setPageCount(response.page_count || 1);
         setTotal(response.total || 0);
@@ -455,7 +552,7 @@ const OrdersPage = () => {
         setLoading(false);
       }
     },
-    [t],
+    [autoAdjustColumns, t],
   );
 
   useEffect(() => {
@@ -827,13 +924,13 @@ const OrdersPage = () => {
                 {orders.map(order => (
                   <TableRow key={order.order_bid}>
                     <TableCell
-                      className='font-mono text-xs break-all border-r border-border last:border-r-0'
+                      className='font-mono text-xs border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                       style={getColumnStyle('orderId')}
                     >
                       {order.order_bid}
                     </TableCell>
                     <TableCell
-                      className='whitespace-nowrap border-r border-border last:border-r-0'
+                      className='whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-ellipsis'
                       style={getColumnStyle('shifu')}
                     >
                       <div className='font-medium text-foreground'>
@@ -844,15 +941,15 @@ const OrdersPage = () => {
                       className='border-r border-border last:border-r-0'
                       style={getColumnStyle('user')}
                     >
-                      <div className='font-medium text-foreground'>
+                      <div className='font-medium text-foreground whitespace-nowrap overflow-hidden text-ellipsis'>
                         {order.user_mobile || order.user_bid}
                       </div>
-                      <div className='text-xs text-muted-foreground'>
+                      <div className='text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis'>
                         {order.user_nickname || order.user_bid}
                       </div>
                     </TableCell>
                     <TableCell
-                      className='border-r border-border last:border-r-0'
+                      className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                       style={getColumnStyle('amount')}
                     >
                       <div className='font-semibold text-foreground'>
@@ -860,7 +957,7 @@ const OrdersPage = () => {
                       </div>
                     </TableCell>
                     <TableCell
-                      className='whitespace-nowrap border-r border-border last:border-r-0'
+                      className='whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-ellipsis'
                       style={getColumnStyle('status')}
                     >
                       <Badge variant={resolveStatusVariant(order.status)}>
@@ -868,7 +965,7 @@ const OrdersPage = () => {
                       </Badge>
                     </TableCell>
                     <TableCell
-                      className='border-r border-border last:border-r-0'
+                      className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                       style={getColumnStyle('payment')}
                     >
                       <div className='text-sm text-foreground'>
@@ -876,13 +973,13 @@ const OrdersPage = () => {
                       </div>
                     </TableCell>
                     <TableCell
-                      className='text-xs text-muted-foreground whitespace-nowrap border-r border-border last:border-r-0'
+                      className='text-xs text-muted-foreground whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-ellipsis'
                       style={getColumnStyle('createdAt')}
                     >
                       {order.created_at}
                     </TableCell>
                     <TableCell
-                      className='border-r border-border last:border-r-0'
+                      className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                       style={getColumnStyle('action')}
                     >
                       <Button
