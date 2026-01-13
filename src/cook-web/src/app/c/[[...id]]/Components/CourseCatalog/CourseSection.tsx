@@ -23,7 +23,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useTranslation } from 'react-i18next';
-import { useSystemStore } from '@/c-store/useSystemStore';
 
 const getCourseTitleLang = (title: string) => {
   const trimmed = title.trim();
@@ -51,7 +50,6 @@ export const CourseSection = ({
   const courseTitleLang = getCourseTitleLang(name);
   const { mobileStyle } = useContext(AppContext);
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
-  const previewMode = useSystemStore(state => state.previewMode);
   const { openPayModal } = useCourseStore(
     useShallow(state => ({
       openPayModal: state.openPayModal,
@@ -80,7 +78,6 @@ export const CourseSection = ({
     }
 
     if (
-      !previewMode &&
       (type === LEARNING_PERMISSION.TRIAL ||
         type === LEARNING_PERMISSION.NORMAL) &&
       !isLoggedIn
@@ -89,11 +86,7 @@ export const CourseSection = ({
       return;
     }
 
-    if (
-      !previewMode &&
-      type === LEARNING_PERMISSION.NORMAL &&
-      !is_paid
-    ) {
+    if (type === LEARNING_PERMISSION.NORMAL && !is_paid) {
       openPayModal({
         type,
         payload: {
@@ -114,7 +107,6 @@ export const CourseSection = ({
     type,
     isLoggedIn,
     openPayModal,
-    previewMode,
     chapterId,
   ]);
 
