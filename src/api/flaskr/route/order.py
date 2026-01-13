@@ -319,15 +319,25 @@ def register_order_handler(app: Flask, path_prefix: str):
             - name: user_bid
               type: string
               required: false
+              description: Email or mobile (user_identify)
             - name: shifu_bid
               type: string
               required: false
+              description: Comma-separated course IDs
             - name: status
               type: integer
               required: false
             - name: payment_channel
               type: string
               required: false
+            - name: start_time
+              type: string
+              required: false
+              description: Order created start date (YYYY-MM-DD)
+            - name: end_time
+              type: string
+              required: false
+              description: Order created end date (YYYY-MM-DD)
         responses:
             200:
                 description: List orders
@@ -359,6 +369,8 @@ def register_order_handler(app: Flask, path_prefix: str):
             "shifu_bid": request.args.get("shifu_bid", ""),
             "status": request.args.get("status"),
             "payment_channel": request.args.get("payment_channel", ""),
+            "start_time": request.args.get("start_time", ""),
+            "end_time": request.args.get("end_time", ""),
         }
         user_id = request.user.user_id
         return make_common_response(

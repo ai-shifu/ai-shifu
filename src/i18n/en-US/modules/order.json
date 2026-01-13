@@ -52,18 +52,20 @@
   "filters": {
     "all": "All",
     "channel": "Payment Channel",
+    "endTime": "End Date",
     "orderBid": "Order ID",
     "reset": "Reset",
     "search": "Search",
-    "shifuBid": "Course ID",
+    "shifuBid": "Course Name",
+    "startTime": "Start Date",
     "status": "Status",
-    "userBid": "User ID"
+    "userBid": "Email or Mobile"
   },
   "importActivation": {
     "action": "Import Activation",
-    "courseLabel": "Course ID",
-    "coursePlaceholder": "Enter course ID",
-    "courseRequired": "Course ID is required",
+    "courseLabel": "Course",
+    "coursePlaceholder": "Select a course",
+    "courseRequired": "Course is required",
     "description": "Create a zero-amount order and activate the course.",
     "failed": "Failed to import activation",
     "mobileLabel": "Mobile",
@@ -76,7 +78,7 @@
     "success": "Activation imported",
     "title": "Import Activation"
   },
-  "pagination": "Page {{page}} of {{total}}",
+  "pagination": "Page {page} of {total}",
   "paginationNext": "Next",
   "paginationPrev": "Previous",
   "paymentChannel": {
@@ -104,7 +106,6 @@
     "amount": "Amount",
     "createdAt": "Created",
     "orderId": "Order ID",
-    "payable": "Payable",
     "payment": "Payment",
     "shifu": "Course",
     "status": "Status",
@@ -112,5 +113,5 @@
     "view": "View"
   },
   "title": "Orders",
-  "totalCount": "Total: {{count}}"
+  "totalCount": "Total: {count}"
 }

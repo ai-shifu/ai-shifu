@@ -16,6 +16,13 @@ import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/Popover';
+import { ScrollArea } from '@/components/ui/ScrollArea';
+import { Calendar } from '@/components/ui/Calendar';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -34,7 +41,10 @@ import {
 import { Badge } from '@/components/ui/Badge';
 import OrderDetailSheet from '@/components/order/OrderDetailSheet';
 import ImportActivationDialog from '@/components/order/ImportActivationDialog';
+import { cn } from '@/lib/utils';
+import { CalendarIcon, Check, ChevronDown } from 'lucide-react';
 import type { OrderSummary } from '@/components/order/order-types';
+import type { Shifu } from '@/types/shifu';
 
 type OrderListResponse = {
   items: OrderSummary[];
@@ -44,7 +54,121 @@ type OrderListResponse = {
   total: number;
 };
 
+type OrderFilters = {
+  order_bid: string;
+  user_bid: string;
+  shifu_bids: string[];
+  status: string;
+  payment_channel: string;
+  start_time: string;
+  end_time: string;
+};
+
 const PAGE_SIZE = 20;
+
+const formatDateValue = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateValue = (value: string) => {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return undefined;
+  }
+  return parsed;
+};
+
+type DateRangeFilterProps = {
+  startValue: string;
+  endValue: string;
+  placeholder: string;
+  resetLabel: string;
+  onChange: (range: { start: string; end: string }) => void;
+};
+
+const DateRangeFilter = ({
+  startValue,
+  endValue,
+  placeholder,
+  resetLabel,
+  onChange,
+}: DateRangeFilterProps) => {
+  const selectedRange = React.useMemo(
+    () => ({
+      from: parseDateValue(startValue),
+      to: parseDateValue(endValue),
+    }),
+    [startValue, endValue],
+  );
+  const label = React.useMemo(() => {
+    if (selectedRange.from && selectedRange.to) {
+      return `${formatDateValue(selectedRange.from)} ~ ${formatDateValue(
+        selectedRange.to,
+      )}`;
+    }
+    if (selectedRange.from) {
+      return formatDateValue(selectedRange.from);
+    }
+    return placeholder;
+  }, [placeholder, selectedRange]);
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          size='sm'
+          variant='outline'
+          type='button'
+          className='h-9 w-full justify-between font-normal'
+        >
+          <span
+            className={cn(
+              'flex-1 truncate text-left',
+              startValue ? 'text-foreground' : 'text-muted-foreground',
+            )}
+          >
+            {label}
+          </span>
+          <CalendarIcon className='h-4 w-4 text-muted-foreground' />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align='start'
+        className='w-auto max-w-[90vw] p-0'
+      >
+        <Calendar
+          mode='range'
+          numberOfMonths={2}
+          selected={selectedRange}
+          onSelect={range =>
+            onChange({
+              start: range?.from ? formatDateValue(range.from) : '',
+              end: range?.to ? formatDateValue(range.to) : '',
+            })
+          }
+          className='p-3 md:p-4 [--cell-size:2.4rem]'
+          initialFocus
+        />
+        <div className='flex items-center justify-end gap-2 border-t border-border px-3 py-2'>
+          <Button
+            size='sm'
+            variant='ghost'
+            type='button'
+            onClick={() => onChange({ start: '', end: '' })}
+          >
+            {resetLabel}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const OrdersPage = () => {
   const { t, i18n } = useTranslation();
@@ -61,14 +185,20 @@ const OrdersPage = () => {
   const [selectedOrder, setSelectedOrder] = useState<OrderSummary | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [filters, setFilters] = useState({
+  const [courses, setCourses] = useState<Shifu[]>([]);
+  const [coursesLoading, setCoursesLoading] = useState(false);
+  const [coursesError, setCoursesError] = useState<string | null>(null);
+  const [courseSearch, setCourseSearch] = useState('');
+  const [filters, setFilters] = useState<OrderFilters>({
     order_bid: '',
     user_bid: '',
-    shifu_bid: '',
+    shifu_bids: [],
     status: '',
     payment_channel: '',
+    start_time: '',
+    end_time: '',
   });
-  const filtersRef = useRef(filters);
+  const filtersRef = useRef<OrderFilters>(filters);
 
   const ALL_OPTION_VALUE = '__all__';
 
@@ -97,13 +227,115 @@ const OrdersPage = () => {
   const displayStatusValue = filters.status || ALL_OPTION_VALUE;
   const displayChannelValue = filters.payment_channel || ALL_OPTION_VALUE;
 
+  const courseNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    courses.forEach(course => {
+      if (!course.bid) {
+        return;
+      }
+      map.set(course.bid, course.name || course.bid);
+    });
+    return map;
+  }, [courses]);
+
+  const selectedCourseNames = useMemo(
+    () => filters.shifu_bids.map(bid => courseNameMap.get(bid) || bid),
+    [courseNameMap, filters.shifu_bids],
+  );
+
+  const selectedCourseLabel = useMemo(() => {
+    if (selectedCourseNames.length === 0) {
+      return t('module.order.filters.shifuBid');
+    }
+    if (selectedCourseNames.length <= 2) {
+      return selectedCourseNames.join(', ');
+    }
+    const shortList = selectedCourseNames.slice(0, 2).join(', ');
+    return `${shortList} +${selectedCourseNames.length - 2}`;
+  }, [selectedCourseNames, t]);
+
+  const filteredCourses = useMemo(() => {
+    const keyword = courseSearch.trim().toLowerCase();
+    if (!keyword) {
+      return courses;
+    }
+    return courses.filter(course => {
+      const name = (course.name || '').toLowerCase();
+      const bid = (course.bid || '').toLowerCase();
+      return name.includes(keyword) || bid.includes(keyword);
+    });
+  }, [courseSearch, courses]);
+
   useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
 
+  useEffect(() => {
+    if (!isInitialized || isGuest) {
+      setCourses([]);
+      setCoursesLoading(false);
+      setCoursesError(null);
+      return;
+    }
+
+    let canceled = false;
+    const loadCourses = async () => {
+      setCoursesLoading(true);
+      setCoursesError(null);
+      try {
+        const pageSize = 100;
+        let pageIndex = 1;
+        const collected: Shifu[] = [];
+        const seen = new Set<string>();
+
+        while (true) {
+          const { items } = await api.getShifuList({
+            page_index: pageIndex,
+            page_size: pageSize,
+            is_favorite: false,
+          });
+          const pageItems = (items || []) as Shifu[];
+          pageItems.forEach(item => {
+            if (item?.bid && !seen.has(item.bid)) {
+              seen.add(item.bid);
+              collected.push(item);
+            }
+          });
+          if (pageItems.length < pageSize) {
+            break;
+          }
+          pageIndex += 1;
+        }
+
+        if (!canceled) {
+          setCourses(collected);
+        }
+      } catch (error) {
+        if (!canceled) {
+          setCourses([]);
+          setCoursesError(t('common.core.networkError'));
+        }
+      } finally {
+        if (!canceled) {
+          setCoursesLoading(false);
+        }
+      }
+    };
+
+    loadCourses();
+
+    return () => {
+      canceled = true;
+    };
+  }, [isInitialized, isGuest, t]);
+
   const fetchOrders = useCallback(
-    async (targetPage: number, nextFilters?: typeof filters) => {
+    async (targetPage: number, nextFilters?: OrderFilters) => {
       const resolvedFilters = nextFilters ?? filtersRef.current;
+      const shifuBidValue = resolvedFilters.shifu_bids
+        .map(bid => bid.trim())
+        .filter(Boolean)
+        .join(',');
       setLoading(true);
       setError(null);
       try {
@@ -112,9 +344,11 @@ const OrdersPage = () => {
           page_size: PAGE_SIZE,
           order_bid: resolvedFilters.order_bid.trim(),
           user_bid: resolvedFilters.user_bid.trim(),
-          shifu_bid: resolvedFilters.shifu_bid.trim(),
+          shifu_bid: shifuBidValue,
           status: resolvedFilters.status,
           payment_channel: resolvedFilters.payment_channel,
+          start_time: resolvedFilters.start_time,
+          end_time: resolvedFilters.end_time,
         })) as OrderListResponse;
 
         setOrders(response.items || []);
@@ -159,8 +393,21 @@ const OrdersPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i18n.language]);
 
-  const handleFilterChange = (key: string, value: string) => {
+  const handleFilterChange = (
+    key: Exclude<keyof OrderFilters, 'shifu_bids'>,
+    value: string,
+  ) => {
     setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleCourseToggle = (courseBid: string) => {
+    setFilters(prev => {
+      const exists = prev.shifu_bids.includes(courseBid);
+      const nextBids = exists
+        ? prev.shifu_bids.filter(bid => bid !== courseBid)
+        : [...prev.shifu_bids, courseBid];
+      return { ...prev, shifu_bids: nextBids };
+    });
   };
 
   const handleSearch = () => {
@@ -168,14 +415,17 @@ const OrdersPage = () => {
   };
 
   const handleReset = () => {
-    const cleared = {
+    const cleared: OrderFilters = {
       order_bid: '',
       user_bid: '',
-      shifu_bid: '',
+      shifu_bids: [],
       status: '',
       payment_channel: '',
+      start_time: '',
+      end_time: '',
     };
     setFilters(cleared);
+    setCourseSearch('');
     fetchOrders(1, cleared);
   };
 
@@ -234,7 +484,7 @@ const OrdersPage = () => {
         </div>
 
         <div className='rounded-xl border border-border bg-white p-4 mb-5 shadow-sm'>
-          <div className='grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-5'>
+          <div className='grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-6'>
             <Input
               value={filters.order_bid}
               onChange={event =>
@@ -251,14 +501,92 @@ const OrdersPage = () => {
               placeholder={t('module.order.filters.userBid')}
               className='h-9'
             />
-            <Input
-              value={filters.shifu_bid}
-              onChange={event =>
-                handleFilterChange('shifu_bid', event.target.value)
-              }
-              placeholder={t('module.order.filters.shifuBid')}
-              className='h-9'
-            />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  size='sm'
+                  variant='outline'
+                  type='button'
+                  className='h-9 w-full justify-between font-normal'
+                  title={selectedCourseNames.join(', ')}
+                >
+                  <span
+                    className={cn(
+                      'flex-1 truncate text-left',
+                      filters.shifu_bids.length === 0
+                        ? 'text-muted-foreground'
+                        : 'text-foreground',
+                    )}
+                  >
+                    {selectedCourseLabel}
+                  </span>
+                  <ChevronDown className='h-4 w-4 text-muted-foreground' />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align='start'
+                className='w-[--radix-popover-trigger-width] p-3'
+              >
+                <Input
+                  value={courseSearch}
+                  onChange={event => setCourseSearch(event.target.value)}
+                  placeholder={t('module.order.filters.search')}
+                  className='h-8'
+                />
+                <ScrollArea className='mt-3 h-48'>
+                  {coursesLoading ? (
+                    <div className='flex items-center justify-center py-4'>
+                      <Loading className='h-5 w-5' />
+                    </div>
+                  ) : coursesError ? (
+                    <div className='px-2 py-3 text-xs text-destructive'>
+                      {coursesError}
+                    </div>
+                  ) : filteredCourses.length === 0 ? (
+                    <div className='px-2 py-3 text-xs text-muted-foreground'>
+                      {t('common.core.noShifus')}
+                    </div>
+                  ) : (
+                    <div className='space-y-1'>
+                      {filteredCourses.map(course => {
+                        const isSelected = filters.shifu_bids.includes(
+                          course.bid,
+                        );
+                        const courseName = course.name || course.bid;
+                        return (
+                          <button
+                            key={course.bid}
+                            type='button'
+                            onClick={() => handleCourseToggle(course.bid)}
+                            className='flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent'
+                            aria-pressed={isSelected}
+                          >
+                            <span
+                              className={cn(
+                                'mt-0.5 flex h-4 w-4 items-center justify-center rounded border',
+                                isSelected
+                                  ? 'border-primary bg-primary text-primary-foreground'
+                                  : 'border-muted-foreground/40 text-transparent',
+                              )}
+                            >
+                              <Check className='h-3 w-3' />
+                            </span>
+                            <span className='flex flex-col'>
+                              <span className='text-sm text-foreground'>
+                                {courseName}
+                              </span>
+                              <span className='text-xs text-muted-foreground'>
+                                {course.bid}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </ScrollArea>
+              </PopoverContent>
+            </Popover>
             <Select
               value={displayStatusValue}
               onValueChange={value =>
@@ -305,6 +633,18 @@ const OrdersPage = () => {
                 ))}
               </SelectContent>
             </Select>
+            <DateRangeFilter
+              startValue={filters.start_time}
+              endValue={filters.end_time}
+              onChange={range => {
+                handleFilterChange('start_time', range.start);
+                handleFilterChange('end_time', range.end);
+              }}
+              placeholder={`${t('module.order.filters.startTime')} ~ ${t(
+                'module.order.filters.endTime',
+              )}`}
+              resetLabel={t('module.order.filters.reset')}
+            />
           </div>
           <div className='mt-4 flex gap-2'>
             <Button
@@ -355,12 +695,9 @@ const OrdersPage = () => {
                     <TableCell className='font-mono text-xs'>
                       {order.order_bid}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className='whitespace-nowrap'>
                       <div className='font-medium text-foreground'>
                         {order.shifu_name || order.shifu_bid}
-                      </div>
-                      <div className='text-xs text-muted-foreground'>
-                        {order.shifu_bid}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -373,13 +710,10 @@ const OrdersPage = () => {
                     </TableCell>
                     <TableCell>
                       <div className='font-semibold text-foreground'>
-                        {order.paid_price}
-                      </div>
-                      <div className='text-xs text-muted-foreground'>
-                        {t('module.order.table.payable')}: {order.payable_price}
+                        {order.payable_price}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className='whitespace-nowrap'>
                       <Badge variant={resolveStatusVariant(order.status)}>
                         {t(order.status_key)}
                       </Badge>
@@ -389,7 +723,7 @@ const OrdersPage = () => {
                         {t(order.payment_channel_key)}
                       </div>
                     </TableCell>
-                    <TableCell className='text-xs text-muted-foreground'>
+                    <TableCell className='text-xs text-muted-foreground whitespace-nowrap'>
                       {order.created_at}
                     </TableCell>
                     <TableCell className='text-right'>

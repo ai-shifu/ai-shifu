@@ -272,7 +272,6 @@ export type I18nKey =
   | 'module.order.table.amount'
   | 'module.order.table.createdAt'
   | 'module.order.table.orderId'
-  | 'module.order.table.payable'
   | 'module.order.table.payment'
   | 'module.order.table.shifu'
   | 'module.order.table.status'

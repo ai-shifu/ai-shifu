@@ -125,6 +125,26 @@ def _format_datetime(value: Optional[datetime]) -> str:
     return value.strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
+    if not value:
+        return None
+    normalized = str(value).strip()
+    if not normalized:
+        return None
+    for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"):
+        try:
+            parsed = datetime.strptime(normalized, fmt)
+            if fmt == "%Y-%m-%d":
+                if is_end:
+                    parsed = parsed.replace(hour=23, minute=59, second=59)
+                else:
+                    parsed = parsed.replace(hour=0, minute=0, second=0)
+            return parsed
+        except ValueError:
+            continue
+    return None
+
+
 def _load_shifu_map(shifu_bids: list[str]) -> Dict[str, DraftShifu]:
     if not shifu_bids:
         return {}
@@ -301,13 +321,34 @@ def list_orders(
 
         user_bid = filters.get("user_bid")
         if user_bid:
-            query = query.filter(Order.user_bid == user_bid)
+            identify_value = str(user_bid).strip()
+            if identify_value:
+                matched_user_bids = [
+                    user.user_bid
+                    for user in UserEntity.query.filter(
+                        UserEntity.user_identify == identify_value
+                    ).all()
+                ]
+                if matched_user_bids:
+                    query = query.filter(Order.user_bid.in_(matched_user_bids))
+                else:
+                    query = query.filter(Order.user_bid == identify_value)
 
         shifu_bid = filters.get("shifu_bid")
         if shifu_bid:
-            if shifu_bid not in shifu_bids:
-                return PageNationDTO(page_index, page_size, 0, [])
-            query = query.filter(Order.shifu_bid == shifu_bid)
+            if isinstance(shifu_bid, list):
+                shifu_bid_list = [
+                    str(bid).strip() for bid in shifu_bid if str(bid).strip()
+                ]
+            else:
+                shifu_bid_list = [
+                    bid.strip() for bid in str(shifu_bid).split(",") if bid.strip()
+                ]
+            if shifu_bid_list:
+                allowed_bids = [bid for bid in shifu_bid_list if bid in shifu_bids]
+                if not allowed_bids:
+                    return PageNationDTO(page_index, page_size, 0, [])
+                query = query.filter(Order.shifu_bid.in_(allowed_bids))
 
         status = filters.get("status")
         if status is not None and str(status).isdigit():
@@ -316,6 +357,14 @@ def list_orders(
         payment_channel = filters.get("payment_channel")
         if payment_channel:
             query = query.filter(Order.payment_channel == payment_channel)
+
+        start_time = _parse_datetime(filters.get("start_time", ""))
+        if start_time:
+            query = query.filter(Order.created_at >= start_time)
+
+        end_time = _parse_datetime(filters.get("end_time", ""), is_end=True)
+        if end_time:
+            query = query.filter(Order.created_at <= end_time)
 
         total = query.count()
         orders = (

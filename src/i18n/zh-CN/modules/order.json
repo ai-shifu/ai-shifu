@@ -52,18 +52,20 @@
   "filters": {
     "all": "全部",
     "channel": "支付渠道",
+    "endTime": "结束日期",
     "orderBid": "订单 ID",
     "reset": "重置",
     "search": "查询",
-    "shifuBid": "课程 ID",
+    "shifuBid": "课程名称",
+    "startTime": "开始日期",
     "status": "状态",
-    "userBid": "用户 ID"
+    "userBid": "邮箱或手机"
   },
   "importActivation": {
     "action": "导入开通",
-    "courseLabel": "课程 ID",
-    "coursePlaceholder": "请输入课程 ID",
-    "courseRequired": "请输入课程 ID",
+    "courseLabel": "课程",
+    "coursePlaceholder": "请选择课程",
+    "courseRequired": "请选择课程",
     "description": "创建 0 元订单并开通课程。",
     "failed": "导入开通失败",
     "mobileLabel": "手机号",
@@ -76,7 +78,7 @@
     "success": "导入开通成功",
     "title": "导入开通"
   },
-  "pagination": "第 {{page}} / {{total}} 页",
+  "pagination": "第 {page} / {total} 页",
   "paginationNext": "下一页",
   "paginationPrev": "上一页",
   "paymentChannel": {
@@ -104,7 +106,6 @@
     "amount": "金额",
     "createdAt": "创建时间",
     "orderId": "订单 ID",
-    "payable": "应付",
     "payment": "支付",
     "shifu": "课程",
     "status": "状态",
@@ -112,5 +113,5 @@
     "view": "查看"
   },
   "title": "订单",
-  "totalCount": "总计：{{count}}"
+  "totalCount": "总计：{count}"
 }

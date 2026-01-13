@@ -8,6 +8,7 @@ import api from '@/api';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/hooks/useToast';
 import { ErrorWithCode } from '@/lib/request';
+import Loading from '@/components/loading';
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,15 @@ import {
 } from '@/components/ui/Form';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/Popover';
+import { ScrollArea } from '@/components/ui/ScrollArea';
+import { cn } from '@/lib/utils';
+import { Check, ChevronDown } from 'lucide-react';
+import type { Shifu } from '@/types/shifu';
 
 interface ImportActivationDialogProps {
   open: boolean;
@@ -39,6 +49,11 @@ const ImportActivationDialog = ({
 }: ImportActivationDialogProps) => {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const [courses, setCourses] = React.useState<Shifu[]>([]);
+  const [coursesLoading, setCoursesLoading] = React.useState(false);
+  const [coursesError, setCoursesError] = React.useState<string | null>(null);
+  const [courseSearch, setCourseSearch] = React.useState('');
+  const [courseOpen, setCourseOpen] = React.useState(false);
 
   const formSchema = React.useMemo(
     () =>
@@ -64,6 +79,29 @@ const ImportActivationDialog = ({
       user_nick_name: '',
     },
   });
+
+  const courseNameMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    courses.forEach(course => {
+      if (!course.bid) {
+        return;
+      }
+      map.set(course.bid, course.name || course.bid);
+    });
+    return map;
+  }, [courses]);
+
+  const filteredCourses = React.useMemo(() => {
+    const keyword = courseSearch.trim().toLowerCase();
+    if (!keyword) {
+      return courses;
+    }
+    return courses.filter(course => {
+      const name = (course.name || '').toLowerCase();
+      const bid = (course.bid || '').toLowerCase();
+      return name.includes(keyword) || bid.includes(keyword);
+    });
+  }, [courseSearch, courses]);
 
   const handleSubmit = async (values: z.infer<typeof formSchema>) => {
     const payload = {
@@ -101,6 +139,70 @@ const ImportActivationDialog = ({
       form.clearErrors();
     }
   }, [open, form]);
+
+  React.useEffect(() => {
+    if (!courseOpen) {
+      setCourseSearch('');
+    }
+  }, [courseOpen]);
+
+  React.useEffect(() => {
+    if (!open) {
+      setCourseSearch('');
+      setCourseOpen(false);
+      return;
+    }
+
+    let canceled = false;
+    const loadCourses = async () => {
+      setCoursesLoading(true);
+      setCoursesError(null);
+      try {
+        const pageSize = 100;
+        let pageIndex = 1;
+        const collected: Shifu[] = [];
+        const seen = new Set<string>();
+
+        while (true) {
+          const { items } = await api.getShifuList({
+            page_index: pageIndex,
+            page_size: pageSize,
+            is_favorite: false,
+          });
+          const pageItems = (items || []) as Shifu[];
+          pageItems.forEach(item => {
+            if (item?.bid && !seen.has(item.bid)) {
+              seen.add(item.bid);
+              collected.push(item);
+            }
+          });
+          if (pageItems.length < pageSize) {
+            break;
+          }
+          pageIndex += 1;
+        }
+
+        if (!canceled) {
+          setCourses(collected);
+        }
+      } catch (error) {
+        if (!canceled) {
+          setCourses([]);
+          setCoursesError(t('common.core.networkError'));
+        }
+      } finally {
+        if (!canceled) {
+          setCoursesLoading(false);
+        }
+      }
+    };
+
+    loadCourses();
+
+    return () => {
+      canceled = true;
+    };
+  }, [open, t]);
 
   return (
     <Dialog
@@ -148,15 +250,102 @@ const ImportActivationDialog = ({
                   <FormLabel>
                     {t('module.order.importActivation.courseLabel')}
                   </FormLabel>
-                  <FormControl>
-                    <Input
-                      autoComplete='off'
-                      placeholder={t(
-                        'module.order.importActivation.coursePlaceholder',
-                      )}
-                      {...field}
-                    />
-                  </FormControl>
+                  <Popover
+                    open={courseOpen}
+                    onOpenChange={setCourseOpen}
+                  >
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          type='button'
+                          variant='outline'
+                          className='w-full justify-between font-normal'
+                          title={
+                            field.value
+                              ? courseNameMap.get(field.value) || field.value
+                              : undefined
+                          }
+                        >
+                          <span
+                            className={cn(
+                              'flex-1 truncate text-left',
+                              field.value
+                                ? 'text-foreground'
+                                : 'text-muted-foreground',
+                            )}
+                          >
+                            {field.value
+                              ? courseNameMap.get(field.value) || field.value
+                              : t(
+                                  'module.order.importActivation.coursePlaceholder',
+                                )}
+                          </span>
+                          <ChevronDown className='h-4 w-4 text-muted-foreground' />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className='w-[--radix-popover-trigger-width] p-3'>
+                      <Input
+                        value={courseSearch}
+                        onChange={event => setCourseSearch(event.target.value)}
+                        placeholder={t('module.order.filters.search')}
+                        className='h-8'
+                      />
+                      <ScrollArea className='mt-3 h-48'>
+                        {coursesLoading ? (
+                          <div className='flex items-center justify-center py-4'>
+                            <Loading className='h-5 w-5' />
+                          </div>
+                        ) : coursesError ? (
+                          <div className='px-2 py-3 text-xs text-destructive'>
+                            {coursesError}
+                          </div>
+                        ) : filteredCourses.length === 0 ? (
+                          <div className='px-2 py-3 text-xs text-muted-foreground'>
+                            {t('common.core.noShifus')}
+                          </div>
+                        ) : (
+                          <div className='space-y-1'>
+                            {filteredCourses.map(course => {
+                              const isSelected = field.value === course.bid;
+                              const courseName = course.name || course.bid;
+                              return (
+                                <button
+                                  key={course.bid}
+                                  type='button'
+                                  onClick={() => {
+                                    field.onChange(course.bid);
+                                    setCourseOpen(false);
+                                  }}
+                                  className='flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent'
+                                  aria-pressed={isSelected}
+                                >
+                                  <span
+                                    className={cn(
+                                      'mt-0.5 flex h-4 w-4 items-center justify-center rounded border',
+                                      isSelected
+                                        ? 'border-primary bg-primary text-primary-foreground'
+                                        : 'border-muted-foreground/40 text-transparent',
+                                    )}
+                                  >
+                                    <Check className='h-3 w-3' />
+                                  </span>
+                                  <span className='flex flex-col'>
+                                    <span className='text-sm text-foreground'>
+                                      {courseName}
+                                    </span>
+                                    <span className='text-xs text-muted-foreground'>
+                                      {course.bid}
+                                    </span>
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}
