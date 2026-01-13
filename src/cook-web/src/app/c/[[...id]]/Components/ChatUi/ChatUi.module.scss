@@ -140,9 +140,10 @@
       bottom: 0;
       height: auto;
       min-height: 40px;
-      max-height: 80px;
+      max-height: 40px;
+      height: 40px;
       flex-shrink: 0;
-      background: #fff;
+      background: pink;
       z-index: 10;
       display: flex;
       align-items: center;
