@@ -83,6 +83,7 @@ export interface ChatContentItem {
   defaultSelectedValues?: string[]; // for multi-select interactions
   readonly?: boolean;
   isHistory?: boolean;
+  isHistoryRecord?: boolean;
   generated_block_bid: string;
   ask_generated_block_bid?: string; // use for ask block, because an interaction block gid isn't ask gid
   parent_block_bid?: string; // when like_status is not none, the parent_block_bid is the generated_block_bid of the interaction block
@@ -769,6 +770,7 @@ function useChatLogicHook({
             })), // keep the original ask list
             readonly: false,
             isHistory: true,
+            isHistoryRecord: true,
             customRenderBar: () => null,
             defaultButtonText: '',
             defaultInputText: '',
@@ -796,6 +798,7 @@ function useChatLogicHook({
             defaultInputText: item.user_input || '',
             readonly: false,
             isHistory: true,
+            isHistoryRecord: true,
             type: item.block_type,
             // Include audio URL from history
             audioUrl: item.audio_url,
@@ -808,6 +811,7 @@ function useChatLogicHook({
               parent_block_bid: item.generated_block_bid,
               like_status: item.like_status,
               type: ChatContentItemType.LIKE_STATUS,
+              isHistoryRecord: true,
             });
           }
         } else if (
@@ -846,6 +850,7 @@ function useChatLogicHook({
                 : undefined,
             readonly: false,
             isHistory: true,
+            isHistoryRecord: true,
             type: item.block_type,
           });
         }
