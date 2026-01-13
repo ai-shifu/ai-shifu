@@ -217,6 +217,12 @@ Default: "phone".""",
         description="API URL for generating MDF (Markdown Flow) content",
         group="frontend",
     ),
+    "GEN_MDF_APP_ID": EnvVar(
+        name="GEN_MDF_APP_ID",
+        default="",
+        description="Application ID for MDF API authentication (X-App-Id header). Required when GEN_MDF_API_URL is set.",
+        group="frontend",
+    ),
     "WECHAT_APP_ID": EnvVar(
         name="WECHAT_APP_ID",
         default="",
