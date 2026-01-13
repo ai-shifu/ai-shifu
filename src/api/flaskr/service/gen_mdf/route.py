@@ -11,6 +11,9 @@ from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error
 from .funcs import convert_text_to_mdf
 
+# MDF text conversion limits
+MAX_TEXT_LENGTH = 10000
+
 
 @inject
 def register_gen_mdf_routes(app: Flask, path_prefix="/api/gen_mdf"):
@@ -79,14 +82,14 @@ def register_gen_mdf_routes(app: Flask, path_prefix="/api/gen_mdf"):
             503:
                 description: MDF API not configured or unavailable
         """
-        data = request.get_json()
+        data = request.get_json() or {}
 
         # Validate required parameters
         text = data.get("text", "").strip()
         if not text:
             raise_param_error("TEXT_REQUIRED")
 
-        if len(text) > 10000:
+        if len(text) > MAX_TEXT_LENGTH:
             raise_param_error("TEXT_TOO_LONG")
 
         language = data.get("language", "English")
@@ -126,8 +129,8 @@ def register_gen_mdf_routes(app: Flask, path_prefix="/api/gen_mdf"):
         mdf_api_url = get_config("GEN_MDF_API_URL")
         mdf_app_id = get_config("GEN_MDF_APP_ID")
 
-        url_configured = bool(mdf_api_url and mdf_api_url.strip())
-        app_id_configured = bool(mdf_app_id and mdf_app_id.strip())
+        url_configured = bool(mdf_api_url)
+        app_id_configured = bool(mdf_app_id)
 
         return make_common_response(
             {"configured": url_configured and app_id_configured}

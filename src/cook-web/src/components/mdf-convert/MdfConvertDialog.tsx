@@ -15,7 +15,6 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { Label } from '@/components/ui/Label';
-import { ScrollArea } from '@/components/ui/ScrollArea';
 import { Textarea } from '@/components/ui/Textarea';
 
 // Reuse ai-shifu's useToast hook
@@ -25,11 +24,13 @@ import { fail, show } from '@/hooks/useToast';
 import { useAlert } from '@/components/ui/UseAlert';
 
 // Use unified Request system
-import http from '@/lib/request';
 import api from '@/api';
 
 // Analytics tracking
 import { useTracking } from '@/c-common/hooks/useTracking';
+
+// MDF text conversion limits
+const MAX_TEXT_LENGTH = 10000;
 
 // MDF conversion response type
 interface MdfConvertResponse {
@@ -102,7 +103,7 @@ export function MdfConvertDialog({
     if (inputText.trim().length === 0) {
       return t('component.mdfConvert.textTooShort');
     }
-    if (inputText.length > 10000) {
+    if (inputText.length > MAX_TEXT_LENGTH) {
       return t('component.mdfConvert.textTooLong');
     }
     return null;
@@ -263,7 +264,7 @@ export function MdfConvertDialog({
               />
               <div className='flex-shrink-0 flex items-center justify-end mt-1'>
                 <div className='text-xs text-muted-foreground'>
-                  {inputText.length} / 10,000
+                  {inputText.length.toLocaleString()} / {MAX_TEXT_LENGTH.toLocaleString()}
                 </div>
               </div>
             </div>
