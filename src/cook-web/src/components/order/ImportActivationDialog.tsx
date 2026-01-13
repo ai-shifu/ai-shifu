@@ -54,6 +54,7 @@ const ImportActivationDialog = ({
   const [coursesError, setCoursesError] = React.useState<string | null>(null);
   const [courseSearch, setCourseSearch] = React.useState('');
   const [courseOpen, setCourseOpen] = React.useState(false);
+  const dialogContentRef = React.useRef<HTMLDivElement | null>(null);
 
   const formSchema = React.useMemo(
     () =>
@@ -99,7 +100,9 @@ const ImportActivationDialog = ({
     return courses.filter(course => {
       const name = (course.name || '').toLowerCase();
       const bid = (course.bid || '').toLowerCase();
-      return name.includes(keyword) || bid.includes(keyword);
+      const matchesName = name.includes(keyword);
+      const matchesBid = Boolean(bid && bid === keyword);
+      return matchesName || matchesBid;
     });
   }, [courseSearch, courses]);
 
@@ -209,7 +212,7 @@ const ImportActivationDialog = ({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <DialogContent>
+      <DialogContent ref={dialogContentRef}>
         <DialogHeader>
           <DialogTitle>{t('module.order.importActivation.title')}</DialogTitle>
           <DialogDescription>
@@ -251,6 +254,7 @@ const ImportActivationDialog = ({
                     {t('module.order.importActivation.courseLabel')}
                   </FormLabel>
                   <Popover
+                    modal={false}
                     open={courseOpen}
                     onOpenChange={setCourseOpen}
                   >
@@ -284,11 +288,20 @@ const ImportActivationDialog = ({
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
-                    <PopoverContent className='w-[--radix-popover-trigger-width] p-3'>
+                    <PopoverContent
+                      align='start'
+                      sideOffset={4}
+                      container={dialogContentRef.current ?? undefined}
+                      className='z-50 p-3 pointer-events-auto'
+                      style={{
+                        width: 'var(--radix-popover-trigger-width)',
+                        maxWidth: 'var(--radix-popover-trigger-width)',
+                      }}
+                    >
                       <Input
                         value={courseSearch}
                         onChange={event => setCourseSearch(event.target.value)}
-                        placeholder={t('module.order.filters.search')}
+                        placeholder={t('module.order.filters.searchCourseOrId')}
                         className='h-8'
                       />
                       <ScrollArea className='mt-3 h-48'>
@@ -320,23 +333,13 @@ const ImportActivationDialog = ({
                                   className='flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent'
                                   aria-pressed={isSelected}
                                 >
-                                  <span
-                                    className={cn(
-                                      'mt-0.5 flex h-4 w-4 items-center justify-center rounded border',
-                                      isSelected
-                                        ? 'border-primary bg-primary text-primary-foreground'
-                                        : 'border-muted-foreground/40 text-transparent',
-                                    )}
-                                  >
-                                    <Check className='h-3 w-3' />
-                                  </span>
-                                  <span className='flex flex-col'>
-                                    <span className='text-sm text-foreground'>
+                                  <span className='flex flex-col min-w-0'>
+                                    <span className='text-sm text-foreground truncate'>
                                       {courseName}
                                     </span>
-                                    <span className='text-xs text-muted-foreground'>
+                                    {/* <span className='text-xs text-muted-foreground'>
                                       {course.bid}
-                                    </span>
+                                    </span> */}
                                   </span>
                                 </button>
                               );
