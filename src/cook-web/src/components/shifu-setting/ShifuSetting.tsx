@@ -175,6 +175,24 @@ export default function ShifuSettingDialog({
     ttsConfig?.providers.find(p => p.name === resolvedProvider) ||
     ttsConfig?.providers[0];
 
+  const normalizeSpeedValue = useCallback(
+    (value: number) => {
+      const min = currentProviderConfig?.speed.min ?? 0.5;
+      const max = currentProviderConfig?.speed.max ?? 2.0;
+      const defaultValue = currentProviderConfig?.speed.default ?? 1.0;
+      const step = currentProviderConfig?.speed.step ?? 0.1;
+      const decimals = step.toString().includes('.')
+        ? step.toString().split('.')[1]?.length || 0
+        : 0;
+      if (Number.isNaN(value)) {
+        value = defaultValue;
+      }
+      const clamped = Math.min(max, Math.max(min, value));
+      return Number(clamped.toFixed(decimals));
+    },
+    [currentProviderConfig],
+  );
+
   // Get provider options for dropdown
   const ttsProviderOptions = [
     { value: 'default', label: t('module.shifuSetting.ttsProviderDefault') },
@@ -1161,8 +1179,9 @@ export default function ShifuSettingDialog({
                           value={ttsSpeed}
                           onChange={e =>
                             setTtsSpeed(
-                              parseFloat(e.target.value) ||
-                                (currentProviderConfig?.speed.default ?? 1.0),
+                              normalizeSpeedValue(
+                                parseFloat(e.target.value),
+                              ),
                             )
                           }
                           disabled={currentShifu?.readonly}
@@ -1176,8 +1195,7 @@ export default function ShifuSettingDialog({
                               size='icon'
                               onClick={() =>
                                 setTtsSpeed(
-                                  Math.max(
-                                    currentProviderConfig?.speed.min ?? 0.5,
+                                  normalizeSpeedValue(
                                     ttsSpeed -
                                       (currentProviderConfig?.speed.step ??
                                         0.1),
@@ -1194,8 +1212,7 @@ export default function ShifuSettingDialog({
                               size='icon'
                               onClick={() =>
                                 setTtsSpeed(
-                                  Math.min(
-                                    currentProviderConfig?.speed.max ?? 2.0,
+                                  normalizeSpeedValue(
                                     ttsSpeed +
                                       (currentProviderConfig?.speed.step ??
                                         0.1),
