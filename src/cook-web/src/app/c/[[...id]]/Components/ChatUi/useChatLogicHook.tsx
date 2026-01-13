@@ -83,6 +83,7 @@ export interface ChatContentItem {
   readonly?: boolean;
   isHistory?: boolean;
   isHistoryRecord?: boolean;
+  isOutputComplete?: boolean;
   generated_block_bid: string;
   ask_generated_block_bid?: string; // use for ask block, because an interaction block gid isn't ask gid
   parent_block_bid?: string; // when like_status is not none, the parent_block_bid is the generated_block_bid of the interaction block
@@ -555,6 +556,7 @@ function useChatLogicHook({
                         ...item,
                         content: displayText,
                         customRenderBar: () => null,
+                        isOutputComplete: item.isOutputComplete,
                       };
                     }
                     return item;
@@ -568,6 +570,7 @@ function useChatLogicHook({
                       readonly: false,
                       customRenderBar: () => null,
                       type: ChatContentItemType.CONTENT,
+                       isOutputComplete: false,
                     });
                   }
                   return updatedList;
@@ -601,26 +604,27 @@ function useChatLogicHook({
                 const updatedList = [...prev].filter(
                   item => item.generated_block_bid !== 'loading',
                 );
-                // Find the last CONTENT type item and append AskButton to its content
-                // Set isHistory=true to prevent triggering typewriter effect for AskButton
-                if (mobileStyle) {
-                  for (let i = updatedList.length - 1; i >= 0; i--) {
-                    if (
-                      updatedList[i].type === ChatContentItemType.CONTENT &&
+                for (let i = updatedList.length - 1; i >= 0; i--) {
+                  if (updatedList[i].type === ChatContentItemType.CONTENT) {
+                    const shouldAppendAsk =
+                      mobileStyle &&
                       !updatedList[i].content?.includes(
                         `<custom-button-after-content>`,
-                      )
-                    ) {
-                      updatedList[i] = {
-                        ...updatedList[i],
-                        content: appendCustomButtonAfterContent(
-                          updatedList[i].content,
-                          getAskButtonMarkup(),
-                        ),
-                        isHistory: true, // Prevent AskButton from triggering typewriter
-                      };
-                      break;
-                    }
+                      );
+                    updatedList[i] = {
+                      ...updatedList[i],
+                      ...(shouldAppendAsk
+                        ? {
+                            content: appendCustomButtonAfterContent(
+                              updatedList[i].content,
+                              getAskButtonMarkup(),
+                            ),
+                            isHistory: true,
+                          }
+                        : {}),
+                      isOutputComplete: true,
+                    };
+                    break;
                   }
                 }
 
@@ -737,6 +741,7 @@ function useChatLogicHook({
             readonly: false,
             isHistory: true,
             isHistoryRecord: true,
+            isOutputComplete: true,
             customRenderBar: () => null,
             defaultButtonText: '',
             defaultInputText: '',
@@ -765,6 +770,7 @@ function useChatLogicHook({
             readonly: false,
             isHistory: true,
             isHistoryRecord: true,
+            isOutputComplete: true,
             type: item.block_type,
             // Include audio URL from history
             audioUrl: item.audio_url,
@@ -778,6 +784,7 @@ function useChatLogicHook({
               like_status: item.like_status,
               type: ChatContentItemType.LIKE_STATUS,
               isHistoryRecord: true,
+              isOutputComplete: true,
             });
           }
         } else if (
@@ -817,6 +824,7 @@ function useChatLogicHook({
             readonly: false,
             isHistory: true,
             isHistoryRecord: true,
+            isOutputComplete: true,
             type: item.block_type,
           });
         }
