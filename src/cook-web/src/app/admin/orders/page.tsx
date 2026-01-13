@@ -69,14 +69,14 @@ const COLUMN_MIN_WIDTH = 80;
 const COLUMN_MAX_WIDTH = 520;
 
 const DEFAULT_COLUMN_WIDTHS = {
-  orderId: 280,
-  shifu: 220,
-  user: 240,
-  amount: 140,
-  status: 150,
-  payment: 160,
+  orderId: 260,
+  shifu: 200,
+  user: 220,
+  amount: 120,
+  status: 140,
+  payment: 140,
   createdAt: 200,
-  action: 130,
+  action: 120,
 };
 
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
@@ -359,15 +359,12 @@ const OrdersPage = () => {
     [columnWidths],
   );
 
-  const estimateWidth = (text: string) => {
+  const estimateWidth = (text: string, multiplier = 7) => {
     if (!text) {
       return COLUMN_MIN_WIDTH;
     }
-    const approx = text.length * 8 + 48;
-    return Math.min(
-      COLUMN_MAX_WIDTH,
-      Math.max(COLUMN_MIN_WIDTH, approx),
-    );
+    const approx = text.length * multiplier + 48;
+    return approx;
   };
 
   const autoAdjustColumns = useCallback(
@@ -409,9 +406,14 @@ const OrdersPage = () => {
           if (texts.length === 0) {
             return;
           }
+          const multiplier =
+            key === 'amount' ? 6 : key === 'status' ? 7 : 7.5;
           const required = texts.reduce(
             (maxWidth, text) =>
-              Math.max(maxWidth, estimateWidth(text)),
+              Math.max(
+                maxWidth,
+                estimateWidth(text, multiplier),
+              ),
             DEFAULT_COLUMN_WIDTHS[key],
           );
           if (
@@ -433,7 +435,10 @@ const OrdersPage = () => {
           const calculated = nextWidths[key] ?? fallback;
           updated[key] = Math.min(
             COLUMN_MAX_WIDTH,
-            Math.max(fallback, calculated),
+            Math.max(
+              COLUMN_MIN_WIDTH,
+              calculated,
+            ),
           );
         });
         return updated;
