@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+import re
 from typing import Any, Dict, List, Optional
 
 from flask import Flask
@@ -96,6 +97,17 @@ PAYMENT_CHANNEL_KEY_MAP = {
     "stripe": "module.order.paymentChannel.stripe",
     "manual": "module.order.paymentChannel.manual",
 }
+
+MOBILE_PATTERN = re.compile(r"^\d{11}$")
+
+
+def normalize_mobile(mobile: str) -> str:
+    normalized_mobile = str(mobile or "").strip()
+    if not normalized_mobile:
+        raise_param_error("mobile")
+    if not MOBILE_PATTERN.fullmatch(normalized_mobile):
+        raise_param_error(f"mobile format invalid: {normalized_mobile}")
+    return normalized_mobile
 
 
 def _format_decimal(value: Optional[Decimal]) -> str:
@@ -232,9 +244,7 @@ def import_activation_order(
     user_nick_name: Optional[str] = None,
 ) -> Dict[str, str]:
     with app.app_context():
-        normalized_mobile = str(mobile or "").strip()
-        if not normalized_mobile:
-            raise_param_error("mobile")
+        normalized_mobile = normalize_mobile(mobile)
 
         normalized_course_id = str(course_id or "").strip()
         if not normalized_course_id:
@@ -302,21 +312,30 @@ def import_activation_orders(
 ) -> Dict[str, Any]:
     results: Dict[str, Any] = {"success": [], "failed": []}
     for mobile in mobiles:
+        normalized_mobile = str(mobile or "").strip()
         try:
-            order = import_activation_order(app, mobile, course_id, user_nick_name)
-            results["success"].append({"mobile": mobile, **order})
+            order = import_activation_order(
+                app, normalized_mobile, course_id, user_nick_name
+            )
+            results["success"].append({"mobile": normalized_mobile, **order})
         except AppException as exc:
             if hasattr(app, "logger"):
                 app.logger.warning(
-                    "import activation failed for %s: %s", mobile, exc.message
+                    "import activation failed for %s: %s",
+                    normalized_mobile,
+                    exc.message,
                 )
-            results["failed"].append({"mobile": mobile, "message": exc.message})
+            results["failed"].append(
+                {"mobile": normalized_mobile, "message": exc.message}
+            )
         except Exception as exc:  # noqa: BLE001
             if hasattr(app, "logger"):
                 app.logger.exception(
-                    "import activation unexpected failure for %s", mobile
+                    "import activation unexpected failure for %s", normalized_mobile
                 )
-            results["failed"].append({"mobile": mobile, "message": str(exc)})
+            results["failed"].append(
+                {"mobile": normalized_mobile, "message": str(exc)}
+            )
     return results
 
 

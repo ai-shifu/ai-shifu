@@ -44,6 +44,8 @@ interface ImportActivationDialogProps {
 }
 
 const MAX_BULK_MOBILE_COUNT = 50;
+const MOBILE_PATTERN = /^\d{11}$/;
+const MOBILE_SAMPLE_LIMIT = 5;
 
 const ImportActivationDialog = ({
   open,
@@ -129,6 +131,23 @@ const ImportActivationDialog = ({
       form.setError('mobile', {
         message: t('module.order.importActivation.mobileLimit', {
           count: MAX_BULK_MOBILE_COUNT,
+        }),
+      });
+      return;
+    }
+
+    const invalidMobiles = mobiles.filter(
+      mobile => !MOBILE_PATTERN.test(mobile),
+    );
+    if (invalidMobiles.length > 0) {
+      const sample = invalidMobiles
+        .slice(0, MOBILE_SAMPLE_LIMIT)
+        .join(', ');
+      const messageMobiles =
+        invalidMobiles.length > MOBILE_SAMPLE_LIMIT ? `${sample}...` : sample;
+      form.setError('mobile', {
+        message: t('module.order.importActivation.mobileInvalid', {
+          numbers: messageMobiles,
         }),
       });
       return;
