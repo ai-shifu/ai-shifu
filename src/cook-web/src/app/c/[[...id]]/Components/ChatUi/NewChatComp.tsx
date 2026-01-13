@@ -293,7 +293,7 @@ export const NewChatComponents = ({
       <div
         className={cn(
           styles.chatComponents,
-          className,
+          mobileStyle ? '' : className,
           mobileStyle ? styles.mobile : '',
         )}
         ref={chatRef}

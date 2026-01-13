@@ -99,18 +99,41 @@
 
   &.mobile {
     width: 100%;
-    // padding-top: 80px;
-    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+
+    .headerMobile {
+      height: 80px;
+      width: 100%;
+      flex-shrink: 0;
+    }
+
     .chatComponents {
       padding-top: 0;
-      padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+      padding-bottom: 80px;
+      flex: 1;
+      height: auto;
+      min-height: 0;
+      overflow-y: hidden;
     }
+
     .footer {
-      position: fixed;
+      position: absolute;
       left: 0;
       right: 0;
       bottom: 0;
-      padding-bottom: env(safe-area-inset-bottom, 0px);
+      height: auto;
+      min-height: 40px;
+      flex-shrink: 0;
+      background: #fff;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
   }
 
