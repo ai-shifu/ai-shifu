@@ -8,7 +8,7 @@ import React, {
 } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/Sheet';
-import { Bars3Icon, DocumentIcon } from '@heroicons/react/24/outline';
+import { DocumentIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
 import Image, { type StaticImageData } from 'next/image';
 import Link from 'next/link';
 import NavFooter from '@/app/c/[[...id]]/Components/NavDrawer/NavFooter';
@@ -176,6 +176,11 @@ const MainInterface = ({
       icon: <DocumentIcon className='w-4 h-4' />,
       label: t('common.core.shifu'),
       href: '/admin',
+    },
+    {
+      icon: <ShoppingCartIcon className='w-4 h-4' />,
+      label: t('module.order.title'),
+      href: '/admin/orders',
     },
   ];
 

@@ -1,5 +1,5 @@
 from flask import Flask, request
-from flaskr.service.common.models import raise_param_error
+from flaskr.service.common.models import raise_param_error, raise_error
 from flaskr.service.order.coupon_funcs import use_coupon_code
 from flaskr.route.common import make_common_response
 from flaskr.service.order import (
@@ -10,10 +10,15 @@ from flaskr.service.order import (
     get_payment_details,
     sync_stripe_checkout_session,
 )
+from flaskr.service.order.admin import list_orders, get_order_detail
 from flaskr.common.shifu_context import with_shifu_context
 
 
 def register_order_handler(app: Flask, path_prefix: str):
+    def _require_creator():
+        if not request.user.is_creator:
+            raise_error("server.shifu.noPermission")
+
     @app.route(path_prefix + "/reqiure-to-pay", methods=["POST"])
     def reqiure_to_pay():
         """
@@ -289,5 +294,102 @@ def register_order_handler(app: Flask, path_prefix: str):
         payload, status_code = handle_stripe_webhook(app, raw_body, sig_header)
         body = make_common_response(payload)
         return app.response_class(body, status=status_code, mimetype="application/json")
+
+    @app.route(path_prefix + "/admin/orders", methods=["GET"])
+    def admin_order_list():
+        """
+        Admin order list
+        ---
+        tags:
+            - 订单
+        parameters:
+            - name: page_index
+              type: integer
+              required: true
+            - name: page_size
+              type: integer
+              required: true
+            - name: order_bid
+              type: string
+              required: false
+            - name: user_bid
+              type: string
+              required: false
+            - name: shifu_bid
+              type: string
+              required: false
+            - name: status
+              type: integer
+              required: false
+            - name: payment_channel
+              type: string
+              required: false
+        responses:
+            200:
+                description: List orders
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    $ref: "#/components/schemas/PageNationDTO"
+        """
+        _require_creator()
+        page_index = request.args.get("page_index", 1)
+        page_size = request.args.get("page_size", 20)
+        try:
+            page_index = int(page_index)
+            page_size = int(page_size)
+        except ValueError:
+            raise_param_error("page_index or page_size is not a number")
+        if page_index < 1 or page_size < 1:
+            raise_param_error("page_index or page_size is less than 1")
+
+        filters = {
+            "order_bid": request.args.get("order_bid", ""),
+            "user_bid": request.args.get("user_bid", ""),
+            "shifu_bid": request.args.get("shifu_bid", ""),
+            "status": request.args.get("status"),
+            "payment_channel": request.args.get("payment_channel", ""),
+        }
+        user_id = request.user.user_id
+        return make_common_response(
+            list_orders(app, user_id, page_index, page_size, filters)
+        )
+
+    @app.route(path_prefix + "/admin/orders/<order_bid>", methods=["GET"])
+    def admin_order_detail(order_bid: str):
+        """
+        Admin order detail
+        ---
+        tags:
+            - 订单
+        parameters:
+            - name: order_bid
+              type: string
+              required: true
+        responses:
+            200:
+                description: Order detail
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    $ref: "#/components/schemas/OrderAdminDetailDTO"
+        """
+        _require_creator()
+        if not order_bid:
+            raise_param_error("order_bid")
+        user_id = request.user.user_id
+        return make_common_response(get_order_detail(app, user_id, order_bid))
 
     return app

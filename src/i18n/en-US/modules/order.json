@@ -1,0 +1,98 @@
+{
+  "__namespace__": "module.order",
+  "activeStatus": {
+    "active": "Active",
+    "failed": "Failed",
+    "unknown": "Unknown"
+  },
+  "couponStatus": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "timeout": "Expired",
+    "unknown": "Unknown",
+    "used": "Used"
+  },
+  "couponType": {
+    "fixed": "Fixed Amount",
+    "percent": "Percent",
+    "unknown": "Unknown"
+  },
+  "detailFallback": "Order Detail",
+  "detailTitle": "Order Detail",
+  "emptyActivities": "No activities",
+  "emptyCoupons": "No coupons",
+  "emptyList": "No orders",
+  "emptyValue": "N/A",
+  "fields": {
+    "activityPrice": "Activity Discount",
+    "chargeId": "Charge ID",
+    "checkoutSession": "Checkout Session",
+    "couponType": "Coupon Type",
+    "couponValue": "Coupon Value",
+    "createdAt": "Created At",
+    "currency": "Currency",
+    "discount": "Discount",
+    "latestCharge": "Latest Charge",
+    "paid": "Paid",
+    "payable": "Payable",
+    "paymentAmount": "Payment Amount",
+    "paymentChannel": "Payment Channel",
+    "paymentCreatedAt": "Payment Created At",
+    "paymentIntent": "Payment Intent",
+    "paymentMethod": "Payment Method",
+    "paymentStatus": "Payment Status",
+    "paymentUpdatedAt": "Payment Updated At",
+    "receipt": "Receipt URL",
+    "shifu": "Course",
+    "status": "Status",
+    "transactionNo": "Transaction No.",
+    "updatedAt": "Updated At",
+    "user": "User"
+  },
+  "filters": {
+    "all": "All",
+    "channel": "Payment Channel",
+    "orderBid": "Order ID",
+    "reset": "Reset",
+    "search": "Search",
+    "shifuBid": "Course ID",
+    "status": "Status",
+    "userBid": "User ID"
+  },
+  "pagination": "Page {{page}} of {{total}}",
+  "paginationNext": "Next",
+  "paginationPrev": "Previous",
+  "paymentChannel": {
+    "pingxx": "Ping++",
+    "stripe": "Stripe",
+    "unknown": "Unknown"
+  },
+  "paymentStatus": {
+    "closed": "Closed",
+    "failed": "Failed",
+    "paid": "Paid",
+    "pending": "Pending",
+    "refunded": "Refunded",
+    "unknown": "Unknown"
+  },
+  "sections": {
+    "activities": "Activities",
+    "coupons": "Coupons",
+    "payment": "Payment",
+    "summary": "Summary"
+  },
+  "table": {
+    "action": "Action",
+    "amount": "Amount",
+    "createdAt": "Created",
+    "orderId": "Order ID",
+    "payable": "Payable",
+    "payment": "Payment",
+    "shifu": "Course",
+    "status": "Status",
+    "user": "User",
+    "view": "View"
+  },
+  "title": "Orders",
+  "totalCount": "Total: {{count}}"
+}

@@ -28,6 +28,7 @@
     "module.feedback",
     "module.groupon",
     "module.lesson",
+    "module.order",
     "module.pay",
     "module.permission",
     "module.preview",

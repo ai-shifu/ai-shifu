@@ -1,0 +1,98 @@
+{
+  "__namespace__": "module.order",
+  "activeStatus": {
+    "active": "生效",
+    "failed": "失败",
+    "unknown": "未知"
+  },
+  "couponStatus": {
+    "active": "激活",
+    "inactive": "未激活",
+    "timeout": "已过期",
+    "unknown": "未知",
+    "used": "已使用"
+  },
+  "couponType": {
+    "fixed": "固定金额",
+    "percent": "百分比",
+    "unknown": "未知"
+  },
+  "detailFallback": "订单详情",
+  "detailTitle": "订单详情",
+  "emptyActivities": "暂无活动",
+  "emptyCoupons": "暂无优惠券",
+  "emptyList": "暂无订单",
+  "emptyValue": "暂无",
+  "fields": {
+    "activityPrice": "活动优惠",
+    "chargeId": "支付单号",
+    "checkoutSession": "结账会话",
+    "couponType": "优惠类型",
+    "couponValue": "优惠额度",
+    "createdAt": "创建时间",
+    "currency": "币种",
+    "discount": "优惠",
+    "latestCharge": "最新扣款",
+    "paid": "实付",
+    "payable": "应付",
+    "paymentAmount": "支付金额",
+    "paymentChannel": "支付渠道",
+    "paymentCreatedAt": "支付创建时间",
+    "paymentIntent": "支付意图",
+    "paymentMethod": "支付方式",
+    "paymentStatus": "支付状态",
+    "paymentUpdatedAt": "支付更新时间",
+    "receipt": "收据链接",
+    "shifu": "课程",
+    "status": "状态",
+    "transactionNo": "交易号",
+    "updatedAt": "更新时间",
+    "user": "用户"
+  },
+  "filters": {
+    "all": "全部",
+    "channel": "支付渠道",
+    "orderBid": "订单 ID",
+    "reset": "重置",
+    "search": "查询",
+    "shifuBid": "课程 ID",
+    "status": "状态",
+    "userBid": "用户 ID"
+  },
+  "pagination": "第 {{page}} / {{total}} 页",
+  "paginationNext": "下一页",
+  "paginationPrev": "上一页",
+  "paymentChannel": {
+    "pingxx": "Ping++",
+    "stripe": "Stripe",
+    "unknown": "未知"
+  },
+  "paymentStatus": {
+    "closed": "已关闭",
+    "failed": "失败",
+    "paid": "已支付",
+    "pending": "待处理",
+    "refunded": "已退款",
+    "unknown": "未知"
+  },
+  "sections": {
+    "activities": "活动",
+    "coupons": "优惠券",
+    "payment": "支付",
+    "summary": "概要"
+  },
+  "table": {
+    "action": "操作",
+    "amount": "金额",
+    "createdAt": "创建时间",
+    "orderId": "订单 ID",
+    "payable": "应付",
+    "payment": "支付",
+    "shifu": "课程",
+    "status": "状态",
+    "user": "用户",
+    "view": "查看"
+  },
+  "title": "订单",
+  "totalCount": "总计：{{count}}"
+}
