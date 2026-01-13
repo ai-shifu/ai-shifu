@@ -59,8 +59,6 @@ export const useEnvStore = create<EnvStoreState>(set => ({
   legalUrls: environment.legalUrls,
   updateLegalUrls: async (legalUrls: EnvStoreState['legalUrls']) =>
     set({ legalUrls }),
-  mdfApiUrl: environment.mdfApiUrl,
-  updateMdfApiUrl: async (mdfApiUrl: string) => set({ mdfApiUrl }),
   runtimeConfigLoaded: false,
   setRuntimeConfigLoaded: (runtimeConfigLoaded: boolean) =>
     set({ runtimeConfigLoaded }),

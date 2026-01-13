@@ -41,8 +41,7 @@ def register_gen_mdf_routes(app: Flask, path_prefix="/api/gen_mdf"):
                     example: "This is a sample text"
                   language:
                     type: string
-                    description: Target language
-                    enum: [Chinese, English]
+                    description: Target language (e.g., Chinese, English)
                     example: "English"
                   output_mode:
                     type: string
@@ -91,9 +90,6 @@ def register_gen_mdf_routes(app: Flask, path_prefix="/api/gen_mdf"):
             raise_param_error("TEXT_TOO_LONG")
 
         language = data.get("language", "English")
-        if language not in ["Chinese", "English"]:
-            raise_param_error("INVALID_LANGUAGE")
-
         output_mode = data.get("output_mode", "content")
 
         # Call business logic
