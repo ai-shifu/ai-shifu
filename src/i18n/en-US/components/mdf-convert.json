@@ -13,6 +13,7 @@
   "convertSuccess": "Conversion successful!",
   "converting": "Converting...",
   "copyButton": "Copy",
+  "copyError": "Copy failed",
   "copySuccess": "Content copied to clipboard",
   "dialogTitle": "AI Conversion",
   "inputLabel": "Content to Convert",

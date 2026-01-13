@@ -13,6 +13,7 @@
   "convertSuccess": "转换成功!",
   "converting": "转换中...",
   "copyButton": "复制",
+  "copyError": "复制失败",
   "copySuccess": "内容已复制到剪贴板",
   "dialogTitle": "智能转换",
   "inputLabel": "待转换的内容",
