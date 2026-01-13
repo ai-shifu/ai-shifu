@@ -5,7 +5,7 @@ Provides proxy endpoints for MDF (Markdown Flow) conversion
 to abstract external API calls from frontend.
 """
 
-from flask import Flask, request, current_app
+from flask import Flask, request
 from flaskr.route.common import make_common_response
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error
@@ -97,7 +97,7 @@ def register_gen_mdf_routes(app: Flask, path_prefix="/api/gen_mdf"):
 
         # Call business logic
         result = convert_text_to_mdf(
-            app=current_app, text=text, language=language, output_mode=output_mode
+            text=text, language=language, output_mode=output_mode
         )
 
         return make_common_response(result)
