@@ -106,7 +106,9 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
-    height: 100dvh;
+    height: 100svh;
+    min-height: 100vh;
+    min-height: 100svh;
     overflow: hidden;
 
     .headerMobile {
@@ -144,7 +146,6 @@
     width: 100%;
 
     height: 100%;
-    min-height: 100vh;
     background: #fff;
     flex: 1 1 auto;
     justify-content: center;
@@ -152,6 +153,17 @@
     padding-top: 64px;
     padding-bottom: 40px;
     box-sizing: border-box;
+  }
+
+  &:not(.mobile) .chatComponents {
+    min-height: 100vh;
+  }
+
+  &.mobile .chatComponents {
+    height: auto;
+    min-height: auto;
+    overflow-y: hidden;
+    padding-bottom: 80px;
   }
 
   .chatComponentsHidden {
