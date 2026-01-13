@@ -295,7 +295,9 @@ const OrdersPage = () => {
     return courses.filter(course => {
       const name = (course.name || '').toLowerCase();
       const bid = (course.bid || '').toLowerCase();
-      return name.includes(keyword) || bid.includes(keyword);
+      const matchesName = name.includes(keyword);
+      const matchesBid = Boolean(bid && bid === keyword);
+      return matchesName || matchesBid;
     });
   }, [courseSearch, courses]);
 
@@ -724,7 +726,7 @@ const OrdersPage = () => {
               </PopoverTrigger>
               <PopoverContent
                 align='start'
-                className='w-[--radix-popover-trigger-width] p-3'
+                className='w-[--radix-popover-trigger-width] max-w-[--radix-popover-trigger-width] p-3'
               >
                 <Input
                   value={courseSearch}
@@ -774,9 +776,9 @@ const OrdersPage = () => {
                               <span className='text-sm text-foreground'>
                                 {courseName}
                               </span>
-                              <span className='text-xs text-muted-foreground'>
+                              {/* <span className='text-xs text-muted-foreground'>
                                 {course.bid}
-                              </span>
+                              </span> */}
                             </span>
                           </button>
                         );
