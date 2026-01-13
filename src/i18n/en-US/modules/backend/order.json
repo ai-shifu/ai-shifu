@@ -21,6 +21,7 @@
     "payItemBasePrice": "Base price",
     "payItemCoupon": "Coupon",
     "payItemProduct": "Product",
-    "payItemPromotion": "Promotion"
+    "payItemPromotion": "Promotion",
+    "mobileAlreadyActivated": "Mobile {mobile} already activated for this course"
   }
 }

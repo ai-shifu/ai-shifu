@@ -21,6 +21,7 @@
     "payItemBasePrice": "基础价格",
     "payItemCoupon": "优惠",
     "payItemProduct": "商品",
-    "payItemPromotion": "活动"
+    "payItemPromotion": "活动",
+    "mobileAlreadyActivated": "手机号 {mobile} 已开通过该课程"
   }
 }

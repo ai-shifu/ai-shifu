@@ -18,7 +18,12 @@ from flaskr.service.common.dtos import (
     USER_STATE_REGISTERED,
     USER_STATE_UNREGISTERED,
 )
-from flaskr.service.common.models import AppException, raise_error, raise_param_error
+from flaskr.service.common.models import (
+    AppException,
+    raise_error,
+    raise_error_with_args,
+    raise_param_error,
+)
 from flaskr.service.order.admin_dtos import (
     OrderAdminActivityDTO,
     OrderAdminCouponDTO,
@@ -268,6 +273,22 @@ def import_activation_order(
             raise_error("server.user.userNotFound")
 
         user_id = aggregate.user_bid
+
+        existing_success_order = (
+            Order.query.filter(
+                Order.user_bid == user_id,
+                Order.shifu_bid == normalized_course_id,
+                Order.status == ORDER_STATUS_SUCCESS,
+                Order.deleted == 0,
+            )
+            .order_by(Order.id.desc())
+            .first()
+        )
+        if existing_success_order:
+            raise_error_with_args(
+                "server.order.mobileAlreadyActivated", mobile=normalized_mobile
+            )
+
         entity = get_user_entity_by_bid(user_id, include_deleted=True)
         if entity:
             updates = {"identify": normalized_mobile}
