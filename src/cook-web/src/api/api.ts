@@ -79,6 +79,10 @@ const api = {
   saveProfile: 'POST /profiles/save-profile-item',
   deleteProfile: 'POST /profiles/delete-profile-item',
   getProfileList: 'GET /profiles/get-profile-item-definitions',
+
+  // MDF Conversion
+  genMdfConvert: 'POST /gen_mdf/convert',
+  genMdfConfigStatus: 'GET /gen_mdf/config-status',
 };
 
 export default api;

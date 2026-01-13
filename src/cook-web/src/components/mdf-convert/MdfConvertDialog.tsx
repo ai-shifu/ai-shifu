@@ -26,9 +26,7 @@ import { useAlert } from '@/components/ui/UseAlert';
 
 // Use unified Request system
 import http from '@/lib/request';
-
-// Use environment store for dynamic configuration
-import { useEnvStore } from '@/c-store';
+import api from '@/api';
 
 // Analytics tracking
 import { useTracking } from '@/c-common/hooks/useTracking';
@@ -63,17 +61,29 @@ export function MdfConvertDialog({
   const { t, i18n } = useTranslation();
   const { showAlert } = useAlert();
   const { trackEvent } = useTracking();
-  const mdfApiUrl = useEnvStore(state => state.mdfApiUrl);
 
   const [inputText, setInputText] = useState('');
   const [isConverting, setIsConverting] = useState(false);
   const [result, setResult] = useState<MdfConvertResponse | null>(null);
-
-  // Check if MDF API is configured
-  const isMdfApiConfigured = Boolean(mdfApiUrl && mdfApiUrl.trim().length > 0);
+  const [isMdfApiConfigured, setIsMdfApiConfigured] = useState<boolean | null>(null);
+  const [isCheckingConfig, setIsCheckingConfig] = useState(false);
 
   // Determine language based on i18n
   const language = i18n.language === 'zh-CN' ? 'Chinese' : 'English';
+
+  // Check MDF API configuration status
+  const checkMdfApiConfig = async () => {
+    setIsCheckingConfig(true);
+    try {
+      const response = await api.genMdfConfigStatus({});
+      setIsMdfApiConfigured(response.configured);
+    } catch (error) {
+      console.error('Failed to check MDF API config:', error);
+      setIsMdfApiConfigured(false);
+    } finally {
+      setIsCheckingConfig(false);
+    }
+  };
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -81,6 +91,7 @@ export function MdfConvertDialog({
       setInputText('');
       setResult(null);
       setIsConverting(false);
+      checkMdfApiConfig();
     }
   }, [open]);
 
@@ -113,7 +124,7 @@ export function MdfConvertDialog({
 
     setIsConverting(true);
     try {
-      const response = (await http.post(`${mdfApiUrl}/gen/mdf-convert`, {
+      const response = (await api.genMdfConvert({
         text: inputText.trim(),
         language: language,
         output_mode: 'content',
@@ -214,7 +225,7 @@ export function MdfConvertDialog({
             // Input Form
             <div className='flex-1 flex flex-col min-h-0'>
               {/* Persistent warning when MDF API is not configured */}
-              {!isMdfApiConfigured && (
+              {isMdfApiConfigured === false && (
                 <div className='flex-shrink-0 mb-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md'>
                   <div className='flex items-start gap-2'>
                     <AlertCircle className='h-5 w-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5' />
@@ -301,7 +312,7 @@ export function MdfConvertDialog({
               <Button
                 onClick={handleConvert}
                 disabled={
-                  !isMdfApiConfigured || isConverting || !inputText.trim()
+                  isMdfApiConfigured === false || isCheckingConfig || isConverting || !inputText.trim()
                 }
                 className='flex items-center gap-2'
               >
