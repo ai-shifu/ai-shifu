@@ -65,6 +65,21 @@ type OrderFilters = {
 };
 
 const PAGE_SIZE = 20;
+const COLUMN_MIN_WIDTH = 100;
+const COLUMN_MAX_WIDTH = 520;
+const DEFAULT_COLUMN_WIDTHS = {
+  orderId: 260,
+  shifu: 220,
+  user: 220,
+  amount: 140,
+  status: 150,
+  payment: 150,
+  createdAt: 190,
+  action: 130,
+};
+
+type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
+type ColumnWidthState = Record<ColumnKey, number>;
 
 const formatDateValue = (date: Date) => {
   const year = date.getFullYear();
@@ -199,6 +214,13 @@ const OrdersPage = () => {
     end_time: '',
   });
   const filtersRef = useRef<OrderFilters>(filters);
+  const [columnWidths, setColumnWidths] =
+    useState<ColumnWidthState>(DEFAULT_COLUMN_WIDTHS);
+  const columnResizeRef = useRef<{
+    key: ColumnKey;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
 
   const ALL_OPTION_VALUE = '__all__';
 
@@ -269,6 +291,72 @@ const OrdersPage = () => {
   useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
+
+  const startColumnResize = useCallback(
+    (key: ColumnKey, clientX: number) => {
+      columnResizeRef.current = {
+        key,
+        startX: clientX,
+        startWidth: columnWidths[key],
+      };
+    },
+    [columnWidths],
+  );
+
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      const info = columnResizeRef.current;
+      if (!info) {
+        return;
+      }
+      const delta = event.clientX - info.startX;
+      const desiredWidth = info.startWidth + delta;
+      const nextWidth = Math.min(
+        COLUMN_MAX_WIDTH,
+        Math.max(COLUMN_MIN_WIDTH, desiredWidth),
+      );
+      setColumnWidths(prev => {
+        if (Math.abs(prev[info.key] - nextWidth) < 0.5) {
+          return prev;
+        }
+        return { ...prev, [info.key]: nextWidth };
+      });
+    };
+
+    const handleMouseUp = () => {
+      columnResizeRef.current = null;
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const getColumnStyle = useCallback(
+    (key: ColumnKey) => {
+      const width = columnWidths[key];
+      return {
+        width,
+        minWidth: width,
+        maxWidth: width,
+      };
+    },
+    [columnWidths],
+  );
+
+  const renderResizeHandle = (key: ColumnKey) => (
+    <span
+      className='absolute top-0 right-0 h-full w-2 cursor-col-resize select-none'
+      onMouseDown={event => {
+        event.preventDefault();
+        startColumnResize(key, event.clientX);
+      }}
+      aria-hidden='true'
+    />
+  );
 
   useEffect(() => {
     if (!isInitialized || isGuest) {
@@ -672,14 +760,62 @@ const OrdersPage = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('module.order.table.orderId')}</TableHead>
-                  <TableHead>{t('module.order.table.shifu')}</TableHead>
-                  <TableHead>{t('module.order.table.user')}</TableHead>
-                  <TableHead>{t('module.order.table.amount')}</TableHead>
-                  <TableHead>{t('module.order.table.status')}</TableHead>
-                  <TableHead>{t('module.order.table.payment')}</TableHead>
-                  <TableHead>{t('module.order.table.createdAt')}</TableHead>
-                  <TableHead>{t('module.order.table.action')}</TableHead>
+                  <TableHead
+                    className='relative border-r border-border last:border-r-0'
+                    style={getColumnStyle('orderId')}
+                  >
+                    {t('module.order.table.orderId')}
+                    {renderResizeHandle('orderId')}
+                  </TableHead>
+                  <TableHead
+                    className='relative border-r border-border last:border-r-0'
+                    style={getColumnStyle('shifu')}
+                  >
+                    {t('module.order.table.shifu')}
+                    {renderResizeHandle('shifu')}
+                  </TableHead>
+                  <TableHead
+                    className='relative border-r border-border last:border-r-0'
+                    style={getColumnStyle('user')}
+                  >
+                    {t('module.order.table.user')}
+                    {renderResizeHandle('user')}
+                  </TableHead>
+                  <TableHead
+                    className='relative border-r border-border last:border-r-0'
+                    style={getColumnStyle('amount')}
+                  >
+                    {t('module.order.table.amount')}
+                    {renderResizeHandle('amount')}
+                  </TableHead>
+                  <TableHead
+                    className='relative border-r border-border last:border-r-0'
+                    style={getColumnStyle('status')}
+                  >
+                    {t('module.order.table.status')}
+                    {renderResizeHandle('status')}
+                  </TableHead>
+                  <TableHead
+                    className='relative border-r border-border last:border-r-0'
+                    style={getColumnStyle('payment')}
+                  >
+                    {t('module.order.table.payment')}
+                    {renderResizeHandle('payment')}
+                  </TableHead>
+                  <TableHead
+                    className='relative border-r border-border last:border-r-0'
+                    style={getColumnStyle('createdAt')}
+                  >
+                    {t('module.order.table.createdAt')}
+                    {renderResizeHandle('createdAt')}
+                  </TableHead>
+                  <TableHead
+                    className='relative border-r border-border last:border-r-0'
+                    style={getColumnStyle('action')}
+                  >
+                    {t('module.order.table.action')}
+                    {renderResizeHandle('action')}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -690,15 +826,24 @@ const OrdersPage = () => {
                 )}
                 {orders.map(order => (
                   <TableRow key={order.order_bid}>
-                    <TableCell className='font-mono text-xs'>
+                    <TableCell
+                      className='font-mono text-xs break-all border-r border-border last:border-r-0'
+                      style={getColumnStyle('orderId')}
+                    >
                       {order.order_bid}
                     </TableCell>
-                    <TableCell className='whitespace-nowrap'>
+                    <TableCell
+                      className='whitespace-nowrap border-r border-border last:border-r-0'
+                      style={getColumnStyle('shifu')}
+                    >
                       <div className='font-medium text-foreground'>
                         {order.shifu_name || order.shifu_bid}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      className='border-r border-border last:border-r-0'
+                      style={getColumnStyle('user')}
+                    >
                       <div className='font-medium text-foreground'>
                         {order.user_mobile || order.user_bid}
                       </div>
@@ -706,25 +851,40 @@ const OrdersPage = () => {
                         {order.user_nickname || order.user_bid}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      className='border-r border-border last:border-r-0'
+                      style={getColumnStyle('amount')}
+                    >
                       <div className='font-semibold text-foreground'>
                         {order.payable_price}
                       </div>
                     </TableCell>
-                    <TableCell className='whitespace-nowrap'>
+                    <TableCell
+                      className='whitespace-nowrap border-r border-border last:border-r-0'
+                      style={getColumnStyle('status')}
+                    >
                       <Badge variant={resolveStatusVariant(order.status)}>
                         {t(order.status_key)}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      className='border-r border-border last:border-r-0'
+                      style={getColumnStyle('payment')}
+                    >
                       <div className='text-sm text-foreground'>
                         {t(order.payment_channel_key)}
                       </div>
                     </TableCell>
-                    <TableCell className='text-xs text-muted-foreground whitespace-nowrap'>
+                    <TableCell
+                      className='text-xs text-muted-foreground whitespace-nowrap border-r border-border last:border-r-0'
+                      style={getColumnStyle('createdAt')}
+                    >
                       {order.created_at}
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      className='border-r border-border last:border-r-0'
+                      style={getColumnStyle('action')}
+                    >
                       <Button
                         size='sm'
                         variant='outline'
