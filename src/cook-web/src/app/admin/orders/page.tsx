@@ -70,13 +70,13 @@ const COLUMN_MAX_WIDTH = 520;
 
 const DEFAULT_COLUMN_WIDTHS = {
   orderId: 260,
-  shifu: 200,
-  user: 220,
-  amount: 120,
-  status: 140,
-  payment: 140,
+  shifu: 170,
+  user: 210,
+  amount: 110,
+  status: 130,
+  payment: 120,
   createdAt: 200,
-  action: 120,
+  action: 110,
 };
 
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
@@ -406,8 +406,17 @@ const OrdersPage = () => {
           if (texts.length === 0) {
             return;
           }
-          const multiplier =
-            key === 'amount' ? 6 : key === 'status' ? 7 : 7.5;
+          const multiplierMap: Partial<Record<ColumnKey, number>> = {
+            orderId: 7.4,
+            shifu: 7,
+            user: 7,
+            amount: 6,
+            status: 7,
+            payment: 6.5,
+            createdAt: 7,
+            action: 6,
+          };
+          const multiplier = multiplierMap[key] ?? 7;
           const required = texts.reduce(
             (maxWidth, text) =>
               Math.max(
