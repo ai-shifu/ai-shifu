@@ -91,7 +91,14 @@
   "paymentChannel": {
     "manual": "人工",
     "pingxx": "Ping++",
+    "pingxxAlipay": "Ping++/支付宝",
+    "pingxxWechat": "Ping++/微信",
     "stripe": "Stripe",
+    "stripeAlipay": "Stripe/支付宝",
+    "stripeCard": "Stripe/银行卡",
+    "stripeCheckoutSession": "Stripe/结账会话",
+    "stripePaymentIntent": "Stripe/支付意图",
+    "stripeWechatPay": "Stripe/微信支付",
     "unknown": "未知"
   },
   "paymentStatus": {
@@ -106,6 +113,7 @@
     "activities": "活动",
     "coupons": "优惠券",
     "payment": "支付",
+    "paymentAdvanced": "支付高级信息",
     "summary": "概要"
   },
   "table": {

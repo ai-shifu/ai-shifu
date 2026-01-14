@@ -91,7 +91,14 @@
   "paymentChannel": {
     "manual": "Manual",
     "pingxx": "Ping++",
+    "pingxxAlipay": "Ping++/Alipay",
+    "pingxxWechat": "Ping++/WeChat",
     "stripe": "Stripe",
+    "stripeAlipay": "Stripe/Alipay",
+    "stripeCard": "Stripe/Card",
+    "stripeCheckoutSession": "Stripe/Checkout Session",
+    "stripePaymentIntent": "Stripe/Payment Intent",
+    "stripeWechatPay": "Stripe/WeChat Pay",
     "unknown": "Unknown"
   },
   "paymentStatus": {
@@ -106,6 +113,7 @@
     "activities": "Activities",
     "coupons": "Coupons",
     "payment": "Payment",
+    "paymentAdvanced": "Advanced Details",
     "summary": "Summary"
   },
   "table": {

@@ -6,11 +6,18 @@ import {
   SheetTitle,
 } from '@/components/ui/Sheet';
 import { Badge } from '@/components/ui/Badge';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/Collapsible';
+import { Button } from '@/components/ui/Button';
 import Loading from '@/components/loading';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import api from '@/api';
 import { useTranslation } from 'react-i18next';
 import { ErrorWithCode } from '@/lib/request';
+import { ChevronDown } from 'lucide-react';
 import type { OrderDetail } from './order-types';
 
 type OrderDetailSheetProps = {
@@ -57,6 +64,7 @@ const OrderDetailSheet = ({
   const [error, setError] = useState<{ message: string; code?: number } | null>(
     null,
   );
+  const [paymentAdvancedOpen, setPaymentAdvancedOpen] = useState(false);
 
   const emptyValue = useMemo(() => t('module.order.emptyValue'), [t]);
   const paymentStatusLabels = useMemo(
@@ -73,7 +81,16 @@ const OrderDetailSheet = ({
   const paymentChannelLabels = useMemo(
     () => ({
       pingxx: t('module.order.paymentChannel.pingxx'),
+      pingxxAlipay: t('module.order.paymentChannel.pingxxAlipay'),
+      pingxxWechat: t('module.order.paymentChannel.pingxxWechat'),
       stripe: t('module.order.paymentChannel.stripe'),
+      stripeAlipay: t('module.order.paymentChannel.stripeAlipay'),
+      stripeCard: t('module.order.paymentChannel.stripeCard'),
+      stripeCheckoutSession: t(
+        'module.order.paymentChannel.stripeCheckoutSession',
+      ),
+      stripePaymentIntent: t('module.order.paymentChannel.stripePaymentIntent'),
+      stripeWechatPay: t('module.order.paymentChannel.stripeWechatPay'),
       unknown: t('module.order.paymentChannel.unknown'),
     }),
     [t],
@@ -172,8 +189,13 @@ const OrderDetailSheet = ({
       setDetail(null);
       setError(null);
       setLoading(false);
+      setPaymentAdvancedOpen(false);
     }
   }, [open]);
+
+  useEffect(() => {
+    setPaymentAdvancedOpen(false);
+  }, [orderBid]);
 
   const summary = detail?.order;
   const payment = detail?.payment;
@@ -184,6 +206,42 @@ const OrderDetailSheet = ({
   const paymentStatusLabel = payment?.status_key
     ? t(payment.status_key)
     : paymentStatusByCode[payment?.status ?? 0] || paymentStatusLabels.unknown;
+  const paymentAdvancedRows = useMemo(() => {
+    if (!payment) {
+      return [];
+    }
+    return [
+      {
+        label: t('module.order.fields.chargeId'),
+        value: payment.charge_id,
+      },
+      {
+        label: t('module.order.fields.paymentIntent'),
+        value: payment.payment_intent_id,
+      },
+      {
+        label: t('module.order.fields.checkoutSession'),
+        value: payment.checkout_session_id,
+      },
+      {
+        label: t('module.order.fields.latestCharge'),
+        value: payment.latest_charge_id,
+      },
+      {
+        label: t('module.order.fields.paymentMethod'),
+        value: payment.payment_method,
+      },
+      {
+        label: t('module.order.fields.paymentCreatedAt'),
+        value: payment.created_at,
+      },
+      {
+        label: t('module.order.fields.paymentUpdatedAt'),
+        value: payment.updated_at,
+      },
+    ].filter(item => item.value);
+  }, [payment, t]);
+  const hasPaymentAdvanced = paymentAdvancedRows.length > 0;
 
   return (
     <Sheet
@@ -273,49 +331,58 @@ const OrderDetailSheet = ({
                   label={t('module.order.fields.paymentAmount')}
                   value={fallbackValue(payment?.amount, emptyValue)}
                 />
-                <DetailRow
-                  label={t('module.order.fields.currency')}
-                  value={fallbackValue(payment?.currency, emptyValue)}
-                />
-                <DetailRow
-                  label={t('module.order.fields.transactionNo')}
-                  value={fallbackValue(payment?.transaction_no, emptyValue)}
-                />
-                <DetailRow
-                  label={t('module.order.fields.chargeId')}
-                  value={fallbackValue(payment?.charge_id, emptyValue)}
-                />
-                <DetailRow
-                  label={t('module.order.fields.paymentIntent')}
-                  value={fallbackValue(payment?.payment_intent_id, emptyValue)}
-                />
-                <DetailRow
-                  label={t('module.order.fields.checkoutSession')}
-                  value={fallbackValue(
-                    payment?.checkout_session_id,
-                    emptyValue,
-                  )}
-                />
-                <DetailRow
-                  label={t('module.order.fields.latestCharge')}
-                  value={fallbackValue(payment?.latest_charge_id, emptyValue)}
-                />
-                <DetailRow
-                  label={t('module.order.fields.receipt')}
-                  value={fallbackValue(payment?.receipt_url, emptyValue)}
-                />
-                <DetailRow
-                  label={t('module.order.fields.paymentMethod')}
-                  value={fallbackValue(payment?.payment_method, emptyValue)}
-                />
-                <DetailRow
-                  label={t('module.order.fields.paymentCreatedAt')}
-                  value={fallbackValue(payment?.created_at, emptyValue)}
-                />
-                <DetailRow
-                  label={t('module.order.fields.paymentUpdatedAt')}
-                  value={fallbackValue(payment?.updated_at, emptyValue)}
-                />
+                {payment?.currency && (
+                  <DetailRow
+                    label={t('module.order.fields.currency')}
+                    value={payment.currency}
+                  />
+                )}
+                {payment?.transaction_no && (
+                  <DetailRow
+                    label={t('module.order.fields.transactionNo')}
+                    value={payment.transaction_no}
+                  />
+                )}
+                {payment?.receipt_url && (
+                  <DetailRow
+                    label={t('module.order.fields.receipt')}
+                    value={payment.receipt_url}
+                  />
+                )}
+                {hasPaymentAdvanced && (
+                  <Collapsible
+                    open={paymentAdvancedOpen}
+                    onOpenChange={setPaymentAdvancedOpen}
+                  >
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant='ghost'
+                        size='sm'
+                        className='w-full justify-between px-2 text-muted-foreground'
+                      >
+                        <span>
+                          {t('module.order.sections.paymentAdvanced')}
+                        </span>
+                        <ChevronDown
+                          className={
+                            paymentAdvancedOpen
+                              ? 'h-4 w-4 rotate-180'
+                              : 'h-4 w-4'
+                          }
+                        />
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className='mt-2 space-y-2'>
+                      {paymentAdvancedRows.map(item => (
+                        <DetailRow
+                          key={item.label}
+                          label={item.label}
+                          value={item.value}
+                        />
+                      ))}
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
               </Section>
 
               <Section title={t('module.order.sections.activities')}>

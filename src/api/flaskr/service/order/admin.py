@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+import json
 import re
 from typing import Any, Dict, List, Optional
 
@@ -103,6 +104,22 @@ PAYMENT_CHANNEL_KEY_MAP = {
     "manual": "module.order.paymentChannel.manual",
 }
 
+PINGXX_CHANNEL_KEY_MAP = {
+    "wechat": "module.order.paymentChannel.pingxxWechat",
+    "alipay": "module.order.paymentChannel.pingxxAlipay",
+}
+
+STRIPE_MODE_KEY_MAP = {
+    "checkout_session": "module.order.paymentChannel.stripeCheckoutSession",
+    "payment_intent": "module.order.paymentChannel.stripePaymentIntent",
+}
+
+STRIPE_METHOD_KEY_MAP = {
+    "card": "module.order.paymentChannel.stripeCard",
+    "alipay": "module.order.paymentChannel.stripeAlipay",
+    "wechat_pay": "module.order.paymentChannel.stripeWechatPay",
+}
+
 MOBILE_PATTERN = re.compile(r"^\d{11}$")
 
 
@@ -162,6 +179,83 @@ def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
     return None
 
 
+def _parse_json_payload(value: Any) -> Any:
+    if not value:
+        return {}
+    if isinstance(value, (dict, list)):
+        return value
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+    return {}
+
+
+def _resolve_pingxx_channel_key(channel: str) -> str:
+    normalized = (channel or "").strip().lower()
+    if not normalized:
+        return ""
+    if normalized.startswith("wx"):
+        return PINGXX_CHANNEL_KEY_MAP["wechat"]
+    if normalized.startswith("alipay"):
+        return PINGXX_CHANNEL_KEY_MAP["alipay"]
+    return ""
+
+
+def _resolve_stripe_mode(checkout_session_id: str, payment_intent_id: str) -> str:
+    if checkout_session_id:
+        return "checkout_session"
+    if payment_intent_id:
+        return "payment_intent"
+    return ""
+
+
+def _resolve_stripe_method_type(
+    payment_intent_payload: Any, checkout_session_payload: Any
+) -> str:
+    intent_payload = _parse_json_payload(payment_intent_payload)
+    if isinstance(intent_payload, dict):
+        charges = intent_payload.get("charges", {}).get("data", [])
+        if charges:
+            details = charges[0].get("payment_method_details", {}) or {}
+            method_type = details.get("type", "")
+            if method_type:
+                return str(method_type).lower()
+        intent_types = intent_payload.get("payment_method_types")
+        if isinstance(intent_types, list) and len(intent_types) == 1:
+            return str(intent_types[0]).lower()
+
+    session_payload = _parse_json_payload(checkout_session_payload)
+    if isinstance(session_payload, dict):
+        session_types = session_payload.get("payment_method_types")
+        if isinstance(session_types, list) and len(session_types) == 1:
+            return str(session_types[0]).lower()
+    return ""
+
+
+def _resolve_payment_channel_key(
+    payment_channel: str, provider_channel: str = "", method_type: str = ""
+) -> str:
+    normalized = (payment_channel or "").strip().lower()
+    if normalized == "pingxx":
+        pingxx_key = _resolve_pingxx_channel_key(provider_channel)
+        if pingxx_key:
+            return pingxx_key
+    elif normalized == "stripe":
+        stripe_method_key = STRIPE_METHOD_KEY_MAP.get(
+            (method_type or "").strip().lower()
+        )
+        if stripe_method_key:
+            return stripe_method_key
+        stripe_mode_key = STRIPE_MODE_KEY_MAP.get(provider_channel or "")
+        if stripe_mode_key:
+            return stripe_mode_key
+    return PAYMENT_CHANNEL_KEY_MAP.get(
+        normalized, "module.order.paymentChannel.unknown"
+    )
+
+
 def _load_shifu_map(shifu_bids: list[str]) -> Dict[str, DraftShifu]:
     if not shifu_bids:
         return {}
@@ -210,10 +304,57 @@ def _load_user_map(user_bids: list[str]) -> Dict[str, Dict[str, str]]:
     return user_map
 
 
+def _load_pingxx_channel_map(order_bids: list[str]) -> Dict[str, str]:
+    if not order_bids:
+        return {}
+    records = (
+        PingxxOrder.query.filter(
+            PingxxOrder.order_bid.in_(order_bids),
+            PingxxOrder.deleted == 0,
+        )
+        .order_by(PingxxOrder.id.desc())
+        .all()
+    )
+    channel_map: Dict[str, str] = {}
+    for record in records:
+        if record.order_bid and record.order_bid not in channel_map:
+            channel_map[record.order_bid] = record.channel or ""
+    return channel_map
+
+
+def _load_stripe_channel_map(order_bids: list[str]) -> Dict[str, Dict[str, str]]:
+    if not order_bids:
+        return {}
+    records = (
+        StripeOrder.query.filter(
+            StripeOrder.order_bid.in_(order_bids),
+            StripeOrder.deleted == 0,
+        )
+        .order_by(StripeOrder.id.desc())
+        .all()
+    )
+    channel_map: Dict[str, Dict[str, str]] = {}
+    for record in records:
+        if record.order_bid and record.order_bid not in channel_map:
+            channel_map[record.order_bid] = {
+                "mode": _resolve_stripe_mode(
+                    record.checkout_session_id or "",
+                    record.payment_intent_id or "",
+                ),
+                "method_type": _resolve_stripe_method_type(
+                    record.payment_intent_object,
+                    record.checkout_session_object,
+                ),
+            }
+    return channel_map
+
+
 def _build_order_item(
     order: Order,
     shifu_map: Dict[str, DraftShifu],
     user_map: Dict[str, Dict[str, str]],
+    provider_channel: str = "",
+    method_type: str = "",
 ) -> OrderAdminSummaryDTO:
     shifu = shifu_map.get(order.shifu_bid)
     user = user_map.get(order.user_bid, {})
@@ -234,8 +375,8 @@ def _build_order_item(
         status=order.status,
         status_key=status_key,
         payment_channel=payment_channel,
-        payment_channel_key=PAYMENT_CHANNEL_KEY_MAP.get(
-            payment_channel, "module.order.paymentChannel.unknown"
+        payment_channel_key=_resolve_payment_channel_key(
+            payment_channel, provider_channel, method_type
         ),
         created_at=_format_datetime(order.created_at),
         updated_at=_format_datetime(order.updated_at),
@@ -441,7 +582,30 @@ def list_orders(
         shifu_map = _load_shifu_map([order.shifu_bid for order in orders])
         user_map = _load_user_map([order.user_bid for order in orders])
 
-        items = [_build_order_item(order, shifu_map, user_map) for order in orders]
+        pingxx_order_bids = [
+            order.order_bid for order in orders if order.payment_channel == "pingxx"
+        ]
+        stripe_order_bids = [
+            order.order_bid for order in orders if order.payment_channel == "stripe"
+        ]
+        pingxx_channel_map = _load_pingxx_channel_map(pingxx_order_bids)
+        stripe_channel_map = _load_stripe_channel_map(stripe_order_bids)
+
+        items = []
+        for order in orders:
+            provider_channel = ""
+            method_type = ""
+            if order.payment_channel == "pingxx":
+                provider_channel = pingxx_channel_map.get(order.order_bid, "")
+            elif order.payment_channel == "stripe":
+                stripe_meta = stripe_channel_map.get(order.order_bid, {})
+                provider_channel = stripe_meta.get("mode", "")
+                method_type = stripe_meta.get("method_type", "")
+            items.append(
+                _build_order_item(
+                    order, shifu_map, user_map, provider_channel, method_type
+                )
+            )
         return PageNationDTO(page_index, page_size, total, items)
 
 
@@ -495,7 +659,9 @@ def _load_order_coupons(order_bid: str) -> List[OrderAdminCouponDTO]:
     return coupons
 
 
-def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
+def _load_payment_detail(
+    order: Order,
+) -> tuple[Optional[OrderAdminPaymentDTO], str, str]:
     payment_channel = order.payment_channel or ""
     if payment_channel == "stripe":
         stripe_order = (
@@ -507,11 +673,19 @@ def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
             .first()
         )
         if not stripe_order:
-            return None
-        return OrderAdminPaymentDTO(
+            return None, "", ""
+        stripe_mode = _resolve_stripe_mode(
+            stripe_order.checkout_session_id or "",
+            stripe_order.payment_intent_id or "",
+        )
+        stripe_method_type = _resolve_stripe_method_type(
+            stripe_order.payment_intent_object,
+            stripe_order.checkout_session_object,
+        )
+        payment_detail = OrderAdminPaymentDTO(
             payment_channel="stripe",
-            payment_channel_key=PAYMENT_CHANNEL_KEY_MAP.get(
-                "stripe", "module.order.paymentChannel.unknown"
+            payment_channel_key=_resolve_payment_channel_key(
+                "stripe", stripe_mode, stripe_method_type
             ),
             status=stripe_order.status,
             status_key=PAYMENT_STATUS_KEY_MAP.get(
@@ -527,6 +701,7 @@ def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
             created_at=_format_datetime(stripe_order.created_at),
             updated_at=_format_datetime(stripe_order.updated_at),
         )
+        return payment_detail, stripe_mode, stripe_method_type
 
     if payment_channel == "pingxx":
         pingxx_order = (
@@ -538,12 +713,11 @@ def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
             .first()
         )
         if not pingxx_order:
-            return None
-        return OrderAdminPaymentDTO(
+            return None, "", ""
+        pingxx_channel = pingxx_order.channel or ""
+        payment_detail = OrderAdminPaymentDTO(
             payment_channel="pingxx",
-            payment_channel_key=PAYMENT_CHANNEL_KEY_MAP.get(
-                "pingxx", "module.order.paymentChannel.unknown"
-            ),
+            payment_channel_key=_resolve_payment_channel_key("pingxx", pingxx_channel),
             status=pingxx_order.status,
             status_key=PAYMENT_STATUS_KEY_MAP.get(
                 pingxx_order.status, "module.order.paymentStatus.unknown"
@@ -552,12 +726,13 @@ def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
             currency=pingxx_order.currency,
             transaction_no=pingxx_order.transaction_no or "",
             charge_id=pingxx_order.charge_id or "",
-            channel=pingxx_order.channel or "",
+            channel=pingxx_channel,
             created_at=_format_datetime(pingxx_order.created_at),
             updated_at=_format_datetime(pingxx_order.updated_at),
         )
+        return payment_detail, pingxx_channel, ""
 
-    return None
+    return None, "", ""
 
 
 def get_order_detail(app: Flask, user_id: str, order_bid: str) -> OrderAdminDetailDTO:
@@ -574,15 +749,15 @@ def get_order_detail(app: Flask, user_id: str, order_bid: str) -> OrderAdminDeta
 
         shifu_map = _load_shifu_map([order.shifu_bid])
         user_map = _load_user_map([order.user_bid])
-        summary = _build_order_item(order, shifu_map, user_map)
-        payment_detail = _load_payment_detail(order)
+        payment_detail, provider_channel, method_type = _load_payment_detail(order)
+        summary = _build_order_item(
+            order, shifu_map, user_map, provider_channel, method_type
+        )
         if not payment_detail:
             payment_channel = order.payment_channel or ""
             payment_detail = OrderAdminPaymentDTO(
                 payment_channel=payment_channel,
-                payment_channel_key=PAYMENT_CHANNEL_KEY_MAP.get(
-                    payment_channel, "module.order.paymentChannel.unknown"
-                ),
+                payment_channel_key=_resolve_payment_channel_key(payment_channel),
                 status=0,
                 status_key="module.order.paymentStatus.unknown",
                 amount="0",
