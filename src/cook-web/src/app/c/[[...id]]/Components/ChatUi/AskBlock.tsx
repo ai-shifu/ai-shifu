@@ -339,33 +339,6 @@ export default function AskBlock({
     };
   }, [expanded, focusAskInput]);
 
-  // Dismiss keyboard on scroll (Mobile only)
-  useEffect(() => {
-    if (!mobileStyle || !expanded) return;
-    const container = mobileContentRef.current;
-    if (!container) return;
-
-    const handleTouchMove = (e: TouchEvent) => {
-      const target = e.target as HTMLElement;
-      // If the touch started on the active input element, don't blur (user might be scrolling text inside input)
-      if (target === document.activeElement) {
-        return;
-      }
-
-      if (document.activeElement instanceof HTMLElement) {
-        const tagName = document.activeElement.tagName;
-        if (tagName === 'INPUT' || tagName === 'TEXTAREA') {
-          document.activeElement.blur();
-        }
-      }
-    };
-
-    container.addEventListener('touchmove', handleTouchMove, { passive: true });
-    return () => {
-      container.removeEventListener('touchmove', handleTouchMove);
-    };
-  }, [mobileStyle, expanded]);
-
   const handleClickTitle = useCallback(
     (index: number) => {
       if (index !== 0 || expanded || !mobileStyle) {
