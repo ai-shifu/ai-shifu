@@ -57,6 +57,8 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     create_shifu_draft,
     get_shifu_draft_info,
     save_shifu_draft_info,
+    archive_shifu,
+    unarchive_shifu,
 )
 from flaskr.service.shifu.shifu_publish_funcs import (
     publish_shifu_draft,
@@ -203,6 +205,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         page_size = request.args.get("page_size", 10)
         is_favorite = request.args.get("is_favorite", "False")
         is_favorite = True if is_favorite.lower() == "true" else False
+        archived_param = request.args.get("archived")
+        archived = False
+        if archived_param is not None:
+            archived = archived_param.lower() == "true"
         try:
             page_index = int(page_index)
             page_size = int(page_size)
@@ -215,8 +221,24 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             f"get shifu list, user_id: {user_id}, page_index: {page_index}, page_size: {page_size}, is_favorite: {is_favorite}"
         )
         return make_common_response(
-            get_shifu_draft_list(app, user_id, page_index, page_size, is_favorite)
+            get_shifu_draft_list(
+                app, user_id, page_index, page_size, is_favorite, archived
+            )
         )
+
+    @app.route(path_prefix + "/shifus/<shifu_id>/archive", methods=["POST"])
+    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
+    def archive_shifu_api(shifu_id: str):
+        user_id = request.user.user_id
+        archive_shifu(app, user_id, shifu_id)
+        return make_common_response({"archived": True})
+
+    @app.route(path_prefix + "/shifus/<shifu_id>/unarchive", methods=["POST"])
+    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
+    def unarchive_shifu_api(shifu_id: str):
+        user_id = request.user.user_id
+        unarchive_shifu(app, user_id, shifu_id)
+        return make_common_response({"archived": False})
 
     @app.route(path_prefix + "/shifus", methods=["PUT"])
     @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)

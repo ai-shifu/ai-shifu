@@ -40,6 +40,7 @@ import { useEnvStore } from '@/c-store';
 import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
 import { useShifu } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import { useToast } from '@/hooks/useToast';
 
 interface Shifu {
   description: string;
@@ -53,6 +54,7 @@ interface Shifu {
   url: string;
   temperature: number;
   system_prompt?: string;
+  archived?: boolean;
 }
 
 const MIN_SHIFU_PRICE = 0.5;
@@ -76,7 +78,8 @@ export default function ShifuSettingDialog({
 }) {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
-  const { currentShifu, models } = useShifu();
+  const { currentShifu, models, actions } = useShifu();
+  const { toast } = useToast();
   const defaultLlmModel = useEnvStore(state => state.defaultLlmModel);
   const currencySymbol = useEnvStore(state => state.currencySymbol);
   const baseSelectModelHint = t('module.shifuSetting.selectModelHint');
@@ -97,6 +100,7 @@ export default function ShifuSettingDialog({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedImageUrl, setUploadedImageUrl] = useState('');
   const [copying, setCopying] = useState<CopyingState>(defaultCopyingState);
+  const [archiveLoading, setArchiveLoading] = useState(false);
   const copyTimeoutRef = useRef<
     Record<keyof CopyingState, ReturnType<typeof setTimeout> | null>
   >({
@@ -104,6 +108,42 @@ export default function ShifuSettingDialog({
     url: null,
   });
   const { trackEvent } = useTracking();
+  const handleArchiveToggle = useCallback(async () => {
+    if (!currentShifu?.bid || currentShifu?.readonly) {
+      return;
+    }
+    const confirmMessage = currentShifu.archived
+      ? t('module.shifuSetting.unarchiveConfirm')
+      : t('module.shifuSetting.archiveConfirm');
+    if (typeof window !== 'undefined' && !window.confirm(confirmMessage)) {
+      return;
+    }
+    setArchiveLoading(true);
+    try {
+      if (currentShifu.archived) {
+        await api.unarchiveShifu({ shifu_bid: currentShifu.bid });
+        toast({
+          title: t('module.shifuSetting.unarchiveSuccess'),
+        });
+      } else {
+        await api.archiveShifu({ shifu_bid: currentShifu.bid });
+        toast({
+          title: t('module.shifuSetting.archiveSuccess'),
+        });
+      }
+      await actions.loadShifu(currentShifu.bid, { silent: true });
+      onSave?.();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : t('common.core.unknownError');
+      toast({
+        title: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setArchiveLoading(false);
+    }
+  }, [actions, currentShifu, onSave, t, toast]);
   // Define the validation schema using Zod
   const shifuSchema = z.object({
     previewUrl: z.string(),
@@ -845,6 +885,22 @@ export default function ShifuSettingDialog({
             <div className='h-px w-full bg-border' />
           </form>
         </Form>
+        {!currentShifu?.readonly && currentShifu?.bid ? (
+          <div className='flex justify-end mt-4'>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={handleArchiveToggle}
+              disabled={archiveLoading}
+            >
+              {archiveLoading
+                ? t('common.core.submitting')
+                : currentShifu?.archived
+                  ? t('module.shifuSetting.unarchive')
+                  : t('module.shifuSetting.archive')}
+            </Button>
+          </div>
+        ) : null}
       </SheetContent>
     </Sheet>
   );

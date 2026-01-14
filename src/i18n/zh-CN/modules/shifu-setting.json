@@ -36,5 +36,11 @@
   "title": "课程设置",
   "upload": "上传",
   "uploadFailed": "上传失败，请稍后再试",
-  "uploading": "正在上传"
+  "uploading": "正在上传",
+  "archive": "归档课程",
+  "unarchive": "取消归档",
+  "archiveConfirm": "确定将课程归档？归档后会移动到“已归档”，仍可编辑且学员可以继续学习。",
+  "unarchiveConfirm": "确定取消归档并恢复到课程列表？",
+  "archiveSuccess": "课程已归档",
+  "unarchiveSuccess": "已取消归档"
 }

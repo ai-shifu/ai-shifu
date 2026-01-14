@@ -177,6 +177,17 @@ class DraftShifu(db.Model):
         comment="Ask agent LLM system prompt",
     )
     price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
+    archived = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Archive flag: 0=active, 1=archived",
+    )
+    archived_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Archived timestamp",
+    )
     deleted = Column(
         SmallInteger,
         nullable=False,
@@ -511,6 +522,17 @@ class PublishedShifu(db.Model):
         Text, nullable=False, default="", comment="Ask agent LLM system prompt"
     )
     price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
+    archived = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Archive flag: 0=active, 1=archived",
+    )
+    archived_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Archived timestamp",
+    )
     deleted = Column(
         SmallInteger,
         nullable=False,

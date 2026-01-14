@@ -13,11 +13,17 @@ branch_labels = None
 depends_on = None
 
 
+import os
+
+
 def upgrade():
     from flask import current_app as app
     from flaskr.command.update_shifu_demo import update_demo_shifu
 
     with app.app_context():
+        if os.getenv("SKIP_DEMO_SHIFU_IMPORT"):
+            app.logger.info("Skip demo shifu import due to SKIP_DEMO_SHIFU_IMPORT")
+            return
         update_demo_shifu(app)
 
 

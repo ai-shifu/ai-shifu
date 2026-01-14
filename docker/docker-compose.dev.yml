@@ -46,6 +46,8 @@ services:
       MYSQL_DATABASE: ai-shifu
     image: mysql:8.0
     restart: always
+    ports:
+      - "3306:3306"
     volumes:
       - ./mysql_data:/var/lib/mysql
 

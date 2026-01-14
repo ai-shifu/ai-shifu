@@ -14,9 +14,10 @@ import {
 } from '@heroicons/react/24/solid';
 import api from '@/api';
 import { Shifu } from '@/types/shifu';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
 import { CreateShifuDialog } from '@/components/create-shifu-dialog';
 import { useToast } from '@/hooks/useToast';
 import { useRouter } from 'next/navigation';
@@ -26,12 +27,14 @@ import { ErrorWithCode } from '@/lib/request';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import { cn } from '@/lib/utils';
 interface ShifuCardProps {
   id: string;
   image: string | undefined;
   title: string;
   description: string;
   isFavorite: boolean;
+  archived?: boolean;
 }
 
 const ShifuCard = ({
@@ -40,13 +43,20 @@ const ShifuCard = ({
   title,
   description,
   isFavorite,
+  archived,
 }: ShifuCardProps) => {
+  const { t } = useTranslation();
   return (
     <Link
       href={`/shifu/${id}`}
       className='block w-full h-full'
     >
-      <Card className='w-full h-full cursor-pointer rounded-xl bg-background hover:scale-105 transition-all duration-200 ease-in-out'>
+      <Card
+        className={cn(
+          'w-full h-full cursor-pointer rounded-xl bg-background hover:scale-105 transition-all duration-200 ease-in-out',
+          archived && 'opacity-80 border-dashed',
+        )}
+      >
         <CardContent className='p-4 cursor-pointer'>
           <div className='flex flex-row items-center justify-between'>
             <div className='flex flex-row items-center mb-2 w-full'>
@@ -65,7 +75,12 @@ const ShifuCard = ({
                 {title}
               </h3>
             </div>
-            {isFavorite && <StarIcon className='w-5 h-5 text-yellow-400' />}
+            <div className='flex items-center gap-2'>
+              {isFavorite && <StarIcon className='w-5 h-5 text-yellow-400' />}
+              {archived && (
+                <Badge variant='secondary'>{t('common.core.archived')}</Badge>
+              )}
+            </div>
           </div>
           <div>
             <p className='mt-1 text-sm text-gray-500 line-clamp-3 break-words break-all'>
@@ -85,7 +100,7 @@ const ScriptManagementPage = () => {
   const { t, i18n } = useTranslation();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'archived'>('all');
   const [shifus, setShifus] = useState<Shifu[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -98,16 +113,29 @@ const ScriptManagementPage = () => {
   const containerRef = useRef(null);
   const fetchShifusRef = useRef<(() => Promise<void>) | null>(null);
 
+  const activeTabRef = useRef<'all' | 'archived'>(activeTab);
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
   const fetchShifus = useCallback(async () => {
     if (loading || !hasMore) return;
 
     setLoading(true);
     try {
+      const requestTab = activeTabRef.current;
+      const isArchivedTab = activeTab === 'archived';
       const { items } = await api.getShifuList({
         page_index: currentPage.current,
         page_size: pageSize,
-        is_favorite: activeTab === 'favorites',
+        archived: isArchivedTab,
       });
+
+      if (requestTab !== activeTabRef.current) {
+        setLoading(false);
+        return;
+      }
       if (items.length < pageSize) {
         setHasMore(false);
       }
@@ -170,11 +198,15 @@ const ScriptManagementPage = () => {
   };
 
   useEffect(() => {
+    if (!isInitialized) return;
     setShifus([]);
     setHasMore(true);
     currentPage.current = 1;
     setError(null);
-  }, [activeTab]);
+    if (fetchShifusRef.current) {
+      fetchShifusRef.current();
+    }
+  }, [activeTab, isInitialized]);
 
   // Reload list when language changes to reflect localized fields
   useEffect(() => {
@@ -186,7 +218,7 @@ const ScriptManagementPage = () => {
       fetchShifusRef.current();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [i18n.language]);
+  }, [i18n.language, isInitialized]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -216,14 +248,7 @@ const ScriptManagementPage = () => {
     }
   }, [isInitialized, isGuest]);
 
-  // Fetch data when user is initialized
-  useEffect(() => {
-    if (isInitialized && fetchShifusRef.current) {
-      if (shifus.length === 0 && !loading) {
-        fetchShifusRef.current();
-      }
-    }
-  }, [isInitialized]);
+  // Fetch data when language resets list handles initial load through activeTab effect
 
   if (error) {
     return (
@@ -251,21 +276,35 @@ const ScriptManagementPage = () => {
             {t('common.core.shifu')}
           </h1>
         </div>
-        <div className='flex space-x-3 mb-5'>
-          <Button
-            size='sm'
-            variant='outline'
-            onClick={handleCreateShifuModal}
-          >
-            <PlusIcon className='w-5 h-5 mr-1' />
-            {t('common.core.createBlankShifu')}
-          </Button>
-          <CreateShifuDialog
-            open={showCreateShifuModal}
-            onOpenChange={setShowCreateShifuModal}
-            onSubmit={onCreateShifu}
-          />
-        </div>
+        <Tabs
+          value={activeTab}
+          onValueChange={value => setActiveTab(value as 'all' | 'archived')}
+          className='mb-5'
+        >
+          <TabsList className='h-9 rounded-full bg-muted/40'>
+            <TabsTrigger value='all'>{t('common.core.all')}</TabsTrigger>
+            <TabsTrigger value='archived'>
+              {t('common.core.archived')}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        {activeTab === 'all' && (
+          <div className='flex space-x-3 mb-5'>
+            <Button
+              size='sm'
+              variant='outline'
+              onClick={handleCreateShifuModal}
+            >
+              <PlusIcon className='w-5 h-5 mr-1' />
+              {t('common.core.createBlankShifu')}
+            </Button>
+            <CreateShifuDialog
+              open={showCreateShifuModal}
+              onOpenChange={setShowCreateShifuModal}
+              onSubmit={onCreateShifu}
+            />
+          </div>
+        )}
         <div className='flex-1 overflow-auto'>
           <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-3'>
             {shifus.map(shifu => (
@@ -276,6 +315,7 @@ const ScriptManagementPage = () => {
                 title={shifu.name || ''}
                 description={shifu.description || ''}
                 isFavorite={shifu.is_favorite || false}
+                archived={Boolean(shifu.archived)}
               />
             ))}
           </div>
