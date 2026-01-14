@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, Loader2, AlertCircle } from 'lucide-react';
+import { Copy, Loader2, AlertCircle, Check } from 'lucide-react';
 
 // Reuse ai-shifu's shadcn/ui components
 import { Badge } from '@/components/ui/Badge';
@@ -70,6 +70,7 @@ export function MdfConvertDialog({
     null,
   );
   const [isCheckingConfig, setIsCheckingConfig] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
   // Pass i18n language code directly to backend (e.g., 'zh-CN', 'en-US')
   const language = i18n.language;
@@ -94,6 +95,7 @@ export function MdfConvertDialog({
       setInputText('');
       setResult(null);
       setIsConverting(false);
+      setIsCopied(false);
       checkMdfApiConfig();
     }
   }, [open]);
@@ -161,7 +163,8 @@ export function MdfConvertDialog({
 
     try {
       await navigator.clipboard.writeText(text);
-      toast({ title: t('component.mdfConvert.copySuccess') });
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
     } catch {
       // Fallback for older browsers
       const textArea = document.createElement('textarea');
@@ -172,7 +175,8 @@ export function MdfConvertDialog({
       textArea.select();
       try {
         document.execCommand('copy');
-        toast({ title: t('component.mdfConvert.copySuccess') });
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
       } catch {
         fail(t('component.mdfConvert.copyError'));
       } finally {
@@ -280,10 +284,16 @@ export function MdfConvertDialog({
                   variant='ghost'
                   size='sm'
                   onClick={() => copyToClipboard(result.content_prompt)}
-                  className='h-8 px-2'
+                  className={`h-8 px-2 ${isCopied ? 'text-green-600 dark:text-green-400' : ''}`}
                 >
-                  <Copy className='h-3 w-3 mr-1' />
-                  {t('component.mdfConvert.copyButton')}
+                  {isCopied ? (
+                    <Check className='h-3 w-3 mr-1' />
+                  ) : (
+                    <Copy className='h-3 w-3 mr-1' />
+                  )}
+                  {isCopied
+                    ? t('component.mdfConvert.copied')
+                    : t('component.mdfConvert.copyButton')}
                 </Button>
               </div>
               <div className='flex-1 min-h-0 overflow-y-auto rounded-md border border-slate-300/80 bg-background/90 p-4'>
