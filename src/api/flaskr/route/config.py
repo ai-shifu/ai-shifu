@@ -96,6 +96,8 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             "currencySymbol": get_config("CURRENCY_SYMBOL", "¥"),
             # Legal Documents Configuration
             "legalUrls": legal_urls,
+            # External API Configuration
+            "genMdfApiUrl": get_config("GEN_MDF_API_URL", ""),
         }
         return make_common_response(config)
 

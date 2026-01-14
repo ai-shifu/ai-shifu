@@ -1,0 +1,23 @@
+{
+  "__namespace__": "component.mdfConvert",
+  "applyButton": "应用",
+  "applySuccess": "内容已应用到编辑器",
+  "backButton": "上一步",
+  "cancelButton": "取消",
+  "configWarningMessage": "未配置智能转换 MarkdownFlow 的 API 服务，请联系 AI 师傅团队获得支持：",
+  "confirmApplyButton": "确认",
+  "confirmApplyDescription": "这将会覆盖当前编辑器中的内容,是否确认应用?",
+  "confirmApplyTitle": "确认应用",
+  "contentPromptTitle": "转换结果",
+  "convertButton": "开始转换",
+  "convertSuccess": "转换成功!",
+  "converting": "转换中...",
+  "copied": "已复制",
+  "copyButton": "复制",
+  "copyError": "复制失败",
+  "dialogTitle": "智能转换",
+  "inputLabel": "待转换的内容",
+  "inputPlaceholder": "请输入完整的文档内容，AI 会把它智能转换为 MarkdownFlow 格式",
+  "textTooLong": "文本内容过长,请控制在 10,000 字符以内",
+  "textTooShort": "请输入内容"
+}
