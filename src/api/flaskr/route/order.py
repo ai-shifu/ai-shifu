@@ -15,6 +15,7 @@ from flaskr.service.order.admin import (
     import_activation_orders,
     list_orders,
 )
+from flaskr.service.learn.learn_funcs import get_shifu_info
 from flaskr.common.shifu_context import with_shifu_context
 
 
@@ -420,17 +421,22 @@ def register_order_handler(app: Flask, path_prefix: str):
         _require_creator()
         payload = request.get_json() or {}
         mobile_field = str(payload.get("mobile", "")).strip()
-        course_id = payload.get("course_id", "")
+        course_id = str(payload.get("course_id", "")).strip()
         user_nick_name = payload.get("user_nick_name")
 
         if not mobile_field:
             raise_param_error("mobile")
+        if not course_id:
+            raise_param_error("course_id")
 
         mobiles = [item.strip() for item in mobile_field.split(",") if item.strip()]
         if not mobiles:
             raise_param_error("mobile")
         if len(mobiles) > 50:
             raise_param_error("mobile limit 50")
+
+        # Validate course exists before iterating mobiles to avoid repeated errors
+        get_shifu_info(app, course_id, False)
 
         return make_common_response(
             import_activation_orders(app, mobiles, course_id, user_nick_name)

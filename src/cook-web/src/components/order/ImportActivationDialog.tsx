@@ -166,6 +166,7 @@ const ImportActivationDialog = ({
       };
       const successCount = response?.success?.length ?? 0;
       const failedCount = response?.failed?.length ?? 0;
+      const failedEntries = response?.failed ?? [];
 
       if (failedCount === 0) {
         toast({
@@ -176,6 +177,26 @@ const ImportActivationDialog = ({
         });
         onSuccess?.('');
         onOpenChange(false);
+        return;
+      }
+
+      const isCourseError =
+        successCount === 0 &&
+        failedCount === mobiles.length &&
+        failedEntries.length > 0 &&
+        failedEntries.every(entry => {
+          const msg = entry.message?.toLowerCase() || '';
+          return (
+            msg.includes('课程不存在') || msg.includes('course not found')
+          );
+        });
+      if (isCourseError) {
+        toast({
+          title:
+            failedEntries[0]?.message ||
+            t('module.order.importActivation.failed'),
+          variant: 'destructive',
+        });
         return;
       }
 
