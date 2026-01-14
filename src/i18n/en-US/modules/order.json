@@ -60,7 +60,9 @@
     "shifuBid": "Course Name",
     "startTime": "Start Date",
     "status": "Status",
-    "userBid": "Email or Mobile"
+    "userBid": "Email or Mobile",
+    "userBidPhone": "Mobile",
+    "userBidEmail": "Email"
   },
   "importActivation": {
     "action": "Import Activation",

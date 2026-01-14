@@ -60,7 +60,9 @@
     "shifuBid": "课程名称",
     "startTime": "开始日期",
     "status": "状态",
-    "userBid": "邮箱或手机"
+    "userBid": "邮箱或手机",
+    "userBidPhone": "手机号",
+    "userBidEmail": "邮箱"
   },
   "importActivation": {
     "action": "导入开通",

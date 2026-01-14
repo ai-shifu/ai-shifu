@@ -45,6 +45,8 @@ import { cn } from '@/lib/utils';
 import { CalendarIcon, Check, ChevronDown } from 'lucide-react';
 import type { OrderSummary } from '@/components/order/order-types';
 import type { Shifu } from '@/types/shifu';
+import { useEnvStore } from '@/c-store';
+import type { EnvStoreState } from '@/c-types/store';
 
 type OrderListResponse = {
   items: OrderSummary[];
@@ -231,6 +233,9 @@ const OrdersPage = () => {
   const { t, i18n } = useTranslation();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
+  const loginMethodsEnabled = useEnvStore(
+    (state: EnvStoreState) => state.loginMethodsEnabled,
+  );
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ message: string; code?: number } | null>(
@@ -326,6 +331,19 @@ const OrdersPage = () => {
     ],
     [t],
   );
+
+  const userBidPlaceholder = useMemo(() => {
+    const methods = loginMethodsEnabled || [];
+    const hasPhone = methods.includes('phone');
+    const hasEmail = methods.includes('email');
+    if (hasPhone && !hasEmail) {
+      return t('module.order.filters.userBidPhone');
+    }
+    if (hasEmail && !hasPhone) {
+      return t('module.order.filters.userBidEmail');
+    }
+    return t('module.order.filters.userBid');
+  }, [loginMethodsEnabled, t]);
 
   const displayStatusValue = filters.status || ALL_OPTION_VALUE;
   const displayChannelValue = filters.payment_channel || ALL_OPTION_VALUE;
@@ -769,7 +787,7 @@ const OrdersPage = () => {
               onChange={event =>
                 handleFilterChange('user_bid', event.target.value)
               }
-              placeholder={t('module.order.filters.userBid')}
+              placeholder={userBidPlaceholder}
               className='h-9'
             />
             <Popover>
