@@ -33,9 +33,9 @@ repos:
         name: Prettier cook-web files
         entry: prettier
         language: node
-        files: ^src/cook-web/.*\.(js|jsx|ts|tsx|mjs|cjs|css|scss|md|json)$
-        args: ['--write', '--config', 'src/cook-web/.prettierrc']
-        additional_dependencies: ['prettier@^3.5.3']
+        files: ^src/cook-web/.*\.(js|jsx|ts|tsx|mjs|cjs|css|scss|md|mdx|json)$
+        args: ['--write', '--config', 'src/cook-web/.prettierrc', '--ignore-path', 'src/cook-web/.prettierignore']
+        additional_dependencies: ['prettier@3.7.4']
 -   repo: local
     hooks:
     -   id: check-shared-translations

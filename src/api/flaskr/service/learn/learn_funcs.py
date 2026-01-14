@@ -53,6 +53,7 @@ from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.service.common import raise_error, raise_error_with_args
 from flaskr.service.shifu.utils import get_shifu_res_url
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.service.order.models import Order, BannerInfo
 from flaskr.i18n import _
 from flaskr.service.order.consts import (
@@ -98,6 +99,47 @@ STATUS_MAP = {
 }
 
 logger = logging.getLogger(__name__)
+
+
+def _collect_outline_bids(struct: HistoryItem) -> list[str]:
+    outline_bids = []
+    q = queue.Queue()
+    q.put(struct)
+    while not q.empty():
+        item: HistoryItem = q.get()
+        if item.type == "outline":
+            outline_bids.append(item.bid)
+        if item.children:
+            for child in item.children:
+                q.put(child)
+    return outline_bids
+
+
+def _has_next_outline_item(
+    struct: HistoryItem, outline_bid: str, hidden_map: dict[str, bool]
+) -> bool:
+    # Check whether a visible outline item exists after the current one.
+    path = find_node_with_parents(struct, outline_bid)
+    if not path:
+        return False
+    for idx in range(len(path) - 1, 0, -1):
+        current_node = path[idx]
+        parent = path[idx - 1]
+        try:
+            current_index = next(
+                i
+                for i, child in enumerate(parent.children)
+                if child.bid == current_node.bid
+            )
+        except StopIteration:
+            continue
+        for sibling in parent.children[current_index + 1 :]:
+            if sibling.type != "outline":
+                continue
+            if hidden_map.get(sibling.bid, True):
+                continue
+            return True
+    return False
 
 
 def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifuInfoDTO:
@@ -371,6 +413,43 @@ def get_learn_record(
                         if button.get("value") == "_sys_login":
                             if bool(request.user.mobile):
                                 records.remove(last_record)
+        struct_model = LogDraftStruct if preview_mode else LogPublishedStruct
+        outline_item_model = DraftOutlineItem if preview_mode else PublishedOutlineItem
+        has_next_outline = False
+        struct_info = (
+            struct_model.query.filter(
+                struct_model.shifu_bid == shifu_bid, struct_model.deleted == 0
+            )
+            .order_by(struct_model.id.desc())
+            .first()
+        )
+        if struct_info:
+            struct = HistoryItem.from_json(struct_info.struct)
+            outline_bids = _collect_outline_bids(struct)
+            if outline_bids:
+                outline_items = outline_item_model.query.filter(
+                    outline_item_model.outline_item_bid.in_(outline_bids),
+                    outline_item_model.deleted == 0,
+                ).all()
+                outline_hidden_map = {
+                    item.outline_item_bid: bool(item.hidden) for item in outline_items
+                }
+                has_next_outline = _has_next_outline_item(
+                    struct, outline_bid, outline_hidden_map
+                )
+        else:
+            app.logger.warning(
+                "learn record missing shifu struct: shifu_bid=%s", shifu_bid
+            )
+        if not has_next_outline:
+            records = [
+                record
+                for record in records
+                if not (
+                    record.block_type == BlockType.INTERACTION
+                    and CONTEXT_INTERACTION_NEXT in record.content
+                )
+            ]
         has_next_chapter_button = any(
             record.block_type == BlockType.INTERACTION
             and CONTEXT_INTERACTION_NEXT in record.content
@@ -378,6 +457,7 @@ def get_learn_record(
         )
         if (
             progress_record.status == LEARN_STATUS_COMPLETED
+            and has_next_outline
             and not has_next_chapter_button
         ):
             button_label = _("server.learn.nextChapterButton")

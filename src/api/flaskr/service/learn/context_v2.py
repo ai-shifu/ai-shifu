@@ -1246,6 +1246,20 @@ class RunScriptContextV2:
             _mark_sub_node_start(self._current_outline_item, res)
         return res
 
+    def _has_next_outline_item(
+        self, outline_updates: list[OutlineItemUpdateDTO]
+    ) -> bool:
+        if not outline_updates:
+            return False
+        current_bid = (
+            self._current_outline_item.bid if self._current_outline_item else ""
+        )
+        return any(
+            update.status == LearnStatus.IN_PROGRESS
+            and update.outline_bid != current_bid
+            for update in outline_updates
+        )
+
     def _get_current_outline_item(self) -> ShifuOutlineItemDto:
         return self._current_outline_item
 
@@ -1496,9 +1510,10 @@ class RunScriptContextV2:
         )
         if run_script_info is None:
             self.app.logger.warning("run script is none")
-            yield from self._emit_next_chapter_interaction(self._current_attend)
-            self._can_continue = False
             outline_updates = self._get_next_outline_item()
+            if self._has_next_outline_item(outline_updates):
+                yield from self._emit_next_chapter_interaction(self._current_attend)
+            self._can_continue = False
             if len(outline_updates) > 0:
                 yield from self._render_outline_updates(
                     outline_updates, new_chapter=True
@@ -2064,7 +2079,8 @@ class RunScriptContextV2:
         outline_updates = self._get_next_outline_item()
         if len(outline_updates) > 0:
             yield from self._render_outline_updates(outline_updates, new_chapter=True)
-            yield from self._emit_next_chapter_interaction(progress_record)
+            if self._has_next_outline_item(outline_updates):
+                yield from self._emit_next_chapter_interaction(progress_record)
             self._can_continue = False
             db.session.flush()
         self._trace.update(**self._trace_args)
@@ -2088,7 +2104,7 @@ class RunScriptContextV2:
                 outline_bid=self._outline_item_info.bid,
                 generated_block_bid=generate_id(self.app),
                 type=GeneratedType.INTERACTION,
-                content=f"?[{_('USER.LOGIN')}//_sys_login]",
+                content=f"?[{_('server.user.login')}//_sys_login]",
             )
 
     def has_next(self) -> bool:

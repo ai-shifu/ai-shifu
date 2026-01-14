@@ -1,5 +1,6 @@
 import styles from './ChatComponents.module.scss';
-import { ChevronsDown } from 'lucide-react';
+import { ArrowDown, ChevronsDown } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import {
   useContext,
   useRef,
@@ -354,6 +355,28 @@ export const NewChatComponents = ({
   // Memoize onSend to prevent new function references
   const memoizedOnSend = useCallback(onSend, [onSend]);
 
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (mobileStyle) {
+      setPortalTarget(document.getElementById('chat-scroll-target'));
+    } else {
+      setPortalTarget(null);
+    }
+  }, [mobileStyle]);
+
+  const scrollButton = (
+    <button
+      className={cn(
+        styles.scrollToBottom,
+        showScrollDown ? styles.visible : '',
+        mobileStyle ? styles.mobileScrollBtn : '',
+      )}
+      onClick={scrollToBottom}
+    >
+      <ChevronsDown size={20} />
+    </button>
+  );
+
   return (
     <div
       className={cn(
@@ -519,15 +542,9 @@ export const NewChatComponents = ({
           ></div>
         </div>
       </div>
-      <button
-        className={cn(
-          styles.scrollToBottom,
-          showScrollDown ? styles.visible : '',
-        )}
-        onClick={scrollToBottom}
-      >
-        <ChevronsDown size={20} />
-      </button>
+      {mobileStyle && portalTarget
+        ? createPortal(scrollButton, portalTarget)
+        : scrollButton}
       {mobileStyle && mobileInteraction?.generatedBlockBid && (
         <InteractionBlockM
           open={mobileInteraction.open}
