@@ -326,6 +326,18 @@ export default function AskBlock({
     // return null;
   }, []);
 
+  const handleInputFocus = useCallback(() => {
+    if (!inputWrapperRef.current) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      inputWrapperRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    });
+  }, []);
+
   useEffect(() => {
     if (!expanded) {
       return;
@@ -429,6 +441,7 @@ export default function AskBlock({
           value={inputValue}
           onChange={handleInputChange}
           onSend={handleSendCustomQuestion}
+          onFocus={handleInputFocus}
           className={cn(
             styles.inputGroup,
             isStreamingRef.current ? styles.isSending : '',

@@ -26,6 +26,7 @@ body {
   --font-size-20: 42px;
   --font-size-28: 28px;
   --app-height: 100vh;
+  --keyboard-offset: 0px;
 
   --font-size-main: 14px;
   --font-weight-main: 400;

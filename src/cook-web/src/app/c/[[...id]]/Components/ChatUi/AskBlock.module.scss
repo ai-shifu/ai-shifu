@@ -137,7 +137,10 @@
   background: #fff;
   border-radius: 24px 24px 0 0;
   box-shadow: 0 -12px 32px rgba(28, 44, 64, 0.16);
+  box-sizing: border-box;
+  padding-bottom: var(--keyboard-offset, 0px);
   max-height: 85vh;
+  max-height: min(85vh, var(--app-height, 100vh));
   overflow: hidden;
 }
 
