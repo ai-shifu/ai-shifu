@@ -268,6 +268,32 @@ export const NewChatComponents = ({
     }
   }, [mobileStyle]);
 
+  // Dismiss keyboard on scroll (Mobile only)
+  useEffect(() => {
+    const container = chatRef.current;
+    if (!container || !mobileStyle) return;
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const target = e.target as HTMLElement;
+      // If the touch started on the active input element, don't blur (user might be scrolling text inside input)
+      if (target === document.activeElement) {
+        return;
+      }
+
+      if (document.activeElement instanceof HTMLElement) {
+        const tagName = document.activeElement.tagName;
+        if (tagName === 'INPUT' || tagName === 'TEXTAREA') {
+          document.activeElement.blur();
+        }
+      }
+    };
+
+    container.addEventListener('touchmove', handleTouchMove, { passive: true });
+    return () => {
+      container.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [mobileStyle]);
+
   const scrollButton = (
     <button
       className={cn(
