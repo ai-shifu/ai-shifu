@@ -23,6 +23,7 @@ export interface Shifu {
   state?: number;
   is_favorite?: boolean;
   readonly?: boolean;
+  archived?: boolean;
 }
 
 export interface Outline {

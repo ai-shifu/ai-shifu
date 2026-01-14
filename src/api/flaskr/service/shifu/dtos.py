@@ -30,6 +30,7 @@ class ShifuDto(BaseModel):
     avatar: str = Field(..., description="shifu avatar", required=False)
     state: int = Field(..., description="shifu state", required=False)
     is_favorite: bool = Field(..., description="is favorite", required=False)
+    archived: bool = Field(..., description="is archived", required=False)
 
     def __init__(
         self,
@@ -39,6 +40,7 @@ class ShifuDto(BaseModel):
         shifu_avatar: str,
         shifu_state: int,
         is_favorite: bool,
+        archived: bool,
         **kwargs,
     ):
         super().__init__(
@@ -48,6 +50,7 @@ class ShifuDto(BaseModel):
             avatar=shifu_avatar,
             state=shifu_state,
             is_favorite=is_favorite,
+            archived=archived,
         )
 
     def __json__(self):
@@ -57,6 +60,7 @@ class ShifuDto(BaseModel):
             "description": self.description,
             "avatar": self.avatar,
             "is_favorite": self.is_favorite,
+            "archived": self.archived,
         }
 
 
@@ -78,6 +82,7 @@ class ShifuDetailDto(BaseModel):
     url: str = Field(..., description="shifu url", required=False)
     system_prompt: str = Field(..., description="shifu system prompt", required=False)
     readonly: bool = Field(..., description="is shifu readonly", required=False)
+    archived: bool = Field(..., description="is shifu archived", required=False)
 
     def __init__(
         self,
@@ -93,6 +98,7 @@ class ShifuDetailDto(BaseModel):
         shifu_url: str,
         shifu_system_prompt: str,
         readonly: bool,
+        archived: bool,
     ):
         super().__init__(
             bid=shifu_id,
@@ -107,6 +113,7 @@ class ShifuDetailDto(BaseModel):
             url=shifu_url,
             system_prompt=shifu_system_prompt,
             readonly=readonly,
+            archived=archived,
         )
 
     def __json__(self):
@@ -123,6 +130,7 @@ class ShifuDetailDto(BaseModel):
             "temperature": self.temperature,
             "system_prompt": self.system_prompt,
             "readonly": self.readonly,
+            "archived": self.archived,
         }
 
 

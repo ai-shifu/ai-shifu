@@ -36,5 +36,11 @@
   "title": "Course Settings",
   "upload": "Upload",
   "uploadFailed": "Upload failed, please try again later",
-  "uploading": "Uploading"
+  "uploading": "Uploading",
+  "archive": "Archive course",
+  "unarchive": "Restore course",
+  "archiveConfirm": "Archive this course? It will move to the Archived tab but editing and learning remain available.",
+  "unarchiveConfirm": "Restore this course to the main list?",
+  "archiveSuccess": "Course archived",
+  "unarchiveSuccess": "Course restored"
 }

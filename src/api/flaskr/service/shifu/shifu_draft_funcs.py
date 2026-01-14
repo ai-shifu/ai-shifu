@@ -20,7 +20,7 @@ from .utils import (
     parse_shifu_res_bid,
     get_shifu_res_url_dict,
 )
-from .models import DraftShifu, AiCourseAuth
+from .models import DraftShifu, AiCourseAuth, PublishedShifu
 from .shifu_history_manager import save_shifu_history
 from ..common.dtos import PageNationDTO
 from ...service.config import get_config
@@ -82,6 +82,7 @@ def return_shifu_draft_dto(
         shifu_preview_url=shifu_preview_url,
         shifu_system_prompt=shifu_draft.llm_system_prompt,
         readonly=readonly,
+        archived=bool(shifu_draft.archived),
     )
 
 
@@ -212,6 +213,7 @@ def create_shifu_draft(
             shifu_avatar=shifu_image,
             shifu_state=STATUS_DRAFT,
             is_favorite=False,
+            archived=False,
         )
 
 
@@ -338,7 +340,12 @@ def save_shifu_draft_info(
 
 
 def get_shifu_draft_list(
-    app, user_id: str, page_index: int, page_size: int, is_favorite: bool
+    app,
+    user_id: str,
+    page_index: int,
+    page_size: int,
+    is_favorite: bool,
+    archived: bool = False,
 ):
     """
     Get shifu draft list
@@ -356,40 +363,40 @@ def get_shifu_draft_list(
         page_size = max(page_size, 1)
         page_offset = (page_index - 1) * page_size
 
-        created_total = DraftShifu.query.filter(
+        created_filters = [
             DraftShifu.created_user_bid == user_id,
             DraftShifu.deleted == 0,
-        ).count()
-        shared_total = AiCourseAuth.query.filter(
-            AiCourseAuth.user_id == user_id,
-        ).count()
-        total = created_total + shared_total
-
+            DraftShifu.archived == (1 if archived else 0),
+        ]
         created_subquery = (
             db.session.query(db.func.max(DraftShifu.id))
-            .filter(
-                DraftShifu.created_user_bid == user_id,
-                DraftShifu.deleted == 0,
-            )
+            .filter(*created_filters)
             .group_by(DraftShifu.shifu_bid)
         )
 
-        shared_course_ids = (
-            db.session.query(AiCourseAuth.course_id)
-            .filter(AiCourseAuth.user_id == user_id)
-            .subquery()
-        )
-
-        shared_subquery = (
-            db.session.query(db.func.max(DraftShifu.id))
-            .filter(
-                DraftShifu.shifu_bid.in_(shared_course_ids),
-                DraftShifu.deleted == 0,
+        if archived:
+            union_subquery = created_subquery.subquery()
+        else:
+            shared_course_ids = (
+                db.session.query(AiCourseAuth.course_id)
+                .filter(AiCourseAuth.user_id == user_id)
+                .subquery()
             )
-            .group_by(DraftShifu.shifu_bid)
-        )
 
-        union_subquery = created_subquery.union(shared_subquery).subquery()
+            shared_subquery = (
+                db.session.query(db.func.max(DraftShifu.id))
+                .filter(
+                    DraftShifu.shifu_bid.in_(shared_course_ids),
+                    DraftShifu.deleted == 0,
+                    DraftShifu.archived == 0,
+                )
+                .group_by(DraftShifu.shifu_bid)
+            )
+
+            union_subquery = created_subquery.union(shared_subquery).subquery()
+
+        total_query = db.session.query(db.func.count()).select_from(union_subquery)
+        total = total_query.scalar() or 0
 
         shifu_drafts: list[DraftShifu] = (
             db.session.query(DraftShifu)
@@ -412,10 +419,48 @@ def get_shifu_draft_list(
                 res_url_map.get(shifu_draft.avatar_res_bid, ""),
                 STATUS_DRAFT,
                 False,
+                bool(shifu_draft.archived),
             )
             for shifu_draft in shifu_drafts
         ]
         return PageNationDTO(page_index, page_size, total, shifu_dtos)
+
+
+def _set_shifu_archive_state(app, user_id: str, shifu_id: str, archived: bool):
+    with app.app_context():
+        shifu_draft = get_latest_shifu_draft(shifu_id)
+        if not shifu_draft:
+            raise_error("server.shifu.shifuNotFound")
+        if shifu_draft.created_user_bid != user_id:
+            raise_error("server.shifu.noPermission")
+
+        new_flag = 1 if archived else 0
+        timestamp = datetime.now() if archived else None
+        update_fields = {
+            "archived": new_flag,
+            "archived_at": timestamp,
+            "updated_user_bid": user_id,
+            "updated_at": datetime.now(),
+        }
+        DraftShifu.query.filter(
+            DraftShifu.shifu_bid == shifu_id,
+            DraftShifu.deleted == 0,
+        ).update(update_fields, synchronize_session=False)
+
+        PublishedShifu.query.filter(
+            PublishedShifu.shifu_bid == shifu_id,
+            PublishedShifu.deleted == 0,
+        ).update(update_fields, synchronize_session=False)
+
+        db.session.commit()
+
+
+def archive_shifu(app, user_id: str, shifu_id: str):
+    _set_shifu_archive_state(app, user_id, shifu_id, True)
+
+
+def unarchive_shifu(app, user_id: str, shifu_id: str):
+    _set_shifu_archive_state(app, user_id, shifu_id, False)
 
 
 def save_shifu_draft_detail(
