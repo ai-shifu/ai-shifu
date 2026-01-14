@@ -1,0 +1,12 @@
+{
+  "__namespace__": "server.genMdf",
+  "MDF_API_CONNECTION_ERROR": "Failed to connect to MDF service",
+  "MDF_API_ERROR": "MDF conversion failed",
+  "MDF_API_INVALID_RESPONSE": "Invalid response from MDF service",
+  "MDF_API_NOT_CONFIGURED": "MDF conversion service is not configured",
+  "MDF_API_REQUEST_ERROR": "MDF conversion request failed",
+  "MDF_API_TIMEOUT": "MDF conversion request timed out",
+  "MDF_API_UNAUTHORIZED": "MDF conversion service authentication failed",
+  "TEXT_REQUIRED": "Text content is required",
+  "TEXT_TOO_LONG": "Text content exceeds maximum length of 10,000 characters"
+}
