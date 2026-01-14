@@ -81,6 +81,11 @@ export function AudioPlayer({
   const playedSecondsRef = useRef(0);
   const playSessionRef = useRef(0);
   const pendingStreamRef = useRef(false);
+  const isPausedRef = useRef(false);
+  const pausedAtRef = useRef(0);
+  const segmentOffsetRef = useRef(0);
+  const segmentStartTimeRef = useRef(0);
+  const segmentDurationRef = useRef(0);
 
   const effectiveAudioUrl = audioUrl || localAudioUrl;
 
@@ -141,6 +146,11 @@ export function AudioPlayer({
   const stopPlayback = useCallback(() => {
     playSessionRef.current += 1;
     pendingStreamRef.current = false;
+    isPausedRef.current = false;
+    pausedAtRef.current = 0;
+    segmentOffsetRef.current = 0;
+    segmentStartTimeRef.current = 0;
+    segmentDurationRef.current = 0;
     cleanupAudio();
     setIsPlaying(false);
     isPlayingRef.current = false;
@@ -150,11 +160,72 @@ export function AudioPlayer({
     releaseExclusive();
   }, [cleanupAudio, releaseExclusive]);
 
+  const pausePlayback = useCallback(() => {
+    if (!isPlayingRef.current) {
+      return;
+    }
+
+    playSessionRef.current += 1;
+    isPausedRef.current = true;
+    setIsPlaying(false);
+    isPlayingRef.current = false;
+    setIsLoading(false);
+    setIsWaitingForSegment(false);
+    onPlayStateChangeRef.current?.(false);
+
+    if (useOssUrl) {
+      if (audioRef.current) {
+        const currentTime = audioRef.current.currentTime;
+        pausedAtRef.current = Number.isFinite(currentTime) ? currentTime : 0;
+        audioRef.current.pause();
+      }
+      releaseExclusive();
+      return;
+    }
+
+    const audioContext = audioContextRef.current;
+    if (audioContext && sourceNodeRef.current) {
+      const elapsed = Math.max(
+        0,
+        audioContext.currentTime - segmentStartTimeRef.current,
+      );
+      const duration = segmentDurationRef.current;
+      const nextOffset = Math.min(
+        segmentOffsetRef.current + elapsed,
+        duration > 0 ? duration : segmentOffsetRef.current + elapsed,
+      );
+      playedSecondsRef.current += Math.max(
+        0,
+        nextOffset - segmentOffsetRef.current,
+      );
+      segmentOffsetRef.current = nextOffset;
+      pausedAtRef.current = playedSecondsRef.current;
+      try {
+        sourceNodeRef.current.stop();
+        sourceNodeRef.current.disconnect();
+      } catch {
+        // Ignore errors when stopping
+      }
+      sourceNodeRef.current = null;
+      isPlayingSegmentRef.current = false;
+    } else {
+      pausedAtRef.current = playedSecondsRef.current;
+    }
+
+    releaseExclusive();
+  }, [releaseExclusive, useOssUrl]);
+
   // Play audio from OSS URL
   const playFromUrl = useCallback(
     (startAtSeconds: number = 0) => {
       const url = audioUrlRef.current;
       if (!url) return;
+
+      isPausedRef.current = false;
+      pausedAtRef.current = 0;
+      segmentOffsetRef.current = 0;
+      segmentStartTimeRef.current = 0;
+      segmentDurationRef.current = 0;
 
       const sessionId = startPlaySession();
       requestExclusive(stopPlayback);
@@ -231,7 +302,11 @@ export function AudioPlayer({
 
   // Play a single segment by index
   const playSegmentByIndex = useCallback(
-    async function playSegmentByIndex(index: number, sessionId: number) {
+    async function playSegmentByIndex(
+      index: number,
+      sessionId: number,
+      startOffsetSeconds: number = 0,
+    ) {
       if (!isSessionActive(sessionId)) {
         isPlayingSegmentRef.current = false;
         return;
@@ -301,16 +376,34 @@ export function AudioPlayer({
           return;
         }
 
-        const sourceNode = playAudioBuffer(audioContext, audioBuffer, () => {
-          if (!isSessionActive(sessionId)) return;
-          // Release lock before playing next segment
-          isPlayingSegmentRef.current = false;
-          playedSecondsRef.current += audioBuffer.duration || 0;
-          // Play next segment
-          if (isPlayingRef.current) {
-            playSegmentByIndex(index + 1, sessionId);
-          }
-        });
+        const initialOffset = Number.isFinite(startOffsetSeconds)
+          ? Math.max(0, startOffsetSeconds)
+          : 0;
+        segmentOffsetRef.current = initialOffset;
+        segmentStartTimeRef.current = audioContext.currentTime;
+        segmentDurationRef.current = audioBuffer.duration || 0;
+
+        const sourceNode = playAudioBuffer(
+          audioContext,
+          audioBuffer,
+          () => {
+            if (!isSessionActive(sessionId)) return;
+            // Release lock before playing next segment
+            isPlayingSegmentRef.current = false;
+            const remainingSeconds = Math.max(
+              0,
+              (audioBuffer.duration || 0) - initialOffset,
+            );
+            playedSecondsRef.current += remainingSeconds;
+            segmentOffsetRef.current = 0;
+            segmentDurationRef.current = 0;
+            // Play next segment
+            if (isPlayingRef.current) {
+              playSegmentByIndex(index + 1, sessionId);
+            }
+          },
+          initialOffset,
+        );
         sourceNodeRef.current = sourceNode;
         setIsLoading(false);
         setIsPlaying(true);
@@ -339,6 +432,11 @@ export function AudioPlayer({
     async (forceStreaming: boolean = false) => {
       const sessionId = startPlaySession();
       requestExclusive(stopPlayback);
+      isPausedRef.current = false;
+      pausedAtRef.current = 0;
+      segmentOffsetRef.current = 0;
+      segmentStartTimeRef.current = 0;
+      segmentDurationRef.current = 0;
 
       if (segmentsRef.current.length === 0) {
         if (
@@ -377,6 +475,52 @@ export function AudioPlayer({
       stopPlayback,
     ],
   );
+
+  const resumeFromSegments = useCallback(() => {
+    const sessionId = startPlaySession();
+    requestExclusive(stopPlayback);
+    isPausedRef.current = false;
+    pausedAtRef.current = 0;
+    setIsLoading(true);
+    setIsWaitingForSegment(false);
+    setIsPlaying(true);
+    isPlayingRef.current = true;
+
+    const resumeIndex = currentSegmentIndexRef.current;
+    const segments = segmentsRef.current;
+
+    if (segments.length === 0) {
+      if (isStreamingRef.current || pendingStreamRef.current) {
+        setIsWaitingForSegment(true);
+        return;
+      }
+      setIsPlaying(false);
+      isPlayingRef.current = false;
+      setIsLoading(false);
+      releaseExclusive();
+      return;
+    }
+
+    if (resumeIndex >= segments.length) {
+      if (isStreamingRef.current) {
+        setIsWaitingForSegment(true);
+        return;
+      }
+      setIsPlaying(false);
+      isPlayingRef.current = false;
+      setIsLoading(false);
+      releaseExclusive();
+      return;
+    }
+
+    playSegmentByIndex(resumeIndex, sessionId, segmentOffsetRef.current);
+  }, [
+    playSegmentByIndex,
+    releaseExclusive,
+    requestExclusive,
+    startPlaySession,
+    stopPlayback,
+  ]);
 
   // Watch for new segments when waiting
   useEffect(() => {
@@ -432,8 +576,27 @@ export function AudioPlayer({
 
     if (isPlaying) {
       // Pause
-      stopPlayback();
+      pausePlayback();
+      return;
     } else {
+      if (isPausedRef.current) {
+        if (useOssUrl && effectiveAudioUrl) {
+          playFromUrl(pausedAtRef.current);
+          return;
+        }
+        if (
+          streamingSegments.length > 0 ||
+          isStreaming ||
+          pendingStreamRef.current
+        ) {
+          resumeFromSegments();
+          return;
+        }
+        if (effectiveAudioUrl) {
+          playFromUrl(pausedAtRef.current);
+          return;
+        }
+      }
       // Play
       if (useOssUrl) {
         playFromUrl();
@@ -465,10 +628,13 @@ export function AudioPlayer({
   }, [
     isPlaying,
     isLoading,
+    effectiveAudioUrl,
     useOssUrl,
     isStreaming,
+    pausePlayback,
     playFromUrl,
     playFromSegments,
+    resumeFromSegments,
     streamingSegments.length,
     onRequestAudio,
     stopPlayback,
@@ -512,7 +678,8 @@ export function AudioPlayer({
       !isPlaying &&
       !isLoading &&
       !disabled &&
-      !hasAutoPlayedForCurrentContentRef.current
+      !hasAutoPlayedForCurrentContentRef.current &&
+      !isPausedRef.current
     ) {
       if (streamingSegments.length > 0 || isStreaming) {
         hasAutoPlayedForCurrentContentRef.current = true;

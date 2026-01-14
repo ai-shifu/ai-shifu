@@ -47,6 +47,7 @@ export const playAudioBuffer = (
   audioContext: AudioContext,
   audioBuffer: AudioBuffer,
   onEnded?: () => void,
+  startOffsetSeconds: number = 0,
 ): AudioBufferSourceNode => {
   const sourceNode = audioContext.createBufferSource();
   sourceNode.buffer = audioBuffer;
@@ -54,6 +55,10 @@ export const playAudioBuffer = (
   if (onEnded) {
     sourceNode.onended = onEnded;
   }
-  sourceNode.start();
+  const safeOffset = Number.isFinite(startOffsetSeconds)
+    ? Math.max(0, startOffsetSeconds)
+    : 0;
+  const maxOffset = Math.max(0, audioBuffer.duration - 0.01);
+  sourceNode.start(0, Math.min(safeOffset, maxOffset));
   return sourceNode;
 };
