@@ -339,6 +339,20 @@ export default function AskBlock({
   }, []);
 
   useEffect(() => {
+    const wrapper = inputWrapperRef.current;
+    if (!wrapper) {
+      return;
+    }
+    const handleFocusIn = () => {
+      handleInputFocus();
+    };
+    wrapper.addEventListener('focusin', handleFocusIn);
+    return () => {
+      wrapper.removeEventListener('focusin', handleFocusIn);
+    };
+  }, [handleInputFocus]);
+
+  useEffect(() => {
     if (!expanded) {
       return;
     }
@@ -441,7 +455,6 @@ export default function AskBlock({
           value={inputValue}
           onChange={handleInputChange}
           onSend={handleSendCustomQuestion}
-          onFocus={handleInputFocus}
           className={cn(
             styles.inputGroup,
             isStreamingRef.current ? styles.isSending : '',
