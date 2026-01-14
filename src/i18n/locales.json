@@ -48,6 +48,7 @@
     "server.common",
     "server.discount",
     "server.file",
+    "server.genMdf",
     "server.learn",
     "server.llm",
     "server.order",
