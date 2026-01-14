@@ -67,6 +67,7 @@ type OrderFilters = {
 const PAGE_SIZE = 20;
 const COLUMN_MIN_WIDTH = 80;
 const COLUMN_MAX_WIDTH = 360;
+const COLUMN_WIDTH_STORAGE_KEY = 'adminOrdersColumnWidths';
 
 const DEFAULT_COLUMN_WIDTHS = {
   orderId: 260,
@@ -84,6 +85,43 @@ type ColumnWidthState = Record<ColumnKey, number>;
 const COLUMN_KEYS = Object.keys(
   DEFAULT_COLUMN_WIDTHS,
 ) as ColumnKey[];
+
+const clampWidth = (value: number): number =>
+  Math.min(COLUMN_MAX_WIDTH, Math.max(COLUMN_MIN_WIDTH, value));
+
+const createColumnWidthState = (
+  overrides?: Partial<ColumnWidthState>,
+): ColumnWidthState => {
+  const widths = { ...DEFAULT_COLUMN_WIDTHS };
+  COLUMN_KEYS.forEach(key => {
+    const nextValue = overrides?.[key];
+    if (typeof nextValue === 'number' && Number.isFinite(nextValue)) {
+      widths[key] = clampWidth(nextValue);
+    } else {
+      widths[key] = clampWidth(widths[key]);
+    }
+  });
+  return widths;
+};
+
+const loadStoredColumnWidths = (): ColumnWidthState => {
+  if (typeof window === 'undefined') {
+    return createColumnWidthState();
+  }
+  try {
+    const serialized = window.localStorage.getItem(
+      COLUMN_WIDTH_STORAGE_KEY,
+    );
+    if (!serialized) {
+      return createColumnWidthState();
+    }
+    const parsed = JSON.parse(serialized) as Partial<ColumnWidthState>;
+    return createColumnWidthState(parsed);
+  } catch (error) {
+    console.warn('Failed to load stored column widths', error);
+    return createColumnWidthState();
+  }
+};
 
 const formatDateValue = (date: Date) => {
   const year = date.getFullYear();
@@ -218,8 +256,8 @@ const OrdersPage = () => {
     end_time: '',
   });
   const filtersRef = useRef<OrderFilters>(filters);
-  const [columnWidths, setColumnWidths] = useState<ColumnWidthState>(
-    DEFAULT_COLUMN_WIDTHS,
+  const [columnWidths, setColumnWidths] = useState<ColumnWidthState>(() =>
+    loadStoredColumnWidths(),
   );
   const columnResizeRef = useRef<{
     key: ColumnKey;
@@ -232,6 +270,38 @@ const OrdersPage = () => {
       {} as Record<ColumnKey, boolean>,
     ),
   );
+  const initializedManualRef = useRef(false);
+
+  useEffect(() => {
+    if (initializedManualRef.current) {
+      return;
+    }
+    initializedManualRef.current = true;
+    COLUMN_KEYS.forEach(key => {
+      const storedWidth = columnWidths[key];
+      const defaultWidth = DEFAULT_COLUMN_WIDTHS[key];
+      if (Math.abs(storedWidth - defaultWidth) > 0.5) {
+        manualResizeRef.current[key] = true;
+      }
+    });
+  }, [columnWidths]);
+
+  useEffect(() => {
+    const hasManualResize = Object.values(manualResizeRef.current).some(
+      Boolean,
+    );
+    if (!hasManualResize || typeof window === 'undefined') {
+      return;
+    }
+    try {
+      window.localStorage.setItem(
+        COLUMN_WIDTH_STORAGE_KEY,
+        JSON.stringify(columnWidths),
+      );
+    } catch (error) {
+      console.warn('Failed to persist column widths', error);
+    }
+  }, [columnWidths]);
 
   const ALL_OPTION_VALUE = '__all__';
 
