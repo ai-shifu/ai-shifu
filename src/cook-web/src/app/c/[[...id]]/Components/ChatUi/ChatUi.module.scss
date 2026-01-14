@@ -105,8 +105,9 @@
     padding-bottom: 0;
     display: flex;
     flex-direction: column;
-    height: 100vh;
     height: 100dvh;
+    height: var(--app-height, 100vh);
+    min-height: var(--app-height, 100vh);
     overflow: hidden;
     background: red;
 
@@ -169,7 +170,7 @@
   }
 
   &:not(.mobile) .chatComponents {
-    min-height: 100vh;
+    min-height: var(--app-height, 100vh);
   }
 
   &.mobile .chatComponents {
@@ -177,7 +178,6 @@
     // min-height: auto;
     // min-height: 100vh;
     overflow-y: hidden;
-    background: yellow;
   }
 
   .chatComponentsHidden {

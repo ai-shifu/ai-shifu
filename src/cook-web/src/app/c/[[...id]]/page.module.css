@@ -1,6 +1,7 @@
 .newChatPage {
   width: 100%;
-  height: 100vh;
+  height: var(--app-height, 100vh);
+  min-height: var(--app-height, 100vh);
   display: flex;
   flex-flow: row nowrap;
   font-size: var(--font-size-4);
