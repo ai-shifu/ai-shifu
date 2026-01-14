@@ -87,10 +87,10 @@ def register_gen_mdf_routes(app: Flask, path_prefix="/api/gen_mdf"):
         # Validate required parameters
         text = data.get("text", "").strip()
         if not text:
-            raise_param_error("TEXT_REQUIRED")
+            raise_param_error("server.genMdf.TEXT_REQUIRED")
 
         if len(text) > MAX_TEXT_LENGTH:
-            raise_param_error("TEXT_TOO_LONG")
+            raise_param_error("server.genMdf.TEXT_TOO_LONG")
 
         language = data.get("language", "English")
         output_mode = data.get("output_mode", "content")
