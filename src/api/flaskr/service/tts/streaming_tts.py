@@ -29,7 +29,7 @@ from flaskr.api.tts import (
 )
 from flaskr.service.tts import preprocess_for_tts
 from flaskr.service.tts.audio_utils import (
-    concat_audio_mp3,
+    concat_audio_best_effort,
     get_audio_duration_ms,
     is_audio_processing_available,
 )
@@ -378,12 +378,7 @@ class StreamingTTSProcessor:
             logger.info(
                 f"TTS finalize: audio_processing_available={is_audio_processing_available()}"
             )
-            if is_audio_processing_available() and len(audio_data_list) > 1:
-                final_audio = concat_audio_mp3(audio_data_list)
-            elif len(audio_data_list) == 1:
-                final_audio = audio_data_list[0]
-            else:
-                final_audio = b"".join(audio_data_list)
+            final_audio = concat_audio_best_effort(audio_data_list)
 
             final_duration_ms = get_audio_duration_ms(final_audio)
             file_size = len(final_audio)

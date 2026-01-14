@@ -6,7 +6,7 @@ This module provides integration with multiple Text-to-Speech providers:
 - Volcengine (bidirectional WebSocket API)
 - Baidu (Short Text Online Synthesis API)
 
-The provider can be selected via TTS_PROVIDER config or per-Shifu configuration.
+The provider can be selected per-Shifu configuration.
 """
 
 import base64
@@ -31,8 +31,51 @@ from flaskr.api.tts.aliyun_provider import AliyunTTSProvider
 
 logger = logging.getLogger(__name__)
 
+# Provider registry (ordered by default selection priority)
+_PROVIDER_REGISTRY = {
+    "minimax": MinimaxTTSProvider,
+    "volcengine": VolcengineTTSProvider,
+    "baidu": BaiduTTSProvider,
+    "aliyun": AliyunTTSProvider,
+}
+_PROVIDER_PRIORITY = ("minimax", "volcengine", "baidu", "aliyun")
+
 # Provider instances (lazy initialized)
 _provider_instances: dict = {}
+
+
+def _normalize_provider_name(provider_name: str) -> str:
+    normalized = (provider_name or "").strip().lower()
+    if normalized == "default":
+        return ""
+    return normalized
+
+
+def _auto_detect_provider_name() -> str:
+    # Check Minimax first (existing behavior)
+    if get_config("MINIMAX_API_KEY"):
+        return "minimax"
+    if (
+        get_config("VOLCENGINE_TTS_APP_KEY") and get_config("VOLCENGINE_TTS_ACCESS_KEY")
+    ) or (get_config("ARK_ACCESS_KEY_ID") and get_config("ARK_SECRET_ACCESS_KEY")):
+        return "volcengine"
+    if get_config("BAIDU_TTS_API_KEY") and get_config("BAIDU_TTS_SECRET_KEY"):
+        return "baidu"
+    if get_config("ALIYUN_TTS_APPKEY") and get_config("ALIYUN_TTS_TOKEN"):
+        return "aliyun"
+    return "minimax"  # Default fallback
+
+
+def _resolve_provider_name(provider_name: str = "") -> str:
+    normalized = _normalize_provider_name(provider_name)
+    return normalized or _auto_detect_provider_name()
+
+
+def _iter_provider_classes():
+    for name in _PROVIDER_PRIORITY:
+        provider_cls = _PROVIDER_REGISTRY.get(name)
+        if provider_cls:
+            yield name, provider_cls
 
 
 def get_tts_provider(provider_name: str = "") -> BaseTTSProvider:
@@ -40,8 +83,8 @@ def get_tts_provider(provider_name: str = "") -> BaseTTSProvider:
     Get a TTS provider instance.
 
     Args:
-        provider_name: Provider name ("minimax", "volcengine", or "baidu").
-                      If empty, uses TTS_PROVIDER config or auto-detects.
+        provider_name: Provider name ("minimax", "volcengine", "baidu", "aliyun").
+                      If empty, auto-detects.
 
     Returns:
         TTS provider instance
@@ -51,44 +94,14 @@ def get_tts_provider(provider_name: str = "") -> BaseTTSProvider:
     """
     global _provider_instances
 
-    # Determine provider name
-    if not provider_name:
-        provider_name = get_config("TTS_PROVIDER") or ""
-
-    # Normalize provider name
-    provider_name = provider_name.lower().strip()
-    if provider_name == "default":
-        provider_name = ""
-
-    # If still empty, auto-detect based on configuration
-    if not provider_name:
-        # Check Minimax first (existing behavior)
-        if get_config("MINIMAX_API_KEY"):
-            provider_name = "minimax"
-        elif (
-            get_config("VOLCENGINE_TTS_APP_KEY")
-            and get_config("VOLCENGINE_TTS_ACCESS_KEY")
-        ) or (get_config("ARK_ACCESS_KEY_ID") and get_config("ARK_SECRET_ACCESS_KEY")):
-            provider_name = "volcengine"
-        elif get_config("BAIDU_TTS_API_KEY") and get_config("BAIDU_TTS_SECRET_KEY"):
-            provider_name = "baidu"
-        elif get_config("ALIYUN_TTS_APPKEY") and get_config("ALIYUN_TTS_TOKEN"):
-            provider_name = "aliyun"
-        else:
-            provider_name = "minimax"  # Default fallback
+    provider_name = _resolve_provider_name(provider_name)
 
     # Get or create provider instance
     if provider_name not in _provider_instances:
-        if provider_name == "minimax":
-            _provider_instances[provider_name] = MinimaxTTSProvider()
-        elif provider_name == "volcengine":
-            _provider_instances[provider_name] = VolcengineTTSProvider()
-        elif provider_name == "baidu":
-            _provider_instances[provider_name] = BaiduTTSProvider()
-        elif provider_name == "aliyun":
-            _provider_instances[provider_name] = AliyunTTSProvider()
-        else:
+        provider_cls = _PROVIDER_REGISTRY.get(provider_name)
+        if not provider_cls:
             raise ValueError(f"Unknown TTS provider: {provider_name}")
+        _provider_instances[provider_name] = provider_cls()
 
     return _provider_instances[provider_name]
 
@@ -187,34 +200,12 @@ def is_tts_configured(provider_name: str = "") -> bool:
             return False
     else:
         # Check if any provider is configured
-        try:
-            minimax = MinimaxTTSProvider()
-            if minimax.is_configured():
-                return True
-        except Exception:
-            pass
-
-        try:
-            volcengine = VolcengineTTSProvider()
-            if volcengine.is_configured():
-                return True
-        except Exception:
-            pass
-
-        try:
-            baidu = BaiduTTSProvider()
-            if baidu.is_configured():
-                return True
-        except Exception:
-            pass
-
-        try:
-            aliyun = AliyunTTSProvider()
-            if aliyun.is_configured():
-                return True
-        except Exception:
-            pass
-
+        for _name, provider_cls in _iter_provider_classes():
+            try:
+                if provider_cls().is_configured():
+                    return True
+            except Exception:
+                continue
         return False
 
 
@@ -228,45 +219,15 @@ def get_all_provider_configs() -> dict:
     providers = []
 
     # Get config from each provider
-    try:
-        minimax = MinimaxTTSProvider()
-        providers.append(minimax.get_provider_config().to_dict())
-    except Exception as e:
-        logger.warning(f"Failed to get Minimax config: {e}")
-
-    try:
-        volcengine = VolcengineTTSProvider()
-        providers.append(volcengine.get_provider_config().to_dict())
-    except Exception as e:
-        logger.warning(f"Failed to get Volcengine config: {e}")
-
-    try:
-        baidu = BaiduTTSProvider()
-        providers.append(baidu.get_provider_config().to_dict())
-    except Exception as e:
-        logger.warning(f"Failed to get Baidu config: {e}")
-
-    try:
-        aliyun = AliyunTTSProvider()
-        providers.append(aliyun.get_provider_config().to_dict())
-    except Exception as e:
-        logger.warning(f"Failed to get Aliyun config: {e}")
+    for name, provider_cls in _iter_provider_classes():
+        try:
+            provider = provider_cls()
+            providers.append(provider.get_provider_config().to_dict())
+        except Exception as e:
+            logger.warning("Failed to get %s config: %s", name, e)
 
     # Determine default provider
-    default_provider = get_config("TTS_PROVIDER") or ""
-    if not default_provider:
-        # Auto-detect based on configuration
-        if get_config("MINIMAX_API_KEY"):
-            default_provider = "minimax"
-        elif (
-            get_config("VOLCENGINE_TTS_APP_KEY")
-            and get_config("VOLCENGINE_TTS_ACCESS_KEY")
-        ) or (get_config("ARK_ACCESS_KEY_ID") and get_config("ARK_SECRET_ACCESS_KEY")):
-            default_provider = "volcengine"
-        elif get_config("BAIDU_TTS_API_KEY") and get_config("BAIDU_TTS_SECRET_KEY"):
-            default_provider = "baidu"
-        elif get_config("ALIYUN_TTS_APPKEY") and get_config("ALIYUN_TTS_TOKEN"):
-            default_provider = "aliyun"
+    default_provider = _auto_detect_provider_name()
 
     return {
         "providers": providers,

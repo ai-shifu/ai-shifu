@@ -32,9 +32,8 @@ from flaskr.api.tts import (
 )
 from flaskr.service.tts import preprocess_for_tts
 from flaskr.service.tts.audio_utils import (
-    concat_audio_mp3,
+    concat_audio_best_effort,
     get_audio_duration_ms,
-    is_audio_processing_available,
 )
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 
@@ -189,21 +188,6 @@ def split_text_for_tts(
     return [s for s in segments if s and s.strip()]
 
 
-def _concat_mp3_best_effort(parts: Sequence[bytes]) -> bytes:
-    if not parts:
-        return b""
-    if len(parts) == 1:
-        return parts[0]
-
-    if is_audio_processing_available():
-        try:
-            return concat_audio_mp3(list(parts))
-        except Exception as exc:
-            logger.warning("MP3 concat failed, falling back to byte-join: %s", exc)
-
-    return b"".join(parts)
-
-
 @dataclass(frozen=True)
 class SynthesizeToOssResult:
     provider: str
@@ -315,7 +299,7 @@ def synthesize_long_text_to_oss(
                 result = future.result()
                 audio_parts[index] = result.audio_data
 
-    final_audio = _concat_mp3_best_effort(audio_parts)
+    final_audio = concat_audio_best_effort(audio_parts)
     if not final_audio:
         raise ValueError("No audio data produced")
 

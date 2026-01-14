@@ -6,7 +6,7 @@ This module provides audio concatenation and processing functions using pydub/ff
 
 import io
 import logging
-from typing import List
+from typing import List, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +88,30 @@ def concat_audio_mp3(segments: List[bytes], output_format: str = "mp3") -> bytes
     )
 
     return output_data
+
+
+def concat_audio_best_effort(
+    segments: Sequence[bytes], output_format: str = "mp3"
+) -> bytes:
+    """
+    Concatenate audio segments with graceful fallback when processing is unavailable.
+
+    Falls back to raw byte-join if pydub/ffmpeg are not available or fail.
+    """
+    if not segments:
+        return b""
+    if len(segments) == 1:
+        return segments[0]
+
+    if is_audio_processing_available():
+        try:
+            return concat_audio_mp3(list(segments), output_format=output_format)
+        except Exception as exc:
+            logger.warning(
+                "Audio concatenation failed; falling back to byte-join: %s", exc
+            )
+
+    return b"".join(segments)
 
 
 def get_audio_duration_ms(audio_data: bytes, format: str = "mp3") -> int:

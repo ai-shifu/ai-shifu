@@ -1021,13 +1021,6 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="TTS audio bitrate (32000-256000)",
         group="tts",
     ),
-    # TTS Provider Selection
-    "TTS_PROVIDER": EnvVar(
-        name="TTS_PROVIDER",
-        default="minimax",
-        description="TTS provider to use: minimax, volcengine, baidu, or aliyun",
-        group="tts",
-    ),
     # Volcengine TTS Configuration
     # Note: Uses ARK_ACCESS_KEY_ID and ARK_SECRET_ACCESS_KEY by default.
     # These VOLCENGINE_TTS_* configs are optional overrides.

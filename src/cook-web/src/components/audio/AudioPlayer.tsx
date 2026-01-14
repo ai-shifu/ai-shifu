@@ -7,6 +7,12 @@ import { useTranslation } from 'react-i18next';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import type { AudioSegment } from '@/c-utils/audio-utils';
 import {
+  createAudioContext,
+  decodeAudioBufferFromBase64,
+  playAudioBuffer,
+  resumeAudioContext,
+} from '@/lib/audio-playback';
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -271,48 +277,31 @@ export function AudioPlayer({
 
         // Initialize AudioContext if needed
         if (!audioContextRef.current) {
-          audioContextRef.current = new (
-            window.AudioContext || (window as any).webkitAudioContext
-          )();
+          audioContextRef.current = createAudioContext();
         }
 
         const audioContext = audioContextRef.current;
 
         // Resume context if suspended (may fail without user gesture in some browsers)
-        if (audioContext.state === 'suspended') {
-          await audioContext.resume();
-          if (!isSessionActive(sessionId)) {
-            isPlayingSegmentRef.current = false;
-            return;
-          }
+        await resumeAudioContext(audioContext);
+        if (!isSessionActive(sessionId)) {
+          isPlayingSegmentRef.current = false;
+          return;
         }
 
         const segment = segments[index];
         currentSegmentIndexRef.current = index;
 
-        // Decode base64 to ArrayBuffer
-        const binaryString = atob(segment.audioData);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-
-        const audioBuffer = await audioContext.decodeAudioData(
-          bytes.buffer.slice(0),
+        const audioBuffer = await decodeAudioBufferFromBase64(
+          audioContext,
+          segment.audioData,
         );
         if (!isSessionActive(sessionId)) {
           isPlayingSegmentRef.current = false;
           return;
         }
 
-        // Create and play source node
-        const sourceNode = audioContext.createBufferSource();
-        sourceNode.buffer = audioBuffer;
-        sourceNode.connect(audioContext.destination);
-
-        sourceNodeRef.current = sourceNode;
-
-        sourceNode.onended = () => {
+        const sourceNode = playAudioBuffer(audioContext, audioBuffer, () => {
           if (!isSessionActive(sessionId)) return;
           // Release lock before playing next segment
           isPlayingSegmentRef.current = false;
@@ -321,9 +310,8 @@ export function AudioPlayer({
           if (isPlayingRef.current) {
             playSegmentByIndex(index + 1, sessionId);
           }
-        };
-
-        sourceNode.start();
+        });
+        sourceNodeRef.current = sourceNode;
         setIsLoading(false);
         setIsPlaying(true);
         isPlayingRef.current = true;

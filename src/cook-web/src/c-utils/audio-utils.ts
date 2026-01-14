@@ -17,6 +17,35 @@ export interface AudioItem {
 
 type EnsureItem<T> = (items: T[], blockId: string) => T[];
 
+export interface AudioSegmentPayload {
+  segment_index?: number;
+  segmentIndex?: number;
+  audio_data?: string;
+  audioData?: string;
+  duration_ms?: number;
+  durationMs?: number;
+  is_final?: boolean;
+  isFinal?: boolean;
+}
+
+export const normalizeAudioSegmentPayload = (
+  payload: AudioSegmentPayload,
+): AudioSegment | null => {
+  const segmentIndex = payload.segment_index ?? payload.segmentIndex;
+  const audioData = payload.audio_data ?? payload.audioData;
+
+  if (segmentIndex === undefined || !audioData) {
+    return null;
+  }
+
+  return {
+    segmentIndex,
+    audioData,
+    durationMs: payload.duration_ms ?? payload.durationMs ?? 0,
+    isFinal: payload.is_final ?? payload.isFinal ?? false,
+  };
+};
+
 const toAudioSegment = (segment: AudioSegmentData): AudioSegment => ({
   segmentIndex: segment.segment_index,
   audioData: segment.audio_data,
@@ -24,7 +53,7 @@ const toAudioSegment = (segment: AudioSegmentData): AudioSegment => ({
   isFinal: segment.is_final,
 });
 
-const mergeAudioSegment = (
+export const mergeAudioSegment = (
   segments: AudioSegment[],
   incoming: AudioSegment,
 ): AudioSegment[] => {

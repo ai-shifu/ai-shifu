@@ -45,9 +45,8 @@ from flaskr.api.tts import (
 )
 from flaskr.service.tts import preprocess_for_tts
 from flaskr.service.tts.audio_utils import (
-    concat_audio_mp3,
+    concat_audio_best_effort,
     get_audio_duration_ms,
-    is_audio_processing_available,
 )
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.service.common import raise_error, raise_error_with_args
@@ -621,19 +620,6 @@ def _resolve_shifu_tts_settings(
     return provider, tts_model, voice_settings, audio_settings
 
 
-def _concat_audio_best_effort(audio_parts: list[bytes]) -> bytes:
-    if not audio_parts:
-        return b""
-    if len(audio_parts) == 1:
-        return audio_parts[0]
-    if is_audio_processing_available():
-        try:
-            return concat_audio_mp3(audio_parts)
-        except Exception:
-            logger.warning("Audio concatenation failed; falling back to raw join.")
-    return b"".join(audio_parts)
-
-
 def _yield_tts_segments(
     *,
     text: str,
@@ -750,7 +736,7 @@ def stream_generated_block_audio(
                     ),
                 )
 
-            final_audio = _concat_audio_best_effort(audio_parts)
+            final_audio = concat_audio_best_effort(audio_parts)
             if not final_audio:
                 raise ValueError("No audio data produced")
 
@@ -854,7 +840,7 @@ def stream_preview_tts_audio(
                     ),
                 )
 
-            final_audio = _concat_audio_best_effort(audio_parts)
+            final_audio = concat_audio_best_effort(audio_parts)
             if not final_audio:
                 raise ValueError("No audio data produced")
 
