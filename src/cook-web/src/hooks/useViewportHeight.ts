@@ -12,10 +12,7 @@ export const useViewportHeight = () => {
     const updateViewportHeight = () => {
       const viewport = window.visualViewport;
       const height = viewport ? viewport.height : window.innerHeight;
-      document.documentElement.style.setProperty(
-        APP_HEIGHT_VAR,
-        `${height}px`,
-      );
+      document.documentElement.style.setProperty(APP_HEIGHT_VAR, `${height}px`);
     };
 
     updateViewportHeight();
