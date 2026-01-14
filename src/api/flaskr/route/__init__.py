@@ -14,5 +14,4 @@ def register_route(app):
     app = register_dict_handler(app, prefix + "/dict")
     app = register_order_handler(app, prefix + "/order")
     app = register_callback_handler(app, prefix + "/callback")
-    # Note: gen_mdf routes are auto-registered by plugin system from flaskr/service/gen_mdf/
     return app
