@@ -218,8 +218,9 @@ export default function ShifuSettingDialog({
       try {
         let audioContext = ttsPreviewAudioContextRef.current;
         if (!audioContext) {
-          audioContext = new (window.AudioContext ||
-            (window as any).webkitAudioContext)();
+          audioContext = new (
+            window.AudioContext || (window as any).webkitAudioContext
+          )();
           ttsPreviewAudioContextRef.current = audioContext;
         }
 
