@@ -91,6 +91,9 @@ const COLUMN_KEYS = Object.keys(
 const clampWidth = (value: number): number =>
   Math.min(COLUMN_MAX_WIDTH, Math.max(COLUMN_MIN_WIDTH, value));
 
+const SINGLE_SELECT_ITEM_CLASS =
+  'pl-3 data-[state=checked]:bg-muted data-[state=checked]:text-foreground [&>span:first-child]:hidden';
+
 const createColumnWidthState = (
   overrides?: Partial<ColumnWidthState>,
 ): ColumnWidthState => {
@@ -897,6 +900,7 @@ const OrdersPage = () => {
                   <SelectItem
                     key={option.value || 'all'}
                     value={option.value || ALL_OPTION_VALUE}
+                    className={SINGLE_SELECT_ITEM_CLASS}
                   >
                     {option.label}
                   </SelectItem>
@@ -920,6 +924,7 @@ const OrdersPage = () => {
                   <SelectItem
                     key={option.value || 'all'}
                     value={option.value || ALL_OPTION_VALUE}
+                    className={SINGLE_SELECT_ITEM_CLASS}
                   >
                     {option.label}
                   </SelectItem>
