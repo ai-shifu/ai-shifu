@@ -127,8 +127,7 @@ const SidebarContent = ({
                 ></div>
               );
             }
-            const isActive =
-              Boolean(activeHref) && item.href === activeHref;
+            const isActive = Boolean(activeHref) && item.href === activeHref;
             return (
               <Link
                 key={index}

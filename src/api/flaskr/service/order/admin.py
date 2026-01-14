@@ -354,9 +354,7 @@ def import_activation_orders(
                 app.logger.exception(
                     "import activation unexpected failure for %s", normalized_mobile
                 )
-            results["failed"].append(
-                {"mobile": normalized_mobile, "message": str(exc)}
-            )
+            results["failed"].append({"mobile": normalized_mobile, "message": str(exc)})
     return results
 
 

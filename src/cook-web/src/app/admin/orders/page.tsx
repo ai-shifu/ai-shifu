@@ -84,9 +84,7 @@ const DEFAULT_COLUMN_WIDTHS = {
 
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 type ColumnWidthState = Record<ColumnKey, number>;
-const COLUMN_KEYS = Object.keys(
-  DEFAULT_COLUMN_WIDTHS,
-) as ColumnKey[];
+const COLUMN_KEYS = Object.keys(DEFAULT_COLUMN_WIDTHS) as ColumnKey[];
 
 const clampWidth = (value: number): number =>
   Math.min(COLUMN_MAX_WIDTH, Math.max(COLUMN_MIN_WIDTH, value));
@@ -114,9 +112,7 @@ const loadStoredColumnWidths = (): ColumnWidthState => {
     return createColumnWidthState();
   }
   try {
-    const serialized = window.localStorage.getItem(
-      COLUMN_WIDTH_STORAGE_KEY,
-    );
+    const serialized = window.localStorage.getItem(COLUMN_WIDTH_STORAGE_KEY);
     if (!serialized) {
       return createColumnWidthState();
     }
@@ -512,10 +508,7 @@ const OrdersPage = () => {
           const multiplier = multiplierMap[key] ?? 7;
           const required = texts.reduce(
             (maxWidth, text) =>
-              Math.max(
-                maxWidth,
-                estimateWidth(text, multiplier),
-              ),
+              Math.max(maxWidth, estimateWidth(text, multiplier)),
             DEFAULT_COLUMN_WIDTHS[key],
           );
           if (
@@ -537,10 +530,7 @@ const OrdersPage = () => {
           const calculated = nextWidths[key] ?? fallback;
           updated[key] = Math.min(
             COLUMN_MAX_WIDTH,
-            Math.max(
-              COLUMN_MIN_WIDTH,
-              calculated,
-            ),
+            Math.max(COLUMN_MIN_WIDTH, calculated),
           );
         });
         return updated;

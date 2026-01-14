@@ -140,9 +140,7 @@ const ImportActivationDialog = ({
       mobile => !MOBILE_PATTERN.test(mobile),
     );
     if (invalidMobiles.length > 0) {
-      const sample = invalidMobiles
-        .slice(0, MOBILE_SAMPLE_LIMIT)
-        .join(', ');
+      const sample = invalidMobiles.slice(0, MOBILE_SAMPLE_LIMIT).join(', ');
       const messageMobiles =
         invalidMobiles.length > MOBILE_SAMPLE_LIMIT ? `${sample}...` : sample;
       form.setError('mobile', {
@@ -186,9 +184,7 @@ const ImportActivationDialog = ({
         failedEntries.length > 0 &&
         failedEntries.every(entry => {
           const msg = entry.message?.toLowerCase() || '';
-          return (
-            msg.includes('课程不存在') || msg.includes('course not found')
-          );
+          return msg.includes('课程不存在') || msg.includes('course not found');
         });
       if (isCourseError) {
         toast({

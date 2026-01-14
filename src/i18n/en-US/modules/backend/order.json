@@ -11,6 +11,7 @@
     "learnStatusRefund": "Refund",
     "learnStatusReset": "Reset",
     "learnStatusUnavailable": "Unavailable",
+    "mobileAlreadyActivated": "Mobile {mobile} already activated for this course",
     "orderHasPaid": "Order Has Paid",
     "orderNotFound": "Order Not Found",
     "orderStatusInit": "Init",
@@ -21,7 +22,6 @@
     "payItemBasePrice": "Base price",
     "payItemCoupon": "Coupon",
     "payItemProduct": "Product",
-    "payItemPromotion": "Promotion",
-    "mobileAlreadyActivated": "Mobile {mobile} already activated for this course"
+    "payItemPromotion": "Promotion"
   }
 }

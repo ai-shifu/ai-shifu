@@ -11,6 +11,7 @@
     "learnStatusRefund": "退款",
     "learnStatusReset": "重置",
     "learnStatusUnavailable": "不可用",
+    "mobileAlreadyActivated": "手机号 {mobile} 已开通过该课程",
     "orderHasPaid": "订单已经支付",
     "orderNotFound": "没有找到订单",
     "orderStatusInit": "初始化",
@@ -21,7 +22,6 @@
     "payItemBasePrice": "基础价格",
     "payItemCoupon": "优惠",
     "payItemProduct": "商品",
-    "payItemPromotion": "活动",
-    "mobileAlreadyActivated": "手机号 {mobile} 已开通过该课程"
+    "payItemPromotion": "活动"
   }
 }
