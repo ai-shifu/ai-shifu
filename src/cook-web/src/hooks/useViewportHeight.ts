@@ -14,7 +14,10 @@ export const useViewportHeight = () => {
       const viewport = window.visualViewport;
       const height = viewport ? viewport.height : window.innerHeight;
       const keyboardOffset = viewport
-        ? Math.max(0, window.innerHeight - (viewport.height + viewport.offsetTop))
+        ? Math.max(
+            0,
+            window.innerHeight - (viewport.height + viewport.offsetTop),
+          )
         : 0;
 
       document.documentElement.style.setProperty(APP_HEIGHT_VAR, `${height}px`);
