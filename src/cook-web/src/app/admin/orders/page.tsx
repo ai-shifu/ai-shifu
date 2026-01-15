@@ -1170,9 +1170,6 @@ const OrdersPage = () => {
 
         <div
           className='flex-1 overflow-auto rounded-xl border border-border bg-white shadow-sm'
-          style={{
-            minHeight: '420px',
-          }}
         >
           {loading ? (
             <div className='flex items-center justify-center h-40'>
@@ -1183,56 +1180,56 @@ const OrdersPage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead
-                    className='relative border-r border-border last:border-r-0'
+                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
                     style={getColumnStyle('orderId')}
                   >
                     {t('module.order.table.orderId')}
                     {renderResizeHandle('orderId')}
                   </TableHead>
                   <TableHead
-                    className='relative border-r border-border last:border-r-0'
+                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
                     style={getColumnStyle('shifu')}
                   >
                     {t('module.order.table.shifu')}
                     {renderResizeHandle('shifu')}
                   </TableHead>
                   <TableHead
-                    className='relative border-r border-border last:border-r-0'
+                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
                     style={getColumnStyle('user')}
                   >
                     {t('module.order.table.user')}
                     {renderResizeHandle('user')}
                   </TableHead>
                   <TableHead
-                    className='relative border-r border-border last:border-r-0'
+                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
                     style={getColumnStyle('amount')}
                   >
                     {t('module.order.table.amount')}
                     {renderResizeHandle('amount')}
                   </TableHead>
                   <TableHead
-                    className='relative border-r border-border last:border-r-0'
+                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
                     style={getColumnStyle('status')}
                   >
                     {t('module.order.table.status')}
                     {renderResizeHandle('status')}
                   </TableHead>
                   <TableHead
-                    className='relative border-r border-border last:border-r-0'
+                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
                     style={getColumnStyle('payment')}
                   >
                     {t('module.order.table.payment')}
                     {renderResizeHandle('payment')}
                   </TableHead>
                   <TableHead
-                    className='relative border-r border-border last:border-r-0'
+                    className='relative sticky top-0 z-30 bg-muted'
                     style={getColumnStyle('createdAt')}
                   >
                     {t('module.order.table.createdAt')}
                     {renderResizeHandle('createdAt')}
                   </TableHead>
                   <TableHead
-                    className='relative border-r border-border last:border-r-0'
+                    className='sticky right-0 top-0 z-40 bg-muted shadow-[-4px_0_4px_rgba(0,0,0,0.02)] before:content-[""] before:absolute before:left-0 before:inset-y-0 before:w-px before:bg-border'
                     style={getColumnStyle('action')}
                   >
                     {t('module.order.table.action')}
@@ -1298,13 +1295,13 @@ const OrdersPage = () => {
                       </div>
                     </TableCell>
                     <TableCell
-                      className='text-xs text-muted-foreground whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-ellipsis'
+                      className='text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis'
                       style={getColumnStyle('createdAt')}
                     >
                       {order.created_at}
                     </TableCell>
                     <TableCell
-                      className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                      className='sticky right-0 z-20 bg-white shadow-[-4px_0_4px_rgba(0,0,0,0.02)] before:content-[""] before:absolute before:left-0 before:inset-y-0 before:w-px before:bg-border whitespace-nowrap overflow-hidden text-ellipsis'
                       style={getColumnStyle('action')}
                     >
                       <Button
