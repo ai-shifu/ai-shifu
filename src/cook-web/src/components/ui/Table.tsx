@@ -4,9 +4,21 @@ import { cn } from "@/lib/utils"
 
 const Table = React.forwardRef<
   HTMLTableElement,
-  React.HTMLAttributes<HTMLTableElement> & { containerClassName?: string }
->(({ className, containerClassName, ...props }, ref) => (
-  <div className={cn("relative w-full overflow-auto", containerClassName)}>
+  React.HTMLAttributes<HTMLTableElement> & {
+    containerClassName?: string
+    containerStyle?: React.CSSProperties
+  }
+>(({ className, containerClassName, containerStyle, ...props }, ref) => (
+  <div
+    className={cn(
+      "relative w-full overflow-auto max-h-full",
+      containerClassName
+    )}
+    style={{
+      scrollbarGutter: "stable both-edges",
+      ...containerStyle,
+    }}
+  >
     <table
       ref={ref}
       className={cn("w-full caption-bottom text-[14px]", className)}
@@ -20,7 +32,16 @@ const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-  <thead ref={ref} className={cn("[&_tr]:border-b", className)} {...props} />
+  <thead
+    ref={ref}
+    className={cn(
+      "bg-background sticky top-0 z-20",
+      "[&_tr]:border-b [&_tr]:border-border",
+      "[&>tr>th]:border-b [&>tr>th]:border-border",
+      className
+    )}
+    {...props}
+  />
 ))
 TableHeader.displayName = "TableHeader"
 

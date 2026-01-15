@@ -1328,7 +1328,7 @@ const OrdersPage = () => {
                       {renderTooltipText(order.created_at)}
                     </TableCell>
                     <TableCell
-                      className='sticky right-0 z-20 bg-white shadow-[-4px_0_4px_rgba(0,0,0,0.02)] before:content-[""] before:absolute before:left-0 before:inset-y-0 before:w-px before:bg-border whitespace-nowrap overflow-hidden text-ellipsis'
+                      className='sticky right-0 z-10 bg-white shadow-[-4px_0_4px_rgba(0,0,0,0.02)] before:content-[""] before:absolute before:left-0 before:inset-y-0 before:w-px before:bg-border whitespace-nowrap overflow-hidden text-ellipsis'
                       style={getColumnStyle('action')}
                     >
                       <Button
