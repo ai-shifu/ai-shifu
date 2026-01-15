@@ -22,6 +22,7 @@ const api = {
   submitFeedback: 'POST /user/submit-feedback',
   googleOauthStart: 'GET /user/oauth/google',
   googleOauthCallback: 'GET /user/oauth/google/callback',
+  ensureAdminCreator: 'POST /user/ensure_admin_creator',
 
   // shifu api start
   getShifuList: 'GET /shifu/shifus',
@@ -84,6 +85,10 @@ const api = {
   saveProfile: 'POST /profiles/save-profile-item',
   deleteProfile: 'POST /profiles/delete-profile-item',
   getProfileList: 'GET /profiles/get-profile-item-definitions',
+
+  // MDF Conversion
+  genMdfConvert: 'POST /gen_mdf/convert',
+  genMdfConfigStatus: 'GET /gen_mdf/config-status',
 };
 
 export default api;
