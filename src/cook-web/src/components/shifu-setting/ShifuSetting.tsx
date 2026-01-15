@@ -22,6 +22,16 @@ import {
 } from '@/components/ui/Sheet';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Textarea } from '@/components/ui/Textarea';
 import {
@@ -102,6 +112,7 @@ export default function ShifuSettingDialog({
   const [uploadedImageUrl, setUploadedImageUrl] = useState('');
   const [copying, setCopying] = useState<CopyingState>(defaultCopyingState);
   const [archiveLoading, setArchiveLoading] = useState(false);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const copyTimeoutRef = useRef<
     Record<keyof CopyingState, ReturnType<typeof setTimeout> | null>
   >({
@@ -116,12 +127,6 @@ export default function ShifuSettingDialog({
       : !currentShifu?.readonly);
   const handleArchiveToggle = useCallback(async () => {
     if (!currentShifu?.bid || currentShifu?.readonly) {
-      return;
-    }
-    const confirmMessage = currentShifu.archived
-      ? t('module.shifuSetting.unarchiveConfirm')
-      : t('module.shifuSetting.archiveConfirm');
-    if (typeof window !== 'undefined' && !window.confirm(confirmMessage)) {
       return;
     }
     setArchiveLoading(true);
@@ -148,6 +153,7 @@ export default function ShifuSettingDialog({
       });
     } finally {
       setArchiveLoading(false);
+      setArchiveDialogOpen(false);
     }
   }, [actions, currentShifu, onSave, t, toast]);
   // Define the validation schema using Zod
@@ -462,10 +468,38 @@ export default function ShifuSettingDialog({
   };
 
   return (
-    <Sheet
-      open={open}
-      onOpenChange={handleOpenChange}
-    >
+    <>
+      <AlertDialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {currentShifu?.archived
+                ? t('module.shifuSetting.unarchive')
+                : t('module.shifuSetting.archive')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {currentShifu?.archived
+                ? t('module.shifuSetting.unarchiveConfirm')
+                : t('module.shifuSetting.archiveConfirm')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={archiveLoading}>
+              {t('common.core.cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={archiveLoading}
+              onClick={handleArchiveToggle}
+            >
+              {t('common.core.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <Sheet
+        open={open}
+        onOpenChange={handleOpenChange}
+      >
       <SheetTrigger asChild>
         <div className='flex items-center justify-center rounded-lg cursor-pointer'>
           <Settings size={16} />
@@ -896,7 +930,7 @@ export default function ShifuSettingDialog({
             <Button
               type='button'
               variant='outline'
-              onClick={handleArchiveToggle}
+              onClick={() => setArchiveDialogOpen(true)}
               disabled={archiveLoading}
             >
               {archiveLoading
@@ -909,5 +943,6 @@ export default function ShifuSettingDialog({
         )}
       </SheetContent>
     </Sheet>
+    </>
   );
 }
