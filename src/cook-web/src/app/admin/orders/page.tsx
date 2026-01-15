@@ -39,6 +39,15 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 import OrderDetailSheet from '@/components/order/OrderDetailSheet';
 import ImportActivationDialog from '@/components/order/ImportActivationDialog';
 import { cn } from '@/lib/utils';
@@ -748,6 +757,106 @@ const OrdersPage = () => {
     return 'secondary';
   };
 
+  const renderPaginationItems = () => {
+    const items = [];
+    const maxVisiblePages = 5;
+
+    if (pageCount <= maxVisiblePages + 2) {
+      for (let i = 1; i <= pageCount; i++) {
+        items.push(
+          <PaginationItem key={i}>
+            <PaginationLink
+              href='#'
+              isActive={pageIndex === i}
+              onClick={e => {
+                e.preventDefault();
+                handlePageChange(i);
+              }}
+            >
+              {i}
+            </PaginationLink>
+          </PaginationItem>,
+        );
+      }
+    } else {
+      items.push(
+        <PaginationItem key={1}>
+          <PaginationLink
+            href='#'
+            isActive={pageIndex === 1}
+            onClick={e => {
+              e.preventDefault();
+              handlePageChange(1);
+            }}
+          >
+            1
+          </PaginationLink>
+        </PaginationItem>,
+      );
+
+      if (pageIndex > 3) {
+        items.push(
+          <PaginationItem key='start-ellipsis'>
+            <PaginationEllipsis />
+          </PaginationItem>,
+        );
+      }
+
+      let rangeStart = Math.max(2, pageIndex - 1);
+      let rangeEnd = Math.min(pageCount - 1, pageIndex + 1);
+
+      if (pageIndex <= 3) {
+        rangeStart = 2;
+        rangeEnd = 4;
+      }
+      if (pageIndex >= pageCount - 2) {
+        rangeEnd = pageCount - 1;
+        rangeStart = pageCount - 3;
+      }
+
+      for (let i = rangeStart; i <= rangeEnd; i++) {
+        items.push(
+          <PaginationItem key={i}>
+            <PaginationLink
+              href='#'
+              isActive={pageIndex === i}
+              onClick={e => {
+                e.preventDefault();
+                handlePageChange(i);
+              }}
+            >
+              {i}
+            </PaginationLink>
+          </PaginationItem>,
+        );
+      }
+
+      if (pageIndex < pageCount - 2) {
+        items.push(
+          <PaginationItem key='end-ellipsis'>
+            <PaginationEllipsis />
+          </PaginationItem>,
+        );
+      }
+
+      items.push(
+        <PaginationItem key={pageCount}>
+          <PaginationLink
+            href='#'
+            isActive={pageIndex === pageCount}
+            onClick={e => {
+              e.preventDefault();
+              handlePageChange(pageCount);
+            }}
+          >
+            {pageCount}
+          </PaginationLink>
+        </PaginationItem>,
+      );
+    }
+    return items;
+  };
+
   const filterItems = [
     {
       key: 'order_bid',
@@ -871,6 +980,24 @@ const OrdersPage = () => {
       ),
     },
     {
+      key: 'date_range',
+      label: t('module.order.table.createdAt'),
+      component: (
+        <DateRangeFilter
+          startValue={filters.start_time}
+          endValue={filters.end_time}
+          onChange={range => {
+            handleFilterChange('start_time', range.start);
+            handleFilterChange('end_time', range.end);
+          }}
+          placeholder={`${t('module.order.filters.startTime')} ~ ${t(
+            'module.order.filters.endTime',
+          )}`}
+          resetLabel={t('module.order.filters.reset')}
+        />
+      ),
+    },
+    {
       key: 'status',
       label: t('module.order.filters.status'),
       component: (
@@ -898,24 +1025,6 @@ const OrdersPage = () => {
             ))}
           </SelectContent>
         </Select>
-      ),
-    },
-    {
-      key: 'date_range',
-      label: t('module.order.table.createdAt'),
-      component: (
-        <DateRangeFilter
-          startValue={filters.start_time}
-          endValue={filters.end_time}
-          onChange={range => {
-            handleFilterChange('start_time', range.start);
-            handleFilterChange('end_time', range.end);
-          }}
-          placeholder={`${t('module.order.filters.startTime')} ~ ${t(
-            'module.order.filters.endTime',
-          )}`}
-          resetLabel={t('module.order.filters.reset')}
-        />
       ),
     },
     {
@@ -1063,7 +1172,6 @@ const OrdersPage = () => {
           className='flex-1 overflow-auto rounded-xl border border-border bg-white shadow-sm'
           style={{
             minHeight: '420px',
-            maxHeight: 'calc(100vh - 280px)',
           }}
         >
           {loading ? (
@@ -1214,31 +1322,44 @@ const OrdersPage = () => {
           )}
         </div>
 
-        <div className='mt-4 flex items-center justify-between'>
-          <div className='text-xs text-muted-foreground'>
-            {t('module.order.pagination', {
-              page: pageIndex,
-              total: pageCount,
-            })}
-          </div>
-          <div className='flex items-center gap-2'>
-            <Button
-              size='sm'
-              variant='outline'
-              disabled={pageIndex <= 1}
-              onClick={() => handlePageChange(pageIndex - 1)}
-            >
-              {t('module.order.paginationPrev')}
-            </Button>
-            <Button
-              size='sm'
-              variant='outline'
-              disabled={pageIndex >= pageCount}
-              onClick={() => handlePageChange(pageIndex + 1)}
-            >
-              {t('module.order.paginationNext')}
-            </Button>
-          </div>
+        <div className='mt-4 mb-4 flex justify-end'>
+          <Pagination className='justify-end w-auto mx-0'>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href='#'
+                  onClick={e => {
+                    e.preventDefault();
+                    if (pageIndex > 1) handlePageChange(pageIndex - 1);
+                  }}
+                  aria-disabled={pageIndex <= 1}
+                  className={
+                    pageIndex <= 1 ? 'pointer-events-none opacity-50' : ''
+                  }
+                >
+                  {t('module.order.paginationPrev', 'Previous')}
+                </PaginationPrevious>
+              </PaginationItem>
+
+              {renderPaginationItems()}
+
+              <PaginationItem>
+                <PaginationNext
+                  href='#'
+                  onClick={e => {
+                    e.preventDefault();
+                    if (pageIndex < pageCount) handlePageChange(pageIndex + 1);
+                  }}
+                  aria-disabled={pageIndex >= pageCount}
+                  className={
+                    pageIndex >= pageCount ? 'pointer-events-none opacity-50' : ''
+                  }
+                >
+                  {t('module.order.paginationNext', 'Next')}
+                </PaginationNext>
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
       </div>
 
