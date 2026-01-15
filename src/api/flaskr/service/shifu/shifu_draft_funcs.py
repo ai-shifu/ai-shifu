@@ -375,26 +375,23 @@ def get_shifu_draft_list(
             .group_by(DraftShifu.shifu_bid)
         )
 
-        if archived:
-            union_subquery = created_subquery.subquery()
-        else:
-            shared_course_ids = (
-                db.session.query(AiCourseAuth.course_id)
-                .filter(AiCourseAuth.user_id == user_id)
-                .subquery()
-            )
+        shared_course_ids = (
+            db.session.query(AiCourseAuth.course_id)
+            .filter(AiCourseAuth.user_id == user_id)
+            .subquery()
+        )
 
-            shared_subquery = (
-                db.session.query(db.func.max(DraftShifu.id))
-                .filter(
-                    DraftShifu.shifu_bid.in_(shared_course_ids),
-                    DraftShifu.deleted == 0,
-                    DraftShifu.archived == 0,
-                )
-                .group_by(DraftShifu.shifu_bid)
+        shared_subquery = (
+            db.session.query(db.func.max(DraftShifu.id))
+            .filter(
+                DraftShifu.shifu_bid.in_(shared_course_ids),
+                DraftShifu.deleted == 0,
+                DraftShifu.archived == (1 if archived else 0),
             )
+            .group_by(DraftShifu.shifu_bid)
+        )
 
-            union_subquery = created_subquery.union(shared_subquery).subquery()
+        union_subquery = created_subquery.union(shared_subquery).subquery()
 
         total_query = db.session.query(db.func.count()).select_from(union_subquery)
         total = total_query.scalar() or 0
