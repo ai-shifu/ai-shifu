@@ -776,7 +776,7 @@ const OrdersPage = () => {
   };
 
   const renderPaginationItems = () => {
-    const items = [];
+    const items: React.ReactElement[] = [];
     const maxVisiblePages = 5;
 
     if (pageCount <= maxVisiblePages + 2) {
