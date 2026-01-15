@@ -225,8 +225,9 @@ export default function ShifuSettingDialog({
       try {
         let audioContext = ttsPreviewAudioContextRef.current;
         if (!audioContext) {
-          audioContext = new (window.AudioContext ||
-            (window as any).webkitAudioContext)();
+          audioContext = new (
+            window.AudioContext || (window as any).webkitAudioContext
+          )();
           ttsPreviewAudioContextRef.current = audioContext;
         }
 
@@ -348,12 +349,8 @@ export default function ShifuSettingDialog({
       }
       const clamped = Math.min(pitchMax, Math.max(pitchMin, value));
       const effectiveStep = pitchStep || 1;
-      const stepped =
-        Math.round(clamped / effectiveStep) * effectiveStep;
-      const finalValue = Math.min(
-        pitchMax,
-        Math.max(pitchMin, stepped),
-      );
+      const stepped = Math.round(clamped / effectiveStep) * effectiveStep;
+      const finalValue = Math.min(pitchMax, Math.max(pitchMin, stepped));
       return finalValue;
     },
     [pitchDefault, pitchMax, pitchMin, pitchStep],
@@ -889,10 +886,7 @@ export default function ShifuSettingDialog({
     const safeValue = Number.isNaN(currentValue) ? 0 : currentValue;
     const nextValue = Math.min(
       TEMPERATURE_MAX,
-      Math.max(
-        TEMPERATURE_MIN,
-        parseFloat((safeValue + delta).toFixed(1)),
-      ),
+      Math.max(TEMPERATURE_MIN, parseFloat((safeValue + delta).toFixed(1))),
     );
     form.setValue('temperature', nextValue.toString(), {
       shouldDirty: true,
@@ -1482,8 +1476,8 @@ export default function ShifuSettingDialog({
                         {t('module.shifuSetting.ttsSpeed')}
                       </span>
                       <p className='text-xs text-muted-foreground'>
-                        {t('module.shifuSetting.ttsSpeedHint')} (
-                        {speedMin} - {speedMax})
+                        {t('module.shifuSetting.ttsSpeedHint')} ({speedMin} -{' '}
+                        {speedMax})
                       </p>
                       <div className='flex items-center gap-2'>
                         <Input
@@ -1505,9 +1499,7 @@ export default function ShifuSettingDialog({
                               disabled={atMinSpeed}
                               onClick={() =>
                                 setTtsSpeed(
-                                  normalizeSpeedValue(
-                                    ttsSpeed - speedStep,
-                                  ),
+                                  normalizeSpeedValue(ttsSpeed - speedStep),
                                 )
                               }
                               className='h-9 w-9'
@@ -1521,9 +1513,7 @@ export default function ShifuSettingDialog({
                               disabled={atMaxSpeed}
                               onClick={() =>
                                 setTtsSpeed(
-                                  normalizeSpeedValue(
-                                    ttsSpeed + speedStep,
-                                  ),
+                                  normalizeSpeedValue(ttsSpeed + speedStep),
                                 )
                               }
                               className='h-9 w-9'
@@ -1541,8 +1531,8 @@ export default function ShifuSettingDialog({
                         {t('module.shifuSetting.ttsPitch')}
                       </span>
                       <p className='text-xs text-muted-foreground'>
-                        {t('module.shifuSetting.ttsPitchHint')} (
-                        {pitchMin} - {pitchMax})
+                        {t('module.shifuSetting.ttsPitchHint')} ({pitchMin} -{' '}
+                        {pitchMax})
                       </p>
                       <div className='flex items-center gap-2'>
                         <Input

@@ -570,7 +570,7 @@ function useChatLogicHook({
                       readonly: false,
                       customRenderBar: () => null,
                       type: ChatContentItemType.CONTENT,
-                       isOutputComplete: false,
+                      isOutputComplete: false,
                     });
                   }
                   return updatedList;
