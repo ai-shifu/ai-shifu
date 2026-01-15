@@ -1,6 +1,9 @@
 {
   "__namespace__": "module.shifuSetting",
   "addKeyword": "添加关键词",
+  "archive": "归档课程",
+  "archiveConfirm": "确定将课程归档？归档后会移动到“已归档”，仍可编辑且学员可以继续学习。",
+  "archiveSuccess": "课程已归档",
   "fileSizeLimit": "文件大小不能超过2MB",
   "imageFormatHint": "支持 JPG、PNG 格式，最大2MB，推荐长宽比为1:1",
   "inputKeywords": "输入关键词后回车",
@@ -34,13 +37,10 @@
   "temperatureHint": "设置 AI 输出的创造力（0-2）",
   "temperatureHint2": "数字越小，输出越严谨，数字越大，输出越发散",
   "title": "课程设置",
+  "unarchive": "取消归档",
+  "unarchiveConfirm": "确定取消归档并恢复到课程列表？",
+  "unarchiveSuccess": "已取消归档",
   "upload": "上传",
   "uploadFailed": "上传失败，请稍后再试",
-  "uploading": "正在上传",
-  "archive": "归档课程",
-  "unarchive": "取消归档",
-  "archiveConfirm": "确定将课程归档？归档后会移动到“已归档”，仍可编辑且学员可以继续学习。",
-  "unarchiveConfirm": "确定取消归档并恢复到课程列表？",
-  "archiveSuccess": "课程已归档",
-  "unarchiveSuccess": "已取消归档"
+  "uploading": "正在上传"
 }

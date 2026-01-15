@@ -50,7 +50,7 @@ def convert_text_to_mdf(
         raise_error_with_args("server.genMdf.MDF_API_NOT_CONFIGURED")
 
     # Construct API endpoint (v1 API with X-App-Id authentication)
-    api_endpoint = f"{mdf_api_url.rstrip('/')}/gen/v1/text2mdf"
+    api_endpoint = f"{mdf_api_url.rstrip('/')}/v1/text2mdf"
 
     # Prepare request payload
     payload = {"text": text, "language": language, "output_mode": output_mode}
