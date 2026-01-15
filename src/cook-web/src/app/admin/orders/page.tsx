@@ -896,9 +896,7 @@ const OrdersPage = () => {
       component: (
         <Input
           value={filters.user_bid}
-          onChange={event =>
-            handleFilterChange('user_bid', event.target.value)
-          }
+          onChange={event => handleFilterChange('user_bid', event.target.value)}
           placeholder={userBidPlaceholder}
           className='h-9'
         />
@@ -960,9 +958,7 @@ const OrdersPage = () => {
               ) : (
                 <div className='space-y-1'>
                   {filteredCourses.map(course => {
-                    const isSelected = filters.shifu_bids.includes(
-                      course.bid,
-                    );
+                    const isSelected = filters.shifu_bids.includes(course.bid);
                     const courseName = course.name || course.bid;
                     return (
                       <button
@@ -1110,10 +1106,11 @@ const OrdersPage = () => {
         </div>
 
         <div className='rounded-xl border border-border bg-white p-4 mb-5 shadow-sm transition-all'>
-                <div
-                  className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 transition-all`}
-                >
-                  {(expanded ? filterItems : filterItems.slice(0, cols - 1)).map(f => (
+          <div
+            className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 transition-all`}
+          >
+            {(expanded ? filterItems : filterItems.slice(0, cols - 1)).map(
+              f => (
                 <div
                   key={f.key}
                   className='flex items-center'
@@ -1186,9 +1183,7 @@ const OrdersPage = () => {
           )}
         </div>
 
-        <div
-          className='flex-1 overflow-auto rounded-xl border border-border bg-white shadow-sm'
-        >
+        <div className='flex-1 overflow-auto rounded-xl border border-border bg-white shadow-sm'>
           {loading ? (
             <div className='flex items-center justify-center h-40'>
               <Loading />
@@ -1198,150 +1193,150 @@ const OrdersPage = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
-                    style={getColumnStyle('orderId')}
-                  >
-                    {t('module.order.table.orderId')}
-                    {renderResizeHandle('orderId')}
-                  </TableHead>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
-                    style={getColumnStyle('shifu')}
-                  >
-                    {t('module.order.table.shifu')}
-                    {renderResizeHandle('shifu')}
-                  </TableHead>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
-                    style={getColumnStyle('user')}
-                  >
-                    {t('module.order.table.user')}
-                    {renderResizeHandle('user')}
-                  </TableHead>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
-                    style={getColumnStyle('amount')}
-                  >
-                    {t('module.order.table.amount')}
-                    {renderResizeHandle('amount')}
-                  </TableHead>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
-                    style={getColumnStyle('status')}
-                  >
-                    {t('module.order.table.status')}
-                    {renderResizeHandle('status')}
-                  </TableHead>
-                  <TableHead
-                    className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
-                    style={getColumnStyle('payment')}
-                  >
-                    {t('module.order.table.payment')}
-                    {renderResizeHandle('payment')}
-                  </TableHead>
-                  <TableHead
-                    className='relative sticky top-0 z-30 bg-muted'
-                    style={getColumnStyle('createdAt')}
-                  >
-                    {t('module.order.table.createdAt')}
-                    {renderResizeHandle('createdAt')}
-                  </TableHead>
-                  <TableHead
-                    className='sticky right-0 top-0 z-40 bg-muted shadow-[-4px_0_4px_rgba(0,0,0,0.02)] before:content-[""] before:absolute before:left-0 before:inset-y-0 before:w-px before:bg-border'
-                    style={getColumnStyle('action')}
-                  >
-                    {t('module.order.table.action')}
-                    {renderResizeHandle('action')}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {orders.length === 0 && (
-                  <TableEmpty colSpan={8}>
-                    {t('module.order.emptyList')}
-                  </TableEmpty>
-                )}
-                {orders.map(order => (
-                  <TableRow key={order.order_bid}>
-                    <TableCell
-                      className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
                       style={getColumnStyle('orderId')}
                     >
-                      {renderTooltipText(order.order_bid)}
-                    </TableCell>
-                    <TableCell
-                      className='whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-ellipsis'
+                      {t('module.order.table.orderId')}
+                      {renderResizeHandle('orderId')}
+                    </TableHead>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
                       style={getColumnStyle('shifu')}
                     >
-                      {renderTooltipText(
-                        order.shifu_name || order.shifu_bid,
-                        'text-foreground',
-                      )}
-                    </TableCell>
-                    <TableCell
-                      className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                      {t('module.order.table.shifu')}
+                      {renderResizeHandle('shifu')}
+                    </TableHead>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
                       style={getColumnStyle('user')}
                     >
-                      {renderTooltipText(
-                        order.user_mobile || order.user_bid,
-                        'text-foreground whitespace-nowrap',
-                      )}
-                      <br/>
-                      {renderTooltipText(
-                        order.user_nickname || order.user_bid,
-                        'text-xs text-muted-foreground mt-1',
-                      )}
-                    </TableCell>
-                    <TableCell
-                      className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                      {t('module.order.table.user')}
+                      {renderResizeHandle('user')}
+                    </TableHead>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
                       style={getColumnStyle('amount')}
                     >
-                      {renderTooltipText(
-                        order.payable_price?.toString(),
-                        'text-foreground',
-                      )}
-                    </TableCell>
-                    <TableCell
-                      className='whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-ellipsis'
+                      {t('module.order.table.amount')}
+                      {renderResizeHandle('amount')}
+                    </TableHead>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
                       style={getColumnStyle('status')}
                     >
-                      <Badge variant={resolveStatusVariant(order.status)}>
-                        {t(order.status_key)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell
-                      className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                      {t('module.order.table.status')}
+                      {renderResizeHandle('status')}
+                    </TableHead>
+                    <TableHead
+                      className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
                       style={getColumnStyle('payment')}
                     >
-                      <div className='text-sm text-foreground'>
-                        {renderTooltipText(
-                          t(order.payment_channel_key),
-                          'text-sm',
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell
-                      className='whitespace-nowrap overflow-hidden text-ellipsis'
+                      {t('module.order.table.payment')}
+                      {renderResizeHandle('payment')}
+                    </TableHead>
+                    <TableHead
+                      className='relative sticky top-0 z-30 bg-muted'
                       style={getColumnStyle('createdAt')}
                     >
-                      {renderTooltipText(order.created_at)}
-                    </TableCell>
-                    <TableCell
-                      className='sticky right-0 z-10 bg-white shadow-[-4px_0_4px_rgba(0,0,0,0.02)] before:content-[""] before:absolute before:left-0 before:inset-y-0 before:w-px before:bg-border whitespace-nowrap overflow-hidden text-ellipsis'
+                      {t('module.order.table.createdAt')}
+                      {renderResizeHandle('createdAt')}
+                    </TableHead>
+                    <TableHead
+                      className='sticky right-0 top-0 z-40 bg-muted shadow-[-4px_0_4px_rgba(0,0,0,0.02)] before:content-[""] before:absolute before:left-0 before:inset-y-0 before:w-px before:bg-border'
                       style={getColumnStyle('action')}
                     >
-                      <Button
-                        size='sm'
-                        variant='outline'
-                        onClick={() => handleViewDetail(order)}
-                      >
-                        {t('module.order.table.view')}
-                      </Button>
-                    </TableCell>
+                      {t('module.order.table.action')}
+                      {renderResizeHandle('action')}
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
+                </TableHeader>
+                <TableBody>
+                  {orders.length === 0 && (
+                    <TableEmpty colSpan={8}>
+                      {t('module.order.emptyList')}
+                    </TableEmpty>
+                  )}
+                  {orders.map(order => (
+                    <TableRow key={order.order_bid}>
+                      <TableCell
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                        style={getColumnStyle('orderId')}
+                      >
+                        {renderTooltipText(order.order_bid)}
+                      </TableCell>
+                      <TableCell
+                        className='whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-ellipsis'
+                        style={getColumnStyle('shifu')}
+                      >
+                        {renderTooltipText(
+                          order.shifu_name || order.shifu_bid,
+                          'text-foreground',
+                        )}
+                      </TableCell>
+                      <TableCell
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                        style={getColumnStyle('user')}
+                      >
+                        {renderTooltipText(
+                          order.user_mobile || order.user_bid,
+                          'text-foreground whitespace-nowrap',
+                        )}
+                        <br />
+                        {renderTooltipText(
+                          order.user_nickname || order.user_bid,
+                          'text-xs text-muted-foreground mt-1',
+                        )}
+                      </TableCell>
+                      <TableCell
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                        style={getColumnStyle('amount')}
+                      >
+                        {renderTooltipText(
+                          order.payable_price?.toString(),
+                          'text-foreground',
+                        )}
+                      </TableCell>
+                      <TableCell
+                        className='whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-ellipsis'
+                        style={getColumnStyle('status')}
+                      >
+                        <Badge variant={resolveStatusVariant(order.status)}>
+                          {t(order.status_key)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell
+                        className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                        style={getColumnStyle('payment')}
+                      >
+                        <div className='text-sm text-foreground'>
+                          {renderTooltipText(
+                            t(order.payment_channel_key),
+                            'text-sm',
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell
+                        className='whitespace-nowrap overflow-hidden text-ellipsis'
+                        style={getColumnStyle('createdAt')}
+                      >
+                        {renderTooltipText(order.created_at)}
+                      </TableCell>
+                      <TableCell
+                        className='sticky right-0 z-10 bg-white shadow-[-4px_0_4px_rgba(0,0,0,0.02)] before:content-[""] before:absolute before:left-0 before:inset-y-0 before:w-px before:bg-border whitespace-nowrap overflow-hidden text-ellipsis'
+                        style={getColumnStyle('action')}
+                      >
+                        <Button
+                          size='sm'
+                          variant='outline'
+                          onClick={() => handleViewDetail(order)}
+                        >
+                          {t('module.order.table.view')}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
               </Table>
             </TooltipProvider>
           )}
@@ -1377,7 +1372,9 @@ const OrdersPage = () => {
                   }}
                   aria-disabled={pageIndex >= pageCount}
                   className={
-                    pageIndex >= pageCount ? 'pointer-events-none opacity-50' : ''
+                    pageIndex >= pageCount
+                      ? 'pointer-events-none opacity-50'
+                      : ''
                   }
                 >
                   {t('module.order.paginationNext', 'Next')}
