@@ -24,6 +24,7 @@ export interface Shifu {
   is_favorite?: boolean;
   readonly?: boolean;
   archived?: boolean;
+  created_user_bid?: string;
 }
 
 export interface Outline {

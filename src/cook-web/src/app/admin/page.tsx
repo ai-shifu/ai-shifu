@@ -51,13 +51,8 @@ const ShifuCard = ({
       href={`/shifu/${id}`}
       className='block w-full h-full'
     >
-      <Card
-        className={cn(
-          'w-full h-full cursor-pointer rounded-xl bg-background hover:scale-105 transition-all duration-200 ease-in-out',
-          archived && 'opacity-80 border-dashed',
-        )}
-      >
-        <CardContent className='p-4 cursor-pointer'>
+      <Card className='w-full h-full min-h-[118px] cursor-pointer rounded-xl border border-slate-200 bg-background shadow-[0_4px_20px_rgba(15,23,42,0.08)] transition-all duration-200 ease-in-out hover:shadow-[0_10px_30px_rgba(15,23,42,0.12)]'>
+        <CardContent className='p-4 cursor-pointer flex flex-col gap-2 h-full'>
           <div className='flex flex-row items-center justify-between'>
             <div className='flex flex-row items-center mb-2 w-full'>
               <div className='p-2 h-10 w-10 rounded-lg bg-primary/10 mr-4 flex items-center justify-center shrink-0'>
@@ -78,15 +73,15 @@ const ShifuCard = ({
             <div className='flex items-center gap-2'>
               {isFavorite && <StarIcon className='w-5 h-5 text-yellow-400' />}
               {archived && (
-                <Badge variant='secondary'>{t('common.core.archived')}</Badge>
+                <Badge className='rounded-full bg-muted text-muted-foreground px-3 py-0 text-xs whitespace-nowrap'>
+                  {t('common.core.archived')}
+                </Badge>
               )}
             </div>
           </div>
-          <div>
-            <p className='mt-1 text-sm text-gray-500 line-clamp-3 break-words break-all'>
-              {description}
-            </p>
-          </div>
+          <p className='text-sm text-gray-500 line-clamp-3 break-words break-all min-h-[1.25rem]'>
+            {description || ''}
+          </p>
         </CardContent>
       </Card>
     </Link>
