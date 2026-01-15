@@ -22,6 +22,7 @@ const api = {
   submitFeedback: 'POST /user/submit-feedback',
   googleOauthStart: 'GET /user/oauth/google',
   googleOauthCallback: 'GET /user/oauth/google/callback',
+  ensureAdminCreator: 'POST /user/ensure_admin_creator',
 
   // shifu api start
   getShifuList: 'GET /shifu/shifus',
