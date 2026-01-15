@@ -416,8 +416,8 @@ export const NewChatComponents = ({
                   !parentContentItem.isHistory &&
                   Boolean(
                     parentContentItem.audioUrl ||
-                      parentContentItem.audioSegments?.length ||
-                      parentContentItem.isAudioStreaming,
+                    parentContentItem.audioSegments?.length ||
+                    parentContentItem.isAudioStreaming,
                   );
 
                 const blockAutoPlay = shouldAutoPlay(
@@ -463,11 +463,11 @@ export const NewChatComponents = ({
                 item.type === ChatContentItemType.INTERACTION;
               const hasAudioForAutoPlay = Boolean(
                 mobileStyle &&
-                  !isInteractionBlock &&
-                  !item.isAudioStreaming &&
-                  !item.isHistoryRecord &&
-                  item.isOutputComplete &&
-                  (item.audioUrl || item.audioSegments?.length),
+                !isInteractionBlock &&
+                !item.isAudioStreaming &&
+                !item.isHistoryRecord &&
+                item.isOutputComplete &&
+                (item.audioUrl || item.audioSegments?.length),
               );
               const blockAutoPlay =
                 mobileStyle && !isInteractionBlock
