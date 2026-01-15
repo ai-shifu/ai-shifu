@@ -42,7 +42,7 @@ import { Badge } from '@/components/ui/Badge';
 import OrderDetailSheet from '@/components/order/OrderDetailSheet';
 import ImportActivationDialog from '@/components/order/ImportActivationDialog';
 import { cn } from '@/lib/utils';
-import { CalendarIcon, Check, ChevronDown } from 'lucide-react';
+import { CalendarIcon, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import type { OrderSummary } from '@/components/order/order-types';
 import type { Shifu } from '@/types/shifu';
 import { useEnvStore } from '@/c-store';
@@ -260,6 +260,22 @@ const OrdersPage = () => {
     end_time: '',
   });
   const filtersRef = useRef<OrderFilters>(filters);
+  const [expanded, setExpanded] = useState(false);
+  const [cols, setCols] = useState(4);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (typeof window === 'undefined') return;
+      const width = window.innerWidth;
+      if (width >= 1024) setCols(3);
+      else if (width >= 768) setCols(2);
+      else setCols(1);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [columnWidths, setColumnWidths] = useState<ColumnWidthState>(() =>
     loadStoredColumnWidths(),
   );
@@ -733,6 +749,208 @@ const OrdersPage = () => {
     return 'secondary';
   };
 
+  const filterItems = [
+    {
+      key: 'order_bid',
+      label: t('module.order.filters.orderBid'),
+      component: (
+        <Input
+          value={filters.order_bid}
+          onChange={event =>
+            handleFilterChange('order_bid', event.target.value)
+          }
+          placeholder={t('module.order.filters.orderBid')}
+          className='h-9'
+        />
+      ),
+    },
+    {
+      key: 'user_bid',
+      label: userBidPlaceholder,
+      component: (
+        <Input
+          value={filters.user_bid}
+          onChange={event =>
+            handleFilterChange('user_bid', event.target.value)
+          }
+          placeholder={userBidPlaceholder}
+          className='h-9'
+        />
+      ),
+    },
+    {
+      key: 'shifu_bids',
+      label: t('module.order.filters.shifuBid'),
+      component: (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              size='sm'
+              variant='outline'
+              type='button'
+              className='h-9 w-full justify-between font-normal'
+              title={selectedCourseNames.join(', ')}
+            >
+              <span
+                className={cn(
+                  'flex-1 truncate text-left',
+                  filters.shifu_bids.length === 0
+                    ? 'text-muted-foreground'
+                    : 'text-foreground',
+                )}
+              >
+                {selectedCourseLabel}
+              </span>
+              <ChevronDown className='h-4 w-4 text-muted-foreground' />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            align='start'
+            className='p-3'
+            style={{
+              width: 'var(--radix-popover-trigger-width)',
+              maxWidth: 'var(--radix-popover-trigger-width)',
+            }}
+          >
+            <Input
+              value={courseSearch}
+              onChange={event => setCourseSearch(event.target.value)}
+              placeholder={t('module.order.filters.searchCourseOrId')}
+              className='h-8'
+            />
+            <ScrollArea className='mt-3 h-48'>
+              {coursesLoading ? (
+                <div className='flex items-center justify-center py-4'>
+                  <Loading className='h-5 w-5' />
+                </div>
+              ) : coursesError ? (
+                <div className='px-2 py-3 text-xs text-destructive'>
+                  {coursesError}
+                </div>
+              ) : filteredCourses.length === 0 ? (
+                <div className='px-2 py-3 text-xs text-muted-foreground'>
+                  {t('common.core.noShifus')}
+                </div>
+              ) : (
+                <div className='space-y-1'>
+                  {filteredCourses.map(course => {
+                    const isSelected = filters.shifu_bids.includes(
+                      course.bid,
+                    );
+                    const courseName = course.name || course.bid;
+                    return (
+                      <button
+                        key={course.bid}
+                        type='button'
+                        onClick={() => handleCourseToggle(course.bid)}
+                        className='flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent'
+                        aria-pressed={isSelected}
+                      >
+                        <span
+                          className={cn(
+                            'mt-0.5 flex h-4 w-4 items-center justify-center rounded border',
+                            isSelected
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-muted-foreground/40 text-transparent',
+                          )}
+                        >
+                          <Check className='h-3 w-3' />
+                        </span>
+                        <span className='flex flex-col min-w-0'>
+                          <span className='text-sm text-foreground truncate'>
+                            {courseName}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </ScrollArea>
+          </PopoverContent>
+        </Popover>
+      ),
+    },
+    {
+      key: 'status',
+      label: t('module.order.filters.status'),
+      component: (
+        <Select
+          value={displayStatusValue}
+          onValueChange={value =>
+            handleFilterChange(
+              'status',
+              value === ALL_OPTION_VALUE ? '' : value,
+            )
+          }
+        >
+          <SelectTrigger className='h-9'>
+            <SelectValue placeholder={t('module.order.filters.status')} />
+          </SelectTrigger>
+          <SelectContent>
+            {statusOptions.map(option => (
+              <SelectItem
+                key={option.value || 'all'}
+                value={option.value || ALL_OPTION_VALUE}
+                className={SINGLE_SELECT_ITEM_CLASS}
+              >
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: 'date_range',
+      label: t('module.order.table.createdAt'),
+      component: (
+        <DateRangeFilter
+          startValue={filters.start_time}
+          endValue={filters.end_time}
+          onChange={range => {
+            handleFilterChange('start_time', range.start);
+            handleFilterChange('end_time', range.end);
+          }}
+          placeholder={`${t('module.order.filters.startTime')} ~ ${t(
+            'module.order.filters.endTime',
+          )}`}
+          resetLabel={t('module.order.filters.reset')}
+        />
+      ),
+    },
+    {
+      key: 'payment_channel',
+      label: t('module.order.filters.channel'),
+      component: (
+        <Select
+          value={displayChannelValue}
+          onValueChange={value =>
+            handleFilterChange(
+              'payment_channel',
+              value === ALL_OPTION_VALUE ? '' : value,
+            )
+          }
+        >
+          <SelectTrigger className='h-9'>
+            <SelectValue placeholder={t('module.order.filters.channel')} />
+          </SelectTrigger>
+          <SelectContent>
+            {channelOptions.map(option => (
+              <SelectItem
+                key={option.value || 'all'}
+                value={option.value || ALL_OPTION_VALUE}
+                className={SINGLE_SELECT_ITEM_CLASS}
+              >
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ),
+    },
+  ];
+
   if (error) {
     return (
       <div className='h-full p-0'>
@@ -765,190 +983,81 @@ const OrdersPage = () => {
           </div>
         </div>
 
-        <div className='rounded-xl border border-border bg-white p-4 mb-5 shadow-sm'>
-          <div className='grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-6'>
-            <Input
-              value={filters.order_bid}
-              onChange={event =>
-                handleFilterChange('order_bid', event.target.value)
-              }
-              placeholder={t('module.order.filters.orderBid')}
-              className='h-9'
-            />
-            <Input
-              value={filters.user_bid}
-              onChange={event =>
-                handleFilterChange('user_bid', event.target.value)
-              }
-              placeholder={userBidPlaceholder}
-              className='h-9'
-            />
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  size='sm'
-                  variant='outline'
-                  type='button'
-                  className='h-9 w-full justify-between font-normal'
-                  title={selectedCourseNames.join(', ')}
+        <div className='rounded-xl border border-border bg-white p-4 mb-5 shadow-sm transition-all'>
+                <div
+                  className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 transition-all`}
+                >
+                  {(expanded ? filterItems : filterItems.slice(0, cols - 1)).map(f => (
+                <div
+                  key={f.key}
+                  className='flex items-center'
                 >
                   <span
                     className={cn(
-                      'flex-1 truncate text-left',
-                      filters.shifu_bids.length === 0
-                        ? 'text-muted-foreground'
-                        : 'text-foreground',
+                      'shrink-0 mr-2 text-sm font-medium text-foreground whitespace-nowrap text-right',
+                      i18n.language?.startsWith('zh') ? 'w-18' : 'w-28',
                     )}
                   >
-                    {selectedCourseLabel}
+                    {f.label}:
                   </span>
-                  <ChevronDown className='h-4 w-4 text-muted-foreground' />
+                  <div className='flex-1 min-w-0'>{f.component}</div>
+                </div>
+              ),
+            )}
+
+            {!expanded && (
+              <div className='flex items-center justify-end gap-2'>
+                <Button
+                  size='sm'
+                  variant='outline'
+                  onClick={handleReset}
+                >
+                  {t('module.order.filters.reset')}
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent
-                align='start'
-                className='p-3'
-                style={{
-                  width: 'var(--radix-popover-trigger-width)',
-                  maxWidth: 'var(--radix-popover-trigger-width)',
-                }}
+                <Button
+                  size='sm'
+                  onClick={handleSearch}
+                >
+                  {t('module.order.filters.search')}
+                </Button>
+                <Button
+                  size='sm'
+                  variant='ghost'
+                  className='px-2 text-primary'
+                  onClick={() => setExpanded(true)}
+                >
+                  {t('common.core.expand', '展开')}
+                  <ChevronDown className='ml-1 h-4 w-4' />
+                </Button>
+              </div>
+            )}
+          </div>
+          {expanded && (
+            <div className='mt-4 flex justify-end gap-2'>
+              <Button
+                size='sm'
+                variant='outline'
+                onClick={handleReset}
               >
-                <Input
-                  value={courseSearch}
-                  onChange={event => setCourseSearch(event.target.value)}
-                  placeholder={t('module.order.filters.searchCourseOrId')}
-                  className='h-8'
-                />
-                <ScrollArea className='mt-3 h-48'>
-                  {coursesLoading ? (
-                    <div className='flex items-center justify-center py-4'>
-                      <Loading className='h-5 w-5' />
-                    </div>
-                  ) : coursesError ? (
-                    <div className='px-2 py-3 text-xs text-destructive'>
-                      {coursesError}
-                    </div>
-                  ) : filteredCourses.length === 0 ? (
-                    <div className='px-2 py-3 text-xs text-muted-foreground'>
-                      {t('common.core.noShifus')}
-                    </div>
-                  ) : (
-                    <div className='space-y-1'>
-                      {filteredCourses.map(course => {
-                        const isSelected = filters.shifu_bids.includes(
-                          course.bid,
-                        );
-                        const courseName = course.name || course.bid;
-                        return (
-                          <button
-                            key={course.bid}
-                            type='button'
-                            onClick={() => handleCourseToggle(course.bid)}
-                            className='flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent'
-                            aria-pressed={isSelected}
-                          >
-                            <span
-                              className={cn(
-                                'mt-0.5 flex h-4 w-4 items-center justify-center rounded border',
-                                isSelected
-                                  ? 'border-primary bg-primary text-primary-foreground'
-                                  : 'border-muted-foreground/40 text-transparent',
-                              )}
-                            >
-                              <Check className='h-3 w-3' />
-                            </span>
-                            <span className='flex flex-col min-w-0'>
-                              <span className='text-sm text-foreground truncate'>
-                                {courseName}
-                              </span>
-                              {/* <span className='text-xs text-muted-foreground'>
-                                {course.bid}
-                              </span> */}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </ScrollArea>
-              </PopoverContent>
-            </Popover>
-            <Select
-              value={displayStatusValue}
-              onValueChange={value =>
-                handleFilterChange(
-                  'status',
-                  value === ALL_OPTION_VALUE ? '' : value,
-                )
-              }
-            >
-              <SelectTrigger className='h-9'>
-                <SelectValue placeholder={t('module.order.filters.status')} />
-              </SelectTrigger>
-              <SelectContent>
-                {statusOptions.map(option => (
-                  <SelectItem
-                    key={option.value || 'all'}
-                    value={option.value || ALL_OPTION_VALUE}
-                    className={SINGLE_SELECT_ITEM_CLASS}
-                  >
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={displayChannelValue}
-              onValueChange={value =>
-                handleFilterChange(
-                  'payment_channel',
-                  value === ALL_OPTION_VALUE ? '' : value,
-                )
-              }
-            >
-              <SelectTrigger className='h-9'>
-                <SelectValue placeholder={t('module.order.filters.channel')} />
-              </SelectTrigger>
-              <SelectContent>
-                {channelOptions.map(option => (
-                  <SelectItem
-                    key={option.value || 'all'}
-                    value={option.value || ALL_OPTION_VALUE}
-                    className={SINGLE_SELECT_ITEM_CLASS}
-                  >
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <DateRangeFilter
-              startValue={filters.start_time}
-              endValue={filters.end_time}
-              onChange={range => {
-                handleFilterChange('start_time', range.start);
-                handleFilterChange('end_time', range.end);
-              }}
-              placeholder={`${t('module.order.filters.startTime')} ~ ${t(
-                'module.order.filters.endTime',
-              )}`}
-              resetLabel={t('module.order.filters.reset')}
-            />
-          </div>
-          <div className='mt-4 flex gap-2'>
-            <Button
-              size='sm'
-              onClick={handleSearch}
-            >
-              {t('module.order.filters.search')}
-            </Button>
-            <Button
-              size='sm'
-              variant='outline'
-              onClick={handleReset}
-            >
-              {t('module.order.filters.reset')}
-            </Button>
-          </div>
+                {t('module.order.filters.reset')}
+              </Button>
+              <Button
+                size='sm'
+                onClick={handleSearch}
+              >
+                {t('module.order.filters.search')}
+              </Button>
+              <Button
+                size='sm'
+                variant='ghost'
+                className='px-2 text-primary'
+                onClick={() => setExpanded(false)}
+              >
+                {t('common.core.collapse', '收起')}
+                <ChevronUp className='ml-1 h-4 w-4' />
+              </Button>
+            </div>
+          )}
         </div>
 
         <div
