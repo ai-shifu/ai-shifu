@@ -38,7 +38,7 @@ import api from '@/api';
 import ModelList from '@/components/model-list';
 import { useEnvStore } from '@/c-store';
 import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
-import { useShifu } from '@/store';
+import { useShifu, useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { useToast } from '@/hooks/useToast';
 
@@ -79,6 +79,7 @@ export default function ShifuSettingDialog({
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
   const { currentShifu, models, actions } = useShifu();
+  const currentUserId = useUserStore(state => state.userInfo?.user_id || '');
   const { toast } = useToast();
   const defaultLlmModel = useEnvStore(state => state.defaultLlmModel);
   const currencySymbol = useEnvStore(state => state.currencySymbol);
@@ -108,6 +109,11 @@ export default function ShifuSettingDialog({
     url: null,
   });
   const { trackEvent } = useTracking();
+  const canManageArchive =
+    !!currentShifu?.bid &&
+    (currentShifu?.created_user_bid
+      ? currentShifu.created_user_bid === currentUserId
+      : !currentShifu?.readonly);
   const handleArchiveToggle = useCallback(async () => {
     if (!currentShifu?.bid || currentShifu?.readonly) {
       return;
@@ -885,7 +891,7 @@ export default function ShifuSettingDialog({
             <div className='h-px w-full bg-border' />
           </form>
         </Form>
-        {!currentShifu?.readonly && currentShifu?.bid ? (
+        {canManageArchive && (
           <div className='flex justify-end mt-4'>
             <Button
               type='button'
@@ -900,7 +906,7 @@ export default function ShifuSettingDialog({
                   : t('module.shifuSetting.archive')}
             </Button>
           </div>
-        ) : null}
+        )}
       </SheetContent>
     </Sheet>
   );

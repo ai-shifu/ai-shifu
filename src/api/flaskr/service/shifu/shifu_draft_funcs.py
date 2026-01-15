@@ -83,6 +83,7 @@ def return_shifu_draft_dto(
         shifu_system_prompt=shifu_draft.llm_system_prompt,
         readonly=readonly,
         archived=bool(shifu_draft.archived),
+        created_user_bid=shifu_draft.created_user_bid or "",
     )
 
 

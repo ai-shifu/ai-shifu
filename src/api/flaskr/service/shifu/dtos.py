@@ -83,6 +83,9 @@ class ShifuDetailDto(BaseModel):
     system_prompt: str = Field(..., description="shifu system prompt", required=False)
     readonly: bool = Field(..., description="is shifu readonly", required=False)
     archived: bool = Field(..., description="is shifu archived", required=False)
+    created_user_bid: str = Field(
+        "", description="owner user business id", required=False
+    )
 
     def __init__(
         self,
@@ -99,6 +102,7 @@ class ShifuDetailDto(BaseModel):
         shifu_system_prompt: str,
         readonly: bool,
         archived: bool,
+        created_user_bid: str = "",
     ):
         super().__init__(
             bid=shifu_id,
@@ -114,6 +118,7 @@ class ShifuDetailDto(BaseModel):
             system_prompt=shifu_system_prompt,
             readonly=readonly,
             archived=archived,
+            created_user_bid=created_user_bid or "",
         )
 
     def __json__(self):
@@ -131,6 +136,7 @@ class ShifuDetailDto(BaseModel):
             "system_prompt": self.system_prompt,
             "readonly": self.readonly,
             "archived": self.archived,
+            "created_user_bid": self.created_user_bid,
         }
 
 
