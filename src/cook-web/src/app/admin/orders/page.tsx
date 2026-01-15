@@ -211,7 +211,6 @@ const DateRangeFilter = ({
             })
           }
           className='p-3 md:p-4 [--cell-size:2.4rem]'
-          initialFocus
         />
         <div className='flex items-center justify-end gap-2 border-t border-border px-3 py-2'>
           <Button
