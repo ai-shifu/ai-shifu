@@ -40,6 +40,12 @@ import {
 } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   Pagination,
   PaginationContent,
   PaginationEllipsis,
@@ -573,6 +579,18 @@ const OrdersPage = () => {
       aria-hidden='true'
     />
   );
+
+  const renderTooltipText = (text?: string, className?: string) => {
+    const value = text && text.trim().length > 0 ? text : '-';
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className={cn('truncate', className)}>{value}</span>
+        </TooltipTrigger>
+        <TooltipContent side='top'>{value}</TooltipContent>
+      </Tooltip>
+    );
+  };
 
   useEffect(() => {
     if (!isInitialized || isGuest) {
@@ -1176,9 +1194,10 @@ const OrdersPage = () => {
               <Loading />
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
+            <TooltipProvider delayDuration={150}>
+              <Table>
+                <TableHeader>
+                  <TableRow>
                   <TableHead
                     className='relative border-r border-border last:border-r-0 sticky top-0 z-30 bg-muted'
                     style={getColumnStyle('orderId')}
@@ -1246,37 +1265,42 @@ const OrdersPage = () => {
                 {orders.map(order => (
                   <TableRow key={order.order_bid}>
                     <TableCell
-                      className='font-mono text-xs border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
+                      className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                       style={getColumnStyle('orderId')}
                     >
-                      {order.order_bid}
+                      {renderTooltipText(order.order_bid)}
                     </TableCell>
                     <TableCell
                       className='whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-ellipsis'
                       style={getColumnStyle('shifu')}
                     >
-                      <div className='font-medium text-foreground'>
-                        {order.shifu_name || order.shifu_bid}
-                      </div>
+                      {renderTooltipText(
+                        order.shifu_name || order.shifu_bid,
+                        'text-foreground',
+                      )}
                     </TableCell>
                     <TableCell
-                      className='border-r border-border last:border-r-0'
+                      className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                       style={getColumnStyle('user')}
                     >
-                      <div className='font-medium text-foreground whitespace-nowrap overflow-hidden text-ellipsis'>
-                        {order.user_mobile || order.user_bid}
-                      </div>
-                      <div className='text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis'>
-                        {order.user_nickname || order.user_bid}
-                      </div>
+                      {renderTooltipText(
+                        order.user_mobile || order.user_bid,
+                        'text-foreground whitespace-nowrap',
+                      )}
+                      <br/>
+                      {renderTooltipText(
+                        order.user_nickname || order.user_bid,
+                        'text-xs text-muted-foreground mt-1',
+                      )}
                     </TableCell>
                     <TableCell
                       className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                       style={getColumnStyle('amount')}
                     >
-                      <div className='font-semibold text-foreground'>
-                        {order.payable_price}
-                      </div>
+                      {renderTooltipText(
+                        order.payable_price?.toString(),
+                        'text-foreground',
+                      )}
                     </TableCell>
                     <TableCell
                       className='whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-ellipsis'
@@ -1291,14 +1315,17 @@ const OrdersPage = () => {
                       style={getColumnStyle('payment')}
                     >
                       <div className='text-sm text-foreground'>
-                        {t(order.payment_channel_key)}
+                        {renderTooltipText(
+                          t(order.payment_channel_key),
+                          'text-sm',
+                        )}
                       </div>
                     </TableCell>
                     <TableCell
-                      className='text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis'
+                      className='whitespace-nowrap overflow-hidden text-ellipsis'
                       style={getColumnStyle('createdAt')}
                     >
-                      {order.created_at}
+                      {renderTooltipText(order.created_at)}
                     </TableCell>
                     <TableCell
                       className='sticky right-0 z-20 bg-white shadow-[-4px_0_4px_rgba(0,0,0,0.02)] before:content-[""] before:absolute before:left-0 before:inset-y-0 before:w-px before:bg-border whitespace-nowrap overflow-hidden text-ellipsis'
@@ -1315,7 +1342,8 @@ const OrdersPage = () => {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+              </Table>
+            </TooltipProvider>
           )}
         </div>
 
