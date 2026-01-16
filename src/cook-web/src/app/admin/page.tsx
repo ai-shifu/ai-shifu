@@ -96,7 +96,6 @@ const ScriptManagementPage = () => {
   const isGuest = useUserStore(state => state.isGuest);
   const [activeTab, setActiveTab] = useState<'all' | 'archived'>('all');
   const [adminReady, setAdminReady] = useState(false);
-  const [activeTab, setActiveTab] = useState('all');
   const [shifus, setShifus] = useState<Shifu[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
