@@ -261,10 +261,13 @@ def get_shifu_draft_info(
         if not shifu_draft:
             raise_error("server.shifu.shifuNotFound")
         permission_map = get_user_shifu_permissions(app, user_id)
-        has_view_permission = shifu_id in permission_map or shifu_permission_verification(
-            app, user_id, shifu_id, "view"
+        has_view_permission = (
+            shifu_id in permission_map
+            or shifu_permission_verification(app, user_id, shifu_id, "view")
         )
-        has_edit_permission = shifu_permission_verification(app, user_id, shifu_id, "edit")
+        has_edit_permission = shifu_permission_verification(
+            app, user_id, shifu_id, "edit"
+        )
         readonly = not has_edit_permission
         archive_map = _get_user_archive_map(app, user_id, [shifu_id])
         archived_override = archive_map.get(shifu_id)
