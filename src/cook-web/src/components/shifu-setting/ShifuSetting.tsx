@@ -122,9 +122,10 @@ export default function ShifuSettingDialog({
   const { trackEvent } = useTracking();
   const canManageArchive =
     !!currentShifu?.bid &&
-    (currentShifu?.created_user_bid
-      ? currentShifu.created_user_bid === currentUserId
-      : !currentShifu?.readonly);
+    (currentShifu?.can_manage_archive ??
+      (currentShifu?.created_user_bid
+        ? currentShifu.created_user_bid === currentUserId
+        : !currentShifu?.readonly));
   const handleArchiveToggle = useCallback(async () => {
     if (!currentShifu?.bid || !canManageArchive) {
       return;
@@ -474,8 +475,8 @@ export default function ShifuSettingDialog({
           <AlertDialogHeader>
             <AlertDialogTitle>
               {currentShifu?.archived
-                ? t('module.shifuSetting.unarchive')
-                : t('module.shifuSetting.archive')}
+                ? t('module.shifuSetting.unarchiveTitle')
+                : t('module.shifuSetting.archiveTitle')}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {currentShifu?.archived
@@ -926,10 +927,11 @@ export default function ShifuSettingDialog({
           </form>
         </Form>
         {canManageArchive && (
-          <div className='flex justify-end mt-4'>
+          <div className='flex justify-end mt-6 mb-6 pr-4'>
             <Button
               type='button'
               variant='outline'
+              className='border border-destructive text-destructive hover:bg-destructive/5 px-4 py-2 h-10 rounded-lg'
               onClick={() => setArchiveDialogOpen(true)}
               disabled={archiveLoading}
             >

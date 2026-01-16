@@ -83,6 +83,9 @@ class ShifuDetailDto(BaseModel):
     system_prompt: str = Field(..., description="shifu system prompt", required=False)
     readonly: bool = Field(..., description="is shifu readonly", required=False)
     archived: bool = Field(..., description="is shifu archived", required=False)
+    can_manage_archive: bool = Field(
+        False, description="whether current user can archive/unarchive", required=False
+    )
     created_user_bid: str = Field(
         "", description="owner user business id", required=False
     )
@@ -102,6 +105,7 @@ class ShifuDetailDto(BaseModel):
         shifu_system_prompt: str,
         readonly: bool,
         archived: bool,
+        can_manage_archive: bool = False,
         created_user_bid: str = "",
     ):
         super().__init__(
@@ -118,6 +122,7 @@ class ShifuDetailDto(BaseModel):
             system_prompt=shifu_system_prompt,
             readonly=readonly,
             archived=archived,
+            can_manage_archive=can_manage_archive,
             created_user_bid=created_user_bid or "",
         )
 
@@ -136,6 +141,7 @@ class ShifuDetailDto(BaseModel):
             "system_prompt": self.system_prompt,
             "readonly": self.readonly,
             "archived": self.archived,
+            "can_manage_archive": self.can_manage_archive,
             "created_user_bid": self.created_user_bid,
         }
 
