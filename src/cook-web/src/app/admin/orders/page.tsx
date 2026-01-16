@@ -1149,7 +1149,7 @@ const OrdersPage = () => {
                   className='px-2 text-primary'
                   onClick={() => setExpanded(true)}
                 >
-                  {t('common.core.expand', '展开')}
+                  {t('common.core.expand')}
                   <ChevronDown className='ml-1 h-4 w-4' />
                 </Button>
               </div>
@@ -1176,7 +1176,7 @@ const OrdersPage = () => {
                 className='px-2 text-primary'
                 onClick={() => setExpanded(false)}
               >
-                {t('common.core.collapse', '收起')}
+                {t('common.core.collapse')}
                 <ChevronUp className='ml-1 h-4 w-4' />
               </Button>
             </div>
