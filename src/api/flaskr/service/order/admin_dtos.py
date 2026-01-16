@@ -9,6 +9,7 @@ from flaskr.common.swagger import register_schema_to_swagger
 
 @register_schema_to_swagger
 class OrderAdminSummaryDTO(BaseModel):
+    """Summary information for an order in admin views."""
     order_bid: str = Field(..., description="Order business identifier", required=False)
     shifu_bid: str = Field(..., description="Shifu business identifier", required=False)
     shifu_name: str = Field(..., description="Shifu name", required=False)
@@ -85,6 +86,7 @@ class OrderAdminSummaryDTO(BaseModel):
 
 @register_schema_to_swagger
 class OrderAdminActivityDTO(BaseModel):
+    """Activity participation info associated with an order."""
     active_id: str = Field(..., description="Active identifier", required=False)
     active_name: str = Field(..., description="Active name", required=False)
     price: str = Field(..., description="Active price", required=False)
@@ -127,6 +129,7 @@ class OrderAdminActivityDTO(BaseModel):
 
 @register_schema_to_swagger
 class OrderAdminCouponDTO(BaseModel):
+    """Coupon usage detail associated with an order."""
     coupon_bid: str = Field(..., description="Coupon identifier", required=False)
     code: str = Field(..., description="Coupon code", required=False)
     name: str = Field(..., description="Coupon name", required=False)
@@ -183,6 +186,7 @@ class OrderAdminCouponDTO(BaseModel):
 
 @register_schema_to_swagger
 class OrderAdminPaymentDTO(BaseModel):
+    """Payment information for an order including channel-specific fields."""
     payment_channel: str = Field(..., description="Payment channel", required=False)
     payment_channel_key: str = Field(
         ..., description="Payment channel i18n key", required=False
@@ -273,6 +277,7 @@ class OrderAdminPaymentDTO(BaseModel):
 
 @register_schema_to_swagger
 class OrderAdminDetailDTO(BaseModel):
+    """Full order detail bundle returned to admin clients."""
     order: OrderAdminSummaryDTO = Field(
         ..., description="Order summary", required=False
     )
