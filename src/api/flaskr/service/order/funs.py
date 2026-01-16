@@ -1,7 +1,8 @@
 import datetime
 import decimal
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from contextlib import contextmanager
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from flask import Flask
 
@@ -233,97 +234,136 @@ def is_order_has_timeout(app: Flask, origin_record: Order):
     return False
 
 
+@contextmanager
+def _order_init_lock(app: Flask, user_id: str, course_id: str) -> Iterator[None]:
+    """
+    Serialize order initialization for a user-course pair to avoid duplicate
+    unpaid orders created by concurrent requests.
+    """
+
+    lock = None
+    acquired = False
+
+    if redis_client is not None:
+        try:
+            prefix = app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
+            lock_key = f"{prefix}:order:init:{user_id}:{course_id}"
+            lock = redis_client.lock(lock_key, timeout=10, blocking_timeout=10)
+            if lock is not None:
+                acquired = lock.acquire(blocking=True)
+        except Exception:
+            lock = None
+            acquired = False
+
+    try:
+        yield
+    finally:
+        if acquired and lock is not None:
+            try:
+                lock.release()
+            except Exception:
+                pass
+
+
 def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = None):
     with app.app_context():
         set_shifu_context(course_id, get_shifu_creator_bid(app, course_id))
-        order_timeout_make_new_order = False
-        find_active_id = None
         shifu_info: LearnShifuInfoDTO = get_shifu_info(app, course_id, False)
         app.logger.info(f"shifu_info: {shifu_info}")
         if not shifu_info:
             raise_error("server.shifu.courseNotFound")
 
-        # By default, each user should only have one unpaid order per course (shifu).
-        # Unpaid orders are those in INIT or TO_BE_PAID status and not timed out.
-        origin_record = (
-            Order.query.filter(
-                Order.user_bid == user_id,
-                Order.shifu_bid == course_id,
-                Order.status.in_([ORDER_STATUS_INIT, ORDER_STATUS_TO_BE_PAID]),
-            )
-            .order_by(Order.id.desc())
-            .first()
-        )
-        if origin_record:
-            if origin_record.status != ORDER_STATUS_SUCCESS:
-                order_timeout_make_new_order = is_order_has_timeout(app, origin_record)
-            if order_timeout_make_new_order:
-                # Check if there are any coupons in the order. If there are, make them failure
-                find_active_id = query_to_failure_active(
-                    app, origin_record.user_bid, origin_record.order_bid
-                )
-        else:
-            order_timeout_make_new_order = True
+        with _order_init_lock(app, user_id, course_id):
+            order_timeout_make_new_order = False
             find_active_id = None
-        if (not order_timeout_make_new_order) and origin_record and active_id is None:
-            return query_buy_record(app, origin_record.order_bid)
-        # raise_error("server.order.orderNotFound")
-        order_id = str(get_uuid(app))
-        if order_timeout_make_new_order:
-            buy_record = Order()
-            buy_record.user_bid = user_id
-            buy_record.shifu_bid = course_id
-            buy_record.payable_price = decimal.Decimal(shifu_info.price)
-            buy_record.status = ORDER_STATUS_INIT
-            buy_record.order_bid = order_id
-            buy_record.payable_price = decimal.Decimal(shifu_info.price)
-        else:
-            buy_record = origin_record
-            order_id = origin_record.order_bid
-        if find_active_id:
-            active_id = find_active_id
-        active_records = query_and_join_active(
-            app, course_id, user_id, order_id, active_id
-        )
-        price_items = []
-        price_items.append(
-            PayItemDto(
-                _("server.order.payItemProduct"),
-                _("server.order.payItemBasePrice"),
-                buy_record.payable_price,
-                False,
-                None,
+
+            # By default, each user should only have one unpaid order per course (shifu).
+            # Unpaid orders are those in INIT or TO_BE_PAID status and not timed out.
+            origin_record = (
+                Order.query.filter(
+                    Order.user_bid == user_id,
+                    Order.shifu_bid == course_id,
+                    Order.status.in_([ORDER_STATUS_INIT, ORDER_STATUS_TO_BE_PAID]),
+                )
+                .order_by(Order.id.desc())
+                .first()
             )
-        )
-        discount_value = decimal.Decimal(0.00)
-        if active_records:
-            for active_record in active_records:
-                discount_value = decimal.Decimal(discount_value) + decimal.Decimal(
-                    active_record.price
-                )
-                price_items.append(
-                    PayItemDto(
-                        _("server.order.payItemPromotion"),
-                        active_record.active_name,
-                        active_record.price,
-                        True,
-                        None,
+            if origin_record:
+                if origin_record.status != ORDER_STATUS_SUCCESS:
+                    order_timeout_make_new_order = is_order_has_timeout(
+                        app, origin_record
                     )
+                if order_timeout_make_new_order:
+                    # Check if there are any coupons in the order. If there are, make them failure
+                    find_active_id = query_to_failure_active(
+                        app, origin_record.user_bid, origin_record.order_bid
+                    )
+            else:
+                order_timeout_make_new_order = True
+                find_active_id = None
+            if (
+                (not order_timeout_make_new_order)
+                and origin_record
+                and active_id is None
+            ):
+                return query_buy_record(app, origin_record.order_bid)
+            # raise_error("server.order.orderNotFound")
+            order_id = str(get_uuid(app))
+            if order_timeout_make_new_order:
+                buy_record = Order()
+                buy_record.user_bid = user_id
+                buy_record.shifu_bid = course_id
+                buy_record.payable_price = decimal.Decimal(shifu_info.price)
+                buy_record.status = ORDER_STATUS_INIT
+                buy_record.order_bid = order_id
+                buy_record.payable_price = decimal.Decimal(shifu_info.price)
+            else:
+                buy_record = origin_record
+                order_id = origin_record.order_bid
+            if find_active_id:
+                active_id = find_active_id
+            active_records = query_and_join_active(
+                app, course_id, user_id, order_id, active_id
+            )
+            price_items = []
+            price_items.append(
+                PayItemDto(
+                    _("server.order.payItemProduct"),
+                    _("server.order.payItemBasePrice"),
+                    buy_record.payable_price,
+                    False,
+                    None,
                 )
-        buy_record.paid_price = decimal.Decimal(
-            buy_record.payable_price
-        ) - decimal.Decimal(discount_value)
-        db.session.merge(buy_record)
-        db.session.commit()
-        return AICourseBuyRecordDTO(
-            buy_record.order_bid,
-            buy_record.user_bid,
-            buy_record.shifu_bid,
-            buy_record.payable_price,
-            buy_record.status,
-            discount_value,
-            price_items,
-        )
+            )
+            discount_value = decimal.Decimal(0.00)
+            if active_records:
+                for active_record in active_records:
+                    discount_value = decimal.Decimal(discount_value) + decimal.Decimal(
+                        active_record.price
+                    )
+                    price_items.append(
+                        PayItemDto(
+                            _("server.order.payItemPromotion"),
+                            active_record.active_name,
+                            active_record.price,
+                            True,
+                            None,
+                        )
+                    )
+            buy_record.paid_price = decimal.Decimal(
+                buy_record.payable_price
+            ) - decimal.Decimal(discount_value)
+            db.session.merge(buy_record)
+            db.session.commit()
+            return AICourseBuyRecordDTO(
+                buy_record.order_bid,
+                buy_record.user_bid,
+                buy_record.shifu_bid,
+                buy_record.payable_price,
+                buy_record.status,
+                discount_value,
+                price_items,
+            )
 
 
 @register_schema_to_swagger
@@ -639,7 +679,7 @@ def _generate_pingxx_charge(
 
     buy_record.status = ORDER_STATUS_TO_BE_PAID
     pingxx_order = PingxxOrder()
-    pingxx_order.order_bid = order_no
+    pingxx_order.pingxx_order_bid = order_no
     pingxx_order.user_bid = buy_record.user_bid
     pingxx_order.shifu_bid = buy_record.shifu_bid
     pingxx_order.order_bid = buy_record.order_bid

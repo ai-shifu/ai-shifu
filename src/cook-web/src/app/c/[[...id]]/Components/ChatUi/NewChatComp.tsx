@@ -88,25 +88,28 @@ export const NewChatComponents = ({
     chatBoxBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  const isNearBottom = useCallback((element?: HTMLElement | Document | null) => {
-    if (!element) {
-      return true;
-    }
-    if (element instanceof HTMLElement) {
-      const { scrollTop, scrollHeight, clientHeight } = element;
+  const isNearBottom = useCallback(
+    (element?: HTMLElement | Document | null) => {
+      if (!element) {
+        return true;
+      }
+      if (element instanceof HTMLElement) {
+        const { scrollTop, scrollHeight, clientHeight } = element;
+        return (
+          scrollHeight <= clientHeight ||
+          scrollHeight - scrollTop - clientHeight < 150
+        );
+      }
+      const docEl = document.documentElement;
+      const scrollTop = window.scrollY || docEl.scrollTop;
+      const { scrollHeight, clientHeight } = docEl;
       return (
         scrollHeight <= clientHeight ||
         scrollHeight - scrollTop - clientHeight < 150
       );
-    }
-    const docEl = document.documentElement;
-    const scrollTop = window.scrollY || docEl.scrollTop;
-    const { scrollHeight, clientHeight } = docEl;
-    return (
-      scrollHeight <= clientHeight ||
-      scrollHeight - scrollTop - clientHeight < 150
-    );
-  }, []);
+    },
+    [],
+  );
 
   const checkScroll = useCallback(() => {
     requestAnimationFrame(() => {
@@ -268,7 +271,9 @@ export const NewChatComponents = ({
     }
 
     if (parentContainer) {
-      parentContainer.addEventListener('scroll', checkScroll, { passive: true });
+      parentContainer.addEventListener('scroll', checkScroll, {
+        passive: true,
+      });
       listeners.push({ element: parentContainer, handler: checkScroll });
     }
 

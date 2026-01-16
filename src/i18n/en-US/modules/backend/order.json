@@ -11,6 +11,7 @@
     "learnStatusRefund": "Refund",
     "learnStatusReset": "Reset",
     "learnStatusUnavailable": "Unavailable",
+    "mobileAlreadyActivated": "Mobile {mobile} already activated for this course",
     "orderHasPaid": "Order Has Paid",
     "orderNotFound": "Order Not Found",
     "orderStatusInit": "Init",
