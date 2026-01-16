@@ -2,22 +2,9 @@
   width: 100%;
   min-height: 100svh;
   display: flex;
-  flex-direction: column;
   font-size: var(--font-size-4);
   font-weight: var(--font-weight-4-1);
   color: var(--font-color-main);
-
-  &.pc {
-    display: block;
-  }
-
-  &.pad {
-    display: block;
-  }
-
-  &.m {
-    display: block;
-  }
 
   .chatMobileHeader {
     position: sticky;
