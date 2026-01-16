@@ -77,6 +77,11 @@ const api = {
   upfileByUrl: 'POST /shifu/url-upfile',
   // resource api end
 
+  // admin order api
+  getAdminOrders: 'GET /order/admin/orders',
+  getAdminOrderDetail: 'GET /order/admin/orders/{order_bid}',
+  importActivationOrder: 'POST /order/admin/orders/import-activation',
+
   // profile
 
   saveProfile: 'POST /profiles/save-profile-item',
