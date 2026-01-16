@@ -20,7 +20,7 @@ from .utils import (
     parse_shifu_res_bid,
     get_shifu_res_url_dict,
 )
-from .models import DraftShifu, AiCourseAuth, PublishedShifu
+from .models import DraftShifu, AiCourseAuth, PublishedShifu, FavoriteScenario
 from .shifu_history_manager import save_shifu_history
 from ..common.dtos import PageNationDTO
 from ...service.config import get_config
@@ -393,20 +393,47 @@ def get_shifu_draft_list(
 
         union_subquery = created_subquery.union(shared_subquery).subquery()
 
-        total_query = db.session.query(db.func.count()).select_from(union_subquery)
-        total = total_query.scalar() or 0
+        visible_draft_query = db.session.query(DraftShifu.id).filter(
+            DraftShifu.id.in_(union_subquery)
+        )
+
+        if is_favorite:
+            visible_draft_query = (
+                visible_draft_query.join(
+                    FavoriteScenario,
+                    FavoriteScenario.scenario_id == DraftShifu.shifu_bid,
+                )
+                .filter(
+                    FavoriteScenario.user_id == user_id,
+                    FavoriteScenario.status == 1,
+                )
+                .distinct()
+            )
+
+        visible_draft_subquery = visible_draft_query.subquery()
+        total = (
+            db.session.query(db.func.count())
+            .select_from(visible_draft_subquery)
+            .scalar()
+            or 0
+        )
 
         shifu_drafts: list[DraftShifu] = (
             db.session.query(DraftShifu)
-            .filter(DraftShifu.id.in_(union_subquery))
+            .filter(DraftShifu.id.in_(visible_draft_subquery))
             .order_by(DraftShifu.title.asc())
             .offset(page_offset)
             .limit(page_size)
             .all()
         )
 
-        infos = [f"{c.shifu_bid} + {c.title} + {c.deleted}\r\n" for c in shifu_drafts]
-        app.logger.info(f"{infos}")
+        app.logger.debug(
+            "Fetched %d shifus for user %s (archived=%s, favorite=%s)",
+            len(shifu_drafts),
+            user_id,
+            archived,
+            is_favorite,
+        )
         res_bids = [shifu_draft.avatar_res_bid for shifu_draft in shifu_drafts]
         res_url_map = get_shifu_res_url_dict(res_bids)
         shifu_dtos = [
@@ -433,12 +460,13 @@ def _set_shifu_archive_state(app, user_id: str, shifu_id: str, archived: bool):
             raise_error("server.shifu.noPermission")
 
         new_flag = 1 if archived else 0
-        timestamp = datetime.now() if archived else None
+        now = datetime.now()
+        timestamp = now if archived else None
         update_fields = {
             "archived": new_flag,
             "archived_at": timestamp,
             "updated_user_bid": user_id,
-            "updated_at": datetime.now(),
+            "updated_at": now,
         }
         DraftShifu.query.filter(
             DraftShifu.shifu_bid == shifu_id,
