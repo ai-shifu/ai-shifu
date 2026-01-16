@@ -105,12 +105,10 @@ def _get_user_archive_map(app, user_id: str, shifu_ids: list[str]) -> dict[str, 
     if not shifu_ids:
         return {}
     with app.app_context():
-        records = (
-            ShifuUserArchive.query.filter(
-                ShifuUserArchive.user_bid == user_id,
-                ShifuUserArchive.shifu_bid.in_(shifu_ids),
-            ).all()
-        )
+        records = ShifuUserArchive.query.filter(
+            ShifuUserArchive.user_bid == user_id,
+            ShifuUserArchive.shifu_bid.in_(shifu_ids),
+        ).all()
         return {record.shifu_bid: bool(record.archived) for record in records}
 
 

@@ -470,7 +470,10 @@ export default function ShifuSettingDialog({
 
   return (
     <>
-      <AlertDialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+      <AlertDialog
+        open={archiveDialogOpen}
+        onOpenChange={setArchiveDialogOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -501,450 +504,453 @@ export default function ShifuSettingDialog({
         open={open}
         onOpenChange={handleOpenChange}
       >
-      <SheetTrigger asChild>
-        <div className='flex items-center justify-center rounded-lg cursor-pointer'>
-          <Settings size={16} />
-        </div>
-      </SheetTrigger>
-      <SheetContent
-        side='right'
-        className='w-full sm:w-[420px] md:w-[480px] h-full flex flex-col p-0'
-      >
-        <SheetHeader className='px-6 pt-[19px] pb-4'>
-          <SheetTitle className='text-lg font-medium'>
-            {t('module.shifuSetting.title')}
-          </SheetTitle>
-        </SheetHeader>
-        <div className='h-px w-full bg-border' />
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(data => onSubmit(data, true, 'manual'))}
-            className='flex-1 flex flex-col overflow-hidden'
-          >
-            <div className='flex-1 overflow-y-auto px-6'>
-              <FormField
-                control={form.control}
-                name='name'
-                render={({ field }) => (
-                  <FormItem className='space-y-2 mb-4'>
-                    <FormLabel className='text-sm font-medium text-foreground'>
-                      {t('module.shifuSetting.shifuName')}
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        disabled={currentShifu?.readonly}
-                        maxLength={TITLE_MAX_LENGTH}
-                        placeholder={t('module.shifuSetting.placeholder')}
-                      />
-                    </FormControl>
-                    {/* <div className='text-xs text-muted-foreground text-right'>
+        <SheetTrigger asChild>
+          <div className='flex items-center justify-center rounded-lg cursor-pointer'>
+            <Settings size={16} />
+          </div>
+        </SheetTrigger>
+        <SheetContent
+          side='right'
+          className='w-full sm:w-[420px] md:w-[480px] h-full flex flex-col p-0'
+        >
+          <SheetHeader className='px-6 pt-[19px] pb-4'>
+            <SheetTitle className='text-lg font-medium'>
+              {t('module.shifuSetting.title')}
+            </SheetTitle>
+          </SheetHeader>
+          <div className='h-px w-full bg-border' />
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(data =>
+                onSubmit(data, true, 'manual'),
+              )}
+              className='flex-1 flex flex-col overflow-hidden'
+            >
+              <div className='flex-1 overflow-y-auto px-6'>
+                <FormField
+                  control={form.control}
+                  name='name'
+                  render={({ field }) => (
+                    <FormItem className='space-y-2 mb-4'>
+                      <FormLabel className='text-sm font-medium text-foreground'>
+                        {t('module.shifuSetting.shifuName')}
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          disabled={currentShifu?.readonly}
+                          maxLength={TITLE_MAX_LENGTH}
+                          placeholder={t('module.shifuSetting.placeholder')}
+                        />
+                      </FormControl>
+                      {/* <div className='text-xs text-muted-foreground text-right'>
                       {(field.value?.length ?? 0)}/50
                     </div> */}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name='description'
-                render={({ field }) => (
-                  <FormItem className='space-y-2 mb-4'>
-                    <FormLabel className='text-sm font-medium text-foreground'>
-                      {t('module.shifuSetting.shifuDescription')}
-                    </FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        maxLength={500}
-                        placeholder={t('module.shifuSetting.placeholder')}
-                        rows={4}
-                        disabled={currentShifu?.readonly}
-                      />
-                    </FormControl>
-                    {/* <div className='text-xs text-muted-foreground text-right'>
+                <FormField
+                  control={form.control}
+                  name='description'
+                  render={({ field }) => (
+                    <FormItem className='space-y-2 mb-4'>
+                      <FormLabel className='text-sm font-medium text-foreground'>
+                        {t('module.shifuSetting.shifuDescription')}
+                      </FormLabel>
+                      <FormControl>
+                        <Textarea
+                          {...field}
+                          maxLength={500}
+                          placeholder={t('module.shifuSetting.placeholder')}
+                          rows={4}
+                          disabled={currentShifu?.readonly}
+                        />
+                      </FormControl>
+                      {/* <div className='text-xs text-muted-foreground text-right'>
                       {(field.value?.length ?? 0)}/300
                     </div> */}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <div className='space-y-3 mb-4'>
-                <p className='text-sm font-medium text-foreground'>
-                  {t('module.shifuSetting.shifuAvatar')}
-                </p>
-                <span className='text-xs text-muted-foreground'>
-                  {t('module.shifuSetting.imageFormatHint')}
-                </span>
-                <div className='flex flex-col gap-3'>
-                  {uploadedImageUrl ? (
-                    <div className='relative w-24 h-24 bg-gray-100 rounded-lg overflow-hidden'>
-                      <img
-                        src={uploadedImageUrl}
-                        alt={t('module.shifuSetting.shifuAvatar')}
-                        className='w-full h-full object-cover'
-                      />
-                      <button
-                        type='button'
+                <div className='space-y-3 mb-4'>
+                  <p className='text-sm font-medium text-foreground'>
+                    {t('module.shifuSetting.shifuAvatar')}
+                  </p>
+                  <span className='text-xs text-muted-foreground'>
+                    {t('module.shifuSetting.imageFormatHint')}
+                  </span>
+                  <div className='flex flex-col gap-3'>
+                    {uploadedImageUrl ? (
+                      <div className='relative w-24 h-24 bg-gray-100 rounded-lg overflow-hidden'>
+                        <img
+                          src={uploadedImageUrl}
+                          alt={t('module.shifuSetting.shifuAvatar')}
+                          className='w-full h-full object-cover'
+                        />
+                        <button
+                          type='button'
+                          onClick={() =>
+                            document.getElementById('imageUpload')?.click()
+                          }
+                          className='absolute inset-0 flex items-center justify-center bg-black/30 text-white opacity-0 transition-opacity hover:opacity-100'
+                        >
+                          <Plus className='h-5 w-5' />
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        className='border-2 border-dashed border-muted-foreground/30 rounded-lg w-24 h-24 flex flex-col items-center justify-center cursor-pointer bg-muted/20'
                         onClick={() =>
                           document.getElementById('imageUpload')?.click()
                         }
-                        className='absolute inset-0 flex items-center justify-center bg-black/30 text-white opacity-0 transition-opacity hover:opacity-100'
                       >
-                        <Plus className='h-5 w-5' />
-                      </button>
-                    </div>
-                  ) : (
-                    <div
-                      className='border-2 border-dashed border-muted-foreground/30 rounded-lg w-24 h-24 flex flex-col items-center justify-center cursor-pointer bg-muted/20'
-                      onClick={() =>
-                        document.getElementById('imageUpload')?.click()
-                      }
-                    >
-                      <Plus className='h-6 w-6 mb-1 text-muted-foreground' />
-                      <p className='text-xs text-muted-foreground'>
-                        {t('module.shifuSetting.upload')}
-                      </p>
-                    </div>
-                  )}
-                  <input
-                    id='imageUpload'
-                    type='file'
-                    accept='image/jpeg,image/png'
-                    onChange={handleImageUpload}
-                    className='hidden'
-                    disabled={currentShifu?.readonly}
-                  />
-
-                  {isUploading && (
-                    <div className='space-y-2 mb-4'>
-                      <div className='w-full bg-muted rounded-full h-2'>
-                        <div
-                          className='bg-primary h-2 rounded-full'
-                          style={{ width: `${uploadProgress}%` }}
-                        ></div>
+                        <Plus className='h-6 w-6 mb-1 text-muted-foreground' />
+                        <p className='text-xs text-muted-foreground'>
+                          {t('module.shifuSetting.upload')}
+                        </p>
                       </div>
-                      <p className='text-xs text-muted-foreground text-center'>
-                        {t('module.shifuSetting.uploading')} {uploadProgress}%
-                      </p>
-                    </div>
-                  )}
-                  {imageError && (
-                    <p className='text-xs text-destructive'>{imageError}</p>
-                  )}
-                  {!imageError &&
-                    shifuImage &&
-                    !isUploading &&
-                    !uploadedImageUrl && (
-                      <p className='text-xs text-emerald-600'>
-                        {t('module.shifuSetting.selected')}: {shifuImage?.name}
-                      </p>
                     )}
+                    <input
+                      id='imageUpload'
+                      type='file'
+                      accept='image/jpeg,image/png'
+                      onChange={handleImageUpload}
+                      className='hidden'
+                      disabled={currentShifu?.readonly}
+                    />
+
+                    {isUploading && (
+                      <div className='space-y-2 mb-4'>
+                        <div className='w-full bg-muted rounded-full h-2'>
+                          <div
+                            className='bg-primary h-2 rounded-full'
+                            style={{ width: `${uploadProgress}%` }}
+                          ></div>
+                        </div>
+                        <p className='text-xs text-muted-foreground text-center'>
+                          {t('module.shifuSetting.uploading')} {uploadProgress}%
+                        </p>
+                      </div>
+                    )}
+                    {imageError && (
+                      <p className='text-xs text-destructive'>{imageError}</p>
+                    )}
+                    {!imageError &&
+                      shifuImage &&
+                      !isUploading &&
+                      !uploadedImageUrl && (
+                        <p className='text-xs text-emerald-600'>
+                          {t('module.shifuSetting.selected')}:{' '}
+                          {shifuImage?.name}
+                        </p>
+                      )}
+                  </div>
                 </div>
-              </div>
 
-              <FormField
-                control={form.control}
-                name='previewUrl'
-                render={({ field }) => (
-                  <FormItem className='space-y-2 mb-4'>
-                    <FormLabel className='text-sm font-medium text-foreground'>
-                      {t('module.shifuSetting.previewUrl')}
-                    </FormLabel>
-                    <FormControl>
-                      <div className='flex items-center gap-2'>
-                        <input
-                          type='hidden'
-                          {...field}
-                        />
-                        <span
-                          className='flex-1 text-sm underline whitespace-nowrap overflow-hidden text-ellipsis'
-                          style={{
-                            color: 'var(--base-muted-foreground, #737373)',
-                          }}
-                          title={field.value}
-                        >
-                          {field.value}
-                        </span>
-                        <button
-                          type='button'
-                          onClick={() => handleCopy('previewUrl')}
-                          className='flex items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none'
-                          style={{ width: 20, height: 20 }}
-                        >
-                          {copying.previewUrl ? (
-                            <Check className='w-[14px] h-[14px]' />
-                          ) : (
-                            <Copy className='w-[14px] h-[14px]' />
-                          )}
-                        </button>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name='previewUrl'
+                  render={({ field }) => (
+                    <FormItem className='space-y-2 mb-4'>
+                      <FormLabel className='text-sm font-medium text-foreground'>
+                        {t('module.shifuSetting.previewUrl')}
+                      </FormLabel>
+                      <FormControl>
+                        <div className='flex items-center gap-2'>
+                          <input
+                            type='hidden'
+                            {...field}
+                          />
+                          <span
+                            className='flex-1 text-sm underline whitespace-nowrap overflow-hidden text-ellipsis'
+                            style={{
+                              color: 'var(--base-muted-foreground, #737373)',
+                            }}
+                            title={field.value}
+                          >
+                            {field.value}
+                          </span>
+                          <button
+                            type='button'
+                            onClick={() => handleCopy('previewUrl')}
+                            className='flex items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none'
+                            style={{ width: 20, height: 20 }}
+                          >
+                            {copying.previewUrl ? (
+                              <Check className='w-[14px] h-[14px]' />
+                            ) : (
+                              <Copy className='w-[14px] h-[14px]' />
+                            )}
+                          </button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name='url'
-                render={({ field }) => (
-                  <FormItem className='space-y-2 mb-4'>
-                    <FormLabel className='text-sm font-medium text-foreground'>
-                      {t('module.shifuSetting.learningUrl')}
-                    </FormLabel>
-                    <FormControl>
-                      <div className='flex items-center gap-2'>
-                        <input
-                          type='hidden'
-                          {...field}
-                        />
-                        <span
-                          className='flex-1 text-sm underline whitespace-nowrap overflow-hidden text-ellipsis'
-                          style={{
-                            color: 'var(--base-muted-foreground, #737373)',
-                          }}
-                          title={field.value}
-                        >
-                          {field.value}
-                        </span>
-                        <button
-                          type='button'
-                          onClick={() => handleCopy('url')}
-                          className='flex items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none'
-                          style={{ width: 20, height: 20 }}
-                        >
-                          {copying.url ? (
-                            <Check className='w-[14px] h-[14px]' />
-                          ) : (
-                            <Copy className='w-[14px] h-[14px]' />
-                          )}
-                        </button>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name='url'
+                  render={({ field }) => (
+                    <FormItem className='space-y-2 mb-4'>
+                      <FormLabel className='text-sm font-medium text-foreground'>
+                        {t('module.shifuSetting.learningUrl')}
+                      </FormLabel>
+                      <FormControl>
+                        <div className='flex items-center gap-2'>
+                          <input
+                            type='hidden'
+                            {...field}
+                          />
+                          <span
+                            className='flex-1 text-sm underline whitespace-nowrap overflow-hidden text-ellipsis'
+                            style={{
+                              color: 'var(--base-muted-foreground, #737373)',
+                            }}
+                            title={field.value}
+                          >
+                            {field.value}
+                          </span>
+                          <button
+                            type='button'
+                            onClick={() => handleCopy('url')}
+                            className='flex items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none'
+                            style={{ width: 20, height: 20 }}
+                          >
+                            {copying.url ? (
+                              <Check className='w-[14px] h-[14px]' />
+                            ) : (
+                              <Copy className='w-[14px] h-[14px]' />
+                            )}
+                          </button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name='model'
-                render={({ field }) => (
-                  <FormItem className='space-y-2 mb-4'>
-                    <FormLabel className='text-sm font-medium text-foreground'>
-                      {t('common.core.selectModel')}
-                    </FormLabel>
-                    <p className='text-xs text-muted-foreground'>
-                      {selectModelHint}
-                    </p>
-                    <FormControl>
-                      <ModelList
-                        disabled={currentShifu?.readonly}
-                        className='h-9'
-                        value={field.value ?? ''}
-                        onChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name='temperature'
-                render={({ field }) => (
-                  <FormItem className='space-y-2 mb-4'>
-                    <FormLabel className='text-sm font-medium text-foreground'>
-                      {t('module.shifuSetting.shifuTemperature')}
-                    </FormLabel>
-                    <p className='text-xs text-muted-foreground'>
-                      {t('module.shifuSetting.temperatureHint')}
-                      <br />
-                      {t('module.shifuSetting.temperatureHint2')}
-                    </p>
-                    <div className='flex items-center gap-2'>
-                      <FormControl className='flex-1'>
-                        <Input
-                          {...field}
-                          value={field.value}
-                          onChange={field.onChange}
+                <FormField
+                  control={form.control}
+                  name='model'
+                  render={({ field }) => (
+                    <FormItem className='space-y-2 mb-4'>
+                      <FormLabel className='text-sm font-medium text-foreground'>
+                        {t('common.core.selectModel')}
+                      </FormLabel>
+                      <p className='text-xs text-muted-foreground'>
+                        {selectModelHint}
+                      </p>
+                      <FormControl>
+                        <ModelList
                           disabled={currentShifu?.readonly}
-                          type='text'
-                          inputMode='decimal'
-                          placeholder={t('module.shifuSetting.number')}
                           className='h-9'
+                          value={field.value ?? ''}
+                          onChange={field.onChange}
                         />
                       </FormControl>
-                      {currentShifu?.readonly ? null : (
-                        <div className='flex items-center gap-2'>
-                          <Button
-                            type='button'
-                            variant='outline'
-                            size='icon'
-                            onClick={() => adjustTemperature(-0.1)}
-                            className='h-9 w-9'
-                          >
-                            <Minus className='h-4 w-4' />
-                          </Button>
-                          <Button
-                            type='button'
-                            variant='outline'
-                            size='icon'
-                            onClick={() => adjustTemperature(0.1)}
-                            className='h-9 w-9'
-                          >
-                            <Plus className='h-4 w-4' />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name='systemPrompt'
-                render={({ field }) => (
-                  <FormItem className='space-y-2 mb-4'>
-                    <div className='flex items-center gap-2'>
+                <FormField
+                  control={form.control}
+                  name='temperature'
+                  render={({ field }) => (
+                    <FormItem className='space-y-2 mb-4'>
                       <FormLabel className='text-sm font-medium text-foreground'>
-                        {t('module.shifuSetting.shifuPrompt')}
+                        {t('module.shifuSetting.shifuTemperature')}
                       </FormLabel>
-                      {/* <a
+                      <p className='text-xs text-muted-foreground'>
+                        {t('module.shifuSetting.temperatureHint')}
+                        <br />
+                        {t('module.shifuSetting.temperatureHint2')}
+                      </p>
+                      <div className='flex items-center gap-2'>
+                        <FormControl className='flex-1'>
+                          <Input
+                            {...field}
+                            value={field.value}
+                            onChange={field.onChange}
+                            disabled={currentShifu?.readonly}
+                            type='text'
+                            inputMode='decimal'
+                            placeholder={t('module.shifuSetting.number')}
+                            className='h-9'
+                          />
+                        </FormControl>
+                        {currentShifu?.readonly ? null : (
+                          <div className='flex items-center gap-2'>
+                            <Button
+                              type='button'
+                              variant='outline'
+                              size='icon'
+                              onClick={() => adjustTemperature(-0.1)}
+                              className='h-9 w-9'
+                            >
+                              <Minus className='h-4 w-4' />
+                            </Button>
+                            <Button
+                              type='button'
+                              variant='outline'
+                              size='icon'
+                              onClick={() => adjustTemperature(0.1)}
+                              className='h-9 w-9'
+                            >
+                              <Plus className='h-4 w-4' />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='systemPrompt'
+                  render={({ field }) => (
+                    <FormItem className='space-y-2 mb-4'>
+                      <div className='flex items-center gap-2'>
+                        <FormLabel className='text-sm font-medium text-foreground'>
+                          {t('module.shifuSetting.shifuPrompt')}
+                        </FormLabel>
+                        {/* <a
                         href='https://markdownflow.ai/docs/zh/specification/how-it-works/#2'
                         target='_blank'
                         rel='noopener noreferrer'
                       >
                         <CircleHelp className='h-4 w-4 text-muted-foreground' />
                       </a> */}
-                    </div>
-                    <p className='text-xs text-muted-foreground'>
-                      {t('module.shifuSetting.shifuPromptHint')}
-                    </p>
-                    <FormControl>
-                      <Textarea
-                        disabled={currentShifu?.readonly}
-                        {...field}
-                        maxLength={20000}
-                        placeholder={t(
-                          'module.shifuSetting.shifuPromptPlaceholder',
-                        )}
-                        minRows={3}
-                        maxRows={30}
-                      />
-                    </FormControl>
-                    {/* <div className='text-xs text-muted-foreground text-right'>
+                      </div>
+                      <p className='text-xs text-muted-foreground'>
+                        {t('module.shifuSetting.shifuPromptHint')}
+                      </p>
+                      <FormControl>
+                        <Textarea
+                          disabled={currentShifu?.readonly}
+                          {...field}
+                          maxLength={20000}
+                          placeholder={t(
+                            'module.shifuSetting.shifuPromptPlaceholder',
+                          )}
+                          minRows={3}
+                          maxRows={30}
+                        />
+                      </FormControl>
+                      {/* <div className='text-xs text-muted-foreground text-right'>
                       {field.value?.length ?? 0}/10000
                     </div> */}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className='space-y-2 mb-4'>
-                <span className='text-sm font-medium text-foreground'>
-                  {t('module.shifuSetting.keywords')}
-                </span>
-                <div className='flex flex-wrap gap-2'>
-                  {keywords.map((keyword, index) => (
-                    <Badge
-                      key={index}
-                      variant='secondary'
-                      className='flex items-center gap-1'
-                    >
-                      {keyword}
-                      <button
-                        type='button'
-                        disabled={currentShifu?.readonly}
-                        onClick={() => handleRemoveKeyword(keyword)}
-                        className='text-xs ml-1 hover:text-destructive'
-                      >
-                        ×
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-                <div className='flex gap-2'>
-                  <Input
-                    id='keywordInput'
-                    disabled={currentShifu?.readonly}
-                    placeholder={t('module.shifuSetting.inputKeywords')}
-                    className='flex-1 h-9'
-                  />
-                  {!currentShifu?.readonly && (
-                    <Button
-                      type='button'
-                      onClick={handleAddKeyword}
-                      variant='outline'
-                      size='sm'
-                    >
-                      {t('module.shifuSetting.addKeyword')}
-                    </Button>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                </div>
-              </div>
+                />
 
-              <FormField
-                control={form.control}
-                name='price'
-                render={({ field }) => (
-                  <FormItem className='space-y-2 mb-4'>
-                    <FormLabel className='text-sm font-medium text-foreground'>
-                      <span className='flex items-center gap-2'>
-                        <span>
-                          {t('module.shifuSetting.price')}
-                          {/* {currencySymbol ? (
+                <div className='space-y-2 mb-4'>
+                  <span className='text-sm font-medium text-foreground'>
+                    {t('module.shifuSetting.keywords')}
+                  </span>
+                  <div className='flex flex-wrap gap-2'>
+                    {keywords.map((keyword, index) => (
+                      <Badge
+                        key={index}
+                        variant='secondary'
+                        className='flex items-center gap-1'
+                      >
+                        {keyword}
+                        <button
+                          type='button'
+                          disabled={currentShifu?.readonly}
+                          onClick={() => handleRemoveKeyword(keyword)}
+                          className='text-xs ml-1 hover:text-destructive'
+                        >
+                          ×
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className='flex gap-2'>
+                    <Input
+                      id='keywordInput'
+                      disabled={currentShifu?.readonly}
+                      placeholder={t('module.shifuSetting.inputKeywords')}
+                      className='flex-1 h-9'
+                    />
+                    {!currentShifu?.readonly && (
+                      <Button
+                        type='button'
+                        onClick={handleAddKeyword}
+                        variant='outline'
+                        size='sm'
+                      >
+                        {t('module.shifuSetting.addKeyword')}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name='price'
+                  render={({ field }) => (
+                    <FormItem className='space-y-2 mb-4'>
+                      <FormLabel className='text-sm font-medium text-foreground'>
+                        <span className='flex items-center gap-2'>
+                          <span>
+                            {t('module.shifuSetting.price')}
+                            {/* {currencySymbol ? (
                           <span className='text-muted-foreground text-sm pl-1'>
                             （{t('module.shifuSetting.priceUnit')}：{currencySymbol}）
                           </span>
                         ) : null} */}
+                          </span>
                         </span>
-                      </span>
-                    </FormLabel>
-                    <p className='text-xs text-muted-foreground'>
-                      {t('module.shifuSetting.priceUnit')}: {currencySymbol}
-                    </p>
-                    <FormControl>
-                      <Input
-                        disabled={currentShifu?.readonly}
-                        className='h-9'
-                        {...field}
-                        placeholder={t('module.shifuSetting.number')}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      </FormLabel>
+                      <p className='text-xs text-muted-foreground'>
+                        {t('module.shifuSetting.priceUnit')}: {currencySymbol}
+                      </p>
+                      <FormControl>
+                        <Input
+                          disabled={currentShifu?.readonly}
+                          className='h-9'
+                          {...field}
+                          placeholder={t('module.shifuSetting.number')}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className='h-px w-full bg-border' />
+            </form>
+          </Form>
+          {canManageArchive && (
+            <div className='flex justify-end mt-6 mb-6 pr-4'>
+              <Button
+                type='button'
+                variant='outline'
+                className='border border-destructive text-destructive hover:bg-destructive/5 px-4 py-2 h-10 rounded-lg'
+                onClick={() => setArchiveDialogOpen(true)}
+                disabled={archiveLoading}
+              >
+                {archiveLoading
+                  ? t('common.core.submitting')
+                  : currentShifu?.archived
+                    ? t('module.shifuSetting.unarchive')
+                    : t('module.shifuSetting.archive')}
+              </Button>
             </div>
-            <div className='h-px w-full bg-border' />
-          </form>
-        </Form>
-        {canManageArchive && (
-          <div className='flex justify-end mt-6 mb-6 pr-4'>
-            <Button
-              type='button'
-              variant='outline'
-              className='border border-destructive text-destructive hover:bg-destructive/5 px-4 py-2 h-10 rounded-lg'
-              onClick={() => setArchiveDialogOpen(true)}
-              disabled={archiveLoading}
-            >
-              {archiveLoading
-                ? t('common.core.submitting')
-                : currentShifu?.archived
-                  ? t('module.shifuSetting.unarchive')
-                  : t('module.shifuSetting.archive')}
-            </Button>
-          </div>
-        )}
-      </SheetContent>
-    </Sheet>
+          )}
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

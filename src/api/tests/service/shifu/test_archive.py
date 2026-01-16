@@ -66,9 +66,11 @@ def test_archive_then_unarchive_updates_both_tables(app):
 
     with app.app_context():
         DraftShifu, PublishedShifu = _get_models()
-        draft = DraftShifu.query.filter_by(shifu_bid=shifu_bid).order_by(
-            DraftShifu.id.desc()
-        ).first()
+        draft = (
+            DraftShifu.query.filter_by(shifu_bid=shifu_bid)
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
         published = PublishedShifu.query.filter_by(shifu_bid=shifu_bid).first()
 
         assert draft.archived == 1
@@ -80,9 +82,11 @@ def test_archive_then_unarchive_updates_both_tables(app):
 
     with app.app_context():
         DraftShifu, PublishedShifu = _get_models()
-        draft = DraftShifu.query.filter_by(shifu_bid=shifu_bid).order_by(
-            DraftShifu.id.desc()
-        ).first()
+        draft = (
+            DraftShifu.query.filter_by(shifu_bid=shifu_bid)
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
         published = PublishedShifu.query.filter_by(shifu_bid=shifu_bid).first()
 
         assert draft.archived == 0

@@ -455,7 +455,9 @@ def shifu_permission_verification(
                     # Fallback to raw values if mapping failed
                     permissions = permissions or set(normalized)
                     result = auth_type in permissions
-                    redis.set(cache_key, json.dumps(list(permissions)), cache_key_expire)
+                    redis.set(
+                        cache_key, json.dumps(list(permissions)), cache_key_expire
+                    )
                     return result
                 except (json.JSONDecodeError, TypeError):
                     return False
