@@ -85,7 +85,6 @@
     "successSummary": "成功导入 {count} 个手机号",
     "title": "导入开通"
   },
-  "pagination": "第 {page} / {total} 页",
   "paginationNext": "下一页",
   "paginationPrev": "上一页",
   "paymentChannel": {

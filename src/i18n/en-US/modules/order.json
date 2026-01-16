@@ -85,7 +85,6 @@
     "successSummary": "{count} mobile numbers imported successfully",
     "title": "Import Activation"
   },
-  "pagination": "Page {page} of {total}",
   "paginationNext": "Next",
   "paginationPrev": "Previous",
   "paymentChannel": {
