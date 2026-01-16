@@ -13,6 +13,7 @@ DEFAULT_SHIFU_PERMISSIONS = {"view", "edit", "publish"}
 
 
 def _normalize_auth_types(raw_value: object) -> Set[str]:
+    """Normalize raw auth_type value to a set of trimmed strings."""
     if raw_value is None:
         return set()
     if isinstance(raw_value, (set, list, tuple)):
@@ -51,6 +52,7 @@ def _auth_types_to_permissions(auth_types: Set[str]) -> Set[str]:
 
 
 def get_user_shifu_permissions(app: Flask, user_id: str) -> Dict[str, Set[str]]:
+    """Load all shifu permission sets for a user (owner + shared)."""
     with app.app_context():
         permission_map: Dict[str, Set[str]] = {}
 
@@ -83,6 +85,7 @@ def get_user_shifu_permissions(app: Flask, user_id: str) -> Dict[str, Set[str]]:
 def get_user_shifu_bids(
     app: Flask, user_id: str, permission: Optional[str] = None
 ) -> list[str]:
+    """Return shifu bids where the user has any (or specific) permission."""
     permission_map = get_user_shifu_permissions(app, user_id)
     if not permission:
         return list(permission_map.keys())
@@ -98,6 +101,7 @@ def has_shifu_permission(
     shifu_bid: str,
     permission: str,
 ) -> bool:
+    """Check if the provided permission map grants a specific permission for a shifu."""
     if not shifu_bid:
         return False
     permissions = permission_map.get(shifu_bid, set())
