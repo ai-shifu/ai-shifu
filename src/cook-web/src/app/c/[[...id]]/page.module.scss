@@ -1,8 +1,8 @@
 .newChatPage {
   width: 100%;
-  height: 100svh;
+  min-height: 100svh;
   display: flex;
-  flex-flow: row nowrap;
+  flex-direction: column;
   font-size: var(--font-size-4);
   font-weight: var(--font-weight-4-1);
   color: var(--font-color-main);
@@ -20,10 +20,9 @@
   }
 
   .chatMobileHeader {
-    position: fixed;
+    position: sticky;
     top: 0;
-    left: 0;
-    z-index: 2;
+    z-index: 5;
     width: 100vw;
   }
 }
