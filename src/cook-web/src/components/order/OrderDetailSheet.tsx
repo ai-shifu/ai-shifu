@@ -196,11 +196,8 @@ const OrderDetailSheet = ({
             <span className='text-xs font-medium text-muted-foreground'>
               {t('module.order.detailTitle')}
             </span>
-            <span className='flex items-center gap-2 text-base font-semibold text-foreground'>
+            <span className='text-base font-semibold text-foreground'>
               {summary?.order_bid || t('module.order.detailFallback')}
-              {summary?.status_key && (
-                <Badge variant='secondary'>{t(summary.status_key)}</Badge>
-              )}
             </span>
           </SheetTitle>
         </SheetHeader>
