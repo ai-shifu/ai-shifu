@@ -20,7 +20,8 @@ from .utils import (
     parse_shifu_res_bid,
     get_shifu_res_url_dict,
 )
-from .models import DraftShifu, AiCourseAuth
+from .models import DraftShifu
+from .permissions import get_user_shifu_permissions
 from .shifu_history_manager import save_shifu_history
 from ..common.dtos import PageNationDTO
 from ...service.config import get_config
@@ -397,44 +398,33 @@ def get_shifu_draft_list(
         page_size = max(page_size, 1)
         page_offset = (page_index - 1) * page_size
 
-        created_total = DraftShifu.query.filter(
-            DraftShifu.created_user_bid == user_id,
-            DraftShifu.deleted == 0,
-        ).count()
-        shared_total = AiCourseAuth.query.filter(
-            AiCourseAuth.user_id == user_id,
-        ).count()
-        total = created_total + shared_total
+        permission_map = get_user_shifu_permissions(app, user_id)
+        shifu_bids = list(permission_map.keys())
+        if not shifu_bids:
+            return PageNationDTO(page_index, page_size, 0, [])
 
-        created_subquery = (
+        total = (
+            db.session.query(DraftShifu.shifu_bid)
+            .filter(
+                DraftShifu.shifu_bid.in_(shifu_bids),
+                DraftShifu.deleted == 0,
+            )
+            .distinct()
+            .count()
+        )
+
+        latest_subquery = (
             db.session.query(db.func.max(DraftShifu.id))
             .filter(
-                DraftShifu.created_user_bid == user_id,
+                DraftShifu.shifu_bid.in_(shifu_bids),
                 DraftShifu.deleted == 0,
             )
             .group_by(DraftShifu.shifu_bid)
-        )
-
-        shared_course_ids = (
-            db.session.query(AiCourseAuth.course_id)
-            .filter(AiCourseAuth.user_id == user_id)
-            .subquery()
-        )
-
-        shared_subquery = (
-            db.session.query(db.func.max(DraftShifu.id))
-            .filter(
-                DraftShifu.shifu_bid.in_(shared_course_ids),
-                DraftShifu.deleted == 0,
-            )
-            .group_by(DraftShifu.shifu_bid)
-        )
-
-        union_subquery = created_subquery.union(shared_subquery).subquery()
+        ).subquery()
 
         shifu_drafts: list[DraftShifu] = (
             db.session.query(DraftShifu)
-            .filter(DraftShifu.id.in_(union_subquery))
+            .filter(DraftShifu.id.in_(latest_subquery))
             .order_by(DraftShifu.title.asc())
             .offset(page_offset)
             .limit(page_size)

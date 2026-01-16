@@ -1076,7 +1076,11 @@ class RunScriptContextV2:
                 if (not self._is_paid) and (not self._preview_mode):
                     raise PaidException()
             elif outline_item_info_db.type == UNIT_TYPE_VALUE_TRIAL:
-                if not self._user_info.mobile and not self._user_info.email:
+                if (
+                    not self._preview_mode
+                    and not self._user_info.mobile
+                    and not self._user_info.email
+                ):
                     raise UserNotLoginException()
             parent_path = find_node_with_parents(self._struct, outline_bid)
             attend_info = None

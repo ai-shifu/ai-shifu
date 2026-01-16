@@ -22,6 +22,7 @@ const api = {
   submitFeedback: 'POST /user/submit-feedback',
   googleOauthStart: 'GET /user/oauth/google',
   googleOauthCallback: 'GET /user/oauth/google/callback',
+  ensureAdminCreator: 'POST /user/ensure_admin_creator',
 
   // shifu api start
   getShifuList: 'GET /shifu/shifus',
@@ -77,12 +78,20 @@ const api = {
   // TTS api
   ttsPreview: 'POST /shifu/tts/preview',
   ttsConfig: 'GET /shifu/tts/config',
+  // admin order api
+  getAdminOrders: 'GET /order/admin/orders',
+  getAdminOrderDetail: 'GET /order/admin/orders/{order_bid}',
+  importActivationOrder: 'POST /order/admin/orders/import-activation',
 
   // profile
 
   saveProfile: 'POST /profiles/save-profile-item',
   deleteProfile: 'POST /profiles/delete-profile-item',
   getProfileList: 'GET /profiles/get-profile-item-definitions',
+
+  // MDF Conversion
+  genMdfConvert: 'POST /gen_mdf/convert',
+  genMdfConfigStatus: 'GET /gen_mdf/config-status',
 };
 
 export default api;
