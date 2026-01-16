@@ -126,7 +126,7 @@ export default function ShifuSettingDialog({
       ? currentShifu.created_user_bid === currentUserId
       : !currentShifu?.readonly);
   const handleArchiveToggle = useCallback(async () => {
-    if (!currentShifu?.bid || currentShifu?.readonly) {
+    if (!currentShifu?.bid || !canManageArchive) {
       return;
     }
     setArchiveLoading(true);
@@ -155,7 +155,7 @@ export default function ShifuSettingDialog({
       setArchiveLoading(false);
       setArchiveDialogOpen(false);
     }
-  }, [actions, currentShifu, onSave, t, toast]);
+  }, [actions, canManageArchive, currentShifu, onSave, t, toast]);
   // Define the validation schema using Zod
   const shifuSchema = z.object({
     previewUrl: z.string(),

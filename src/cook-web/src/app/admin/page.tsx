@@ -27,7 +27,6 @@ import { ErrorWithCode } from '@/lib/request';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
-import { cn } from '@/lib/utils';
 interface ShifuCardProps {
   id: string;
   image: string | undefined;
@@ -120,7 +119,7 @@ const ScriptManagementPage = () => {
     setLoading(true);
     try {
       const requestTab = activeTabRef.current;
-      const isArchivedTab = activeTab === 'archived';
+      const isArchivedTab = requestTab === 'archived';
       const { items } = await api.getShifuList({
         page_index: currentPage.current,
         page_size: pageSize,
@@ -243,7 +242,7 @@ const ScriptManagementPage = () => {
     }
   }, [isInitialized, isGuest]);
 
-  // Fetch data when language resets list handles initial load through activeTab effect
+  // When language changes, reset list loading through the activeTab effect
 
   if (error) {
     return (
