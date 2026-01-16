@@ -95,6 +95,8 @@ const ScriptManagementPage = () => {
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const [activeTab, setActiveTab] = useState<'all' | 'archived'>('all');
+  const [adminReady, setAdminReady] = useState(false);
+  const [activeTab, setActiveTab] = useState('all');
   const [shifus, setShifus] = useState<Shifu[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -208,7 +210,7 @@ const ScriptManagementPage = () => {
     setHasMore(true);
     currentPage.current = 1;
     setError(null);
-    if (isInitialized && fetchShifusRef.current) {
+    if (isInitialized && adminReady && fetchShifusRef.current) {
       fetchShifusRef.current();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -216,7 +218,7 @@ const ScriptManagementPage = () => {
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !isInitialized) return;
+    if (!container || !isInitialized || !adminReady) return;
 
     const observer = new IntersectionObserver(
       entries => {
@@ -229,7 +231,7 @@ const ScriptManagementPage = () => {
 
     observer.observe(container);
     return () => observer.disconnect();
-  }, [hasMore, isInitialized]);
+  }, [hasMore, isInitialized, adminReady]);
 
   // Centralized login check - redirect if not logged in after initialization
   useEffect(() => {
@@ -243,6 +245,44 @@ const ScriptManagementPage = () => {
   }, [isInitialized, isGuest]);
 
   // When language changes, reset list loading through the activeTab effect
+  useEffect(() => {
+    if (!isInitialized) {
+      return;
+    }
+    if (isGuest) {
+      setAdminReady(false);
+      return;
+    }
+
+    let cancelled = false;
+    const ensureAdminPermissions = async () => {
+      try {
+        await api.ensureAdminCreator({});
+      } catch (error) {
+        console.error('Failed to ensure admin creator permissions:', error);
+      } finally {
+        if (!cancelled) {
+          setAdminReady(true);
+        }
+      }
+    };
+
+    setAdminReady(false);
+    ensureAdminPermissions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isInitialized, isGuest]);
+
+  // Fetch data when user is initialized
+  useEffect(() => {
+    if (isInitialized && adminReady && fetchShifusRef.current) {
+      if (shifus.length === 0 && !loading) {
+        fetchShifusRef.current();
+      }
+    }
+  }, [isInitialized, adminReady]);
 
   if (error) {
     return (
