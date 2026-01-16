@@ -31,9 +31,12 @@ export default function RootLayout({
     <html lang='en'>
       <head></head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} overflow-hidden`}
+        className={`${geistSans.variable} ${geistMono.variable} overflow-hidden overscroll-none`}
       >
-        <div id='root'>
+        <div
+          id='root'
+          className='overscroll-none'
+        >
           <ConfigProvider>
             <RuntimeConfigInitializer />
             <UmamiLoader />
