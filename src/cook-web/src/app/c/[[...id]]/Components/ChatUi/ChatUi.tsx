@@ -52,10 +52,11 @@ export const ChatUi = ({
         hideMobileFooter ? styles.hideMobileFooter : '',
       )}
     >
-      {frameLayout !== FRAME_LAYOUT_MOBILE ? (
-        <div className={styles.header}></div>
-      ) : null
-      // <div className={styles.headerMobile}></div>
+      {
+        frameLayout !== FRAME_LAYOUT_MOBILE ? (
+          <div className={styles.header}></div>
+        ) : null
+        // <div className={styles.headerMobile}></div>
       }
       {
         <ChatComponents
