@@ -54,9 +54,9 @@ export const ChatUi = ({
     >
       {frameLayout !== FRAME_LAYOUT_MOBILE ? (
         <div className={styles.header}></div>
-      ) : ( null
-        // <div className={styles.headerMobile}></div>
-      )}
+      ) : null
+      // <div className={styles.headerMobile}></div>
+      }
       {
         <ChatComponents
           chapterId={chapterId}

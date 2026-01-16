@@ -399,7 +399,7 @@ export default function ChatPage() {
       <AppContext.Provider
         value={{ frameLayout, mobileStyle, isLoggedIn, userInfo, theme: '' }}
       >
-         {mobileStyle ? (
+        {mobileStyle ? (
           <ChatMobileHeader
             navOpen={navOpen}
             className={styles.chatMobileHeader}
@@ -407,7 +407,7 @@ export default function ChatPage() {
             onSettingClick={onNavToggle}
           />
         ) : null}
-        
+
         {!initialized ? (
           <div className='flex flex-col space-y-6 p-6 container mx-auto'>
             <Skeleton className='h-[125px] rounded-xl' />
@@ -490,8 +490,6 @@ export default function ChatPage() {
         ) : null}
 
         {initialized ? <TrackingVisit /> : null}
-
-       
 
         <FeedbackModal
           open={feedbackModalOpen}
