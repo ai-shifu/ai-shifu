@@ -20,7 +20,8 @@ from .utils import (
     parse_shifu_res_bid,
     get_shifu_res_url_dict,
 )
-from .models import DraftShifu, AiCourseAuth, PublishedShifu, FavoriteScenario
+from .models import DraftShifu, PublishedShifu, FavoriteScenario
+from .permissions import get_user_shifu_permissions
 from .shifu_history_manager import save_shifu_history
 from ..common.dtos import PageNationDTO
 from ...service.config import get_config
@@ -365,37 +366,24 @@ def get_shifu_draft_list(
         page_size = max(page_size, 1)
         page_offset = (page_index - 1) * page_size
 
-        created_filters = [
-            DraftShifu.created_user_bid == user_id,
-            DraftShifu.deleted == 0,
-            DraftShifu.archived == (1 if archived else 0),
-        ]
-        created_subquery = (
-            db.session.query(db.func.max(DraftShifu.id))
-            .filter(*created_filters)
-            .group_by(DraftShifu.shifu_bid)
-        )
+        permission_map = get_user_shifu_permissions(app, user_id)
+        shifu_bids = list(permission_map.keys())
+        if not shifu_bids:
+            return PageNationDTO(page_index, page_size, 0, [])
 
-        shared_course_ids = (
-            db.session.query(AiCourseAuth.course_id)
-            .filter(AiCourseAuth.user_id == user_id)
-            .subquery()
-        )
-
-        shared_subquery = (
+        archived_flag = 1 if archived else 0
+        latest_subquery = (
             db.session.query(db.func.max(DraftShifu.id))
             .filter(
-                DraftShifu.shifu_bid.in_(shared_course_ids),
+                DraftShifu.shifu_bid.in_(shifu_bids),
                 DraftShifu.deleted == 0,
-                DraftShifu.archived == (1 if archived else 0),
+                DraftShifu.archived == archived_flag,
             )
             .group_by(DraftShifu.shifu_bid)
-        )
-
-        union_subquery = created_subquery.union(shared_subquery).subquery()
+        ).subquery()
 
         visible_draft_query = db.session.query(DraftShifu.id).filter(
-            DraftShifu.id.in_(union_subquery)
+            DraftShifu.id.in_(latest_subquery)
         )
 
         if is_favorite:
@@ -444,7 +432,7 @@ def get_shifu_draft_list(
                 shifu_draft.description,
                 res_url_map.get(shifu_draft.avatar_res_bid, ""),
                 STATUS_DRAFT,
-                False,
+                bool(is_favorite),
                 bool(shifu_draft.archived),
             )
             for shifu_draft in shifu_drafts

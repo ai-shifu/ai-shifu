@@ -22,6 +22,7 @@ const api = {
   submitFeedback: 'POST /user/submit-feedback',
   googleOauthStart: 'GET /user/oauth/google',
   googleOauthCallback: 'GET /user/oauth/google/callback',
+  ensureAdminCreator: 'POST /user/ensure_admin_creator',
 
   // shifu api start
   getShifuList: 'GET /shifu/shifus',
@@ -75,6 +76,11 @@ const api = {
   getVideoInfo: 'POST /shifu/get-video-info',
   upfileByUrl: 'POST /shifu/url-upfile',
   // resource api end
+
+  // admin order api
+  getAdminOrders: 'GET /order/admin/orders',
+  getAdminOrderDetail: 'GET /order/admin/orders/{order_bid}',
+  importActivationOrder: 'POST /order/admin/orders/import-activation',
 
   // profile
 
