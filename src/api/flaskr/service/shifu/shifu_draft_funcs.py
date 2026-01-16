@@ -356,6 +356,7 @@ def get_shifu_draft_list(
         page_index: Page index
         page_size: Page size
         is_favorite: Is favorite
+        archived: Filter archived (True) or active (False) shifus
     Returns:
         PageNationDTO: Page nation dto
     """

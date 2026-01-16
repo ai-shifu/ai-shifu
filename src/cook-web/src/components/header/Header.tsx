@@ -112,7 +112,7 @@ const Header = () => {
                 </span>
               )}
               {currentShifu?.archived && (
-                <span className={s.readonly}>{t('common.core.archived')}</span>
+                <span className={s.archived}>{t('common.core.archived')}</span>
               )}
               <div className='ml-2'>
                 <ShifuSetting
