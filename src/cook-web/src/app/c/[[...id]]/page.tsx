@@ -389,7 +389,13 @@ export default function ChatPage() {
   }, [gotoLogin, onGoChapter, reloadTree]);
 
   return (
-    <div className={clsx(styles.newChatPage)}>
+    <div
+      className={clsx(
+        styles.newChatPage,
+        mobileStyle ? 'flex-col' : 'h-screen flex-row',
+        'flex',
+      )}
+    >
       <AppContext.Provider
         value={{ frameLayout, mobileStyle, isLoggedIn, userInfo, theme: '' }}
       >
