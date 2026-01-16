@@ -36,6 +36,10 @@ interface ShifuCardProps {
   archived?: boolean;
 }
 
+const CARD_CONTAINER_CLASS =
+  'w-full h-full min-h-[118px] rounded-xl border border-slate-200 bg-background shadow-[0_4px_20px_rgba(15,23,42,0.08)] transition-all duration-200 ease-in-out hover:shadow-[0_10px_30px_rgba(15,23,42,0.12)]';
+const CARD_CONTENT_CLASS = 'p-4 flex flex-col gap-2 h-full cursor-pointer';
+
 const ShifuCard = ({
   id,
   image,
@@ -50,8 +54,8 @@ const ShifuCard = ({
       href={`/shifu/${id}`}
       className='block w-full h-full'
     >
-      <Card className='w-full h-full min-h-[118px] cursor-pointer rounded-xl border border-slate-200 bg-background shadow-[0_4px_20px_rgba(15,23,42,0.08)] transition-all duration-200 ease-in-out hover:shadow-[0_10px_30px_rgba(15,23,42,0.12)]'>
-        <CardContent className='p-4 cursor-pointer flex flex-col gap-2 h-full'>
+      <Card className={CARD_CONTAINER_CLASS}>
+        <CardContent className={CARD_CONTENT_CLASS}>
           <div className='flex flex-row items-center justify-between'>
             <div className='flex flex-row items-center mb-2 w-full'>
               <div className='p-2 h-10 w-10 rounded-lg bg-primary/10 mr-4 flex items-center justify-center shrink-0'>
@@ -119,6 +123,8 @@ const ScriptManagementPage = () => {
 
     setLoading(true);
     try {
+      // Use a snapshot of the tab at request time to avoid mixing responses
+      // when users switch tabs before the API returns.
       const requestTab = activeTabRef.current;
       const isArchivedTab = requestTab === 'archived';
       const { items } = await api.getShifuList({
