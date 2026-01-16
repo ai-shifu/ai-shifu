@@ -310,40 +310,37 @@ const ScriptManagementPage = () => {
   return (
     <div className='h-full p-0'>
       <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
-        <div className='flex justify-between items-center mb-5'>
+        <div className='mb-3'>
           <h1 className='text-2xl font-semibold text-gray-900'>
             {t('common.core.shifu')}
           </h1>
         </div>
-        <Tabs
-          value={activeTab}
-          onValueChange={value => setActiveTab(value as 'all' | 'archived')}
-          className='mb-5'
-        >
-          <TabsList className='h-9 rounded-full bg-muted/40'>
-            <TabsTrigger value='all'>{t('common.core.all')}</TabsTrigger>
-            <TabsTrigger value='archived'>
-              {t('common.core.archived')}
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-        {activeTab === 'all' && (
-          <div className='flex space-x-3 mb-5'>
-            <Button
-              size='sm'
-              variant='outline'
-              onClick={handleCreateShifuModal}
-            >
-              <PlusIcon className='w-5 h-5 mr-1' />
-              {t('common.core.createBlankShifu')}
-            </Button>
-            <CreateShifuDialog
-              open={showCreateShifuModal}
-              onOpenChange={setShowCreateShifuModal}
-              onSubmit={onCreateShifu}
-            />
-          </div>
-        )}
+        <div className='flex items-center gap-3 mb-5'>
+          <Button
+            size='sm'
+            variant='outline'
+            onClick={handleCreateShifuModal}
+          >
+            <PlusIcon className='w-5 h-5 mr-1' />
+            {t('common.core.createBlankShifu')}
+          </Button>
+          <Tabs
+            value={activeTab}
+            onValueChange={value => setActiveTab(value as 'all' | 'archived')}
+          >
+            <TabsList className='h-9 rounded-full bg-muted/40'>
+              <TabsTrigger value='all'>{t('common.core.all')}</TabsTrigger>
+              <TabsTrigger value='archived'>
+                {t('common.core.archived')}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <CreateShifuDialog
+            open={showCreateShifuModal}
+            onOpenChange={setShowCreateShifuModal}
+            onSubmit={onCreateShifu}
+          />
+        </div>
         <div className='flex-1 overflow-auto'>
           <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-3'>
             {shifus.map(shifu => (

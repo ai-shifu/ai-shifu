@@ -33,6 +33,23 @@ def _normalize_auth_types(raw_value: object) -> Set[str]:
     return set()
 
 
+def _auth_types_to_permissions(auth_types: Set[str]) -> Set[str]:
+    """
+    Map stored auth_type values (strings or numeric codes) to normalized permissions.
+    Codes: 1=view, 2=edit, 4=publish.
+    """
+    perms: Set[str] = set()
+    for item in auth_types:
+        lowered = item.lower()
+        if lowered in {"view", "read", "readonly"} or lowered == "1":
+            perms.add("view")
+        if lowered in {"edit", "write"} or lowered == "2":
+            perms.update({"view", "edit"})
+        if lowered in {"publish"} or lowered == "4":
+            perms.add("publish")
+    return perms
+
+
 def get_user_shifu_permissions(app: Flask, user_id: str) -> Dict[str, Set[str]]:
     with app.app_context():
         permission_map: Dict[str, Set[str]] = {}
@@ -56,7 +73,9 @@ def get_user_shifu_permissions(app: Flask, user_id: str) -> Dict[str, Set[str]]:
             if not shifu_bid or shifu_bid in permission_map:
                 continue
             auth_types = _normalize_auth_types(auth.auth_type)
-            permission_map.setdefault(shifu_bid, set()).update(auth_types)
+            permission_map.setdefault(shifu_bid, set()).update(
+                _auth_types_to_permissions(auth_types) or auth_types
+            )
 
         return permission_map
 

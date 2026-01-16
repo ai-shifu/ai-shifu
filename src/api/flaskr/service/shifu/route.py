@@ -110,18 +110,23 @@ class ShifuTokenValidation:
             if not token and request.method.upper() == "POST" and request.is_json:
                 token = request.get_json().get("token", None)
 
-            if not request.user.is_creator:
-                raise_error("server.shifu.noPermission")
-
             # If is_creator is True, only verify creator permission and skip shifu-specific verification
             if self.is_creator:
+                if not request.user.is_creator:
+                    raise_error("server.shifu.noPermission")
                 return f(*args, **kwargs)
 
             shifu_bid = request.view_args.get("shifu_bid", None)
             if not shifu_bid:
+                shifu_bid = request.view_args.get("shifu_id", None)
+            if not shifu_bid:
                 shifu_bid = request.args.get("shifu_bid", None)
+            if not shifu_bid:
+                shifu_bid = request.args.get("shifu_id", None)
             if not shifu_bid and request.method.upper() == "POST" and request.is_json:
                 shifu_bid = request.get_json().get("shifu_bid", None)
+                if not shifu_bid:
+                    shifu_bid = request.get_json().get("shifu_id", None)
 
             if not token:
                 raise_param_error("token is required")
@@ -227,14 +232,14 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         )
 
     @app.route(path_prefix + "/shifus/<shifu_id>/archive", methods=["POST"])
-    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
+    @ShifuTokenValidation(ShifuPermission.VIEW)
     def archive_shifu_api(shifu_id: str):
         user_id = request.user.user_id
         archive_shifu(app, user_id, shifu_id)
         return make_common_response({"archived": True})
 
     @app.route(path_prefix + "/shifus/<shifu_id>/unarchive", methods=["POST"])
-    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
+    @ShifuTokenValidation(ShifuPermission.VIEW)
     def unarchive_shifu_api(shifu_id: str):
         user_id = request.user.user_id
         unarchive_shifu(app, user_id, shifu_id)
