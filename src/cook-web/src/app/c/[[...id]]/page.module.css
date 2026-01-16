@@ -1,1 +1,1 @@
-.newChatPage{width:100%;min-height:100svh;display:flex;flex-direction:column;font-size:var(--font-size-4);font-weight:var(--font-weight-4-1);color:var(--font-color-main)}.newChatPage.pc{display:block}.newChatPage.pad{display:block}.newChatPage.m{display:block}.newChatPage .chatMobileHeader{position:sticky;z-index:2;width:100vw}
+.newChatPage{width:100%;min-height:100svh;display:flex;font-size:var(--font-size-4);font-weight:var(--font-weight-4-1);color:var(--font-color-main)}.newChatPage .chatMobileHeader{position:sticky;top:0;z-index:10}
