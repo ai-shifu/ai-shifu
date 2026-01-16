@@ -98,8 +98,8 @@ const ScriptManagementPage = () => {
   const { t, i18n } = useTranslation();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
-  const [activeTab, setActiveTab] = useState<'all' | 'archived'>('all');
   const [adminReady, setAdminReady] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'archived'>('all');
   const [shifus, setShifus] = useState<Shifu[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -199,7 +199,7 @@ const ScriptManagementPage = () => {
   };
 
   useEffect(() => {
-    if (!isInitialized) return;
+    if (!isInitialized || !adminReady) return;
     setShifus([]);
     setHasMore(true);
     currentPage.current = 1;
@@ -207,7 +207,7 @@ const ScriptManagementPage = () => {
     if (fetchShifusRef.current) {
       fetchShifusRef.current();
     }
-  }, [activeTab, isInitialized]);
+  }, [activeTab, isInitialized, adminReady]);
 
   // Reload list when language changes to reflect localized fields
   useEffect(() => {
@@ -219,7 +219,7 @@ const ScriptManagementPage = () => {
       fetchShifusRef.current();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [i18n.language, isInitialized]);
+  }, [i18n.language, isInitialized, adminReady]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -249,7 +249,6 @@ const ScriptManagementPage = () => {
     }
   }, [isInitialized, isGuest]);
 
-  // When language changes, reset list loading through the activeTab effect
   useEffect(() => {
     if (!isInitialized) {
       return;
@@ -287,7 +286,7 @@ const ScriptManagementPage = () => {
         fetchShifusRef.current();
       }
     }
-  }, [isInitialized, adminReady]);
+  }, [isInitialized, adminReady, shifus.length, loading]);
 
   if (error) {
     return (
