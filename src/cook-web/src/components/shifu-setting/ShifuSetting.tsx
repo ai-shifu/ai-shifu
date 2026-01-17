@@ -94,9 +94,6 @@ const TEMPERATURE_MIN = 0;
 const TEMPERATURE_MAX = 2;
 const TEMPERATURE_STEP = 0.1;
 const FLOAT_EPSILON = 1e-6;
-const TEMPERATURE_MIN = 0;
-const TEMPERATURE_MAX = 2;
-const TEMPERATURE_STEP = 0.1;
 type CopyingState = {
   previewUrl: boolean;
   url: boolean;
