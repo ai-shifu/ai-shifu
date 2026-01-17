@@ -90,7 +90,13 @@ interface Shifu {
 }
 
 const MIN_SHIFU_PRICE = 0.5;
-
+const TEMPERATURE_MIN = 0;
+const TEMPERATURE_MAX = 2;
+const TEMPERATURE_STEP = 0.1;
+const FLOAT_EPSILON = 1e-6;
+const TEMPERATURE_MIN = 0;
+const TEMPERATURE_MAX = 2;
+const TEMPERATURE_STEP = 0.1;
 type CopyingState = {
   previewUrl: boolean;
   url: boolean;
@@ -431,10 +437,10 @@ export default function ShifuSettingDialog({
       ),
     temperature_min: z
       .number()
-      .min(0, t('module.shifuSetting.shifuTemperatureMin')),
+      .min(TEMPERATURE_MIN, t('module.shifuSetting.shifuTemperatureMin')),
     temperature_max: z
       .number()
-      .max(2, t('module.shifuSetting.shifuTemperatureMax')),
+      .max(TEMPERATURE_MAX, t('module.shifuSetting.shifuTemperatureMax')),
   });
 
   const form = useForm({
@@ -454,9 +460,9 @@ export default function ShifuSettingDialog({
   const temperatureValue = parseFloat(form.watch('temperature') || '0');
   const safeTemperature = Number.isFinite(temperatureValue)
     ? temperatureValue
-    : 0;
-  const isTempAtMin = safeTemperature <= 0;
-  const isTempAtMax = safeTemperature >= 2;
+    : TEMPERATURE_MIN;
+  const isTempAtMin = safeTemperature <= TEMPERATURE_MIN + FLOAT_EPSILON;
+  const isTempAtMax = safeTemperature >= TEMPERATURE_MAX - FLOAT_EPSILON;
 
   const [formSnapshot, setFormSnapshot] = useState(form.getValues());
 
@@ -654,6 +660,11 @@ export default function ShifuSettingDialog({
           : String(result.tts_speed),
       );
       setTtsPitch(result.tts_pitch ?? 0);
+      setTtsPitchInput(
+        result.tts_pitch === null || result.tts_pitch === undefined
+          ? ''
+          : String(result.tts_pitch),
+      );
       setTtsEmotion(result.tts_emotion || '');
     }
   };
