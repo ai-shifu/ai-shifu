@@ -1,9 +1,7 @@
 import { SSE } from 'sse.js';
 import request from '@/lib/request';
-import { tokenStore } from '@/c-service/storeUtil';
 import { v4 } from 'uuid';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
-import { useSystemStore } from '@/c-store/useSystemStore';
 import { useUserStore } from '@/store/useUserStore';
 
 // ===== Constants  Types for shared literals =====
@@ -57,6 +55,9 @@ export const SSE_OUTPUT_TYPE = {
   HEARTBEAT: 'heartbeat',
   VARIABLE_UPDATE: 'variable_update',
   PROFILE_UPDATE: 'update_user_info', // TODO: update user_info
+  // Audio types for TTS
+  AUDIO_SEGMENT: 'audio_segment',
+  AUDIO_COMPLETE: 'audio_complete',
 } as const;
 export type SSE_OUTPUT_TYPE =
   (typeof SSE_OUTPUT_TYPE)[keyof typeof SSE_OUTPUT_TYPE];
@@ -76,6 +77,7 @@ export interface StudyRecordItem {
   like_status?: LikeStatus;
   user_input?: string;
   isHistory?: boolean;
+  audio_url?: string;
 }
 
 export interface LessonStudyRecords {
@@ -111,6 +113,28 @@ export interface PostGeneratedContentActionData {
 export interface RunningResult {
   is_running: boolean;
   running_time: number;
+}
+
+// Audio types for TTS
+export interface AudioSegmentData {
+  segment_index: number;
+  audio_data: string; // Base64 encoded
+  duration_ms: number;
+  is_final: boolean;
+}
+
+export interface AudioCompleteData {
+  audio_url: string;
+  audio_bid: string;
+  duration_ms: number;
+}
+
+export interface StreamGeneratedBlockAudioParams {
+  shifu_bid: string;
+  generated_block_bid: string;
+  preview_mode?: boolean;
+  onMessage: (data: any) => void;
+  onError?: (error: unknown) => void;
 }
 
 export const getRunMessage = (
@@ -170,6 +194,58 @@ export const getRunMessage = (
   source.stream();
 
   return source;
+};
+
+const createSseSource = (
+  url: string,
+  payload: Record<string, unknown>,
+  onMessage: (data: any) => void,
+  onError?: (error: unknown) => void,
+) => {
+  const token = useUserStore.getState().getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Request-ID': v4().replace(/-/g, ''),
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+    headers.Token = token;
+  }
+
+  const source = new SSE(url, {
+    headers,
+    payload: JSON.stringify(payload),
+    method: 'POST',
+  });
+
+  source.addEventListener('message', event => {
+    try {
+      const response = JSON.parse(event.data);
+      onMessage(response);
+    } catch {
+      // ignore malformed SSE payloads
+    }
+  });
+
+  source.addEventListener('error', e => {
+    onError?.(e);
+  });
+
+  source.stream();
+
+  return source;
+};
+
+export const streamGeneratedBlockAudio = ({
+  shifu_bid,
+  generated_block_bid,
+  preview_mode = false,
+  onMessage,
+  onError,
+}: StreamGeneratedBlockAudioParams) => {
+  const baseURL = getResolvedBaseURL();
+  const url = `${baseURL}/api/learn/shifu/${shifu_bid}/generated-blocks/${generated_block_bid}/tts?preview_mode=${preview_mode}`;
+  return createSseSource(url, {}, onMessage, onError);
 };
 
 /**

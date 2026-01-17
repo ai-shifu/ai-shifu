@@ -78,6 +78,20 @@ class ShifuDetailDto(BaseModel):
     url: str = Field(..., description="shifu url", required=False)
     system_prompt: str = Field(..., description="shifu system prompt", required=False)
     readonly: bool = Field(..., description="is shifu readonly", required=False)
+    # TTS Configuration
+    tts_enabled: bool = Field(False, description="TTS enabled")
+    tts_provider: str = Field(
+        "", description="TTS provider: minimax, volcengine, baidu, aliyun"
+    )
+    tts_model: str = Field("", description="TTS model/resource ID")
+    tts_voice_id: str = Field("", description="TTS voice ID")
+    tts_speed: float = Field(
+        1.0, description="TTS speech speed (provider-specific range)"
+    )
+    tts_pitch: int = Field(
+        0, description="TTS pitch adjustment (provider-specific range)"
+    )
+    tts_emotion: str = Field("", description="TTS emotion setting")
 
     def __init__(
         self,
@@ -93,6 +107,13 @@ class ShifuDetailDto(BaseModel):
         shifu_url: str,
         shifu_system_prompt: str,
         readonly: bool,
+        tts_enabled: bool = False,
+        tts_provider: str = "",
+        tts_model: str = "",
+        tts_voice_id: str = "",
+        tts_speed: float = 1.0,
+        tts_pitch: int = 0,
+        tts_emotion: str = "",
     ):
         super().__init__(
             bid=shifu_id,
@@ -107,6 +128,13 @@ class ShifuDetailDto(BaseModel):
             url=shifu_url,
             system_prompt=shifu_system_prompt,
             readonly=readonly,
+            tts_enabled=tts_enabled,
+            tts_provider=tts_provider,
+            tts_model=tts_model,
+            tts_voice_id=tts_voice_id,
+            tts_speed=tts_speed,
+            tts_pitch=tts_pitch,
+            tts_emotion=tts_emotion,
         )
 
     def __json__(self):
@@ -123,6 +151,13 @@ class ShifuDetailDto(BaseModel):
             "temperature": self.temperature,
             "system_prompt": self.system_prompt,
             "readonly": self.readonly,
+            "tts_enabled": self.tts_enabled,
+            "tts_provider": self.tts_provider,
+            "tts_model": self.tts_model,
+            "tts_voice_id": self.tts_voice_id,
+            "tts_speed": self.tts_speed,
+            "tts_pitch": self.tts_pitch,
+            "tts_emotion": self.tts_emotion,
         }
 
 

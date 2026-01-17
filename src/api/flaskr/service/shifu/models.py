@@ -177,6 +177,52 @@ class DraftShifu(db.Model):
         comment="Ask agent LLM system prompt",
     )
     price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
+    # TTS Configuration
+    tts_enabled = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="TTS enabled: 0=disabled, 1=enabled",
+    )
+    tts_provider = Column(
+        String(32),
+        nullable=False,
+        default="",
+        comment=(
+            "TTS provider: minimax, volcengine, baidu, aliyun "
+            "(empty=use system default)"
+        ),
+    )
+    tts_model = Column(
+        String(64),
+        nullable=False,
+        default="",
+        comment="TTS model/resource ID (e.g., seed-tts-1.0, seed-tts-2.0, speech-01-turbo)",
+    )
+    tts_voice_id = Column(
+        String(64),
+        nullable=False,
+        default="",
+        comment="TTS voice ID",
+    )
+    tts_speed = Column(
+        DECIMAL(6, 2),
+        nullable=False,
+        default=1.0,
+        comment="TTS speech speed (provider-specific range)",
+    )
+    tts_pitch = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="TTS pitch adjustment (provider-specific range)",
+    )
+    tts_emotion = Column(
+        String(32),
+        nullable=False,
+        default="",
+        comment="TTS emotion setting",
+    )
     deleted = Column(
         SmallInteger,
         nullable=False,
@@ -223,6 +269,13 @@ class DraftShifu(db.Model):
             ask_llm_temperature=self.ask_llm_temperature,
             ask_llm_system_prompt=self.ask_llm_system_prompt,
             price=self.price,
+            tts_enabled=self.tts_enabled,
+            tts_provider=self.tts_provider,
+            tts_model=self.tts_model,
+            tts_voice_id=self.tts_voice_id,
+            tts_speed=self.tts_speed,
+            tts_pitch=self.tts_pitch,
+            tts_emotion=self.tts_emotion,
             deleted=self.deleted,
             created_at=self.created_at,
             created_user_bid=self.created_user_bid,
@@ -245,6 +298,13 @@ class DraftShifu(db.Model):
             and compare_decimal(self.ask_llm_temperature, other.ask_llm_temperature)
             and self.ask_llm_system_prompt == other.ask_llm_system_prompt
             and compare_decimal(self.price, other.price)
+            and self.tts_enabled == other.tts_enabled
+            and self.tts_provider == other.tts_provider
+            and self.tts_model == other.tts_model
+            and self.tts_voice_id == other.tts_voice_id
+            and compare_decimal(self.tts_speed, other.tts_speed)
+            and self.tts_pitch == other.tts_pitch
+            and self.tts_emotion == other.tts_emotion
         )
 
     def get_str_to_check(self):
@@ -511,6 +571,52 @@ class PublishedShifu(db.Model):
         Text, nullable=False, default="", comment="Ask agent LLM system prompt"
     )
     price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
+    # TTS Configuration
+    tts_enabled = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="TTS enabled: 0=disabled, 1=enabled",
+    )
+    tts_provider = Column(
+        String(32),
+        nullable=False,
+        default="",
+        comment=(
+            "TTS provider: minimax, volcengine, baidu, aliyun "
+            "(empty=use system default)"
+        ),
+    )
+    tts_model = Column(
+        String(64),
+        nullable=False,
+        default="",
+        comment="TTS model/resource ID (e.g., seed-tts-1.0, seed-tts-2.0, speech-01-turbo)",
+    )
+    tts_voice_id = Column(
+        String(64),
+        nullable=False,
+        default="",
+        comment="TTS voice ID",
+    )
+    tts_speed = Column(
+        DECIMAL(6, 2),
+        nullable=False,
+        default=1.0,
+        comment="TTS speech speed (provider-specific range)",
+    )
+    tts_pitch = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="TTS pitch adjustment (provider-specific range)",
+    )
+    tts_emotion = Column(
+        String(32),
+        nullable=False,
+        default="",
+        comment="TTS emotion setting",
+    )
     deleted = Column(
         SmallInteger,
         nullable=False,
