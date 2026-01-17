@@ -101,9 +101,10 @@
     width: 100%;
     // padding-top: 80px;
     padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+    overflow: hidden;
     .chatComponents {
       padding-top: 0;
-      padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+      overflow-y: auto;
     }
     .footer {
       position: fixed;
@@ -124,7 +125,6 @@
     justify-content: center;
     overflow-y: auto;
     padding-top: 64px;
-    padding-bottom: 40px;
     box-sizing: border-box;
   }
 

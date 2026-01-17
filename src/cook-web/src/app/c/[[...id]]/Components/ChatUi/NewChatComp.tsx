@@ -87,18 +87,48 @@ export const NewChatComponents = ({
     chatBoxBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  const checkScroll = useCallback(() => {
-    if (!chatRef.current) return;
-    requestAnimationFrame(() => {
-      if (!chatRef.current) return;
-      const { scrollTop, scrollHeight, clientHeight } = chatRef.current;
-      // If content is not scrollable or at the bottom, don't show the button
-      const isBottom =
+  const isNearBottom = useCallback(
+    (element?: HTMLElement | Document | null) => {
+      if (!element) {
+        return true;
+      }
+      if (element instanceof HTMLElement) {
+        const { scrollTop, scrollHeight, clientHeight } = element;
+        return (
+          scrollHeight <= clientHeight ||
+          scrollHeight - scrollTop - clientHeight < 150
+        );
+      }
+      const docEl = document.documentElement;
+      const scrollTop = window.scrollY || docEl.scrollTop;
+      const { scrollHeight, clientHeight } = docEl;
+      return (
         scrollHeight <= clientHeight ||
-        scrollHeight - scrollTop - clientHeight < 150;
-      setShowScrollDown(!isBottom);
+        scrollHeight - scrollTop - clientHeight < 150
+      );
+    },
+    [],
+  );
+
+  const checkScroll = useCallback(() => {
+    requestAnimationFrame(() => {
+      const containers: Array<HTMLElement | Document> = [];
+
+      if (chatRef.current) {
+        containers.push(chatRef.current);
+        if (chatRef.current.parentElement) {
+          containers.push(chatRef.current.parentElement);
+        }
+      }
+
+      if (mobileStyle) {
+        containers.push(document);
+      }
+
+      const shouldShow = containers.some(container => !isNearBottom(container));
+      setShowScrollDown(shouldShow);
     });
-  }, []);
+  }, [isNearBottom, mobileStyle]);
 
   const { openPayModal, payModalResult } = useCourseStore(
     useShallow(state => ({
@@ -328,29 +358,47 @@ export const NewChatComponents = ({
 
   useEffect(() => {
     const container = chatRef.current;
+    const parentContainer = container?.parentElement;
+    const listeners: Array<{ element: EventTarget; handler: () => void }> = [];
+
     if (container) {
-      container.addEventListener('scroll', checkScroll);
+      container.addEventListener('scroll', checkScroll, { passive: true });
+      listeners.push({ element: container, handler: checkScroll });
+    }
 
-      const resizeObserver = new ResizeObserver(() => {
-        checkScroll();
+    if (parentContainer) {
+      parentContainer.addEventListener('scroll', checkScroll, {
+        passive: true,
       });
+      listeners.push({ element: parentContainer, handler: checkScroll });
+    }
 
-      // Observe the container itself
+    if (mobileStyle) {
+      window.addEventListener('scroll', checkScroll, { passive: true });
+      listeners.push({ element: window, handler: checkScroll });
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      checkScroll();
+    });
+
+    if (container) {
       resizeObserver.observe(container);
 
-      // Observe the content inside (the first child div we added)
       if (container.firstElementChild) {
         resizeObserver.observe(container.firstElementChild);
       }
-
-      checkScroll();
-
-      return () => {
-        container.removeEventListener('scroll', checkScroll);
-        resizeObserver.disconnect();
-      };
     }
-  }, [checkScroll, items]); // Added items as dependency to re-bind if structure changes significantly
+
+    checkScroll();
+
+    return () => {
+      listeners.forEach(({ element, handler }) => {
+        element.removeEventListener('scroll', handler);
+      });
+      resizeObserver.disconnect();
+    };
+  }, [checkScroll, items, mobileStyle]); // Added items as dependency to re-bind if structure changes significantly
 
   // Memoize onSend to prevent new function references
   const memoizedOnSend = useCallback(onSend, [onSend]);
