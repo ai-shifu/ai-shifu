@@ -5,6 +5,7 @@ This module provides integration with multiple Text-to-Speech providers:
 - Minimax (t2a_v2 API)
 - Volcengine (bidirectional WebSocket API)
 - Baidu (Short Text Online Synthesis API)
+- Aliyun (NLS RESTful TTS API)
 
 The provider can be selected per-Shifu configuration.
 """
@@ -55,9 +56,7 @@ def _auto_detect_provider_name() -> str:
     # Check Minimax first (existing behavior)
     if get_config("MINIMAX_API_KEY"):
         return "minimax"
-    if (
-        get_config("VOLCENGINE_TTS_APP_KEY") and get_config("VOLCENGINE_TTS_ACCESS_KEY")
-    ) or (get_config("ARK_ACCESS_KEY_ID") and get_config("ARK_SECRET_ACCESS_KEY")):
+    if get_config("ARK_ACCESS_KEY_ID") and get_config("ARK_SECRET_ACCESS_KEY"):
         return "volcengine"
     if get_config("BAIDU_TTS_API_KEY") and get_config("BAIDU_TTS_SECRET_KEY"):
         return "baidu"

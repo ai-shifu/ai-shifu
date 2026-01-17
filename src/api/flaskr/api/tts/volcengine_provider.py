@@ -213,24 +213,14 @@ class VolcengineTTSProvider(BaseTTSProvider):
         """
         Get Volcengine TTS credentials.
 
-        Uses ARK_* config as primary, with VOLCENGINE_TTS_* as override.
+        Uses ARK_* config for authentication.
 
         Returns:
             tuple: (app_key, access_key, resource_id)
         """
-        # App Key: VOLCENGINE_TTS_APP_KEY or ARK_ACCESS_KEY_ID
-        app_key = (
-            get_config("VOLCENGINE_TTS_APP_KEY")
-            or get_config("ARK_ACCESS_KEY_ID")
-            or ""
-        )
+        app_key = get_config("ARK_ACCESS_KEY_ID") or ""
 
-        # Access Key: VOLCENGINE_TTS_ACCESS_KEY or ARK_SECRET_ACCESS_KEY
-        access_key = (
-            get_config("VOLCENGINE_TTS_ACCESS_KEY")
-            or get_config("ARK_SECRET_ACCESS_KEY")
-            or ""
-        )
+        access_key = get_config("ARK_SECRET_ACCESS_KEY") or ""
 
         # Resource ID (X-Api-Resource-Id) is required in the WebSocket handshake.
         # The `model` argument is treated as a resource ID for this provider.
@@ -285,7 +275,8 @@ class VolcengineTTSProvider(BaseTTSProvider):
     def get_default_audio_settings(self) -> AudioSettings:
         """Get default audio settings from configuration."""
         return AudioSettings(
-            format=get_config("VOLCENGINE_TTS_FORMAT") or "mp3",
+            # This project uploads and serves audio as MP3 (see `upload_audio_to_oss`).
+            format="mp3",
             sample_rate=get_config("VOLCENGINE_TTS_SAMPLE_RATE") or 24000,
             bitrate=get_config("VOLCENGINE_TTS_BITRATE") or 128000,
             channel=1,
@@ -351,7 +342,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
 
         if not app_key or not access_key or not resource_id:
             raise ValueError(
-                "Volcengine TTS credentials are not configured. Set ARK_ACCESS_KEY_ID and ARK_SECRET_ACCESS_KEY, or VOLCENGINE_TTS_APP_KEY and VOLCENGINE_TTS_ACCESS_KEY"
+                "Volcengine TTS credentials are not configured. Set ARK_ACCESS_KEY_ID and ARK_SECRET_ACCESS_KEY"
             )
 
         # Generate unique IDs

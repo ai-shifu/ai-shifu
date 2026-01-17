@@ -1209,7 +1209,8 @@ class AliyunTTSProvider(BaseTTSProvider):
     def get_default_audio_settings(self) -> AudioSettings:
         """Get default audio settings from configuration."""
         return AudioSettings(
-            format=get_config("ALIYUN_TTS_FORMAT") or "mp3",
+            # This project uploads and serves audio as MP3 (see `upload_audio_to_oss`).
+            format="mp3",
             sample_rate=get_config("ALIYUN_TTS_SAMPLE_RATE") or 16000,
             bitrate=128000,
             channel=1,

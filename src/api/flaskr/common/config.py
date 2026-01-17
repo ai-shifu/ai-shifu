@@ -290,6 +290,20 @@ Default: "phone".""",
         secret=True,
         group="llm",
     ),
+    "ARK_ACCESS_KEY_ID": EnvVar(
+        name="ARK_ACCESS_KEY_ID",
+        default="",
+        description="ByteDance Volcengine Ark access key ID (used for Volcengine TTS WebSocket auth)",
+        secret=True,
+        group="llm",
+    ),
+    "ARK_SECRET_ACCESS_KEY": EnvVar(
+        name="ARK_SECRET_ACCESS_KEY",
+        default="",
+        description="ByteDance Volcengine Ark secret access key (used for Volcengine TTS WebSocket auth)",
+        secret=True,
+        group="llm",
+    ),
     "SILICON_API_KEY": EnvVar(
         name="SILICON_API_KEY",
         default="",
@@ -1022,22 +1036,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         group="tts",
     ),
     # Volcengine TTS Configuration
-    # Note: Uses ARK_ACCESS_KEY_ID and ARK_SECRET_ACCESS_KEY by default.
-    # These VOLCENGINE_TTS_* configs are optional overrides.
-    "VOLCENGINE_TTS_APP_KEY": EnvVar(
-        name="VOLCENGINE_TTS_APP_KEY",
-        default="",
-        description="Volcengine TTS App Key (optional, falls back to ARK_ACCESS_KEY_ID)",
-        secret=True,
-        group="tts",
-    ),
-    "VOLCENGINE_TTS_ACCESS_KEY": EnvVar(
-        name="VOLCENGINE_TTS_ACCESS_KEY",
-        default="",
-        description="Volcengine TTS Access Token (optional, falls back to ARK_SECRET_ACCESS_KEY)",
-        secret=True,
-        group="tts",
-    ),
+    # Note: Uses ARK_ACCESS_KEY_ID and ARK_SECRET_ACCESS_KEY for authentication.
     "VOLCENGINE_TTS_RESOURCE_ID": EnvVar(
         name="VOLCENGINE_TTS_RESOURCE_ID",
         default="seed-tts-1.0",
@@ -1085,12 +1084,6 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Volcengine TTS volume (0.5-2.0)",
         group="tts",
         validator=lambda x: 0.5 <= float(x) <= 2.0,
-    ),
-    "VOLCENGINE_TTS_FORMAT": EnvVar(
-        name="VOLCENGINE_TTS_FORMAT",
-        default="mp3",
-        description="Volcengine TTS audio format (mp3, ogg_opus, pcm)",
-        group="tts",
     ),
     "VOLCENGINE_TTS_SAMPLE_RATE": EnvVar(
         name="VOLCENGINE_TTS_SAMPLE_RATE",
@@ -1151,12 +1144,6 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         group="tts",
         validator=lambda x: 0 <= int(x) <= 15,
     ),
-    "BAIDU_TTS_FORMAT": EnvVar(
-        name="BAIDU_TTS_FORMAT",
-        default="mp3",
-        description="Baidu TTS audio format (mp3, pcm-16k, pcm-8k, wav)",
-        group="tts",
-    ),
     # Aliyun TTS Configuration
     "ALIYUN_TTS_APPKEY": EnvVar(
         name="ALIYUN_TTS_APPKEY",
@@ -1207,12 +1194,6 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Aliyun TTS volume (0-100, default 50)",
         group="tts",
         validator=lambda x: 0 <= int(x) <= 100,
-    ),
-    "ALIYUN_TTS_FORMAT": EnvVar(
-        name="ALIYUN_TTS_FORMAT",
-        default="mp3",
-        description="Aliyun TTS audio format (mp3, pcm, wav)",
-        group="tts",
     ),
     "ALIYUN_TTS_SAMPLE_RATE": EnvVar(
         name="ALIYUN_TTS_SAMPLE_RATE",

@@ -760,7 +760,8 @@ class BaiduTTSProvider(BaseTTSProvider):
     def get_default_audio_settings(self) -> AudioSettings:
         """Get default audio settings from configuration."""
         return AudioSettings(
-            format=get_config("BAIDU_TTS_FORMAT") or "mp3",
+            # This project uploads and serves audio as MP3 (see `upload_audio_to_oss`).
+            format="mp3",
             sample_rate=16000,  # Baidu default
             bitrate=128000,
             channel=1,
