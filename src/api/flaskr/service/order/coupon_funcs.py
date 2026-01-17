@@ -57,7 +57,9 @@ def _pick_coupon_candidate(
 
     has_candidate_with_same_code = bool(active_usages or coupons_by_code)
 
-    def select(usages: List[CouponUsageModel]) -> Tuple[Optional[CouponUsageModel], Optional[Coupon]]:
+    def select(
+        usages: List[CouponUsageModel],
+    ) -> Tuple[Optional[CouponUsageModel], Optional[Coupon]]:
         for usage in usages:
             coupon = coupons_by_bid.get(getattr(usage, "coupon_bid", None))
             if coupon and _coupon_matches_course(coupon, shifu_bid):
@@ -129,7 +131,11 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
         )
 
         coupon_usage, coupon, has_same_code_candidate = _pick_coupon_candidate(
-            active_usages, coupons_by_bid, coupons_by_code, buy_record.shifu_bid, user_id
+            active_usages,
+            coupons_by_bid,
+            coupons_by_code,
+            buy_record.shifu_bid,
+            user_id,
         )
 
         if not coupon:
