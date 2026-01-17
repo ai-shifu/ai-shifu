@@ -774,6 +774,8 @@ export default function ShifuSettingDialog({
     ttsVoiceId,
     ttsSpeed,
     ttsPitch,
+    speedValue,
+    pitchValue,
     ttsEmotion,
     ttsPreviewPlaying,
     ttsPreviewLoading,
@@ -1393,9 +1395,7 @@ export default function ShifuSettingDialog({
                       <div className='flex items-center gap-2'>
                         <Input
                           type='text'
-                          min={currentProviderConfig?.speed.min ?? 0.5}
-                          max={currentProviderConfig?.speed.max ?? 2.0}
-                          step={currentProviderConfig?.speed.step ?? 0.1}
+                          inputMode='decimal'
                           value={ttsSpeedInput}
                           onChange={e => {
                             setTtsSpeedInput(e.target.value);
@@ -1467,9 +1467,7 @@ export default function ShifuSettingDialog({
                       <div className='flex items-center gap-2'>
                         <Input
                           type='text'
-                          min={currentProviderConfig?.pitch.min ?? -12}
-                          max={currentProviderConfig?.pitch.max ?? 12}
-                          step={currentProviderConfig?.pitch.step ?? 1}
+                          inputMode='numeric'
                           value={ttsPitchInput}
                           onChange={e => {
                             const raw = e.target.value;
