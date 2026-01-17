@@ -90,13 +90,19 @@ class MinimaxTTSProvider(BaseTTSProvider):
         return bool(api_key)
 
     def get_default_voice_settings(self) -> VoiceSettings:
-        """Get default voice settings from configuration."""
+        """Get default voice settings.
+
+        Notes:
+        - Per-Shifu voice settings are stored in the database.
+        - This method only provides a provider-level fallback when callers do not
+          specify a voice_id/speed/pitch/emotion.
+        """
         return VoiceSettings(
-            voice_id=get_config("MINIMAX_TTS_VOICE_ID") or "male-qn-qingse",
-            speed=get_config("MINIMAX_TTS_SPEED") or 1.0,
-            pitch=get_config("MINIMAX_TTS_PITCH") or 0,
-            emotion=get_config("MINIMAX_TTS_EMOTION") or "neutral",
-            volume=get_config("MINIMAX_TTS_VOLUME") or 1.0,
+            voice_id="male-qn-qingse",
+            speed=1.0,
+            pitch=0,
+            emotion="",
+            volume=1.0,
         )
 
     def get_default_audio_settings(self) -> AudioSettings:
@@ -212,15 +218,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
             )
             requested_model = ""
 
-        configured_model = (get_config("MINIMAX_TTS_MODEL") or "").strip()
-        if configured_model and configured_model not in valid_models:
-            logger.warning(
-                "Ignoring invalid MINIMAX_TTS_MODEL: %s (falling back to default)",
-                configured_model,
-            )
-            configured_model = ""
-
-        tts_model = requested_model or configured_model or "speech-01-turbo"
+        tts_model = requested_model or "speech-01-turbo"
 
         if not api_key:
             raise ValueError("MINIMAX_API_KEY is not configured")

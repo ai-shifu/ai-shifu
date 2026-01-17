@@ -224,11 +224,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
 
         # Resource ID (X-Api-Resource-Id) is required in the WebSocket handshake.
         # The `model` argument is treated as a resource ID for this provider.
-        resource_id = (
-            (resource_id or "").strip()
-            or (get_config("VOLCENGINE_TTS_RESOURCE_ID") or "").strip()
-            or "seed-tts-1.0"
-        )
+        resource_id = (resource_id or "").strip() or "seed-tts-1.0"
 
         return app_key, access_key, resource_id
 
@@ -242,34 +238,18 @@ class VolcengineTTSProvider(BaseTTSProvider):
         return bool(app_key and access_key)
 
     def get_default_voice_settings(self) -> VoiceSettings:
-        """Get default voice settings from configuration."""
-        configured_voice_id = (get_config("VOLCENGINE_TTS_VOICE_ID") or "").strip()
-        if configured_voice_id:
-            default_voice_id = configured_voice_id
-        else:
-            preferred_resource_id = (
-                get_config("VOLCENGINE_TTS_RESOURCE_ID") or ""
-            ).strip()
-            default_voice_id = ""
-            if preferred_resource_id:
-                default_voice_id = next(
-                    (
-                        (v.get("value") or "").strip()
-                        for v in VOLCENGINE_VOICES
-                        if (v.get("resource_id") or "").strip() == preferred_resource_id
-                    ),
-                    "",
-                )
-            default_voice_id = (
-                default_voice_id or "zh_female_shuangkuaisisi_moon_bigtts"
-            )
+        """Get default voice settings.
 
+        Notes:
+        - Per-Shifu voice settings are stored in the database.
+        - This method only provides a provider-level fallback.
+        """
         return VoiceSettings(
-            voice_id=default_voice_id,
-            speed=get_config("VOLCENGINE_TTS_SPEED") or 1.0,
-            pitch=get_config("VOLCENGINE_TTS_PITCH") or 0,
-            emotion=get_config("VOLCENGINE_TTS_EMOTION") or "",
-            volume=get_config("VOLCENGINE_TTS_VOLUME") or 1.0,
+            voice_id="zh_female_shuangkuaisisi_moon_bigtts",
+            speed=1.0,
+            pitch=0,
+            emotion="",
+            volume=1.0,
         )
 
     def get_default_audio_settings(self) -> AudioSettings:
@@ -335,10 +315,9 @@ class VolcengineTTSProvider(BaseTTSProvider):
                 inferred_resource_id,
             )
             resource_id = inferred_resource_id
-        # Optional model version for req_params.model (e.g. seed-tts-1.1)
-        model_version = (get_config("VOLCENGINE_TTS_MODEL") or "").strip()
-        if model_version in {m["value"] for m in VOLCENGINE_MODELS}:
-            model_version = ""
+        # Optional model version for req_params.model is intentionally not
+        # configured via env; use provider defaults.
+        model_version = ""
 
         if not app_key or not access_key or not resource_id:
             raise ValueError(

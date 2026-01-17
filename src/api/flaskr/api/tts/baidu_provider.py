@@ -748,13 +748,18 @@ class BaiduTTSProvider(BaseTTSProvider):
         return bool(api_key and secret_key)
 
     def get_default_voice_settings(self) -> VoiceSettings:
-        """Get default voice settings from configuration."""
+        """Get default voice settings.
+
+        Notes:
+        - Per-Shifu voice settings are stored in the database.
+        - This method only provides a provider-level fallback.
+        """
         return VoiceSettings(
-            voice_id=get_config("BAIDU_TTS_VOICE_ID") or "0",  # Default to Xiaomei
-            speed=get_config("BAIDU_TTS_SPEED") or 5,  # 0-15, default 5
-            pitch=get_config("BAIDU_TTS_PITCH") or 5,  # 0-15, default 5
+            voice_id="0",  # Default to Xiaomei
+            speed=5,  # 0-15, default 5
+            pitch=5,  # 0-15, default 5
             emotion="",  # Baidu doesn't support emotion
-            volume=get_config("BAIDU_TTS_VOLUME") or 5,  # 0-15, default 5
+            volume=5,  # 0-15, default 5
         )
 
     def get_default_audio_settings(self) -> AudioSettings:
