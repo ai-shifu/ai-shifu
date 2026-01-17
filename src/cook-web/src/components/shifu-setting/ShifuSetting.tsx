@@ -373,7 +373,7 @@ export default function ShifuSettingDialog({
     if (ttsPitch === null || Number.isNaN(ttsPitch)) {
       setTtsPitchInput('');
     } else {
-      setTtsPitchInput(ttsPitch.toFixed(1));
+      setTtsPitchInput(String(Math.round(ttsPitch)));
     }
   }, [ttsSpeed, ttsPitch]);
   const clampTemperature = useCallback((value: number) => {
@@ -1478,8 +1478,9 @@ export default function ShifuSettingDialog({
                             const clamped = Number.isFinite(parsed)
                               ? clampPitch(parsed)
                               : pitchValue;
-                            setTtsPitch(clamped);
-                            setTtsPitchInput(String(clamped));
+                            const rounded = Math.round(clamped);
+                            setTtsPitch(rounded);
+                            setTtsPitchInput(String(rounded));
                           }}
                           disabled={currentShifu?.readonly}
                           className='h-9 w-24'
