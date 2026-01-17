@@ -40,6 +40,12 @@ export interface AskBlockProps {
   preview_mode?: boolean;
   generated_block_bid: string;
   onToggleAskExpanded?: (generated_block_bid: string) => void;
+  trackAiInteraction?: (data: {
+    shifu_bid: string;
+    outline_bid: string;
+    interaction_type: 'user_message' | 'ai_response' | 'button_click';
+    message_length?: number;
+  }) => void;
 }
 
 /**
@@ -55,6 +61,7 @@ export default function AskBlock({
   preview_mode = false,
   generated_block_bid,
   onToggleAskExpanded,
+  trackAiInteraction,
 }: AskBlockProps) {
   const { t } = useTranslation();
   const copyButtonText = t('module.renderUi.core.copyCode');
@@ -113,6 +120,16 @@ export default function AskBlock({
     ]);
 
     setInputValue('');
+
+    // Track user asking a question
+    if (!preview_mode) {
+      trackAiInteraction?.({
+        shifu_bid,
+        outline_bid,
+        interaction_type: 'user_message',
+        message_length: question.length,
+      });
+    }
 
     // Add an empty teacher reply placeholder to receive streaming content
     setDisplayList(prev => [
@@ -184,6 +201,15 @@ export default function AskBlock({
               return newList;
             });
             sseRef.current?.close();
+
+            // Track AI response completion
+            if (!preview_mode) {
+              trackAiInteraction?.({
+                shifu_bid,
+                outline_bid,
+                interaction_type: 'ai_response',
+              });
+            }
           }
         } catch {
           isStreamingRef.current = false;

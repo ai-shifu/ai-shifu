@@ -379,6 +379,7 @@ export const NewChatComponents = ({
                       generated_block_bid={item.parent_block_bid || ''}
                       onToggleAskExpanded={toggleAskExpanded}
                       askList={(item.ask_list || []) as any[]}
+                      trackAiInteraction={trackAiInteraction}
                     />
                   </div>
                 );

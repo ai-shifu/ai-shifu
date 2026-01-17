@@ -599,15 +599,6 @@ function useChatLogicHook({
               // response.type === SSE_OUTPUT_TYPE.BREAK ||
               response.type === SSE_OUTPUT_TYPE.TEXT_END
             ) {
-              // Track AI response completion
-              if (!effectivePreviewMode) {
-                trackAiInteraction?.({
-                  shifu_bid: shifuBid,
-                  outline_bid: outlineBid,
-                  interaction_type: 'ai_response',
-                });
-              }
-
               setTrackedContentList((prev: ChatContentItem[]) => {
                 const updatedList = [...prev].filter(
                   item => item.generated_block_bid !== 'loading',
@@ -1151,26 +1142,6 @@ function useChatLogicHook({
       } else if (buttonText) {
         // Single-select mode: use button text
         values = [buttonText];
-      }
-
-      // Track AI interaction
-      if (!effectivePreviewMode) {
-        if (inputText && inputText.trim()) {
-          // User typed a message
-          trackAiInteraction?.({
-            shifu_bid: shifuBid,
-            outline_bid: outlineBid,
-            interaction_type: 'user_message',
-            message_length: inputText.length,
-          });
-        } else if (buttonText) {
-          // User clicked a button
-          trackAiInteraction?.({
-            shifu_bid: shifuBid,
-            outline_bid: outlineBid,
-            interaction_type: 'button_click',
-          });
-        }
       }
 
       runRef.current?.({
