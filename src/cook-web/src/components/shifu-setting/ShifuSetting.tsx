@@ -577,13 +577,13 @@ export default function ShifuSettingDialog({
           system_prompt: data.systemPrompt,
           // TTS Configuration
           tts_enabled: ttsEnabled,
-        tts_provider: normalizedProvider,
-        tts_model: ttsModel,
-        tts_voice_id: ttsVoiceId,
-        tts_speed: speedValue,
-        tts_pitch: pitchValue,
-        tts_emotion: ttsEmotion,
-      };
+          tts_provider: normalizedProvider,
+          tts_model: ttsModel,
+          tts_voice_id: ttsVoiceId,
+          tts_speed: speedValue,
+          tts_pitch: pitchValue,
+          tts_emotion: ttsEmotion,
+        };
         await api.saveShifuDetail({
           ...payload,
         });
@@ -1146,29 +1146,29 @@ export default function ShifuSettingDialog({
                           className='h-9'
                         />
                       </FormControl>
-                          {currentShifu?.readonly ? null : (
-                            <div className='flex items-center gap-2'>
-                              <Button
-                                type='button'
-                                variant='outline'
-                                size='icon'
-                                disabled={isTempAtMin}
-                                onClick={() => adjustTemperature(-0.1)}
-                                className='h-9 w-9'
-                              >
-                                <Minus className='h-4 w-4' />
-                              </Button>
-                              <Button
-                                type='button'
-                                variant='outline'
-                                size='icon'
-                                disabled={isTempAtMax}
-                                onClick={() => adjustTemperature(0.1)}
-                                className='h-9 w-9'
-                              >
-                                <Plus className='h-4 w-4' />
-                              </Button>
-                            </div>
+                      {currentShifu?.readonly ? null : (
+                        <div className='flex items-center gap-2'>
+                          <Button
+                            type='button'
+                            variant='outline'
+                            size='icon'
+                            disabled={isTempAtMin}
+                            onClick={() => adjustTemperature(-0.1)}
+                            className='h-9 w-9'
+                          >
+                            <Minus className='h-4 w-4' />
+                          </Button>
+                          <Button
+                            type='button'
+                            variant='outline'
+                            size='icon'
+                            disabled={isTempAtMax}
+                            onClick={() => adjustTemperature(0.1)}
+                            className='h-9 w-9'
+                          >
+                            <Plus className='h-4 w-4' />
+                          </Button>
+                        </div>
                       )}
                     </div>
                     <FormMessage />
