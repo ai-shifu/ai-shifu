@@ -59,5 +59,22 @@ export const useTracking = () => {
     [trackEvent],
   );
 
-  return { trackEvent, trackTrailProgress, EVENT_NAMES };
+  const trackBlockView = useCallback(
+    async (courseId: string, blockId: string) => {
+      try {
+        const { data: scriptInfo } = await getScriptInfo(courseId, blockId);
+
+        trackEvent(EVENT_NAMES.BLOCK_VIEW, {
+          shifu_bid: courseId,
+          block_bid: blockId,
+          position: scriptInfo?.position ?? 0,
+          outline_name: scriptInfo?.outline_name ?? '',
+          is_trial: scriptInfo?.is_trial_lesson ?? false,
+        });
+      } catch {}
+    },
+    [trackEvent],
+  );
+
+  return { trackEvent, trackTrailProgress, trackBlockView, EVENT_NAMES };
 };

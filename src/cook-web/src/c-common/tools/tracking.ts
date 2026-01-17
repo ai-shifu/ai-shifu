@@ -1,6 +1,7 @@
 export const EVENT_NAMES = {
   VISIT: 'visit',
   TRIAL_PROGRESS: 'trial_progress',
+  BLOCK_VIEW: 'learner_block_view',
   POP_PAY: 'pop_pay',
   POP_LOGIN: 'pop_login',
   PAY_SUCCEED: 'pay_succeed',
