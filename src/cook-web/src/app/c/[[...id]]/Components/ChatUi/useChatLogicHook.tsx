@@ -100,6 +100,13 @@ export interface UseChatSessionParams {
   trackEvent: (name: string, payload?: Record<string, any>) => void;
   trackTrailProgress: (courseId: string, generatedBlockBid: string) => void;
   trackBlockView: (courseId: string, blockId: string) => void;
+  trackLessonComplete?: (shifu_bid: string, outline_bid: string, timeSpent: number) => void;
+  trackAiInteraction?: (data: {
+    shifu_bid: string;
+    outline_bid: string;
+    interaction_type: 'user_message' | 'ai_response' | 'button_click';
+    message_length?: number;
+  }) => void;
   lessonUpdate?: (params: Record<string, any>) => void;
   chapterUpdate?: (params: Record<string, any>) => void;
   updateSelectedLesson: (lessonId: string, forceExpand?: boolean) => void;
@@ -139,6 +146,8 @@ function useChatLogicHook({
   chatBoxBottomRef,
   trackTrailProgress,
   trackBlockView,
+  trackLessonComplete,
+  trackAiInteraction,
   lessonUpdate,
   chapterUpdate,
   updateSelectedLesson,
@@ -400,8 +409,16 @@ function useChatLogicHook({
       if (status === LESSON_STATUS_VALUE.LEARNING && !isEnd) {
         updateSelectedLesson(currentOutlineBid);
       }
+
+      // Track lesson completion
+      if (status === LESSON_STATUS_VALUE.COMPLETED && !effectivePreviewMode) {
+        const duration = useCourseStore.getState().getLessonDuration(currentOutlineBid);
+        trackLessonComplete?.(shifuBid, currentOutlineBid, duration);
+        // Clear the start time after tracking
+        useCourseStore.getState().clearLessonStartTime(currentOutlineBid);
+      }
     },
-    [lessonUpdate, updateSelectedLesson],
+    [lessonUpdate, updateSelectedLesson, effectivePreviewMode, shifuBid, trackLessonComplete],
   );
 
   /**
@@ -582,6 +599,15 @@ function useChatLogicHook({
               // response.type === SSE_OUTPUT_TYPE.BREAK ||
               response.type === SSE_OUTPUT_TYPE.TEXT_END
             ) {
+              // Track AI response completion
+              if (!effectivePreviewMode) {
+                trackAiInteraction?.({
+                  shifu_bid: shifuBid,
+                  outline_bid: outlineBid,
+                  interaction_type: 'ai_response',
+                });
+              }
+
               setTrackedContentList((prev: ChatContentItem[]) => {
                 const updatedList = [...prev].filter(
                   item => item.generated_block_bid !== 'loading',
@@ -838,6 +864,8 @@ function useChatLogicHook({
           input_type: SSE_INPUT_TYPE.NORMAL,
         });
         if (!effectivePreviewMode) {
+          // Track lesson start and record start time
+          useCourseStore.getState().setLessonStartTime(outlineBid);
           trackEvent('learner_lesson_start', {
             shifu_bid: shifuBid,
             outline_bid: outlineBid,
@@ -1123,6 +1151,26 @@ function useChatLogicHook({
       } else if (buttonText) {
         // Single-select mode: use button text
         values = [buttonText];
+      }
+
+      // Track AI interaction
+      if (!effectivePreviewMode) {
+        if (inputText && inputText.trim()) {
+          // User typed a message
+          trackAiInteraction?.({
+            shifu_bid: shifuBid,
+            outline_bid: outlineBid,
+            interaction_type: 'user_message',
+            message_length: inputText.length,
+          });
+        } else if (buttonText) {
+          // User clicked a button
+          trackAiInteraction?.({
+            shifu_bid: shifuBid,
+            outline_bid: outlineBid,
+            interaction_type: 'button_click',
+          });
+        }
       }
 
       runRef.current?.({

@@ -107,6 +107,10 @@ export interface CourseStoreState {
   }) => void;
   payModalResult: 'ok' | 'cancel' | null;
   setPayModalResult: (result: 'ok' | 'cancel' | null) => void;
+  lessonStartTime: Record<string, number>;
+  setLessonStartTime: (outlineBid: string) => void;
+  getLessonDuration: (outlineBid: string) => number;
+  clearLessonStartTime: (outlineBid: string) => void;
 }
 
 export interface UserStoreState {

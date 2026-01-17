@@ -25,7 +25,7 @@ export const useTracking = () => {
   }, [frameLayout, userInfo?.state, userInfo?.user_id]);
 
   const trackEvent = useCallback(
-    async (eventName, eventData) => {
+    async (eventName: string, eventData?: Record<string, any>) => {
       try {
         const basicData = getEventBasicData();
         const data = {
@@ -76,5 +76,35 @@ export const useTracking = () => {
     [trackEvent],
   );
 
-  return { trackEvent, trackTrailProgress, trackBlockView, EVENT_NAMES };
+  const trackLessonComplete = useCallback(
+    (shifu_bid: string, outline_bid: string, timeSpent: number) => {
+      trackEvent(EVENT_NAMES.LESSON_COMPLETE, {
+        shifu_bid,
+        outline_bid,
+        time_spent: timeSpent,
+      });
+    },
+    [trackEvent],
+  );
+
+  const trackAiInteraction = useCallback(
+    (data: {
+      shifu_bid: string;
+      outline_bid: string;
+      interaction_type: 'user_message' | 'ai_response' | 'button_click';
+      message_length?: number;
+    }) => {
+      trackEvent(EVENT_NAMES.AI_INTERACTION, data);
+    },
+    [trackEvent],
+  );
+
+  return {
+    trackEvent,
+    trackTrailProgress,
+    trackBlockView,
+    trackLessonComplete,
+    trackAiInteraction,
+    EVENT_NAMES,
+  };
 };

@@ -10,6 +10,10 @@ Defined in `src/cook-web/src/c-common/tools/tracking.ts`:
 |----------|------------|-------------|
 | `VISIT` | `visit` | Page visit |
 | `TRIAL_PROGRESS` | `trial_progress` | Trial course progress |
+| `BLOCK_VIEW` | `learner_block_view` | Block/module view tracking |
+| `LESSON_COMPLETE` | `learner_lesson_complete` | Lesson completion tracking |
+| `AI_INTERACTION` | `learner_ai_interaction` | AI interaction tracking |
+| `LANGUAGE_SWITCH` | `learner_language_switch` | Language switch tracking |
 | `POP_PAY` | `pop_pay` | Payment popup shown |
 | `POP_LOGIN` | `pop_login` | Login popup shown |
 | `PAY_SUCCEED` | `pay_succeed` | Payment succeeded |
@@ -20,8 +24,8 @@ Defined in `src/cook-web/src/c-common/tools/tracking.ts`:
 | `NAV_TOP_EXPAND` | `nav_top_expand` | Expand navigation |
 | `NAV_TOP_COLLAPSE` | `nav_top_collapse` | Collapse navigation |
 | `NAV_SECTION_SWITCH` | `nav_section_switch` | Switch section |
-| `RESET_CHAPTER` | `reset_chapter` | Click reset chapter |
-| `RESET_CHAPTER_CONFIRM` | `reset_chapter_confirm` | Confirm chapter reset |
+| `RESET_CHAPTER` | `learner_chapter_reset_click` | Click reset chapter |
+| `RESET_CHAPTER_CONFIRM` | `learner_chapter_reset_confirm` | Confirm chapter reset |
 | `USER_MENU` | `user_menu` | Open user menu |
 | `USER_MENU_BASIC_INFO` | `user_menu_basic_info` | Click basic info menu |
 | `USER_MENU_PERSONALIZED` | `user_menu_personalized` | Click personalized menu |
@@ -74,7 +78,10 @@ Defined in `src/cook-web/src/c-common/tools/tracking.ts`:
 
 | Event Name | File | Description | Key Data |
 |------------|------|-------------|----------|
-| `learner_lesson_start` | `app/c/[[...id]]/Components/ChatUi/useChatLogicHook.tsx` | Start lesson | `course_id`, `lesson_id`, `outline_bid` |
+| `learner_lesson_start` | `app/c/[[...id]]/Components/ChatUi/useChatLogicHook.tsx` | Start lesson | `shifu_bid`, `outline_bid` |
+| `learner_block_view` | `app/c/[[...id]]/Components/ChatUi/useChatLogicHook.tsx` | View block/module | `shifu_bid`, `block_bid`, `position`, `outline_name`, `is_trial` |
+| `learner_lesson_complete` | `app/c/[[...id]]/Components/ChatUi/useChatLogicHook.tsx` | Complete lesson | `shifu_bid`, `outline_bid`, `time_spent` |
+| `learner_ai_interaction` | `app/c/[[...id]]/Components/ChatUi/useChatLogicHook.tsx` | AI interaction | `shifu_bid`, `outline_bid`, `interaction_type`, `message_length?` |
 | `trial_progress` | via `trackTrailProgress()` | Trial progress | `progress_no`, `progress_desc` |
 
 ### Payment
@@ -108,8 +115,14 @@ Defined in `src/cook-web/src/c-common/tools/tracking.ts`:
 
 | Event Name | File | Description | Key Data |
 |------------|------|-------------|----------|
-| `reset_chapter` | `app/c/[[...id]]/Components/CourseCatalog/ResetChapterButton.tsx` | Click reset | `chapter_id`, `chapter_name` |
-| `reset_chapter_confirm` | `app/c/[[...id]]/Components/CourseCatalog/ResetChapterButton.tsx` | Confirm reset | `chapter_id`, `chapter_name` |
+| `learner_chapter_reset_click` | `app/c/[[...id]]/Components/CourseCatalog/ResetChapterButton.tsx` | Click reset | `chapter_id`, `chapter_name` |
+| `learner_chapter_reset_confirm` | `app/c/[[...id]]/Components/CourseCatalog/ResetChapterButton.tsx` | Confirm reset | `chapter_id`, `chapter_name` |
+
+### Settings
+
+| Event Name | File | Description | Key Data |
+|------------|------|-------------|----------|
+| `learner_language_switch` | `components/language-select/LanguageSelect.tsx` | Switch language | `from_lang`, `to_lang` |
 
 ## Data Field Reference
 
@@ -128,6 +141,7 @@ Defined in `src/cook-web/src/c-common/tools/tracking.ts`:
 |-------|-------------|
 | `shifu_bid` | Shifu business identifier |
 | `outline_bid` | Outline node business identifier |
+| `block_bid` | Block/module business identifier |
 | `course_id` | Course identifier |
 | `lesson_id` | Lesson identifier |
 | `chapter_id` | Chapter identifier |
@@ -142,6 +156,14 @@ Defined in `src/cook-web/src/c-common/tools/tracking.ts`:
 | `from` | varies | Source of action (e.g., `user_menu`, `show-btn`) |
 | `variant` | `chapter`, `lesson` | Type variant |
 | `learning_permission` | `guest`, `trial`, `normal` | Access level |
+| `is_trial` | `boolean` | Whether the block is part of a trial lesson |
+| `position` | `number` | Position/order of the block in the lesson |
+| `outline_name` | `string` | Name of the outline/chapter |
+| `interaction_type` | `user_message`, `ai_response`, `button_click` | Type of AI interaction |
+| `message_length` | `number` | Length of user message (only for user_message) |
+| `time_spent` | `number` | Time spent in seconds |
+| `from_lang` | `zh-CN`, `en-US` | Original language |
+| `to_lang` | `zh-CN`, `en-US` | Target language |
 
 ### Measurement Fields
 
