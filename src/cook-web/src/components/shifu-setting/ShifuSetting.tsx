@@ -18,11 +18,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { uploadFile } from '@/lib/file';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
-import {
-  type AudioSegment,
-  mergeAudioSegment,
-  normalizeAudioSegmentPayload,
-} from '@/c-utils/audio-utils';
+import type { AudioSegment } from '@/c-utils/audio-utils';
 import {
   Sheet,
   SheetContent,
@@ -54,12 +50,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
-import {
-  createAudioContext,
-  decodeAudioBufferFromBase64,
-  playAudioBuffer,
-  resumeAudioContext,
-} from '@/lib/audio-playback';
 
 import ModelList from '@/components/model-list';
 import { useEnvStore } from '@/c-store';
@@ -90,6 +80,8 @@ interface Shifu {
 }
 
 const MIN_SHIFU_PRICE = 0.5;
+const TEMP_MIN = 0;
+const TEMP_MAX = 2;
 
 type CopyingState = {
   previewUrl: boolean;
@@ -100,6 +92,9 @@ const defaultCopyingState: CopyingState = {
   previewUrl: false,
   url: false,
 };
+
+const FLOAT_EPSILON = 1e-6;
+const TEMPERATURE_STEP = 0.1;
 
 export default function ShifuSettingDialog({
   shifuId,
@@ -144,8 +139,10 @@ export default function ShifuSettingDialog({
   const [ttsProvider, setTtsProvider] = useState('default');
   const [ttsModel, setTtsModel] = useState('');
   const [ttsVoiceId, setTtsVoiceId] = useState('');
-  const [ttsSpeed, setTtsSpeed] = useState(1.0);
-  const [ttsPitch, setTtsPitch] = useState(0);
+  const [ttsSpeed, setTtsSpeed] = useState<number | null>(1.0);
+  const [ttsPitch, setTtsPitch] = useState<number | null>(0);
+  const [ttsSpeedInput, setTtsSpeedInput] = useState('1.0');
+  const [ttsPitchInput, setTtsPitchInput] = useState('0');
   const [ttsEmotion, setTtsEmotion] = useState('');
 
   // TTS Preview state
@@ -228,33 +225,47 @@ export default function ShifuSettingDialog({
       try {
         let audioContext = ttsPreviewAudioContextRef.current;
         if (!audioContext) {
-          audioContext = createAudioContext();
+          audioContext = new (window.AudioContext ||
+            (window as any).webkitAudioContext)();
           ttsPreviewAudioContextRef.current = audioContext;
         }
 
-        await resumeAudioContext(audioContext);
-        if (ttsPreviewSessionRef.current !== sessionId) {
-          return;
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+          if (ttsPreviewSessionRef.current !== sessionId) {
+            return;
+          }
         }
 
         const segment = segments[index];
-        const audioBuffer = await decodeAudioBufferFromBase64(
-          audioContext,
-          segment.audioData,
+        const binaryString = atob(segment.audioData);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i += 1) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        const audioBuffer = await audioContext.decodeAudioData(
+          bytes.buffer.slice(0),
         );
         if (ttsPreviewSessionRef.current !== sessionId) {
           return;
         }
 
-        const sourceNode = playAudioBuffer(audioContext, audioBuffer, () => {
+        const sourceNode = audioContext.createBufferSource();
+        sourceNode.buffer = audioBuffer;
+        sourceNode.connect(audioContext.destination);
+        ttsPreviewSourceRef.current = sourceNode;
+
+        sourceNode.onended = () => {
           if (ttsPreviewSessionRef.current !== sessionId) {
             return;
           }
           if (ttsPreviewIsPlayingRef.current) {
             playPreviewSegment(index + 1, sessionId);
           }
-        });
-        ttsPreviewSourceRef.current = sourceNode;
+        };
+
+        sourceNode.start();
         setTtsPreviewLoading(false);
         setTtsPreviewPlaying(true);
         ttsPreviewIsPlayingRef.current = true;
@@ -302,6 +313,14 @@ export default function ShifuSettingDialog({
     fetchTtsConfig();
   }, []);
 
+  useEffect(() => {
+    setTtsSpeedInput(ttsSpeed.toString());
+  }, [ttsSpeed]);
+
+  useEffect(() => {
+    setTtsPitchInput(ttsPitch.toString());
+  }, [ttsPitch]);
+
   const normalizedProvider = ttsProvider === 'default' ? '' : ttsProvider;
   const resolvedProvider =
     normalizedProvider || ttsConfig?.default_provider || '';
@@ -310,6 +329,53 @@ export default function ShifuSettingDialog({
   const currentProviderConfig =
     ttsConfig?.providers.find(p => p.name === resolvedProvider) ||
     ttsConfig?.providers[0];
+  const speedMin = currentProviderConfig?.speed.min ?? 0.5;
+  const speedMax = currentProviderConfig?.speed.max ?? 2.0;
+  const speedStep = currentProviderConfig?.speed.step ?? 0.1;
+  const pitchMin = currentProviderConfig?.pitch.min ?? -12;
+  const pitchMax = currentProviderConfig?.pitch.max ?? 12;
+  const pitchStep = currentProviderConfig?.pitch.step ?? 1;
+  const pitchDefault = currentProviderConfig?.pitch.default ?? 0;
+  const atMinSpeed = ttsSpeed <= speedMin + FLOAT_EPSILON;
+  const atMaxSpeed = ttsSpeed >= speedMax - FLOAT_EPSILON;
+  const atMinPitch = ttsPitch <= pitchMin + FLOAT_EPSILON;
+  const atMaxPitch = ttsPitch >= pitchMax - FLOAT_EPSILON;
+
+  const normalizePitchValue = useCallback(
+    (value: number) => {
+      if (Number.isNaN(value)) {
+        return pitchDefault;
+      }
+      const clamped = Math.min(pitchMax, Math.max(pitchMin, value));
+      const effectiveStep = pitchStep || 1;
+      const stepped =
+        Math.round(clamped / effectiveStep) * effectiveStep;
+      const finalValue = Math.min(
+        pitchMax,
+        Math.max(pitchMin, stepped),
+      );
+      return finalValue;
+    },
+    [pitchDefault, pitchMax, pitchMin, pitchStep],
+  );
+
+  const normalizeSpeedValue = useCallback(
+    (value: number) => {
+      const min = currentProviderConfig?.speed.min ?? 0.5;
+      const max = currentProviderConfig?.speed.max ?? 2.0;
+      const defaultValue = currentProviderConfig?.speed.default ?? 1.0;
+      const step = currentProviderConfig?.speed.step ?? 0.1;
+      const decimals = step.toString().includes('.')
+        ? step.toString().split('.')[1]?.length || 0
+        : 0;
+      if (Number.isNaN(value)) {
+        value = defaultValue;
+      }
+      const clamped = Math.min(max, Math.max(min, value));
+      return Number(clamped.toFixed(decimals));
+    },
+    [currentProviderConfig],
+  );
 
   // Get provider options for dropdown
   const ttsProviderOptions = [
@@ -396,10 +462,10 @@ export default function ShifuSettingDialog({
       ),
     temperature_min: z
       .number()
-      .min(0, t('module.shifuSetting.shifuTemperatureMin')),
+      .min(TEMP_MIN, t('module.shifuSetting.shifuTemperatureMin')),
     temperature_max: z
       .number()
-      .max(2, t('module.shifuSetting.shifuTemperatureMax')),
+      .max(TEMP_MAX, t('module.shifuSetting.shifuTemperatureMax')),
   });
 
   const form = useForm({
@@ -416,6 +482,12 @@ export default function ShifuSettingDialog({
     },
   });
   const isDirty = form.formState.isDirty;
+  const temperatureValue = parseFloat(form.watch('temperature') || '0');
+  const safeTemperature = Number.isFinite(temperatureValue)
+    ? temperatureValue
+    : TEMP_MIN;
+  const isTempAtMin = safeTemperature <= TEMP_MIN;
+  const isTempAtMax = safeTemperature >= TEMP_MAX;
 
   const [formSnapshot, setFormSnapshot] = useState(form.getValues());
 
@@ -664,17 +736,30 @@ export default function ShifuSettingDialog({
         if (response?.type === 'audio_segment') {
           const segmentPayload = response.content ?? response.data;
           if (!segmentPayload) return;
-          const mappedSegment = normalizeAudioSegmentPayload(segmentPayload);
-          if (!mappedSegment) {
+          const mappedSegment: AudioSegment = {
+            segmentIndex:
+              segmentPayload.segment_index ?? segmentPayload.segmentIndex ?? 0,
+            audioData:
+              segmentPayload.audio_data ?? segmentPayload.audioData ?? '',
+            durationMs:
+              segmentPayload.duration_ms ?? segmentPayload.durationMs ?? 0,
+            isFinal: segmentPayload.is_final ?? segmentPayload.isFinal ?? false,
+          };
+
+          if (!mappedSegment.audioData) {
             return;
           }
 
-          const updatedSegments = mergeAudioSegment(
-            ttsPreviewSegmentsRef.current,
-            mappedSegment,
-          );
-          if (updatedSegments !== ttsPreviewSegmentsRef.current) {
-            ttsPreviewSegmentsRef.current = updatedSegments;
+          const existingSegments = ttsPreviewSegmentsRef.current;
+          if (
+            !existingSegments.some(
+              segment => segment.segmentIndex === mappedSegment.segmentIndex,
+            )
+          ) {
+            ttsPreviewSegmentsRef.current = [
+              ...existingSegments,
+              mappedSegment,
+            ].sort((a, b) => a.segmentIndex - b.segmentIndex);
           }
 
           if (ttsPreviewWaitingRef.current) {
@@ -809,14 +894,77 @@ export default function ShifuSettingDialog({
     const currentValue = parseFloat(form.getValues('temperature') || '0');
     const safeValue = Number.isNaN(currentValue) ? 0 : currentValue;
     const nextValue = Math.min(
-      2,
-      Math.max(0, parseFloat((safeValue + delta).toFixed(1))),
+      TEMP_MAX,
+      Math.max(
+        TEMP_MIN,
+        parseFloat((safeValue + delta).toFixed(1)),
+      ),
     );
     form.setValue('temperature', nextValue.toString(), {
       shouldDirty: true,
       shouldValidate: true,
     });
   };
+
+  const commitSpeedInput = useCallback(() => {
+    const raw = ttsSpeedInput.trim();
+    const currentSpeed = ttsSpeed ?? speedValue;
+    if (!raw) {
+      setTtsSpeedInput(currentSpeed.toString());
+      return;
+    }
+    const parsed = parseFloat(raw);
+    if (Number.isNaN(parsed)) {
+      setTtsSpeedInput(currentSpeed.toString());
+      return;
+    }
+    const normalized = normalizeSpeedValue(parsed);
+    setTtsSpeedInput(normalized.toString());
+    if (Math.abs(normalized - currentSpeed) > FLOAT_EPSILON) {
+      setTtsSpeed(normalized);
+    }
+  }, [normalizeSpeedValue, speedValue, ttsSpeed, ttsSpeedInput]);
+
+  const commitPitchInput = useCallback(() => {
+    const raw = ttsPitchInput.trim();
+    const currentPitch = ttsPitch ?? pitchValue;
+    if (!raw) {
+      setTtsPitchInput(currentPitch.toString());
+      return;
+    }
+    const parsed = parseFloat(raw);
+    if (Number.isNaN(parsed)) {
+      setTtsPitchInput(currentPitch.toString());
+      return;
+    }
+    const normalized = normalizePitchValue(parsed);
+    setTtsPitchInput(normalized.toString());
+    if (Math.abs(normalized - currentPitch) > FLOAT_EPSILON) {
+      setTtsPitch(normalized);
+    }
+  }, [normalizePitchValue, pitchValue, ttsPitch, ttsPitchInput]);
+
+  const handleSpeedInputKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        commitSpeedInput();
+        event.currentTarget.blur();
+      }
+    },
+    [commitSpeedInput],
+  );
+
+  const handlePitchInputKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        commitPitchInput();
+        event.currentTarget.blur();
+      }
+    },
+    [commitPitchInput],
+  );
 
   return (
     <Sheet
@@ -1078,55 +1226,74 @@ export default function ShifuSettingDialog({
               <FormField
                 control={form.control}
                 name='temperature'
-                render={({ field }) => (
-                  <FormItem className='space-y-2 mb-4'>
-                    <FormLabel className='text-sm font-medium text-foreground'>
-                      {t('module.shifuSetting.shifuTemperature')}
-                    </FormLabel>
-                    <p className='text-xs text-muted-foreground'>
-                      {t('module.shifuSetting.temperatureHint')}
-                      <br />
-                      {t('module.shifuSetting.temperatureHint2')}
-                    </p>
-                    <div className='flex items-center gap-2'>
-                      <FormControl className='flex-1'>
-                        <Input
-                          {...field}
-                          value={field.value}
-                          onChange={field.onChange}
-                          disabled={currentShifu?.readonly}
-                          type='text'
-                          inputMode='decimal'
-                          placeholder={t('module.shifuSetting.number')}
-                          className='h-9'
-                        />
-                      </FormControl>
-                      {currentShifu?.readonly ? null : (
-                        <div className='flex items-center gap-2'>
-                          <Button
-                            type='button'
-                            variant='outline'
-                            size='icon'
-                            onClick={() => adjustTemperature(-0.1)}
-                            className='h-9 w-9'
-                          >
-                            <Minus className='h-4 w-4' />
-                          </Button>
-                          <Button
-                            type='button'
-                            variant='outline'
-                            size='icon'
-                            onClick={() => adjustTemperature(0.1)}
-                            className='h-9 w-9'
-                          >
-                            <Plus className='h-4 w-4' />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const parsed = parseFloat(field.value || '0');
+                  const safeTemperature = Number.isNaN(parsed)
+                    ? TEMP_MIN
+                    : parsed;
+                  const atMinTemperature =
+                    safeTemperature <= TEMP_MIN + FLOAT_EPSILON;
+                  const atMaxTemperature =
+                    safeTemperature >= TEMP_MAX - FLOAT_EPSILON;
+                  return (
+                    <FormItem className='space-y-2 mb-4'>
+                      <FormLabel className='text-sm font-medium text-foreground'>
+                        {t('module.shifuSetting.shifuTemperature')}
+                      </FormLabel>
+                      <p className='text-xs text-muted-foreground'>
+                        {t('module.shifuSetting.temperatureHint')}
+                        <br />
+                        {t('module.shifuSetting.temperatureHint2')}
+                      </p>
+                      <div className='flex items-center gap-2'>
+                        <FormControl className='flex-1'>
+                          <Input
+                            {...field}
+                            value={field.value}
+                            onChange={field.onChange}
+                            disabled={currentShifu?.readonly}
+                            type='text'
+                            inputMode='decimal'
+                            min={TEMPERATURE_MIN}
+                            max={TEMPERATURE_MAX}
+                            step={TEMPERATURE_STEP}
+                            placeholder={t('module.shifuSetting.number')}
+                            className='h-9'
+                          />
+                        </FormControl>
+                        {currentShifu?.readonly ? null : (
+                          <div className='flex items-center gap-2'>
+                            <Button
+                              type='button'
+                              variant='outline'
+                              size='icon'
+                              disabled={atMinTemperature}
+                              onClick={() =>
+                                adjustTemperature(-TEMPERATURE_STEP)
+                              }
+                              className='h-9 w-9'
+                            >
+                              <Minus className='h-4 w-4' />
+                            </Button>
+                            <Button
+                              type='button'
+                              variant='outline'
+                              size='icon'
+                              disabled={atMaxTemperature}
+                              onClick={() =>
+                                adjustTemperature(TEMPERATURE_STEP)
+                              }
+                              className='h-9 w-9'
+                            >
+                              <Plus className='h-4 w-4' />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
 
               <FormField
@@ -1324,22 +1491,16 @@ export default function ShifuSettingDialog({
                       </span>
                       <p className='text-xs text-muted-foreground'>
                         {t('module.shifuSetting.ttsSpeedHint')} (
-                        {currentProviderConfig?.speed.min} -{' '}
-                        {currentProviderConfig?.speed.max})
+                        {speedMin} - {speedMax})
                       </p>
                       <div className='flex items-center gap-2'>
                         <Input
-                          type='number'
-                          min={currentProviderConfig?.speed.min ?? 0.5}
-                          max={currentProviderConfig?.speed.max ?? 2.0}
-                          step={currentProviderConfig?.speed.step ?? 0.1}
-                          value={ttsSpeed}
-                          onChange={e =>
-                            setTtsSpeed(
-                              parseFloat(e.target.value) ||
-                                (currentProviderConfig?.speed.default ?? 1.0),
-                            )
-                          }
+                          type='text'
+                          inputMode='decimal'
+                          value={ttsSpeedInput}
+                          onChange={e => setTtsSpeedInput(e.target.value)}
+                          onBlur={commitSpeedInput}
+                          onKeyDown={handleSpeedInputKeyDown}
                           disabled={currentShifu?.readonly}
                           className='h-9 w-24'
                         />
@@ -1349,13 +1510,11 @@ export default function ShifuSettingDialog({
                               type='button'
                               variant='outline'
                               size='icon'
+                              disabled={atMinSpeed}
                               onClick={() =>
                                 setTtsSpeed(
-                                  Math.max(
-                                    currentProviderConfig?.speed.min ?? 0.5,
-                                    ttsSpeed -
-                                      (currentProviderConfig?.speed.step ??
-                                        0.1),
+                                  normalizeSpeedValue(
+                                    ttsSpeed - speedStep,
                                   ),
                                 )
                               }
@@ -1367,13 +1526,11 @@ export default function ShifuSettingDialog({
                               type='button'
                               variant='outline'
                               size='icon'
+                              disabled={atMaxSpeed}
                               onClick={() =>
                                 setTtsSpeed(
-                                  Math.min(
-                                    currentProviderConfig?.speed.max ?? 2.0,
-                                    ttsSpeed +
-                                      (currentProviderConfig?.speed.step ??
-                                        0.1),
+                                  normalizeSpeedValue(
+                                    ttsSpeed + speedStep,
                                   ),
                                 )
                               }
@@ -1393,22 +1550,16 @@ export default function ShifuSettingDialog({
                       </span>
                       <p className='text-xs text-muted-foreground'>
                         {t('module.shifuSetting.ttsPitchHint')} (
-                        {currentProviderConfig?.pitch.min} -{' '}
-                        {currentProviderConfig?.pitch.max})
+                        {pitchMin} - {pitchMax})
                       </p>
                       <div className='flex items-center gap-2'>
                         <Input
-                          type='number'
-                          min={currentProviderConfig?.pitch.min ?? -12}
-                          max={currentProviderConfig?.pitch.max ?? 12}
-                          step={currentProviderConfig?.pitch.step ?? 1}
-                          value={ttsPitch}
-                          onChange={e =>
-                            setTtsPitch(
-                              parseInt(e.target.value) ||
-                                (currentProviderConfig?.pitch.default ?? 0),
-                            )
-                          }
+                          type='text'
+                          inputMode='numeric'
+                          value={ttsPitchInput}
+                          onChange={e => setTtsPitchInput(e.target.value)}
+                          onBlur={commitPitchInput}
+                          onKeyDown={handlePitchInputKeyDown}
                           disabled={currentShifu?.readonly}
                           className='h-9 w-24'
                         />
@@ -1418,13 +1569,10 @@ export default function ShifuSettingDialog({
                               type='button'
                               variant='outline'
                               size='icon'
+                              disabled={atMinPitch}
                               onClick={() =>
                                 setTtsPitch(
-                                  Math.max(
-                                    currentProviderConfig?.pitch.min ?? -12,
-                                    ttsPitch -
-                                      (currentProviderConfig?.pitch.step ?? 1),
-                                  ),
+                                  normalizePitchValue(ttsPitch - pitchStep),
                                 )
                               }
                               className='h-9 w-9'
@@ -1435,13 +1583,10 @@ export default function ShifuSettingDialog({
                               type='button'
                               variant='outline'
                               size='icon'
+                              disabled={atMaxPitch}
                               onClick={() =>
                                 setTtsPitch(
-                                  Math.min(
-                                    currentProviderConfig?.pitch.max ?? 12,
-                                    ttsPitch +
-                                      (currentProviderConfig?.pitch.step ?? 1),
-                                  ),
+                                  normalizePitchValue(ttsPitch + pitchStep),
                                 )
                               }
                               className='h-9 w-9'
