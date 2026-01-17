@@ -27,6 +27,7 @@ from ...service.config import get_config
 from .funcs import shifu_permission_verification
 from .shifu_outline_funcs import create_outline
 from flaskr.i18n import _
+from ..tts.validation import validate_tts_settings_strict
 
 
 def get_latest_shifu_draft(shifu_id: str) -> DraftShifu:
@@ -299,6 +300,22 @@ def save_shifu_draft_info(
         ShifuDetailDto: Shifu detail dto
     """
     with app.app_context():
+        if tts_enabled:
+            validated = validate_tts_settings_strict(
+                provider=tts_provider,
+                model=tts_model,
+                voice_id=tts_voice_id,
+                speed=tts_speed,
+                pitch=tts_pitch,
+                emotion=tts_emotion,
+            )
+            tts_provider = validated.provider
+            tts_model = validated.model
+            tts_voice_id = validated.voice_id
+            tts_speed = validated.speed
+            tts_pitch = validated.pitch
+            tts_emotion = validated.emotion
+
         # Validate input lengths
         if len(shifu_name) > SHIFU_NAME_MAX_LENGTH:
             raise_error_with_args(

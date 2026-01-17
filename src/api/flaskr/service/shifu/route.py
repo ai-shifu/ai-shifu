@@ -1278,11 +1278,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             get_default_audio_settings,
         )
         from flaskr.service.tts.pipeline import split_text_for_tts
+        from flaskr.service.tts.validation import validate_tts_settings_strict
 
         json_data = request.get_json() or {}
         provider_name = (json_data.get("provider") or "").strip().lower()
-        if provider_name == "default":
-            provider_name = ""
         model = (json_data.get("model") or "").strip()
         voice_id = json_data.get("voice_id") or ""
         speed_raw = json_data.get("speed")
@@ -1293,31 +1292,33 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             "你好，这是语音合成的试听效果。Hello, this is a preview of text-to-speech.",
         )
 
-        if provider_name:
-            if not is_tts_configured(provider_name):
-                raise_error("TTS_NOT_CONFIGURED")
-        elif not is_tts_configured():
-            raise_error("TTS_NOT_CONFIGURED")
+        validated = validate_tts_settings_strict(
+            provider=provider_name,
+            model=model,
+            voice_id=voice_id,
+            speed=speed_raw,
+            pitch=pitch_raw,
+            emotion=emotion,
+        )
+
+        if not is_tts_configured(validated.provider):
+            raise_param_error(f"TTS provider is not configured: {validated.provider}")
 
         # Limit text length for preview
         if len(text) > 200:
             text = text[:200]
 
-        voice_settings = get_default_voice_settings(provider_name)
-        if voice_id:
-            voice_settings.voice_id = voice_id
-        if speed_raw is not None:
-            voice_settings.speed = float(speed_raw)
-        if pitch_raw is not None:
-            voice_settings.pitch = int(pitch_raw)
-        if emotion:
-            voice_settings.emotion = emotion
+        voice_settings = get_default_voice_settings(validated.provider)
+        voice_settings.voice_id = validated.voice_id
+        voice_settings.speed = validated.speed
+        voice_settings.pitch = validated.pitch
+        voice_settings.emotion = validated.emotion
 
-        segments = split_text_for_tts(text, provider_name=provider_name)
+        segments = split_text_for_tts(text, provider_name=validated.provider)
         if not segments:
             raise_error("TTS_PREVIEW_FAILED")
 
-        audio_settings = get_default_audio_settings(provider_name)
+        audio_settings = get_default_audio_settings(validated.provider)
         safe_audio_settings = replace(audio_settings, format="mp3")
         audio_bid = uuid.uuid4().hex
 
@@ -1329,8 +1330,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                         text=segment_text,
                         voice_settings=voice_settings,
                         audio_settings=safe_audio_settings,
-                        model=model or None,
-                        provider_name=provider_name,
+                        model=validated.model or None,
+                        provider_name=validated.provider,
                     )
                     total_duration_ms += int(result.duration_ms or 0)
                     audio_base64 = base64.b64encode(result.audio_data).decode("utf-8")

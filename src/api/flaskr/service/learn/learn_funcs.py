@@ -49,6 +49,7 @@ from flaskr.service.tts.audio_utils import (
     get_audio_duration_ms,
 )
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
+from flaskr.service.tts.validation import validate_tts_settings_strict
 from flaskr.service.common import raise_error, raise_error_with_args
 from flaskr.service.shifu.utils import get_shifu_res_url
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
@@ -593,31 +594,30 @@ def _resolve_shifu_tts_settings(
         raise_error("server.shifu.ttsNotEnabled")
 
     provider = (getattr(shifu, "tts_provider", "") or "").strip().lower()
-    if provider == "default":
-        provider = ""
-
-    voice_settings = get_default_voice_settings(provider)
-    voice_id = (getattr(shifu, "tts_voice_id", "") or "").strip()
-    if voice_id:
-        voice_settings.voice_id = voice_id
-
-    speed_raw = getattr(shifu, "tts_speed", None)
-    if speed_raw is not None:
-        voice_settings.speed = float(speed_raw)
-
-    pitch_raw = getattr(shifu, "tts_pitch", None)
-    if pitch_raw is not None:
-        voice_settings.pitch = int(pitch_raw)
-
-    emotion = (getattr(shifu, "tts_emotion", "") or "").strip()
-    if emotion:
-        voice_settings.emotion = emotion
-
-    audio_settings = get_default_audio_settings(provider)
-
     tts_model = (getattr(shifu, "tts_model", "") or "").strip()
+    voice_id = (getattr(shifu, "tts_voice_id", "") or "").strip()
+    speed_raw = getattr(shifu, "tts_speed", None)
+    pitch_raw = getattr(shifu, "tts_pitch", None)
+    emotion = (getattr(shifu, "tts_emotion", "") or "").strip()
 
-    return provider, tts_model, voice_settings, audio_settings
+    validated = validate_tts_settings_strict(
+        provider=provider,
+        model=tts_model,
+        voice_id=voice_id,
+        speed=speed_raw,
+        pitch=pitch_raw,
+        emotion=emotion,
+    )
+
+    voice_settings = get_default_voice_settings(validated.provider)
+    voice_settings.voice_id = validated.voice_id
+    voice_settings.speed = validated.speed
+    voice_settings.pitch = validated.pitch
+    voice_settings.emotion = validated.emotion
+
+    audio_settings = get_default_audio_settings(validated.provider)
+
+    return validated.provider, validated.model, voice_settings, audio_settings
 
 
 def _yield_tts_segments(
