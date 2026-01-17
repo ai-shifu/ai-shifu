@@ -365,8 +365,16 @@ export default function ShifuSettingDialog({
   const isPitchAtMin = pitchValue <= pitchMin;
   const isPitchAtMax = pitchValue >= pitchMax;
   useEffect(() => {
-    setTtsSpeedInput(ttsSpeed === null ? '' : String(ttsSpeed));
-    setTtsPitchInput(ttsPitch === null ? '' : String(ttsPitch));
+    if (ttsSpeed === null || Number.isNaN(ttsSpeed)) {
+      setTtsSpeedInput('');
+    } else {
+      setTtsSpeedInput(ttsSpeed.toFixed(1));
+    }
+    if (ttsPitch === null || Number.isNaN(ttsPitch)) {
+      setTtsPitchInput('');
+    } else {
+      setTtsPitchInput(ttsPitch.toFixed(1));
+    }
   }, [ttsSpeed, ttsPitch]);
   const clampTemperature = useCallback((value: number) => {
     return Math.min(Math.max(value, 0), 2);
