@@ -36,7 +36,11 @@ const SelectScrollUpButton = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.ScrollUpButton>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollUpButton>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn('hidden', className)} {...props} />
+  <div
+    ref={ref}
+    className={cn('hidden', className)}
+    {...props}
+  />
 ));
 SelectScrollUpButton.displayName = SelectPrimitive.ScrollUpButton.displayName;
 
@@ -44,7 +48,11 @@ const SelectScrollDownButton = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.ScrollDownButton>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollDownButton>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn('hidden', className)} {...props} />
+  <div
+    ref={ref}
+    className={cn('hidden', className)}
+    {...props}
+  />
 ));
 SelectScrollDownButton.displayName =
   SelectPrimitive.ScrollDownButton.displayName;
