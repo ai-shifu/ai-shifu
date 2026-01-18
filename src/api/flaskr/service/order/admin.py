@@ -107,6 +107,7 @@ MOBILE_PATTERN = re.compile(r"^\d{11}$")
 
 
 def normalize_mobile(mobile: str) -> str:
+    """Normalize and validate a mobile number (11 digits)."""
     normalized_mobile = str(mobile or "").strip()
     if not normalized_mobile:
         raise_param_error("mobile")
@@ -116,6 +117,7 @@ def normalize_mobile(mobile: str) -> str:
 
 
 def _format_decimal(value: Optional[Decimal]) -> str:
+    """Format a Decimal or numeric string to trimmed two-decimal string."""
     if value is None:
         return "0"
     if isinstance(value, str):
@@ -128,6 +130,7 @@ def _format_decimal(value: Optional[Decimal]) -> str:
 
 
 def _format_cents(value: Optional[int]) -> str:
+    """Convert cents integer to string representation in units."""
     if value is None:
         return "0"
     try:
@@ -137,12 +140,14 @@ def _format_cents(value: Optional[int]) -> str:
 
 
 def _format_datetime(value: Optional[datetime]) -> str:
+    """Format datetime to standard string."""
     if not value:
         return ""
     return value.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
+    """Parse date/time string with multiple formats; auto fill day bounds."""
     if not value:
         return None
     normalized = str(value).strip()
@@ -163,6 +168,7 @@ def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
 
 
 def _load_shifu_map(shifu_bids: list[str]) -> Dict[str, DraftShifu]:
+    """Load latest draft shifu records for given bids and map by bid."""
     if not shifu_bids:
         return {}
     shifu_drafts = (
@@ -181,6 +187,7 @@ def _load_shifu_map(shifu_bids: list[str]) -> Dict[str, DraftShifu]:
 
 
 def _load_user_map(user_bids: list[str]) -> Dict[str, Dict[str, str]]:
+    """Load user mobile/nickname info for given user bids."""
     if not user_bids:
         return {}
     credentials = (
@@ -215,6 +222,7 @@ def _build_order_item(
     shifu_map: Dict[str, DraftShifu],
     user_map: Dict[str, Dict[str, str]],
 ) -> OrderAdminSummaryDTO:
+    """Build admin order summary DTO from order plus shifu/user lookups."""
     shifu = shifu_map.get(order.shifu_bid)
     user = user_map.get(order.user_bid, {})
     payment_channel = order.payment_channel or ""
@@ -248,6 +256,7 @@ def import_activation_order(
     course_id: str,
     user_nick_name: Optional[str] = None,
 ) -> Dict[str, str]:
+    """Create activation order for a mobile user and shifu (manual import)."""
     with app.app_context():
         normalized_mobile = normalize_mobile(mobile)
 
@@ -331,6 +340,7 @@ def import_activation_orders(
     course_id: str,
     user_nick_name: Optional[str] = None,
 ) -> Dict[str, Any]:
+    """Bulk import activation orders from a list of mobile numbers."""
     results: Dict[str, Any] = {"success": [], "failed": []}
     for mobile in mobiles:
         normalized_mobile = str(mobile or "").strip()
@@ -365,6 +375,7 @@ def list_orders(
     page_size: int,
     filters: Optional[Dict[str, Any]] = None,
 ) -> PageNationDTO:
+    """List orders visible to the current operator with optional filters."""
     with app.app_context():
         page_index = max(page_index, 1)
         page_size = max(page_size, 1)
@@ -446,6 +457,7 @@ def list_orders(
 
 
 def _load_order_activities(order_bid: str) -> List[OrderAdminActivityDTO]:
+    """Load activity records tied to an order and format as DTOs."""
     records = ActiveUserRecord.query.filter(
         ActiveUserRecord.order_id == order_bid
     ).all()
@@ -468,6 +480,7 @@ def _load_order_activities(order_bid: str) -> List[OrderAdminActivityDTO]:
 
 
 def _load_order_coupons(order_bid: str) -> List[OrderAdminCouponDTO]:
+    """Load coupon usage records tied to an order and format as DTOs."""
     records = CouponUsage.query.filter(
         CouponUsage.order_bid == order_bid,
         CouponUsage.deleted == 0,
@@ -496,6 +509,7 @@ def _load_order_coupons(order_bid: str) -> List[OrderAdminCouponDTO]:
 
 
 def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
+    """Build payment detail DTO from channel-specific order records."""
     payment_channel = order.payment_channel or ""
     if payment_channel == "stripe":
         stripe_order = (
@@ -561,6 +575,7 @@ def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
 
 
 def get_order_detail(app: Flask, user_id: str, order_bid: str) -> OrderAdminDetailDTO:
+    """Return admin order detail after permission check for the operator."""
     with app.app_context():
         permission_map = get_user_shifu_permissions(app, user_id)
         order = Order.query.filter(

@@ -8,6 +8,7 @@ Create Date: 2025-11-12 14:41:07.381333
 
 from alembic import op
 import sqlalchemy as sa
+import os
 
 # revision identifiers, used by Alembic.
 revision = "a4d68cce5ce6"
@@ -127,12 +128,15 @@ def upgrade():
 
     _add_tts_columns("shifu_draft_shifus")
     _add_tts_columns("shifu_published_shifus")
-
-    with app.app_context():
-        update_demo_shifu(app)
-
-    _drop_tts_columns("shifu_published_shifus")
-    _drop_tts_columns("shifu_draft_shifus")
+    try:
+        with app.app_context():
+            if os.getenv("SKIP_DEMO_SHIFU_IMPORT"):
+                app.logger.info("Skip demo shifu import due to SKIP_DEMO_SHIFU_IMPORT")
+                return
+            update_demo_shifu(app)
+    finally:
+        _drop_tts_columns("shifu_published_shifus")
+        _drop_tts_columns("shifu_draft_shifus")
 
 
 def downgrade():
