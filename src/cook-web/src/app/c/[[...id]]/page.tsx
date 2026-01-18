@@ -389,10 +389,25 @@ export default function ChatPage() {
   }, [gotoLogin, onGoChapter, reloadTree]);
 
   return (
-    <div className={clsx(styles.newChatPage)}>
+    <div
+      className={clsx(
+        styles.newChatPage,
+        mobileStyle ? 'flex-col' : 'h-screen flex-row',
+        'flex',
+      )}
+    >
       <AppContext.Provider
         value={{ frameLayout, mobileStyle, isLoggedIn, userInfo, theme: '' }}
       >
+        {mobileStyle ? (
+          <ChatMobileHeader
+            navOpen={navOpen}
+            className={styles.chatMobileHeader}
+            iconPopoverPayload={tree?.bannerInfo}
+            onSettingClick={onNavToggle}
+          />
+        ) : null}
+
         {!initialized ? (
           <div className='flex flex-col space-y-6 p-6 container mx-auto'>
             <Skeleton className='h-[125px] rounded-xl' />
@@ -475,15 +490,6 @@ export default function ChatPage() {
         ) : null}
 
         {initialized ? <TrackingVisit /> : null}
-
-        {mobileStyle ? (
-          <ChatMobileHeader
-            navOpen={navOpen}
-            className={styles.chatMobileHeader}
-            iconPopoverPayload={tree?.bannerInfo}
-            onSettingClick={onNavToggle}
-          />
-        ) : null}
 
         <FeedbackModal
           open={feedbackModalOpen}

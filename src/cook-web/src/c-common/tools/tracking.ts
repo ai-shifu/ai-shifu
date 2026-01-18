@@ -1,6 +1,10 @@
 export const EVENT_NAMES = {
   VISIT: 'visit',
   TRIAL_PROGRESS: 'trial_progress',
+  BLOCK_VIEW: 'learner_block_view',
+  LESSON_COMPLETE: 'learner_lesson_complete',
+  AI_INTERACTION: 'learner_ai_interaction',
+  LANGUAGE_SWITCH: 'learner_language_switch',
   POP_PAY: 'pop_pay',
   POP_LOGIN: 'pop_login',
   PAY_SUCCEED: 'pay_succeed',
@@ -11,8 +15,8 @@ export const EVENT_NAMES = {
   NAV_TOP_EXPAND: 'nav_top_expand',
   NAV_TOP_COLLAPSE: 'nav_top_collapse',
   NAV_SECTION_SWITCH: 'nav_section_switch',
-  RESET_CHAPTER: 'reset_chapter',
-  RESET_CHAPTER_CONFIRM: 'reset_chapter_confirm',
+  RESET_CHAPTER: 'learner_chapter_reset_click',
+  RESET_CHAPTER_CONFIRM: 'learner_chapter_reset_confirm',
   USER_MENU: 'user_menu',
   USER_MENU_BASIC_INFO: 'user_menu_basic_info',
   USER_MENU_PERSONALIZED: 'user_menu_personalized',
@@ -267,7 +271,7 @@ const ensureIdentifyReady = () => {
   flushUmamiIdentify();
 };
 
-export const tracking = async (eventName, eventData) => {
+export const tracking = async (eventName: string, eventData: Record<string, any>) => {
   try {
     ensureCurrentPageviewTracked();
     ensureIdentifyReady();

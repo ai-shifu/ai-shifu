@@ -8,20 +8,18 @@
   height: 76px;
   width: 100%;
   box-sizing: border-box;
-
-  .logo {
-    height: 32px;
-  }
 }
-
+.ChatMobileHeader .logo {
+  height: 32px;
+}
 .iconButtonPopover {
   max-width: 95.55%;
-
-  @media (min-width: 376px) {
+}
+@media (min-width: 376px) {
+  .iconButtonPopover {
     max-width: 83.27%;
   }
-
-  :global(.adm-popover-inner) {
-    max-width: 100%;
-  }
+}
+.iconButtonPopover :global(.adm-popover-inner) {
+  max-width: 100%;
 }
