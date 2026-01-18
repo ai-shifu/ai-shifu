@@ -60,6 +60,7 @@ import {
   playAudioBuffer,
   resumeAudioContext,
 } from '@/lib/audio-playback';
+import { useToast } from '@/hooks/useToast';
 
 import ModelList from '@/components/model-list';
 import { useEnvStore } from '@/c-store';
@@ -147,6 +148,7 @@ export default function ShifuSettingDialog({
   const [ttsSpeed, setTtsSpeed] = useState(1.0);
   const [ttsPitch, setTtsPitch] = useState(0);
   const [ttsEmotion, setTtsEmotion] = useState('');
+  const { toast } = useToast();
 
   // TTS Preview state
   const [ttsPreviewLoading, setTtsPreviewLoading] = useState(false);
@@ -524,6 +526,23 @@ export default function ShifuSettingDialog({
       saveType: 'auto' | 'manual' = 'manual',
     ) => {
       try {
+        const providerForSubmit =
+          ttsEnabled && ttsConfig
+            ? normalizedProvider ||
+              ttsConfig?.default_provider ||
+              ttsConfig?.providers?.[0]?.name ||
+              ''
+            : '';
+
+        if (ttsEnabled && !providerForSubmit) {
+          toast({
+            title: t('module.shifuSetting.ttsProviderRequiredTitle'),
+            description: t('module.shifuSetting.ttsProviderRequiredDesc'),
+            variant: 'destructive',
+          });
+          return;
+        }
+
         const payload = {
           description: data.description,
           shifu_bid: shifuId,
@@ -536,7 +555,7 @@ export default function ShifuSettingDialog({
           system_prompt: data.systemPrompt,
           // TTS Configuration
           tts_enabled: ttsEnabled,
-          tts_provider: normalizedProvider,
+          tts_provider: providerForSubmit,
           tts_model: ttsModel,
           tts_voice_id: ttsVoiceId,
           tts_speed: ttsSpeed,
@@ -571,11 +590,14 @@ export default function ShifuSettingDialog({
       trackEvent,
       ttsEnabled,
       normalizedProvider,
+      ttsConfig,
       ttsModel,
       ttsVoiceId,
       ttsSpeed,
       ttsPitch,
       ttsEmotion,
+      toast,
+      t,
     ],
   );
 
