@@ -149,6 +149,7 @@ export default function ShifuSettingDialog({
   const [ttsPitch, setTtsPitch] = useState(0);
   const [ttsEmotion, setTtsEmotion] = useState('');
   const { toast } = useToast();
+  const ttsProviderToastShownRef = useRef(false);
 
   // TTS Preview state
   const [ttsPreviewLoading, setTtsPreviewLoading] = useState(false);
@@ -527,17 +528,20 @@ export default function ShifuSettingDialog({
     ) => {
       try {
         const providerForSubmit =
-          ttsConfig?.default_provider ||
           normalizedProvider ||
+          ttsConfig?.default_provider ||
           ttsConfig?.providers?.[0]?.name ||
           '';
 
         if (ttsEnabled && !providerForSubmit) {
-          toast({
-            title: t('module.shifuSetting.ttsProviderRequiredTitle'),
-            description: t('module.shifuSetting.ttsProviderRequiredDesc'),
-            variant: 'destructive',
-          });
+          if (!ttsProviderToastShownRef.current && saveType === 'manual') {
+            toast({
+              title: t('module.shifuSetting.ttsProviderRequiredTitle'),
+              description: t('module.shifuSetting.ttsProviderRequiredDesc'),
+              variant: 'destructive',
+            });
+            ttsProviderToastShownRef.current = true;
+          }
           return;
         }
 
@@ -600,6 +604,7 @@ export default function ShifuSettingDialog({
   );
 
   const init = async () => {
+    ttsProviderToastShownRef.current = false;
     const result = (await api.getShifuDetail({
       shifu_bid: shifuId,
     })) as Shifu;
