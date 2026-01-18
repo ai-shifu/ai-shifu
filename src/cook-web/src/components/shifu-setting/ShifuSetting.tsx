@@ -1467,7 +1467,7 @@ export default function ShifuSettingDialog({
                       <div className='flex items-center gap-2'>
                         <Input
                           type='text'
-                          inputMode='numeric'
+                          inputMode='decimal'
                           value={ttsPitchInput}
                           onChange={e => {
                             const raw = e.target.value;
