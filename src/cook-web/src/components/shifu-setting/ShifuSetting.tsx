@@ -102,7 +102,10 @@ interface Shifu {
 }
 
 const MIN_SHIFU_PRICE = 0.5;
-
+const TEMPERATURE_MIN = 0;
+const TEMPERATURE_MAX = 2;
+const TEMPERATURE_STEP = 0.1;
+const FLOAT_EPSILON = 1e-6;
 type CopyingState = {
   previewUrl: boolean;
   url: boolean;
@@ -197,8 +200,10 @@ export default function ShifuSettingDialog({
   const [ttsProvider, setTtsProvider] = useState('default');
   const [ttsModel, setTtsModel] = useState('');
   const [ttsVoiceId, setTtsVoiceId] = useState('');
-  const [ttsSpeed, setTtsSpeed] = useState(1.0);
-  const [ttsPitch, setTtsPitch] = useState(0);
+  const [ttsSpeed, setTtsSpeed] = useState<number | null>(1.0);
+  const [ttsSpeedInput, setTtsSpeedInput] = useState<string>('1.0');
+  const [ttsPitch, setTtsPitch] = useState<number | null>(0);
+  const [ttsPitchInput, setTtsPitchInput] = useState<string>('0');
   const [ttsEmotion, setTtsEmotion] = useState('');
   const ttsProviderToastShownRef = useRef(false);
 
@@ -387,6 +392,47 @@ export default function ShifuSettingDialog({
           ...currentProviderConfig.emotions,
         ]
       : [];
+  const normalizeSpeed = useCallback(
+    (value: number) => {
+      const min = currentProviderConfig?.speed.min ?? 0.5;
+      const max = currentProviderConfig?.speed.max ?? 2.0;
+      const clamped = Math.min(Math.max(value, min), max);
+      return Number(clamped.toFixed(1));
+    },
+    [currentProviderConfig?.speed.max, currentProviderConfig?.speed.min],
+  );
+  const speedMin = currentProviderConfig?.speed?.min ?? 0.5;
+  const speedMax = currentProviderConfig?.speed?.max ?? 2.0;
+  const speedStep = currentProviderConfig?.speed?.step ?? 0.1;
+  const speedValue = normalizeSpeed(ttsSpeed ?? speedMin);
+  const isSpeedAtMin = speedValue <= speedMin;
+  const isSpeedAtMax = speedValue >= speedMax;
+
+  const pitchMin = currentProviderConfig?.pitch?.min ?? -12;
+  const pitchMax = currentProviderConfig?.pitch?.max ?? 12;
+  const pitchStep = currentProviderConfig?.pitch?.step ?? 1;
+  const clampPitch = useCallback(
+    (value: number) => Math.min(Math.max(value, pitchMin), pitchMax),
+    [pitchMax, pitchMin],
+  );
+  const pitchValue = clampPitch(ttsPitch ?? pitchMin);
+  const isPitchAtMin = pitchValue <= pitchMin;
+  const isPitchAtMax = pitchValue >= pitchMax;
+  useEffect(() => {
+    if (ttsSpeed === null || Number.isNaN(ttsSpeed)) {
+      setTtsSpeedInput('');
+    } else {
+      setTtsSpeedInput(ttsSpeed.toFixed(1));
+    }
+    if (ttsPitch === null || Number.isNaN(ttsPitch)) {
+      setTtsPitchInput('');
+    } else {
+      setTtsPitchInput(String(Math.round(ttsPitch)));
+    }
+  }, [ttsSpeed, ttsPitch]);
+  const clampTemperature = useCallback((value: number) => {
+    return Math.min(Math.max(value, 0), 2);
+  }, []);
 
   // Sanitize persisted selections when provider/config changes
   useEffect(() => {
@@ -450,10 +496,10 @@ export default function ShifuSettingDialog({
       ),
     temperature_min: z
       .number()
-      .min(0, t('module.shifuSetting.shifuTemperatureMin')),
+      .min(TEMPERATURE_MIN, t('module.shifuSetting.shifuTemperatureMin')),
     temperature_max: z
       .number()
-      .max(2, t('module.shifuSetting.shifuTemperatureMax')),
+      .max(TEMPERATURE_MAX, t('module.shifuSetting.shifuTemperatureMax')),
   });
 
   const form = useForm({
@@ -470,6 +516,12 @@ export default function ShifuSettingDialog({
     },
   });
   const isDirty = form.formState.isDirty;
+  const temperatureValue = parseFloat(form.watch('temperature') || '0');
+  const safeTemperature = Number.isFinite(temperatureValue)
+    ? temperatureValue
+    : TEMPERATURE_MIN;
+  const isTempAtMin = safeTemperature <= TEMPERATURE_MIN + FLOAT_EPSILON;
+  const isTempAtMax = safeTemperature >= TEMPERATURE_MAX - FLOAT_EPSILON;
 
   const [formSnapshot, setFormSnapshot] = useState(form.getValues());
 
@@ -611,8 +663,8 @@ export default function ShifuSettingDialog({
           tts_provider: providerForSubmit,
           tts_model: ttsModel,
           tts_voice_id: ttsVoiceId,
-          tts_speed: ttsSpeed,
-          tts_pitch: ttsPitch,
+          tts_speed: speedValue,
+          tts_pitch: pitchValue,
           tts_emotion: ttsEmotion,
         };
         await api.saveShifuDetail({
@@ -646,8 +698,8 @@ export default function ShifuSettingDialog({
       ttsConfig,
       ttsModel,
       ttsVoiceId,
-      ttsSpeed,
-      ttsPitch,
+      speedValue,
+      pitchValue,
       ttsEmotion,
       toast,
       t,
@@ -683,7 +735,17 @@ export default function ShifuSettingDialog({
       setTtsModel(result.tts_model || '');
       setTtsVoiceId(result.tts_voice_id || '');
       setTtsSpeed(result.tts_speed ?? 1.0);
+      setTtsSpeedInput(
+        result.tts_speed === null || result.tts_speed === undefined
+          ? ''
+          : String(result.tts_speed),
+      );
       setTtsPitch(result.tts_pitch ?? 0);
+      setTtsPitchInput(
+        result.tts_pitch === null || result.tts_pitch === undefined
+          ? ''
+          : String(result.tts_pitch),
+      );
       setTtsEmotion(result.tts_emotion || '');
     }
   };
@@ -718,8 +780,8 @@ export default function ShifuSettingDialog({
         provider: normalizedProvider,
         model: ttsModel || '',
         voice_id: ttsVoiceId || '',
-        speed: ttsSpeed,
-        pitch: ttsPitch,
+        speed: speedValue,
+        pitch: pitchValue,
         emotion: ttsEmotion || '',
       }),
       method: 'POST',
@@ -788,6 +850,8 @@ export default function ShifuSettingDialog({
     ttsVoiceId,
     ttsSpeed,
     ttsPitch,
+    speedValue,
+    pitchValue,
     ttsEmotion,
     ttsPreviewPlaying,
     ttsPreviewLoading,
@@ -884,11 +948,10 @@ export default function ShifuSettingDialog({
   const adjustTemperature = (delta: number) => {
     const currentValue = parseFloat(form.getValues('temperature') || '0');
     const safeValue = Number.isNaN(currentValue) ? 0 : currentValue;
-    const nextValue = Math.min(
-      2,
-      Math.max(0, parseFloat((safeValue + delta).toFixed(1))),
+    const nextValue = clampTemperature(
+      parseFloat((safeValue + delta).toFixed(1)),
     );
-    form.setValue('temperature', nextValue.toString(), {
+    form.setValue('temperature', nextValue.toFixed(1), {
       shouldDirty: true,
       shouldValidate: true,
     });
@@ -1381,6 +1444,232 @@ export default function ShifuSettingDialog({
                           </Select>
                         </div>
                       )}
+
+                      {/* Voice Selection */}
+                      <div className='space-y-2'>
+                        <span className='text-sm font-medium text-foreground'>
+                          {t('module.shifuSetting.ttsVoice')}
+                        </span>
+                        <Select
+                          value={ttsVoiceId}
+                          onValueChange={value => {
+                            setTtsVoiceId(value);
+                            if (resolvedProvider === 'volcengine') {
+                              const selectedVoice = ttsVoiceOptions.find(
+                                option => option.value === value,
+                              );
+                              const inferredResourceId =
+                                selectedVoice?.resource_id;
+                              if (
+                                inferredResourceId &&
+                                inferredResourceId !== ttsModel
+                              ) {
+                                setTtsModel(inferredResourceId);
+                              }
+                            }
+                          }}
+                          disabled={currentShifu?.readonly}
+                        >
+                          <SelectTrigger className='h-9'>
+                            <SelectValue
+                              placeholder={t(
+                                'module.shifuSetting.ttsSelectVoice',
+                              )}
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ttsVoiceOptions.map(option => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Speed Adjustment */}
+                      <div className='space-y-2'>
+                        <span className='text-sm font-medium text-foreground'>
+                          {t('module.shifuSetting.ttsSpeed')}
+                        </span>
+                        <p className='text-xs text-muted-foreground'>
+                          {t('module.shifuSetting.ttsSpeedHint')} (
+                          {currentProviderConfig?.speed.min} -{' '}
+                          {currentProviderConfig?.speed.max})
+                        </p>
+                        <div className='flex items-center gap-2'>
+                          <Input
+                            type='text'
+                            inputMode='decimal'
+                            value={ttsSpeedInput}
+                            onChange={e => {
+                              setTtsSpeedInput(e.target.value);
+                            }}
+                            onBlur={() => {
+                              const parsed = Number(ttsSpeedInput);
+                              const clamped = Number.isFinite(parsed)
+                                ? normalizeSpeed(parsed)
+                                : speedValue;
+                              setTtsSpeed(clamped);
+                              setTtsSpeedInput(clamped.toFixed(1));
+                            }}
+                            disabled={currentShifu?.readonly}
+                            className='h-9 w-24'
+                          />
+                          {!currentShifu?.readonly && (
+                            <div className='flex items-center gap-2'>
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='icon'
+                                disabled={isSpeedAtMin}
+                                onClick={() =>
+                                  setTtsSpeed(() => {
+                                    const next = normalizeSpeed(
+                                      speedValue - speedStep,
+                                    );
+                                    setTtsSpeedInput(next.toFixed(1));
+                                    return next;
+                                  })
+                                }
+                                className='h-9 w-9'
+                              >
+                                <Minus className='h-4 w-4' />
+                              </Button>
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='icon'
+                                disabled={isSpeedAtMax}
+                                onClick={() =>
+                                  setTtsSpeed(() => {
+                                    const next = normalizeSpeed(
+                                      speedValue + speedStep,
+                                    );
+                                    setTtsSpeedInput(next.toFixed(1));
+                                    return next;
+                                  })
+                                }
+                                className='h-9 w-9'
+                              >
+                                <Plus className='h-4 w-4' />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Pitch Adjustment */}
+                      <div className='space-y-2'>
+                        <span className='text-sm font-medium text-foreground'>
+                          {t('module.shifuSetting.ttsPitch')}
+                        </span>
+                        <p className='text-xs text-muted-foreground'>
+                          {t('module.shifuSetting.ttsPitchHint')} (
+                          {currentProviderConfig?.pitch.min} -{' '}
+                          {currentProviderConfig?.pitch.max})
+                        </p>
+                        <div className='flex items-center gap-2'>
+                          <Input
+                            type='text'
+                            inputMode='decimal'
+                            value={ttsPitchInput}
+                            onChange={e => {
+                              const raw = e.target.value;
+                              setTtsPitchInput(raw);
+                            }}
+                            onBlur={() => {
+                              const parsed = Number(ttsPitchInput);
+                              const clamped = Number.isFinite(parsed)
+                                ? clampPitch(parsed)
+                                : pitchValue;
+                              const rounded = Math.round(clamped);
+                              setTtsPitch(rounded);
+                              setTtsPitchInput(String(rounded));
+                            }}
+                            disabled={currentShifu?.readonly}
+                            className='h-9 w-24'
+                          />
+                          {!currentShifu?.readonly && (
+                            <div className='flex items-center gap-2'>
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='icon'
+                                disabled={isPitchAtMin}
+                                onClick={() =>
+                                  setTtsPitch(() => {
+                                    const next = Math.max(
+                                      pitchMin,
+                                      pitchValue - pitchStep,
+                                    );
+                                    setTtsPitchInput(String(next));
+                                    return next;
+                                  })
+                                }
+                                className='h-9 w-9'
+                              >
+                                <Minus className='h-4 w-4' />
+                              </Button>
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='icon'
+                                disabled={isPitchAtMax}
+                                onClick={() =>
+                                  setTtsPitch(() => {
+                                    const next = Math.min(
+                                      pitchMax,
+                                      pitchValue + pitchStep,
+                                    );
+                                    setTtsPitchInput(String(next));
+                                    return next;
+                                  })
+                                }
+                                className='h-9 w-9'
+                              >
+                                <Plus className='h-4 w-4' />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Emotion Selection - only show if provider supports emotion */}
+                      {currentProviderConfig?.supports_emotion &&
+                        ttsEmotionOptions.length > 0 && (
+                          <div className='space-y-2'>
+                            <span className='text-sm font-medium text-foreground'>
+                              {t('module.shifuSetting.ttsModel')}
+                            </span>
+                            <Select
+                              value={ttsModel}
+                              onValueChange={setTtsModel}
+                              disabled={currentShifu?.readonly}
+                            >
+                              <SelectTrigger className='h-9'>
+                                <SelectValue
+                                  placeholder={t(
+                                    'module.shifuSetting.ttsSelectModel',
+                                  )}
+                                />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {ttsModelOptions.map(option => (
+                                  <SelectItem
+                                    key={option.value || 'default'}
+                                    value={option.value || 'default'}
+                                  >
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
 
                       {/* Voice Selection */}
                       <div className='space-y-2'>
