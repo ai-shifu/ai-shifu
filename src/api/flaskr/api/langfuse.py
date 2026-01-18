@@ -13,6 +13,9 @@ class MockClient:
         return method
 
 
+langfuse_client = MockClient()
+
+
 def init_langfuse(app: Flask):
     global langfuse_client
     app.logger.info("Initializing Langfuse client")
