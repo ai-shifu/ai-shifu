@@ -1495,14 +1495,14 @@ export default function ShifuSettingDialog({
                               />
                             </SelectTrigger>
                             <SelectContent>
-                              {ttsEmotionOptions.map(option => (
-                                <SelectItem
-                                  key={option.value || 'default'}
-                                  value={option.value || 'default'}
-                                >
-                                  {option.label}
-                                </SelectItem>
-                              ))}
+                          {ttsEmotionOptions.map((option, idx) => (
+                            <SelectItem
+                              key={`${option.value || 'default'}-${idx}`}
+                              value={option.value || 'default'}
+                            >
+                              {option.label}
+                            </SelectItem>
+                          ))}
                             </SelectContent>
                           </Select>
                         </div>
