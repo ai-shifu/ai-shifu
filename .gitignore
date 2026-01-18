@@ -170,6 +170,9 @@ celerybeat.pid
 dev.sh
 dev.http
 
+# Claude Code skills (local only)
+.claude/skills/tracking/
+
 # Cook module
 src/cook/test*
 src/cook/codesifu-demo.db

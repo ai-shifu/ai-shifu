@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { browserLanguage, normalizeLanguage } from '@/i18n';
 import { localeEntries } from '@/lib/i18n-locales';
+import { useTracking } from '@/c-common/hooks/useTracking';
 
 import { type ClassValue } from 'clsx';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,7 @@ type languageProps = {
 
 export default function LanguageSelect(props: languageProps) {
   const { t, i18n: i18nInstance } = useTranslation();
+  const { trackEvent, EVENT_NAMES } = useTracking();
   const triggerClass =
     props.variant === 'login'
       ? 'w-[80px] h-[35px] rounded-lg p-0 flex items-center justify-center border-none shadow-none focus:outline-none'
@@ -33,6 +35,14 @@ export default function LanguageSelect(props: languageProps) {
 
   const handleSetLanguage = (value: string) => {
     const normalizedValue = normalizeLanguage(value);
+    const fromLang = language;
+
+    // Track language switch
+    trackEvent(EVENT_NAMES.LANGUAGE_SWITCH, {
+      from_lang: fromLang,
+      to_lang: normalizedValue,
+    });
+
     i18n.changeLanguage(normalizedValue);
     props.onSetLanguage?.(normalizedValue);
   };
