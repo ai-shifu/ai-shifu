@@ -35,7 +35,9 @@ export const useTracking = () => {
         };
         // console.log('trackEvent', eventName, data);
         tracking(eventName, data);
-      } catch {}
+      } catch (error) {
+        console.error('Failed to track event:', eventName, error);
+      }
     },
     [getEventBasicData],
   );
@@ -54,7 +56,9 @@ export const useTracking = () => {
           progress_no: scriptInfo.position,
           progress_desc: scriptInfo.outline_name,
         });
-      } catch {}
+      } catch (error) {
+        console.error('Failed to track trial progress:', error);
+      }
     },
     [trackEvent],
   );
@@ -71,7 +75,9 @@ export const useTracking = () => {
           outline_name: scriptInfo?.outline_name ?? '',
           is_trial: scriptInfo?.is_trial_lesson ?? false,
         });
-      } catch {}
+      } catch (error) {
+        console.error('Failed to track block view:', error);
+      }
     },
     [trackEvent],
   );

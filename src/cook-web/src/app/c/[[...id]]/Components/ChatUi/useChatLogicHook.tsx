@@ -105,12 +105,6 @@ export interface UseChatSessionParams {
     outline_bid: string,
     timeSpent: number,
   ) => void;
-  trackAiInteraction?: (data: {
-    shifu_bid: string;
-    outline_bid: string;
-    interaction_type: 'user_message' | 'ai_response' | 'button_click';
-    message_length?: number;
-  }) => void;
   lessonUpdate?: (params: Record<string, any>) => void;
   chapterUpdate?: (params: Record<string, any>) => void;
   updateSelectedLesson: (lessonId: string, forceExpand?: boolean) => void;
@@ -151,7 +145,6 @@ function useChatLogicHook({
   trackTrailProgress,
   trackBlockView,
   trackLessonComplete,
-  trackAiInteraction,
   lessonUpdate,
   chapterUpdate,
   updateSelectedLesson,

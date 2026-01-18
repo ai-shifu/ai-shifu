@@ -182,7 +182,6 @@ export const NewChatComponents = ({
     trackTrailProgress,
     trackBlockView,
     trackLessonComplete,
-    trackAiInteraction,
     lessonUpdate,
     chapterUpdate,
     updateSelectedLesson,
