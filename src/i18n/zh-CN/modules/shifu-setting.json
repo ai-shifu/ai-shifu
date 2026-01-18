@@ -46,6 +46,8 @@
   "ttsProvider": "服务商",
   "ttsProviderDefault": "使用系统默认",
   "ttsProviderHint": "选择语音合成服务商，留空使用系统默认配置",
+  "ttsProviderRequiredDesc": "开启语音合成后请先选择语音服务商，不确定时可使用系统默认。",
+  "ttsProviderRequiredTitle": "请选择语音服务商",
   "ttsSelectEmotion": "选择情感",
   "ttsSelectModel": "选择模型",
   "ttsSelectProvider": "选择服务商",
