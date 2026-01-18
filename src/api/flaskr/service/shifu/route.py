@@ -69,6 +69,8 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     create_shifu_draft,
     get_shifu_draft_info,
     save_shifu_draft_info,
+    archive_shifu,
+    unarchive_shifu,
 )
 from flaskr.service.shifu.shifu_publish_funcs import (
     publish_shifu_draft,
@@ -120,18 +122,23 @@ class ShifuTokenValidation:
             if not token and request.method.upper() == "POST" and request.is_json:
                 token = request.get_json().get("token", None)
 
-            if not request.user.is_creator:
-                raise_error("server.shifu.noPermission")
-
             # If is_creator is True, only verify creator permission and skip shifu-specific verification
             if self.is_creator:
+                if not request.user.is_creator:
+                    raise_error("server.shifu.noPermission")
                 return f(*args, **kwargs)
 
             shifu_bid = request.view_args.get("shifu_bid", None)
             if not shifu_bid:
+                shifu_bid = request.view_args.get("shifu_id", None)
+            if not shifu_bid:
                 shifu_bid = request.args.get("shifu_bid", None)
+            if not shifu_bid:
+                shifu_bid = request.args.get("shifu_id", None)
             if not shifu_bid and request.method.upper() == "POST" and request.is_json:
                 shifu_bid = request.get_json().get("shifu_bid", None)
+                if not shifu_bid:
+                    shifu_bid = request.get_json().get("shifu_id", None)
 
             if not token:
                 raise_param_error("token is required")
@@ -215,6 +222,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         page_size = request.args.get("page_size", 10)
         is_favorite = request.args.get("is_favorite", "False")
         is_favorite = True if is_favorite.lower() == "true" else False
+        archived_param = request.args.get("archived")
+        archived = False
+        if archived_param is not None:
+            archived = archived_param.lower() == "true"
         try:
             page_index = int(page_index)
             page_size = int(page_size)
@@ -227,8 +238,24 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             f"get shifu list, user_id: {user_id}, page_index: {page_index}, page_size: {page_size}, is_favorite: {is_favorite}"
         )
         return make_common_response(
-            get_shifu_draft_list(app, user_id, page_index, page_size, is_favorite)
+            get_shifu_draft_list(
+                app, user_id, page_index, page_size, is_favorite, archived
+            )
         )
+
+    @app.route(path_prefix + "/shifus/<shifu_id>/archive", methods=["POST"])
+    @ShifuTokenValidation(ShifuPermission.VIEW)
+    def archive_shifu_api(shifu_id: str):
+        user_id = request.user.user_id
+        archive_shifu(app, user_id, shifu_id)
+        return make_common_response({"archived": True})
+
+    @app.route(path_prefix + "/shifus/<shifu_id>/unarchive", methods=["POST"])
+    @ShifuTokenValidation(ShifuPermission.VIEW)
+    def unarchive_shifu_api(shifu_id: str):
+        user_id = request.user.user_id
+        unarchive_shifu(app, user_id, shifu_id)
+        return make_common_response({"archived": False})
 
     @app.route(path_prefix + "/shifus", methods=["PUT"])
     @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)

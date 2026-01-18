@@ -16,6 +16,7 @@ from sqlalchemy import (
     Text,
     SmallInteger,
     DateTime,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
 from sqlalchemy.sql import func
@@ -111,6 +112,59 @@ class AiCourseAuth(db.Model):
     )
 
 
+# per-user archive status for a shifu
+class ShifuUserArchive(db.Model):
+    """
+    Per-user archive state for a shifu
+    """
+
+    __tablename__ = "shifu_user_archives"
+    __table_args__ = (
+        UniqueConstraint(
+            "shifu_bid",
+            "user_bid",
+            name="uk_shifu_user_archive_bid_user",
+        ),
+    )
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    shifu_bid = Column(
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Shifu business identifier",
+    )
+    user_bid = Column(
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="User business identifier",
+    )
+    archived = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Archive flag: 0=active, 1=archived",
+    )
+    archived_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Archived timestamp",
+    )
+    created_at = Column(
+        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Last update timestamp",
+        onupdate=func.now(),
+    )
+
+
 # draft shifu's model
 class DraftShifu(db.Model):
     """
@@ -177,6 +231,7 @@ class DraftShifu(db.Model):
         comment="Ask agent LLM system prompt",
     )
     price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
+
     # TTS Configuration
     tts_enabled = Column(
         SmallInteger,
@@ -571,6 +626,7 @@ class PublishedShifu(db.Model):
         Text, nullable=False, default="", comment="Ask agent LLM system prompt"
     )
     price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
+
     # TTS Configuration
     tts_enabled = Column(
         SmallInteger,
