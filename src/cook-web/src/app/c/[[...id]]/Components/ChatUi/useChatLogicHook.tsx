@@ -100,7 +100,11 @@ export interface UseChatSessionParams {
   trackEvent: (name: string, payload?: Record<string, any>) => void;
   trackTrailProgress: (courseId: string, generatedBlockBid: string) => void;
   trackBlockView: (courseId: string, blockId: string) => void;
-  trackLessonComplete?: (shifu_bid: string, outline_bid: string, timeSpent: number) => void;
+  trackLessonComplete?: (
+    shifu_bid: string,
+    outline_bid: string,
+    timeSpent: number,
+  ) => void;
   trackAiInteraction?: (data: {
     shifu_bid: string;
     outline_bid: string;
@@ -412,13 +416,21 @@ function useChatLogicHook({
 
       // Track lesson completion
       if (status === LESSON_STATUS_VALUE.COMPLETED && !effectivePreviewMode) {
-        const duration = useCourseStore.getState().getLessonDuration(currentOutlineBid);
+        const duration = useCourseStore
+          .getState()
+          .getLessonDuration(currentOutlineBid);
         trackLessonComplete?.(shifuBid, currentOutlineBid, duration);
         // Clear the start time after tracking
         useCourseStore.getState().clearLessonStartTime(currentOutlineBid);
       }
     },
-    [lessonUpdate, updateSelectedLesson, effectivePreviewMode, shifuBid, trackLessonComplete],
+    [
+      lessonUpdate,
+      updateSelectedLesson,
+      effectivePreviewMode,
+      shifuBid,
+      trackLessonComplete,
+    ],
   );
 
   /**

@@ -271,7 +271,10 @@ const ensureIdentifyReady = () => {
   flushUmamiIdentify();
 };
 
-export const tracking = async (eventName: string, eventData: Record<string, any>) => {
+export const tracking = async (
+  eventName: string,
+  eventData: Record<string, any>,
+) => {
   try {
     ensureCurrentPageviewTracked();
     ensureIdentifyReady();

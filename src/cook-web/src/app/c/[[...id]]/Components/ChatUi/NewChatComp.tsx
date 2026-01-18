@@ -50,7 +50,13 @@ export const NewChatComponents = ({
   getNextLessonId,
   previewMode = false,
 }) => {
-  const { trackEvent, trackTrailProgress, trackBlockView, trackLessonComplete, trackAiInteraction } = useTracking();
+  const {
+    trackEvent,
+    trackTrailProgress,
+    trackBlockView,
+    trackLessonComplete,
+    trackAiInteraction,
+  } = useTracking();
   const { t } = useTranslation();
   const confirmButtonText = t('module.renderUi.core.confirm');
   const copyButtonText = t('module.renderUi.core.copyCode');
