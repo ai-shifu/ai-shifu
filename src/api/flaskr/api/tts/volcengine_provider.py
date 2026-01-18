@@ -213,19 +213,17 @@ class VolcengineTTSProvider(BaseTTSProvider):
         """
         Get Volcengine TTS credentials.
 
-        Uses ARK_* config as primary, with VOLCENGINE_TTS_* as override.
+        Uses VOLCENGINE_TTS_* when set; falls back to ARK_* for authentication.
 
         Returns:
             tuple: (app_key, access_key, resource_id)
         """
-        # App Key: VOLCENGINE_TTS_APP_KEY or ARK_ACCESS_KEY_ID
         app_key = (
             get_config("VOLCENGINE_TTS_APP_KEY")
             or get_config("ARK_ACCESS_KEY_ID")
             or ""
         )
 
-        # Access Key: VOLCENGINE_TTS_ACCESS_KEY or ARK_SECRET_ACCESS_KEY
         access_key = (
             get_config("VOLCENGINE_TTS_ACCESS_KEY")
             or get_config("ARK_SECRET_ACCESS_KEY")
@@ -252,7 +250,12 @@ class VolcengineTTSProvider(BaseTTSProvider):
         return bool(app_key and access_key)
 
     def get_default_voice_settings(self) -> VoiceSettings:
-        """Get default voice settings from configuration."""
+        """Get default voice settings.
+
+        Notes:
+        - Per-Shifu voice settings are stored in the database.
+        - This method only provides a provider-level fallback.
+        """
         configured_voice_id = (get_config("VOLCENGINE_TTS_VOICE_ID") or "").strip()
         if configured_voice_id:
             default_voice_id = configured_voice_id
@@ -285,7 +288,8 @@ class VolcengineTTSProvider(BaseTTSProvider):
     def get_default_audio_settings(self) -> AudioSettings:
         """Get default audio settings from configuration."""
         return AudioSettings(
-            format=get_config("VOLCENGINE_TTS_FORMAT") or "mp3",
+            # This project uploads and serves audio as MP3 (see `upload_audio_to_oss`).
+            format="mp3",
             sample_rate=get_config("VOLCENGINE_TTS_SAMPLE_RATE") or 24000,
             bitrate=get_config("VOLCENGINE_TTS_BITRATE") or 128000,
             channel=1,
@@ -346,12 +350,19 @@ class VolcengineTTSProvider(BaseTTSProvider):
             resource_id = inferred_resource_id
         # Optional model version for req_params.model (e.g. seed-tts-1.1)
         model_version = (get_config("VOLCENGINE_TTS_MODEL") or "").strip()
-        if model_version in {m["value"] for m in VOLCENGINE_MODELS}:
+        valid_models = {m["value"] for m in VOLCENGINE_MODELS}
+        if model_version and model_version not in valid_models:
+            logger.warning(
+                "Ignoring invalid VOLCENGINE_TTS_MODEL: %s (falling back to default)",
+                model_version,
+            )
             model_version = ""
 
         if not app_key or not access_key or not resource_id:
             raise ValueError(
-                "Volcengine TTS credentials are not configured. Set ARK_ACCESS_KEY_ID and ARK_SECRET_ACCESS_KEY, or VOLCENGINE_TTS_APP_KEY and VOLCENGINE_TTS_ACCESS_KEY"
+                "Volcengine TTS credentials are not configured. "
+                "Set ARK_ACCESS_KEY_ID and ARK_SECRET_ACCESS_KEY "
+                "(or VOLCENGINE_TTS_APP_KEY and VOLCENGINE_TTS_ACCESS_KEY)"
             )
 
         # Generate unique IDs

@@ -22,10 +22,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import {
-  AudioPlayer,
-  type AudioSegment as AudioPlayerSegment,
-} from '@/components/audio/AudioPlayer';
+import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import type { AudioSegment } from '@/c-utils/audio-utils';
 type Size = 'sm' | 'md' | 'lg';
 
 export interface InteractionBlockProps {
@@ -43,7 +41,7 @@ export interface InteractionBlockProps {
   showAudioPlayer?: boolean;
   audioPreviewMode?: boolean;
   audioUrl?: string;
-  audioSegments?: AudioPlayerSegment[];
+  audioSegments?: AudioSegment[];
   isAudioStreaming?: boolean;
   autoPlayAudio?: boolean;
   onAudioPlayStateChange?: (isPlaying: boolean) => void;

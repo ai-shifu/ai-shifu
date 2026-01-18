@@ -68,15 +68,13 @@ const ContentBlock = memo(
     );
 
     const hasAudioContent =
+      item.isAudioStreaming ||
       (item.audioSegments && item.audioSegments.length > 0) ||
       Boolean(item.audioUrl);
-
-    const outputCompleted = Boolean(item.isOutputComplete);
 
     const shouldShowAudioPlayer =
       mobileStyle &&
       showAudioPlayer &&
-      outputCompleted &&
       (hasAudioContent || Boolean(onRequestAudio));
 
     return (
@@ -106,7 +104,7 @@ const ContentBlock = memo(
             isStreaming={item.isAudioStreaming}
             previewMode={showAudioPlayer}
             alwaysVisible={true}
-            onRequestAudio={outputCompleted ? onRequestAudio : undefined}
+            onRequestAudio={onRequestAudio}
             autoPlay={autoPlayAudio}
             onPlayStateChange={onAudioPlayStateChange}
             size={16}

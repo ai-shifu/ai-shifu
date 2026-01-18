@@ -18,7 +18,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { uploadFile } from '@/lib/file';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
-import type { AudioSegment } from '@/c-utils/audio-utils';
+import {
+  type AudioSegment,
+  mergeAudioSegment,
+  normalizeAudioSegmentPayload,
+} from '@/c-utils/audio-utils';
 import {
   Sheet,
   SheetContent,
@@ -50,6 +54,12 @@ import {
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
+import {
+  createAudioContext,
+  decodeAudioBufferFromBase64,
+  playAudioBuffer,
+  resumeAudioContext,
+} from '@/lib/audio-playback';
 
 import ModelList from '@/components/model-list';
 import { useEnvStore } from '@/c-store';
@@ -225,48 +235,33 @@ export default function ShifuSettingDialog({
       try {
         let audioContext = ttsPreviewAudioContextRef.current;
         if (!audioContext) {
-          audioContext = new (
-            window.AudioContext || (window as any).webkitAudioContext
-          )();
+          audioContext = createAudioContext();
           ttsPreviewAudioContextRef.current = audioContext;
         }
 
-        if (audioContext.state === 'suspended') {
-          await audioContext.resume();
-          if (ttsPreviewSessionRef.current !== sessionId) {
-            return;
-          }
+        await resumeAudioContext(audioContext);
+        if (ttsPreviewSessionRef.current !== sessionId) {
+          return;
         }
 
         const segment = segments[index];
-        const binaryString = atob(segment.audioData);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i += 1) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-
-        const audioBuffer = await audioContext.decodeAudioData(
-          bytes.buffer.slice(0),
+        const audioBuffer = await decodeAudioBufferFromBase64(
+          audioContext,
+          segment.audioData,
         );
         if (ttsPreviewSessionRef.current !== sessionId) {
           return;
         }
 
-        const sourceNode = audioContext.createBufferSource();
-        sourceNode.buffer = audioBuffer;
-        sourceNode.connect(audioContext.destination);
-        ttsPreviewSourceRef.current = sourceNode;
-
-        sourceNode.onended = () => {
+        const sourceNode = playAudioBuffer(audioContext, audioBuffer, () => {
           if (ttsPreviewSessionRef.current !== sessionId) {
             return;
           }
           if (ttsPreviewIsPlayingRef.current) {
             playPreviewSegment(index + 1, sessionId);
           }
-        };
-
-        sourceNode.start();
+        });
+        ttsPreviewSourceRef.current = sourceNode;
         setTtsPreviewLoading(false);
         setTtsPreviewPlaying(true);
         ttsPreviewIsPlayingRef.current = true;
@@ -321,7 +316,6 @@ export default function ShifuSettingDialog({
   useEffect(() => {
     setTtsPitchInput(ttsPitch.toString());
   }, [ttsPitch]);
-
   const normalizedProvider = ttsProvider === 'default' ? '' : ttsProvider;
   const resolvedProvider =
     normalizedProvider || ttsConfig?.default_provider || '';
@@ -727,30 +721,17 @@ export default function ShifuSettingDialog({
         if (response?.type === 'audio_segment') {
           const segmentPayload = response.content ?? response.data;
           if (!segmentPayload) return;
-          const mappedSegment: AudioSegment = {
-            segmentIndex:
-              segmentPayload.segment_index ?? segmentPayload.segmentIndex ?? 0,
-            audioData:
-              segmentPayload.audio_data ?? segmentPayload.audioData ?? '',
-            durationMs:
-              segmentPayload.duration_ms ?? segmentPayload.durationMs ?? 0,
-            isFinal: segmentPayload.is_final ?? segmentPayload.isFinal ?? false,
-          };
-
-          if (!mappedSegment.audioData) {
+          const mappedSegment = normalizeAudioSegmentPayload(segmentPayload);
+          if (!mappedSegment) {
             return;
           }
 
-          const existingSegments = ttsPreviewSegmentsRef.current;
-          if (
-            !existingSegments.some(
-              segment => segment.segmentIndex === mappedSegment.segmentIndex,
-            )
-          ) {
-            ttsPreviewSegmentsRef.current = [
-              ...existingSegments,
-              mappedSegment,
-            ].sort((a, b) => a.segmentIndex - b.segmentIndex);
+          const updatedSegments = mergeAudioSegment(
+            ttsPreviewSegmentsRef.current,
+            mappedSegment,
+          );
+          if (updatedSegments !== ttsPreviewSegmentsRef.current) {
+            ttsPreviewSegmentsRef.current = updatedSegments;
           }
 
           if (ttsPreviewWaitingRef.current) {

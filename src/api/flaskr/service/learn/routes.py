@@ -14,8 +14,8 @@ from flaskr.service.learn.learn_funcs import (
     handle_reaction,
     reset_learn_record,
     get_generated_content,
-    synthesize_generated_block_audio,
-    synthesize_preview_tts_audio,
+    stream_generated_block_audio,
+    stream_preview_tts_audio,
 )
 from flaskr.service.learn.runscript_v2 import run_script, get_run_status
 from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
@@ -596,30 +596,47 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
               required: false
         responses:
             200:
-                description: synthesize audio success
+                description: stream synthesized audio
                 content:
-                    application/json:
+                    text/event-stream:
                         schema:
-                            type: object
-                            properties:
-                                audio_url:
-                                    type: string
-                                audio_bid:
-                                    type: string
-                                duration_ms:
-                                    type: integer
+                            type: string
+                            example: 'data: {"type":"audio_segment","content":{"segment_index":0,"audio_data":"...","duration_ms":123,"is_final":false}}'
         """
         user_bid = request.user.user_id
         preview_mode = request.args.get("preview_mode", "False")
         preview_mode = preview_mode.lower() == "true"
-        return make_common_response(
-            synthesize_generated_block_audio(
-                app,
-                shifu_bid=shifu_bid,
-                generated_block_bid=generated_block_bid,
-                user_bid=user_bid,
-                preview_mode=preview_mode,
-            )
+
+        def event_stream():
+            try:
+                for message in stream_generated_block_audio(
+                    app,
+                    shifu_bid=shifu_bid,
+                    generated_block_bid=generated_block_bid,
+                    user_bid=user_bid,
+                    preview_mode=preview_mode,
+                ):
+                    payload = (
+                        message.__json__() if hasattr(message, "__json__") else message
+                    )
+                    yield (
+                        "data: "
+                        + json.dumps(payload, ensure_ascii=False)
+                        + "\n\n".encode("utf-8").decode("utf-8")
+                    )
+            except GeneratorExit:
+                app.logger.info("client closed tts stream early")
+                raise
+            except Exception:
+                app.logger.error(
+                    "synthesize generated block audio failed", exc_info=True
+                )
+                raise
+
+        return Response(
+            stream_with_context(event_stream()),
+            headers={"Cache-Control": "no-cache"},
+            mimetype="text/event-stream",
         )
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/tts/preview", methods=["POST"])
@@ -650,32 +667,47 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                                 description: Text to synthesize
         responses:
             200:
-                description: synthesize preview audio success
+                description: stream preview audio
                 content:
-                    application/json:
+                    text/event-stream:
                         schema:
-                            type: object
-                            properties:
-                                audio_url:
-                                    type: string
-                                audio_bid:
-                                    type: string
-                                duration_ms:
-                                    type: integer
+                            type: string
+                            example: 'data: {"type":"audio_complete","content":{"audio_url":"...","audio_bid":"...","duration_ms":1234}}'
         """
         user_bid = request.user.user_id
         payload = request.get_json(silent=True) or {}
         text = payload.get("text") or ""
         preview_mode = request.args.get("preview_mode", "False")
         preview_mode = preview_mode.lower() == "true"
-        return make_common_response(
-            synthesize_preview_tts_audio(
-                app,
-                shifu_bid=shifu_bid,
-                user_bid=user_bid,
-                text=text,
-                preview_mode=preview_mode,
-            )
+
+        def event_stream():
+            try:
+                for message in stream_preview_tts_audio(
+                    app,
+                    shifu_bid=shifu_bid,
+                    user_bid=user_bid,
+                    text=text,
+                    preview_mode=preview_mode,
+                ):
+                    payload = (
+                        message.__json__() if hasattr(message, "__json__") else message
+                    )
+                    yield (
+                        "data: "
+                        + json.dumps(payload, ensure_ascii=False)
+                        + "\n\n".encode("utf-8").decode("utf-8")
+                    )
+            except GeneratorExit:
+                app.logger.info("client closed preview tts stream early")
+                raise
+            except Exception:
+                app.logger.error("preview tts stream failed", exc_info=True)
+                raise
+
+        return Response(
+            stream_with_context(event_stream()),
+            headers={"Cache-Control": "no-cache"},
+            mimetype="text/event-stream",
         )
 
     return app

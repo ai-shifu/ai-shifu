@@ -1197,19 +1197,25 @@ class AliyunTTSProvider(BaseTTSProvider):
         return bool(appkey and token)
 
     def get_default_voice_settings(self) -> VoiceSettings:
-        """Get default voice settings from configuration."""
+        """Get default voice settings.
+
+        Notes:
+        - Per-Shifu voice settings are stored in the database.
+        - This method only provides a provider-level fallback.
+        """
         return VoiceSettings(
-            voice_id=get_config("ALIYUN_TTS_VOICE_ID") or "xiaoyun",
-            speed=get_config("ALIYUN_TTS_SPEED") or 0,  # -500 to 500, default 0
-            pitch=get_config("ALIYUN_TTS_PITCH") or 0,  # -500 to 500, default 0
+            voice_id="xiaoyun",
+            speed=0,  # -500 to 500, default 0
+            pitch=0,  # -500 to 500, default 0
             emotion="",  # Emotion is set via voice_id for multi-emotion voices
-            volume=get_config("ALIYUN_TTS_VOLUME") or 50,  # 0-100, default 50
+            volume=50,  # 0-100, default 50
         )
 
     def get_default_audio_settings(self) -> AudioSettings:
         """Get default audio settings from configuration."""
         return AudioSettings(
-            format=get_config("ALIYUN_TTS_FORMAT") or "mp3",
+            # This project uploads and serves audio as MP3 (see `upload_audio_to_oss`).
+            format="mp3",
             sample_rate=get_config("ALIYUN_TTS_SAMPLE_RATE") or 16000,
             bitrate=128000,
             channel=1,
