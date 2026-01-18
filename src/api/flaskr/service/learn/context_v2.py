@@ -2082,8 +2082,9 @@ class RunScriptContextV2:
         progress_record = self._current_attend
         outline_updates = self._get_next_outline_item()
         if len(outline_updates) > 0:
+            has_next_outline_item = self._has_next_outline_item(outline_updates)
             yield from self._render_outline_updates(outline_updates, new_chapter=True)
-            if self._has_next_outline_item(outline_updates):
+            if has_next_outline_item:
                 yield from self._emit_next_chapter_interaction(progress_record)
             self._can_continue = False
             db.session.flush()
