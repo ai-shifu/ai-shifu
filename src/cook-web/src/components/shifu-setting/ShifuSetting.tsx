@@ -1728,17 +1728,20 @@ export default function ShifuSettingDialog({
                         </p>
                         <div className='flex items-center gap-2'>
                           <Input
-                            type='number'
-                            min={currentProviderConfig?.speed.min ?? 0.5}
-                            max={currentProviderConfig?.speed.max ?? 2.0}
-                            step={currentProviderConfig?.speed.step ?? 0.1}
-                            value={ttsSpeed}
-                            onChange={e =>
-                              setTtsSpeed(
-                                parseFloat(e.target.value) ||
-                                  (currentProviderConfig?.speed.default ?? 1.0),
-                              )
-                            }
+                            type='text'
+                            inputMode='decimal'
+                            value={ttsSpeedInput}
+                            onChange={e => {
+                              setTtsSpeedInput(e.target.value);
+                            }}
+                            onBlur={() => {
+                              const parsed = Number(ttsSpeedInput);
+                              const clamped = Number.isFinite(parsed)
+                                ? normalizeSpeed(parsed)
+                                : speedValue;
+                              setTtsSpeed(clamped);
+                              setTtsSpeedInput(clamped.toFixed(1));
+                            }}
                             disabled={currentShifu?.readonly}
                             className='h-9 w-24'
                           />
@@ -1748,15 +1751,15 @@ export default function ShifuSettingDialog({
                                 type='button'
                                 variant='outline'
                                 size='icon'
+                                disabled={isSpeedAtMin}
                                 onClick={() =>
-                                  setTtsSpeed(
-                                    Math.max(
-                                      currentProviderConfig?.speed.min ?? 0.5,
-                                      ttsSpeed -
-                                        (currentProviderConfig?.speed.step ??
-                                          0.1),
-                                    ),
-                                  )
+                                  setTtsSpeed(() => {
+                                    const next = normalizeSpeed(
+                                      speedValue - speedStep,
+                                    );
+                                    setTtsSpeedInput(next.toFixed(1));
+                                    return next;
+                                  })
                                 }
                                 className='h-9 w-9'
                               >
@@ -1766,15 +1769,15 @@ export default function ShifuSettingDialog({
                                 type='button'
                                 variant='outline'
                                 size='icon'
+                                disabled={isSpeedAtMax}
                                 onClick={() =>
-                                  setTtsSpeed(
-                                    Math.min(
-                                      currentProviderConfig?.speed.max ?? 2.0,
-                                      ttsSpeed +
-                                        (currentProviderConfig?.speed.step ??
-                                          0.1),
-                                    ),
-                                  )
+                                  setTtsSpeed(() => {
+                                    const next = normalizeSpeed(
+                                      speedValue + speedStep,
+                                    );
+                                    setTtsSpeedInput(next.toFixed(1));
+                                    return next;
+                                  })
                                 }
                                 className='h-9 w-9'
                               >
@@ -1797,17 +1800,22 @@ export default function ShifuSettingDialog({
                         </p>
                         <div className='flex items-center gap-2'>
                           <Input
-                            type='number'
-                            min={currentProviderConfig?.pitch.min ?? -12}
-                            max={currentProviderConfig?.pitch.max ?? 12}
-                            step={currentProviderConfig?.pitch.step ?? 1}
-                            value={ttsPitch}
-                            onChange={e =>
-                              setTtsPitch(
-                                parseInt(e.target.value) ||
-                                  (currentProviderConfig?.pitch.default ?? 0),
-                              )
-                            }
+                            type='text'
+                            inputMode='decimal'
+                            value={ttsPitchInput}
+                            onChange={e => {
+                              const raw = e.target.value;
+                              setTtsPitchInput(raw);
+                            }}
+                            onBlur={() => {
+                              const parsed = Number(ttsPitchInput);
+                              const clamped = Number.isFinite(parsed)
+                                ? clampPitch(parsed)
+                                : pitchValue;
+                              const rounded = Math.round(clamped);
+                              setTtsPitch(rounded);
+                              setTtsPitchInput(String(rounded));
+                            }}
                             disabled={currentShifu?.readonly}
                             className='h-9 w-24'
                           />
@@ -1817,15 +1825,16 @@ export default function ShifuSettingDialog({
                                 type='button'
                                 variant='outline'
                                 size='icon'
+                                disabled={isPitchAtMin}
                                 onClick={() =>
-                                  setTtsPitch(
-                                    Math.max(
-                                      currentProviderConfig?.pitch.min ?? -12,
-                                      ttsPitch -
-                                        (currentProviderConfig?.pitch.step ??
-                                          1),
-                                    ),
-                                  )
+                                  setTtsPitch(() => {
+                                    const next = Math.max(
+                                      pitchMin,
+                                      pitchValue - pitchStep,
+                                    );
+                                    setTtsPitchInput(String(next));
+                                    return next;
+                                  })
                                 }
                                 className='h-9 w-9'
                               >
@@ -1835,15 +1844,16 @@ export default function ShifuSettingDialog({
                                 type='button'
                                 variant='outline'
                                 size='icon'
+                                disabled={isPitchAtMax}
                                 onClick={() =>
-                                  setTtsPitch(
-                                    Math.min(
-                                      currentProviderConfig?.pitch.max ?? 12,
-                                      ttsPitch +
-                                        (currentProviderConfig?.pitch.step ??
-                                          1),
-                                    ),
-                                  )
+                                  setTtsPitch(() => {
+                                    const next = Math.min(
+                                      pitchMax,
+                                      pitchValue + pitchStep,
+                                    );
+                                    setTtsPitchInput(String(next));
+                                    return next;
+                                  })
                                 }
                                 className='h-9 w-9'
                               >
