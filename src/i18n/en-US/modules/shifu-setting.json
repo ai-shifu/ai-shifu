@@ -46,6 +46,8 @@
   "ttsProvider": "Provider",
   "ttsProviderDefault": "Use system default",
   "ttsProviderHint": "Select TTS provider, leave empty to use system default",
+  "ttsProviderRequiredDesc": "Please choose a TTS provider before saving. You can use the system default if you are unsure.",
+  "ttsProviderRequiredTitle": "Select a TTS provider",
   "ttsSelectEmotion": "Select emotion",
   "ttsSelectModel": "Select model",
   "ttsSelectProvider": "Select provider",
@@ -56,7 +58,5 @@
   "ttsVoice": "Voice",
   "upload": "Upload",
   "uploadFailed": "Upload failed, please try again later",
-  "uploading": "Uploading",
-  "ttsProviderRequiredTitle": "Select a TTS provider",
-  "ttsProviderRequiredDesc": "Please choose a TTS provider before saving. You can use the system default if you are unsure."
+  "uploading": "Uploading"
 }
