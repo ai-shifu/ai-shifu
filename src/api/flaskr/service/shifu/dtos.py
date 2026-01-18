@@ -89,6 +89,24 @@ class ShifuDetailDto(BaseModel):
     created_user_bid: str = Field(
         "", description="owner user business id", required=False
     )
+    # TTS Configuration
+    tts_enabled: bool = Field(False, description="TTS enabled", required=False)
+    tts_provider: str = Field(
+        "",
+        description="TTS provider: minimax, volcengine, baidu, aliyun",
+        required=False,
+    )
+    tts_model: str = Field("", description="TTS model/resource ID", required=False)
+    tts_voice_id: str = Field("", description="TTS voice ID", required=False)
+    tts_speed: float = Field(
+        1.0, description="TTS speech speed (provider-specific range)", required=False
+    )
+    tts_pitch: int = Field(
+        0,
+        description="TTS pitch adjustment (provider-specific range)",
+        required=False,
+    )
+    tts_emotion: str = Field("", description="TTS emotion setting", required=False)
 
     def __init__(
         self,
@@ -107,6 +125,13 @@ class ShifuDetailDto(BaseModel):
         archived: bool,
         can_manage_archive: bool = False,
         created_user_bid: str = "",
+        tts_enabled: bool = False,
+        tts_provider: str = "",
+        tts_model: str = "",
+        tts_voice_id: str = "",
+        tts_speed: float = 1.0,
+        tts_pitch: int = 0,
+        tts_emotion: str = "",
     ):
         super().__init__(
             bid=shifu_id,
@@ -124,6 +149,13 @@ class ShifuDetailDto(BaseModel):
             archived=archived,
             can_manage_archive=can_manage_archive,
             created_user_bid=created_user_bid or "",
+            tts_enabled=tts_enabled,
+            tts_provider=tts_provider,
+            tts_model=tts_model,
+            tts_voice_id=tts_voice_id,
+            tts_speed=tts_speed,
+            tts_pitch=tts_pitch,
+            tts_emotion=tts_emotion,
         )
 
     def __json__(self):
@@ -143,6 +175,13 @@ class ShifuDetailDto(BaseModel):
             "archived": self.archived,
             "can_manage_archive": self.can_manage_archive,
             "created_user_bid": self.created_user_bid,
+            "tts_enabled": self.tts_enabled,
+            "tts_provider": self.tts_provider,
+            "tts_model": self.tts_model,
+            "tts_voice_id": self.tts_voice_id,
+            "tts_speed": self.tts_speed,
+            "tts_pitch": self.tts_pitch,
+            "tts_emotion": self.tts_emotion,
         }
 
 

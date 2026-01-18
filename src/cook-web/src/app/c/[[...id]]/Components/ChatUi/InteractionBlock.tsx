@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { LikeStatus } from '@/c-api/studyV2';
+import type { AudioCompleteData, LikeStatus } from '@/c-api/studyV2';
 import { postGeneratedContentAction, LIKE_STATUS } from '@/c-api/studyV2';
 import { RefreshCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +22,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import type { AudioSegment } from '@/c-utils/audio-utils';
 type Size = 'sm' | 'md' | 'lg';
 
 export interface InteractionBlockProps {
@@ -36,6 +38,14 @@ export interface InteractionBlockProps {
   onRefresh?: (generated_block_bid: string) => void;
   disableAskButton?: boolean;
   disableInteractionButtons?: boolean;
+  showAudioPlayer?: boolean;
+  audioPreviewMode?: boolean;
+  audioUrl?: string;
+  audioSegments?: AudioSegment[];
+  isAudioStreaming?: boolean;
+  autoPlayAudio?: boolean;
+  onAudioPlayStateChange?: (isPlaying: boolean) => void;
+  onRequestAudio?: () => Promise<AudioCompleteData | null>;
 }
 
 /**
@@ -53,6 +63,14 @@ export default function InteractionBlock({
   className,
   onRefresh,
   onToggleAskExpanded,
+  showAudioPlayer = false,
+  audioPreviewMode = false,
+  audioUrl,
+  audioSegments,
+  isAudioStreaming,
+  autoPlayAudio = false,
+  onAudioPlayStateChange,
+  onRequestAudio,
 }: InteractionBlockProps) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<LikeStatus>(
@@ -208,6 +226,21 @@ export default function InteractionBlock({
             </Tooltip>
           </TooltipProvider>
         </button>
+        {showAudioPlayer && (
+          <AudioPlayer
+            audioUrl={audioUrl}
+            streamingSegments={audioSegments}
+            isStreaming={Boolean(isAudioStreaming)}
+            previewMode={audioPreviewMode}
+            alwaysVisible={true}
+            disabled={disabled || readonly}
+            autoPlay={autoPlayAudio}
+            onPlayStateChange={onAudioPlayStateChange}
+            onRequestAudio={onRequestAudio}
+            className={cn('interaction-icon-btn', canHover && 'group')}
+            size={16}
+          />
+        )}
         <button
           type='button'
           aria-label='Like'

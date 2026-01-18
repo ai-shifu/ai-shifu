@@ -1,0 +1,96 @@
+import pytest
+
+
+def _require_app(app):
+    if app is None:
+        pytest.skip("App fixture disabled")
+
+
+def test_preprocess_for_tts_removes_complete_svg(app):
+    _require_app(app)
+
+    from flaskr.service.tts import preprocess_for_tts
+
+    text = (
+        "Before.\n\n"
+        '<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">'
+        "<text>Hello</text>"
+        "</svg>\n\n"
+        "After."
+    )
+    cleaned = preprocess_for_tts(text)
+
+    assert "Before." in cleaned
+    assert "After." in cleaned
+    assert "<svg" not in cleaned.lower()
+    assert "http://www.w3.org" not in cleaned
+
+
+def test_preprocess_for_tts_strips_incomplete_svg_tail(app):
+    _require_app(app)
+
+    from flaskr.service.tts import preprocess_for_tts
+
+    text = 'Before.\n\n<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg"'
+    cleaned = preprocess_for_tts(text)
+
+    assert cleaned == "Before."
+    assert "<svg" not in cleaned.lower()
+    assert "http://www.w3.org" not in cleaned
+
+
+def test_preprocess_for_tts_strips_incomplete_fenced_code(app):
+    _require_app(app)
+
+    from flaskr.service.tts import preprocess_for_tts
+
+    text = "Hello.\n```python\nprint('hi')\n"
+    cleaned = preprocess_for_tts(text)
+
+    assert cleaned == "Hello."
+
+
+def test_streaming_tts_processor_skips_svg_and_keeps_following_text(app, monkeypatch):
+    _require_app(app)
+
+    from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
+
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.is_tts_configured", lambda _provider: True
+    )
+
+    captured: list[str] = []
+
+    def _capture_submit(self, text: str):
+        captured.append(text)
+
+    monkeypatch.setattr(StreamingTTSProcessor, "_submit_tts_task", _capture_submit)
+
+    processor = StreamingTTSProcessor(
+        app=app,
+        generated_block_bid="generated_block_bid",
+        outline_bid="outline_bid",
+        progress_record_bid="progress_record_bid",
+        user_bid="user_bid",
+        shifu_bid="shifu_bid",
+        tts_provider="minimax",
+    )
+
+    list(
+        processor.process_chunk(
+            "I'll create a diagram.\n\n"
+            '<svg width="800" xmlns="http://www.w3.org/2000/svg">'
+        )
+    )
+    assert captured == ["I'll create a diagram."]
+
+    list(
+        processor.process_chunk(
+            "<text>Hello</text></svg>\n\nHello after svg! This should be spoken."
+        )
+    )
+
+    list(processor.finalize())
+
+    assert any("Hello after svg!" in t for t in captured)
+    assert all("http://www.w3.org" not in t for t in captured)

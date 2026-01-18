@@ -9,24 +9,20 @@ Date: 2025-08-07
 
 from ...dao import redis_client as redis, db
 from .models import FavoriteScenario, AiCourseAuth
-from ..common.models import raise_error, raise_error_with_args
+from ..common.models import raise_error
 from flaskr.service.config import get_config
-import oss2
 import uuid
 import json
 import requests
 from io import BytesIO
 from urllib.parse import urlparse
 import re
-import time
 from .models import DraftShifu
 from ...service.resource.models import Resource
-from aliyunsdkcore.client import AcsClient
-from aliyunsdkcdn.request.v20180510.PushObjectCacheRequest import (
-    PushObjectCacheRequest,
-)
-from aliyunsdkcdn.request.v20180510.DescribeRefreshTasksRequest import (
-    DescribeRefreshTasksRequest,
+from flaskr.service.common.oss_utils import (
+    OSS_PROFILE_COURSES,
+    get_image_content_type,
+    upload_to_oss,
 )
 
 
@@ -101,158 +97,6 @@ def mark_or_unmark_favorite_shifu(app, user_id: str, shifu_id: str, is_favorite:
         return unmark_favorite_shifu(app, user_id, shifu_id)
 
 
-def get_content_type(filename):
-    """
-    Get the content type of a file.
-
-    Args:
-        filename: The filename to get the content type of
-    Returns:
-        The content type of the file
-    """
-
-    extension = filename.rsplit(".", 1)[1].lower()
-    if extension in ["jpg", "jpeg"]:
-        return "image/jpeg"
-    elif extension == "png":
-        return "image/png"
-    elif extension == "gif":
-        return "image/gif"
-    raise_error("server.file.fileTypeNotSupport")
-
-
-def _warm_up_cdn(app, url: str, ALI_API_ID: str, ALI_API_SECRET: str, endpoint: str):
-    """
-    Warm up a CDN URL.
-
-    Args:
-        app: Flask application instance
-        url: The URL to warm up
-        ALI_API_ID: The Alibaba Cloud API ID
-        ALI_API_SECRET: The Alibaba Cloud API Secret
-        endpoint: The Alibaba Cloud endpoint
-
-    Returns:
-        bool: True if successful
-    """
-    try:
-        file_id = url.split("/")[-1]
-
-        region_id = endpoint.split(".")[0].replace("oss-", "")
-        client = AcsClient(ALI_API_ID, ALI_API_SECRET, region_id=region_id)
-        request = PushObjectCacheRequest()
-        request.set_accept_format("json")
-        object_path = url.strip() + "\n"
-        request.set_ObjectPath(object_path)
-
-        response = client.do_action_with_exception(request)
-        response_data = json.loads(response)
-        push_task_id = response_data.get("PushTaskId")
-
-        max_retries = 10
-        retry_count = 0
-        while retry_count < max_retries:
-            status_request = DescribeRefreshTasksRequest()
-            status_request.set_accept_format("json")
-            status_request.TaskId = push_task_id
-
-            status_response = client.do_action_with_exception(status_request)
-            status_data = json.loads(status_response)
-
-            tasks = status_data.get("Tasks", {}).get("CDNTask", [])
-            if tasks:
-                task = tasks[0]
-                status = task.get("Status")
-                if status == "Complete":
-                    max_url_retries = 10
-                    url_retry_count = 0
-                    while url_retry_count < max_url_retries:
-                        try:
-                            response = requests.head(url, timeout=5)
-                            if response.status_code == 200:
-                                return True
-                            else:
-                                app.logger.warning(
-                                    f"The image URL is inaccessible. Status code: {response.status_code}"
-                                )
-                        except Exception as e:
-                            app.logger.warning(
-                                f"The image URL access check failed: {str(e)}"
-                            )
-
-                        url_retry_count += 1
-                        if url_retry_count < max_url_retries:
-                            time.sleep(2)
-
-                    app.logger.warning(
-                        "The image URL still cannot be accessed after multiple retries"
-                    )
-                    return False
-                elif status == "Failed":
-                    app.logger.warning(
-                        f"The CDN preheating task failed: {task.get('Description')}"
-                    )
-                    return False
-
-            retry_count += 1
-            if retry_count < max_retries:
-                time.sleep(1)
-
-        return False
-
-    except Exception as e:
-        app.logger.warning(f"CDN preheating failed: {str(e)}")
-        app.logger.warning(f"Preheating URL: {url}")
-        app.logger.warning(
-            f"ObjectPath: {object_path if 'object_path' in locals() else 'Not set'}"
-        )
-        return False
-
-
-def _upload_to_oss(app, file_content, file_id: str, content_type: str) -> str:
-    """
-    Upload a file to OSS.
-
-    Args:
-        app: Flask application instance
-        file_content: The content of the file
-        file_id: The ID of the file
-        content_type: The content type of the file
-
-    Returns:
-        str: The URL of the uploaded file
-    """
-    endpoint = get_config("ALIBABA_CLOUD_OSS_COURSES_ENDPOINT")
-    ALI_API_ID = get_config("ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID")
-    ALI_API_SECRET = get_config("ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET")
-    FILE_BASE_URL = get_config("ALIBABA_CLOUD_OSS_COURSES_URL")
-    BUCKET_NAME = get_config("ALIBABA_CLOUD_OSS_COURSES_BUCKET")
-
-    if not ALI_API_ID or not ALI_API_SECRET:
-        app.logger.warning(
-            "ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID or ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET not configured"
-        )
-        raise_error_with_args(
-            "server.api.alibabaCloudNotConfigured",
-            config_var="ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID,ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET",
-        )
-
-    auth = oss2.Auth(ALI_API_ID, ALI_API_SECRET)
-    bucket = oss2.Bucket(auth, endpoint, BUCKET_NAME)
-
-    bucket.put_object(
-        file_id,
-        file_content,
-        headers={"Content-Type": content_type},
-    )
-
-    url = FILE_BASE_URL + "/" + file_id
-
-    _warm_up_cdn(app, url, ALI_API_ID, ALI_API_SECRET, endpoint)
-
-    return url, BUCKET_NAME
-
-
 def upload_file(app, user_id: str, resource_id: str, file) -> str:
     """
     Upload a file to OSS.
@@ -274,8 +118,14 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
             isUpdate = True
             file_id = resource_id
 
-        content_type = get_content_type(file.filename)
-        url, BUCKET_NAME = _upload_to_oss(app, file, file_id, content_type)
+        content_type = get_image_content_type(file.filename)
+        url, BUCKET_NAME = upload_to_oss(
+            app,
+            file_content=file,
+            file_id=file_id,
+            content_type=content_type,
+            profile=OSS_PROFILE_COURSES,
+        )
 
         if isUpdate:
             resource = Resource.query.filter_by(resource_id=file_id).first()
@@ -288,7 +138,7 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
                 name=file.filename,
                 type=0,
                 oss_bucket=BUCKET_NAME,
-                oss_name=BUCKET_NAME,
+                oss_name=file_id,
                 url=url,
                 status=0,
                 is_deleted=0,
@@ -353,17 +203,23 @@ def upload_url(app, user_id: str, url: str) -> str:
                 else:
                     filename = f"{filename}.jpg"
 
-            content_type = get_content_type(filename)
+            content_type = get_image_content_type(filename)
             file_id = str(uuid.uuid4()).replace("-", "")
 
-            url, BUCKET_NAME = _upload_to_oss(app, file_content, file_id, content_type)
+            url, BUCKET_NAME = upload_to_oss(
+                app,
+                file_content=file_content,
+                file_id=file_id,
+                content_type=content_type,
+                profile=OSS_PROFILE_COURSES,
+            )
 
             resource = Resource(
                 resource_id=file_id,
                 name=filename,
                 type=0,
                 oss_bucket=BUCKET_NAME,
-                oss_name=BUCKET_NAME,
+                oss_name=file_id,
                 url=url,
                 status=0,
                 is_deleted=0,

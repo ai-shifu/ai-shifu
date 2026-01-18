@@ -4,17 +4,15 @@
 
 
 import uuid
-from flask import Flask, current_app
+from flask import Flask
 
-from ...service.config import get_config
-from ..common.models import raise_error, raise_error_with_args
+from ..common.models import raise_error
 
 from .utils import generate_token
 from ...service.common.dtos import USER_STATE_UNREGISTERED, UserToken
 from ...service.user.models import UserConversion
 from ...dao import db
 from ...api.wechat import get_wechat_access_token
-import oss2
 from .repository import (
     build_user_info_from_aggregate,
     create_user_entity,
@@ -25,21 +23,14 @@ from .repository import (
     upsert_wechat_credentials,
     update_user_entity_fields,
 )
-
-
-endpoint = get_config("ALIBABA_CLOUD_OSS_ENDPOINT")
-
-ALI_API_ID = get_config("ALIBABA_CLOUD_OSS_ACCESS_KEY_ID")
-ALI_API_SECRET = get_config("ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET")
-IMAGE_BASE_URL = get_config("ALIBABA_CLOUD_OSS_BASE_URL")
-BUCKET_NAME = get_config("ALIBABA_CLOUD_OSS_BUCKET")
-if not ALI_API_ID or not ALI_API_SECRET:
-    current_app.logger.warning(
-        "ALIBABA_CLOUD_ACCESS_KEY_ID or ALIBABA_CLOUD_ACCESS_KEY_SECRET not configured"
-    )
-else:
-    auth = oss2.Auth(ALI_API_ID, ALI_API_SECRET)
-    bucket = oss2.Bucket(auth, endpoint, BUCKET_NAME)
+from flaskr.service.common.oss_utils import (
+    OSS_PROFILE_DEFAULT,
+    create_oss_bucket,
+    get_image_content_type,
+    get_oss_config,
+    upload_to_oss,
+    warm_up_cdn,
+)
 
 # generate temp user for anonymous user
 # author: yfge
@@ -163,24 +154,10 @@ def update_user_open_id(app: Flask, user_id: str, wx_code: str) -> str:
         return wx_openid
 
 
-def get_content_type(filename):
-    extension = filename.rsplit(".", 1)[1].lower()
-    if extension in ["jpg", "jpeg"]:
-        return "image/jpeg"
-    elif extension == "png":
-        return "image/png"
-    elif extension == "gif":
-        return "image/gif"
-    raise_error("server.file.fileTypeNotSupport")
-
-
 def upload_user_avatar(app: Flask, user_id: str, avatar) -> str:
     with app.app_context():
-        if not ALI_API_ID or not ALI_API_SECRET:
-            raise_error_with_args(
-                "server.api.alibabaCloudNotConfigured",
-                config_var="ALIBABA_CLOUD_OSS_ACCESS_KEY_ID,ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET",
-            )
+        config = get_oss_config(OSS_PROFILE_DEFAULT)
+        bucket = create_oss_bucket(config)
         aggregate = load_user_aggregate(user_id)
         if not aggregate:
             raise_error("USER.USER_NOT_FOUND")
@@ -195,18 +172,21 @@ def upload_user_avatar(app: Flask, user_id: str, avatar) -> str:
             old_file_id = old_avatar.split("/")[-1]
             if old_file_id and bucket.object_exists(old_file_id):
                 bucket.delete_object(old_file_id)
-        bucket.put_object(
-            file_id,
-            avatar,
-            headers={"Content-Type": get_content_type(avatar.filename)},
+
+        url, _bucket_name = upload_to_oss(
+            app,
+            file_content=avatar,
+            file_id=file_id,
+            content_type=get_image_content_type(avatar.filename),
+            profile=OSS_PROFILE_DEFAULT,
+            config=config,
+            bucket=bucket,
+            warm_up=False,
         )
-        url = IMAGE_BASE_URL + "/" + file_id
         update_user_entity_fields(entity, avatar=url)
         db.session.commit()
 
-        from ..shifu.funcs import _warm_up_cdn
-
-        if not _warm_up_cdn(app, url, ALI_API_ID, ALI_API_SECRET, endpoint):
+        if not warm_up_cdn(app, url, config):
             app.logger.warning(
                 "The user avatar URL is inaccessible, but the URL continues to be returned"
             )

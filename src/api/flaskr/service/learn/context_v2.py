@@ -575,6 +575,7 @@ class RunScriptPreviewContextV2:
                         yield message
                         if message.type == PreviewSSEMessageType.INTERACTION:
                             break
+
                 yield self._convert_to_sse_message(
                     LLMResult(content=""),
                     True,
@@ -594,6 +595,7 @@ class RunScriptPreviewContextV2:
                     if message.type == PreviewSSEMessageType.CONTENT:
                         content_chunks.append(message.data.mdflow)
                     yield message
+
                 yield self._convert_to_sse_message(
                     LLMResult(content=""),
                     True,
@@ -2023,7 +2025,6 @@ class RunScriptContextV2:
                 app.logger.info(f"process_stream: {run_script_info.block_position}")
                 app.logger.info(f"variables: {user_profile}")
 
-                # For CONTENT blocks, no user_input is needed (only INTERACTION blocks have user input)
                 stream_result = mdflow_context.process(
                     block_index=run_script_info.block_position,
                     mode=ProcessMode.STREAM,
@@ -2064,6 +2065,7 @@ class RunScriptContextV2:
                             type=GeneratedType.CONTENT,
                             content=chunk_content,
                         )
+
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,

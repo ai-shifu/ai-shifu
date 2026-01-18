@@ -77,6 +77,9 @@ const api = {
   upfileByUrl: 'POST /shifu/url-upfile',
   // resource api end
 
+  // TTS api
+  ttsPreview: 'POST /shifu/tts/preview',
+  ttsConfig: 'GET /shifu/tts/config',
   // admin order api
   getAdminOrders: 'GET /order/admin/orders',
   getAdminOrderDetail: 'GET /order/admin/orders/{order_bid}',

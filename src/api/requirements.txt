@@ -74,6 +74,7 @@ packaging==23.2
 pandas==2.2.3
 pillow==10.4.0
 pingpp==2.7.2
+pydub>=0.25.1
 platformdirs==4.2.2
 pluggy==1.5.0
 pre-commit==3.8.0
@@ -112,6 +113,7 @@ urllib3==2.5.0
 virtualenv==20.26.6
 waitress==3.0.1
 watchdog==6.0.0
+websocket-client==1.8.0
 Werkzeug==3.1.2
 wrapt==1.16.0
 XlsxWriter==3.2.0

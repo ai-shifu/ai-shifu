@@ -74,6 +74,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
   const profile = useUserStore(state => state.userInfo);
+  const isInitialized = useUserStore(state => state.isInitialized);
+  const isGuest = useUserStore(state => state.isGuest);
   const [foldOutlineTree, setFoldOutlineTree] = useState(false);
   const [outlineWidth, setOutlineWidth] = useState(OUTLINE_DEFAULT_WIDTH);
   const previousOutlineWidthRef = useRef(OUTLINE_DEFAULT_WIDTH);
@@ -108,6 +110,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     persistVariables,
     onVariableChange,
     variables: previewVariables,
+    requestAudioForBlock: requestPreviewAudioForBlock,
     reGenerateConfirm,
   } = usePreviewChat();
   const editModeOptions = useMemo(
@@ -187,11 +190,23 @@ const ScriptEditor = ({ id }: { id: string }) => {
   };
 
   useEffect(() => {
+    if (!isInitialized) {
+      return;
+    }
+
+    if (isGuest) {
+      const currentPath = encodeURIComponent(
+        window.location.pathname + window.location.search,
+      );
+      window.location.href = `/login?redirect=${currentPath}`;
+      return;
+    }
+
     actions.loadModels();
     if (id) {
       actions.loadChapters(id);
     }
-  }, [id]);
+  }, [id, isGuest, isInitialized]);
 
   const handleTogglePreviewPanel = () => {
     setIsPreviewPanelOpen(prev => {
@@ -686,6 +701,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   onSend={onSend}
                   onVariableChange={onVariableChange}
                   variableOrder={variableOrder}
+                  onRequestAudioForBlock={requestPreviewAudioForBlock}
                   reGenerateConfirm={reGenerateConfirm}
                 />
               </div>

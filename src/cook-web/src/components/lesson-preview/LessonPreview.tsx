@@ -12,6 +12,7 @@ import {
   ChatContentItemType,
 } from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
+import type { AudioCompleteData } from '@/c-api/studyV2';
 import VariableList from './VariableList';
 import {
   getStoredPreviewVariables,
@@ -36,6 +37,11 @@ interface LessonPreviewProps {
   shifuBid: string;
   onRefresh: (generatedBlockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
+  onRequestAudioForBlock?: (params: {
+    shifuBid: string;
+    blockId: string;
+    text: string;
+  }) => Promise<AudioCompleteData | null>;
   onVariableChange?: (name: string, value: string) => void;
   variableOrder?: string[];
   reGenerateConfirm?: {
@@ -54,6 +60,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   shifuBid,
   onRefresh,
   onSend,
+  onRequestAudioForBlock,
   onVariableChange,
   variableOrder,
   reGenerateConfirm,
@@ -84,6 +91,16 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
       ? fallbackVariables
       : undefined;
   }, [fallbackVariables, items, variables]);
+
+  const itemByGeneratedBid = React.useMemo(() => {
+    const map = new Map<string, ChatContentItem>();
+    items.forEach(item => {
+      if (item.generated_block_bid) {
+        map.set(item.generated_block_bid, item);
+      }
+    });
+    return map;
+  }, [items]);
 
   return (
     <div className={cn(styles.lessonPreview, 'text-sm')}>
@@ -135,6 +152,10 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           {!showEmpty &&
             items.map((item, idx) => {
               if (item.type === ChatContentItemType.LIKE_STATUS) {
+                const parentBlockBid = item.parent_block_bid || '';
+                const parentContentItem = parentBlockBid
+                  ? itemByGeneratedBid.get(parentBlockBid)
+                  : undefined;
                 return (
                   <div
                     key={`${idx}-like`}
@@ -143,12 +164,26 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   >
                     <InteractionBlock
                       shifu_bid={shifuBid}
-                      generated_block_bid={item.parent_block_bid || ''}
+                      generated_block_bid={parentBlockBid}
                       like_status={item.like_status}
                       onRefresh={onRefresh}
                       onToggleAskExpanded={noop}
                       disableAskButton
                       disableInteractionButtons
+                      showAudioPlayer
+                      audioUrl={parentContentItem?.audioUrl}
+                      audioSegments={parentContentItem?.audioSegments}
+                      isAudioStreaming={parentContentItem?.isAudioStreaming}
+                      onRequestAudio={
+                        onRequestAudioForBlock
+                          ? () =>
+                              onRequestAudioForBlock({
+                                shifuBid,
+                                blockId: parentBlockBid,
+                                text: parentContentItem?.content || '',
+                              })
+                          : undefined
+                      }
                     />
                   </div>
                 );

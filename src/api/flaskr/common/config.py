@@ -303,6 +303,20 @@ Default: "phone".""",
         secret=True,
         group="llm",
     ),
+    "ARK_ACCESS_KEY_ID": EnvVar(
+        name="ARK_ACCESS_KEY_ID",
+        default="",
+        description="ByteDance Volcengine Ark access key ID (used for Volcengine TTS WebSocket auth)",
+        secret=True,
+        group="llm",
+    ),
+    "ARK_SECRET_ACCESS_KEY": EnvVar(
+        name="ARK_SECRET_ACCESS_KEY",
+        default="",
+        description="ByteDance Volcengine Ark secret access key (used for Volcengine TTS WebSocket auth)",
+        secret=True,
+        group="llm",
+    ),
     "SILICON_API_KEY": EnvVar(
         name="SILICON_API_KEY",
         default="",
@@ -956,6 +970,100 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         type=float,
         description="Minimum price of shifu",
         group="shifu",
+    ),
+    # TTS Configuration
+    "MINIMAX_API_KEY": EnvVar(
+        name="MINIMAX_API_KEY",
+        default="",
+        description="Minimax API key for TTS synthesis",
+        secret=True,
+        group="tts",
+    ),
+    "MINIMAX_GROUP_ID": EnvVar(
+        name="MINIMAX_GROUP_ID",
+        default="",
+        description="Minimax group ID for API access",
+        group="tts",
+    ),
+    "TTS_MAX_SEGMENT_CHARS": EnvVar(
+        name="TTS_MAX_SEGMENT_CHARS",
+        default=300,
+        type=int,
+        description="Maximum characters per TTS segment",
+        group="tts",
+    ),
+    "MINIMAX_TTS_SAMPLE_RATE": EnvVar(
+        name="MINIMAX_TTS_SAMPLE_RATE",
+        default=24000,
+        type=int,
+        description="TTS audio sample rate (8000-44100)",
+        group="tts",
+    ),
+    "MINIMAX_TTS_BITRATE": EnvVar(
+        name="MINIMAX_TTS_BITRATE",
+        default=128000,
+        type=int,
+        description="TTS audio bitrate (32000-256000)",
+        group="tts",
+    ),
+    # Volcengine TTS Configuration
+    # Note: Uses ARK_ACCESS_KEY_ID and ARK_SECRET_ACCESS_KEY for authentication.
+    "VOLCENGINE_TTS_SAMPLE_RATE": EnvVar(
+        name="VOLCENGINE_TTS_SAMPLE_RATE",
+        default=24000,
+        type=int,
+        description="Volcengine TTS audio sample rate (8000-48000)",
+        group="tts",
+    ),
+    "VOLCENGINE_TTS_BITRATE": EnvVar(
+        name="VOLCENGINE_TTS_BITRATE",
+        default=128000,
+        type=int,
+        description="Volcengine TTS audio bitrate",
+        group="tts",
+    ),
+    # Baidu TTS Configuration
+    "BAIDU_TTS_API_KEY": EnvVar(
+        name="BAIDU_TTS_API_KEY",
+        default="",
+        description="Baidu TTS API Key",
+        secret=True,
+        group="tts",
+    ),
+    "BAIDU_TTS_SECRET_KEY": EnvVar(
+        name="BAIDU_TTS_SECRET_KEY",
+        default="",
+        description="Baidu TTS Secret Key",
+        secret=True,
+        group="tts",
+    ),
+    # Aliyun TTS Configuration
+    "ALIYUN_TTS_APPKEY": EnvVar(
+        name="ALIYUN_TTS_APPKEY",
+        default="",
+        description="Aliyun TTS Appkey from Intelligent Speech Interaction console",
+        secret=True,
+        group="tts",
+    ),
+    "ALIYUN_TTS_TOKEN": EnvVar(
+        name="ALIYUN_TTS_TOKEN",
+        default="",
+        description="Aliyun NLS access token (required for RESTful TTS authentication)",
+        secret=True,
+        group="tts",
+    ),
+    "ALIYUN_TTS_REGION": EnvVar(
+        name="ALIYUN_TTS_REGION",
+        default="shanghai",
+        description="Aliyun TTS region (shanghai, beijing, shenzhen)",
+        group="tts",
+    ),
+    "ALIYUN_TTS_SAMPLE_RATE": EnvVar(
+        name="ALIYUN_TTS_SAMPLE_RATE",
+        default=16000,
+        type=int,
+        description="Aliyun TTS sample rate (8000, 16000, 24000)",
+        group="tts",
     ),
 }
 
