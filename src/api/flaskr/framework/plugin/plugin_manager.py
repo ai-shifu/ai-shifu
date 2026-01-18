@@ -98,7 +98,8 @@ def disable_plugin_manager(app: Flask):
 # extensible decorator
 def extension(target_func_name):
     def decorator(func):
-        plugin_manager.register_extension(target_func_name, func)
+        if plugin_manager:
+            plugin_manager.register_extension(target_func_name, func)
         return func
 
     return decorator
@@ -106,7 +107,8 @@ def extension(target_func_name):
 
 def extensible_generic_register(func_name):
     def decorator(func):
-        plugin_manager.register_extensible_generic(func_name, func)
+        if plugin_manager:
+            plugin_manager.register_extensible_generic(func_name, func)
         return func
 
     return decorator
@@ -117,9 +119,10 @@ def extensible(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         result = func(*args, **kwargs)
-        result = plugin_manager.execute_extensions(
-            func.__name__, result, *args, **kwargs
-        )
+        if plugin_manager:
+            result = plugin_manager.execute_extensions(
+                func.__name__, result, *args, **kwargs
+            )
         return result
 
     return wrapper
@@ -127,15 +130,18 @@ def extensible(func):
 
 # extensible_generic decorator
 def extensible_generic(func):
-    from flask import current_app
+    from flask import current_app, has_app_context
 
-    current_app.logger.info(f"extensible_generic: {func.__name__}")
+    if has_app_context():
+        current_app.logger.info(f"extensible_generic: {func.__name__}")
 
     @wraps(func)
     def wrapper(*args, **kwargs):
         result = func(*args, **kwargs)
         if result:
             yield from result
+        if not plugin_manager:
+            return
         if func.__name__ in plugin_manager.extensible_generic_functions:
             result = plugin_manager.execute_extensible_generic(
                 func.__name__, *args, **kwargs

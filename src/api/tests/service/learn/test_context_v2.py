@@ -128,7 +128,9 @@ class NextChapterInteractionTests(unittest.TestCase):
 
     def test_emits_and_persists_button_once(self):
         with self.app.app_context():
-            events = list(self.ctx._emit_next_chapter_interaction())
+            events = list(
+                self.ctx._emit_next_chapter_interaction(self.ctx._current_attend)
+            )
             self.assertEqual(len(events), 1)
             next_event = events[0]
             self.assertEqual(next_event.type, GeneratedType.INTERACTION)
@@ -141,7 +143,7 @@ class NextChapterInteractionTests(unittest.TestCase):
             self.assertEqual(len(stored_blocks), 1)
 
             self.assertEqual(
-                list(self.ctx._emit_next_chapter_interaction()),
+                list(self.ctx._emit_next_chapter_interaction(self.ctx._current_attend)),
                 [],
             )
             self.assertEqual(
