@@ -95,9 +95,7 @@ def return_shifu_draft_dto(
         shifu_preview_url=shifu_preview_url,
         shifu_system_prompt=shifu_draft.llm_system_prompt,
         readonly=readonly,
-        archived=bool(archived_override)
-        if archived_override is not None
-        else bool(shifu_draft.archived),
+        archived=bool(archived_override) if archived_override is not None else False,
         can_manage_archive=can_manage_archive,
         created_user_bid=shifu_draft.created_user_bid or "",
         tts_enabled=bool(shifu_draft.tts_enabled),
@@ -499,8 +497,7 @@ def get_shifu_draft_list(
         )
 
         def is_archived(draft: DraftShifu) -> bool:
-            override = archive_map.get(draft.shifu_bid)
-            return bool(override) if override is not None else bool(draft.archived)
+            return bool(archive_map.get(draft.shifu_bid))
 
         filtered_shifus = [
             draft for draft in shifu_drafts if is_archived(draft) == archived
