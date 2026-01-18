@@ -1243,42 +1243,10 @@ export default function ShifuSettingDialog({
                           onChange={field.onChange}
                         />
                       </FormControl>
-<<<<<<< HEAD
-                      {currentShifu?.readonly ? null : (
-                        <div className='flex items-center gap-2'>
-                          <Button
-                            type='button'
-                            variant='outline'
-                            size='icon'
-                            disabled={isTempAtMin}
-                            onClick={() => adjustTemperature(-0.1)}
-                            className='h-9 w-9'
-                          >
-                            <Minus className='h-4 w-4' />
-                          </Button>
-                          <Button
-                            type='button'
-                            variant='outline'
-                            size='icon'
-                            disabled={isTempAtMax}
-                            onClick={() => adjustTemperature(0.1)}
-                            className='h-9 w-9'
-                          >
-                            <Plus className='h-4 w-4' />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-=======
                       <FormMessage />
                     </FormItem>
                   )}
                 />
->>>>>>> origin/main
 
                 <FormField
                   control={form.control}
@@ -1445,207 +1413,8 @@ export default function ShifuSettingDialog({
                         </Select>
                       </div>
 
-<<<<<<< HEAD
-                    {/* Voice Selection */}
-                    <div className='space-y-2'>
-                      <span className='text-sm font-medium text-foreground'>
-                        {t('module.shifuSetting.ttsVoice')}
-                      </span>
-                      <Select
-                        value={ttsVoiceId}
-                        onValueChange={value => {
-                          setTtsVoiceId(value);
-                          if (resolvedProvider === 'volcengine') {
-                            const selectedVoice = ttsVoiceOptions.find(
-                              option => option.value === value,
-                            );
-                            const inferredResourceId =
-                              selectedVoice?.resource_id;
-                            if (
-                              inferredResourceId &&
-                              inferredResourceId !== ttsModel
-                            ) {
-                              setTtsModel(inferredResourceId);
-                            }
-                          }
-                        }}
-                        disabled={currentShifu?.readonly}
-                      >
-                        <SelectTrigger className='h-9'>
-                          <SelectValue
-                            placeholder={t(
-                              'module.shifuSetting.ttsSelectVoice',
-                            )}
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ttsVoiceOptions.map(option => (
-                            <SelectItem
-                              key={option.value}
-                              value={option.value}
-                            >
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Speed Adjustment */}
-                    <div className='space-y-2'>
-                      <span className='text-sm font-medium text-foreground'>
-                        {t('module.shifuSetting.ttsSpeed')}
-                      </span>
-                      <p className='text-xs text-muted-foreground'>
-                        {t('module.shifuSetting.ttsSpeedHint')} (
-                        {currentProviderConfig?.speed.min} -{' '}
-                        {currentProviderConfig?.speed.max})
-                      </p>
-                      <div className='flex items-center gap-2'>
-                        <Input
-                          type='text'
-                          inputMode='decimal'
-                          value={ttsSpeedInput}
-                          onChange={e => {
-                            setTtsSpeedInput(e.target.value);
-                          }}
-                          onBlur={() => {
-                            const parsed = Number(ttsSpeedInput);
-                            const clamped = Number.isFinite(parsed)
-                              ? normalizeSpeed(parsed)
-                              : speedValue;
-                            setTtsSpeed(clamped);
-                            setTtsSpeedInput(clamped.toFixed(1));
-                          }}
-                          disabled={currentShifu?.readonly}
-                          className='h-9 w-24'
-                        />
-                        {!currentShifu?.readonly && (
-                          <div className='flex items-center gap-2'>
-                            <Button
-                              type='button'
-                              variant='outline'
-                              size='icon'
-                              disabled={isSpeedAtMin}
-                              onClick={() =>
-                                setTtsSpeed(() => {
-                                  const next = normalizeSpeed(
-                                    speedValue - speedStep,
-                                  );
-                                  setTtsSpeedInput(next.toFixed(1));
-                                  return next;
-                                })
-                              }
-                              className='h-9 w-9'
-                            >
-                              <Minus className='h-4 w-4' />
-                            </Button>
-                            <Button
-                              type='button'
-                              variant='outline'
-                              size='icon'
-                              disabled={isSpeedAtMax}
-                              onClick={() =>
-                                setTtsSpeed(() => {
-                                  const next = normalizeSpeed(
-                                    speedValue + speedStep,
-                                  );
-                                  setTtsSpeedInput(next.toFixed(1));
-                                  return next;
-                                })
-                              }
-                              className='h-9 w-9'
-                            >
-                              <Plus className='h-4 w-4' />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Pitch Adjustment */}
-                    <div className='space-y-2'>
-                      <span className='text-sm font-medium text-foreground'>
-                        {t('module.shifuSetting.ttsPitch')}
-                      </span>
-                      <p className='text-xs text-muted-foreground'>
-                        {t('module.shifuSetting.ttsPitchHint')} (
-                        {currentProviderConfig?.pitch.min} -{' '}
-                        {currentProviderConfig?.pitch.max})
-                      </p>
-                      <div className='flex items-center gap-2'>
-                        <Input
-                          type='text'
-                          inputMode='decimal'
-                          value={ttsPitchInput}
-                          onChange={e => {
-                            const raw = e.target.value;
-                            setTtsPitchInput(raw);
-                          }}
-                          onBlur={() => {
-                            const parsed = Number(ttsPitchInput);
-                            const clamped = Number.isFinite(parsed)
-                              ? clampPitch(parsed)
-                              : pitchValue;
-                            const rounded = Math.round(clamped);
-                            setTtsPitch(rounded);
-                            setTtsPitchInput(String(rounded));
-                          }}
-                          disabled={currentShifu?.readonly}
-                          className='h-9 w-24'
-                        />
-                        {!currentShifu?.readonly && (
-                          <div className='flex items-center gap-2'>
-                            <Button
-                              type='button'
-                              variant='outline'
-                              size='icon'
-                              disabled={isPitchAtMin}
-                              onClick={() =>
-                                setTtsPitch(() => {
-                                  const next = Math.max(
-                                    pitchMin,
-                                    pitchValue - pitchStep,
-                                  );
-                                  setTtsPitchInput(String(next));
-                                  return next;
-                                })
-                              }
-                              className='h-9 w-9'
-                            >
-                              <Minus className='h-4 w-4' />
-                            </Button>
-                            <Button
-                              type='button'
-                              variant='outline'
-                              size='icon'
-                              disabled={isPitchAtMax}
-                              onClick={() =>
-                                setTtsPitch(() => {
-                                  const next = Math.min(
-                                    pitchMax,
-                                    pitchValue + pitchStep,
-                                  );
-                                  setTtsPitchInput(String(next));
-                                  return next;
-                                })
-                              }
-                              className='h-9 w-9'
-                            >
-                              <Plus className='h-4 w-4' />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Emotion Selection - only show if provider supports emotion */}
-                    {currentProviderConfig?.supports_emotion &&
-                      ttsEmotionOptions.length > 0 && (
-=======
                       {/* Model Selection (only for providers with model options) */}
                       {ttsModelOptions.length > 1 && (
->>>>>>> origin/main
                         <div className='space-y-2'>
                           <span className='text-sm font-medium text-foreground'>
                             {t('module.shifuSetting.ttsModel')}
@@ -1675,6 +1444,232 @@ export default function ShifuSettingDialog({
                           </Select>
                         </div>
                       )}
+
+                      {/* Voice Selection */}
+                      <div className='space-y-2'>
+                        <span className='text-sm font-medium text-foreground'>
+                          {t('module.shifuSetting.ttsVoice')}
+                        </span>
+                        <Select
+                          value={ttsVoiceId}
+                          onValueChange={value => {
+                            setTtsVoiceId(value);
+                            if (resolvedProvider === 'volcengine') {
+                              const selectedVoice = ttsVoiceOptions.find(
+                                option => option.value === value,
+                              );
+                              const inferredResourceId =
+                                selectedVoice?.resource_id;
+                              if (
+                                inferredResourceId &&
+                                inferredResourceId !== ttsModel
+                              ) {
+                                setTtsModel(inferredResourceId);
+                              }
+                            }
+                          }}
+                          disabled={currentShifu?.readonly}
+                        >
+                          <SelectTrigger className='h-9'>
+                            <SelectValue
+                              placeholder={t(
+                                'module.shifuSetting.ttsSelectVoice',
+                              )}
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ttsVoiceOptions.map(option => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Speed Adjustment */}
+                      <div className='space-y-2'>
+                        <span className='text-sm font-medium text-foreground'>
+                          {t('module.shifuSetting.ttsSpeed')}
+                        </span>
+                        <p className='text-xs text-muted-foreground'>
+                          {t('module.shifuSetting.ttsSpeedHint')} (
+                          {currentProviderConfig?.speed.min} -{' '}
+                          {currentProviderConfig?.speed.max})
+                        </p>
+                        <div className='flex items-center gap-2'>
+                          <Input
+                            type='text'
+                            inputMode='decimal'
+                            value={ttsSpeedInput}
+                            onChange={e => {
+                              setTtsSpeedInput(e.target.value);
+                            }}
+                            onBlur={() => {
+                              const parsed = Number(ttsSpeedInput);
+                              const clamped = Number.isFinite(parsed)
+                                ? normalizeSpeed(parsed)
+                                : speedValue;
+                              setTtsSpeed(clamped);
+                              setTtsSpeedInput(clamped.toFixed(1));
+                            }}
+                            disabled={currentShifu?.readonly}
+                            className='h-9 w-24'
+                          />
+                          {!currentShifu?.readonly && (
+                            <div className='flex items-center gap-2'>
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='icon'
+                                disabled={isSpeedAtMin}
+                                onClick={() =>
+                                  setTtsSpeed(() => {
+                                    const next = normalizeSpeed(
+                                      speedValue - speedStep,
+                                    );
+                                    setTtsSpeedInput(next.toFixed(1));
+                                    return next;
+                                  })
+                                }
+                                className='h-9 w-9'
+                              >
+                                <Minus className='h-4 w-4' />
+                              </Button>
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='icon'
+                                disabled={isSpeedAtMax}
+                                onClick={() =>
+                                  setTtsSpeed(() => {
+                                    const next = normalizeSpeed(
+                                      speedValue + speedStep,
+                                    );
+                                    setTtsSpeedInput(next.toFixed(1));
+                                    return next;
+                                  })
+                                }
+                                className='h-9 w-9'
+                              >
+                                <Plus className='h-4 w-4' />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Pitch Adjustment */}
+                      <div className='space-y-2'>
+                        <span className='text-sm font-medium text-foreground'>
+                          {t('module.shifuSetting.ttsPitch')}
+                        </span>
+                        <p className='text-xs text-muted-foreground'>
+                          {t('module.shifuSetting.ttsPitchHint')} (
+                          {currentProviderConfig?.pitch.min} -{' '}
+                          {currentProviderConfig?.pitch.max})
+                        </p>
+                        <div className='flex items-center gap-2'>
+                          <Input
+                            type='text'
+                            inputMode='decimal'
+                            value={ttsPitchInput}
+                            onChange={e => {
+                              const raw = e.target.value;
+                              setTtsPitchInput(raw);
+                            }}
+                            onBlur={() => {
+                              const parsed = Number(ttsPitchInput);
+                              const clamped = Number.isFinite(parsed)
+                                ? clampPitch(parsed)
+                                : pitchValue;
+                              const rounded = Math.round(clamped);
+                              setTtsPitch(rounded);
+                              setTtsPitchInput(String(rounded));
+                            }}
+                            disabled={currentShifu?.readonly}
+                            className='h-9 w-24'
+                          />
+                          {!currentShifu?.readonly && (
+                            <div className='flex items-center gap-2'>
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='icon'
+                                disabled={isPitchAtMin}
+                                onClick={() =>
+                                  setTtsPitch(() => {
+                                    const next = Math.max(
+                                      pitchMin,
+                                      pitchValue - pitchStep,
+                                    );
+                                    setTtsPitchInput(String(next));
+                                    return next;
+                                  })
+                                }
+                                className='h-9 w-9'
+                              >
+                                <Minus className='h-4 w-4' />
+                              </Button>
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='icon'
+                                disabled={isPitchAtMax}
+                                onClick={() =>
+                                  setTtsPitch(() => {
+                                    const next = Math.min(
+                                      pitchMax,
+                                      pitchValue + pitchStep,
+                                    );
+                                    setTtsPitchInput(String(next));
+                                    return next;
+                                  })
+                                }
+                                className='h-9 w-9'
+                              >
+                                <Plus className='h-4 w-4' />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Emotion Selection - only show if provider supports emotion */}
+                      {currentProviderConfig?.supports_emotion &&
+                        ttsEmotionOptions.length > 0 && (
+                          <div className='space-y-2'>
+                            <span className='text-sm font-medium text-foreground'>
+                              {t('module.shifuSetting.ttsModel')}
+                            </span>
+                            <Select
+                              value={ttsModel}
+                              onValueChange={setTtsModel}
+                              disabled={currentShifu?.readonly}
+                            >
+                              <SelectTrigger className='h-9'>
+                                <SelectValue
+                                  placeholder={t(
+                                    'module.shifuSetting.ttsSelectModel',
+                                  )}
+                                />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {ttsModelOptions.map(option => (
+                                  <SelectItem
+                                    key={option.value || 'default'}
+                                    value={option.value || 'default'}
+                                  >
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
 
                       {/* Voice Selection */}
                       <div className='space-y-2'>
