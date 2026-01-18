@@ -527,12 +527,10 @@ export default function ShifuSettingDialog({
     ) => {
       try {
         const providerForSubmit =
-          ttsEnabled && ttsConfig
-            ? normalizedProvider ||
-              ttsConfig?.default_provider ||
-              ttsConfig?.providers?.[0]?.name ||
-              ''
-            : '';
+          ttsConfig?.default_provider ||
+          normalizedProvider ||
+          ttsConfig?.providers?.[0]?.name ||
+          '';
 
         if (ttsEnabled && !providerForSubmit) {
           toast({
