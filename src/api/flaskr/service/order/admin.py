@@ -51,6 +51,7 @@ from flaskr.service.promo.consts import (
 from flaskr.service.promo.models import CouponUsage
 from flaskr.service.shifu.models import DraftShifu
 from flaskr.service.shifu.shifu_draft_funcs import get_user_created_shifu_bids
+from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 from flaskr.service.user.repository import (
     ensure_user_for_identifier,
@@ -161,22 +162,6 @@ def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
         except ValueError:
             continue
     return None
-
-
-def _user_owns_shifu(user_id: str, shifu_bid: str) -> bool:
-    """Return True if the shifu is created by the requested user."""
-    if not shifu_bid:
-        return False
-    return (
-        db.session.query(DraftShifu.id)
-        .filter(
-            DraftShifu.shifu_bid == shifu_bid,
-            DraftShifu.created_user_bid == user_id,
-            DraftShifu.deleted == 0,
-        )
-        .first()
-        is not None
-    )
 
 
 def _load_shifu_map(shifu_bids: list[str]) -> Dict[str, DraftShifu]:
@@ -595,7 +580,8 @@ def get_order_detail(app: Flask, user_id: str, order_bid: str) -> OrderAdminDeta
         ).first()
         if not order:
             raise_error("server.order.orderNotFound")
-        if not _user_owns_shifu(user_id, order.shifu_bid):
+        creator_bid = get_shifu_creator_bid(app, order.shifu_bid)
+        if creator_bid != user_id:
             raise_error("server.shifu.noPermission")
 
         shifu_map = _load_shifu_map([order.shifu_bid])
