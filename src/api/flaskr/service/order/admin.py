@@ -50,6 +50,7 @@ from flaskr.service.promo.consts import (
 )
 from flaskr.service.promo.models import CouponUsage
 from flaskr.service.shifu.models import DraftShifu
+from flaskr.service.shifu.shifu_draft_funcs import get_user_created_shifu_bids
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 from flaskr.service.user.repository import (
     ensure_user_for_identifier,
@@ -160,20 +161,6 @@ def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
         except ValueError:
             continue
     return None
-
-
-def _get_user_created_shifu_bids(user_id: str) -> list[str]:
-    """Return the list of non-deleted shifu bids created by the given user."""
-    rows = (
-        db.session.query(DraftShifu.shifu_bid)
-        .filter(
-            DraftShifu.created_user_bid == user_id,
-            DraftShifu.deleted == 0,
-        )
-        .distinct()
-        .all()
-    )
-    return [row[0] for row in rows if row and row[0]]
 
 
 def _user_owns_shifu(user_id: str, shifu_bid: str) -> bool:
@@ -406,7 +393,7 @@ def list_orders(
         page_size = max(page_size, 1)
         filters = filters or {}
 
-        shifu_bids = _get_user_created_shifu_bids(user_id)
+        shifu_bids = get_user_created_shifu_bids(app, user_id)
         if not shifu_bids:
             return PageNationDTO(page_index, page_size, 0, [])
 

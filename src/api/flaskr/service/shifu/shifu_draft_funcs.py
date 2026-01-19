@@ -463,7 +463,7 @@ def get_shifu_draft_list(
         page_offset = (page_index - 1) * page_size
 
         if creator_only:
-            shifu_bids = _get_user_created_shifu_bids(app, user_id)
+            shifu_bids = get_user_created_shifu_bids(app, user_id)
         else:
             permission_map = get_user_shifu_permissions(app, user_id)
             shifu_bids = list(permission_map.keys())
@@ -536,7 +536,8 @@ def get_shifu_draft_list(
         return PageNationDTO(page_index, page_size, total, shifu_dtos)
 
 
-def _get_user_created_shifu_bids(app: Flask, user_id: str) -> list[str]:
+def get_user_created_shifu_bids(app: Flask, user_id: str) -> list[str]:
+    """Return shifu bids created by the specified user."""
     with app.app_context():
         rows = (
             db.session.query(DraftShifu.shifu_bid)
