@@ -13,6 +13,7 @@ import {
 } from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import type { AudioCompleteData } from '@/c-api/studyV2';
+import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import VariableList from './VariableList';
 import {
   getStoredPreviewVariables,
@@ -170,19 +171,27 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                       onToggleAskExpanded={noop}
                       disableAskButton
                       disableInteractionButtons
-                      showAudioPlayer
-                      audioUrl={parentContentItem?.audioUrl}
-                      audioSegments={parentContentItem?.audioSegments}
-                      isAudioStreaming={parentContentItem?.isAudioStreaming}
-                      onRequestAudio={
-                        onRequestAudioForBlock
-                          ? () =>
-                              onRequestAudioForBlock({
-                                shifuBid,
-                                blockId: parentBlockBid,
-                                text: parentContentItem?.content || '',
-                              })
-                          : undefined
+                      extraActions={
+                        <AudioPlayer
+                          audioUrl={parentContentItem?.audioUrl}
+                          streamingSegments={parentContentItem?.audioSegments}
+                          isStreaming={Boolean(
+                            parentContentItem?.isAudioStreaming,
+                          )}
+                          alwaysVisible={true}
+                          onRequestAudio={
+                            onRequestAudioForBlock
+                              ? () =>
+                                  onRequestAudioForBlock({
+                                    shifuBid,
+                                    blockId: parentBlockBid,
+                                    text: parentContentItem?.content || '',
+                                  })
+                              : undefined
+                          }
+                          className='interaction-icon-btn'
+                          size={16}
+                        />
                       }
                     />
                   </div>

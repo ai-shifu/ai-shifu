@@ -1,5 +1,5 @@
 import styles from './ChatComponents.module.scss';
-import { ArrowDown, ChevronsDown } from 'lucide-react';
+import { ChevronsDown } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import {
   useContext,
@@ -8,7 +8,6 @@ import {
   useCallback,
   useState,
   useEffect,
-  useMemo,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -21,10 +20,8 @@ import { useUserStore } from '@/store';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { toast } from '@/hooks/useToast';
 import InteractionBlock from './InteractionBlock';
-import useChatLogicHook, {
-  ChatContentItem,
-  ChatContentItemType,
-} from './useChatLogicHook';
+import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
+import type { ChatContentItem } from './useChatLogicHook';
 import AskBlock from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
@@ -156,92 +153,6 @@ export const NewChatComponents = ({
   });
   const [longPressedBlockBid, setLongPressedBlockBid] = useState<string>('');
 
-  // Audio playback state management
-  // Auto-play is enabled by default for TTS - starts when first audio arrives
-  const [autoPlayAudio] = useState(true);
-  // Track which block is currently playing audio (for sequential playback)
-  // Use both state (for re-renders) and ref (for callbacks)
-  const [currentPlayingBlockBid, setCurrentPlayingBlockBid] = useState<
-    string | null
-  >(null);
-  const currentPlayingBlockBidRef = useRef<string | null>(null);
-  // Queue of blocks waiting to play
-  const audioQueueRef = useRef<string[]>([]);
-  // Track blocks that have already completed playing (don't auto-play again)
-  const playedBlocksRef = useRef<Set<string>>(new Set());
-
-  // Keep ref in sync with state
-  useEffect(() => {
-    currentPlayingBlockBidRef.current = currentPlayingBlockBid;
-  }, [currentPlayingBlockBid]);
-
-  // Handle audio play state change - use ref to avoid stale closure
-  const handleAudioPlayStateChange = useCallback(
-    (blockBid: string, isPlaying: boolean) => {
-      if (isPlaying) {
-        currentPlayingBlockBidRef.current = blockBid;
-        setCurrentPlayingBlockBid(blockBid);
-      } else {
-        // Check using ref for the most up-to-date value
-        if (currentPlayingBlockBidRef.current === blockBid) {
-          // Mark this block as played so it won't auto-play again
-          playedBlocksRef.current.add(blockBid);
-
-          // Current audio finished, play next in queue
-          const nextBlockBid = audioQueueRef.current.shift();
-          if (nextBlockBid) {
-            currentPlayingBlockBidRef.current = nextBlockBid;
-            setCurrentPlayingBlockBid(nextBlockBid);
-          } else {
-            currentPlayingBlockBidRef.current = null;
-            setCurrentPlayingBlockBid(null);
-          }
-        }
-      }
-    },
-    [],
-  ); // No dependencies - uses refs
-
-  // Check if a block should auto-play (first in queue or currently playing)
-  const shouldAutoPlay = useCallback(
-    (blockBid: string, hasAudio: boolean) => {
-      const result = (() => {
-        if (!autoPlayAudio || !hasAudio) return false;
-
-        // If this block has already completed playing, don't auto-play again
-        if (playedBlocksRef.current.has(blockBid)) {
-          return false;
-        }
-
-        // If nothing is playing, this block can play
-        if (!currentPlayingBlockBid) {
-          return true;
-        }
-
-        // If this block is the current playing one
-        if (currentPlayingBlockBid === blockBid) {
-          return true;
-        }
-
-        // Otherwise, add to queue if not already there
-        if (!audioQueueRef.current.includes(blockBid)) {
-          audioQueueRef.current.push(blockBid);
-        }
-        return false;
-      })();
-      return result;
-    },
-    [autoPlayAudio, currentPlayingBlockBid],
-  );
-
-  // Reset audio state when lesson changes
-  useEffect(() => {
-    playedBlocksRef.current.clear();
-    audioQueueRef.current = [];
-    currentPlayingBlockBidRef.current = null;
-    setCurrentPlayingBlockBid(null);
-  }, [lessonId]);
-
   const {
     items,
     isLoading,
@@ -249,7 +160,6 @@ export const NewChatComponents = ({
     onRefresh,
     toggleAskExpanded,
     reGenerateConfirm,
-    requestAudioForBlock,
   } = useChatLogicHook({
     onGoChapter,
     shifuBid,
@@ -269,16 +179,6 @@ export const NewChatComponents = ({
     showOutputInProgressToast,
     onPayModalOpen,
   });
-
-  const itemByGeneratedBid = useMemo(() => {
-    const map = new Map<string, ChatContentItem>();
-    items.forEach(item => {
-      if (item.generated_block_bid) {
-        map.set(item.generated_block_bid, item);
-      }
-    });
-    return map;
-  }, [items]);
 
   const handleLongPress = useCallback(
     (event: any, currentBlock: ChatContentItem) => {
@@ -479,23 +379,6 @@ export const NewChatComponents = ({
 
               if (item.type === ChatContentItemType.LIKE_STATUS) {
                 const parentBlockBid = item.parent_block_bid || '';
-                const parentContentItem =
-                  itemByGeneratedBid.get(parentBlockBid);
-
-                const hasAudioForAutoPlay =
-                  parentContentItem &&
-                  !parentContentItem.isHistory &&
-                  Boolean(
-                    parentContentItem.audioUrl ||
-                    parentContentItem.audioSegments?.length ||
-                    parentContentItem.isAudioStreaming,
-                  );
-
-                const blockAutoPlay = shouldAutoPlay(
-                  parentBlockBid,
-                  Boolean(hasAudioForAutoPlay),
-                );
-
                 return mobileStyle ? null : (
                   <div
                     key={`like-${parentKey}`}
@@ -512,35 +395,10 @@ export const NewChatComponents = ({
                       readonly={item.readonly}
                       onRefresh={onRefresh}
                       onToggleAskExpanded={toggleAskExpanded}
-                      showAudioPlayer={false}
-                      audioPreviewMode={false}
-                      audioUrl={parentContentItem?.audioUrl}
-                      audioSegments={parentContentItem?.audioSegments}
-                      isAudioStreaming={parentContentItem?.isAudioStreaming}
-                      onRequestAudio={() =>
-                        requestAudioForBlock(parentBlockBid)
-                      }
-                      autoPlayAudio={blockAutoPlay}
-                      onAudioPlayStateChange={isPlaying =>
-                        handleAudioPlayStateChange(parentBlockBid, isPlaying)
-                      }
                     />
                   </div>
                 );
               }
-
-              // Mobile renders the audio control below content; desktop renders it in InteractionBlock.
-              const hasAudioForAutoPlay =
-                mobileStyle &&
-                !item.isHistory &&
-                Boolean(
-                  item.audioUrl ||
-                  item.audioSegments?.length ||
-                  item.isAudioStreaming,
-                );
-              const blockAutoPlay = mobileStyle
-                ? shouldAutoPlay(item.generated_block_bid, hasAudioForAutoPlay)
-                : false;
 
               return (
                 <div
@@ -568,17 +426,6 @@ export const NewChatComponents = ({
                     onClickCustomButtonAfterContent={handleClickAskButton}
                     onSend={memoizedOnSend}
                     onLongPress={handleLongPress}
-                    showAudioPlayer={false}
-                    onRequestAudio={() =>
-                      requestAudioForBlock(item.generated_block_bid)
-                    }
-                    autoPlayAudio={blockAutoPlay}
-                    onAudioPlayStateChange={isPlaying =>
-                      handleAudioPlayStateChange(
-                        item.generated_block_bid,
-                        isPlaying,
-                      )
-                    }
                   />
                 </div>
               );
