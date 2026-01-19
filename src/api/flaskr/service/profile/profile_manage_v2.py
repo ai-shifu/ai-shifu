@@ -19,7 +19,6 @@ from .dtos import (
 )
 from .models import (
     PROFILE_CONF_TYPE_ITEM,
-    PROFILE_SHOW_TYPE_HIDDEN,
     PROFILE_TYPE_INPUT_SELECT,
     PROFILE_TYPE_INPUT_TEXT,
     PROFILE_TYPE_INPUT_UNCONF,
@@ -131,13 +130,8 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
     profile_item.profile_item_bid = profile_item_bid
     profile_item.profile_key = key
     profile_item.profile_type = PROFILE_TYPE_INPUT_UNCONF
-    profile_item.profile_show_type = PROFILE_SHOW_TYPE_HIDDEN
     profile_item.profile_remark = ""
     profile_item.profile_color_setting = str(get_next_color_setting(parent_id))
-    profile_item.profile_prompt = ""
-    profile_item.profile_prompt_type = 0
-    profile_item.profile_prompt_model = ""
-    profile_item.profile_prompt_model_args = "{}"
     profile_item.created_user_bid = user_id
     profile_item.updated_user_bid = user_id
     profile_item.deleted = 0
@@ -153,11 +147,7 @@ def save_profile_item(
     user_id: str,
     key: str,
     type: int,
-    show_type: int = PROFILE_SHOW_TYPE_HIDDEN,
     remark: str = "",
-    profile_prompt: str | None = None,
-    profile_prompt_model: str | None = None,
-    profile_prompt_model_args: str | None = None,
     items: list[ProfileValueDto] | None = None,
 ) -> ProfileItemDefinition:
     """
@@ -191,25 +181,16 @@ def save_profile_item(
             profile_item.updated_user_bid = user_id
             profile_item.profile_key = key
             profile_item.profile_type = type
-            profile_item.profile_show_type = show_type
             profile_item.profile_remark = remark or ""
             profile_item.profile_color_setting = str(get_next_color_setting(parent_id))
-            profile_item.profile_prompt = profile_prompt or ""
-            profile_item.profile_prompt_model = profile_prompt_model or ""
-            if profile_prompt_model_args is not None:
-                profile_item.profile_prompt_model_args = profile_prompt_model_args
         else:
             profile_item = ProfileItem(
                 shifu_bid=parent_id,
                 profile_item_bid=generate_id(app),
                 profile_key=key,
                 profile_type=type,
-                profile_show_type=show_type,
                 profile_remark=remark or "",
                 profile_color_setting=str(get_next_color_setting(parent_id)),
-                profile_prompt=profile_prompt or "",
-                profile_prompt_model=profile_prompt_model or "",
-                profile_prompt_model_args=profile_prompt_model_args or "{}",
                 created_user_bid=user_id,
                 updated_user_bid=user_id,
                 deleted=0,
@@ -227,9 +208,6 @@ def save_profile_item(
         ).first()
         if exist_item:
             raise_error("server.profile.keyExist")
-
-        if type == PROFILE_TYPE_INPUT_TEXT and not profile_prompt:
-            profile_prompt = ""
 
         if type == PROFILE_TYPE_INPUT_SELECT and not items:
             raise_error("server.profile.itemsRequired")

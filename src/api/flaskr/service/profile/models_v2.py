@@ -144,20 +144,6 @@ class ProfileItem(db.Model):
         ),
     )
 
-    profile_value_type = Column(
-        Integer,
-        nullable=False,
-        default=0,
-        comment="Profile value type: 3001=all, 3002=specific",
-    )
-
-    profile_show_type = Column(
-        Integer,
-        nullable=False,
-        default=0,
-        comment="Profile show type: 3001=all, 3002=user, 3003=course, 3004=hidden",
-    )
-
     profile_remark = Column(
         Text,
         nullable=False,
@@ -165,54 +151,11 @@ class ProfileItem(db.Model):
         comment="Profile remark",
     )
 
-    profile_prompt_type = Column(
-        Integer,
-        nullable=False,
-        default=0,
-        comment="Profile prompt type: 3101=profile, 3102=item",
-    )
-
-    profile_raw_prompt = Column(
-        Text,
-        nullable=False,
-        default="",
-        comment="Profile raw prompt",
-    )
-
-    profile_prompt = Column(
-        Text,
-        nullable=False,
-        default="",
-        comment="Profile prompt",
-    )
-
-    profile_prompt_model = Column(
-        Text,
-        nullable=False,
-        default="",
-        comment="Profile prompt model",
-    )
-
-    profile_prompt_model_args = Column(
-        Text,
-        nullable=False,
-        default="",
-        comment="Profile prompt model args",
-    )
-
     profile_color_setting = Column(
         String(255),
         nullable=False,
         default="",
         comment="Profile color",
-    )
-
-    profile_script_bid = Column(
-        String(36),
-        nullable=False,
-        default="",
-        index=True,
-        comment="Profile script business identifier",
     )
 
     deleted = Column(
