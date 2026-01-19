@@ -441,7 +441,6 @@ def get_shifu_draft_list(
     page_size: int,
     is_favorite: bool,
     archived: bool = False,
-    creator_only: bool = False,
 ):
     """
     Get shifu draft list
@@ -452,7 +451,6 @@ def get_shifu_draft_list(
         page_size: Page size
         is_favorite: Is favorite
         archived: Filter archived (True) or active (False) shifus
-        creator_only: Only include shifus created by the user
     Returns:
         PageNationDTO: Page nation dto
     """
@@ -461,20 +459,8 @@ def get_shifu_draft_list(
         page_size = max(page_size, 1)
         page_offset = (page_index - 1) * page_size
 
-        if creator_only:
-            shifu_bids = [
-                row[0]
-                for row in db.session.query(DraftShifu.shifu_bid)
-                .filter(
-                    DraftShifu.created_user_bid == user_id,
-                    DraftShifu.deleted == 0,
-                )
-                .distinct()
-                .all()
-            ]
-        else:
-            permission_map = get_user_shifu_permissions(app, user_id)
-            shifu_bids = list(permission_map.keys())
+        permission_map = get_user_shifu_permissions(app, user_id)
+        shifu_bids = list(permission_map.keys())
         if not shifu_bids:
             return PageNationDTO(page_index, page_size, 0, [])
 

@@ -199,13 +199,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             - name: is_favorite
               type: boolean
               required: true
-            - name: creator_only
-              type: boolean
-              required: false
-              description: Defaults to true when omitted
-            - name: archived
-              type: boolean
-              required: false
         responses:
             200:
                 description: get shifu list success
@@ -233,12 +226,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         archived = False
         if archived_param is not None:
             archived = archived_param.lower() == "true"
-        creator_only_param = request.args.get("creator_only")
-        if creator_only_param is None:
-            creator_only = True
-        else:
-            normalized = str(creator_only_param).strip().lower()
-            creator_only = normalized not in ("false", "0")
         try:
             page_index = int(page_index)
             page_size = int(page_size)
@@ -248,23 +235,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         if page_index < 0 or page_size < 1:
             raise_param_error("page_index or page_size is less than 0")
         app.logger.info(
-            "get shifu list, user_id: %s, page_index: %s, page_size: %s, is_favorite: %s, archived: %s, creator_only: %s",
-            user_id,
-            page_index,
-            page_size,
-            is_favorite,
-            archived,
-            creator_only,
+            f"get shifu list, user_id: {user_id}, page_index: {page_index}, page_size: {page_size}, is_favorite: {is_favorite}"
         )
         return make_common_response(
             get_shifu_draft_list(
-                app,
-                user_id,
-                page_index,
-                page_size,
-                is_favorite,
-                archived,
-                creator_only,
+                app, user_id, page_index, page_size, is_favorite, archived
             )
         )
 
