@@ -1343,12 +1343,12 @@ export default function ShifuSettingDialog({
                 />
 
                 {/* TTS Configuration Section */}
-                <div className='space-y-4 mb-4 p-4 border rounded-lg'>
-                  <div className='flex items-center justify-between'>
-                    <div>
-                      <span className='text-sm font-medium text-foreground'>
+                <div className='mb-6'>
+                  <div className='flex items-start justify-between mb-4'>
+                    <div className='space-y-1'>
+                      <FormLabel className='text-sm font-medium text-foreground'>
                         {t('module.shifuSetting.ttsTitle')}
-                      </span>
+                      </FormLabel>
                       <p className='text-xs text-muted-foreground'>
                         {t('module.shifuSetting.ttsDescription')}
                       </p>
@@ -1363,10 +1363,10 @@ export default function ShifuSettingDialog({
                   {ttsEnabled && (
                     <>
                       {/* Provider Selection */}
-                      <div className='space-y-2'>
-                        <span className='text-sm font-medium text-foreground'>
+                      <div className='space-y-2 mb-4'>
+                        <FormLabel className='text-sm font-medium text-foreground'>
                           {t('module.shifuSetting.ttsProvider')}
-                        </span>
+                        </FormLabel>
                         <p className='text-xs text-muted-foreground'>
                           {t('module.shifuSetting.ttsProviderHint')}
                         </p>
@@ -1415,10 +1415,10 @@ export default function ShifuSettingDialog({
 
                       {/* Model Selection (only for providers with model options) */}
                       {ttsModelOptions.length > 1 && (
-                        <div className='space-y-2'>
-                          <span className='text-sm font-medium text-foreground'>
+                        <div className='space-y-2 mb-4'>
+                          <FormLabel className='text-sm font-medium text-foreground'>
                             {t('module.shifuSetting.ttsModel')}
-                          </span>
+                          </FormLabel>
                           <Select
                             value={ttsModel}
                             onValueChange={setTtsModel}
@@ -1446,10 +1446,10 @@ export default function ShifuSettingDialog({
                       )}
 
                       {/* Voice Selection */}
-                      <div className='space-y-2'>
-                        <span className='text-sm font-medium text-foreground'>
+                      <div className='space-y-2 mb-4'>
+                        <FormLabel className='text-sm font-medium text-foreground'>
                           {t('module.shifuSetting.ttsVoice')}
-                        </span>
+                        </FormLabel>
                         <Select
                           value={ttsVoiceId}
                           onValueChange={value => {
@@ -1491,10 +1491,10 @@ export default function ShifuSettingDialog({
                       </div>
 
                       {/* Speed Adjustment */}
-                      <div className='space-y-2'>
-                        <span className='text-sm font-medium text-foreground'>
+                      <div className='space-y-2 mb-4'>
+                        <FormLabel className='text-sm font-medium text-foreground'>
                           {t('module.shifuSetting.ttsSpeed')}
-                        </span>
+                        </FormLabel>
                         <p className='text-xs text-muted-foreground'>
                           {t('module.shifuSetting.ttsSpeedHint')} (
                           {currentProviderConfig?.speed.min} -{' '}
@@ -1517,7 +1517,7 @@ export default function ShifuSettingDialog({
                               setTtsSpeedInput(clamped.toFixed(1));
                             }}
                             disabled={currentShifu?.readonly}
-                            className='h-9 w-24'
+                            className='h-9 flex-1'
                           />
                           {!currentShifu?.readonly && (
                             <div className='flex items-center gap-2'>
@@ -1563,10 +1563,10 @@ export default function ShifuSettingDialog({
                       </div>
 
                       {/* Pitch Adjustment */}
-                      <div className='space-y-2'>
-                        <span className='text-sm font-medium text-foreground'>
+                      <div className='space-y-2 mb-4'>
+                        <FormLabel className='text-sm font-medium text-foreground'>
                           {t('module.shifuSetting.ttsPitch')}
-                        </span>
+                        </FormLabel>
                         <p className='text-xs text-muted-foreground'>
                           {t('module.shifuSetting.ttsPitchHint')} (
                           {currentProviderConfig?.pitch.min} -{' '}
@@ -1591,7 +1591,7 @@ export default function ShifuSettingDialog({
                               setTtsPitchInput(String(rounded));
                             }}
                             disabled={currentShifu?.readonly}
-                            className='h-9 w-24'
+                            className='h-9 flex-1'
                           />
                           {!currentShifu?.readonly && (
                             <div className='flex items-center gap-2'>
@@ -1641,10 +1641,10 @@ export default function ShifuSettingDialog({
                       {/* Emotion Selection - only show if provider supports emotion */}
                       {currentProviderConfig?.supports_emotion &&
                         ttsEmotionOptions.length > 0 && (
-                          <div className='space-y-2'>
-                            <span className='text-sm font-medium text-foreground'>
+                          <div className='space-y-2 mb-4'>
+                            <FormLabel className='text-sm font-medium text-foreground'>
                               {t('module.shifuSetting.ttsEmotion')}
-                            </span>
+                            </FormLabel>
                             <Select
                               value={ttsEmotion}
                               onValueChange={setTtsEmotion}
