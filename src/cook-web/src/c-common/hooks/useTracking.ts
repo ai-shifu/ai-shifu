@@ -25,7 +25,7 @@ export const useTracking = () => {
   }, [frameLayout, userInfo?.state, userInfo?.user_id]);
 
   const trackEvent = useCallback(
-    async (eventName, eventData) => {
+    async (eventName: string, eventData?: Record<string, any>) => {
       try {
         const basicData = getEventBasicData();
         const data = {
@@ -35,7 +35,9 @@ export const useTracking = () => {
         };
         // console.log('trackEvent', eventName, data);
         tracking(eventName, data);
-      } catch {}
+      } catch (error) {
+        console.error('Failed to track event:', eventName, error);
+      }
     },
     [getEventBasicData],
   );
@@ -54,10 +56,60 @@ export const useTracking = () => {
           progress_no: scriptInfo.position,
           progress_desc: scriptInfo.outline_name,
         });
-      } catch {}
+      } catch (error) {
+        console.error('Failed to track trial progress:', error);
+      }
     },
     [trackEvent],
   );
 
-  return { trackEvent, trackTrailProgress, EVENT_NAMES };
+  const trackBlockView = useCallback(
+    async (courseId: string, blockId: string) => {
+      try {
+        const { data: scriptInfo } = await getScriptInfo(courseId, blockId);
+
+        trackEvent(EVENT_NAMES.BLOCK_VIEW, {
+          shifu_bid: courseId,
+          block_bid: blockId,
+          position: scriptInfo?.position ?? 0,
+          outline_name: scriptInfo?.outline_name ?? '',
+          is_trial: scriptInfo?.is_trial_lesson ?? false,
+        });
+      } catch (error) {
+        console.error('Failed to track block view:', error);
+      }
+    },
+    [trackEvent],
+  );
+
+  const trackLessonComplete = useCallback(
+    (shifu_bid: string, outline_bid: string) => {
+      trackEvent(EVENT_NAMES.LESSON_COMPLETE, {
+        shifu_bid,
+        outline_bid,
+      });
+    },
+    [trackEvent],
+  );
+
+  const trackAiInteraction = useCallback(
+    (data: {
+      shifu_bid: string;
+      outline_bid: string;
+      interaction_type: 'user_message' | 'ai_response' | 'button_click';
+      message_length?: number;
+    }) => {
+      trackEvent(EVENT_NAMES.AI_INTERACTION, data);
+    },
+    [trackEvent],
+  );
+
+  return {
+    trackEvent,
+    trackTrailProgress,
+    trackBlockView,
+    trackLessonComplete,
+    trackAiInteraction,
+    EVENT_NAMES,
+  };
 };

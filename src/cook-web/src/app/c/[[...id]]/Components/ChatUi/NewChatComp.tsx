@@ -49,7 +49,13 @@ export const NewChatComponents = ({
   getNextLessonId,
   previewMode = false,
 }) => {
-  const { trackEvent, trackTrailProgress } = useTracking();
+  const {
+    trackEvent,
+    trackTrailProgress,
+    trackBlockView,
+    trackLessonComplete,
+    trackAiInteraction,
+  } = useTracking();
   const { t } = useTranslation();
   const confirmButtonText = t('module.renderUi.core.confirm');
   const copyButtonText = t('module.renderUi.core.copyCode');
@@ -260,6 +266,8 @@ export const NewChatComponents = ({
     trackEvent,
     chatBoxBottomRef,
     trackTrailProgress,
+    trackBlockView,
+    trackLessonComplete,
     lessonUpdate,
     chapterUpdate,
     updateSelectedLesson,
@@ -472,6 +480,7 @@ export const NewChatComponents = ({
                       generated_block_bid={item.parent_block_bid || ''}
                       onToggleAskExpanded={toggleAskExpanded}
                       askList={(item.ask_list || []) as any[]}
+                      trackAiInteraction={trackAiInteraction}
                     />
                   </div>
                 );

@@ -112,6 +112,8 @@ export interface UseChatSessionParams {
   previewMode?: boolean;
   trackEvent: (name: string, payload?: Record<string, any>) => void;
   trackTrailProgress: (courseId: string, generatedBlockBid: string) => void;
+  trackBlockView: (courseId: string, blockId: string) => void;
+  trackLessonComplete?: (shifu_bid: string, outline_bid: string) => void;
   lessonUpdate?: (params: Record<string, any>) => void;
   chapterUpdate?: (params: Record<string, any>) => void;
   updateSelectedLesson: (lessonId: string, forceExpand?: boolean) => void;
@@ -153,6 +155,8 @@ function useChatLogicHook({
   trackEvent,
   chatBoxBottomRef,
   trackTrailProgress,
+  trackBlockView,
+  trackLessonComplete,
   lessonUpdate,
   chapterUpdate,
   updateSelectedLesson,
@@ -415,8 +419,19 @@ function useChatLogicHook({
       if (status === LESSON_STATUS_VALUE.LEARNING && !isEnd) {
         updateSelectedLesson(currentOutlineBid);
       }
+
+      // Track lesson completion
+      if (status === LESSON_STATUS_VALUE.COMPLETED && !effectivePreviewMode) {
+        trackLessonComplete?.(shifuBid, currentOutlineBid);
+      }
     },
-    [lessonUpdate, updateSelectedLesson],
+    [
+      lessonUpdate,
+      updateSelectedLesson,
+      effectivePreviewMode,
+      shifuBid,
+      trackLessonComplete,
+    ],
   );
 
   /**
@@ -503,6 +518,7 @@ function useChatLogicHook({
 
             if (blockId && [SSE_OUTPUT_TYPE.BREAK].includes(response.type)) {
               trackTrailProgress(shifuBid, blockId);
+              trackBlockView(shifuBid, blockId);
             }
 
             if (response.type === SSE_OUTPUT_TYPE.INTERACTION) {
@@ -698,6 +714,7 @@ function useChatLogicHook({
       lessonId,
       mobileStyle,
       trackTrailProgress,
+      trackBlockView,
       updateUserInfo,
     ],
   );
