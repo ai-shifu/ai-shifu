@@ -83,11 +83,10 @@ export const useTracking = () => {
   );
 
   const trackLessonComplete = useCallback(
-    (shifu_bid: string, outline_bid: string, timeSpent: number) => {
+    (shifu_bid: string, outline_bid: string) => {
       trackEvent(EVENT_NAMES.LESSON_COMPLETE, {
         shifu_bid,
         outline_bid,
-        time_spent: timeSpent,
       });
     },
     [trackEvent],

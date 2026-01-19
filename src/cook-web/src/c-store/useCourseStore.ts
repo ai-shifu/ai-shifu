@@ -68,27 +68,5 @@ export const useCourseStore = create<
     setPayModalResult: result => {
       set(() => ({ payModalResult: result }));
     },
-    // Lesson time tracking
-    lessonStartTime: {},
-    setLessonStartTime: outlineBid => {
-      set(state => ({
-        lessonStartTime: {
-          ...state.lessonStartTime,
-          [outlineBid]: Date.now(),
-        },
-      }));
-    },
-    getLessonDuration: outlineBid => {
-      const startTime = get().lessonStartTime[outlineBid];
-      if (!startTime) return 0;
-      return Math.floor((Date.now() - startTime) / 1000); // Return seconds
-    },
-    clearLessonStartTime: outlineBid => {
-      set(state => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { [outlineBid]: _, ...rest } = state.lessonStartTime;
-        return { lessonStartTime: rest };
-      });
-    },
   })),
 );

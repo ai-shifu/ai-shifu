@@ -100,11 +100,7 @@ export interface UseChatSessionParams {
   trackEvent: (name: string, payload?: Record<string, any>) => void;
   trackTrailProgress: (courseId: string, generatedBlockBid: string) => void;
   trackBlockView: (courseId: string, blockId: string) => void;
-  trackLessonComplete?: (
-    shifu_bid: string,
-    outline_bid: string,
-    timeSpent: number,
-  ) => void;
+  trackLessonComplete?: (shifu_bid: string, outline_bid: string) => void;
   lessonUpdate?: (params: Record<string, any>) => void;
   chapterUpdate?: (params: Record<string, any>) => void;
   updateSelectedLesson: (lessonId: string, forceExpand?: boolean) => void;
@@ -405,23 +401,11 @@ function useChatLogicHook({
 
       if (status === LESSON_STATUS_VALUE.LEARNING && !isEnd) {
         updateSelectedLesson(currentOutlineBid);
-        // Set start time if not already set (handles resume scenario)
-        if (
-          !effectivePreviewMode &&
-          !useCourseStore.getState().lessonStartTime[currentOutlineBid]
-        ) {
-          useCourseStore.getState().setLessonStartTime(currentOutlineBid);
-        }
       }
 
       // Track lesson completion
       if (status === LESSON_STATUS_VALUE.COMPLETED && !effectivePreviewMode) {
-        const duration = useCourseStore
-          .getState()
-          .getLessonDuration(currentOutlineBid);
-        trackLessonComplete?.(shifuBid, currentOutlineBid, duration);
-        // Clear the start time after tracking
-        useCourseStore.getState().clearLessonStartTime(currentOutlineBid);
+        trackLessonComplete?.(shifuBid, currentOutlineBid);
       }
     },
     [
@@ -867,8 +851,6 @@ function useChatLogicHook({
           input_type: SSE_INPUT_TYPE.NORMAL,
         });
         if (!effectivePreviewMode) {
-          // Track lesson start and record start time
-          useCourseStore.getState().setLessonStartTime(outlineBid);
           trackEvent('learner_lesson_start', {
             shifu_bid: shifuBid,
             outline_bid: outlineBid,
