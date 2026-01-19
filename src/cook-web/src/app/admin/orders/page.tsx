@@ -133,8 +133,7 @@ const loadStoredColumnWidths = (): ColumnWidthState => {
     }
     const parsed = JSON.parse(serialized) as Partial<ColumnWidthState>;
     return createColumnWidthState(parsed);
-  } catch (error) {
-    console.warn('Failed to load stored column widths', error);
+  } catch {
     return createColumnWidthState();
   }
 };
@@ -332,8 +331,8 @@ const OrdersPage = () => {
         COLUMN_WIDTH_STORAGE_KEY,
         JSON.stringify(columnWidths),
       );
-    } catch (error) {
-      console.warn('Failed to persist column widths', error);
+    } catch {
+      // Ignore storage errors (e.g. private mode, quota issues).
     }
   }, [columnWidths]);
 
@@ -631,7 +630,7 @@ const OrdersPage = () => {
         if (!canceled) {
           setCourses(collected);
         }
-      } catch (error) {
+      } catch {
         if (!canceled) {
           setCourses([]);
           setCoursesError(t('common.core.networkError'));
@@ -806,7 +805,7 @@ const OrdersPage = () => {
               handlePageChange(1);
             }}
           >
-            1
+            {1}
           </PaginationLink>
         </PaginationItem>,
       );
@@ -1116,11 +1115,11 @@ const OrdersPage = () => {
                 >
                   <span
                     className={cn(
-                      'shrink-0 mr-2 text-sm font-medium text-foreground whitespace-nowrap text-right',
+                      "shrink-0 mr-2 text-sm font-medium text-foreground whitespace-nowrap text-right after:ml-0.5 after:content-[':']",
                       i18n.language?.startsWith('zh') ? 'w-18' : 'w-28',
                     )}
                   >
-                    {f.label}:
+                    {f.label}
                   </span>
                   <div className='flex-1 min-w-0'>{f.component}</div>
                 </div>
