@@ -260,15 +260,15 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
     birthday: Optional[date] = None
 
     try:
-        from flaskr.service.profile.models import UserProfile  # type: ignore
+        from flaskr.service.profile.models_v2 import UserProfile  # type: ignore
     except ImportError:  # pragma: no cover - defensive fallback
         UserProfile = None  # type: ignore[assignment]
 
     if UserProfile is not None:
         profile_rows = (
             UserProfile.query.filter(
-                UserProfile.user_id == user_bid,
-                UserProfile.status == 1,
+                UserProfile.user_bid == user_bid,
+                UserProfile.deleted == 0,
                 UserProfile.profile_key.in_(
                     ["sys_user_nickname", "avatar", "language", "birth"]
                 ),

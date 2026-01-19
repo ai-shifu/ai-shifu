@@ -7,7 +7,7 @@ from flaskr.dao import db
 from flaskr.service.shifu.dtos import MdflowDTOParseResult
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from flaskr.service.shifu.shifu_history_manager import save_outline_history
-from flaskr.service.profile.profile_manage import (
+from flaskr.service.profile.profile_manage_v2 import (
     get_profile_item_definition_list,
     add_profile_item_quick,
 )

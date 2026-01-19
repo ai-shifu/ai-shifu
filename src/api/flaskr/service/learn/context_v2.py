@@ -78,7 +78,7 @@ from flaskr.service.learn.learn_dtos import (
 from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
 from flaskr.service.learn.handle_input_ask import handle_input_ask
 from flaskr.service.profile.funcs import save_user_profiles, ProfileToSave
-from flaskr.service.profile.profile_manage import (
+from flaskr.service.profile.profile_manage_v2 import (
     get_profile_item_definition_list,
     ProfileItemDefinition,
 )

@@ -1,6 +1,6 @@
 from flask import Flask, request
 from flaskr.route.common import make_common_response
-from flaskr.service.profile.profile_manage import (
+from flaskr.service.profile.profile_manage_v2 import (
     get_profile_item_definition_list,
     add_profile_item_quick,
     get_profile_item_definition_option_list,
