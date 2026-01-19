@@ -50,11 +50,8 @@ from flaskr.service.promo.consts import (
 )
 from flaskr.service.promo.models import CouponUsage
 from flaskr.service.shifu.models import DraftShifu
-from flaskr.service.shifu.permissions import (
-    get_user_shifu_bids,
-    get_user_shifu_permissions,
-    has_shifu_permission,
-)
+from flaskr.service.shifu.shifu_draft_funcs import get_user_created_shifu_bids
+from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 from flaskr.service.user.repository import (
     ensure_user_for_identifier,
@@ -381,7 +378,7 @@ def list_orders(
         page_size = max(page_size, 1)
         filters = filters or {}
 
-        shifu_bids = get_user_shifu_bids(app, user_id)
+        shifu_bids = get_user_created_shifu_bids(app, user_id)
         if not shifu_bids:
             return PageNationDTO(page_index, page_size, 0, [])
 
@@ -577,14 +574,14 @@ def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
 def get_order_detail(app: Flask, user_id: str, order_bid: str) -> OrderAdminDetailDTO:
     """Return admin order detail after permission check for the operator."""
     with app.app_context():
-        permission_map = get_user_shifu_permissions(app, user_id)
         order = Order.query.filter(
             Order.order_bid == order_bid,
             Order.deleted == 0,
         ).first()
         if not order:
             raise_error("server.order.orderNotFound")
-        if not has_shifu_permission(permission_map, order.shifu_bid, "view"):
+        creator_bid = get_shifu_creator_bid(app, order.shifu_bid)
+        if creator_bid != user_id:
             raise_error("server.shifu.noPermission")
 
         shifu_map = _load_shifu_map([order.shifu_bid])

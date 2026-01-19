@@ -34,7 +34,7 @@ import {
 } from '@/components/ui/Popover';
 import { ScrollArea } from '@/components/ui/ScrollArea';
 import { cn } from '@/lib/utils';
-import { Check, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import type { Shifu } from '@/types/shifu';
 
 interface ImportActivationDialogProps {
@@ -259,10 +259,9 @@ const ImportActivationDialog = ({
         const seen = new Set<string>();
 
         while (true) {
-          const { items } = await api.getShifuList({
+          const { items } = await api.getAdminOrderShifus({
             page_index: pageIndex,
             page_size: pageSize,
-            is_favorite: false,
           });
           const pageItems = (items || []) as Shifu[];
           pageItems.forEach(item => {
@@ -280,7 +279,7 @@ const ImportActivationDialog = ({
         if (!canceled) {
           setCourses(collected);
         }
-      } catch (error) {
+      } catch {
         if (!canceled) {
           setCourses([]);
           setCoursesError(t('common.core.networkError'));

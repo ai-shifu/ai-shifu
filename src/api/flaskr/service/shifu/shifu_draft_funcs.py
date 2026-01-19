@@ -9,6 +9,7 @@ Date: 2025-08-07
 
 from typing import Optional
 
+from flask import Flask
 from ...dao import db
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from datetime import datetime
@@ -462,16 +463,7 @@ def get_shifu_draft_list(
         page_offset = (page_index - 1) * page_size
 
         if creator_only:
-            shifu_bids = [
-                row[0]
-                for row in db.session.query(DraftShifu.shifu_bid)
-                .filter(
-                    DraftShifu.created_user_bid == user_id,
-                    DraftShifu.deleted == 0,
-                )
-                .distinct()
-                .all()
-            ]
+            shifu_bids = get_user_created_shifu_bids(app, user_id)
         else:
             permission_map = get_user_shifu_permissions(app, user_id)
             shifu_bids = list(permission_map.keys())
@@ -542,6 +534,21 @@ def get_shifu_draft_list(
             for shifu_draft in shifu_drafts
         ]
         return PageNationDTO(page_index, page_size, total, shifu_dtos)
+
+
+def get_user_created_shifu_bids(app: Flask, user_id: str) -> list[str]:
+    """Return shifu bids created by the specified user."""
+    with app.app_context():
+        rows = (
+            db.session.query(DraftShifu.shifu_bid)
+            .filter(
+                DraftShifu.created_user_bid == user_id,
+                DraftShifu.deleted == 0,
+            )
+            .distinct()
+            .all()
+        )
+        return [row[0] for row in rows if row and row[0]]
 
 
 def _set_shifu_archive_state(app, user_id: str, shifu_id: str, archived: bool):

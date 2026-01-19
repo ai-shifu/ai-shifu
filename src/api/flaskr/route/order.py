@@ -17,6 +17,7 @@ from flaskr.service.order.admin import (
 )
 from flaskr.service.learn.learn_funcs import get_shifu_info
 from flaskr.common.shifu_context import with_shifu_context
+from flaskr.service.shifu.shifu_draft_funcs import get_shifu_draft_list
 
 
 def register_order_handler(app: Flask, path_prefix: str):
@@ -376,6 +377,68 @@ def register_order_handler(app: Flask, path_prefix: str):
         user_id = request.user.user_id
         return make_common_response(
             list_orders(app, user_id, page_index, page_size, filters)
+        )
+
+    @app.route(path_prefix + "/admin/orders/shifus", methods=["GET"])
+    def admin_order_shifu_list():
+        """
+        Created shifu list for order admin filters
+        ---
+        tags:
+            - 订单
+        parameters:
+            - name: page_index
+              type: integer
+              required: false
+              description: Page index (defaults to 1)
+            - name: page_size
+              type: integer
+              required: false
+              description: Page size (defaults to 200)
+            - name: archived
+              type: boolean
+              required: false
+              description: Whether to include archived shifus
+        responses:
+            200:
+                description: Creator-owned shifu list
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    $ref: "#/components/schemas/PageNationDTO"
+        """
+        _require_creator()
+        page_index = request.args.get("page_index", 1)
+        page_size = request.args.get("page_size", 200)
+        archived_param = request.args.get("archived")
+        archived = False
+        if archived_param is not None:
+            archived = archived_param.lower() == "true"
+        try:
+            page_index = int(page_index)
+            page_size = int(page_size)
+        except ValueError:
+            raise_param_error("page_index or page_size is not a number")
+        if page_index < 1 or page_size < 1:
+            raise_param_error("page_index or page_size is less than 1")
+
+        user_id = request.user.user_id
+        return make_common_response(
+            get_shifu_draft_list(
+                app,
+                user_id,
+                page_index,
+                page_size,
+                is_favorite=False,
+                archived=archived,
+                creator_only=True,
+            )
         )
 
     @app.route(path_prefix + "/admin/orders/import-activation", methods=["POST"])
