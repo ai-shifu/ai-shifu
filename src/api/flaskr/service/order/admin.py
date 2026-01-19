@@ -50,11 +50,6 @@ from flaskr.service.promo.consts import (
 )
 from flaskr.service.promo.models import CouponUsage
 from flaskr.service.shifu.models import DraftShifu
-from flaskr.service.shifu.permissions import (
-    get_user_shifu_bids,
-    get_user_shifu_permissions,
-    has_shifu_permission,
-)
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 from flaskr.service.user.repository import (
     ensure_user_for_identifier,
@@ -165,6 +160,36 @@ def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
         except ValueError:
             continue
     return None
+
+
+def _get_user_created_shifu_bids(user_id: str) -> list[str]:
+    """Return the list of non-deleted shifu bids created by the given user."""
+    rows = (
+        db.session.query(DraftShifu.shifu_bid)
+        .filter(
+            DraftShifu.created_user_bid == user_id,
+            DraftShifu.deleted == 0,
+        )
+        .distinct()
+        .all()
+    )
+    return [row[0] for row in rows if row and row[0]]
+
+
+def _user_owns_shifu(user_id: str, shifu_bid: str) -> bool:
+    """Return True if the shifu is created by the requested user."""
+    if not shifu_bid:
+        return False
+    return (
+        db.session.query(DraftShifu.id)
+        .filter(
+            DraftShifu.shifu_bid == shifu_bid,
+            DraftShifu.created_user_bid == user_id,
+            DraftShifu.deleted == 0,
+        )
+        .first()
+        is not None
+    )
 
 
 def _load_shifu_map(shifu_bids: list[str]) -> Dict[str, DraftShifu]:
@@ -381,7 +406,7 @@ def list_orders(
         page_size = max(page_size, 1)
         filters = filters or {}
 
-        shifu_bids = get_user_shifu_bids(app, user_id)
+        shifu_bids = _get_user_created_shifu_bids(user_id)
         if not shifu_bids:
             return PageNationDTO(page_index, page_size, 0, [])
 
@@ -577,14 +602,13 @@ def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
 def get_order_detail(app: Flask, user_id: str, order_bid: str) -> OrderAdminDetailDTO:
     """Return admin order detail after permission check for the operator."""
     with app.app_context():
-        permission_map = get_user_shifu_permissions(app, user_id)
         order = Order.query.filter(
             Order.order_bid == order_bid,
             Order.deleted == 0,
         ).first()
         if not order:
             raise_error("server.order.orderNotFound")
-        if not has_shifu_permission(permission_map, order.shifu_bid, "view"):
+        if not _user_owns_shifu(user_id, order.shifu_bid):
             raise_error("server.shifu.noPermission")
 
         shifu_map = _load_shifu_map([order.shifu_bid])

@@ -9,6 +9,7 @@ Date: 2025-08-07
 
 from typing import Optional
 
+from flask import Flask
 from ...dao import db
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from datetime import datetime
@@ -441,6 +442,7 @@ def get_shifu_draft_list(
     page_size: int,
     is_favorite: bool,
     archived: bool = False,
+    creator_only: bool = False,
 ):
     """
     Get shifu draft list
@@ -451,6 +453,7 @@ def get_shifu_draft_list(
         page_size: Page size
         is_favorite: Is favorite
         archived: Filter archived (True) or active (False) shifus
+        creator_only: Only include shifus created by the user
     Returns:
         PageNationDTO: Page nation dto
     """
@@ -459,8 +462,11 @@ def get_shifu_draft_list(
         page_size = max(page_size, 1)
         page_offset = (page_index - 1) * page_size
 
-        permission_map = get_user_shifu_permissions(app, user_id)
-        shifu_bids = list(permission_map.keys())
+        if creator_only:
+            shifu_bids = _get_user_created_shifu_bids(app, user_id)
+        else:
+            permission_map = get_user_shifu_permissions(app, user_id)
+            shifu_bids = list(permission_map.keys())
         if not shifu_bids:
             return PageNationDTO(page_index, page_size, 0, [])
 
@@ -528,6 +534,20 @@ def get_shifu_draft_list(
             for shifu_draft in shifu_drafts
         ]
         return PageNationDTO(page_index, page_size, total, shifu_dtos)
+
+
+def _get_user_created_shifu_bids(app: Flask, user_id: str) -> list[str]:
+    with app.app_context():
+        rows = (
+            db.session.query(DraftShifu.shifu_bid)
+            .filter(
+                DraftShifu.created_user_bid == user_id,
+                DraftShifu.deleted == 0,
+            )
+            .distinct()
+            .all()
+        )
+        return [row[0] for row in rows if row and row[0]]
 
 
 def _set_shifu_archive_state(app, user_id: str, shifu_id: str, archived: bool):
