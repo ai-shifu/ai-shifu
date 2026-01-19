@@ -10,12 +10,19 @@ export const redirectToHomeUrlIfRootPath = (homeUrl?: string): boolean => {
     return false;
   }
 
+  // Default to course tab for admin paths to avoid landing on orders by default
+  const preferredAdminHome = '/admin';
+  const target =
+    homeUrl && homeUrl.startsWith('/admin')
+      ? preferredAdminHome
+      : homeUrl || preferredAdminHome;
+
   const pathname = window.location.pathname || '/';
   const normalizedPath = pathname === '/' ? '/' : pathname.replace(/\/+$/, '');
   const shouldRedirect = normalizedPath === '/' || normalizedPath === '/c';
 
   if (shouldRedirect) {
-    window.location.replace(homeUrl);
+    window.location.replace(target);
     return true;
   }
 
