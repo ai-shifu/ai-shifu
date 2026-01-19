@@ -259,10 +259,9 @@ const ImportActivationDialog = ({
         const seen = new Set<string>();
 
         while (true) {
-          const { items } = await api.getShifuList({
+          const { items } = await api.getAdminOrderShifus({
             page_index: pageIndex,
             page_size: pageSize,
-            is_favorite: false,
           });
           const pageItems = (items || []) as Shifu[];
           pageItems.forEach(item => {
