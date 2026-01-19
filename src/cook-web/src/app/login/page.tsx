@@ -112,9 +112,14 @@ export default function AuthPage() {
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
 
   const resolveRedirectPath = useCallback(() => {
-    let redirect = searchParams.get('redirect');
+    const fallback = '/admin';
+    const redirect = searchParams.get('redirect');
     if (!redirect || redirect.charAt(0) !== '/') {
-      redirect = '/admin';
+      return fallback;
+    }
+    // Default to course tab rather than orders when no explicit redirect
+    if (redirect === '/admin/orders') {
+      return fallback;
     }
     return redirect;
   }, [searchParams]);
