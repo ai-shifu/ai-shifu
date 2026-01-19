@@ -65,12 +65,12 @@
 
 ### 9. 法律文档配置 (Legal Documents Configuration)
 
-| 变量名                      | 用途            | 默认值   | 说明                           |
-| --------------------------- | --------------- | -------- | ------------------------------ |
-| `LEGAL_AGREEMENT_URL_ZH_CN` | 中文服务协议URL | 空字符串 | 留空则不显示链接，显示为纯文本 |
-| `LEGAL_AGREEMENT_URL_EN_US` | 英文服务协议URL | 空字符串 | 留空则不显示链接，显示为纯文本 |
-| `LEGAL_PRIVACY_URL_ZH_CN`   | 中文隐私政策URL | 空字符串 | 留空则不显示链接，显示为纯文本 |
-| `LEGAL_PRIVACY_URL_EN_US`   | 英文隐私政策URL | 空字符串 | 留空则不显示链接，显示为纯文本 |
+| 变量名                      | 用途            | 默认值   | 说明                          |
+| --------------------------- | --------------- | -------- | ----------------------------- |
+| `LEGAL_AGREEMENT_URL_ZH_CN` | 中文服务协议URL | 空字符串 | 留空则默认链接到 `/agreement` |
+| `LEGAL_AGREEMENT_URL_EN_US` | 英文服务协议URL | 空字符串 | 留空则默认链接到 `/agreement` |
+| `LEGAL_PRIVACY_URL_ZH_CN`   | 中文隐私政策URL | 空字符串 | 留空则默认链接到 `/privacy`   |
+| `LEGAL_PRIVACY_URL_EN_US`   | 英文隐私政策URL | 空字符串 | 留空则默认链接到 `/privacy`   |
 
 **注意**: 这些配置由后端 `/api/config` API 返回。Cook Web 内置的 `/api/config` 仅返回后端地址 (`apiBaseUrl`)，实际配置均通过后端接口获取。
 

@@ -31,8 +31,8 @@ export function TermsCheckbox({
 
   // Get current language URL
   const currentLang = (i18n.language || 'en-US') as 'zh-CN' | 'en-US';
-  const agreementUrl = legalUrls?.agreement?.[currentLang] || '';
-  const privacyUrl = legalUrls?.privacy?.[currentLang] || '';
+  const agreementUrl = legalUrls?.agreement?.[currentLang] || '/agreement';
+  const privacyUrl = legalUrls?.privacy?.[currentLang] || '/privacy';
   return (
     <div className={cn('flex flex-row items-start gap-2 text-left', className)}>
       <Checkbox

@@ -34,9 +34,13 @@ export function TermsConfirmDialog({
     ? 'zh-CN'
     : 'en-US';
   const agreementUrl =
-    legalUrls?.agreement?.[langKey] || legalUrls?.agreement?.['en-US'] || '';
+    legalUrls?.agreement?.[langKey] ||
+    legalUrls?.agreement?.['en-US'] ||
+    '/agreement';
   const privacyUrl =
-    legalUrls?.privacy?.[langKey] || legalUrls?.privacy?.['en-US'] || '';
+    legalUrls?.privacy?.[langKey] ||
+    legalUrls?.privacy?.['en-US'] ||
+    '/privacy';
 
   const handleConfirm = () => {
     onConfirm();
