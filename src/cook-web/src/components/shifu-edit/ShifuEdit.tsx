@@ -209,14 +209,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [id, isGuest, isInitialized]);
 
   const handleTogglePreviewPanel = () => {
-    setIsPreviewPanelOpen(prev => {
-      const next = !prev;
-      if (!next) {
-        stopPreview();
-        resetPreview();
-      }
-      return next;
-    });
+    setIsPreviewPanelOpen(prev => !prev);
   };
 
   useEffect(() => {
