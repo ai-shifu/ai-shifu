@@ -512,8 +512,8 @@ export const NewChatComponents = ({
                       readonly={item.readonly}
                       onRefresh={onRefresh}
                       onToggleAskExpanded={toggleAskExpanded}
-                      showAudioPlayer={previewMode}
-                      audioPreviewMode={previewMode}
+                      showAudioPlayer={false}
+                      audioPreviewMode={false}
                       audioUrl={parentContentItem?.audioUrl}
                       audioSegments={parentContentItem?.audioSegments}
                       isAudioStreaming={parentContentItem?.isAudioStreaming}
@@ -568,7 +568,7 @@ export const NewChatComponents = ({
                     onClickCustomButtonAfterContent={handleClickAskButton}
                     onSend={memoizedOnSend}
                     onLongPress={handleLongPress}
-                    showAudioPlayer={previewMode}
+                    showAudioPlayer={false}
                     onRequestAudio={() =>
                       requestAudioForBlock(item.generated_block_bid)
                     }
