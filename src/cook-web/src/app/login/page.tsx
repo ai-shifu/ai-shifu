@@ -112,15 +112,16 @@ export default function AuthPage() {
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
 
   const resolveRedirectPath = useCallback(() => {
-    let redirect = searchParams.get('redirect');
-    const isValid = redirect && redirect.charAt(0) === '/';
     const fallback = '/admin';
-    const normalized = isValid ? redirect : fallback;
-    // Default to course tab rather than orders when no explicit redirect
-    if (normalized === '/admin/orders') {
+    const redirect = searchParams.get('redirect');
+    if (!redirect || redirect.charAt(0) !== '/') {
       return fallback;
     }
-    return normalized;
+    // Default to course tab rather than orders when no explicit redirect
+    if (redirect === '/admin/orders') {
+      return fallback;
+    }
+    return redirect;
   }, [searchParams]);
 
   const loginContext = useMemo(() => {
