@@ -202,6 +202,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             - name: creator_only
               type: boolean
               required: false
+              description: Defaults to true when omitted
             - name: archived
               type: boolean
               required: false
@@ -233,7 +234,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         if archived_param is not None:
             archived = archived_param.lower() == "true"
         creator_only_param = request.args.get("creator_only")
-        creator_only = False
+        creator_only = True
         if creator_only_param is not None:
             creator_only = creator_only_param.lower() == "true"
         try:
