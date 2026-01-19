@@ -205,6 +205,7 @@ function useChatLogicHook({
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
 
   const effectivePreviewMode = previewMode ?? false;
+  const allowTtsStreaming = !effectivePreviewMode;
   const getAskButtonMarkup = useCallback(
     () =>
       `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
@@ -649,6 +650,9 @@ function useChatLogicHook({
                 });
               }
             } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+              if (!allowTtsStreaming) {
+                return;
+              }
               // Handle audio segment during TTS streaming
               const audioSegment = response.content as AudioSegmentData;
               if (blockId) {
@@ -657,6 +661,9 @@ function useChatLogicHook({
                 );
               }
             } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+              if (!allowTtsStreaming) {
+                return;
+              }
               // Handle audio completion with OSS URL
               const audioComplete = response.content as AudioCompleteData;
               if (blockId) {
@@ -698,6 +705,7 @@ function useChatLogicHook({
       lessonId,
       mobileStyle,
       trackTrailProgress,
+      allowTtsStreaming,
       updateUserInfo,
     ],
   );
@@ -1286,6 +1294,10 @@ function useChatLogicHook({
         return null;
       }
 
+      if (!allowTtsStreaming) {
+        return null;
+      }
+
       const existingItem = contentListRef.current.find(
         item => item.generated_block_bid === generatedBlockBid,
       );
@@ -1369,7 +1381,13 @@ function useChatLogicHook({
         ttsSseRef.current[generatedBlockBid] = source;
       });
     },
-    [closeTtsStream, effectivePreviewMode, setTrackedContentList, shifuBid],
+    [
+      allowTtsStreaming,
+      closeTtsStream,
+      effectivePreviewMode,
+      setTrackedContentList,
+      shifuBid,
+    ],
   );
 
   useEffect(() => {
