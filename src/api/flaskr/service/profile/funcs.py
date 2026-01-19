@@ -2,7 +2,7 @@ from flask import Flask
 
 
 from .constants import SYS_USER_LANGUAGE, SYS_USER_NICKNAME
-from .models import UserProfile
+from .models_v2 import UserProfile
 from ...dao import db
 from typing import Optional
 
@@ -22,7 +22,7 @@ from flaskr.api.check import (
 )
 from flaskr.util.uuid import generate_id
 from flaskr.service.common import raise_error
-from flaskr.service.profile.profile_manage import get_profile_item_definition_list
+from flaskr.service.profile.profile_manage_v2 import get_profile_item_definition_list
 from flaskr.service.profile.models import (
     PROFILE_TYPE_INPUT_SELECT,
     PROFILE_TYPE_INPUT_TEXT,
@@ -75,7 +75,7 @@ def _get_latest_profile(
     """
     if profile_id:
         profile = next(
-            (item for item in user_profiles if item.profile_id == profile_id),
+            (item for item in user_profiles if item.profile_item_bid == profile_id),
             None,
         )
         if profile:
@@ -96,9 +96,9 @@ def _fetch_latest_profile(
     if profile_id:
         profile = (
             UserProfile.query.filter(
-                UserProfile.user_id == user_id,
-                UserProfile.profile_id == profile_id,
-                UserProfile.status == 1,
+                UserProfile.user_bid == user_id,
+                UserProfile.profile_item_bid == profile_id,
+                UserProfile.deleted == 0,
             )
             .order_by(UserProfile.id.desc())
             .first()
@@ -107,9 +107,9 @@ def _fetch_latest_profile(
             return profile
     return (
         UserProfile.query.filter(
-            UserProfile.user_id == user_id,
+            UserProfile.user_bid == user_id,
             UserProfile.profile_key == profile_key,
-            UserProfile.status == 1,
+            UserProfile.deleted == 0,
         )
         .order_by(UserProfile.id.desc())
         .first()
@@ -286,7 +286,7 @@ def get_user_profile_by_user_id(
     user_profile = _fetch_latest_profile(user_id, profile_key)
     if user_profile:
         return UserProfileDTO(
-            user_profile.user_id,
+            user_profile.user_bid,
             user_profile.profile_key,
             user_profile.profile_value,
             user_profile.profile_type,
@@ -303,11 +303,12 @@ def save_user_profile(
     user_profile = existing_profile
     if not existing_profile or existing_profile.profile_value != profile_value:
         user_profile = UserProfile(
-            user_id=user_id,
+            user_bid=user_id,
             profile_key=profile_key,
             profile_value=profile_value,
             profile_type=profile_type,
-            profile_id="",
+            profile_item_bid="",
+            deleted=0,
         )
         db.session.add(user_profile)
     if profile_key in PROFILES_LABLES:
@@ -323,7 +324,7 @@ def save_user_profile(
             _update_aggregate_field(aggregate, profile_lable["mapping"], normalized)
     db.session.flush()
     return UserProfileDTO(
-        user_profile.user_id,
+        user_profile.user_bid,
         user_profile.profile_key,
         user_profile.profile_value,
         user_profile.profile_type,
@@ -338,7 +339,7 @@ def save_user_profiles(
     aggregate = _ensure_user_aggregate(user_id)
     profiles_items = get_profile_item_definition_list(app, course_id)
     user_profiles: list[UserProfile] = (
-        UserProfile.query.filter_by(user_id=user_id, status=1)
+        UserProfile.query.filter_by(user_bid=user_id, deleted=0)
         .order_by(UserProfile.id.desc())
         .all()
     )
@@ -346,27 +347,29 @@ def save_user_profiles(
         profile_item = next(
             (item for item in profiles_items if item.profile_key == profile.key), None
         )
-        profile_id = ""
+        profile_item_bid = ""
         if profile_item:
             profile_type = (
                 PROFILE_TYPE_INPUT_SELECT
                 if profile_item.profile_type == CONST_PROFILE_TYPE_OPTION
                 else PROFILE_TYPE_INPUT_TEXT
             )
-            profile_id = profile_item.profile_id
-            app.logger.info("profile_id:{}".format(profile_id))
+            profile_item_bid = profile_item.profile_id
+            app.logger.info("profile_item_bid:{}".format(profile_item_bid))
         else:
             profile_type = 1
-            profile_id = ""
-        latest_profile = _get_latest_profile(user_profiles, profile.key, profile_id)
+            profile_item_bid = ""
+        latest_profile = _get_latest_profile(
+            user_profiles, profile.key, profile_item_bid
+        )
         if not latest_profile or latest_profile.profile_value != profile.value:
             user_profile = UserProfile(
-                user_id=user_id,
+                user_bid=user_id,
                 profile_key=profile.key,
                 profile_value=profile.value,
                 profile_type=profile_type,
-                profile_id=profile_id,
-                status=1,
+                profile_item_bid=profile_item_bid,
+                deleted=0,
             )
             db.session.add(user_profile)
             user_profiles.insert(0, user_profile)
@@ -397,7 +400,7 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     """
     profiles_items = get_profile_item_definition_list(app, course_id)
     user_profiles = (
-        UserProfile.query.filter_by(user_id=user_id, status=1)
+        UserProfile.query.filter_by(user_bid=user_id, deleted=0)
         .order_by(UserProfile.id.desc())
         .all()
     )
@@ -410,7 +413,7 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
             (
                 item
                 for item in user_profiles
-                if item.profile_id == profile_item.profile_id
+                if item.profile_item_bid == profile_item.profile_id
             ),
             None,
         )
@@ -449,7 +452,7 @@ def get_user_profile_labels(
     """
     app.logger.info("get user profile labels:{}".format(course_id))
     user_profiles: list[UserProfile] = (
-        UserProfile.query.filter_by(user_id=user_id, status=1)
+        UserProfile.query.filter_by(user_bid=user_id, deleted=0)
         .order_by(UserProfile.id.desc())
         .all()
     )
@@ -514,7 +517,7 @@ def get_user_profile_labels(
                 (
                     item
                     for item in user_profiles
-                    if item.profile_id == profile_item.profile_id
+                    if item.profile_item_bid == profile_item.profile_id
                 ),
                 None,
             )
@@ -576,7 +579,7 @@ def update_user_profile_with_lable(
         raise_error("server.common.backgroundNotAllowed")
 
     user_profiles = (
-        UserProfile.query.filter_by(user_id=user_id, status=1)
+        UserProfile.query.filter_by(user_bid=user_id, deleted=0)
         .order_by(UserProfile.id.desc())
         .all()
     )
@@ -641,12 +644,12 @@ def update_user_profile_with_lable(
         ):
             profile_id = profile_item.profile_id if profile_item else ""
             new_profile = UserProfile(
-                user_id=user_id,
+                user_bid=user_id,
                 profile_key=key,
                 profile_value=profile_value,
                 profile_type=profile_type,
-                profile_id=profile_id,
-                status=1,
+                profile_item_bid=profile_id,
+                deleted=0,
             )
             db.session.add(new_profile)
             user_profiles.insert(0, new_profile)
@@ -657,9 +660,9 @@ def update_user_profile_with_lable(
 def get_user_variable_by_variable_id(app: Flask, user_id: str, variable_id: str):
     user_profile = (
         UserProfile.query.filter(
-            UserProfile.user_id == user_id,
-            UserProfile.profile_id == variable_id,
-            UserProfile.status == 1,
+            UserProfile.user_bid == user_id,
+            UserProfile.profile_item_bid == variable_id,
+            UserProfile.deleted == 0,
         )
         .order_by(UserProfile.id.desc())
         .first()

@@ -4,7 +4,7 @@ from datetime import date as Date
 from sqlalchemy import or_
 
 from .models import AuthCredential, UserInfo as UserEntity
-from ..profile.models import UserProfile
+from ..profile.models_v2 import UserProfile
 from .repository import load_user_aggregate
 
 
@@ -91,7 +91,7 @@ DEFAULT_BIRTHDAY = Date(2003, 1, 1)
 
 def _resolve_user_sex(user_bid: str) -> int:
     profile = (
-        UserProfile.query.filter_by(user_id=user_bid, profile_key="sex", status=1)
+        UserProfile.query.filter_by(user_bid=user_bid, profile_key="sex", deleted=0)
         .order_by(UserProfile.id.desc())
         .first()
     )

@@ -1,6 +1,6 @@
 def test_profile_item(app):
     with app.app_context():
-        from flaskr.service.profile.profile_manage import add_profile_item_quick
+        from flaskr.service.profile.profile_manage_v2 import add_profile_item_quick
 
         add_profile_item_quick(app, "12333", "test22", "123")
 
@@ -62,7 +62,7 @@ def test_get_profile_list_api(test_client, app, token):
 
 def test_get_profile_list(app):
     with app.app_context():
-        from flaskr.service.profile.profile_manage import (
+        from flaskr.service.profile.profile_manage_v2 import (
             get_profile_item_definition_list,
         )
         from flaskr.route.common import make_common_response
