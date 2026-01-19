@@ -113,10 +113,14 @@ export default function AuthPage() {
 
   const resolveRedirectPath = useCallback(() => {
     let redirect = searchParams.get('redirect');
-    if (!redirect || redirect.charAt(0) !== '/') {
-      redirect = '/admin';
+    const isValid = redirect && redirect.charAt(0) === '/';
+    const fallback = '/admin';
+    const normalized = isValid ? redirect : fallback;
+    // Default to course tab rather than orders when no explicit redirect
+    if (normalized === '/admin/orders') {
+      return fallback;
     }
-    return redirect;
+    return normalized;
   }, [searchParams]);
 
   const loginContext = useMemo(() => {
