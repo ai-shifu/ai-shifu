@@ -405,6 +405,13 @@ function useChatLogicHook({
 
       if (status === LESSON_STATUS_VALUE.LEARNING && !isEnd) {
         updateSelectedLesson(currentOutlineBid);
+        // Set start time if not already set (handles resume scenario)
+        if (
+          !effectivePreviewMode &&
+          !useCourseStore.getState().lessonStartTime[currentOutlineBid]
+        ) {
+          useCourseStore.getState().setLessonStartTime(currentOutlineBid);
+        }
       }
 
       // Track lesson completion
