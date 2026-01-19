@@ -234,7 +234,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         if archived_param is not None:
             archived = archived_param.lower() == "true"
         creator_only_param = request.args.get("creator_only")
-        creator_only = str(creator_only_param).lower() != "false"
+        if creator_only_param is None:
+            creator_only = True
+        else:
+            normalized = str(creator_only_param).strip().lower()
+            creator_only = normalized not in ("false", "0")
         try:
             page_index = int(page_index)
             page_size = int(page_size)
