@@ -41,4 +41,4 @@ jobs:
       - name: Run contract tests
         working-directory: src/api
         run: |
-          python -m pytest tests/contract
+          python -m pytest tests/contract -v --tb=short

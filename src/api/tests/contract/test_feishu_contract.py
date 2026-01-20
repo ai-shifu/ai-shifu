@@ -25,14 +25,15 @@ def test_list_records_builds_request(monkeypatch):
     monkeypatch.setattr(feishu.requests, "post", fake_post)
 
     app = Flask("contract-feishu")
-    result = feishu.list_records(
-        app,
-        app_token="app123",
-        table_id="table456",
-        view_id="view789",
-        page_token="page-token",
-        page_size=50,
-    )
+    with app.app_context():
+        result = feishu.list_records(
+            app,
+            app_token="app123",
+            table_id="table456",
+            view_id="view789",
+            page_token="page-token",
+            page_size=50,
+        )
 
     assert result == {"data": {"items": []}}
     assert captured["headers"]["Authorization"] == "Bearer token"
