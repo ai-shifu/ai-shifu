@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -32,16 +34,109 @@ jobs:
           cache: pip
           cache-dependency-path: src/api/requirements.txt
 
+      - name: Restore testmon cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            src/api/.testmondata
+            src/api/.pytest_cache
+          key: testmon-${{ runner.os }}-py311-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || format('main-{0}', github.ref_name) }}-${{ hashFiles('src/api/requirements.txt') }}
+          restore-keys: |
+            testmon-${{ runner.os }}-py311-main-
+            testmon-${{ runner.os }}-py311-
+
       - name: Install dependencies
         working-directory: src/api
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install coverage
+          pip install coverage pytest-testmon
 
-      - name: Run tests with coverage
+      - name: Select test targets (PR only)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+
+          import os
+          import pathlib
+          import subprocess
+
+          base_sha = os.environ.get("BASE_SHA")
+          head_sha = os.environ.get("HEAD_SHA")
+          if not base_sha or not head_sha:
+              raise SystemExit("Missing BASE_SHA or HEAD_SHA")
+
+          changed = subprocess.check_output(
+              ["git", "diff", "--name-only", base_sha, head_sha],
+              text=True,
+          ).splitlines()
+
+          targets: set[str] = set()
+          full_run = False
+
+          def add_target(path: str) -> None:
+              if pathlib.Path(path).exists():
+                  targets.add(path)
+
+          for path in changed:
+              if path in {
+                  "src/api/requirements.txt",
+                  ".github/workflows/backend-tests.yml",
+              }:
+                  full_run = True
+                  break
+              if not path.startswith("src/api/"):
+                  continue
+              if path.startswith("src/api/migrations/"):
+                  full_run = True
+                  break
+              if path.startswith("src/api/tests/"):
+                  add_target(path)
+                  continue
+              if path.startswith("src/api/flaskr/service/"):
+                  parts = path.split("/")
+                  if len(parts) > 4:
+                      module = parts[4]
+                      test_dir = pathlib.Path("src/api/tests/service") / module
+                      if test_dir.exists():
+                          targets.add(str(test_dir))
+                      else:
+                          full_run = True
+                          break
+                  else:
+                      full_run = True
+                      break
+                  continue
+              # Fallback to full run for non-service changes under src/api.
+              full_run = True
+              break
+
+          if full_run or not targets:
+              targets = {"src/api/tests"}
+
+          targets_list = " ".join(sorted(targets))
+          print(f"Selected targets: {targets_list}")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env_file:
+              env_file.write(f"TEST_TARGETS={targets_list}\n")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write("### Backend test targets (PR)\n")
+              summary.write(f"- Targets: `{targets_list}`\n")
+          PY
+
+      - name: Run tests (PR incremental)
+        if: github.event_name == 'pull_request'
         working-directory: src/api
         run: |
-          python -m coverage run -m pytest
+          python -m pytest --testmon $TEST_TARGETS
+
+      - name: Run tests with coverage (main/full)
+        if: github.event_name != 'pull_request'
+        working-directory: src/api
+        run: |
+          python -m coverage run -m pytest --testmon-noselect
           python -m coverage report -m
           python -m coverage report -m >> "$GITHUB_STEP_SUMMARY"

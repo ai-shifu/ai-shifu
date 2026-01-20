@@ -89,6 +89,7 @@
 - Converted `tests/test_sudy.py` to empty learn record unit test.
 - Stabilized test IDs in `tests/test_learn_api.py`, `tests/test_order.py`, and `tests/test_query_order.py` to avoid cross-test collisions.
 - Added GitHub Actions workflow to run backend tests with coverage.
+- Adjusted CI to run module-based incremental tests with `pytest-testmon` on PRs and full coverage runs on `main`.
 
 ## Remaining Skipped Tests
 - None (only conditional skip in `tests/service/tts/test_tts_text_preprocess.py` when app fixture is disabled).
