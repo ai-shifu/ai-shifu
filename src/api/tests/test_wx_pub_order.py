@@ -10,11 +10,15 @@ from flaskr.service.order.models import Order
 def test_generate_charge_uses_pingxx_channel(app, monkeypatch):
     from flaskr.service.order import funs as order_funs
 
+    order_bid = "order-wx-pub-1"
+    course_bid = "course-wx-pub-1"
+    user_bid = "user-wx-pub-1"
+
     with app.app_context():
         order = Order(
-            order_bid="order-1",
-            shifu_bid="course-1",
-            user_bid="user-1",
+            order_bid=order_bid,
+            shifu_bid=course_bid,
+            user_bid=user_bid,
             payable_price=Decimal("10.00"),
             paid_price=Decimal("10.00"),
             status=ORDER_STATUS_INIT,
@@ -49,7 +53,7 @@ def test_generate_charge_uses_pingxx_channel(app, monkeypatch):
         order_funs, "_generate_pingxx_charge", fake_generate_pingxx_charge
     )
 
-    result = generate_charge(app, "order-1", "wx_wap", "127.0.0.1")
+    result = generate_charge(app, order_bid, "wx_wap", "127.0.0.1")
     assert result.channel == "wx_wap"
     assert result.payment_channel == "pingxx"
     assert captured["channel"] == "wx_wap"
