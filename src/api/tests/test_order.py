@@ -1,49 +1,33 @@
-import pytest
+from decimal import Decimal
+from types import SimpleNamespace
 
-pytest.skip(
-    "Integration test requires payment setup and seeded orders.",
-    allow_module_level=True,
-)
+from flaskr.dao import db
+from flaskr.service.order.funs import init_buy_record
+from flaskr.service.order.models import Order
 
 
-def test_buy_and_pay(app):
-    from flaskr.service.order.funs import (
-        init_buy_record,
-        generate_charge,
-        query_buy_record,
+def test_init_buy_record_creates_order(app, monkeypatch):
+    from flaskr.service.order import funs as order_funs
+
+    monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda _app, _bid: "u1")
+    monkeypatch.setattr(order_funs, "set_shifu_context", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        order_funs,
+        "get_shifu_info",
+        lambda _app, _bid, _preview: SimpleNamespace(price=Decimal("100.00")),
     )
+    monkeypatch.setattr(order_funs, "query_and_join_active", lambda *args, **kwargs: [])
 
-    from flaskr.service.user.models import UserInfo as UserEntity
-    from flaskr.service.shifu.models import PublishedShifu
-    from flaskr.service.order.models import Order
-    from flaskr.dao import db
+    result = init_buy_record(app, "user-1", "course-1")
+    assert result.order_id
+    assert result.user_id == "user-1"
+    assert str(result.price) == "100.00"
 
     with app.app_context():
-        user = UserEntity.query.filter(UserEntity.deleted == 0).first()
-        shifu = (
-            PublishedShifu.query.filter(
-                PublishedShifu.price > 0,
-                PublishedShifu.deleted == 0,
-            )
-            .order_by(PublishedShifu.id.desc())
-            .first()
-        )
-        user_id = user.user_bid
-
-        Order.query.filter(
-            Order.user_bid == user_id,
-            Order.shifu_bid == shifu.shifu_bid,
-        ).delete()
+        stored = Order.query.filter(Order.order_bid == result.order_id).first()
+        assert stored is not None
+        assert stored.user_bid == "user-1"
+        assert stored.shifu_bid == "course-1"
+        assert str(stored.paid_price) == "100.00"
+        db.session.delete(stored)
         db.session.commit()
-
-        record = init_buy_record(app, user_id, shifu.shifu_bid)
-
-        print(record)
-        print(record.__json__())
-        record = query_buy_record(app, record.order_id)
-        print(record.__json__())
-
-        res = generate_charge(
-            app, record.order_id, "wx_pub_qr", "237.0.0.1", payment_channel=None
-        )
-        print(res.__json__())
