@@ -77,9 +77,9 @@
   - `tests/test_mdflow_adapter.py`
 - Current test run: `214 passed, 15 skipped` (`cd src/api && pytest`).
 - Converted `tests/test_discount.py` to coupon unit coverage.
+- Converted `tests/test_fix_discount.py` to coupon application unit test.
 
 ## Remaining Skipped Tests
-- `tests/test_fix_discount.py`
 - `tests/test_order.py`
 - `tests/test_wx_pub_order.py`
 - `tests/test_pingpp.py`
