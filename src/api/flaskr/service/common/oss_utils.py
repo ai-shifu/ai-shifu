@@ -74,6 +74,26 @@ def get_oss_config(profile: str = OSS_PROFILE_DEFAULT) -> OSSConfig:
     )
 
 
+def is_oss_profile_configured(profile: str = OSS_PROFILE_DEFAULT) -> bool:
+    """
+    Return True if the OSS profile has enough configuration to attempt uploads.
+
+    Notes:
+    - This is intentionally conservative and checks credentials + bucket.
+    - It avoids raising AppException so callers can implement fallbacks (e.g., local storage).
+    """
+    resolved_profile = (profile or "").strip().lower() or OSS_PROFILE_DEFAULT
+    keys = _OSS_CONFIG_KEYS.get(resolved_profile)
+    if not keys:
+        return False
+
+    access_key_id = (get_config(keys["access_key_id"]) or "").strip()
+    access_key_secret = (get_config(keys["access_key_secret"]) or "").strip()
+    bucket = (get_config(keys["bucket"]) or "").strip()
+
+    return bool(access_key_id and access_key_secret and bucket)
+
+
 def create_oss_bucket(config: OSSConfig) -> oss2.Bucket:
     auth = oss2.Auth(config.access_key_id, config.access_key_secret)
     return oss2.Bucket(auth, config.endpoint, config.bucket)
