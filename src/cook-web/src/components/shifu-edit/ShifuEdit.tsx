@@ -344,11 +344,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
       );
       return [...newNames, ...filteredPrev];
     });
-
-  }, [
-    mdflowVariableNames,
-    t,
-  ]);
+  }, [mdflowVariableNames, t]);
 
   const variablesList = useMemo(() => {
     const merged = new Map<string, { name: string }>();
@@ -724,7 +720,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   onVariableChange={onVariableChange}
                   variableOrder={variableOrder}
                   usedVariableKeys={mdflowVariableNames}
-                  systemVariableKeys={systemVariablesList.map(item => item.name)}
+                  systemVariableKeys={systemVariablesList.map(
+                    item => item.name,
+                  )}
                   onRequestAudioForBlock={requestPreviewAudioForBlock}
                   reGenerateConfirm={reGenerateConfirm}
                   onHideUnused={handleHideUnusedVariables}

@@ -37,6 +37,7 @@ from .models import (
 from flaskr.service.shifu.models import PublishedShifu, DraftShifu, DraftOutlineItem
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 
+
 # get color setting
 def get_color_setting(color_setting: str):
     if color_setting:

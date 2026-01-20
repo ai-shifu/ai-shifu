@@ -1273,31 +1273,28 @@ export const ShifuProvider = ({
     };
   };
 
-  const refreshProfileDefinitions = useCallback(
-    async (shifuId: string) => {
-      const cached = profileDefinitionCacheRef.current[shifuId];
-      const now = Date.now();
-      if (cached && now - cached.updatedAt < PROFILE_CACHE_TTL) {
-        applyProfileDefinitionList(cached.list, shifuId);
-        return cached;
-      }
-      try {
-        const list = await api.getProfileItemDefinitions({
-          parent_id: shifuId,
-          type: 'all',
-        });
-        return applyProfileDefinitionList(list || [], shifuId);
-      } catch (error) {
-        console.error(error);
-        setProfileItemDefinations([]);
-        setSystemVariables([]);
-        setVariables([]);
-        setHiddenVariables([]);
-        throw error;
-      }
-    },
-    [],
-  );
+  const refreshProfileDefinitions = useCallback(async (shifuId: string) => {
+    const cached = profileDefinitionCacheRef.current[shifuId];
+    const now = Date.now();
+    if (cached && now - cached.updatedAt < PROFILE_CACHE_TTL) {
+      applyProfileDefinitionList(cached.list, shifuId);
+      return cached;
+    }
+    try {
+      const list = await api.getProfileItemDefinitions({
+        parent_id: shifuId,
+        type: 'all',
+      });
+      return applyProfileDefinitionList(list || [], shifuId);
+    } catch (error) {
+      console.error(error);
+      setProfileItemDefinations([]);
+      setSystemVariables([]);
+      setVariables([]);
+      setHiddenVariables([]);
+      throw error;
+    }
+  }, []);
 
   const parseMdflow = async (
     value: string,
@@ -1340,7 +1337,8 @@ export const ShifuProvider = ({
       const resolvedSystemKeys =
         systemVariableKeys && systemVariableKeys.length
           ? systemVariableKeys
-          : systemVariables?.map(variable => variable.name).filter(Boolean) || [];
+          : systemVariables?.map(variable => variable.name).filter(Boolean) ||
+            [];
       const storedVariables: StoredVariablesByScope =
         getStoredPreviewVariables(resolvedShifuId);
       const variablesMap = mapKeysToStoredVariables(

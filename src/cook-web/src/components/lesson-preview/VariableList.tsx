@@ -127,22 +127,25 @@ const VariableList: React.FC<VariableListProps> = ({
             <div className={styles.segmented}>
               <button
                 type='button'
-                className={cn(styles.segmentedBtn, !showHidden && styles.active)}
+                className={cn(
+                  styles.segmentedBtn,
+                  !showHidden && styles.active,
+                )}
                 onClick={() => setShowHidden(false)}
               >
                 {t('module.shifu.previewArea.variablesCurrent')}
               </button>
-            <button
-              type='button'
-              className={cn(styles.segmentedBtn, showHidden && styles.active)}
-              onClick={() => setShowHidden(true)}
-            >
-              {t('module.shifu.previewArea.variablesHiddenToggle')}
-            </button>
+              <button
+                type='button'
+                className={cn(styles.segmentedBtn, showHidden && styles.active)}
+                onClick={() => setShowHidden(true)}
+              >
+                {t('module.shifu.previewArea.variablesHiddenToggle')}
+              </button>
+            </div>
+            {renderActionsRight()}
           </div>
-          {renderActionsRight()}
-        </div>
-      )}
+        )}
       </div>
       {!isEmptyView && !showHidden && (
         <div
@@ -185,7 +188,9 @@ const VariableList: React.FC<VariableListProps> = ({
       )}
 
       {!isEmptyView && showHidden && (
-        <div className={`${styles.hiddenSection} ${collapsed ? styles.collapsed : ''}`}>
+        <div
+          className={`${styles.hiddenSection} ${collapsed ? styles.collapsed : ''}`}
+        >
           <div className={styles.hiddenList}>
             {hiddenVariables.map(([name, value]) => {
               const displayValue = value || '';

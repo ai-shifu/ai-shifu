@@ -32,9 +32,13 @@ def test_hide_unused_profile_items_no_unused(monkeypatch):
         return ["defs"]
 
     monkeypatch.setattr(profile_manage, "get_unused_profile_keys", fake_get_unused)
-    monkeypatch.setattr(profile_manage, "get_profile_item_definition_list", fake_get_defs)
+    monkeypatch.setattr(
+        profile_manage, "get_profile_item_definition_list", fake_get_defs
+    )
 
-    result = hide_unused_profile_items(app=None, parent_id="shifu_bid", user_id="user_bid")
+    result = hide_unused_profile_items(
+        app=None, parent_id="shifu_bid", user_id="user_bid"
+    )
 
     assert result == ["defs"]
     assert ("unused", "shifu_bid") in calls
@@ -55,7 +59,9 @@ def test_hide_unused_profile_items_updates_hidden(monkeypatch):
     monkeypatch.setattr(profile_manage, "get_unused_profile_keys", fake_get_unused)
     monkeypatch.setattr(profile_manage, "update_profile_item_hidden_state", fake_update)
 
-    result = hide_unused_profile_items(app=None, parent_id="shifu_bid", user_id="user_bid")
+    result = hide_unused_profile_items(
+        app=None, parent_id="shifu_bid", user_id="user_bid"
+    )
 
     assert result == ["updated"]
     assert ("unused", "shifu_bid") in calls

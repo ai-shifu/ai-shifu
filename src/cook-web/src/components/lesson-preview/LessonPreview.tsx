@@ -156,9 +156,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     if (!onHideUnused) return;
     showAlert({
       title: t('module.shifu.previewArea.variablesHideUnusedConfirmTitle'),
-      description: t(
-        'module.shifu.previewArea.variablesHideUnusedConfirmDesc',
-      ),
+      description: t('module.shifu.previewArea.variablesHideUnusedConfirmDesc'),
       confirmText: t('common.core.confirm'),
       cancelText: t('common.core.cancel'),
       onConfirm: () => onHideUnused(),
