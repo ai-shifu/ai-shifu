@@ -9,7 +9,8 @@ from typing import Tuple
 
 from flask import Flask
 
-from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES, upload_to_oss
+from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES
+from flaskr.service.common.storage import upload_to_storage
 
 
 logger = logging.getLogger(__name__)
@@ -32,10 +33,11 @@ def upload_audio_to_oss(
     file_id = f"tts-audio/{audio_bid}.mp3"
     content_type = "audio/mpeg"
 
-    return upload_to_oss(
+    result = upload_to_storage(
         app,
         file_content=audio_content,
-        file_id=file_id,
+        object_key=file_id,
         content_type=content_type,
         profile=OSS_PROFILE_COURSES,
     )
+    return result.url, result.bucket

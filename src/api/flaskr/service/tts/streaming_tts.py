@@ -405,6 +405,7 @@ class StreamingTTSProcessor:
                 shifu_bid=self.shifu_bid,
                 oss_url=oss_url,
                 oss_bucket=bucket_name,
+                oss_object_key=f"tts-audio/{self._audio_bid}.mp3",
                 duration_ms=final_duration_ms,
                 file_size=file_size,
                 voice_id=self.voice_settings.voice_id,

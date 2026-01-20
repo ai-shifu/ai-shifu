@@ -743,6 +743,7 @@ def stream_generated_block_audio(
             duration_ms = get_audio_duration_ms(final_audio, format="mp3")
             oss_url, bucket_name = upload_audio_to_oss(app, final_audio, audio_bid)
             segment_count = len(audio_parts)
+            object_key = f"tts-audio/{audio_bid}.mp3"
 
             audio_record = LearnGeneratedAudio(
                 audio_bid=audio_bid,
@@ -752,7 +753,7 @@ def stream_generated_block_audio(
                 shifu_bid=shifu_bid,
                 oss_url=oss_url,
                 oss_bucket=bucket_name or "",
-                oss_object_key="",
+                oss_object_key=object_key,
                 duration_ms=int(duration_ms or 0),
                 file_size=len(final_audio),
                 audio_format=audio_settings.format or "mp3",
@@ -950,7 +951,7 @@ def synthesize_generated_block_audio(
             shifu_bid=shifu_bid,
             oss_url=result.audio_url,
             oss_bucket="",
-            oss_object_key="",
+            oss_object_key=f"tts-audio/{audio_bid}.mp3",
             duration_ms=int(result.duration_ms or 0),
             file_size=0,
             audio_format="mp3",
