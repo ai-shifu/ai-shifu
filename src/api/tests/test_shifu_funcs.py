@@ -4,7 +4,7 @@ from flaskr.service.shifu import shifu_publish_funcs
 def test_run_summary_with_error_handling_logs_and_continues(app, monkeypatch):
     called = {"apply": False, "summary": False}
 
-    def fake_apply(snapshot):
+    def fake_apply(_snapshot):
         called["apply"] = True
 
     def fake_summary(_app, _shifu_id):

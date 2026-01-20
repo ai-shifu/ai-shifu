@@ -36,3 +36,15 @@ def test_get_shifu_outline_tree_preview(app):
     dto = get_shifu_outline_tree(app, "shifu-1", is_preview=True)
     assert dto.outline_items
     assert dto.outline_items[0].title == "Outline"
+
+    with app.app_context():
+        log = LogDraftStruct.query.filter_by(struct_bid="struct-1").first()
+        if log:
+            db.session.delete(log)
+        outline = DraftOutlineItem.query.filter_by(outline_item_bid="outline-1").first()
+        if outline:
+            db.session.delete(outline)
+        shifu = DraftShifu.query.filter_by(shifu_bid="shifu-1").first()
+        if shifu:
+            db.session.delete(shifu)
+        db.session.commit()

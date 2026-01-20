@@ -35,7 +35,7 @@ def test_query_and_join_active_creates_user_record(app):
         ACTIVE_JOIN_TYPE_AUTO,
     )
     from flaskr.service.active.funcs import query_and_join_active
-    from flaskr.service.active.models import Active
+    from flaskr.service.active.models import Active, ActiveUserRecord
 
     now = datetime.now(pytz.timezone("Asia/Shanghai"))
 
@@ -58,3 +58,10 @@ def test_query_and_join_active_creates_user_record(app):
 
         assert len(records) == 1
         assert records[0].status == ACTIVE_JOIN_STATUS_ENABLE
+        leftover = ActiveUserRecord.query.filter_by(
+            user_id="user-1", order_id="order-1"
+        ).all()
+        for record in leftover:
+            db.session.delete(record)
+        db.session.delete(active)
+        db.session.commit()

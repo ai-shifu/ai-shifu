@@ -28,7 +28,7 @@ def _stream_chunks(stream: bool) -> List[str]:
     return ["mock-llm"]
 
 
-def fake_invoke_llm(*args, **kwargs) -> Generator[FakeLLMResponse, None, None]:
+def fake_invoke_llm(*_args, **kwargs) -> Generator[FakeLLMResponse, None, None]:
     stream = bool(kwargs.get("stream", False))
     chunks = _stream_chunks(stream)
     for idx, chunk in enumerate(chunks, start=1):
@@ -40,7 +40,7 @@ def fake_invoke_llm(*args, **kwargs) -> Generator[FakeLLMResponse, None, None]:
         )
 
 
-def fake_chat_llm(*args, **kwargs) -> Generator[FakeLLMResponse, None, None]:
+def fake_chat_llm(*_args, **kwargs) -> Generator[FakeLLMResponse, None, None]:
     stream = bool(kwargs.get("stream", False))
     chunks = _stream_chunks(stream)
     for idx, chunk in enumerate(chunks, start=1):
@@ -56,5 +56,5 @@ def fake_get_allowed_models() -> list[str]:
     return []
 
 
-def fake_get_current_models(app) -> list[dict[str, str]]:
+def fake_get_current_models(_app) -> list[dict[str, str]]:
     return []
