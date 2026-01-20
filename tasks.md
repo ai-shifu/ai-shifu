@@ -75,7 +75,7 @@
   - `tests/test_active.py`, `tests/test_edun.py`
   - `tests/test_profile.py`, `tests/test_user.py`
   - `tests/test_mdflow_adapter.py`
-- Current test run: `214 passed, 15 skipped` (`cd src/api && pytest`).
+- Current test run: `232 passed, 4 skipped` (`cd src/api && pytest`).
 - Converted `tests/test_discount.py` to coupon unit coverage.
 - Converted `tests/test_fix_discount.py` to coupon application unit test.
 - Converted `tests/test_order.py` to init order unit coverage.
@@ -87,6 +87,7 @@
 - Converted `tests/test_chapter.py` to shifu outline tree unit test.
 - Converted `tests/test_study_record.py` to learn record unit coverage.
 - Converted `tests/test_sudy.py` to empty learn record unit test.
+- Stabilized test IDs in `tests/test_learn_api.py`, `tests/test_order.py`, and `tests/test_query_order.py` to avoid cross-test collisions.
 
 ## Remaining Skipped Tests
 - None (only conditional skip in `tests/service/tts/test_tts_text_preprocess.py` when app fixture is disabled).

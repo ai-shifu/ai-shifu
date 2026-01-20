@@ -18,16 +18,16 @@ def test_init_buy_record_creates_order(app, monkeypatch):
     )
     monkeypatch.setattr(order_funs, "query_and_join_active", lambda *args, **kwargs: [])
 
-    result = init_buy_record(app, "user-1", "course-1")
+    result = init_buy_record(app, "user-order-1", "course-order-1")
     assert result.order_id
-    assert result.user_id == "user-1"
+    assert result.user_id == "user-order-1"
     assert str(result.price) == "100.00"
 
     with app.app_context():
         stored = Order.query.filter(Order.order_bid == result.order_id).first()
         assert stored is not None
-        assert stored.user_bid == "user-1"
-        assert stored.shifu_bid == "course-1"
+        assert stored.user_bid == "user-order-1"
+        assert stored.shifu_bid == "course-order-1"
         assert str(stored.paid_price) == "100.00"
         db.session.delete(stored)
         db.session.commit()
