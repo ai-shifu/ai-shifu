@@ -1,68 +1,55 @@
-import pytest
-
-pytest.skip(
-    "Integration test requires Ping++ keys and external service.",
-    allow_module_level=True,
-)
+from flaskr.service.order.payment_providers.base import PaymentCreationResult
 
 
-def test_pingxx_order(app):
-    from flaskr.service.order.pingxx_order import create_pingxx_order, init_pingxx
-    from flaskr.util.uuid import generate_id
+def test_init_pingxx_uses_provider(app, monkeypatch):
+    from flaskr.service.order import pingxx_order
 
-    init_pingxx(app)
-    order_no = generate_id(app)
-    pingxx_id = "app_D8qDWTPyj5yPCGWr"
-    product_id = "YourProductId"
+    class FakeProvider:
+        def __init__(self):
+            self.called = False
 
-    order = create_pingxx_order(
+        def ensure_client(self, _app):
+            self.called = True
+            return "client"
+
+    provider = FakeProvider()
+    monkeypatch.setattr(pingxx_order, "_get_provider", lambda: provider)
+
+    client = pingxx_order.init_pingxx(app)
+    assert client == "client"
+    assert provider.called is True
+
+
+def test_create_pingxx_order_builds_request(app, monkeypatch):
+    from flaskr.service.order import pingxx_order
+
+    captured = {}
+
+    class FakeProvider:
+        def create_payment(self, *, request, app):
+            captured["request"] = request
+            return PaymentCreationResult(
+                provider_reference="ref", raw_response={"id": "ch"}
+            )
+
+    monkeypatch.setattr(pingxx_order, "_get_provider", lambda: FakeProvider())
+
+    order = pingxx_order.create_pingxx_order(
         app,
-        order_no,
-        pingxx_id,
-        "wx_pub_qr",
-        100,
+        order_no="order-1",
+        app_id="app-1",
+        channel="wx_pub_qr",
+        amount=100,
         client_ip="127.0.0.1",
-        subject="AI编程助手",
-        body="AI编程助手",
-        extra=dict(product_id=product_id),
-    )
-    print("=========================wx_pub_qr=========================")
-    print(order)
-
-
-def test_pingxx_ali_order(app):
-    from flaskr.service.order.pingxx_order import create_pingxx_order, init_pingxx
-    from flaskr.util.uuid import generate_id
-
-    init_pingxx(app)
-    order_no = generate_id(app)
-    pingxx_id = "app_D8qDWTPyj5yPCGWr"
-
-    order = create_pingxx_order(
-        app,
-        order_no,
-        pingxx_id,
-        "alipay_pc_direct",
-        100,
-        client_ip="123.122.95.34",
         subject="AI",
         body="AI",
-        # extra=dict({})
-        extra=dict({}),
+        extra={"product_id": "prod-1"},
     )
 
-    print(order)
-    order = create_pingxx_order(
-        app,
-        order_no,
-        pingxx_id,
-        "alipay_qr",
-        100,
-        client_ip="123.122.95.34",
-        subject="AI",
-        body="AI",
-        extra=dict({}),
-        # extra=dict(qr_pay_mode = 4,qrcode_width=100)
-    )
-    print("=========================alipay_qr=========================")
-    print(order)
+    assert order["id"] == "ch"
+    request = captured["request"]
+    assert request.order_bid == "order-1"
+    assert request.amount == 100
+    assert request.channel == "wx_pub_qr"
+    assert request.extra["app_id"] == "app-1"
+    assert request.extra["charge_extra"]["product_id"] == "prod-1"
