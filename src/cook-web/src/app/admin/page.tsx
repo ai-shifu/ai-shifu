@@ -218,7 +218,6 @@ const ScriptManagementPage = () => {
     if (isInitialized && adminReady && fetchShifusRef.current) {
       fetchShifusRef.current();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i18n.language, isInitialized, adminReady]);
 
   useEffect(() => {

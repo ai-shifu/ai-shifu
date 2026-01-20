@@ -492,7 +492,7 @@ DIFY_MODELS = []
 if get_config("DIFY_API_KEY") and get_config("DIFY_URL"):
     DIFY_MODELS = ["dify"]
 else:
-    current_app.logger.warning("DIFY_API_KEY and DIFY_URL not configured")
+    _log_warning("DIFY_API_KEY and DIFY_URL not configured")
 
 
 class LLMStreamaUsage:

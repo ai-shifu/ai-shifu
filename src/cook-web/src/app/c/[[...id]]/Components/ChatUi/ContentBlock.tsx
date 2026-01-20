@@ -7,7 +7,6 @@ import { ContentRender } from 'markdown-flow-ui/renderer';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { cn } from '@/lib/utils';
 import type { ChatContentItem } from './useChatLogicHook';
-import { AudioPlayer } from '@/components/audio/AudioPlayer';
 
 interface ContentBlockProps {
   item: ChatContentItem;
@@ -19,11 +18,6 @@ interface ContentBlockProps {
   onClickCustomButtonAfterContent?: (blockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onLongPress?: (event: any, item: ChatContentItem) => void;
-  // Audio props for streaming TTS (mobile only)
-  showAudioPlayer?: boolean;
-  onRequestAudio?: () => Promise<any>;
-  autoPlayAudio?: boolean;
-  onAudioPlayStateChange?: (isPlaying: boolean) => void;
 }
 
 const ContentBlock = memo(
@@ -37,10 +31,6 @@ const ContentBlock = memo(
     onClickCustomButtonAfterContent,
     onSend,
     onLongPress,
-    showAudioPlayer = false,
-    onRequestAudio,
-    autoPlayAudio = false,
-    onAudioPlayStateChange,
   }: ContentBlockProps) => {
     const handleClick = useCallback(() => {
       onClickCustomButtonAfterContent?.(blockBid);
@@ -67,16 +57,6 @@ const ContentBlock = memo(
       [onSend, blockBid],
     );
 
-    const hasAudioContent =
-      item.isAudioStreaming ||
-      (item.audioSegments && item.audioSegments.length > 0) ||
-      Boolean(item.audioUrl);
-
-    const shouldShowAudioPlayer =
-      mobileStyle &&
-      showAudioPlayer &&
-      (hasAudioContent || Boolean(onRequestAudio));
-
     return (
       <div
         className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
@@ -97,24 +77,11 @@ const ContentBlock = memo(
           copiedButtonText={copiedButtonText}
           onSend={_onSend}
         />
-        {shouldShowAudioPlayer && (
-          <AudioPlayer
-            audioUrl={item.audioUrl}
-            streamingSegments={item.audioSegments}
-            isStreaming={item.isAudioStreaming}
-            previewMode={showAudioPlayer}
-            alwaysVisible={true}
-            onRequestAudio={onRequestAudio}
-            autoPlay={autoPlayAudio}
-            onPlayStateChange={onAudioPlayStateChange}
-            size={16}
-          />
-        )}
       </div>
     );
   },
   (prevProps, nextProps) => {
-    // Only re-render when content, layout, audio, or i18n-driven button texts actually change
+    // Only re-render when content, layout, or i18n-driven button texts actually change
     return (
       prevProps.item.defaultButtonText === nextProps.item.defaultButtonText &&
       prevProps.item.defaultInputText === nextProps.item.defaultInputText &&
@@ -128,17 +95,7 @@ const ContentBlock = memo(
       prevProps.blockBid === nextProps.blockBid &&
       prevProps.confirmButtonText === nextProps.confirmButtonText &&
       prevProps.copyButtonText === nextProps.copyButtonText &&
-      prevProps.copiedButtonText === nextProps.copiedButtonText &&
-      // Audio props - only relevant on mobile
-      (!prevProps.mobileStyle ||
-        (prevProps.showAudioPlayer === nextProps.showAudioPlayer &&
-          (!nextProps.showAudioPlayer ||
-            (prevProps.item.audioSegments?.length ===
-              nextProps.item.audioSegments?.length &&
-              prevProps.item.isAudioStreaming ===
-                nextProps.item.isAudioStreaming &&
-              prevProps.item.audioUrl === nextProps.item.audioUrl &&
-              prevProps.autoPlayAudio === nextProps.autoPlayAudio))))
+      prevProps.copiedButtonText === nextProps.copiedButtonText
     );
   },
 );

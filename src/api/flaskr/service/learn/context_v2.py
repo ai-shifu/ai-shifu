@@ -660,10 +660,6 @@ class RunScriptPreviewContextV2:
             if isinstance(preview_request.variables, dict)
             else {}
         )
-        current_language = variables.get(SYS_USER_LANGUAGE)
-        if current_language is None or current_language == "":
-            user_profile = get_user_profiles(self.app, user_bid, shifu_bid)
-            variables[SYS_USER_LANGUAGE] = user_profile.get(SYS_USER_LANGUAGE, "en-US")
         return variables
 
     def _convert_to_sse_message(

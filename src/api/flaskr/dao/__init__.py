@@ -9,6 +9,7 @@ import os
 
 # create a global db object
 db = None
+redis_client = None
 
 
 def init_db(app: Flask):
@@ -16,7 +17,8 @@ def init_db(app: Flask):
     if app.debug:
         logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
-    db = SQLAlchemy()
+    if db is None:
+        db = SQLAlchemy()
     db.init_app(app)
 
     # Enable formatted SQL output in the development environment
