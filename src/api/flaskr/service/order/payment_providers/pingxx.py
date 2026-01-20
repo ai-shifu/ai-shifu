@@ -3,13 +3,32 @@ from __future__ import annotations
 import os
 from typing import Dict, Any
 
-import pingpp
 from flask import Flask
 
 from flaskr.service.config import get_config
 
 from .base import PaymentProvider, PaymentRequest, PaymentCreationResult
 from . import register_payment_provider
+
+
+_PINGPP_CLIENT: Any | None = None
+_PINGPP_IMPORT_ERROR: Exception | None = None
+
+
+def _get_pingpp_client() -> Any:
+    global _PINGPP_CLIENT, _PINGPP_IMPORT_ERROR
+    if _PINGPP_CLIENT is not None:
+        return _PINGPP_CLIENT
+    if _PINGPP_IMPORT_ERROR is not None:
+        raise _PINGPP_IMPORT_ERROR
+    try:
+        import pingpp  # type: ignore
+
+        _PINGPP_CLIENT = pingpp
+        return pingpp
+    except Exception as exc:  # pragma: no cover
+        _PINGPP_IMPORT_ERROR = exc
+        raise
 
 
 class PingxxProvider(PaymentProvider):
@@ -22,8 +41,14 @@ class PingxxProvider(PaymentProvider):
 
     def _ensure_client(self, app: Flask) -> Any:
         """Configure pingpp client once per process."""
+        try:
+            client = _get_pingpp_client()
+        except Exception as exc:  # pragma: no cover
+            app.logger.error("Pingxx dependency is not available: %s", exc)
+            raise RuntimeError("Pingxx dependency is not available") from exc
+
         if self._client_initialized:
-            return pingpp
+            return client
 
         api_key = get_config("PINGXX_SECRET_KEY")
         private_key_path = get_config("PINGXX_PRIVATE_KEY_PATH")
@@ -34,11 +59,11 @@ class PingxxProvider(PaymentProvider):
             app.logger.error("Pingxx private key not found at %s", private_key_path)
             raise FileNotFoundError(private_key_path)
 
-        pingpp.api_key = api_key
-        pingpp.private_key_path = private_key_path
+        client.api_key = api_key
+        client.private_key_path = private_key_path
         self._client_initialized = True
         app.logger.info("Pingxx client initialized")
-        return pingpp
+        return client
 
     def ensure_client(self, app: Flask) -> Any:
         """Public wrapper for configuring the pingpp client."""
