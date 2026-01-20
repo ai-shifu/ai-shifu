@@ -1,5 +1,4 @@
 import asyncio
-import sys
 import types
 import unittest
 from unittest.mock import patch
@@ -23,15 +22,6 @@ if dao.db is None:
 if not hasattr(dao, "redis_client"):
     dao.redis_client = None
 
-# Stub the LLM module to avoid outbound requests during import.
-if "flaskr.api.llm" not in sys.modules:
-    llm_stub = types.ModuleType("flaskr.api.llm")
-    llm_stub.invoke_llm = lambda *args, **kwargs: []
-    llm_stub.chat_llm = lambda *args, **kwargs: []
-    llm_stub.get_allowed_models = lambda *args, **kwargs: []
-    llm_stub.get_current_models = lambda *args, **kwargs: []
-    sys.modules["flaskr.api.llm"] = llm_stub
-
 from flaskr.service.learn.context_v2 import (
     RunScriptContextV2,
     RunScriptPreviewContextV2,
@@ -46,6 +36,14 @@ def _make_context() -> RunScriptContextV2:
     return RunScriptContextV2.__new__(RunScriptContextV2)
 
 
+_HAS_COLLECT_ASYNC = hasattr(RunScriptContextV2, "_collect_async_generator")
+_HAS_RUN_ASYNC = hasattr(RunScriptContextV2, "_run_async_in_safe_context")
+
+
+@unittest.skipIf(
+    not _HAS_COLLECT_ASYNC,
+    "_collect_async_generator helper removed in current architecture.",
+)
 class CollectAsyncGeneratorTests(unittest.TestCase):
     def test_without_running_loop(self):
         ctx = _make_context()
@@ -71,6 +69,10 @@ class CollectAsyncGeneratorTests(unittest.TestCase):
         asyncio.run(runner())
 
 
+@unittest.skipIf(
+    not _HAS_RUN_ASYNC,
+    "_run_async_in_safe_context helper removed in current architecture.",
+)
 class RunAsyncInSafeContextTests(unittest.TestCase):
     def test_without_running_loop(self):
         ctx = _make_context()
@@ -128,7 +130,9 @@ class NextChapterInteractionTests(unittest.TestCase):
 
     def test_emits_and_persists_button_once(self):
         with self.app.app_context():
-            events = list(self.ctx._emit_next_chapter_interaction())
+            events = list(
+                self.ctx._emit_next_chapter_interaction(self.ctx._current_attend)
+            )
             self.assertEqual(len(events), 1)
             next_event = events[0]
             self.assertEqual(next_event.type, GeneratedType.INTERACTION)
@@ -141,7 +145,7 @@ class NextChapterInteractionTests(unittest.TestCase):
             self.assertEqual(len(stored_blocks), 1)
 
             self.assertEqual(
-                list(self.ctx._emit_next_chapter_interaction()),
+                list(self.ctx._emit_next_chapter_interaction(self.ctx._current_attend)),
                 [],
             )
             self.assertEqual(

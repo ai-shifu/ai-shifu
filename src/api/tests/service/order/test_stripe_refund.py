@@ -13,14 +13,21 @@ class DummyStripeRefundProvider:
         return self._result
 
 
+def _ensure_order(status, order_bid):
+    order = Order.query.filter(Order.order_bid == order_bid).first()
+    if not order:
+        order = Order(order_bid=order_bid, shifu_bid="shifu-1", user_bid="user-1")
+        db.session.add(order)
+        db.session.commit()
+    order.status = status
+    order.payment_channel = "stripe"
+    db.session.commit()
+    return order
+
+
 def test_refund_order_payment_updates_status(app, monkeypatch):
     with app.app_context():
-        order = Order.query.filter(Order.status == ORDER_STATUS_SUCCESS).first()
-        if not order:
-            order = Order.query.first()
-            order.status = ORDER_STATUS_SUCCESS
-        order.payment_channel = "stripe"
-        db.session.commit()
+        order = _ensure_order(ORDER_STATUS_SUCCESS, "order-refund-1")
 
         stripe_order = StripeOrder(
             order_bid=order.order_bid,
@@ -73,42 +80,32 @@ def test_refund_order_payment_updates_status(app, monkeypatch):
 
 def test_get_payment_details_returns_stripe_payload(app):
     with app.app_context():
-        order = Order.query.filter(Order.payment_channel == "stripe").first()
-        if not order:
-            order = Order.query.first()
-            order.payment_channel = "stripe"
-            db.session.commit()
-
-        stripe_order = (
-            StripeOrder.query.filter(StripeOrder.order_bid == order.order_bid)
-            .order_by(StripeOrder.id.desc())
-            .first()
+        order_bid = "order-details-1"
+        order = _ensure_order(ORDER_STATUS_SUCCESS, order_bid)
+        stripe_order = StripeOrder(
+            order_bid=order.order_bid,
+            stripe_order_bid="stripe-order",
+            user_bid=order.user_bid,
+            shifu_bid=order.shifu_bid,
+            payment_intent_id="pi_test",
+            checkout_session_id="cs_test",
+            latest_charge_id="ch_test",
+            amount=100,
+            currency="usd",
+            status=1,
+            receipt_url="",
+            payment_method="pm_test",
+            failure_code="",
+            failure_message="",
+            metadata_json="{}",
+            payment_intent_object="{}",
+            checkout_session_object="{}",
         )
-        if not stripe_order:
-            stripe_order = StripeOrder(
-                order_bid=order.order_bid,
-                stripe_order_bid="stripe-order",
-                user_bid=order.user_bid,
-                shifu_bid=order.shifu_bid,
-                payment_intent_id="pi_test",
-                checkout_session_id="cs_test",
-                latest_charge_id="ch_test",
-                amount=100,
-                currency="usd",
-                status=1,
-                receipt_url="",
-                payment_method="pm_test",
-                failure_code="",
-                failure_message="",
-                metadata_json="{}",
-                payment_intent_object="{}",
-                checkout_session_object="{}",
-            )
-            db.session.add(stripe_order)
-            db.session.commit()
+        db.session.add(stripe_order)
+        db.session.commit()
 
-    details = get_payment_details(app, order.order_bid)
+    details = get_payment_details(app, order_bid)
     assert details["payment_channel"] == "stripe"
     assert details["payment_intent_id"] == "pi_test"
-    assert details["checkout_session_id"] in {"", "cs_test"}
+    assert details["checkout_session_id"] == "cs_test"
     assert details["metadata"] == {}
