@@ -344,7 +344,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
       );
       return [...newNames, ...filteredPrev];
     });
-  }, [mdflowVariableNames, t]);
+  }, [mdflowVariableNames]);
 
   const variablesList = useMemo(() => {
     const merged = new Map<string, { name: string }>();

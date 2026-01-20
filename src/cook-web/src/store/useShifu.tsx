@@ -1354,7 +1354,6 @@ export const ShifuProvider = ({
       };
     } catch (error) {
       console.error(error);
-      setHiddenVariables([]);
       return { variables: {}, blocksCount: 0, systemVariableKeys: [] };
     }
   };
