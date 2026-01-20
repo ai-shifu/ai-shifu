@@ -84,9 +84,9 @@
 - Converted `tests/test_learn_api.py` to learn info/tree unit tests.
 - Converted `tests/test_shifu_utils.py` to resource + creator unit tests.
 - Converted `tests/test_shifu_funcs.py` to summary error-handling unit test.
+- Converted `tests/test_chapter.py` to shifu outline tree unit test.
 
 ## Remaining Skipped Tests
-- `tests/test_chapter.py`
 - `tests/test_study_record.py`
 - `tests/test_sudy.py`
 - `tests/service/tts/test_tts_text_preprocess.py` (skips when app fixture disabled)

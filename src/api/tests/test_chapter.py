@@ -1,18 +1,38 @@
-import pytest
-
-pytest.skip(
-    "Integration test relies on legacy paths and seeded data.",
-    allow_module_level=True,
-)
+from flaskr.dao import db
+from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, LogDraftStruct
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.service.shifu.shifu_struct_manager import get_shifu_outline_tree
 
 
-def test_get_outline_tree(app):
-    from api.flaskr.service.shifu.outline_funcs import get_outline_tree
-    from flaskr.route.common import make_common_response
+def test_get_shifu_outline_tree_preview(app):
+    with app.app_context():
+        shifu = DraftShifu(shifu_bid="shifu-1", title="Shifu", created_user_bid="u1")
+        db.session.add(shifu)
+        db.session.commit()
 
-    app.logger.info("test_get_outline_tree")
+        outline = DraftOutlineItem(
+            shifu_bid="shifu-1",
+            outline_item_bid="outline-1",
+            title="Outline",
+            position="1",
+            type=401,
+            hidden=0,
+        )
+        db.session.add(outline)
+        db.session.commit()
 
-    user_id = "ab769989275a4eddbdf589558b9df089"
-    shifu_id = "3bed65b7e700477bb878aacf95b616bd"
-    outline_tree = get_outline_tree(app, user_id, shifu_id)
-    app.logger.info(make_common_response(outline_tree))
+        struct = HistoryItem(
+            bid="shifu-1",
+            id=shifu.id,
+            type="shifu",
+            children=[
+                HistoryItem(bid="outline-1", id=outline.id, type="outline", children=[])
+            ],
+        ).to_json()
+        log = LogDraftStruct(struct_bid="struct-1", shifu_bid="shifu-1", struct=struct)
+        db.session.add(log)
+        db.session.commit()
+
+    dto = get_shifu_outline_tree(app, "shifu-1", is_preview=True)
+    assert dto.outline_items
+    assert dto.outline_items[0].title == "Outline"
