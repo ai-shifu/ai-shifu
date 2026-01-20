@@ -38,7 +38,7 @@ def test_use_coupon_code_applies_discount(app, monkeypatch):
 
     sent = {}
 
-    def fake_send_feishu_coupon_code(_app, user_id, code, name, value):
+    def fake_send_feishu_coupon_code(_app, user_id, code, _name, _value):
         sent["user_id"] = user_id
         sent["code"] = code
 
@@ -54,8 +54,7 @@ def test_use_coupon_code_applies_discount(app, monkeypatch):
         refreshed = Order.query.filter(Order.order_bid == "order-1").first()
         usage = CouponUsage.query.filter(CouponUsage.order_bid == "order-1").first()
         updated_coupon = Coupon.query.filter(Coupon.coupon_bid == "coupon-1").first()
-
-    assert str(refreshed.paid_price) == "90.00"
-    assert usage is not None
-    assert updated_coupon.used_count == 1
+        assert str(refreshed.paid_price) == "90.00"
+        assert usage is not None
+        assert updated_coupon.used_count == 1
     assert sent["code"] == "CODE1"

@@ -58,11 +58,10 @@ class FakeRedis:
         value = self.get(key)
         if value is None:
             return None
-        expires_in = ex
-        if expires_in is None and px is not None:
-            expires_in = int(px / 1000)
-        if expires_in is not None:
-            self._expires[key] = self._now() + int(expires_in)
+        if ex is not None:
+            self._expires[key] = self._now() + ex
+        elif px is not None:
+            self._expires[key] = self._now() + (px / 1000.0)
         return value
 
     def set(
@@ -83,11 +82,10 @@ class FakeRedis:
         if xx and self.get(key) is None:
             return False
         self._store[key] = self._encode(value)
-        expires_in = ex
-        if expires_in is None and px is not None:
-            expires_in = int(px / 1000)
-        if expires_in is not None:
-            self._expires[key] = self._now() + int(expires_in)
+        if ex is not None:
+            self._expires[key] = self._now() + ex
+        elif px is not None:
+            self._expires[key] = self._now() + (px / 1000.0)
         else:
             self._expires.pop(key, None)
         return True
@@ -106,13 +104,13 @@ class FakeRedis:
 
     def incr(self, key: str, amount: int = 1):
         current = self.get(key)
-        ttl = self._expires.get(key)
         if current is None:
             current_value = 0
         else:
             current_value = int(current)
         new_value = current_value + amount
         self._store[key] = self._encode(new_value)
+        ttl = self._expires.get(key)
         if ttl is not None:
             self._expires[key] = ttl
         return new_value

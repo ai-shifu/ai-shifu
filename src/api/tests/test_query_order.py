@@ -11,8 +11,8 @@ def test_query_buy_record_returns_dto(app):
             order_bid="order-query-1",
             shifu_bid="shifu-query-1",
             user_bid="user-query-1",
-            payable_price=Decimal("100.00"),
-            paid_price=Decimal("80.00"),
+            payable_price=Decimal("0.00"),
+            paid_price=Decimal("0.00"),
             payment_channel="pingxx",
         )
         db.session.add(order)

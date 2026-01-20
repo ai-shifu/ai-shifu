@@ -132,7 +132,7 @@ def extensible_generic(func):
 
         if has_app_context():
             current_app.logger.info(f"extensible_generic: {func.__name__}")
-    except Exception:
+    except ImportError:
         pass
 
     @wraps(func)

@@ -27,6 +27,7 @@ def test_create_pingxx_order_builds_request(app, monkeypatch):
 
     class FakeProvider:
         def create_payment(self, *, request, app):
+            _ = app
             captured["request"] = request
             return PaymentCreationResult(
                 provider_reference="ref", raw_response={"id": "ch"}

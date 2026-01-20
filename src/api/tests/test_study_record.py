@@ -13,6 +13,7 @@ def test_get_learn_record_returns_blocks(app):
             outline_item_bid="outline-1",
             user_bid="user-1",
             status=LEARN_STATUS_IN_PROGRESS,
+            deleted=0,
         )
         block = LearnGeneratedBlock(
             generated_block_bid="block-1",
@@ -26,6 +27,7 @@ def test_get_learn_record_returns_blocks(app):
             generated_content="hello",
             position=1,
             status=1,
+            deleted=0,
         )
         db.session.add(progress)
         db.session.add(block)

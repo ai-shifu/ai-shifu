@@ -19,7 +19,7 @@ def _get_archive_funcs():
 
 
 def _seed_shifu(app, shifu_bid: str, owner_bid: str):
-    """Create draft & published shifu rows for testing."""
+    """Create draft shifu row and clear archive state for testing."""
     with app.app_context():
         DraftShifu, ShifuUserArchive = _get_models()
         DraftShifu.query.filter_by(shifu_bid=shifu_bid).delete()

@@ -13,7 +13,7 @@ class DummyStripeProvider:
         return self._notification
 
 
-def _ensure_order(app, status, order_bid):
+def _ensure_order(status, order_bid):
     order = Order.query.filter(Order.order_bid == order_bid).first()
     if not order:
         order = Order(order_bid=order_bid, shifu_bid="shifu-1", user_bid="user-1")
@@ -27,7 +27,7 @@ def _ensure_order(app, status, order_bid):
 
 def test_handle_stripe_webhook_marks_order_paid(app, monkeypatch):
     with app.app_context():
-        order = _ensure_order(app, ORDER_STATUS_TO_BE_PAID, "order-webhook")
+        order = _ensure_order(ORDER_STATUS_TO_BE_PAID, "order-webhook-1")
 
         stripe_order = StripeOrder(
             order_bid=order.order_bid,

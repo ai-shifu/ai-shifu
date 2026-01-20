@@ -135,6 +135,7 @@ def token():
 @pytest.fixture(autouse=True)
 def mock_redis_client(monkeypatch, request):
     fake_redis = FakeRedis()
+    # test_funcs.py uses its own `@patch` decorators for fine-grained Redis control.
     if "service/config/test_funcs.py" in request.node.nodeid:
         return fake_redis
     monkeypatch.setattr(dao, "redis_client", fake_redis, raising=False)
@@ -164,10 +165,7 @@ def mock_redis_client(monkeypatch, request):
 
 
 def _should_skip_llm_mock(request) -> bool:
-    if request.node.get_closest_marker("no_mock_llm"):
-        return True
-    nodeid = request.node.nodeid
-    return "test_llm.py" in nodeid or "test_openai.py" in nodeid
+    return request.node.get_closest_marker("no_mock_llm") is not None
 
 
 @pytest.fixture(autouse=True)
