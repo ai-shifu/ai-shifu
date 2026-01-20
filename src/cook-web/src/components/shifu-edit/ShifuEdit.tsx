@@ -94,6 +94,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     isLoading,
     variables,
     systemVariables,
+    hiddenVariables,
     currentShifu,
     currentNode,
   } = useShifu();
@@ -212,6 +213,16 @@ const ScriptEditor = ({ id }: { id: string }) => {
     setIsPreviewPanelOpen(prev => !prev);
   };
 
+  const handleHideUnusedVariables = useCallback(async () => {
+    if (!currentShifu?.bid) return;
+    await actions.hideUnusedVariables(currentShifu.bid);
+  }, [actions, currentShifu?.bid]);
+
+  const handleRestoreHiddenVariables = useCallback(async () => {
+    if (!currentShifu?.bid) return;
+    await actions.restoreHiddenVariables(currentShifu.bid);
+  }, [actions, currentShifu?.bid]);
+
   useEffect(() => {
     currentNodeBidRef.current = currentNode?.bid ?? null;
   }, [currentNode?.bid]);
@@ -262,6 +273,19 @@ const ScriptEditor = ({ id }: { id: string }) => {
         blocksCount,
         systemVariableKeys,
       } = await actions.previewParse(targetMdflow, targetShifu, targetOutline);
+
+      // Auto-unhide only the hidden variables that are actually used in current prompts
+      const usedHiddenKeys = hiddenVariables.filter(key =>
+        mdflowVariableNames.includes(key),
+      );
+      if (usedHiddenKeys.length) {
+        await actions.unhideVariablesByKeys(targetShifu, usedHiddenKeys);
+        if (outlineChanged()) {
+          return;
+        }
+        // refresh local visible/hidden lists to reflect the change
+        await actions.refreshProfileDefinitions(targetShifu);
+      }
       if (outlineChanged()) {
         return;
       }
@@ -320,7 +344,11 @@ const ScriptEditor = ({ id }: { id: string }) => {
       );
       return [...newNames, ...filteredPrev];
     });
-  }, [mdflowVariableNames]);
+
+  }, [
+    mdflowVariableNames,
+    t,
+  ]);
 
   const variablesList = useMemo(() => {
     const merged = new Map<string, { name: string }>();
@@ -689,13 +717,18 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   errorMessage={previewError || undefined}
                   items={previewItems}
                   variables={previewVariables}
+                  hiddenVariableKeys={hiddenVariables}
                   shifuBid={currentShifu?.bid || ''}
                   onRefresh={onRefresh}
                   onSend={onSend}
                   onVariableChange={onVariableChange}
                   variableOrder={variableOrder}
+                  usedVariableKeys={mdflowVariableNames}
+                  systemVariableKeys={systemVariablesList.map(item => item.name)}
                   onRequestAudioForBlock={requestPreviewAudioForBlock}
                   reGenerateConfirm={reGenerateConfirm}
+                  onHideUnused={handleHideUnusedVariables}
+                  onRestoreHidden={handleRestoreHiddenVariables}
                 />
               </div>
             </div>

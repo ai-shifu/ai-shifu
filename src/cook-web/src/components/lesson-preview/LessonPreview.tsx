@@ -28,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
+import { useAlert } from '@/components/ui/UseAlert';
 
 interface LessonPreviewProps {
   loading: boolean;
@@ -49,6 +50,11 @@ interface LessonPreviewProps {
     onConfirm: () => void;
     onCancel: () => void;
   };
+  hiddenVariableKeys?: string[];
+  onHideUnused?: () => void;
+  onRestoreHidden?: () => void;
+  usedVariableKeys?: string[];
+  systemVariableKeys?: string[];
 }
 
 const noop = () => {};
@@ -64,6 +70,11 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   onVariableChange,
   variableOrder,
   reGenerateConfirm,
+  hiddenVariableKeys,
+  onHideUnused,
+  onRestoreHidden,
+  usedVariableKeys = [],
+  systemVariableKeys = [],
 }) => {
   const { t } = useTranslation();
   const confirmButtonText = t('module.renderUi.core.confirm');
@@ -92,6 +103,33 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
       : undefined;
   }, [fallbackVariables, items, variables]);
 
+  const hiddenSet = React.useMemo(
+    () => new Set(hiddenVariableKeys || []),
+    [hiddenVariableKeys],
+  );
+
+  const visibleVariables = React.useMemo(() => {
+    if (!resolvedVariables) return undefined;
+    if (!hiddenSet.size) return resolvedVariables;
+    return Object.entries(resolvedVariables).reduce<PreviewVariablesMap>(
+      (acc, [key, value]) => {
+        if (hiddenSet.has(key)) {
+          return acc;
+        }
+        acc[key] = value;
+        return acc;
+      },
+      {},
+    );
+  }, [hiddenSet, resolvedVariables]);
+
+  const hiddenVariablesWithValue = React.useMemo(() => {
+    if (!hiddenVariableKeys?.length) {
+      return [];
+    }
+    return hiddenVariableKeys.map(key => [key, resolvedVariables?.[key] || '']);
+  }, [hiddenVariableKeys, resolvedVariables]);
+
   const itemByGeneratedBid = React.useMemo(() => {
     const map = new Map<string, ChatContentItem>();
     items.forEach(item => {
@@ -101,6 +139,56 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     });
     return map;
   }, [items]);
+
+  const usedVariableSet = React.useMemo(
+    () => new Set(usedVariableKeys || []),
+    [usedVariableKeys],
+  );
+  const systemVariableSet = React.useMemo(
+    () => new Set(systemVariableKeys || []),
+    [systemVariableKeys],
+  );
+
+  const { showAlert } = useAlert();
+
+  const handleHideUnusedConfirm = React.useCallback(() => {
+    if (!onHideUnused) return;
+    showAlert({
+      title: t('module.shifu.previewArea.variablesHideUnusedConfirmTitle'),
+      description: t(
+        'module.shifu.previewArea.variablesHideUnusedConfirmDesc',
+      ),
+      confirmText: t('common.core.confirm'),
+      cancelText: t('common.core.cancel'),
+      onConfirm: () => onHideUnused(),
+    });
+  }, [onHideUnused, showAlert, t]);
+
+  const handleRestoreHiddenConfirm = React.useCallback(() => {
+    if (!onRestoreHidden) return;
+    showAlert({
+      title: t('module.shifu.previewArea.variablesRestoreHiddenConfirmTitle'),
+      description: t(
+        'module.shifu.previewArea.variablesRestoreHiddenConfirmDesc',
+      ),
+      confirmText: t('common.core.confirm'),
+      cancelText: t('common.core.cancel'),
+      onConfirm: () => onRestoreHidden(),
+    });
+  }, [onRestoreHidden, showAlert, t]);
+
+  const visibleVariableKeys = React.useMemo(
+    () => Object.keys(visibleVariables || {}),
+    [visibleVariables],
+  );
+
+  const hasUnusedVisibleVariables = React.useMemo(
+    () =>
+      visibleVariableKeys.some(
+        key => !systemVariableSet.has(key) && !usedVariableSet.has(key),
+      ),
+    [systemVariableSet, usedVariableSet, visibleVariableKeys],
+  );
 
   return (
     <div className={cn(styles.lessonPreview, 'text-sm')}>
@@ -120,11 +208,15 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
         {!showEmpty && (
           <div className={styles.variableListWrapper}>
             <VariableList
-              variables={resolvedVariables}
+              variables={visibleVariables}
+              hiddenVariables={hiddenVariablesWithValue}
               collapsed={variablesCollapsed}
               onToggle={() => setVariablesCollapsed(prev => !prev)}
               onChange={onVariableChange}
               variableOrder={variableOrder}
+              onHideUnused={handleHideUnusedConfirm}
+              onRestoreHidden={handleRestoreHiddenConfirm}
+              disableHideUnused={!hasUnusedVisibleVariables}
             />
           </div>
         )}

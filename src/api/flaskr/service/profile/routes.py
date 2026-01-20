@@ -6,6 +6,8 @@ from flaskr.service.profile.profile_manage import (
     get_profile_item_definition_option_list,
     save_profile_item,
     delete_profile_item,
+    update_profile_item_hidden_state,
+    hide_unused_profile_items,
 )
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.common import raise_error
@@ -98,6 +100,72 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
         parent_id = request.args.get("parent_id")
         return make_common_response(
             get_profile_item_definition_option_list(app, parent_id=parent_id)
+        )
+
+    @app.route(f"{path_prefix}/hide-unused-profile-items", methods=["POST"])
+    def hide_unused_profile_items_api():
+        """
+        Hide all unused custom profile items under a shifu.
+        ---
+        tags:
+          - profiles
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  parent_id:
+                    type: string
+                    description: shifu_bid
+        """
+        parent_id = request.get_json().get("parent_id", None)
+        if not parent_id:
+            raise_error("server.profile.parentIdRequired")
+        user_id = request.user.user_id
+        return make_common_response(
+            hide_unused_profile_items(app, parent_id=parent_id, user_id=user_id)
+        )
+
+    @app.route(f"{path_prefix}/update-profile-hidden-state", methods=["POST"])
+    def update_profile_hidden_state_api():
+        """
+        Hide or restore specific custom profile items.
+        ---
+        tags:
+          - profiles
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  parent_id:
+                    type: string
+                    description: shifu_bid
+                  profile_keys:
+                    type: array
+                    items:
+                      type: string
+                  hidden:
+                    type: boolean
+        """
+        parent_id = request.get_json().get("parent_id", None)
+        profile_keys = request.get_json().get("profile_keys", []) or []
+        hidden = bool(request.get_json().get("hidden", True))
+        if not parent_id:
+            raise_error("server.profile.parentIdRequired")
+        user_id = request.user.user_id
+        return make_common_response(
+            update_profile_item_hidden_state(
+                app,
+                parent_id=parent_id,
+                profile_keys=profile_keys,
+                hidden=hidden,
+                user_id=user_id,
+            )
         )
 
     @app.route(f"{path_prefix}/add-profile-item-quick", methods=["POST"])

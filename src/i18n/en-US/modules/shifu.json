@@ -22,6 +22,16 @@
     "variablesExpand": "Expand",
     "variablesLearnMore": "Learn more",
     "variablesPlaceholder": "UNKNOWN",
-    "variablesTitle": "Variables"
+    "variablesTitle": "Variables",
+    "variablesCurrent": "Current variables",
+    "variablesHideUnused": "Hide unused",
+    "variablesHiddenToggle": "Hidden variables",
+    "variablesRestoreHidden": "Restore",
+    "variablesHiddenEmpty": "No hidden variables",
+    "variablesEmpty": "No variables",
+    "variablesHideUnusedConfirmTitle": "Hide unused variables?",
+    "variablesHideUnusedConfirmDesc": "This will hide all custom variables that are not referenced in the course prompts. Hidden variables will not appear in the debug area until restored.",
+    "variablesRestoreHiddenConfirmTitle": "Restore hidden variables?",
+    "variablesRestoreHiddenConfirmDesc": "All hidden custom variables will reappear in the debug area and can be used during editing."
   }
 }

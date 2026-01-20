@@ -118,3 +118,67 @@ def test_delete_profile_item(test_client, app, token):
     app.logger.info(response.data)
     profile_item_definition_list = json.loads(response.data).get("data")
     assert len(profile_item_definition_list) == original_length - 1
+
+
+def test_hide_unused_profile_items_no_unused(monkeypatch):
+    from flask import Flask
+    from flaskr.service.profile import profile_manage
+
+    calls = []
+
+    def fake_get_unused(app, parent_id):
+        calls.append(("unused", parent_id))
+        return []
+
+    def fake_get_defs(app, parent_id=None):
+        calls.append(("defs", parent_id))
+        return ["defs"]
+
+    monkeypatch.setattr(
+        profile_manage, "get_unused_profile_keys", fake_get_unused, raising=True
+    )
+    monkeypatch.setattr(
+        profile_manage,
+        "get_profile_item_definition_list",
+        fake_get_defs,
+        raising=True,
+    )
+
+    app = Flask(__name__)
+    result = profile_manage.hide_unused_profile_items(app, "shifu_bid", "user_bid")
+
+    assert result == ["defs"]
+    assert ("unused", "shifu_bid") in calls
+    assert ("defs", "shifu_bid") in calls
+
+
+def test_hide_unused_profile_items_updates_hidden(monkeypatch):
+    from flask import Flask
+    from flaskr.service.profile import profile_manage
+
+    calls = []
+
+    def fake_get_unused(app, parent_id):
+        calls.append(("unused", parent_id))
+        return ["v1", "v2"]
+
+    def fake_update(app, parent_id, profile_keys, hidden, user_id):
+        calls.append(("update", parent_id, tuple(profile_keys), hidden, user_id))
+        return ["updated"]
+
+    monkeypatch.setattr(
+        profile_manage, "get_unused_profile_keys", fake_get_unused, raising=True
+    )
+    monkeypatch.setattr(
+        profile_manage,
+        "update_profile_item_hidden_state",
+        fake_update,
+        raising=True,
+    )
+
+    app = Flask(__name__)
+    result = profile_manage.hide_unused_profile_items(app, "shifu_bid", "user_bid")
+
+    assert result == ["updated"]
+    assert ("unused", "shifu_bid") in calls
+    assert ("update", "shifu_bid", ("v1", "v2"), True, "user_bid") in calls
