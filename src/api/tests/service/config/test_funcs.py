@@ -443,7 +443,7 @@ class TestAddConfig:
         mock_get_config_from_common,
         app,
     ):
-        """Test that add_config does not rely on cached encrypted value."""
+        """Test that add_config ignores cached encrypted values when adding."""
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
             app.config["SECRET_KEY"] = "test-secret-key-12345"
