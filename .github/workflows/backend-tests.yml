@@ -78,9 +78,14 @@ jobs:
           targets: set[str] = set()
           full_run = False
 
+          def normalize(path: str) -> str:
+              prefix = "src/api/"
+              return path[len(prefix):] if path.startswith(prefix) else path
+
           def add_target(path: str) -> None:
-              if pathlib.Path(path).exists():
-                  targets.add(path)
+              candidate = normalize(path)
+              if pathlib.Path(candidate).exists():
+                  targets.add(candidate)
 
           for path in changed:
               if path in {
@@ -101,7 +106,7 @@ jobs:
                   parts = path.split("/")
                   if len(parts) > 4:
                       module = parts[4]
-                      test_dir = pathlib.Path("src/api/tests/service") / module
+                      test_dir = pathlib.Path("tests/service") / module
                       if test_dir.exists():
                           targets.add(str(test_dir))
                       else:
@@ -116,7 +121,7 @@ jobs:
               break
 
           if full_run or not targets:
-              targets = {"src/api/tests"}
+              targets = {"tests"}
 
           targets_list = " ".join(sorted(targets))
           print(f"Selected targets: {targets_list}")
