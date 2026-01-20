@@ -250,20 +250,20 @@ def send_email_code(app: Flask, email: str, ip: str = None, language: str = None
 
 
 def create_and_commit_user_verify_code(
-    mail: str,
-    phone: str,
+    mail: str | None,
+    phone: str | None,
     verify_code: str,
     verify_code_type: int,
-    ip: str,
+    ip: str | None,
 ):
     user_verify_code = UserVerifyCode(
-        phone=phone,
-        mail=mail,
+        phone=phone or "",
+        mail=mail or "",
         verify_code=verify_code,
         verify_code_type=verify_code_type,  # 1: SMS, 2: Email
         verify_code_used=0,
         verify_code_send=0,
-        user_ip=ip,
+        user_ip=ip or "",
     )
     db.session.add(user_verify_code)
     db.session.commit()
