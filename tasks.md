@@ -81,9 +81,9 @@
 - Converted `tests/test_order.py` to init order unit coverage.
 - Converted `tests/test_pingpp.py` to provider request unit tests.
 - Converted `tests/test_wx_pub_order.py` to generate_charge unit coverage.
+- Converted `tests/test_learn_api.py` to learn info/tree unit tests.
 
 ## Remaining Skipped Tests
-- `tests/test_learn_api.py`
 - `tests/test_shifu_funcs.py`
 - `tests/test_shifu_utils.py`
 - `tests/test_chapter.py`
