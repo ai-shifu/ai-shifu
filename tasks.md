@@ -89,4 +89,4 @@
 - Converted `tests/test_sudy.py` to empty learn record unit test.
 
 ## Remaining Skipped Tests
-- `tests/service/tts/test_tts_text_preprocess.py` (skips when app fixture disabled)
+- None (only conditional skip in `tests/service/tts/test_tts_text_preprocess.py` when app fixture is disabled).
