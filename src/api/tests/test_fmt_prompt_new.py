@@ -1,102 +1,28 @@
-def test_fmt_prompt(app):
-    from flaskr.service.study.utils import get_fmt_prompt
+def test_fmt_prompt_replaces_double_braces(app, monkeypatch):
+    from flaskr.service.learn import utils_v2
 
-    prompt = """1对1向学员讲解可以把不懂的事情，交还给 AI 让它解释和处理。
+    monkeypatch.setattr(
+        utils_v2,
+        "get_user_profiles",
+        lambda _app, _user_id, _course_id: {"nickname": "Alice"},
+    )
 
-把下面的`注意事项`，放回到`代码`里解决，在`代码`直接完成修改后，给到一个完成的 Python 代码。
-
-`注意事项`是：
-1. 文件扩展名处理
-2. 文件名格式
-3. 重命名执行
-
-`代码`是：
-```python
-
-import os
-
-def batch_rename(folder_path, new_name_format):
-    # 获取文件夹中的所有文件
-    files = os.listdir(folder_path)
-    files = [f for f in files if os.path.isfile(os.path.join(folder_path, f))]
-
-    for index, filename in enumerate(files):
-        file_extension = os.path.splitext(filename)[1]
-        new_name = new_name_format.format(index + 1) + file_extension
-        old_file_path = os.path.join(folder_path, filename)
-        new_file_path = os.path.join(folder_path, new_name)
-
-        os.rename(old_file_path, new_file_path)
-
-    print(f"成功重命名了 {{len(files)}} 个文件。")
-
-if __name__ == "__main__":
-    folder_path = input("请输入要批量重命名的文件夹路径：")
-    new_name_format = input("请输入新文件名的格式（如 'new_name_{{}}'，{{}} 会被替换为编号）：")
-    batch_rename(folder_path, new_name_format)
-
-```"""
     with app.app_context():
-        user_id = "e54422e8fe734428b628129330e7dd2d"
-        fmt_prompt = get_fmt_prompt(app, user_id, prompt)
+        prompt = "Hello, {{nickname}}!"
+        fmt_prompt = utils_v2.get_fmt_prompt(app, "user-1", "course-1", prompt)
+        assert fmt_prompt == "Hello, Alice!"
 
-        app.logger.info(fmt_prompt)
 
+def test_fmt_prompt_ignores_invalid_variable_names(app, monkeypatch):
+    from flaskr.service.learn import utils_v2
 
-def test_fmt_prompt_simple(app):
-    from flaskr.service.study.utils import get_fmt_prompt
+    monkeypatch.setattr(
+        utils_v2,
+        "get_user_profiles",
+        lambda _app, _user_id, _course_id: {"user_name": "Alice"},
+    )
 
-    prompt = """你好， {nickname}，欢迎来到 Python 编程学习。"""
     with app.app_context():
-        user_id = "e54422e8fe734428b628129330e7dd2d"
-        fmt_prompt = get_fmt_prompt(app, user_id, prompt)
-
-        app.logger.info(fmt_prompt)
-
-
-def test_fmt_prompt_error(app):
-    from flaskr.service.study.utils import get_fmt_prompt
-
-    prompt = """1对1向学员讲解可以把不懂的事情，交还给 AI 让它解释和处理。
-
-把下面的`注意事项`，放回到`代码`里解决，在`代码`直接完成修改后，给到一个完成的 Python 代码。
-
-`注意事项`是：
-1. 文件扩展名处理
-2. 文件名格式
-3. 重命名执行
-
-`代码`是：
-```python
-
-import os
-
-def batch_rename(folder_path, new_name_format):
-    # 获取文件夹中的所有文件
-    files = os.listdir(folder_path)
-    files = [f for f in files if os.path.isfile(os.path.join(folder_path, f))]
-
-    for index, filename in enumerate(files):
-        file_extension = os.path.splitext(filename)[1]
-        new_name = new_name_format.format(index + 1) + file_extension
-        old_file_path = os.path.join(folder_path, filename)
-        new_file_path = os.path.join(folder_path, new_name)
-
-        os.rename(old_file_path, new_file_path)
-
-    print(f"成功重命名了 {{len(files)}} 个文件。")
-
-if __name__ == "__main__":
-    folder_path = input("请输入要批量重命名的文件夹路径：")
-    new_name_format = input("请输入新文件名的格式（如 'new_name_{{}}'，{{}} 会被替换为编号）：")
-    batch_rename(folder_path, new_name_format)
-
-```
-
-以`我们可以告诉 AI ：我不懂你讲的「注意事项」，请你在代码中直接完成修改，并给到我一个完成的 Python 代码。`为开头讲下去。
-以`当 AI 把信息给得足够细致时，我们对于这些代码是如何写出来的也就更理解了，对于程序实现逻辑会有更深入的掌握。`为结尾。"""
-    with app.app_context():
-        user_id = "e54422e8fe734428b628129330e7dd2d"
-        fmt_prompt = get_fmt_prompt(app, user_id, prompt)
-
-        app.logger.info(fmt_prompt)
+        prompt = "Hello, {user.name}!"
+        fmt_prompt = utils_v2.get_fmt_prompt(app, "user-1", "course-1", prompt)
+        assert fmt_prompt == "Hello, {user.name}!"

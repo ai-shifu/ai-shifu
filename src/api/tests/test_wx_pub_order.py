@@ -1,3 +1,11 @@
+import pytest
+
+pytest.skip(
+    "Integration test requires lesson module and payment setup.",
+    allow_module_level=True,
+)
+
+
 # "66de5cb18ccf41f18aed9a83efba92ac"
 
 

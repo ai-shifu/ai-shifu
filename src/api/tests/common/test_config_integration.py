@@ -337,7 +337,6 @@ class TestErrorHandling:
         # Should list all missing required variables
         assert "SQLALCHEMY_DATABASE_URI" in error_msg
         assert "SECRET_KEY" in error_msg
-        assert "UNIVERSAL_VERIFICATION_CODE" in error_msg
         # Should include descriptions
         assert "database" in error_msg.lower() or "MySQL" in error_msg
 

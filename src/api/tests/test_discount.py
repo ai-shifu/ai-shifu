@@ -1,3 +1,11 @@
+import pytest
+
+pytest.skip(
+    "Integration test depends on lesson/discount data not in SQLite unit tests.",
+    allow_module_level=True,
+)
+
+
 def test_discount(app):
     from flaskr.service.order.discount import generate_discount_code
     from flaskr.service.lesson.models import AICourse

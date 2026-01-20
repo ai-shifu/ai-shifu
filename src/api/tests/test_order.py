@@ -1,3 +1,11 @@
+import pytest
+
+pytest.skip(
+    "Integration test requires payment setup and seeded orders.",
+    allow_module_level=True,
+)
+
+
 def test_buy_and_pay(app):
     from flaskr.service.order.funs import (
         init_buy_record,

@@ -39,7 +39,9 @@ def test_list_orders_returns_page_dto():
     query_mock.limit.return_value = query_mock
     query_mock.all.return_value = [order]
 
-    with patch("flaskr.service.order.admin.get_user_shifu_bids") as shifu_bids_mock:
+    with patch(
+        "flaskr.service.order.admin.get_user_created_shifu_bids"
+    ) as shifu_bids_mock:
         with patch("flaskr.service.order.admin.Order") as order_model_mock:
             with patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock:
                 with patch(
@@ -68,42 +70,34 @@ def test_get_order_detail_returns_detail_dto():
     query_mock.filter.return_value.first.return_value = order
 
     with patch("flaskr.service.order.admin.Order") as order_model_mock:
-        with patch(
-            "flaskr.service.order.admin.get_user_shifu_permissions"
-        ) as permission_mock:
-            with patch("flaskr.service.order.admin.has_shifu_permission") as has_perm:
+        with patch("flaskr.service.order.admin.get_shifu_creator_bid") as creator_mock:
+            with patch("flaskr.service.order.admin._load_shifu_map") as shifu_map_mock:
                 with patch(
-                    "flaskr.service.order.admin._load_shifu_map"
-                ) as shifu_map_mock:
+                    "flaskr.service.order.admin._load_user_map"
+                ) as user_map_mock:
                     with patch(
-                        "flaskr.service.order.admin._load_user_map"
-                    ) as user_map_mock:
+                        "flaskr.service.order.admin._load_order_activities"
+                    ) as activities_mock:
                         with patch(
-                            "flaskr.service.order.admin._load_order_activities"
-                        ) as activities_mock:
+                            "flaskr.service.order.admin._load_order_coupons"
+                        ) as coupons_mock:
                             with patch(
-                                "flaskr.service.order.admin._load_order_coupons"
-                            ) as coupons_mock:
-                                with patch(
-                                    "flaskr.service.order.admin._load_payment_detail"
-                                ) as payment_mock:
-                                    order_model_mock.query = query_mock
-                                    permission_mock.return_value = {"shifu-1": {"view"}}
-                                    has_perm.return_value = True
-                                    shifu_map_mock.return_value = {
-                                        "shifu-1": DummyShifu()
+                                "flaskr.service.order.admin._load_payment_detail"
+                            ) as payment_mock:
+                                order_model_mock.query = query_mock
+                                creator_mock.return_value = "user-1"
+                                shifu_map_mock.return_value = {"shifu-1": DummyShifu()}
+                                user_map_mock.return_value = {
+                                    "user-1": {
+                                        "mobile": "18800001111",
+                                        "nickname": "Tester",
                                     }
-                                    user_map_mock.return_value = {
-                                        "user-1": {
-                                            "mobile": "18800001111",
-                                            "nickname": "Tester",
-                                        }
-                                    }
-                                    activities_mock.return_value = []
-                                    coupons_mock.return_value = []
-                                    payment_mock.return_value = None
+                                }
+                                activities_mock.return_value = []
+                                coupons_mock.return_value = []
+                                payment_mock.return_value = None
 
-                                    detail = get_order_detail(app, "user-1", "order-1")
+                                detail = get_order_detail(app, "user-1", "order-1")
 
     assert isinstance(detail, OrderAdminDetailDTO)
     assert isinstance(detail.order, OrderAdminSummaryDTO)

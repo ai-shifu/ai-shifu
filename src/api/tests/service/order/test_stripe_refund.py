@@ -13,14 +13,21 @@ class DummyStripeRefundProvider:
         return self._result
 
 
+def _ensure_order(app, status, order_bid):
+    order = Order.query.filter(Order.order_bid == order_bid).first()
+    if not order:
+        order = Order(order_bid=order_bid, shifu_bid="shifu-1", user_bid="user-1")
+        db.session.add(order)
+        db.session.commit()
+    order.status = status
+    order.payment_channel = "stripe"
+    db.session.commit()
+    return order
+
+
 def test_refund_order_payment_updates_status(app, monkeypatch):
     with app.app_context():
-        order = Order.query.filter(Order.status == ORDER_STATUS_SUCCESS).first()
-        if not order:
-            order = Order.query.first()
-            order.status = ORDER_STATUS_SUCCESS
-        order.payment_channel = "stripe"
-        db.session.commit()
+        order = _ensure_order(app, ORDER_STATUS_SUCCESS, "order-refund")
 
         stripe_order = StripeOrder(
             order_bid=order.order_bid,
@@ -73,11 +80,8 @@ def test_refund_order_payment_updates_status(app, monkeypatch):
 
 def test_get_payment_details_returns_stripe_payload(app):
     with app.app_context():
-        order = Order.query.filter(Order.payment_channel == "stripe").first()
-        if not order:
-            order = Order.query.first()
-            order.payment_channel = "stripe"
-            db.session.commit()
+        order = _ensure_order(app, ORDER_STATUS_SUCCESS, "order-details")
+        order_bid = order.order_bid
 
         stripe_order = (
             StripeOrder.query.filter(StripeOrder.order_bid == order.order_bid)
@@ -107,7 +111,7 @@ def test_get_payment_details_returns_stripe_payload(app):
             db.session.add(stripe_order)
             db.session.commit()
 
-    details = get_payment_details(app, order.order_bid)
+    details = get_payment_details(app, order_bid)
     assert details["payment_channel"] == "stripe"
     assert details["payment_intent_id"] == "pi_test"
     assert details["checkout_session_id"] in {"", "cs_test"}

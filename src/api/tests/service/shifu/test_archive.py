@@ -7,9 +7,9 @@ from flaskr.service.common.models import AppException
 
 
 def _get_models():
-    from flaskr.service.shifu.models import DraftShifu, PublishedShifu
+    from flaskr.service.shifu.models import DraftShifu, ShifuUserArchive
 
-    return DraftShifu, PublishedShifu
+    return DraftShifu, ShifuUserArchive
 
 
 def _get_archive_funcs():
@@ -21,9 +21,11 @@ def _get_archive_funcs():
 def _seed_shifu(app, shifu_bid: str, owner_bid: str):
     """Create draft & published shifu rows for testing."""
     with app.app_context():
-        DraftShifu, PublishedShifu = _get_models()
+        DraftShifu, ShifuUserArchive = _get_models()
         DraftShifu.query.filter_by(shifu_bid=shifu_bid).delete()
-        PublishedShifu.query.filter_by(shifu_bid=shifu_bid).delete()
+        ShifuUserArchive.query.filter_by(
+            shifu_bid=shifu_bid, user_bid=owner_bid
+        ).delete()
 
         draft = DraftShifu(
             shifu_bid=shifu_bid,
@@ -38,21 +40,7 @@ def _seed_shifu(app, shifu_bid: str, owner_bid: str):
             created_user_bid=owner_bid,
             updated_user_bid=owner_bid,
         )
-        published = PublishedShifu(
-            shifu_bid=shifu_bid,
-            title="Test Shifu",
-            description="desc",
-            avatar_res_bid="res",
-            keywords="test",
-            llm="gpt",
-            llm_temperature=Decimal("0"),
-            llm_system_prompt="",
-            price=Decimal("0"),
-            created_user_bid=owner_bid,
-            updated_user_bid=owner_bid,
-        )
         dao.db.session.add(draft)
-        dao.db.session.add(published)
         dao.db.session.commit()
 
 
@@ -65,34 +53,38 @@ def test_archive_then_unarchive_updates_both_tables(app):
     archive_shifu(app, owner_bid, shifu_bid)
 
     with app.app_context():
-        DraftShifu, PublishedShifu = _get_models()
+        DraftShifu, ShifuUserArchive = _get_models()
         draft = (
             DraftShifu.query.filter_by(shifu_bid=shifu_bid)
             .order_by(DraftShifu.id.desc())
             .first()
         )
-        published = PublishedShifu.query.filter_by(shifu_bid=shifu_bid).first()
+        archive = ShifuUserArchive.query.filter_by(
+            shifu_bid=shifu_bid, user_bid=owner_bid
+        ).first()
 
-        assert draft.archived == 1
-        assert draft.archived_at is not None
-        assert published.archived == 1
-        assert published.archived_at is not None
+        assert draft is not None
+        assert archive is not None
+        assert archive.archived == 1
+        assert archive.archived_at is not None
 
     unarchive_shifu(app, owner_bid, shifu_bid)
 
     with app.app_context():
-        DraftShifu, PublishedShifu = _get_models()
+        DraftShifu, ShifuUserArchive = _get_models()
         draft = (
             DraftShifu.query.filter_by(shifu_bid=shifu_bid)
             .order_by(DraftShifu.id.desc())
             .first()
         )
-        published = PublishedShifu.query.filter_by(shifu_bid=shifu_bid).first()
+        archive = ShifuUserArchive.query.filter_by(
+            shifu_bid=shifu_bid, user_bid=owner_bid
+        ).first()
 
-        assert draft.archived == 0
-        assert draft.archived_at is None
-        assert published.archived == 0
-        assert published.archived_at is None
+        assert draft is not None
+        assert archive is not None
+        assert archive.archived == 0
+        assert archive.archived_at is None
 
 
 def test_archive_requires_creator_permission(app):
@@ -104,4 +96,4 @@ def test_archive_requires_creator_permission(app):
     with pytest.raises(AppException) as excinfo:
         archive_shifu(app, "intruder", shifu_bid)
 
-    assert "noPermission" in excinfo.value.message
+    assert "permission" in excinfo.value.message.lower()

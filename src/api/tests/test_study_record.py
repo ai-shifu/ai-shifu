@@ -1,3 +1,11 @@
+import pytest
+
+pytest.skip(
+    "Study service removed; skipped in SQLite unit tests.",
+    allow_module_level=True,
+)
+
+
 def test_study_record(app):
     from flaskr.service.study import get_study_record
 

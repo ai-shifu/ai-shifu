@@ -1,3 +1,11 @@
+import pytest
+
+pytest.skip(
+    "Integration test requires seeded shifu data.",
+    allow_module_level=True,
+)
+
+
 def test_learn_api(app):
     from flaskr.service.learn.learn_funcs import get_shifu_info
     from flaskr.service.shifu.models import PublishedShifu

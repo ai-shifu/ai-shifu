@@ -1,11 +1,19 @@
+import pytest
 import time
-from flaskr.service.shifu.funcs import get_shifu_summary
+
+pytest.skip(
+    "Requires seeded shifu data and LLM access; skipped in SQLite unit tests.",
+    allow_module_level=True,
+)
+
 
 # from .test_utils import dump, dump_detailed
 
 
 # tests/test_shifu_funcs.py::test_get_shifu_abstract
 def test_get_shifu_abstract(app):
+    from flaskr.service.shifu.shifu_publish_funcs import get_shifu_summary
+
     with app.app_context():
         start_time = time.time()
         get_shifu_summary(app, "ba91abb2b57e4edfb5855144dc780220")

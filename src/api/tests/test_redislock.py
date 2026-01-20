@@ -1,29 +1,12 @@
-from multiprocessing import Process
-import time
+def test_run_with_redis_executes_once(app, monkeypatch):
+    from flaskr import dao
+    from tests.common.fixtures.fake_redis import FakeRedis
 
+    fake_redis = FakeRedis()
+    monkeypatch.setattr(dao, "redis_client", fake_redis, raising=False)
 
-def worker(app, i):
-    from flaskr.dao import run_with_redis
+    def add_one(value):
+        return value + 1
 
-    app.logger.info("{} start".format(i))
-    time.sleep(1)
-    app.logger.info("{} end".format(i))
-    return run_with_redis(app, "test", 10, func, [i])
-
-
-def func(i):
-    return 1
-
-
-def test_redis_lock(app):
-    threads = []
-    for i in range(10):
-        app.logger.info("init {}".format(i))
-        p = Process(target=worker, args=(app, i))
-        threads.append(p)
-        p.start()
-
-    for p in threads:
-        p.join()
-
-    app.logger.info("done")
+    result = dao.run_with_redis(app, "lock-key", 10, add_one, [1])
+    assert result == 2

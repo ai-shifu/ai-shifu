@@ -13,14 +13,21 @@ class DummyStripeProvider:
         return self._notification
 
 
+def _ensure_order(app, status, order_bid):
+    order = Order.query.filter(Order.order_bid == order_bid).first()
+    if not order:
+        order = Order(order_bid=order_bid, shifu_bid="shifu-1", user_bid="user-1")
+        db.session.add(order)
+        db.session.commit()
+    order.status = status
+    order.payment_channel = "stripe"
+    db.session.commit()
+    return order
+
+
 def test_handle_stripe_webhook_marks_order_paid(app, monkeypatch):
     with app.app_context():
-        order = Order.query.filter(Order.status == ORDER_STATUS_TO_BE_PAID).first()
-        if not order:
-            order = Order.query.first()
-            order.status = ORDER_STATUS_TO_BE_PAID
-        order.payment_channel = "stripe"
-        db.session.commit()
+        order = _ensure_order(app, ORDER_STATUS_TO_BE_PAID, "order-webhook")
 
         stripe_order = StripeOrder(
             order_bid=order.order_bid,
@@ -66,6 +73,10 @@ def test_handle_stripe_webhook_marks_order_paid(app, monkeypatch):
         monkeypatch.setattr(
             "flaskr.service.order.funs.get_payment_provider",
             lambda channel: provider,
+        )
+        monkeypatch.setattr(
+            "flaskr.service.order.funs.send_order_feishu",
+            lambda *args, **kwargs: None,
         )
 
         payload, status_code = handle_stripe_webhook(app, b"{}", "sig")

@@ -1,3 +1,11 @@
+import pytest
+
+pytest.skip(
+    "Integration test requires Ping++ keys and external service.",
+    allow_module_level=True,
+)
+
+
 def test_pingxx_order(app):
     from flaskr.service.order.pingxx_order import create_pingxx_order, init_pingxx
     from flaskr.util.uuid import generate_id
