@@ -9,7 +9,6 @@ services:
       - ./.env
     depends_on:
       - ai-shifu-mysql
-      - ai-shifu-redis
     restart: unless-stopped
   ai-shifu-cook-web:
     container_name: ai-shifu-cook-web
@@ -42,10 +41,3 @@ services:
     restart: unless-stopped
     volumes:
       - ./mysql_data:/var/lib/mysql
-
-  ai-shifu-redis:
-    container_name: ai-shifu-redis
-    image: redis:7-alpine
-    restart: unless-stopped
-    volumes:
-      - ./redis_data:/data
