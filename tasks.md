@@ -88,6 +88,7 @@
 - Converted `tests/test_study_record.py` to learn record unit coverage.
 - Converted `tests/test_sudy.py` to empty learn record unit test.
 - Stabilized test IDs in `tests/test_learn_api.py`, `tests/test_order.py`, and `tests/test_query_order.py` to avoid cross-test collisions.
+- Added GitHub Actions workflow to run backend tests with coverage.
 
 ## Remaining Skipped Tests
 - None (only conditional skip in `tests/service/tts/test_tts_text_preprocess.py` when app fixture is disabled).
