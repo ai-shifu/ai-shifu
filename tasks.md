@@ -1,21 +1,21 @@
 # Local storage fallback (no OSS)
 
-- [ ] Define a unified storage abstraction (provider-based: `oss`, `local`, `auto`)
-- [ ] Implement `oss` provider adapter (reuse existing `oss_utils`)
-- [ ] Implement `local` provider (write to server filesystem)
-- [ ] Add a public file serving endpoint for local storage (compatible with `PATH_PREFIX`)
-- [ ] Wire Shifu file uploads (`/shifu/upfile`, `/shifu/url-upfile`) to the storage layer
-- [ ] Wire TTS final audio upload to the storage layer (store URL + object key)
-- [ ] Add config items:
-  - [ ] `STORAGE_PROVIDER` (`auto`/`oss`/`local`)
-  - [ ] `LOCAL_STORAGE_ROOT` (filesystem path inside container)
-- [ ] Add Docker Compose volume mappings for local storage in:
-  - [ ] `docker/docker-compose.yml`
-  - [ ] `docker/docker-compose.latest.yml`
-  - [ ] `docker/docker-compose.dev.yml`
-- [ ] Add/extend tests:
-  - [ ] Provider resolution (`auto` fallback when OSS not configured)
-  - [ ] Local provider writes file + returns a reachable URL path
-  - [ ] Local file serving route returns expected content type / bytes
-- [ ] Run `pre-commit run -a` and `pytest`
-- [ ] Commit each item atomically with passing tests
+- [x] Define a unified storage abstraction (provider-based: `oss`, `local`, `auto`)
+- [x] Implement `oss` provider adapter (reuse existing `oss_utils`)
+- [x] Implement `local` provider (write to server filesystem)
+- [x] Add a public file serving endpoint for local storage (compatible with `PATH_PREFIX`)
+- [x] Wire Shifu file uploads (`/shifu/upfile`, `/shifu/url-upfile`) to the storage layer
+- [x] Wire TTS final audio upload to the storage layer (store URL + object key)
+- [x] Add config items:
+  - [x] `STORAGE_PROVIDER` (`auto`/`oss`/`local`)
+  - [x] `LOCAL_STORAGE_ROOT` (filesystem path inside container)
+- [x] Add Docker Compose volume mappings for local storage in:
+  - [x] `docker/docker-compose.yml`
+  - [x] `docker/docker-compose.latest.yml`
+  - [x] `docker/docker-compose.dev.yml`
+- [x] Add/extend tests:
+  - [x] Provider resolution (`auto` fallback when OSS not configured)
+  - [x] Local provider writes file + returns a reachable URL path
+  - [x] Local file serving route returns expected content type / bytes
+- [x] Run `pre-commit run -a` and `pytest`
+- [x] Commit each item atomically with passing tests
