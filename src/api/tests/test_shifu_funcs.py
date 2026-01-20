@@ -1,25 +1,21 @@
-import pytest
-import time
-
-pytest.skip(
-    "Requires seeded shifu data and LLM access; skipped in SQLite unit tests.",
-    allow_module_level=True,
-)
+from flaskr.service.shifu import shifu_publish_funcs
 
 
-# from .test_utils import dump, dump_detailed
+def test_run_summary_with_error_handling_logs_and_continues(app, monkeypatch):
+    called = {"apply": False, "summary": False}
 
+    def fake_apply(snapshot):
+        called["apply"] = True
 
-# tests/test_shifu_funcs.py::test_get_shifu_abstract
-def test_get_shifu_abstract(app):
-    from flaskr.service.shifu.shifu_publish_funcs import get_shifu_summary
+    def fake_summary(_app, _shifu_id):
+        called["summary"] = True
+        raise RuntimeError("boom")
 
-    with app.app_context():
-        start_time = time.time()
-        get_shifu_summary(app, "ba91abb2b57e4edfb5855144dc780220")
-        end_time = time.time()
-        print(f"get_shifu_summary takes: {end_time - start_time}s")
-        # for i in data:
-        #     dump_detailed(i.outline, include_methods=False)
-        # for j in i.children:
-        #     dump_detailed(j.outline, include_methods=False)
+    monkeypatch.setattr(shifu_publish_funcs, "apply_shifu_context_snapshot", fake_apply)
+    monkeypatch.setattr(shifu_publish_funcs, "get_shifu_summary", fake_summary)
+
+    # Should not raise even if summary generation fails
+    shifu_publish_funcs._run_summary_with_error_handling(app, "shifu-1")
+
+    assert called["apply"] is True
+    assert called["summary"] is True
