@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, has_app_context
 import jwt
 import time
 import string
@@ -9,7 +9,8 @@ from email.mime.multipart import MIMEMultipart
 from flaskr.i18n import _
 
 from ..common.models import raise_error
-from ...dao import redis_client as redis, db
+from flaskr.common.cache_provider import cache as redis
+from ...dao import db
 from flaskr.api.sms.aliyun import send_sms_code_ali
 from .models import UserVerifyCode
 
@@ -19,6 +20,7 @@ from flaskr.service.config.funcs import get_config as get_dynamic_config
 from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.service.user.repository import mark_user_roles
 from flaskr.service.shifu.models import DraftShifu
+from flaskr.service.user.token_store import token_store
 from flaskr.util import generate_id
 
 
@@ -71,18 +73,24 @@ def get_user_language(user):
 
 # generate token
 def generate_token(app: Flask, user_id: str) -> str:
-    with app.app_context():
+    def _generate() -> str:
         token = jwt.encode(
             {"user_id": user_id, "time_stamp": time.time()},
             app.config["SECRET_KEY"],
             algorithm="HS256",
         )
-        redis.set(
-            app.config["REDIS_KEY_PREFIX_USER"] + token,
-            user_id,
-            ex=app.config["TOKEN_EXPIRE_TIME"],
+        token_store.save(
+            app,
+            user_id=user_id,
+            token=token,
+            ttl_seconds=app.config["TOKEN_EXPIRE_TIME"],
         )
         return token
+
+    if has_app_context():
+        return _generate()
+    with app.app_context():
+        return _generate()
 
 
 # send sms code
