@@ -2,6 +2,7 @@
 import os
 import sys
 import tempfile
+import shutil
 from pathlib import Path
 import pytest
 
@@ -25,6 +26,7 @@ for _key in list(ENV_VARS.keys()):
 
 # Force SQLite for tests unless explicitly overridden.
 _test_db_uri = os.environ.get("TEST_SQLALCHEMY_DATABASE_URI")
+_test_db_dir = None
 if not _test_db_uri:
     _test_db_dir = Path(tempfile.mkdtemp(prefix="ai-shifu-test-"))
     _test_db_path = _test_db_dir / "test.db"
@@ -117,6 +119,8 @@ def app():
         dao.db.session.remove()
         if os.getenv("DROP_TEST_DB_ON_EXIT"):
             dao.db.drop_all()
+    if _test_db_dir is not None:
+        shutil.rmtree(_test_db_dir, ignore_errors=True)
     os.environ.clear()
     os.environ.update(original_env)
 
