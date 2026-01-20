@@ -460,8 +460,8 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
     # Redis Configuration
     "REDIS_HOST": EnvVar(
         name="REDIS_HOST",
-        default="ai-shifu-redis",
-        description="Redis server host (docker-compose service name by default)",
+        default="",
+        description="Redis server host (optional). Leave empty to disable Redis.",
         group="redis",
     ),
     "REDIS_PORT": EnvVar(
