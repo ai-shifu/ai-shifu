@@ -1,60 +1,74 @@
-import pytest
-
-pytest.skip(
-    "Integration test depends on lesson/discount data not in SQLite unit tests.",
-    allow_module_level=True,
+from flaskr.service.order.coupon_funcs import (
+    _coupon_matches_course,
+    _get_course_id_from_filter,
+    _pick_coupon_candidate,
 )
+from flaskr.service.promo.models import Coupon, CouponUsage
 
 
-def test_discount(app):
-    from flaskr.service.order.discount import generate_discount_code
-    from flaskr.service.lesson.models import AICourse
-    from flaskr.service.order.consts import DISCOUNT_APPLY_TYPE_ALL, DISCOUNT_TYPE_FIXED
-
-    with app.app_context():
-        course = AICourse.query.first()
-        course_id = course.course_id
-        generate_discount_code(
-            app,
-            0.01,
-            course_id,
-            "2021-01-01",
-            "2028-12-31",
-            "channel",
-            DISCOUNT_TYPE_FIXED,
-            DISCOUNT_APPLY_TYPE_ALL,
-        )
+def _make_coupon(course_id: str | None = None) -> Coupon:
+    coupon = Coupon()
+    if course_id is None:
+        coupon.filter = ""
+    else:
+        coupon.filter = f'{{"course_id": "{course_id}"}}'
+    coupon.coupon_bid = "coupon-1"
+    coupon.code = "CODE"
+    return coupon
 
 
-def test_create_discount(app):
-    from flaskr.service.order.discount import generate_discount_code_by_rule
-    from flaskr.service.order.models import Discount
-
-    with app.app_context():
-        discount = Discount.query.first()
-        discount_id = discount.discount_id
-        for i in range(10):
-            generate_discount_code_by_rule(app, discount_id)
+def _make_usage(user_id: str, coupon_bid: str) -> CouponUsage:
+    usage = CouponUsage()
+    usage.user_bid = user_id
+    usage.coupon_bid = coupon_bid
+    return usage
 
 
-def test_buy_and_pay(app):
-    from flaskr.service.order.funs import init_buy_record, generate_charge
+def test_get_course_id_from_filter_handles_invalid_json():
+    coupon = Coupon()
+    coupon.filter = "not-json"
+    assert _get_course_id_from_filter(coupon) is None
 
-    from flaskr.service.user.models import UserInfo as UserEntity
-    from flaskr.service.lesson.models import AICourse
-    from flaskr.service.order.models import DiscountRecord
-    from flaskr.service.order.consts import DISCOUNT_STATUS_ACTIVE
-    from flaskr.service.order.discount import use_discount_code
 
-    with app.app_context():
-        user = UserEntity.query.filter(UserEntity.deleted == 0).first()
-        course = AICourse.query.first()
-        user_id = user.user_bid
-        discount_record = DiscountRecord.query.filter(
-            DiscountRecord.status == DISCOUNT_STATUS_ACTIVE
-        ).first()
-        record = init_buy_record(app, user_id, course.course_id)
-        use_discount_code(app, user_id, discount_record.discount_code, record.order_id)
-        generate_charge(
-            app, record.order_id, "alipay_qr", "36.112.103.90", payment_channel=None
-        )
+def test_coupon_matches_course_when_filter_missing():
+    coupon = _make_coupon(None)
+    assert _coupon_matches_course(coupon, "course-1") is True
+
+
+def test_coupon_matches_course_when_filter_matches():
+    coupon = _make_coupon("course-1")
+    assert _coupon_matches_course(coupon, "course-1") is True
+    assert _coupon_matches_course(coupon, "course-2") is False
+
+
+def test_pick_coupon_candidate_prefers_user_usage():
+    coupon = _make_coupon("course-1")
+    usage = _make_usage("user-1", coupon.coupon_bid)
+    other_usage = _make_usage("user-2", coupon.coupon_bid)
+
+    usage_result, coupon_result, has_candidate = _pick_coupon_candidate(
+        [usage, other_usage],
+        {coupon.coupon_bid: coupon},
+        [],
+        "course-1",
+        "user-1",
+    )
+
+    assert usage_result is usage
+    assert coupon_result is coupon
+    assert has_candidate is True
+
+
+def test_pick_coupon_candidate_falls_back_to_code_coupon():
+    coupon = _make_coupon("course-1")
+    usage_result, coupon_result, has_candidate = _pick_coupon_candidate(
+        [],
+        {},
+        [coupon],
+        "course-1",
+        "user-1",
+    )
+
+    assert usage_result is None
+    assert coupon_result is coupon
+    assert has_candidate is True
