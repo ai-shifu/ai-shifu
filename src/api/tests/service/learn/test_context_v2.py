@@ -195,22 +195,20 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
 
 
 class PreviewResolveVariablesTests(unittest.TestCase):
-    def test_injects_sys_user_language_when_missing(self):
+    def test_does_not_inject_sys_user_language_when_missing(self):
         app = Flask("preview-variables")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(block_index=0)
 
-        with patch(
-            "flaskr.service.learn.context_v2.get_user_profiles",
-            return_value={"sys_user_language": "zh-CN"},
-        ):
+        with patch("flaskr.service.learn.context_v2.get_user_profiles") as mock_fetch:
             variables = preview_ctx._resolve_preview_variables(
                 preview_request=preview_request,
                 user_bid="user-1",
                 shifu_bid="shifu-1",
             )
 
-        self.assertEqual(variables.get("sys_user_language"), "zh-CN")
+        self.assertIsNone(variables.get("sys_user_language"))
+        mock_fetch.assert_not_called()
 
     def test_keeps_existing_sys_user_language(self):
         app = Flask("preview-variables-existing")
