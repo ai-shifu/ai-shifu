@@ -1373,10 +1373,6 @@ export const ShifuProvider = ({
     }
   };
 
-  const unhideVariablesByKeys = async (shifuId: string, keys: string[]) => {
-    if (!keys.length) return;
-  };
-
   const restoreHiddenVariables = async (shifuId: string) => {
     try {
       if (!hiddenVariables.length) {
