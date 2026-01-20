@@ -82,10 +82,10 @@
 - Converted `tests/test_pingpp.py` to provider request unit tests.
 - Converted `tests/test_wx_pub_order.py` to generate_charge unit coverage.
 - Converted `tests/test_learn_api.py` to learn info/tree unit tests.
+- Converted `tests/test_shifu_utils.py` to resource + creator unit tests.
 
 ## Remaining Skipped Tests
 - `tests/test_shifu_funcs.py`
-- `tests/test_shifu_utils.py`
 - `tests/test_chapter.py`
 - `tests/test_study_record.py`
 - `tests/test_sudy.py`
