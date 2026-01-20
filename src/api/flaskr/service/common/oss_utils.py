@@ -1,17 +1,16 @@
+from __future__ import annotations
+
 import json
 import time
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
-import oss2
 import requests
-from aliyunsdkcore.client import AcsClient
-from aliyunsdkcdn.request.v20180510.DescribeRefreshTasksRequest import (
-    DescribeRefreshTasksRequest,
-)
-from aliyunsdkcdn.request.v20180510.PushObjectCacheRequest import (
-    PushObjectCacheRequest,
-)
+
+try:
+    import oss2  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    oss2 = None  # type: ignore[assignment]
 
 from flaskr.service.common.models import raise_error, raise_error_with_args
 from flaskr.service.config import get_config
@@ -95,6 +94,8 @@ def is_oss_profile_configured(profile: str = OSS_PROFILE_DEFAULT) -> bool:
 
 
 def create_oss_bucket(config: OSSConfig) -> oss2.Bucket:
+    if oss2 is None:  # pragma: no cover
+        raise RuntimeError("oss2 dependency is not installed")
     auth = oss2.Auth(config.access_key_id, config.access_key_secret)
     return oss2.Bucket(auth, config.endpoint, config.bucket)
 
@@ -120,6 +121,14 @@ def warm_up_cdn(app: Any, url: str, config: OSSConfig) -> bool:
     Warm up a CDN URL.
     """
     try:
+        from aliyunsdkcore.client import AcsClient
+        from aliyunsdkcdn.request.v20180510.DescribeRefreshTasksRequest import (
+            DescribeRefreshTasksRequest,
+        )
+        from aliyunsdkcdn.request.v20180510.PushObjectCacheRequest import (
+            PushObjectCacheRequest,
+        )
+
         region_id = config.endpoint.split(".")[0].replace("oss-", "")
         client = AcsClient(
             config.access_key_id, config.access_key_secret, region_id=region_id
