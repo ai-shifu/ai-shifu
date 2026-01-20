@@ -27,7 +27,8 @@ from markdown_flow import (
 from markdown_flow.llm import LLMResult
 from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
-from flaskr.dao import db, redis_client
+from flaskr.common.cache_provider import cache as cache_provider
+from flaskr.dao import db
 from flaskr.service.shifu.shifu_struct_manager import (
     ShifuOutlineItemDto,
     ShifuInfoDto,
@@ -356,7 +357,7 @@ class _PreviewContextStore:
         outline_bid: str,
         ttl_seconds: Optional[int] = None,
     ):
-        self._redis = redis_client
+        self._cache = cache_provider
         self._ttl_seconds = ttl_seconds or self._DEFAULT_TTL_SECONDS
         prefix = app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
         self._key = f"{prefix}:preview_context:{user_bid}:{shifu_bid}:{outline_bid}"
@@ -367,10 +368,8 @@ class _PreviewContextStore:
         return hashlib.sha256(document.encode("utf-8")).hexdigest()
 
     def load(self) -> dict:
-        if not self._redis:
-            return {}
         try:
-            raw = self._redis.get(self._key)
+            raw = self._cache.get(self._key)
             if raw is None:
                 return {}
             if isinstance(raw, bytes):
@@ -380,19 +379,15 @@ class _PreviewContextStore:
             return {}
 
     def save(self, payload: dict) -> None:
-        if not self._redis:
-            return
         try:
             value = json.dumps(payload, ensure_ascii=False)
-            self._redis.setex(self._key, self._ttl_seconds, value)
+            self._cache.setex(self._key, self._ttl_seconds, value)
         except Exception:
             return
 
     def clear(self) -> None:
-        if not self._redis:
-            return
         try:
-            self._redis.delete(self._key)
+            self._cache.delete(self._key)
         except Exception:
             return
 
@@ -413,8 +408,6 @@ class _PreviewContextStore:
         return [item for item in context if isinstance(item, dict)]
 
     def replace_context(self, document: str, context: list[dict[str, str]]) -> None:
-        if not self._redis:
-            return
         payload = {
             "context": context,
             "document_hash": self._hash_document(document),
