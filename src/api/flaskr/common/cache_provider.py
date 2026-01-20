@@ -89,9 +89,10 @@ class _DynamicRedisCacheProvider:
         *args,
         **kwargs,
     ):
-        return self._client().set(
-            key, value, ex=ex, px=px, nx=nx, xx=xx, *args, **kwargs
-        )
+        if ex is None and args:
+            ex = args[0]
+            args = ()
+        return self._client().set(key, value, ex=ex, px=px, nx=nx, xx=xx, **kwargs)
 
     def setex(self, key: str, time_in_seconds: int, value: Any):
         return self._client().setex(key, time_in_seconds, value)
