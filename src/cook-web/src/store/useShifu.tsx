@@ -1229,7 +1229,9 @@ export const ShifuProvider = ({
   const applyProfileDefinitionList = (
     list: ProfileItem[],
     shifuId?: string,
+    options?: { updateCache?: boolean },
   ): { list: ProfileItem[]; systemVariableKeys: string[] } => {
+    const shouldUpdateCache = options?.updateCache ?? true;
     setProfileItemDefinations(list || []);
     const sysVariables =
       list
@@ -1259,7 +1261,7 @@ export const ShifuProvider = ({
     setHiddenVariables(hiddenVariableKeys);
 
     const systemVariableKeys = sysVariables.map(variable => variable.name);
-    if (shifuId) {
+    if (shifuId && shouldUpdateCache) {
       profileDefinitionCacheRef.current[shifuId] = {
         list,
         systemVariableKeys,
@@ -1277,7 +1279,7 @@ export const ShifuProvider = ({
     const cached = profileDefinitionCacheRef.current[shifuId];
     const now = Date.now();
     if (cached && now - cached.updatedAt < PROFILE_CACHE_TTL) {
-      applyProfileDefinitionList(cached.list, shifuId);
+      applyProfileDefinitionList(cached.list, shifuId, { updateCache: false });
       return cached;
     }
     try {
@@ -1291,7 +1293,6 @@ export const ShifuProvider = ({
       setProfileItemDefinations([]);
       setSystemVariables([]);
       setVariables([]);
-      setHiddenVariables([]);
       throw error;
     }
   }, []);
@@ -1308,7 +1309,6 @@ export const ShifuProvider = ({
       console.error(error);
       setSystemVariables([]);
       setVariables([]);
-      setHiddenVariables([]);
     } finally {
       setIsLoading(false);
     }

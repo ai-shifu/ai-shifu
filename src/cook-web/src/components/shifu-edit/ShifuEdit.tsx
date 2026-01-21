@@ -215,12 +215,20 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const handleHideUnusedVariables = useCallback(async () => {
     if (!currentShifu?.bid) return;
-    await actions.hideUnusedVariables(currentShifu.bid);
+    try {
+      await actions.hideUnusedVariables(currentShifu.bid);
+    } catch (error) {
+      console.error('Failed to hide unused variables', error);
+    }
   }, [actions, currentShifu?.bid]);
 
   const handleRestoreHiddenVariables = useCallback(async () => {
     if (!currentShifu?.bid) return;
-    await actions.restoreHiddenVariables(currentShifu.bid);
+    try {
+      await actions.restoreHiddenVariables(currentShifu.bid);
+    } catch (error) {
+      console.error('Failed to restore hidden variables', error);
+    }
   }, [actions, currentShifu?.bid]);
 
   useEffect(() => {
@@ -275,8 +283,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
       } = await actions.previewParse(targetMdflow, targetShifu, targetOutline);
 
       // Auto-unhide only the hidden variables that are actually used in current prompts
+      const parsedVariableKeys = Object.keys(parsedVariablesMap || {});
       const usedHiddenKeys = hiddenVariables.filter(key =>
-        mdflowVariableNames.includes(key),
+        parsedVariableKeys.includes(key),
       );
       if (usedHiddenKeys.length) {
         await actions.unhideVariablesByKeys(targetShifu, usedHiddenKeys);
