@@ -31,7 +31,6 @@ import {
 import { LEARNING_PERMISSION } from '@/c-api/studyV2';
 import {
   getStoredPreviewVariables,
-  getStoredHiddenKeys,
   mapKeysToStoredVariables,
   PreviewVariablesMap,
   saveHiddenKeys,
@@ -1344,9 +1343,8 @@ export const ShifuProvider = ({
             [];
       const storedVariables: StoredVariablesByScope =
         getStoredPreviewVariables(resolvedShifuId);
-      const storedHiddenKeys = new Set(getStoredHiddenKeys(resolvedShifuId));
       const variablesMap = mapKeysToStoredVariables(
-        variableKeys.filter(key => !storedHiddenKeys.has(key)),
+        variableKeys,
         storedVariables,
         resolvedSystemKeys,
       );
