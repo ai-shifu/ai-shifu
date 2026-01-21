@@ -336,6 +336,26 @@ const ScriptEditor = ({ id }: { id: string }) => {
     return undefined;
   }, [previewItems, previewVariables]);
 
+  // 课程级可见变量（系统 + 自定义，已过滤隐藏）
+  const courseVisibleVariableKeys = useMemo(() => {
+    const systemSet = systemVariablesList.map(item => item.name);
+    const customVisible = (variables || []).filter(
+      key => !hiddenVariables.includes(key),
+    );
+    return [...systemSet, ...customVisible];
+  }, [hiddenVariables, systemVariablesList, variables]);
+
+  // 展示给预览的变量：以当前解析出的变量为基础，补齐课程可见变量的空值
+  const mergedPreviewVariables = useMemo(() => {
+    const base = resolvedPreviewVariables ? { ...resolvedPreviewVariables } : {};
+    courseVisibleVariableKeys.forEach(key => {
+      if (!(key in base)) {
+        base[key] = '';
+      }
+    });
+    return base;
+  }, [courseVisibleVariableKeys, resolvedPreviewVariables]);
+
   useEffect(() => {
     const previousSeen = seenVariableNamesRef.current;
     const currentSet = new Set<string>();
@@ -745,7 +765,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   loading={previewLoading}
                   errorMessage={previewError || undefined}
                   items={previewItems}
-                  variables={resolvedPreviewVariables}
+                  variables={mergedPreviewVariables}
                   hiddenVariableKeys={hiddenVariables}
                   shifuBid={currentShifu?.bid || ''}
                   onRefresh={onRefresh}
