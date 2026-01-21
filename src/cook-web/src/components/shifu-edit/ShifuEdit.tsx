@@ -377,14 +377,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [systemVariablesList, variablesList]);
 
   const hasUnusedVisibleVariables = useMemo(() => {
-    const visibleCustomKeys = Object.keys(previewVariables || {}).filter(
-      key => {
-        const isHidden = hiddenVariables.includes(key);
-        const isSystem = systemVariablesList.some(
-          variable => variable.name === key,
-        );
-        return !isHidden && !isSystem;
-      },
+    const systemSet = new Set(systemVariablesList.map(variable => variable.name));
+    const hiddenSet = new Set(hiddenVariables);
+    const visibleCustomKeys = (variables || []).filter(
+      key => !systemSet.has(key) && !hiddenSet.has(key),
     );
     if (!visibleCustomKeys.length) {
       return false;
@@ -394,8 +390,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [
     hiddenVariables,
     mdflowVariableNames,
-    previewVariables,
     systemVariablesList,
+    variables,
   ]);
 
   const onChangeMdflow = (value: string) => {
