@@ -1352,6 +1352,25 @@ export default function ShifuSettingDialog({
                   )}
                 />
 
+                {/* Language Output Configuration Section */}
+                <div className='mb-6'>
+                  <div className='flex items-start justify-between'>
+                    <div className='space-y-1'>
+                      <FormLabel className='text-sm font-medium text-foreground'>
+                        {t('module.shifuSetting.useLearnerLanguageTitle')}
+                      </FormLabel>
+                      <p className='text-xs text-muted-foreground'>
+                        {t('module.shifuSetting.useLearnerLanguageDescription')}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={useLearnerLanguage}
+                      onCheckedChange={setUseLearnerLanguage}
+                      disabled={currentShifu?.readonly}
+                    />
+                  </div>
+                </div>
+
                 {/* TTS Configuration Section */}
                 <div className='mb-6'>
                   <div className='flex items-start justify-between mb-4'>
@@ -1710,25 +1729,6 @@ export default function ShifuSettingDialog({
                       </div>
                     </>
                   )}
-                </div>
-
-                {/* Language Output Configuration Section */}
-                <div className='mb-6'>
-                  <div className='flex items-start justify-between'>
-                    <div className='space-y-1'>
-                      <FormLabel className='text-sm font-medium text-foreground'>
-                        {t('module.shifuSetting.useLearnerLanguageTitle')}
-                      </FormLabel>
-                      <p className='text-xs text-muted-foreground'>
-                        {t('module.shifuSetting.useLearnerLanguageDescription')}
-                      </p>
-                    </div>
-                    <Switch
-                      checked={useLearnerLanguage}
-                      onCheckedChange={setUseLearnerLanguage}
-                      disabled={currentShifu?.readonly}
-                    />
-                  </div>
                 </div>
 
                 <div className='space-y-2 mb-4'>

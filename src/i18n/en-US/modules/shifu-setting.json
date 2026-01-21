@@ -67,6 +67,6 @@
   "upload": "Upload",
   "uploadFailed": "Upload failed, please try again later",
   "uploading": "Uploading",
-  "useLearnerLanguageDescription": "When enabled, AI will output content in the learner's interface language. When disabled, AI will use its default language.",
-  "useLearnerLanguageTitle": "Use Learner's Language"
+  "useLearnerLanguageDescription": "When enabled, the AI will teach in the language set by the learner on the platform (e.g., Chinese)",
+  "useLearnerLanguageTitle": "Language adaption"
 }

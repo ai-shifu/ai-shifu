@@ -67,6 +67,6 @@
   "upload": "上传",
   "uploadFailed": "上传失败，请稍后再试",
   "uploading": "正在上传",
-  "useLearnerLanguageDescription": "开启后，AI 将使用学习者的界面语言输出内容。关闭后，AI 将使用默认语言输出。",
-  "useLearnerLanguageTitle": "使用学习者语言"
+  "useLearnerLanguageDescription": "开启后，AI 将根据学员设置的语言进行授课，如英文。",
+  "useLearnerLanguageTitle": "语言适配"
 }
