@@ -176,10 +176,8 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
               onChange={onVariableChange}
               variableOrder={variableOrder}
               actionLabel={actionLabel}
-              onAction={
-                resolvedDisableHideUnused ? undefined : onHideOrRestore || noop
-              }
-              actionDisabled={resolvedDisableHideUnused || actionDisabled}
+              onAction={actionDisabled ? undefined : onHideOrRestore || noop}
+              actionDisabled={actionDisabled}
             />
           </div>
         )}
