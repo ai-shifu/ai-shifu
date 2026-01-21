@@ -280,12 +280,11 @@ const ScriptEditor = ({ id }: { id: string }) => {
         variables: parsedVariablesMap,
         blocksCount,
         systemVariableKeys,
-        allVariableKeys: parsedVariableKeys,
       } = await actions.previewParse(targetMdflow, targetShifu, targetOutline);
 
-      // Auto-unhide only the hidden variables that are actually used in current prompts (server-acknowledged)
+      // Auto-unhide only the hidden variables that are actually used in current prompts (based on current mdflow)
       const usedHiddenKeys = hiddenVariables.filter(key =>
-        parsedVariableKeys?.includes(key),
+        mdflowVariableNames.includes(key),
       );
       if (usedHiddenKeys.length) {
         await actions.unhideVariablesByKeys(targetShifu, usedHiddenKeys);
@@ -384,29 +383,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
     ];
   }, [systemVariablesList, variablesList]);
 
-  const hasUnusedVisibleVariables = useMemo(() => {
-    const systemSet = new Set(
-      systemVariablesList.map(variable => variable.name),
-    );
-    const hiddenSet = new Set(hiddenVariables);
-    const visibleCustomKeys = (variables || []).filter(
-      key => !systemSet.has(key) && !hiddenSet.has(key),
-    );
-    if (!visibleCustomKeys.length) {
-      return false;
-    }
-    const usedSet = new Set(mdflowVariableNames || []);
-    return visibleCustomKeys.some(key => !usedSet.has(key));
-  }, [hiddenVariables, mdflowVariableNames, systemVariablesList, variables]);
-
   const hasHiddenVariables = hiddenVariables.length > 0;
-  const hideRestoreActionType: 'hide' | 'restore' = hasUnusedVisibleVariables
-    ? 'hide'
-    : 'restore';
+  const hideRestoreActionType: 'hide' | 'restore' = hasHiddenVariables
+    ? 'restore'
+    : 'hide';
   const hideRestoreActionDisabled =
-    hideRestoreActionType === 'hide'
-      ? !hasUnusedVisibleVariables
-      : !hasHiddenVariables;
+    hideRestoreActionType === 'restore' ? !hasHiddenVariables : false;
   const hideRestoreActionLabel =
     hideRestoreActionType === 'hide'
       ? t('module.shifu.previewArea.variablesHideUnused')
@@ -755,11 +737,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   onSend={onSend}
                   onVariableChange={onVariableChange}
                   variableOrder={variableOrder}
-                  usedVariableKeys={mdflowVariableNames}
-                  systemVariableKeys={systemVariablesList.map(
-                    item => item.name,
-                  )}
-                  disableHideUnused={!hasUnusedVisibleVariables}
                   onRequestAudioForBlock={requestPreviewAudioForBlock}
                   reGenerateConfirm={reGenerateConfirm}
                   onHideOrRestore={
