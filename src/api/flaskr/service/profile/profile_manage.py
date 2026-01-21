@@ -14,6 +14,7 @@ from .models import (
     PROFILE_CONF_TYPE_ITEM,
 )
 from ...dao import db
+from sqlalchemy import func
 from flaskr.util.uuid import generate_id
 from flaskr.service.common import raise_error
 from .dtos import (
