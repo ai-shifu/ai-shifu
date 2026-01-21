@@ -376,6 +376,22 @@ const ScriptEditor = ({ id }: { id: string }) => {
     ];
   }, [systemVariablesList, variablesList]);
 
+  const hasUnusedVisibleVariables = useMemo(() => {
+    const systemSet = new Set(
+      systemVariablesList.map(variable => variable.name),
+    );
+    const hiddenSet = new Set(hiddenVariables);
+    const visibleCustomKeys = (variables || []).filter(
+      key => !systemSet.has(key) && !hiddenSet.has(key),
+    );
+    if (!visibleCustomKeys.length) {
+      return false;
+    }
+    const usedSet = new Set(mdflowVariableNames || []);
+    return visibleCustomKeys.some(key => !usedSet.has(key));
+  }, [hiddenVariables, mdflowVariableNames, systemVariablesList, variables]);
+
+
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);
     // Pass snapshot so autosave persists pre-switch content + chapter id
@@ -723,6 +739,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   systemVariableKeys={systemVariablesList.map(
                     item => item.name,
                   )}
+                  disableHideUnused={!hasUnusedVisibleVariables}
                   onRequestAudioForBlock={requestPreviewAudioForBlock}
                   reGenerateConfirm={reGenerateConfirm}
                   onHideUnused={handleHideUnusedVariables}

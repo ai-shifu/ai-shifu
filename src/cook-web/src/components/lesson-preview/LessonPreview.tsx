@@ -56,6 +56,7 @@ interface LessonPreviewProps {
   onRestoreHidden?: () => void;
   usedVariableKeys?: string[];
   systemVariableKeys?: string[];
+  disableHideUnused?: boolean;
 }
 
 const noop = () => {};
@@ -76,6 +77,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   onRestoreHidden,
   usedVariableKeys = [],
   systemVariableKeys = [],
+  disableHideUnused,
 }) => {
   const { t } = useTranslation();
   const confirmButtonText = t('module.renderUi.core.confirm');
@@ -192,6 +194,11 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     [systemVariableSet, usedVariableSet, visibleVariableKeys],
   );
 
+  const resolvedDisableHideUnused =
+    disableHideUnused !== undefined
+      ? disableHideUnused
+      : !hasUnusedVisibleVariables;
+
   return (
     <div className={cn(styles.lessonPreview, 'text-sm')}>
       <div className='flex items-baseline gap-2 pt-[4px]'>
@@ -218,7 +225,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
               variableOrder={variableOrder}
               onHideUnused={handleHideUnusedConfirm}
               onRestoreHidden={handleRestoreHiddenConfirm}
-              disableHideUnused={!hasUnusedVisibleVariables}
+              disableHideUnused={resolvedDisableHideUnused}
             />
           </div>
         )}

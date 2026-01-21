@@ -192,11 +192,11 @@ const VariableList: React.FC<VariableListProps> = ({
           className={`${styles.hiddenSection} ${collapsed ? styles.collapsed : ''}`}
         >
           <div className={styles.hiddenList}>
-            {hiddenVariables.map(([name, value]) => {
+            {hiddenVariables.map(([name, value], index) => {
               const displayValue = value || '';
               return (
                 <div
-                  key={`hidden-${name}`}
+                  key={`hidden-${name}-${index}`}
                   className={styles.item}
                 >
                   <div
