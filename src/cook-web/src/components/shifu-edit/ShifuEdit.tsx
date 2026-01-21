@@ -87,6 +87,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [recentVariables, setRecentVariables] = useState<string[]>([]);
   const seenVariableNamesRef = useRef<Set<string>>(new Set());
   const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async preview is pending
+  const lastMdflowVariablesRef = useRef<Set<string>>(new Set());
+  const [hasRemovedVisibleVariable, setHasRemovedVisibleVariable] =
+    useState(false);
   const {
     mdflow,
     chapters,
@@ -388,28 +391,45 @@ const ScriptEditor = ({ id }: { id: string }) => {
     ];
   }, [systemVariablesList, variablesList]);
 
+  // 课程级可见变量（系统 + 自定义，已过滤隐藏）
+  const courseVisibleVariableKeys = useMemo(() => {
+    const systemSet = systemVariablesList.map(item => item.name);
+    const customVisible = (variables || []).filter(
+      key => !hiddenVariables.includes(key),
+    );
+    return [...systemSet, ...customVisible];
+  }, [hiddenVariables, systemVariablesList, variables]);
+
+  // 展示给预览的变量：以当前解析出的变量为基础，补齐课程可见变量的空值
+  const mergedPreviewVariables = useMemo(() => {
+    const base = resolvedPreviewVariables ? { ...resolvedPreviewVariables } : {};
+    courseVisibleVariableKeys.forEach(key => {
+      if (!(key in base)) {
+        base[key] = '';
+      }
+    });
+    return base;
+  }, [courseVisibleVariableKeys, resolvedPreviewVariables]);
+
   const hasUnusedVisibleVariables = useMemo(() => {
-    const systemSet = new Set(
-      systemVariablesList.map(variable => variable.name),
-    );
+    const systemSet = new Set(systemVariablesList.map(variable => variable.name));
     const hiddenSet = new Set(hiddenVariables);
-    const visibleCustomKeys = (variables || []).filter(
-      key => !systemSet.has(key) && !hiddenSet.has(key),
-    );
-    if (!visibleCustomKeys.length) {
-      return false;
-    }
     const usedSet = new Set(mdflowVariableNames || []);
-    return visibleCustomKeys.some(key => !usedSet.has(key));
+    // 只看当前章节：可见的自定义变量未出现在本章占位符里，则视为未使用
+    return (variables || []).some(
+      key => !systemSet.has(key) && !hiddenSet.has(key) && !usedSet.has(key),
+    );
   }, [hiddenVariables, mdflowVariableNames, systemVariablesList, variables]);
 
   const hasHiddenVariables = hiddenVariables.length > 0;
   const hideRestoreActionType: 'hide' | 'restore' = hasUnusedVisibleVariables
     ? 'hide'
-    : 'restore';
+    : hasHiddenVariables
+      ? 'restore'
+      : 'hide';
   const hideRestoreActionDisabled =
     hideRestoreActionType === 'hide'
-      ? !hasUnusedVisibleVariables
+      ? false
       : !hasHiddenVariables;
   const hideRestoreActionLabel =
     hideRestoreActionType === 'hide'
