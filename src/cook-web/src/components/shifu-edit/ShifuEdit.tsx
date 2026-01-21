@@ -280,12 +280,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
         variables: parsedVariablesMap,
         blocksCount,
         systemVariableKeys,
+        allVariableKeys: parsedVariableKeys,
       } = await actions.previewParse(targetMdflow, targetShifu, targetOutline);
 
-      // Auto-unhide only the hidden variables that are actually used in current prompts
-      const parsedVariableKeys = Object.keys(parsedVariablesMap || {});
+      // Auto-unhide only the hidden variables that are actually used in current prompts (server-acknowledged)
       const usedHiddenKeys = hiddenVariables.filter(key =>
-        parsedVariableKeys.includes(key),
+        parsedVariableKeys?.includes(key),
       );
       if (usedHiddenKeys.length) {
         await actions.unhideVariablesByKeys(targetShifu, usedHiddenKeys);
@@ -326,6 +326,17 @@ const ScriptEditor = ({ id }: { id: string }) => {
     () => extractVariableNames(mdflow),
     [mdflow],
   );
+
+  const resolvedPreviewVariables = useMemo(() => {
+    const candidates = [previewVariables, previewItems[0]?.variables];
+    for (const candidate of candidates) {
+      if (candidate && Object.keys(candidate).length) {
+        return candidate;
+      }
+    }
+    return undefined;
+  }, [previewItems, previewVariables]);
+
   useEffect(() => {
     const previousSeen = seenVariableNamesRef.current;
     const currentSet = new Set<string>();
@@ -356,23 +367,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [mdflowVariableNames]);
 
   const variablesList = useMemo(() => {
-    const merged = new Map<string, { name: string }>();
-    // Prioritize freshly added variables, then actual markdown ones, then persisted ones (including hidden)
-    [
-      ...recentVariables,
-      ...mdflowVariableNames,
-      ...variables,
-      ...hiddenVariables,
-    ].forEach(variableName => {
-      if (!variableName) {
-        return;
-      }
-      if (!merged.has(variableName)) {
-        merged.set(variableName, { name: variableName });
-      }
-    });
-    return Array.from(merged.values());
-  }, [hiddenVariables, mdflowVariableNames, recentVariables, variables]);
+    return (variables || []).map(name => ({ name }));
+  }, [variables]);
 
   const systemVariablesList = useMemo(() => {
     return systemVariables.map((variable: Record<string, string>) => ({
@@ -752,7 +748,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   loading={previewLoading}
                   errorMessage={previewError || undefined}
                   items={previewItems}
-                  variables={previewVariables}
+                  variables={resolvedPreviewVariables}
                   hiddenVariableKeys={hiddenVariables}
                   shifuBid={currentShifu?.bid || ''}
                   onRefresh={onRefresh}

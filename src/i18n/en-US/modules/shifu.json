@@ -25,11 +25,11 @@
     "variablesHiddenEmpty": "No hidden variables",
     "variablesHiddenToggle": "Hidden variables",
     "variablesHideUnused": "Hide unused",
-    "variablesHideUnusedConfirmDesc": "This will hide all custom variables that are not referenced in the course prompts. Hidden variables will not appear in the debug area until restored.",
+    "variablesHideUnusedConfirmDesc": "Hide custom variables not referenced in course prompts. They will not appear in the debug area; click \"Restore\" to show them again.",
     "variablesHideUnusedConfirmTitle": "Hide unused variables?",
     "variablesPlaceholder": "UNKNOWN",
     "variablesRestoreHidden": "Restore",
-    "variablesRestoreHiddenConfirmDesc": "All hidden custom variables will reappear in the debug area and can be used during editing.",
+    "variablesRestoreHiddenConfirmDesc": "All hidden custom variables will reappear in the debug area.",
     "variablesRestoreHiddenConfirmTitle": "Restore hidden variables?",
     "variablesTitle": "Variables"
   }

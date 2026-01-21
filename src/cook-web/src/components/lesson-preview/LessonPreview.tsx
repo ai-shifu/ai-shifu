@@ -15,7 +15,7 @@ import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import type { AudioCompleteData } from '@/c-api/studyV2';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import VariableList from './VariableList';
-import { getStoredPreviewVariables, type PreviewVariablesMap } from './variableStorage';
+import { type PreviewVariablesMap } from './variableStorage';
 import styles from './LessonPreview.module.scss';
 import { cn } from '@/lib/utils';
 import {
@@ -82,24 +82,12 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
 
   const showEmpty = !loading && items.length === 0;
 
-  const fallbackVariables = React.useMemo(() => {
-    if (!shifuBid) return {} as PreviewVariablesMap;
-    const stored = getStoredPreviewVariables(shifuBid);
-    return {
-      ...(stored.system || {}),
-      ...(stored.custom || {}),
-    } as PreviewVariablesMap;
-  }, [shifuBid]);
-
   const resolvedVariables = React.useMemo(() => {
-    const candidates = [variables, items[0]?.variables];
-    for (const candidate of candidates) {
-      if (candidate && Object.keys(candidate).length) return candidate;
+    if (variables && Object.keys(variables).length) {
+      return variables;
     }
-    return Object.keys(fallbackVariables).length
-      ? fallbackVariables
-      : undefined;
-  }, [fallbackVariables, items, variables]);
+    return undefined;
+  }, [variables]);
 
   const hiddenSet = React.useMemo(
     () => new Set(hiddenVariableKeys || []),
@@ -138,11 +126,23 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     const isHide = actionType === 'hide';
     showAlert({
       title: isHide
-        ? t('module.shifu.previewArea.variablesHideUnusedConfirmTitle')
-        : t('module.shifu.previewArea.variablesRestoreHiddenConfirmTitle'),
+        ? t(
+            'module.shifu.previewArea.variablesHideUnusedConfirmTitle',
+            '是否隐藏未使用的变量？',
+          )
+        : t(
+            'module.shifu.previewArea.variablesRestoreHiddenConfirmTitle',
+            '是否恢复隐藏的变量？',
+          ),
       description: isHide
-        ? t('module.shifu.previewArea.variablesHideUnusedConfirmDesc')
-        : t('module.shifu.previewArea.variablesRestoreHiddenConfirmDesc'),
+        ? t(
+            'module.shifu.previewArea.variablesHideUnusedConfirmDesc',
+            '将隐藏课程提示词中未引用的自定义变量，隐藏后在调试区不再展示，可点击“恢复”重新展示。',
+          )
+        : t(
+            'module.shifu.previewArea.variablesRestoreHiddenConfirmDesc',
+            '所有已隐藏的自定义变量将在调试区恢复展示。',
+          ),
       confirmText: t('common.core.confirm'),
       cancelText: t('common.core.cancel'),
       onConfirm: () => onHideOrRestore(),
@@ -173,7 +173,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
               onChange={onVariableChange}
               variableOrder={variableOrder}
               actionLabel={actionLabel}
-              onAction={actionDisabled ? undefined : onHideOrRestore || noop}
+              onAction={actionDisabled ? undefined : handleActionConfirm}
               actionDisabled={actionDisabled}
             />
           </div>
