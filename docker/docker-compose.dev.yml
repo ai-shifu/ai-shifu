@@ -9,6 +9,7 @@ services:
     volumes:
       - ../src/api/:/app/
       - ../src/i18n/:/i18n/
+      - ./storage:/app/storage
     depends_on:
       - ai-shifu-mysql
       - ai-shifu-redis

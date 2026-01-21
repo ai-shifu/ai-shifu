@@ -19,11 +19,8 @@ from urllib.parse import urlparse
 import re
 from .models import DraftShifu
 from ...service.resource.models import Resource
-from flaskr.service.common.oss_utils import (
-    OSS_PROFILE_COURSES,
-    get_image_content_type,
-    upload_to_oss,
-)
+from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES, get_image_content_type
+from flaskr.service.common.storage import upload_to_storage
 
 
 def mark_favorite_shifu(app, user_id: str, shifu_id: str):
@@ -119,10 +116,10 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
             file_id = resource_id
 
         content_type = get_image_content_type(file.filename)
-        url, BUCKET_NAME = upload_to_oss(
+        result = upload_to_storage(
             app,
             file_content=file,
-            file_id=file_id,
+            object_key=file_id,
             content_type=content_type,
             profile=OSS_PROFILE_COURSES,
         )
@@ -130,6 +127,9 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
         if isUpdate:
             resource = Resource.query.filter_by(resource_id=file_id).first()
             resource.name = file.filename
+            resource.oss_bucket = result.bucket
+            resource.oss_name = result.object_key
+            resource.url = result.url
             resource.updated_by = user_id
             db.session.commit()
         else:
@@ -137,9 +137,9 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
                 resource_id=file_id,
                 name=file.filename,
                 type=0,
-                oss_bucket=BUCKET_NAME,
-                oss_name=file_id,
-                url=url,
+                oss_bucket=result.bucket,
+                oss_name=result.object_key,
+                url=result.url,
                 status=0,
                 is_deleted=0,
                 created_by=user_id,
@@ -148,7 +148,7 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
             db.session.add(resource)
             db.session.commit()
 
-        return url
+        return result.url
 
 
 def upload_url(app, user_id: str, url: str) -> str:
@@ -206,10 +206,10 @@ def upload_url(app, user_id: str, url: str) -> str:
             content_type = get_image_content_type(filename)
             file_id = str(uuid.uuid4()).replace("-", "")
 
-            url, BUCKET_NAME = upload_to_oss(
+            result = upload_to_storage(
                 app,
                 file_content=file_content,
-                file_id=file_id,
+                object_key=file_id,
                 content_type=content_type,
                 profile=OSS_PROFILE_COURSES,
             )
@@ -218,9 +218,9 @@ def upload_url(app, user_id: str, url: str) -> str:
                 resource_id=file_id,
                 name=filename,
                 type=0,
-                oss_bucket=BUCKET_NAME,
-                oss_name=file_id,
-                url=url,
+                oss_bucket=result.bucket,
+                oss_name=result.object_key,
+                url=result.url,
                 status=0,
                 is_deleted=0,
                 created_by=user_id,
@@ -229,7 +229,7 @@ def upload_url(app, user_id: str, url: str) -> str:
             db.session.add(resource)
             db.session.commit()
 
-            return url
+            return result.url
 
         except requests.RequestException as e:
             app.logger.error(
