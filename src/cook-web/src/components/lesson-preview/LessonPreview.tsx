@@ -126,9 +126,12 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
 
   const hiddenVariablesWithValue = React.useMemo(() => {
     if (!hiddenVariableKeys?.length) {
-      return [];
+      return [] as [string, string][];
     }
-    return hiddenVariableKeys.map(key => [key, resolvedVariables?.[key] || '']);
+    return hiddenVariableKeys.map<[string, string]>(key => [
+      key,
+      resolvedVariables?.[key] || '',
+    ]);
   }, [hiddenVariableKeys, resolvedVariables]);
 
   const itemByGeneratedBid = React.useMemo(() => {
