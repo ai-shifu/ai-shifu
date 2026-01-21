@@ -384,7 +384,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [systemVariablesList, variablesList]);
 
   const hasUnusedVisibleVariables = useMemo(() => {
-    const systemSet = new Set(systemVariablesList.map(variable => variable.name));
+    const systemSet = new Set(
+      systemVariablesList.map(variable => variable.name),
+    );
     const hiddenSet = new Set(hiddenVariables);
     const usedSet = new Set(mdflowVariableNames || []);
     return (variables || []).some(
