@@ -120,7 +120,8 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
                     type: string
                     description: shifu_bid
         """
-        parent_id = request.get_json().get("parent_id", None)
+        payload = request.get_json(silent=True) or {}
+        parent_id = payload.get("parent_id")
         if not parent_id:
             raise_error("server.profile.parentIdRequired")
         user_id = request.user.user_id
@@ -152,9 +153,10 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
                   hidden:
                     type: boolean
         """
-        parent_id = request.get_json().get("parent_id", None)
-        profile_keys = request.get_json().get("profile_keys", []) or []
-        hidden = bool(request.get_json().get("hidden", True))
+        payload = request.get_json(silent=True) or {}
+        parent_id = payload.get("parent_id")
+        profile_keys = payload.get("profile_keys", []) or []
+        hidden = bool(payload.get("hidden", True))
         if not parent_id:
             raise_error("server.profile.parentIdRequired")
         user_id = request.user.user_id
