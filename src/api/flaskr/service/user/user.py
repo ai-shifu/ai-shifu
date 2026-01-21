@@ -4,6 +4,7 @@
 
 
 import uuid
+from urllib.parse import urlsplit
 from flask import Flask
 
 from ..common.models import raise_error
@@ -28,12 +29,41 @@ from flaskr.service.common.oss_utils import (
     create_oss_bucket,
     get_image_content_type,
     get_oss_config,
-    upload_to_oss,
+    is_oss_profile_configured,
     warm_up_cdn,
+)
+from flaskr.service.common.storage import (
+    STORAGE_PROVIDER_OSS,
+    get_local_storage_path,
+    upload_to_storage,
 )
 
 # generate temp user for anonymous user
 # author: yfge
+
+
+def _try_delete_local_file_by_url(app: Flask, url: str) -> None:
+    if not url:
+        return
+
+    parsed = urlsplit(url)
+    path = parsed.path or ""
+    marker = "/storage/"
+    idx = path.find(marker)
+    if idx < 0:
+        return
+
+    rest = path[idx + len(marker) :].lstrip("/")
+    if "/" not in rest:
+        return
+
+    profile, object_key = rest.split("/", 1)
+    try:
+        file_path = get_local_storage_path(profile, object_key)
+        if file_path.is_file():
+            file_path.unlink(missing_ok=True)
+    except Exception as exc:
+        app.logger.warning("Failed to delete local storage file: %s", exc)
 
 
 def generate_temp_user(
@@ -156,8 +186,6 @@ def update_user_open_id(app: Flask, user_id: str, wx_code: str) -> str:
 
 def upload_user_avatar(app: Flask, user_id: str, avatar) -> str:
     with app.app_context():
-        config = get_oss_config(OSS_PROFILE_DEFAULT)
-        bucket = create_oss_bucket(config)
         aggregate = load_user_aggregate(user_id)
         if not aggregate:
             raise_error("USER.USER_NOT_FOUND")
@@ -169,26 +197,33 @@ def upload_user_avatar(app: Flask, user_id: str, avatar) -> str:
         file_id = uuid.uuid4().hex
         old_avatar = aggregate.avatar
         if old_avatar:
-            old_file_id = old_avatar.split("/")[-1]
-            if old_file_id and bucket.object_exists(old_file_id):
-                bucket.delete_object(old_file_id)
+            _try_delete_local_file_by_url(app, old_avatar)
+            if is_oss_profile_configured(OSS_PROFILE_DEFAULT):
+                try:
+                    config = get_oss_config(OSS_PROFILE_DEFAULT)
+                    bucket = create_oss_bucket(config)
+                    old_file_id = old_avatar.split("/")[-1]
+                    if old_file_id and bucket.object_exists(old_file_id):
+                        bucket.delete_object(old_file_id)
+                except Exception as exc:
+                    app.logger.warning("Failed to delete OSS avatar object: %s", exc)
 
-        url, _bucket_name = upload_to_oss(
+        result = upload_to_storage(
             app,
             file_content=avatar,
-            file_id=file_id,
+            object_key=file_id,
             content_type=get_image_content_type(avatar.filename),
             profile=OSS_PROFILE_DEFAULT,
-            config=config,
-            bucket=bucket,
             warm_up=False,
         )
-        update_user_entity_fields(entity, avatar=url)
+        update_user_entity_fields(entity, avatar=result.url)
         db.session.commit()
 
-        if not warm_up_cdn(app, url, config):
-            app.logger.warning(
-                "The user avatar URL is inaccessible, but the URL continues to be returned"
-            )
+        if result.provider == STORAGE_PROVIDER_OSS:
+            config = get_oss_config(OSS_PROFILE_DEFAULT)
+            if not warm_up_cdn(app, result.url, config):
+                app.logger.warning(
+                    "The user avatar URL is inaccessible, but the URL continues to be returned"
+                )
 
-        return url
+        return result.url

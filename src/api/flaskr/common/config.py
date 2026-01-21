@@ -87,6 +87,19 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Path of log file",
         group="app",
     ),
+    # Storage Configuration
+    "STORAGE_PROVIDER": EnvVar(
+        name="STORAGE_PROVIDER",
+        default="auto",
+        description='Storage provider for uploaded/generated files. Values: "auto" | "oss" | "local".',
+        group="storage",
+    ),
+    "LOCAL_STORAGE_ROOT": EnvVar(
+        name="LOCAL_STORAGE_ROOT",
+        default="storage",
+        description="Filesystem directory used for local storage provider (relative to app working dir if not absolute).",
+        group="storage",
+    ),
     "ASK_MAX_HISTORY_LEN": EnvVar(
         name="ASK_MAX_HISTORY_LEN",
         default=10,
