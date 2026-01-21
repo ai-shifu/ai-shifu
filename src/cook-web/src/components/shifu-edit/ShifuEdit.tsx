@@ -348,19 +348,22 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const variablesList = useMemo(() => {
     const merged = new Map<string, { name: string }>();
-    // Prioritize freshly added variables, then actual markdown ones, then persisted ones
-    [...recentVariables, ...mdflowVariableNames, ...variables].forEach(
-      variableName => {
-        if (!variableName) {
-          return;
-        }
-        if (!merged.has(variableName)) {
-          merged.set(variableName, { name: variableName });
-        }
-      },
-    );
+    // Prioritize freshly added variables, then actual markdown ones, then persisted ones (including hidden)
+    [
+      ...recentVariables,
+      ...mdflowVariableNames,
+      ...variables,
+      ...hiddenVariables,
+    ].forEach(variableName => {
+      if (!variableName) {
+        return;
+      }
+      if (!merged.has(variableName)) {
+        merged.set(variableName, { name: variableName });
+      }
+    });
     return Array.from(merged.values());
-  }, [recentVariables, mdflowVariableNames, variables]);
+  }, [hiddenVariables, mdflowVariableNames, recentVariables, variables]);
 
   const systemVariablesList = useMemo(() => {
     return systemVariables.map((variable: Record<string, string>) => ({
@@ -390,7 +393,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
     const usedSet = new Set(mdflowVariableNames || []);
     return visibleCustomKeys.some(key => !usedSet.has(key));
   }, [hiddenVariables, mdflowVariableNames, systemVariablesList, variables]);
-
 
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);
