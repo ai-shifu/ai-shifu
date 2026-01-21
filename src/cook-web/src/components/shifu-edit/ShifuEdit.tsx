@@ -377,7 +377,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [systemVariablesList, variablesList]);
 
   const hasUnusedVisibleVariables = useMemo(() => {
-    const systemSet = new Set(systemVariablesList.map(variable => variable.name));
+    const systemSet = new Set(
+      systemVariablesList.map(variable => variable.name),
+    );
     const hiddenSet = new Set(hiddenVariables);
     const visibleCustomKeys = (variables || []).filter(
       key => !systemSet.has(key) && !hiddenSet.has(key),
@@ -387,12 +389,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
     const usedSet = new Set(mdflowVariableNames || []);
     return visibleCustomKeys.some(key => !usedSet.has(key));
-  }, [
-    hiddenVariables,
-    mdflowVariableNames,
-    systemVariablesList,
-    variables,
-  ]);
+  }, [hiddenVariables, mdflowVariableNames, systemVariablesList, variables]);
 
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);
