@@ -215,7 +215,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const handleHideUnusedVariables = useCallback(async () => {
     if (!currentShifu?.bid) return;
-    await actions.hideUnusedVariables(currentShifu.bid, currentNode?.bid || undefined);
+    await actions.hideUnusedVariables(
+      currentShifu.bid,
+      currentNode?.bid || undefined,
+    );
   }, [actions, currentNode?.bid, currentShifu?.bid]);
 
   const handleRestoreHiddenVariables = useCallback(async () => {
