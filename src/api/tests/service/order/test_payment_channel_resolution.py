@@ -38,7 +38,7 @@ class TestResolvePaymentChannel:
             stored_channel="pingxx",
         )
         assert provider == "stripe"
-        assert sub_channel == "payment_intent"
+        assert sub_channel == "checkout_session"
 
     def test_stripe_with_stored_channel_defaults(self):
         provider, sub_channel = _resolve_payment_channel(
@@ -47,7 +47,7 @@ class TestResolvePaymentChannel:
             stored_channel="stripe",
         )
         assert provider == "stripe"
-        assert sub_channel == "payment_intent"
+        assert sub_channel == "checkout_session"
 
     def test_stripe_only_configuration_overrides_pingxx_default(self, monkeypatch):
         def fake_get_config(key, default=None):

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SSE } from 'sse.js';
 import { v4 as uuidv4 } from 'uuid';
-import { OnSendContentParams } from 'markdown-flow-ui';
+import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { createInteractionParser } from 'remark-flow';
 import LoadingBar from '@/app/c/[[...id]]/Components/ChatUi/LoadingBar';
 import {
@@ -16,11 +16,13 @@ import {
   fixMarkdownStream,
   maskIncompleteMermaidBlock,
 } from '@/c-utils/markdownUtils';
+import { upsertAudioComplete, upsertAudioSegment } from '@/c-utils/audio-utils';
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import { useShifu, useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
 import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
+import type { AudioCompleteData, AudioSegmentData } from '@/c-api/studyV2';
 
 interface InteractionParseResult {
   variableName?: string;
@@ -46,6 +48,8 @@ enum PREVIEW_SSE_OUTPUT_TYPE {
   CONTENT = 'content',
   TEXT_END = 'text_end',
   ERROR = 'error',
+  AUDIO_SEGMENT = 'audio_segment',
+  AUDIO_COMPLETE = 'audio_complete',
 }
 
 const buildVariablesSnapshot = (
@@ -94,6 +98,7 @@ export function usePreviewChat() {
   const currentContentIdRef = useRef<string | null>(null);
   const sseParams = useRef<StartPreviewParams>({});
   const sseRef = useRef<any>(null);
+  const ttsSseRef = useRef<Record<string, any>>({});
   const isStreamingRef = useRef(false);
   const [variablesSnapshot, setVariablesSnapshot] =
     useState<PreviewVariablesMap>({});
@@ -307,14 +312,31 @@ export function usePreviewChat() {
     [normalizeButtonValue, splitPresetValues],
   );
 
+  const closeTtsStream = useCallback((blockId: string) => {
+    const source = ttsSseRef.current[blockId];
+    if (!source) {
+      return;
+    }
+    source.close();
+    delete ttsSseRef.current[blockId];
+  }, []);
+
+  const closeAllTtsStreams = useCallback(() => {
+    Object.values(ttsSseRef.current).forEach(source => {
+      source?.close?.();
+    });
+    ttsSseRef.current = {};
+  }, []);
+
   const stopPreview = useCallback(() => {
     if (sseRef.current) {
       sseRef.current.close();
       sseRef.current = null;
     }
+    closeAllTtsStreams();
     isStreamingRef.current = false;
     setIsLoading(false);
-  }, []);
+  }, [closeAllTtsStreams]);
 
   const resetPreview = useCallback(() => {
     stopPreview();
@@ -344,6 +366,33 @@ export function usePreviewChat() {
       return blockId;
     },
     [setTrackedContentList],
+  );
+
+  const ensureAudioItem = useCallback(
+    (
+      items: ChatContentItem[],
+      blockId: string,
+      defaults: Partial<ChatContentItem> = {},
+    ) => {
+      const hasTarget = items.some(
+        item => item.generated_block_bid === blockId,
+      );
+      if (hasTarget) {
+        return items;
+      }
+
+      return [
+        ...items.filter(item => item.generated_block_bid !== 'loading'),
+        {
+          generated_block_bid: blockId,
+          content: '',
+          readonly: false,
+          type: ChatContentItemType.CONTENT,
+          ...defaults,
+        } as ChatContentItem,
+      ];
+    },
+    [],
   );
 
   const handlePayload = useCallback(
@@ -467,6 +516,34 @@ export function usePreviewChat() {
           });
           setError(response.data);
           stopPreview();
+        } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+          const audioSegment = response.data as AudioSegmentData;
+          if (blockId) {
+            setTrackedContentList(prevState =>
+              upsertAudioSegment(
+                prevState,
+                blockId,
+                audioSegment,
+                ensureAudioItem,
+              ),
+            );
+          }
+        } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+          const audioComplete = response.data as AudioCompleteData;
+          const normalizedAudioComplete = {
+            ...audioComplete,
+            audio_url: audioComplete.audio_url || undefined,
+          };
+          if (blockId) {
+            setTrackedContentList(prevState =>
+              upsertAudioComplete(
+                prevState,
+                blockId,
+                normalizedAudioComplete,
+                ensureAudioItem,
+              ),
+            );
+          }
         }
       } catch (err) {
         console.warn('preview SSE handling error:', err);
@@ -474,6 +551,7 @@ export function usePreviewChat() {
     },
     [
       buildAutoSendParams,
+      ensureAudioItem,
       ensureContentItem,
       parseInteractionBlock,
       setTrackedContentList,
@@ -899,6 +977,151 @@ export function usePreviewChat() {
     [contentList, nullRenderBar],
   );
 
+  const requestAudioForBlock = useCallback(
+    async ({
+      shifuBid,
+      blockId,
+      text,
+    }: {
+      shifuBid: string;
+      blockId: string;
+      text: string;
+    }): Promise<AudioCompleteData | null> => {
+      if (!shifuBid || !blockId) {
+        return null;
+      }
+
+      const existingItem = contentListRef.current.find(
+        item => item.generated_block_bid === blockId,
+      );
+      if (existingItem?.audioUrl && !existingItem.isAudioStreaming) {
+        return {
+          audio_url: existingItem.audioUrl,
+          audio_bid: '',
+          duration_ms: existingItem.audioDurationMs ?? 0,
+        };
+      }
+
+      if (ttsSseRef.current[blockId]) {
+        return null;
+      }
+
+      setTrackedContentList(prevState =>
+        ensureAudioItem(
+          prevState.map(item => {
+            if (item.generated_block_bid !== blockId) {
+              return item;
+            }
+            return {
+              ...item,
+              audioSegments: [],
+              audioUrl: undefined,
+              audioDurationMs: undefined,
+              isAudioStreaming: true,
+            };
+          }),
+          blockId,
+          {
+            audioSegments: [],
+            audioUrl: undefined,
+            audioDurationMs: undefined,
+            isAudioStreaming: true,
+          },
+        ),
+      );
+
+      const resolvedBaseUrl = await resolveBaseUrl();
+      const tokenValue = useUserStore.getState().getToken();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-Request-ID': uuidv4().replace(/-/g, ''),
+      };
+      if (tokenValue) {
+        headers.Authorization = `Bearer ${tokenValue}`;
+        headers.Token = tokenValue;
+      }
+
+      return new Promise((resolve, reject) => {
+        const source = new SSE(
+          `${resolvedBaseUrl}/api/learn/shifu/${shifuBid}/tts/preview?preview_mode=true`,
+          {
+            headers,
+            payload: JSON.stringify({ text: text || '' }),
+            method: 'POST',
+          },
+        );
+
+        source.addEventListener('message', event => {
+          const raw = event?.data;
+          if (!raw) return;
+          const payload = String(raw).trim();
+          if (!payload) return;
+
+          try {
+            const response = JSON.parse(payload);
+            if (response?.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+              const audioPayload = response.content ?? response.data;
+              setTrackedContentList(prevState =>
+                upsertAudioSegment(
+                  prevState,
+                  blockId,
+                  audioPayload as AudioSegmentData,
+                  ensureAudioItem,
+                ),
+              );
+              return;
+            }
+
+            if (response?.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+              const audioPayload = response.content ?? response.data;
+              const audioComplete = audioPayload as AudioCompleteData;
+              const normalizedAudioComplete = {
+                ...audioComplete,
+                audio_url: audioComplete.audio_url || undefined,
+              };
+              setTrackedContentList(prevState =>
+                upsertAudioComplete(
+                  prevState,
+                  blockId,
+                  normalizedAudioComplete,
+                  ensureAudioItem,
+                ),
+              );
+              closeTtsStream(blockId);
+              resolve(audioComplete ?? null);
+            }
+          } catch (err) {
+            console.warn('preview audio stream parse error:', err);
+          }
+        });
+
+        source.addEventListener('error', err => {
+          console.error('[preview audio sse error]', err);
+          setTrackedContentList(prevState =>
+            ensureAudioItem(
+              prevState.map(item => {
+                if (item.generated_block_bid !== blockId) {
+                  return item;
+                }
+                return {
+                  ...item,
+                  isAudioStreaming: false,
+                };
+              }),
+              blockId,
+            ),
+          );
+          closeTtsStream(blockId);
+          reject(new Error('Preview audio stream failed'));
+        });
+
+        source.stream();
+        ttsSseRef.current[blockId] = source;
+      });
+    },
+    [closeTtsStream, ensureAudioItem, resolveBaseUrl, setTrackedContentList],
+  );
+
   return {
     items,
     isLoading,
@@ -912,6 +1135,7 @@ export function usePreviewChat() {
     persistVariables,
     onVariableChange: handleVariableChange,
     variables: variablesSnapshot,
+    requestAudioForBlock,
     reGenerateConfirm: {
       open: showRegenerateConfirm,
       onConfirm: handleConfirmRegenerate,

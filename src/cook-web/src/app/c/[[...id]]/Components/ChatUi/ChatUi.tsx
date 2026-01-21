@@ -52,11 +52,12 @@ export const ChatUi = ({
         hideMobileFooter ? styles.hideMobileFooter : '',
       )}
     >
-      {frameLayout !== FRAME_LAYOUT_MOBILE ? (
-        <div className={styles.header}></div>
-      ) : (
-        <div className={styles.headerMobile}></div>
-      )}
+      {
+        frameLayout !== FRAME_LAYOUT_MOBILE ? (
+          <div className={styles.header}></div>
+        ) : null
+        // <div className={styles.headerMobile}></div>
+      }
       {
         <ChatComponents
           chapterId={chapterId}
@@ -84,6 +85,10 @@ export const ChatUi = ({
       )}
 
       <div className={styles.footer}>
+        <div
+          id='chat-scroll-target'
+          className={styles.scrollTarget}
+        />
         <div className={styles.footerContent}>
           <span className={styles.footerText}>
             {t('module.chat.aiGenerated')}

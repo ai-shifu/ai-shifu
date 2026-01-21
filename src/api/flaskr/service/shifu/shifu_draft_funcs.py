@@ -7,6 +7,9 @@ Author: yfge
 Date: 2025-08-07
 """
 
+from typing import Optional
+
+from flask import Flask
 from ...dao import db
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from datetime import datetime
@@ -20,13 +23,15 @@ from .utils import (
     parse_shifu_res_bid,
     get_shifu_res_url_dict,
 )
-from .models import DraftShifu, AiCourseAuth
+from .models import DraftShifu, FavoriteScenario, ShifuUserArchive
+from .permissions import get_user_shifu_permissions
 from .shifu_history_manager import save_shifu_history
 from ..common.dtos import PageNationDTO
 from ...service.config import get_config
 from .funcs import shifu_permission_verification
 from .shifu_outline_funcs import create_outline
 from flaskr.i18n import _
+from ..tts.validation import validate_tts_settings_strict
 
 
 def get_latest_shifu_draft(shifu_id: str) -> DraftShifu:
@@ -49,7 +54,11 @@ def get_latest_shifu_draft(shifu_id: str) -> DraftShifu:
 
 
 def return_shifu_draft_dto(
-    shifu_draft: DraftShifu, base_url: str, readonly: bool
+    shifu_draft: DraftShifu,
+    base_url: str,
+    readonly: bool,
+    archived_override: Optional[bool] = None,
+    can_manage_archive: bool = False,
 ) -> ShifuDetailDto:
     """
     Return shifu draft dto
@@ -57,6 +66,7 @@ def return_shifu_draft_dto(
         shifu_draft: Shifu draft
         base_url: Base URL to build shifu links
         readonly: Whether the current user has read-only permission
+        archived_override: Optional override for archived state (per-user)
     Returns:
         ShifuDetailDto: Shifu detail dto
     """
@@ -66,6 +76,10 @@ def return_shifu_draft_dto(
     shifu_preview_url = (
         f"{shifu_url}?preview=true" if normalized_base else f"{shifu_path}?preview=true"
     )
+
+    stored_provider = getattr(shifu_draft, "tts_provider", "") or ""
+    if stored_provider == "default":
+        stored_provider = ""
 
     return ShifuDetailDto(
         shifu_id=shifu_draft.shifu_bid,
@@ -82,7 +96,33 @@ def return_shifu_draft_dto(
         shifu_preview_url=shifu_preview_url,
         shifu_system_prompt=shifu_draft.llm_system_prompt,
         readonly=readonly,
+        archived=bool(archived_override) if archived_override is not None else False,
+        can_manage_archive=can_manage_archive,
+        created_user_bid=shifu_draft.created_user_bid or "",
+        tts_enabled=bool(shifu_draft.tts_enabled),
+        tts_provider=stored_provider,
+        tts_model=getattr(shifu_draft, "tts_model", "") or "",
+        tts_voice_id=shifu_draft.tts_voice_id or "",
+        tts_speed=float(shifu_draft.tts_speed)
+        if shifu_draft.tts_speed is not None
+        else 1.0,
+        tts_pitch=int(shifu_draft.tts_pitch) if shifu_draft.tts_pitch else 0,
+        tts_emotion=shifu_draft.tts_emotion or "",
     )
+
+
+def _get_user_archive_map(app, user_id: str, shifu_ids: list[str]) -> dict[str, bool]:
+    """
+    Load per-user archive states for the given shifu ids.
+    """
+    if not shifu_ids:
+        return {}
+    with app.app_context():
+        records = ShifuUserArchive.query.filter(
+            ShifuUserArchive.user_bid == user_id,
+            ShifuUserArchive.shifu_bid.in_(shifu_ids),
+        ).all()
+        return {record.shifu_bid: bool(record.archived) for record in records}
 
 
 def create_shifu_draft(
@@ -212,6 +252,7 @@ def create_shifu_draft(
             shifu_avatar=shifu_image,
             shifu_state=STATUS_DRAFT,
             is_favorite=False,
+            archived=False,
         )
 
 
@@ -232,11 +273,24 @@ def get_shifu_draft_info(
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
             raise_error("server.shifu.shifuNotFound")
+        permission_map = get_user_shifu_permissions(app, user_id)
+        has_view_permission = (
+            shifu_id in permission_map
+            or shifu_permission_verification(app, user_id, shifu_id, "view")
+        )
         has_edit_permission = shifu_permission_verification(
             app, user_id, shifu_id, "edit"
         )
         readonly = not has_edit_permission
-        return return_shifu_draft_dto(shifu_draft, base_url, readonly)
+        archive_map = _get_user_archive_map(app, user_id, [shifu_id])
+        archived_override = archive_map.get(shifu_id)
+        return return_shifu_draft_dto(
+            shifu_draft,
+            base_url,
+            readonly,
+            archived_override,
+            can_manage_archive=has_view_permission,
+        )
 
 
 def save_shifu_draft_info(
@@ -252,6 +306,13 @@ def save_shifu_draft_info(
     shifu_price: float,
     shifu_system_prompt: str,
     base_url: str,
+    tts_enabled: bool = False,
+    tts_provider: str = "",
+    tts_model: str = "",
+    tts_voice_id: str = "",
+    tts_speed: float = 1.0,
+    tts_pitch: int = 0,
+    tts_emotion: str = "",
 ):
     """
     Save shifu draft info
@@ -268,10 +329,33 @@ def save_shifu_draft_info(
         shifu_price: Shifu price
         shifu_system_prompt: Shifu system prompt
         base_url: Base URL to build shifu links
+        tts_enabled: Whether TTS is enabled
+        tts_provider: TTS provider (minimax, volcengine, baidu, aliyun)
+        tts_model: TTS model/resource ID
+        tts_voice_id: TTS voice ID
+        tts_speed: TTS speech speed
+        tts_pitch: TTS pitch adjustment
+        tts_emotion: TTS emotion setting
     Returns:
         ShifuDetailDto: Shifu detail dto
     """
     with app.app_context():
+        if tts_enabled:
+            validated = validate_tts_settings_strict(
+                provider=tts_provider,
+                model=tts_model,
+                voice_id=tts_voice_id,
+                speed=tts_speed,
+                pitch=tts_pitch,
+                emotion=tts_emotion,
+            )
+            tts_provider = validated.provider
+            tts_model = validated.model
+            tts_voice_id = validated.voice_id
+            tts_speed = validated.speed
+            tts_pitch = validated.pitch
+            tts_emotion = validated.emotion
+
         # Validate input lengths
         if len(shifu_name) > SHIFU_NAME_MAX_LENGTH:
             raise_error_with_args(
@@ -297,6 +381,13 @@ def save_shifu_draft_info(
                 llm_temperature=shifu_temperature,
                 price=shifu_price,
                 llm_system_prompt=shifu_system_prompt if shifu_system_prompt else "",
+                tts_enabled=1 if tts_enabled else 0,
+                tts_provider=tts_provider or "",
+                tts_model=tts_model or "",
+                tts_voice_id=tts_voice_id or "",
+                tts_speed=tts_speed,
+                tts_pitch=tts_pitch,
+                tts_emotion=tts_emotion or "",
                 deleted=0,
                 created_user_bid=user_id,
                 updated_user_bid=user_id,
@@ -316,6 +407,13 @@ def save_shifu_draft_info(
             new_shifu_draft.llm = shifu_model
             new_shifu_draft.llm_temperature = shifu_temperature
             new_shifu_draft.price = shifu_price
+            new_shifu_draft.tts_enabled = 1 if tts_enabled else 0
+            new_shifu_draft.tts_provider = tts_provider or ""
+            new_shifu_draft.tts_model = tts_model or ""
+            new_shifu_draft.tts_voice_id = tts_voice_id or ""
+            new_shifu_draft.tts_speed = tts_speed
+            new_shifu_draft.tts_pitch = tts_pitch
+            new_shifu_draft.tts_emotion = tts_emotion or ""
             new_shifu_draft.updated_user_bid = user_id
             new_shifu_draft.updated_at = datetime.now()
             if shifu_system_prompt is not None:
@@ -338,7 +436,13 @@ def save_shifu_draft_info(
 
 
 def get_shifu_draft_list(
-    app, user_id: str, page_index: int, page_size: int, is_favorite: bool
+    app,
+    user_id: str,
+    page_index: int,
+    page_size: int,
+    is_favorite: bool,
+    archived: bool = False,
+    creator_only: bool = False,
 ):
     """
     Get shifu draft list
@@ -348,6 +452,8 @@ def get_shifu_draft_list(
         page_index: Page index
         page_size: Page size
         is_favorite: Is favorite
+        archived: Filter archived (True) or active (False) shifus
+        creator_only: Only include shifus created by the user
     Returns:
         PageNationDTO: Page nation dto
     """
@@ -356,52 +462,63 @@ def get_shifu_draft_list(
         page_size = max(page_size, 1)
         page_offset = (page_index - 1) * page_size
 
-        created_total = DraftShifu.query.filter(
-            DraftShifu.created_user_bid == user_id,
-            DraftShifu.deleted == 0,
-        ).count()
-        shared_total = AiCourseAuth.query.filter(
-            AiCourseAuth.user_id == user_id,
-        ).count()
-        total = created_total + shared_total
+        if creator_only:
+            shifu_bids = get_user_created_shifu_bids(app, user_id)
+        else:
+            permission_map = get_user_shifu_permissions(app, user_id)
+            shifu_bids = list(permission_map.keys())
+        if not shifu_bids:
+            return PageNationDTO(page_index, page_size, 0, [])
 
-        created_subquery = (
+        latest_subquery = (
             db.session.query(db.func.max(DraftShifu.id))
             .filter(
-                DraftShifu.created_user_bid == user_id,
+                DraftShifu.shifu_bid.in_(shifu_bids),
                 DraftShifu.deleted == 0,
             )
             .group_by(DraftShifu.shifu_bid)
-        )
-
-        shared_course_ids = (
-            db.session.query(AiCourseAuth.course_id)
-            .filter(AiCourseAuth.user_id == user_id)
-            .subquery()
-        )
-
-        shared_subquery = (
-            db.session.query(db.func.max(DraftShifu.id))
-            .filter(
-                DraftShifu.shifu_bid.in_(shared_course_ids),
-                DraftShifu.deleted == 0,
-            )
-            .group_by(DraftShifu.shifu_bid)
-        )
-
-        union_subquery = created_subquery.union(shared_subquery).subquery()
+        ).subquery()
 
         shifu_drafts: list[DraftShifu] = (
             db.session.query(DraftShifu)
-            .filter(DraftShifu.id.in_(union_subquery))
+            .filter(DraftShifu.id.in_(latest_subquery))
             .order_by(DraftShifu.title.asc())
-            .offset(page_offset)
-            .limit(page_size)
             .all()
         )
 
-        infos = [f"{c.shifu_bid} + {c.title} + {c.deleted}\r\n" for c in shifu_drafts]
-        app.logger.info(f"{infos}")
+        if is_favorite:
+            favorite_ids = {
+                fav.scenario_id
+                for fav in FavoriteScenario.query.filter(
+                    FavoriteScenario.user_id == user_id,
+                    FavoriteScenario.status == 1,
+                ).all()
+            }
+            shifu_drafts = [
+                draft for draft in shifu_drafts if draft.shifu_bid in favorite_ids
+            ]
+
+        archive_map = _get_user_archive_map(
+            app, user_id, [draft.shifu_bid for draft in shifu_drafts]
+        )
+
+        def is_archived(draft: DraftShifu) -> bool:
+            return bool(archive_map.get(draft.shifu_bid))
+
+        filtered_shifus = [
+            draft for draft in shifu_drafts if is_archived(draft) == archived
+        ]
+
+        total = len(filtered_shifus)
+        shifu_drafts = filtered_shifus[page_offset : page_offset + page_size]
+
+        app.logger.debug(
+            "Fetched %d shifus for user %s (archived=%s, favorite=%s)",
+            len(shifu_drafts),
+            user_id,
+            archived,
+            is_favorite,
+        )
         res_bids = [shifu_draft.avatar_res_bid for shifu_draft in shifu_drafts]
         res_url_map = get_shifu_res_url_dict(res_bids)
         shifu_dtos = [
@@ -411,11 +528,70 @@ def get_shifu_draft_list(
                 shifu_draft.description,
                 res_url_map.get(shifu_draft.avatar_res_bid, ""),
                 STATUS_DRAFT,
-                False,
+                bool(is_favorite),
+                is_archived(shifu_draft),
             )
             for shifu_draft in shifu_drafts
         ]
         return PageNationDTO(page_index, page_size, total, shifu_dtos)
+
+
+def get_user_created_shifu_bids(app: Flask, user_id: str) -> list[str]:
+    """Return shifu bids created by the specified user."""
+    with app.app_context():
+        rows = (
+            db.session.query(DraftShifu.shifu_bid)
+            .filter(
+                DraftShifu.created_user_bid == user_id,
+                DraftShifu.deleted == 0,
+            )
+            .distinct()
+            .all()
+        )
+        return [row[0] for row in rows if row and row[0]]
+
+
+def _set_shifu_archive_state(app, user_id: str, shifu_id: str, archived: bool):
+    with app.app_context():
+        shifu_draft = get_latest_shifu_draft(shifu_id)
+        if not shifu_draft:
+            raise_error("server.shifu.shifuNotFound")
+        permission_map = get_user_shifu_permissions(app, user_id)
+        if shifu_id not in permission_map:
+            raise_error("server.shifu.noPermission")
+
+        new_flag = 1 if archived else 0
+        now = datetime.now()
+        existing = ShifuUserArchive.query.filter(
+            ShifuUserArchive.shifu_bid == shifu_id,
+            ShifuUserArchive.user_bid == user_id,
+        ).first()
+
+        if existing:
+            existing.archived = new_flag
+            existing.archived_at = now if archived else None
+            existing.updated_at = now
+        else:
+            db.session.add(
+                ShifuUserArchive(
+                    shifu_bid=shifu_id,
+                    user_bid=user_id,
+                    archived=new_flag,
+                    archived_at=now if archived else None,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+
+        db.session.commit()
+
+
+def archive_shifu(app, user_id: str, shifu_id: str):
+    _set_shifu_archive_state(app, user_id, shifu_id, True)
+
+
+def unarchive_shifu(app, user_id: str, shifu_id: str):
+    _set_shifu_archive_state(app, user_id, shifu_id, False)
 
 
 def save_shifu_draft_detail(
