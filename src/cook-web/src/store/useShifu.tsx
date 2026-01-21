@@ -1366,6 +1366,7 @@ export const ShifuProvider = ({
       if (list) {
         applyProfileDefinitionList(list as ProfileItem[], shifuId);
       } else {
+        delete profileDefinitionCacheRef.current[shifuId];
         await refreshProfileDefinitions(shifuId);
       }
     } catch (error) {
@@ -1386,6 +1387,7 @@ export const ShifuProvider = ({
       if (list) {
         applyProfileDefinitionList(list as ProfileItem[], shifuId);
       } else {
+        delete profileDefinitionCacheRef.current[shifuId];
         await refreshProfileDefinitions(shifuId);
       }
     } catch (error) {
@@ -1626,6 +1628,7 @@ export const ShifuProvider = ({
           if (list) {
             applyProfileDefinitionList(list as ProfileItem[], shifuId);
           } else {
+            delete profileDefinitionCacheRef.current[shifuId];
             await refreshProfileDefinitions(shifuId);
           }
         } catch (error) {

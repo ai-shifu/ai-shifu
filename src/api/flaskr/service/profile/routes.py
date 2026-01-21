@@ -119,6 +119,9 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
                   parent_id:
                     type: string
                     description: shifu_bid
+        responses:
+          200:
+            description: OK
         """
         payload = request.get_json(silent=True) or {}
         parent_id = payload.get("parent_id")
@@ -152,6 +155,9 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
                       type: string
                   hidden:
                     type: boolean
+        responses:
+          200:
+            description: OK
         """
         payload = request.get_json(silent=True) or {}
         parent_id = payload.get("parent_id")
