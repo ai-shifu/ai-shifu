@@ -87,6 +87,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [recentVariables, setRecentVariables] = useState<string[]>([]);
   const seenVariableNamesRef = useRef<Set<string>>(new Set());
   const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async preview is pending
+  const lastMdflowVariablesRef = useRef<Set<string>>(new Set());
+  const [hasRemovedVisibleVariable, setHasRemovedVisibleVariable] =
+    useState(false);
   const {
     mdflow,
     chapters,
@@ -394,31 +397,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   // 展示给预览的变量：以当前解析出的变量为基础，补齐课程可见变量的空值
   const mergedPreviewVariables = useMemo(() => {
-    const base = resolvedPreviewVariables
-      ? { ...resolvedPreviewVariables }
-      : {};
-    courseVisibleVariableKeys.forEach(key => {
-      if (!(key in base)) {
-        base[key] = '';
-      }
-    });
-    return base;
-  }, [courseVisibleVariableKeys, resolvedPreviewVariables]);
-
-  // 课程级可见变量（系统 + 自定义，已过滤隐藏）
-  const courseVisibleVariableKeys = useMemo(() => {
-    const systemSet = systemVariablesList.map(item => item.name);
-    const customVisible = (variables || []).filter(
-      key => !hiddenVariables.includes(key),
-    );
-    return [...systemSet, ...customVisible];
-  }, [hiddenVariables, systemVariablesList, variables]);
-
-  // 展示给预览的变量：以当前解析出的变量为基础，补齐课程可见变量的空值
-  const mergedPreviewVariables = useMemo(() => {
-    const base = resolvedPreviewVariables
-      ? { ...resolvedPreviewVariables }
-      : {};
+    const base = resolvedPreviewVariables ? { ...resolvedPreviewVariables } : {};
     courseVisibleVariableKeys.forEach(key => {
       if (!(key in base)) {
         base[key] = '';
@@ -428,11 +407,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [courseVisibleVariableKeys, resolvedPreviewVariables]);
 
   const hasUnusedVisibleVariables = useMemo(() => {
-    const systemSet = new Set(
-      systemVariablesList.map(variable => variable.name),
-    );
+    const systemSet = new Set(systemVariablesList.map(variable => variable.name));
     const hiddenSet = new Set(hiddenVariables);
     const usedSet = new Set(mdflowVariableNames || []);
+    // 只看当前章节：可见的自定义变量未出现在本章占位符里，则视为未使用
     return (variables || []).some(
       key => !systemSet.has(key) && !hiddenSet.has(key) && !usedSet.has(key),
     );
@@ -446,7 +424,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
       : 'hide';
   const hideRestoreActionDisabled =
     hideRestoreActionType === 'hide'
-      ? !hasUnusedVisibleVariables
+      ? false
       : !hasHiddenVariables;
   const hideRestoreActionLabel =
     hideRestoreActionType === 'hide'
