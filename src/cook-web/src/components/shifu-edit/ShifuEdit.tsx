@@ -394,7 +394,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   // 展示给预览的变量：以当前解析出的变量为基础，补齐课程可见变量的空值
   const mergedPreviewVariables = useMemo(() => {
-    const base = resolvedPreviewVariables ? { ...resolvedPreviewVariables } : {};
+    const base = resolvedPreviewVariables
+      ? { ...resolvedPreviewVariables }
+      : {};
     courseVisibleVariableKeys.forEach(key => {
       if (!(key in base)) {
         base[key] = '';
@@ -414,7 +416,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   // 展示给预览的变量：以当前解析出的变量为基础，补齐课程可见变量的空值
   const mergedPreviewVariables = useMemo(() => {
-    const base = resolvedPreviewVariables ? { ...resolvedPreviewVariables } : {};
+    const base = resolvedPreviewVariables
+      ? { ...resolvedPreviewVariables }
+      : {};
     courseVisibleVariableKeys.forEach(key => {
       if (!(key in base)) {
         base[key] = '';
