@@ -52,11 +52,9 @@ interface LessonPreviewProps {
     onCancel: () => void;
   };
   hiddenVariableKeys?: string[];
-  onHideUnused?: () => void;
-  onRestoreHidden?: () => void;
-  usedVariableKeys?: string[];
-  systemVariableKeys?: string[];
-  disableHideUnused?: boolean;
+  onHideOrRestore?: () => void;
+  actionLabel?: string;
+  actionDisabled?: boolean;
 }
 
 const noop = () => {};
@@ -73,11 +71,9 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   variableOrder,
   reGenerateConfirm,
   hiddenVariableKeys,
-  onHideUnused,
-  onRestoreHidden,
-  usedVariableKeys = [],
-  systemVariableKeys = [],
-  disableHideUnused,
+  onHideOrRestore,
+  actionLabel,
+  actionDisabled,
 }) => {
   const { t } = useTranslation();
   const confirmButtonText = t('module.renderUi.core.confirm');
@@ -126,16 +122,6 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     );
   }, [hiddenSet, resolvedVariables]);
 
-  const hiddenVariablesWithValue = React.useMemo(() => {
-    if (!hiddenVariableKeys?.length) {
-      return [] as [string, string][];
-    }
-    return hiddenVariableKeys.map<[string, string]>(key => [
-      key,
-      resolvedVariables?.[key] || '',
-    ]);
-  }, [hiddenVariableKeys, resolvedVariables]);
-
   const itemByGeneratedBid = React.useMemo(() => {
     const map = new Map<string, ChatContentItem>();
     items.forEach(item => {
@@ -146,58 +132,23 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     return map;
   }, [items]);
 
-  const usedVariableSet = React.useMemo(
-    () => new Set(usedVariableKeys || []),
-    [usedVariableKeys],
-  );
-  const systemVariableSet = React.useMemo(
-    () => new Set(systemVariableKeys || []),
-    [systemVariableKeys],
-  );
-
   const { showAlert } = useAlert();
 
-  const handleHideUnusedConfirm = React.useCallback(() => {
-    if (!onHideUnused) return;
+  const handleActionConfirm = React.useCallback(() => {
+    if (!onHideOrRestore || !actionType) return;
+    const isHide = actionType === 'hide';
     showAlert({
-      title: t('module.shifu.previewArea.variablesHideUnusedConfirmTitle'),
-      description: t('module.shifu.previewArea.variablesHideUnusedConfirmDesc'),
+      title: isHide
+        ? t('module.shifu.previewArea.variablesHideUnusedConfirmTitle')
+        : t('module.shifu.previewArea.variablesRestoreHiddenConfirmTitle'),
+      description: isHide
+        ? t('module.shifu.previewArea.variablesHideUnusedConfirmDesc')
+        : t('module.shifu.previewArea.variablesRestoreHiddenConfirmDesc'),
       confirmText: t('common.core.confirm'),
       cancelText: t('common.core.cancel'),
-      onConfirm: () => onHideUnused(),
+      onConfirm: () => onHideOrRestore(),
     });
-  }, [onHideUnused, showAlert, t]);
-
-  const handleRestoreHiddenConfirm = React.useCallback(() => {
-    if (!onRestoreHidden) return;
-    showAlert({
-      title: t('module.shifu.previewArea.variablesRestoreHiddenConfirmTitle'),
-      description: t(
-        'module.shifu.previewArea.variablesRestoreHiddenConfirmDesc',
-      ),
-      confirmText: t('common.core.confirm'),
-      cancelText: t('common.core.cancel'),
-      onConfirm: () => onRestoreHidden(),
-    });
-  }, [onRestoreHidden, showAlert, t]);
-
-  const visibleVariableKeys = React.useMemo(
-    () => Object.keys(visibleVariables || {}),
-    [visibleVariables],
-  );
-
-  const hasUnusedVisibleVariables = React.useMemo(
-    () =>
-      visibleVariableKeys.some(
-        key => !systemVariableSet.has(key) && !usedVariableSet.has(key),
-      ),
-    [systemVariableSet, usedVariableSet, visibleVariableKeys],
-  );
-
-  const resolvedDisableHideUnused =
-    disableHideUnused !== undefined
-      ? disableHideUnused
-      : !hasUnusedVisibleVariables;
+  }, [actionType, onHideOrRestore, showAlert, t]);
 
   return (
     <div className={cn(styles.lessonPreview, 'text-sm')}>
@@ -218,14 +169,15 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           <div className={styles.variableListWrapper}>
             <VariableList
               variables={visibleVariables}
-              hiddenVariables={hiddenVariablesWithValue}
               collapsed={variablesCollapsed}
               onToggle={() => setVariablesCollapsed(prev => !prev)}
               onChange={onVariableChange}
               variableOrder={variableOrder}
-              onHideUnused={handleHideUnusedConfirm}
-              onRestoreHidden={handleRestoreHiddenConfirm}
-              disableHideUnused={resolvedDisableHideUnused}
+              actionLabel={actionLabel}
+              onAction={
+                resolvedDisableHideUnused ? undefined : onHideOrRestore || noop
+              }
+              actionDisabled={resolvedDisableHideUnused || actionDisabled}
             />
           </div>
         )}

@@ -14,6 +14,7 @@ from .models import (
     PROFILE_CONF_TYPE_ITEM,
 )
 from ...dao import db
+from sqlalchemy import func
 from flaskr.util.uuid import generate_id
 from flaskr.service.common import raise_error
 from .dtos import (
@@ -63,21 +64,30 @@ def _collect_used_variables(app: Flask, shifu_bid: str) -> set[str]:
     for all draft outline items under a shifu.
     """
     with app.app_context():
-        outline_items = (
-            DraftOutlineItem.query.filter(
-                DraftOutlineItem.shifu_bid == shifu_bid, DraftOutlineItem.deleted == 0
+        latest_ids_subquery = (
+            db.session.query(
+                DraftOutlineItem.outline_item_bid,
+                func.max(DraftOutlineItem.id).label("latest_id"),
             )
-            .order_by(DraftOutlineItem.id.desc())
+            .filter(
+                DraftOutlineItem.shifu_bid == shifu_bid,
+                DraftOutlineItem.deleted == 0,
+            )
+            .group_by(DraftOutlineItem.outline_item_bid)
+            .subquery()
+        )
+
+        outline_items = (
+            DraftOutlineItem.query.join(
+                latest_ids_subquery,
+                DraftOutlineItem.id == latest_ids_subquery.c.latest_id,
+            )
+            .filter(DraftOutlineItem.deleted == 0)
             .all()
         )
-        latest_by_outline: dict[str, DraftOutlineItem] = {}
-        for item in outline_items:
-            if item.outline_item_bid in latest_by_outline:
-                continue
-            latest_by_outline[item.outline_item_bid] = item
 
         used_variables: set[str] = set()
-        for item in latest_by_outline.values():
+        for item in outline_items:
             if not item.content:
                 continue
             markdown_flow = MarkdownFlow(item.content).set_output_language(

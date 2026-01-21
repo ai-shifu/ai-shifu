@@ -1238,7 +1238,7 @@ export const ShifuProvider = ({
         ?.filter((item: ProfileItem) => item.profile_scope === 'system')
         .map((item: ProfileItem) => ({
           name: item.profile_key,
-          label: item.profile_remark || '',
+          label: item.profile_remark,
         })) || [];
     setSystemVariables(sysVariables);
 
@@ -1366,6 +1366,7 @@ export const ShifuProvider = ({
       if (list) {
         applyProfileDefinitionList(list as ProfileItem[], shifuId);
       } else {
+        delete profileDefinitionCacheRef.current[shifuId];
         await refreshProfileDefinitions(shifuId);
       }
     } catch (error) {
@@ -1386,6 +1387,7 @@ export const ShifuProvider = ({
       if (list) {
         applyProfileDefinitionList(list as ProfileItem[], shifuId);
       } else {
+        delete profileDefinitionCacheRef.current[shifuId];
         await refreshProfileDefinitions(shifuId);
       }
     } catch (error) {
@@ -1626,6 +1628,7 @@ export const ShifuProvider = ({
           if (list) {
             applyProfileDefinitionList(list as ProfileItem[], shifuId);
           } else {
+            delete profileDefinitionCacheRef.current[shifuId];
             await refreshProfileDefinitions(shifuId);
           }
         } catch (error) {

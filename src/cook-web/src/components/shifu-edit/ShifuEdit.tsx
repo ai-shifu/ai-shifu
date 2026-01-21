@@ -403,6 +403,19 @@ const ScriptEditor = ({ id }: { id: string }) => {
     return visibleCustomKeys.some(key => !usedSet.has(key));
   }, [hiddenVariables, mdflowVariableNames, systemVariablesList, variables]);
 
+  const hasHiddenVariables = hiddenVariables.length > 0;
+  const hideRestoreActionType: 'hide' | 'restore' = hasUnusedVisibleVariables
+    ? 'hide'
+    : 'restore';
+  const hideRestoreActionDisabled =
+    hideRestoreActionType === 'hide'
+      ? !hasUnusedVisibleVariables
+      : !hasHiddenVariables;
+  const hideRestoreActionLabel =
+    hideRestoreActionType === 'hide'
+      ? t('module.shifu.previewArea.variablesHideUnused')
+      : t('module.shifu.previewArea.variablesRestoreHidden');
+
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);
     // Pass snapshot so autosave persists pre-switch content + chapter id
@@ -753,8 +766,14 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   disableHideUnused={!hasUnusedVisibleVariables}
                   onRequestAudioForBlock={requestPreviewAudioForBlock}
                   reGenerateConfirm={reGenerateConfirm}
-                  onHideUnused={handleHideUnusedVariables}
-                  onRestoreHidden={handleRestoreHiddenVariables}
+                  onHideOrRestore={
+                    hideRestoreActionType === 'hide'
+                      ? handleHideUnusedVariables
+                      : handleRestoreHiddenVariables
+                  }
+                  actionLabel={hideRestoreActionLabel}
+                  actionType={hideRestoreActionType}
+                  actionDisabled={hideRestoreActionDisabled}
                 />
               </div>
             </div>
