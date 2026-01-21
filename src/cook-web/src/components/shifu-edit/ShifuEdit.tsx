@@ -391,7 +391,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
     return visibleCustomKeys.some(key => !usedSet.has(key));
   }, [hiddenVariables, mdflowVariableNames, systemVariablesList, variables]);
 
-
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);
     // Pass snapshot so autosave persists pre-switch content + chapter id
