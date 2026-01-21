@@ -216,7 +216,9 @@ export interface ShifuActions {
   hideUnusedVariables: (shifuId: string) => Promise<void>;
   restoreHiddenVariables: (shifuId: string) => Promise<void>;
   unhideVariablesByKeys: (shifuId: string, keys: string[]) => Promise<void>;
-  refreshProfileDefinitions: (shifuId: string) => Promise<void>;
+  refreshProfileDefinitions: (
+    shifuId: string,
+  ) => Promise<{ list: ProfileItem[]; systemVariableKeys: string[] }>;
   insertPlaceholderChapter: () => void;
   insertPlaceholderLesson: (parent: Outline) => void;
   removePlaceholderOutline: (outline: Outline) => void;
