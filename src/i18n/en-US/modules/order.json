@@ -107,9 +107,12 @@
     "payment": "Payment",
     "summary": "Summary"
   },
+  "statusLabels": {
+    "timeout": "Expired (unpaid for over {minutes} min)"
+  },
   "table": {
     "action": "Action",
-    "amount": "Amount",
+    "amount": "Payment Amount",
     "createdAt": "Created",
     "orderId": "Order ID",
     "payment": "Payment",
@@ -119,5 +122,5 @@
     "view": "View"
   },
   "title": "Orders",
-  "totalCount": "Total: {count}"
+  "totalCount": "Orders: {count}"
 }

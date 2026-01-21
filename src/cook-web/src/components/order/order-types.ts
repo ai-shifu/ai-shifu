@@ -12,6 +12,7 @@ export type OrderSummary = {
   status_key: string;
   payment_channel: string;
   payment_channel_key: string;
+  coupon_codes: string[];
   created_at: string;
   updated_at: string;
 };
