@@ -383,12 +383,25 @@ const ScriptEditor = ({ id }: { id: string }) => {
     ];
   }, [systemVariablesList, variablesList]);
 
+  const hasUnusedVisibleVariables = useMemo(() => {
+    const systemSet = new Set(systemVariablesList.map(variable => variable.name));
+    const hiddenSet = new Set(hiddenVariables);
+    const usedSet = new Set(mdflowVariableNames || []);
+    return (variables || []).some(
+      key => !systemSet.has(key) && !hiddenSet.has(key) && !usedSet.has(key),
+    );
+  }, [hiddenVariables, mdflowVariableNames, systemVariablesList, variables]);
+
   const hasHiddenVariables = hiddenVariables.length > 0;
-  const hideRestoreActionType: 'hide' | 'restore' = hasHiddenVariables
-    ? 'restore'
-    : 'hide';
+  const hideRestoreActionType: 'hide' | 'restore' = hasUnusedVisibleVariables
+    ? 'hide'
+    : hasHiddenVariables
+      ? 'restore'
+      : 'hide';
   const hideRestoreActionDisabled =
-    hideRestoreActionType === 'restore' ? !hasHiddenVariables : false;
+    hideRestoreActionType === 'hide'
+      ? !hasUnusedVisibleVariables
+      : !hasHiddenVariables;
   const hideRestoreActionLabel =
     hideRestoreActionType === 'hide'
       ? t('module.shifu.previewArea.variablesHideUnused')
