@@ -220,6 +220,7 @@ class MdflowContextV2:
         llm_provider: Optional[LLMProvider] = None,
         interaction_prompt: Optional[str] = None,
         interaction_error_prompt: Optional[str] = None,
+        use_learner_language: bool = False,
     ):
         self._mdflow = MarkdownFlow(
             document=document,
@@ -227,7 +228,12 @@ class MdflowContextV2:
             document_prompt=document_prompt,
             interaction_prompt=interaction_prompt,
             interaction_error_prompt=interaction_error_prompt,
-        ).set_output_language(get_markdownflow_output_language())
+        )
+        # Only set output language if use_learner_language is enabled
+        if use_learner_language:
+            self._mdflow = self._mdflow.set_output_language(
+                get_markdownflow_output_language()
+            )
 
     def get_block(self, block_index: int):
         return self._mdflow.get_block(block_index)
@@ -535,6 +541,7 @@ class RunScriptPreviewContextV2:
                 document_prompt=document_prompt,
                 interaction_prompt=preview_request.interaction_prompt,
                 interaction_error_prompt=preview_request.interaction_error_prompt,
+                use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
             )
 
             block_index = preview_request.block_index
@@ -1575,6 +1582,7 @@ class RunScriptContextV2:
             llm_provider=RUNLLMProvider(
                 app, llm_settings, self._trace, self._trace_args
             ),
+            use_learner_language=self._shifu_info.use_learner_language,
         )
         block_list = mdflow_context.get_all_blocks()
         user_profile = get_user_profiles(

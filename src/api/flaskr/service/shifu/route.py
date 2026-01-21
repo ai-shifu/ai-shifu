@@ -449,6 +449,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         tts_speed = json_data.get("tts_speed", 1.0)
         tts_pitch = json_data.get("tts_pitch", 0)
         tts_emotion = json_data.get("tts_emotion", "")
+        # Language Output Configuration
+        use_learner_language = json_data.get("use_learner_language", False)
+        if isinstance(use_learner_language, str):
+            use_learner_language = use_learner_language.lower() == "true"
         base_url = _get_request_base_url()
         return make_common_response(
             save_shifu_draft_info(
@@ -471,6 +475,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 tts_speed=tts_speed,
                 tts_pitch=tts_pitch,
                 tts_emotion=tts_emotion,
+                use_learner_language=use_learner_language,
             )
         )
 

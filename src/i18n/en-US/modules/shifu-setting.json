@@ -66,5 +66,7 @@
   "unarchiveTitle": "Unarchive course?",
   "upload": "Upload",
   "uploadFailed": "Upload failed, please try again later",
-  "uploading": "Uploading"
+  "uploading": "Uploading",
+  "useLearnerLanguageDescription": "When enabled, AI will output content in the learner's interface language. When disabled, AI will use its default language.",
+  "useLearnerLanguageTitle": "Use Learner's Language"
 }
