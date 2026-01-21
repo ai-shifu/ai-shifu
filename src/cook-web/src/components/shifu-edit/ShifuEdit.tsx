@@ -377,19 +377,26 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [systemVariablesList, variablesList]);
 
   const hasUnusedVisibleVariables = useMemo(() => {
-    const visibleCustomKeys = Object.keys(previewVariables || {}).filter(key => {
-      const isHidden = hiddenVariables.includes(key);
-      const isSystem = systemVariablesList.some(
-        variable => variable.name === key,
-      );
-      return !isHidden && !isSystem;
-    });
+    const visibleCustomKeys = Object.keys(previewVariables || {}).filter(
+      key => {
+        const isHidden = hiddenVariables.includes(key);
+        const isSystem = systemVariablesList.some(
+          variable => variable.name === key,
+        );
+        return !isHidden && !isSystem;
+      },
+    );
     if (!visibleCustomKeys.length) {
       return false;
     }
     const usedSet = new Set(mdflowVariableNames || []);
     return visibleCustomKeys.some(key => !usedSet.has(key));
-  }, [hiddenVariables, mdflowVariableNames, previewVariables, systemVariablesList]);
+  }, [
+    hiddenVariables,
+    mdflowVariableNames,
+    previewVariables,
+    systemVariablesList,
+  ]);
 
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);
