@@ -57,20 +57,19 @@ def get_next_corlor_setting(parent_id: str):
     ]
 
 
-def _collect_used_variables(
-    app: Flask, shifu_bid: str, outline_bid: str | None = None
-) -> set[str]:
+def _collect_used_variables(app: Flask, shifu_bid: str) -> set[str]:
     """
     Collect variable names referenced across the latest mdflow content
     for all draft outline items under a shifu.
     """
     with app.app_context():
-        query = DraftOutlineItem.query.filter(
-            DraftOutlineItem.shifu_bid == shifu_bid, DraftOutlineItem.deleted == 0
+        outline_items = (
+            DraftOutlineItem.query.filter(
+                DraftOutlineItem.shifu_bid == shifu_bid, DraftOutlineItem.deleted == 0
+            )
+            .order_by(DraftOutlineItem.id.desc())
+            .all()
         )
-        if outline_bid:
-            query = query.filter(DraftOutlineItem.outline_item_bid == outline_bid)
-        outline_items = query.order_by(DraftOutlineItem.id.desc()).all()
         latest_by_outline: dict[str, DraftOutlineItem] = {}
         for item in outline_items:
             if item.outline_item_bid in latest_by_outline:
@@ -90,14 +89,12 @@ def _collect_used_variables(
         return used_variables
 
 
-def get_unused_profile_keys(
-    app: Flask, shifu_bid: str, outline_bid: str | None = None
-) -> list[str]:
+def get_unused_profile_keys(app: Flask, shifu_bid: str) -> list[str]:
     """
     Determine custom profile keys that are not referenced in any outline content.
     """
     definitions = get_profile_item_definition_list(app, parent_id=shifu_bid)
-    used_variables = _collect_used_variables(app, shifu_bid, outline_bid)
+    used_variables = _collect_used_variables(app, shifu_bid)
     unused_keys: list[str] = []
     for definition in definitions:
         if (
@@ -209,12 +206,12 @@ def update_profile_item_hidden_state(
 
 
 def hide_unused_profile_items(
-    app: Flask, parent_id: str, user_id: str, outline_id: str | None = None
+    app: Flask, parent_id: str, user_id: str
 ) -> list[ProfileItemDefinition]:
     """
     Hide all custom profile items that are not referenced in any outline content.
     """
-    unused_keys = get_unused_profile_keys(app, parent_id, outline_id)
+    unused_keys = get_unused_profile_keys(app, parent_id)
     if not unused_keys:
         return get_profile_item_definition_list(app, parent_id=parent_id)
     return update_profile_item_hidden_state(

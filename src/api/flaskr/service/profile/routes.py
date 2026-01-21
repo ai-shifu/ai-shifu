@@ -119,19 +119,13 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
                   parent_id:
                     type: string
                     description: shifu_bid
-                  outline_id:
-                    type: string
-                    description: optional outline_id to scope usage detection
         """
         parent_id = request.get_json().get("parent_id", None)
-        outline_id = request.get_json().get("outline_id", None)
         if not parent_id:
             raise_error("server.profile.parentIdRequired")
         user_id = request.user.user_id
         return make_common_response(
-            hide_unused_profile_items(
-                app, parent_id=parent_id, user_id=user_id, outline_id=outline_id
-            )
+            hide_unused_profile_items(app, parent_id=parent_id, user_id=user_id)
         )
 
     @app.route(f"{path_prefix}/update-profile-hidden-state", methods=["POST"])

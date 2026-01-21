@@ -1358,11 +1358,10 @@ export const ShifuProvider = ({
     }
   };
 
-  const hideUnusedVariables = async (shifuId: string, outlineId?: string) => {
+  const hideUnusedVariables = async (shifuId: string) => {
     try {
       const list = await api.hideUnusedProfileItems({
         parent_id: shifuId,
-        outline_id: outlineId,
       });
       if (list) {
         applyProfileDefinitionList(list as ProfileItem[], shifuId);

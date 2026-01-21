@@ -215,11 +215,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const handleHideUnusedVariables = useCallback(async () => {
     if (!currentShifu?.bid) return;
-    await actions.hideUnusedVariables(
-      currentShifu.bid,
-      currentNode?.bid || undefined,
-    );
-  }, [actions, currentNode?.bid, currentShifu?.bid]);
+    await actions.hideUnusedVariables(currentShifu.bid);
+  }, [actions, currentShifu?.bid]);
 
   const handleRestoreHiddenVariables = useCallback(async () => {
     if (!currentShifu?.bid) return;
@@ -394,11 +391,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
     return visibleCustomKeys.some(key => !usedSet.has(key));
   }, [hiddenVariables, mdflowVariableNames, systemVariablesList, variables]);
 
-  useEffect(() => {
-    console.log('[debug] visible variables', variables);
-    console.log('[debug] hidden variables', hiddenVariables);
-    console.log('[debug] mdflow variables', mdflowVariableNames);
-  }, [variables, hiddenVariables, mdflowVariableNames]);
 
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);

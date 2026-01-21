@@ -213,7 +213,7 @@ export interface ShifuActions {
     blocksCount: number;
     systemVariableKeys: string[];
   }>;
-  hideUnusedVariables: (shifuId: string, outlineId?: string) => Promise<void>;
+  hideUnusedVariables: (shifuId: string) => Promise<void>;
   restoreHiddenVariables: (shifuId: string) => Promise<void>;
   unhideVariablesByKeys: (shifuId: string, keys: string[]) => Promise<void>;
   refreshProfileDefinitions: (shifuId: string) => Promise<void>;
