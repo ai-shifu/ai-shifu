@@ -54,6 +54,7 @@ interface LessonPreviewProps {
   hiddenVariableKeys?: string[];
   onHideOrRestore?: () => void;
   actionLabel?: string;
+  actionType?: 'hide' | 'restore';
   actionDisabled?: boolean;
 }
 
@@ -73,6 +74,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   hiddenVariableKeys,
   onHideOrRestore,
   actionLabel,
+  actionType,
   actionDisabled,
 }) => {
   const { t } = useTranslation();
