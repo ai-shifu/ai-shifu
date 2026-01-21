@@ -15,10 +15,7 @@ import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import type { AudioCompleteData } from '@/c-api/studyV2';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import VariableList from './VariableList';
-import {
-  getStoredPreviewVariables,
-  type PreviewVariablesMap,
-} from './variableStorage';
+import { getStoredPreviewVariables, type PreviewVariablesMap } from './variableStorage';
 import styles from './LessonPreview.module.scss';
 import { cn } from '@/lib/utils';
 import {

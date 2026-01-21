@@ -10,10 +10,6 @@ export interface StoredVariablesByScope {
   custom: PreviewVariablesMap;
 }
 
-export interface StoredHiddenByShifu {
-  hiddenKeys: string[];
-}
-
 const normalizeValue = (value: unknown): string => {
   if (typeof value === 'string') {
     return value;
@@ -32,13 +28,6 @@ const buildCustomStorageKey = (shifuBid?: string) => {
     return '';
   }
   return `${STORAGE_PREFIX}:${shifuBid}`;
-};
-
-const buildHiddenStorageKey = (shifuBid?: string) => {
-  if (!shifuBid) {
-    return '';
-  }
-  return `${STORAGE_PREFIX}:hidden:${shifuBid}`;
 };
 
 const readStorage = (key: string): PreviewVariablesMap => {
@@ -132,39 +121,4 @@ export const savePreviewVariables = (
   if (customKey && hasCustomChanges) {
     writeStorage(customKey, stored.custom);
   }
-};
-
-export const getStoredHiddenKeys = (shifuBid?: string): string[] => {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-  const key = buildHiddenStorageKey(shifuBid);
-  if (!key) return [];
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return [];
-    const parsed: StoredHiddenByShifu = JSON.parse(raw) || { hiddenKeys: [] };
-    return parsed.hiddenKeys || [];
-  } catch (error) {
-    console.warn('Failed to parse hidden keys from storage', error);
-    return [];
-  }
-};
-
-export const saveHiddenKeys = (shifuBid: string, hiddenKeys: string[]) => {
-  if (typeof window === 'undefined') return;
-  const key = buildHiddenStorageKey(shifuBid);
-  if (!key) return;
-  try {
-    window.localStorage.setItem(key, JSON.stringify({ hiddenKeys }));
-  } catch (error) {
-    console.warn('Failed to save hidden keys to storage', error);
-  }
-};
-
-export const clearHiddenKeys = (shifuBid?: string) => {
-  if (typeof window === 'undefined') return;
-  const key = buildHiddenStorageKey(shifuBid);
-  if (!key) return;
-  window.localStorage.removeItem(key);
 };

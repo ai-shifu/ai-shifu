@@ -33,7 +33,6 @@ import {
   getStoredPreviewVariables,
   mapKeysToStoredVariables,
   PreviewVariablesMap,
-  saveHiddenKeys,
   savePreviewVariables,
   StoredVariablesByScope,
 } from '@/components/lesson-preview/variableStorage';
@@ -1268,7 +1267,6 @@ export const ShifuProvider = ({
         systemVariableKeys,
         updatedAt: Date.now(),
       };
-      saveHiddenKeys(shifuId, hiddenVariableKeys);
     }
 
     return {
@@ -1367,7 +1365,6 @@ export const ShifuProvider = ({
       });
       if (list) {
         applyProfileDefinitionList(list as ProfileItem[], shifuId);
-        saveHiddenKeys(shifuId, hiddenVariables || []);
       } else {
         delete profileDefinitionCacheRef.current[shifuId];
         await refreshProfileDefinitions(shifuId);
@@ -1389,7 +1386,6 @@ export const ShifuProvider = ({
       });
       if (list) {
         applyProfileDefinitionList(list as ProfileItem[], shifuId);
-        saveHiddenKeys(shifuId, hiddenVariables || []);
       } else {
         delete profileDefinitionCacheRef.current[shifuId];
         await refreshProfileDefinitions(shifuId);
@@ -1631,7 +1627,6 @@ export const ShifuProvider = ({
           });
           if (list) {
             applyProfileDefinitionList(list as ProfileItem[], shifuId);
-            saveHiddenKeys(shifuId, hiddenVariables || []);
           } else {
             delete profileDefinitionCacheRef.current[shifuId];
             await refreshProfileDefinitions(shifuId);
