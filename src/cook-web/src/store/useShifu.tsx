@@ -1650,16 +1650,16 @@ export const ShifuProvider = ({
             profile_keys: keys,
             hidden: false,
           });
-        if (list) {
-          applyProfileDefinitionList(list as ProfileItem[], shifuId);
-          logProfileAction('unhide_by_keys', shifuId, list as ProfileItem[], {
-            requestedKeys: keys,
-          });
-        } else {
-          delete profileDefinitionCacheRef.current[shifuId];
-          await refreshProfileDefinitions(shifuId);
-        }
-      } catch (error) {
+          if (list) {
+            applyProfileDefinitionList(list as ProfileItem[], shifuId);
+            logProfileAction('unhide_by_keys', shifuId, list as ProfileItem[], {
+              requestedKeys: keys,
+            });
+          } else {
+            delete profileDefinitionCacheRef.current[shifuId];
+            await refreshProfileDefinitions(shifuId);
+          }
+        } catch (error) {
           console.error(error);
         }
       },
