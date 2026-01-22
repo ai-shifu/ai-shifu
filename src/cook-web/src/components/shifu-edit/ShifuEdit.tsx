@@ -87,9 +87,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [recentVariables, setRecentVariables] = useState<string[]>([]);
   const seenVariableNamesRef = useRef<Set<string>>(new Set());
   const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async preview is pending
-  const lastMdflowVariablesRef = useRef<Set<string>>(new Set());
-  const [hasRemovedVisibleVariable, setHasRemovedVisibleVariable] =
-    useState(false);
   const {
     mdflow,
     chapters,
