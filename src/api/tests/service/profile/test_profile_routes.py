@@ -4,9 +4,7 @@ import pytest
 @pytest.mark.usefixtures("app", "test_client")
 class TestProfileRoutes:
     def test_hide_unused_profile_items_requires_parent(self, test_client):
-        resp = test_client.post(
-            "/api/profiles/hide-unused-profile-items", json={}
-        )
+        resp = test_client.post("/api/profiles/hide-unused-profile-items", json={})
         assert resp.status_code == 400
 
     def test_hide_unused_profile_items_ok(self, monkeypatch, test_client, app):
