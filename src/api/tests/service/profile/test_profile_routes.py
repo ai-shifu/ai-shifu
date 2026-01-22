@@ -1,7 +1,7 @@
 import pytest
 
 
-@pytest.mark.usefixtures("app", "test_client")
+@pytest.mark.usefixtures("app")
 class TestProfileRoutes:
     def test_hide_unused_profile_items_requires_parent(self, test_client):
         resp = test_client.post("/api/profiles/hide-unused-profile-items", json={})
@@ -26,11 +26,10 @@ class TestProfileRoutes:
             "flaskr.service.profile.routes.hide_unused_profile_items", fake_hide
         )
 
-        with app.test_request_context():
-            resp = test_client.post(
-                "/api/profiles/hide-unused-profile-items",
-                json={"parent_id": "shifu_1"},
-            )
+        resp = test_client.post(
+            "/api/profiles/hide-unused-profile-items",
+            json={"parent_id": "shifu_1"},
+        )
 
         assert resp.status_code == 200
         assert resp.json["code"] == 0
@@ -66,11 +65,10 @@ class TestProfileRoutes:
             fake_update,
         )
 
-        with app.test_request_context():
-            resp = test_client.post(
-                "/api/profiles/update-profile-hidden-state",
-                json={"parent_id": "shifu_1", "profile_keys": ["k1"], "hidden": True},
-            )
+        resp = test_client.post(
+            "/api/profiles/update-profile-hidden-state",
+            json={"parent_id": "shifu_1", "profile_keys": ["k1"], "hidden": True},
+        )
 
         assert resp.status_code == 200
         assert resp.json["code"] == 0
