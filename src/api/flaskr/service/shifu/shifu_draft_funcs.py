@@ -108,6 +108,7 @@ def return_shifu_draft_dto(
         else 1.0,
         tts_pitch=int(shifu_draft.tts_pitch) if shifu_draft.tts_pitch else 0,
         tts_emotion=shifu_draft.tts_emotion or "",
+        use_learner_language=bool(getattr(shifu_draft, "use_learner_language", 0)),
     )
 
 
@@ -313,6 +314,7 @@ def save_shifu_draft_info(
     tts_speed: float = 1.0,
     tts_pitch: int = 0,
     tts_emotion: str = "",
+    use_learner_language: bool = False,
 ):
     """
     Save shifu draft info
@@ -336,6 +338,7 @@ def save_shifu_draft_info(
         tts_speed: TTS speech speed
         tts_pitch: TTS pitch adjustment
         tts_emotion: TTS emotion setting
+        use_learner_language: Whether to use learner's language for AI output
     Returns:
         ShifuDetailDto: Shifu detail dto
     """
@@ -388,6 +391,7 @@ def save_shifu_draft_info(
                 tts_speed=tts_speed,
                 tts_pitch=tts_pitch,
                 tts_emotion=tts_emotion or "",
+                use_learner_language=1 if use_learner_language else 0,
                 deleted=0,
                 created_user_bid=user_id,
                 updated_user_bid=user_id,
@@ -414,6 +418,7 @@ def save_shifu_draft_info(
             new_shifu_draft.tts_speed = tts_speed
             new_shifu_draft.tts_pitch = tts_pitch
             new_shifu_draft.tts_emotion = tts_emotion or ""
+            new_shifu_draft.use_learner_language = 1 if use_learner_language else 0
             new_shifu_draft.updated_user_bid = user_id
             new_shifu_draft.updated_at = datetime.now()
             if shifu_system_prompt is not None:
