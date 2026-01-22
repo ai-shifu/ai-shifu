@@ -75,8 +75,10 @@ def test_get_profile_variable_usage_groups_keys(monkeypatch):
     def fake_get_defs(_app, parent_id=None, type="all"):
         calls.append(("defs", parent_id))
         return [
-          # system key should be ignored
-            object.__class__("obj", (), {"profile_scope": "system", "profile_key": "sys1"}),
+            # system key should be ignored
+            object.__class__(
+                "obj", (), {"profile_scope": "system", "profile_key": "sys1"}
+            ),
             object.__class__("obj", (), {"profile_scope": "user", "profile_key": "k1"}),
             object.__class__("obj", (), {"profile_scope": "user", "profile_key": "k2"}),
         ]
@@ -85,7 +87,9 @@ def test_get_profile_variable_usage_groups_keys(monkeypatch):
         calls.append(("collect", parent_id))
         return {"k2"}
 
-    monkeypatch.setattr(profile_manage, "get_profile_item_definition_list", fake_get_defs)
+    monkeypatch.setattr(
+        profile_manage, "get_profile_item_definition_list", fake_get_defs
+    )
     monkeypatch.setattr(profile_manage, "_collect_used_variables", fake_collect)
 
     result = get_profile_variable_usage(app=None, parent_id="shifu_bid")
