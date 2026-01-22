@@ -1301,53 +1301,55 @@ export const ShifuProvider = ({
     };
   };
 
-  const refreshProfileDefinitions = useCallback(async (
-    shifuId: string,
-    options?: { forceRefresh?: boolean },
-  ) => {
-    const cached = profileDefinitionCacheRef.current[shifuId];
-    const now = Date.now();
-    if (
-      !options?.forceRefresh &&
-      cached &&
-      now - cached.updatedAt < PROFILE_CACHE_TTL
-    ) {
-      applyProfileDefinitionList(cached.list, shifuId, { updateCache: false });
-      setUnusedVariables(cached.unusedKeys || []);
-      return cached;
-    }
-    try {
-      const [list, usage] = await Promise.all([
-        api.getProfileItemDefinitions({
-          parent_id: shifuId,
-          type: 'all',
-        }),
-        api.getProfileVariableUsage({ parent_id: shifuId }),
-      ]);
-      const { systemVariableKeys } =
-        applyProfileDefinitionList(list || [], shifuId) || {};
-      const unusedKeys = usage?.unused_keys || [];
-      setUnusedVariables(unusedKeys);
-      profileDefinitionCacheRef.current[shifuId] = {
-        list: list || [],
-        systemVariableKeys: systemVariableKeys || [],
-        unusedKeys,
-        updatedAt: Date.now(),
-      };
-      return {
-        list: list || [],
-        systemVariableKeys: systemVariableKeys || [],
-        unusedKeys,
-      };
-    } catch (error) {
-      console.error(error);
-      setProfileItemDefinations([]);
-      setSystemVariables([]);
-      setVariables([]);
-      setUnusedVariables([]);
-      throw error;
-    }
-  }, []);
+  const refreshProfileDefinitions = useCallback(
+    async (shifuId: string, options?: { forceRefresh?: boolean }) => {
+      const cached = profileDefinitionCacheRef.current[shifuId];
+      const now = Date.now();
+      if (
+        !options?.forceRefresh &&
+        cached &&
+        now - cached.updatedAt < PROFILE_CACHE_TTL
+      ) {
+        applyProfileDefinitionList(cached.list, shifuId, {
+          updateCache: false,
+        });
+        setUnusedVariables(cached.unusedKeys || []);
+        return cached;
+      }
+      try {
+        const [list, usage] = await Promise.all([
+          api.getProfileItemDefinitions({
+            parent_id: shifuId,
+            type: 'all',
+          }),
+          api.getProfileVariableUsage({ parent_id: shifuId }),
+        ]);
+        const { systemVariableKeys } =
+          applyProfileDefinitionList(list || [], shifuId) || {};
+        const unusedKeys = usage?.unused_keys || [];
+        setUnusedVariables(unusedKeys);
+        profileDefinitionCacheRef.current[shifuId] = {
+          list: list || [],
+          systemVariableKeys: systemVariableKeys || [],
+          unusedKeys,
+          updatedAt: Date.now(),
+        };
+        return {
+          list: list || [],
+          systemVariableKeys: systemVariableKeys || [],
+          unusedKeys,
+        };
+      } catch (error) {
+        console.error(error);
+        setProfileItemDefinations([]);
+        setSystemVariables([]);
+        setVariables([]);
+        setUnusedVariables([]);
+        throw error;
+      }
+    },
+    [],
+  );
 
   const refreshVariableUsage = useCallback(async (shifuId: string) => {
     try {
