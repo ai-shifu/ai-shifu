@@ -1,8 +1,19 @@
 import pytest
+from types import SimpleNamespace
+from flask import request
 
 
 @pytest.mark.usefixtures("app")
 class TestProfileRoutes:
+    @pytest.fixture(autouse=True)
+    def _mock_request_user(self, app):
+        def _set_user():
+            request.user = SimpleNamespace(user_id="test-user")
+
+        app.before_request(_set_user)
+        yield
+        app.before_request_funcs[None].remove(_set_user)
+
     def test_hide_unused_profile_items_requires_parent(self, test_client):
         resp = test_client.post("/api/profiles/hide-unused-profile-items", json={})
         assert resp.status_code == 400
