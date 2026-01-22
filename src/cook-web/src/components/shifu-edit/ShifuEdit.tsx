@@ -281,11 +281,13 @@ const ScriptEditor = ({ id }: { id: string }) => {
         variables: parsedVariablesMap,
         blocksCount,
         systemVariableKeys,
+        allVariableKeys,
       } = await actions.previewParse(targetMdflow, targetShifu, targetOutline);
 
-      // Auto-unhide only the hidden variables that are actually used in current prompts (based on current mdflow)
+      // Auto-unhide only the hidden variables that are actually used in current prompts (use parsed keys)
+      const parsedVariableKeys = allVariableKeys || Object.keys(parsedVariablesMap || {});
       const usedHiddenKeys = hiddenVariables.filter(key =>
-        mdflowVariableNames.includes(key),
+        parsedVariableKeys.includes(key),
       );
       if (usedHiddenKeys.length) {
         await actions.unhideVariablesByKeys(targetShifu, usedHiddenKeys);
@@ -383,7 +385,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     ];
   }, [systemVariablesList, variablesList]);
 
-  // 课程级可见变量（系统 + 自定义，已过滤隐藏）
+  // Course-level visible variables (system + custom, excluding hidden)
   const courseVisibleVariableKeys = useMemo(() => {
     const systemSet = systemVariablesList.map(item => item.name);
     const customVisible = (variables || []).filter(
@@ -392,7 +394,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     return [...systemSet, ...customVisible];
   }, [hiddenVariables, systemVariablesList, variables]);
 
-  // 展示给预览的变量：以当前解析出的变量为基础，补齐课程可见变量的空值
+  // Preview variables: start from parsed variables and fill missing course-visible keys with empty values
   const mergedPreviewVariables = useMemo(() => {
     const base = resolvedPreviewVariables
       ? { ...resolvedPreviewVariables }

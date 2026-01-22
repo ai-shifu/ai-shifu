@@ -173,7 +173,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
               onChange={onVariableChange}
               variableOrder={variableOrder}
               actionLabel={actionLabel}
-              onAction={actionDisabled ? undefined : handleActionConfirm}
+              onAction={handleActionConfirm}
               actionDisabled={actionDisabled}
             />
           </div>

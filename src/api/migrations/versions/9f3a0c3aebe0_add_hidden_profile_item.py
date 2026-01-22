@@ -25,6 +25,7 @@ def upgrade():
                 "is_hidden",
                 sa.SmallInteger(),
                 nullable=False,
+                server_default=sa.text("0"),
                 comment="Hidden flag: 0=visible, 1=hidden (custom variables only)",
             )
         )

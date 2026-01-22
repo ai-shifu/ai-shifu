@@ -1338,6 +1338,7 @@ export const ShifuProvider = ({
       setSystemVariables([]);
       setVariables([]);
       setUnusedVariables([]);
+      setHiddenVariables([]);
       throw error;
     }
   }, []);
