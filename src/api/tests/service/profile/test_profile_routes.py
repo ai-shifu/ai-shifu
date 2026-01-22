@@ -10,7 +10,7 @@ class TestProfileRoutes:
     def test_hide_unused_profile_items_ok(self, monkeypatch, test_client, app):
         called = {}
 
-        def fake_hide(app_ctx, parent_id, user_id):
+        def fake_hide(_app_ctx, parent_id, user_id):
             called["parent_id"] = parent_id
             called["user_id"] = user_id
             return [
@@ -45,7 +45,7 @@ class TestProfileRoutes:
     def test_update_profile_hidden_state_ok(self, monkeypatch, test_client, app):
         called = {}
 
-        def fake_update(app_ctx, parent_id, profile_keys, hidden, user_id):
+        def fake_update(_app_ctx, parent_id, profile_keys, hidden, user_id):
             called["parent_id"] = parent_id
             called["profile_keys"] = profile_keys
             called["hidden"] = hidden

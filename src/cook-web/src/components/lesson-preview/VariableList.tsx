@@ -50,7 +50,6 @@ const VariableList: React.FC<VariableListProps> = ({
   }, [variableOrder, variables]);
 
   const hasVisible = entries.length > 0;
-
   const isEmptyView = !hasVisible;
 
   return (

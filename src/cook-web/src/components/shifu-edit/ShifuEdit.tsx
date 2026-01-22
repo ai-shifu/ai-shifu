@@ -291,12 +291,16 @@ const ScriptEditor = ({ id }: { id: string }) => {
         parsedVariableKeys.includes(key),
       );
       if (usedHiddenKeys.length) {
-        await actions.unhideVariablesByKeys(targetShifu, usedHiddenKeys);
-        if (outlineChanged()) {
-          return;
+        try {
+          await actions.unhideVariablesByKeys(targetShifu, usedHiddenKeys);
+          if (outlineChanged()) {
+            return;
+          }
+          // refresh local visible/hidden lists to reflect the change
+          await actions.refreshProfileDefinitions(targetShifu);
+        } catch (unhideError) {
+          console.error('Failed to auto-unhide variables:', unhideError);
         }
-        // refresh local visible/hidden lists to reflect the change
-        await actions.refreshProfileDefinitions(targetShifu);
       }
       if (outlineChanged()) {
         return;

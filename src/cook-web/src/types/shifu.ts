@@ -75,7 +75,7 @@ export interface ProfileItem {
   is_hidden?: boolean;
 }
 
-export interface ProfileItemDefination {
+export interface ProfileItemDefinition {
   profile_id: string;
   profile_key: string;
   value: string;
