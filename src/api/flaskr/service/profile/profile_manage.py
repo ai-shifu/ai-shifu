@@ -229,6 +229,35 @@ def hide_unused_profile_items(
     )
 
 
+def get_profile_variable_usage(app: Flask, parent_id: str) -> dict:
+    """
+    Return custom profile keys split by whether they are referenced in any outline content.
+    """
+    if not parent_id:
+        raise_error("server.profile.parentIdRequired")
+
+    definitions = get_profile_item_definition_list(app, parent_id=parent_id)
+    used_variables = _collect_used_variables(app, parent_id)
+
+    used_keys: list[str] = []
+    unused_keys: list[str] = []
+    for definition in definitions:
+        if definition.profile_scope != CONST_PROFILE_SCOPE_USER:
+            continue
+        key = definition.profile_key
+        if not key:
+            continue
+        if key in used_variables:
+            used_keys.append(key)
+        else:
+            unused_keys.append(key)
+
+    return {
+        "used_keys": used_keys,
+        "unused_keys": unused_keys,
+    }
+
+
 def get_profile_item_definition_option_list(
     app: Flask, parent_id: str
 ) -> list[ProfileValueDto]:

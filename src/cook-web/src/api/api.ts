@@ -92,6 +92,7 @@ const api = {
   deleteProfile: 'POST /profiles/delete-profile-item',
   getProfileList: 'GET /profiles/get-profile-item-definitions',
   hideUnusedProfileItems: 'POST /profiles/hide-unused-profile-items',
+  getProfileVariableUsage: 'GET /profiles/profile-variable-usage',
   updateProfileHiddenState: 'POST /profiles/update-profile-hidden-state',
 
   // MDF Conversion

@@ -107,6 +107,7 @@ export interface ShifuState {
   variables: string[];
   hiddenVariables: string[];
   systemVariables: Record<string, string>[];
+  unusedVariables: string[];
 }
 
 export interface ApiResponse<T> {
@@ -218,7 +219,15 @@ export interface ShifuActions {
   unhideVariablesByKeys: (shifuId: string, keys: string[]) => Promise<void>;
   refreshProfileDefinitions: (
     shifuId: string,
-  ) => Promise<{ list: ProfileItem[]; systemVariableKeys: string[] }>;
+  ) => Promise<{
+    list: ProfileItem[];
+    systemVariableKeys: string[];
+    unusedKeys?: string[];
+  }>;
+  refreshVariableUsage: (shifuId: string) => Promise<{
+    used_keys?: string[];
+    unused_keys?: string[];
+  } | null>;
   insertPlaceholderChapter: () => void;
   insertPlaceholderLesson: (parent: Outline) => void;
   removePlaceholderOutline: (outline: Outline) => void;

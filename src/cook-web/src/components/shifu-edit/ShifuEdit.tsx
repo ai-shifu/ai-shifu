@@ -95,6 +95,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     variables,
     systemVariables,
     hiddenVariables,
+    unusedVariables,
     currentShifu,
     currentNode,
   } = useShifu();
@@ -404,17 +405,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
     return base;
   }, [courseVisibleVariableKeys, resolvedPreviewVariables]);
 
-  const hasUnusedVisibleVariables = useMemo(() => {
-    const systemSet = new Set(
-      systemVariablesList.map(variable => variable.name),
-    );
+  const unusedVisibleVariables = useMemo(() => {
     const hiddenSet = new Set(hiddenVariables);
-    const usedSet = new Set(mdflowVariableNames || []);
-    // 只看当前章节：可见的自定义变量未出现在本章占位符里，则视为未使用
-    return (variables || []).some(
-      key => !systemSet.has(key) && !hiddenSet.has(key) && !usedSet.has(key),
-    );
-  }, [hiddenVariables, mdflowVariableNames, systemVariablesList, variables]);
+    return (unusedVariables || []).filter(key => !hiddenSet.has(key));
+  }, [hiddenVariables, unusedVariables]);
+
+  const hasUnusedVisibleVariables = unusedVisibleVariables.length > 0;
 
   const hasHiddenVariables = hiddenVariables.length > 0;
   const hideRestoreActionType: 'hide' | 'restore' = hasUnusedVisibleVariables

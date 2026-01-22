@@ -8,6 +8,7 @@ from flaskr.service.profile.profile_manage import (
     delete_profile_item,
     update_profile_item_hidden_state,
     hide_unused_profile_items,
+    get_profile_variable_usage,
 )
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.common import raise_error
@@ -130,6 +131,30 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
         user_id = request.user.user_id
         return make_common_response(
             hide_unused_profile_items(app, parent_id=parent_id, user_id=user_id)
+        )
+
+    @app.route(f"{path_prefix}/profile-variable-usage", methods=["GET"])
+    def get_profile_variable_usage_api():
+        """
+        Get variable usage across all outlines for a shifu.
+        ---
+        tags:
+          - profiles
+        parameters:
+          - name: parent_id
+            in: query
+            required: true
+            type: string
+            description: shifu_bid
+        responses:
+          200:
+            description: OK
+        """
+        parent_id = request.args.get("parent_id")
+        if not parent_id:
+            raise_error("server.profile.parentIdRequired")
+        return make_common_response(
+            get_profile_variable_usage(app, parent_id=parent_id)
         )
 
     @app.route(f"{path_prefix}/update-profile-hidden-state", methods=["POST"])
