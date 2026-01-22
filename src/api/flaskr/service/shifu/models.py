@@ -278,6 +278,15 @@ class DraftShifu(db.Model):
         default="",
         comment="TTS emotion setting",
     )
+
+    # Language Output Configuration
+    use_learner_language = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Use learner language for output: 0=disabled (default), 1=enabled",
+    )
+
     deleted = Column(
         SmallInteger,
         nullable=False,
@@ -331,6 +340,7 @@ class DraftShifu(db.Model):
             tts_speed=self.tts_speed,
             tts_pitch=self.tts_pitch,
             tts_emotion=self.tts_emotion,
+            use_learner_language=self.use_learner_language,
             deleted=self.deleted,
             created_at=self.created_at,
             created_user_bid=self.created_user_bid,
@@ -360,6 +370,7 @@ class DraftShifu(db.Model):
             and compare_decimal(self.tts_speed, other.tts_speed)
             and self.tts_pitch == other.tts_pitch
             and self.tts_emotion == other.tts_emotion
+            and self.use_learner_language == other.use_learner_language
         )
 
     def get_str_to_check(self):
@@ -673,6 +684,15 @@ class PublishedShifu(db.Model):
         default="",
         comment="TTS emotion setting",
     )
+
+    # Language Output Configuration
+    use_learner_language = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Use learner language for output: 0=disabled (default), 1=enabled",
+    )
+
     deleted = Column(
         SmallInteger,
         nullable=False,

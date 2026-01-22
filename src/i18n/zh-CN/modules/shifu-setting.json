@@ -66,5 +66,7 @@
   "unarchiveTitle": "是否取消归档",
   "upload": "上传",
   "uploadFailed": "上传失败，请稍后再试",
-  "uploading": "正在上传"
+  "uploading": "正在上传",
+  "useLearnerLanguageDescription": "开启后，AI 将根据学员设置的语言进行授课，如英文。",
+  "useLearnerLanguageTitle": "语言适配"
 }
