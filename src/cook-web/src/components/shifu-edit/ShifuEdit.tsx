@@ -397,7 +397,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   // 展示给预览的变量：以当前解析出的变量为基础，补齐课程可见变量的空值
   const mergedPreviewVariables = useMemo(() => {
-    const base = resolvedPreviewVariables ? { ...resolvedPreviewVariables } : {};
+    const base = resolvedPreviewVariables
+      ? { ...resolvedPreviewVariables }
+      : {};
     courseVisibleVariableKeys.forEach(key => {
       if (!(key in base)) {
         base[key] = '';
@@ -407,7 +409,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [courseVisibleVariableKeys, resolvedPreviewVariables]);
 
   const hasUnusedVisibleVariables = useMemo(() => {
-    const systemSet = new Set(systemVariablesList.map(variable => variable.name));
+    const systemSet = new Set(
+      systemVariablesList.map(variable => variable.name),
+    );
     const hiddenSet = new Set(hiddenVariables);
     const usedSet = new Set(mdflowVariableNames || []);
     // 只看当前章节：可见的自定义变量未出现在本章占位符里，则视为未使用
@@ -423,9 +427,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
       ? 'restore'
       : 'hide';
   const hideRestoreActionDisabled =
-    hideRestoreActionType === 'hide'
-      ? false
-      : !hasHiddenVariables;
+    hideRestoreActionType === 'hide' ? false : !hasHiddenVariables;
   const hideRestoreActionLabel =
     hideRestoreActionType === 'hide'
       ? t('module.shifu.previewArea.variablesHideUnused')
