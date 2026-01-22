@@ -1,13 +1,15 @@
 import pytest
 
 
-@pytest.mark.usefixtures("app", "client")
+@pytest.mark.usefixtures("app", "test_client")
 class TestProfileRoutes:
-    def test_hide_unused_profile_items_requires_parent(self, client):
-        resp = client.post("/api/profiles/hide-unused-profile-items", json={})
+    def test_hide_unused_profile_items_requires_parent(self, test_client):
+        resp = test_client.post(
+            "/api/profiles/hide-unused-profile-items", json={}
+        )
         assert resp.status_code == 400
 
-    def test_hide_unused_profile_items_ok(self, monkeypatch, client, app):
+    def test_hide_unused_profile_items_ok(self, monkeypatch, test_client, app):
         called = {}
 
         def fake_hide(app_ctx, parent_id, user_id):
@@ -27,7 +29,7 @@ class TestProfileRoutes:
         )
 
         with app.test_request_context():
-            resp = client.post(
+            resp = test_client.post(
                 "/api/profiles/hide-unused-profile-items",
                 json={"parent_id": "shifu_1"},
             )
@@ -36,14 +38,14 @@ class TestProfileRoutes:
         assert resp.json["code"] == 0
         assert called["parent_id"] == "shifu_1"
 
-    def test_update_profile_hidden_state_requires_parent(self, client):
-        resp = client.post(
+    def test_update_profile_hidden_state_requires_parent(self, test_client):
+        resp = test_client.post(
             "/api/profiles/update-profile-hidden-state",
             json={"profile_keys": ["k1"], "hidden": True},
         )
         assert resp.status_code == 400
 
-    def test_update_profile_hidden_state_ok(self, monkeypatch, client, app):
+    def test_update_profile_hidden_state_ok(self, monkeypatch, test_client, app):
         called = {}
 
         def fake_update(app_ctx, parent_id, profile_keys, hidden, user_id):
@@ -67,7 +69,7 @@ class TestProfileRoutes:
         )
 
         with app.test_request_context():
-            resp = client.post(
+            resp = test_client.post(
                 "/api/profiles/update-profile-hidden-state",
                 json={"parent_id": "shifu_1", "profile_keys": ["k1"], "hidden": True},
             )
