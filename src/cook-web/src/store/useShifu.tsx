@@ -39,11 +39,7 @@ import {
 import { useTracking } from '@/c-common/hooks/useTracking';
 
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
-const DEFAULT_PROFILE_CACHE_TTL = 30_000; // 30s
-const PROFILE_CACHE_TTL =
-  typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_PROFILE_CACHE_TTL_MS
-    ? Number(process.env.NEXT_PUBLIC_PROFILE_CACHE_TTL_MS)
-    : DEFAULT_PROFILE_CACHE_TTL;
+const PROFILE_CACHE_TTL = 5_000; // 5s
 
 const logProfileAction = (
   action: 'hide_unused' | 'restore_hidden' | 'unhide_by_keys',
