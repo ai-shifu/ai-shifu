@@ -287,8 +287,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
       // Auto-unhide only the hidden variables that are actually used in current prompts (use parsed keys)
       const parsedVariableKeys =
         allVariableKeys || Object.keys(parsedVariablesMap || {});
-      const usedHiddenKeys = hiddenVariables.filter(key =>
-        parsedVariableKeys.includes(key),
+      const usedHiddenKeys = hiddenVariables.filter(
+        key => parsedVariableKeys.includes(key) && targetMdflow.includes(key),
       );
       if (usedHiddenKeys.length) {
         try {
