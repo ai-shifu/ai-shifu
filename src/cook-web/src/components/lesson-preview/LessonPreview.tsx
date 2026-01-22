@@ -173,11 +173,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
               onChange={onVariableChange}
               variableOrder={variableOrder}
               actionLabel={actionLabel}
-<<<<<<< HEAD
-              onAction={actionDisabled ? undefined : onHideOrRestore || noop}
-=======
               onAction={actionDisabled ? undefined : handleActionConfirm}
->>>>>>> fix/hidden-variables
               actionDisabled={actionDisabled}
             />
           </div>
