@@ -329,6 +329,16 @@ const ScriptEditor = ({ id }: { id: string }) => {
     () => extractVariableNames(mdflow),
     [mdflow],
   );
+
+  const resolvedPreviewVariables = useMemo(() => {
+    const candidates = [previewVariables, previewItems[0]?.variables];
+    for (const candidate of candidates) {
+      if (candidate && Object.keys(candidate).length) {
+        return candidate;
+      }
+    }
+    return undefined;
+  }, [previewItems, previewVariables]);
   useEffect(() => {
     const previousSeen = seenVariableNamesRef.current;
     const currentSet = new Set<string>();
