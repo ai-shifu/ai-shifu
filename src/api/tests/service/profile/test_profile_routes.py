@@ -13,7 +13,14 @@ class TestProfileRoutes:
         def fake_hide(app_ctx, parent_id, user_id):
             called["parent_id"] = parent_id
             called["user_id"] = user_id
-            return [{"profile_key": "k1", "profile_scope": "user", "profile_type": "text", "profile_id": "pid"}]
+            return [
+                {
+                    "profile_key": "k1",
+                    "profile_scope": "user",
+                    "profile_type": "text",
+                    "profile_id": "pid",
+                }
+            ]
 
         monkeypatch.setattr(
             "flaskr.service.profile.routes.hide_unused_profile_items", fake_hide
@@ -44,7 +51,15 @@ class TestProfileRoutes:
             called["profile_keys"] = profile_keys
             called["hidden"] = hidden
             called["user_id"] = user_id
-            return [{"profile_key": "k1", "profile_scope": "user", "profile_type": "text", "profile_id": "pid", "is_hidden": int(hidden)}]
+            return [
+                {
+                    "profile_key": "k1",
+                    "profile_scope": "user",
+                    "profile_type": "text",
+                    "profile_id": "pid",
+                    "is_hidden": int(hidden),
+                }
+            ]
 
         monkeypatch.setattr(
             "flaskr.service.profile.routes.update_profile_item_hidden_state",
