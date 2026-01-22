@@ -126,23 +126,11 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     const isHide = actionType === 'hide';
     showAlert({
       title: isHide
-        ? t(
-            'module.shifu.previewArea.variablesHideUnusedConfirmTitle',
-            '是否隐藏未使用的变量？',
-          )
-        : t(
-            'module.shifu.previewArea.variablesRestoreHiddenConfirmTitle',
-            '是否恢复隐藏的变量？',
-          ),
+        ? t('module.shifu.previewArea.variablesHideUnusedConfirmTitle')
+        : t('module.shifu.previewArea.variablesRestoreHiddenConfirmTitle'),
       description: isHide
-        ? t(
-            'module.shifu.previewArea.variablesHideUnusedConfirmDesc',
-            '将隐藏课程提示词中未引用的自定义变量，隐藏后在调试区不再展示，可点击“恢复”重新展示。',
-          )
-        : t(
-            'module.shifu.previewArea.variablesRestoreHiddenConfirmDesc',
-            '所有已隐藏的自定义变量将在调试区恢复展示。',
-          ),
+        ? t('module.shifu.previewArea.variablesHideUnusedConfirmDesc')
+        : t('module.shifu.previewArea.variablesRestoreHiddenConfirmDesc'),
       confirmText: t('common.core.confirm'),
       cancelText: t('common.core.cancel'),
       onConfirm: () => onHideOrRestore(),

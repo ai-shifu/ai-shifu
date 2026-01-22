@@ -90,12 +90,17 @@ def _collect_used_variables(app: Flask, shifu_bid: str) -> set[str]:
         for item in outline_items:
             if not item.content:
                 continue
-            markdown_flow = MarkdownFlow(item.content).set_output_language(
-                get_markdownflow_output_language()
-            )
-            for var in markdown_flow.extract_variables() or []:
-                if var:
-                    used_variables.add(var)
+            try:
+                markdown_flow = MarkdownFlow(item.content).set_output_language(
+                    get_markdownflow_output_language()
+                )
+                for var in markdown_flow.extract_variables() or []:
+                    if var:
+                        used_variables.add(var)
+            except Exception as exc:  # pragma: no cover - defensive
+                app.logger.warning(
+                    "Failed to parse MarkdownFlow for outline %s: %s", item.id, exc
+                )
         return used_variables
 
 

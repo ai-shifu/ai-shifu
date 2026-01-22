@@ -426,7 +426,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
       ? 'restore'
       : 'hide';
   const hideRestoreActionDisabled =
-    hideRestoreActionType === 'hide' ? false : !hasHiddenVariables;
+    hideRestoreActionType === 'hide'
+      ? !hasUnusedVisibleVariables
+      : !hasHiddenVariables;
   const hideRestoreActionLabel =
     hideRestoreActionType === 'hide'
       ? t('module.shifu.previewArea.variablesHideUnused')

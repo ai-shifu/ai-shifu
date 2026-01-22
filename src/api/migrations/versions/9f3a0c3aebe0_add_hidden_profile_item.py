@@ -43,13 +43,4 @@ def downgrade():
         batch_op.drop_index(batch_op.f("ix_profile_item_is_hidden"))
         batch_op.drop_column("is_hidden")
 
-    with op.batch_alter_table("order_orders", schema=None) as batch_op:
-        batch_op.alter_column(
-            "payment_channel",
-            existing_type=mysql.VARCHAR(length=50),
-            server_default=sa.text("'pingxx'"),
-            existing_comment="Payment channel",
-            existing_nullable=False,
-        )
-
     # ### end Alembic commands ###
