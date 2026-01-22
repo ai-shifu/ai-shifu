@@ -41,6 +41,28 @@ import { useTracking } from '@/c-common/hooks/useTracking';
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
 const PROFILE_CACHE_TTL = 5_000; // 5s
 
+const logProfileAction = (
+  action: 'hide_unused' | 'restore_hidden' | 'unhide_by_keys',
+  shifuId: string,
+  items?: ProfileItem[],
+  extra?: Record<string, unknown>,
+) => {
+  if (process.env.NODE_ENV === 'production') return;
+  const hiddenKeys =
+    items
+      ?.filter(item => item.is_hidden)
+      .map(item => item.profile_key)
+      .filter(Boolean) || [];
+  // eslint-disable-next-line no-console
+  console.debug('[shifu] profile_action', {
+    action,
+    shifuId,
+    hiddenKeys,
+    total: items?.length ?? 0,
+    ...(extra || {}),
+  });
+};
+
 const buildBlockListWithAllInfo = (
   blocks: Block[],
   blockTypes: Record<string, any>,
@@ -1244,10 +1266,7 @@ export const ShifuProvider = ({
 
     const customVariables =
       list
-        ?.filter(
-          (item: ProfileItem) =>
-            item.profile_scope === 'user' && !item.is_hidden,
-        )
+        ?.filter((item: ProfileItem) => item.profile_scope === 'user')
         .map((item: ProfileItem) => item.profile_key) || [];
     const hiddenVariableKeys =
       list
@@ -1322,6 +1341,7 @@ export const ShifuProvider = ({
     variables: PreviewVariablesMap;
     blocksCount: number;
     systemVariableKeys: string[];
+    allVariableKeys?: string[];
   }> => {
     try {
       const resolvedShifuId = shifuId || currentShifu?.bid || '';
@@ -1351,6 +1371,7 @@ export const ShifuProvider = ({
         variables: variablesMap,
         blocksCount: result?.blocks_count ?? 0,
         systemVariableKeys: resolvedSystemKeys,
+        allVariableKeys: variableKeys,
       };
     } catch (error) {
       console.error(error);
@@ -1365,6 +1386,7 @@ export const ShifuProvider = ({
       });
       if (list) {
         applyProfileDefinitionList(list as ProfileItem[], shifuId);
+        logProfileAction('hide_unused', shifuId, list as ProfileItem[]);
       } else {
         delete profileDefinitionCacheRef.current[shifuId];
         await refreshProfileDefinitions(shifuId);
@@ -1386,6 +1408,9 @@ export const ShifuProvider = ({
       });
       if (list) {
         applyProfileDefinitionList(list as ProfileItem[], shifuId);
+        logProfileAction('restore_hidden', shifuId, list as ProfileItem[], {
+          requestedKeys: hiddenVariables,
+        });
       } else {
         delete profileDefinitionCacheRef.current[shifuId];
         await refreshProfileDefinitions(shifuId);
@@ -1627,6 +1652,9 @@ export const ShifuProvider = ({
           });
           if (list) {
             applyProfileDefinitionList(list as ProfileItem[], shifuId);
+            logProfileAction('unhide_by_keys', shifuId, list as ProfileItem[], {
+              requestedKeys: keys,
+            });
           } else {
             delete profileDefinitionCacheRef.current[shifuId];
             await refreshProfileDefinitions(shifuId);

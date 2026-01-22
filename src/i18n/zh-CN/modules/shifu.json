@@ -25,11 +25,11 @@
     "variablesHiddenEmpty": "暂无隐藏变量",
     "variablesHiddenToggle": "隐藏变量",
     "variablesHideUnused": "隐藏未使用",
-    "variablesHideUnusedConfirmDesc": "将隐藏课程提示词中未引用的自定义变量，隐藏后在调试区不再展示，恢复后可再次使用。",
+    "variablesHideUnusedConfirmDesc": "将隐藏课程提示词中未引用的自定义变量，隐藏后在调试区不再展示，可点击“恢复”重新展示。",
     "variablesHideUnusedConfirmTitle": "是否隐藏未使用的变量？",
     "variablesPlaceholder": "UNKNOWN",
     "variablesRestoreHidden": "恢复",
-    "variablesRestoreHiddenConfirmDesc": "所有已隐藏的自定义变量将恢复展示，调试区可重新使用。",
+    "variablesRestoreHiddenConfirmDesc": "所有已隐藏的自定义变量将在调试区恢复展示。",
     "variablesRestoreHiddenConfirmTitle": "是否恢复隐藏的变量？",
     "variablesTitle": "变量"
   }
