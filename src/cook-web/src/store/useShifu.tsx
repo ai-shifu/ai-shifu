@@ -1260,7 +1260,7 @@ export const ShifuProvider = ({
         ?.filter((item: ProfileItem) => item.profile_scope === 'system')
         .map((item: ProfileItem) => ({
           name: item.profile_key,
-          label: item.profile_remark,
+          label: item.profile_remark || '',
         })) || [];
     setSystemVariables(sysVariables);
 
