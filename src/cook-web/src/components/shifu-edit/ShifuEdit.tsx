@@ -789,11 +789,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   onSend={onSend}
                   onVariableChange={onVariableChange}
                   variableOrder={variableOrder}
-                  usedVariableKeys={mdflowVariableNames}
-                  systemVariableKeys={systemVariablesList.map(
-                    item => item.name,
-                  )}
-                  disableHideUnused={!hasUnusedVisibleVariables}
                   onRequestAudioForBlock={requestPreviewAudioForBlock}
                   reGenerateConfirm={reGenerateConfirm}
                   onHideOrRestore={
