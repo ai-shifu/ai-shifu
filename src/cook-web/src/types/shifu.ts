@@ -217,7 +217,10 @@ export interface ShifuActions {
   hideUnusedVariables: (shifuId: string) => Promise<void>;
   restoreHiddenVariables: (shifuId: string) => Promise<void>;
   unhideVariablesByKeys: (shifuId: string, keys: string[]) => Promise<void>;
-  refreshProfileDefinitions: (shifuId: string) => Promise<{
+  refreshProfileDefinitions: (
+    shifuId: string,
+    options?: { forceRefresh?: boolean },
+  ) => Promise<{
     list: ProfileItem[];
     systemVariableKeys: string[];
     unusedKeys?: string[];

@@ -1301,10 +1301,17 @@ export const ShifuProvider = ({
     };
   };
 
-  const refreshProfileDefinitions = useCallback(async (shifuId: string) => {
+  const refreshProfileDefinitions = useCallback(async (
+    shifuId: string,
+    options?: { forceRefresh?: boolean },
+  ) => {
     const cached = profileDefinitionCacheRef.current[shifuId];
     const now = Date.now();
-    if (cached && now - cached.updatedAt < PROFILE_CACHE_TTL) {
+    if (
+      !options?.forceRefresh &&
+      cached &&
+      now - cached.updatedAt < PROFILE_CACHE_TTL
+    ) {
       applyProfileDefinitionList(cached.list, shifuId, { updateCache: false });
       setUnusedVariables(cached.unusedKeys || []);
       return cached;
@@ -1338,7 +1345,6 @@ export const ShifuProvider = ({
       setSystemVariables([]);
       setVariables([]);
       setUnusedVariables([]);
-      setHiddenVariables([]);
       throw error;
     }
   }, []);
@@ -1396,7 +1402,9 @@ export const ShifuProvider = ({
       const resolvedShifuId = shifuId || currentShifu?.bid || '';
       const resolvedOutlineId = outlineId || currentNode?.bid || '';
       const { systemVariableKeys } =
-        (await refreshProfileDefinitions(resolvedShifuId)) || {};
+        (await refreshProfileDefinitions(resolvedShifuId, {
+          forceRefresh: true,
+        })) || {};
       const result = await api.parseMdflow({
         shifu_bid: resolvedShifuId,
         outline_bid: resolvedOutlineId,
