@@ -4,6 +4,7 @@ import { memo } from 'react';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
+import { BookOpen, Headphones } from 'lucide-react';
 
 import ChatComponents from './NewChatComp';
 import UserSettings from '../Settings/UserSettings';
@@ -33,11 +34,13 @@ export const ChatUi = ({
 }) => {
   const { t } = useTranslation();
   const { frameLayout } = useUiLayoutStore(state => state);
-  const { previewMode } = useSystemStore(
+  const { previewMode, learningMode, updateLearningMode } = useSystemStore(
     useShallow(state => ({
       skip: state.skip,
       updateSkip: state.updateSkip,
       previewMode: state.previewMode,
+      learningMode: state.learningMode,
+      updateLearningMode: state.updateLearningMode,
     })),
   );
 
@@ -54,7 +57,32 @@ export const ChatUi = ({
     >
       {
         frameLayout !== FRAME_LAYOUT_MOBILE ? (
-          <div className={styles.header}></div>
+          <div className={styles.header}>
+            <div className={styles.headerActions}>
+              <button
+                type='button'
+              className={cn(
+                styles.modeButton,
+                learningMode === 'listen' ? styles.modeButtonActive : '',
+              )}
+                onClick={() => updateLearningMode('listen')}
+              >
+                <Headphones size={16} strokeWidth={2} />
+                <span>听课</span>
+              </button>
+              <button
+                type='button'
+              className={cn(
+                styles.modeButton,
+                learningMode === 'read' ? styles.modeButtonActive : '',
+              )}
+                onClick={() => updateLearningMode('read')}
+              >
+                <BookOpen size={16} strokeWidth={2} />
+                <span>阅读</span>
+              </button>
+            </div>
+          </div>
         ) : null
         // <div className={styles.headerMobile}></div>
       }

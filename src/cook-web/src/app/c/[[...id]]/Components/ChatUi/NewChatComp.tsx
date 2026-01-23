@@ -33,6 +33,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
+import { useSystemStore } from '@/c-store/useSystemStore';
 
 export const NewChatComponents = ({
   className,
@@ -133,6 +134,7 @@ export const NewChatComponents = ({
       payModalResult: state.payModalResult,
     })),
   );
+  const learningMode = useSystemStore(state => state.learningMode);
 
   const onPayModalOpen = useCallback(() => {
     openPayModal();
@@ -378,6 +380,7 @@ export const NewChatComponents = ({
               }
 
               if (item.type === ChatContentItemType.LIKE_STATUS) {
+                if (learningMode === 'listen') return null;
                 const parentBlockBid = item.parent_block_bid || '';
                 return mobileStyle ? null : (
                   <div
