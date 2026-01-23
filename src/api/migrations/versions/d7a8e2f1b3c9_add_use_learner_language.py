@@ -1,7 +1,7 @@
 """add use_learner_language to shifu tables
 
 Revision ID: d7a8e2f1b3c9
-Revises: b5f2d3a9c1e4
+Revises: 56b765541144
 Create Date: 2026-01-21 10:00:00.000000
 
 """
