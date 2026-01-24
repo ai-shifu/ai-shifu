@@ -66,5 +66,7 @@
   "unarchiveTitle": "是否取消归档",
   "upload": "上传",
   "uploadFailed": "上传失败，请稍后再试",
-  "uploading": "正在上传"
+  "uploading": "正在上传",
+  "useLearnerLanguageDescription": "开启后，AI会匹配学员选择的语言授课",
+  "useLearnerLanguageTitle": "自动翻译"
 }
