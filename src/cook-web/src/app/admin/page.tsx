@@ -132,6 +132,11 @@ const ScriptManagementPage = () => {
         page_size: pageSize,
         archived: isArchivedTab,
       });
+      if (process.env.NODE_ENV !== 'production') {
+        console.info('[shifu-list] request page', currentPage.current);
+        console.info('[shifu-list] fetched items', items.length);
+        console.info('[shifu-list] hasMore before', hasMore);
+      }
 
       if (requestTab !== activeTabRef.current) {
         setLoading(false);
@@ -147,9 +152,17 @@ const ScriptManagementPage = () => {
         const newItems = items.filter(
           (item: Shifu) => !existingIds.has(item.bid),
         );
+        if (process.env.NODE_ENV !== 'production') {
+          console.info('[shifu-list] existing ids count', existingIds.size);
+          console.info('[shifu-list] new items count', newItems.length);
+        }
         return [...prev, ...newItems];
       });
       currentPage.current += 1;
+      if (process.env.NODE_ENV !== 'production') {
+        console.info('[shifu-list] next page', currentPage.current);
+        console.info('[shifu-list] hasMore after', hasMore);
+      }
       setLoading(false);
     } catch (error: any) {
       console.error('Failed to fetch shifus:', error);
