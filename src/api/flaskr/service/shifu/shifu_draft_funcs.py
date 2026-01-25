@@ -8,6 +8,7 @@ Date: 2025-08-07
 """
 
 from typing import Optional
+import math
 
 from flask import Flask
 from ...dao import db
