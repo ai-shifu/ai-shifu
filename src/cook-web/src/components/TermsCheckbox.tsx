@@ -1,24 +1,16 @@
+import { useCallback } from 'react';
+import type { MouseEvent, TouchEvent } from 'react';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { cn } from '@/lib/utils';
 import { Trans, useTranslation } from 'react-i18next';
-import { useEffect, useState } from 'react';
+import { useEnvStore } from '@/c-store';
+import { EnvStoreState } from '@/c-types/store';
 
 interface TermsCheckboxProps {
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   disabled?: boolean;
   className?: string;
-}
-
-interface LegalUrls {
-  agreement: {
-    'zh-CN': string;
-    'en-US': string;
-  };
-  privacy: {
-    'zh-CN': string;
-    'en-US': string;
-  };
 }
 
 export function TermsCheckbox({
@@ -28,33 +20,19 @@ export function TermsCheckbox({
   className,
 }: TermsCheckboxProps) {
   const { t, i18n } = useTranslation();
-  const [legalUrls, setLegalUrls] = useState<LegalUrls>({
-    agreement: { 'zh-CN': '', 'en-US': '' },
-    privacy: { 'zh-CN': '', 'en-US': '' },
-  });
-
-  useEffect(() => {
-    const loadLegalUrls = async () => {
-      try {
-        const response = await fetch('/api/config', { cache: 'no-store' });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.legalUrls) {
-            setLegalUrls(data.legalUrls);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load legal URLs', error);
-      }
-    };
-
-    void loadLegalUrls();
-  }, []);
+  const legalUrls = useEnvStore((state: EnvStoreState) => state.legalUrls);
+  const stopLabelInteraction = useCallback(
+    (event: MouseEvent<HTMLAnchorElement> | TouchEvent<HTMLAnchorElement>) => {
+      // Prevent the label from swallowing anchor clicks so the links remain clickable
+      event.stopPropagation();
+    },
+    [],
+  );
 
   // Get current language URL
   const currentLang = (i18n.language || 'en-US') as 'zh-CN' | 'en-US';
-  const agreementUrl = legalUrls.agreement[currentLang] || '';
-  const privacyUrl = legalUrls.privacy[currentLang] || '';
+  const agreementUrl = legalUrls?.agreement?.[currentLang] || '';
+  const privacyUrl = legalUrls?.privacy?.[currentLang] || '';
   return (
     <div className={cn('flex flex-row items-start gap-2 text-left', className)}>
       <Checkbox
@@ -77,6 +55,8 @@ export function TermsCheckbox({
                 target='_blank'
                 rel='noopener noreferrer'
                 className='text-primary hover:underline mx-1'
+                onClick={stopLabelInteraction}
+                onTouchStart={stopLabelInteraction}
               />
             ) : (
               <span className='mx-1' />
@@ -87,6 +67,8 @@ export function TermsCheckbox({
                 target='_blank'
                 rel='noopener noreferrer'
                 className='text-primary hover:underline mx-1'
+                onClick={stopLabelInteraction}
+                onTouchStart={stopLabelInteraction}
               />
             ) : (
               <span className='mx-1' />

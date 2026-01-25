@@ -46,4 +46,4 @@ def test_flat_section_namespace_loading():
 
     # __flat__ keys should be exposed under their declared namespace
     set_language("en-US")
-    assert t("server.common.checkcode") == "Verification Code"
+    assert t("server.common.unknownError") == "Unknown Error"

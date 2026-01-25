@@ -113,4 +113,4 @@ After Docker starts:
 
 - Shared translations live in `src/i18n/<locale>/**/*.json` and are consumed by both Backend and Cook Web.
 - See the consolidated guide for conventions, scripts, and CI checks: `docs/i18n.md`.
-- Frontend language list only exposes `en-US` and `zh-CN`; the pseudo-locale `qps-ploc` is available for validation but hidden from the UI.
+- Frontend language list only exposes `en-US` and `zh-CN`.

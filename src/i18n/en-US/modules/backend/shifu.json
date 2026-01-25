@@ -1,6 +1,8 @@
 {
   "__namespace__": "server.shifu",
   "__flat__": {
+    "defaultChapterName": "Untitled Chapter",
+    "defaultLessonName": "Untitled Lesson",
     "importFileInvalid": "Import file is invalid",
     "noPermission": "No permission",
     "outlineDeleted": "Outline has been deleted",
@@ -8,13 +10,14 @@
     "outlineNameTooLong": "Outline name is too long",
     "outlineNotFound": "Outline not found",
     "parentOutlineNotFound": "Parent outline not found",
-    "shifuDescriptionTooLong": "Shifu description is too long (max 500 characters)",
-    "shifuNameAlreadyExists": "Shifu name already exists",
-    "shifuNameRequired": "Shifu name is required",
-    "shifuNameTooLong": "Shifu name is too long (max {max_length} characters)",
-    "shifuNotFound": "Shifu not found",
-    "shifuPriceTooLow": "Shifu price is too low (min {min_shifu_price})",
-    "shifuStructNotFound": "Shifu structure not found",
+    "shifuDescriptionTooLong": "Course description is too long (max 500 characters)",
+    "shifuNameAlreadyExists": "Course name already exists",
+    "shifuNameRequired": "Course name is required",
+    "shifuNameTooLong": "Course name is too long (max {max_length} characters)",
+    "shifuNotFound": "Course not found",
+    "shifuPriceTooLow": "Course price is too low (min {min_shifu_price})",
+    "shifuStructNotFound": "Course structure not found",
+    "ttsNotEnabled": "Text-to-Speech is not enabled",
     "unitNameTooLong": "Unit name is too long",
     "unitNotFound": "Unit not found"
   }

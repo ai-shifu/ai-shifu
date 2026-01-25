@@ -8,7 +8,7 @@ import React, {
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { Maximize2, Minimize2, X } from 'lucide-react';
-import { ContentRender, MarkdownFlowInput } from 'markdown-flow-ui';
+import { ContentRender, MarkdownFlowInput } from 'markdown-flow-ui/renderer';
 import {
   checkIsRunning,
   getRunMessage,
@@ -49,7 +49,7 @@ export interface AskBlockProps {
 export default function AskBlock({
   askList = [],
   className,
-  isExpanded = false,
+  isExpanded = undefined,
   shifu_bid,
   outline_bid,
   preview_mode = false,
@@ -57,6 +57,8 @@ export default function AskBlock({
   onToggleAskExpanded,
 }: AskBlockProps) {
   const { t } = useTranslation();
+  const copyButtonText = t('module.renderUi.core.copyCode');
+  const copiedButtonText = t('module.renderUi.core.copied');
   const { mobileStyle } = useContext(AppContext);
   const courseAvatar = useCourseStore(state => state.courseAvatar);
   const [displayList, setDisplayList] = useState<AskMessage[]>(() => {
@@ -73,6 +75,8 @@ export default function AskBlock({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMobileDialog, setShowMobileDialog] = useState(askList.length > 0);
   const mobileContentRef = useRef<HTMLDivElement | null>(null);
+  const inputWrapperRef = useRef<HTMLDivElement | null>(null);
+  const expanded = isExpanded ?? (!mobileStyle && askList.length > 0);
   const showOutputInProgressToast = useCallback(() => {
     toast({
       title: t('module.chat.outputInProgress'),
@@ -240,13 +244,13 @@ export default function AskBlock({
   );
 
   // Decide which messages to display
-  const messagesToShow = isExpanded ? displayList : displayList.slice(0, 1);
+  const messagesToShow = expanded ? displayList : displayList.slice(0, 1);
 
   useEffect(() => {
-    if (!isExpanded) {
+    if (!expanded) {
       setIsFullscreen(false);
     }
-  }, [isExpanded]);
+  }, [expanded]);
 
   useEffect(() => {
     return () => {
@@ -261,7 +265,7 @@ export default function AskBlock({
   }, [askList.length]);
 
   useEffect(() => {
-    if (!mobileStyle || !isExpanded) {
+    if (!mobileStyle || !expanded) {
       return;
     }
 
@@ -275,10 +279,10 @@ export default function AskBlock({
     return () => {
       document.body.style.overflow = originalOverflow;
     };
-  }, [mobileStyle, isExpanded]);
+  }, [mobileStyle, expanded]);
 
   useEffect(() => {
-    if (!mobileStyle || !showMobileDialog || !isExpanded) {
+    if (!mobileStyle || !showMobileDialog || !expanded) {
       return;
     }
 
@@ -294,7 +298,7 @@ export default function AskBlock({
     return () => {
       cancelAnimationFrame(rafId);
     };
-  }, [mobileStyle, showMobileDialog, isExpanded, messagesToShow.length]);
+  }, [mobileStyle, showMobileDialog, expanded, messagesToShow.length]);
 
   const handleClose = useCallback(() => {
     setIsFullscreen(false);
@@ -306,14 +310,43 @@ export default function AskBlock({
     setIsFullscreen(prev => !prev);
   }, []);
 
+  const focusAskInput = useCallback(() => {
+    // Auto focus the follow-up textarea so the cursor is ready after expanding
+    // if (!inputWrapperRef.current) {
+    //   return null;
+    // }
+    // const focusable = inputWrapperRef.current.querySelector<
+    //   HTMLTextAreaElement | HTMLInputElement | HTMLElement
+    // >('textarea, input, [contenteditable="true"]');
+    // if (focusable && typeof focusable.focus === 'function') {
+    //   return requestAnimationFrame(() => {
+    //     focusable.focus({ preventScroll: true });
+    //   });
+    // }
+    // return null;
+  }, []);
+
+  useEffect(() => {
+    if (!expanded) {
+      return;
+    }
+    const rafId = focusAskInput() ?? null;
+    return () => {
+      // Cancel RAF to avoid focusing after unmount or quick collapse
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+    };
+  }, [expanded, focusAskInput]);
+
   const handleClickTitle = useCallback(
     (index: number) => {
-      if (index !== 0 || isExpanded || !mobileStyle) {
+      if (index !== 0 || expanded || !mobileStyle) {
         return;
       }
       onToggleAskExpanded?.(generated_block_bid);
     },
-    [onToggleAskExpanded, generated_block_bid, isExpanded, mobileStyle],
+    [onToggleAskExpanded, generated_block_bid, expanded, mobileStyle],
   );
 
   const renderMessages = ({
@@ -331,7 +364,7 @@ export default function AskBlock({
         style={
           !mobileStyle
             ? {
-                marginBottom: isExpanded ? '12px' : '0',
+                marginBottom: expanded ? '12px' : '0',
               }
             : undefined
         }
@@ -350,7 +383,7 @@ export default function AskBlock({
               <div
                 className={cn(
                   styles.userMessage,
-                  isExpanded && styles.isExpanded,
+                  expanded && styles.isExpanded,
                 )}
               >
                 {message.content}
@@ -370,6 +403,8 @@ export default function AskBlock({
                   enableTypewriter={false}
                   typingSpeed={20}
                   readonly={true}
+                  copyButtonText={copyButtonText}
+                  copiedButtonText={copiedButtonText}
                 />
               </div>
             )}
@@ -380,12 +415,15 @@ export default function AskBlock({
   };
 
   const renderInput = (extraClass?: string) => {
-    if (!isExpanded) {
+    if (!expanded) {
       return null;
     }
 
     return (
-      <div className={cn(extraClass)}>
+      <div
+        className={cn(extraClass)}
+        ref={inputWrapperRef}
+      >
         <MarkdownFlowInput
           placeholder={t('module.chat.askContent')}
           value={inputValue}
@@ -403,8 +441,8 @@ export default function AskBlock({
   if (mobileStyle && showMobileDialog && messagesToShow.length > 0) {
     return (
       <div className={cn(styles.askBlock, className, styles.mobile)}>
-        {!isExpanded && renderMessages()}
-        {isExpanded && (
+        {!expanded && renderMessages()}
+        {expanded && (
           <>
             <div
               className={styles.mobileOverlay}
@@ -472,8 +510,8 @@ export default function AskBlock({
         mobileStyle ? styles.mobile : '',
       )}
       style={{
-        marginTop: isExpanded || messagesToShow.length > 0 ? '8px' : '0',
-        padding: isExpanded || messagesToShow.length > 0 ? '16px' : '0',
+        marginTop: expanded || messagesToShow.length > 0 ? '8px' : '0',
+        padding: expanded || messagesToShow.length > 0 ? '16px' : '0',
       }}
     >
       {renderMessages()}

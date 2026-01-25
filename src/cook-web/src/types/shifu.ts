@@ -1,4 +1,5 @@
 import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
+import type { LearningPermission } from '@/c-api/studyV2';
 
 export type BlockType =
   | 'content'
@@ -9,6 +10,11 @@ export type BlockType =
   | 'goto'
   | 'input';
 
+export interface ModelOption {
+  value: string;
+  label: string;
+}
+
 export interface Shifu {
   bid: string;
   name?: string;
@@ -17,6 +23,9 @@ export interface Shifu {
   state?: number;
   is_favorite?: boolean;
   readonly?: boolean;
+  archived?: boolean;
+  created_user_bid?: string;
+  can_manage_archive?: boolean;
 }
 
 export interface Outline {
@@ -30,6 +39,16 @@ export interface Outline {
   depth?: number;
   status?: 'new' | 'edit' | 'saving';
   shifu_bid?: string;
+  is_hidden?: boolean;
+  type?: LearningPermission;
+  system_prompt?: string;
+}
+
+export interface LessonCreationSettings {
+  name: string;
+  learningPermission: LearningPermission;
+  isHidden: boolean;
+  systemPrompt: string;
 }
 
 export interface Block {
@@ -79,7 +98,7 @@ export interface ShifuState {
   blockErrors: { [x: string]: string | null };
   profileItemDefinations: ProfileItem[];
   currentNode: Outline | null;
-  models: string[];
+  models: ModelOption[];
   mdflow: string;
   variables: string[];
   systemVariables: Record<string, string>[];
@@ -110,15 +129,22 @@ export interface SaveMdflowPayload {
 
 export interface ShifuActions {
   addChapter: (chapter: Outline) => void;
+  addRootOutline: (settings: LessonCreationSettings) => Promise<void>;
   loadShifu: (shifuId: string, options?: { silent?: boolean }) => Promise<void>;
   loadChapters: (shifuId: string) => Promise<void>;
   createChapter: (chapter: Omit<Outline, 'chapter_id'>) => Promise<void>;
   setChapters: (chapters: Outline[]) => void;
   setFocusId: (id: string) => void;
   setFocusValue: (value: string) => void;
-  updateOuline: (id: string, chapter: Outline) => Promise<void>;
-  addSubOutline: (parent: Outline, name: string) => Promise<void>;
-  addSiblingOutline: (item: Outline, name: string) => Promise<void>;
+  updateOutline: (id: string, chapter: Outline) => Promise<void>;
+  addSubOutline: (
+    parent: Outline,
+    settings: LessonCreationSettings,
+  ) => Promise<void>;
+  addSiblingOutline: (
+    item: Outline,
+    settings: LessonCreationSettings,
+  ) => Promise<void>;
   removeOutline: (item: Outline) => Promise<void>;
   replaceOutline: (id: string, outline: Outline) => Promise<void>;
   createOutline: (outline: Outline) => Promise<void>;
@@ -158,7 +184,7 @@ export interface ShifuActions {
   ) => Promise<ApiResponse<SaveBlockListResult> | null>;
   removeBlock: (id: string, shifuId: string) => Promise<void>;
   setCurrentNode: (node: Outline) => void;
-  loadModels: () => void;
+  loadModels: () => Promise<void>;
   setBlockError: (blockId: string, error: string | null) => void;
   clearBlockErrors: () => void;
   reorderOutlineTree: (outlines: ReorderOutlineItemDto[]) => Promise<void>;
@@ -166,6 +192,8 @@ export interface ShifuActions {
   loadMdflow: (outlineId: string, shifuId: string) => Promise<void>;
   saveMdflow: (payload?: SaveMdflowPayload) => Promise<void>;
   setCurrentMdflow: (value: string) => void;
+  getCurrentMdflow: () => string;
+  hasUnsavedMdflow: (outlineId?: string, value?: string) => boolean;
   parseMdflow: (
     value: string,
     shifuId: string,
@@ -180,6 +208,9 @@ export interface ShifuActions {
     blocksCount: number;
     systemVariableKeys: string[];
   }>;
+  insertPlaceholderChapter: () => void;
+  insertPlaceholderLesson: (parent: Outline) => void;
+  removePlaceholderOutline: (outline: Outline) => void;
 }
 
 export interface ShifuContextType extends ShifuState {

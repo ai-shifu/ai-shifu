@@ -32,7 +32,9 @@
 | `NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE` | 是否始终显示课程树 | `false`  |
 | `NEXT_PUBLIC_UI_LOGO_HORIZONTAL`         | 水平Logo URL       | 空字符串 |
 | `NEXT_PUBLIC_UI_LOGO_VERTICAL`           | 垂直Logo URL       | 空字符串 |
-| `LOGO_URL`                               | 运行时Logo URL     | 空字符串 |
+| `LOGO_WIDE_URL`                          | 运行时宽幅Logo URL | 空字符串 |
+| `LOGO_SQUARE_URL`                        | 运行时方形Logo URL | 空字符串 |
+| `FAVICON_URL`                            | 自定义 Favicon URL | 空字符串 |
 
 ### 5. 分析统计 (Analytics)
 
@@ -70,7 +72,9 @@
 | `LEGAL_PRIVACY_URL_ZH_CN`   | 中文隐私政策URL | 空字符串 | 留空则不显示链接，显示为纯文本 |
 | `LEGAL_PRIVACY_URL_EN_US`   | 英文隐私政策URL | 空字符串 | 留空则不显示链接，显示为纯文本 |
 
-**注意**: 这些配置通过 `/api/config` API 传递给前端，不需要 `NEXT_PUBLIC_` 前缀。组件会根据当前语言自动选择对应的URL。
+**注意**: 这些配置由后端 `/api/config` API 返回。Cook Web 内置的 `/api/config` 仅返回后端地址 (`apiBaseUrl`)，实际配置均通过后端接口获取。
+
+- 前端不再读取除 `NEXT_PUBLIC_API_BASE_URL` 以外的 `NEXT_PUBLIC_*` 变量；这些值统一在后端环境/DB 中配置，并通过 `/api/runtime-config` 返回，避免前后端重复设置。
 
 ## 使用方式
 
@@ -112,9 +116,7 @@ import { environment } from '@/config/environment';
 
 export async function GET() {
   return NextResponse.json({
-    apiBaseUrl: environment.apiBaseUrl,
-    courseId: environment.courseId,
-    // ... other settings
+    apiBaseUrl: environment.apiBaseUrl, // Cook Web 本地接口只暴露后端地址
   });
 }
 ```
@@ -130,9 +132,9 @@ export async function GET() {
   "wechatAppId": "wx973eb6079c64d030",
   "enableWechatCode": true,
   "alwaysShowLessonTree": "true",
-  "logoHorizontal": "",
-  "logoVertical": "",
-  "logoUrl": "",
+  "logoWideUrl": "",
+  "logoSquareUrl": "",
+  "faviconUrl": "",
   "umamiScriptSrc": "https://umami.ai-shifu.com/script.js",
   "umamiWebsiteId": "f3108c8f-6898-4404-b6d7-fd076ad011db",
   "enableEruda": "false",

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SSE } from 'sse.js';
 import { v4 as uuidv4 } from 'uuid';
-import { OnSendContentParams } from 'markdown-flow-ui';
+import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { createInteractionParser } from 'remark-flow';
 import LoadingBar from '@/app/c/[[...id]]/Components/ChatUi/LoadingBar';
 import {
@@ -16,10 +16,13 @@ import {
   fixMarkdownStream,
   maskIncompleteMermaidBlock,
 } from '@/c-utils/markdownUtils';
-import { useUserStore } from '@/store';
+import { upsertAudioComplete, upsertAudioSegment } from '@/c-utils/audio-utils';
+import { getDynamicApiBaseUrl } from '@/config/environment';
+import { useShifu, useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
 import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
+import type { AudioCompleteData, AudioSegmentData } from '@/c-api/studyV2';
 
 interface InteractionParseResult {
   variableName?: string;
@@ -45,10 +48,48 @@ enum PREVIEW_SSE_OUTPUT_TYPE {
   CONTENT = 'content',
   TEXT_END = 'text_end',
   ERROR = 'error',
+  AUDIO_SEGMENT = 'audio_segment',
+  AUDIO_COMPLETE = 'audio_complete',
 }
+
+const buildVariablesSnapshot = (
+  variables?: Record<string, unknown>,
+): PreviewVariablesMap => {
+  if (!variables) {
+    return {};
+  }
+  return Object.entries(variables).reduce<PreviewVariablesMap>((acc, entry) => {
+    const [key, value] = entry;
+    if (value === undefined || value === null) {
+      acc[key] = '';
+    } else if (Array.isArray(value)) {
+      acc[key] = value
+        .map(item => (item === undefined || item === null ? '' : `${item}`))
+        .filter(Boolean)
+        .join(', ');
+    } else {
+      acc[key] = `${value}`;
+    }
+    return acc;
+  }, {});
+};
 
 export function usePreviewChat() {
   const { t } = useTranslation();
+  const { actions } = useShifu();
+  const getCurrentMdflow = actions?.getCurrentMdflow;
+  const resolveBaseUrl = useCallback(async () => {
+    const dynamicBase = await getDynamicApiBaseUrl();
+    const candidate = dynamicBase || getStringEnv('baseURL') || '';
+    const normalized = candidate.replace(/\/$/, '');
+    if (normalized && normalized !== '') {
+      return normalized;
+    }
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      return window.location.origin;
+    }
+    return '';
+  }, []);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const contentListRef = useRef<ChatContentItem[]>([]);
@@ -57,12 +98,22 @@ export function usePreviewChat() {
   const currentContentIdRef = useRef<string | null>(null);
   const sseParams = useRef<StartPreviewParams>({});
   const sseRef = useRef<any>(null);
+  const ttsSseRef = useRef<Record<string, any>>({});
   const isStreamingRef = useRef(false);
+  const [variablesSnapshot, setVariablesSnapshot] =
+    useState<PreviewVariablesMap>({});
   const interactionParserRef = useRef(createInteractionParser());
   const autoSubmittedBlocksRef = useRef<Set<string>>(new Set());
   const tryAutoSubmitInteractionRef = useRef<
     (blockId: string, content?: string | null) => void
   >(() => {});
+  const resolveLatestMdflow = useCallback(() => {
+    const latest = getCurrentMdflow?.();
+    if (typeof latest === 'string') {
+      return latest;
+    }
+    return (sseParams.current?.mdflow as string) || '';
+  }, [getCurrentMdflow]);
   const [pendingRegenerate, setPendingRegenerate] = useState<{
     content: OnSendContentParams;
     blockBid: string;
@@ -100,6 +151,49 @@ export function usePreviewChat() {
       });
     },
     [],
+  );
+
+  const handleVariableChange = useCallback((name: string, value: string) => {
+    if (!name) {
+      return;
+    }
+    setVariablesSnapshot(prev => {
+      const mergedVariables = {
+        ...((sseParams.current.variables as PreviewVariablesMap) || prev),
+        [name]: value,
+      };
+      sseParams.current.variables = mergedVariables;
+      return mergedVariables;
+    });
+  }, []);
+
+  const persistVariables = useCallback(
+    ({
+      shifuBid,
+      systemVariableKeys,
+      variables,
+    }: {
+      shifuBid?: string;
+      systemVariableKeys?: string[];
+      variables?: PreviewVariablesMap;
+    }) => {
+      const resolvedVariables =
+        variables ||
+        (sseParams.current.variables as PreviewVariablesMap) ||
+        variablesSnapshot;
+      const resolvedShifuBid = shifuBid || sseParams.current.shifuBid;
+      const resolvedSystemKeys =
+        systemVariableKeys || sseParams.current.systemVariableKeys || [];
+      if (!resolvedShifuBid) {
+        return;
+      }
+      savePreviewVariables(
+        resolvedShifuBid,
+        resolvedVariables,
+        resolvedSystemKeys,
+      );
+    },
+    [variablesSnapshot],
   );
 
   const parseInteractionBlock = useCallback(
@@ -175,19 +269,26 @@ export function usePreviewChat() {
           return null;
         }
         const selectedValues: string[] = [];
+        const customInputs: string[] = [];
         for (const token of tokens) {
           const mapped = normalizeButtonValue(token, info);
-          if (!mapped) {
-            return null;
+          if (mapped) {
+            selectedValues.push(mapped.value);
+            continue;
           }
-          selectedValues.push(mapped.value);
+          if (info.placeholder) {
+            customInputs.push(token);
+            continue;
+          }
+          return null;
         }
-        if (!selectedValues.length) {
+        if (!selectedValues.length && !customInputs.length) {
           return null;
         }
         return {
           variableName: info.variableName,
-          selectedValues,
+          selectedValues: selectedValues.length ? selectedValues : undefined,
+          inputText: customInputs.length ? customInputs.join(', ') : undefined,
         };
       }
 
@@ -211,14 +312,31 @@ export function usePreviewChat() {
     [normalizeButtonValue, splitPresetValues],
   );
 
+  const closeTtsStream = useCallback((blockId: string) => {
+    const source = ttsSseRef.current[blockId];
+    if (!source) {
+      return;
+    }
+    source.close();
+    delete ttsSseRef.current[blockId];
+  }, []);
+
+  const closeAllTtsStreams = useCallback(() => {
+    Object.values(ttsSseRef.current).forEach(source => {
+      source?.close?.();
+    });
+    ttsSseRef.current = {};
+  }, []);
+
   const stopPreview = useCallback(() => {
     if (sseRef.current) {
       sseRef.current.close();
       sseRef.current = null;
     }
+    closeAllTtsStreams();
     isStreamingRef.current = false;
     setIsLoading(false);
-  }, []);
+  }, [closeAllTtsStreams]);
 
   const resetPreview = useCallback(() => {
     stopPreview();
@@ -227,6 +345,7 @@ export function usePreviewChat() {
     currentContentRef.current = '';
     currentContentIdRef.current = null;
     autoSubmittedBlocksRef.current.clear();
+    setVariablesSnapshot({});
   }, [stopPreview, setTrackedContentList]);
 
   const ensureContentItem = useCallback(
@@ -247,6 +366,33 @@ export function usePreviewChat() {
       return blockId;
     },
     [setTrackedContentList],
+  );
+
+  const ensureAudioItem = useCallback(
+    (
+      items: ChatContentItem[],
+      blockId: string,
+      defaults: Partial<ChatContentItem> = {},
+    ) => {
+      const hasTarget = items.some(
+        item => item.generated_block_bid === blockId,
+      );
+      if (hasTarget) {
+        return items;
+      }
+
+      return [
+        ...items.filter(item => item.generated_block_bid !== 'loading'),
+        {
+          generated_block_bid: blockId,
+          content: '',
+          readonly: false,
+          type: ChatContentItemType.CONTENT,
+          ...defaults,
+        } as ChatContentItem,
+      ];
+    },
+    [],
   );
 
   const handlePayload = useCallback(
@@ -364,12 +510,40 @@ export function usePreviewChat() {
           });
         } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.ERROR) {
           toast({
-            title: t('module.preview.previewError'),
+            title: t('module.preview.llmError'),
             description: response.data,
             variant: 'destructive',
           });
           setError(response.data);
           stopPreview();
+        } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+          const audioSegment = response.data as AudioSegmentData;
+          if (blockId) {
+            setTrackedContentList(prevState =>
+              upsertAudioSegment(
+                prevState,
+                blockId,
+                audioSegment,
+                ensureAudioItem,
+              ),
+            );
+          }
+        } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+          const audioComplete = response.data as AudioCompleteData;
+          const normalizedAudioComplete = {
+            ...audioComplete,
+            audio_url: audioComplete.audio_url || undefined,
+          };
+          if (blockId) {
+            setTrackedContentList(prevState =>
+              upsertAudioComplete(
+                prevState,
+                blockId,
+                normalizedAudioComplete,
+                ensureAudioItem,
+              ),
+            );
+          }
         }
       } catch (err) {
         console.warn('preview SSE handling error:', err);
@@ -377,6 +551,7 @@ export function usePreviewChat() {
     },
     [
       buildAutoSendParams,
+      ensureAudioItem,
       ensureContentItem,
       parseInteractionBlock,
       setTrackedContentList,
@@ -391,7 +566,7 @@ export function usePreviewChat() {
   }, [stopPreview]);
 
   const startPreview = useCallback(
-    ({
+    async ({
       shifuBid,
       outlineBid,
       mdflow,
@@ -429,6 +604,7 @@ export function usePreviewChat() {
         max_block_count: finalMaxBlockCount,
       } = mergedParams;
       sseParams.current = mergedParams;
+      setVariablesSnapshot(buildVariablesSnapshot(finalVariables));
 
       if (!finalShifuBid || !finalOutlineBid) {
         setError('Invalid preview params');
@@ -445,6 +621,11 @@ export function usePreviewChat() {
       }
 
       stopPreview();
+      const resolvedBaseUrl = await resolveBaseUrl();
+      if (!resolvedBaseUrl) {
+        setError('Missing API base URL');
+        return;
+      }
       setTrackedContentList(prev => [
         ...prev.filter(item => item.generated_block_bid !== 'loading'),
         {
@@ -460,10 +641,6 @@ export function usePreviewChat() {
       currentContentIdRef.current = null;
 
       try {
-        let baseURL = getStringEnv('baseURL');
-        if (!baseURL || baseURL === '' || baseURL === '/') {
-          baseURL = typeof window !== 'undefined' ? window.location.origin : '';
-        }
         const tokenValue = useUserStore.getState().getToken();
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
@@ -482,7 +659,7 @@ export function usePreviewChat() {
           payload.user_input = normalizedUserInput;
         }
         const source = new SSE(
-          `${baseURL}/api/learn/shifu/${finalShifuBid}/preview/${finalOutlineBid}`,
+          `${resolvedBaseUrl}/api/learn/shifu/${finalShifuBid}/preview/${finalOutlineBid}`,
           {
             headers,
             payload: JSON.stringify(payload),
@@ -512,7 +689,7 @@ export function usePreviewChat() {
         setIsLoading(false);
       }
     },
-    [handlePayload, setTrackedContentList, stopPreview],
+    [handlePayload, resolveBaseUrl, setTrackedContentList, stopPreview],
   );
 
   const updateContentListWithUserOperate = useCallback(
@@ -638,6 +815,7 @@ export function usePreviewChat() {
           [normalizedVariableName]: nextValue,
         };
         sseParams.current.variables = nextVariables;
+        setVariablesSnapshot(buildVariablesSnapshot(nextVariables));
         savePreviewVariables(
           sseParams.current.shifuBid,
           { [normalizedVariableName]: nextValue },
@@ -715,12 +893,15 @@ export function usePreviewChat() {
 
       newList.length = needChangeItemIndex;
       setTrackedContentList(newList);
+      const latestMdflow = resolveLatestMdflow();
       startPreview({
         ...sseParams.current,
+        mdflow: latestMdflow,
         block_index: nextBlockIndex,
       });
     },
     [
+      resolveLatestMdflow,
       removeAutoSubmittedBlocks,
       setTrackedContentList,
       showOutputInProgressToast,
@@ -796,6 +977,151 @@ export function usePreviewChat() {
     [contentList, nullRenderBar],
   );
 
+  const requestAudioForBlock = useCallback(
+    async ({
+      shifuBid,
+      blockId,
+      text,
+    }: {
+      shifuBid: string;
+      blockId: string;
+      text: string;
+    }): Promise<AudioCompleteData | null> => {
+      if (!shifuBid || !blockId) {
+        return null;
+      }
+
+      const existingItem = contentListRef.current.find(
+        item => item.generated_block_bid === blockId,
+      );
+      if (existingItem?.audioUrl && !existingItem.isAudioStreaming) {
+        return {
+          audio_url: existingItem.audioUrl,
+          audio_bid: '',
+          duration_ms: existingItem.audioDurationMs ?? 0,
+        };
+      }
+
+      if (ttsSseRef.current[blockId]) {
+        return null;
+      }
+
+      setTrackedContentList(prevState =>
+        ensureAudioItem(
+          prevState.map(item => {
+            if (item.generated_block_bid !== blockId) {
+              return item;
+            }
+            return {
+              ...item,
+              audioSegments: [],
+              audioUrl: undefined,
+              audioDurationMs: undefined,
+              isAudioStreaming: true,
+            };
+          }),
+          blockId,
+          {
+            audioSegments: [],
+            audioUrl: undefined,
+            audioDurationMs: undefined,
+            isAudioStreaming: true,
+          },
+        ),
+      );
+
+      const resolvedBaseUrl = await resolveBaseUrl();
+      const tokenValue = useUserStore.getState().getToken();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-Request-ID': uuidv4().replace(/-/g, ''),
+      };
+      if (tokenValue) {
+        headers.Authorization = `Bearer ${tokenValue}`;
+        headers.Token = tokenValue;
+      }
+
+      return new Promise((resolve, reject) => {
+        const source = new SSE(
+          `${resolvedBaseUrl}/api/learn/shifu/${shifuBid}/tts/preview?preview_mode=true`,
+          {
+            headers,
+            payload: JSON.stringify({ text: text || '' }),
+            method: 'POST',
+          },
+        );
+
+        source.addEventListener('message', event => {
+          const raw = event?.data;
+          if (!raw) return;
+          const payload = String(raw).trim();
+          if (!payload) return;
+
+          try {
+            const response = JSON.parse(payload);
+            if (response?.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+              const audioPayload = response.content ?? response.data;
+              setTrackedContentList(prevState =>
+                upsertAudioSegment(
+                  prevState,
+                  blockId,
+                  audioPayload as AudioSegmentData,
+                  ensureAudioItem,
+                ),
+              );
+              return;
+            }
+
+            if (response?.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+              const audioPayload = response.content ?? response.data;
+              const audioComplete = audioPayload as AudioCompleteData;
+              const normalizedAudioComplete = {
+                ...audioComplete,
+                audio_url: audioComplete.audio_url || undefined,
+              };
+              setTrackedContentList(prevState =>
+                upsertAudioComplete(
+                  prevState,
+                  blockId,
+                  normalizedAudioComplete,
+                  ensureAudioItem,
+                ),
+              );
+              closeTtsStream(blockId);
+              resolve(audioComplete ?? null);
+            }
+          } catch (err) {
+            console.warn('preview audio stream parse error:', err);
+          }
+        });
+
+        source.addEventListener('error', err => {
+          console.error('[preview audio sse error]', err);
+          setTrackedContentList(prevState =>
+            ensureAudioItem(
+              prevState.map(item => {
+                if (item.generated_block_bid !== blockId) {
+                  return item;
+                }
+                return {
+                  ...item,
+                  isAudioStreaming: false,
+                };
+              }),
+              blockId,
+            ),
+          );
+          closeTtsStream(blockId);
+          reject(new Error('Preview audio stream failed'));
+        });
+
+        source.stream();
+        ttsSseRef.current[blockId] = source;
+      });
+    },
+    [closeTtsStream, ensureAudioItem, resolveBaseUrl, setTrackedContentList],
+  );
+
   return {
     items,
     isLoading,
@@ -806,6 +1132,10 @@ export function usePreviewChat() {
     resetPreview,
     onSend,
     onRefresh,
+    persistVariables,
+    onVariableChange: handleVariableChange,
+    variables: variablesSnapshot,
+    requestAudioForBlock,
     reGenerateConfirm: {
       open: showRegenerateConfirm,
       onConfirm: handleConfirmRegenerate,

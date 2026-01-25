@@ -64,20 +64,23 @@ const MinimalTreeItemComponent = React.forwardRef<
 >((props, ref) => {
   const { cataData } = useShifu();
 
-  const onSelect = () => {
+  const onSelect = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
     props.onSelect?.(props.item!);
   };
   return (
     <SimpleTreeItemWrapper
       {...props}
       ref={ref}
+      disableCollapseOnItemClick
+      onItemClick={onSelect}
     >
       <div
         className={cn(
           'flex text-sm items-center flex-1 px-0 py-1 justify-between w-full',
-          (props.item?.children?.length || 0) > 0 ? 'pl-0' : 'pl-4',
+          (props.item?.children?.length || 0) > 0 ? 'pl-0' : 'pl-10',
         )}
-        onClick={onSelect}
       >
         <span className='w-40 whitespace-nowrap overflow-hidden text-ellipsis'>
           {cataData[props.item.bid!]?.name || ''}

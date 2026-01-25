@@ -1,4 +1,6 @@
 {
   "__namespace__": "module.renderUi.core",
-  "confirm": "Submit"
+  "confirm": "Submit",
+  "copied": "Copied",
+  "copyCode": "Copy"
 }

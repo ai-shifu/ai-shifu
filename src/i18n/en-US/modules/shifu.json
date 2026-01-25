@@ -1,20 +1,27 @@
 {
   "__namespace__": "module.shifu",
   "creationArea": {
-    "description": "Write a creation guide for AI, and let it generate the final content",
-    "modeCode": "Raw",
-    "modeText": "Visual",
-    "title": "Creation Area"
+    "descriptionPrefix": "Write in",
+    "descriptionSuffix": "format to guide AI teaching",
+    "modeCode": "Pro",
+    "modeText": "Easy",
+    "title": "Teaching Prompts"
   },
   "newChapter": "Add Chapter",
   "previewArea": {
-    "action": "Preview",
-    "close": "Hide preview panel",
-    "description": "Different results for each run.",
-    "disabled": "Select a unit before previewing.",
-    "empty": "Add content on the left, then click “Preview” to create a result.",
-    "loading": "Generating preview...",
-    "open": "Show preview panel",
-    "title": "Preview Area"
+    "action": "Debug",
+    "close": "Collapse learning simulation",
+    "description": "Feel the learner’s experience and see how prompts personalize courses",
+    "disabled": "Select a unit before debugging.",
+    "empty": "Enter teaching prompts on the left, then click \"Debug\" to experience learning simulation",
+    "loading": "Generating learning simulation...",
+    "open": "Expand learning simulation",
+    "title": "Learning Simulation",
+    "variablesCollapse": "Collapse",
+    "variablesDescription": "Different learners set different variables to get different courses",
+    "variablesExpand": "Expand",
+    "variablesLearnMore": "Learn more",
+    "variablesPlaceholder": "UNKNOWN",
+    "variablesTitle": "Variables"
   }
 }

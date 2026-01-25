@@ -1,4 +1,5 @@
 import asyncio
+import os
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from datetime import datetime
@@ -12,7 +13,7 @@ from langfuse.model import ModelUsage
 from .dify import DifyChunkChatCompletionResponse, dify_chat_message
 from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
-from ..ark.sign import request
+from litellm import get_max_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +98,57 @@ def _log_info(message: str) -> None:
 
 def _log_warning(message: str) -> None:
     _log("warning", message)
+
+
+def _normalize_model_config(value: Any) -> list[str]:
+    if not value:
+        return []
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    if isinstance(value, (list, tuple, set)):
+        normalized = []
+        for item in value:
+            text = str(item).strip()
+            if text:
+                normalized.append(text)
+        return normalized
+    return []
+
+
+def _env_has_value(key: str) -> bool:
+    value = os.environ.get(key)
+    if value is None:
+        return False
+    return bool(value.strip())
+
+
+def _resolve_allowed_model_config() -> tuple[list[str], list[str]]:
+    allowed_source = "default"
+    if _env_has_value("LLM_ALLOWED_MODELS"):
+        allowed = _normalize_model_config(os.environ.get("LLM_ALLOWED_MODELS", ""))
+        allowed_source = "env"
+    else:
+        legacy_allowed = _normalize_model_config(get_config("llm-allowed-models", None))
+        if legacy_allowed:
+            allowed = legacy_allowed
+            allowed_source = "legacy"
+        else:
+            allowed = _normalize_model_config(get_config("LLM_ALLOWED_MODELS", None))
+
+    if _env_has_value("LLM_ALLOWED_MODEL_DISPLAY_NAMES"):
+        display_names = _normalize_model_config(
+            os.environ.get("LLM_ALLOWED_MODEL_DISPLAY_NAMES", "")
+        )
+    elif allowed_source == "legacy":
+        display_names = _normalize_model_config(
+            get_config("llm-allowed-model-display-names", None)
+        )
+    else:
+        display_names = _normalize_model_config(
+            get_config("LLM_ALLOWED_MODEL_DISPLAY_NAMES", None)
+        )
+
+    return allowed, display_names
 
 
 def _register_provider_models(
@@ -200,6 +252,11 @@ def _stream_litellm_completion(
     app: Flask, model: str, messages: list, params: dict, kwargs: dict
 ):
     try:
+        try:
+            max_tokens = get_max_tokens(model)
+            kwargs["max_tokens"] = max_tokens
+        except Exception as exc:
+            _log_warning(f"get max tokens for {model} failed: {exc}")
         app.logger.info(
             f"stream_litellm_completion: {model} {messages} {params} {kwargs}"
         )
@@ -231,45 +288,6 @@ def _resolve_provider_for_model(model: str) -> Tuple[Optional[str], str]:
                     normalized = model.replace(state.prefix, "", 1)
                 return provider_key, normalized
     return None, model
-
-
-def _load_ark_models(
-    config: ProviderConfig, params: Dict[str, str], base_url: Optional[str]
-) -> List[Union[str, Tuple[str, str]]]:
-    access_key = get_config("ARK_ACCESS_KEY_ID")
-    secret_key = get_config("ARK_SECRET_ACCESS_KEY")
-    if not access_key or not secret_key:
-        _log_warning("ARK credentials not fully configured")
-        return []
-    try:
-        ark_list_endpoints = request(
-            "POST",
-            datetime.now(),
-            {},
-            {},
-            access_key,
-            secret_key,
-            "ListEndpoints",
-            None,
-        )
-        _log_info(str(ark_list_endpoints))
-        ark_endpoints = ark_list_endpoints.get("Result", {}).get("Items", [])
-        models: List[Tuple[str, str]] = []
-        if ark_endpoints:
-            for endpoint in ark_endpoints:
-                endpoint_id = endpoint.get("Id")
-                model_name = (
-                    endpoint.get("ModelReference", {})
-                    .get("FoundationModel", {})
-                    .get("Name", "")
-                )
-                _log_info(f"ark endpoint: {endpoint_id}, model: {model_name}")
-                if endpoint_id and model_name:
-                    models.append((model_name, endpoint_id))
-        return models
-    except Exception as exc:
-        _log_warning(f"load ark models error: {exc}")
-        return []
 
 
 def _load_gemini_models(
@@ -318,6 +336,11 @@ DEEPSEEK_EXTRA_MODELS = ["deepseek-chat"]
 
 
 def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    if model_id.startswith("gpt-5.2"):
+        return {
+            "reasoning_effort": "none",
+            "temperature": temperature,
+        }
     if model_id.startswith("gpt-5.1"):
         return {
             "reasoning_effort": "none",
@@ -339,6 +362,16 @@ def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
 
 
 def _reload_gemini_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    if model_id.startswith("gemini-2.5-pro"):
+        return {
+            "reasoning_effort": "low",
+            "temperature": temperature,
+        }
+    if model_id.startswith("gemini-3"):
+        return {
+            "reasoning_effort": "low",
+            "temperature": temperature,
+        }
     if model_id.startswith("gemini"):
         return {
             "reasoning_effort": "none",
@@ -346,6 +379,21 @@ def _reload_gemini_params(model_id: str, temperature: float) -> Dict[str, Any]:
         }
     return {
         "temperature": temperature,
+    }
+
+
+def _reload_ark_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    # doubao-seed models support thinking parameter, pass via extra_body for LiteLLM
+    return {
+        "temperature": temperature,
+        "extra_body": {"thinking": {"type": "disabled"}},
+    }
+
+
+def _reload_silicon_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    return {
+        "temperature": temperature,
+        "extra_body": {"enable_thinking": False},
     }
 
 
@@ -416,16 +464,16 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         prefix=SILICON_PREFIX,
         config_hint="SILICON_API_KEY,SILICON_API_URL",
         custom_llm_provider="openai",
+        reload_params=_reload_silicon_params,
     ),
     ProviderConfig(
         key="ark",
         api_key_env="ARK_API_KEY",
         default_base_url="https://ark.cn-beijing.volces.com/api/v3",
         prefix="ark/",
-        config_hint="ARK_ACCESS_KEY_ID,ARK_SECRET_ACCESS_KEY",
+        config_hint="ARK_API_KEY",
         custom_llm_provider="openai",
-        fetch_models=False,
-        model_loader=_load_ark_models,
+        reload_params=_reload_ark_params,
     ),
 ]
 
@@ -444,7 +492,7 @@ DIFY_MODELS = []
 if get_config("DIFY_API_KEY") and get_config("DIFY_URL"):
     DIFY_MODELS = ["dify"]
 else:
-    current_app.logger.warning("DIFY_API_KEY and DIFY_URL not configured")
+    _log_warning("DIFY_API_KEY and DIFY_URL not configured")
 
 
 class LLMStreamaUsage:
@@ -678,9 +726,54 @@ def chat_llm(
     )
 
 
-def get_current_models(app: Flask) -> list[str]:
+def _build_model_options(
+    app: Flask, available_models: list[str]
+) -> list[dict[str, str]]:
+    allowed, display_names = _resolve_allowed_model_config()
+
+    if not allowed:
+        return [{"model": model, "display_name": model} for model in available_models]
+
+    available_set = set(available_models)
+    filtered_models: list[str] = []
+    for model in allowed:
+        if model in available_set and model not in filtered_models:
+            filtered_models.append(model)
+
+    if not filtered_models:
+        _log_warning(
+            "LLM_RECOMMENDED_MODELS configured but no matching models are available"
+        )
+        return []
+
+    display_names_enabled = allowed and len(display_names) == len(allowed)
+    if display_names and not display_names_enabled:
+        _log_warning(
+            "LLM_ALLOWED_MODEL_DISPLAY_NAMES ignored: length must match "
+            "LLM_ALLOWED_MODELS"
+        )
+    display_map: dict[str, str] = (
+        dict(zip(allowed, display_names)) if display_names_enabled else {}
+    )
+
+    return [
+        {
+            "model": model,
+            "display_name": display_map.get(model, model),
+        }
+        for model in filtered_models
+    ]
+
+
+def get_current_models(app: Flask) -> list[dict[str, str]]:
     litellm_models: list[str] = []
     for state in PROVIDER_STATES.values():
         litellm_models.extend(state.models)
     combined = litellm_models + DIFY_MODELS
-    return list(dict.fromkeys(combined))
+    available_models = list(dict.fromkeys(combined))
+    return _build_model_options(app, available_models)
+
+
+def get_allowed_models() -> list[str]:
+    allowed, _ = _resolve_allowed_model_config()
+    return allowed

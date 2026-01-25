@@ -45,11 +45,15 @@
         display: block;
         overflow: hidden;
         color: #0a0a0a;
-        font-family: 'PingFang SC';
         font-size: var(--text-sm-font-size, 14px);
         font-style: normal;
         font-weight: 600;
-        line-height: 100%; /* 14px */
+        line-height: 20px;
+        max-width: 100%;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        hyphens: auto;
+        white-space: normal;
       }
     }
   }
@@ -133,22 +137,26 @@
 
     .leftSection {
       flex: 1 1 0;
+      display: flex;
+      align-items: center;
       &.notPaid {
         .courseTitle {
           color: rgba(10, 10, 10, 0.45);
         }
       }
       .courseTitle {
-        display: inline;
+        display: inline-block;
         overflow: hidden;
         color: var(--base-sidebar-foreground, #0a0a0a);
-
-        /* text-sm/leading-none/normal */
-        font-family: var(--font-font-sans, Geist);
         font-size: var(--text-sm-font-size, 14px);
         font-style: normal;
         font-weight: var(--font-weight-normal, 400);
-        line-height: 100%; /* 14px */
+        line-height: 20px;
+        max-width: 100%;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        hyphens: auto;
+        white-space: normal;
       }
     }
 

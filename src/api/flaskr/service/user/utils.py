@@ -20,11 +20,6 @@ from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.service.user.repository import mark_user_roles
 from flaskr.service.shifu.models import DraftShifu
 from flaskr.util import generate_id
-from flaskr.service.shifu.shifu_import_export_funcs import import_shifu
-from werkzeug.datastructures import FileStorage
-from io import BytesIO
-import os
-from pathlib import Path
 
 
 def get_user_openid(user):
@@ -267,24 +262,14 @@ def create_and_commit_user_verify_code(
     return user_verify_code
 
 
-def ensure_admin_creator_and_demo_permissions(
-    app: Flask, user_id: str, language: str, login_context: str | None = None
+def ensure_creator_demo_permissions_and_first_lesson(
+    app: Flask, user_id: str, language: str
 ) -> None:
     """
-    Ensure that an admin-login user is a creator and has demo course permissions.
-
-    This helper is controlled by the ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO flag and
-    is intended for demo/staging environments.
+    Ensure that a user is marked as creator, has demo course permissions,
+    and a first lesson draft.
     """
-    # Only apply when the feature flag is enabled
-    if not app.config.get("ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO", False):
-        return
-
-    # Only act on explicit admin logins
-    if login_context != "admin":
-        return
-
-    # Mark user as creator
+    # Mark user as creator in canonical user entity
     mark_user_roles(user_id, is_creator=True)
 
     # Grant demo course permissions if demo shifus are configured
@@ -325,62 +310,31 @@ def ensure_admin_creator_and_demo_permissions(
             )
             db.session.add(auth)
             db.session.flush()
-    # create first lesson
+
+    # Create first lesson draft if none exists
     draft_shifu = DraftShifu.query.filter(
         DraftShifu.created_user_bid == user_id
     ).first()
     if draft_shifu:
         db.session.flush()
         return
-    app.logger.info(f"Creating first lesson for user {user_id}")
-    # Read file content
-    # Try multiple candidate paths to locate en_first_shifu.json
-    # In Docker: /app/flaskr/service/user/utils.py -> /app/en_first_shifu.json
-    # In local dev: src/api/flaskr/service/user/utils.py -> src/api/en_first_shifu.json
-    current_file = Path(__file__).resolve()
 
-    if language == "zh-CN":
-        first_shifu_file_name = "cn_first_shifu.json"
-    elif language == "en-US":
-        first_shifu_file_name = "en_first_shifu.json"
-    else:
-        first_shifu_file_name = "en_first_shifu.json"
 
-    candidates = [
-        current_file.parent.parent.parent.parent
-        / "demo_shifus"
-        / first_shifu_file_name,
-        Path(
-            f"/app/demo_shifus/{first_shifu_file_name}"
-        ),  # Absolute path in Docker container
-    ]
+def ensure_admin_creator_and_demo_permissions(
+    app: Flask, user_id: str, language: str, login_context: str | None = None
+) -> None:
+    """
+    Ensure that an admin-login user is a creator and has demo course permissions.
 
-    first_shifu_file_path = None
-    for candidate in candidates:
-        try:
-            candidate_resolved = candidate.resolve()
-            if candidate_resolved.exists() and candidate_resolved.is_file():
-                first_shifu_file_path = str(candidate_resolved)
-                break
-        except (OSError, RuntimeError):
-            # Skip invalid paths (e.g., symlink loops)
-            continue
+    This helper is controlled by the ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO flag and
+    is intended for demo/staging environments.
+    """
+    # Only apply when the feature flag is enabled
+    if not app.config.get("ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO", False):
+        return
 
-    if not first_shifu_file_path:
-        error_msg = f"Could not find en_first_shifu.json file. Tried: {[str(c) for c in candidates]}"
-        app.logger.error(error_msg)
-        raise FileNotFoundError(error_msg)
+    # Only act on explicit admin logins
+    if login_context != "admin":
+        return
 
-    app.logger.info(f"Loading first shifu from: {first_shifu_file_path}")
-    with open(first_shifu_file_path, "rb") as f:
-        file_content = f.read()
-
-    # Create FileStorage from bytes
-    file_storage = FileStorage(
-        stream=BytesIO(file_content),
-        filename=os.path.basename(first_shifu_file_path),
-        name="file",
-    )
-
-    # Import or update shifu (don't commit inside transactional_session)
-    shifu_bid = import_shifu(app, None, file_storage, user_id, commit=True)
+    ensure_creator_demo_permissions_and_first_lesson(app, user_id, language)

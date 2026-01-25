@@ -87,6 +87,19 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Path of log file",
         group="app",
     ),
+    # Storage Configuration
+    "STORAGE_PROVIDER": EnvVar(
+        name="STORAGE_PROVIDER",
+        default="auto",
+        description='Storage provider for uploaded/generated files. Values: "auto" | "oss" | "local".',
+        group="storage",
+    ),
+    "LOCAL_STORAGE_ROOT": EnvVar(
+        name="LOCAL_STORAGE_ROOT",
+        default="storage",
+        description="Filesystem directory used for local storage provider (relative to app working dir if not absolute).",
+        group="storage",
+    ),
     "ASK_MAX_HISTORY_LEN": EnvVar(
         name="ASK_MAX_HISTORY_LEN",
         default=10,
@@ -128,107 +141,114 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Default redirect path after login",
         group="frontend",
     ),
-    "LOGO_URL": EnvVar(
-        name="LOGO_URL",
+    "LOGO_WIDE_URL": EnvVar(
+        name="LOGO_WIDE_URL",
         default="",
-        description="Custom logo URL override returned by /api/config",
+        description="Custom wide logo URL override returned by /api/config",
         group="frontend",
     ),
-    "NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT": EnvVar(
-        name="NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT",
+    "LOGO_SQUARE_URL": EnvVar(
+        name="LOGO_SQUARE_URL",
+        default="",
+        description="Custom square logo URL override returned by /api/config",
+        group="frontend",
+    ),
+    "FAVICON_URL": EnvVar(
+        name="FAVICON_URL",
+        default="",
+        description="Custom favicon URL override returned by /api/config",
+        group="frontend",
+    ),
+    "ANALYTICS_UMAMI_SCRIPT": EnvVar(
+        name="ANALYTICS_UMAMI_SCRIPT",
         default="",
         description="Umami analytics script URL",
         group="frontend",
     ),
-    "NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID": EnvVar(
-        name="NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID",
+    "ANALYTICS_UMAMI_SITE_ID": EnvVar(
+        name="ANALYTICS_UMAMI_SITE_ID",
         default="",
         description="Umami analytics site identifier",
         group="frontend",
     ),
-    "NEXT_PUBLIC_API_BASE_URL": EnvVar(
-        name="NEXT_PUBLIC_API_BASE_URL",
-        default="http://localhost:8080",
-        description="Cook Web API base URL (Nginx 8080 default in docker-compose)",
-        group="frontend",
-    ),
-    "NEXT_PUBLIC_DEFAULT_COURSE_ID": EnvVar(
-        name="NEXT_PUBLIC_DEFAULT_COURSE_ID",
+    "DEFAULT_COURSE_ID": EnvVar(
+        name="DEFAULT_COURSE_ID",
         default="",
         description="Default course id for Cook Web",
         group="frontend",
     ),
-    "NEXT_PUBLIC_DEFAULT_LOGIN_METHOD": EnvVar(
-        name="NEXT_PUBLIC_DEFAULT_LOGIN_METHOD",
+    "DEFAULT_LOGIN_METHOD": EnvVar(
+        name="DEFAULT_LOGIN_METHOD",
         default="phone",
         description='Default login method tab. Values: "phone" | "email" | "google"',
         group="frontend",
     ),
-    "NEXT_PUBLIC_DEBUG_ERUDA_ENABLED": EnvVar(
-        name="NEXT_PUBLIC_DEBUG_ERUDA_ENABLED",
+    "DEBUG_ERUDA_ENABLED": EnvVar(
+        name="DEBUG_ERUDA_ENABLED",
         default=False,
         type=bool,
         description="Enable Eruda debug console",
         group="frontend",
     ),
-    "NEXT_PUBLIC_LOGIN_METHODS_ENABLED": EnvVar(
-        name="NEXT_PUBLIC_LOGIN_METHODS_ENABLED",
+    "LOGIN_METHODS_ENABLED": EnvVar(
+        name="LOGIN_METHODS_ENABLED",
         default="phone",
         description="""Login methods exposed to users.
 Values: "phone" | "email" | "google" combinations (comma-separated)
 Default: "phone".""",
         group="frontend",
     ),
-    "NEXT_PUBLIC_PAYMENT_CHANNELS_ENABLED": EnvVar(
-        name="NEXT_PUBLIC_PAYMENT_CHANNELS_ENABLED",
-        default="pingxx,stripe",
-        description="Payment channels enabled on Cook Web (comma separated)",
-        group="frontend",
-    ),
-    "NEXT_PUBLIC_STRIPE_ENABLED": EnvVar(
-        name="NEXT_PUBLIC_STRIPE_ENABLED",
+    "STRIPE_ENABLED": EnvVar(
+        name="STRIPE_ENABLED",
         default=False,
         type=bool,
         description="Enable Stripe payment entry points on Cook Web",
         group="frontend",
     ),
-    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": EnvVar(
-        name="NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
-        default="",
-        description="Stripe publishable key for Cook Web",
-        group="frontend",
-    ),
-    "NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE": EnvVar(
-        name="NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE",
+    "UI_ALWAYS_SHOW_LESSON_TREE": EnvVar(
+        name="UI_ALWAYS_SHOW_LESSON_TREE",
         default=False,
         type=bool,
         description="Always show lesson tree in Cook Web",
         group="frontend",
     ),
-    "NEXT_PUBLIC_UI_LOGO_HORIZONTAL": EnvVar(
-        name="NEXT_PUBLIC_UI_LOGO_HORIZONTAL",
+    "UI_LOGO_HORIZONTAL": EnvVar(
+        name="UI_LOGO_HORIZONTAL",
         default="",
         description="Horizontal logo URL for Cook Web",
         group="frontend",
     ),
-    "NEXT_PUBLIC_UI_LOGO_VERTICAL": EnvVar(
-        name="NEXT_PUBLIC_UI_LOGO_VERTICAL",
+    "UI_LOGO_VERTICAL": EnvVar(
+        name="UI_LOGO_VERTICAL",
         default="",
         description="Vertical logo URL for Cook Web",
         group="frontend",
     ),
-    "NEXT_PUBLIC_WECHAT_APP_ID": EnvVar(
-        name="NEXT_PUBLIC_WECHAT_APP_ID",
+    "GEN_MDF_API_URL": EnvVar(
+        name="GEN_MDF_API_URL",
         default="",
-        description="WeChat App ID for QR login",
-        group="frontend",
+        description="API URL for generating MDF (Markdown Flow) content",
+        group="integrations",
     ),
-    "NEXT_PUBLIC_WECHAT_CODE_ENABLED": EnvVar(
-        name="NEXT_PUBLIC_WECHAT_CODE_ENABLED",
-        default=True,
-        type=bool,
-        description="Enable WeChat QR login",
-        group="frontend",
+    "GEN_MDF_APP_ID": EnvVar(
+        name="GEN_MDF_APP_ID",
+        default="",
+        description="Application ID for MDF API authentication (X-App-Id header)",
+        secret=True,
+        group="integrations",
+    ),
+    "WECHAT_APP_ID": EnvVar(
+        name="WECHAT_APP_ID",
+        default="",
+        description="WeChat App ID for OAuth / QR login",
+        group="auth",
+    ),
+    "WECHAT_APP_SECRET": EnvVar(
+        name="WECHAT_APP_SECRET",
+        default="",
+        description="WeChat App secret for server-side exchanges",
+        group="auth",
+        secret=True,
     ),
     # Legal Documents Configuration
     "LEGAL_AGREEMENT_URL_ZH_CN": EnvVar(
@@ -299,14 +319,14 @@ Default: "phone".""",
     "ARK_ACCESS_KEY_ID": EnvVar(
         name="ARK_ACCESS_KEY_ID",
         default="",
-        description="ByteDance Volcengine Ark Access Key ID",
+        description="ByteDance Volcengine Ark access key ID (used for Volcengine TTS WebSocket auth)",
         secret=True,
         group="llm",
     ),
     "ARK_SECRET_ACCESS_KEY": EnvVar(
         name="ARK_SECRET_ACCESS_KEY",
         default="",
-        description="ByteDance Volcengine Ark Secret Access Key",
+        description="ByteDance Volcengine Ark secret access key (used for Volcengine TTS WebSocket auth)",
         secret=True,
         group="llm",
     ),
@@ -381,6 +401,28 @@ Qwen: qwen-long, qwen-max, qwen-max-longcontext, qwen-plus, qwen-turbo, qwen2-*
 DeepSeek: deepseek-chat
 Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
         group="llm",
+    ),
+    "LLM_ALLOWED_MODELS": EnvVar(
+        name="LLM_ALLOWED_MODELS",
+        default=[],
+        type=list,
+        description=(
+            "Comma separated list of allowed LLM models to expose in UI. "
+            "When empty, all detected models are shown."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "LLM_ALLOWED_MODEL_DISPLAY_NAMES": EnvVar(
+        name="LLM_ALLOWED_MODEL_DISPLAY_NAMES",
+        default=[],
+        type=list,
+        description=(
+            "Optional display names for allowed LLM models. Must match the "
+            "length and order of LLM_ALLOWED_MODELS. Ignored otherwise."
+        ),
+        group="llm",
+        required=False,
     ),
     "DEFAULT_LLM_TEMPERATURE": EnvVar(
         name="DEFAULT_LLM_TEMPERATURE",
@@ -514,6 +556,20 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         default="",
         description="OAuth client secret issued by Google",
         secret=True,
+        group="auth",
+    ),
+    "GOOGLE_OAUTH_TOKEN_ENDPOINT": EnvVar(
+        name="GOOGLE_OAUTH_TOKEN_ENDPOINT",
+        default="https://oauth2.googleapis.com/token",
+        description=(
+            "Google OAuth token endpoint URL used by the backend to exchange auth codes."
+        ),
+        group="auth",
+    ),
+    "GOOGLE_OAUTH_USERINFO_ENDPOINT": EnvVar(
+        name="GOOGLE_OAUTH_USERINFO_ENDPOINT",
+        default="https://openidconnect.googleapis.com/v1/userinfo",
+        description="Google OpenID Connect userinfo endpoint URL used by the backend.",
         group="auth",
     ),
     "MAIL_CODE_EXPIRE_TIME": EnvVar(
@@ -928,6 +984,100 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Minimum price of shifu",
         group="shifu",
     ),
+    # TTS Configuration
+    "MINIMAX_API_KEY": EnvVar(
+        name="MINIMAX_API_KEY",
+        default="",
+        description="Minimax API key for TTS synthesis",
+        secret=True,
+        group="tts",
+    ),
+    "MINIMAX_GROUP_ID": EnvVar(
+        name="MINIMAX_GROUP_ID",
+        default="",
+        description="Minimax group ID for API access",
+        group="tts",
+    ),
+    "TTS_MAX_SEGMENT_CHARS": EnvVar(
+        name="TTS_MAX_SEGMENT_CHARS",
+        default=300,
+        type=int,
+        description="Maximum characters per TTS segment",
+        group="tts",
+    ),
+    "MINIMAX_TTS_SAMPLE_RATE": EnvVar(
+        name="MINIMAX_TTS_SAMPLE_RATE",
+        default=24000,
+        type=int,
+        description="TTS audio sample rate (8000-44100)",
+        group="tts",
+    ),
+    "MINIMAX_TTS_BITRATE": EnvVar(
+        name="MINIMAX_TTS_BITRATE",
+        default=128000,
+        type=int,
+        description="TTS audio bitrate (32000-256000)",
+        group="tts",
+    ),
+    # Volcengine TTS Configuration
+    # Note: Uses ARK_ACCESS_KEY_ID and ARK_SECRET_ACCESS_KEY for authentication.
+    "VOLCENGINE_TTS_SAMPLE_RATE": EnvVar(
+        name="VOLCENGINE_TTS_SAMPLE_RATE",
+        default=24000,
+        type=int,
+        description="Volcengine TTS audio sample rate (8000-48000)",
+        group="tts",
+    ),
+    "VOLCENGINE_TTS_BITRATE": EnvVar(
+        name="VOLCENGINE_TTS_BITRATE",
+        default=128000,
+        type=int,
+        description="Volcengine TTS audio bitrate",
+        group="tts",
+    ),
+    # Baidu TTS Configuration
+    "BAIDU_TTS_API_KEY": EnvVar(
+        name="BAIDU_TTS_API_KEY",
+        default="",
+        description="Baidu TTS API Key",
+        secret=True,
+        group="tts",
+    ),
+    "BAIDU_TTS_SECRET_KEY": EnvVar(
+        name="BAIDU_TTS_SECRET_KEY",
+        default="",
+        description="Baidu TTS Secret Key",
+        secret=True,
+        group="tts",
+    ),
+    # Aliyun TTS Configuration
+    "ALIYUN_TTS_APPKEY": EnvVar(
+        name="ALIYUN_TTS_APPKEY",
+        default="",
+        description="Aliyun TTS Appkey from Intelligent Speech Interaction console",
+        secret=True,
+        group="tts",
+    ),
+    "ALIYUN_TTS_TOKEN": EnvVar(
+        name="ALIYUN_TTS_TOKEN",
+        default="",
+        description="Aliyun NLS access token (required for RESTful TTS authentication)",
+        secret=True,
+        group="tts",
+    ),
+    "ALIYUN_TTS_REGION": EnvVar(
+        name="ALIYUN_TTS_REGION",
+        default="shanghai",
+        description="Aliyun TTS region (shanghai, beijing, shenzhen)",
+        group="tts",
+    ),
+    "ALIYUN_TTS_SAMPLE_RATE": EnvVar(
+        name="ALIYUN_TTS_SAMPLE_RATE",
+        default=16000,
+        type=int,
+        description="Aliyun TTS sample rate (8000, 16000, 24000)",
+        group="tts",
+    ),
 }
 
 # Derived Redis prefixes built from REDIS_KEY_PREFIX
@@ -1131,6 +1281,17 @@ class EnhancedConfig:
         Returns:
             Formatted .env.example content as string
         """
+
+        # Format values for .env output, handling lists as comma-separated strings
+        def format_value(env_var: EnvVar, value: Any) -> str:
+            if value is None:
+                return ""
+            if env_var.type is list:
+                if isinstance(value, list):
+                    return ",".join(str(item) for item in value)
+                return str(value)
+            return str(value)
+
         if filter_type == "required":
             header_lines = [
                 "# AI-Shifu Environment Configuration - REQUIRED VARIABLES",
@@ -1185,15 +1346,13 @@ class EnhancedConfig:
                     metadata.append("Optional - handled by libraries")
                 else:
                     # Avoid leaking secret defaults
-                    default_display = (
-                        env_var.default
-                        if not (
-                            env_var.secret
-                            and env_var.example is None
-                            and env_var.default not in (None, "")
-                        )
-                        else ""
-                    )
+                    default_display = ""
+                    if not (
+                        env_var.secret
+                        and env_var.example is None
+                        and env_var.default not in (None, "")
+                    ):
+                        default_display = format_value(env_var, env_var.default)
                     metadata.append(f"Optional - default: {default_display}")
 
                 # Emit metadata on separate lines for readability and testing expectations
@@ -1219,7 +1378,7 @@ class EnhancedConfig:
                     ):
                         value = ""
 
-                value_str = "" if value is None else str(value)
+                value_str = format_value(env_var, value)
                 lines.append(f'{env_var.name}="{value_str}"')
                 lines.append("")
 

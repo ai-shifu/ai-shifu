@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from flaskr.common.swagger import register_schema_to_swagger
 from pydantic import BaseModel, Field
@@ -34,6 +36,9 @@ class GeneratedType(Enum):
     VARIABLE_UPDATE = "variable_update"
     OUTLINE_ITEM_UPDATE = "outline_item_update"
     DONE = "done"
+    # Audio types for TTS
+    AUDIO_SEGMENT = "audio_segment"
+    AUDIO_COMPLETE = "audio_complete"
 
     def __json__(self):
         return self.value
@@ -272,22 +277,90 @@ class LearnOutlineItemsWithBannerInfoDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class AudioSegmentDTO(BaseModel):
+    """DTO for streaming audio segment during TTS synthesis."""
+
+    segment_index: int = Field(..., description="Segment sequence number")
+    audio_data: str = Field(..., description="Base64-encoded audio data")
+    duration_ms: int = Field(default=0, description="Segment duration in milliseconds")
+    is_final: bool = Field(
+        default=False, description="Whether this is the last segment"
+    )
+
+    def __init__(
+        self,
+        segment_index: int,
+        audio_data: str,
+        duration_ms: int = 0,
+        is_final: bool = False,
+    ):
+        super().__init__(
+            segment_index=segment_index,
+            audio_data=audio_data,
+            duration_ms=duration_ms,
+            is_final=is_final,
+        )
+
+    def __json__(self):
+        return {
+            "segment_index": self.segment_index,
+            "audio_data": self.audio_data,
+            "duration_ms": self.duration_ms,
+            "is_final": self.is_final,
+        }
+
+
+@register_schema_to_swagger
+class AudioCompleteDTO(BaseModel):
+    """DTO for completed TTS audio with OSS URL."""
+
+    audio_url: str = Field(..., description="OSS URL of complete audio")
+    audio_bid: str = Field(..., description="Audio business identifier")
+    duration_ms: int = Field(..., description="Total audio duration in milliseconds")
+
+    def __init__(
+        self,
+        audio_url: str,
+        audio_bid: str,
+        duration_ms: int,
+    ):
+        super().__init__(
+            audio_url=audio_url,
+            audio_bid=audio_bid,
+            duration_ms=duration_ms,
+        )
+
+    def __json__(self):
+        return {
+            "audio_url": self.audio_url,
+            "audio_bid": self.audio_bid,
+            "duration_ms": self.duration_ms,
+        }
+
+
+@register_schema_to_swagger
 class RunMarkdownFlowDTO(BaseModel):
     outline_bid: str = Field(..., description="outline id", required=False)
     generated_block_bid: str = Field(
         ..., description="generated block id", required=False
     )
     type: GeneratedType = Field(..., description="generated type", required=False)
-    content: str | VariableUpdateDTO | OutlineItemUpdateDTO = Field(
-        ..., description="generated content", required=True
-    )
+    content: Union[
+        str, VariableUpdateDTO, OutlineItemUpdateDTO, AudioSegmentDTO, AudioCompleteDTO
+    ] = Field(..., description="generated content", required=True)
 
     def __init__(
         self,
         outline_bid: str,
         generated_block_bid: str,
         type: GeneratedType,
-        content: str | VariableUpdateDTO | OutlineItemUpdateDTO,
+        content: Union[
+            str,
+            VariableUpdateDTO,
+            OutlineItemUpdateDTO,
+            AudioSegmentDTO,
+            AudioCompleteDTO,
+        ],
     ):
         super().__init__(
             outline_bid=outline_bid,
@@ -316,6 +389,9 @@ class GeneratedBlockDTO(BaseModel):
     like_status: LikeStatus = Field(..., description="like status", required=False)
     block_type: BlockType = Field(..., description="block type", required=False)
     user_input: str = Field(..., description="user input", required=False)
+    audio_url: Optional[str] = Field(
+        default=None, description="TTS audio URL for this block"
+    )
 
     def __init__(
         self,
@@ -324,6 +400,7 @@ class GeneratedBlockDTO(BaseModel):
         like_status: LikeStatus,
         block_type: BlockType,
         user_input: str,
+        audio_url: Optional[str] = None,
     ):
         super().__init__(
             generated_block_bid=generated_block_bid,
@@ -331,6 +408,7 @@ class GeneratedBlockDTO(BaseModel):
             like_status=like_status,
             block_type=block_type,
             user_input=user_input,
+            audio_url=audio_url,
         )
 
     def __json__(self):
@@ -342,6 +420,8 @@ class GeneratedBlockDTO(BaseModel):
         }
         if self.block_type == BlockType.CONTENT:
             ret["like_status"] = self.like_status.value
+        if self.audio_url:
+            ret["audio_url"] = self.audio_url
         return ret
 
 
@@ -388,6 +468,9 @@ class PreviewSSEMessageType(Enum):
     INTERACTION = "interaction"
     TEXT_END = "text_end"
     ERROR = "error"
+    # Audio types for TTS (same literals as GeneratedType for consistency)
+    AUDIO_SEGMENT = "audio_segment"
+    AUDIO_COMPLETE = "audio_complete"
 
     def __json__(self):
         return self.value
@@ -412,7 +495,12 @@ class PreviewSSEMessage(BaseModel):
     )
     type: PreviewSSEMessageType = Field(..., description="SSE message type")
     data: (
-        PreviewContentSSEData | PreviewInteractionSSEData | PreviewTextEndSSEData | str
+        PreviewContentSSEData
+        | PreviewInteractionSSEData
+        | PreviewTextEndSSEData
+        | AudioSegmentDTO
+        | AudioCompleteDTO
+        | str
     )
 
     def __json__(self):

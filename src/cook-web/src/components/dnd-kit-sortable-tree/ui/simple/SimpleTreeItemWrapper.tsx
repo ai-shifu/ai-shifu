@@ -2,12 +2,21 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import clsx from 'clsx';
+import { ChevronDown, ChevronRight, Plus, Settings } from 'lucide-react';
 import React, { forwardRef } from 'react';
 import type { TreeItemComponentProps } from '../../types';
 import './SimpleTreeItemWrapper.css';
 
 interface SimpleTreeItemWrapperProps<T = {}> extends TreeItemComponentProps<T> {
   onChapterSelect?: () => void;
+  readonly?: boolean;
+  chapter?: {
+    label?: string;
+    onSettingsClick?: React.MouseEventHandler<HTMLButtonElement>;
+    onAddClick?: React.MouseEventHandler<HTMLButtonElement>;
+    showAdd?: boolean;
+  };
+  onItemClick?: React.MouseEventHandler<HTMLDivElement>;
 }
 
 export const SimpleTreeItemWrapper = forwardRef<
@@ -42,8 +51,28 @@ export const SimpleTreeItemWrapper = forwardRef<
     isOver,
     isOverParent,
     onChapterSelect,
+    chapter,
+    readonly = false,
+    onItemClick,
     ...rest
   } = props;
+
+  const shouldHandleCollapse = !disableCollapseOnItemClick && !!onCollapse;
+  const hasCustomItemClick = typeof onItemClick === 'function';
+  const handleWrapperClick =
+    shouldHandleCollapse || hasCustomItemClick
+      ? (event: React.MouseEvent<HTMLDivElement>) => {
+          onItemClick?.(event);
+
+          if (event.defaultPrevented) {
+            return;
+          }
+
+          if (shouldHandleCollapse) {
+            onCollapse?.();
+          }
+        }
+      : undefined;
 
   return (
     <li
@@ -59,14 +88,16 @@ export const SimpleTreeItemWrapper = forwardRef<
       )}
       style={{
         ...style,
-        paddingLeft: clone ? indentationWidth : indentationWidth * depth,
       }}
     >
       <div
-        className={clsx('dnd-sortable-tree_simple_tree-item', contentClassName)}
+        className={clsx(
+          'dnd-sortable-tree_simple_tree-item group',
+          contentClassName,
+        )}
         ref={ref}
         {...(manualDrag ? undefined : handleProps)}
-        onClick={disableCollapseOnItemClick ? undefined : onCollapse}
+        onClick={handleWrapperClick}
       >
         {!disableSorting && showDragHandle !== false && (
           <div
@@ -74,23 +105,70 @@ export const SimpleTreeItemWrapper = forwardRef<
             {...handleProps}
           />
         )}
-        {!manualDrag && !hideCollapseButton && !!onCollapse && !!childCount && (
+        {!manualDrag && !hideCollapseButton && !!onCollapse && !!childCount ? (
           <button
+            type='button'
             onClick={e => {
               if (!disableCollapseOnItemClick) {
                 return;
               }
               e.preventDefault();
+              e.stopPropagation();
               onCollapse?.();
             }}
             className={clsx(
               'dnd-sortable-tree_simple_tree-item-collapse_button',
-              collapsed &&
-                'dnd-sortable-tree_folder_simple-item-collapse_button-collapsed',
             )}
+          >
+            {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+          </button>
+        ) : (
+          <div
+            className='dnd-sortable-tree_simple_tree-item-collapse_button spacer'
+            aria-hidden='true'
           />
         )}
         {props.children}
+        {chapter && (
+          <div className='outline-tree_actions'>
+            {chapter.label ? (
+              <span className='outline-tree_section-count group-hover:hidden'>
+                {chapter.label}
+              </span>
+            ) : null}
+            <div className='outline-tree_action-buttons hidden group-hover:flex mx-2'>
+              {chapter.onSettingsClick && (
+                <button
+                  type='button'
+                  className='outline-tree_action-button mr-1'
+                  onMouseDown={e => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
+                  onClick={chapter.onSettingsClick}
+                  aria-label='chapter-settings'
+                >
+                  <Settings size={16} />
+                </button>
+              )}
+              {chapter.showAdd !== false && chapter.onAddClick && !readonly && (
+                <button
+                  type='button'
+                  className='outline-tree_action-button'
+                  onMouseDown={e => {
+                    // prevent drag/collapse event intercept, ensure click takes effect immediately
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
+                  onClick={chapter.onAddClick}
+                  aria-label='chapter-add-section'
+                >
+                  <Plus size={16} />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </li>
   );

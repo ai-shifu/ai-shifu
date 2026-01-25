@@ -34,6 +34,7 @@ export const useLessonTree = () => {
   const { trackEvent } = useTracking();
   const { updateCourseId } = useEnvStore.getState();
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const previewMode = useSystemStore(state => state.previewMode);
   const { openPayModal } = useCourseStore(
     useShallow(state => ({
       openPayModal: state.openPayModal,
@@ -79,16 +80,20 @@ export const useLessonTree = () => {
         }
       }
       if (lesson) {
-        if (
+        const needsLogin =
           (lesson.type === LEARNING_PERMISSION.TRIAL ||
             lesson.type === LEARNING_PERMISSION.NORMAL) &&
-          !isLoggedIn
-        ) {
+          !isLoggedIn;
+        if (!previewMode && needsLogin) {
           window.location.href = `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`;
           return;
         }
 
-        if (lesson.type === LEARNING_PERMISSION.NORMAL && !lesson.is_paid) {
+        if (
+          !previewMode &&
+          lesson.type === LEARNING_PERMISSION.NORMAL &&
+          !lesson.is_paid
+        ) {
           openPayModal({
             type: lesson.type,
             payload: {
@@ -111,14 +116,14 @@ export const useLessonTree = () => {
         }
       }
     },
-    [isLoggedIn, openPayModal],
+    [isLoggedIn, openPayModal, previewMode],
   );
 
   const loadTreeInner = useCallback(async () => {
     setSelectedLessonId(null);
     const resp = await getLessonTree(
       useEnvStore.getState().courseId,
-      useSystemStore.getState().previewMode,
+      previewMode,
     );
 
     const treeData = resp;
@@ -131,10 +136,8 @@ export const useLessonTree = () => {
     //   await updateCourseId(treeData.course_id);
     // }
 
-    let lessonCount = 0;
     const catalogs = (treeData.outline_items || []).map(l => {
       const lessons = l.children.map(c => {
-        lessonCount += 1;
         return {
           id: c.bid,
           name: c.title,
@@ -161,12 +164,11 @@ export const useLessonTree = () => {
     const newTree = {
       catalogCount: catalogs.length,
       catalogs,
-      lessonCount,
       bannerInfo: treeData.banner_info,
     };
 
     return newTree;
-  }, [updateCourseId]);
+  }, [previewMode, updateCourseId]);
 
   const setSelectedState = useCallback((tree, chapterId, lessonId) => {
     const chapter = tree.catalogs.find(v => v.id === chapterId);

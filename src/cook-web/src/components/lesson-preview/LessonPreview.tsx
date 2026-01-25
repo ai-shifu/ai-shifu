@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import ScrollText from './ScrollText.svg';
@@ -11,7 +11,14 @@ import {
   ChatContentItem,
   ChatContentItemType,
 } from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
-import { OnSendContentParams } from 'markdown-flow-ui';
+import { OnSendContentParams } from 'markdown-flow-ui/renderer';
+import type { AudioCompleteData } from '@/c-api/studyV2';
+import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import VariableList from './VariableList';
+import {
+  getStoredPreviewVariables,
+  type PreviewVariablesMap,
+} from './variableStorage';
 import styles from './LessonPreview.module.scss';
 import { cn } from '@/lib/utils';
 import {
@@ -22,14 +29,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
+
 interface LessonPreviewProps {
   loading: boolean;
-  isStreaming?: boolean;
   errorMessage?: string | null;
   items: ChatContentItem[];
+  variables?: PreviewVariablesMap;
   shifuBid: string;
   onRefresh: (generatedBlockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
+  onRequestAudioForBlock?: (params: {
+    shifuBid: string;
+    blockId: string;
+    text: string;
+  }) => Promise<AudioCompleteData | null>;
+  onVariableChange?: (name: string, value: string) => void;
+  variableOrder?: string[];
   reGenerateConfirm?: {
     open: boolean;
     onConfirm: () => void;
@@ -42,96 +57,174 @@ const noop = () => {};
 const LessonPreview: React.FC<LessonPreviewProps> = ({
   loading,
   items = [],
+  variables,
   shifuBid,
   onRefresh,
   onSend,
+  onRequestAudioForBlock,
+  onVariableChange,
+  variableOrder,
   reGenerateConfirm,
 }) => {
   const { t } = useTranslation();
+  const confirmButtonText = t('module.renderUi.core.confirm');
+  const copyButtonText = t('module.renderUi.core.copyCode');
+  const copiedButtonText = t('module.renderUi.core.copied');
+  const [variablesCollapsed, setVariablesCollapsed] = React.useState(false);
+
   const showEmpty = !loading && items.length === 0;
+
+  const fallbackVariables = React.useMemo(() => {
+    if (!shifuBid) return {} as PreviewVariablesMap;
+    const stored = getStoredPreviewVariables(shifuBid);
+    return {
+      ...(stored.system || {}),
+      ...(stored.custom || {}),
+    } as PreviewVariablesMap;
+  }, [shifuBid]);
+
+  const resolvedVariables = React.useMemo(() => {
+    const candidates = [variables, items[0]?.variables];
+    for (const candidate of candidates) {
+      if (candidate && Object.keys(candidate).length) return candidate;
+    }
+    return Object.keys(fallbackVariables).length
+      ? fallbackVariables
+      : undefined;
+  }, [fallbackVariables, items, variables]);
+
+  const itemByGeneratedBid = React.useMemo(() => {
+    const map = new Map<string, ChatContentItem>();
+    items.forEach(item => {
+      if (item.generated_block_bid) {
+        map.set(item.generated_block_bid, item);
+      }
+    });
+    return map;
+  }, [items]);
+
   return (
-    <div className={cn(styles.lessonPreview, 'flex h-full flex-col text-sm')}>
-      <div className='flex flex-wrap items-baseline gap-2 pt-[5px]'>
-        <h2 className='text-base font-semibold text-foreground'>
+    <div className={cn(styles.lessonPreview, 'text-sm')}>
+      <div className='flex items-baseline gap-2 pt-[4px]'>
+        <h2 className='text-base font-semibold text-foreground whitespace-nowrap shrink-0'>
           {t('module.shifu.previewArea.title')}
         </h2>
-        <p className='text-xs text-[rgba(0,0,0,0.45)]'>
+        <span
+          className='flex-1 min-w-0 text-xs text-[rgba(0,0,0,0.45)] truncate'
+          title={t('module.shifu.previewArea.description')}
+        >
           {t('module.shifu.previewArea.description')}
-        </p>
+        </span>
       </div>
-      <div className='mt-[10px] flex-1 overflow-hidden rounded-xl border bg-white'>
-        {loading && items.length === 0 ? (
-          <div className='flex h-full flex-col items-center justify-center gap-2 p-6 text-xs text-muted-foreground'>
-            <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
-            <span>{t('module.shifu.previewArea.loading')}</span>
-          </div>
-        ) : showEmpty ? (
-          <div className='flex h-full flex-col items-center justify-center gap-[13px] px-8 text-center text-[14px] leading-5 text-[rgba(10,10,10,0.45)]'>
-            <Image
-              src={ScrollText.src}
-              alt='scroll-text'
-              width={64}
-              height={64}
+
+      <div className={styles.previewArea}>
+        {!showEmpty && (
+          <div className={styles.variableListWrapper}>
+            <VariableList
+              variables={resolvedVariables}
+              collapsed={variablesCollapsed}
+              onToggle={() => setVariablesCollapsed(prev => !prev)}
+              onChange={onVariableChange}
+              variableOrder={variableOrder}
             />
-            <span>{t('module.shifu.previewArea.empty')}</span>
           </div>
-        ) : (
-          <div className='flex h-full flex-col overflow-y-auto p-6'>
-            {items.map((item, idx) => {
+        )}
+
+        <div className={styles.previewAreaContent}>
+          {loading && items.length === 0 && (
+            <div className='flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground'>
+              <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
+              <span>{t('module.shifu.previewArea.loading')}</span>
+            </div>
+          )}
+
+          {showEmpty && !loading && (
+            <div className='h-full flex flex-col items-center justify-center gap-[13px] px-8 text-center text-[14px] leading-5 text-[rgba(10,10,10,0.45)]'>
+              <Image
+                src={ScrollText.src}
+                alt='scroll-text'
+                width={64}
+                height={64}
+              />
+              <span>{t('module.shifu.previewArea.empty')}</span>
+            </div>
+          )}
+
+          {!showEmpty &&
+            items.map((item, idx) => {
               if (item.type === ChatContentItemType.LIKE_STATUS) {
+                const parentBlockBid = item.parent_block_bid || '';
+                const parentContentItem = parentBlockBid
+                  ? itemByGeneratedBid.get(parentBlockBid)
+                  : undefined;
                 return (
                   <div
-                    key={`${idx}-interaction`}
-                    style={{
-                      maxWidth: '100%',
-                      padding: '0',
-                    }}
+                    key={`${idx}-like`}
+                    className='p-0'
+                    style={{ maxWidth: '100%' }}
                   >
                     <InteractionBlock
                       shifu_bid={shifuBid}
-                      generated_block_bid={item.parent_block_bid || ''}
+                      generated_block_bid={parentBlockBid}
                       like_status={item.like_status}
                       onRefresh={onRefresh}
                       onToggleAskExpanded={noop}
-                      disableAskButton={true}
-                      disableInteractionButtons={true}
+                      disableAskButton
+                      disableInteractionButtons
+                      extraActions={
+                        <AudioPlayer
+                          audioUrl={parentContentItem?.audioUrl}
+                          streamingSegments={parentContentItem?.audioSegments}
+                          isStreaming={Boolean(
+                            parentContentItem?.isAudioStreaming,
+                          )}
+                          alwaysVisible={true}
+                          onRequestAudio={
+                            onRequestAudioForBlock
+                              ? () =>
+                                  onRequestAudioForBlock({
+                                    shifuBid,
+                                    blockId: parentBlockBid,
+                                    text: parentContentItem?.content || '',
+                                  })
+                              : undefined
+                          }
+                          className='interaction-icon-btn'
+                          size={16}
+                        />
+                      }
                     />
                   </div>
                 );
               }
+
               return (
                 <div
                   key={`${idx}-content`}
+                  className='p-0 relative'
                   style={{
-                    position: 'relative',
                     maxWidth: '100%',
-                    padding: '0',
-                    margin:
-                      !idx || item.type === ChatContentItemType.INTERACTION
-                        ? '0'
-                        : '40px 0 0 0',
+                    margin: !idx ? '0' : '40px 0 0 0',
                   }}
                 >
                   <ContentBlock
                     item={item}
                     mobileStyle={false}
                     blockBid={item.generated_block_bid}
-                    confirmButtonText={t('module.renderUi.core.confirm')}
+                    confirmButtonText={confirmButtonText}
+                    copyButtonText={copyButtonText}
+                    copiedButtonText={copiedButtonText}
                     onSend={onSend}
                   />
                 </div>
               );
             })}
-          </div>
-        )}
+        </div>
       </div>
+
       <Dialog
         open={reGenerateConfirm?.open ?? false}
-        onOpenChange={open => {
-          if (!open && reGenerateConfirm?.onCancel) {
-            reGenerateConfirm.onCancel();
-          }
-        }}
+        onOpenChange={open => !open && reGenerateConfirm?.onCancel?.()}
       >
         <DialogContent className='sm:max-w-md'>
           <DialogHeader>

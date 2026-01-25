@@ -37,6 +37,7 @@
   max-height: none;
 }
 .askBlock .assistantMessage {
+  width: 100%;
   display: flex;
   justify-content: flex-start;
   color: rgba(0, 0, 0, 0.65);

@@ -13,7 +13,10 @@ from ..service.user.user import (
     update_user_open_id,
     upload_user_avatar,
 )
-from ..service.user.utils import send_sms_code
+from ..service.user.utils import (
+    ensure_admin_creator_and_demo_permissions,
+    send_sms_code,
+)
 from ..service.feedback.funs import submit_feedback
 from ..service.user.auth import get_provider
 from ..service.user.auth.base import OAuthCallbackRequest
@@ -98,6 +101,27 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                                     $ref: "#/components/schemas/UserInfo"
         """
         return make_common_response(request.user)
+
+    @app.route(path_prefix + "/ensure_admin_creator", methods=["POST"])
+    def ensure_admin_creator():
+        """
+        Ensure admin creator permissions for the current user.
+        ---
+        tags:
+            - user
+        responses:
+            200:
+                description: ensure admin creator permissions
+        """
+        language = getattr(request.user, "language", None) or "en-US"
+        ensure_admin_creator_and_demo_permissions(
+            app,
+            request.user.user_id,
+            language,
+            "admin",
+        )
+        db.session.commit()
+        return make_common_response({"granted": True})
 
     @app.route(path_prefix + "/update_info", methods=["POST"])
     def update_info():

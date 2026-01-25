@@ -11,6 +11,7 @@ import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import { useCourseStore, useUiLayoutStore } from '@/c-store';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
+import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
 
 /**
  * Overall canvas for the chat area
@@ -51,11 +52,12 @@ export const ChatUi = ({
         hideMobileFooter ? styles.hideMobileFooter : '',
       )}
     >
-      {frameLayout !== FRAME_LAYOUT_MOBILE ? (
-        <div className={styles.header}></div>
-      ) : (
-        <div className={styles.headerMobile}></div>
-      )}
+      {
+        frameLayout !== FRAME_LAYOUT_MOBILE ? (
+          <div className={styles.header}></div>
+        ) : null
+        // <div className={styles.headerMobile}></div>
+      }
       {
         <ChatComponents
           chapterId={chapterId}
@@ -83,9 +85,23 @@ export const ChatUi = ({
       )}
 
       <div className={styles.footer}>
-        <span className={styles.footerText}>
-          {t('module.chat.aiGenerated')}
-        </span>
+        <div
+          id='chat-scroll-target'
+          className={styles.scrollTarget}
+        />
+        <div className={styles.footerContent}>
+          <span className={styles.footerText}>
+            {t('module.chat.aiGenerated')}
+          </span>
+          <span className={styles.separator}>|</span>
+          <span className={styles.footerText}>
+            <MarkdownFlowLink
+              prefix={t('module.chat.poweredByPrefix')}
+              suffix={t('module.chat.poweredBySuffix')}
+              linkText={t('module.chat.markdownFlow')}
+            />
+          </span>
+        </div>
       </div>
     </div>
   );

@@ -1,20 +1,11 @@
 // Course catalog
 import { memo, useCallback, useState, useEffect, useContext } from 'react';
 import styles from './CourseCatalogList.module.scss';
-import { useTranslation } from 'react-i18next';
-import { shifu } from '@/c-service/Shifu';
 import TrialNodeBottomArea from './TrialNodeBottomArea';
 import CourseCatalog from './CourseCatalog';
 import { TRAIL_NODE_POSITION } from './TrialNodeBottomArea';
 import TrialNodeOuter from './TrialNodeOuter';
-import { AppContext } from '../AppContext';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 export const CourseCatalogList = ({
   courseName = '',
   courseAvatar = '',
@@ -53,19 +44,7 @@ export const CourseCatalogList = ({
                 <AvatarImage src={courseAvatar} />
               </Avatar>
             )}
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className={styles.titleName}>{courseName}</div>
-                </TooltipTrigger>
-                <TooltipContent
-                  side='top'
-                  className='bg-[#0A0A0A] text-white border-transparent text-xs'
-                >
-                  {courseName}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <div className={styles.titleName}>{courseName}</div>
           </div>
         </div>
         <div className={styles.listRow}>

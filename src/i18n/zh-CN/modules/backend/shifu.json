@@ -1,6 +1,8 @@
 {
   "__namespace__": "server.shifu",
   "__flat__": {
+    "defaultChapterName": "未命名章",
+    "defaultLessonName": "未命名节",
     "importFileInvalid": "导入文件无效",
     "noPermission": "没有权限",
     "outlineDeleted": "大纲已被删除",
@@ -8,13 +10,14 @@
     "outlineNameTooLong": "大纲名称过长",
     "outlineNotFound": "大纲不存在",
     "parentOutlineNotFound": "父级大纲不存在",
-    "shifuDescriptionTooLong": "师傅描述不能超过500个字符",
-    "shifuNameAlreadyExists": "同名师傅已存在",
-    "shifuNameRequired": "请输入师傅名称",
-    "shifuNameTooLong": "师傅名称不能超过{max_length}个字符",
-    "shifuNotFound": "师傅不存在",
-    "shifuPriceTooLow": "师傅价格不能低于{min_shifu_price}元",
-    "shifuStructNotFound": "师傅结构不存在",
+    "shifuDescriptionTooLong": "课程描述不能超过500个字符",
+    "shifuNameAlreadyExists": "同名课程已存在",
+    "shifuNameRequired": "请输入课程名称",
+    "shifuNameTooLong": "课程名称不能超过{max_length}个字符",
+    "shifuNotFound": "课程不存在",
+    "shifuPriceTooLow": "课程价格不能低于{min_shifu_price}元",
+    "shifuStructNotFound": "课程结构不存在",
+    "ttsNotEnabled": "语音合成未开启",
     "unitNameTooLong": "单元名称过长",
     "unitNotFound": "单元不存在"
   }

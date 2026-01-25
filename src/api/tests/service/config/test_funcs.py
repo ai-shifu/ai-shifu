@@ -5,6 +5,7 @@ Unit tests for config service functions.
 import pytest
 from unittest.mock import MagicMock, patch
 from datetime import datetime
+from sqlalchemy.exc import SQLAlchemyError
 from flaskr.service.config.funcs import (
     _get_fernet_key,
     _get_fernet,
@@ -152,7 +153,7 @@ class TestGetConfig:
         """Test that get_config returns value from environment first."""
         with app.app_context():
             mock_get_config_from_common.return_value = "env-value"
-            result = get_config(app, "test_key")
+            result = get_config("test_key")
             assert result == "env-value"
             mock_get_config_from_common.assert_called_once_with("test_key", None)
             mock_redis.get.assert_not_called()
@@ -171,7 +172,7 @@ class TestGetConfig:
                 is_encrypted=False, value="cached-value"
             ).model_dump_json()
             mock_redis.get.return_value = cache_data
-            result = get_config(app, "test_key")
+            result = get_config("test_key")
             assert result == "cached-value"
             mock_decrypt.assert_not_called()
 
@@ -191,7 +192,7 @@ class TestGetConfig:
             ).model_dump_json()
             mock_redis.get.return_value = cache_data
             mock_decrypt.return_value = "decrypted-value"
-            result = get_config(app, "test_key")
+            result = get_config("test_key")
             assert result == "decrypted-value"
             mock_decrypt.assert_called_once_with(app, "encrypted-value")
 
@@ -227,7 +228,7 @@ class TestGetConfig:
             )
             mock_config_class.query = mock_query
 
-            result = get_config(app, "test_key")
+            result = get_config("test_key")
             assert result == "db-value"
             mock_decrypt.assert_not_called()
             mock_lock.release.assert_called_once()
@@ -266,7 +267,7 @@ class TestGetConfig:
             mock_config_class.query = mock_query
 
             mock_decrypt.return_value = "decrypted-db-value"
-            result = get_config(app, "test_key")
+            result = get_config("test_key")
             assert result == "decrypted-db-value"
             mock_decrypt.assert_called_once_with(app, "encrypted-db-value")
             mock_lock.release.assert_called_once()
@@ -293,7 +294,7 @@ class TestGetConfig:
             )
             mock_config_class.query = mock_query
 
-            result = get_config(app, "non_existent_key")
+            result = get_config("non_existent_key")
             assert result is None
             # release may be called multiple times due to finally block
             assert mock_lock.release.call_count >= 1
@@ -310,8 +311,34 @@ class TestGetConfig:
             mock_lock.acquire.return_value = False
             mock_redis.lock.return_value = mock_lock
 
-            result = get_config(app, "test_key")
+            result = get_config("test_key")
             assert result is None
+
+    @patch("flaskr.service.config.funcs.get_config_from_common")
+    @patch("flaskr.service.config.funcs.redis")
+    @patch("flaskr.service.config.funcs.Config")
+    def test_get_config_uses_env_when_db_not_ready(
+        self, mock_config_class, mock_redis, mock_get_config_from_common, app
+    ):
+        """Fallback to environment config when database table is missing."""
+        with app.app_context():
+            app.config["REDIS_KEY_PREFIX"] = "test:"
+            mock_get_config_from_common.side_effect = [None, "env-fallback"]
+            mock_redis.get.return_value = None
+            mock_lock = MagicMock()
+            mock_lock.acquire.return_value = True
+            mock_redis.lock.return_value = mock_lock
+
+            mock_query = MagicMock()
+            mock_query.filter.return_value.order_by.return_value.first.side_effect = (
+                SQLAlchemyError("sys_configs missing")
+            )
+            mock_config_class.query = mock_query
+
+            result = get_config("test_key")
+            assert result == "env-fallback"
+            assert mock_get_config_from_common.call_count == 2
+            mock_lock.release.assert_called_once()
 
 
 class TestAddConfig:
@@ -342,6 +369,11 @@ class TestAddConfig:
             mock_encrypt.assert_not_called()
             mock_config_instance = MagicMock()
             mock_config_class.return_value = mock_config_instance
+            mock_query = MagicMock()
+            mock_query.filter.return_value.order_by.return_value.first.return_value = (
+                None
+            )
+            mock_config_class.query = mock_query
 
             result = add_config(
                 app, "test_key", "test_value", is_secret=False, remark="test remark"
@@ -378,6 +410,11 @@ class TestAddConfig:
             mock_encrypt.return_value = "encrypted-value"
             mock_config_instance = MagicMock()
             mock_config_class.return_value = mock_config_instance
+            mock_query = MagicMock()
+            mock_query.filter.return_value.order_by.return_value.first.return_value = (
+                None
+            )
+            mock_config_class.query = mock_query
 
             result = add_config(
                 app, "test_key", "plain_value", is_secret=True, remark="secret remark"
@@ -406,7 +443,7 @@ class TestAddConfig:
         mock_get_config_from_common,
         app,
     ):
-        """Test that add_config uses cached encrypted value if exists."""
+        """Test that add_config ignores cached encrypted values when adding."""
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
             app.config["SECRET_KEY"] = "test-secret-key-12345"
@@ -420,12 +457,15 @@ class TestAddConfig:
             mock_encrypt.return_value = "re-encrypted-value"
             mock_config_instance = MagicMock()
             mock_config_class.return_value = mock_config_instance
+            mock_query = MagicMock()
+            mock_query.filter.return_value.order_by.return_value.first.return_value = (
+                None
+            )
+            mock_config_class.query = mock_query
 
             result = add_config(app, "test_key", "new_value", is_secret=True)
-            # Should use cached decrypted value instead of new_value
-            mock_decrypt.assert_called_once_with(app, "cached-encrypted")
-            # Should encrypt the cached value
-            mock_encrypt.assert_called_once_with(app, "cached-decrypted")
+            mock_decrypt.assert_not_called()
+            mock_encrypt.assert_called_once_with(app, "new_value")
             assert result is True
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
@@ -455,6 +495,11 @@ class TestAddConfig:
             mock_generate_id.return_value = "test-config-bid-123"
             mock_config_instance = MagicMock()
             mock_config_class.return_value = mock_config_instance
+            mock_query = MagicMock()
+            mock_query.filter.return_value.order_by.return_value.first.return_value = (
+                None
+            )
+            mock_config_class.query = mock_query
 
             result = add_config(app, "test_key", "new_value", is_secret=False)
             # Should use cached value instead of new_value
@@ -523,9 +568,7 @@ class TestUpdateConfig:
             )
             assert result is True
             assert mock_config_instance.value == "new_value"
-            assert (
-                mock_config_instance.is_secret is False
-            )  # Note: funcs.py uses is_secret but model has is_encrypted
+            assert mock_config_instance.is_encrypted is False
             assert mock_config_instance.remark == "new remark"
             assert mock_config_instance.updated_by == "system"
             mock_db.session.commit.assert_called_once()
@@ -570,7 +613,7 @@ class TestUpdateConfig:
             )
             assert result is True
             assert mock_config_instance.value == "encrypted-new-value"
-            assert mock_config_instance.is_secret is True
+            assert mock_config_instance.is_encrypted is True
             assert mock_config_instance.remark == "new remark"
             mock_encrypt.assert_called_once_with(app, "new_plain_value")
 
@@ -584,7 +627,7 @@ class TestUpdateConfig:
         self,
         mock_encrypt,
         mock_decrypt,
-        mock_config,
+        mock_config_class,
         mock_db,
         mock_redis,
         mock_get_config_from_common,
@@ -603,16 +646,16 @@ class TestUpdateConfig:
             mock_encrypt.return_value = "re-encrypted-value"
 
             # Mock database query
-            mock_config = MagicMock()
-            mock_config.value = "old-value"
-            mock_config.is_secret = False
-            mock_config.remark = ""
-            mock_config.created_at = datetime.now()
+            mock_config_record = MagicMock()
+            mock_config_record.value = "old-value"
+            mock_config_record.is_secret = False
+            mock_config_record.remark = ""
+            mock_config_record.created_at = datetime.now()
             mock_query = MagicMock()
             mock_query.filter.return_value.order_by.return_value.first.return_value = (
-                mock_config
+                mock_config_record
             )
-            mock_config.query = mock_query
+            mock_config_class.query = mock_query
 
             result = update_config(app, "test_key", "new_value", is_secret=True)
             # Should use cached decrypted value instead of new_value
@@ -629,7 +672,7 @@ class TestUpdateConfig:
     def test_update_config_from_cache_plain(
         self,
         mock_encrypt,
-        mock_config,
+        mock_config_class,
         mock_db,
         mock_redis,
         mock_get_config_from_common,
@@ -645,16 +688,16 @@ class TestUpdateConfig:
             mock_redis.get.return_value = cache_data
 
             # Mock database query
-            mock_config = MagicMock()
-            mock_config.value = "old-value"
-            mock_config.is_secret = False
-            mock_config.remark = ""
-            mock_config.created_at = datetime.now()
+            mock_config_record = MagicMock()
+            mock_config_record.value = "old-value"
+            mock_config_record.is_secret = False
+            mock_config_record.remark = ""
+            mock_config_record.created_at = datetime.now()
             mock_query = MagicMock()
             mock_query.filter.return_value.order_by.return_value.first.return_value = (
-                mock_config
+                mock_config_record
             )
-            mock_config.query = mock_query
+            mock_config_class.query = mock_query
 
             result = update_config(app, "test_key", "new_value", is_secret=False)
             # Should use cached value instead of new_value
@@ -671,11 +714,12 @@ class TestUpdateConfig:
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")
+    @patch("flaskr.service.config.funcs.db")
     @patch("flaskr.service.config.funcs.Config")
     def test_update_config_not_found(
-        self, mock_config_class, mock_redis, mock_get_config_from_common, app
+        self, mock_config_class, mock_db, mock_redis, mock_get_config_from_common, app
     ):
-        """Test that update_config returns False when config not found."""
+        """Test that update_config inserts when config not found."""
         with app.app_context():
             app.config["REDIS_KEY_PREFIX"] = "test:"
             mock_get_config_from_common.return_value = None
@@ -689,7 +733,9 @@ class TestUpdateConfig:
             mock_config_class.query = mock_query
 
             result = update_config(app, "non_existent_key", "new_value")
-            assert result is False
+            assert result is True
+            mock_db.session.add.assert_called_once()
+            mock_db.session.commit.assert_called_once()
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")

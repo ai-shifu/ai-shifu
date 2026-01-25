@@ -57,14 +57,14 @@ const sharedLocalesMetadata = (() => {
   return { default: 'en-US', locales: {}, namespaces: [] };
 })();
 
-// Only expose real user-facing locales to the frontend env (hide pseudo-locale)
+// Only expose real user-facing locales to the frontend env
 const allowedFrontendLocales = new Set(['en-US', 'zh-CN']);
 const filteredLocales = Object.fromEntries(
   Object.entries(sharedLocalesMetadata.locales || {}).filter(([code]) =>
     allowedFrontendLocales.has(code),
   ),
 );
-// Filter out any pseudo-locale style namespaces (only allow sane identifiers)
+// Filter out any invalid namespace identifiers
 const isValidNs = (s: unknown): s is string =>
   typeof s === 'string' && /^[A-Za-z0-9_.-]+$/.test(s);
 const validNamespaces = Array.isArray((sharedLocalesMetadata as any).namespaces)
@@ -101,7 +101,7 @@ const nextConfig: NextConfig = {
 
   // Effective only in Turbopack dev
   experimental: {
-    externalDir: true,
+    externalDir: process.env.NEXT_EXTERNAL_DIR === 'true',
   },
 
   reactStrictMode: false,

@@ -21,15 +21,20 @@ export const useEnvStore = create<EnvStoreState>(set => ({
     set({ umamiScriptSrc }),
   eruda: environment.enableEruda.toString(),
   updateEruda: async (eruda: string) => set({ eruda }),
-  baseURL: environment.apiBaseUrl,
-  updateBaseURL: async (baseURL: string) => set({ baseURL }),
+  baseURL: environment.apiBaseUrl.replace(/\/+$/, ''),
+  updateBaseURL: async (baseURL: string) =>
+    set({ baseURL: baseURL.replace(/\/+$/, '') }),
   logoHorizontal: environment.logoHorizontal,
   updateLogoHorizontal: async (logoHorizontal: string) =>
     set({ logoHorizontal }),
   logoVertical: environment.logoVertical,
   updateLogoVertical: async (logoVertical: string) => set({ logoVertical }),
-  logoUrl: environment.logoUrl,
-  updateLogoUrl: async (logoUrl: string) => set({ logoUrl }),
+  logoWideUrl: environment.logoWideUrl,
+  updateLogoWideUrl: async (logoWideUrl: string) => set({ logoWideUrl }),
+  logoSquareUrl: environment.logoSquareUrl,
+  updateLogoSquareUrl: async (logoSquareUrl: string) => set({ logoSquareUrl }),
+  faviconUrl: environment.faviconUrl,
+  updateFaviconUrl: async (faviconUrl: string) => set({ faviconUrl }),
   enableWxcode: environment.enableWechatCode.toString(),
   updateEnableWxcode: async (enableWxcode: string) => set({ enableWxcode }),
   homeUrl: environment.homeUrl,
@@ -42,9 +47,21 @@ export const useEnvStore = create<EnvStoreState>(set => ({
     set({ stripePublishableKey }),
   stripeEnabled: environment.stripeEnabled.toString(),
   updateStripeEnabled: async (stripeEnabled: string) => set({ stripeEnabled }),
+  payOrderExpireSeconds: 600,
+  updatePayOrderExpireSeconds: async (payOrderExpireSeconds: number) =>
+    set({ payOrderExpireSeconds }),
   paymentChannels: environment.paymentChannels,
   updatePaymentChannels: async (paymentChannels: string[]) =>
     set({ paymentChannels }),
+  loginMethodsEnabled: environment.loginMethodsEnabled,
+  updateLoginMethodsEnabled: async (loginMethodsEnabled: string[]) =>
+    set({ loginMethodsEnabled }),
+  defaultLoginMethod: environment.defaultLoginMethod,
+  updateDefaultLoginMethod: async (defaultLoginMethod: string) =>
+    set({ defaultLoginMethod }),
+  legalUrls: environment.legalUrls,
+  updateLegalUrls: async (legalUrls: EnvStoreState['legalUrls']) =>
+    set({ legalUrls }),
   runtimeConfigLoaded: false,
   setRuntimeConfigLoaded: (runtimeConfigLoaded: boolean) =>
     set({ runtimeConfigLoaded }),

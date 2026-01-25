@@ -111,6 +111,15 @@ const Header = () => {
                   {t('component.header.readonly')}
                 </span>
               )}
+              {currentShifu?.archived && (
+                <span className={s.archived}>{t('common.core.archived')}</span>
+              )}
+              <div className='ml-2'>
+                <ShifuSetting
+                  shifuId={currentShifu?.bid || ''}
+                  onSave={onShifuSave}
+                />
+              </div>
             </div>
 
             <div className='flex items-center'>
@@ -148,10 +157,6 @@ const Header = () => {
       <div className='flex-1'></div>
 
       <div className='flex flex-row items-center'>
-        <ShifuSetting
-          shifuId={currentShifu?.bid || ''}
-          onSave={onShifuSave}
-        />
         <Preivew />
         <div className='flex items-center justify-center h-9 rounded-lg cursor-pointer shifu-setting-icon-container ml-2'>
           <Button

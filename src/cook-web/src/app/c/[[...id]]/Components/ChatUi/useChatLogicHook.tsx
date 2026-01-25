@@ -19,6 +19,8 @@ import { useShallow } from 'zustand/react/shallow';
 import {
   StudyRecordItem,
   LikeStatus,
+  AudioCompleteData,
+  type AudioSegmentData,
   getRunMessage,
   SSE_INPUT_TYPE,
   getLessonStudyRecord,
@@ -28,16 +30,23 @@ import {
   BLOCK_TYPE,
   BlockType,
   checkIsRunning,
+  streamGeneratedBlockAudio,
 } from '@/c-api/studyV2';
+import {
+  upsertAudioComplete,
+  upsertAudioSegment,
+  type AudioSegment,
+} from '@/c-utils/audio-utils';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import {
   events,
   EVENT_NAMES as BZ_EVENT_NAMES,
 } from '@/app/c/[[...id]]/events';
 import { EVENT_NAMES } from '@/c-common/hooks/useTracking';
-import { OnSendContentParams } from 'markdown-flow-ui';
+import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { createInteractionParser } from 'remark-flow';
 import LoadingBar from './LoadingBar';
+import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
 import { useTranslation } from 'react-i18next';
 import { show as showToast } from '@/hooks/useToast';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
@@ -80,6 +89,13 @@ export interface ChatContentItem {
   type: ChatContentItemType | BlockType;
   ask_list?: ChatContentItem[]; // list of ask records for this content block
   isAskExpanded?: boolean; // whether the ask panel is expanded
+  generateTime?: number;
+  variables?: PreviewVariablesMap;
+  // Audio properties for TTS
+  audioUrl?: string;
+  audioSegments?: AudioSegment[];
+  isAudioStreaming?: boolean;
+  audioDurationMs?: number;
 }
 
 interface SSEParams {
@@ -114,6 +130,9 @@ export interface UseChatSessionResult {
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onRefresh: (generatedBlockBid: string) => void;
   toggleAskExpanded: (parentBlockBid: string) => void;
+  requestAudioForBlock: (
+    generatedBlockBid: string,
+  ) => Promise<AudioCompleteData | null>;
   reGenerateConfirm: {
     open: boolean;
     onConfirm: () => void;
@@ -176,6 +195,7 @@ function useChatLogicHook({
   const runRef = useRef<((params: SSEParams) => void) | null>(null);
   const interactionParserRef = useRef(createInteractionParser());
   const sseRef = useRef<any>(null);
+  const ttsSseRef = useRef<Record<string, any>>({});
   const lastInteractionBlockRef = useRef<ChatContentItem | null>(null);
   const hasScrolledToBottomRef = useRef<boolean>(false);
   const [pendingRegenerate, setPendingRegenerate] = useState<{
@@ -185,6 +205,7 @@ function useChatLogicHook({
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
 
   const effectivePreviewMode = previewMode ?? false;
+  const allowTtsStreaming = !effectivePreviewMode;
   const getAskButtonMarkup = useCallback(
     () =>
       `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
@@ -628,6 +649,28 @@ function useChatLogicHook({
                   name: response.content.variable_value,
                 });
               }
+            } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+              if (!allowTtsStreaming) {
+                return;
+              }
+              // Handle audio segment during TTS streaming
+              const audioSegment = response.content as AudioSegmentData;
+              if (blockId) {
+                setTrackedContentList(prevState =>
+                  upsertAudioSegment(prevState, blockId, audioSegment),
+                );
+              }
+            } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+              if (!allowTtsStreaming) {
+                return;
+              }
+              // Handle audio completion with OSS URL
+              const audioComplete = response.content as AudioCompleteData;
+              if (blockId) {
+                setTrackedContentList(prevState =>
+                  upsertAudioComplete(prevState, blockId, audioComplete),
+                );
+              }
             }
           } catch (error) {
             console.warn('SSE handling error:', error);
@@ -662,6 +705,7 @@ function useChatLogicHook({
       lessonId,
       mobileStyle,
       trackTrailProgress,
+      allowTtsStreaming,
       updateUserInfo,
     ],
   );
@@ -691,7 +735,7 @@ function useChatLogicHook({
           result.push({
             generated_block_bid: '',
             type: BLOCK_TYPE.ASK,
-            isAskExpanded: false,
+            isAskExpanded: !mobileStyle && buffer.length > 0,
             parent_block_bid: parentId,
             ask_list: buffer.map(item => ({
               ...item,
@@ -727,6 +771,8 @@ function useChatLogicHook({
             readonly: false,
             isHistory: true,
             type: item.block_type,
+            // Include audio URL from history
+            audioUrl: item.audio_url,
           });
           lastContentId = item.generated_block_bid;
 
@@ -1233,12 +1279,133 @@ function useChatLogicHook({
     [contentList, nullRenderBar],
   );
 
+  const closeTtsStream = useCallback((blockId: string) => {
+    const source = ttsSseRef.current[blockId];
+    if (!source) {
+      return;
+    }
+    source.close();
+    delete ttsSseRef.current[blockId];
+  }, []);
+
+  const requestAudioForBlock = useCallback(
+    async (generatedBlockBid: string): Promise<AudioCompleteData | null> => {
+      if (!generatedBlockBid) {
+        return null;
+      }
+
+      if (!allowTtsStreaming) {
+        return null;
+      }
+
+      const existingItem = contentListRef.current.find(
+        item => item.generated_block_bid === generatedBlockBid,
+      );
+      if (existingItem?.audioUrl && !existingItem.isAudioStreaming) {
+        return {
+          audio_url: existingItem.audioUrl,
+          audio_bid: '',
+          duration_ms: existingItem.audioDurationMs ?? 0,
+        };
+      }
+
+      if (ttsSseRef.current[generatedBlockBid]) {
+        return null;
+      }
+
+      setTrackedContentList(prev =>
+        prev.map(item => {
+          if (item.generated_block_bid !== generatedBlockBid) {
+            return item;
+          }
+
+          return {
+            ...item,
+            audioSegments: [],
+            audioUrl: undefined,
+            audioDurationMs: undefined,
+            isAudioStreaming: true,
+          };
+        }),
+      );
+
+      return new Promise((resolve, reject) => {
+        const source = streamGeneratedBlockAudio({
+          shifu_bid: shifuBid,
+          generated_block_bid: generatedBlockBid,
+          preview_mode: effectivePreviewMode,
+          onMessage: response => {
+            if (response?.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+              const audioPayload = response.content ?? response.data;
+              setTrackedContentList(prevState =>
+                upsertAudioSegment(
+                  prevState,
+                  generatedBlockBid,
+                  audioPayload as AudioSegmentData,
+                ),
+              );
+              return;
+            }
+
+            if (response?.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+              const audioPayload = response.content ?? response.data;
+              const audioComplete = audioPayload as AudioCompleteData;
+              setTrackedContentList(prevState =>
+                upsertAudioComplete(
+                  prevState,
+                  generatedBlockBid,
+                  audioComplete,
+                ),
+              );
+              closeTtsStream(generatedBlockBid);
+              resolve(audioComplete ?? null);
+            }
+          },
+          onError: () => {
+            setTrackedContentList(prev =>
+              prev.map(item => {
+                if (item.generated_block_bid !== generatedBlockBid) {
+                  return item;
+                }
+                return {
+                  ...item,
+                  isAudioStreaming: false,
+                };
+              }),
+            );
+            closeTtsStream(generatedBlockBid);
+            reject(new Error('TTS stream failed'));
+          },
+        });
+
+        ttsSseRef.current[generatedBlockBid] = source;
+      });
+    },
+    [
+      allowTtsStreaming,
+      closeTtsStream,
+      effectivePreviewMode,
+      setTrackedContentList,
+      shifuBid,
+    ],
+  );
+
+  useEffect(() => {
+    return () => {
+      Object.values(ttsSseRef.current).forEach(source => {
+        source?.close?.();
+      });
+      ttsSseRef.current = {};
+    };
+  }, []);
+
   return {
     items,
     isLoading,
     onSend,
     onRefresh,
     toggleAskExpanded,
+    requestAudioForBlock,
     reGenerateConfirm: {
       open: showRegenerateConfirm,
       onConfirm: handleConfirmRegenerate,

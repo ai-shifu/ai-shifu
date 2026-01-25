@@ -9,6 +9,7 @@ services:
     volumes:
       - ../src/api/:/app/
       - ../src/i18n/:/i18n/
+      - ./storage:/app/storage
     depends_on:
       - ai-shifu-mysql
       - ai-shifu-redis
@@ -16,10 +17,17 @@ services:
   ai-shifu-cook-web-dev:
     container_name: ai-shifu-cook-web-dev
     image: ai-shifu-cook-web-dev:latest
+    restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - cd /app && rm -rf .next && exec ./node_modules/.bin/next dev -H 0.0.0.0 -p "${PORT:-5000}"
     env_file:
       - ./.env
     environment:
       - I18N_ROOT=/app/src/i18n
+      - NEXT_TELEMETRY_DISABLED=1
+      - NODE_OPTIONS=--max-old-space-size=2048
     depends_on:
       - ai-shifu-api-dev
     volumes:
@@ -46,6 +54,8 @@ services:
       MYSQL_DATABASE: ai-shifu
     image: mysql:8.0
     restart: always
+    ports:
+      - "127.0.0.1:3306:3306"
     volumes:
       - ./mysql_data:/var/lib/mysql
 

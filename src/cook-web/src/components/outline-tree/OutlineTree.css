@@ -1,0 +1,68 @@
+.outline-tree_node {
+  font-size: var(--text-sm-font-size, 14px);
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.4;
+  border-radius: var(--border-radius-rounded-md, 8px);
+  background: transparent;
+  transition: background-color 0.2s ease;
+}
+/*
+.outline-tree_node.select {
+  background: #e5e5e5;
+  font-weight: 500;
+}
+
+.outline-tree_node:hover {
+  background: rgba(229, 229, 229, 0.8);
+} */
+
+.outline-tree_title {
+  display: inline-block; /* 宽度由内容决定 */
+  max-width: 100%; /* 可以被压缩 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outline-tree_node > .flex {
+  min-width: 0; /* 必须保留 */
+}
+
+.outline-tree_badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.outline-tree_badge img {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.outline-tree_actions {
+}
+
+.outline-tree_section-count {
+  overflow: hidden;
+  color: rgba(10, 10, 10, 0.45);
+  text-align: right;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-style: normal;
+  font-weight: var(--font-weight-normal, 400);
+  line-height: 1.4;
+}
+
+.outline-tree_action-button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  cursor: pointer;
+}

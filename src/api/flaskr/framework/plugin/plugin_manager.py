@@ -127,9 +127,13 @@ def extensible(func):
 
 # extensible_generic decorator
 def extensible_generic(func):
-    from flask import current_app
+    try:
+        from flask import current_app, has_app_context
 
-    current_app.logger.info(f"extensible_generic: {func.__name__}")
+        if has_app_context():
+            current_app.logger.info(f"extensible_generic: {func.__name__}")
+    except ImportError:
+        pass
 
     @wraps(func)
     def wrapper(*args, **kwargs):

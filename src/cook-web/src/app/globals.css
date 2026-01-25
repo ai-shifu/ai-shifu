@@ -1,25 +1,14 @@
-@import '@fontsource/inter/400.css';
-@import '@fontsource/inter/600.css';
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@config "../../tailwind.config.ts";
 
 body,
 html {
   font-family:
-  /* English CJK fonts */
-    Inter,
-    /* Chinese CJK fonts */ 'PingFang SC',
-    'Microsoft YaHei',
-    'Source Han Sans SC',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    Helvetica,
-    Arial,
-    sans-serif;
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
+    'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   font-size: 16px;
+  -webkit-font-smoothing: subpixel-antialiased;
+  -moz-osx-font-smoothing: auto;
 }
 
 @layer base {
@@ -106,26 +95,11 @@ html {
   }
 }
 
-.dnd-sortable-tree_simple_tree-item {
-  border: none !important;
-  padding: 0px 4px 0px 0px !important;
-  input.title {
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-  }
-}
-.dnd-sortable-tree_simple_wrapper {
-  transition: none !important;
-  margin-top: 5px;
-  border-radius: 4px;
-}
-.dnd-sortable-tree_simple_wrapper:hover {
-  background-color: rgb(229 231 235 / var(--tw-bg-opacity, 1));
-}
-
-.dnd-sortable-tree_simple_handle {
-  display: none !important;
+/* Keep MarkdownFlow editor text crisp without grayscale smoothing */
+.markdown-flow-editor,
+.markdown-flow-editor .cm-line {
+  -webkit-font-smoothing: subpixel-antialiased;
+  -moz-osx-font-smoothing: auto;
 }
 
 /* HACK: markdown-flow-ui relies on CSS variables, so keep dedicated aliases for primary colors */

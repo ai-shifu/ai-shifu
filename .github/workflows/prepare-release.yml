@@ -39,6 +39,18 @@ jobs:
         with:
           python-version: '3.11'  # Stable version for commitizen
 
+      - name: Ensure node is available (act)
+        if: env.ACT == 'true'
+        run: |
+          # Some act runner images lose `node` in PATH during post-steps of node-based actions.
+          NODE_BIN="$(find /opt/acttoolcache/node -type f -name node -path '*/bin/node' 2>/dev/null | head -1 || true)"
+          if [ -n "$NODE_BIN" ]; then
+            echo "$(dirname "$NODE_BIN")" >> "$GITHUB_PATH"
+            echo "✅ Added node to PATH for act: $(dirname "$NODE_BIN")"
+          else
+            echo "⚠️ node not found under /opt/acttoolcache/node; post-steps may fail in act"
+          fi
+
       - name: Install commitizen
         run: |
           python -m pip install --upgrade pip
@@ -224,8 +236,12 @@ jobs:
         run: |
           echo "📝 Getting previous tag for changelog generation..."
 
-          # Ensure all tags are fetched
-          git fetch --tags --force
+          # Ensure all tags are fetched (skip in act because local git remotes are often SSH)
+          if [ "${ACT:-}" != "true" ]; then
+            git fetch --tags --force
+          else
+            echo "⚠️ Running under act; skipping 'git fetch --tags --force' and using local tags"
+          fi
 
           # List all tags for debugging
           echo "📋 All available tags:"
@@ -244,6 +260,8 @@ jobs:
 
       - name: Generate changelog using cz
         id: changelog
+        env:
+          RELEASE_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           echo "📝 Generating changelog using commitizen for version ${{ steps.version.outputs.version }}..."
 
@@ -363,7 +381,128 @@ jobs:
             CHANGELOG_CONTENT=$(cat /tmp/changelog.md)
           fi
 
-          # Store changelog content
+          # Prepare changelog content for output
+          echo "$CHANGELOG_CONTENT" > /tmp/changelog_raw.md
+
+          # Append PR author after each "(#123)" occurrence (best-effort; never fails the workflow).
+          python - <<'PY' > /tmp/changelog.md || cp /tmp/changelog_raw.md /tmp/changelog.md
+          import json
+          import os
+          import re
+          import subprocess
+          import sys
+          import urllib.error
+          import urllib.request
+
+          def detect_repo_from_git_remotes() -> str:
+              for remote_name in ("upstream", "origin"):
+                  try:
+                      url = subprocess.check_output(
+                          ["git", "remote", "get-url", remote_name],
+                          text=True,
+                          stderr=subprocess.DEVNULL,
+                      ).strip()
+                  except Exception:
+                      continue
+
+                  match = re.search(
+                      r"github\.com[:/](?P<owner>[^/]+)/(?P<repo>[^/]+?)(?:\.git)?$",
+                      url,
+                  )
+                  if match:
+                      return f"{match.group('owner')}/{match.group('repo')}"
+              return ""
+
+          repo = (os.environ.get("GITHUB_REPOSITORY") or "").strip()
+          if not repo or repo == "nektos/act":
+              detected = detect_repo_from_git_remotes()
+              if detected:
+                  repo = detected
+
+          token = (
+              (os.environ.get("RELEASE_TOKEN") or "").strip()
+              or (os.environ.get("GITHUB_TOKEN") or "").strip()
+          )
+
+          try:
+              content = open("/tmp/changelog_raw.md", encoding="utf-8").read()
+          except FileNotFoundError:
+              print("")
+              sys.exit(0)
+
+          def normalize_changelog(raw: str) -> str:
+              lines = []
+              for line in raw.splitlines():
+                  if re.match(r"^##\s*\[?Unreleased\]?\s*$", line.strip()):
+                      continue
+
+                  line = re.sub(
+                      r"^###\s+Feat\b.*$",
+                      "### New Feature",
+                      line,
+                      flags=re.IGNORECASE,
+                  )
+                  line = re.sub(
+                      r"^###\s+Fix(?:es)?\b.*$",
+                      "### Bug Fixes",
+                      line,
+                      flags=re.IGNORECASE,
+                  )
+                  lines.append(line)
+
+              normalized = "\n".join(lines).strip("\n")
+              normalized = re.sub(r"\n{3,}", "\n\n", normalized)
+              return normalized
+
+          content = normalize_changelog(content)
+
+          pr_numbers = sorted({int(n) for n in re.findall(r"\(#(\d+)\)", content)})
+          if not pr_numbers or not repo:
+              print(content)
+              sys.exit(0)
+
+          def fetch_pr_author(pr_number: int) -> str:
+              url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
+              request = urllib.request.Request(url)
+              request.add_header("Accept", "application/vnd.github+json")
+              request.add_header("X-GitHub-Api-Version", "2022-11-28")
+              if token:
+                  request.add_header("Authorization", f"Bearer {token}")
+              try:
+                  with urllib.request.urlopen(request, timeout=15) as response:
+                      data = json.load(response)
+              except urllib.error.HTTPError:
+                  return ""
+              except Exception:
+                  return ""
+
+              login = ((data.get("user") or {}).get("login") or "").strip()
+              return f"@{login}" if login else ""
+
+          authors = {pr: fetch_pr_author(pr) for pr in pr_numbers}
+          pr_pattern = re.compile(r"\(#(\d+)\)")
+
+          out_lines = []
+          for line in content.splitlines():
+              def annotate(match: re.Match[str], line=line) -> str:
+                  pr_number = int(match.group(1))
+                  author = authors.get(pr_number, "")
+                  if not author:
+                      return match.group(0)
+
+                  suffix = line[match.end():]
+                  if re.match(r"\s*\(@", suffix) or re.match(r"\s+by\s+@", suffix):
+                      return match.group(0)
+
+                  return f"{match.group(0)} ({author})"
+
+              out_lines.append(pr_pattern.sub(annotate, line))
+
+          print("\n".join(out_lines))
+          PY
+
+          CHANGELOG_CONTENT=$(cat /tmp/changelog.md)
+
           echo "changelog_content<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG_CONTENT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -371,37 +510,32 @@ jobs:
           echo "✅ Changelog generated successfully"
 
       - name: Create GitHub Release Draft
+        if: env.ACT != 'true'
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           tag_name: ${{ steps.version.outputs.tag }}
           name: Release ${{ steps.version.outputs.tag }}
           body: |
-            # Release ${{ steps.version.outputs.tag }}
-
             ${{ steps.changelog.outputs.changelog_content }}
 
-            ## 📦 Installation
+            ## 📦 Installation from Source
 
-            **Package Managers:**
             ```bash
-            # npm (if Node.js project)
-            npm install ${{ github.repository }}@${{ steps.version.outputs.tag }}
-
-            # pip (if Python project)
-            pip install ${{ github.event.repository.name }}==${{ steps.version.outputs.version }}
-
-            # From source
             git clone ${{ github.event.repository.clone_url }}
             cd ${{ github.event.repository.name }}
             git checkout ${{ steps.version.outputs.tag }}
+            cd docker
+            cp .env.example.full .env
+            # Fill in your LLM API key in the .env configuration file.
+            docker compose up
             ```
 
             ## 📖 Documentation
 
-            - 📚 [README](README.md)
-            - 🔧 [Contributing Guidelines](CONTRIBUTING.md)
-            - 📋 [Changelog](CHANGELOG.md)
+            - 📚 [README](${{ github.event.repository.html_url }}/blob/${{ github.event.repository.default_branch }}/README.md)
+            - 🔧 [Contributing Guidelines](${{ github.event.repository.html_url }}/blob/${{ github.event.repository.default_branch }}/CONTRIBUTING.md)
+            - 📋 [Changelog](${{ github.event.repository.html_url }}/releases)
 
             ## 🆘 Support
 
@@ -415,6 +549,7 @@ jobs:
 
       - name: Create PR with version changes
         id: cpr
+        if: env.ACT != 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}

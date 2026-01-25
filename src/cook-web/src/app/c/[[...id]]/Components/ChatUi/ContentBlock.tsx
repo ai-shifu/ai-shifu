@@ -3,7 +3,8 @@ import { useLongPress } from 'react-use';
 import { isEqual } from 'lodash';
 // TODO@XJL
 // import ContentRender from '../../../../../../../../../markdown-flow-ui/src/components/ContentRender/ContentRender';
-import { ContentRender, type OnSendContentParams } from 'markdown-flow-ui';
+import { ContentRender } from 'markdown-flow-ui/renderer';
+import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { cn } from '@/lib/utils';
 import type { ChatContentItem } from './useChatLogicHook';
 
@@ -12,6 +13,8 @@ interface ContentBlockProps {
   mobileStyle: boolean;
   blockBid: string;
   confirmButtonText?: string;
+  copyButtonText?: string;
+  copiedButtonText?: string;
   onClickCustomButtonAfterContent?: (blockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onLongPress?: (event: any, item: ChatContentItem) => void;
@@ -23,6 +26,8 @@ const ContentBlock = memo(
     mobileStyle,
     blockBid,
     confirmButtonText,
+    copyButtonText,
+    copiedButtonText,
     onClickCustomButtonAfterContent,
     onSend,
     onLongPress,
@@ -68,13 +73,15 @@ const ContentBlock = memo(
           defaultSelectedValues={item.defaultSelectedValues}
           readonly={item.readonly}
           confirmButtonText={confirmButtonText}
+          copyButtonText={copyButtonText}
+          copiedButtonText={copiedButtonText}
           onSend={_onSend}
         />
       </div>
     );
   },
   (prevProps, nextProps) => {
-    // Only re-render if item, mobileStyle, blockBid, or confirmButtonText changes
+    // Only re-render when content, layout, or i18n-driven button texts actually change
     return (
       prevProps.item.defaultButtonText === nextProps.item.defaultButtonText &&
       prevProps.item.defaultInputText === nextProps.item.defaultInputText &&
@@ -86,7 +93,9 @@ const ContentBlock = memo(
       prevProps.item.content === nextProps.item.content &&
       prevProps.mobileStyle === nextProps.mobileStyle &&
       prevProps.blockBid === nextProps.blockBid &&
-      prevProps.confirmButtonText === nextProps.confirmButtonText
+      prevProps.confirmButtonText === nextProps.confirmButtonText &&
+      prevProps.copyButtonText === nextProps.copyButtonText &&
+      prevProps.copiedButtonText === nextProps.copiedButtonText
     );
   },
 );

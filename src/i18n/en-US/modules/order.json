@@ -1,0 +1,126 @@
+{
+  "__namespace__": "module.order",
+  "activeStatus": {
+    "active": "Active",
+    "failed": "Failed",
+    "unknown": "Unknown"
+  },
+  "couponStatus": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "timeout": "Expired",
+    "unknown": "Unknown",
+    "used": "Used"
+  },
+  "couponType": {
+    "fixed": "Fixed Amount",
+    "percent": "Percent",
+    "unknown": "Unknown"
+  },
+  "detailFallback": "Order Detail",
+  "detailTitle": "Order Detail",
+  "emptyActivities": "No activities",
+  "emptyCoupons": "No coupons",
+  "emptyList": "No orders",
+  "emptyValue": "N/A",
+  "fields": {
+    "activityPrice": "Activity Discount",
+    "chargeId": "Charge ID",
+    "checkoutSession": "Checkout Session",
+    "couponType": "Coupon Type",
+    "couponValue": "Coupon Value",
+    "createdAt": "Created At",
+    "currency": "Currency",
+    "discount": "Discount",
+    "latestCharge": "Latest Charge",
+    "paid": "Paid",
+    "payable": "Payable",
+    "paymentAmount": "Payment Amount",
+    "paymentChannel": "Payment Channel",
+    "paymentCreatedAt": "Payment Created At",
+    "paymentIntent": "Payment Intent",
+    "paymentMethod": "Payment Method",
+    "paymentStatus": "Payment Status",
+    "paymentUpdatedAt": "Payment Updated At",
+    "receipt": "Receipt URL",
+    "shifu": "Course",
+    "status": "Status",
+    "transactionNo": "Transaction No.",
+    "updatedAt": "Updated At",
+    "user": "User"
+  },
+  "filters": {
+    "all": "All",
+    "channel": "Payment Channel",
+    "endTime": "End Date",
+    "orderBid": "Order ID",
+    "reset": "Reset",
+    "search": "Search",
+    "searchCourseOrId": "Course name or ID",
+    "shifuBid": "Course Name",
+    "startTime": "Start Date",
+    "status": "Status",
+    "userBid": "Email or Mobile",
+    "userBidEmail": "Email",
+    "userBidPhone": "Mobile"
+  },
+  "importActivation": {
+    "action": "Import Activation",
+    "courseLabel": "Course",
+    "coursePlaceholder": "Select a course",
+    "courseRequired": "Course is required",
+    "description": "Create a zero-amount order and activate the course.",
+    "failed": "Failed to import activation",
+    "mobileInvalid": "Invalid mobile numbers (11 digits required): {numbers}",
+    "mobileLabel": "Mobile",
+    "mobileLimit": "You can import up to {count} mobile numbers at once",
+    "mobilePlaceholder": "Enter mobile numbers, use commas to separate (max 50)",
+    "mobileRequired": "Mobile is required",
+    "nicknameLabel": "Nickname (Optional)",
+    "nicknamePlaceholder": "Enter nickname",
+    "partialSummary": "{successCount} succeeded, {failedCount} failed",
+    "submit": "Import",
+    "submitting": "Importing...",
+    "success": "Activation imported",
+    "successSummary": "{count} mobile numbers imported successfully",
+    "title": "Import Activation"
+  },
+  "paginationNext": "Next",
+  "paginationPrev": "Previous",
+  "paymentChannel": {
+    "manual": "Manual",
+    "pingxx": "Ping++",
+    "stripe": "Stripe",
+    "unknown": "Unknown"
+  },
+  "paymentStatus": {
+    "closed": "Closed",
+    "failed": "Failed",
+    "paid": "Paid",
+    "pending": "Pending",
+    "refunded": "Refunded",
+    "unknown": "Unknown"
+  },
+  "sections": {
+    "activities": "Activities",
+    "coupons": "Coupons",
+    "payment": "Payment",
+    "summary": "Summary"
+  },
+  "statusLabels": {
+    "timeout": "Expired (unpaid for over {minutes} min)"
+  },
+  "table": {
+    "action": "Action",
+    "amount": "Payment Amount",
+    "createdAt": "Created",
+    "orderId": "Order ID",
+    "payment": "Payment",
+    "shifu": "Course",
+    "status": "Status",
+    "user": "User",
+    "view": "View"
+  },
+  "title": "Orders",
+  "totalCount": "Orders: {count}"
+}

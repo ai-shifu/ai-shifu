@@ -11,15 +11,29 @@ import { Columns2, ListCollapse, Loader2, Plus, Sparkles } from 'lucide-react';
 import { useShifu } from '@/store';
 import { useUserStore } from '@/store';
 import OutlineTree from '@/components/outline-tree';
+import ChapterSettingsDialog from '@/components/chapter-setting';
+import { MdfConvertDialog } from '@/components/mdf-convert';
 import Header from '../header';
-import { UploadProps, MarkdownFlowEditor, EditMode } from 'markdown-flow-ui';
-// TODO@XJL
-import 'markdown-flow-ui/dist/markdown-flow-ui.css';
+// import MarkdownFlowEditor from '../../../../../../markdown-flow-ui/src/components/MarkdownFlowEditor';
+import { UploadProps, EditMode } from 'markdown-flow-ui/editor';
+import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import './shifuEdit.scss';
 import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
+
+const MarkdownFlowEditor = dynamic(
+  () => import('markdown-flow-ui/editor').then(mod => mod.MarkdownFlowEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className='h-40 flex items-center justify-center'>
+        <Loading />
+      </div>
+    ),
+  },
+);
 import i18n, { normalizeLanguage } from '@/i18n';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
@@ -27,32 +41,76 @@ import LessonPreview from '@/components/lesson-preview';
 import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
 import { Rnd } from 'react-rnd';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
+import { LessonCreationSettings } from '@/types/shifu';
 
 const OUTLINE_DEFAULT_WIDTH = 256;
 const OUTLINE_COLLAPSED_WIDTH = 60;
 const OUTLINE_STORAGE_KEY = 'shifu-outline-panel-width';
+const TOOLBAR_ICON_SIZE = 18; // Match markdown-flow-ui toolbar icon size
+
+const VARIABLE_NAME_REGEXP = /\{\{([\p{L}\p{N}_]+)\}\}/gu;
+
+// Collect variable names that truly exist in current markdown content
+const extractVariableNames = (text?: string | null) => {
+  if (!text) {
+    return [];
+  }
+  const collected = new Set<string>();
+  let match: RegExpExecArray | null;
+  while ((match = VARIABLE_NAME_REGEXP.exec(text)) !== null) {
+    if (match[1]) {
+      collected.add(match[1]);
+    }
+    if (VARIABLE_NAME_REGEXP.lastIndex === match.index) {
+      VARIABLE_NAME_REGEXP.lastIndex += 1;
+    }
+  }
+  VARIABLE_NAME_REGEXP.lastIndex = 0;
+  return Array.from(collected);
+};
 
 const ScriptEditor = ({ id }: { id: string }) => {
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
   const profile = useUserStore(state => state.userInfo);
+  const isInitialized = useUserStore(state => state.isInitialized);
+  const isGuest = useUserStore(state => state.isGuest);
   const [foldOutlineTree, setFoldOutlineTree] = useState(false);
   const [outlineWidth, setOutlineWidth] = useState(OUTLINE_DEFAULT_WIDTH);
   const previousOutlineWidthRef = useRef(OUTLINE_DEFAULT_WIDTH);
   const [editMode, setEditMode] = useState<EditMode>('quickEdit' as EditMode);
   const [isPreviewPanelOpen, setIsPreviewPanelOpen] = useState(false);
   const [isPreviewPreparing, setIsPreviewPreparing] = useState(false);
+  const [addChapterDialogOpen, setAddChapterDialogOpen] = useState(false);
+  const [isMdfConvertDialogOpen, setIsMdfConvertDialogOpen] = useState(false);
+  const [recentVariables, setRecentVariables] = useState<string[]>([]);
+  const seenVariableNamesRef = useRef<Set<string>>(new Set());
+  const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async preview is pending
+  const {
+    mdflow,
+    chapters,
+    actions,
+    isLoading,
+    variables,
+    systemVariables,
+    currentShifu,
+    currentNode,
+  } = useShifu();
 
   const {
     items: previewItems,
     isLoading: previewLoading,
-    isStreaming: previewStreaming,
     error: previewError,
     startPreview,
     stopPreview,
     resetPreview,
     onRefresh,
     onSend,
+    persistVariables,
+    onVariableChange,
+    variables: previewVariables,
+    requestAudioForBlock: requestPreviewAudioForBlock,
     reGenerateConfirm,
   } = usePreviewChat();
   const editModeOptions = useMemo(
@@ -90,17 +148,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
   }, []);
 
-  const {
-    mdflow,
-    chapters,
-    actions,
-    isLoading,
-    variables,
-    systemVariables,
-    currentShifu,
-    currentNode,
-  } = useShifu();
-
   useEffect(() => {
     const baseTitle = t('common.core.adminTitle');
     const suffix = currentShifu?.name ? ` - ${currentShifu.name}` : '';
@@ -125,40 +172,49 @@ const ScriptEditor = ({ id }: { id: string }) => {
     resetPreview();
   }, [currentNode?.bid, resetPreview, stopPreview]);
 
-  const onAddChapter = () => {
-    actions.addChapter({
-      parent_bid: '',
-      bid: 'new_chapter',
-      id: 'new_chapter',
-      name: ``,
-      children: [],
-      position: '',
-      depth: 0,
-    });
-    setTimeout(() => {
-      document.getElementById('new_chapter')?.scrollIntoView({
-        behavior: 'smooth',
-      });
-    }, 800);
+  const handleAddChapterClick = () => {
+    if (currentShifu?.readonly) {
+      return;
+    }
+    actions.insertPlaceholderChapter();
+    // setAddChapterDialogOpen(true);
+  };
+
+  const handleAddChapterConfirm = async (settings: LessonCreationSettings) => {
+    try {
+      await actions.addRootOutline(settings);
+      setAddChapterDialogOpen(false);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   useEffect(() => {
+    if (!isInitialized) {
+      return;
+    }
+
+    if (isGuest) {
+      const currentPath = encodeURIComponent(
+        window.location.pathname + window.location.search,
+      );
+      window.location.href = `/login?redirect=${currentPath}`;
+      return;
+    }
+
     actions.loadModels();
     if (id) {
       actions.loadChapters(id);
     }
-  }, [id]);
+  }, [id, isGuest, isInitialized]);
 
   const handleTogglePreviewPanel = () => {
-    setIsPreviewPanelOpen(prev => {
-      const next = !prev;
-      if (!next) {
-        stopPreview();
-        resetPreview();
-      }
-      return next;
-    });
+    setIsPreviewPanelOpen(prev => !prev);
   };
+
+  useEffect(() => {
+    currentNodeBidRef.current = currentNode?.bid ?? null;
+  }, [currentNode?.bid]);
 
   const handleChapterSelect = useCallback(() => {
     if (!isPreviewPanelOpen) {
@@ -173,9 +229,18 @@ const ScriptEditor = ({ id }: { id: string }) => {
     if (!canPreview || !currentShifu?.bid || !currentNode?.bid) {
       return;
     }
+    const targetOutline = currentNode.bid;
+    const targetShifu = currentShifu.bid;
+    const targetMdflow = mdflow;
+    const outlineChanged = () => {
+      // `currentNodeBidRef.current` holds the latest outline bid, updated via useEffect.
+      // This check correctly detects if the user has navigated to a different outline item
+      // since the preview was initiated.
+      return targetOutline !== currentNodeBidRef.current;
+    };
     trackEvent('creator_lesson_preview_click', {
-      shifu_bid: currentShifu.bid,
-      outline_bid: currentNode.bid,
+      shifu_bid: targetShifu,
+      outline_bid: targetOutline,
     });
     setIsPreviewPanelOpen(true);
     setIsPreviewPreparing(true);
@@ -184,21 +249,35 @@ const ScriptEditor = ({ id }: { id: string }) => {
     try {
       if (!currentShifu?.readonly) {
         await actions.saveMdflow({
-          shifu_bid: currentShifu.bid,
-          outline_bid: currentNode.bid,
-          data: mdflow,
+          shifu_bid: targetShifu,
+          outline_bid: targetOutline,
+          data: targetMdflow,
         });
+        if (outlineChanged()) {
+          return;
+        }
       }
       const {
         variables: parsedVariablesMap,
         blocksCount,
         systemVariableKeys,
-      } = await actions.previewParse(mdflow, currentShifu.bid, currentNode.bid);
-      const previewVariablesMap = { ...parsedVariablesMap };
+      } = await actions.previewParse(targetMdflow, targetShifu, targetOutline);
+      if (outlineChanged()) {
+        return;
+      }
+      const previewVariablesMap = {
+        ...parsedVariablesMap,
+        ...previewVariables,
+      };
+      persistVariables({
+        shifuBid: targetShifu,
+        systemVariableKeys,
+        variables: previewVariablesMap,
+      });
       void startPreview({
-        shifuBid: currentShifu.bid,
-        outlineBid: currentNode.bid,
-        mdflow,
+        shifuBid: targetShifu,
+        outlineBid: targetOutline,
+        mdflow: targetMdflow,
         variables: previewVariablesMap,
         max_block_count: blocksCount,
         systemVariableKeys,
@@ -210,11 +289,54 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
   };
 
+  const mdflowVariableNames = useMemo(
+    () => extractVariableNames(mdflow),
+    [mdflow],
+  );
+  useEffect(() => {
+    const previousSeen = seenVariableNamesRef.current;
+    const currentSet = new Set<string>();
+    const newNames: string[] = [];
+    mdflowVariableNames.forEach(name => {
+      if (!name) {
+        return;
+      }
+      currentSet.add(name);
+      if (!previousSeen.has(name)) {
+        newNames.push(name);
+      }
+    });
+    seenVariableNamesRef.current = currentSet;
+    const currentNamesSet = new Set(mdflowVariableNames);
+    if (!newNames.length) {
+      setRecentVariables(prev =>
+        prev.filter(name => currentNamesSet.has(name)),
+      );
+      return;
+    }
+    setRecentVariables(prev => {
+      const filteredPrev = prev.filter(
+        name => !newNames.includes(name) && currentNamesSet.has(name),
+      );
+      return [...newNames, ...filteredPrev];
+    });
+  }, [mdflowVariableNames]);
+
   const variablesList = useMemo(() => {
-    return variables.map((variable: string) => ({
-      name: variable,
-    }));
-  }, [variables]);
+    const merged = new Map<string, { name: string }>();
+    // Prioritize freshly added variables, then actual markdown ones, then persisted ones
+    [...recentVariables, ...mdflowVariableNames, ...variables].forEach(
+      variableName => {
+        if (!variableName) {
+          return;
+        }
+        if (!merged.has(variableName)) {
+          merged.set(variableName, { name: variableName });
+        }
+      },
+    );
+    return Array.from(merged.values());
+  }, [recentVariables, mdflowVariableNames, variables]);
 
   const systemVariablesList = useMemo(() => {
     return systemVariables.map((variable: Record<string, string>) => ({
@@ -222,6 +344,13 @@ const ScriptEditor = ({ id }: { id: string }) => {
       label: variable.label,
     }));
   }, [systemVariables]);
+
+  const variableOrder = useMemo(() => {
+    return [
+      ...systemVariablesList.map(variable => variable.name),
+      ...variablesList.map(variable => variable.name),
+    ];
+  }, [systemVariablesList, variablesList]);
 
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);
@@ -243,6 +372,46 @@ const ScriptEditor = ({ id }: { id: string }) => {
       },
     };
   }, [token, baseURL]);
+
+  // Handle applying MDF converted content to editor
+  const handleApplyMdfContent = useCallback(
+    (contentPrompt: string) => {
+      actions.setCurrentMdflow(contentPrompt);
+      actions.autoSaveBlocks({
+        shifu_bid: currentShifu?.bid || '',
+        outline_bid: currentNode?.bid || '',
+        data: contentPrompt,
+      });
+    },
+    [actions, currentShifu?.bid, currentNode?.bid],
+  );
+
+  // Toolbar actions for MDF conversion
+  const toolbarActionsRight = useMemo(
+    () => [
+      {
+        key: 'mdfConvert',
+        label: '',
+        icon: (
+          <svg
+            aria-hidden='true'
+            viewBox='0 0 1024 1024'
+            width={TOOLBAR_ICON_SIZE}
+            height={TOOLBAR_ICON_SIZE}
+            className='fill-foreground'
+          >
+            <path d='M633.6 358.4l-473.6 460.8c0 12.8 6.4 19.2 12.8 19.2l51.2 51.2c6.4 6.4 12.8 6.4 19.2 12.8L704 441.6 633.6 358.4zM780.8 384c0 6.4 6.4 6.4 0 0l6.4 6.4h12.8l121.6-121.6c12.8-12.8 12.8-44.8-12.8-64l-51.2-51.2c-19.2-19.2-51.2-25.6-64-12.8l-121.6 121.6-6.4 6.4c0 6.4 0 6.4 6.4 6.4L780.8 384zM313.6 224l64 25.6c6.4 0 6.4 6.4 12.8 19.2l25.6 57.6h12.8l25.6-57.6c0-6.4 6.4-12.8 12.8-12.8l57.6-25.6v-6.4-6.4l-57.6-32c-6.4 0-12.8-6.4-12.8-12.8l-25.6-64h-12.8l-25.6 64c-6.4 6.4-6.4 12.8-19.2 12.8l-57.6 25.6-6.4 6.4 6.4 6.4zM166.4 531.2s6.4 0 0 0c6.4 0 6.4-6.4 0 0l25.6-51.2c0-6.4 6.4-12.8 12.8-12.8l44.8-19.2v-6.4l-44.8-19.2-12.8-12.8-19.2-44.8h-6.4l-19.2 44.8c0 6.4-6.4 12.8-12.8 12.8l-44.8 19.2 44.8 19.2c6.4 0 6.4 6.4 12.8 12.8l19.2 57.6c0-6.4 0 0 0 0zM934.4 774.4l-89.6-38.4c-12.8-6.4-19.2-12.8-25.6-25.6l-38.4-83.2s0-6.4-6.4-6.4H768s-6.4 0-6.4 6.4l-38.4 83.2c-6.4 12.8-12.8 19.2-19.2 25.6l-83.2 38.4h-6.4v12.8h6.4l83.2 38.4c12.8 6.4 19.2 12.8 25.6 25.6l38.4 83.2s0 6.4 6.4 6.4h6.4s6.4 0 6.4-6.4l38.4-83.2c6.4-12.8 12.8-19.2 19.2-25.6l83.2-38.4h6.4c6.4 0 6.4-6.4 0-12.8 6.4 6.4 6.4 6.4 0 0z' />
+          </svg>
+        ),
+        tooltip: t('component.mdfConvert.dialogTitle'),
+        onClick: () => {
+          trackEvent('creator_mdf_dialog_open', {});
+          setIsMdfConvertDialogOpen(true);
+        },
+      },
+    ],
+    [t, trackEvent],
+  );
 
   const canPreview = Boolean(
     currentNode?.depth && currentNode.depth > 0 && currentShifu?.bid,
@@ -354,7 +523,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   className='h-8 bottom-0 left-4 flex-1'
                   size='sm'
                   disabled={currentShifu?.readonly}
-                  onClick={onAddChapter}
+                  onClick={handleAddChapterClick}
                 >
                   <Plus />
                   {t('module.shifu.newChapter')}
@@ -378,6 +547,15 @@ const ScriptEditor = ({ id }: { id: string }) => {
           </div>
         </Rnd>
 
+        <ChapterSettingsDialog
+          outlineBid=''
+          open={addChapterDialogOpen}
+          onOpenChange={setAddChapterDialogOpen}
+          variant='chapter'
+          footerActionLabel={t('module.shifu.newChapter')}
+          onFooterAction={handleAddChapterConfirm}
+        />
+
         <div className='flex flex-1 h-full overflow-hidden text-sm'>
           <div
             className={cn(
@@ -398,8 +576,18 @@ const ScriptEditor = ({ id }: { id: string }) => {
                       <h2 className='text-base font-semibold text-foreground whitespace-nowrap shrink-0'>
                         {t('module.shifu.creationArea.title')}
                       </h2>
-                      <p className='flex-1 min-w-0 text-xs leading-3 text-[rgba(0,0,0,0.45)] truncate'>
-                        {t('module.shifu.creationArea.description')}
+                      <p className='flex-1 min-w-0 text-xs leading-5 text-[rgba(0,0,0,0.45)] truncate'>
+                        <MarkdownFlowLink
+                          prefix={t(
+                            'module.shifu.creationArea.descriptionPrefix',
+                          )}
+                          suffix={t(
+                            'module.shifu.creationArea.descriptionSuffix',
+                          )}
+                          linkText='MarkdownFlow'
+                          title={`${t('module.shifu.creationArea.descriptionPrefix')} MarkdownFlow ${t('module.shifu.creationArea.descriptionSuffix')}`}
+                          targetUrl='https://markdownflow.ai/docs'
+                        />
                       </p>
                     </div>
                     <div className='ml-auto flex flex-nowrap items-center gap-2 relative shrink-0'>
@@ -470,6 +658,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                       onChange={onChangeMdflow}
                       editMode={editMode}
                       uploadProps={uploadProps}
+                      toolbarActionsRight={toolbarActionsRight}
                     />
                   )}
                 </>
@@ -497,18 +686,27 @@ const ScriptEditor = ({ id }: { id: string }) => {
               <div className='h-full'>
                 <LessonPreview
                   loading={previewLoading}
-                  isStreaming={previewStreaming}
                   errorMessage={previewError || undefined}
                   items={previewItems}
+                  variables={previewVariables}
                   shifuBid={currentShifu?.bid || ''}
                   onRefresh={onRefresh}
                   onSend={onSend}
+                  onVariableChange={onVariableChange}
+                  variableOrder={variableOrder}
+                  onRequestAudioForBlock={requestPreviewAudioForBlock}
                   reGenerateConfirm={reGenerateConfirm}
                 />
               </div>
             </div>
           ) : null}
         </div>
+
+        <MdfConvertDialog
+          open={isMdfConvertDialogOpen}
+          onOpenChange={setIsMdfConvertDialogOpen}
+          onApplyContent={handleApplyMdfContent}
+        />
       </div>
     </div>
   );

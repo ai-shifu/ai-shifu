@@ -1,5 +1,16 @@
 import { UserInfo } from './index';
 
+export interface LegalUrls {
+  agreement: {
+    'zh-CN': string;
+    'en-US': string;
+  };
+  privacy: {
+    'zh-CN': string;
+    'en-US': string;
+  };
+}
+
 export interface EnvStoreState {
   courseId: string;
   defaultLlmModel: string;
@@ -11,13 +22,19 @@ export interface EnvStoreState {
   baseURL: string;
   logoHorizontal: string;
   logoVertical: string;
-  logoUrl: string;
+  logoWideUrl: string;
+  logoSquareUrl: string;
+  faviconUrl: string;
   enableWxcode: string;
   homeUrl: string;
   currencySymbol: string;
   stripePublishableKey: string;
   stripeEnabled: string;
+  payOrderExpireSeconds: number;
   paymentChannels: string[];
+  loginMethodsEnabled: string[];
+  defaultLoginMethod: string;
+  legalUrls: LegalUrls;
   runtimeConfigLoaded: boolean;
   updateCourseId: (courseId: string) => Promise<void>;
   updateDefaultLlmModel: (model: string) => Promise<void>;
@@ -29,13 +46,19 @@ export interface EnvStoreState {
   updateBaseURL: (url: string) => Promise<void>;
   updateLogoHorizontal: (logo: string) => Promise<void>;
   updateLogoVertical: (logo: string) => Promise<void>;
-  updateLogoUrl: (logo: string) => Promise<void>;
+  updateLogoWideUrl: (logo: string) => Promise<void>;
+  updateLogoSquareUrl: (logo: string) => Promise<void>;
+  updateFaviconUrl: (icon: string) => Promise<void>;
   updateEnableWxcode: (value: string) => Promise<void>;
   updateHomeUrl: (url: string) => Promise<void>;
   updateCurrencySymbol: (symbol: string) => Promise<void>;
   updateStripePublishableKey: (key: string) => Promise<void>;
   updateStripeEnabled: (value: string) => Promise<void>;
+  updatePayOrderExpireSeconds: (seconds: number) => Promise<void>;
   updatePaymentChannels: (channels: string[]) => Promise<void>;
+  updateLoginMethodsEnabled: (methods: string[]) => Promise<void>;
+  updateDefaultLoginMethod: (method: string) => Promise<void>;
+  updateLegalUrls: (legalUrls: LegalUrls) => Promise<void>;
   setRuntimeConfigLoaded: (loaded: boolean) => void;
 }
 

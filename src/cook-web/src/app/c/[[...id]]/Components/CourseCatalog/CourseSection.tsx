@@ -23,6 +23,17 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useTranslation } from 'react-i18next';
+import { useSystemStore } from '@/c-store/useSystemStore';
+
+const getCourseTitleLang = (title: string) => {
+  const trimmed = title.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const containsLatin = /[A-Za-z]/.test(trimmed);
+  const containsCJK = /[\u4E00-\u9FFF]/.test(trimmed);
+  return containsLatin && !containsCJK ? 'en' : undefined;
+};
 
 export const CourseSection = ({
   id,
@@ -37,8 +48,10 @@ export const CourseSection = ({
   onTrySelect,
 }) => {
   const { t } = useTranslation();
+  const courseTitleLang = getCourseTitleLang(name);
   const { mobileStyle } = useContext(AppContext);
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const previewMode = useSystemStore(state => state.previewMode);
   const { openPayModal } = useCourseStore(
     useShallow(state => ({
       openPayModal: state.openPayModal,
@@ -66,16 +79,16 @@ export const CourseSection = ({
       return;
     }
 
-    if (
+    const needsLogin =
       (type === LEARNING_PERMISSION.TRIAL ||
         type === LEARNING_PERMISSION.NORMAL) &&
-      !isLoggedIn
-    ) {
+      !isLoggedIn;
+    if (!previewMode && needsLogin) {
       window.location.href = `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`;
       return;
     }
 
-    if (type === LEARNING_PERMISSION.NORMAL && !is_paid) {
+    if (!previewMode && type === LEARNING_PERMISSION.NORMAL && !is_paid) {
       openPayModal({
         type,
         payload: {
@@ -96,6 +109,7 @@ export const CourseSection = ({
     type,
     isLoggedIn,
     openPayModal,
+    previewMode,
     chapterId,
   ]);
 
@@ -109,7 +123,12 @@ export const CourseSection = ({
     <div
       className={cn(styles.leftSection, isNormalNotPaid ? styles.notPaid : '')}
     >
-      <div className={styles.courseTitle}>{name}</div>
+      <div
+        className={styles.courseTitle}
+        lang={courseTitleLang}
+      >
+        {name}
+      </div>
     </div>
   );
 

@@ -73,18 +73,27 @@ def preview_shifu_draft(
         return _build_frontend_url(base_url, f"/c/{shifu_id}?preview=true")
 
 
-def publish_shifu_draft(app, user_id: str, shifu_id: str, base_url: str):
+def publish_shifu_draft(
+    app,
+    user_id: str,
+    shifu_id: str,
+    base_url: str,
+    sync_summary: bool = False,
+):
     """
     Publish shifu draft
     will copy all draft data to published data
     and save history to database
-    and run summary generation in background
+    and run summary generation in background by default
     and return published shifu url
     Args:
         app: Flask application instance
         user_id: User ID
         shifu_id: Shifu ID
         base_url: Base URL to build published link
+        sync_summary: If True, generate summary/ask prompts synchronously in the
+            current process (useful for one-off console commands). Default False
+            keeps existing async background behavior.
     Returns:
         str: Shifu published URL
     """
@@ -108,6 +117,14 @@ def publish_shifu_draft(app, user_id: str, shifu_id: str, base_url: str):
         shifu_published.updated_user_bid = user_id
         shifu_published.updated_at = now_time
         shifu_published.llm_system_prompt = shifu_draft.llm_system_prompt
+        # TTS Configuration
+        shifu_published.tts_enabled = shifu_draft.tts_enabled
+        shifu_published.tts_provider = getattr(shifu_draft, "tts_provider", "") or ""
+        shifu_published.tts_model = getattr(shifu_draft, "tts_model", "") or ""
+        shifu_published.tts_voice_id = shifu_draft.tts_voice_id
+        shifu_published.tts_speed = shifu_draft.tts_speed
+        shifu_published.tts_pitch = shifu_draft.tts_pitch
+        shifu_published.tts_emotion = shifu_draft.tts_emotion
         db.session.add(shifu_published)
         db.session.flush()
         outline_tree = build_outline_tree(app, shifu_id)
@@ -172,13 +189,15 @@ def publish_shifu_draft(app, user_id: str, shifu_id: str, base_url: str):
         db.session.add(shifu_log_published_struct)
         db.session.commit()
         parent_shifu_context = get_shifu_context_snapshot()
-        thread = threading.Thread(
-            target=_run_summary_with_error_handling,
-            args=(app, shifu_id, parent_shifu_context),
-        )
-        thread.daemon = True  # Ensure thread doesn't prevent app shutdown
-        thread.start()
-        db.session.commit()
+        if sync_summary:
+            _run_summary_with_error_handling(app, shifu_id, parent_shifu_context)
+        else:
+            thread = threading.Thread(
+                target=_run_summary_with_error_handling,
+                args=(app, shifu_id, parent_shifu_context),
+            )
+            thread.daemon = True  # Ensure thread doesn't prevent app shutdown
+            thread.start()
         return _build_frontend_url(base_url, f"/c/{shifu_id}")
 
 

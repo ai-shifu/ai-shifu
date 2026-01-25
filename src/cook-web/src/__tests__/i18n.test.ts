@@ -11,16 +11,14 @@ describe('i18n language normalization', () => {
       locales: {
         'en-US': { label: 'English' },
         'zh-CN': { label: '中文' },
-        'qps-ploc': { label: 'Pseudo' },
       },
     };
 
     jest.isolateModules(() => {
       // Prevent client i18n initialization in tests
-      // @ts-expect-error: simulate non-browser environment for test
-      const prevWindow = global.window;
-      // @ts-expect-error: delete window to force SSR path in module under test
-      delete (global as any).window;
+      const globalAny = global as any;
+      const prevWindow = globalAny.window;
+      delete globalAny.window;
       process.env.NEXT_PUBLIC_I18N_META = JSON.stringify(meta);
 
       // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -34,8 +32,7 @@ describe('i18n language normalization', () => {
       expect(normalizeLanguage('fr')).toBe('en-US');
 
       // restore window to avoid side effects
-      // @ts-expect-error: restore window that we deleted intentionally above
-      global.window = prevWindow;
+      globalAny.window = prevWindow;
     });
   });
 });
