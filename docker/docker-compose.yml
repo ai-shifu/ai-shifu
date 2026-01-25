@@ -1,7 +1,6 @@
 # docker-compose.yml pins services to a tested release for reproducible deployments.
 # Use docker-compose.latest.yml if you prefer to track the :latest container tags.
 x-environment: &default-env
-  REDIS_HOST: ai-shifu-redis
   SQLALCHEMY_DATABASE_URI: mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4
   SECRET_KEY: ai-shifu
   UNIVERSAL_VERIFICATION_CODE: 1024
@@ -19,7 +18,6 @@ services:
       - ./storage:/app/storage
     depends_on:
       - ai-shifu-mysql
-      - ai-shifu-redis
   ai-shifu-cook-web:
     container_name: ai-shifu-cook-web
     image: aishifu/ai-shifu-cook-web:v1.2.0
@@ -48,8 +46,3 @@ services:
     image: mysql:8.0
     volumes:
       - ./mysql_data:/var/lib/mysql
-  ai-shifu-redis:
-    container_name: ai-shifu-redis
-    image: redis:7-alpine
-    volumes:
-      - ./redis_data:/data

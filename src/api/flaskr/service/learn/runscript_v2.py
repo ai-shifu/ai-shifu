@@ -12,7 +12,8 @@ import json
 
 
 from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO, RunStatusDTO
-from flaskr.dao import db, redis_client
+from flaskr.common.cache_provider import cache as cache_provider
+from flaskr.dao import db
 from flaskr.service.shifu.shifu_struct_manager import (
     get_shifu_dto,
     get_outline_item_dto,
@@ -168,7 +169,7 @@ def run_script(
         + ":"
         + outline_bid
     )
-    lock = redis_client.lock(
+    lock = cache_provider.lock(
         lock_key, timeout=timeout, blocking_timeout=blocking_timeout
     )
     if lock.acquire(blocking=True):
@@ -397,7 +398,7 @@ def get_run_status(
         + ":"
         + outline_bid
     )
-    lock = redis_client.lock(lock_key, timeout=300, blocking_timeout=0)
+    lock = cache_provider.lock(lock_key, timeout=300, blocking_timeout=0)
     if lock.acquire(blocking=False):
         # Lock acquired successfully, so no other process is running
         lock.release()
