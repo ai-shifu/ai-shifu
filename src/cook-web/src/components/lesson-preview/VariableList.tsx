@@ -37,12 +37,6 @@ const VariableList: React.FC<VariableListProps> = ({
   const { t } = useTranslation();
 
   const isHideAction = actionType === 'hide';
-  const buttonTextKey = isHideAction
-    ? 'module.shifu.previewArea.variablesHideUnused'
-    : 'module.shifu.previewArea.variablesRestoreHidden';
-  const tooltipTextKey = isHideAction
-    ? 'module.shifu.previewArea.variablesHideUnusedTooltip'
-    : 'module.shifu.previewArea.variablesRestoreHiddenTooltip';
 
   const entries = useMemo(() => {
     const sourceEntries = Object.entries(variables || {});
@@ -92,11 +86,17 @@ const VariableList: React.FC<VariableListProps> = ({
                       onClick={onAction}
                       disabled={actionDisabled}
                     >
-                      {t(buttonTextKey)}
+                      {isHideAction
+                        ? t('module.shifu.previewArea.variablesHideUnused')
+                        : t('module.shifu.previewArea.variablesRestoreHidden')}
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side='top'>
-                    {t(tooltipTextKey)}
+                    {isHideAction
+                      ? t('module.shifu.previewArea.variablesHideUnusedTooltip')
+                      : t(
+                          'module.shifu.previewArea.variablesRestoreHiddenTooltip',
+                        )}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
