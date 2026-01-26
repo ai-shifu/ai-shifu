@@ -27,6 +27,7 @@ import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { useLessonTree } from './hooks/useLessonTree';
 import { updateWxcode } from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
+import { buildLoginRedirectPath } from '@/c-utils/urlUtils';
 
 import { Skeleton } from '@/components/ui/Skeleton';
 import { AppContext } from './Components/AppContext';
@@ -49,8 +50,9 @@ export default function ChatPage() {
    * User info and init part
    */
   const userInfo = useUserStore(state => state.userInfo);
-  const { isLoggedIn, initUser } = useUserStore(state => state);
-  const [initialized, setInitialized] = useState(false);
+  const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const isUserInitialized = useUserStore(state => state.isInitialized);
+  const initialized = isUserInitialized;
 
   const { wechatCode, previewMode } = useSystemStore(
     useShallow(state => ({
@@ -59,23 +61,32 @@ export default function ChatPage() {
     })),
   );
 
-  const initAndCheckLogin = useCallback(async () => {
-    // Initialize user state (automatically handles guest or auth)
-    await initUser();
-
-    if (inWechat() && wechatCode && isLoggedIn) {
-      await updateWxcode({ wxcode: wechatCode });
-    }
-    setInitialized(true);
-  }, [wechatCode, isLoggedIn, initUser]);
-
   useEffect(() => {
-    initAndCheckLogin();
-  }, [initAndCheckLogin]);
+    if (!initialized) {
+      return;
+    }
+    if (!isLoggedIn) {
+      return;
+    }
+    if (!wechatCode || !inWechat()) {
+      return;
+    }
+
+    const token = useUserStore.getState().getToken();
+    if (!token) {
+      return;
+    }
+
+    void updateWxcode({ wxcode: wechatCode }).catch(err => {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to update WeChat OpenID:', err);
+    });
+  }, [initialized, isLoggedIn, wechatCode]);
 
   // NOTE: User-related features should be organized into one module
   function gotoLogin() {
-    window.location.href = `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`;
+    const redirectPath = buildLoginRedirectPath(window.location.href);
+    window.location.href = `/login?redirect=${encodeURIComponent(redirectPath)}`;
   }
   // NOTE: Probably don't need this.
   // const [loginModalOpen, setLoginModalOpen] = useState(false);
