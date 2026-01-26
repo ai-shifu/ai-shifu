@@ -40,6 +40,41 @@ import { useTracking } from '@/c-common/hooks/useTracking';
 
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
 const PROFILE_CACHE_TTL = 5000; // 5s
+const HIDDEN_STORAGE_PREFIX = 'hidden_profile_variables';
+
+const buildHiddenStorageKey = (shifuId?: string) =>
+  shifuId ? `${HIDDEN_STORAGE_PREFIX}:${shifuId}` : '';
+
+const readHiddenFromStorage = (shifuId?: string): string[] => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+  const key = buildHiddenStorageKey(shifuId);
+  if (!key) return [];
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(item => typeof item === 'string');
+  } catch (error) {
+    console.warn('Failed to read hidden variables from storage', error);
+    return [];
+  }
+};
+
+const writeHiddenToStorage = (shifuId: string, hiddenKeys: string[]) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const key = buildHiddenStorageKey(shifuId);
+  if (!key) return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(hiddenKeys));
+  } catch (error) {
+    console.warn('Failed to write hidden variables to storage', error);
+  }
+};
 
 const logProfileAction = (
   action: 'hide_unused' | 'restore_hidden' | 'unhide_by_keys',
@@ -1285,6 +1320,9 @@ export const ShifuProvider = ({
 
     setVariables(customVariables);
     setHiddenVariables(hiddenVariableKeys);
+    if (shifuId) {
+      writeHiddenToStorage(shifuId, hiddenVariableKeys);
+    }
 
     const systemVariableKeys = sysVariables.map(variable => variable.name);
     if (shifuId && shouldUpdateCache) {
@@ -1315,6 +1353,10 @@ export const ShifuProvider = ({
         });
         setUnusedVariables(cached.unusedKeys || []);
         return cached;
+      }
+      const storedHidden = readHiddenFromStorage(shifuId);
+      if (!cached && storedHidden.length > 0) {
+        setHiddenVariables(storedHidden);
       }
       try {
         const [list, usage] = await Promise.all([
