@@ -420,19 +420,25 @@ export const NewChatComponents = ({
                   {isLongPressed && mobileStyle && (
                     <div className='long-press-overlay' />
                   )}
-                  {learningMode === 'listen' ?
-                   <ContentIframe item={item} mobileStyle={mobileStyle} blockBid={item.generated_block_bid} /> : 
-                   <ContentBlock
-                    item={item}
-                    mobileStyle={mobileStyle}
-                    blockBid={item.generated_block_bid}
-                    confirmButtonText={confirmButtonText}
-                    copyButtonText={copyButtonText}
-                    copiedButtonText={copiedButtonText}
-                    onClickCustomButtonAfterContent={handleClickAskButton}
-                    onSend={memoizedOnSend}
-                    onLongPress={handleLongPress}
-                  />}
+                  {learningMode === 'listen' ? (
+                    <ContentIframe
+                      item={item}
+                      mobileStyle={mobileStyle}
+                      blockBid={item.generated_block_bid}
+                    />
+                  ) : (
+                    <ContentBlock
+                      item={item}
+                      mobileStyle={mobileStyle}
+                      blockBid={item.generated_block_bid}
+                      confirmButtonText={confirmButtonText}
+                      copyButtonText={copyButtonText}
+                      copiedButtonText={copiedButtonText}
+                      onClickCustomButtonAfterContent={handleClickAskButton}
+                      onSend={memoizedOnSend}
+                      onLongPress={handleLongPress}
+                    />
+                  )}
                 </div>
               );
             })

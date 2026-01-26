@@ -1,4 +1,4 @@
-import { memo, useCallback , useMemo} from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { isEqual } from 'lodash';
 import { IframeSandbox, splitContentSegments } from 'markdown-flow-ui/renderer';
 import type { IframeSandboxProps } from 'markdown-flow-ui/renderer';
@@ -39,22 +39,25 @@ const ContentIframe = memo(
     //   [onSend, blockBid],
     // );
 
-    const segments = useMemo(() => splitContentSegments(item.content || ''), [item.content]);
+    const segments = useMemo(
+      () => splitContentSegments(item.content || ''),
+      [item.content],
+    );
     console.log('segments ai-shifu=====', segments);
     return (
       <div
         // className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
         className='w-full h-full'
       >
-        {segments.map((segment,index) => (
+        {segments.map((segment, index) => (
           <IframeSandbox
-            key={'iframe'+index}
+            key={'iframe' + index}
             type={segment.type}
             mode='blackboard'
             content={segment.value}
           />
         ))}
-          {/* <IframeSandbox
+        {/* <IframeSandbox
             key={blockBid}
             type={item.type}
             mode='blackboard'
