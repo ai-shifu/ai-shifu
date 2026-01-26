@@ -99,6 +99,8 @@ interface Shifu {
   tts_speed?: number;
   tts_pitch?: number;
   tts_emotion?: string;
+  // Language Output Configuration
+  use_learner_language?: boolean;
 }
 
 const MIN_SHIFU_PRICE = 0.5;
@@ -206,6 +208,9 @@ export default function ShifuSettingDialog({
   const [ttsPitchInput, setTtsPitchInput] = useState<string>('0');
   const [ttsEmotion, setTtsEmotion] = useState('');
   const ttsProviderToastShownRef = useRef(false);
+
+  // Language Output Configuration state
+  const [useLearnerLanguage, setUseLearnerLanguage] = useState(false);
 
   // TTS Preview state
   const [ttsPreviewLoading, setTtsPreviewLoading] = useState(false);
@@ -666,6 +671,8 @@ export default function ShifuSettingDialog({
           tts_speed: speedValue,
           tts_pitch: pitchValue,
           tts_emotion: ttsEmotion,
+          // Language Output Configuration
+          use_learner_language: useLearnerLanguage,
         };
         await api.saveShifuDetail({
           ...payload,
@@ -701,6 +708,7 @@ export default function ShifuSettingDialog({
       speedValue,
       pitchValue,
       ttsEmotion,
+      useLearnerLanguage,
       toast,
       t,
     ],
@@ -747,6 +755,8 @@ export default function ShifuSettingDialog({
           : String(result.tts_pitch),
       );
       setTtsEmotion(result.tts_emotion || '');
+      // Set Language Output Configuration
+      setUseLearnerLanguage(result.use_learner_language ?? false);
     }
   };
 
@@ -1341,6 +1351,25 @@ export default function ShifuSettingDialog({
                     </FormItem>
                   )}
                 />
+
+                {/* Language Output Configuration Section */}
+                <div className='mb-6'>
+                  <div className='flex items-start justify-between'>
+                    <div className='space-y-1'>
+                      <FormLabel className='text-sm font-medium text-foreground'>
+                        {t('module.shifuSetting.useLearnerLanguageTitle')}
+                      </FormLabel>
+                      <p className='text-xs text-muted-foreground'>
+                        {t('module.shifuSetting.useLearnerLanguageDescription')}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={useLearnerLanguage}
+                      onCheckedChange={setUseLearnerLanguage}
+                      disabled={currentShifu?.readonly}
+                    />
+                  </div>
+                </div>
 
                 {/* TTS Configuration Section */}
                 <div className='mb-6'>

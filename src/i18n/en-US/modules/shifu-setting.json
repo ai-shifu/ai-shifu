@@ -66,5 +66,7 @@
   "unarchiveTitle": "Unarchive course?",
   "upload": "Upload",
   "uploadFailed": "Upload failed, please try again later",
-  "uploading": "Uploading"
+  "uploading": "Uploading",
+  "useLearnerLanguageDescription": "When enabled, the AI will teach in the language set by the learner on the platform (e.g., Chinese)",
+  "useLearnerLanguageTitle": "Language adaptation"
 }
