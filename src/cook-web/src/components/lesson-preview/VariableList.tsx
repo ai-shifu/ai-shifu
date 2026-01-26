@@ -6,7 +6,12 @@ import styles from './VariableList.module.scss';
 import type { PreviewVariablesMap } from './variableStorage';
 import { Input } from '../ui/Input';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface VariableListProps {
   variables?: PreviewVariablesMap;
@@ -14,7 +19,7 @@ interface VariableListProps {
   onToggle?: () => void;
   onChange?: (name: string, value: string) => void;
   variableOrder?: string[];
-  actionLabel?: string;
+  actionType?: 'hide' | 'restore';
   onAction?: () => void;
   actionDisabled?: boolean;
 }
@@ -25,11 +30,14 @@ const VariableList: React.FC<VariableListProps> = ({
   onToggle,
   onChange,
   variableOrder = [],
-  actionLabel,
+  actionType,
   onAction,
   actionDisabled = false,
 }) => {
   const { t } = useTranslation();
+
+  const isHideAction = actionType === 'hide';
+
   const entries = useMemo(() => {
     const sourceEntries = Object.entries(variables || {});
     if (!variableOrder.length) {
@@ -68,15 +76,30 @@ const VariableList: React.FC<VariableListProps> = ({
             </div>
           </div>
           <div className={styles.actionsCompact}>
-            {actionLabel && onAction && (
-              <button
-                type='button'
-                className={styles.actionButton}
-                onClick={onAction}
-                disabled={actionDisabled}
-              >
-                {actionLabel}
-              </button>
+            {actionType && onAction && (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type='button'
+                      className={styles.actionButton}
+                      onClick={onAction}
+                      disabled={actionDisabled}
+                    >
+                      {isHideAction
+                        ? t('module.shifu.previewArea.variablesHideUnused')
+                        : t('module.shifu.previewArea.variablesRestoreHidden')}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side='top'>
+                    {isHideAction
+                      ? t('module.shifu.previewArea.variablesHideUnusedTooltip')
+                      : t(
+                          'module.shifu.previewArea.variablesRestoreHiddenTooltip',
+                        )}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
             {onToggle && (
               <button
