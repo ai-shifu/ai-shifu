@@ -60,20 +60,20 @@ const ContentBlock = memo(
         className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
         {...(mobileStyle ? longPressEvent : {})}
       >
-          <ContentRender
-            enableTypewriter={false}
-            content={item.content || ''}
-            onClickCustomButtonAfterContent={handleClick}
-            customRenderBar={item.customRenderBar}
-            defaultButtonText={item.defaultButtonText}
-            defaultInputText={item.defaultInputText}
-            defaultSelectedValues={item.defaultSelectedValues}
-            readonly={item.readonly}
-            confirmButtonText={confirmButtonText}
-            copyButtonText={copyButtonText}
-            copiedButtonText={copiedButtonText}
-            onSend={_onSend}
-          />
+        <ContentRender
+          enableTypewriter={false}
+          content={item.content || ''}
+          onClickCustomButtonAfterContent={handleClick}
+          customRenderBar={item.customRenderBar}
+          defaultButtonText={item.defaultButtonText}
+          defaultInputText={item.defaultInputText}
+          defaultSelectedValues={item.defaultSelectedValues}
+          readonly={item.readonly}
+          confirmButtonText={confirmButtonText}
+          copyButtonText={copyButtonText}
+          copiedButtonText={copiedButtonText}
+          onSend={_onSend}
+        />
       </div>
     );
   },
