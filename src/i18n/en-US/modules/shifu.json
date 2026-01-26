@@ -22,12 +22,14 @@
     "variablesEmpty": "No variables",
     "variablesExpand": "Expand",
     "variablesHideUnused": "Hide unused",
-    "variablesHideUnusedConfirmDesc": "Hide custom variables not referenced in course prompts. They will not appear in the debug area; click \"Restore\" to show them again.",
-    "variablesHideUnusedConfirmTitle": "Hide unused variables?",
+    "variablesHideUnusedTooltip": "Hide custom variables not used in the course",
+    "variablesHideUnusedConfirmDesc": "Hide custom variables not used in the course. After hiding, you can click this button to show them again.",
+    "variablesHideUnusedConfirmTitle": "Hide unused custom variables",
     "variablesPlaceholder": "UNKNOWN",
-    "variablesRestoreHidden": "Restore",
-    "variablesRestoreHiddenConfirmDesc": "All hidden custom variables will reappear in the debug area.",
-    "variablesRestoreHiddenConfirmTitle": "Restore hidden variables?",
+    "variablesRestoreHidden": "Show all",
+    "variablesRestoreHiddenTooltip": "Show all variables in the course",
+    "variablesRestoreHiddenConfirmDesc": "Show all variables in the course. After showing, you can click this button to hide unused custom variables.",
+    "variablesRestoreHiddenConfirmTitle": "Show all variables",
     "variablesTitle": "Variables"
   }
 }

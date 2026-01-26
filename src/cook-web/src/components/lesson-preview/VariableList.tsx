@@ -6,7 +6,12 @@ import styles from './VariableList.module.scss';
 import type { PreviewVariablesMap } from './variableStorage';
 import { Input } from '../ui/Input';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface VariableListProps {
   variables?: PreviewVariablesMap;
@@ -69,14 +74,26 @@ const VariableList: React.FC<VariableListProps> = ({
           </div>
           <div className={styles.actionsCompact}>
             {actionLabel && onAction && (
-              <button
-                type='button'
-                className={styles.actionButton}
-                onClick={onAction}
-                disabled={actionDisabled}
-              >
-                {actionLabel}
-              </button>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type='button'
+                      className={styles.actionButton}
+                      onClick={onAction}
+                      disabled={actionDisabled}
+                    >
+                      {actionLabel}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side='top'>
+                    {actionLabel ===
+                    t('module.shifu.previewArea.variablesHideUnused')
+                      ? t('module.shifu.previewArea.variablesHideUnusedTooltip')
+                      : t('module.shifu.previewArea.variablesRestoreHiddenTooltip')}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
             {onToggle && (
               <button
