@@ -94,6 +94,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
     isLoading,
     variables,
     systemVariables,
+    hiddenVariables,
+    unusedVariables,
     currentShifu,
     currentNode,
   } = useShifu();
@@ -212,6 +214,24 @@ const ScriptEditor = ({ id }: { id: string }) => {
     setIsPreviewPanelOpen(prev => !prev);
   };
 
+  const handleHideUnusedVariables = useCallback(async () => {
+    if (!currentShifu?.bid) return;
+    try {
+      await actions.hideUnusedVariables(currentShifu.bid);
+    } catch (error) {
+      console.error('Failed to hide unused variables', error);
+    }
+  }, [actions, currentShifu?.bid]);
+
+  const handleRestoreHiddenVariables = useCallback(async () => {
+    if (!currentShifu?.bid) return;
+    try {
+      await actions.restoreHiddenVariables(currentShifu.bid);
+    } catch (error) {
+      console.error('Failed to restore hidden variables', error);
+    }
+  }, [actions, currentShifu?.bid]);
+
   useEffect(() => {
     currentNodeBidRef.current = currentNode?.bid ?? null;
   }, [currentNode?.bid]);
@@ -261,7 +281,27 @@ const ScriptEditor = ({ id }: { id: string }) => {
         variables: parsedVariablesMap,
         blocksCount,
         systemVariableKeys,
+        allVariableKeys,
       } = await actions.previewParse(targetMdflow, targetShifu, targetOutline);
+
+      // Auto-unhide only the hidden variables that are actually used in current prompts (use parsed keys)
+      const parsedVariableKeys =
+        allVariableKeys || Object.keys(parsedVariablesMap || {});
+      const usedHiddenKeys = hiddenVariables.filter(
+        key => parsedVariableKeys.includes(key) && targetMdflow.includes(key),
+      );
+      if (usedHiddenKeys.length) {
+        try {
+          await actions.unhideVariablesByKeys(targetShifu, usedHiddenKeys);
+          if (outlineChanged()) {
+            return;
+          }
+          // refresh local visible/hidden lists to reflect the change
+          await actions.refreshProfileDefinitions(targetShifu);
+        } catch (unhideError) {
+          console.error('Failed to auto-unhide variables:', unhideError);
+        }
+      }
       if (outlineChanged()) {
         return;
       }
@@ -293,6 +333,16 @@ const ScriptEditor = ({ id }: { id: string }) => {
     () => extractVariableNames(mdflow),
     [mdflow],
   );
+
+  const resolvedPreviewVariables = useMemo(() => {
+    const candidates = [previewVariables, previewItems[0]?.variables];
+    for (const candidate of candidates) {
+      if (candidate && Object.keys(candidate).length) {
+        return candidate;
+      }
+    }
+    return undefined;
+  }, [previewItems, previewVariables]);
   useEffect(() => {
     const previousSeen = seenVariableNamesRef.current;
     const currentSet = new Set<string>();
@@ -323,20 +373,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [mdflowVariableNames]);
 
   const variablesList = useMemo(() => {
-    const merged = new Map<string, { name: string }>();
-    // Prioritize freshly added variables, then actual markdown ones, then persisted ones
-    [...recentVariables, ...mdflowVariableNames, ...variables].forEach(
-      variableName => {
-        if (!variableName) {
-          return;
-        }
-        if (!merged.has(variableName)) {
-          merged.set(variableName, { name: variableName });
-        }
-      },
-    );
-    return Array.from(merged.values());
-  }, [recentVariables, mdflowVariableNames, variables]);
+    return (variables || []).map(name => ({ name }));
+  }, [variables]);
 
   const systemVariablesList = useMemo(() => {
     return systemVariables.map((variable: Record<string, string>) => ({
@@ -351,6 +389,50 @@ const ScriptEditor = ({ id }: { id: string }) => {
       ...variablesList.map(variable => variable.name),
     ];
   }, [systemVariablesList, variablesList]);
+
+  // Course-level visible variables (system + custom, excluding hidden)
+  const courseVisibleVariableKeys = useMemo(() => {
+    const systemSet = systemVariablesList.map(item => item.name);
+    const customVisible = (variables || []).filter(
+      key => !hiddenVariables.includes(key),
+    );
+    return [...systemSet, ...customVisible];
+  }, [hiddenVariables, systemVariablesList, variables]);
+
+  // Preview variables: start from parsed variables and fill missing course-visible keys with empty values
+  const mergedPreviewVariables = useMemo(() => {
+    const base = resolvedPreviewVariables
+      ? { ...resolvedPreviewVariables }
+      : {};
+    courseVisibleVariableKeys.forEach(key => {
+      if (!(key in base)) {
+        base[key] = '';
+      }
+    });
+    return base;
+  }, [courseVisibleVariableKeys, resolvedPreviewVariables]);
+
+  const unusedVisibleVariables = useMemo(() => {
+    const hiddenSet = new Set(hiddenVariables);
+    return (unusedVariables || []).filter(key => !hiddenSet.has(key));
+  }, [hiddenVariables, unusedVariables]);
+
+  const hasUnusedVisibleVariables = unusedVisibleVariables.length > 0;
+
+  const hasHiddenVariables = hiddenVariables.length > 0;
+  const hideRestoreActionType: 'hide' | 'restore' = hasUnusedVisibleVariables
+    ? 'hide'
+    : hasHiddenVariables
+      ? 'restore'
+      : 'hide';
+  const hideRestoreActionDisabled =
+    hideRestoreActionType === 'hide'
+      ? !hasUnusedVisibleVariables
+      : !hasHiddenVariables;
+  const hideRestoreActionLabel =
+    hideRestoreActionType === 'hide'
+      ? t('module.shifu.previewArea.variablesHideUnused')
+      : t('module.shifu.previewArea.variablesRestoreHidden');
 
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);
@@ -688,7 +770,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   loading={previewLoading}
                   errorMessage={previewError || undefined}
                   items={previewItems}
-                  variables={previewVariables}
+                  variables={mergedPreviewVariables}
+                  hiddenVariableKeys={hiddenVariables}
                   shifuBid={currentShifu?.bid || ''}
                   onRefresh={onRefresh}
                   onSend={onSend}
@@ -696,6 +779,14 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   variableOrder={variableOrder}
                   onRequestAudioForBlock={requestPreviewAudioForBlock}
                   reGenerateConfirm={reGenerateConfirm}
+                  onHideOrRestore={
+                    hideRestoreActionType === 'hide'
+                      ? handleHideUnusedVariables
+                      : handleRestoreHiddenVariables
+                  }
+                  actionLabel={hideRestoreActionLabel}
+                  actionType={hideRestoreActionType}
+                  actionDisabled={hideRestoreActionDisabled}
                 />
               </div>
             </div>

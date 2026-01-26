@@ -19,9 +19,15 @@
     "title": "Learning Simulation",
     "variablesCollapse": "Collapse",
     "variablesDescription": "Different learners set different variables to get different courses",
+    "variablesEmpty": "No variables",
     "variablesExpand": "Expand",
-    "variablesLearnMore": "Learn more",
+    "variablesHideUnused": "Hide unused",
+    "variablesHideUnusedConfirmDesc": "Hide custom variables not referenced in course prompts. They will not appear in the debug area; click \"Restore\" to show them again.",
+    "variablesHideUnusedConfirmTitle": "Hide unused variables?",
     "variablesPlaceholder": "UNKNOWN",
+    "variablesRestoreHidden": "Restore",
+    "variablesRestoreHiddenConfirmDesc": "All hidden custom variables will reappear in the debug area.",
+    "variablesRestoreHiddenConfirmTitle": "Restore hidden variables?",
     "variablesTitle": "Variables"
   }
 }

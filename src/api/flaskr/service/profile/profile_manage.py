@@ -1,5 +1,7 @@
 from flask import Flask
 from datetime import datetime
+import json
+from markdown_flow import MarkdownFlow
 from .models import (
     ProfileItem,
     ProfileItemValue,
@@ -12,8 +14,8 @@ from .models import (
     PROFILE_CONF_TYPE_ITEM,
 )
 from ...dao import db
+from sqlalchemy import func
 from flaskr.util.uuid import generate_id
-import json
 from flaskr.service.common import raise_error
 from .dtos import (
     ColorSetting,
@@ -33,8 +35,8 @@ from .models import (
     CONST_PROFILE_SCOPE_USER,
 )
 
-# from datetime import datetime
-from flaskr.service.shifu.models import PublishedShifu, DraftShifu
+from flaskr.service.shifu.models import PublishedShifu, DraftShifu, DraftOutlineItem
+from flaskr.common.i18n_utils import get_markdownflow_output_language
 
 
 # get color setting
@@ -54,6 +56,69 @@ def get_next_corlor_setting(parent_id: str):
     return DEFAULT_COLOR_SETTINGS[
         (profile_items_count + 1) % len(DEFAULT_COLOR_SETTINGS)
     ]
+
+
+def _collect_used_variables(app: Flask, shifu_bid: str) -> set[str]:
+    """
+    Collect variable names referenced across the latest mdflow content
+    for all draft outline items under a shifu.
+    """
+    with app.app_context():
+        latest_ids_subquery = (
+            db.session.query(
+                DraftOutlineItem.outline_item_bid,
+                func.max(DraftOutlineItem.id).label("latest_id"),
+            )
+            .filter(
+                DraftOutlineItem.shifu_bid == shifu_bid,
+                DraftOutlineItem.deleted == 0,
+            )
+            .group_by(DraftOutlineItem.outline_item_bid)
+            .subquery()
+        )
+
+        outline_items = (
+            DraftOutlineItem.query.join(
+                latest_ids_subquery,
+                DraftOutlineItem.id == latest_ids_subquery.c.latest_id,
+            )
+            .filter(DraftOutlineItem.deleted == 0)
+            .all()
+        )
+
+        used_variables: set[str] = set()
+        for item in outline_items:
+            if not item.content:
+                continue
+            try:
+                markdown_flow = MarkdownFlow(item.content).set_output_language(
+                    get_markdownflow_output_language()
+                )
+                for var in markdown_flow.extract_variables() or []:
+                    if var:
+                        used_variables.add(var)
+            except Exception as exc:  # pragma: no cover - defensive
+                app.logger.warning(
+                    "Failed to parse MarkdownFlow for outline %s: %s", item.id, exc
+                )
+        return used_variables
+
+
+def get_unused_profile_keys(app: Flask, shifu_bid: str) -> list[str]:
+    """
+    Determine custom profile keys that are not referenced in any outline content.
+    """
+    definitions = get_profile_item_definition_list(app, parent_id=shifu_bid)
+    used_variables = _collect_used_variables(app, shifu_bid)
+    unused_keys: list[str] = []
+    for definition in definitions:
+        if (
+            definition.profile_scope == CONST_PROFILE_SCOPE_USER
+            and definition.profile_key
+            and definition.profile_key not in used_variables
+        ):
+            unused_keys.append(definition.profile_key)
+    return unused_keys
 
 
 def convert_profile_item_to_profile_item_definition(
@@ -90,6 +155,7 @@ def convert_profile_item_to_profile_item_definition(
             ).upper()
         ),
         profile_item.profile_id,
+        bool(profile_item.is_hidden),
     )
 
 
@@ -119,6 +185,82 @@ def get_profile_item_definition_list(
                 for profile_item in profile_item_list
             ]
         return []
+
+
+def update_profile_item_hidden_state(
+    app: Flask, parent_id: str, profile_keys: list[str], hidden: bool, user_id: str
+) -> list[ProfileItemDefinition]:
+    """
+    Update is_hidden flag for given custom profile keys.
+    """
+    if not parent_id:
+        raise_error("server.profile.parentIdRequired")
+    if not profile_keys:
+        return get_profile_item_definition_list(app, parent_id=parent_id)
+
+    with app.app_context():
+        target_items = (
+            ProfileItem.query.filter(
+                ProfileItem.parent_id == parent_id,
+                ProfileItem.status == 1,
+                ProfileItem.profile_key.in_(profile_keys),
+            )
+            .order_by(ProfileItem.profile_index.asc())
+            .all()
+        )
+        if not target_items:
+            return get_profile_item_definition_list(app, parent_id=parent_id)
+
+        for item in target_items:
+            item.is_hidden = 1 if hidden else 0
+            item.updated = datetime.now()
+            item.updated_by = user_id
+
+        db.session.commit()
+        return get_profile_item_definition_list(app, parent_id=parent_id)
+
+
+def hide_unused_profile_items(
+    app: Flask, parent_id: str, user_id: str
+) -> list[ProfileItemDefinition]:
+    """
+    Hide all custom profile items that are not referenced in any outline content.
+    """
+    unused_keys = get_unused_profile_keys(app, parent_id)
+    if not unused_keys:
+        return get_profile_item_definition_list(app, parent_id=parent_id)
+    return update_profile_item_hidden_state(
+        app, parent_id=parent_id, profile_keys=unused_keys, hidden=True, user_id=user_id
+    )
+
+
+def get_profile_variable_usage(app: Flask, parent_id: str) -> dict:
+    """
+    Return custom profile keys split by whether they are referenced in any outline content.
+    """
+    if not parent_id:
+        raise_error("server.profile.parentIdRequired")
+
+    definitions = get_profile_item_definition_list(app, parent_id=parent_id)
+    used_variables = _collect_used_variables(app, parent_id)
+
+    used_keys: list[str] = []
+    unused_keys: list[str] = []
+    for definition in definitions:
+        if definition.profile_scope != CONST_PROFILE_SCOPE_USER:
+            continue
+        key = definition.profile_key
+        if not key:
+            continue
+        if key in used_variables:
+            used_keys.append(key)
+        else:
+            unused_keys.append(key)
+
+    return {
+        "used_keys": used_keys,
+        "unused_keys": unused_keys,
+    }
 
 
 def get_profile_item_definition_option_list(
