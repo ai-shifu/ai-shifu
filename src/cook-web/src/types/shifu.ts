@@ -213,6 +213,7 @@ export interface ShifuActions {
     variables: PreviewVariablesMap;
     blocksCount: number;
     systemVariableKeys: string[];
+    allVariableKeys?: string[];
   }>;
   hideUnusedVariables: (shifuId: string) => Promise<void>;
   restoreHiddenVariables: (shifuId: string) => Promise<void>;
