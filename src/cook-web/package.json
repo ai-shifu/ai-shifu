@@ -1,6 +1,6 @@
 {
   "name": "cook-web",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "engines": {
     "node": "22.16.0"

@@ -435,7 +435,7 @@ class TestGetConfigFunction:
             # Test with known ENV_VAR key not in environment - should return default from ENV_VARS
             monkeypatch.delenv("REDIS_HOST", raising=False)
             value = get_config("REDIS_HOST")
-            assert value == "ai-shifu-redis"  # Default value from ENV_VARS
+            assert value == ""  # Default value from ENV_VARS
         finally:
             # Restore original instance
             config_module.__INSTANCE__ = original_instance

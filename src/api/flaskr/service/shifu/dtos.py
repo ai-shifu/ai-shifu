@@ -107,6 +107,11 @@ class ShifuDetailDto(BaseModel):
         required=False,
     )
     tts_emotion: str = Field("", description="TTS emotion setting", required=False)
+    use_learner_language: bool = Field(
+        False,
+        description="Use learner language for AI output",
+        required=False,
+    )
 
     def __init__(
         self,
@@ -132,6 +137,7 @@ class ShifuDetailDto(BaseModel):
         tts_speed: float = 1.0,
         tts_pitch: int = 0,
         tts_emotion: str = "",
+        use_learner_language: bool = False,
     ):
         super().__init__(
             bid=shifu_id,
@@ -156,6 +162,7 @@ class ShifuDetailDto(BaseModel):
             tts_speed=tts_speed,
             tts_pitch=tts_pitch,
             tts_emotion=tts_emotion,
+            use_learner_language=use_learner_language,
         )
 
     def __json__(self):
@@ -182,6 +189,7 @@ class ShifuDetailDto(BaseModel):
             "tts_speed": self.tts_speed,
             "tts_pitch": self.tts_pitch,
             "tts_emotion": self.tts_emotion,
+            "use_learner_language": self.use_learner_language,
         }
 
 
