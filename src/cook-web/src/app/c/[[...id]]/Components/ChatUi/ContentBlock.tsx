@@ -73,11 +73,12 @@ const ContentBlock = memo(
         {...(mobileStyle ? longPressEvent : {})}
       >
         {learningMode === 'listen' ? (
-          sandboxContent ? 
-          <IframeSandbox
-            content={sandboxContent}
-            className='content-render-iframe'
-          /> : null
+          sandboxContent ? (
+            <IframeSandbox
+              content={sandboxContent}
+              className='content-render-iframe'
+            />
+          ) : null
         ) : (
           <ContentRender
             enableTypewriter={false}

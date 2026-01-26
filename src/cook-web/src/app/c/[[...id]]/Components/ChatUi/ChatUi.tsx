@@ -61,24 +61,30 @@ export const ChatUi = ({
             <div className={styles.headerActions}>
               <button
                 type='button'
-              className={cn(
-                styles.modeButton,
-                learningMode === 'listen' ? styles.modeButtonActive : '',
-              )}
+                className={cn(
+                  styles.modeButton,
+                  learningMode === 'listen' ? styles.modeButtonActive : '',
+                )}
                 onClick={() => updateLearningMode('listen')}
               >
-                <Headphones size={16} strokeWidth={2} />
+                <Headphones
+                  size={16}
+                  strokeWidth={2}
+                />
                 <span>听课</span>
               </button>
               <button
                 type='button'
-              className={cn(
-                styles.modeButton,
-                learningMode === 'read' ? styles.modeButtonActive : '',
-              )}
+                className={cn(
+                  styles.modeButton,
+                  learningMode === 'read' ? styles.modeButtonActive : '',
+                )}
                 onClick={() => updateLearningMode('read')}
               >
-                <BookOpen size={16} strokeWidth={2} />
+                <BookOpen
+                  size={16}
+                  strokeWidth={2}
+                />
                 <span>阅读</span>
               </button>
             </div>
