@@ -1,11 +1,18 @@
 .chatComponents {
   width: 100%;
+  min-width: 0;
   height: 100%;
   position: relative;
   box-sizing: border-box;
 
   :global(.content-render-theme) {
     position: relative;
+    min-width: 0;
+    .content-render,
+    .content-render .content-render-svg-scroll,
+    .content-render .content-render-svg {
+      min-width: 0;
+    }
   }
 
   :global(.long-press-overlay) {
