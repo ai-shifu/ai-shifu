@@ -19,7 +19,7 @@ interface VariableListProps {
   onToggle?: () => void;
   onChange?: (name: string, value: string) => void;
   variableOrder?: string[];
-  actionLabel?: string;
+  actionType?: 'hide' | 'restore';
   onAction?: () => void;
   actionDisabled?: boolean;
 }
@@ -30,7 +30,7 @@ const VariableList: React.FC<VariableListProps> = ({
   onToggle,
   onChange,
   variableOrder = [],
-  actionLabel,
+  actionType,
   onAction,
   actionDisabled = false,
 }) => {
@@ -73,7 +73,7 @@ const VariableList: React.FC<VariableListProps> = ({
             </div>
           </div>
           <div className={styles.actionsCompact}>
-            {actionLabel && onAction && (
+            {actionType && onAction && (
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -83,12 +83,13 @@ const VariableList: React.FC<VariableListProps> = ({
                       onClick={onAction}
                       disabled={actionDisabled}
                     >
-                      {actionLabel}
+                      {actionType === 'hide'
+                        ? t('module.shifu.previewArea.variablesHideUnused')
+                        : t('module.shifu.previewArea.variablesRestoreHidden')}
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side='top'>
-                    {actionLabel ===
-                    t('module.shifu.previewArea.variablesHideUnused')
+                    {actionType === 'hide'
                       ? t('module.shifu.previewArea.variablesHideUnusedTooltip')
                       : t(
                           'module.shifu.previewArea.variablesRestoreHiddenTooltip',
