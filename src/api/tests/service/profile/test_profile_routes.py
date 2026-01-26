@@ -22,9 +22,24 @@ class TestProfileRoutes:
     )
 
     def _mock_request_user(self, monkeypatch):
+        dummy_user = SimpleNamespace(user_id="test-user", language="en-US")
+        # Bypass before_request token validation and ensure request.user is set.
+        monkeypatch.setattr(
+            "flaskr.service.user.common.validate_user",
+            lambda _app, _token: dummy_user,
+            raising=False,
+        )
+        from flaskr.route.common import by_pass_login_func
+
+        for endpoint in (
+            "hide_unused_profile_items_api",
+            "update_profile_hidden_state_api",
+        ):
+            if endpoint not in by_pass_login_func:
+                by_pass_login_func.append(endpoint)
         monkeypatch.setattr(
             "flaskr.service.profile.routes.request",
-            SimpleNamespace(user=SimpleNamespace(user_id="test-user")),
+            SimpleNamespace(user=dummy_user),
             raising=False,
         )
 
