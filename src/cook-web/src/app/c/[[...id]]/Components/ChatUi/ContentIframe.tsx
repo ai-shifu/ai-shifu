@@ -44,6 +44,7 @@ const ContentIframe = memo(
       [item.content],
     );
     console.log('segments ai-shifu=====', segments);
+    if(segments.length === 0) return null;
     return (
       <div
         // className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}

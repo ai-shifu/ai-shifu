@@ -342,11 +342,12 @@ export const NewChatComponents = ({
           styles.chatComponents,
           className,
           mobileStyle ? styles.mobile : '',
+          learningMode === 'listen' ? 'flex': '',
         )}
         ref={chatRef}
         style={{ width: '100%', height: '100%', overflowY: 'auto' }}
       >
-        <div>
+        <div className={learningMode === 'listen' ? 'flex flex-1 flex-col' : ''}>
           {isLoading ? (
             <></>
           ) : (
@@ -355,7 +356,9 @@ export const NewChatComponents = ({
                 longPressedBlockBid === item.generated_block_bid;
               const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
               const parentKey = item.parent_block_bid || baseKey;
-
+              if(learningMode === 'listen'){
+                return <ContentIframe item={item} mobileStyle={mobileStyle} blockBid={item.generated_block_bid} />
+              }
               if (item.type === ChatContentItemType.ASK) {
                 return (
                   <div
@@ -414,39 +417,31 @@ export const NewChatComponents = ({
                         ? '0 auto'
                         : '40px auto 0 auto',
                     maxWidth: mobileStyle ? '100%' : '1000px',
-                    padding: '0 20px',
+                    padding: '0 20px'
                   }}
                 >
                   {isLongPressed && mobileStyle && (
                     <div className='long-press-overlay' />
                   )}
-                  {learningMode === 'listen' ? (
-                    <ContentIframe
-                      item={item}
-                      mobileStyle={mobileStyle}
-                      blockBid={item.generated_block_bid}
-                    />
-                  ) : (
-                    <ContentBlock
-                      item={item}
-                      mobileStyle={mobileStyle}
-                      blockBid={item.generated_block_bid}
-                      confirmButtonText={confirmButtonText}
-                      copyButtonText={copyButtonText}
-                      copiedButtonText={copiedButtonText}
-                      onClickCustomButtonAfterContent={handleClickAskButton}
-                      onSend={memoizedOnSend}
-                      onLongPress={handleLongPress}
-                    />
-                  )}
+                   <ContentBlock
+                    item={item}
+                    mobileStyle={mobileStyle}
+                    blockBid={item.generated_block_bid}
+                    confirmButtonText={confirmButtonText}
+                    copyButtonText={copyButtonText}
+                    copiedButtonText={copiedButtonText}
+                    onClickCustomButtonAfterContent={handleClickAskButton}
+                    onSend={memoizedOnSend}
+                    onLongPress={handleLongPress}
+                  />
                 </div>
               );
             })
           )}
-          <div
+          {learningMode !== 'listen' && <div
             ref={chatBoxBottomRef}
             id='chat-box-bottom'
-          ></div>
+          ></div>}
         </div>
       </div>
       {mobileStyle && portalTarget
