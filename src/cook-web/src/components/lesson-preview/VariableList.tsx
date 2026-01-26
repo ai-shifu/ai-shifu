@@ -6,6 +6,7 @@ import styles from './VariableList.module.scss';
 import type { PreviewVariablesMap } from './variableStorage';
 import { Input } from '../ui/Input';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface VariableListProps {
   variables?: PreviewVariablesMap;
@@ -13,6 +14,9 @@ interface VariableListProps {
   onToggle?: () => void;
   onChange?: (name: string, value: string) => void;
   variableOrder?: string[];
+  actionLabel?: string;
+  onAction?: () => void;
+  actionDisabled?: boolean;
 }
 
 const VariableList: React.FC<VariableListProps> = ({
@@ -21,6 +25,9 @@ const VariableList: React.FC<VariableListProps> = ({
   onToggle,
   onChange,
   variableOrder = [],
+  actionLabel,
+  onAction,
+  actionDisabled = false,
 }) => {
   const { t } = useTranslation();
   const entries = useMemo(() => {
@@ -42,89 +49,107 @@ const VariableList: React.FC<VariableListProps> = ({
     return orderedEntries;
   }, [variableOrder, variables]);
 
-  if (!entries.length) {
-    return null;
-  }
+  const hasVisible = entries.length > 0;
+  const isEmptyView = !hasVisible;
 
   return (
     <div className={styles.variableList}>
       <div className={styles.header}>
-        <div className={styles.titleWrapper}>
-          <div className={styles.title}>
-            {t('module.shifu.previewArea.variablesTitle')}
+        <div className={styles.topRow}>
+          <div className={styles.titleWrapper}>
+            <div className={styles.title}>
+              {t('module.shifu.previewArea.variablesTitle')}
+            </div>
+            <div
+              className={styles.description}
+              title={t('module.shifu.previewArea.variablesDescription')}
+            >
+              {t('module.shifu.previewArea.variablesDescription')}
+            </div>
           </div>
-          <div
-            className={styles.description}
-            title={t('module.shifu.previewArea.variablesDescription')}
-          >
-            {t('module.shifu.previewArea.variablesDescription')}
-            {/* <span className={styles.link}>
-              {t('module.shifu.previewArea.variablesLearnMore')}
-            </span> */}
+          <div className={styles.actionsCompact}>
+            {actionLabel && onAction && (
+              <button
+                type='button'
+                className={styles.actionButton}
+                onClick={onAction}
+                disabled={actionDisabled}
+              >
+                {actionLabel}
+              </button>
+            )}
+            {onToggle && (
+              <button
+                type='button'
+                className={styles.toggle}
+                onClick={onToggle}
+              >
+                {collapsed ? (
+                  <ChevronDown
+                    size={16}
+                    strokeWidth={2}
+                  />
+                ) : (
+                  <ChevronUp
+                    size={16}
+                    strokeWidth={2}
+                  />
+                )}
+                <span>
+                  {collapsed
+                    ? t('module.shifu.previewArea.variablesExpand')
+                    : t('module.shifu.previewArea.variablesCollapse')}
+                </span>
+              </button>
+            )}
           </div>
         </div>
-        {onToggle && (
-          <button
-            type='button'
-            className={styles.toggle}
-            onClick={onToggle}
-          >
-            {collapsed ? (
-              <ChevronDown
-                size={16}
-                strokeWidth={2}
-              />
-            ) : (
-              <ChevronUp
-                size={16}
-                strokeWidth={2}
-              />
-            )}
-            <span>
-              {collapsed
-                ? t('module.shifu.previewArea.variablesExpand')
-                : t('module.shifu.previewArea.variablesCollapse')}
-            </span>
-          </button>
-        )}
       </div>
-      <div
-        className={`${styles.grid} ${collapsed ? styles.collapsed : ''}`}
-        aria-hidden={collapsed}
-      >
-        {entries.map(([name, value]) => {
-          const displayValue = value || '';
-          return (
-            <div
-              className={styles.item}
-              key={name}
-            >
+      {!isEmptyView && (
+        <div
+          className={`${styles.grid} ${collapsed ? styles.collapsed : ''}`}
+          aria-hidden={collapsed}
+        >
+          {entries.map(([name, value]) => {
+            const displayValue = value || '';
+            return (
               <div
-                className={styles.name}
-                title={name}
+                className={styles.item}
+                key={name}
               >
-                {name}
+                <div
+                  className={styles.name}
+                  title={name}
+                >
+                  {name}
+                </div>
+                <div
+                  className={styles.value}
+                  title={displayValue}
+                >
+                  <Input
+                    type='text'
+                    value={displayValue}
+                    placeholder={t(
+                      'module.shifu.previewArea.variablesPlaceholder',
+                    )}
+                    onChange={e => {
+                      const nextValue = e.target.value;
+                      onChange?.(name, nextValue);
+                    }}
+                  />
+                </div>
               </div>
-              <div
-                className={styles.value}
-                title={displayValue}
-              >
-                <Input
-                  type='text'
-                  value={displayValue}
-                  placeholder={t(
-                    'module.shifu.previewArea.variablesPlaceholder',
-                  )}
-                  onChange={e => {
-                    const nextValue = e.target.value;
-                    onChange?.(name, nextValue);
-                  }}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
+
+      {isEmptyView && (
+        <div className={styles.hiddenEmpty}>
+          {t('module.shifu.previewArea.variablesEmpty')}
+        </div>
+      )}
     </div>
   );
 };
