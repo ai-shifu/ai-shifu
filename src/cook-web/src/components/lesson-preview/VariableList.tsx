@@ -90,7 +90,9 @@ const VariableList: React.FC<VariableListProps> = ({
                     {actionLabel ===
                     t('module.shifu.previewArea.variablesHideUnused')
                       ? t('module.shifu.previewArea.variablesHideUnusedTooltip')
-                      : t('module.shifu.previewArea.variablesRestoreHiddenTooltip')}
+                      : t(
+                          'module.shifu.previewArea.variablesRestoreHiddenTooltip',
+                        )}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
