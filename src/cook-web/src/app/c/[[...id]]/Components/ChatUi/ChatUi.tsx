@@ -53,7 +53,7 @@ export const ChatUi = ({
   const { courseAvatar, courseName } = useCourseStore(state => state);
   const hideMobileFooter = frameLayout === FRAME_LAYOUT_MOBILE && isNavOpen;
   const showHeader = frameLayout !== FRAME_LAYOUT_MOBILE;
-  const showModeToggle = showHeader && showLearningModeToggle;
+  const showModeToggle = showLearningModeToggle;
 
   return (
     <div

@@ -25,6 +25,7 @@ import type { ChatContentItem } from './useChatLogicHook';
 import AskBlock from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
+import ContentIframe from './ContentIframe';
 import {
   Dialog,
   DialogContent,
@@ -419,7 +420,9 @@ export const NewChatComponents = ({
                   {isLongPressed && mobileStyle && (
                     <div className='long-press-overlay' />
                   )}
-                  <ContentBlock
+                  {learningMode === 'listen' ?
+                   <ContentIframe item={item} mobileStyle={mobileStyle} blockBid={item.generated_block_bid} /> : 
+                   <ContentBlock
                     item={item}
                     mobileStyle={mobileStyle}
                     blockBid={item.generated_block_bid}
@@ -429,7 +432,7 @@ export const NewChatComponents = ({
                     onClickCustomButtonAfterContent={handleClickAskButton}
                     onSend={memoizedOnSend}
                     onLongPress={handleLongPress}
-                  />
+                  />}
                 </div>
               );
             })
