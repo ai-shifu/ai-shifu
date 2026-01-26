@@ -34,18 +34,26 @@ export const ChatUi = ({
 }) => {
   const { t } = useTranslation();
   const { frameLayout } = useUiLayoutStore(state => state);
-  const { previewMode, learningMode, updateLearningMode } = useSystemStore(
+  const {
+    previewMode,
+    learningMode,
+    updateLearningMode,
+    showLearningModeToggle,
+  } = useSystemStore(
     useShallow(state => ({
       skip: state.skip,
       updateSkip: state.updateSkip,
       previewMode: state.previewMode,
       learningMode: state.learningMode,
       updateLearningMode: state.updateLearningMode,
+      showLearningModeToggle: state.showLearningModeToggle,
     })),
   );
 
   const { courseAvatar, courseName } = useCourseStore(state => state);
   const hideMobileFooter = frameLayout === FRAME_LAYOUT_MOBILE && isNavOpen;
+  const showHeader = frameLayout !== FRAME_LAYOUT_MOBILE;
+  const showModeToggle = showHeader && showLearningModeToggle;
 
   return (
     <div
@@ -55,9 +63,9 @@ export const ChatUi = ({
         hideMobileFooter ? styles.hideMobileFooter : '',
       )}
     >
-      {
-        frameLayout !== FRAME_LAYOUT_MOBILE ? (
-          <div className={styles.header}>
+      {showHeader ? (
+        <div className={styles.header}>
+          {showModeToggle ? (
             <div className={styles.headerActions}>
               <button
                 type='button'
@@ -88,9 +96,10 @@ export const ChatUi = ({
                 <span>阅读</span>
               </button>
             </div>
-          </div>
-        ) : null
-        // <div className={styles.headerMobile}></div>
+          ) : null}
+        </div>
+      ) : null
+      // <div className={styles.headerMobile}></div>
       }
       {
         <ChatComponents
@@ -111,7 +120,7 @@ export const ChatUi = ({
       }
       {showUserSettings && (
         <UserSettings
-          className={styles.UserSettings}
+          className={cn(styles.UserSettings)}
           onHomeClick={onUserSettingsClose}
           onClose={onUserSettingsClose}
           isBasicInfo={userSettingBasicInfo}

@@ -42,6 +42,8 @@ export default function ChatLayout({
     updateLanguage,
     updatePreviewMode,
     updateSkip,
+    updateShowLearningModeToggle,
+    updateLearningMode,
   } = useSystemStore() as SystemStoreState;
 
   // Use the original browser language without conversion
@@ -82,6 +84,9 @@ export default function ChatLayout({
     ? params.preview.toLowerCase() === 'true'
     : false;
   const isSkipMode = params.skip ? params.skip.toLowerCase() === 'true' : false;
+  const listenModeEnabled = params.listen
+    ? params.listen.toLowerCase() === 'true'
+    : false;
 
   if (channel !== currChannel) {
     updateChannel(currChannel);
@@ -137,7 +142,17 @@ export default function ChatLayout({
   useEffect(() => {
     updatePreviewMode(isPreviewMode);
     updateSkip(isSkipMode);
-  }, [isPreviewMode, isSkipMode, updatePreviewMode, updateSkip]);
+    updateShowLearningModeToggle(listenModeEnabled);
+    updateLearningMode(listenModeEnabled ? 'listen' : 'read');
+  }, [
+    isPreviewMode,
+    isSkipMode,
+    listenModeEnabled,
+    updatePreviewMode,
+    updateSkip,
+    updateShowLearningModeToggle,
+    updateLearningMode,
+  ]);
 
   useEffect(() => {
     const fetchCourseInfo = async () => {

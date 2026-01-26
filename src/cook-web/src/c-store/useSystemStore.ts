@@ -9,7 +9,8 @@ export const useSystemStore = create<SystemStoreState>(set => ({
   showVip: true,
   previewMode: false,
   skip: false,
-  learningMode: 'listen',
+  learningMode: 'read',
+  showLearningModeToggle: false,
   updateChannel: (channel: string) => set({ channel }),
   updateWechatCode: (wechatCode: string) => set({ wechatCode }),
   updateLanguage: (language: string) => set({ language }),
@@ -17,4 +18,6 @@ export const useSystemStore = create<SystemStoreState>(set => ({
   updatePreviewMode: (mode: boolean) => set({ previewMode: mode }),
   updateSkip: (skip: boolean) => set({ skip }),
   updateLearningMode: (mode: 'listen' | 'read') => set({ learningMode: mode }),
+  updateShowLearningModeToggle: (show: boolean) =>
+    set({ showLearningModeToggle: show }),
 }));

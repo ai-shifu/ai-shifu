@@ -1,14 +1,10 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback } from 'react';
 import { useLongPress } from 'react-use';
 import { isEqual } from 'lodash';
-// TODO@XJL
-// import ContentRender from '../../../../../../../../../markdown-flow-ui/src/components/ContentRender/ContentRender';
-import { ContentRender, IframeSandbox } from 'markdown-flow-ui/renderer';
+import { ContentRender } from 'markdown-flow-ui/renderer';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
-import { splitContentSegments } from 'markdown-flow-ui/renderer';
 import { cn } from '@/lib/utils';
 import type { ChatContentItem } from './useChatLogicHook';
-import { useSystemStore } from '@/c-store/useSystemStore';
 
 interface ContentBlockProps {
   item: ChatContentItem;
@@ -58,28 +54,12 @@ const ContentBlock = memo(
       },
       [onSend, blockBid],
     );
-    const learningMode = useSystemStore(state => state.learningMode);
-    const sandboxContent = useMemo(() => {
-      const segments = splitContentSegments(item.content || '');
-      return segments
-        .filter(seg => seg.type === 'sandbox')
-        .map(seg => seg.value)
-        .join('\n');
-    }, [item.content]);
-    console.log('sandboxContent', sandboxContent);
+
     return (
       <div
         className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
         {...(mobileStyle ? longPressEvent : {})}
       >
-        {learningMode === 'listen' ? (
-          sandboxContent ? (
-            <IframeSandbox
-              content={sandboxContent}
-              className='content-render-iframe'
-            />
-          ) : null
-        ) : (
           <ContentRender
             enableTypewriter={false}
             content={item.content || ''}
@@ -94,7 +74,6 @@ const ContentBlock = memo(
             copiedButtonText={copiedButtonText}
             onSend={_onSend}
           />
-        )}
       </div>
     );
   },
