@@ -23,31 +23,18 @@ class TestProfileRoutes:
 
     def _mock_request_user(self, monkeypatch):
         dummy_user = SimpleNamespace(user_id="test-user", language="en-US")
-        # Bypass before_request token validation and ensure request.user is set.
         monkeypatch.setattr(
-            "flaskr.service.user.common.validate_user",
+            "flaskr.route.user.validate_user",
             lambda _app, _token: dummy_user,
-            raising=False,
-        )
-        from flaskr.route.common import by_pass_login_func
-
-        for endpoint in (
-            "hide_unused_profile_items_api",
-            "update_profile_hidden_state_api",
-        ):
-            if endpoint not in by_pass_login_func:
-                by_pass_login_func.append(endpoint)
-        monkeypatch.setattr(
-            "flaskr.service.profile.routes.request",
-            SimpleNamespace(user=dummy_user),
             raising=False,
         )
 
     def test_hide_unused_profile_items_requires_parent(self, monkeypatch, test_client):
         self._mock_request_user(monkeypatch)
         resp = test_client.post("/api/profiles/hide-unused-profile-items", json={})
+        payload = resp.get_json(force=True)
         assert resp.status_code == 200
-        assert resp.json["code"] != 0
+        assert payload["code"] != 0
 
     def test_hide_unused_profile_items_ok(self, monkeypatch, test_client):
         called = {}
@@ -73,9 +60,10 @@ class TestProfileRoutes:
             "/api/profiles/hide-unused-profile-items",
             json={"parent_id": "shifu_1"},
         )
+        payload = resp.get_json(force=True)
 
         assert resp.status_code == 200
-        assert resp.json["code"] == 0
+        assert payload["code"] == 0
         assert called["parent_id"] == "shifu_1"
 
     def test_update_profile_hidden_state_requires_parent(
@@ -86,8 +74,9 @@ class TestProfileRoutes:
             "/api/profiles/update-profile-hidden-state",
             json={"profile_keys": ["k1"], "hidden": True},
         )
+        payload = resp.get_json(force=True)
         assert resp.status_code == 200
-        assert resp.json["code"] != 0
+        assert payload["code"] != 0
 
     def test_update_profile_hidden_state_ok(self, monkeypatch, test_client):
         called = {}
@@ -117,9 +106,10 @@ class TestProfileRoutes:
             "/api/profiles/update-profile-hidden-state",
             json={"parent_id": "shifu_1", "profile_keys": ["k1"], "hidden": True},
         )
+        payload = resp.get_json(force=True)
 
         assert resp.status_code == 200
-        assert resp.json["code"] == 0
+        assert payload["code"] == 0
         assert called["parent_id"] == "shifu_1"
         assert called["profile_keys"] == ["k1"]
         assert called["hidden"] is True
