@@ -50,7 +50,6 @@ interface LessonPreviewProps {
   };
   hiddenVariableKeys?: string[];
   onHideOrRestore?: () => void;
-  actionLabel?: string;
   actionType?: 'hide' | 'restore';
   actionDisabled?: boolean;
 }
@@ -70,7 +69,6 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   reGenerateConfirm,
   hiddenVariableKeys,
   onHideOrRestore,
-  actionLabel,
   actionType,
   actionDisabled,
 }) => {
@@ -160,7 +158,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
               onToggle={() => setVariablesCollapsed(prev => !prev)}
               onChange={onVariableChange}
               variableOrder={variableOrder}
-              actionLabel={actionLabel}
+              actionType={actionType}
               onAction={handleActionConfirm}
               actionDisabled={actionDisabled}
             />

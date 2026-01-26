@@ -429,10 +429,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
     hideRestoreActionType === 'hide'
       ? !hasUnusedVisibleVariables
       : !hasHiddenVariables;
-  const hideRestoreActionLabel =
-    hideRestoreActionType === 'hide'
-      ? t('module.shifu.previewArea.variablesHideUnused')
-      : t('module.shifu.previewArea.variablesRestoreHidden');
 
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);
@@ -784,7 +780,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
                       ? handleHideUnusedVariables
                       : handleRestoreHiddenVariables
                   }
-                  actionLabel={hideRestoreActionLabel}
                   actionType={hideRestoreActionType}
                   actionDisabled={hideRestoreActionDisabled}
                 />
