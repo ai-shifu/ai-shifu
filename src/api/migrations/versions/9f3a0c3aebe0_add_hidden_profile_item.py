@@ -1,7 +1,7 @@
 """add hidden to profile item
 
 Revision ID: 9f3a0c3aebe0
-Revises: 56b765541144
+Revises: d7a8e2f1b3c9
 Create Date: 2026-01-21 05:00:35.223839
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "9f3a0c3aebe0"
-down_revision = "56b765541144"
+down_revision = "d7a8e2f1b3c9"
 branch_labels = None
 depends_on = None
 
