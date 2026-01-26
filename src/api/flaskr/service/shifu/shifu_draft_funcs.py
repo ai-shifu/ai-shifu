@@ -8,6 +8,7 @@ Date: 2025-08-07
 """
 
 from typing import Optional
+import math
 
 from flask import Flask
 from ...dao import db
@@ -465,7 +466,6 @@ def get_shifu_draft_list(
     with app.app_context():
         page_index = max(page_index, 1)
         page_size = max(page_size, 1)
-        page_offset = (page_index - 1) * page_size
 
         if creator_only:
             shifu_bids = get_user_created_shifu_bids(app, user_id)
@@ -487,7 +487,7 @@ def get_shifu_draft_list(
         shifu_drafts: list[DraftShifu] = (
             db.session.query(DraftShifu)
             .filter(DraftShifu.id.in_(latest_subquery))
-            .order_by(DraftShifu.title.asc())
+            .order_by(DraftShifu.title.asc(), DraftShifu.shifu_bid.asc())
             .all()
         )
 
@@ -515,6 +515,9 @@ def get_shifu_draft_list(
         ]
 
         total = len(filtered_shifus)
+        page_count = math.ceil(total / page_size) if page_size > 0 else 0
+        safe_page_index = min(page_index, max(page_count, 1))
+        page_offset = (safe_page_index - 1) * page_size
         shifu_drafts = filtered_shifus[page_offset : page_offset + page_size]
 
         app.logger.debug(
@@ -538,7 +541,7 @@ def get_shifu_draft_list(
             )
             for shifu_draft in shifu_drafts
         ]
-        return PageNationDTO(page_index, page_size, total, shifu_dtos)
+        return PageNationDTO(safe_page_index, page_size, total, shifu_dtos)
 
 
 def get_user_created_shifu_bids(app: Flask, user_id: str) -> list[str]:

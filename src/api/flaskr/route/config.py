@@ -31,6 +31,15 @@ def _to_list(value, default=None):
     return default
 
 
+def _to_int(value, default: int = 0) -> int:
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def register_config_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/runtime-config", methods=["GET"])
     @bypass_token_validation
@@ -61,6 +70,10 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             "paymentChannels": _to_list(
                 get_config("PAYMENT_CHANNELS_ENABLED", "pingxx,stripe"),
                 ["pingxx", "stripe"],
+            ),
+            "payOrderExpireSeconds": _to_int(
+                get_config("PAY_ORDER_EXPIRE_TIME", 600),
+                600,
             ),
             # UI Configuration
             "alwaysShowLessonTree": _to_bool(

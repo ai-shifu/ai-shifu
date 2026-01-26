@@ -7,7 +7,8 @@ Author: yfge
 Date: 2025-08-07
 """
 
-from ...dao import redis_client as redis, db
+from flaskr.common.cache_provider import cache as redis
+from ...dao import db
 from .models import FavoriteScenario, AiCourseAuth
 from ..common.models import raise_error
 from flaskr.service.config import get_config

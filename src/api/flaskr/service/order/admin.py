@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from collections import defaultdict
 import re
 from typing import Any, Dict, List, Optional
 
@@ -214,16 +215,44 @@ def _load_user_map(user_bids: list[str]) -> Dict[str, Dict[str, str]]:
     return user_map
 
 
+def _load_coupon_code_map(order_bids: list[str]) -> Dict[str, List[str]]:
+    """Load coupon codes for given orders and map by order bid."""
+    if not order_bids:
+        return {}
+    records = (
+        CouponUsage.query.filter(
+            CouponUsage.order_bid.in_(order_bids),
+            CouponUsage.deleted == 0,
+        )
+        .order_by(CouponUsage.id.desc())
+        .all()
+    )
+    coupon_map: Dict[str, List[str]] = defaultdict(list)
+    for record in records:
+        order_bid = record.order_bid or ""
+        code = record.code or ""
+        if not order_bid or not code:
+            continue
+        if code in coupon_map[order_bid]:
+            continue
+        coupon_map[order_bid].append(code)
+    return dict(coupon_map)
+
+
 def _build_order_item(
     order: Order,
     shifu_map: Dict[str, DraftShifu],
     user_map: Dict[str, Dict[str, str]],
+    coupon_map: Optional[Dict[str, List[str]]] = None,
 ) -> OrderAdminSummaryDTO:
     """Build admin order summary DTO from order plus shifu/user lookups."""
     shifu = shifu_map.get(order.shifu_bid)
     user = user_map.get(order.user_bid, {})
     payment_channel = order.payment_channel or ""
     status_key = ORDER_STATUS_KEY_MAP.get(order.status, "server.order.orderStatusInit")
+    coupon_codes = []
+    if coupon_map is not None:
+        coupon_codes = coupon_map.get(order.order_bid, []) or []
     return OrderAdminSummaryDTO(
         order_bid=order.order_bid,
         shifu_bid=order.shifu_bid,
@@ -242,6 +271,7 @@ def _build_order_item(
         payment_channel_key=PAYMENT_CHANNEL_KEY_MAP.get(
             payment_channel, "module.order.paymentChannel.unknown"
         ),
+        coupon_codes=coupon_codes,
         created_at=_format_datetime(order.created_at),
         updated_at=_format_datetime(order.updated_at),
     )
@@ -448,8 +478,12 @@ def list_orders(
 
         shifu_map = _load_shifu_map([order.shifu_bid for order in orders])
         user_map = _load_user_map([order.user_bid for order in orders])
+        coupon_map = _load_coupon_code_map([order.order_bid for order in orders])
 
-        items = [_build_order_item(order, shifu_map, user_map) for order in orders]
+        items = [
+            _build_order_item(order, shifu_map, user_map, coupon_map)
+            for order in orders
+        ]
         return PageNationDTO(page_index, page_size, total, items)
 
 
@@ -586,7 +620,8 @@ def get_order_detail(app: Flask, user_id: str, order_bid: str) -> OrderAdminDeta
 
         shifu_map = _load_shifu_map([order.shifu_bid])
         user_map = _load_user_map([order.user_bid])
-        summary = _build_order_item(order, shifu_map, user_map)
+        coupon_map = _load_coupon_code_map([order.order_bid])
+        summary = _build_order_item(order, shifu_map, user_map, coupon_map)
         payment_detail = _load_payment_detail(order)
         if not payment_detail:
             payment_channel = order.payment_channel or ""

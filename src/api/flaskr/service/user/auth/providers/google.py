@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import secrets
+import time
 from typing import Any, Dict
 
 from authlib.integrations.requests_client import OAuth2Session
-import json
+import jwt
 from typing import Optional
 from urllib.parse import urljoin
 
 from flask import current_app, request
 
-from flaskr.dao import redis_client as redis
 from flaskr.service.common.models import raise_error
 from flaskr.service.user.auth.base import (
     AuthProvider,
@@ -43,14 +43,35 @@ from flaskr.service.common.dtos import UserToken
 AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
 USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo"
-# Lifetime (in seconds) for Google OAuth state stored in Redis.
-# Extended to reduce spurious "state expired" failures for slower user flows.
+# Lifetime (in seconds) for Google OAuth state.
+# Used for stateless signed state tokens (no Redis required).
 STATE_TTL = 900
 
 
-def _state_storage_key(state: str) -> str:
-    prefix = current_app.config.get("REDIS_KEY_PREFIX_USER", "ai-shifu:user:")
-    return f"{prefix}google_oauth_state:{state}"
+def _encode_state(app, payload: Dict[str, Any]) -> str:
+    now = int(time.time())
+    token = jwt.encode(
+        {
+            "iat": now,
+            "exp": now + STATE_TTL,
+            "nonce": secrets.token_hex(16),
+            "payload": payload,
+        },
+        app.config["SECRET_KEY"],
+        algorithm="HS256",
+    )
+    return token
+
+
+def _decode_state(app, state: str) -> Optional[Dict[str, Any]]:
+    try:
+        decoded = jwt.decode(state, app.config["SECRET_KEY"], algorithms=["HS256"])
+    except jwt.exceptions.ExpiredSignatureError:
+        return None
+    except jwt.exceptions.DecodeError:
+        return None
+    payload = decoded.get("payload")
+    return payload if isinstance(payload, dict) else None
 
 
 def _extract_browser_language() -> Optional[str]:
@@ -140,11 +161,6 @@ class GoogleAuthProvider(AuthProvider):
             create_url_kwargs["hl"] = ui_language
             create_url_kwargs["ui_locales"] = ui_language
 
-        authorization_url, state = session.create_authorization_url(
-            AUTHORIZATION_ENDPOINT,
-            **create_url_kwargs,
-        )
-        current_app.logger.info("Google OAuth begin state=%s", state)
         state_payload: Dict[str, Any] = {
             "redirect_uri": redirect_uri,
             "login_context": login_context,
@@ -156,11 +172,13 @@ class GoogleAuthProvider(AuthProvider):
         elif ui_language:
             state_payload["language"] = ui_language
 
-        redis.set(
-            _state_storage_key(state),
-            json.dumps(state_payload),
-            ex=STATE_TTL,
+        state = _encode_state(app, state_payload)
+        authorization_url, _ = session.create_authorization_url(
+            AUTHORIZATION_ENDPOINT,
+            state=state,
+            **create_url_kwargs,
         )
+        current_app.logger.info("Google OAuth begin state=%s", state)
         return {"authorization_url": authorization_url, "state": state}
 
     def handle_oauth_callback(self, app, request: OAuthCallbackRequest) -> AuthResult:
@@ -172,32 +190,20 @@ class GoogleAuthProvider(AuthProvider):
             )
             raise_error("server.user.googleOAuthStateInvalid")
 
-        storage_key = _state_storage_key(request.state)
         current_app.logger.info("Google OAuth callback state=%s", request.state)
-        stored_state_value = redis.get(storage_key)
-        if isinstance(stored_state_value, bytes):
-            stored_state_value = stored_state_value.decode("utf-8")
-        if not stored_state_value:
-            current_app.logger.warning(
-                "Google OAuth state missing for key %s", storage_key
-            )
+        state_payload = _decode_state(app, request.state)
+        if not state_payload:
             raise_error("server.user.googleOAuthStateInvalid")
-        redis.delete(storage_key)
 
         redirect_uri = None
         login_context = None
         language: Optional[str] = None
         try:
-            if stored_state_value:
-                state_payload = json.loads(stored_state_value)
-                if isinstance(state_payload, dict):
-                    redirect_uri = state_payload.get("redirect_uri")
-                    login_context = state_payload.get("login_context")
-                    language = state_payload.get("language")
+            redirect_uri = state_payload.get("redirect_uri")
+            login_context = state_payload.get("login_context")
+            language = state_payload.get("language")
         except Exception:  # noqa: BLE001 - defensive fallback
-            current_app.logger.warning(
-                "Failed to parse Google OAuth state payload for key %s", storage_key
-            )
+            current_app.logger.warning("Failed to parse Google OAuth state payload")
 
         redirect_uri = _resolve_redirect_uri(app, redirect_uri)
         session = self._create_session(app, redirect_uri)
