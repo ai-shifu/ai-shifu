@@ -160,9 +160,3 @@ html {
     }
   }
 }
-
-.reveal pre {
-  font-size: 12px !important;
-  width: 100% !important;
-  box-shadow: none !important;
-}

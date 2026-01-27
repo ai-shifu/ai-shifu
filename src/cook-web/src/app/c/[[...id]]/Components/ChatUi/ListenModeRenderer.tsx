@@ -5,6 +5,7 @@ import 'reveal.js/dist/reveal.css';
 import 'reveal.js/dist/theme/white.css';
 import ContentIframe from './ContentIframe';
 import type { ChatContentItem } from './useChatLogicHook';
+import './ListenModeRenderer.scss';
 
 interface ListenModeRendererProps {
   items: ChatContentItem[];
@@ -32,6 +33,10 @@ const ListenModeRenderer = ({
 
     deckRef.current = new Reveal(chatRef.current, {
       transition: 'slide',
+      margin: 0,
+      minScale: 1,
+      maxScale: 1,
+      progress: false,
     });
 
     deckRef.current.initialize().then(() => {
@@ -69,11 +74,14 @@ const ListenModeRenderer = ({
 
   return (
     <div
-      className={cn(containerClassName, 'reveal')}
-      ref={chatRef}
-      // style={{ width: '100%', height: '100%', overflowY: 'auto' }}
+      className={cn(containerClassName, 'listen-reveal-wrapper')}
+      style={{ background: '#F7F9FF' }}
     >
-      <div className='slides'>
+      <div
+        className={cn('reveal', 'listen-reveal')}
+        ref={chatRef}
+      >
+        <div className='slides'>
         {!isLoading &&
           items.map((item, idx) => {
             const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
@@ -88,6 +96,7 @@ const ListenModeRenderer = ({
               />
             );
           })}
+        </div>
       </div>
     </div>
   );
