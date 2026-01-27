@@ -5,6 +5,7 @@ from sqlalchemy import (
     Numeric,
     SmallInteger,
     DateTime,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
@@ -307,7 +308,15 @@ class PromoCampaignApplication(db.Model):
     """Order-level promo campaign application record."""
 
     __tablename__ = "promo_campaign_applications"
-    __table_args__ = {"comment": "Promo campaign applications"}
+    __table_args__ = (
+        UniqueConstraint(
+            "order_bid",
+            "campaign_bid",
+            "deleted",
+            name="uk_promo_campaign_application_order_campaign_deleted",
+        ),
+        {"comment": "Promo campaign applications"},
+    )
 
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     campaign_application_bid = Column(
