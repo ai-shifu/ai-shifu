@@ -13,6 +13,9 @@ from .consts import (
     COUPON_TYPE_FIXED,
     COUPON_APPLY_TYPE_ALL,
     COUPON_STATUS_ACTIVE,
+    PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+    PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
+    PROMO_CAMPAIGN_STATUS_INACTIVE,
 )
 
 
@@ -190,4 +193,203 @@ class CouponUsage(db.Model):
         server_default=func.now(),
         onupdate=func.now(),
         comment="Update timestamp",
+    )
+
+
+class PromoCampaign(db.Model):
+    """Promo campaign definition."""
+
+    __tablename__ = "promo_campaigns"
+    __table_args__ = {"comment": "Promo campaigns"}
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    campaign_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Campaign business identifier",
+    )
+    shifu_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Shifu business identifier",
+    )
+    name = Column(String(255), nullable=False, default="", comment="Campaign name")
+    description = Column(
+        Text, nullable=False, default="", comment="Campaign description"
+    )
+    join_type = Column(
+        SmallInteger,
+        nullable=False,
+        default=PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
+        comment="Join type: 2101=auto, 2102=event, 2103=manual",
+    )
+    status = Column(
+        SmallInteger,
+        nullable=False,
+        default=PROMO_CAMPAIGN_STATUS_INACTIVE,
+        index=True,
+        comment="Status: 0=inactive, 1=active",
+    )
+    start_at = Column(
+        DateTime,
+        nullable=False,
+        index=True,
+        default=func.now(),
+        comment="Campaign start time",
+    )
+    end_at = Column(
+        DateTime,
+        nullable=False,
+        index=True,
+        default=func.now(),
+        comment="Campaign end time",
+    )
+    discount_type = Column(
+        SmallInteger,
+        nullable=False,
+        default=COUPON_TYPE_FIXED,
+        comment="Discount type: 701=fixed, 702=percent",
+    )
+    value = Column(
+        Numeric(10, 2),
+        nullable=False,
+        default="0.00",
+        comment="Discount value: interpreted by discount_type",
+    )
+    channel = Column(String(36), nullable=False, default="", comment="Campaign channel")
+    filter = Column(
+        Text,
+        nullable=False,
+        default="",
+        comment="Campaign filter: JSON string for user/shifu targeting",
+    )
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        index=True,
+        comment="Deletion flag: 0=active, 1=deleted",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Creation timestamp",
+    )
+    created_user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Creator user business identifier",
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        comment="Last update timestamp",
+    )
+    updated_user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Last updater user business identifier",
+    )
+
+
+class PromoCampaignApplication(db.Model):
+    """Order-level promo campaign application record."""
+
+    __tablename__ = "promo_campaign_applications"
+    __table_args__ = {"comment": "Promo campaign applications"}
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    campaign_application_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Campaign application business identifier",
+    )
+    campaign_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Campaign business identifier",
+    )
+    order_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Order business identifier",
+    )
+    user_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="User business identifier",
+    )
+    shifu_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Shifu business identifier",
+    )
+    campaign_name = Column(
+        String(255), nullable=False, default="", comment="Campaign name snapshot"
+    )
+    discount_type = Column(
+        SmallInteger,
+        nullable=False,
+        default=COUPON_TYPE_FIXED,
+        comment="Discount type snapshot: 701=fixed, 702=percent",
+    )
+    value = Column(
+        Numeric(10, 2),
+        nullable=False,
+        default="0.00",
+        comment="Discount value snapshot: interpreted by discount_type",
+    )
+    discount_amount = Column(
+        Numeric(10, 2),
+        nullable=False,
+        default="0.00",
+        comment="Applied discount amount for this order",
+    )
+    status = Column(
+        SmallInteger,
+        nullable=False,
+        default=PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+        index=True,
+        comment="Status: 4101=applied, 4102=voided",
+    )
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        index=True,
+        comment="Deletion flag: 0=active, 1=deleted",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Creation timestamp",
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        comment="Last update timestamp",
     )
