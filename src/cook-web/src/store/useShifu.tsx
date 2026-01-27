@@ -1454,7 +1454,26 @@ export const ShifuProvider = ({
         outline_bid: resolvedOutlineId,
         data: value,
       });
-      const variableKeys = result?.variables || [];
+      const variableKeys = (result?.variables || []).reduce<string[]>(
+        (acc, key) => {
+          if (!key) return acc;
+          if (key.match(/^\d+$/)) {
+            // If a numeric variable and a longer numeric already exists, skip shorter ones
+            const longestNumeric = acc.find(item => item.match(/^\d+$/));
+            if (!longestNumeric || key.length > longestNumeric.length) {
+              // replace shorter numeric
+              const filtered = acc.filter(item => !item.match(/^\d+$/));
+              return [...filtered, key];
+            }
+            return acc;
+          }
+          if (!acc.includes(key)) {
+            acc.push(key);
+          }
+          return acc;
+        },
+        [],
+      );
       const resolvedSystemKeys =
         systemVariableKeys && systemVariableKeys.length
           ? systemVariableKeys
