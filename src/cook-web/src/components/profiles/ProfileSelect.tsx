@@ -126,9 +126,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
                     </div>
                     <div className='flex items-center'>
                       <span className='text-xs text-muted-foreground mr-2'>
-                        {profile.profile_type === 'text'
-                          ? t('module.profilesManage.text')
-                          : t('module.profilesManage.enum')}
+                        {t('module.profilesManage.text')}
                       </span>
                     </div>
                   </div>
@@ -172,9 +170,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
                     </div>
                     <div className='flex items-center'>
                       <span className='text-xs text-muted-foreground mr-2'>
-                        {profile.profile_type === 'text'
-                          ? t('module.profilesManage.text')
-                          : t('module.profilesManage.enum')}
+                        {t('module.profilesManage.text')}
                       </span>
 
                       {hoveredId === profile.profile_id ? (
