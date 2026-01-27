@@ -8,11 +8,6 @@ from typing import Any, Dict, List, Optional
 
 from flask import Flask
 
-from flaskr.service.active.consts import (
-    ACTIVE_JOIN_STATUS_ENABLE,
-    ACTIVE_JOIN_STATUS_FAILURE,
-)
-from flaskr.service.active.models import ActiveUserRecord
 from flaskr.dao import db
 from flaskr.service.common.dtos import (
     PageNationDTO,
@@ -48,8 +43,10 @@ from flaskr.service.promo.consts import (
     COUPON_STATUS_USED,
     COUPON_TYPE_FIXED,
     COUPON_TYPE_PERCENT,
+    PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+    PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED,
 )
-from flaskr.service.promo.models import CouponUsage
+from flaskr.service.promo.models import CouponUsage, PromoCampaignApplication
 from flaskr.service.shifu.models import DraftShifu
 from flaskr.service.shifu.shifu_draft_funcs import get_user_created_shifu_bids
 from flaskr.service.shifu.utils import get_shifu_creator_bid
@@ -79,8 +76,8 @@ PAYMENT_STATUS_KEY_MAP = {
 }
 
 ACTIVE_STATUS_KEY_MAP = {
-    ACTIVE_JOIN_STATUS_ENABLE: "module.order.activeStatus.active",
-    ACTIVE_JOIN_STATUS_FAILURE: "module.order.activeStatus.failed",
+    PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED: "module.order.activeStatus.active",
+    PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED: "module.order.activeStatus.failed",
 }
 
 COUPON_STATUS_KEY_MAP = {
@@ -489,22 +486,23 @@ def list_orders(
 
 def _load_order_activities(order_bid: str) -> List[OrderAdminActivityDTO]:
     """Load activity records tied to an order and format as DTOs."""
-    records = ActiveUserRecord.query.filter(
-        ActiveUserRecord.order_id == order_bid
+    records = PromoCampaignApplication.query.filter(
+        PromoCampaignApplication.order_bid == order_bid,
+        PromoCampaignApplication.deleted == 0,
     ).all()
     activities: List[OrderAdminActivityDTO] = []
     for record in records:
         activities.append(
             OrderAdminActivityDTO(
-                active_id=record.active_id,
-                active_name=record.active_name,
-                price=_format_decimal(record.price),
+                active_id=record.campaign_bid,
+                active_name=record.campaign_name,
+                price=_format_decimal(record.discount_amount),
                 status=record.status,
                 status_key=ACTIVE_STATUS_KEY_MAP.get(
                     record.status, "module.order.activeStatus.unknown"
                 ),
-                created_at=_format_datetime(record.created),
-                updated_at=_format_datetime(record.updated),
+                created_at=_format_datetime(record.created_at),
+                updated_at=_format_datetime(record.updated_at),
             )
         )
     return activities

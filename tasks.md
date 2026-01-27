@@ -56,7 +56,7 @@
 ### Phase 3 - Code Switch
 
 - [x] 下单链路改造：读写新表（替换 `Active`/`ActiveUserRecord`）
-- [ ] 后台订单展示改造：读取 `promo_campaign_applications`
+- [x] 后台订单展示改造：读取 `promo_campaign_applications`
 - [x] 选择模块组织策略：合并进 `service/promo`
 - [ ] （可选）dual-write：新表写入 + 旧表写入，降低回滚风险
 
