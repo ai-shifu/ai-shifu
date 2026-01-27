@@ -1454,26 +1454,37 @@ export const ShifuProvider = ({
         outline_bid: resolvedOutlineId,
         data: value,
       });
-      const variableKeys = (result?.variables || []).reduce<string[]>(
-        (acc, key) => {
-          if (!key) return acc;
-          if (key.match(/^\d+$/)) {
-            // If a numeric variable and a longer numeric already exists, skip shorter ones
-            const longestNumeric = acc.find(item => item.match(/^\d+$/));
-            if (!longestNumeric || key.length > longestNumeric.length) {
-              // replace shorter numeric
-              const filtered = acc.filter(item => !item.match(/^\d+$/));
-              return [...filtered, key];
+      const variableKeys = (() => {
+        const keys = (result?.variables || []) as string[];
+        const nonNumeric: string[] = [];
+        const numeric: string[] = [];
+        keys.forEach(k => {
+          if (!k) return;
+          if (/^\d+$/.test(k)) {
+            numeric.push(k);
+          } else if (!nonNumeric.includes(k)) {
+            nonNumeric.push(k);
+          }
+        });
+
+        // Sort numerics by length desc, keep one per numeric group (drop prefixes)
+        const keptNumeric: string[] = [];
+        numeric
+          .sort((a, b) => b.length - a.length)
+          .forEach(n => {
+            const alreadyCovered = keptNumeric.some(
+              kept =>
+                kept === n ||
+                (kept.length > n.length && kept.startsWith(n)) ||
+                (n.length > kept.length && n.startsWith(kept)),
+            );
+            if (!alreadyCovered) {
+              keptNumeric.push(n);
             }
-            return acc;
-          }
-          if (!acc.includes(key)) {
-            acc.push(key);
-          }
-          return acc;
-        },
-        [],
-      );
+          });
+
+        return [...nonNumeric, ...keptNumeric];
+      })();
       const resolvedSystemKeys =
         systemVariableKeys && systemVariableKeys.length
           ? systemVariableKeys
