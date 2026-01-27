@@ -56,7 +56,7 @@ const ContentIframe = memo(
           segment.type === 'text' ? (
             <section
               key={'text' + index}
-              data-transition='fade-in fade-out'
+              data-transition='zoom'
               className='w-full h-full'
             >
               {sectionTitle}
@@ -65,7 +65,7 @@ const ContentIframe = memo(
             <section
               key={'sandbox' + index}
               // className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
-              data-transition='fade-in fade-out'
+              data-transition='zoom'
               className='w-full h-full'
             >
               <IframeSandbox

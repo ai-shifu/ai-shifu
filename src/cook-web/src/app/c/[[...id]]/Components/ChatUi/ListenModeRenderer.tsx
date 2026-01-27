@@ -40,6 +40,7 @@ const ListenModeRenderer = ({
 
     return () => {
       try {
+        console.log('销毁reveal实例');
         deckRef.current?.destroy();
         deckRef.current = null;
       } catch (e) {
@@ -57,6 +58,7 @@ const ListenModeRenderer = ({
     }
     // Ensure Reveal picks up newly rendered slides
     try {
+      console.log('sync reveal实例');
       deckRef.current.sync();
       deckRef.current.layout();
       deckRef.current.slide(0);
@@ -67,11 +69,11 @@ const ListenModeRenderer = ({
 
   return (
     <div
-      className={cn(containerClassName, 'reveal flex')}
+      className={cn(containerClassName, 'reveal')}
       ref={chatRef}
-      style={{ width: '100%', height: '100%', overflowY: 'auto' }}
+      // style={{ width: '100%', height: '100%', overflowY: 'auto' }}
     >
-      <div className='slides flex flex-1 flex-col'>
+      <div className='slides'>
         {!isLoading &&
           items.map((item, idx) => {
             const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
