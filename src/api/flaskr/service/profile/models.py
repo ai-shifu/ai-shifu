@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, TIMESTAMP, Text, SmallInteger
+from sqlalchemy import Column, String, Integer, TIMESTAMP, Text, SmallInteger, DateTime
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
 from ...dao import db
@@ -221,3 +221,139 @@ class ProfileItemI18n(db.Model):
     )
     created_by = Column(String(36), nullable=False, default="", comment="Created by")
     updated_by = Column(String(36), nullable=False, default="", comment="Updated by")
+
+
+class ProfileVariableDefinition(db.Model):
+    """
+    Variable definition used by MarkdownFlow variables.
+
+    Note: This table intentionally keeps only the minimum set of columns needed
+    by the current product requirements. All variables are treated as text
+    variables; option/enum metadata is no longer stored.
+    """
+
+    __tablename__ = "profile_variable_definitions"
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    variable_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Variable business identifier",
+    )
+    shifu_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Shifu business identifier (empty=system scope)",
+    )
+    variable_key = Column(
+        String(255),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Variable key",
+    )
+    is_hidden = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        index=True,
+        comment="Hidden flag: 0=visible, 1=hidden",
+    )
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        index=True,
+        comment="Deletion flag: 0=active, 1=deleted",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Creation timestamp",
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        comment="Last update timestamp",
+    )
+
+
+class ProfileVariableValue(db.Model):
+    """
+    User-provided variable values.
+
+    Values are stored as append-only rows (no UNIQUE constraints enforced at DB
+    level). The "latest" row should be used when reading.
+    """
+
+    __tablename__ = "profile_variable_values"
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    variable_value_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Variable value business identifier",
+    )
+    user_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="User business identifier",
+    )
+    shifu_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Shifu business identifier (empty=global/system scope)",
+    )
+    variable_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Variable business identifier",
+    )
+    variable_key = Column(
+        String(255),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Variable key (fallback lookup)",
+    )
+    variable_value = Column(
+        Text,
+        nullable=False,
+        default="",
+        comment="Variable value",
+    )
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        index=True,
+        comment="Deletion flag: 0=active, 1=deleted",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Creation timestamp",
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        comment="Last update timestamp",
+    )
