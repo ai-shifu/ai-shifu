@@ -47,8 +47,8 @@ const ContentIframe = memo(
     );
     console.log('segments ai-shifu=====', segments);
 
-    if (segments.length === 0 
-        || item.type !== ChatContentItemType.CONTENT) return null;
+    if (segments.length === 0 || item.type !== ChatContentItemType.CONTENT)
+      return null;
 
     return (
       <>
@@ -59,7 +59,7 @@ const ContentIframe = memo(
               data-transition='fade-in fade-out'
               className='w-full h-full'
             >
-                {sectionTitle}
+              {sectionTitle}
             </section>
           ) : (
             <section
