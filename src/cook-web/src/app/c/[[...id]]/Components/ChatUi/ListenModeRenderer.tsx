@@ -37,6 +37,7 @@ const ListenModeRenderer = ({
       minScale: 1,
       maxScale: 1,
       progress: false,
+      controls: true, // debug
     });
 
     deckRef.current.initialize().then(() => {
@@ -66,7 +67,8 @@ const ListenModeRenderer = ({
       console.log('sync reveal实例');
       deckRef.current.sync();
       deckRef.current.layout();
-      deckRef.current.slide(0);
+      const targetIndex = Math.max(items.length - 1, 0);
+      deckRef.current.slide(targetIndex);
     } catch (error) {
       console.warn('Reveal sync failed', error);
     }
