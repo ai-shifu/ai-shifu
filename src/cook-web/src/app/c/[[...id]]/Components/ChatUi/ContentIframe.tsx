@@ -44,8 +44,9 @@ const ContentIframe = memo(
       [item.content],
     );
     console.log('segments ai-shifu=====', segments);
-    
-    if (segments.length === 0 || item.type !== ChatContentItemType.CONTENT) return null;
+
+    if (segments.length === 0 || item.type !== ChatContentItemType.CONTENT)
+      return null;
     return (
       <>
         {segments.map((segment, index) =>
