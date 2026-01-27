@@ -2,7 +2,7 @@ import { memo, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import Reveal from 'reveal.js';
 import 'reveal.js/dist/reveal.css';
-import 'reveal.js/dist/theme/black.css';
+import 'reveal.js/dist/theme/white.css';
 import ContentIframe from './ContentIframe';
 import type { ChatContentItem } from './useChatLogicHook';
 
@@ -66,6 +66,7 @@ const ListenModeRenderer = ({
         {!isLoading &&
           items.map((item, idx) => {
             const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
+            console.log('item=====', item.content);
             return (
               <ContentIframe
                 key={baseKey}

@@ -4,7 +4,7 @@ import { IframeSandbox, splitContentSegments } from 'markdown-flow-ui/renderer';
 import type { IframeSandboxProps } from 'markdown-flow-ui/renderer';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { cn } from '@/lib/utils';
-import type { ChatContentItem } from './useChatLogicHook';
+import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 
 interface ContentIframeProps {
   item: ChatContentItem;
@@ -40,41 +40,39 @@ const ContentIframe = memo(
     // );
 
     const segments = useMemo(
-      () => splitContentSegments(item.content || ''),
+      () => splitContentSegments(item.content || '', true),
       [item.content],
     );
     console.log('segments ai-shifu=====', segments);
-    if (segments.length === 0) return null;
+    
+    if (segments.length === 0 || item.type === ChatContentItemType.INTERACTION) return null;
     return (
-      <section
-        // className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
-        className='w-full h-full'
-      >
-        {segments.map((segment, index) => (
-          <IframeSandbox
-            key={'iframe' + index}
-            type={segment.type}
-            mode='blackboard'
-            content={segment.value}
-          />
-        ))}
-        {/* <IframeSandbox
-            key={blockBid}
-            type={item.type}
-            mode='blackboard'
-            content={item.content || ''}
-            // onClickCustomButtonAfterContent={handleClick}
-            // customRenderBar={item.customRenderBar}
-            // defaultButtonText={item.defaultButtonText}
-            // defaultInputText={item.defaultInputText}
-            // defaultSelectedValues={item.defaultSelectedValues}
-            // readonly={item.readonly}
-            // confirmButtonText={confirmButtonText}
-            // copyButtonText={copyButtonText}
-            // copiedButtonText={copiedButtonText}
-            // onSend={_onSend}
-          /> */}
+       <>
+       {segments.map((segment, index) => (
+        segment.type === 'text' ? 
+        <section key={'text' + index}  
+            data-transition="fade-in fade-out"
+            className='w-full h-full'
+            
+            >
+                {segment.value}
+        </section> : (
+        <section
+            key={'sandbox' + index}
+            // className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
+            data-transition="fade-in fade-out"
+            className='w-full h-full'
+        >
+            <IframeSandbox
+                key={'iframe' + index}
+                type={segment.type}
+                mode='blackboard'
+                hideFullScreen
+                content={segment.value}
+            />
       </section>
+      )))}
+      </>
     );
   },
   (prevProps, nextProps) => {
