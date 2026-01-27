@@ -46,6 +46,16 @@ const ListenModeRenderer = ({
     };
   }, [chatRef]);
 
+  useEffect(() => {
+    if (!deckRef.current || isLoading) {
+      return;
+    }
+    // Ensure Reveal picks up newly rendered slides
+    deckRef.current.sync();
+    deckRef.current.layout();
+    deckRef.current.slide(0);
+  }, [items, isLoading]);
+
   return (
     <div
       className={cn(containerClassName, 'reveal flex')}
