@@ -22,6 +22,16 @@ def _table_exists(table_name: str) -> bool:
     return table_name in inspector.get_table_names()
 
 
+def _column_exists(table_name: str, column_name: str) -> bool:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    try:
+        columns = inspector.get_columns(table_name)
+    except Exception:  # pragma: no cover - best effort for migration environments
+        return False
+    return any(col.get("name") == column_name for col in columns)
+
+
 def upgrade():
     if not _table_exists("profile_variable_definitions"):
         return
@@ -30,9 +40,14 @@ def upgrade():
 
     # Backfill definitions from legacy profile_item.
     if _table_exists("profile_item"):
+        is_hidden_expr = (
+            "COALESCE(p.is_hidden, 0)"
+            if _column_exists("profile_item", "is_hidden")
+            else "0"
+        )
         op.execute(
             sa.text(
-                """
+                f"""
                 INSERT INTO profile_variable_definitions (
                     variable_bid,
                     shifu_bid,
@@ -46,7 +61,7 @@ def upgrade():
                     p.profile_id,
                     p.parent_id,
                     p.profile_key,
-                    COALESCE(p.is_hidden, 0),
+                    {is_hidden_expr},
                     CASE WHEN COALESCE(p.status, 0) = 1 THEN 0 ELSE 1 END,
                     p.created,
                     p.updated

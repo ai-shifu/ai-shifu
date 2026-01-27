@@ -107,6 +107,7 @@
 - [x] 新增 SQLAlchemy models：`ProfileVariableDefinition`、`ProfileVariableValue`
 - [x] Alembic migration：创建两张新表（符合 `*_bid/deleted/created_at/updated_at`）
 - [x] Alembic data migration：从旧表回填新表（含 `variable_value_bid` 生成）
+- [x] 修复 Alembic 多 heads：新增 merge migration 并保证回填兼容缺失列
 - [x] 后端服务改造：profiles/learn/shifu/user/profile 等读写切到新表（双读/单写）
 - [x] 前端改造（Cook Web）：移除 option 相关 UI 与接口调用，适配返回结构变化
 - [ ] 清理：下线旧接口/删除旧表与旧模型（新 migration，注意不要改已应用 migration）
