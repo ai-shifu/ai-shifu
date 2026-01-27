@@ -161,6 +161,7 @@
 - 单测：覆盖“下单触发自动促销”“订单超时使促销应用记录失效”“后台展示促销抵扣项”等关键路径。
 - 集成测试：对比同一订单在旧表与新表的抵扣金额一致性。
 - 数据校验：抽样对比 `active_user_record.price` 与新表 `discount_amount` 的总和是否一致。
+- 可选脚本：在 `src/api` 下运行 `python scripts/check_promo_campaign_migration.py` 输出数量/汇总/缺失项与重复样本。
 
 ## 待确认问题（Open Questions）
 
