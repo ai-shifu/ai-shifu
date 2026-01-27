@@ -46,7 +46,7 @@ const ContentIframe = memo(
     console.log('segments ai-shifu=====', segments);
     if (segments.length === 0) return null;
     return (
-      <div
+      <section
         // className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
         className='w-full h-full'
       >
@@ -74,7 +74,7 @@ const ContentIframe = memo(
             // copiedButtonText={copiedButtonText}
             // onSend={_onSend}
           /> */}
-      </div>
+      </section>
     );
   },
   (prevProps, nextProps) => {

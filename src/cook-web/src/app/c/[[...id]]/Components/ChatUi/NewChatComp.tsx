@@ -25,7 +25,7 @@ import type { ChatContentItem } from './useChatLogicHook';
 import AskBlock from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
-import ContentIframe from './ContentIframe';
+import ListenModeRenderer from './ListenModeRenderer';
 import {
   Dialog,
   DialogContent,
@@ -76,6 +76,8 @@ export const NewChatComponents = ({
     appendMsg: () => {},
     deleteMsg: () => {},
   });
+
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   // const { scrollToBottom } = useAutoScroll(chatRef as any, {
   //   threshold: 120,
   // });
@@ -183,6 +185,10 @@ export const NewChatComponents = ({
     onPayModalOpen,
   });
 
+
+  // Memoize onSend to prevent new function references
+  const memoizedOnSend = useCallback(onSend, [onSend]);
+  
   const handleLongPress = useCallback(
     (event: any, currentBlock: ChatContentItem) => {
       if (currentBlock.type !== ChatContentItemType.CONTENT) {
@@ -303,10 +309,7 @@ export const NewChatComponents = ({
     };
   }, [checkScroll, items, mobileStyle]); // Added items as dependency to re-bind if structure changes significantly
 
-  // Memoize onSend to prevent new function references
-  const memoizedOnSend = useCallback(onSend, [onSend]);
-
-  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+ 
   useEffect(() => {
     if (mobileStyle) {
       setPortalTarget(document.getElementById('chat-scroll-target'));
@@ -314,6 +317,13 @@ export const NewChatComponents = ({
       setPortalTarget(null);
     }
   }, [mobileStyle]);
+
+  const isListenMode = learningMode === 'listen';
+  const containerClassName = cn(
+    styles.chatComponents,
+    className,
+    mobileStyle ? styles.mobile : '',
+  );
 
   const scrollButton = (
     <button
@@ -330,130 +340,118 @@ export const NewChatComponents = ({
 
   return (
     <div
-      className={cn(
-        styles.chatComponents,
-        className,
-        mobileStyle ? styles.mobile : '',
-      )}
+      className={containerClassName}
       style={{ position: 'relative', overflow: 'hidden', padding: 0 }}
     >
-      <div
-        className={cn(
-          styles.chatComponents,
-          className,
-          mobileStyle ? styles.mobile : '',
-          learningMode === 'listen' ? 'flex' : '',
-        )}
-        ref={chatRef}
-        style={{ width: '100%', height: '100%', overflowY: 'auto' }}
-      >
+      {isListenMode ? (
+        <ListenModeRenderer
+          items={items}
+          mobileStyle={mobileStyle}
+          chatRef={chatRef}
+          containerClassName={containerClassName}
+          isLoading={isLoading}
+        />
+      ) : (
         <div
-          className={learningMode === 'listen' ? 'flex flex-1 flex-col' : ''}
+          className={containerClassName}
+          ref={chatRef}
+          style={{ width: '100%', height: '100%', overflowY: 'auto' }}
         >
-          {isLoading ? (
-            <></>
-          ) : (
-            items.map((item, idx) => {
-              const isLongPressed =
-                longPressedBlockBid === item.generated_block_bid;
-              const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
-              const parentKey = item.parent_block_bid || baseKey;
-              if (learningMode === 'listen') {
-                return (
-                  <ContentIframe
-                    item={item}
-                    mobileStyle={mobileStyle}
-                    blockBid={item.generated_block_bid}
-                  />
-                );
-              }
-              if (item.type === ChatContentItemType.ASK) {
+          <div>
+            {isLoading ? (
+              <></>
+            ) : (
+              items.map((item, idx) => {
+                const isLongPressed =
+                  longPressedBlockBid === item.generated_block_bid;
+                const baseKey =
+                  item.generated_block_bid || `${item.type}-${idx}`;
+                const parentKey = item.parent_block_bid || baseKey;
+                if (item.type === ChatContentItemType.ASK) {
+                  return (
+                    <div
+                      key={`ask-${parentKey}`}
+                      style={{
+                        position: 'relative',
+                        margin: '0 auto',
+                        maxWidth: mobileStyle ? '100%' : '1000px',
+                        padding: '0 20px',
+                      }}
+                    >
+                      <AskBlock
+                        isExpanded={item.isAskExpanded}
+                        shifu_bid={shifuBid}
+                        outline_bid={lessonId}
+                        preview_mode={previewMode}
+                        generated_block_bid={item.parent_block_bid || ''}
+                        onToggleAskExpanded={toggleAskExpanded}
+                        askList={(item.ask_list || []) as any[]}
+                      />
+                    </div>
+                  );
+                }
+
+                if (item.type === ChatContentItemType.LIKE_STATUS) {
+                  const parentBlockBid = item.parent_block_bid || '';
+                  return mobileStyle ? null : (
+                    <div
+                      key={`like-${parentKey}`}
+                      style={{
+                        margin: '0 auto',
+                        maxWidth: '1000px',
+                        padding: '0px 20px',
+                      }}
+                    >
+                      <InteractionBlock
+                        shifu_bid={shifuBid}
+                        generated_block_bid={parentBlockBid}
+                        like_status={item.like_status}
+                        readonly={item.readonly}
+                        onRefresh={onRefresh}
+                        onToggleAskExpanded={toggleAskExpanded}
+                      />
+                    </div>
+                  );
+                }
+
                 return (
                   <div
-                    key={`ask-${parentKey}`}
+                    key={`content-${baseKey}`}
                     style={{
                       position: 'relative',
-                      margin: '0 auto',
+                      margin:
+                        !idx || item.type === ChatContentItemType.INTERACTION
+                          ? '0 auto'
+                          : '40px auto 0 auto',
                       maxWidth: mobileStyle ? '100%' : '1000px',
                       padding: '0 20px',
                     }}
                   >
-                    <AskBlock
-                      isExpanded={item.isAskExpanded}
-                      shifu_bid={shifuBid}
-                      outline_bid={lessonId}
-                      preview_mode={previewMode}
-                      generated_block_bid={item.parent_block_bid || ''}
-                      onToggleAskExpanded={toggleAskExpanded}
-                      askList={(item.ask_list || []) as any[]}
+                    {isLongPressed && mobileStyle && (
+                      <div className='long-press-overlay' />
+                    )}
+                    <ContentBlock
+                      item={item}
+                      mobileStyle={mobileStyle}
+                      blockBid={item.generated_block_bid}
+                      confirmButtonText={confirmButtonText}
+                      copyButtonText={copyButtonText}
+                      copiedButtonText={copiedButtonText}
+                      onClickCustomButtonAfterContent={handleClickAskButton}
+                      onSend={memoizedOnSend}
+                      onLongPress={handleLongPress}
                     />
                   </div>
                 );
-              }
-
-              if (item.type === ChatContentItemType.LIKE_STATUS) {
-                if (learningMode === 'listen') return null;
-                const parentBlockBid = item.parent_block_bid || '';
-                return mobileStyle ? null : (
-                  <div
-                    key={`like-${parentKey}`}
-                    style={{
-                      margin: '0 auto',
-                      maxWidth: '1000px',
-                      padding: '0px 20px',
-                    }}
-                  >
-                    <InteractionBlock
-                      shifu_bid={shifuBid}
-                      generated_block_bid={parentBlockBid}
-                      like_status={item.like_status}
-                      readonly={item.readonly}
-                      onRefresh={onRefresh}
-                      onToggleAskExpanded={toggleAskExpanded}
-                    />
-                  </div>
-                );
-              }
-
-              return (
-                <div
-                  key={`content-${baseKey}`}
-                  style={{
-                    position: 'relative',
-                    margin:
-                      !idx || item.type === ChatContentItemType.INTERACTION
-                        ? '0 auto'
-                        : '40px auto 0 auto',
-                    maxWidth: mobileStyle ? '100%' : '1000px',
-                    padding: '0 20px',
-                  }}
-                >
-                  {isLongPressed && mobileStyle && (
-                    <div className='long-press-overlay' />
-                  )}
-                  <ContentBlock
-                    item={item}
-                    mobileStyle={mobileStyle}
-                    blockBid={item.generated_block_bid}
-                    confirmButtonText={confirmButtonText}
-                    copyButtonText={copyButtonText}
-                    copiedButtonText={copiedButtonText}
-                    onClickCustomButtonAfterContent={handleClickAskButton}
-                    onSend={memoizedOnSend}
-                    onLongPress={handleLongPress}
-                  />
-                </div>
-              );
-            })
-          )}
-          {learningMode !== 'listen' && (
+              })
+            )}
             <div
               ref={chatBoxBottomRef}
               id='chat-box-bottom'
             ></div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
       {mobileStyle && portalTarget
         ? createPortal(scrollButton, portalTarget)
         : scrollButton}
