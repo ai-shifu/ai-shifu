@@ -59,7 +59,9 @@ const ContentIframe = memo(
               data-auto-animate
               //   className='w-full h-full'
             >
-              <div className='w-full h-full font-bold flex items-center justify-center text-primary'>{sectionTitle}</div>
+              <div className='w-full h-full font-bold flex items-center justify-center text-primary'>
+                {sectionTitle}
+              </div>
             </section>
           ) : (
             <section
