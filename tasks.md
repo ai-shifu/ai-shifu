@@ -43,8 +43,8 @@
 ### Phase 1 - Schema & Models
 
 - [x] 新增 SQLAlchemy models：`PromoCampaign`、`PromoCampaignApplication`
-- [ ] Alembic migration：创建 `promo_campaigns`、`promo_campaign_applications`
-- [ ] 确认索引与约束：是否需要 `UNIQUE(order_bid, campaign_bid, deleted)`
+- [x] Alembic migration：创建 `promo_campaigns`、`promo_campaign_applications`
+- [x] 确认索引与约束：添加 `UNIQUE(order_bid, campaign_bid, deleted)`
 
 ### Phase 2 - Data Migration
 
