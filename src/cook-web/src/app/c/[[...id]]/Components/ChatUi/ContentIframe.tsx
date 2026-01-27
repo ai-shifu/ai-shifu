@@ -57,7 +57,7 @@ const ContentIframe = memo(
             <section
               key={'text' + index}
               data-transition='zoom'
-            //   className='w-full h-full'
+              //   className='w-full h-full'
             >
               {sectionTitle}
             </section>
@@ -66,7 +66,7 @@ const ContentIframe = memo(
               key={'sandbox' + index}
               // className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
               data-transition='zoom'
-            //   className='w-full h-full'
+              //   className='w-full h-full'
             >
               <IframeSandbox
                 key={'iframe' + index}
