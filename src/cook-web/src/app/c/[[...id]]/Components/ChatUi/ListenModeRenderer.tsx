@@ -50,10 +50,17 @@ const ListenModeRenderer = ({
     if (!deckRef.current || isLoading) {
       return;
     }
+    if (typeof deckRef.current.sync !== 'function') {
+      return;
+    }
     // Ensure Reveal picks up newly rendered slides
-    deckRef.current.sync();
-    deckRef.current.layout();
-    deckRef.current.slide(0);
+    try {
+      deckRef.current.sync();
+      deckRef.current.layout();
+      deckRef.current.slide(0);
+    } catch (error) {
+      console.warn('Reveal sync failed', error);
+    }
   }, [items, isLoading]);
 
   return (
