@@ -33,9 +33,9 @@ const ListenModeRenderer = ({
 
     deckRef.current = new Reveal(chatRef.current, {
       transition: 'slide',
-      margin: 0,
-      minScale: 1,
-      maxScale: 1,
+      // margin: 0,
+      // minScale: 1,
+      // maxScale: 1,
       progress: false,
       controls: true, // debug
     });
