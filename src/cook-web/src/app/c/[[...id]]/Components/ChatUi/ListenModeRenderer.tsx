@@ -82,20 +82,20 @@ const ListenModeRenderer = ({
         ref={chatRef}
       >
         <div className='slides'>
-        {!isLoading &&
-          items.map((item, idx) => {
-            const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
-            console.log('item=====', item.content);
-            return (
-              <ContentIframe
-                key={baseKey}
-                item={item}
-                mobileStyle={mobileStyle}
-                blockBid={item.generated_block_bid}
-                sectionTitle={sectionTitle}
-              />
-            );
-          })}
+          {!isLoading &&
+            items.map((item, idx) => {
+              const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
+              console.log('item=====', item.content);
+              return (
+                <ContentIframe
+                  key={baseKey}
+                  item={item}
+                  mobileStyle={mobileStyle}
+                  blockBid={item.generated_block_bid}
+                  sectionTitle={sectionTitle}
+                />
+              );
+            })}
         </div>
       </div>
     </div>
