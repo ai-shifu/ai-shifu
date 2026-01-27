@@ -122,22 +122,23 @@ def parse_shifu_mdflow(
         ]
 
         # Fix numeric variable splitting: markdown_flow may emit numeric prefixes
-        # like 1,12,123 for {{123}}. Collapse numeric segments to the longest match.
+        # like 1,12,123 for {{123}}. Collapse prefixes per numeric group.
         def normalize_numeric_variables(keys: list[str]) -> list[str]:
-            longest_numeric: str | None = None
-            longest_len = 0
-            non_numeric: list[str] = []
-            for k in keys:
-                if k.isdigit():
-                    if len(k) > longest_len:
-                        longest_len = len(k)
-                        longest_numeric = k
-                else:
-                    non_numeric.append(k)
-            result = non_numeric
-            if longest_numeric:
-                result.append(longest_numeric)
-            return result
+            numeric_keys = sorted(
+                [k for k in keys if k.isdigit()], key=lambda x: len(x), reverse=True
+            )
+            kept_numeric: list[str] = []
+            for num in numeric_keys:
+                # skip if already covered by a longer numeric we kept
+                if any(num != kept and num in kept and kept.startswith(num) for kept in kept_numeric):
+                    continue
+                # skip if this is a prefix of any kept numeric
+                if any(kept.startswith(num) for kept in kept_numeric):
+                    continue
+                kept_numeric.append(num)
+
+            non_numeric = [k for k in keys if not k.isdigit()]
+            return non_numeric + kept_numeric
 
         raw_variables = normalize_numeric_variables(raw_variables)
 
