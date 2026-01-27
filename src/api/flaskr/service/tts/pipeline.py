@@ -229,11 +229,11 @@ def synthesize_long_text_to_oss(
     - Final output is uploaded as an MP3 file for browser playback.
     """
     provider = (provider_name or "").strip().lower()
-    if provider == "default":
-        provider = ""
+    if not provider:
+        raise ValueError("TTS provider is required")
 
     if not is_tts_configured(provider):
-        raise ValueError(f"TTS provider is not configured: {provider or 'default'}")
+        raise ValueError(f"TTS provider is not configured: {provider}")
 
     segments = split_text_for_tts(
         text,
@@ -276,7 +276,7 @@ def synthesize_long_text_to_oss(
         if sleep_between_segments:
             logger.info(
                 "sleep_between_segments is ignored when max_workers > 1 (provider=%s)",
-                provider or "default",
+                provider,
             )
         audio_parts = [b""] * len(segments)
         with ThreadPoolExecutor(
@@ -312,8 +312,8 @@ def synthesize_long_text_to_oss(
     elapsed = time.monotonic() - start
 
     return SynthesizeToOssResult(
-        provider=provider or "default",
-        model=(model or "").strip() or "default",
+        provider=provider,
+        model=(model or "").strip(),
         voice_id=voice_settings.voice_id or voice_id or "",
         language=language,
         segment_count=len(segments),

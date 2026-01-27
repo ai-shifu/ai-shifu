@@ -199,7 +199,7 @@ export default function ShifuSettingDialog({
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   // TTS Configuration state
   const [ttsEnabled, setTtsEnabled] = useState(false);
-  const [ttsProvider, setTtsProvider] = useState('default');
+  const [ttsProvider, setTtsProvider] = useState('');
   const [ttsModel, setTtsModel] = useState('');
   const [ttsVoiceId, setTtsVoiceId] = useState('');
   const [ttsSpeed, setTtsSpeed] = useState<number | null>(1.0);
@@ -350,7 +350,6 @@ export default function ShifuSettingDialog({
   }
   const [ttsConfig, setTtsConfig] = useState<{
     providers: TTSProviderConfig[];
-    default_provider: string;
   } | null>(null);
 
   // Fetch TTS config from backend
@@ -366,9 +365,26 @@ export default function ShifuSettingDialog({
     fetchTtsConfig();
   }, []);
 
-  const normalizedProvider = ttsProvider === 'default' ? '' : ttsProvider;
-  const resolvedProvider =
-    normalizedProvider || ttsConfig?.default_provider || '';
+  const resolvedProvider = (() => {
+    const provider = (ttsProvider || '').trim();
+    if (!provider) {
+      return ttsConfig?.providers?.[0]?.name || '';
+    }
+    if (ttsConfig?.providers?.length) {
+      const exists = ttsConfig.providers.some(p => p.name === provider);
+      return exists ? provider : ttsConfig.providers[0]?.name || provider;
+    }
+    return provider;
+  })();
+  useEffect(() => {
+    if (!ttsEnabled) return;
+    if (!ttsConfig?.providers?.length) return;
+    const provider = (ttsProvider || '').trim();
+    if (provider && ttsConfig.providers.some(p => p.name === provider)) {
+      return;
+    }
+    setTtsProvider(ttsConfig.providers[0].name);
+  }, [ttsEnabled, ttsProvider, ttsConfig]);
 
   // Get current provider config
   const currentProviderConfig =
@@ -376,11 +392,8 @@ export default function ShifuSettingDialog({
     ttsConfig?.providers[0];
 
   // Get provider options for dropdown
-  const ttsProviderOptions = [
-    { value: 'default', label: t('module.shifuSetting.ttsProviderDefault') },
-    ...(ttsConfig?.providers.map(p => ({ value: p.name, label: p.label })) ||
-      []),
-  ];
+  const ttsProviderOptions =
+    ttsConfig?.providers.map(p => ({ value: p.name, label: p.label })) || [];
 
   // Get models for current provider
   const ttsModelOptions = currentProviderConfig?.models || [];
@@ -439,35 +452,66 @@ export default function ShifuSettingDialog({
     return Math.min(Math.max(value, 0), 2);
   }, []);
 
-  // Sanitize persisted selections when provider/config changes
+  // Sanitize and default selections when provider/config changes
   useEffect(() => {
     if (!ttsConfig || !resolvedProvider) return;
     const provider = ttsConfig.providers.find(p => p.name === resolvedProvider);
     if (!provider) return;
 
-    if (ttsModel && provider.models?.length > 0) {
+    if (provider.models?.length > 0) {
       const modelValues = new Set(provider.models.map(m => m.value));
-      if (!modelValues.has(ttsModel)) {
+      const fallbackModel = provider.models[0]?.value || '';
+      if (ttsEnabled) {
+        const nextModel = modelValues.has(ttsModel) ? ttsModel : fallbackModel;
+        if (nextModel && nextModel !== ttsModel) {
+          setTtsModel(nextModel);
+        }
+      } else if (ttsModel && !modelValues.has(ttsModel)) {
         setTtsModel('');
       }
     }
 
-    if (ttsVoiceId && provider.voices?.length > 0) {
+    if (provider.voices?.length > 0) {
       const voiceValues = new Set(provider.voices.map(v => v.value));
-      if (!voiceValues.has(ttsVoiceId)) {
+      const fallbackVoice = provider.voices[0]?.value || '';
+      if (ttsEnabled) {
+        const nextVoice = voiceValues.has(ttsVoiceId)
+          ? ttsVoiceId
+          : fallbackVoice;
+        if (nextVoice && nextVoice !== ttsVoiceId) {
+          setTtsVoiceId(nextVoice);
+        }
+      } else if (ttsVoiceId && !voiceValues.has(ttsVoiceId)) {
         setTtsVoiceId('');
       }
     }
 
     if (!provider.supports_emotion) {
       if (ttsEmotion) setTtsEmotion('');
-    } else if (ttsEmotion && provider.emotions?.length > 0) {
+      return;
+    }
+    if (provider.emotions?.length > 0) {
       const emotionValues = new Set(provider.emotions.map(e => e.value));
-      if (!emotionValues.has(ttsEmotion)) {
+      const fallbackEmotion = provider.emotions[0]?.value || '';
+      if (ttsEnabled) {
+        const nextEmotion = emotionValues.has(ttsEmotion)
+          ? ttsEmotion
+          : fallbackEmotion;
+        if (nextEmotion !== ttsEmotion) {
+          setTtsEmotion(nextEmotion);
+        }
+      } else if (ttsEmotion && !emotionValues.has(ttsEmotion)) {
         setTtsEmotion('');
       }
     }
-  }, [ttsConfig, resolvedProvider, ttsModel, ttsVoiceId, ttsEmotion]);
+  }, [
+    ttsConfig,
+    resolvedProvider,
+    ttsModel,
+    ttsVoiceId,
+    ttsEmotion,
+    ttsEnabled,
+  ]);
   // Define the validation schema using Zod
   const shifuSchema = z.object({
     previewUrl: z.string(),
@@ -636,10 +680,7 @@ export default function ShifuSettingDialog({
     ) => {
       try {
         const providerForSubmit =
-          normalizedProvider ||
-          ttsConfig?.default_provider ||
-          ttsConfig?.providers?.[0]?.name ||
-          '';
+          resolvedProvider || ttsConfig?.providers?.[0]?.name || '';
 
         if (ttsEnabled && !providerForSubmit) {
           if (!ttsProviderToastShownRef.current && saveType === 'manual') {
@@ -701,7 +742,7 @@ export default function ShifuSettingDialog({
       currentShifu?.readonly,
       trackEvent,
       ttsEnabled,
-      normalizedProvider,
+      resolvedProvider,
       ttsConfig,
       ttsModel,
       ttsVoiceId,
@@ -735,11 +776,7 @@ export default function ShifuSettingDialog({
       setUploadedImageUrl(result.avatar || '');
       // Set TTS Configuration
       setTtsEnabled(result.tts_enabled || false);
-      setTtsProvider(
-        result.tts_provider && result.tts_provider !== 'default'
-          ? result.tts_provider
-          : 'default',
-      );
+      setTtsProvider(result.tts_provider || '');
       setTtsModel(result.tts_model || '');
       setTtsVoiceId(result.tts_voice_id || '');
       setTtsSpeed(result.tts_speed ?? 1.0);
@@ -787,7 +824,7 @@ export default function ShifuSettingDialog({
         'X-Request-ID': uuidv4().replace(/-/g, ''),
       },
       payload: JSON.stringify({
-        provider: normalizedProvider,
+        provider: resolvedProvider,
         model: ttsModel || '',
         voice_id: ttsVoiceId || '',
         speed: speedValue,
@@ -855,7 +892,7 @@ export default function ShifuSettingDialog({
     source.stream();
     ttsPreviewStreamRef.current = source;
   }, [
-    normalizedProvider,
+    resolvedProvider,
     ttsModel,
     ttsVoiceId,
     ttsSpeed,
@@ -1403,22 +1440,29 @@ export default function ShifuSettingDialog({
                           value={ttsProvider}
                           onValueChange={value => {
                             setTtsProvider(value);
-                            // Reset voice, model, and params when provider changes
-                            setTtsVoiceId('');
-                            setTtsModel('');
-                            setTtsEmotion('');
-                            // Reset speed and pitch to new provider's defaults
-                            const providerKey =
-                              value === 'default'
-                                ? ttsConfig?.default_provider || ''
-                                : value;
                             const newProviderConfig = ttsConfig?.providers.find(
-                              p => p.name === providerKey,
+                              p => p.name === value,
                             );
                             if (newProviderConfig) {
+                              const defaultModel =
+                                newProviderConfig.models?.[0]?.value || '';
+                              const defaultVoice =
+                                newProviderConfig.voices?.[0]?.value || '';
+                              const defaultEmotion =
+                                newProviderConfig.supports_emotion &&
+                                newProviderConfig.emotions?.length
+                                  ? newProviderConfig.emotions[0]?.value || ''
+                                  : '';
+                              setTtsModel(defaultModel);
+                              setTtsVoiceId(defaultVoice);
+                              setTtsEmotion(defaultEmotion);
                               setTtsSpeed(newProviderConfig.speed.default);
                               setTtsPitch(newProviderConfig.pitch.default);
+                              return;
                             }
+                            setTtsModel('');
+                            setTtsVoiceId('');
+                            setTtsEmotion('');
                           }}
                           disabled={currentShifu?.readonly}
                         >
