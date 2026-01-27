@@ -42,6 +42,7 @@ export const NewChatComponents = ({
   onGoChapter,
   chapterId,
   lessonId,
+  lessonTitle = '',
   onPurchased,
   chapterUpdate,
   updateSelectedLesson,
@@ -348,6 +349,7 @@ export const NewChatComponents = ({
           chatRef={chatRef}
           containerClassName={containerClassName}
           isLoading={isLoading}
+          sectionTitle={lessonTitle}
         />
       ) : (
         <div

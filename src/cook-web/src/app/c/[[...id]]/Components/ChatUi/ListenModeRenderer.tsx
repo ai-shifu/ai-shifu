@@ -12,6 +12,7 @@ interface ListenModeRendererProps {
   chatRef: React.RefObject<HTMLDivElement>;
   containerClassName?: string;
   isLoading?: boolean;
+  sectionTitle?: string;
 }
 
 const ListenModeRenderer = ({
@@ -20,6 +21,7 @@ const ListenModeRenderer = ({
   chatRef,
   containerClassName,
   isLoading = false,
+  sectionTitle,
 }: ListenModeRendererProps) => {
   const deckRef = useRef<Reveal.Api | null>(null);
 
@@ -80,6 +82,7 @@ const ListenModeRenderer = ({
                 item={item}
                 mobileStyle={mobileStyle}
                 blockBid={item.generated_block_bid}
+                sectionTitle={sectionTitle}
               />
             );
           })}
