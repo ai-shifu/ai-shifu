@@ -57,7 +57,7 @@ const ContentIframe = memo(
             <section
               key={'text' + index}
               data-auto-animate
-            //   className='w-full h-full'
+              //   className='w-full h-full'
             >
               {sectionTitle}
             </section>
