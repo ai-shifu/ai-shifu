@@ -130,7 +130,10 @@ def parse_shifu_mdflow(
             kept_numeric: list[str] = []
             for num in numeric_keys:
                 # skip if already covered by a longer numeric we kept
-                if any(num != kept and num in kept and kept.startswith(num) for kept in kept_numeric):
+                if any(
+                    num != kept and num in kept and kept.startswith(num)
+                    for kept in kept_numeric
+                ):
                     continue
                 # skip if this is a prefix of any kept numeric
                 if any(kept.startswith(num) for kept in kept_numeric):
