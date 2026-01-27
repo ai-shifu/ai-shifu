@@ -62,9 +62,9 @@
 
 ### Phase 4 - Testing & Rollout
 
-- [ ] 更新/新增测试用例，确保关键路径覆盖
-- [ ] 运行 `pytest`（`cd src/api && pytest`）
-- [ ] 运行 `pre-commit run -a`（根目录）
+- [x] 更新/新增测试用例，确保关键路径覆盖
+- [x] 运行 `pytest`（`cd src/api && pytest`）
+- [x] 运行 `pre-commit run -a`（根目录）
 - [ ] 灰度发布/上线监控：订单金额、促销抵扣、后台展示
 - [ ] 观察期后停止写旧表，并新增迁移删除旧表（单独 migration）
 - [ ] 补充运维手册：回滚策略与数据校验步骤
