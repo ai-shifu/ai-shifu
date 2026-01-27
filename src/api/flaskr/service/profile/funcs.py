@@ -2,7 +2,7 @@ from flask import Flask
 
 
 from .constants import SYS_USER_LANGUAGE, SYS_USER_NICKNAME
-from .models import UserProfile, ProfileVariableValue
+from .models import ProfileVariableValue
 from ...dao import db
 from typing import Optional
 
@@ -412,30 +412,7 @@ def save_user_profiles(
         )
     except Exception as exc:  # pragma: no cover - defensive fallback
         app.logger.warning("Failed to load profile_variable_values: %s", exc)
-        # Legacy fallback keeps previous behavior.
-        legacy_profiles: list[UserProfile] = (
-            UserProfile.query.filter_by(user_id=user_id, status=1)
-            .order_by(UserProfile.id.desc())
-            .all()
-        )
-        for profile in profiles:
-            latest_profile = next(
-                (item for item in legacy_profiles if item.profile_key == profile.key),
-                None,
-            )
-            if not latest_profile or latest_profile.profile_value != profile.value:
-                db.session.add(
-                    UserProfile(
-                        user_id=user_id,
-                        profile_key=profile.key,
-                        profile_value=profile.value,
-                        profile_type=PROFILE_TYPE_INPUT_TEXT,
-                        profile_id="",
-                        status=1,
-                    )
-                )
-        db.session.flush()
-        return True
+        user_values = []
 
     for profile in profiles:
         profile_item = next(
@@ -497,9 +474,6 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     if course_id:
         candidate_shifus.append("")
 
-    user_profiles: list[UserProfile] = []
-    legacy_loaded = False
-
     try:
         user_values: list[ProfileVariableValue] = (
             ProfileVariableValue.query.filter(
@@ -512,56 +486,24 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
         )
     except Exception as exc:  # pragma: no cover - defensive fallback
         app.logger.warning("Failed to load profile_variable_values: %s", exc)
-        user_profiles = (
-            UserProfile.query.filter_by(user_id=user_id, status=1)
-            .order_by(UserProfile.id.desc())
-            .all()
-        )
-        legacy_loaded = True
         user_values = []
     user_info: UserEntity = UserEntity.query.filter(
         UserEntity.user_bid == user_id
     ).first()
     result = {}
     for profile_item in profiles_items:
-        if user_values:
-            user_value = _get_latest_variable_value(
+        user_value = (
+            _get_latest_variable_value(
                 user_values,
                 variable_key=profile_item.profile_key,
                 shifu_bid=course_id or "",
                 variable_bid=(profile_item.profile_id or None),
             )
-            if user_value:
-                result[profile_item.profile_key] = user_value.variable_value
-                continue
-
-        # Legacy fallback
-        if not legacy_loaded:
-            user_profiles = (
-                UserProfile.query.filter_by(user_id=user_id, status=1)
-                .order_by(UserProfile.id.desc())
-                .all()
-            )
-            legacy_loaded = True
-        user_profile = next(
-            (
-                item
-                for item in user_profiles
-                if item.profile_id == profile_item.profile_id
-            ),
-            None,
+            if user_values
+            else None
         )
-        if not user_profile:
-            user_profile = next(
-                (
-                    item
-                    for item in user_profiles
-                    if item.profile_key == profile_item.profile_key
-                ),
-                None,
-            )
-        if user_profile:
-            result[profile_item.profile_key] = user_profile.profile_value
+        if user_value:
+            result[profile_item.profile_key] = user_value.variable_value
     if result.get(SYS_USER_LANGUAGE, None) is None:
         result[SYS_USER_LANGUAGE] = user_info.language if user_info else "en-US"
     if (
@@ -599,15 +541,9 @@ def get_user_profile_labels(
             .order_by(ProfileVariableValue.id.desc())
             .all()
         )
-        user_profiles: list[UserProfile] = []
     except Exception as exc:  # pragma: no cover - defensive fallback
         app.logger.warning("Failed to load profile_variable_values: %s", exc)
         user_values = []
-        user_profiles = (
-            UserProfile.query.filter_by(user_id=user_id, status=1)
-            .order_by(UserProfile.id.desc())
-            .all()
-        )
     profiles_items = get_profile_item_definition_list(app, course_id)
     PROFILES_LABLES = get_profile_labels()
     aggregate = load_user_aggregate(user_id)
@@ -633,13 +569,6 @@ def get_user_profile_labels(
                 )
                 if value_entry:
                     raw_value = value_entry.variable_value
-                else:
-                    profile_entry = next(
-                        (item for item in user_profiles if item.profile_key == key),
-                        None,
-                    )
-                    if profile_entry:
-                        raw_value = profile_entry.profile_value
             display_value = raw_value
             if meta.get("items_mapping"):
                 mapping_items = meta.get("items", [])
@@ -672,7 +601,6 @@ def get_user_profile_labels(
                 else None
             ),
         }
-        user_profile = None
         user_value = None
         profile_item = next(
             (item for item in profiles_items if item.profile_key == profile_key), None
@@ -685,15 +613,6 @@ def get_user_profile_labels(
                     shifu_bid="",
                     variable_bid=profile_item.profile_id or None,
                 )
-            if user_value is None:
-                user_profile = next(
-                    (
-                        item
-                        for item in user_profiles
-                        if item.profile_id == profile_item.profile_id
-                    ),
-                    None,
-                )
         else:
             app.logger.info("profile_item not found:{}".format(profile_key))
         if user_value is None and user_values:
@@ -704,15 +623,6 @@ def get_user_profile_labels(
             )
         if user_value:
             item["value"] = user_value.variable_value
-        else:
-            if not user_profile:
-                user_profile = next(
-                    (item for item in user_profiles if item.profile_key == profile_key),
-                    None,
-                )
-            if user_profile:
-                app.logger.info("user_profile:{}".format(user_profile.profile_value))
-                item["value"] = user_profile.profile_value
         result.profiles.append(
             UserProfileLabelItemDTO(
                 key=item["key"],
@@ -774,15 +684,9 @@ def update_user_profile_with_lable(
             .order_by(ProfileVariableValue.id.desc())
             .all()
         )
-        user_profiles: list[UserProfile] = []
     except Exception as exc:  # pragma: no cover - defensive fallback
         app.logger.warning("Failed to load profile_variable_values: %s", exc)
         user_values = []
-        user_profiles = (
-            UserProfile.query.filter_by(user_id=user_id, status=1)
-            .order_by(UserProfile.id.desc())
-            .all()
-        )
 
     for profile in profiles:
         key = profile.get("key")
@@ -831,7 +735,7 @@ def update_user_profile_with_lable(
         should_persist_value = (
             profile_value not in (None, "") and profile_value != default_value
         )
-        if should_persist_value and user_values:
+        if should_persist_value:
             latest_value = _get_latest_variable_value(
                 user_values,
                 variable_key=key,
@@ -853,29 +757,6 @@ def update_user_profile_with_lable(
                 )
                 db.session.add(new_value)
                 user_values.insert(0, new_value)
-        elif should_persist_value:
-            # Legacy fallback
-            latest_profile = next(
-                (
-                    item
-                    for item in user_profiles
-                    if item.profile_key == key
-                    and (not profile_item or item.profile_id == profile_item.profile_id)
-                ),
-                None,
-            )
-            if latest_profile is None or latest_profile.profile_value != profile_value:
-                profile_id = profile_item.profile_id if profile_item else ""
-                new_profile = UserProfile(
-                    user_id=user_id,
-                    profile_key=key,
-                    profile_value=profile_value,
-                    profile_type=PROFILE_TYPE_INPUT_TEXT,
-                    profile_id=profile_id,
-                    status=1,
-                )
-                db.session.add(new_profile)
-                user_profiles.insert(0, new_profile)
     db.session.flush()
     return True
 
@@ -895,14 +776,4 @@ def get_user_variable_by_variable_id(app: Flask, user_id: str, variable_id: str)
             return user_value.variable_value
     except Exception as exc:  # pragma: no cover - defensive fallback
         app.logger.warning("Failed to fetch profile_variable_values: %s", exc)
-
-    user_profile = (
-        UserProfile.query.filter(
-            UserProfile.user_id == user_id,
-            UserProfile.profile_id == variable_id,
-            UserProfile.status == 1,
-        )
-        .order_by(UserProfile.id.desc())
-        .first()
-    )
-    return user_profile.profile_value if user_profile else None
+    return None
