@@ -185,10 +185,9 @@ export const NewChatComponents = ({
     onPayModalOpen,
   });
 
-
   // Memoize onSend to prevent new function references
   const memoizedOnSend = useCallback(onSend, [onSend]);
-  
+
   const handleLongPress = useCallback(
     (event: any, currentBlock: ChatContentItem) => {
       if (currentBlock.type !== ChatContentItemType.CONTENT) {
@@ -309,7 +308,6 @@ export const NewChatComponents = ({
     };
   }, [checkScroll, items, mobileStyle]); // Added items as dependency to re-bind if structure changes significantly
 
- 
   useEffect(() => {
     if (mobileStyle) {
       setPortalTarget(document.getElementById('chat-scroll-target'));
