@@ -442,8 +442,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         tts_enabled = json_data.get("tts_enabled", False)
         tts_provider = json_data.get("tts_provider", "") or ""
         tts_provider = tts_provider.strip().lower()
-        if tts_provider == "default":
-            tts_provider = ""
         tts_model = json_data.get("tts_model", "")
         tts_voice_id = json_data.get("tts_voice_id", "")
         tts_speed = json_data.get("tts_speed", 1.0)
