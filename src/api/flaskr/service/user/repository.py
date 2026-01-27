@@ -260,9 +260,42 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
     birthday: Optional[date] = None
 
     try:
-        from flaskr.service.profile.models import UserProfile  # type: ignore
+        from flaskr.service.profile.models import (  # type: ignore
+            ProfileVariableValue,
+            UserProfile,
+        )
     except ImportError:  # pragma: no cover - defensive fallback
+        ProfileVariableValue = None  # type: ignore[assignment]
         UserProfile = None  # type: ignore[assignment]
+
+    if ProfileVariableValue is not None:
+        rows = (
+            ProfileVariableValue.query.filter(
+                ProfileVariableValue.user_bid == user_bid,
+                ProfileVariableValue.deleted == 0,
+                ProfileVariableValue.shifu_bid == "",
+                ProfileVariableValue.variable_key.in_(
+                    ["sys_user_nickname", "avatar", "language", "birth"]
+                ),
+            )
+            .order_by(ProfileVariableValue.id.desc())
+            .all()
+        )
+        for row in rows:
+            value = (row.variable_value or "").strip()
+            if not value:
+                continue
+            if row.variable_key == "sys_user_nickname":
+                nickname = value
+            elif row.variable_key == "avatar" and not avatar:
+                avatar = value
+            elif row.variable_key == "language" and not language:
+                language = value
+            elif row.variable_key == "birth" and not birthday:
+                try:
+                    birthday = date.fromisoformat(value)
+                except ValueError:
+                    continue
 
     if UserProfile is not None:
         profile_rows = (

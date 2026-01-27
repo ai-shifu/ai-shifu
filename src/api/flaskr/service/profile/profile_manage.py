@@ -6,6 +6,7 @@ from .models import (
     ProfileItem,
     ProfileItemValue,
     ProfileItemI18n,
+    ProfileVariableDefinition,
     PROFILE_TYPE_INPUT_UNCONF,
     PROFILE_SHOW_TYPE_HIDDEN,
     PROFILE_TYPE_INPUT_TEXT,
@@ -26,7 +27,7 @@ from .dtos import (
     ProfileValueDto,
     ProfileOptionListDto,
 )
-from flaskr.i18n import _, get_current_language
+from flaskr.i18n import _
 
 from .models import (
     CONST_PROFILE_TYPE_TEXT,
@@ -159,6 +160,34 @@ def convert_profile_item_to_profile_item_definition(
     )
 
 
+def convert_variable_definition_to_profile_item_definition(
+    definition: ProfileVariableDefinition,
+) -> ProfileItemDefinition:
+    """
+    Convert new minimal variable definition model to legacy DTO shape.
+
+    The current refactor keeps only `is_hidden` in DB. All variables are treated
+    as text variables, and the rest of the DTO fields are derived.
+    """
+
+    scope = (
+        CONST_PROFILE_SCOPE_SYSTEM
+        if definition.shifu_bid == ""
+        else CONST_PROFILE_SCOPE_USER
+    )
+    return ProfileItemDefinition(
+        definition.variable_key,
+        DEFAULT_COLOR_SETTINGS[0],
+        "text",
+        _("PROFILE.PROFILE_TYPE_TEXT"),
+        "",
+        scope,
+        _("PROFILE.PROFILE_SCOPE_{}".format(scope).upper()),
+        definition.variable_bid,
+        bool(definition.is_hidden),
+    )
+
+
 # get profile item definition list
 # type: all, text, option
 # parent_id: scenario_id, profile_id
@@ -168,23 +197,39 @@ def get_profile_item_definition_list(
     app: Flask, parent_id: str, type: str = "all"
 ) -> list[ProfileItemDefinition]:
     with app.app_context():
+        if type == CONST_PROFILE_TYPE_OPTION:
+            # Option/enum variables are no longer supported after refactor.
+            return []
+
+        # Prefer new table, fallback to legacy tables when DB is not migrated yet.
+        try:
+            definitions = (
+                ProfileVariableDefinition.query.filter(
+                    ProfileVariableDefinition.shifu_bid.in_([parent_id, ""]),
+                    ProfileVariableDefinition.deleted == 0,
+                )
+                .order_by(ProfileVariableDefinition.id.asc())
+                .all()
+            )
+            if definitions:
+                return [
+                    convert_variable_definition_to_profile_item_definition(item)
+                    for item in definitions
+                ]
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            app.logger.warning("Failed to load profile variable definitions: %s", exc)
+
         query = ProfileItem.query.filter(
             ProfileItem.parent_id.in_([parent_id, ""]), ProfileItem.status == 1
         )
         if type == CONST_PROFILE_TYPE_TEXT:
             query = query.filter(ProfileItem.profile_type == PROFILE_TYPE_INPUT_TEXT)
-        elif type == CONST_PROFILE_TYPE_OPTION:
-            query = query.filter(ProfileItem.profile_type == PROFILE_TYPE_INPUT_SELECT)
-        elif type == "all":
-            query = query
         app.logger.info(type)
         profile_item_list = query.order_by(ProfileItem.profile_index.asc()).all()
-        if profile_item_list:
-            return [
-                convert_profile_item_to_profile_item_definition(profile_item)
-                for profile_item in profile_item_list
-            ]
-        return []
+        return [
+            convert_profile_item_to_profile_item_definition(profile_item)
+            for profile_item in (profile_item_list or [])
+        ]
 
 
 def update_profile_item_hidden_state(
@@ -199,6 +244,25 @@ def update_profile_item_hidden_state(
         return get_profile_item_definition_list(app, parent_id=parent_id)
 
     with app.app_context():
+        try:
+            target_items = (
+                ProfileVariableDefinition.query.filter(
+                    ProfileVariableDefinition.shifu_bid == parent_id,
+                    ProfileVariableDefinition.deleted == 0,
+                    ProfileVariableDefinition.variable_key.in_(profile_keys),
+                )
+                .order_by(ProfileVariableDefinition.id.asc())
+                .all()
+            )
+            if target_items:
+                for item in target_items:
+                    item.is_hidden = 1 if hidden else 0
+                    item.updated_at = datetime.now()
+                db.session.commit()
+            return get_profile_item_definition_list(app, parent_id=parent_id)
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            app.logger.warning("Failed to update profile hidden state: %s", exc)
+
         target_items = (
             ProfileItem.query.filter(
                 ProfileItem.parent_id == parent_id,
@@ -208,15 +272,12 @@ def update_profile_item_hidden_state(
             .order_by(ProfileItem.profile_index.asc())
             .all()
         )
-        if not target_items:
-            return get_profile_item_definition_list(app, parent_id=parent_id)
-
-        for item in target_items:
-            item.is_hidden = 1 if hidden else 0
-            item.updated = datetime.now()
-            item.updated_by = user_id
-
-        db.session.commit()
+        if target_items:
+            for item in target_items:
+                item.is_hidden = 1 if hidden else 0
+                item.updated = datetime.now()
+                item.updated_by = user_id
+            db.session.commit()
         return get_profile_item_definition_list(app, parent_id=parent_id)
 
 
@@ -266,9 +327,8 @@ def get_profile_variable_usage(app: Flask, parent_id: str) -> dict:
 def get_profile_item_definition_option_list(
     app: Flask, parent_id: str
 ) -> list[ProfileValueDto]:
-    with app.app_context():
-        current_language = get_current_language()
-        return get_profile_option_list(app, parent_id, current_language)
+    # Option/enum variables are no longer supported after refactor.
+    return []
 
 
 # quick add profile item
@@ -285,11 +345,38 @@ def add_profile_item_quick(app: Flask, parent_id: str, key: str, user_id: str):
 
 # quick add profile item
 def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_id: str):
+    # Prefer new table, fallback to legacy when DB is not migrated yet.
+    try:
+        existing = (
+            ProfileVariableDefinition.query.filter(
+                ProfileVariableDefinition.variable_key == key,
+                ProfileVariableDefinition.shifu_bid.in_([parent_id, ""]),
+                ProfileVariableDefinition.deleted == 0,
+            )
+            .order_by(ProfileVariableDefinition.id.asc())
+            .first()
+        )
+        if existing:
+            return convert_variable_definition_to_profile_item_definition(existing)
+
+        definition = ProfileVariableDefinition(
+            variable_bid=generate_id(app),
+            shifu_bid=parent_id,
+            variable_key=key,
+            is_hidden=0,
+            deleted=0,
+        )
+        db.session.add(definition)
+        db.session.flush()
+        return convert_variable_definition_to_profile_item_definition(definition)
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        app.logger.warning("Failed to quick-add profile variable: %s", exc)
+
     exist_profile_item_list = get_profile_item_definition_list(app, parent_id)
-    if exist_profile_item_list:
-        for exist_profile_item in exist_profile_item_list:
-            if exist_profile_item.profile_key == key:
-                return exist_profile_item
+    for exist_profile_item in exist_profile_item_list or []:
+        if exist_profile_item.profile_key == key:
+            return exist_profile_item
+
     profile_id = generate_id(app)
     profile_item = ProfileItem()
     profile_item.parent_id = parent_id
@@ -327,18 +414,71 @@ def save_profile_item(
     profile_prompt_model_args: str = None,
     items: list[ProfileValueDto] = None,
 ):
+    """
+    Save (create/update) a custom variable definition.
+
+    After the variable table refactor, the definition table only stores:
+    - variable_key
+    - is_hidden
+
+    Other legacy fields (type/remark/options/prompt/etc.) are ignored.
+    """
+
+    from flaskr.service.common.models import AppException
+
     with app.app_context():
         if (not parent_id or parent_id == "") and user_id != "":
             raise_error("server.profile.systemProfileNotAllowUpdate")
-        exist_system_profile_list = ProfileItem.query.filter(
-            ProfileItem.parent_id == "",
-            ProfileItem.status == 1,
-        ).all()
-        if exist_system_profile_list:
-            for exist_system_profile in exist_system_profile_list:
-                if exist_system_profile.profile_key == key:
-                    raise_error("server.profile.systemProfileKeyExist")
-        if profile_id and bool(profile_id):
+        if not key:
+            raise_error("server.profile.keyRequired")
+
+        try:
+            system_conflict = ProfileVariableDefinition.query.filter(
+                ProfileVariableDefinition.shifu_bid == "",
+                ProfileVariableDefinition.deleted == 0,
+                ProfileVariableDefinition.variable_key == key,
+            ).first()
+            if system_conflict:
+                raise_error("server.profile.systemProfileKeyExist")
+
+            if profile_id:
+                definition = ProfileVariableDefinition.query.filter(
+                    ProfileVariableDefinition.variable_bid == profile_id,
+                    ProfileVariableDefinition.shifu_bid == parent_id,
+                    ProfileVariableDefinition.deleted == 0,
+                ).first()
+                if not definition:
+                    raise_error("server.profile.notFound")
+                definition.variable_key = key
+                definition.updated_at = datetime.now()
+            else:
+                exist_item = ProfileVariableDefinition.query.filter(
+                    ProfileVariableDefinition.shifu_bid == parent_id,
+                    ProfileVariableDefinition.deleted == 0,
+                    ProfileVariableDefinition.variable_key == key,
+                ).first()
+                if exist_item:
+                    raise_error("server.profile.keyExist")
+                definition = ProfileVariableDefinition(
+                    variable_bid=generate_id(app),
+                    shifu_bid=parent_id,
+                    variable_key=key,
+                    is_hidden=0,
+                    deleted=0,
+                )
+                db.session.add(definition)
+
+            db.session.commit()
+            return convert_variable_definition_to_profile_item_definition(definition)
+        except AppException:
+            raise
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            app.logger.warning(
+                "Failed to save profile variable definition in new table: %s", exc
+            )
+
+        # Legacy fallback (pre-refactor schema): keep minimal text variable support.
+        if profile_id:
             profile_item = ProfileItem.query.filter(
                 ProfileItem.profile_id == profile_id,
                 ProfileItem.parent_id == parent_id,
@@ -346,138 +486,36 @@ def save_profile_item(
             ).first()
             if not profile_item:
                 raise_error("server.profile.notFound")
-            app.logger.info("type:{}".format(type))
+            profile_item.profile_key = key
             profile_item.updated = datetime.now()
             profile_item.updated_by = user_id
-            profile_item.profile_key = key
-            profile_item.profile_type = type
-            profile_item.profile_show_type = show_type
-            profile_item.profile_remark = remark
-            profile_item.profile_color_setting = str(get_next_corlor_setting(parent_id))
-            profile_item.profile_prompt = profile_prompt
-            profile_item.profile_prompt_model = profile_prompt_model
+            db.session.commit()
+            return convert_profile_item_to_profile_item_definition(profile_item)
 
-        else:
-            profile_item = ProfileItem(
-                parent_id=parent_id,
-                profile_id=generate_id(app),
-                profile_key=key,
-                profile_type=type,
-                profile_show_type=show_type,
-                profile_remark=remark,
-                profile_color_setting=str(get_next_corlor_setting(parent_id)),
-                profile_prompt=profile_prompt,
-                profile_prompt_model=profile_prompt_model,
-                profile_prompt_model_args=profile_prompt_model_args,
-                created_by=user_id,
-                updated_by=user_id,
-                status=1,
-            )
-            db.session.add(profile_item)
-            profile_id = profile_item.profile_id
-        if not key:
-            raise_error("server.profile.keyRequired")
         exist_item = ProfileItem.query.filter(
             ProfileItem.parent_id == parent_id,
             ProfileItem.profile_key == key,
-            ProfileItem.profile_id != profile_id,
+            ProfileItem.status == 1,
         ).first()
         if exist_item:
             raise_error("server.profile.keyExist")
 
-        if type == PROFILE_TYPE_INPUT_TEXT and not profile_prompt:
-            # raise_error("server.profile.promptRequired")
-            profile_prompt = ""
-        if type == PROFILE_TYPE_INPUT_SELECT and not items:
-            raise_error("server.profile.itemsRequired")
-
-        current_language = get_current_language()
-
-        if items and len(items) > 0:
-            exist_profile_item_value_list = ProfileItemValue.query.filter(
-                ProfileItemValue.profile_id == profile_id,
-            ).all()
-            if exist_profile_item_value_list:
-                exist_profile_item_value_i18n_list = ProfileItemI18n.query.filter(
-                    ProfileItemI18n.parent_id.in_(
-                        [item.profile_item_id for item in exist_profile_item_value_list]
-                    ),
-                    ProfileItemI18n.conf_type == PROFILE_CONF_TYPE_ITEM,
-                ).all()
-            else:
-                exist_profile_item_value_i18n_list = []
-            update_item_ids = []
-            update_item_i18n_ids = []
-            for index, item in enumerate(items):
-                profile_item_value = next(
-                    (
-                        p
-                        for p in exist_profile_item_value_list
-                        if p.profile_value == item.value
-                    ),
-                    None,
-                )
-                if not profile_item_value:
-                    profile_item_value = ProfileItemValue(
-                        profile_id=profile_id,
-                        profile_item_id=generate_id(app),
-                        profile_value=item.value,
-                        profile_value_index=index,
-                        created_by=user_id,
-                        updated_by=user_id,
-                        status=1,
-                    )
-                    db.session.add(profile_item_value)
-                    update_item_ids.append(profile_item_value.id)
-                else:
-                    profile_item_value.profile_value = item.value
-                    profile_item_value.profile_value_index = index
-                    profile_item_value.updated_by = user_id
-                    profile_item_value.status = 1
-                    profile_item_value.updated = datetime.now()
-                update_item_ids.append(profile_item_value.profile_item_id)
-                profile_item_value_i18n = next(
-                    (
-                        i18n
-                        for i18n in exist_profile_item_value_i18n_list
-                        if i18n.parent_id == profile_item_value.profile_item_id
-                        and i18n.language == current_language
-                    ),
-                    None,
-                )
-                if not profile_item_value_i18n:
-                    profile_item_value_i18n = ProfileItemI18n(
-                        parent_id=profile_item_value.profile_item_id,
-                        language=current_language,
-                        profile_item_remark=item.name,
-                        conf_type=PROFILE_CONF_TYPE_ITEM,
-                        created_by=user_id,
-                        updated_by=user_id,
-                        status=1,
-                    )
-                    db.session.add(profile_item_value_i18n)
-                    update_item_i18n_ids.append(profile_item_value_i18n.id)
-                else:
-                    profile_item_value_i18n.profile_item_remark = item.name
-                    profile_item_value_i18n.updated_by = user_id
-                    profile_item_value_i18n.updated = datetime.now()
-                    profile_item_value_i18n.status = 1
-                    update_item_i18n_ids.append(profile_item_value_i18n.id)
-            ProfileItemValue.query.filter(
-                ProfileItemValue.profile_id == profile_id,
-                ProfileItemValue.profile_item_id.notin_(update_item_ids),
-                ProfileItemValue.status == 1,
-            ).update({"status": 0})
-            delete_item_ids = [
-                item.id
-                for item in exist_profile_item_value_i18n_list
-                if item.id not in update_item_ids
-            ]
-            if delete_item_ids:
-                ProfileItemI18n.query.filter(
-                    ProfileItemI18n.id.in_(delete_item_ids),
-                    ProfileItemI18n.status == 1,
-                ).update({"status": 0})
+        profile_item = ProfileItem(
+            parent_id=parent_id,
+            profile_id=generate_id(app),
+            profile_key=key,
+            profile_type=PROFILE_TYPE_INPUT_TEXT,
+            profile_show_type=PROFILE_SHOW_TYPE_HIDDEN,
+            profile_remark="",
+            profile_color_setting=str(get_next_corlor_setting(parent_id)),
+            profile_prompt="",
+            profile_prompt_model="",
+            profile_prompt_model_args="{}",
+            created_by=user_id,
+            updated_by=user_id,
+            status=1,
+        )
+        db.session.add(profile_item)
         db.session.commit()
         return convert_profile_item_to_profile_item_definition(profile_item)
 
@@ -582,7 +620,28 @@ def add_profile_i18n(
 
 
 def delete_profile_item(app: Flask, user_id: str, profile_id: str):
+    from flaskr.service.common.models import AppException
+
     with app.app_context():
+        try:
+            definition = ProfileVariableDefinition.query.filter(
+                ProfileVariableDefinition.variable_bid == profile_id,
+                ProfileVariableDefinition.deleted == 0,
+            ).first()
+            if not definition:
+                raise_error("server.profile.notFound")
+            if definition.shifu_bid == "" or definition.shifu_bid is None:
+                raise_error("server.profile.systemProfileNotAllowDelete")
+
+            definition.deleted = 1
+            definition.updated_at = datetime.now()
+            db.session.commit()
+            return True
+        except AppException:
+            raise
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            app.logger.warning("Failed to delete profile variable definition: %s", exc)
+
         profile_item = ProfileItem.query.filter_by(profile_id=profile_id).first()
         if not profile_item:
             raise_error("server.profile.notFound")

@@ -4,7 +4,7 @@ from datetime import date as Date
 from sqlalchemy import or_
 
 from .models import AuthCredential, UserInfo as UserEntity
-from ..profile.models import UserProfile
+from ..profile.models import ProfileVariableValue, UserProfile
 from .repository import load_user_aggregate
 
 
@@ -90,15 +90,35 @@ DEFAULT_BIRTHDAY = Date(2003, 1, 1)
 
 
 def _resolve_user_sex(user_bid: str) -> int:
-    profile = (
-        UserProfile.query.filter_by(user_id=user_bid, profile_key="sex", status=1)
-        .order_by(UserProfile.id.desc())
-        .first()
-    )
-    if not profile or profile.profile_value is None:
+    profile_value = None
+    try:
+        row = (
+            ProfileVariableValue.query.filter(
+                ProfileVariableValue.user_bid == user_bid,
+                ProfileVariableValue.variable_key == "sex",
+                ProfileVariableValue.deleted == 0,
+                ProfileVariableValue.shifu_bid == "",
+            )
+            .order_by(ProfileVariableValue.id.desc())
+            .first()
+        )
+        if row and row.variable_value is not None:
+            profile_value = row.variable_value
+    except Exception:  # pragma: no cover - defensive fallback
+        profile_value = None
+
+    if profile_value is None:
+        profile = (
+            UserProfile.query.filter_by(user_id=user_bid, profile_key="sex", status=1)
+            .order_by(UserProfile.id.desc())
+            .first()
+        )
+        profile_value = profile.profile_value if profile else None
+
+    if profile_value is None:
         return 0
     try:
-        return int(profile.profile_value)
+        return int(profile_value)
     except (TypeError, ValueError):
         return 0
 
