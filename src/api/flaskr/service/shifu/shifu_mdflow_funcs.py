@@ -20,6 +20,8 @@ def _normalize_numeric_variables(keys: list[str]) -> list[str]:
 
     non_numeric = [k for k in keys if not k.isdigit()]
     return non_numeric + kept_numeric
+
+
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.service.common import raise_error
