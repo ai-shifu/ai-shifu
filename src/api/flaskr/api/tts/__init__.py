@@ -225,12 +225,8 @@ def get_all_provider_configs() -> dict:
         except Exception as e:
             logger.warning("Failed to get %s config: %s", name, e)
 
-    # Determine default provider
-    default_provider = _auto_detect_provider_name()
-
     return {
         "providers": providers,
-        "default_provider": default_provider,
     }
 
 

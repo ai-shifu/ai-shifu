@@ -1255,9 +1255,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                 providers:
                                     type: array
                                     description: List of available providers with configs
-                                default_provider:
-                                    type: string
-                                    description: Default provider name
         """
         from flaskr.api.tts import get_all_provider_configs
 
