@@ -121,6 +121,26 @@ def parse_shifu_mdflow(
             item.profile_key for item in profile_definitions if item.profile_key
         ]
 
+        # Fix numeric variable splitting: markdown_flow may emit numeric prefixes
+        # like 1,12,123 for {{123}}. Collapse numeric segments to the longest match.
+        def normalize_numeric_variables(keys: list[str]) -> list[str]:
+            longest_numeric: str | None = None
+            longest_len = 0
+            non_numeric: list[str] = []
+            for k in keys:
+                if k.isdigit():
+                    if len(k) > longest_len:
+                        longest_len = len(k)
+                        longest_numeric = k
+                else:
+                    non_numeric.append(k)
+            result = non_numeric
+            if longest_numeric:
+                result.append(longest_numeric)
+            return result
+
+        raw_variables = normalize_numeric_variables(raw_variables)
+
         dedup_vars: list[str] = []
         seen = set()
         for key in raw_variables + definition_keys:
