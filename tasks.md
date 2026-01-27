@@ -21,3 +21,50 @@
 - [x] 移除所有 docker-compose 中的 Redis service/depends_on/环境变量
 - [x] 更新相关文档/示例配置（说明 Redis 为可选项）
 - [x] 更新/新增测试用例，确保 `pytest` 通过
+
+# Promotion Campaign Table Refactor (促销活动表重构)
+
+目标：
+- 将现有 `active` / `active_user_record` 促销逻辑统一到 `promo_` 域，表名与字段命名对齐现行规范。
+- 明确“每次下单生成记录”的语义：使用 `promo_campaign_applications`（application）而非 `usage`（usage 更偏券码一次性使用语义）。
+- 保持 `promo_coupons` / `promo_coupon_usages` 不变，减少改动面。
+
+技术方案：
+- `docs/promo-campaign-refactor.md`
+
+## Checklist
+
+### Phase 0 - 方案与对齐
+
+- [x] 明确业务语义：每次下单生成促销应用记录（order-level application）
+- [x] 确认最终表名：`promo_campaigns`、`promo_campaign_applications`
+- [x] 输出技术方案文档：`docs/promo-campaign-refactor.md`
+
+### Phase 1 - Schema & Models
+
+- [ ] 新增 SQLAlchemy models：`PromoCampaign`、`PromoCampaignApplication`
+- [ ] Alembic migration：创建 `promo_campaigns`、`promo_campaign_applications`
+- [ ] 确认索引与约束：是否需要 `UNIQUE(order_bid, campaign_bid, deleted)`
+
+### Phase 2 - Data Migration
+
+- [ ] 回填脚本/迁移：`active` → `promo_campaigns`（`active_id` 复用为 `campaign_bid`）
+- [ ] 回填脚本/迁移：`active_user_record` → `promo_campaign_applications`（`record_id` 复用为 `campaign_application_bid`）
+- [ ] 明确 `active_discount_type/active_discount/active_price` 映射到新表的规则并实现
+- [ ] 数据一致性校验：数量、抵扣金额汇总、抽样订单对比
+
+### Phase 3 - Code Switch
+
+- [ ] 下单链路改造：读写新表（替换 `Active`/`ActiveUserRecord`）
+- [ ] 后台订单展示改造：读取 `promo_campaign_applications`
+- [ ] 选择模块组织策略：保留 `service/active` 适配新表，或合并进 `service/promo`
+- [ ] （可选）dual-write：新表写入 + 旧表写入，降低回滚风险
+
+### Phase 4 - Testing & Rollout
+
+- [ ] 更新/新增测试用例，确保关键路径覆盖
+- [ ] 运行 `pytest`（`cd src/api && pytest`）
+- [ ] 运行 `pre-commit run -a`（根目录）
+- [ ] 灰度发布/上线监控：订单金额、促销抵扣、后台展示
+- [ ] 观察期后停止写旧表，并新增迁移删除旧表（单独 migration）
+- [ ] 补充运维手册：回滚策略与数据校验步骤
