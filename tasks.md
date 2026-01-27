@@ -48,9 +48,9 @@
 
 ### Phase 2 - Data Migration
 
-- [ ] 回填脚本/迁移：`active` → `promo_campaigns`（`active_id` 复用为 `campaign_bid`）
-- [ ] 回填脚本/迁移：`active_user_record` → `promo_campaign_applications`（`record_id` 复用为 `campaign_application_bid`）
-- [ ] 明确 `active_discount_type/active_discount/active_price` 映射到新表的规则并实现
+- [x] 回填脚本/迁移：`active` → `promo_campaigns`（`active_id` 复用为 `campaign_bid`）
+- [x] 回填脚本/迁移：`active_user_record` → `promo_campaign_applications`（`record_id` 复用为 `campaign_application_bid`）
+- [x] 明确 `active_discount_type/active_discount/active_price` 映射到新表的规则并实现
 - [ ] 数据一致性校验：数量、抵扣金额汇总、抽样订单对比
 
 ### Phase 3 - Code Switch
