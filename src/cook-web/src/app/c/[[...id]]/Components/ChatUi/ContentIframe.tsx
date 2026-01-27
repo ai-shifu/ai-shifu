@@ -44,34 +44,37 @@ const ContentIframe = memo(
       [item.content],
     );
     console.log('segments ai-shifu=====', segments);
-    
-    if (segments.length === 0 || item.type === ChatContentItemType.INTERACTION) return null;
+
+    if (segments.length === 0 || item.type === ChatContentItemType.INTERACTION)
+      return null;
     return (
-       <>
-       {segments.map((segment, index) => (
-        segment.type === 'text' ? 
-        <section key={'text' + index}  
-            data-transition="fade-in fade-out"
-            className='w-full h-full'
-            
+      <>
+        {segments.map((segment, index) =>
+          segment.type === 'text' ? (
+            <section
+              key={'text' + index}
+              data-transition='fade-in fade-out'
+              className='w-full h-full'
             >
-                {segment.value}
-        </section> : (
-        <section
-            key={'sandbox' + index}
-            // className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
-            data-transition="fade-in fade-out"
-            className='w-full h-full'
-        >
-            <IframeSandbox
+              {segment.value}
+            </section>
+          ) : (
+            <section
+              key={'sandbox' + index}
+              // className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
+              data-transition='fade-in fade-out'
+              className='w-full h-full'
+            >
+              <IframeSandbox
                 key={'iframe' + index}
                 type={segment.type}
                 mode='blackboard'
                 hideFullScreen
                 content={segment.value}
-            />
-      </section>
-      )))}
+              />
+            </section>
+          ),
+        )}
       </>
     );
   },
