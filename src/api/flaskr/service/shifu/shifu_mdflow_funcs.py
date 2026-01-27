@@ -1,5 +1,25 @@
 from markdown_flow import MarkdownFlow
 from flask import Flask
+
+
+def _normalize_numeric_variables(keys: list[str]) -> list[str]:
+    """Collapse numeric prefixes per numeric group, keep full numeric tokens."""
+    numeric_keys = sorted(
+        [k for k in keys if k.isdigit()], key=lambda x: len(x), reverse=True
+    )
+    kept_numeric: list[str] = []
+    for num in numeric_keys:
+        # Skip if this numeric is a prefix or substring of an already kept longer numeric
+        if any(
+            num != kept
+            and (kept.startswith(num) or num.startswith(kept) or num in kept)
+            for kept in kept_numeric
+        ):
+            continue
+        kept_numeric.append(num)
+
+    non_numeric = [k for k in keys if not k.isdigit()]
+    return non_numeric + kept_numeric
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.service.common import raise_error
@@ -69,7 +89,7 @@ def save_shifu_mdflow(
                 app, outline_item.shifu_bid
             )
 
-            variables = markdown_flow.extract_variables()
+            variables = _normalize_numeric_variables(markdown_flow.extract_variables())
             for variable in variables:
                 exist_variable = next(
                     (v for v in variable_definitions if v.profile_key == variable), None
@@ -123,27 +143,7 @@ def parse_shifu_mdflow(
 
         # Fix numeric variable splitting: markdown_flow may emit numeric prefixes
         # like 1,12,123 for {{123}}. Collapse prefixes per numeric group.
-        def normalize_numeric_variables(keys: list[str]) -> list[str]:
-            numeric_keys = sorted(
-                [k for k in keys if k.isdigit()], key=lambda x: len(x), reverse=True
-            )
-            kept_numeric: list[str] = []
-            for num in numeric_keys:
-                # skip if already covered by a longer numeric we kept
-                if any(
-                    num != kept and num in kept and kept.startswith(num)
-                    for kept in kept_numeric
-                ):
-                    continue
-                # skip if this is a prefix of any kept numeric
-                if any(kept.startswith(num) for kept in kept_numeric):
-                    continue
-                kept_numeric.append(num)
-
-            non_numeric = [k for k in keys if not k.isdigit()]
-            return non_numeric + kept_numeric
-
-        raw_variables = normalize_numeric_variables(raw_variables)
+        raw_variables = _normalize_numeric_variables(raw_variables)
 
         dedup_vars: list[str] = []
         seen = set()
