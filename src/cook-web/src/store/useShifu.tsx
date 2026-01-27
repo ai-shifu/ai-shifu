@@ -1475,8 +1475,10 @@ export const ShifuProvider = ({
             const alreadyCovered = keptNumeric.some(
               kept =>
                 kept === n ||
-                (kept.length > n.length && kept.startsWith(n)) ||
-                (n.length > kept.length && n.startsWith(kept)),
+                kept.startsWith(n) ||
+                n.startsWith(kept) ||
+                kept.includes(n) ||
+                n.includes(kept),
             );
             if (!alreadyCovered) {
               keptNumeric.push(n);
