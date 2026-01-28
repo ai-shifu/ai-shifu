@@ -383,7 +383,7 @@ const ListenModeRenderer = ({
     }
     deck.next();
   }, []);
-  console.log('listenmoderenderer', contentItems);
+// console.log('listenmoderenderer',contentItems)
   return (
     <div
       className={cn(containerClassName, 'listen-reveal-wrapper')}
