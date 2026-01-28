@@ -187,9 +187,7 @@ const ListenPlayer = ({
           aria-label='Notes'
           onClick={handleNotesClick}
           disabled={!interaction}
-          className={cn(
-            interaction ? '!text-primary' : disabledClassName,
-          )}
+          className={cn(interaction ? '!text-primary' : disabledClassName)}
         >
           <SquarePen size={32} />
         </button>
