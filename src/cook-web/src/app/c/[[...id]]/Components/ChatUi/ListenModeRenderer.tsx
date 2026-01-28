@@ -36,6 +36,8 @@ const ListenModeRenderer = ({
 }: ListenModeRendererProps) => {
   const deckRef = useRef<Reveal.Api | null>(null);
   const pendingAutoNextRef = useRef(false);
+  const hasAutoSlidToLatestRef = useRef(false);
+  const requestedAudioBlockBidsRef = useRef<Set<string>>(new Set());
 
   const [activeBlockBid, setActiveBlockBid] = useState<string | null>(null);
   const activeBlockBidRef = useRef<string | null>(null);
@@ -78,6 +80,21 @@ const ListenModeRenderer = ({
       mapping.set(bid, item);
     }
     return mapping;
+  }, [items]);
+
+  const ttsReadyBlockBids = useMemo(() => {
+    const ready = new Set<string>();
+    for (const item of items) {
+      if (item.type !== ChatContentItemType.LIKE_STATUS) {
+        continue;
+      }
+      const parentBid = item.parent_block_bid;
+      if (!parentBid) {
+        continue;
+      }
+      ready.add(parentBid);
+    }
+    return ready;
   }, [items]);
 
   const activeContentItem = useMemo(() => {
@@ -179,7 +196,7 @@ const ListenModeRenderer = ({
       // minScale: 1,
       // maxScale: 1,
       progress: false,
-      controls: true, // debug
+      controls: true,
     };
 
     deckRef.current = new Reveal(chatRef.current, revealOptions);
@@ -192,11 +209,12 @@ const ListenModeRenderer = ({
       try {
         deckRef.current?.destroy();
         deckRef.current = null;
+        hasAutoSlidToLatestRef.current = false;
       } catch (e) {
         console.warn('Reveal.js destroy 調用失敗。');
-      } 
+      }
     };
-  }, [chatRef, isLoading, contentItems.length]);
+  }, [chatRef, contentItems.length, isLoading, syncActiveBlockFromDeck]);
 
   useEffect(() => {
     if (!contentItems.length && deckRef.current) {
@@ -208,7 +226,7 @@ const ListenModeRenderer = ({
       } finally {
         deckRef.current = null;
       }
-    };
+    }
   }, [chatRef, contentItems.length, isLoading, syncActiveBlockFromDeck]);
 
   useEffect(() => {
@@ -272,8 +290,14 @@ const ListenModeRenderer = ({
         return;
       }
 
-      const targetIndex = Math.max(slides.length - 1, 0);
-      deckRef.current.slide(targetIndex);
+      const lastIndex = Math.max(slides.length - 1, 0);
+      const currentIndex = deckRef.current.getIndices()?.h ?? 0;
+      const shouldFollowLatest =
+        !hasAutoSlidToLatestRef.current || currentIndex >= lastIndex;
+      if (shouldFollowLatest) {
+        deckRef.current.slide(lastIndex);
+        hasAutoSlidToLatestRef.current = true;
+      }
     } catch {
       // Ignore reveal sync errors
     }
@@ -288,18 +312,36 @@ const ListenModeRenderer = ({
       return;
     }
 
+    const isBlockReadyForTts =
+      Boolean(item.isHistory) || ttsReadyBlockBids.has(activeBlockBid);
+    if (!isBlockReadyForTts) {
+      return;
+    }
+
     const hasAudio = Boolean(
       item.audioUrl ||
       item.isAudioStreaming ||
       (item.audioSegments && item.audioSegments.length > 0),
     );
 
-    if (!hasAudio && onRequestAudioForBlock && !previewMode) {
+    if (
+      !hasAudio &&
+      onRequestAudioForBlock &&
+      !previewMode &&
+      !requestedAudioBlockBidsRef.current.has(activeBlockBid)
+    ) {
+      requestedAudioBlockBidsRef.current.add(activeBlockBid);
       onRequestAudioForBlock(activeBlockBid).catch(() => {
         // errors handled by request layer toast; ignore here
       });
     }
-  }, [activeBlockBid, contentByBid, onRequestAudioForBlock, previewMode]);
+  }, [
+    activeBlockBid,
+    contentByBid,
+    onRequestAudioForBlock,
+    previewMode,
+    ttsReadyBlockBids,
+  ]);
 
   const handleAudioEnded = useCallback(() => {
     const moved = goToNextBlock();
@@ -314,6 +356,22 @@ const ListenModeRenderer = ({
     }
     setIsAudioPlaying(false);
   }, [activeBlockBid]);
+
+  const onPrev = useCallback(() => {
+    const deck = deckRef.current;
+    if (!deck) {
+      return;
+    }
+    deck.prev();
+  }, []);
+
+  const onNext = useCallback(() => {
+    const deck = deckRef.current;
+    if (!deck) {
+      return;
+    }
+    deck.next();
+  }, []);
 
   return (
     <div
@@ -361,7 +419,10 @@ const ListenModeRenderer = ({
           />
         </div>
       ) : null}
-      <ListenPlayer />
+      <ListenPlayer
+        onPrev={onPrev}
+        onNext={onNext}
+      />
     </div>
   );
 };
@@ -369,4 +430,3 @@ const ListenModeRenderer = ({
 ListenModeRenderer.displayName = 'ListenModeRenderer';
 
 export default memo(ListenModeRenderer);
-
