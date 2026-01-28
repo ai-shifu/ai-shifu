@@ -1,10 +1,11 @@
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 import { isEqual } from 'lodash';
-import { IframeSandbox, splitContentSegments } from 'markdown-flow-ui/renderer';
+import { IframeSandbox, type RenderSegment } from 'markdown-flow-ui/renderer';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 
 interface ContentIframeProps {
-  item: ChatContentItem;
+  // item: ChatContentItem;
+  segments: RenderSegment[];
   mobileStyle: boolean;
   blockBid: string;
   confirmButtonText?: string;
@@ -16,15 +17,7 @@ interface ContentIframeProps {
 }
 
 const ContentIframe = memo(
-  ({ item, blockBid, sectionTitle }: ContentIframeProps) => {
-    const segments = useMemo(
-      () => splitContentSegments(item.content || '', true),
-      [item.content],
-    );
-
-    if (segments.length === 0 || item.type !== ChatContentItemType.CONTENT)
-      return null;
-
+  ({ segments, blockBid, sectionTitle }: ContentIframeProps) => {
     return (
       <>
         {segments.map((segment, index) =>
@@ -63,14 +56,7 @@ const ContentIframe = memo(
   (prevProps, nextProps) => {
     // Only re-render when content, layout, or i18n-driven button texts actually change
     return (
-      prevProps.item.defaultButtonText === nextProps.item.defaultButtonText &&
-      prevProps.item.defaultInputText === nextProps.item.defaultInputText &&
-      isEqual(
-        prevProps.item.defaultSelectedValues,
-        nextProps.item.defaultSelectedValues,
-      ) &&
-      prevProps.item.readonly === nextProps.item.readonly &&
-      prevProps.item.content === nextProps.item.content &&
+      isEqual(prevProps.segments, nextProps.segments) &&
       prevProps.mobileStyle === nextProps.mobileStyle &&
       prevProps.blockBid === nextProps.blockBid &&
       prevProps.confirmButtonText === nextProps.confirmButtonText &&

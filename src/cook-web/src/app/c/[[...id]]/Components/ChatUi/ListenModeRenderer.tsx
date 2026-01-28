@@ -8,9 +8,15 @@ import ContentIframe from './ContentIframe';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import './ListenModeRenderer.scss';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import { splitContentSegments, type RenderSegment } from 'markdown-flow-ui/renderer';
 
 type RevealOptionsWithScrollMode = Reveal.Options & {
   scrollMode?: 'classic' | 'scroll';
+};
+
+type ContentItemSegments = {
+  item: ChatContentItem;
+  segments: RenderSegment[];
 };
 
 interface ListenModeRendererProps {
@@ -168,13 +174,13 @@ const ListenModeRenderer = ({
     return false;
   }, [goToBlock, orderedContentBlockBids]);
 
-  const contentItems = useMemo(
-    () =>
-      items.filter(
-        item => item.type === ChatContentItemType.CONTENT && !!item.content,
-      ),
-    [items],
-  );
+  const contentItems = useMemo<ContentItemSegments[]>(() => {
+    return items
+      .map(item => ({
+        item,
+        segments: item.type === ChatContentItemType.CONTENT && !!item.content ? splitContentSegments(item.content || '', true) : [],
+      }))
+  }, [items]);
 
   useEffect(() => {
     if (!chatRef.current || deckRef.current || isLoading) {
@@ -372,7 +378,7 @@ const ListenModeRenderer = ({
     }
     deck.next();
   }, []);
-
+console.log('listenmoderenderer',contentItems)
   return (
     <div
       className={cn(containerClassName, 'listen-reveal-wrapper')}
@@ -384,12 +390,16 @@ const ListenModeRenderer = ({
       >
         <div className='slides'>
           {!isLoading &&
-            contentItems.map((item, idx) => {
+            contentItems.map(({ item, segments }, idx) => {
               const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
+              if(segments.length === 0) {
+                return null;
+              }
               return (
                 <ContentIframe
                   key={baseKey}
-                  item={item}
+                  // item={item}
+                  segments={segments}
                   mobileStyle={mobileStyle}
                   blockBid={item.generated_block_bid}
                   sectionTitle={sectionTitle}
