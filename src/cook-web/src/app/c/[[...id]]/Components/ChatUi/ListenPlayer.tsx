@@ -7,7 +7,7 @@ import {
   RotateCw,
   SquarePen,
   Scan,
-  Sparkles
+  Sparkles,
 } from 'lucide-react';
 import styles from './ListenPlayer.module.scss';
 import { cn } from '@/lib/utils';
@@ -20,16 +20,25 @@ const ListenPlayer = ({ className }: ListenPlayerProps) => {
   return (
     <div className={cn(styles.playerContainer, className)}>
       <div className={styles.controlGroup}>
-        <button type="button" aria-label="More options">
+        <button
+          type='button'
+          aria-label='More options'
+        >
           <MoreVertical size={32} />
         </button>
-        <button type="button" aria-label="Volume">
+        <button
+          type='button'
+          aria-label='Volume'
+        >
           <Volume2 size={32} />
         </button>
       </div>
 
       <div className={styles.controlGroup}>
-        <button type="button" aria-label="Rewind">
+        <button
+          type='button'
+          aria-label='Rewind'
+        >
           <RotateCcw size={32} />
         </button>
         <button
@@ -45,10 +54,16 @@ const ListenPlayer = ({ className }: ListenPlayerProps) => {
             />
           </div>
         </button>
-        <button type="button" aria-label="Forward">
+        <button
+          type='button'
+          aria-label='Forward'
+        >
           <RotateCw size={32} />
         </button>
-        <button type="button" aria-label="Fullscreen">
+        <button
+          type='button'
+          aria-label='Fullscreen'
+        >
           <Scan size={32} />
         </button>
       </div>
@@ -56,10 +71,16 @@ const ListenPlayer = ({ className }: ListenPlayerProps) => {
       <div className={styles.separator} />
 
       <div className={styles.controlGroup}>
-        <button type="button" aria-label="Subtitles">
+        <button
+          type='button'
+          aria-label='Subtitles'
+        >
           <Sparkles size={32} />
         </button>
-        <button type="button" aria-label="Notes">
+        <button
+          type='button'
+          aria-label='Notes'
+        >
           <SquarePen size={32} />
         </button>
       </div>

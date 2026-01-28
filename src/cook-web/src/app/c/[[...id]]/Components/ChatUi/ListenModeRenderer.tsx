@@ -194,7 +194,7 @@ const ListenModeRenderer = ({
         deckRef.current = null;
       } catch (e) {
         console.warn('Reveal.js destroy 調用失敗。');
-      } 
+      }
     };
   }, [chatRef, isLoading, contentItems.length]);
 
@@ -208,7 +208,7 @@ const ListenModeRenderer = ({
       } finally {
         deckRef.current = null;
       }
-    };
+    }
   }, [chatRef, contentItems.length, isLoading, syncActiveBlockFromDeck]);
 
   useEffect(() => {
@@ -369,4 +369,3 @@ const ListenModeRenderer = ({
 ListenModeRenderer.displayName = 'ListenModeRenderer';
 
 export default memo(ListenModeRenderer);
-
