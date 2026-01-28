@@ -1,10 +1,10 @@
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import Reveal from 'reveal.js';
 import 'reveal.js/dist/reveal.css';
 import 'reveal.js/dist/theme/white.css';
 import ContentIframe from './ContentIframe';
-import type { ChatContentItem } from './useChatLogicHook';
+import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import './ListenModeRenderer.scss';
 
 interface ListenModeRendererProps {
@@ -25,9 +25,27 @@ const ListenModeRenderer = ({
   sectionTitle,
 }: ListenModeRendererProps) => {
   const deckRef = useRef<Reveal.Api | null>(null);
+  const contentItems = useMemo(
+    () =>
+      items.filter(
+        item => item.type === ChatContentItemType.CONTENT && !!item.content,
+      ),
+    [items],
+  );
 
   useEffect(() => {
-    if (!chatRef.current || deckRef.current) {
+    if (!chatRef.current || deckRef.current || isLoading) {
+      return;
+    }
+
+    if (!contentItems.length) {
+      console.warn('Reveal init skipped: no content items');
+      return;
+    }
+
+    const slideNodes = chatRef.current.querySelectorAll('.slides > section');
+    if (!slideNodes.length) {
+      console.warn('Reveal init skipped: no slide nodes found');
       return;
     }
 
@@ -36,6 +54,8 @@ const ListenModeRenderer = ({
       // margin: 0,
       // minScale: 1,
       // maxScale: 1,
+      // Force classic slide mode to avoid scroll-page wrappers on mobile
+      scrollMode: 'classic',
       progress: false,
       controls: true, // debug
     });
@@ -53,7 +73,20 @@ const ListenModeRenderer = ({
         console.warn('Reveal.js destroy 調用失敗。');
       }
     };
-  }, [chatRef]);
+  }, [chatRef, isLoading, contentItems.length]);
+
+  useEffect(() => {
+    if (!contentItems.length && deckRef.current) {
+      try {
+        console.log('销毁reveal实例 (no content)');
+        deckRef.current?.destroy();
+      } catch (e) {
+        console.warn('Reveal.js destroy 調用失敗。');
+      } finally {
+        deckRef.current = null;
+      }
+    }
+  }, [contentItems.length]);
 
   useEffect(() => {
     if (!deckRef.current || isLoading) {
@@ -62,17 +95,29 @@ const ListenModeRenderer = ({
     if (typeof deckRef.current.sync !== 'function') {
       return;
     }
+    const slides =
+      typeof deckRef.current.getSlides === 'function'
+        ? deckRef.current.getSlides()
+        : Array.from(
+            chatRef.current?.querySelectorAll('.slides > section') || [],
+          );
+    if (!slides.length) {
+      console.warn('Reveal sync skipped: no slides available');
+      return;
+    }
     // Ensure Reveal picks up newly rendered slides
     try {
       console.log('sync reveal实例');
       deckRef.current.sync();
       deckRef.current.layout();
-      const targetIndex = Math.max(items.length - 1, 0);
-      deckRef.current.slide(targetIndex);
+      const targetIndex = Math.max(slides.length - 1, 0);
+      if (typeof deckRef.current.slide === 'function') {
+        deckRef.current.slide(targetIndex);
+      }
     } catch (error) {
       console.warn('Reveal sync failed', error);
     }
-  }, [items, isLoading]);
+  }, [contentItems, isLoading]);
 
   return (
     <div
@@ -85,7 +130,7 @@ const ListenModeRenderer = ({
       >
         <div className='slides'>
           {!isLoading &&
-            items.map((item, idx) => {
+            contentItems.map((item, idx) => {
               const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
               console.log('item=====', item.content);
               return (
