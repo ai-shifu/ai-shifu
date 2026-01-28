@@ -36,6 +36,7 @@ const ListenModeRenderer = ({
 }: ListenModeRendererProps) => {
   const deckRef = useRef<Reveal.Api | null>(null);
   const pendingAutoNextRef = useRef(false);
+  const hasAutoSlidToLatestRef = useRef(false);
   const requestedAudioBlockBidsRef = useRef<Set<string>>(new Set());
 
   const [activeBlockBid, setActiveBlockBid] = useState<string | null>(null);
@@ -79,6 +80,21 @@ const ListenModeRenderer = ({
       mapping.set(bid, item);
     }
     return mapping;
+  }, [items]);
+
+  const ttsReadyBlockBids = useMemo(() => {
+    const ready = new Set<string>();
+    for (const item of items) {
+      if (item.type !== ChatContentItemType.LIKE_STATUS) {
+        continue;
+      }
+      const parentBid = item.parent_block_bid;
+      if (!parentBid) {
+        continue;
+      }
+      ready.add(parentBid);
+    }
+    return ready;
   }, [items]);
 
   const activeContentItem = useMemo(() => {
@@ -193,6 +209,7 @@ const ListenModeRenderer = ({
       try {
         deckRef.current?.destroy();
         deckRef.current = null;
+        hasAutoSlidToLatestRef.current = false;
       } catch (e) {
         console.warn('Reveal.js destroy 調用失敗。');
       }
@@ -273,8 +290,14 @@ const ListenModeRenderer = ({
         return;
       }
 
-      const targetIndex = Math.max(slides.length - 1, 0);
-      deckRef.current.slide(targetIndex);
+      const lastIndex = Math.max(slides.length - 1, 0);
+      const currentIndex = deckRef.current.getIndices()?.h ?? 0;
+      const shouldFollowLatest =
+        !hasAutoSlidToLatestRef.current || currentIndex >= lastIndex;
+      if (shouldFollowLatest) {
+        deckRef.current.slide(lastIndex);
+        hasAutoSlidToLatestRef.current = true;
+      }
     } catch {
       // Ignore reveal sync errors
     }
@@ -288,9 +311,10 @@ const ListenModeRenderer = ({
     if (!item) {
       return;
     }
-    // Avoid auto-requesting TTS for live blocks that may not be persisted yet.
-    // History blocks are loaded from DB and safe to request.
-    if (!item.isHistory) {
+
+    const isBlockReadyForTts =
+      Boolean(item.isHistory) || ttsReadyBlockBids.has(activeBlockBid);
+    if (!isBlockReadyForTts) {
       return;
     }
 
@@ -311,7 +335,13 @@ const ListenModeRenderer = ({
         // errors handled by request layer toast; ignore here
       });
     }
-  }, [activeBlockBid, contentByBid, onRequestAudioForBlock, previewMode]);
+  }, [
+    activeBlockBid,
+    contentByBid,
+    onRequestAudioForBlock,
+    previewMode,
+    ttsReadyBlockBids,
+  ]);
 
   const handleAudioEnded = useCallback(() => {
     const moved = goToNextBlock();
