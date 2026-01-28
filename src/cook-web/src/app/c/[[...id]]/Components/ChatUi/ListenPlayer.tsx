@@ -32,21 +32,33 @@ const ListenPlayer = ({
   onNext,
   onFullscreen,
   onSubtitles,
-  onNotes
+  onNotes,
 }: ListenPlayerProps) => {
   return (
     <div className={cn(styles.playerContainer, className)}>
       <div className={styles.controlGroup}>
-        <button type="button" aria-label="More options" onClick={onMore}>
+        <button
+          type='button'
+          aria-label='More options'
+          onClick={onMore}
+        >
           <MoreVertical size={32} />
         </button>
-        <button type="button" aria-label="Volume" onClick={onVolume}>
+        <button
+          type='button'
+          aria-label='Volume'
+          onClick={onVolume}
+        >
           <Volume2 size={32} />
         </button>
       </div>
 
       <div className={styles.controlGroup}>
-        <button type="button" aria-label="Rewind" onClick={onPrev}>
+        <button
+          type='button'
+          aria-label='Rewind'
+          onClick={onPrev}
+        >
           <RotateCcw size={32} />
         </button>
         <button
@@ -55,15 +67,35 @@ const ListenPlayer = ({
           className={styles.playButton}
           onClick={onPlay}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34" fill="none">
-            <path d="M16.6667 33.3333C25.8714 33.3333 33.3333 25.8714 33.3333 16.6667C33.3333 7.46192 25.8714 0 16.6667 0C7.46192 0 0 7.46192 0 16.6667C0 25.8714 7.46192 33.3333 16.6667 33.3333Z" fill="#0A0A0A"/>
-            <path d="M13.3333 10L23.3333 16.6667L13.3333 23.3333V10Z" fill="white"/>
+          <svg
+            xmlns='http://www.w3.org/2000/svg'
+            width='34'
+            height='34'
+            viewBox='0 0 34 34'
+            fill='none'
+          >
+            <path
+              d='M16.6667 33.3333C25.8714 33.3333 33.3333 25.8714 33.3333 16.6667C33.3333 7.46192 25.8714 0 16.6667 0C7.46192 0 0 7.46192 0 16.6667C0 25.8714 7.46192 33.3333 16.6667 33.3333Z'
+              fill='#0A0A0A'
+            />
+            <path
+              d='M13.3333 10L23.3333 16.6667L13.3333 23.3333V10Z'
+              fill='white'
+            />
           </svg>
         </button>
-        <button type="button" aria-label="Forward" onClick={onNext}>
+        <button
+          type='button'
+          aria-label='Forward'
+          onClick={onNext}
+        >
           <RotateCw size={32} />
         </button>
-        <button type="button" aria-label="Fullscreen" onClick={onFullscreen}>
+        <button
+          type='button'
+          aria-label='Fullscreen'
+          onClick={onFullscreen}
+        >
           <Scan size={32} />
         </button>
       </div>
@@ -71,10 +103,18 @@ const ListenPlayer = ({
       <div className={styles.separator} />
 
       <div className={styles.controlGroup}>
-        <button type="button" aria-label="Subtitles" onClick={onSubtitles}>
+        <button
+          type='button'
+          aria-label='Subtitles'
+          onClick={onSubtitles}
+        >
           <Sparkles size={32} />
         </button>
-        <button type="button" aria-label="Notes" onClick={onNotes}>
+        <button
+          type='button'
+          aria-label='Notes'
+          onClick={onNotes}
+        >
           <SquarePen size={32} />
         </button>
       </div>

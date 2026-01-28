@@ -384,7 +384,10 @@ const ListenModeRenderer = ({
           />
         </div>
       ) : null}
-      <ListenPlayer onPrev={onPrev} onNext={onNext} />
+      <ListenPlayer
+        onPrev={onPrev}
+        onNext={onNext}
+      />
     </div>
   );
 };
