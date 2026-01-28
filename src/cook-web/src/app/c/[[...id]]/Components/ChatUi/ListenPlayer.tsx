@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useCallback, useEffect, useState } from 'react';
 import {
   MoreVertical,
   Volume2,
@@ -40,11 +40,24 @@ const ListenPlayer = ({
   interaction,
 }: ListenPlayerProps) => {
   const { t } = useTranslation();
+  const [isInteractionOpen, setIsInteractionOpen] = useState(false);
+
+  useEffect(() => {
+    setIsInteractionOpen(Boolean(interaction));
+  }, [interaction]);
+
+  const handleNotesClick = useCallback(() => {
+    if (!interaction) {
+      return;
+    }
+    setIsInteractionOpen(prev => !prev);
+    onNotes?.();
+  }, [interaction, onNotes]);
 
   return (
     <div className={cn(styles.playerContainer, 'relative', className)}>
-      {interaction ? (
-        <div className='absolute left-1/2 top-0 w-[min(720px,90vw)] -translate-x-1/2 -translate-y-full pb-4'>
+      {interaction && isInteractionOpen ? (
+        <div className='absolute left-1/2 top-0 w-full -translate-x-1/2 -translate-y-full pb-4'>
           <div className='rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-lg'>
             <div className='px-4 pt-3'>
               <p className='text-[16px] leading-[20px] text-foreground/65'>
@@ -59,6 +72,9 @@ const ListenPlayer = ({
                 defaultButtonText={interaction.defaultButtonText}
                 defaultInputText={interaction.defaultInputText}
                 defaultSelectedValues={interaction.defaultSelectedValues}
+                confirmButtonText={t('module.renderUi.core.confirm')}
+                copyButtonText={t('module.renderUi.core.copyCode')}
+                copiedButtonText={t('module.renderUi.core.copied')}
                 readonly={interaction.readonly}
                 sandboxMode='content'
               />
@@ -143,8 +159,11 @@ const ListenPlayer = ({
         <button
           type='button'
           aria-label='Notes'
-          onClick={onNotes}
-          className={cn(interaction && '!text-primary')}
+          onClick={handleNotesClick}
+          disabled={!interaction}
+          className={cn(
+            interaction ? '!text-primary' : '!cursor-not-allowed !opacity-20',
+          )}
         >
           <SquarePen size={32} />
         </button>
