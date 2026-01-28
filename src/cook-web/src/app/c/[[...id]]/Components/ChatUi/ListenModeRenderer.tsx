@@ -382,8 +382,8 @@ const ListenModeRenderer = ({
       return;
     }
     deck.prev();
-    currentPptPageRef.current =  deck.getIndices().h
-    console.log('onPrev',currentPptPageRef.current)
+    currentPptPageRef.current = deck.getIndices().h;
+    console.log('onPrev', currentPptPageRef.current);
   }, []);
 
   const onNext = useCallback(() => {
@@ -392,8 +392,8 @@ const ListenModeRenderer = ({
       return;
     }
     deck.next();
-    currentPptPageRef.current =  deck.getIndices().h
-    console.log('onNext',currentPptPageRef.current)
+    currentPptPageRef.current = deck.getIndices().h;
+    console.log('onNext', currentPptPageRef.current);
   }, []);
   // console.log('listenmoderenderer',contentItems)
   return (
