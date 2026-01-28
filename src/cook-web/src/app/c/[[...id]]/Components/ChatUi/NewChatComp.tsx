@@ -483,11 +483,11 @@ export const NewChatComponents = ({
 
                 if (item.type === ChatContentItemType.LIKE_STATUS) {
                   const parentBlockBid = item.parent_block_bid || '';
-	                  const parentContentItem = parentBlockBid
-	                    ? itemByGeneratedBid.get(parentBlockBid)
-	                    : undefined;
-	                  const canRequestAudio =
-	                    !previewMode && Boolean(parentBlockBid);
+                  const parentContentItem = parentBlockBid
+                    ? itemByGeneratedBid.get(parentBlockBid)
+                    : undefined;
+                  const canRequestAudio =
+                    !previewMode && Boolean(parentBlockBid);
                   const hasAudioForBlock = Boolean(
                     parentContentItem?.audioUrl ||
                     parentContentItem?.isAudioStreaming ||
@@ -619,12 +619,11 @@ export const NewChatComponents = ({
             itemByGeneratedBid.get(mobileInteraction.generatedBlockBid)
               ?.isAudioStreaming,
           )}
-	          onRequestAudio={
-	            !previewMode &&
-	            mobileInteraction.generatedBlockBid
-	              ? () => requestAudioForBlock(mobileInteraction.generatedBlockBid)
-	              : undefined
-	          }
+          onRequestAudio={
+            !previewMode && mobileInteraction.generatedBlockBid
+              ? () => requestAudioForBlock(mobileInteraction.generatedBlockBid)
+              : undefined
+          }
         />
       )}
       <Dialog
