@@ -346,7 +346,7 @@ export const NewChatComponents = ({
         <ListenModeRenderer
           items={items}
           mobileStyle={mobileStyle}
-          chatRef={chatRef}
+          chatRef={chatRef as React.RefObject<HTMLDivElement>}
           containerClassName={containerClassName}
           isLoading={isLoading}
           sectionTitle={lessonTitle}

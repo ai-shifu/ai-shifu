@@ -13,8 +13,8 @@ interface ContentIframeProps {
   confirmButtonText?: string;
   copyButtonText?: string;
   copiedButtonText?: string;
-//   onClickCustomButtonAfterContent?: (blockBid: string) => void;
-//   onSend: (content: OnSendContentParams, blockBid: string) => void;
+  //   onClickCustomButtonAfterContent?: (blockBid: string) => void;
+  //   onSend: (content: OnSendContentParams, blockBid: string) => void;
   sectionTitle?: string;
 }
 
