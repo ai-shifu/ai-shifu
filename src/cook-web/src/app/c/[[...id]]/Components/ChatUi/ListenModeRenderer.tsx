@@ -50,6 +50,8 @@ const ListenModeRenderer = ({
   const requestedAudioBlockBidsRef = useRef<Set<string>>(new Set());
   const currentPptPageRef = useRef<number>(0);
   const [activeBlockBid, setActiveBlockBid] = useState<string | null>(null);
+  const [currentInteraction, setCurrentInteraction] =
+    useState<ChatContentItem | null>(null);
   const activeBlockBidRef = useRef<string | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
 
@@ -178,9 +180,10 @@ const ListenModeRenderer = ({
     return false;
   }, [goToBlock, orderedContentBlockBids]);
 
-  const contentItems = useMemo<ContentItemSegments[]>(() => {
+  const { contentItems, interactionByPage } = useMemo(() => {
     let pageCursor = 0;
-    return items.map(item => {
+    const mapping = new Map<number, ChatContentItem>();
+    const nextContentItems = items.map(item => {
       const segments =
         item.type === ChatContentItemType.CONTENT && !!item.content
           ? splitContentSegments(item.content || '', true)
@@ -190,10 +193,25 @@ const ListenModeRenderer = ({
         segments,
         currentPage: pageCursor,
       };
+      if (item.type === ChatContentItemType.INTERACTION) {
+        mapping.set(entry.currentPage - 1, item);
+      }
       pageCursor += segments.length;
       return entry;
     });
+    console.log('interactionByPage', mapping);
+    return { contentItems: nextContentItems, interactionByPage: mapping };
   }, [items]);
+
+  const syncInteractionForCurrentPage = useCallback(() => {
+    setCurrentInteraction(
+      interactionByPage.get(currentPptPageRef.current) ?? null,
+    );
+  }, [interactionByPage]);
+
+  useEffect(() => {
+    syncInteractionForCurrentPage();
+  }, [syncInteractionForCurrentPage]);
 
   useEffect(() => {
     if (!chatRef.current || deckRef.current || isLoading) {
@@ -384,6 +402,7 @@ const ListenModeRenderer = ({
     deck.prev();
     currentPptPageRef.current = deck.getIndices().h;
     console.log('onPrev', currentPptPageRef.current);
+    syncInteractionForCurrentPage();
   }, []);
 
   const onNext = useCallback(() => {
@@ -394,6 +413,7 @@ const ListenModeRenderer = ({
     deck.next();
     currentPptPageRef.current = deck.getIndices().h;
     console.log('onNext', currentPptPageRef.current);
+    syncInteractionForCurrentPage();
   }, []);
   // console.log('listenmoderenderer',contentItems)
   return (
@@ -449,6 +469,7 @@ const ListenModeRenderer = ({
       <ListenPlayer
         onPrev={onPrev}
         onNext={onNext}
+        interaction={currentInteraction}
       />
     </div>
   );

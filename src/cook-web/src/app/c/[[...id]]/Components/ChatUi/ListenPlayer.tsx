@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import styles from './ListenPlayer.module.scss';
 import { cn } from '@/lib/utils';
+import type { ChatContentItem } from './useChatLogicHook';
 
 interface ListenPlayerProps {
   className?: string;
@@ -21,6 +22,7 @@ interface ListenPlayerProps {
   onFullscreen?: () => void;
   onSubtitles?: () => void;
   onNotes?: () => void;
+  interaction?: ChatContentItem | null;
 }
 
 const ListenPlayer = ({
@@ -33,6 +35,7 @@ const ListenPlayer = ({
   onFullscreen,
   onSubtitles,
   onNotes,
+  interaction,
 }: ListenPlayerProps) => {
   return (
     <div className={cn(styles.playerContainer, className)}>
@@ -114,6 +117,7 @@ const ListenPlayer = ({
           type='button'
           aria-label='Notes'
           onClick={onNotes}
+          className={cn(interaction && '!text-primary')}
         >
           <SquarePen size={32} />
         </button>
