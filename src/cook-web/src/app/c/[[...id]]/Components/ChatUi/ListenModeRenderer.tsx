@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ListenPlayer from './ListenPlayer';
 import { cn } from '@/lib/utils';
 import Reveal from 'reveal.js';
 import 'reveal.js/dist/reveal.css';
@@ -177,8 +178,6 @@ const ListenModeRenderer = ({
       // margin: 0,
       // minScale: 1,
       // maxScale: 1,
-      // Force classic slide mode to avoid scroll-page wrappers on mobile
-      scrollMode: 'classic',
       progress: false,
       controls: true, // debug
     };
@@ -192,8 +191,20 @@ const ListenModeRenderer = ({
     return () => {
       try {
         deckRef.current?.destroy();
-      } catch {
-        // Ignore errors when destroying reveal instance
+        deckRef.current = null;
+      } catch (e) {
+        console.warn('Reveal.js destroy 調用失敗。');
+      } 
+    };
+  }, [chatRef, isLoading, contentItems.length]);
+
+  useEffect(() => {
+    if (!contentItems.length && deckRef.current) {
+      try {
+        console.log('销毁reveal实例 (no content)');
+        deckRef.current?.destroy();
+      } catch (e) {
+        console.warn('Reveal.js destroy 調用失敗。');
       } finally {
         deckRef.current = null;
       }
@@ -307,7 +318,7 @@ const ListenModeRenderer = ({
   return (
     <div
       className={cn(containerClassName, 'listen-reveal-wrapper')}
-      style={{ background: '#F7F9FF' }}
+      style={{ background: '#F7F9FF', position: 'relative' }}
     >
       <div
         className={cn('reveal', 'listen-reveal')}
@@ -350,6 +361,7 @@ const ListenModeRenderer = ({
           />
         </div>
       ) : null}
+      <ListenPlayer />
     </div>
   );
 };
@@ -357,3 +369,4 @@ const ListenModeRenderer = ({
 ListenModeRenderer.displayName = 'ListenModeRenderer';
 
 export default memo(ListenModeRenderer);
+
