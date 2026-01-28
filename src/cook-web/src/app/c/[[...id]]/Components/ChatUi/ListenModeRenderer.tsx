@@ -204,6 +204,7 @@ const ListenModeRenderer = ({
   }, [items]);
 
   const syncInteractionForCurrentPage = useCallback(() => {
+    // console.log('syncInteractionForCurrentPage',currentPptPageRef.current, interactionByPage.get(currentPptPageRef.current))
     setCurrentInteraction(
       interactionByPage.get(currentPptPageRef.current) ?? null,
     );
@@ -403,7 +404,7 @@ const ListenModeRenderer = ({
     currentPptPageRef.current = deck.getIndices().h;
     console.log('onPrev', currentPptPageRef.current);
     syncInteractionForCurrentPage();
-  }, []);
+  }, [syncInteractionForCurrentPage]);
 
   const onNext = useCallback(() => {
     const deck = deckRef.current;
@@ -414,7 +415,7 @@ const ListenModeRenderer = ({
     currentPptPageRef.current = deck.getIndices().h;
     console.log('onNext', currentPptPageRef.current);
     syncInteractionForCurrentPage();
-  }, []);
+  }, [syncInteractionForCurrentPage]);
   // console.log('listenmoderenderer',contentItems)
   return (
     <div

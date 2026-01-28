@@ -11,6 +11,8 @@ import {
 import styles from './ListenPlayer.module.scss';
 import { cn } from '@/lib/utils';
 import type { ChatContentItem } from './useChatLogicHook';
+import { ContentRender } from 'markdown-flow-ui/renderer';
+import { useTranslation } from 'react-i18next';
 
 interface ListenPlayerProps {
   className?: string;
@@ -37,8 +39,33 @@ const ListenPlayer = ({
   onNotes,
   interaction,
 }: ListenPlayerProps) => {
+  const { t } = useTranslation();
+
   return (
-    <div className={cn(styles.playerContainer, className)}>
+    <div className={cn(styles.playerContainer, 'relative', className)}>
+      {interaction ? (
+        <div className='absolute left-1/2 top-0 w-[min(720px,90vw)] -translate-x-1/2 -translate-y-full pb-4'>
+          <div className='rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-lg'>
+            <div className='px-4 pt-3'>
+              <p className='text-[16px] leading-[20px] text-foreground/65'>
+                {t('module.chat.listenInteractionHint')}
+              </p>
+            </div>
+            <div className='content-render-theme max-h-60 overflow-y-auto px-4 pb-3 text-[var(--card-foreground)]'>
+              <ContentRender
+                enableTypewriter={false}
+                content={interaction.content || ''}
+                customRenderBar={interaction.customRenderBar}
+                defaultButtonText={interaction.defaultButtonText}
+                defaultInputText={interaction.defaultInputText}
+                defaultSelectedValues={interaction.defaultSelectedValues}
+                readonly={interaction.readonly}
+                sandboxMode='content'
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className={styles.controlGroup}>
         <button
           type='button'
