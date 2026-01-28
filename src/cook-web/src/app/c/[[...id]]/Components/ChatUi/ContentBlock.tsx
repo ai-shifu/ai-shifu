@@ -64,8 +64,8 @@ const ContentBlock = memo(
 
     const hasAudioContent = Boolean(
       item.isAudioStreaming ||
-        (item.audioSegments && item.audioSegments.length > 0) ||
-        item.audioUrl,
+      (item.audioSegments && item.audioSegments.length > 0) ||
+      item.audioUrl,
     );
 
     return (

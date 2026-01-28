@@ -262,7 +262,7 @@ export const NewChatComponents = ({
       }
       const hasAudioContent = Boolean(
         item.isAudioStreaming ||
-          (item.audioSegments && item.audioSegments.length > 0),
+        (item.audioSegments && item.audioSegments.length > 0),
       );
       const hasOssAudio = Boolean(item.audioUrl);
       if (!hasAudioContent && !hasOssAudio) {
@@ -490,11 +490,12 @@ export const NewChatComponents = ({
                     Boolean(parentBlockBid);
                   const hasAudioForBlock = Boolean(
                     parentContentItem?.audioUrl ||
-                      parentContentItem?.isAudioStreaming ||
-                      (parentContentItem?.audioSegments &&
-                        parentContentItem.audioSegments.length > 0),
+                    parentContentItem?.isAudioStreaming ||
+                    (parentContentItem?.audioSegments &&
+                      parentContentItem.audioSegments.length > 0),
                   );
-                  const shouldAutoPlay = autoPlayTargetBlockBid === parentBlockBid;
+                  const shouldAutoPlay =
+                    autoPlayTargetBlockBid === parentBlockBid;
                   return mobileStyle ? null : (
                     <div
                       key={`like-${parentKey}`}
@@ -515,7 +516,9 @@ export const NewChatComponents = ({
                           canRequestAudio || hasAudioForBlock ? (
                             <AudioPlayer
                               audioUrl={parentContentItem?.audioUrl}
-                              streamingSegments={parentContentItem?.audioSegments}
+                              streamingSegments={
+                                parentContentItem?.audioSegments
+                              }
                               isStreaming={Boolean(
                                 parentContentItem?.isAudioStreaming,
                               )}
@@ -605,7 +608,8 @@ export const NewChatComponents = ({
           like_status={mobileInteraction.likeStatus}
           onRefresh={onRefresh}
           audioUrl={
-            itemByGeneratedBid.get(mobileInteraction.generatedBlockBid)?.audioUrl
+            itemByGeneratedBid.get(mobileInteraction.generatedBlockBid)
+              ?.audioUrl
           }
           streamingSegments={
             itemByGeneratedBid.get(mobileInteraction.generatedBlockBid)

@@ -310,7 +310,9 @@ class StreamingTTSProcessor:
                     ),
                 )
 
-    def finalize(self, *, commit: bool = True) -> Generator[RunMarkdownFlowDTO, None, None]:
+    def finalize(
+        self, *, commit: bool = True
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """
         Finalize TTS processing after content streaming is complete.
         """

@@ -2124,7 +2124,9 @@ class RunScriptContextV2:
                             )
                             if tts_processor:
                                 try:
-                                    yield from tts_processor.process_chunk(chunk_content)
+                                    yield from tts_processor.process_chunk(
+                                        chunk_content
+                                    )
                                 except Exception as exc:
                                     app.logger.warning(
                                         "Streaming TTS failed; disable for this block: %s",
