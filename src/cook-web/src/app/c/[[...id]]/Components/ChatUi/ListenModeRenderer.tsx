@@ -173,15 +173,15 @@ const ListenModeRenderer = ({
       return;
     }
 
-	    const revealOptions: RevealOptionsWithScrollMode = {
-	      transition: 'slide',
-	      // margin: 0,
-	      // minScale: 1,
-	      // maxScale: 1,
-	      progress: false,
-	      controls: false,
-	      controlsTutorial: false,
-	    };
+    const revealOptions: RevealOptionsWithScrollMode = {
+      transition: 'slide',
+      // margin: 0,
+      // minScale: 1,
+      // maxScale: 1,
+      progress: false,
+      controls: false,
+      controlsTutorial: false,
+    };
 
     deckRef.current = new Reveal(chatRef.current, revealOptions);
 
@@ -368,8 +368,8 @@ const ListenModeRenderer = ({
           />
         </div>
       ) : null}
-	    </div>
-	  );
+    </div>
+  );
 };
 
 ListenModeRenderer.displayName = 'ListenModeRenderer';
