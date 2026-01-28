@@ -310,10 +310,16 @@ class StreamingTTSProcessor:
                     ),
                 )
 
-    def finalize(self) -> Generator[RunMarkdownFlowDTO, None, None]:
+    def finalize(self, *, commit: bool = True) -> Generator[RunMarkdownFlowDTO, None, None]:
         """
         Finalize TTS processing after content streaming is complete.
         """
+        cleaned_text_length = 0
+        try:
+            cleaned_text_length = len(preprocess_for_tts(self._buffer or ""))
+        except Exception:
+            cleaned_text_length = 0
+
         logger.info(
             f"TTS finalize called: enabled={self._enabled}, "
             f"buffer_len={len(self._buffer)}, "
@@ -416,13 +422,17 @@ class StreamingTTSProcessor:
                     "volume": self.voice_settings.volume,
                 },
                 model=self.tts_model or "",
-                text_length=0,
+                text_length=cleaned_text_length,
                 segment_count=len(audio_data_list),
                 status=AUDIO_STATUS_COMPLETED,
             )
             db.session.add(audio_record)
-            db.session.commit()
-            logger.info("TTS finalize: database save complete")
+            if commit:
+                db.session.commit()
+                logger.info("TTS finalize: database commit complete")
+            else:
+                db.session.flush()
+                logger.info("TTS finalize: database flush complete")
 
             # Yield completion
             logger.info("TTS finalize: yielding AUDIO_COMPLETE")
