@@ -262,7 +262,7 @@ const ListenModeRenderer = ({
       // minScale: 1,
       // maxScale: 1,
       progress: false,
-      controls: true,
+      controls: false,
     };
 
     deckRef.current = new Reveal(chatRef.current, revealOptions);
