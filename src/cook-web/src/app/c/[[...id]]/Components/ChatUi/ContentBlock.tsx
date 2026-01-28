@@ -1,8 +1,6 @@
 import { memo, useCallback } from 'react';
 import { useLongPress } from 'react-use';
 import { isEqual } from 'lodash';
-// TODO@XJL
-// import ContentRender from '../../../../../../../../../markdown-flow-ui/src/components/ContentRender/ContentRender';
 import { ContentRender } from 'markdown-flow-ui/renderer';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { cn } from '@/lib/utils';
@@ -63,7 +61,6 @@ const ContentBlock = memo(
         {...(mobileStyle ? longPressEvent : {})}
       >
         <ContentRender
-          // typingSpeed={20}
           enableTypewriter={false}
           content={item.content || ''}
           onClickCustomButtonAfterContent={handleClick}
