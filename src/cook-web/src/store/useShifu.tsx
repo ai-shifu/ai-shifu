@@ -39,6 +39,64 @@ import {
 import { useTracking } from '@/c-common/hooks/useTracking';
 
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
+const PROFILE_CACHE_TTL = 5000; // 5s
+const HIDDEN_STORAGE_PREFIX = 'hidden_profile_variables';
+
+const buildHiddenStorageKey = (shifuId?: string) =>
+  shifuId ? `${HIDDEN_STORAGE_PREFIX}:${shifuId}` : '';
+
+const readHiddenFromStorage = (shifuId?: string): string[] => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+  const key = buildHiddenStorageKey(shifuId);
+  if (!key) return [];
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(item => typeof item === 'string');
+  } catch (error) {
+    console.warn('Failed to read hidden variables from storage', error);
+    return [];
+  }
+};
+
+const writeHiddenToStorage = (shifuId: string, hiddenKeys: string[]) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const key = buildHiddenStorageKey(shifuId);
+  if (!key) return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(hiddenKeys));
+  } catch (error) {
+    console.warn('Failed to write hidden variables to storage', error);
+  }
+};
+
+const logProfileAction = (
+  action: 'hide_unused' | 'restore_hidden' | 'unhide_by_keys',
+  shifuId: string,
+  items?: ProfileItem[],
+  extra?: Record<string, unknown>,
+) => {
+  if (process.env.NODE_ENV === 'production') return;
+  const hiddenKeys =
+    items
+      ?.filter(item => item.is_hidden)
+      .map(item => item.profile_key)
+      .filter(Boolean) || [];
+  // eslint-disable-next-line no-console
+  console.debug('[shifu] profile_action', {
+    action,
+    shifuId,
+    hiddenKeys,
+    total: items?.length ?? 0,
+    ...(extra || {}),
+  });
+};
 
 const buildBlockListWithAllInfo = (
   blocks: Block[],
@@ -101,6 +159,8 @@ export const ShifuProvider = ({
   const [models, setModels] = useState<ModelOption[]>([]);
   const [mdflow, setMdflow] = useState<string>('');
   const [variables, setVariables] = useState<string[]>([]);
+  const [hiddenVariables, setHiddenVariables] = useState<string[]>([]);
+  const [unusedVariables, setUnusedVariables] = useState<string[]>([]);
   const currentMdflow = useRef<string>('');
   const lastPersistedMdflowRef = useRef<Record<string, string>>({});
   const saveMdflowLockRef = useRef<{
@@ -115,6 +175,17 @@ export const ShifuProvider = ({
     outlineId: null,
   });
   const mdflowCacheRef = useRef<Record<string, string>>({});
+  const profileDefinitionCacheRef = useRef<
+    Record<
+      string,
+      {
+        list: ProfileItem[];
+        systemVariableKeys: string[];
+        unusedKeys?: string[];
+        updatedAt: number;
+      }
+    >
+  >({});
   const [systemVariables, setSystemVariables] = useState<
     Record<string, string>[]
   >([]);
@@ -449,6 +520,7 @@ export const ShifuProvider = ({
       }
       setChapters(list);
       buildOutlineTree(list);
+      await refreshVariableUsage(shifuId);
       // loadProfileItemDefinations(shifuId);
     } catch (error) {
       console.error(error);
@@ -1218,6 +1290,131 @@ export const ShifuProvider = ({
     });
   };
 
+  const applyProfileDefinitionList = (
+    list: ProfileItem[],
+    shifuId?: string,
+    options?: { updateCache?: boolean },
+  ): { list: ProfileItem[]; systemVariableKeys: string[] } => {
+    const shouldUpdateCache = options?.updateCache ?? true;
+    setProfileItemDefinations(list || []);
+    const sysVariables =
+      list
+        ?.filter((item: ProfileItem) => item.profile_scope === 'system')
+        .map((item: ProfileItem) => ({
+          name: item.profile_key,
+          label: item.profile_remark || '',
+        })) || [];
+    setSystemVariables(sysVariables);
+
+    const customVariables =
+      list
+        ?.filter((item: ProfileItem) => item.profile_scope === 'user')
+        .map((item: ProfileItem) => item.profile_key) || [];
+    const hiddenVariableKeys =
+      list
+        ?.filter(
+          (item: ProfileItem) =>
+            item.profile_scope === 'user' && item.is_hidden,
+        )
+        .map((item: ProfileItem) => item.profile_key) || [];
+
+    setVariables(customVariables);
+    setHiddenVariables(hiddenVariableKeys);
+    if (shifuId) {
+      writeHiddenToStorage(shifuId, hiddenVariableKeys);
+    }
+
+    const systemVariableKeys = sysVariables.map(variable => variable.name);
+    if (shifuId && shouldUpdateCache) {
+      profileDefinitionCacheRef.current[shifuId] = {
+        list,
+        systemVariableKeys,
+        updatedAt: Date.now(),
+      };
+    }
+
+    return {
+      list: list || [],
+      systemVariableKeys,
+    };
+  };
+
+  const refreshProfileDefinitions = useCallback(
+    async (shifuId: string, options?: { forceRefresh?: boolean }) => {
+      const cached = profileDefinitionCacheRef.current[shifuId];
+      const now = Date.now();
+      if (
+        !options?.forceRefresh &&
+        cached &&
+        now - cached.updatedAt < PROFILE_CACHE_TTL
+      ) {
+        applyProfileDefinitionList(cached.list, shifuId, {
+          updateCache: false,
+        });
+        setUnusedVariables(cached.unusedKeys || []);
+        return cached;
+      }
+      const storedHidden = readHiddenFromStorage(shifuId);
+      if (!cached && storedHidden.length > 0) {
+        setHiddenVariables(storedHidden);
+      }
+      try {
+        const [list, usage] = await Promise.all([
+          api.getProfileItemDefinitions({
+            parent_id: shifuId,
+            type: 'all',
+          }),
+          api.getProfileVariableUsage({ parent_id: shifuId }),
+        ]);
+        const { systemVariableKeys } =
+          applyProfileDefinitionList(list || [], shifuId) || {};
+        const unusedKeys = usage?.unused_keys || [];
+        setUnusedVariables(unusedKeys);
+        profileDefinitionCacheRef.current[shifuId] = {
+          list: list || [],
+          systemVariableKeys: systemVariableKeys || [],
+          unusedKeys,
+          updatedAt: Date.now(),
+        };
+        return {
+          list: list || [],
+          systemVariableKeys: systemVariableKeys || [],
+          unusedKeys,
+        };
+      } catch (error) {
+        console.error(error);
+        setProfileItemDefinations([]);
+        setSystemVariables([]);
+        setVariables([]);
+        setUnusedVariables([]);
+        throw error;
+      }
+    },
+    [],
+  );
+
+  const refreshVariableUsage = useCallback(async (shifuId: string) => {
+    try {
+      const usage = await api.getProfileVariableUsage({
+        parent_id: shifuId,
+      });
+      const unusedKeys = usage?.unused_keys || [];
+      setUnusedVariables(unusedKeys);
+      const cached = profileDefinitionCacheRef.current[shifuId];
+      if (cached) {
+        profileDefinitionCacheRef.current[shifuId] = {
+          ...cached,
+          unusedKeys,
+        };
+      }
+      return usage;
+    } catch (error) {
+      console.error(error);
+      setUnusedVariables([]);
+      return null;
+    }
+  }, []);
+
   const parseMdflow = async (
     value: string,
     shifuId: string,
@@ -1225,24 +1422,7 @@ export const ShifuProvider = ({
   ) => {
     setIsLoading(true);
     try {
-      const list = await api.getProfileItemDefinitions({
-        parent_id: shifuId,
-        type: 'all',
-      });
-      const sysVariables = list
-        .filter(item => item.profile_scope === 'system')
-        .map(item => ({
-          name: item.profile_key,
-          label: item.profile_remark,
-        }));
-
-      setSystemVariables(sysVariables);
-
-      const customVariables = list
-        .filter(item => item.profile_scope === 'user')
-        .map(item => item.profile_key);
-
-      setVariables(customVariables || []);
+      await refreshProfileDefinitions(shifuId);
     } catch (error) {
       console.error(error);
       setSystemVariables([]);
@@ -1260,34 +1440,92 @@ export const ShifuProvider = ({
     variables: PreviewVariablesMap;
     blocksCount: number;
     systemVariableKeys: string[];
+    allVariableKeys?: string[];
   }> => {
     try {
       const resolvedShifuId = shifuId || currentShifu?.bid || '';
       const resolvedOutlineId = outlineId || currentNode?.bid || '';
+      const { systemVariableKeys } =
+        (await refreshProfileDefinitions(resolvedShifuId, {
+          forceRefresh: true,
+        })) || {};
       const result = await api.parseMdflow({
         shifu_bid: resolvedShifuId,
         outline_bid: resolvedOutlineId,
         data: value,
       });
       const variableKeys = result?.variables || [];
-      const systemVariableKeys =
-        systemVariables?.map(variable => variable.name).filter(Boolean) || [];
+      const resolvedSystemKeys =
+        systemVariableKeys && systemVariableKeys.length
+          ? systemVariableKeys
+          : systemVariables?.map(variable => variable.name).filter(Boolean) ||
+            [];
       const storedVariables: StoredVariablesByScope =
         getStoredPreviewVariables(resolvedShifuId);
       const variablesMap = mapKeysToStoredVariables(
         variableKeys,
         storedVariables,
-        systemVariableKeys,
+        resolvedSystemKeys,
       );
-      savePreviewVariables(resolvedShifuId, variablesMap, systemVariableKeys);
+      savePreviewVariables(resolvedShifuId, variablesMap, resolvedSystemKeys);
       return {
         variables: variablesMap,
         blocksCount: result?.blocks_count ?? 0,
-        systemVariableKeys,
+        systemVariableKeys: resolvedSystemKeys,
+        allVariableKeys: variableKeys,
       };
     } catch (error) {
       console.error(error);
       return { variables: {}, blocksCount: 0, systemVariableKeys: [] };
+    }
+  };
+
+  const hideUnusedVariables = async (shifuId: string) => {
+    try {
+      const list = await api.hideUnusedProfileItems({
+        parent_id: shifuId,
+      });
+      if (list) {
+        applyProfileDefinitionList(list as ProfileItem[], shifuId);
+        logProfileAction('hide_unused', shifuId, list as ProfileItem[]);
+        await refreshVariableUsage(shifuId);
+      } else {
+        delete profileDefinitionCacheRef.current[shifuId];
+        await Promise.all([
+          refreshProfileDefinitions(shifuId),
+          refreshVariableUsage(shifuId),
+        ]);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const restoreHiddenVariables = async (shifuId: string) => {
+    try {
+      if (!hiddenVariables.length) {
+        return;
+      }
+      const list = await api.updateProfileHiddenState({
+        parent_id: shifuId,
+        profile_keys: hiddenVariables,
+        hidden: false,
+      });
+      if (list) {
+        applyProfileDefinitionList(list as ProfileItem[], shifuId);
+        logProfileAction('restore_hidden', shifuId, list as ProfileItem[], {
+          requestedKeys: hiddenVariables,
+        });
+        await refreshVariableUsage(shifuId);
+      } else {
+        delete profileDefinitionCacheRef.current[shifuId];
+        await Promise.all([
+          refreshProfileDefinitions(shifuId),
+          refreshVariableUsage(shifuId),
+        ]);
+      }
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -1471,7 +1709,9 @@ export const ShifuProvider = ({
     blockContentTypes,
     mdflow,
     variables,
+    hiddenVariables,
     systemVariables,
+    unusedVariables,
     actions: {
       setFocusId,
       addChapter,
@@ -1510,6 +1750,35 @@ export const ShifuProvider = ({
       saveMdflow,
       parseMdflow,
       previewParse,
+      hideUnusedVariables,
+      restoreHiddenVariables,
+      unhideVariablesByKeys: async (shifuId: string, keys: string[]) => {
+        if (!keys.length) return;
+        try {
+          const list = await api.updateProfileHiddenState({
+            parent_id: shifuId,
+            profile_keys: keys,
+            hidden: false,
+          });
+          if (list) {
+            applyProfileDefinitionList(list as ProfileItem[], shifuId);
+            logProfileAction('unhide_by_keys', shifuId, list as ProfileItem[], {
+              requestedKeys: keys,
+            });
+            await refreshVariableUsage(shifuId);
+          } else {
+            delete profileDefinitionCacheRef.current[shifuId];
+            await Promise.all([
+              refreshProfileDefinitions(shifuId),
+              refreshVariableUsage(shifuId),
+            ]);
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      },
+      refreshProfileDefinitions,
+      refreshVariableUsage,
       setCurrentMdflow,
       getCurrentMdflow,
       hasUnsavedMdflow,

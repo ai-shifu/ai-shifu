@@ -25,3 +25,10 @@ export const removeParamFromUrl = (url, paramsToRemove) => {
 
   return urlObj.toString();
 };
+
+export const buildLoginRedirectPath = (url: string) => {
+  const urlObj = new URL(url);
+  urlObj.searchParams.delete('code');
+  urlObj.searchParams.delete('state');
+  return urlObj.pathname + urlObj.search;
+};

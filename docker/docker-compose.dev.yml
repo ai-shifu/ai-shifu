@@ -12,7 +12,6 @@ services:
       - ./storage:/app/storage
     depends_on:
       - ai-shifu-mysql
-      - ai-shifu-redis
 
   ai-shifu-cook-web-dev:
     container_name: ai-shifu-cook-web-dev
@@ -58,9 +57,3 @@ services:
       - "127.0.0.1:3306:3306"
     volumes:
       - ./mysql_data:/var/lib/mysql
-
-  ai-shifu-redis:
-    container_name: ai-shifu-redis
-    image: redis:7-alpine
-    volumes:
-      - ./redis_data:/data

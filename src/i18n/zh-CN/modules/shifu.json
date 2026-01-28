@@ -19,9 +19,17 @@
     "title": "学习模拟",
     "variablesCollapse": "收起",
     "variablesDescription": "不同学习者会给变量不同的值，得到不同的课程效果",
+    "variablesEmpty": "暂无变量",
     "variablesExpand": "展开",
-    "variablesLearnMore": "了解更多",
+    "variablesHideUnused": "隐藏未使用",
+    "variablesHideUnusedConfirmDesc": "隐藏整个课程里未使用的自建变量，隐藏后可以点击此按钮恢复显示。",
+    "variablesHideUnusedConfirmTitle": "隐藏未使用的自建变量",
+    "variablesHideUnusedTooltip": "隐藏课程里未使用的自建变量",
     "variablesPlaceholder": "UNKNOWN",
+    "variablesRestoreHidden": "显示全部",
+    "variablesRestoreHiddenConfirmDesc": "显示课程里的所有变量，显示后可点击此按钮隐藏未使用的自建变量。",
+    "variablesRestoreHiddenConfirmTitle": "显示所有变量",
+    "variablesRestoreHiddenTooltip": "显示课程里的所有变量",
     "variablesTitle": "变量"
   }
 }

@@ -1,6 +1,6 @@
 .variableList {
   background: var(--base-muted, #f5f5f5);
-  padding: 11px 16px;
+  padding: 6px 16px;
   max-height: 236px;
   overflow: auto;
   border-bottom: 1px solid #e5e5e5;
@@ -10,15 +10,14 @@
 
   .header {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 6px;
   }
 
   .titleWrapper {
     display: flex;
     align-items: baseline;
+    gap: 8px;
   }
 
   .title {
@@ -57,8 +56,53 @@
     cursor: pointer;
   }
 
+  .actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .topRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+
+  .actionsCompact {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .actionButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #111827;
+    cursor: pointer;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--border-radius-rounded-md, 8px);
+    background: #fff;
+    padding: 6px 12px;
+    transition: all 0.2s ease;
+
+    &:disabled {
+      cursor: not-allowed;
+      color: rgba(0, 0, 0, 0.35);
+      border-color: #f0f0f0;
+      background: #fafafa;
+    }
+  }
+
   .grid {
-    margin-top: 12px;
+    margin-top: 8px;
     display: grid;
     grid-template-columns: repeat(2, minmax(140px, 1fr));
     grid-auto-rows: minmax(0, auto);
@@ -119,5 +163,46 @@
         var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
         var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
     }
+  }
+
+  .hiddenSection {
+    margin-top: 12px;
+    padding: 0;
+  }
+
+  .hiddenHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .hiddenTitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: #0a0a0a;
+  }
+
+  .hiddenList {
+    margin-top: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+    grid-auto-rows: minmax(0, auto);
+    gap: 8px;
+  }
+
+  .hiddenItem {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .hiddenEmpty {
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.45);
+    margin-top: 4px;
+    padding-left: 16px;
   }
 }

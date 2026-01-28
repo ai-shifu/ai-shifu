@@ -107,9 +107,12 @@
     "payment": "支付",
     "summary": "概要"
   },
+  "statusLabels": {
+    "timeout": "已过期（超过 {minutes} 分钟未支付）"
+  },
   "table": {
     "action": "操作",
-    "amount": "金额",
+    "amount": "支付金额",
     "createdAt": "创建时间",
     "orderId": "订单 ID",
     "payment": "支付",
@@ -119,5 +122,5 @@
     "view": "查看"
   },
   "title": "订单",
-  "totalCount": "总计：{count}"
+  "totalCount": "订单数：{count}"
 }

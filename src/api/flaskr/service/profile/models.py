@@ -1,10 +1,4 @@
-from sqlalchemy import (
-    Column,
-    String,
-    Integer,
-    TIMESTAMP,
-    Text,
-)
+from sqlalchemy import Column, String, Integer, TIMESTAMP, Text, SmallInteger
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
 from ...dao import db
@@ -138,6 +132,13 @@ class ProfileItem(db.Model):
     )
     profile_script_id = Column(
         String(36), nullable=False, default="", comment="Profile script id", index=True
+    )
+    is_hidden = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Hidden flag: 0=visible, 1=hidden (custom variables only)",
+        index=True,
     )
     created = Column(
         TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"

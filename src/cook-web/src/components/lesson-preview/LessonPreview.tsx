@@ -15,10 +15,7 @@ import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import type { AudioCompleteData } from '@/c-api/studyV2';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import VariableList from './VariableList';
-import {
-  getStoredPreviewVariables,
-  type PreviewVariablesMap,
-} from './variableStorage';
+import { type PreviewVariablesMap } from './variableStorage';
 import styles from './LessonPreview.module.scss';
 import { cn } from '@/lib/utils';
 import {
@@ -29,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
+import { useAlert } from '@/components/ui/UseAlert';
 
 interface LessonPreviewProps {
   loading: boolean;
@@ -50,6 +48,10 @@ interface LessonPreviewProps {
     onConfirm: () => void;
     onCancel: () => void;
   };
+  hiddenVariableKeys?: string[];
+  onHideOrRestore?: () => void;
+  actionType?: 'hide' | 'restore';
+  actionDisabled?: boolean;
 }
 
 const noop = () => {};
@@ -65,6 +67,10 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   onVariableChange,
   variableOrder,
   reGenerateConfirm,
+  hiddenVariableKeys,
+  onHideOrRestore,
+  actionType,
+  actionDisabled,
 }) => {
   const { t } = useTranslation();
   const confirmButtonText = t('module.renderUi.core.confirm');
@@ -74,24 +80,32 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
 
   const showEmpty = !loading && items.length === 0;
 
-  const fallbackVariables = React.useMemo(() => {
-    if (!shifuBid) return {} as PreviewVariablesMap;
-    const stored = getStoredPreviewVariables(shifuBid);
-    return {
-      ...(stored.system || {}),
-      ...(stored.custom || {}),
-    } as PreviewVariablesMap;
-  }, [shifuBid]);
-
   const resolvedVariables = React.useMemo(() => {
-    const candidates = [variables, items[0]?.variables];
-    for (const candidate of candidates) {
-      if (candidate && Object.keys(candidate).length) return candidate;
+    if (variables && Object.keys(variables).length) {
+      return variables;
     }
-    return Object.keys(fallbackVariables).length
-      ? fallbackVariables
-      : undefined;
-  }, [fallbackVariables, items, variables]);
+    return undefined;
+  }, [variables]);
+
+  const hiddenSet = React.useMemo(
+    () => new Set(hiddenVariableKeys || []),
+    [hiddenVariableKeys],
+  );
+
+  const visibleVariables = React.useMemo(() => {
+    if (!resolvedVariables) return undefined;
+    if (!hiddenSet.size) return resolvedVariables;
+    return Object.entries(resolvedVariables).reduce<PreviewVariablesMap>(
+      (acc, [key, value]) => {
+        if (hiddenSet.has(key)) {
+          return acc;
+        }
+        acc[key] = value;
+        return acc;
+      },
+      {},
+    );
+  }, [hiddenSet, resolvedVariables]);
 
   const itemByGeneratedBid = React.useMemo(() => {
     const map = new Map<string, ChatContentItem>();
@@ -102,6 +116,24 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     });
     return map;
   }, [items]);
+
+  const { showAlert } = useAlert();
+
+  const handleActionConfirm = React.useCallback(() => {
+    if (!onHideOrRestore || !actionType) return;
+    const isHide = actionType === 'hide';
+    showAlert({
+      title: isHide
+        ? t('module.shifu.previewArea.variablesHideUnusedConfirmTitle')
+        : t('module.shifu.previewArea.variablesRestoreHiddenConfirmTitle'),
+      description: isHide
+        ? t('module.shifu.previewArea.variablesHideUnusedConfirmDesc')
+        : t('module.shifu.previewArea.variablesRestoreHiddenConfirmDesc'),
+      confirmText: t('common.core.confirm'),
+      cancelText: t('common.core.cancel'),
+      onConfirm: () => onHideOrRestore(),
+    });
+  }, [actionType, onHideOrRestore, showAlert, t]);
 
   return (
     <div className={cn(styles.lessonPreview, 'text-sm')}>
@@ -121,11 +153,14 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
         {!showEmpty && (
           <div className={styles.variableListWrapper}>
             <VariableList
-              variables={resolvedVariables}
+              variables={visibleVariables}
               collapsed={variablesCollapsed}
               onToggle={() => setVariablesCollapsed(prev => !prev)}
               onChange={onVariableChange}
               variableOrder={variableOrder}
+              actionType={actionType}
+              onAction={handleActionConfirm}
+              actionDisabled={actionDisabled}
             />
           </div>
         )}

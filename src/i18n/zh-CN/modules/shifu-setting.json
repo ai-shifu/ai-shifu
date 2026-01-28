@@ -48,9 +48,8 @@
   "ttsPreviewLoading": "加载中...",
   "ttsPreviewStop": "停止",
   "ttsProvider": "服务商",
-  "ttsProviderDefault": "使用系统默认",
-  "ttsProviderHint": "选择语音合成服务商，留空使用系统默认配置",
-  "ttsProviderRequiredDesc": "开启语音合成后请先选择语音服务商，不确定时可使用系统默认。",
+  "ttsProviderHint": "选择语音合成服务商",
+  "ttsProviderRequiredDesc": "开启语音合成后请先选择语音服务商。",
   "ttsProviderRequiredTitle": "请选择语音服务商",
   "ttsSelectEmotion": "选择情感",
   "ttsSelectModel": "选择模型",
@@ -66,5 +65,7 @@
   "unarchiveTitle": "是否取消归档",
   "upload": "上传",
   "uploadFailed": "上传失败，请稍后再试",
-  "uploading": "正在上传"
+  "uploading": "正在上传",
+  "useLearnerLanguageDescription": "开启后，AI会匹配学员选择的语言授课",
+  "useLearnerLanguageTitle": "自动翻译"
 }

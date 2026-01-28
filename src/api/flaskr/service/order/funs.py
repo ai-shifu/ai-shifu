@@ -41,7 +41,8 @@ from flaskr.service.order.payment_providers.base import (
     PaymentRefundRequest,
 )
 from flaskr.util.uuid import generate_id as get_uuid
-from flaskr.dao import db, redis_client
+from flaskr.common.cache_provider import cache as cache_provider
+from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from flaskr.service.order.models import Order, PingxxOrder, StripeOrder
 import pytz
@@ -244,16 +245,14 @@ def _order_init_lock(app: Flask, user_id: str, course_id: str) -> Iterator[None]
     lock = None
     acquired = False
 
-    if redis_client is not None:
-        try:
-            prefix = app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
-            lock_key = f"{prefix}:order:init:{user_id}:{course_id}"
-            lock = redis_client.lock(lock_key, timeout=10, blocking_timeout=10)
-            if lock is not None:
-                acquired = lock.acquire(blocking=True)
-        except Exception:
-            lock = None
-            acquired = False
+    try:
+        prefix = app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
+        lock_key = f"{prefix}:order:init:{user_id}:{course_id}"
+        lock = cache_provider.lock(lock_key, timeout=10, blocking_timeout=10)
+        acquired = bool(lock.acquire(blocking=True))
+    except Exception:
+        lock = None
+        acquired = False
 
     try:
         yield
@@ -1245,7 +1244,7 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
         ).first()
         if not pingxx_order:
             return
-        lock = redis_client.lock(
+        lock = cache_provider.lock(
             "success_buy_record_from_pingxx" + charge_id,
             timeout=10,
             blocking_timeout=10,

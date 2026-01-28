@@ -26,6 +26,11 @@ class OrderAdminSummaryDTO(BaseModel):
     payment_channel_key: str = Field(
         ..., description="Payment channel i18n key", required=False
     )
+    coupon_codes: List[str] = Field(
+        default_factory=list,
+        description="Coupon codes applied to this order",
+        required=False,
+    )
     created_at: str = Field(..., description="Created at", required=False)
     updated_at: str = Field(..., description="Updated at", required=False)
 
@@ -46,6 +51,7 @@ class OrderAdminSummaryDTO(BaseModel):
         payment_channel_key: str,
         created_at: str,
         updated_at: str,
+        coupon_codes: List[str] | None = None,
     ):
         super().__init__(
             order_bid=order_bid,
@@ -61,6 +67,7 @@ class OrderAdminSummaryDTO(BaseModel):
             status_key=status_key,
             payment_channel=payment_channel,
             payment_channel_key=payment_channel_key,
+            coupon_codes=coupon_codes or [],
             created_at=created_at,
             updated_at=updated_at,
         )
@@ -80,6 +87,7 @@ class OrderAdminSummaryDTO(BaseModel):
             "status_key": self.status_key,
             "payment_channel": self.payment_channel,
             "payment_channel_key": self.payment_channel_key,
+            "coupon_codes": self.coupon_codes,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }

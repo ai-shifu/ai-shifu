@@ -30,6 +30,7 @@ export interface EnvStoreState {
   currencySymbol: string;
   stripePublishableKey: string;
   stripeEnabled: string;
+  payOrderExpireSeconds: number;
   paymentChannels: string[];
   loginMethodsEnabled: string[];
   defaultLoginMethod: string;
@@ -53,6 +54,7 @@ export interface EnvStoreState {
   updateCurrencySymbol: (symbol: string) => Promise<void>;
   updateStripePublishableKey: (key: string) => Promise<void>;
   updateStripeEnabled: (value: string) => Promise<void>;
+  updatePayOrderExpireSeconds: (seconds: number) => Promise<void>;
   updatePaymentChannels: (channels: string[]) => Promise<void>;
   updateLoginMethodsEnabled: (methods: string[]) => Promise<void>;
   updateDefaultLoginMethod: (method: string) => Promise<void>;

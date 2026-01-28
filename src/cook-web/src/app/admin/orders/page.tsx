@@ -248,6 +248,12 @@ const OrdersPage = () => {
   const loginMethodsEnabled = useEnvStore(
     (state: EnvStoreState) => state.loginMethodsEnabled,
   );
+  const currencySymbol = useEnvStore(
+    (state: EnvStoreState) => state.currencySymbol,
+  );
+  const payOrderExpireSeconds = useEnvStore(
+    (state: EnvStoreState) => state.payOrderExpireSeconds,
+  );
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ message: string; code?: number } | null>(
@@ -338,6 +344,22 @@ const OrdersPage = () => {
 
   const ALL_OPTION_VALUE = '__all__';
 
+  const payOrderExpireMinutes = useMemo(() => {
+    if (!Number.isFinite(payOrderExpireSeconds) || payOrderExpireSeconds <= 0) {
+      return 0;
+    }
+    return Math.ceil(payOrderExpireSeconds / 60);
+  }, [payOrderExpireSeconds]);
+
+  const formatMoney = useCallback(
+    (value?: string) => {
+      const normalized = value && value.trim().length > 0 ? value : '0';
+      const symbol = currencySymbol || '';
+      return `${symbol}${normalized}`;
+    },
+    [currencySymbol],
+  );
+
   const statusOptions = useMemo(
     () => [
       { value: '', label: t('module.order.filters.all') },
@@ -345,9 +367,17 @@ const OrdersPage = () => {
       { value: '504', label: t('server.order.orderStatusToBePaid') },
       { value: '502', label: t('server.order.orderStatusSuccess') },
       { value: '503', label: t('server.order.orderStatusRefund') },
-      { value: '505', label: t('server.order.orderStatusTimeout') },
+      {
+        value: '505',
+        label:
+          payOrderExpireMinutes > 0
+            ? t('module.order.statusLabels.timeout', {
+                minutes: payOrderExpireMinutes,
+              })
+            : t('server.order.orderStatusTimeout'),
+      },
     ],
-    [t],
+    [payOrderExpireMinutes, t],
   );
 
   const channelOptions = useMemo(
@@ -511,7 +541,7 @@ const OrdersPage = () => {
           order.user_mobile || order.user_bid,
           order.user_nickname || order.user_bid,
         ],
-        amount: order => [String(order.payable_price)],
+        amount: order => [formatMoney(order.paid_price)],
         status: order => [t(order.status_key)],
         payment: order => [t(order.payment_channel_key)],
         createdAt: order => [order.created_at],
@@ -565,7 +595,19 @@ const OrdersPage = () => {
         return updated;
       });
     },
-    [t],
+    [formatMoney, t],
+  );
+
+  const resolveStatusLabel = useCallback(
+    (order: OrderSummary) => {
+      if (order.status === 505 && payOrderExpireMinutes > 0) {
+        return t('module.order.statusLabels.timeout', {
+          minutes: payOrderExpireMinutes,
+        });
+      }
+      return t(order.status_key);
+    },
+    [payOrderExpireMinutes, t],
   );
 
   const renderResizeHandle = (key: ColumnKey) => (
@@ -875,20 +917,6 @@ const OrdersPage = () => {
 
   const filterItems = [
     {
-      key: 'order_bid',
-      label: t('module.order.filters.orderBid'),
-      component: (
-        <Input
-          value={filters.order_bid}
-          onChange={event =>
-            handleFilterChange('order_bid', event.target.value)
-          }
-          placeholder={t('module.order.filters.orderBid')}
-          className='h-9'
-        />
-      ),
-    },
-    {
       key: 'user_bid',
       label: userBidPlaceholder,
       component: (
@@ -992,24 +1020,6 @@ const OrdersPage = () => {
       ),
     },
     {
-      key: 'date_range',
-      label: t('module.order.table.createdAt'),
-      component: (
-        <DateRangeFilter
-          startValue={filters.start_time}
-          endValue={filters.end_time}
-          onChange={range => {
-            handleFilterChange('start_time', range.start);
-            handleFilterChange('end_time', range.end);
-          }}
-          placeholder={`${t('module.order.filters.startTime')} ~ ${t(
-            'module.order.filters.endTime',
-          )}`}
-          resetLabel={t('module.order.filters.reset')}
-        />
-      ),
-    },
-    {
       key: 'status',
       label: t('module.order.filters.status'),
       component: (
@@ -1067,6 +1077,38 @@ const OrdersPage = () => {
             ))}
           </SelectContent>
         </Select>
+      ),
+    },
+    {
+      key: 'date_range',
+      label: t('module.order.table.createdAt'),
+      component: (
+        <DateRangeFilter
+          startValue={filters.start_time}
+          endValue={filters.end_time}
+          onChange={range => {
+            handleFilterChange('start_time', range.start);
+            handleFilterChange('end_time', range.end);
+          }}
+          placeholder={`${t('module.order.filters.startTime')} ~ ${t(
+            'module.order.filters.endTime',
+          )}`}
+          resetLabel={t('module.order.filters.reset')}
+        />
+      ),
+    },
+    {
+      key: 'order_bid',
+      label: t('module.order.filters.orderBid'),
+      component: (
+        <Input
+          value={filters.order_bid}
+          onChange={event =>
+            handleFilterChange('order_bid', event.target.value)
+          }
+          placeholder={t('module.order.filters.orderBid')}
+          className='h-9'
+        />
       ),
     },
   ];
@@ -1290,17 +1332,39 @@ const OrdersPage = () => {
                         className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis'
                         style={getColumnStyle('amount')}
                       >
-                        {renderTooltipText(
-                          order.payable_price?.toString(),
-                          'text-foreground',
-                        )}
+                        <div className='flex flex-col gap-1'>
+                          {renderTooltipText(
+                            formatMoney(order.paid_price),
+                            'text-foreground',
+                          )}
+                          {order.discount_amount &&
+                            order.discount_amount !== '0' && (
+                              <span className='text-xs text-muted-foreground'>
+                                <span className="after:content-[':'] after:mr-1">
+                                  {t('module.order.fields.discount')}
+                                </span>
+                                {formatMoney(order.discount_amount)}
+                              </span>
+                            )}
+                          {order.coupon_codes?.length > 0 && (
+                            <span
+                              className='text-xs text-muted-foreground'
+                              title={order.coupon_codes.join(', ')}
+                            >
+                              <span className="after:content-[':'] after:mr-1">
+                                {t('module.order.sections.coupons')}
+                              </span>
+                              {order.coupon_codes.length}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell
                         className='whitespace-nowrap border-r border-border last:border-r-0 overflow-hidden text-ellipsis'
                         style={getColumnStyle('status')}
                       >
                         <Badge variant={resolveStatusVariant(order.status)}>
-                          {t(order.status_key)}
+                          {resolveStatusLabel(order)}
                         </Badge>
                       </TableCell>
                       <TableCell

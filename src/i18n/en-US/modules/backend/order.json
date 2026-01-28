@@ -14,7 +14,7 @@
     "mobileAlreadyActivated": "Mobile {mobile} already activated for this course",
     "orderHasPaid": "Order Has Paid",
     "orderNotFound": "Order Not Found",
-    "orderStatusInit": "Init",
+    "orderStatusInit": "Not initiated",
     "orderStatusRefund": "Refund",
     "orderStatusSuccess": "Success",
     "orderStatusTimeout": "Expired",
