@@ -36,6 +36,7 @@ const ListenModeRenderer = ({
 }: ListenModeRendererProps) => {
   const deckRef = useRef<Reveal.Api | null>(null);
   const pendingAutoNextRef = useRef(false);
+  const requestedAudioBlockBidsRef = useRef<Set<string>>(new Set());
 
   const [activeBlockBid, setActiveBlockBid] = useState<string | null>(null);
   const activeBlockBidRef = useRef<string | null>(null);
@@ -294,7 +295,13 @@ const ListenModeRenderer = ({
       (item.audioSegments && item.audioSegments.length > 0),
     );
 
-    if (!hasAudio && onRequestAudioForBlock && !previewMode) {
+    if (
+      !hasAudio &&
+      onRequestAudioForBlock &&
+      !previewMode &&
+      !requestedAudioBlockBidsRef.current.has(activeBlockBid)
+    ) {
+      requestedAudioBlockBidsRef.current.add(activeBlockBid);
       onRequestAudioForBlock(activeBlockBid).catch(() => {
         // errors handled by request layer toast; ignore here
       });
