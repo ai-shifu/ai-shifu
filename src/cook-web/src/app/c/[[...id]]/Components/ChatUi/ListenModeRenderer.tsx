@@ -8,9 +8,20 @@ import ContentIframe from './ContentIframe';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import './ListenModeRenderer.scss';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import {
+  splitContentSegments,
+  type RenderSegment,
+  type OnSendContentParams,
+} from 'markdown-flow-ui/renderer';
 
 type RevealOptionsWithScrollMode = Reveal.Options & {
   scrollMode?: 'classic' | 'scroll';
+};
+
+type ContentItemSegments = {
+  item: ChatContentItem;
+  segments: RenderSegment[];
+  currentPage: number;
 };
 
 interface ListenModeRendererProps {
@@ -22,6 +33,7 @@ interface ListenModeRendererProps {
   sectionTitle?: string;
   previewMode?: boolean;
   onRequestAudioForBlock?: (generatedBlockBid: string) => Promise<any>;
+  onSend?: (content: OnSendContentParams, blockBid: string) => void;
 }
 
 const ListenModeRenderer = ({
@@ -33,15 +45,20 @@ const ListenModeRenderer = ({
   sectionTitle,
   previewMode = false,
   onRequestAudioForBlock,
+  onSend,
 }: ListenModeRendererProps) => {
   const deckRef = useRef<Reveal.Api | null>(null);
   const pendingAutoNextRef = useRef(false);
   const hasAutoSlidToLatestRef = useRef(false);
   const requestedAudioBlockBidsRef = useRef<Set<string>>(new Set());
-
+  const currentPptPageRef = useRef<number>(0);
   const [activeBlockBid, setActiveBlockBid] = useState<string | null>(null);
+  const [currentInteraction, setCurrentInteraction] =
+    useState<ChatContentItem | null>(null);
   const activeBlockBidRef = useRef<string | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [isPrevDisabled, setIsPrevDisabled] = useState(true);
+  const [isNextDisabled, setIsNextDisabled] = useState(true);
 
   useEffect(() => {
     activeBlockBidRef.current = activeBlockBid;
@@ -125,6 +142,29 @@ const ListenModeRenderer = ({
     setActiveBlockBid(nextBid);
   }, [getBlockBidFromSlide]);
 
+  const updateNavState = useCallback(() => {
+    const deck = deckRef.current;
+    if (!deck) {
+      setIsPrevDisabled(true);
+      setIsNextDisabled(true);
+      return;
+    }
+    const totalSlides =
+      typeof deck.getTotalSlides === 'function' ? deck.getTotalSlides() : 0;
+    const indices = deck.getIndices?.();
+    const currentIndex = indices?.h ?? 0;
+    const isFirstSlide =
+      typeof deck.isFirstSlide === 'function'
+        ? deck.isFirstSlide()
+        : totalSlides <= 1 || currentIndex <= 0;
+    const isLastSlide =
+      typeof deck.isLastSlide === 'function'
+        ? deck.isLastSlide()
+        : totalSlides <= 1 || currentIndex >= Math.max(totalSlides - 1, 0);
+    setIsPrevDisabled(isFirstSlide);
+    setIsNextDisabled(isLastSlide);
+  }, []);
+
   const goToBlock = useCallback(
     (blockBid: string) => {
       const deck = deckRef.current;
@@ -168,13 +208,39 @@ const ListenModeRenderer = ({
     return false;
   }, [goToBlock, orderedContentBlockBids]);
 
-  const contentItems = useMemo(
-    () =>
-      items.filter(
-        item => item.type === ChatContentItemType.CONTENT && !!item.content,
-      ),
-    [items],
-  );
+  const { contentItems, interactionByPage } = useMemo(() => {
+    let pageCursor = 0;
+    const mapping = new Map<number, ChatContentItem>();
+    const nextContentItems = items.map(item => {
+      const segments =
+        item.type === ChatContentItemType.CONTENT && !!item.content
+          ? splitContentSegments(item.content || '', true)
+          : [];
+      const entry = {
+        item,
+        segments,
+        currentPage: pageCursor,
+      };
+      if (item.type === ChatContentItemType.INTERACTION) {
+        mapping.set(entry.currentPage - 1, item);
+      }
+      pageCursor += segments.length;
+      return entry;
+    });
+    console.log('interactionByPage', mapping);
+    return { contentItems: nextContentItems, interactionByPage: mapping };
+  }, [items]);
+
+  const syncInteractionForCurrentPage = useCallback(() => {
+    // console.log('syncInteractionForCurrentPage',currentPptPageRef.current, interactionByPage.get(currentPptPageRef.current))
+    setCurrentInteraction(
+      interactionByPage.get(currentPptPageRef.current) ?? null,
+    );
+  }, [interactionByPage]);
+
+  useEffect(() => {
+    syncInteractionForCurrentPage();
+  }, [syncInteractionForCurrentPage]);
 
   useEffect(() => {
     if (!chatRef.current || deckRef.current || isLoading) {
@@ -196,13 +262,14 @@ const ListenModeRenderer = ({
       // minScale: 1,
       // maxScale: 1,
       progress: false,
-      controls: true,
+      controls: false,
     };
 
     deckRef.current = new Reveal(chatRef.current, revealOptions);
 
     deckRef.current.initialize().then(() => {
       syncActiveBlockFromDeck();
+      updateNavState();
     });
 
     return () => {
@@ -214,7 +281,13 @@ const ListenModeRenderer = ({
         console.warn('Reveal.js destroy 調用失敗。');
       }
     };
-  }, [chatRef, contentItems.length, isLoading, syncActiveBlockFromDeck]);
+  }, [
+    chatRef,
+    contentItems.length,
+    isLoading,
+    syncActiveBlockFromDeck,
+    updateNavState,
+  ]);
 
   useEffect(() => {
     if (!contentItems.length && deckRef.current) {
@@ -225,6 +298,8 @@ const ListenModeRenderer = ({
         console.warn('Reveal.js destroy 調用失敗。');
       } finally {
         deckRef.current = null;
+        setIsPrevDisabled(true);
+        setIsNextDisabled(true);
       }
     }
   }, [chatRef, contentItems.length, isLoading, syncActiveBlockFromDeck]);
@@ -239,6 +314,8 @@ const ListenModeRenderer = ({
       // Ignore errors when destroying reveal instance
     } finally {
       deckRef.current = null;
+      setIsPrevDisabled(true);
+      setIsNextDisabled(true);
     }
   }, [contentItems.length]);
 
@@ -250,6 +327,7 @@ const ListenModeRenderer = ({
 
     const handleSlideChanged = () => {
       syncActiveBlockFromDeck();
+      updateNavState();
     };
 
     deck.on('slidechanged', handleSlideChanged as unknown as EventListener);
@@ -259,7 +337,7 @@ const ListenModeRenderer = ({
       deck.off('slidechanged', handleSlideChanged as unknown as EventListener);
       deck.off('ready', handleSlideChanged as unknown as EventListener);
     };
-  }, [syncActiveBlockFromDeck]);
+  }, [syncActiveBlockFromDeck, updateNavState]);
 
   useEffect(() => {
     if (!deckRef.current || isLoading) {
@@ -281,6 +359,7 @@ const ListenModeRenderer = ({
     try {
       deckRef.current.sync();
       deckRef.current.layout();
+      updateNavState();
       if (pendingAutoNextRef.current) {
         const moved = goToNextBlock();
         pendingAutoNextRef.current = !moved;
@@ -301,7 +380,14 @@ const ListenModeRenderer = ({
     } catch {
       // Ignore reveal sync errors
     }
-  }, [contentItems, isAudioPlaying, isLoading, goToNextBlock, chatRef]);
+  }, [
+    contentItems,
+    isAudioPlaying,
+    isLoading,
+    goToNextBlock,
+    chatRef,
+    updateNavState,
+  ]);
 
   useEffect(() => {
     if (!activeBlockBid) {
@@ -359,20 +445,28 @@ const ListenModeRenderer = ({
 
   const onPrev = useCallback(() => {
     const deck = deckRef.current;
-    if (!deck) {
+    if (!deck || isPrevDisabled) {
       return;
     }
     deck.prev();
-  }, []);
+    currentPptPageRef.current = deck.getIndices().h;
+    console.log('onPrev', currentPptPageRef.current);
+    syncInteractionForCurrentPage();
+    updateNavState();
+  }, [isPrevDisabled, syncInteractionForCurrentPage, updateNavState]);
 
   const onNext = useCallback(() => {
     const deck = deckRef.current;
-    if (!deck) {
+    if (!deck || isNextDisabled) {
       return;
     }
     deck.next();
-  }, []);
-
+    currentPptPageRef.current = deck.getIndices().h;
+    console.log('onNext', currentPptPageRef.current);
+    syncInteractionForCurrentPage();
+    updateNavState();
+  }, [isNextDisabled, syncInteractionForCurrentPage, updateNavState]);
+  // console.log('listenmoderenderer',contentItems)
   return (
     <div
       className={cn(containerClassName, 'listen-reveal-wrapper')}
@@ -384,12 +478,16 @@ const ListenModeRenderer = ({
       >
         <div className='slides'>
           {!isLoading &&
-            contentItems.map((item, idx) => {
+            contentItems.map(({ item, segments }, idx) => {
               const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
+              if (segments.length === 0) {
+                return null;
+              }
               return (
                 <ContentIframe
                   key={baseKey}
-                  item={item}
+                  // item={item}
+                  segments={segments}
                   mobileStyle={mobileStyle}
                   blockBid={item.generated_block_bid}
                   sectionTitle={sectionTitle}
@@ -422,6 +520,10 @@ const ListenModeRenderer = ({
       <ListenPlayer
         onPrev={onPrev}
         onNext={onNext}
+        prevDisabled={isPrevDisabled}
+        nextDisabled={isNextDisabled}
+        interaction={currentInteraction}
+        onSend={onSend}
       />
     </div>
   );
