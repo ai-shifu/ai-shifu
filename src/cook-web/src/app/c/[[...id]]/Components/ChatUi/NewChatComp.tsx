@@ -438,6 +438,8 @@ export const NewChatComponents = ({
           containerClassName={containerClassName}
           isLoading={isLoading}
           sectionTitle={lessonTitle}
+          previewMode={previewMode}
+          onRequestAudioForBlock={requestAudioForBlock}
         />
       ) : (
         <div
@@ -485,9 +487,7 @@ export const NewChatComponents = ({
                     ? itemByGeneratedBid.get(parentBlockBid)
                     : undefined;
                   const canRequestAudio =
-                    !previewMode &&
-                    Boolean(requestAudioForBlock) &&
-                    Boolean(parentBlockBid);
+                    !previewMode && Boolean(parentBlockBid);
                   const hasAudioForBlock = Boolean(
                     parentContentItem?.audioUrl ||
                     parentContentItem?.isAudioStreaming ||
@@ -620,9 +620,7 @@ export const NewChatComponents = ({
               ?.isAudioStreaming,
           )}
           onRequestAudio={
-            !previewMode &&
-            requestAudioForBlock &&
-            mobileInteraction.generatedBlockBid
+            !previewMode && mobileInteraction.generatedBlockBid
               ? () => requestAudioForBlock(mobileInteraction.generatedBlockBid)
               : undefined
           }

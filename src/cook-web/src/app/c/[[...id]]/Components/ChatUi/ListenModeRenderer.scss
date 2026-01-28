@@ -10,6 +10,7 @@
   padding: 96px 32px 72px 32px !important;
   box-sizing: border-box;
   overflow: hidden;
+  position: relative;
 }
 
 .listen-reveal {
@@ -33,4 +34,11 @@
       box-sizing: border-box;
     }
   }
+}
+
+.listen-audio-controls {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  z-index: 10;
 }
