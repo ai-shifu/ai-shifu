@@ -452,9 +452,10 @@ export const NewChatComponents = ({
           </div>
         </div>
       )}
-      {mobileStyle && portalTarget
-        ? createPortal(scrollButton, portalTarget)
-        : scrollButton}
+      {!isListenMode &&
+        (mobileStyle && portalTarget
+          ? createPortal(scrollButton, portalTarget)
+          : scrollButton)}
       {mobileStyle && mobileInteraction?.generatedBlockBid && (
         <InteractionBlockM
           open={mobileInteraction.open}
