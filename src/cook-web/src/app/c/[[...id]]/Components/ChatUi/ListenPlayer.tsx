@@ -11,7 +11,10 @@ import {
 import styles from './ListenPlayer.module.scss';
 import { cn } from '@/lib/utils';
 import type { ChatContentItem } from './useChatLogicHook';
-import { ContentRender, type OnSendContentParams } from 'markdown-flow-ui/renderer';
+import {
+  ContentRender,
+  type OnSendContentParams,
+} from 'markdown-flow-ui/renderer';
 import { useTranslation } from 'react-i18next';
 
 interface ListenPlayerProps {
@@ -55,7 +58,6 @@ const ListenPlayer = ({
     setIsInteractionOpen(prev => !prev);
     onNotes?.();
   }, [interaction, onNotes]);
-
 
   const _onSend = useCallback(
     (content: OnSendContentParams) => {
