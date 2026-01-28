@@ -1,9 +1,6 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { isEqual } from 'lodash';
 import { IframeSandbox, splitContentSegments } from 'markdown-flow-ui/renderer';
-import type { IframeSandboxProps } from 'markdown-flow-ui/renderer';
-import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
-import { cn } from '@/lib/utils';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 
 interface ContentIframeProps {
@@ -19,33 +16,11 @@ interface ContentIframeProps {
 }
 
 const ContentIframe = memo(
-  ({
-    item,
-    mobileStyle,
-    blockBid,
-    sectionTitle,
-    // confirmButtonText,
-    // copyButtonText,
-    // copiedButtonText,
-    // onClickCustomButtonAfterContent,
-    // onSend,
-  }: ContentIframeProps) => {
-    // const handleClick = useCallback(() => {
-    //   onClickCustomButtonAfterContent?.(blockBid);
-    // }, [blockBid, onClickCustomButtonAfterContent]);
-
-    // const _onSend = useCallback(
-    //   (content: OnSendContentParams) => {
-    //     onSend(content, blockBid);
-    //   },
-    //   [onSend, blockBid],
-    // );
-
+  ({ item, blockBid, sectionTitle }: ContentIframeProps) => {
     const segments = useMemo(
       () => splitContentSegments(item.content || '', true),
       [item.content],
     );
-    console.log('segments ai-shifu=====', segments);
 
     if (segments.length === 0 || item.type !== ChatContentItemType.CONTENT)
       return null;
@@ -57,6 +32,7 @@ const ContentIframe = memo(
             <section
               key={'text' + index}
               data-auto-animate
+              data-generated-block-bid={blockBid}
               //   className='w-full h-full'
             >
               <div className='w-full h-full font-bold flex items-center justify-center text-primary'>
@@ -67,6 +43,7 @@ const ContentIframe = memo(
             <section
               key={'sandbox' + index}
               data-auto-animate
+              data-generated-block-bid={blockBid}
               // className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
               //   className='w-full h-full'
             >
