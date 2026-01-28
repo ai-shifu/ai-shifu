@@ -288,6 +288,11 @@ const ListenModeRenderer = ({
     if (!item) {
       return;
     }
+    // Avoid auto-requesting TTS for live blocks that may not be persisted yet.
+    // History blocks are loaded from DB and safe to request.
+    if (!item.isHistory) {
+      return;
+    }
 
     const hasAudio = Boolean(
       item.audioUrl ||
