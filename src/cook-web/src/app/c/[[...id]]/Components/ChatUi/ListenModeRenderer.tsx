@@ -322,6 +322,22 @@ const ListenModeRenderer = ({
     setIsAudioPlaying(false);
   }, [activeBlockBid]);
 
+  const onPrev = useCallback(() => {
+    const deck = deckRef.current;
+    if (!deck) {
+      return;
+    }
+    deck.prev();
+  }, []);
+
+  const onNext = useCallback(() => {
+    const deck = deckRef.current;
+    if (!deck) {
+      return;
+    }
+    deck.next();
+  }, []);
+
   return (
     <div
       className={cn(containerClassName, 'listen-reveal-wrapper')}
@@ -368,7 +384,7 @@ const ListenModeRenderer = ({
           />
         </div>
       ) : null}
-      <ListenPlayer />
+      <ListenPlayer onPrev={onPrev} onNext={onNext} />
     </div>
   );
 };
