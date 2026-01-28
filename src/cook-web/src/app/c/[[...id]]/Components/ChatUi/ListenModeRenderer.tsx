@@ -8,7 +8,10 @@ import ContentIframe from './ContentIframe';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import './ListenModeRenderer.scss';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
-import { splitContentSegments, type RenderSegment } from 'markdown-flow-ui/renderer';
+import {
+  splitContentSegments,
+  type RenderSegment,
+} from 'markdown-flow-ui/renderer';
 
 type RevealOptionsWithScrollMode = Reveal.Options & {
   scrollMode?: 'classic' | 'scroll';
@@ -175,11 +178,13 @@ const ListenModeRenderer = ({
   }, [goToBlock, orderedContentBlockBids]);
 
   const contentItems = useMemo<ContentItemSegments[]>(() => {
-    return items
-      .map(item => ({
-        item,
-        segments: item.type === ChatContentItemType.CONTENT && !!item.content ? splitContentSegments(item.content || '', true) : [],
-      }))
+    return items.map(item => ({
+      item,
+      segments:
+        item.type === ChatContentItemType.CONTENT && !!item.content
+          ? splitContentSegments(item.content || '', true)
+          : [],
+    }));
   }, [items]);
 
   useEffect(() => {
@@ -378,7 +383,7 @@ const ListenModeRenderer = ({
     }
     deck.next();
   }, []);
-console.log('listenmoderenderer',contentItems)
+  console.log('listenmoderenderer', contentItems);
   return (
     <div
       className={cn(containerClassName, 'listen-reveal-wrapper')}
@@ -392,7 +397,7 @@ console.log('listenmoderenderer',contentItems)
           {!isLoading &&
             contentItems.map(({ item, segments }, idx) => {
               const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
-              if(segments.length === 0) {
+              if (segments.length === 0) {
                 return null;
               }
               return (
