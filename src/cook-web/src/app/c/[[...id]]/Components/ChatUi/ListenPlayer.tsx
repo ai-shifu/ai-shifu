@@ -11,7 +11,7 @@ import {
 import styles from './ListenPlayer.module.scss';
 import { cn } from '@/lib/utils';
 import type { ChatContentItem } from './useChatLogicHook';
-import { ContentRender } from 'markdown-flow-ui/renderer';
+import { ContentRender, type OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { useTranslation } from 'react-i18next';
 
 interface ListenPlayerProps {
@@ -24,6 +24,7 @@ interface ListenPlayerProps {
   onFullscreen?: () => void;
   onSubtitles?: () => void;
   onNotes?: () => void;
+  onSend?: (content: OnSendContentParams, blockBid: string) => void;
   interaction?: ChatContentItem | null;
 }
 
@@ -38,6 +39,7 @@ const ListenPlayer = ({
   onSubtitles,
   onNotes,
   interaction,
+  onSend,
 }: ListenPlayerProps) => {
   const { t } = useTranslation();
   const [isInteractionOpen, setIsInteractionOpen] = useState(false);
@@ -53,6 +55,18 @@ const ListenPlayer = ({
     setIsInteractionOpen(prev => !prev);
     onNotes?.();
   }, [interaction, onNotes]);
+
+
+  const _onSend = useCallback(
+    (content: OnSendContentParams) => {
+      if (!interaction?.generated_block_bid) {
+        return;
+      }
+      setIsInteractionOpen(false);
+      onSend?.(content, interaction.generated_block_bid);
+    },
+    [onSend, interaction?.generated_block_bid],
+  );
 
   return (
     <div className={cn(styles.playerContainer, 'relative', className)}>
@@ -77,6 +91,7 @@ const ListenPlayer = ({
                 copiedButtonText={t('module.renderUi.core.copied')}
                 readonly={interaction.readonly}
                 sandboxMode='content'
+                onSend={_onSend}
               />
             </div>
           </div>

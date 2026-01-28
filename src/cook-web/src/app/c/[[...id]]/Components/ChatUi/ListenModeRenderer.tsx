@@ -11,6 +11,7 @@ import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import {
   splitContentSegments,
   type RenderSegment,
+  type OnSendContentParams,
 } from 'markdown-flow-ui/renderer';
 
 type RevealOptionsWithScrollMode = Reveal.Options & {
@@ -32,6 +33,7 @@ interface ListenModeRendererProps {
   sectionTitle?: string;
   previewMode?: boolean;
   onRequestAudioForBlock?: (generatedBlockBid: string) => Promise<any>;
+  onSend?: (content: OnSendContentParams, blockBid: string) => void;
 }
 
 const ListenModeRenderer = ({
@@ -43,6 +45,7 @@ const ListenModeRenderer = ({
   sectionTitle,
   previewMode = false,
   onRequestAudioForBlock,
+  onSend,
 }: ListenModeRendererProps) => {
   const deckRef = useRef<Reveal.Api | null>(null);
   const pendingAutoNextRef = useRef(false);
@@ -471,6 +474,7 @@ const ListenModeRenderer = ({
         onPrev={onPrev}
         onNext={onNext}
         interaction={currentInteraction}
+        onSend={onSend}
       />
     </div>
   );

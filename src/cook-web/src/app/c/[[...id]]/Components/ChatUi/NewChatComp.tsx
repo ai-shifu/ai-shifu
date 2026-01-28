@@ -440,6 +440,7 @@ export const NewChatComponents = ({
           sectionTitle={lessonTitle}
           previewMode={previewMode}
           onRequestAudioForBlock={requestAudioForBlock}
+          onSend={memoizedOnSend}
         />
       ) : (
         <div
