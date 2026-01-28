@@ -27,6 +27,8 @@ interface ListenPlayerProps {
   onFullscreen?: () => void;
   onSubtitles?: () => void;
   onNotes?: () => void;
+  prevDisabled?: boolean;
+  nextDisabled?: boolean;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
   interaction?: ChatContentItem | null;
 }
@@ -41,11 +43,14 @@ const ListenPlayer = ({
   onFullscreen,
   onSubtitles,
   onNotes,
+  prevDisabled = false,
+  nextDisabled = false,
   interaction,
   onSend,
 }: ListenPlayerProps) => {
   const { t } = useTranslation();
   const [isInteractionOpen, setIsInteractionOpen] = useState(false);
+  const disabledClassName = '!cursor-not-allowed !opacity-20';
 
   useEffect(() => {
     setIsInteractionOpen(Boolean(interaction));
@@ -121,6 +126,8 @@ const ListenPlayer = ({
           type='button'
           aria-label='Rewind'
           onClick={onPrev}
+          disabled={prevDisabled}
+          className={cn(prevDisabled ? disabledClassName : '')}
         >
           <RotateCcw size={32} />
         </button>
@@ -151,6 +158,8 @@ const ListenPlayer = ({
           type='button'
           aria-label='Forward'
           onClick={onNext}
+          disabled={nextDisabled}
+          className={cn(nextDisabled ? disabledClassName : '')}
         >
           <RotateCw size={32} />
         </button>
@@ -179,7 +188,7 @@ const ListenPlayer = ({
           onClick={handleNotesClick}
           disabled={!interaction}
           className={cn(
-            interaction ? '!text-primary' : '!cursor-not-allowed !opacity-20',
+            interaction ? '!text-primary' : disabledClassName,
           )}
         >
           <SquarePen size={32} />

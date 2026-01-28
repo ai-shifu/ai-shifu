@@ -57,6 +57,8 @@ const ListenModeRenderer = ({
     useState<ChatContentItem | null>(null);
   const activeBlockBidRef = useRef<string | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [isPrevDisabled, setIsPrevDisabled] = useState(true);
+  const [isNextDisabled, setIsNextDisabled] = useState(true);
 
   useEffect(() => {
     activeBlockBidRef.current = activeBlockBid;
@@ -139,6 +141,29 @@ const ListenModeRenderer = ({
     activeBlockBidRef.current = nextBid;
     setActiveBlockBid(nextBid);
   }, [getBlockBidFromSlide]);
+
+  const updateNavState = useCallback(() => {
+    const deck = deckRef.current;
+    if (!deck) {
+      setIsPrevDisabled(true);
+      setIsNextDisabled(true);
+      return;
+    }
+    const totalSlides =
+      typeof deck.getTotalSlides === 'function' ? deck.getTotalSlides() : 0;
+    const indices = deck.getIndices?.();
+    const currentIndex = indices?.h ?? 0;
+    const isFirstSlide =
+      typeof deck.isFirstSlide === 'function'
+        ? deck.isFirstSlide()
+        : totalSlides <= 1 || currentIndex <= 0;
+    const isLastSlide =
+      typeof deck.isLastSlide === 'function'
+        ? deck.isLastSlide()
+        : totalSlides <= 1 || currentIndex >= Math.max(totalSlides - 1, 0);
+    setIsPrevDisabled(isFirstSlide);
+    setIsNextDisabled(isLastSlide);
+  }, []);
 
   const goToBlock = useCallback(
     (blockBid: string) => {
@@ -244,6 +269,7 @@ const ListenModeRenderer = ({
 
     deckRef.current.initialize().then(() => {
       syncActiveBlockFromDeck();
+      updateNavState();
     });
 
     return () => {
@@ -255,7 +281,13 @@ const ListenModeRenderer = ({
         console.warn('Reveal.js destroy 調用失敗。');
       }
     };
-  }, [chatRef, contentItems.length, isLoading, syncActiveBlockFromDeck]);
+  }, [
+    chatRef,
+    contentItems.length,
+    isLoading,
+    syncActiveBlockFromDeck,
+    updateNavState,
+  ]);
 
   useEffect(() => {
     if (!contentItems.length && deckRef.current) {
@@ -266,6 +298,8 @@ const ListenModeRenderer = ({
         console.warn('Reveal.js destroy 調用失敗。');
       } finally {
         deckRef.current = null;
+        setIsPrevDisabled(true);
+        setIsNextDisabled(true);
       }
     }
   }, [chatRef, contentItems.length, isLoading, syncActiveBlockFromDeck]);
@@ -280,6 +314,8 @@ const ListenModeRenderer = ({
       // Ignore errors when destroying reveal instance
     } finally {
       deckRef.current = null;
+      setIsPrevDisabled(true);
+      setIsNextDisabled(true);
     }
   }, [contentItems.length]);
 
@@ -291,6 +327,7 @@ const ListenModeRenderer = ({
 
     const handleSlideChanged = () => {
       syncActiveBlockFromDeck();
+      updateNavState();
     };
 
     deck.on('slidechanged', handleSlideChanged as unknown as EventListener);
@@ -300,7 +337,7 @@ const ListenModeRenderer = ({
       deck.off('slidechanged', handleSlideChanged as unknown as EventListener);
       deck.off('ready', handleSlideChanged as unknown as EventListener);
     };
-  }, [syncActiveBlockFromDeck]);
+  }, [syncActiveBlockFromDeck, updateNavState]);
 
   useEffect(() => {
     if (!deckRef.current || isLoading) {
@@ -322,6 +359,7 @@ const ListenModeRenderer = ({
     try {
       deckRef.current.sync();
       deckRef.current.layout();
+      updateNavState();
       if (pendingAutoNextRef.current) {
         const moved = goToNextBlock();
         pendingAutoNextRef.current = !moved;
@@ -342,7 +380,14 @@ const ListenModeRenderer = ({
     } catch {
       // Ignore reveal sync errors
     }
-  }, [contentItems, isAudioPlaying, isLoading, goToNextBlock, chatRef]);
+  }, [
+    contentItems,
+    isAudioPlaying,
+    isLoading,
+    goToNextBlock,
+    chatRef,
+    updateNavState,
+  ]);
 
   useEffect(() => {
     if (!activeBlockBid) {
@@ -400,25 +445,27 @@ const ListenModeRenderer = ({
 
   const onPrev = useCallback(() => {
     const deck = deckRef.current;
-    if (!deck) {
+    if (!deck || isPrevDisabled) {
       return;
     }
     deck.prev();
     currentPptPageRef.current = deck.getIndices().h;
     console.log('onPrev', currentPptPageRef.current);
     syncInteractionForCurrentPage();
-  }, [syncInteractionForCurrentPage]);
+    updateNavState();
+  }, [isPrevDisabled, syncInteractionForCurrentPage, updateNavState]);
 
   const onNext = useCallback(() => {
     const deck = deckRef.current;
-    if (!deck) {
+    if (!deck || isNextDisabled) {
       return;
     }
     deck.next();
     currentPptPageRef.current = deck.getIndices().h;
     console.log('onNext', currentPptPageRef.current);
     syncInteractionForCurrentPage();
-  }, [syncInteractionForCurrentPage]);
+    updateNavState();
+  }, [isNextDisabled, syncInteractionForCurrentPage, updateNavState]);
   // console.log('listenmoderenderer',contentItems)
   return (
     <div
@@ -473,6 +520,8 @@ const ListenModeRenderer = ({
       <ListenPlayer
         onPrev={onPrev}
         onNext={onNext}
+        prevDisabled={isPrevDisabled}
+        nextDisabled={isNextDisabled}
         interaction={currentInteraction}
         onSend={onSend}
       />
