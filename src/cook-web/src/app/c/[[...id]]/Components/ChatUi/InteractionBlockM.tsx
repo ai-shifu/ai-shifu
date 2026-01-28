@@ -78,7 +78,7 @@ export default function InteractionBlockM({
       shifu_bid,
       generated_block_bid,
       action,
-    }).catch(e => {
+    }).catch(() => {
       // errors handled by request layer toast; ignore here
     });
   };

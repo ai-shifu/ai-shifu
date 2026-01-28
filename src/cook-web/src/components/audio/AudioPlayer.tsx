@@ -138,7 +138,7 @@ export function AudioPlayer({
       try {
         sourceNodeRef.current.stop();
         sourceNodeRef.current.disconnect();
-      } catch (e) {
+      } catch {
         // Ignore errors when stopping
       }
       sourceNodeRef.current = null;
