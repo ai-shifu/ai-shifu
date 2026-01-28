@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ListenPlayer from './ListenPlayer';
 import { cn } from '@/lib/utils';
 import Reveal from 'reveal.js';
 import 'reveal.js/dist/reveal.css';
@@ -179,8 +180,7 @@ const ListenModeRenderer = ({
       // minScale: 1,
       // maxScale: 1,
       progress: false,
-      controls: false,
-      controlsTutorial: false,
+      controls: true,
     };
 
     deckRef.current = new Reveal(chatRef.current, revealOptions);
@@ -197,7 +197,7 @@ const ListenModeRenderer = ({
         console.warn('Reveal.js destroy 調用失敗。');
       }
     };
-  }, [chatRef, isLoading, contentItems.length]);
+  }, [chatRef, contentItems.length, isLoading, syncActiveBlockFromDeck]);
 
   useEffect(() => {
     if (!contentItems.length && deckRef.current) {
@@ -368,6 +368,7 @@ const ListenModeRenderer = ({
           />
         </div>
       ) : null}
+      <ListenPlayer />
     </div>
   );
 };
