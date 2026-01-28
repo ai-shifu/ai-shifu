@@ -48,7 +48,7 @@ const ListenModeRenderer = ({
   const pendingAutoNextRef = useRef(false);
   const hasAutoSlidToLatestRef = useRef(false);
   const requestedAudioBlockBidsRef = useRef<Set<string>>(new Set());
-
+  const currentPptPageRef = useRef<number>(0);
   const [activeBlockBid, setActiveBlockBid] = useState<string | null>(null);
   const activeBlockBidRef = useRef<string | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
@@ -382,6 +382,8 @@ const ListenModeRenderer = ({
       return;
     }
     deck.prev();
+    currentPptPageRef.current =  deck.getIndices().h
+    console.log('onPrev',currentPptPageRef.current)
   }, []);
 
   const onNext = useCallback(() => {
@@ -390,6 +392,8 @@ const ListenModeRenderer = ({
       return;
     }
     deck.next();
+    currentPptPageRef.current =  deck.getIndices().h
+    console.log('onNext',currentPptPageRef.current)
   }, []);
   // console.log('listenmoderenderer',contentItems)
   return (
