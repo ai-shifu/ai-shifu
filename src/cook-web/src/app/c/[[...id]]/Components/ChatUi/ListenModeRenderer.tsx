@@ -20,6 +20,7 @@ type RevealOptionsWithScrollMode = Reveal.Options & {
 type ContentItemSegments = {
   item: ChatContentItem;
   segments: RenderSegment[];
+  currentPage: number;
 };
 
 interface ListenModeRendererProps {
@@ -178,13 +179,20 @@ const ListenModeRenderer = ({
   }, [goToBlock, orderedContentBlockBids]);
 
   const contentItems = useMemo<ContentItemSegments[]>(() => {
-    return items.map(item => ({
-      item,
-      segments:
+    let pageCursor = 0;
+    return items.map(item => {
+      const segments =
         item.type === ChatContentItemType.CONTENT && !!item.content
           ? splitContentSegments(item.content || '', true)
-          : [],
-    }));
+          : [];
+      const entry = {
+        item,
+        segments,
+        currentPage: pageCursor,
+      };
+      pageCursor += segments.length;
+      return entry;
+    });
   }, [items]);
 
   useEffect(() => {
