@@ -7,7 +7,7 @@
   border-radius: 16px;
   border: 1px solid rgba(0, 0, 0, 0.05);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  width: 664px;
+  // width: 664px;
   height: 88px;
   padding: 0 40px;
   display: flex;
@@ -16,6 +16,9 @@
   gap: 40px;
   z-index: 100;
   box-sizing: border-box;
+  .interactionContainer{
+    width: 664px;
+  }
 
   .controlGroup {
     display: flex;
@@ -25,8 +28,10 @@
 
   .separator {
     width: 1px;
+    min-width: 1px;
     height: 88px;
     background: rgba(0, 0, 0, 0.1);
+    flex: 0 0 1px;
   }
 
   .controlGroup button {

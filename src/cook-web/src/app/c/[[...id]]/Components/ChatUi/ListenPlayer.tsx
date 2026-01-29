@@ -51,6 +51,9 @@ const ListenPlayer = ({
   const { t } = useTranslation();
   const [isInteractionOpen, setIsInteractionOpen] = useState(false);
   const disabledClassName = '!cursor-not-allowed !opacity-20';
+  const shouldHideUtilityControls = true;
+  const shouldHideFullscreen = true;
+  const shouldHideSubtitles = true;
 
   useEffect(() => {
     setIsInteractionOpen(Boolean(interaction));
@@ -78,7 +81,7 @@ const ListenPlayer = ({
   return (
     <div className={cn(styles.playerContainer, 'relative', className)}>
       {interaction && isInteractionOpen ? (
-        <div className='absolute left-1/2 top-0 w-full -translate-x-1/2 -translate-y-full pb-4'>
+        <div className={cn('absolute left-1/2 top-0 w-full -translate-x-1/2 -translate-y-full pb-4', styles.interactionContainer)}>
           <div className='rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-lg'>
             <div className='px-4 pt-3'>
               <p className='text-[16px] leading-[20px] text-foreground/65'>
@@ -104,22 +107,24 @@ const ListenPlayer = ({
           </div>
         </div>
       ) : null}
-      <div className={styles.controlGroup}>
-        <button
-          type='button'
-          aria-label='More options'
-          onClick={onMore}
-        >
-          <MoreVertical size={32} />
-        </button>
-        <button
-          type='button'
-          aria-label='Volume'
-          onClick={onVolume}
-        >
-          <Volume2 size={32} />
-        </button>
-      </div>
+      {!shouldHideUtilityControls ? (
+        <div className={styles.controlGroup}>
+          <button
+            type='button'
+            aria-label='More options'
+            onClick={onMore}
+          >
+            <MoreVertical size={32} />
+          </button>
+          <button
+            type='button'
+            aria-label='Volume'
+            onClick={onVolume}
+          >
+            <Volume2 size={32} />
+          </button>
+        </div>
+      ) : null}
 
       <div className={styles.controlGroup}>
         <button
@@ -163,25 +168,29 @@ const ListenPlayer = ({
         >
           <RotateCw size={32} />
         </button>
-        <button
-          type='button'
-          aria-label='Fullscreen'
-          onClick={onFullscreen}
-        >
-          <Scan size={32} />
-        </button>
+        {!shouldHideFullscreen ? (
+          <button
+            type='button'
+            aria-label='Fullscreen'
+            onClick={onFullscreen}
+          >
+            <Scan size={32} />
+          </button>
+        ) : null}
       </div>
 
       <div className={styles.separator} />
 
       <div className={styles.controlGroup}>
-        <button
-          type='button'
-          aria-label='Subtitles'
-          onClick={onSubtitles}
-        >
-          <Sparkles size={32} />
-        </button>
+        {!shouldHideSubtitles ? (
+          <button
+            type='button'
+            aria-label='Subtitles'
+            onClick={onSubtitles}
+          >
+            <Sparkles size={32} />
+          </button>
+        ) : null}
         <button
           type='button'
           aria-label='Notes'
