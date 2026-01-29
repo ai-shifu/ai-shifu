@@ -305,7 +305,6 @@ const ListenModeRenderer = ({
     }
   }, [chatRef, contentItems.length, isLoading, syncActiveBlockFromDeck]);
 
-
   useEffect(() => {
     const deck = deckRef.current;
     if (!deck) {
