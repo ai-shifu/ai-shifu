@@ -261,6 +261,7 @@ const ListenModeRenderer = ({
       // margin: 0,
       // minScale: 1,
       // maxScale: 1,
+      slideNumber: true,
       progress: false,
       controls: false,
     };
@@ -304,20 +305,6 @@ const ListenModeRenderer = ({
     }
   }, [chatRef, contentItems.length, isLoading, syncActiveBlockFromDeck]);
 
-  useEffect(() => {
-    if (contentItems.length > 0 || !deckRef.current) {
-      return;
-    }
-    try {
-      deckRef.current?.destroy();
-    } catch {
-      // Ignore errors when destroying reveal instance
-    } finally {
-      deckRef.current = null;
-      setIsPrevDisabled(true);
-      setIsNextDisabled(true);
-    }
-  }, [contentItems.length]);
 
   useEffect(() => {
     const deck = deckRef.current;

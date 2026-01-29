@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useState } from 'react';
+import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
   MoreVertical,
   Volume2,
@@ -50,13 +50,23 @@ const ListenPlayer = ({
 }: ListenPlayerProps) => {
   const { t } = useTranslation();
   const [isInteractionOpen, setIsInteractionOpen] = useState(false);
+  const lastInteractionBidRef = useRef<string | null>(null);
   const disabledClassName = '!cursor-not-allowed !opacity-20';
   const shouldHideUtilityControls = true;
   const shouldHideFullscreen = true;
   const shouldHideSubtitles = true;
 
   useEffect(() => {
-    setIsInteractionOpen(Boolean(interaction));
+    const nextBid = interaction?.generated_block_bid ?? null;
+    if (!nextBid) {
+      lastInteractionBidRef.current = null;
+      setIsInteractionOpen(false);
+      return;
+    }
+    if (lastInteractionBidRef.current !== nextBid) {
+      lastInteractionBidRef.current = nextBid;
+      setIsInteractionOpen(true);
+    }
   }, [interaction]);
 
   const handleNotesClick = useCallback(() => {
