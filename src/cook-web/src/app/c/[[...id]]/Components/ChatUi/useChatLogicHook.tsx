@@ -110,6 +110,7 @@ export interface UseChatSessionParams {
   lessonId: string;
   chapterId?: string;
   previewMode?: boolean;
+  isListenMode?: boolean;
   trackEvent: (name: string, payload?: Record<string, any>) => void;
   trackTrailProgress: (courseId: string, generatedBlockBid: string) => void;
   lessonUpdate?: (params: Record<string, any>) => void;
@@ -150,6 +151,7 @@ function useChatLogicHook({
   lessonId,
   chapterId,
   previewMode,
+  isListenMode = false,
   trackEvent,
   chatBoxBottomRef,
   trackTrailProgress,
@@ -432,21 +434,23 @@ function useChatLogicHook({
       currentContentRef.current = '';
       // setLastInteractionBlock(null);
       lastInteractionBlockRef.current = null;
-      setTrackedContentList(prev => {
-        const hasLoading = prev.some(
-          item => item.generated_block_bid === 'loading',
-        );
-        if (hasLoading) {
-          return prev;
-        }
-        const placeholderItem: ChatContentItem = {
-          generated_block_bid: 'loading',
-          content: '',
-          customRenderBar: () => <LoadingBar />,
-          type: ChatContentItemType.CONTENT,
-        };
-        return [...prev, placeholderItem];
-      });
+      if (!isListenMode) {
+        setTrackedContentList(prev => {
+          const hasLoading = prev.some(
+            item => item.generated_block_bid === 'loading',
+          );
+          if (hasLoading) {
+            return prev;
+          }
+          const placeholderItem: ChatContentItem = {
+            generated_block_bid: 'loading',
+            content: '',
+            customRenderBar: () => <LoadingBar />,
+            type: ChatContentItemType.CONTENT,
+          };
+          return [...prev, placeholderItem];
+        });
+      }
 
       let isEnd = false;
 
@@ -697,6 +701,7 @@ function useChatLogicHook({
     [
       chapterUpdate,
       effectivePreviewMode,
+      isListenMode,
       lessonUpdateResp,
       outlineBid,
       isTypeFinishedRef,
@@ -1026,13 +1031,15 @@ function useChatLogicHook({
           defaultInputText: params.inputText || '',
           defaultSelectedValues: params.selectedValues,
         };
-        newList.length = needChangeItemIndex + 1;
+        if (!isListenMode) {
+          newList.length = needChangeItemIndex + 1;
+        }
         setTrackedContentList(newList);
       }
 
       return { newList, needChangeItemIndex };
     },
-    [setTrackedContentList],
+    [isListenMode, setTrackedContentList],
   );
 
   /**
