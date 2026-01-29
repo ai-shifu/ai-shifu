@@ -144,6 +144,45 @@ const ListenModeRenderer = ({
     return slide.getAttribute('data-generated-block-bid') || null;
   }, []);
 
+  const { contentItems, interactionByPage } = useMemo(() => {
+    let pageCursor = 0;
+    const mapping = new Map<number, ChatContentItem>();
+    const nextContentItems = items.map(item => {
+      const segments =
+        item.type === ChatContentItemType.CONTENT && !!item.content
+          ? splitContentSegments(item.content || '')
+          : [];
+      const currentPage =
+        segments.length > 0 && pageCursor === 0 ? 1 : pageCursor;
+      const entry = {
+        item,
+        segments,
+        currentPage,
+      };
+      if (item.type === ChatContentItemType.INTERACTION) {
+        mapping.set(entry.currentPage - 1, item);
+      }
+      pageCursor += segments.length;
+      return entry;
+    });
+    // console.log('interactionByPage', mapping);
+    return { contentItems: nextContentItems, interactionByPage: mapping };
+  }, [items]);
+
+  const shouldRenderEmptyPpt = useMemo(() => {
+    if (isLoading) {
+      return false;
+    }
+    if (!contentItems.length) {
+      return true;
+    }
+    const allSegmentsEmpty = contentItems.every(
+      ({ segments }) => segments.length === 0,
+    );
+    const lastPage = contentItems[contentItems.length - 1]?.currentPage ?? 0;
+    return allSegmentsEmpty || lastPage === 0;
+  }, [contentItems, isLoading]);
+
   const syncActiveBlockFromDeck = useCallback(() => {
     const deck = deckRef.current;
     if (!deck) {
@@ -154,9 +193,16 @@ const ListenModeRenderer = ({
     if (!nextBid || nextBid === activeBlockBidRef.current) {
       return;
     }
+    if (shouldRenderEmptyPpt) {
+      if (!activeBlockBidRef.current?.startsWith('empty-ppt-')) {
+        activeBlockBidRef.current = nextBid;
+        setActiveBlockBid(nextBid);
+      }
+      return;
+    }
     activeBlockBidRef.current = nextBid;
     setActiveBlockBid(nextBid);
-  }, [getBlockBidFromSlide]);
+  }, [getBlockBidFromSlide, shouldRenderEmptyPpt]);
 
   const updateNavState = useCallback(() => {
     const deck = deckRef.current;
@@ -206,52 +252,40 @@ const ListenModeRenderer = ({
     [chatRef],
   );
 
+  const getNextContentBid = useCallback(
+    (currentBid: string | null) => {
+      if (!currentBid) {
+        return null;
+      }
+      const currentIndex = orderedContentBlockBids.indexOf(currentBid);
+      if (currentIndex < 0) {
+        return null;
+      }
+
+      for (
+        let i = currentIndex + 1;
+        i < orderedContentBlockBids.length;
+        i += 1
+      ) {
+        const nextBid = orderedContentBlockBids[i];
+        if (!nextBid || nextBid === 'loading') {
+          continue;
+        }
+        return nextBid;
+      }
+      return null;
+    },
+    [orderedContentBlockBids],
+  );
+
   const goToNextBlock = useCallback(() => {
     const currentBid = resolveContentBid(activeBlockBidRef.current);
-    if (!currentBid) {
+    const nextBid = getNextContentBid(currentBid);
+    if (!nextBid) {
       return false;
     }
-    const currentIndex = orderedContentBlockBids.indexOf(currentBid);
-    if (currentIndex < 0) {
-      return false;
-    }
-
-    for (let i = currentIndex + 1; i < orderedContentBlockBids.length; i += 1) {
-      const nextBid = orderedContentBlockBids[i];
-      if (!nextBid || nextBid === 'loading') {
-        continue;
-      }
-      if (goToBlock(nextBid)) {
-        return true;
-      }
-    }
-    return false;
-  }, [goToBlock, orderedContentBlockBids, resolveContentBid]);
-
-  const { contentItems, interactionByPage } = useMemo(() => {
-    let pageCursor = 0;
-    const mapping = new Map<number, ChatContentItem>();
-    const nextContentItems = items.map(item => {
-      const segments =
-        item.type === ChatContentItemType.CONTENT && !!item.content
-          ? splitContentSegments(item.content || '')
-          : [];
-      const currentPage =
-        segments.length > 0 && pageCursor === 0 ? 1 : pageCursor;
-      const entry = {
-        item,
-        segments,
-        currentPage,
-      };
-      if (item.type === ChatContentItemType.INTERACTION) {
-        mapping.set(entry.currentPage - 1, item);
-      }
-      pageCursor += segments.length;
-      return entry;
-    });
-    // console.log('interactionByPage', mapping);
-    return { contentItems: nextContentItems, interactionByPage: mapping };
-  }, [items]);
+    return goToBlock(nextBid);
+  }, [getNextContentBid, goToBlock, resolveContentBid]);
 
   const firstContentItem = useMemo(() => {
     for (let i = 0; i < items.length; i += 1) {
@@ -267,19 +301,7 @@ const ListenModeRenderer = ({
     return null;
   }, [items]);
 
-  const shouldRenderEmptyPpt = useMemo(() => {
-    if (isLoading) {
-      return false;
-    }
-    if (!contentItems.length) {
-      return true;
-    }
-    const allSegmentsEmpty = contentItems.every(
-      ({ segments }) => segments.length === 0,
-    );
-    const lastPage = contentItems[contentItems.length - 1]?.currentPage ?? 0;
-    return allSegmentsEmpty || lastPage === 0;
-  }, [contentItems, isLoading]);
+
 
   const emptySlideBlockBid = firstContentItem?.generated_block_bid
     ? `empty-ppt-${firstContentItem.generated_block_bid}`
@@ -510,11 +532,23 @@ const ListenModeRenderer = ({
   ]);
 
   const handleAudioEnded = useCallback(() => {
-    const moved = goToNextBlock();
-    if (!moved) {
-      pendingAutoNextRef.current = true;
+    const currentBid = resolveContentBid(activeBlockBidRef.current);
+    const nextBid = getNextContentBid(currentBid);
+    if (!nextBid) {
+      return;
     }
-  }, [goToNextBlock]);
+    const moved = goToBlock(nextBid);
+    if (moved) {
+      return;
+    }
+    if (shouldRenderEmptyPpt) {
+      const nextSlideBid = `empty-ppt-${nextBid}`;
+      activeBlockBidRef.current = nextSlideBid;
+      setActiveBlockBid(nextSlideBid);
+      return;
+    }
+    pendingAutoNextRef.current = true;
+  }, [getNextContentBid, goToBlock, resolveContentBid, shouldRenderEmptyPpt]);
 
   const handleTogglePlay = useCallback(() => {
     if (previewMode) {
