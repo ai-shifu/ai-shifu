@@ -1,12 +1,11 @@
 import { memo, useCallback } from 'react';
 import { useLongPress } from 'react-use';
 import { isEqual } from 'lodash';
-// TODO@XJL
-// import ContentRender from '../../../../../../../../../markdown-flow-ui/src/components/ContentRender/ContentRender';
 import { ContentRender } from 'markdown-flow-ui/renderer';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { cn } from '@/lib/utils';
 import type { ChatContentItem } from './useChatLogicHook';
+import { AudioPlayer } from '@/components/audio/AudioPlayer';
 
 interface ContentBlockProps {
   item: ChatContentItem;
@@ -18,6 +17,9 @@ interface ContentBlockProps {
   onClickCustomButtonAfterContent?: (blockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onLongPress?: (event: any, item: ChatContentItem) => void;
+  autoPlayAudio?: boolean;
+  onAudioPlayStateChange?: (blockBid: string, isPlaying: boolean) => void;
+  onAudioEnded?: (blockBid: string) => void;
 }
 
 const ContentBlock = memo(
@@ -31,6 +33,9 @@ const ContentBlock = memo(
     onClickCustomButtonAfterContent,
     onSend,
     onLongPress,
+    autoPlayAudio = false,
+    onAudioPlayStateChange,
+    onAudioEnded,
   }: ContentBlockProps) => {
     const handleClick = useCallback(() => {
       onClickCustomButtonAfterContent?.(blockBid);
@@ -57,13 +62,18 @@ const ContentBlock = memo(
       [onSend, blockBid],
     );
 
+    const hasAudioContent = Boolean(
+      item.isAudioStreaming ||
+      (item.audioSegments && item.audioSegments.length > 0) ||
+      item.audioUrl,
+    );
+
     return (
       <div
         className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
         {...(mobileStyle ? longPressEvent : {})}
       >
         <ContentRender
-          // typingSpeed={20}
           enableTypewriter={false}
           content={item.content || ''}
           onClickCustomButtonAfterContent={handleClick}
@@ -77,6 +87,23 @@ const ContentBlock = memo(
           copiedButtonText={copiedButtonText}
           onSend={_onSend}
         />
+        {mobileStyle && hasAudioContent ? (
+          <div className='mt-2 flex justify-end'>
+            <AudioPlayer
+              audioUrl={item.audioUrl}
+              streamingSegments={item.audioSegments}
+              isStreaming={Boolean(item.isAudioStreaming)}
+              autoPlay={autoPlayAudio}
+              onPlayStateChange={
+                onAudioPlayStateChange
+                  ? isPlaying => onAudioPlayStateChange(blockBid, isPlaying)
+                  : undefined
+              }
+              onEnded={onAudioEnded ? () => onAudioEnded(blockBid) : undefined}
+              size={16}
+            />
+          </div>
+        ) : null}
       </div>
     );
   },
@@ -95,7 +122,14 @@ const ContentBlock = memo(
       prevProps.blockBid === nextProps.blockBid &&
       prevProps.confirmButtonText === nextProps.confirmButtonText &&
       prevProps.copyButtonText === nextProps.copyButtonText &&
-      prevProps.copiedButtonText === nextProps.copiedButtonText
+      prevProps.copiedButtonText === nextProps.copiedButtonText &&
+      Boolean(prevProps.autoPlayAudio) === Boolean(nextProps.autoPlayAudio) &&
+      // Audio state (mobile only rendering)
+      (prevProps.item.audioUrl ?? '') === (nextProps.item.audioUrl ?? '') &&
+      Boolean(prevProps.item.isAudioStreaming) ===
+        Boolean(nextProps.item.isAudioStreaming) &&
+      (prevProps.item.audioSegments?.length ?? 0) ===
+        (nextProps.item.audioSegments?.length ?? 0)
     );
   },
 );
