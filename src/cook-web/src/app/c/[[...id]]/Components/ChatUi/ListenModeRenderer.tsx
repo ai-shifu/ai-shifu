@@ -21,12 +21,6 @@ type RevealOptionsWithScrollMode = Reveal.Options & {
   scrollMode?: 'classic' | 'scroll';
 };
 
-type ContentItemSegments = {
-  item: ChatContentItem;
-  segments: RenderSegment[];
-  currentPage: number;
-};
-
 interface ListenModeRendererProps {
   items: ChatContentItem[];
   mobileStyle: boolean;
@@ -119,12 +113,29 @@ const ListenModeRenderer = ({
     return ready;
   }, [items]);
 
+  const resolveContentBid = useCallback((blockBid: string | null) => {
+    if (!blockBid) {
+      return null;
+    }
+    const emptyPrefix = 'empty-ppt-';
+    if (!blockBid.startsWith(emptyPrefix)) {
+      return blockBid;
+    }
+    const resolved = blockBid.slice(emptyPrefix.length);
+    return resolved || null;
+  }, []);
+
+  const activeAudioBlockBid = useMemo(
+    () => resolveContentBid(activeBlockBid),
+    [activeBlockBid, resolveContentBid],
+  );
+
   const activeContentItem = useMemo(() => {
-    if (!activeBlockBid) {
+    if (!activeAudioBlockBid) {
       return undefined;
     }
-    return contentByBid.get(activeBlockBid);
-  }, [activeBlockBid, contentByBid]);
+    return contentByBid.get(activeAudioBlockBid);
+  }, [activeAudioBlockBid, contentByBid]);
 
   const getBlockBidFromSlide = useCallback((slide: HTMLElement | null) => {
     if (!slide) {
@@ -177,9 +188,13 @@ const ListenModeRenderer = ({
         return false;
       }
 
-      const section = chatRef.current.querySelector(
-        `section[data-generated-block-bid="${blockBid}"]`,
-      ) as HTMLElement | null;
+      const section =
+        (chatRef.current.querySelector(
+          `section[data-generated-block-bid="${blockBid}"]`,
+        ) as HTMLElement | null) ||
+        (chatRef.current.querySelector(
+          `section[data-generated-block-bid="empty-ppt-${blockBid}"]`,
+        ) as HTMLElement | null);
       if (!section) {
         return false;
       }
@@ -192,7 +207,7 @@ const ListenModeRenderer = ({
   );
 
   const goToNextBlock = useCallback(() => {
-    const currentBid = activeBlockBidRef.current;
+    const currentBid = resolveContentBid(activeBlockBidRef.current);
     if (!currentBid) {
       return false;
     }
@@ -211,7 +226,7 @@ const ListenModeRenderer = ({
       }
     }
     return false;
-  }, [goToBlock, orderedContentBlockBids]);
+  }, [goToBlock, orderedContentBlockBids, resolveContentBid]);
 
   const { contentItems, interactionByPage } = useMemo(() => {
     let pageCursor = 0;
@@ -219,12 +234,14 @@ const ListenModeRenderer = ({
     const nextContentItems = items.map(item => {
       const segments =
         item.type === ChatContentItemType.CONTENT && !!item.content
-          ? splitContentSegments(item.content || '', true)
+          ? splitContentSegments(item.content || '')
           : [];
+      const currentPage =
+        segments.length > 0 && pageCursor === 0 ? 1 : pageCursor;
       const entry = {
         item,
         segments,
-        currentPage: pageCursor,
+        currentPage,
       };
       if (item.type === ChatContentItemType.INTERACTION) {
         mapping.set(entry.currentPage - 1, item);
@@ -235,6 +252,38 @@ const ListenModeRenderer = ({
     // console.log('interactionByPage', mapping);
     return { contentItems: nextContentItems, interactionByPage: mapping };
   }, [items]);
+
+  const firstContentItem = useMemo(() => {
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i];
+      if (
+        item.type === ChatContentItemType.CONTENT &&
+        item.generated_block_bid &&
+        item.generated_block_bid !== 'loading'
+      ) {
+        return item;
+      }
+    }
+    return null;
+  }, [items]);
+
+  const shouldRenderEmptyPpt = useMemo(() => {
+    if (isLoading) {
+      return false;
+    }
+    if (!contentItems.length) {
+      return true;
+    }
+    const allSegmentsEmpty = contentItems.every(
+      ({ segments }) => segments.length === 0,
+    );
+    const lastPage = contentItems[contentItems.length - 1]?.currentPage ?? 0;
+    return allSegmentsEmpty || lastPage === 0;
+  }, [contentItems, isLoading]);
+
+  const emptySlideBlockBid = firstContentItem?.generated_block_bid
+    ? `empty-ppt-${firstContentItem.generated_block_bid}`
+    : 'empty-ppt';
 
   const syncInteractionForCurrentPage = useCallback(
     (pageIndex?: number) => {
@@ -421,16 +470,16 @@ const ListenModeRenderer = ({
   ]);
 
   useEffect(() => {
-    if (!activeBlockBid) {
+    if (!activeAudioBlockBid) {
       return;
     }
-    const item = contentByBid.get(activeBlockBid);
+    const item = contentByBid.get(activeAudioBlockBid);
     if (!item) {
       return;
     }
 
     const isBlockReadyForTts =
-      Boolean(item.isHistory) || ttsReadyBlockBids.has(activeBlockBid);
+      Boolean(item.isHistory) || ttsReadyBlockBids.has(activeAudioBlockBid);
     if (!isBlockReadyForTts) {
       return;
     }
@@ -445,15 +494,15 @@ const ListenModeRenderer = ({
       !hasAudio &&
       onRequestAudioForBlock &&
       !previewMode &&
-      !requestedAudioBlockBidsRef.current.has(activeBlockBid)
+      !requestedAudioBlockBidsRef.current.has(activeAudioBlockBid)
     ) {
-      requestedAudioBlockBidsRef.current.add(activeBlockBid);
-      onRequestAudioForBlock(activeBlockBid).catch(() => {
+      requestedAudioBlockBidsRef.current.add(activeAudioBlockBid);
+      onRequestAudioForBlock(activeAudioBlockBid).catch(() => {
         // errors handled by request layer toast; ignore here
       });
     }
   }, [
-    activeBlockBid,
+    activeAudioBlockBid,
     contentByBid,
     onRequestAudioForBlock,
     previewMode,
@@ -519,9 +568,6 @@ const ListenModeRenderer = ({
             contentItems.map(({ item, segments }, idx) => {
               const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
               console.log('segments', segments);
-              if (segments.length === 0) {
-                return null;
-              }
               return (
                 <ContentIframe
                   key={baseKey}
@@ -533,6 +579,16 @@ const ListenModeRenderer = ({
                 />
               );
             })}
+          {shouldRenderEmptyPpt ? (
+            <section
+              data-auto-animate
+              data-generated-block-bid={emptySlideBlockBid}
+            >
+              <div className='w-full h-full font-bold flex items-center justify-center text-primary'>
+                {sectionTitle}
+              </div>
+            </section>
+          ) : null}
         </div>
       </div>
       {activeContentItem ? (
@@ -546,8 +602,8 @@ const ListenModeRenderer = ({
             alwaysVisible={true}
             disabled={previewMode}
             onRequestAudio={
-              !previewMode && onRequestAudioForBlock && activeBlockBid
-                ? () => onRequestAudioForBlock(activeBlockBid)
+              !previewMode && onRequestAudioForBlock && activeAudioBlockBid
+                ? () => onRequestAudioForBlock(activeAudioBlockBid)
                 : undefined
             }
             autoPlay={!previewMode}
