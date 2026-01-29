@@ -7,7 +7,10 @@ import 'reveal.js/dist/theme/white.css';
 import ContentIframe from './ContentIframe';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import './ListenModeRenderer.scss';
-import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import {
+  AudioPlayer,
+  type AudioPlayerHandle,
+} from '@/components/audio/AudioPlayer';
 import {
   splitContentSegments,
   type RenderSegment,
@@ -48,6 +51,7 @@ const ListenModeRenderer = ({
   onSend,
 }: ListenModeRendererProps) => {
   const deckRef = useRef<Reveal.Api | null>(null);
+  const audioPlayerRef = useRef<AudioPlayerHandle | null>(null);
   const pendingAutoNextRef = useRef(false);
   const hasAutoSlidToLatestRef = useRef(false);
   const requestedAudioBlockBidsRef = useRef<Set<string>>(new Set());
@@ -460,6 +464,13 @@ const ListenModeRenderer = ({
     }
   }, [goToNextBlock]);
 
+  const handleTogglePlay = useCallback(() => {
+    if (previewMode) {
+      return;
+    }
+    audioPlayerRef.current?.togglePlay();
+  }, [previewMode]);
+
   useEffect(() => {
     if (!activeBlockBid) {
       return;
@@ -521,8 +532,9 @@ const ListenModeRenderer = ({
         </div>
       </div>
       {activeContentItem ? (
-        <div className='listen-audio-controls'>
+        <div className={cn('listen-audio-controls', 'hidden')}>
           <AudioPlayer
+            ref={audioPlayerRef}
             key={activeBlockBid ?? 'listen-audio'}
             audioUrl={activeContentItem.audioUrl}
             streamingSegments={activeContentItem.audioSegments}
@@ -541,14 +553,16 @@ const ListenModeRenderer = ({
           />
         </div>
       ) : null}
-      <ListenPlayer
-        onPrev={onPrev}
-        onNext={onNext}
-        prevDisabled={isPrevDisabled}
-        nextDisabled={isNextDisabled}
-        interaction={currentInteraction}
-        onSend={onSend}
-      />
+        <ListenPlayer
+          onPrev={onPrev}
+          onPlay={handleTogglePlay}
+          onNext={onNext}
+          prevDisabled={isPrevDisabled}
+          nextDisabled={isNextDisabled}
+          isAudioPlaying={isAudioPlaying}
+          interaction={currentInteraction}
+          onSend={onSend}
+        />
     </div>
   );
 };

@@ -29,6 +29,7 @@ interface ListenPlayerProps {
   onNotes?: () => void;
   prevDisabled?: boolean;
   nextDisabled?: boolean;
+  isAudioPlaying?: boolean;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
   interaction?: ChatContentItem | null;
 }
@@ -45,6 +46,7 @@ const ListenPlayer = ({
   onNotes,
   prevDisabled = false,
   nextDisabled = false,
+  isAudioPlaying = false,
   interaction,
   onSend,
 }: ListenPlayerProps) => {
@@ -157,22 +159,41 @@ const ListenPlayer = ({
           className={styles.playButton}
           onClick={onPlay}
         >
-          <svg
-            xmlns='http://www.w3.org/2000/svg'
-            width='34'
-            height='34'
-            viewBox='0 0 34 34'
-            fill='none'
-          >
-            <path
-              d='M16.6667 33.3333C25.8714 33.3333 33.3333 25.8714 33.3333 16.6667C33.3333 7.46192 25.8714 0 16.6667 0C7.46192 0 0 7.46192 0 16.6667C0 25.8714 7.46192 33.3333 16.6667 33.3333Z'
-              fill='#0A0A0A'
-            />
-            <path
-              d='M13.3333 10L23.3333 16.6667L13.3333 23.3333V10Z'
-              fill='white'
-            />
-          </svg>
+          {isAudioPlaying ? (
+            <svg
+              xmlns='http://www.w3.org/2000/svg'
+              width='34'
+              height='34'
+              viewBox='0 0 34 34'
+              fill='none'
+            >
+              <path
+                d='M16.6667 33.3333C25.8714 33.3333 33.3333 25.8714 33.3333 16.6667C33.3333 7.46192 25.8714 0 16.6667 0C7.46192 0 0 7.46192 0 16.6667C0 25.8714 7.46192 33.3333 16.6667 33.3333Z'
+                fill='#0A0A0A'
+              />
+              <path
+                d='M12 10H16V24H12V10ZM18 10H22V24H18V10Z'
+                fill='white'
+              />
+            </svg>
+          ) : (
+            <svg
+              xmlns='http://www.w3.org/2000/svg'
+              width='34'
+              height='34'
+              viewBox='0 0 34 34'
+              fill='none'
+            >
+              <path
+                d='M16.6667 33.3333C25.8714 33.3333 33.3333 25.8714 33.3333 16.6667C33.3333 7.46192 25.8714 0 16.6667 0C7.46192 0 0 7.46192 0 16.6667C0 25.8714 7.46192 33.3333 16.6667 33.3333Z'
+                fill='#0A0A0A'
+              />
+              <path
+                d='M13.3333 10L23.3333 16.6667L13.3333 23.3333V10Z'
+                fill='white'
+              />
+            </svg>
+          )}
         </button>
         <button
           type='button'
