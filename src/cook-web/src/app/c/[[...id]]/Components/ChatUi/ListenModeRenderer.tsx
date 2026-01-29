@@ -232,7 +232,7 @@ const ListenModeRenderer = ({
       pageCursor += segments.length;
       return entry;
     });
-    console.log('interactionByPage', mapping);
+    // console.log('interactionByPage', mapping);
     return { contentItems: nextContentItems, interactionByPage: mapping };
   }, [items]);
 
@@ -376,26 +376,26 @@ const ListenModeRenderer = ({
     try {
       deckRef.current.sync();
       deckRef.current.layout();
-      updateNavState();
+      const indices = deckRef.current.getIndices?.();
       const prevSlidesLength = prevSlidesLengthRef.current;
       const nextSlidesLength = slides.length;
-      if (pendingAutoNextRef.current) {
-        const moved = goToNextBlock();
-        pendingAutoNextRef.current = !moved;
-      }
-
-      if (isAudioPlaying) {
-        prevSlidesLengthRef.current = nextSlidesLength;
-        return;
-      }
-
       const lastIndex = Math.max(nextSlidesLength - 1, 0);
-      const currentIndex = deckRef.current.getIndices()?.h ?? 0;
+      const currentIndex = indices?.h ?? 0;
       const prevLastIndex = Math.max(prevSlidesLength - 1, 0);
       const shouldAutoFollowOnAppend =
         prevSlidesLength > 0 &&
         nextSlidesLength > prevSlidesLength &&
         currentIndex >= prevLastIndex;
+      if (pendingAutoNextRef.current) {
+        const moved = goToNextBlock();
+        pendingAutoNextRef.current = !moved;
+      }
+
+      if (isAudioPlaying && !shouldAutoFollowOnAppend) {
+        prevSlidesLengthRef.current = nextSlidesLength;
+        return;
+      }
+
       const shouldFollowLatest =
         shouldAutoFollowOnAppend ||
         !hasAutoSlidToLatestRef.current ||
@@ -403,7 +403,10 @@ const ListenModeRenderer = ({
       if (shouldFollowLatest) {
         deckRef.current.slide(lastIndex);
         hasAutoSlidToLatestRef.current = true;
+      } else if (indices) {
+        deckRef.current.slide(indices.h, indices.v, indices.f);
       }
+      updateNavState();
       prevSlidesLengthRef.current = nextSlidesLength;
     } catch {
       // Ignore reveal sync errors
@@ -515,6 +518,7 @@ const ListenModeRenderer = ({
           {!isLoading &&
             contentItems.map(({ item, segments }, idx) => {
               const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
+              console.log('segments', segments);
               if (segments.length === 0) {
                 return null;
               }
