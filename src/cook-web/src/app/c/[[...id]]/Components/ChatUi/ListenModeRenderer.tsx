@@ -52,6 +52,7 @@ const ListenModeRenderer = ({
   const hasAutoSlidToLatestRef = useRef(false);
   const requestedAudioBlockBidsRef = useRef<Set<string>>(new Set());
   const currentPptPageRef = useRef<number>(0);
+  const prevSlidesLengthRef = useRef(0);
   const [activeBlockBid, setActiveBlockBid] = useState<string | null>(null);
   const [currentInteraction, setCurrentInteraction] =
     useState<ChatContentItem | null>(null);
@@ -231,12 +232,27 @@ const ListenModeRenderer = ({
     return { contentItems: nextContentItems, interactionByPage: mapping };
   }, [items]);
 
-  const syncInteractionForCurrentPage = useCallback(() => {
-    // console.log('syncInteractionForCurrentPage',currentPptPageRef.current, interactionByPage.get(currentPptPageRef.current))
-    setCurrentInteraction(
-      interactionByPage.get(currentPptPageRef.current) ?? null,
-    );
-  }, [interactionByPage]);
+  const syncInteractionForCurrentPage = useCallback(
+    (pageIndex?: number) => {
+      const targetPage =
+        typeof pageIndex === 'number' ? pageIndex : currentPptPageRef.current;
+      setCurrentInteraction(interactionByPage.get(targetPage) ?? null);
+    },
+    [interactionByPage],
+  );
+
+  const syncPptPageFromDeck = useCallback(() => {
+    const deck = deckRef.current;
+    if (!deck) {
+      return;
+    }
+    const nextIndex = deck.getIndices()?.h ?? 0;
+    if (currentPptPageRef.current === nextIndex) {
+      return;
+    }
+    currentPptPageRef.current = nextIndex;
+    syncInteractionForCurrentPage(nextIndex);
+  }, [syncInteractionForCurrentPage]);
 
   useEffect(() => {
     syncInteractionForCurrentPage();
@@ -270,23 +286,15 @@ const ListenModeRenderer = ({
 
     deckRef.current.initialize().then(() => {
       syncActiveBlockFromDeck();
+      syncPptPageFromDeck();
       updateNavState();
     });
-
-    return () => {
-      try {
-        deckRef.current?.destroy();
-        deckRef.current = null;
-        hasAutoSlidToLatestRef.current = false;
-      } catch (e) {
-        console.warn('Reveal.js destroy 調用失敗。');
-      }
-    };
   }, [
     chatRef,
     contentItems.length,
     isLoading,
     syncActiveBlockFromDeck,
+    syncPptPageFromDeck,
     updateNavState,
   ]);
 
@@ -299,11 +307,29 @@ const ListenModeRenderer = ({
         console.warn('Reveal.js destroy 調用失敗。');
       } finally {
         deckRef.current = null;
+        hasAutoSlidToLatestRef.current = false;
         setIsPrevDisabled(true);
         setIsNextDisabled(true);
       }
     }
   }, [chatRef, contentItems.length, isLoading, syncActiveBlockFromDeck]);
+
+  useEffect(() => {
+    return () => {
+      if (!deckRef.current) {
+        return;
+      }
+      try {
+        deckRef.current?.destroy();
+      } catch (e) {
+        console.warn('Reveal.js destroy 調用失敗。');
+      } finally {
+        deckRef.current = null;
+        hasAutoSlidToLatestRef.current = false;
+        prevSlidesLengthRef.current = 0;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const deck = deckRef.current;
@@ -313,6 +339,7 @@ const ListenModeRenderer = ({
 
     const handleSlideChanged = () => {
       syncActiveBlockFromDeck();
+      syncPptPageFromDeck();
       updateNavState();
     };
 
@@ -323,7 +350,7 @@ const ListenModeRenderer = ({
       deck.off('slidechanged', handleSlideChanged as unknown as EventListener);
       deck.off('ready', handleSlideChanged as unknown as EventListener);
     };
-  }, [syncActiveBlockFromDeck, updateNavState]);
+  }, [syncActiveBlockFromDeck, syncPptPageFromDeck, updateNavState]);
 
   useEffect(() => {
     if (!deckRef.current || isLoading) {
@@ -346,23 +373,34 @@ const ListenModeRenderer = ({
       deckRef.current.sync();
       deckRef.current.layout();
       updateNavState();
+      const prevSlidesLength = prevSlidesLengthRef.current;
+      const nextSlidesLength = slides.length;
       if (pendingAutoNextRef.current) {
         const moved = goToNextBlock();
         pendingAutoNextRef.current = !moved;
       }
 
       if (isAudioPlaying) {
+        prevSlidesLengthRef.current = nextSlidesLength;
         return;
       }
 
-      const lastIndex = Math.max(slides.length - 1, 0);
+      const lastIndex = Math.max(nextSlidesLength - 1, 0);
       const currentIndex = deckRef.current.getIndices()?.h ?? 0;
+      const prevLastIndex = Math.max(prevSlidesLength - 1, 0);
+      const shouldAutoFollowOnAppend =
+        prevSlidesLength > 0 &&
+        nextSlidesLength > prevSlidesLength &&
+        currentIndex >= prevLastIndex;
       const shouldFollowLatest =
-        !hasAutoSlidToLatestRef.current || currentIndex >= lastIndex;
+        shouldAutoFollowOnAppend ||
+        !hasAutoSlidToLatestRef.current ||
+        currentIndex >= lastIndex;
       if (shouldFollowLatest) {
         deckRef.current.slide(lastIndex);
         hasAutoSlidToLatestRef.current = true;
       }
+      prevSlidesLengthRef.current = nextSlidesLength;
     } catch {
       // Ignore reveal sync errors
     }
@@ -437,7 +475,7 @@ const ListenModeRenderer = ({
     deck.prev();
     currentPptPageRef.current = deck.getIndices().h;
     console.log('onPrev', currentPptPageRef.current);
-    syncInteractionForCurrentPage();
+    syncInteractionForCurrentPage(currentPptPageRef.current);
     updateNavState();
   }, [isPrevDisabled, syncInteractionForCurrentPage, updateNavState]);
 
@@ -449,7 +487,7 @@ const ListenModeRenderer = ({
     deck.next();
     currentPptPageRef.current = deck.getIndices().h;
     console.log('onNext', currentPptPageRef.current);
-    syncInteractionForCurrentPage();
+    syncInteractionForCurrentPage(currentPptPageRef.current);
     updateNavState();
   }, [isNextDisabled, syncInteractionForCurrentPage, updateNavState]);
   // console.log('listenmoderenderer',contentItems)
