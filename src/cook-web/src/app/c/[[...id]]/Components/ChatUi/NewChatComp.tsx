@@ -141,6 +141,7 @@ export const NewChatComponents = ({
     })),
   );
   const learningMode = useSystemStore(state => state.learningMode);
+  const isListenMode = learningMode === 'listen';
 
   const onPayModalOpen = useCallback(() => {
     openPayModal();
@@ -188,6 +189,7 @@ export const NewChatComponents = ({
     lessonId,
     chapterId,
     previewMode,
+    isListenMode,
     trackEvent,
     chatBoxBottomRef,
     trackTrailProgress,
@@ -405,7 +407,6 @@ export const NewChatComponents = ({
     }
   }, [mobileStyle]);
 
-  const isListenMode = learningMode === 'listen';
   const containerClassName = cn(
     styles.chatComponents,
     className,

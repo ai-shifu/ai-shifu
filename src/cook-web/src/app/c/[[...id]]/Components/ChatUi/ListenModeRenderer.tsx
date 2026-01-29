@@ -7,7 +7,10 @@ import 'reveal.js/dist/theme/white.css';
 import ContentIframe from './ContentIframe';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import './ListenModeRenderer.scss';
-import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import {
+  AudioPlayer,
+  type AudioPlayerHandle,
+} from '@/components/audio/AudioPlayer';
 import {
   splitContentSegments,
   type RenderSegment,
@@ -48,10 +51,12 @@ const ListenModeRenderer = ({
   onSend,
 }: ListenModeRendererProps) => {
   const deckRef = useRef<Reveal.Api | null>(null);
+  const audioPlayerRef = useRef<AudioPlayerHandle | null>(null);
   const pendingAutoNextRef = useRef(false);
   const hasAutoSlidToLatestRef = useRef(false);
   const requestedAudioBlockBidsRef = useRef<Set<string>>(new Set());
   const currentPptPageRef = useRef<number>(0);
+  const prevSlidesLengthRef = useRef(0);
   const [activeBlockBid, setActiveBlockBid] = useState<string | null>(null);
   const [currentInteraction, setCurrentInteraction] =
     useState<ChatContentItem | null>(null);
@@ -227,16 +232,31 @@ const ListenModeRenderer = ({
       pageCursor += segments.length;
       return entry;
     });
-    console.log('interactionByPage', mapping);
+    // console.log('interactionByPage', mapping);
     return { contentItems: nextContentItems, interactionByPage: mapping };
   }, [items]);
 
-  const syncInteractionForCurrentPage = useCallback(() => {
-    // console.log('syncInteractionForCurrentPage',currentPptPageRef.current, interactionByPage.get(currentPptPageRef.current))
-    setCurrentInteraction(
-      interactionByPage.get(currentPptPageRef.current) ?? null,
-    );
-  }, [interactionByPage]);
+  const syncInteractionForCurrentPage = useCallback(
+    (pageIndex?: number) => {
+      const targetPage =
+        typeof pageIndex === 'number' ? pageIndex : currentPptPageRef.current;
+      setCurrentInteraction(interactionByPage.get(targetPage) ?? null);
+    },
+    [interactionByPage],
+  );
+
+  const syncPptPageFromDeck = useCallback(() => {
+    const deck = deckRef.current;
+    if (!deck) {
+      return;
+    }
+    const nextIndex = deck.getIndices()?.h ?? 0;
+    if (currentPptPageRef.current === nextIndex) {
+      return;
+    }
+    currentPptPageRef.current = nextIndex;
+    syncInteractionForCurrentPage(nextIndex);
+  }, [syncInteractionForCurrentPage]);
 
   useEffect(() => {
     syncInteractionForCurrentPage();
@@ -261,6 +281,7 @@ const ListenModeRenderer = ({
       // margin: 0,
       // minScale: 1,
       // maxScale: 1,
+      slideNumber: true,
       progress: false,
       controls: false,
     };
@@ -269,23 +290,15 @@ const ListenModeRenderer = ({
 
     deckRef.current.initialize().then(() => {
       syncActiveBlockFromDeck();
+      syncPptPageFromDeck();
       updateNavState();
     });
-
-    return () => {
-      try {
-        deckRef.current?.destroy();
-        deckRef.current = null;
-        hasAutoSlidToLatestRef.current = false;
-      } catch (e) {
-        console.warn('Reveal.js destroy 調用失敗。');
-      }
-    };
   }, [
     chatRef,
     contentItems.length,
     isLoading,
     syncActiveBlockFromDeck,
+    syncPptPageFromDeck,
     updateNavState,
   ]);
 
@@ -298,6 +311,7 @@ const ListenModeRenderer = ({
         console.warn('Reveal.js destroy 調用失敗。');
       } finally {
         deckRef.current = null;
+        hasAutoSlidToLatestRef.current = false;
         setIsPrevDisabled(true);
         setIsNextDisabled(true);
       }
@@ -305,19 +319,21 @@ const ListenModeRenderer = ({
   }, [chatRef, contentItems.length, isLoading, syncActiveBlockFromDeck]);
 
   useEffect(() => {
-    if (contentItems.length > 0 || !deckRef.current) {
-      return;
-    }
-    try {
-      deckRef.current?.destroy();
-    } catch {
-      // Ignore errors when destroying reveal instance
-    } finally {
-      deckRef.current = null;
-      setIsPrevDisabled(true);
-      setIsNextDisabled(true);
-    }
-  }, [contentItems.length]);
+    return () => {
+      if (!deckRef.current) {
+        return;
+      }
+      try {
+        deckRef.current?.destroy();
+      } catch (e) {
+        console.warn('Reveal.js destroy 調用失敗。');
+      } finally {
+        deckRef.current = null;
+        hasAutoSlidToLatestRef.current = false;
+        prevSlidesLengthRef.current = 0;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const deck = deckRef.current;
@@ -327,6 +343,7 @@ const ListenModeRenderer = ({
 
     const handleSlideChanged = () => {
       syncActiveBlockFromDeck();
+      syncPptPageFromDeck();
       updateNavState();
     };
 
@@ -337,7 +354,7 @@ const ListenModeRenderer = ({
       deck.off('slidechanged', handleSlideChanged as unknown as EventListener);
       deck.off('ready', handleSlideChanged as unknown as EventListener);
     };
-  }, [syncActiveBlockFromDeck, updateNavState]);
+  }, [syncActiveBlockFromDeck, syncPptPageFromDeck, updateNavState]);
 
   useEffect(() => {
     if (!deckRef.current || isLoading) {
@@ -359,24 +376,38 @@ const ListenModeRenderer = ({
     try {
       deckRef.current.sync();
       deckRef.current.layout();
-      updateNavState();
+      const indices = deckRef.current.getIndices?.();
+      const prevSlidesLength = prevSlidesLengthRef.current;
+      const nextSlidesLength = slides.length;
+      const lastIndex = Math.max(nextSlidesLength - 1, 0);
+      const currentIndex = indices?.h ?? 0;
+      const prevLastIndex = Math.max(prevSlidesLength - 1, 0);
+      const shouldAutoFollowOnAppend =
+        prevSlidesLength > 0 &&
+        nextSlidesLength > prevSlidesLength &&
+        currentIndex >= prevLastIndex;
       if (pendingAutoNextRef.current) {
         const moved = goToNextBlock();
         pendingAutoNextRef.current = !moved;
       }
 
-      if (isAudioPlaying) {
+      if (isAudioPlaying && !shouldAutoFollowOnAppend) {
+        prevSlidesLengthRef.current = nextSlidesLength;
         return;
       }
 
-      const lastIndex = Math.max(slides.length - 1, 0);
-      const currentIndex = deckRef.current.getIndices()?.h ?? 0;
       const shouldFollowLatest =
-        !hasAutoSlidToLatestRef.current || currentIndex >= lastIndex;
+        shouldAutoFollowOnAppend ||
+        !hasAutoSlidToLatestRef.current ||
+        currentIndex >= lastIndex;
       if (shouldFollowLatest) {
         deckRef.current.slide(lastIndex);
         hasAutoSlidToLatestRef.current = true;
+      } else if (indices) {
+        deckRef.current.slide(indices.h, indices.v, indices.f);
       }
+      updateNavState();
+      prevSlidesLengthRef.current = nextSlidesLength;
     } catch {
       // Ignore reveal sync errors
     }
@@ -436,6 +467,13 @@ const ListenModeRenderer = ({
     }
   }, [goToNextBlock]);
 
+  const handleTogglePlay = useCallback(() => {
+    if (previewMode) {
+      return;
+    }
+    audioPlayerRef.current?.togglePlay();
+  }, [previewMode]);
+
   useEffect(() => {
     if (!activeBlockBid) {
       return;
@@ -451,7 +489,7 @@ const ListenModeRenderer = ({
     deck.prev();
     currentPptPageRef.current = deck.getIndices().h;
     console.log('onPrev', currentPptPageRef.current);
-    syncInteractionForCurrentPage();
+    syncInteractionForCurrentPage(currentPptPageRef.current);
     updateNavState();
   }, [isPrevDisabled, syncInteractionForCurrentPage, updateNavState]);
 
@@ -463,7 +501,7 @@ const ListenModeRenderer = ({
     deck.next();
     currentPptPageRef.current = deck.getIndices().h;
     console.log('onNext', currentPptPageRef.current);
-    syncInteractionForCurrentPage();
+    syncInteractionForCurrentPage(currentPptPageRef.current);
     updateNavState();
   }, [isNextDisabled, syncInteractionForCurrentPage, updateNavState]);
   // console.log('listenmoderenderer',contentItems)
@@ -480,6 +518,7 @@ const ListenModeRenderer = ({
           {!isLoading &&
             contentItems.map(({ item, segments }, idx) => {
               const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
+              console.log('segments', segments);
               if (segments.length === 0) {
                 return null;
               }
@@ -497,8 +536,9 @@ const ListenModeRenderer = ({
         </div>
       </div>
       {activeContentItem ? (
-        <div className='listen-audio-controls'>
+        <div className={cn('listen-audio-controls', 'hidden')}>
           <AudioPlayer
+            ref={audioPlayerRef}
             key={activeBlockBid ?? 'listen-audio'}
             audioUrl={activeContentItem.audioUrl}
             streamingSegments={activeContentItem.audioSegments}
@@ -519,9 +559,11 @@ const ListenModeRenderer = ({
       ) : null}
       <ListenPlayer
         onPrev={onPrev}
+        onPlay={handleTogglePlay}
         onNext={onNext}
         prevDisabled={isPrevDisabled}
         nextDisabled={isNextDisabled}
+        isAudioPlaying={isAudioPlaying}
         interaction={currentInteraction}
         onSend={onSend}
       />

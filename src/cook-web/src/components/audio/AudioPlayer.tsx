@@ -1,6 +1,13 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  forwardRef,
+  useImperativeHandle,
+} from 'react';
 import { Volume2, Pause, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -46,6 +53,12 @@ export interface AudioPlayerProps {
   autoPlay?: boolean;
 }
 
+export interface AudioPlayerHandle {
+  togglePlay: () => void;
+  play: () => void;
+  pause: () => void;
+}
+
 /**
  * Audio player component for TTS playback.
  *
@@ -53,20 +66,23 @@ export interface AudioPlayerProps {
  * 1. Streaming mode: Plays base64-encoded audio segments as they arrive
  * 2. Complete mode: Plays from OSS URL after all segments are uploaded
  */
-export function AudioPlayer({
-  audioUrl,
-  streamingSegments = [],
-  isStreaming = false,
-  previewMode = false,
-  alwaysVisible = false,
-  disabled = false,
-  onRequestAudio,
-  size = 16,
-  className,
-  onPlayStateChange,
-  onEnded,
-  autoPlay = false,
-}: AudioPlayerProps) {
+function AudioPlayerBase(
+  {
+    audioUrl,
+    streamingSegments = [],
+    isStreaming = false,
+    previewMode = false,
+    alwaysVisible = false,
+    disabled = false,
+    onRequestAudio,
+    size = 16,
+    className,
+    onPlayStateChange,
+    onEnded,
+    autoPlay = false,
+  }: AudioPlayerProps,
+  ref: React.ForwardedRef<AudioPlayerHandle>,
+) {
   const { t } = useTranslation();
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -649,6 +665,24 @@ export function AudioPlayer({
     stopPlayback,
   ]);
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      togglePlay,
+      play: () => {
+        if (!isPlayingRef.current) {
+          togglePlay();
+        }
+      },
+      pause: () => {
+        if (isPlayingRef.current) {
+          pausePlayback();
+        }
+      },
+    }),
+    [pausePlayback, togglePlay],
+  );
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -791,5 +825,9 @@ export function AudioPlayer({
     </TooltipProvider>
   );
 }
+
+export const AudioPlayer = forwardRef(AudioPlayerBase);
+
+AudioPlayer.displayName = 'AudioPlayer';
 
 export default AudioPlayer;
