@@ -301,8 +301,6 @@ const ListenModeRenderer = ({
     return null;
   }, [items]);
 
-
-
   const emptySlideBlockBid = firstContentItem?.generated_block_bid
     ? `empty-ppt-${firstContentItem.generated_block_bid}`
     : 'empty-ppt';
