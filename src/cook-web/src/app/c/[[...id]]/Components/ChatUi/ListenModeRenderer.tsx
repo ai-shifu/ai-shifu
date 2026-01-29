@@ -553,16 +553,16 @@ const ListenModeRenderer = ({
           />
         </div>
       ) : null}
-        <ListenPlayer
-          onPrev={onPrev}
-          onPlay={handleTogglePlay}
-          onNext={onNext}
-          prevDisabled={isPrevDisabled}
-          nextDisabled={isNextDisabled}
-          isAudioPlaying={isAudioPlaying}
-          interaction={currentInteraction}
-          onSend={onSend}
-        />
+      <ListenPlayer
+        onPrev={onPrev}
+        onPlay={handleTogglePlay}
+        onNext={onNext}
+        prevDisabled={isPrevDisabled}
+        nextDisabled={isNextDisabled}
+        isAudioPlaying={isAudioPlaying}
+        interaction={currentInteraction}
+        onSend={onSend}
+      />
     </div>
   );
 };
