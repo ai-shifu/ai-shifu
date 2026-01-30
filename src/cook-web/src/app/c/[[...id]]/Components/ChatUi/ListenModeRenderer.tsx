@@ -64,6 +64,7 @@ const ListenModeRenderer = ({
     null,
   );
   const audioSequenceListRef = useRef<AudioInteractionItem[]>([]);
+  const prevAudioSequenceLengthRef = useRef(0);
   const [activeBlockBid, setActiveBlockBid] = useState<string | null>(null);
   const [activeAudioBid, setActiveAudioBid] = useState<string | null>(null);
   const [currentInteraction, setCurrentInteraction] =
@@ -182,6 +183,8 @@ const ListenModeRenderer = ({
     audioSequenceListRef.current = audioAndInteractionList;
   }, [audioAndInteractionList]);
 
+
+
   const clearAudioSequenceTimer = useCallback(() => {
     if (audioSequenceTimerRef.current) {
       clearTimeout(audioSequenceTimerRef.current);
@@ -273,6 +276,33 @@ const ListenModeRenderer = ({
     [clearAudioSequenceTimer, syncToSequencePage],
   );
 
+  useEffect(() => {
+    const prevLength = prevAudioSequenceLengthRef.current;
+    const nextLength = audioAndInteractionList.length;
+    prevAudioSequenceLengthRef.current = nextLength;
+    if (previewMode || !nextLength) {
+      return;
+    }
+    const currentIndex = audioSequenceIndexRef.current;
+    if (
+      isAudioSequenceActive &&
+      sequenceInteraction &&
+      currentIndex >= 0 &&
+      prevLength > 0 &&
+      currentIndex === prevLength - 1 &&
+      nextLength > prevLength
+    ) {
+      // Continue after the last interaction when new audio arrives.
+      playAudioSequenceFromIndex(currentIndex + 1);
+    }
+  }, [
+    audioAndInteractionList.length,
+    isAudioSequenceActive,
+    playAudioSequenceFromIndex,
+    previewMode,
+    sequenceInteraction,
+  ]);
+  
   const startSequenceFromPage = useCallback(
     (page: number) => {
       console.log('listen-seq: startFromPage', { page });
@@ -741,9 +771,21 @@ const ListenModeRenderer = ({
         prevSlidesLength > 0 &&
         nextSlidesLength > prevSlidesLength &&
         currentIndex >= prevLastIndex;
+      const shouldHoldForStreamingAudio =
+        isAudioPlaying &&
+        Boolean(
+          activeContentItem?.isAudioStreaming ||
+            (activeContentItem?.audioSegments &&
+              activeContentItem.audioSegments.length > 0),
+        );
       if (pendingAutoNextRef.current) {
         const moved = goToNextBlock();
         pendingAutoNextRef.current = !moved;
+      }
+
+      if (shouldHoldForStreamingAudio) {
+        prevSlidesLengthRef.current = nextSlidesLength;
+        return;
       }
 
       if (isAudioPlaying && !shouldAutoFollowOnAppend) {
@@ -773,6 +815,8 @@ const ListenModeRenderer = ({
     goToNextBlock,
     chatRef,
     updateNavState,
+    activeContentItem?.isAudioStreaming,
+    activeContentItem?.audioSegments?.length,
   ]);
 
   useEffect(() => {
