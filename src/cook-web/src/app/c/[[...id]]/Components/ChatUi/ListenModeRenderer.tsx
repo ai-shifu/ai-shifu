@@ -21,6 +21,10 @@ type RevealOptionsWithScrollMode = Reveal.Options & {
   scrollMode?: 'classic' | 'scroll';
 };
 
+type AudioInteractionItem = ChatContentItem & {
+  page: number;
+};
+
 interface ListenModeRendererProps {
   items: ChatContentItem[];
   mobileStyle: boolean;
@@ -59,14 +63,15 @@ const ListenModeRenderer = ({
   const audioSequenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
-  const audioSequenceListRef = useRef<ChatContentItem[]>([]);
+  const audioSequenceListRef = useRef<AudioInteractionItem[]>([]);
   const [activeBlockBid, setActiveBlockBid] = useState<string | null>(null);
   const [activeAudioBid, setActiveAudioBid] = useState<string | null>(null);
   const [currentInteraction, setCurrentInteraction] =
     useState<ChatContentItem | null>(null);
   const [sequenceInteraction, setSequenceInteraction] =
-    useState<ChatContentItem | null>(null);
+    useState<AudioInteractionItem | null>(null);
   const [isAudioSequenceActive, setIsAudioSequenceActive] = useState(false);
+  const [audioSequenceToken, setAudioSequenceToken] = useState(0);
   const activeBlockBidRef = useRef<string | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [isPrevDisabled, setIsPrevDisabled] = useState(true);
@@ -96,19 +101,64 @@ const ListenModeRenderer = ({
     return bids;
   }, [items]);
 
-  const audioAndInteractionList = useMemo(() => {
-    return items.filter(item => {
-      if (item.type === ChatContentItemType.CONTENT) {
-        // Keep items with available audio sources.
-        return Boolean(
-          item.audioUrl ||
-          (item.audioSegments && item.audioSegments.length > 0) ||
-          item.isAudioStreaming,
+  const { slideItems, interactionByPage, audioAndInteractionList } =
+    useMemo(() => {
+      let pageCursor = 0;
+      const mapping = new Map<number, ChatContentItem>();
+      const nextSlideItems: Array<{
+        item: ChatContentItem;
+        segments: RenderSegment[];
+      }> = [];
+      const nextAudioAndInteractionList: AudioInteractionItem[] = [];
+
+      items.forEach(item => {
+        const segments =
+          item.type === ChatContentItemType.CONTENT && !!item.content
+            ? splitContentSegments(item.content || '', true)
+            : [];
+        const slideSegments = segments.filter(
+          segment => segment.type === 'markdown' || segment.type === 'sandbox',
         );
-      }
-      return item.type === ChatContentItemType.INTERACTION;
-    });
-  }, [items]);
+        const fallbackPage = Math.max(pageCursor - 1, 0);
+        const contentPage = slideSegments.length > 0 ? pageCursor : fallbackPage;
+        const interactionPage = fallbackPage;
+        const hasAudio = Boolean(
+          item.audioUrl ||
+            (item.audioSegments && item.audioSegments.length > 0) ||
+            item.isAudioStreaming,
+        );
+
+        if (item.type === ChatContentItemType.CONTENT && hasAudio) {
+          nextAudioAndInteractionList.push({
+            ...item,
+            page: contentPage,
+          });
+        }
+
+        if (item.type === ChatContentItemType.INTERACTION) {
+          mapping.set(interactionPage, item);
+          nextAudioAndInteractionList.push({
+            ...item,
+            page: interactionPage,
+          });
+        }
+
+        if (slideSegments.length > 0) {
+          nextSlideItems.push({
+            item,
+            segments: slideSegments,
+          });
+        }
+
+        pageCursor += slideSegments.length;
+      });
+      // console.log('interactionByPage', mapping);
+      return {
+        slideItems: nextSlideItems,
+        interactionByPage: mapping,
+        audioAndInteractionList: nextAudioAndInteractionList,
+      };
+    }, [items]);
 
   console.log('audioAndInteractionList', audioAndInteractionList);
 
@@ -123,6 +173,39 @@ const ListenModeRenderer = ({
     }
   }, []);
 
+  const syncToSequencePage = useCallback((page: number) => {
+    if (page < 0) {
+      return;
+    }
+    const deck = deckRef.current;
+    if (!deck) {
+      return;
+    }
+    const currentIndex = deck.getIndices?.().h ?? 0;
+    if (currentIndex !== page) {
+      deck.slide(page);
+    }
+  }, []);
+
+  const resolveSequenceStartIndex = useCallback((page: number) => {
+    const list = audioSequenceListRef.current;
+    if (!list.length) {
+      return -1;
+    }
+    const audioIndex = list.findIndex(
+      item => item.page === page && item.type === ChatContentItemType.CONTENT,
+    );
+    if (audioIndex >= 0) {
+      return audioIndex;
+    }
+    const pageIndex = list.findIndex(item => item.page === page);
+    if (pageIndex >= 0) {
+      return pageIndex;
+    }
+    const nextIndex = list.findIndex(item => item.page > page);
+    return nextIndex;
+  }, []);
+
   const playAudioSequenceFromIndex = useCallback(
     (index: number) => {
       clearAudioSequenceTimer();
@@ -134,6 +217,7 @@ const ListenModeRenderer = ({
         setIsAudioSequenceActive(false);
         return;
       }
+      syncToSequencePage(nextItem.page);
       audioSequenceIndexRef.current = index;
       setIsAudioSequenceActive(true);
       if (nextItem.type === ChatContentItemType.INTERACTION) {
@@ -144,13 +228,35 @@ const ListenModeRenderer = ({
         }
         audioSequenceTimerRef.current = setTimeout(() => {
           playAudioSequenceFromIndex(index + 1);
-        }, 1000);
+        }, 2000);
         return;
       }
       setSequenceInteraction(null);
       setActiveAudioBid(nextItem.generated_block_bid);
+      setAudioSequenceToken(prev => prev + 1);
     },
-    [clearAudioSequenceTimer],
+    [clearAudioSequenceTimer, syncToSequencePage],
+  );
+
+  const startSequenceFromPage = useCallback(
+    (page: number) => {
+      clearAudioSequenceTimer();
+      audioPlayerRef.current?.pause();
+      audioSequenceIndexRef.current = -1;
+      setSequenceInteraction(null);
+      setActiveAudioBid(null);
+      setIsAudioSequenceActive(false);
+      const startIndex = resolveSequenceStartIndex(page);
+      if (startIndex < 0) {
+        return;
+      }
+      playAudioSequenceFromIndex(startIndex);
+    },
+    [
+      clearAudioSequenceTimer,
+      playAudioSequenceFromIndex,
+      resolveSequenceStartIndex,
+    ],
   );
 
   useEffect(() => {
@@ -250,39 +356,6 @@ const ListenModeRenderer = ({
     }
     return slide.getAttribute('data-generated-block-bid') || null;
   }, []);
-
-  const { slideItems, interactionByPage } = useMemo(() => {
-    let pageCursor = 0;
-    const mapping = new Map<number, ChatContentItem>();
-    const nextSlideItems: Array<{
-      item: ChatContentItem;
-      segments: RenderSegment[];
-    }> = [];
-
-    items.forEach(item => {
-      const segments =
-        item.type === ChatContentItemType.CONTENT && !!item.content
-          ? splitContentSegments(item.content || '', true)
-          : [];
-      const slideSegments = segments.filter(
-        segment => segment.type === 'markdown' || segment.type === 'sandbox',
-      );
-      const currentPage =
-        slideSegments.length > 0 && pageCursor === 0 ? 1 : pageCursor;
-      if (item.type === ChatContentItemType.INTERACTION) {
-        mapping.set(currentPage - 1, item);
-      }
-      if (slideSegments.length > 0) {
-        nextSlideItems.push({
-          item,
-          segments: slideSegments,
-        });
-      }
-      pageCursor += slideSegments.length;
-    });
-    // console.log('interactionByPage', mapping);
-    return { slideItems: nextSlideItems, interactionByPage: mapping };
-  }, [items]);
 
   const firstSlideBid = useMemo(
     () => slideItems[0]?.item.generated_block_bid ?? null,
@@ -762,7 +835,13 @@ const ListenModeRenderer = ({
     console.log('onPrev', currentPptPageRef.current);
     syncInteractionForCurrentPage(currentPptPageRef.current);
     updateNavState();
-  }, [isPrevDisabled, syncInteractionForCurrentPage, updateNavState]);
+    startSequenceFromPage(currentPptPageRef.current);
+  }, [
+    isPrevDisabled,
+    syncInteractionForCurrentPage,
+    updateNavState,
+    startSequenceFromPage,
+  ]);
 
   const onNext = useCallback(() => {
     const deck = deckRef.current;
@@ -774,7 +853,13 @@ const ListenModeRenderer = ({
     console.log('onNext', currentPptPageRef.current);
     syncInteractionForCurrentPage(currentPptPageRef.current);
     updateNavState();
-  }, [isNextDisabled, syncInteractionForCurrentPage, updateNavState]);
+    startSequenceFromPage(currentPptPageRef.current);
+  }, [
+    isNextDisabled,
+    syncInteractionForCurrentPage,
+    updateNavState,
+    startSequenceFromPage,
+  ]);
   const listenPlayerInteraction = isAudioSequenceActive
     ? sequenceInteraction
     : currentInteraction;
@@ -821,7 +906,7 @@ const ListenModeRenderer = ({
         <div className={cn('listen-audio-controls', 'hidden')}>
           <AudioPlayer
             ref={audioPlayerRef}
-            key={activeAudioBlockBid ?? 'listen-audio'}
+            key={`${activeAudioBlockBid ?? 'listen-audio'}-${audioSequenceToken}`}
             audioUrl={activeContentItem.audioUrl}
             streamingSegments={activeContentItem.audioSegments}
             isStreaming={Boolean(activeContentItem.isAudioStreaming)}
