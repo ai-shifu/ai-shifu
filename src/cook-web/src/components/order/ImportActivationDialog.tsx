@@ -392,16 +392,16 @@ const ImportActivationDialog = ({
                           (e.altKey || e.metaKey || e.ctrlKey)
                         ) {
                           e.preventDefault();
+                          const target = e.target as HTMLTextAreaElement;
                           const { selectionStart = 0, selectionEnd = 0 } =
-                            e.target;
-                          const value = e.target.value || '';
+                            target;
+                          const value = target.value || '';
                           const before = value.slice(0, selectionStart);
                           const after = value.slice(selectionEnd);
                           const next = `${before}\n${after}`;
                           const nextCaret = before.length + 1; // place caret just after the inserted newline
                           field.onChange(next);
                           requestAnimationFrame(() => {
-                            const target = e.target as HTMLTextAreaElement;
                             target.setSelectionRange(nextCaret, nextCaret);
                             target.focus();
                           });
