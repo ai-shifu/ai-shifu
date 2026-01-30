@@ -20,36 +20,49 @@ const ContentIframe = memo(
   ({ segments, blockBid, sectionTitle }: ContentIframeProps) => {
     return (
       <>
-        {segments.map((segment, index) =>
-          segment.type === 'text' ? (
-            <section
-              key={'text' + index}
-              data-auto-animate
-              data-generated-block-bid={blockBid}
-              //   className='w-full h-full'
-            >
-              <div className='w-full h-full font-bold flex items-center justify-center text-primary'>
-                {sectionTitle}
-              </div>
-            </section>
-          ) : (
+        {segments.map((segment, index) => {
+          if (segment.type === 'text') {
+            return (
+              <section
+                key={'text' + index}
+                data-generated-block-bid={blockBid}
+                //   className='w-full h-full'
+              >
+                <div className='w-full h-full font-bold flex items-center justify-center text-primary'>
+                  {sectionTitle}
+                </div>
+              </section>
+            );
+          }
+
+          const iframeNode = (
+            <IframeSandbox
+              key={'iframe' + index}
+              type={segment.type}
+              mode='blackboard'
+              hideFullScreen
+              content={segment.value}
+            />
+          );
+
+          return (
             <section
               key={'sandbox' + index}
-              data-auto-animate
+              // data-auto-animate
               data-generated-block-bid={blockBid}
               // className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
               //   className='w-full h-full'
             >
-              <IframeSandbox
-                key={'iframe' + index}
-                type={segment.type}
-                mode='blackboard'
-                hideFullScreen
-                content={segment.value}
-              />
+              {segment.type === 'sandbox' ? (
+                <div className='listen-sandbox-enter flex h-full w-full items-center justify-center'>
+                  {iframeNode}
+                </div>
+              ) : (
+                iframeNode
+              )}
             </section>
-          ),
-        )}
+          );
+        })}
       </>
     );
   },

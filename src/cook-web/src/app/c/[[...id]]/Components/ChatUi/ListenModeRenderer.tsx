@@ -935,7 +935,6 @@ const ListenModeRenderer = ({
           {shouldRenderEmptyPpt ? (
             <section
               className='present'
-              data-auto-animate
               data-generated-block-bid={emptySlideBlockBid}
             >
               <div className='w-full h-full font-bold flex items-center justify-center text-primary'>
