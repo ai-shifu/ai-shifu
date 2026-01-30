@@ -54,9 +54,19 @@ const ListenModeRenderer = ({
   const shouldSlideToFirstRef = useRef(false);
   const prevFirstSlideBidRef = useRef<string | null>(null);
   const prevSectionTitleRef = useRef<string | null>(null);
+  const shouldStartSequenceRef = useRef(false);
+  const audioSequenceIndexRef = useRef(-1);
+  const audioSequenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const audioSequenceListRef = useRef<ChatContentItem[]>([]);
   const [activeBlockBid, setActiveBlockBid] = useState<string | null>(null);
+  const [activeAudioBid, setActiveAudioBid] = useState<string | null>(null);
   const [currentInteraction, setCurrentInteraction] =
     useState<ChatContentItem | null>(null);
+  const [sequenceInteraction, setSequenceInteraction] =
+    useState<ChatContentItem | null>(null);
+  const [isAudioSequenceActive, setIsAudioSequenceActive] = useState(false);
   const activeBlockBidRef = useRef<string | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [isPrevDisabled, setIsPrevDisabled] = useState(true);
@@ -101,6 +111,64 @@ const ListenModeRenderer = ({
   }, [items]);
 
   console.log('audioAndInteractionList', audioAndInteractionList);
+
+  useEffect(() => {
+    audioSequenceListRef.current = audioAndInteractionList;
+  }, [audioAndInteractionList]);
+
+  const clearAudioSequenceTimer = useCallback(() => {
+    if (audioSequenceTimerRef.current) {
+      clearTimeout(audioSequenceTimerRef.current);
+      audioSequenceTimerRef.current = null;
+    }
+  }, []);
+
+  const playAudioSequenceFromIndex = useCallback(
+    (index: number) => {
+      clearAudioSequenceTimer();
+      const list = audioSequenceListRef.current;
+      const nextItem = list[index];
+      if (!nextItem) {
+        setSequenceInteraction(null);
+        setActiveAudioBid(null);
+        setIsAudioSequenceActive(false);
+        return;
+      }
+      audioSequenceIndexRef.current = index;
+      setIsAudioSequenceActive(true);
+      if (nextItem.type === ChatContentItemType.INTERACTION) {
+        setSequenceInteraction(nextItem);
+        setActiveAudioBid(null);
+        if (index >= list.length - 1) {
+          return;
+        }
+        audioSequenceTimerRef.current = setTimeout(() => {
+          playAudioSequenceFromIndex(index + 1);
+        }, 1000);
+        return;
+      }
+      setSequenceInteraction(null);
+      setActiveAudioBid(nextItem.generated_block_bid);
+    },
+    [clearAudioSequenceTimer],
+  );
+
+  useEffect(() => {
+    return () => {
+      clearAudioSequenceTimer();
+    };
+  }, [clearAudioSequenceTimer]);
+
+  useEffect(() => {
+    if (audioAndInteractionList.length) {
+      return;
+    }
+    clearAudioSequenceTimer();
+    audioSequenceIndexRef.current = -1;
+    setActiveAudioBid(null);
+    setSequenceInteraction(null);
+    setIsAudioSequenceActive(false);
+  }, [audioAndInteractionList.length, clearAudioSequenceTimer]);
 
   const contentByBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();
@@ -159,10 +227,12 @@ const ListenModeRenderer = ({
     return resolved || null;
   }, []);
 
-  const activeAudioBlockBid = useMemo(
-    () => resolveContentBid(activeBlockBid),
-    [activeBlockBid, resolveContentBid],
-  );
+  const activeAudioBlockBid = useMemo(() => {
+    if (!activeAudioBid) {
+      return null;
+    }
+    return resolveContentBid(activeAudioBid);
+  }, [activeAudioBid, resolveContentBid]);
 
   const activeContentItem = useMemo(() => {
     if (!activeAudioBlockBid) {
@@ -227,11 +297,13 @@ const ListenModeRenderer = ({
     if (!prevFirstSlideBidRef.current) {
       // Ensure initial load starts from the first slide.
       shouldSlideToFirstRef.current = true;
+      shouldStartSequenceRef.current = true;
       console.log('listen-slide: first slide init', {
         next: firstSlideBid,
       });
     } else if (prevFirstSlideBidRef.current !== firstSlideBid) {
       shouldSlideToFirstRef.current = true;
+      shouldStartSequenceRef.current = true;
       console.log('listen-slide: first slide changed', {
         prev: prevFirstSlideBidRef.current,
         next: firstSlideBid,
@@ -250,6 +322,7 @@ const ListenModeRenderer = ({
       prevSectionTitleRef.current !== sectionTitle
     ) {
       shouldSlideToFirstRef.current = true;
+      shouldStartSequenceRef.current = true;
       console.log('listen-slide: section title changed', {
         prev: prevSectionTitleRef.current,
         next: sectionTitle,
@@ -257,6 +330,17 @@ const ListenModeRenderer = ({
     }
     prevSectionTitleRef.current = sectionTitle;
   }, [sectionTitle]);
+
+  useEffect(() => {
+    if (!shouldStartSequenceRef.current) {
+      return;
+    }
+    if (!audioAndInteractionList.length) {
+      return;
+    }
+    shouldStartSequenceRef.current = false;
+    playAudioSequenceFromIndex(0);
+  }, [audioAndInteractionList.length, playAudioSequenceFromIndex]);
 
   const shouldRenderEmptyPpt = useMemo(() => {
     if (isLoading) {
@@ -623,6 +707,16 @@ const ListenModeRenderer = ({
   ]);
 
   const handleAudioEnded = useCallback(() => {
+    const list = audioSequenceListRef.current;
+    if (list.length) {
+      const nextIndex = audioSequenceIndexRef.current + 1;
+      if (nextIndex >= list.length) {
+        setIsAudioSequenceActive(false);
+        return;
+      }
+      playAudioSequenceFromIndex(nextIndex);
+      return;
+    }
     const currentBid = resolveContentBid(activeBlockBidRef.current);
     const nextBid = getNextContentBid(currentBid);
     if (!nextBid) {
@@ -639,7 +733,13 @@ const ListenModeRenderer = ({
       return;
     }
     pendingAutoNextRef.current = true;
-  }, [getNextContentBid, goToBlock, resolveContentBid, shouldRenderEmptyPpt]);
+  }, [
+    getNextContentBid,
+    goToBlock,
+    resolveContentBid,
+    shouldRenderEmptyPpt,
+    playAudioSequenceFromIndex,
+  ]);
 
   const handleTogglePlay = useCallback(() => {
     if (previewMode) {
@@ -649,11 +749,8 @@ const ListenModeRenderer = ({
   }, [previewMode]);
 
   useEffect(() => {
-    if (!activeBlockBid) {
-      return;
-    }
     setIsAudioPlaying(false);
-  }, [activeBlockBid]);
+  }, [activeAudioBid]);
 
   const onPrev = useCallback(() => {
     const deck = deckRef.current;
@@ -678,6 +775,9 @@ const ListenModeRenderer = ({
     syncInteractionForCurrentPage(currentPptPageRef.current);
     updateNavState();
   }, [isNextDisabled, syncInteractionForCurrentPage, updateNavState]);
+  const listenPlayerInteraction = isAudioSequenceActive
+    ? sequenceInteraction
+    : currentInteraction;
   // console.log('listenmoderenderer',contentItems)
   return (
     <div
@@ -721,7 +821,7 @@ const ListenModeRenderer = ({
         <div className={cn('listen-audio-controls', 'hidden')}>
           <AudioPlayer
             ref={audioPlayerRef}
-            key={activeBlockBid ?? 'listen-audio'}
+            key={activeAudioBlockBid ?? 'listen-audio'}
             audioUrl={activeContentItem.audioUrl}
             streamingSegments={activeContentItem.audioSegments}
             isStreaming={Boolean(activeContentItem.isAudioStreaming)}
@@ -746,7 +846,7 @@ const ListenModeRenderer = ({
         prevDisabled={isPrevDisabled}
         nextDisabled={isNextDisabled}
         isAudioPlaying={isAudioPlaying}
-        interaction={currentInteraction}
+        interaction={listenPlayerInteraction}
         onSend={onSend}
       />
     </div>
