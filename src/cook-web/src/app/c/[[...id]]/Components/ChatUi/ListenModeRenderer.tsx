@@ -83,6 +83,22 @@ const ListenModeRenderer = ({
     return bids;
   }, [items]);
 
+  const audioAndInteractionList = useMemo(() => {
+    return items.filter(item => {
+      if (item.type === ChatContentItemType.CONTENT) {
+        // Keep items with available audio sources.
+        return Boolean(
+          item.audioUrl ||
+            (item.audioSegments && item.audioSegments.length > 0) ||
+            item.isAudioStreaming,
+        );
+      }
+      return item.type === ChatContentItemType.INTERACTION;
+    });
+  }, [items]);
+
+  console.log('audioAndInteractionList', audioAndInteractionList);
+
   const contentByBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();
     for (const item of items) {
@@ -97,6 +113,21 @@ const ListenModeRenderer = ({
     }
     return mapping;
   }, [items]);
+
+  const audioContentByBid = useMemo(() => {
+    const mapping = new Map<string, ChatContentItem>();
+    for (const item of audioAndInteractionList) {
+      if (item.type !== ChatContentItemType.CONTENT) {
+        continue;
+      }
+      const bid = item.generated_block_bid;
+      if (!bid || bid === 'loading') {
+        continue;
+      }
+      mapping.set(bid, item);
+    }
+    return mapping;
+  }, [audioAndInteractionList]);
 
   const ttsReadyBlockBids = useMemo(() => {
     const ready = new Set<string>();
@@ -134,8 +165,11 @@ const ListenModeRenderer = ({
     if (!activeAudioBlockBid) {
       return undefined;
     }
-    return contentByBid.get(activeAudioBlockBid);
-  }, [activeAudioBlockBid, contentByBid]);
+    return (
+      audioContentByBid.get(activeAudioBlockBid) ??
+      contentByBid.get(activeAudioBlockBid)
+    );
+  }, [activeAudioBlockBid, audioContentByBid, contentByBid]);
 
   const getBlockBidFromSlide = useCallback((slide: HTMLElement | null) => {
     if (!slide) {
