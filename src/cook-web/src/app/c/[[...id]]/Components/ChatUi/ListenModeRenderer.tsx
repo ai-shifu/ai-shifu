@@ -183,6 +183,7 @@ const ListenModeRenderer = ({
       return;
     }
     const currentIndex = deck.getIndices?.().h ?? 0;
+    console.log('listen-seq: syncToSequencePage', { page, currentIndex });
     if (currentIndex !== page) {
       deck.slide(page);
     }
@@ -193,6 +194,14 @@ const ListenModeRenderer = ({
     if (!list.length) {
       return -1;
     }
+    console.log('listen-seq: resolveStartIndex', {
+      page,
+      list: list.map(item => ({
+        type: item.type,
+        page: item.page,
+        bid: item.generated_block_bid,
+      })),
+    });
     const audioIndex = list.findIndex(
       item => item.page === page && item.type === ChatContentItemType.CONTENT,
     );
@@ -212,6 +221,16 @@ const ListenModeRenderer = ({
       clearAudioSequenceTimer();
       const list = audioSequenceListRef.current;
       const nextItem = list[index];
+      console.log('listen-seq: playFromIndex', {
+        index,
+        nextItem: nextItem
+          ? {
+              type: nextItem.type,
+              page: nextItem.page,
+              bid: nextItem.generated_block_bid,
+            }
+          : null,
+      });
       if (!nextItem) {
         setSequenceInteraction(null);
         setActiveAudioBid(null);
@@ -241,6 +260,7 @@ const ListenModeRenderer = ({
 
   const startSequenceFromPage = useCallback(
     (page: number) => {
+      console.log('listen-seq: startFromPage', { page });
       clearAudioSequenceTimer();
       audioPlayerRef.current?.pause();
       audioSequenceIndexRef.current = -1;
@@ -819,8 +839,14 @@ const ListenModeRenderer = ({
     if (previewMode) {
       return;
     }
+    if (!activeAudioBid && audioSequenceListRef.current.length) {
+      const currentPage =
+        deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
+      startSequenceFromPage(currentPage);
+      return;
+    }
     audioPlayerRef.current?.togglePlay();
-  }, [previewMode]);
+  }, [previewMode, activeAudioBid, startSequenceFromPage]);
 
   useEffect(() => {
     setIsAudioPlaying(false);
@@ -831,11 +857,19 @@ const ListenModeRenderer = ({
     if (!deck || isPrevDisabled) {
       return;
     }
+    shouldSlideToFirstRef.current = false;
+    hasAutoSlidToLatestRef.current = true;
+    console.log('listen-nav: onPrev before', {
+      currentIndex: deck.getIndices?.().h ?? 0,
+    });
     deck.prev();
     currentPptPageRef.current = deck.getIndices().h;
     console.log('onPrev', currentPptPageRef.current);
     syncInteractionForCurrentPage(currentPptPageRef.current);
     updateNavState();
+    console.log('listen-nav: onPrev after', {
+      currentIndex: currentPptPageRef.current,
+    });
     startSequenceFromPage(currentPptPageRef.current);
   }, [
     isPrevDisabled,
@@ -849,11 +883,19 @@ const ListenModeRenderer = ({
     if (!deck || isNextDisabled) {
       return;
     }
+    shouldSlideToFirstRef.current = false;
+    hasAutoSlidToLatestRef.current = true;
+    console.log('listen-nav: onNext before', {
+      currentIndex: deck.getIndices?.().h ?? 0,
+    });
     deck.next();
     currentPptPageRef.current = deck.getIndices().h;
     console.log('onNext', currentPptPageRef.current);
     syncInteractionForCurrentPage(currentPptPageRef.current);
     updateNavState();
+    console.log('listen-nav: onNext after', {
+      currentIndex: currentPptPageRef.current,
+    });
     startSequenceFromPage(currentPptPageRef.current);
   }, [
     isNextDisabled,
