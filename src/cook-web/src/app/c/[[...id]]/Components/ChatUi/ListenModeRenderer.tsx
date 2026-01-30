@@ -51,6 +51,9 @@ const ListenModeRenderer = ({
   const requestedAudioBlockBidsRef = useRef<Set<string>>(new Set());
   const currentPptPageRef = useRef<number>(0);
   const prevSlidesLengthRef = useRef(0);
+  const shouldSlideToFirstRef = useRef(false);
+  const prevFirstSlideBidRef = useRef<string | null>(null);
+  const prevSectionTitleRef = useRef<string | null>(null);
   const [activeBlockBid, setActiveBlockBid] = useState<string | null>(null);
   const [currentInteraction, setCurrentInteraction] =
     useState<ChatContentItem | null>(null);
@@ -210,6 +213,50 @@ const ListenModeRenderer = ({
     // console.log('interactionByPage', mapping);
     return { slideItems: nextSlideItems, interactionByPage: mapping };
   }, [items]);
+
+  const firstSlideBid = useMemo(
+    () => slideItems[0]?.item.generated_block_bid ?? null,
+    [slideItems],
+  );
+
+  useEffect(() => {
+    if (!firstSlideBid) {
+      prevFirstSlideBidRef.current = null;
+      return;
+    }
+    if (!prevFirstSlideBidRef.current) {
+      // Ensure initial load starts from the first slide.
+      shouldSlideToFirstRef.current = true;
+      console.log('listen-slide: first slide init', {
+        next: firstSlideBid,
+      });
+    } else if (prevFirstSlideBidRef.current !== firstSlideBid) {
+      shouldSlideToFirstRef.current = true;
+      console.log('listen-slide: first slide changed', {
+        prev: prevFirstSlideBidRef.current,
+        next: firstSlideBid,
+      });
+    }
+    prevFirstSlideBidRef.current = firstSlideBid;
+  }, [firstSlideBid]);
+
+  useEffect(() => {
+    if (!sectionTitle) {
+      prevSectionTitleRef.current = null;
+      return;
+    }
+    if (
+      prevSectionTitleRef.current &&
+      prevSectionTitleRef.current !== sectionTitle
+    ) {
+      shouldSlideToFirstRef.current = true;
+      console.log('listen-slide: section title changed', {
+        prev: prevSectionTitleRef.current,
+        next: sectionTitle,
+      });
+    }
+    prevSectionTitleRef.current = sectionTitle;
+  }, [sectionTitle]);
 
   const shouldRenderEmptyPpt = useMemo(() => {
     if (isLoading) {
@@ -487,6 +534,16 @@ const ListenModeRenderer = ({
       const lastIndex = Math.max(nextSlidesLength - 1, 0);
       const currentIndex = indices?.h ?? 0;
       const prevLastIndex = Math.max(prevSlidesLength - 1, 0);
+
+      if (shouldSlideToFirstRef.current) {
+        deckRef.current.slide(0);
+        shouldSlideToFirstRef.current = false;
+        hasAutoSlidToLatestRef.current = true;
+        updateNavState();
+        prevSlidesLengthRef.current = nextSlidesLength;
+        return;
+      }
+
       const shouldAutoFollowOnAppend =
         prevSlidesLength > 0 &&
         nextSlidesLength > prevSlidesLength &&
