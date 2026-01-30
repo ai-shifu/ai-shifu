@@ -154,7 +154,9 @@ const ImportActivationDialog = ({
       return;
     }
 
-    const invalidMobiles = mobiles.filter(mobile => !MOBILE_PATTERN.test(mobile));
+    const invalidMobiles = mobiles.filter(
+      mobile => !MOBILE_PATTERN.test(mobile),
+    );
     if (invalidMobiles.length > 0) {
       const sample = invalidMobiles.slice(0, MOBILE_SAMPLE_LIMIT).join(', ');
       const messageMobiles =
@@ -356,12 +358,15 @@ const ImportActivationDialog = ({
                         const next = field.value
                           ? `${field.value}\n${normalized}`
                           : normalized;
-                        field.onChange(handleNormalizeInput(next, { enforce: true }));
+                        field.onChange(
+                          handleNormalizeInput(next, { enforce: true }),
+                        );
                       }}
                       onChange={e => {
                         const raw = e.target.value;
                         // Auto-insert a newline when current line has 11 digits and caret is at end
-                        const selectionEnd = e.target.selectionEnd || raw.length;
+                        const selectionEnd =
+                          e.target.selectionEnd || raw.length;
                         const beforeCursor = raw.slice(0, selectionEnd);
                         const afterCursor = raw.slice(selectionEnd);
                         const lines = beforeCursor.split(/\n/);
@@ -383,7 +388,8 @@ const ImportActivationDialog = ({
                           (e.altKey || e.metaKey || e.ctrlKey)
                         ) {
                           e.preventDefault();
-                          const { selectionStart = 0, selectionEnd = 0 } = e.target;
+                          const { selectionStart = 0, selectionEnd = 0 } =
+                            e.target;
                           const value = e.target.value || '';
                           const before = value.slice(0, selectionStart);
                           const after = value.slice(selectionEnd);
@@ -393,9 +399,12 @@ const ImportActivationDialog = ({
                         }
                       }}
                       onBlur={e => {
-                        const normalized = handleNormalizeInput(e.target.value, {
-                          enforce: true,
-                        });
+                        const normalized = handleNormalizeInput(
+                          e.target.value,
+                          {
+                            enforce: true,
+                          },
+                        );
                         field.onChange(normalized);
                       }}
                     />
