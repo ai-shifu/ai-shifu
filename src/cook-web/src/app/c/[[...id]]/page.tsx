@@ -2,7 +2,7 @@
 
 import styles from './page.module.scss';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import clsx from 'clsx';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
@@ -211,6 +211,22 @@ export default function ChatPage() {
       setLoadedChapterId(chapterId);
     }
   }, [chapterId, initialized, loadData, loadedChapterId]);
+
+  const resolvedLessonId = selectedLessonId || lessonId;
+  const currentLessonTitle = useMemo(() => {
+    if (!tree || !resolvedLessonId) {
+      return '';
+    }
+    for (const catalog of tree.catalogs || []) {
+      const lesson = (catalog.lessons || []).find(
+        entry => entry.id === resolvedLessonId,
+      );
+      if (lesson) {
+        return lesson.name || '';
+      }
+    }
+    return '';
+  }, [resolvedLessonId, tree]);
 
   const onLessonSelect = ({ id }) => {
     const chapter = getChapterByLesson(id);
@@ -456,6 +472,7 @@ export default function ChatPage() {
           <ChatUi
             lessonId={lessonId}
             chapterId={chapterId}
+            lessonTitle={currentLessonTitle}
             lessonUpdate={onLessonUpdate}
             onGoChapter={onGoChapter}
             onPurchased={onPurchased}

@@ -7,6 +7,7 @@
   "dislike": "点踩",
   "generating": "插图生成中...",
   "like": "点赞",
+  "listenInteractionHint": "提交以下内容后继续学习",
   "markdownFlow": "MarkdownFlow",
   "noMoreLessons": "已学习完所有章节",
   "outputInProgress": "正在有内容输出中，请等待输出结束后再重试",

@@ -1,6 +1,13 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  forwardRef,
+  useImperativeHandle,
+} from 'react';
 import { Volume2, Pause, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -40,8 +47,16 @@ export interface AudioPlayerProps {
   className?: string;
   /** Callback when play state changes */
   onPlayStateChange?: (isPlaying: boolean) => void;
+  /** Callback when playback reaches the natural end */
+  onEnded?: () => void;
   /** Auto-play when new audio content arrives */
   autoPlay?: boolean;
+}
+
+export interface AudioPlayerHandle {
+  togglePlay: () => void;
+  play: () => void;
+  pause: () => void;
 }
 
 /**
@@ -51,19 +66,23 @@ export interface AudioPlayerProps {
  * 1. Streaming mode: Plays base64-encoded audio segments as they arrive
  * 2. Complete mode: Plays from OSS URL after all segments are uploaded
  */
-export function AudioPlayer({
-  audioUrl,
-  streamingSegments = [],
-  isStreaming = false,
-  previewMode = false,
-  alwaysVisible = false,
-  disabled = false,
-  onRequestAudio,
-  size = 16,
-  className,
-  onPlayStateChange,
-  autoPlay = false,
-}: AudioPlayerProps) {
+function AudioPlayerBase(
+  {
+    audioUrl,
+    streamingSegments = [],
+    isStreaming = false,
+    previewMode = false,
+    alwaysVisible = false,
+    disabled = false,
+    onRequestAudio,
+    size = 16,
+    className,
+    onPlayStateChange,
+    onEnded,
+    autoPlay = false,
+  }: AudioPlayerProps,
+  ref: React.ForwardedRef<AudioPlayerHandle>,
+) {
   const { t } = useTranslation();
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -108,6 +127,9 @@ export function AudioPlayer({
   const onPlayStateChangeRef = useRef(onPlayStateChange);
   onPlayStateChangeRef.current = onPlayStateChange;
 
+  const onEndedRef = useRef(onEnded);
+  onEndedRef.current = onEnded;
+
   // Check if we have audio to play
   const hasAudio = Boolean(effectiveAudioUrl) || streamingSegments.length > 0;
 
@@ -132,7 +154,7 @@ export function AudioPlayer({
       try {
         sourceNodeRef.current.stop();
         sourceNodeRef.current.disconnect();
-      } catch (e) {
+      } catch {
         // Ignore errors when stopping
       }
       sourceNodeRef.current = null;
@@ -242,6 +264,7 @@ export function AudioPlayer({
         setIsLoading(false);
         setIsWaitingForSegment(false);
         onPlayStateChangeRef.current?.(false);
+        onEndedRef.current?.();
         releaseExclusive();
       };
       audio.onerror = () => {
@@ -337,6 +360,7 @@ export function AudioPlayer({
           setIsLoading(false);
           setIsWaitingForSegment(false);
           onPlayStateChangeRef.current?.(false);
+          onEndedRef.current?.();
           releaseExclusive();
           return;
         }
@@ -553,6 +577,7 @@ export function AudioPlayer({
         setIsLoading(false);
         setIsWaitingForSegment(false);
         onPlayStateChangeRef.current?.(false);
+        onEndedRef.current?.();
         releaseExclusive();
       }
     }
@@ -640,6 +665,24 @@ export function AudioPlayer({
     stopPlayback,
   ]);
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      togglePlay,
+      play: () => {
+        if (!isPlayingRef.current) {
+          togglePlay();
+        }
+      },
+      pause: () => {
+        if (isPlayingRef.current) {
+          pausePlayback();
+        }
+      },
+    }),
+    [pausePlayback, togglePlay],
+  );
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -681,12 +724,12 @@ export function AudioPlayer({
       !hasAutoPlayedForCurrentContentRef.current &&
       !isPausedRef.current
     ) {
-      if (streamingSegments.length > 0 || isStreaming) {
-        hasAutoPlayedForCurrentContentRef.current = true;
-        playFromSegments();
-      } else if (effectiveAudioUrl) {
+      if (useOssUrl && effectiveAudioUrl) {
         hasAutoPlayedForCurrentContentRef.current = true;
         playFromUrl();
+      } else if (streamingSegments.length > 0 || isStreaming) {
+        hasAutoPlayedForCurrentContentRef.current = true;
+        playFromSegments();
       }
     }
   }, [
@@ -696,6 +739,7 @@ export function AudioPlayer({
     disabled,
     streamingSegments.length,
     isStreaming,
+    useOssUrl,
     effectiveAudioUrl,
     playFromSegments,
     playFromUrl,
@@ -781,5 +825,9 @@ export function AudioPlayer({
     </TooltipProvider>
   );
 }
+
+export const AudioPlayer = forwardRef(AudioPlayerBase);
+
+AudioPlayer.displayName = 'AudioPlayer';
 
 export default AudioPlayer;
