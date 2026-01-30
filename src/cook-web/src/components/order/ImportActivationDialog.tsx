@@ -28,6 +28,16 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/AlertDialog';
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -68,6 +78,8 @@ const ImportActivationDialog = ({
   const [courseSearch, setCourseSearch] = React.useState('');
   const [courseOpen, setCourseOpen] = React.useState(false);
   const dialogContentRef = React.useRef<HTMLDivElement | null>(null);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const [pendingMobiles, setPendingMobiles] = React.useState<string[]>([]);
 
   const formSchema = React.useMemo(
     () =>
@@ -169,6 +181,14 @@ const ImportActivationDialog = ({
       return;
     }
 
+    setPendingMobiles(mobiles);
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmImport = async (
+    mobiles: string[],
+    values: z.infer<typeof formSchema>,
+  ) => {
     const payload = {
       mobile: mobiles.join(','),
       course_id: values.course_id.trim(),
@@ -367,45 +387,13 @@ const ImportActivationDialog = ({
                         );
                       }}
                       onChange={e => {
-                        const raw = e.target.value;
-                        // Auto-insert a newline when current line has 11 digits and caret is at end
-                        const selectionEnd =
-                          e.target.selectionEnd || raw.length;
-                        const beforeCursor = raw.slice(0, selectionEnd);
-                        const afterCursor = raw.slice(selectionEnd);
-                        const lines = beforeCursor.split(/\n/);
-                        const lastLine = lines[lines.length - 1] || '';
-                        let nextValue = raw;
-                        if (
-                          lastLine.replace(/\D/g, '').length === 11 &&
-                          afterCursor.trim() === ''
-                        ) {
-                          nextValue = `${beforeCursor}\n${afterCursor}`;
-                        }
-                        // Do not force normalization on manual typing; only auto break line
-                        field.onChange(nextValue);
+                        // Keep raw typing; only normalize on blur/submit
+                        field.onChange(e.target.value);
                       }}
                       onKeyDown={e => {
-                        // Allow keyboard shortcut to force newline (e.g., Alt/Option+Enter or Ctrl/Cmd+Enter)
-                        if (
-                          e.key === 'Enter' &&
-                          (e.altKey || e.metaKey || e.ctrlKey)
-                        ) {
+                        // Only allow Enter to create a newline; prevent other shortcut submissions
+                        if (e.key === 'Enter' && e.ctrlKey) {
                           e.preventDefault();
-                          const target = e.target as HTMLTextAreaElement;
-                          const { selectionStart = 0, selectionEnd = 0 } =
-                            target;
-                          const value = target.value || '';
-                          const before = value.slice(0, selectionStart);
-                          const after = value.slice(selectionEnd);
-                          const next = `${before}\n${after}`;
-                          const nextCaret = before.length + 1; // place caret just after the inserted newline
-                          field.onChange(next);
-                          requestAnimationFrame(() => {
-                            target.setSelectionRange(nextCaret, nextCaret);
-                            target.focus();
-                          });
-                          return;
                         }
                       }}
                       onBlur={e => {
@@ -573,6 +561,43 @@ const ImportActivationDialog = ({
         </Form>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {t(
+              'module.order.importActivation.confirmTitle',
+              '确认导入手机号',
+            )}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {t('module.order.importActivation.confirmDescription', {
+              count: pendingMobiles.length,
+            })}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className='max-h-48 overflow-auto text-sm border rounded-md p-2 bg-muted/40'>
+          {pendingMobiles.map(mobile => (
+            <div key={mobile}>{mobile}</div>
+          ))}
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setConfirmOpen(false)}>
+            {t('common.core.cancel')}
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              const currentValues = form.getValues();
+              setConfirmOpen(false);
+              void handleConfirmImport(pendingMobiles, currentValues);
+            }}
+          >
+            {t('common.core.confirm')}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 };
 
