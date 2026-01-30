@@ -120,12 +120,13 @@ const ListenModeRenderer = ({
           segment => segment.type === 'markdown' || segment.type === 'sandbox',
         );
         const fallbackPage = Math.max(pageCursor - 1, 0);
-        const contentPage = slideSegments.length > 0 ? pageCursor : fallbackPage;
+        const contentPage =
+          slideSegments.length > 0 ? pageCursor : fallbackPage;
         const interactionPage = fallbackPage;
         const hasAudio = Boolean(
           item.audioUrl ||
-            (item.audioSegments && item.audioSegments.length > 0) ||
-            item.isAudioStreaming,
+          (item.audioSegments && item.audioSegments.length > 0) ||
+          item.isAudioStreaming,
         );
 
         if (item.type === ChatContentItemType.CONTENT && hasAudio) {
