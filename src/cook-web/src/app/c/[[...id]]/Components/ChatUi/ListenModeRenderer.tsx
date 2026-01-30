@@ -183,8 +183,6 @@ const ListenModeRenderer = ({
     audioSequenceListRef.current = audioAndInteractionList;
   }, [audioAndInteractionList]);
 
-
-
   const clearAudioSequenceTimer = useCallback(() => {
     if (audioSequenceTimerRef.current) {
       clearTimeout(audioSequenceTimerRef.current);
@@ -302,7 +300,7 @@ const ListenModeRenderer = ({
     previewMode,
     sequenceInteraction,
   ]);
-  
+
   const startSequenceFromPage = useCallback(
     (page: number) => {
       console.log('listen-seq: startFromPage', { page });
@@ -775,8 +773,8 @@ const ListenModeRenderer = ({
         isAudioPlaying &&
         Boolean(
           activeContentItem?.isAudioStreaming ||
-            (activeContentItem?.audioSegments &&
-              activeContentItem.audioSegments.length > 0),
+          (activeContentItem?.audioSegments &&
+            activeContentItem.audioSegments.length > 0),
         );
       if (pendingAutoNextRef.current) {
         const moved = goToNextBlock();

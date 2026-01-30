@@ -20,6 +20,7 @@ import { useEnvStore } from '@/c-store/envStore';
 import { useUserStore } from '@/store';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { toast } from '@/hooks/useToast';
+import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import InteractionBlock from './InteractionBlock';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import type { ChatContentItem } from './useChatLogicHook';
@@ -142,6 +143,7 @@ export const NewChatComponents = ({
   );
   const learningMode = useSystemStore(state => state.learningMode);
   const isListenMode = learningMode === 'listen';
+  const { requestExclusive, releaseExclusive } = useExclusiveAudio();
 
   const onPayModalOpen = useCallback(() => {
     openPayModal();
@@ -163,7 +165,7 @@ export const NewChatComponents = ({
   const [longPressedBlockBid, setLongPressedBlockBid] = useState<string>('');
 
   // Streaming TTS sequential playback (auto-play next block)
-  const [autoPlayAudio] = useState(true);
+  const autoPlayAudio = isListenMode;
   const [currentPlayingBlockBid, setCurrentPlayingBlockBid] = useState<
     string | null
   >(null);
@@ -173,6 +175,16 @@ export const NewChatComponents = ({
   useEffect(() => {
     currentPlayingBlockBidRef.current = currentPlayingBlockBid;
   }, [currentPlayingBlockBid]);
+
+  useEffect(() => {
+    if (isListenMode) {
+      return;
+    }
+    requestExclusive(() => {});
+    releaseExclusive();
+    currentPlayingBlockBidRef.current = null;
+    setCurrentPlayingBlockBid(null);
+  }, [isListenMode, releaseExclusive, requestExclusive]);
 
   const {
     items,
