@@ -5,7 +5,7 @@ import type Reveal from 'reveal.js';
 import 'reveal.js/dist/reveal.css';
 import 'reveal.js/dist/theme/white.css';
 import ContentIframe from './ContentIframe';
-import type { ChatContentItem } from './useChatLogicHook';
+import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import './ListenModeRenderer.scss';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
@@ -202,9 +202,40 @@ const ListenModeRenderer = ({
       startSequenceFromPage(nextPage);
     }
   }, [goNext, startSequenceFromPage]);
+
+  const currentInteractionPage = useMemo(() => {
+    if (!currentInteraction) {
+      return -1;
+    }
+    for (const [page, item] of interactionByPage.entries()) {
+      if (item === currentInteraction) {
+        return page;
+      }
+    }
+    return -1;
+  }, [currentInteraction, interactionByPage]);
+
+  const hasAudioForCurrentPage = useMemo(() => {
+    if (currentInteractionPage === -1) {
+      return false;
+    }
+    return audioAndInteractionList.some(
+      item =>
+        item.page === currentInteractionPage &&
+        item.type === ChatContentItemType.CONTENT,
+    );
+  }, [currentInteractionPage, audioAndInteractionList]);
+
+  const shouldHideFallbackInteraction =
+    hasAudioForCurrentPage &&
+    audioSequenceToken === 0 &&
+    !isAudioSequenceActive;
+
   const listenPlayerInteraction = isAudioSequenceActive
     ? sequenceInteraction
-    : currentInteraction;
+    : shouldHideFallbackInteraction
+      ? null
+      : currentInteraction;
   const isLatestInteractionEditable = Boolean(
     listenPlayerInteraction?.generated_block_bid &&
     lastItemIsInteraction &&
