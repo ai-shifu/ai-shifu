@@ -66,6 +66,8 @@
   },
   "importActivation": {
     "action": "Import Activation",
+    "confirmDescription": "Total {count} mobile numbers. Proceed?",
+    "confirmTitle": "Confirm import mobiles",
     "courseLabel": "Course",
     "coursePlaceholder": "Select a course",
     "courseRequired": "Course is required",
@@ -76,8 +78,6 @@
     "mobileLimit": "You can import up to {count} mobile numbers at once",
     "mobilePlaceholder": "Enter mobile numbers, one per line (max 50); paste supports auto line break",
     "mobileRequired": "Mobile is required",
-    "confirmTitle": "Confirm import mobiles",
-    "confirmDescription": "Total {count} mobile numbers. Proceed?",
     "nicknameLabel": "Nickname (Optional)",
     "nicknamePlaceholder": "Enter nickname",
     "partialSummary": "{successCount} succeeded, {failedCount} failed",

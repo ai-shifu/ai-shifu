@@ -66,6 +66,8 @@
   },
   "importActivation": {
     "action": "导入开通",
+    "confirmDescription": "共 {count} 个手机号，确认导入？",
+    "confirmTitle": "确认导入手机号",
     "courseLabel": "课程",
     "coursePlaceholder": "请选择课程",
     "courseRequired": "请选择课程",
@@ -76,8 +78,6 @@
     "mobileLimit": "一次最多导入 {count} 个手机号",
     "mobilePlaceholder": "请输入手机号，每行一个（最多50个），支持粘贴自动分行",
     "mobileRequired": "请输入手机号",
-    "confirmTitle": "确认导入手机号",
-    "confirmDescription": "共 {count} 个手机号，确认导入？",
     "nicknameLabel": "昵称（可选）",
     "nicknamePlaceholder": "请输入昵称",
     "partialSummary": "成功 {successCount} 个，失败 {failedCount} 个",
