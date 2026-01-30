@@ -127,7 +127,8 @@ const ContentBlock = memo(
       prevProps.copyButtonText === nextProps.copyButtonText &&
       prevProps.copiedButtonText === nextProps.copiedButtonText &&
       Boolean(prevProps.autoPlayAudio) === Boolean(nextProps.autoPlayAudio) &&
-      Boolean(prevProps.showAudioAction) === Boolean(nextProps.showAudioAction) &&
+      Boolean(prevProps.showAudioAction) ===
+        Boolean(nextProps.showAudioAction) &&
       // Audio state (mobile only rendering)
       (prevProps.item.audioUrl ?? '') === (nextProps.item.audioUrl ?? '') &&
       Boolean(prevProps.item.isAudioStreaming) ===

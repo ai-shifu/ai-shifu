@@ -623,7 +623,10 @@ function useChatLogicHook({
                         ),
                         isHistory: true, // Prevent AskButton from triggering typewriter
                       };
-                      console.log('updatedList[i].content', updatedList[i].content);
+                      console.log(
+                        'updatedList[i].content',
+                        updatedList[i].content,
+                      );
                       break;
                     }
                   }
@@ -768,7 +771,7 @@ function useChatLogicHook({
                 getAskButtonMarkup(),
               )
             : normalizedContent;
-            console.log('contentWithButton', contentWithButton);
+          console.log('contentWithButton', contentWithButton);
           result.push({
             generated_block_bid: item.generated_block_bid,
             content: contentWithButton,
