@@ -150,7 +150,7 @@ const ListenModeRenderer = ({
     const nextContentItems = items.map(item => {
       const segments =
         item.type === ChatContentItemType.CONTENT && !!item.content
-          ? splitContentSegments(item.content || '')
+          ? splitContentSegments(item.content || '', true)
           : [];
       const currentPage =
         segments.length > 0 && pageCursor === 0 ? 1 : pageCursor;
