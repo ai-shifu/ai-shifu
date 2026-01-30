@@ -181,7 +181,7 @@ const ListenModeRenderer = ({
     if (isLoading) {
       return false;
     }
-    console.log('shouldRenderEmptyPpt',slideItems, slideItems.length);
+    console.log('shouldRenderEmptyPpt', slideItems, slideItems.length);
     return slideItems.length === 0;
   }, [isLoading, slideItems.length]);
 
