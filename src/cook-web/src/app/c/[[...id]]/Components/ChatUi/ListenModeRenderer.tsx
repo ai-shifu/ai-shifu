@@ -58,7 +58,6 @@ const ListenModeRenderer = ({
     firstContentItem,
   } = useListenContentData(items);
 
-
   const resolveContentBid = useCallback((blockBid: string | null) => {
     if (!blockBid) {
       return null;
