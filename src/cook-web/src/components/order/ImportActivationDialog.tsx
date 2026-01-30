@@ -342,228 +342,238 @@ const ImportActivationDialog = ({
         open={open}
         onOpenChange={onOpenChange}
       >
-      <DialogContent ref={dialogContentRef}>
-        <DialogHeader>
-          <DialogTitle>{t('module.order.importActivation.title')}</DialogTitle>
-          <DialogDescription>
-            {t('module.order.importActivation.description')}
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(handleSubmit)}
-            className='space-y-4'
-          >
-            <FormField
-              control={form.control}
-              name='mobile'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {t('module.order.importActivation.mobileLabel')}
-                  </FormLabel>
-                  <FormControl>
-                    <Textarea
-                      autoComplete='off'
-                      placeholder={t(
-                        'module.order.importActivation.mobilePlaceholder',
-                      )}
-                      className='min-h-[80px]'
-                      {...field}
-                      onPaste={event => {
-                        event.preventDefault();
-                        const pasted = handleNormalizeInput(
-                          event.clipboardData.getData('text'),
-                          { enforce: true },
-                        );
-                        const target = event.target as HTMLTextAreaElement;
-                        const { selectionStart = 0, selectionEnd = 0 } = target;
-                        const currentValue = target.value || '';
-                        const nextValue = `${currentValue.slice(
-                          0,
-                          selectionStart,
-                        )}${pasted}${currentValue.slice(selectionEnd)}`;
-                        field.onChange(
-                          handleNormalizeInput(nextValue, { enforce: true }),
-                        );
-                      }}
-                      onChange={e => {
-                        // Keep raw typing; only normalize on blur/submit
-                        field.onChange(e.target.value);
-                      }}
-                      onKeyDown={e => {
-                        // Only allow Enter to create a newline; prevent other shortcut submissions
-                        if (e.key === 'Enter' && e.ctrlKey) {
-                          e.preventDefault();
-                        }
-                      }}
-                      onBlur={e => {
-                        const normalized = handleNormalizeInput(
-                          e.target.value,
-                          {
-                            enforce: true,
-                          },
-                        );
-                        field.onChange(normalized);
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name='course_id'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {t('module.order.importActivation.courseLabel')}
-                  </FormLabel>
-                  <Popover
-                    modal={false}
-                    open={courseOpen}
-                    onOpenChange={setCourseOpen}
-                  >
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          type='button'
-                          variant='outline'
-                          className='w-full justify-between font-normal'
-                          title={
-                            field.value
-                              ? courseNameMap.get(field.value) || field.value
-                              : undefined
+        <DialogContent ref={dialogContentRef}>
+          <DialogHeader>
+            <DialogTitle>
+              {t('module.order.importActivation.title')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('module.order.importActivation.description')}
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(handleSubmit)}
+              className='space-y-4'
+            >
+              <FormField
+                control={form.control}
+                name='mobile'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {t('module.order.importActivation.mobileLabel')}
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea
+                        autoComplete='off'
+                        placeholder={t(
+                          'module.order.importActivation.mobilePlaceholder',
+                        )}
+                        className='min-h-[80px]'
+                        {...field}
+                        onPaste={event => {
+                          event.preventDefault();
+                          const pasted = handleNormalizeInput(
+                            event.clipboardData.getData('text'),
+                            { enforce: true },
+                          );
+                          const target = event.target as HTMLTextAreaElement;
+                          const { selectionStart = 0, selectionEnd = 0 } =
+                            target;
+                          const currentValue = target.value || '';
+                          const nextValue = `${currentValue.slice(
+                            0,
+                            selectionStart,
+                          )}${pasted}${currentValue.slice(selectionEnd)}`;
+                          field.onChange(
+                            handleNormalizeInput(nextValue, { enforce: true }),
+                          );
+                        }}
+                        onChange={e => {
+                          // Keep raw typing; only normalize on blur/submit
+                          field.onChange(e.target.value);
+                        }}
+                        onKeyDown={e => {
+                          // Only allow Enter to create a newline; prevent other shortcut submissions
+                          if (e.key === 'Enter' && e.ctrlKey) {
+                            e.preventDefault();
                           }
-                        >
-                          <span
-                            className={cn(
-                              'flex-1 truncate text-left',
-                              field.value
-                                ? 'text-foreground'
-                                : 'text-muted-foreground',
-                            )}
-                          >
-                            {field.value
-                              ? courseNameMap.get(field.value) || field.value
-                              : t(
-                                  'module.order.importActivation.coursePlaceholder',
-                                )}
-                          </span>
-                          <ChevronDown className='h-4 w-4 text-muted-foreground' />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      align='start'
-                      sideOffset={4}
-                      container={dialogContentRef.current ?? undefined}
-                      className='z-50 p-3 pointer-events-auto'
-                      style={{
-                        width: 'var(--radix-popover-trigger-width)',
-                        maxWidth: 'var(--radix-popover-trigger-width)',
-                      }}
-                    >
-                      <Input
-                        value={courseSearch}
-                        onChange={event => setCourseSearch(event.target.value)}
-                        placeholder={t('module.order.filters.searchCourseOrId')}
-                        className='h-8'
+                        }}
+                        onBlur={e => {
+                          const normalized = handleNormalizeInput(
+                            e.target.value,
+                            {
+                              enforce: true,
+                            },
+                          );
+                          field.onChange(normalized);
+                        }}
                       />
-                      <ScrollArea className='mt-3 h-48'>
-                        {coursesLoading ? (
-                          <div className='flex items-center justify-center py-4'>
-                            <Loading className='h-5 w-5' />
-                          </div>
-                        ) : coursesError ? (
-                          <div className='px-2 py-3 text-xs text-destructive'>
-                            {coursesError}
-                          </div>
-                        ) : filteredCourses.length === 0 ? (
-                          <div className='px-2 py-3 text-xs text-muted-foreground'>
-                            {t('common.core.noShifus')}
-                          </div>
-                        ) : (
-                          <div className='space-y-1'>
-                            {filteredCourses.map(course => {
-                              const isSelected = field.value === course.bid;
-                              const courseName = course.name || course.bid;
-                              return (
-                                <button
-                                  key={course.bid}
-                                  type='button'
-                                  onClick={() => {
-                                    field.onChange(course.bid);
-                                    setCourseOpen(false);
-                                  }}
-                                  className='flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent'
-                                  aria-pressed={isSelected}
-                                >
-                                  <span className='flex flex-col min-w-0'>
-                                    <span className='text-sm text-foreground truncate'>
-                                      {courseName}
-                                    </span>
-                                    {/* <span className='text-xs text-muted-foreground'>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='course_id'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {t('module.order.importActivation.courseLabel')}
+                    </FormLabel>
+                    <Popover
+                      modal={false}
+                      open={courseOpen}
+                      onOpenChange={setCourseOpen}
+                    >
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            type='button'
+                            variant='outline'
+                            className='w-full justify-between font-normal'
+                            title={
+                              field.value
+                                ? courseNameMap.get(field.value) || field.value
+                                : undefined
+                            }
+                          >
+                            <span
+                              className={cn(
+                                'flex-1 truncate text-left',
+                                field.value
+                                  ? 'text-foreground'
+                                  : 'text-muted-foreground',
+                              )}
+                            >
+                              {field.value
+                                ? courseNameMap.get(field.value) || field.value
+                                : t(
+                                    'module.order.importActivation.coursePlaceholder',
+                                  )}
+                            </span>
+                            <ChevronDown className='h-4 w-4 text-muted-foreground' />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        align='start'
+                        sideOffset={4}
+                        container={dialogContentRef.current ?? undefined}
+                        className='z-50 p-3 pointer-events-auto'
+                        style={{
+                          width: 'var(--radix-popover-trigger-width)',
+                          maxWidth: 'var(--radix-popover-trigger-width)',
+                        }}
+                      >
+                        <Input
+                          value={courseSearch}
+                          onChange={event =>
+                            setCourseSearch(event.target.value)
+                          }
+                          placeholder={t(
+                            'module.order.filters.searchCourseOrId',
+                          )}
+                          className='h-8'
+                        />
+                        <ScrollArea className='mt-3 h-48'>
+                          {coursesLoading ? (
+                            <div className='flex items-center justify-center py-4'>
+                              <Loading className='h-5 w-5' />
+                            </div>
+                          ) : coursesError ? (
+                            <div className='px-2 py-3 text-xs text-destructive'>
+                              {coursesError}
+                            </div>
+                          ) : filteredCourses.length === 0 ? (
+                            <div className='px-2 py-3 text-xs text-muted-foreground'>
+                              {t('common.core.noShifus')}
+                            </div>
+                          ) : (
+                            <div className='space-y-1'>
+                              {filteredCourses.map(course => {
+                                const isSelected = field.value === course.bid;
+                                const courseName = course.name || course.bid;
+                                return (
+                                  <button
+                                    key={course.bid}
+                                    type='button'
+                                    onClick={() => {
+                                      field.onChange(course.bid);
+                                      setCourseOpen(false);
+                                    }}
+                                    className='flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent'
+                                    aria-pressed={isSelected}
+                                  >
+                                    <span className='flex flex-col min-w-0'>
+                                      <span className='text-sm text-foreground truncate'>
+                                        {courseName}
+                                      </span>
+                                      {/* <span className='text-xs text-muted-foreground'>
                                       {course.bid}
                                     </span> */}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </ScrollArea>
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='user_nick_name'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {t('module.order.importActivation.nicknameLabel')}
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        autoComplete='off'
+                        placeholder={t(
+                          'module.order.importActivation.nicknamePlaceholder',
                         )}
-                      </ScrollArea>
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name='user_nick_name'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {t('module.order.importActivation.nicknameLabel')}
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      autoComplete='off'
-                      placeholder={t(
-                        'module.order.importActivation.nicknamePlaceholder',
-                      )}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className='flex justify-end gap-2'>
-              <Button
-                type='button'
-                variant='outline'
-                onClick={() => onOpenChange(false)}
-              >
-                {t('common.core.cancel')}
-              </Button>
-              <Button
-                type='submit'
-                disabled={form.formState.isSubmitting}
-              >
-                {form.formState.isSubmitting
-                  ? t('module.order.importActivation.submitting')
-                  : t('module.order.importActivation.submit')}
-              </Button>
-            </div>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className='flex justify-end gap-2'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  onClick={() => onOpenChange(false)}
+                >
+                  {t('common.core.cancel')}
+                </Button>
+                <Button
+                  type='submit'
+                  disabled={form.formState.isSubmitting}
+                >
+                  {form.formState.isSubmitting
+                    ? t('module.order.importActivation.submitting')
+                    : t('module.order.importActivation.submit')}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <AlertDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
