@@ -144,44 +144,46 @@ const ListenModeRenderer = ({
     return slide.getAttribute('data-generated-block-bid') || null;
   }, []);
 
-  const { contentItems, interactionByPage } = useMemo(() => {
+  const { slideItems, interactionByPage } = useMemo(() => {
     let pageCursor = 0;
     const mapping = new Map<number, ChatContentItem>();
-    const nextContentItems = items.map(item => {
+    const nextSlideItems: Array<{
+      item: ChatContentItem;
+      segments: RenderSegment[];
+    }> = [];
+
+    items.forEach(item => {
       const segments =
         item.type === ChatContentItemType.CONTENT && !!item.content
           ? splitContentSegments(item.content || '', true)
           : [];
+      const slideSegments = segments.filter(
+        segment => segment.type === 'markdown' || segment.type === 'sandbox',
+      );
       const currentPage =
-        segments.length > 0 && pageCursor === 0 ? 1 : pageCursor;
-      const entry = {
-        item,
-        segments,
-        currentPage,
-      };
+        slideSegments.length > 0 && pageCursor === 0 ? 1 : pageCursor;
       if (item.type === ChatContentItemType.INTERACTION) {
-        mapping.set(entry.currentPage - 1, item);
+        mapping.set(currentPage - 1, item);
       }
-      pageCursor += segments.length;
-      return entry;
+      if (slideSegments.length > 0) {
+        nextSlideItems.push({
+          item,
+          segments: slideSegments,
+        });
+      }
+      pageCursor += slideSegments.length;
     });
     // console.log('interactionByPage', mapping);
-    return { contentItems: nextContentItems, interactionByPage: mapping };
+    return { slideItems: nextSlideItems, interactionByPage: mapping };
   }, [items]);
 
   const shouldRenderEmptyPpt = useMemo(() => {
     if (isLoading) {
       return false;
     }
-    if (!contentItems.length) {
-      return true;
-    }
-    const allSegmentsEmpty = contentItems.every(
-      ({ segments }) => segments.length === 0,
-    );
-    const lastPage = contentItems[contentItems.length - 1]?.currentPage ?? 0;
-    return allSegmentsEmpty || lastPage === 0;
-  }, [contentItems, isLoading]);
+    console.log('shouldRenderEmptyPpt',slideItems, slideItems.length);
+    return slideItems.length === 0;
+  }, [isLoading, slideItems.length]);
 
   const syncActiveBlockFromDeck = useCallback(() => {
     const deck = deckRef.current;
@@ -336,7 +338,7 @@ const ListenModeRenderer = ({
       return;
     }
 
-    if (!contentItems.length) {
+    if (!slideItems.length) {
       return;
     }
 
@@ -364,7 +366,7 @@ const ListenModeRenderer = ({
     });
   }, [
     chatRef,
-    contentItems.length,
+    slideItems.length,
     isLoading,
     syncActiveBlockFromDeck,
     syncPptPageFromDeck,
@@ -372,7 +374,7 @@ const ListenModeRenderer = ({
   ]);
 
   useEffect(() => {
-    if (!contentItems.length && deckRef.current) {
+    if (!slideItems.length && deckRef.current) {
       try {
         console.log('销毁reveal实例 (no content)');
         deckRef.current?.destroy();
@@ -385,7 +387,7 @@ const ListenModeRenderer = ({
         setIsNextDisabled(true);
       }
     }
-  }, [chatRef, contentItems.length, isLoading, syncActiveBlockFromDeck]);
+  }, [chatRef, slideItems.length, isLoading, syncActiveBlockFromDeck]);
 
   useEffect(() => {
     return () => {
@@ -481,7 +483,7 @@ const ListenModeRenderer = ({
       // Ignore reveal sync errors
     }
   }, [
-    contentItems,
+    slideItems,
     isAudioPlaying,
     isLoading,
     goToNextBlock,
@@ -597,7 +599,7 @@ const ListenModeRenderer = ({
       >
         <div className='slides'>
           {!isLoading &&
-            contentItems.map(({ item, segments }, idx) => {
+            slideItems.map(({ item, segments }, idx) => {
               const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
               console.log('segments', segments);
               return (
@@ -613,6 +615,7 @@ const ListenModeRenderer = ({
             })}
           {shouldRenderEmptyPpt ? (
             <section
+              className='present'
               data-auto-animate
               data-generated-block-bid={emptySlideBlockBid}
             >
