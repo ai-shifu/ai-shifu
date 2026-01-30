@@ -21,10 +21,8 @@ type RevealOptionsWithScrollMode = Reveal.Options & {
   scrollMode?: 'classic' | 'scroll';
 };
 
-type ContentItemSegments = {
-  item: ChatContentItem;
-  segments: RenderSegment[];
-  currentPage: number;
+type AudioInteractionItem = ChatContentItem & {
+  page: number;
 };
 
 interface ListenModeRendererProps {
@@ -57,9 +55,24 @@ const ListenModeRenderer = ({
   const requestedAudioBlockBidsRef = useRef<Set<string>>(new Set());
   const currentPptPageRef = useRef<number>(0);
   const prevSlidesLengthRef = useRef(0);
+  const shouldSlideToFirstRef = useRef(false);
+  const prevFirstSlideBidRef = useRef<string | null>(null);
+  const prevSectionTitleRef = useRef<string | null>(null);
+  const shouldStartSequenceRef = useRef(false);
+  const audioSequenceIndexRef = useRef(-1);
+  const audioSequenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const audioSequenceListRef = useRef<AudioInteractionItem[]>([]);
+  const prevAudioSequenceLengthRef = useRef(0);
   const [activeBlockBid, setActiveBlockBid] = useState<string | null>(null);
+  const [activeAudioBid, setActiveAudioBid] = useState<string | null>(null);
   const [currentInteraction, setCurrentInteraction] =
     useState<ChatContentItem | null>(null);
+  const [sequenceInteraction, setSequenceInteraction] =
+    useState<AudioInteractionItem | null>(null);
+  const [isAudioSequenceActive, setIsAudioSequenceActive] = useState(false);
+  const [audioSequenceToken, setAudioSequenceToken] = useState(0);
   const activeBlockBidRef = useRef<string | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [isPrevDisabled, setIsPrevDisabled] = useState(true);
@@ -89,6 +102,246 @@ const ListenModeRenderer = ({
     return bids;
   }, [items]);
 
+  const { lastInteractionBid, lastItemIsInteraction } = useMemo(() => {
+    let latestInteractionBid: string | null = null;
+    for (let i = items.length - 1; i >= 0; i -= 1) {
+      if (items[i].type === ChatContentItemType.INTERACTION) {
+        latestInteractionBid = items[i].generated_block_bid;
+        break;
+      }
+    }
+    const lastItem = items[items.length - 1];
+    return {
+      lastInteractionBid: latestInteractionBid,
+      lastItemIsInteraction: lastItem?.type === ChatContentItemType.INTERACTION,
+    };
+  }, [items]);
+
+  const { slideItems, interactionByPage, audioAndInteractionList } =
+    useMemo(() => {
+      let pageCursor = 0;
+      const mapping = new Map<number, ChatContentItem>();
+      const nextSlideItems: Array<{
+        item: ChatContentItem;
+        segments: RenderSegment[];
+      }> = [];
+      const nextAudioAndInteractionList: AudioInteractionItem[] = [];
+
+      items.forEach(item => {
+        const segments =
+          item.type === ChatContentItemType.CONTENT && !!item.content
+            ? splitContentSegments(item.content || '', true)
+            : [];
+        const slideSegments = segments.filter(
+          segment => segment.type === 'markdown' || segment.type === 'sandbox',
+        );
+        const fallbackPage = Math.max(pageCursor - 1, 0);
+        const contentPage =
+          slideSegments.length > 0 ? pageCursor : fallbackPage;
+        const interactionPage = fallbackPage;
+        const hasAudio = Boolean(
+          item.audioUrl ||
+          (item.audioSegments && item.audioSegments.length > 0) ||
+          item.isAudioStreaming,
+        );
+
+        if (item.type === ChatContentItemType.CONTENT && hasAudio) {
+          nextAudioAndInteractionList.push({
+            ...item,
+            page: contentPage,
+          });
+        }
+
+        if (item.type === ChatContentItemType.INTERACTION) {
+          mapping.set(interactionPage, item);
+          nextAudioAndInteractionList.push({
+            ...item,
+            page: interactionPage,
+          });
+        }
+
+        if (slideSegments.length > 0) {
+          nextSlideItems.push({
+            item,
+            segments: slideSegments,
+          });
+        }
+
+        pageCursor += slideSegments.length;
+      });
+      // console.log('interactionByPage', mapping);
+      return {
+        slideItems: nextSlideItems,
+        interactionByPage: mapping,
+        audioAndInteractionList: nextAudioAndInteractionList,
+      };
+    }, [items]);
+
+  console.log('audioAndInteractionList', audioAndInteractionList);
+
+  useEffect(() => {
+    audioSequenceListRef.current = audioAndInteractionList;
+  }, [audioAndInteractionList]);
+
+
+
+  const clearAudioSequenceTimer = useCallback(() => {
+    if (audioSequenceTimerRef.current) {
+      clearTimeout(audioSequenceTimerRef.current);
+      audioSequenceTimerRef.current = null;
+    }
+  }, []);
+
+  const syncToSequencePage = useCallback((page: number) => {
+    if (page < 0) {
+      return;
+    }
+    const deck = deckRef.current;
+    if (!deck) {
+      return;
+    }
+    const currentIndex = deck.getIndices?.().h ?? 0;
+    console.log('listen-seq: syncToSequencePage', { page, currentIndex });
+    if (currentIndex !== page) {
+      deck.slide(page);
+    }
+  }, []);
+
+  const resolveSequenceStartIndex = useCallback((page: number) => {
+    const list = audioSequenceListRef.current;
+    if (!list.length) {
+      return -1;
+    }
+    console.log('listen-seq: resolveStartIndex', {
+      page,
+      list: list.map(item => ({
+        type: item.type,
+        page: item.page,
+        bid: item.generated_block_bid,
+      })),
+    });
+    const audioIndex = list.findIndex(
+      item => item.page === page && item.type === ChatContentItemType.CONTENT,
+    );
+    if (audioIndex >= 0) {
+      return audioIndex;
+    }
+    const pageIndex = list.findIndex(item => item.page === page);
+    if (pageIndex >= 0) {
+      return pageIndex;
+    }
+    const nextIndex = list.findIndex(item => item.page > page);
+    return nextIndex;
+  }, []);
+
+  const playAudioSequenceFromIndex = useCallback(
+    (index: number) => {
+      clearAudioSequenceTimer();
+      const list = audioSequenceListRef.current;
+      const nextItem = list[index];
+      console.log('listen-seq: playFromIndex', {
+        index,
+        nextItem: nextItem
+          ? {
+              type: nextItem.type,
+              page: nextItem.page,
+              bid: nextItem.generated_block_bid,
+            }
+          : null,
+      });
+      if (!nextItem) {
+        setSequenceInteraction(null);
+        setActiveAudioBid(null);
+        setIsAudioSequenceActive(false);
+        return;
+      }
+      syncToSequencePage(nextItem.page);
+      audioSequenceIndexRef.current = index;
+      setIsAudioSequenceActive(true);
+      if (nextItem.type === ChatContentItemType.INTERACTION) {
+        setSequenceInteraction(nextItem);
+        setActiveAudioBid(null);
+        if (index >= list.length - 1) {
+          return;
+        }
+        audioSequenceTimerRef.current = setTimeout(() => {
+          playAudioSequenceFromIndex(index + 1);
+        }, 2000);
+        return;
+      }
+      setSequenceInteraction(null);
+      setActiveAudioBid(nextItem.generated_block_bid);
+      setAudioSequenceToken(prev => prev + 1);
+    },
+    [clearAudioSequenceTimer, syncToSequencePage],
+  );
+
+  useEffect(() => {
+    const prevLength = prevAudioSequenceLengthRef.current;
+    const nextLength = audioAndInteractionList.length;
+    prevAudioSequenceLengthRef.current = nextLength;
+    if (previewMode || !nextLength) {
+      return;
+    }
+    const currentIndex = audioSequenceIndexRef.current;
+    if (
+      isAudioSequenceActive &&
+      sequenceInteraction &&
+      currentIndex >= 0 &&
+      prevLength > 0 &&
+      currentIndex === prevLength - 1 &&
+      nextLength > prevLength
+    ) {
+      // Continue after the last interaction when new audio arrives.
+      playAudioSequenceFromIndex(currentIndex + 1);
+    }
+  }, [
+    audioAndInteractionList.length,
+    isAudioSequenceActive,
+    playAudioSequenceFromIndex,
+    previewMode,
+    sequenceInteraction,
+  ]);
+  
+  const startSequenceFromPage = useCallback(
+    (page: number) => {
+      console.log('listen-seq: startFromPage', { page });
+      clearAudioSequenceTimer();
+      audioPlayerRef.current?.pause();
+      audioSequenceIndexRef.current = -1;
+      setSequenceInteraction(null);
+      setActiveAudioBid(null);
+      setIsAudioSequenceActive(false);
+      const startIndex = resolveSequenceStartIndex(page);
+      if (startIndex < 0) {
+        return;
+      }
+      playAudioSequenceFromIndex(startIndex);
+    },
+    [
+      clearAudioSequenceTimer,
+      playAudioSequenceFromIndex,
+      resolveSequenceStartIndex,
+    ],
+  );
+
+  useEffect(() => {
+    return () => {
+      clearAudioSequenceTimer();
+    };
+  }, [clearAudioSequenceTimer]);
+
+  useEffect(() => {
+    if (audioAndInteractionList.length) {
+      return;
+    }
+    clearAudioSequenceTimer();
+    audioSequenceIndexRef.current = -1;
+    setActiveAudioBid(null);
+    setSequenceInteraction(null);
+    setIsAudioSequenceActive(false);
+  }, [audioAndInteractionList.length, clearAudioSequenceTimer]);
+
   const contentByBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();
     for (const item of items) {
@@ -103,6 +356,21 @@ const ListenModeRenderer = ({
     }
     return mapping;
   }, [items]);
+
+  const audioContentByBid = useMemo(() => {
+    const mapping = new Map<string, ChatContentItem>();
+    for (const item of audioAndInteractionList) {
+      if (item.type !== ChatContentItemType.CONTENT) {
+        continue;
+      }
+      const bid = item.generated_block_bid;
+      if (!bid || bid === 'loading') {
+        continue;
+      }
+      mapping.set(bid, item);
+    }
+    return mapping;
+  }, [audioAndInteractionList]);
 
   const ttsReadyBlockBids = useMemo(() => {
     const ready = new Set<string>();
@@ -119,12 +387,34 @@ const ListenModeRenderer = ({
     return ready;
   }, [items]);
 
+  const resolveContentBid = useCallback((blockBid: string | null) => {
+    if (!blockBid) {
+      return null;
+    }
+    const emptyPrefix = 'empty-ppt-';
+    if (!blockBid.startsWith(emptyPrefix)) {
+      return blockBid;
+    }
+    const resolved = blockBid.slice(emptyPrefix.length);
+    return resolved || null;
+  }, []);
+
+  const activeAudioBlockBid = useMemo(() => {
+    if (!activeAudioBid) {
+      return null;
+    }
+    return resolveContentBid(activeAudioBid);
+  }, [activeAudioBid, resolveContentBid]);
+
   const activeContentItem = useMemo(() => {
-    if (!activeBlockBid) {
+    if (!activeAudioBlockBid) {
       return undefined;
     }
-    return contentByBid.get(activeBlockBid);
-  }, [activeBlockBid, contentByBid]);
+    return (
+      audioContentByBid.get(activeAudioBlockBid) ??
+      contentByBid.get(activeAudioBlockBid)
+    );
+  }, [activeAudioBlockBid, audioContentByBid, contentByBid]);
 
   const getBlockBidFromSlide = useCallback((slide: HTMLElement | null) => {
     if (!slide) {
@@ -132,6 +422,72 @@ const ListenModeRenderer = ({
     }
     return slide.getAttribute('data-generated-block-bid') || null;
   }, []);
+
+  const firstSlideBid = useMemo(
+    () => slideItems[0]?.item.generated_block_bid ?? null,
+    [slideItems],
+  );
+
+  useEffect(() => {
+    if (!firstSlideBid) {
+      prevFirstSlideBidRef.current = null;
+      return;
+    }
+    if (!prevFirstSlideBidRef.current) {
+      // Ensure initial load starts from the first slide.
+      shouldSlideToFirstRef.current = true;
+      shouldStartSequenceRef.current = true;
+      console.log('listen-slide: first slide init', {
+        next: firstSlideBid,
+      });
+    } else if (prevFirstSlideBidRef.current !== firstSlideBid) {
+      shouldSlideToFirstRef.current = true;
+      shouldStartSequenceRef.current = true;
+      console.log('listen-slide: first slide changed', {
+        prev: prevFirstSlideBidRef.current,
+        next: firstSlideBid,
+      });
+    }
+    prevFirstSlideBidRef.current = firstSlideBid;
+  }, [firstSlideBid]);
+
+  useEffect(() => {
+    if (!sectionTitle) {
+      prevSectionTitleRef.current = null;
+      return;
+    }
+    if (
+      prevSectionTitleRef.current &&
+      prevSectionTitleRef.current !== sectionTitle
+    ) {
+      shouldSlideToFirstRef.current = true;
+      shouldStartSequenceRef.current = true;
+      console.log('listen-slide: section title changed', {
+        prev: prevSectionTitleRef.current,
+        next: sectionTitle,
+      });
+    }
+    prevSectionTitleRef.current = sectionTitle;
+  }, [sectionTitle]);
+
+  useEffect(() => {
+    if (!shouldStartSequenceRef.current) {
+      return;
+    }
+    if (!audioAndInteractionList.length) {
+      return;
+    }
+    shouldStartSequenceRef.current = false;
+    playAudioSequenceFromIndex(0);
+  }, [audioAndInteractionList.length, playAudioSequenceFromIndex]);
+
+  const shouldRenderEmptyPpt = useMemo(() => {
+    if (isLoading) {
+      return false;
+    }
+    console.log('shouldRenderEmptyPpt', slideItems, slideItems.length);
+    return slideItems.length === 0;
+  }, [isLoading, slideItems.length]);
 
   const syncActiveBlockFromDeck = useCallback(() => {
     const deck = deckRef.current;
@@ -143,9 +499,16 @@ const ListenModeRenderer = ({
     if (!nextBid || nextBid === activeBlockBidRef.current) {
       return;
     }
+    if (shouldRenderEmptyPpt) {
+      if (!activeBlockBidRef.current?.startsWith('empty-ppt-')) {
+        activeBlockBidRef.current = nextBid;
+        setActiveBlockBid(nextBid);
+      }
+      return;
+    }
     activeBlockBidRef.current = nextBid;
     setActiveBlockBid(nextBid);
-  }, [getBlockBidFromSlide]);
+  }, [getBlockBidFromSlide, shouldRenderEmptyPpt]);
 
   const updateNavState = useCallback(() => {
     const deck = deckRef.current;
@@ -177,9 +540,13 @@ const ListenModeRenderer = ({
         return false;
       }
 
-      const section = chatRef.current.querySelector(
-        `section[data-generated-block-bid="${blockBid}"]`,
-      ) as HTMLElement | null;
+      const section =
+        (chatRef.current.querySelector(
+          `section[data-generated-block-bid="${blockBid}"]`,
+        ) as HTMLElement | null) ||
+        (chatRef.current.querySelector(
+          `section[data-generated-block-bid="empty-ppt-${blockBid}"]`,
+        ) as HTMLElement | null);
       if (!section) {
         return false;
       }
@@ -191,50 +558,58 @@ const ListenModeRenderer = ({
     [chatRef],
   );
 
+  const getNextContentBid = useCallback(
+    (currentBid: string | null) => {
+      if (!currentBid) {
+        return null;
+      }
+      const currentIndex = orderedContentBlockBids.indexOf(currentBid);
+      if (currentIndex < 0) {
+        return null;
+      }
+
+      for (
+        let i = currentIndex + 1;
+        i < orderedContentBlockBids.length;
+        i += 1
+      ) {
+        const nextBid = orderedContentBlockBids[i];
+        if (!nextBid || nextBid === 'loading') {
+          continue;
+        }
+        return nextBid;
+      }
+      return null;
+    },
+    [orderedContentBlockBids],
+  );
+
   const goToNextBlock = useCallback(() => {
-    const currentBid = activeBlockBidRef.current;
-    if (!currentBid) {
+    const currentBid = resolveContentBid(activeBlockBidRef.current);
+    const nextBid = getNextContentBid(currentBid);
+    if (!nextBid) {
       return false;
     }
-    const currentIndex = orderedContentBlockBids.indexOf(currentBid);
-    if (currentIndex < 0) {
-      return false;
-    }
+    return goToBlock(nextBid);
+  }, [getNextContentBid, goToBlock, resolveContentBid]);
 
-    for (let i = currentIndex + 1; i < orderedContentBlockBids.length; i += 1) {
-      const nextBid = orderedContentBlockBids[i];
-      if (!nextBid || nextBid === 'loading') {
-        continue;
-      }
-      if (goToBlock(nextBid)) {
-        return true;
+  const firstContentItem = useMemo(() => {
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i];
+      if (
+        item.type === ChatContentItemType.CONTENT &&
+        item.generated_block_bid &&
+        item.generated_block_bid !== 'loading'
+      ) {
+        return item;
       }
     }
-    return false;
-  }, [goToBlock, orderedContentBlockBids]);
-
-  const { contentItems, interactionByPage } = useMemo(() => {
-    let pageCursor = 0;
-    const mapping = new Map<number, ChatContentItem>();
-    const nextContentItems = items.map(item => {
-      const segments =
-        item.type === ChatContentItemType.CONTENT && !!item.content
-          ? splitContentSegments(item.content || '', true)
-          : [];
-      const entry = {
-        item,
-        segments,
-        currentPage: pageCursor,
-      };
-      if (item.type === ChatContentItemType.INTERACTION) {
-        mapping.set(entry.currentPage - 1, item);
-      }
-      pageCursor += segments.length;
-      return entry;
-    });
-    // console.log('interactionByPage', mapping);
-    return { contentItems: nextContentItems, interactionByPage: mapping };
+    return null;
   }, [items]);
+
+  const emptySlideBlockBid = firstContentItem?.generated_block_bid
+    ? `empty-ppt-${firstContentItem.generated_block_bid}`
+    : 'empty-ppt';
 
   const syncInteractionForCurrentPage = useCallback(
     (pageIndex?: number) => {
@@ -267,7 +642,7 @@ const ListenModeRenderer = ({
       return;
     }
 
-    if (!contentItems.length) {
+    if (!slideItems.length) {
       return;
     }
 
@@ -295,7 +670,7 @@ const ListenModeRenderer = ({
     });
   }, [
     chatRef,
-    contentItems.length,
+    slideItems.length,
     isLoading,
     syncActiveBlockFromDeck,
     syncPptPageFromDeck,
@@ -303,7 +678,7 @@ const ListenModeRenderer = ({
   ]);
 
   useEffect(() => {
-    if (!contentItems.length && deckRef.current) {
+    if (!slideItems.length && deckRef.current) {
       try {
         console.log('销毁reveal实例 (no content)');
         deckRef.current?.destroy();
@@ -316,7 +691,7 @@ const ListenModeRenderer = ({
         setIsNextDisabled(true);
       }
     }
-  }, [chatRef, contentItems.length, isLoading, syncActiveBlockFromDeck]);
+  }, [chatRef, slideItems.length, isLoading, syncActiveBlockFromDeck]);
 
   useEffect(() => {
     return () => {
@@ -382,13 +757,35 @@ const ListenModeRenderer = ({
       const lastIndex = Math.max(nextSlidesLength - 1, 0);
       const currentIndex = indices?.h ?? 0;
       const prevLastIndex = Math.max(prevSlidesLength - 1, 0);
+
+      if (shouldSlideToFirstRef.current) {
+        deckRef.current.slide(0);
+        shouldSlideToFirstRef.current = false;
+        hasAutoSlidToLatestRef.current = true;
+        updateNavState();
+        prevSlidesLengthRef.current = nextSlidesLength;
+        return;
+      }
+
       const shouldAutoFollowOnAppend =
         prevSlidesLength > 0 &&
         nextSlidesLength > prevSlidesLength &&
         currentIndex >= prevLastIndex;
+      const shouldHoldForStreamingAudio =
+        isAudioPlaying &&
+        Boolean(
+          activeContentItem?.isAudioStreaming ||
+            (activeContentItem?.audioSegments &&
+              activeContentItem.audioSegments.length > 0),
+        );
       if (pendingAutoNextRef.current) {
         const moved = goToNextBlock();
         pendingAutoNextRef.current = !moved;
+      }
+
+      if (shouldHoldForStreamingAudio) {
+        prevSlidesLengthRef.current = nextSlidesLength;
+        return;
       }
 
       if (isAudioPlaying && !shouldAutoFollowOnAppend) {
@@ -412,25 +809,27 @@ const ListenModeRenderer = ({
       // Ignore reveal sync errors
     }
   }, [
-    contentItems,
+    slideItems,
     isAudioPlaying,
     isLoading,
     goToNextBlock,
     chatRef,
     updateNavState,
+    activeContentItem?.isAudioStreaming,
+    activeContentItem?.audioSegments?.length,
   ]);
 
   useEffect(() => {
-    if (!activeBlockBid) {
+    if (!activeAudioBlockBid) {
       return;
     }
-    const item = contentByBid.get(activeBlockBid);
+    const item = contentByBid.get(activeAudioBlockBid);
     if (!item) {
       return;
     }
 
     const isBlockReadyForTts =
-      Boolean(item.isHistory) || ttsReadyBlockBids.has(activeBlockBid);
+      Boolean(item.isHistory) || ttsReadyBlockBids.has(activeAudioBlockBid);
     if (!isBlockReadyForTts) {
       return;
     }
@@ -445,15 +844,15 @@ const ListenModeRenderer = ({
       !hasAudio &&
       onRequestAudioForBlock &&
       !previewMode &&
-      !requestedAudioBlockBidsRef.current.has(activeBlockBid)
+      !requestedAudioBlockBidsRef.current.has(activeAudioBlockBid)
     ) {
-      requestedAudioBlockBidsRef.current.add(activeBlockBid);
-      onRequestAudioForBlock(activeBlockBid).catch(() => {
+      requestedAudioBlockBidsRef.current.add(activeAudioBlockBid);
+      onRequestAudioForBlock(activeAudioBlockBid).catch(() => {
         // errors handled by request layer toast; ignore here
       });
     }
   }, [
-    activeBlockBid,
+    activeAudioBlockBid,
     contentByBid,
     onRequestAudioForBlock,
     previewMode,
@@ -461,49 +860,120 @@ const ListenModeRenderer = ({
   ]);
 
   const handleAudioEnded = useCallback(() => {
-    const moved = goToNextBlock();
-    if (!moved) {
-      pendingAutoNextRef.current = true;
+    const list = audioSequenceListRef.current;
+    if (list.length) {
+      const nextIndex = audioSequenceIndexRef.current + 1;
+      if (nextIndex >= list.length) {
+        setIsAudioSequenceActive(false);
+        return;
+      }
+      playAudioSequenceFromIndex(nextIndex);
+      return;
     }
-  }, [goToNextBlock]);
+    const currentBid = resolveContentBid(activeBlockBidRef.current);
+    const nextBid = getNextContentBid(currentBid);
+    if (!nextBid) {
+      return;
+    }
+    const moved = goToBlock(nextBid);
+    if (moved) {
+      return;
+    }
+    if (shouldRenderEmptyPpt) {
+      const nextSlideBid = `empty-ppt-${nextBid}`;
+      activeBlockBidRef.current = nextSlideBid;
+      setActiveBlockBid(nextSlideBid);
+      return;
+    }
+    pendingAutoNextRef.current = true;
+  }, [
+    getNextContentBid,
+    goToBlock,
+    resolveContentBid,
+    shouldRenderEmptyPpt,
+    playAudioSequenceFromIndex,
+  ]);
 
   const handleTogglePlay = useCallback(() => {
     if (previewMode) {
       return;
     }
-    audioPlayerRef.current?.togglePlay();
-  }, [previewMode]);
-
-  useEffect(() => {
-    if (!activeBlockBid) {
+    if (!activeAudioBid && audioSequenceListRef.current.length) {
+      const currentPage =
+        deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
+      startSequenceFromPage(currentPage);
       return;
     }
+    audioPlayerRef.current?.togglePlay();
+  }, [previewMode, activeAudioBid, startSequenceFromPage]);
+
+  useEffect(() => {
     setIsAudioPlaying(false);
-  }, [activeBlockBid]);
+  }, [activeAudioBid]);
 
   const onPrev = useCallback(() => {
     const deck = deckRef.current;
     if (!deck || isPrevDisabled) {
       return;
     }
+    shouldSlideToFirstRef.current = false;
+    hasAutoSlidToLatestRef.current = true;
+    console.log('listen-nav: onPrev before', {
+      currentIndex: deck.getIndices?.().h ?? 0,
+    });
     deck.prev();
     currentPptPageRef.current = deck.getIndices().h;
     console.log('onPrev', currentPptPageRef.current);
     syncInteractionForCurrentPage(currentPptPageRef.current);
     updateNavState();
-  }, [isPrevDisabled, syncInteractionForCurrentPage, updateNavState]);
+    console.log('listen-nav: onPrev after', {
+      currentIndex: currentPptPageRef.current,
+    });
+    startSequenceFromPage(currentPptPageRef.current);
+  }, [
+    isPrevDisabled,
+    syncInteractionForCurrentPage,
+    updateNavState,
+    startSequenceFromPage,
+  ]);
 
   const onNext = useCallback(() => {
     const deck = deckRef.current;
     if (!deck || isNextDisabled) {
       return;
     }
+    shouldSlideToFirstRef.current = false;
+    hasAutoSlidToLatestRef.current = true;
+    console.log('listen-nav: onNext before', {
+      currentIndex: deck.getIndices?.().h ?? 0,
+    });
     deck.next();
     currentPptPageRef.current = deck.getIndices().h;
     console.log('onNext', currentPptPageRef.current);
     syncInteractionForCurrentPage(currentPptPageRef.current);
     updateNavState();
-  }, [isNextDisabled, syncInteractionForCurrentPage, updateNavState]);
+    console.log('listen-nav: onNext after', {
+      currentIndex: currentPptPageRef.current,
+    });
+    startSequenceFromPage(currentPptPageRef.current);
+  }, [
+    isNextDisabled,
+    syncInteractionForCurrentPage,
+    updateNavState,
+    startSequenceFromPage,
+  ]);
+  const listenPlayerInteraction = isAudioSequenceActive
+    ? sequenceInteraction
+    : currentInteraction;
+  const isLatestInteractionEditable = Boolean(
+    listenPlayerInteraction?.generated_block_bid &&
+    lastItemIsInteraction &&
+    lastInteractionBid &&
+    listenPlayerInteraction.generated_block_bid === lastInteractionBid,
+  );
+  const interactionReadonly = listenPlayerInteraction
+    ? !isLatestInteractionEditable
+    : true;
   // console.log('listenmoderenderer',contentItems)
   return (
     <div
@@ -516,12 +986,9 @@ const ListenModeRenderer = ({
       >
         <div className='slides'>
           {!isLoading &&
-            contentItems.map(({ item, segments }, idx) => {
+            slideItems.map(({ item, segments }, idx) => {
               const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
               console.log('segments', segments);
-              if (segments.length === 0) {
-                return null;
-              }
               return (
                 <ContentIframe
                   key={baseKey}
@@ -533,21 +1000,31 @@ const ListenModeRenderer = ({
                 />
               );
             })}
+          {shouldRenderEmptyPpt ? (
+            <section
+              className='present'
+              data-generated-block-bid={emptySlideBlockBid}
+            >
+              <div className='w-full h-full font-bold flex items-center justify-center text-primary'>
+                {sectionTitle}
+              </div>
+            </section>
+          ) : null}
         </div>
       </div>
       {activeContentItem ? (
         <div className={cn('listen-audio-controls', 'hidden')}>
           <AudioPlayer
             ref={audioPlayerRef}
-            key={activeBlockBid ?? 'listen-audio'}
+            key={`${activeAudioBlockBid ?? 'listen-audio'}-${audioSequenceToken}`}
             audioUrl={activeContentItem.audioUrl}
             streamingSegments={activeContentItem.audioSegments}
             isStreaming={Boolean(activeContentItem.isAudioStreaming)}
             alwaysVisible={true}
             disabled={previewMode}
             onRequestAudio={
-              !previewMode && onRequestAudioForBlock && activeBlockBid
-                ? () => onRequestAudioForBlock(activeBlockBid)
+              !previewMode && onRequestAudioForBlock && activeAudioBlockBid
+                ? () => onRequestAudioForBlock(activeAudioBlockBid)
                 : undefined
             }
             autoPlay={!previewMode}
@@ -564,7 +1041,8 @@ const ListenModeRenderer = ({
         prevDisabled={isPrevDisabled}
         nextDisabled={isNextDisabled}
         isAudioPlaying={isAudioPlaying}
-        interaction={currentInteraction}
+        interaction={listenPlayerInteraction}
+        interactionReadonly={interactionReadonly}
         onSend={onSend}
       />
     </div>
