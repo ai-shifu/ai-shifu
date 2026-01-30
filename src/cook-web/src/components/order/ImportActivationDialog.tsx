@@ -351,15 +351,19 @@ const ImportActivationDialog = ({
                       {...field}
                       onPaste={event => {
                         event.preventDefault();
-                        const text = event.clipboardData.getData('text');
-                        const normalized = handleNormalizeInput(text, {
-                          enforce: true,
-                        });
-                        const next = field.value
-                          ? `${field.value}\n${normalized}`
-                          : normalized;
+                        const pasted = handleNormalizeInput(
+                          event.clipboardData.getData('text'),
+                          { enforce: true },
+                        );
+                        const target = event.target as HTMLTextAreaElement;
+                        const { selectionStart = 0, selectionEnd = 0 } = target;
+                        const currentValue = target.value || '';
+                        const nextValue = `${currentValue.slice(
+                          0,
+                          selectionStart,
+                        )}${pasted}${currentValue.slice(selectionEnd)}`;
                         field.onChange(
-                          handleNormalizeInput(next, { enforce: true }),
+                          handleNormalizeInput(nextValue, { enforce: true }),
                         );
                       }}
                       onChange={e => {
