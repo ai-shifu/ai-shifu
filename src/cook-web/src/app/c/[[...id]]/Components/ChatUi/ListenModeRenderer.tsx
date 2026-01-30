@@ -923,9 +923,9 @@ const ListenModeRenderer = ({
     : currentInteraction;
   const isLatestInteractionEditable = Boolean(
     listenPlayerInteraction?.generated_block_bid &&
-      lastItemIsInteraction &&
-      lastInteractionBid &&
-      listenPlayerInteraction.generated_block_bid === lastInteractionBid,
+    lastItemIsInteraction &&
+    lastInteractionBid &&
+    listenPlayerInteraction.generated_block_bid === lastInteractionBid,
   );
   const interactionReadonly = listenPlayerInteraction
     ? !isLatestInteractionEditable
