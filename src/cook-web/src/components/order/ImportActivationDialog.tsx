@@ -359,7 +359,9 @@ const ImportActivationDialog = ({
       >
         <DialogContent ref={dialogContentRef}>
           <DialogHeader>
-            <DialogTitle>{t('module.order.importActivation.title')}</DialogTitle>
+            <DialogTitle>
+              {t('module.order.importActivation.title')}
+            </DialogTitle>
             <DialogDescription>
               {t('module.order.importActivation.description')}
             </DialogDescription>
@@ -447,7 +449,9 @@ const ImportActivationDialog = ({
                       >
                         <Input
                           value={courseSearch}
-                          onChange={event => setCourseSearch(event.target.value)}
+                          onChange={event =>
+                            setCourseSearch(event.target.value)
+                          }
                           placeholder={t(
                             'module.order.filters.searchCourseOrId',
                           )}
@@ -545,7 +549,10 @@ const ImportActivationDialog = ({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <AlertDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
