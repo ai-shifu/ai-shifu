@@ -47,6 +47,14 @@ const MAX_BULK_MOBILE_COUNT = 50;
 const MOBILE_PATTERN = /^\d{11}$/;
 const MOBILE_SAMPLE_LIMIT = 5;
 
+const tokenizeMobiles = (value: string): string[] => {
+  // Split by common delimiters: commas (en/zh), ideographic comma, dots, slashes, backslashes, semicolons, pipes, whitespace, and new lines; keep non-empty tokens
+  return value
+    .split(/[,，、\.。;\/\\\|\s\n]+/)
+    .map(item => item.trim())
+    .filter(Boolean);
+};
+
 const ImportActivationDialog = ({
   open,
   onOpenChange,
@@ -112,11 +120,21 @@ const ImportActivationDialog = ({
   }, [courseSearch, courses]);
 
   const parseMobiles = React.useCallback((value: string) => {
-    return value
-      .split(/[,，\n]/)
-      .map(item => item.trim())
-      .filter(Boolean);
+    return tokenizeMobiles(value);
   }, []);
+
+  const handleNormalizeInput = React.useCallback(
+    (raw: string, opts?: { enforce?: boolean }) => {
+      const shouldEnforce = opts?.enforce ?? false;
+      // Normalize to one token per line, preserve invalid tokens for validation
+      const tokens = tokenizeMobiles(raw);
+      if (!shouldEnforce && tokens.join('\n') === raw.trim()) {
+        return raw;
+      }
+      return tokens.join('\n');
+    },
+    [],
+  );
 
   const handleSubmit = async (values: z.infer<typeof formSchema>) => {
     const mobileInput = values.mobile || '';
@@ -136,9 +154,7 @@ const ImportActivationDialog = ({
       return;
     }
 
-    const invalidMobiles = mobiles.filter(
-      mobile => !MOBILE_PATTERN.test(mobile),
-    );
+    const invalidMobiles = mobiles.filter(mobile => !MOBILE_PATTERN.test(mobile));
     if (invalidMobiles.length > 0) {
       const sample = invalidMobiles.slice(0, MOBILE_SAMPLE_LIMIT).join(', ');
       const messageMobiles =
@@ -331,6 +347,57 @@ const ImportActivationDialog = ({
                       )}
                       className='min-h-[80px]'
                       {...field}
+                      onPaste={event => {
+                        event.preventDefault();
+                        const text = event.clipboardData.getData('text');
+                        const normalized = handleNormalizeInput(text, {
+                          enforce: true,
+                        });
+                        const next = field.value
+                          ? `${field.value}\n${normalized}`
+                          : normalized;
+                        field.onChange(handleNormalizeInput(next, { enforce: true }));
+                      }}
+                      onChange={e => {
+                        const raw = e.target.value;
+                        // Auto-insert a newline when current line has 11 digits and caret is at end
+                        const selectionEnd = e.target.selectionEnd || raw.length;
+                        const beforeCursor = raw.slice(0, selectionEnd);
+                        const afterCursor = raw.slice(selectionEnd);
+                        const lines = beforeCursor.split(/\n/);
+                        const lastLine = lines[lines.length - 1] || '';
+                        let nextValue = raw;
+                        if (
+                          lastLine.replace(/\D/g, '').length === 11 &&
+                          afterCursor.trim() === ''
+                        ) {
+                          nextValue = `${beforeCursor}\n${afterCursor}`;
+                        }
+                        // Do not force normalization on manual typing; only auto break line
+                        field.onChange(nextValue);
+                      }}
+                      onKeyDown={e => {
+                        // Allow keyboard shortcut to force newline (e.g., Alt/Option+Enter or Ctrl/Cmd+Enter)
+                        if (
+                          e.key === 'Enter' &&
+                          (e.altKey || e.metaKey || e.ctrlKey)
+                        ) {
+                          e.preventDefault();
+                          const { selectionStart = 0, selectionEnd = 0 } = e.target;
+                          const value = e.target.value || '';
+                          const before = value.slice(0, selectionStart);
+                          const after = value.slice(selectionEnd);
+                          const next = `${before}\n${after}`;
+                          field.onChange(next);
+                          return;
+                        }
+                      }}
+                      onBlur={e => {
+                        const normalized = handleNormalizeInput(e.target.value, {
+                          enforce: true,
+                        });
+                        field.onChange(normalized);
+                      }}
                     />
                   </FormControl>
                   <FormMessage />

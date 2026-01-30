@@ -74,7 +74,7 @@
     "mobileInvalid": "以下手机号格式不正确（需11位）：{numbers}",
     "mobileLabel": "手机号",
     "mobileLimit": "一次最多导入 {count} 个手机号",
-    "mobilePlaceholder": "请输入手机号，多个手机号使用逗号分隔（最多50个）",
+    "mobilePlaceholder": "请输入手机号，每行一个（最多50个），支持粘贴自动分行",
     "mobileRequired": "请输入手机号",
     "nicknameLabel": "昵称（可选）",
     "nicknamePlaceholder": "请输入昵称",
