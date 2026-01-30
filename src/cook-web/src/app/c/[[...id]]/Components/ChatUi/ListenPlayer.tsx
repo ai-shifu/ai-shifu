@@ -32,6 +32,7 @@ interface ListenPlayerProps {
   isAudioPlaying?: boolean;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
   interaction?: ChatContentItem | null;
+  interactionReadonly?: boolean;
 }
 
 const ListenPlayer = ({
@@ -48,6 +49,7 @@ const ListenPlayer = ({
   nextDisabled = false,
   isAudioPlaying = false,
   interaction,
+  interactionReadonly,
   onSend,
 }: ListenPlayerProps) => {
   const { t } = useTranslation();
@@ -57,6 +59,10 @@ const ListenPlayer = ({
   const shouldHideUtilityControls = true;
   const shouldHideFullscreen = true;
   const shouldHideSubtitles = true;
+  const resolvedReadonly =
+    typeof interactionReadonly === 'boolean'
+      ? interactionReadonly
+      : Boolean(interaction?.readonly);
 
   useEffect(() => {
     const nextBid = interaction?.generated_block_bid ?? null;
@@ -116,7 +122,7 @@ const ListenPlayer = ({
                 confirmButtonText={t('module.renderUi.core.confirm')}
                 copyButtonText={t('module.renderUi.core.copyCode')}
                 copiedButtonText={t('module.renderUi.core.copied')}
-                readonly={interaction.readonly}
+                readonly={resolvedReadonly}
                 sandboxMode='content'
                 onSend={_onSend}
               />

@@ -101,6 +101,21 @@ const ListenModeRenderer = ({
     return bids;
   }, [items]);
 
+  const { lastInteractionBid, lastItemIsInteraction } = useMemo(() => {
+    let latestInteractionBid: string | null = null;
+    for (let i = items.length - 1; i >= 0; i -= 1) {
+      if (items[i].type === ChatContentItemType.INTERACTION) {
+        latestInteractionBid = items[i].generated_block_bid;
+        break;
+      }
+    }
+    const lastItem = items[items.length - 1];
+    return {
+      lastInteractionBid: latestInteractionBid,
+      lastItemIsInteraction: lastItem?.type === ChatContentItemType.INTERACTION,
+    };
+  }, [items]);
+
   const { slideItems, interactionByPage, audioAndInteractionList } =
     useMemo(() => {
       let pageCursor = 0;
@@ -906,6 +921,15 @@ const ListenModeRenderer = ({
   const listenPlayerInteraction = isAudioSequenceActive
     ? sequenceInteraction
     : currentInteraction;
+  const isLatestInteractionEditable = Boolean(
+    listenPlayerInteraction?.generated_block_bid &&
+      lastItemIsInteraction &&
+      lastInteractionBid &&
+      listenPlayerInteraction.generated_block_bid === lastInteractionBid,
+  );
+  const interactionReadonly = listenPlayerInteraction
+    ? !isLatestInteractionEditable
+    : true;
   // console.log('listenmoderenderer',contentItems)
   return (
     <div
@@ -974,6 +998,7 @@ const ListenModeRenderer = ({
         nextDisabled={isNextDisabled}
         isAudioPlaying={isAudioPlaying}
         interaction={listenPlayerInteraction}
+        interactionReadonly={interactionReadonly}
         onSend={onSend}
       />
     </div>
