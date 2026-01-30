@@ -771,7 +771,6 @@ function useChatLogicHook({
                 getAskButtonMarkup(),
               )
             : normalizedContent;
-          console.log('contentWithButton', contentWithButton);
           result.push({
             generated_block_bid: item.generated_block_bid,
             content: contentWithButton,
