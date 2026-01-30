@@ -80,6 +80,10 @@ const ImportActivationDialog = ({
   const dialogContentRef = React.useRef<HTMLDivElement | null>(null);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [pendingMobiles, setPendingMobiles] = React.useState<string[]>([]);
+  const joinedMobiles = React.useMemo(
+    () => pendingMobiles.join('，'),
+    [pendingMobiles],
+  );
 
   const formSchema = React.useMemo(
     () =>
@@ -117,6 +121,15 @@ const ImportActivationDialog = ({
     return map;
   }, [courses]);
 
+  const confirmText = React.useMemo(
+    () =>
+      t('module.order.importActivation.confirmDescription', {
+        mobiles: joinedMobiles,
+        count: pendingMobiles.length,
+      }),
+    [joinedMobiles, pendingMobiles.length, t],
+  );
+
   const filteredCourses = React.useMemo(() => {
     const keyword = courseSearch.trim().toLowerCase();
     if (!keyword) {
@@ -135,19 +148,6 @@ const ImportActivationDialog = ({
     return tokenizeMobiles(value);
   }, []);
 
-  const handleNormalizeInput = React.useCallback(
-    (raw: string, opts?: { enforce?: boolean }) => {
-      const shouldEnforce = opts?.enforce ?? false;
-      // Normalize to one token per line, preserve invalid tokens for validation
-      const tokens = tokenizeMobiles(raw);
-      if (!shouldEnforce && tokens.join('\n') === raw.trim()) {
-        return raw;
-      }
-      return tokens.join('\n');
-    },
-    [],
-  );
-
   const handleSubmit = async (values: z.infer<typeof formSchema>) => {
     const mobileInput = values.mobile || '';
     const mobiles = parseMobiles(mobileInput);
@@ -161,6 +161,21 @@ const ImportActivationDialog = ({
       form.setError('mobile', {
         message: t('module.order.importActivation.mobileLimit', {
           count: MAX_BULK_MOBILE_COUNT,
+        }),
+      });
+      return;
+    }
+
+    const duplicateMobiles = Array.from(
+      new Set(mobiles.filter((mobile, idx) => mobiles.indexOf(mobile) !== idx)),
+    );
+    if (duplicateMobiles.length > 0) {
+      const sample = duplicateMobiles.slice(0, MOBILE_SAMPLE_LIMIT).join(', ');
+      const messageMobiles =
+        duplicateMobiles.length > MOBILE_SAMPLE_LIMIT ? `${sample}...` : sample;
+      form.setError('mobile', {
+        message: t('module.order.importActivation.mobileDuplicate', {
+          numbers: messageMobiles,
         }),
       });
       return;
@@ -344,9 +359,7 @@ const ImportActivationDialog = ({
       >
         <DialogContent ref={dialogContentRef}>
           <DialogHeader>
-            <DialogTitle>
-              {t('module.order.importActivation.title')}
-            </DialogTitle>
+            <DialogTitle>{t('module.order.importActivation.title')}</DialogTitle>
             <DialogDescription>
               {t('module.order.importActivation.description')}
             </DialogDescription>
@@ -372,43 +385,7 @@ const ImportActivationDialog = ({
                         )}
                         className='min-h-[80px]'
                         {...field}
-                        onPaste={event => {
-                          event.preventDefault();
-                          const pasted = handleNormalizeInput(
-                            event.clipboardData.getData('text'),
-                            { enforce: true },
-                          );
-                          const target = event.target as HTMLTextAreaElement;
-                          const { selectionStart = 0, selectionEnd = 0 } =
-                            target;
-                          const currentValue = target.value || '';
-                          const nextValue = `${currentValue.slice(
-                            0,
-                            selectionStart,
-                          )}${pasted}${currentValue.slice(selectionEnd)}`;
-                          field.onChange(
-                            handleNormalizeInput(nextValue, { enforce: true }),
-                          );
-                        }}
-                        onChange={e => {
-                          // Keep raw typing; only normalize on blur/submit
-                          field.onChange(e.target.value);
-                        }}
-                        onKeyDown={e => {
-                          // Only allow Enter to create a newline; prevent other shortcut submissions
-                          if (e.key === 'Enter' && e.ctrlKey) {
-                            e.preventDefault();
-                          }
-                        }}
-                        onBlur={e => {
-                          const normalized = handleNormalizeInput(
-                            e.target.value,
-                            {
-                              enforce: true,
-                            },
-                          );
-                          field.onChange(normalized);
-                        }}
+                        onChange={e => field.onChange(e.target.value)}
                       />
                     </FormControl>
                     <FormMessage />
@@ -470,9 +447,7 @@ const ImportActivationDialog = ({
                       >
                         <Input
                           value={courseSearch}
-                          onChange={event =>
-                            setCourseSearch(event.target.value)
-                          }
+                          onChange={event => setCourseSearch(event.target.value)}
                           placeholder={t(
                             'module.order.filters.searchCourseOrId',
                           )}
@@ -512,8 +487,8 @@ const ImportActivationDialog = ({
                                         {courseName}
                                       </span>
                                       {/* <span className='text-xs text-muted-foreground'>
-                                      {course.bid}
-                                    </span> */}
+                                        {course.bid}
+                                      </span> */}
                                     </span>
                                   </button>
                                 );
@@ -570,10 +545,7 @@ const ImportActivationDialog = ({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-      >
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -582,17 +554,10 @@ const ImportActivationDialog = ({
                 '确认导入手机号',
               )}
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('module.order.importActivation.confirmDescription', {
-                count: pendingMobiles.length,
-              })}
+            <AlertDialogDescription className='text-muted-foreground'>
+              {confirmText}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className='max-h-48 overflow-auto text-sm border rounded-md p-2 bg-muted/40'>
-            {pendingMobiles.map(mobile => (
-              <div key={mobile}>{mobile}</div>
-            ))}
-          </div>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setConfirmOpen(false)}>
               {t('common.core.cancel')}
