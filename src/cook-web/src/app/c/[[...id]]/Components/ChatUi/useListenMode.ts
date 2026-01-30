@@ -635,6 +635,7 @@ export const useListenAudioSequence = ({
 
   useEffect(() => {
     audioSequenceListRef.current = audioAndInteractionList;
+    console.log('audioSequenceListRef.current', audioSequenceListRef.current);
   }, [audioAndInteractionList]);
 
   const clearAudioSequenceTimer = useCallback(() => {
@@ -730,13 +731,34 @@ export const useListenAudioSequence = ({
     ) {
       // Continue after the last interaction when new audio arrives.
       playAudioSequenceFromIndex(currentIndex + 1);
+      return;
+    }
+
+    // Auto-play new content if it matches the current page (e.g. Retake, or streaming new content)
+    if (nextLength > prevLength) {
+      const newItemIndex = nextLength - 1;
+      const newItem = audioAndInteractionList[newItemIndex];
+      const currentPage =
+        deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
+
+      if (newItem?.page === currentPage) {
+        // If not playing, or if we are effectively "updating" the current item (Retake), play it.
+        if (
+          !isAudioSequenceActive ||
+          audioSequenceIndexRef.current === newItemIndex
+        ) {
+          playAudioSequenceFromIndex(newItemIndex);
+        }
+      }
     }
   }, [
-    audioAndInteractionList.length,
+    audioAndInteractionList,
     isAudioSequenceActive,
     playAudioSequenceFromIndex,
     previewMode,
     sequenceInteraction,
+    deckRef,
+    currentPptPageRef,
   ]);
 
   const startSequenceFromPage = useCallback(
