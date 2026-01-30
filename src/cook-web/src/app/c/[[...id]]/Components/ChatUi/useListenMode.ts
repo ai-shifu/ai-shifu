@@ -639,7 +639,7 @@ export const useListenAudioSequence = ({
     audioSequenceListRef.current = audioAndInteractionList;
     console.log('audioAndInteractionList', audioSequenceListRef.current);
   }, [audioAndInteractionList]);
-  
+
   const clearAudioSequenceTimer = useCallback(() => {
     if (audioSequenceTimerRef.current) {
       clearTimeout(audioSequenceTimerRef.current);
@@ -733,7 +733,6 @@ export const useListenAudioSequence = ({
       return;
     }
     const currentIndex = audioSequenceIndexRef.current;
-    
 
     if (
       isAudioSequenceActive &&
@@ -761,28 +760,32 @@ export const useListenAudioSequence = ({
         // But if we are just appending a new item to the END of the list, we should only play it if
         // we are not currently playing something else (unless it's a replacement/retake of the same index).
         if (prevLength === 0) {
-           // Initial load for this page
-           // Check if we are recovering from a flash (list became empty then full again)
-           const lastBid = lastPlayedAudioBidRef.current;
-           const resumeIndex = lastBid ? audioAndInteractionList.findIndex(item => item.generated_block_bid === lastBid) : -1;
-           
-           if (resumeIndex >= 0) {
-             // Resume playback from the last known block to maintain continuity
-             playAudioSequenceFromIndex(resumeIndex);
-           } else {
-             const startIndex = resolveSequenceStartIndex(currentPage);
-             if (startIndex >= 0) {
-               playAudioSequenceFromIndex(startIndex);
-             }
-           }
-        } else {
-            // Appending new item
-             if (
-              !isAudioSequenceActive ||
-              audioSequenceIndexRef.current === newItemIndex
-            ) {
-              playAudioSequenceFromIndex(newItemIndex);
+          // Initial load for this page
+          // Check if we are recovering from a flash (list became empty then full again)
+          const lastBid = lastPlayedAudioBidRef.current;
+          const resumeIndex = lastBid
+            ? audioAndInteractionList.findIndex(
+                item => item.generated_block_bid === lastBid,
+              )
+            : -1;
+
+          if (resumeIndex >= 0) {
+            // Resume playback from the last known block to maintain continuity
+            playAudioSequenceFromIndex(resumeIndex);
+          } else {
+            const startIndex = resolveSequenceStartIndex(currentPage);
+            if (startIndex >= 0) {
+              playAudioSequenceFromIndex(startIndex);
             }
+          }
+        } else {
+          // Appending new item
+          if (
+            !isAudioSequenceActive ||
+            audioSequenceIndexRef.current === newItemIndex
+          ) {
+            playAudioSequenceFromIndex(newItemIndex);
+          }
         }
       }
     }
