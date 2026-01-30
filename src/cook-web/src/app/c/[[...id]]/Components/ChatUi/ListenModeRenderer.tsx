@@ -89,8 +89,8 @@ const ListenModeRenderer = ({
         // Keep items with available audio sources.
         return Boolean(
           item.audioUrl ||
-            (item.audioSegments && item.audioSegments.length > 0) ||
-            item.isAudioStreaming,
+          (item.audioSegments && item.audioSegments.length > 0) ||
+          item.isAudioStreaming,
         );
       }
       return item.type === ChatContentItemType.INTERACTION;
