@@ -337,10 +337,11 @@ const ImportActivationDialog = ({
   }, [open, t]);
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-    >
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={onOpenChange}
+      >
       <DialogContent ref={dialogContentRef}>
         <DialogHeader>
           <DialogTitle>{t('module.order.importActivation.title')}</DialogTitle>
@@ -562,42 +563,43 @@ const ImportActivationDialog = ({
       </DialogContent>
     </Dialog>
 
-    <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            {t(
-              'module.order.importActivation.confirmTitle',
-              '确认导入手机号',
-            )}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {t('module.order.importActivation.confirmDescription', {
-              count: pendingMobiles.length,
-            })}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <div className='max-h-48 overflow-auto text-sm border rounded-md p-2 bg-muted/40'>
-          {pendingMobiles.map(mobile => (
-            <div key={mobile}>{mobile}</div>
-          ))}
-        </div>
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => setConfirmOpen(false)}>
-            {t('common.core.cancel')}
-          </AlertDialogCancel>
-          <AlertDialogAction
-            onClick={() => {
-              const currentValues = form.getValues();
-              setConfirmOpen(false);
-              void handleConfirmImport(pendingMobiles, currentValues);
-            }}
-          >
-            {t('common.core.confirm')}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t(
+                'module.order.importActivation.confirmTitle',
+                '确认导入手机号',
+              )}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('module.order.importActivation.confirmDescription', {
+                count: pendingMobiles.length,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className='max-h-48 overflow-auto text-sm border rounded-md p-2 bg-muted/40'>
+            {pendingMobiles.map(mobile => (
+              <div key={mobile}>{mobile}</div>
+            ))}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmOpen(false)}>
+              {t('common.core.cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const currentValues = form.getValues();
+                setConfirmOpen(false);
+                void handleConfirmImport(pendingMobiles, currentValues);
+              }}
+            >
+              {t('common.core.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 
