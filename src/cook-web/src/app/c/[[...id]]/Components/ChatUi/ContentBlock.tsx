@@ -20,6 +20,7 @@ interface ContentBlockProps {
   autoPlayAudio?: boolean;
   onAudioPlayStateChange?: (blockBid: string, isPlaying: boolean) => void;
   onAudioEnded?: (blockBid: string) => void;
+  showAudioAction?: boolean;
 }
 
 const ContentBlock = memo(
@@ -36,6 +37,7 @@ const ContentBlock = memo(
     autoPlayAudio = false,
     onAudioPlayStateChange,
     onAudioEnded,
+    showAudioAction = true,
   }: ContentBlockProps) => {
     const handleClick = useCallback(() => {
       onClickCustomButtonAfterContent?.(blockBid);
@@ -67,6 +69,7 @@ const ContentBlock = memo(
       (item.audioSegments && item.audioSegments.length > 0) ||
       item.audioUrl,
     );
+    const shouldShowAudioAction = Boolean(showAudioAction);
 
     return (
       <div
@@ -87,7 +90,7 @@ const ContentBlock = memo(
           copiedButtonText={copiedButtonText}
           onSend={_onSend}
         />
-        {mobileStyle && hasAudioContent ? (
+        {mobileStyle && hasAudioContent && shouldShowAudioAction ? (
           <div className='mt-2 flex justify-end'>
             <AudioPlayer
               audioUrl={item.audioUrl}
@@ -124,6 +127,7 @@ const ContentBlock = memo(
       prevProps.copyButtonText === nextProps.copyButtonText &&
       prevProps.copiedButtonText === nextProps.copiedButtonText &&
       Boolean(prevProps.autoPlayAudio) === Boolean(nextProps.autoPlayAudio) &&
+      Boolean(prevProps.showAudioAction) === Boolean(nextProps.showAudioAction) &&
       // Audio state (mobile only rendering)
       (prevProps.item.audioUrl ?? '') === (nextProps.item.audioUrl ?? '') &&
       Boolean(prevProps.item.isAudioStreaming) ===

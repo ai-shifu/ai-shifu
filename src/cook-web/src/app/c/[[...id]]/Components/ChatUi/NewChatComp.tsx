@@ -143,6 +143,7 @@ export const NewChatComponents = ({
   );
   const learningMode = useSystemStore(state => state.learningMode);
   const isListenMode = learningMode === 'listen';
+  const shouldShowAudioAction = previewMode || isListenMode;
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
 
   const onPayModalOpen = useCallback(() => {
@@ -527,7 +528,8 @@ export const NewChatComponents = ({
                         onRefresh={onRefresh}
                         onToggleAskExpanded={toggleAskExpanded}
                         extraActions={
-                          canRequestAudio || hasAudioForBlock ? (
+                          shouldShowAudioAction &&
+                          (canRequestAudio || hasAudioForBlock) ? (
                             <AudioPlayer
                               audioUrl={parentContentItem?.audioUrl}
                               streamingSegments={
@@ -589,6 +591,7 @@ export const NewChatComponents = ({
                       autoPlayAudio={
                         autoPlayTargetBlockBid === item.generated_block_bid
                       }
+                      showAudioAction={shouldShowAudioAction}
                       onAudioPlayStateChange={handleAudioPlayStateChange}
                       onAudioEnded={handleAudioEnded}
                     />
@@ -638,6 +641,7 @@ export const NewChatComponents = ({
               ? () => requestAudioForBlock(mobileInteraction.generatedBlockBid)
               : undefined
           }
+          showAudioAction={shouldShowAudioAction}
         />
       )}
       <Dialog

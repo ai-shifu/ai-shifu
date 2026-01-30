@@ -34,6 +34,7 @@ export interface InteractionBlockMProps {
   streamingSegments?: AudioSegment[];
   isStreaming?: boolean;
   onRequestAudio?: () => Promise<any>;
+  showAudioAction?: boolean;
 }
 
 /**
@@ -54,6 +55,7 @@ export default function InteractionBlockM({
   streamingSegments,
   isStreaming,
   onRequestAudio,
+  showAudioAction = true,
 }: InteractionBlockMProps) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<LikeStatus>(() => {
@@ -68,6 +70,7 @@ export default function InteractionBlockM({
     Boolean(isStreaming) ||
     Boolean(onRequestAudio) ||
     Boolean(streamingSegments && streamingSegments.length > 0);
+  const shouldShowAudioAction = Boolean(showAudioAction) && hasAudioAction;
 
   useEffect(() => {
     setStatus((like_status as LikeStatus) ?? LIKE_STATUS.NONE);
@@ -151,7 +154,7 @@ export default function InteractionBlockM({
               />
               <span>{t('module.chat.regenerate')}</span>
             </button>
-            {hasAudioAction ? (
+            {shouldShowAudioAction ? (
               <div className='flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700'>
                 <AudioPlayer
                   audioUrl={audioUrl}
