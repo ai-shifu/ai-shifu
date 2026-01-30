@@ -370,6 +370,7 @@ export const useListenPpt = ({
       slideNumber: true,
       progress: false,
       controls: false,
+      hideInactiveCursor: false,
     };
 
     deckRef.current = new Reveal(chatRef.current, revealOptions);
