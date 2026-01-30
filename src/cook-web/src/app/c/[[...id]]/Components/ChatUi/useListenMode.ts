@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Reveal from 'reveal.js';
-import { splitContentSegments, type RenderSegment } from 'markdown-flow-ui/renderer';
+import {
+  splitContentSegments,
+  type RenderSegment,
+} from 'markdown-flow-ui/renderer';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import type { AudioPlayerHandle } from '@/components/audio/AudioPlayer';
 
@@ -53,59 +56,61 @@ export const useListenContentData = (items: ChatContentItem[]) => {
     };
   }, [items]);
 
-  const { slideItems, interactionByPage, audioAndInteractionList } = useMemo(() => {
-    let pageCursor = 0;
-    const mapping = new Map<number, ChatContentItem>();
-    const nextSlideItems: ListenSlideItem[] = [];
-    const nextAudioAndInteractionList: AudioInteractionItem[] = [];
+  const { slideItems, interactionByPage, audioAndInteractionList } =
+    useMemo(() => {
+      let pageCursor = 0;
+      const mapping = new Map<number, ChatContentItem>();
+      const nextSlideItems: ListenSlideItem[] = [];
+      const nextAudioAndInteractionList: AudioInteractionItem[] = [];
 
-    items.forEach(item => {
-      const segments =
-        item.type === ChatContentItemType.CONTENT && !!item.content
-          ? splitContentSegments(item.content || '', true)
-          : [];
-      const slideSegments = segments.filter(
-        segment => segment.type === 'markdown' || segment.type === 'sandbox',
-      );
-      const fallbackPage = Math.max(pageCursor - 1, 0);
-      const contentPage = slideSegments.length > 0 ? pageCursor : fallbackPage;
-      const interactionPage = fallbackPage;
-      const hasAudio = Boolean(
-        item.audioUrl ||
+      items.forEach(item => {
+        const segments =
+          item.type === ChatContentItemType.CONTENT && !!item.content
+            ? splitContentSegments(item.content || '', true)
+            : [];
+        const slideSegments = segments.filter(
+          segment => segment.type === 'markdown' || segment.type === 'sandbox',
+        );
+        const fallbackPage = Math.max(pageCursor - 1, 0);
+        const contentPage =
+          slideSegments.length > 0 ? pageCursor : fallbackPage;
+        const interactionPage = fallbackPage;
+        const hasAudio = Boolean(
+          item.audioUrl ||
           (item.audioSegments && item.audioSegments.length > 0) ||
           item.isAudioStreaming,
-      );
+        );
 
-      if (item.type === ChatContentItemType.CONTENT && hasAudio) {
-        nextAudioAndInteractionList.push({
-          ...item,
-          page: contentPage,
-        });
-      }
+        if (item.type === ChatContentItemType.CONTENT && hasAudio) {
+          nextAudioAndInteractionList.push({
+            ...item,
+            page: contentPage,
+          });
+        }
 
-      if (item.type === ChatContentItemType.INTERACTION) {
-        mapping.set(interactionPage, item);
-        nextAudioAndInteractionList.push({
-          ...item,
-          page: interactionPage,
-        });
-      }
+        if (item.type === ChatContentItemType.INTERACTION) {
+          mapping.set(interactionPage, item);
+          nextAudioAndInteractionList.push({
+            ...item,
+            page: interactionPage,
+          });
+        }
 
-      if (slideSegments.length > 0) {
-        nextSlideItems.push({
-          item,
-          segments: slideSegments,
-        });
-      }
+        if (slideSegments.length > 0) {
+          nextSlideItems.push({
+            item,
+            segments: slideSegments,
+          });
+        }
 
-      pageCursor += slideSegments.length;
-    });
-    return {
-      slideItems: nextSlideItems,
-      interactionByPage: mapping,
-      audioAndInteractionList: nextAudioAndInteractionList,
-    };
-  }, [items]);
+        pageCursor += slideSegments.length;
+      });
+      return {
+        slideItems: nextSlideItems,
+        interactionByPage: mapping,
+        audioAndInteractionList: nextAudioAndInteractionList,
+      };
+    }, [items]);
 
   const contentByBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();
@@ -481,8 +486,8 @@ export const useListenPpt = ({
         isAudioPlaying &&
         Boolean(
           activeContentItem?.isAudioStreaming ||
-            (activeContentItem?.audioSegments &&
-              activeContentItem.audioSegments.length > 0),
+          (activeContentItem?.audioSegments &&
+            activeContentItem.audioSegments.length > 0),
         );
       if (pendingAutoNextRef.current) {
         const moved = goToNextBlock();
@@ -780,7 +785,11 @@ export const useListenAudioSequence = ({
     }
     shouldStartSequenceRef.current = false;
     playAudioSequenceFromIndex(0);
-  }, [audioAndInteractionList.length, playAudioSequenceFromIndex, shouldStartSequenceRef]);
+  }, [
+    audioAndInteractionList.length,
+    playAudioSequenceFromIndex,
+    shouldStartSequenceRef,
+  ]);
 
   const activeAudioBlockBid = useMemo(() => {
     if (!activeAudioBid) {
@@ -816,8 +825,8 @@ export const useListenAudioSequence = ({
 
     const hasAudio = Boolean(
       item.audioUrl ||
-        item.isAudioStreaming ||
-        (item.audioSegments && item.audioSegments.length > 0),
+      item.isAudioStreaming ||
+      (item.audioSegments && item.audioSegments.length > 0),
     );
 
     if (
@@ -886,7 +895,13 @@ export const useListenAudioSequence = ({
       return;
     }
     audioPlayerRef.current?.togglePlay();
-  }, [previewMode, activeAudioBid, startSequenceFromPage, deckRef, currentPptPageRef]);
+  }, [
+    previewMode,
+    activeAudioBid,
+    startSequenceFromPage,
+    deckRef,
+    currentPptPageRef,
+  ]);
 
   useEffect(() => {
     setIsAudioPlaying(false);
