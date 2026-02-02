@@ -807,26 +807,40 @@ export const useListenAudioSequence = ({
     resolveSequenceStartIndex,
   ]);
 
+  const resetSequenceState = useCallback(() => {
+    isSequencePausedRef.current = false;
+    clearAudioSequenceTimer();
+    audioPlayerRef.current?.pause();
+    audioSequenceIndexRef.current = -1;
+    setSequenceInteraction(null);
+    setActiveAudioBid(null);
+    setIsAudioSequenceActive(false);
+  }, [clearAudioSequenceTimer]);
+
+  const startSequenceFromIndex = useCallback(
+    (index: number) => {
+      const listLength = audioSequenceListRef.current.length;
+      if (!listLength) {
+        return;
+      }
+      const maxIndex = Math.max(listLength - 1, 0);
+      const nextIndex = Math.min(Math.max(index, 0), maxIndex);
+      resetSequenceState();
+      playAudioSequenceFromIndex(nextIndex);
+    },
+    [playAudioSequenceFromIndex, resetSequenceState],
+  );
+
   const startSequenceFromPage = useCallback(
     (page: number) => {
-      isSequencePausedRef.current = false;
-      clearAudioSequenceTimer();
-      audioPlayerRef.current?.pause();
-      audioSequenceIndexRef.current = -1;
-      setSequenceInteraction(null);
-      setActiveAudioBid(null);
-      setIsAudioSequenceActive(false);
       const startIndex = resolveSequenceStartIndex(page);
+      console.log('startSequenceFromPage', page, startIndex);
       if (startIndex < 0) {
         return;
       }
-      playAudioSequenceFromIndex(startIndex);
+      startSequenceFromIndex(startIndex);
     },
-    [
-      clearAudioSequenceTimer,
-      playAudioSequenceFromIndex,
-      resolveSequenceStartIndex,
-    ],
+    [resolveSequenceStartIndex, startSequenceFromIndex],
   );
 
   useEffect(() => {
@@ -1076,6 +1090,7 @@ export const useListenAudioSequence = ({
     handleAudioEnded,
     handlePlay,
     handlePause,
+    startSequenceFromIndex,
     startSequenceFromPage,
   };
 };

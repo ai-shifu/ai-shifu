@@ -150,6 +150,7 @@ const ListenModeRenderer = ({
     handleAudioEnded,
     handlePlay,
     handlePause,
+    startSequenceFromIndex,
     startSequenceFromPage,
   } = useListenAudioSequence({
     audioAndInteractionList,
@@ -190,19 +191,96 @@ const ListenModeRenderer = ({
       resolveContentBid,
     });
 
+  const audioContentSequence = useMemo(
+    () =>
+      audioAndInteractionList.flatMap((item, index) =>
+        item.type === ChatContentItemType.CONTENT ? [{ item, index }] : [],
+      ),
+    [audioAndInteractionList],
+  );
+
+  const resolveAudioSequenceIndexByDirection = useCallback(
+    (page: number, direction: -1 | 1) => {
+      if (!audioContentSequence.length) {
+        return null;
+      }
+      let currentIndex = -1;
+      if (activeAudioBlockBid) {
+        currentIndex = audioContentSequence.findIndex(
+          entry => entry.item.generated_block_bid === activeAudioBlockBid,
+        );
+      }
+      if (currentIndex < 0) {
+        for (let i = audioContentSequence.length - 1; i >= 0; i -= 1) {
+          if (audioContentSequence[i].item.page <= page) {
+            currentIndex = i;
+            break;
+          }
+        }
+      }
+      if (direction === -1) {
+        const targetIndex = currentIndex - 1;
+        if (targetIndex < 0) {
+          return null;
+        }
+        return audioContentSequence[targetIndex].index;
+      }
+      const targetIndex = currentIndex < 0 ? 0 : currentIndex + 1;
+      if (targetIndex >= audioContentSequence.length) {
+        return null;
+      }
+      return audioContentSequence[targetIndex].index;
+    },
+    [audioContentSequence, activeAudioBlockBid],
+  );
+
   const onPrev = useCallback(() => {
+    const currentPage =
+      deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
+    const targetSequenceIndex = resolveAudioSequenceIndexByDirection(
+      currentPage,
+      -1,
+    );
+    if (typeof targetSequenceIndex === 'number') {
+      startSequenceFromIndex(targetSequenceIndex);
+      return;
+    }
     const nextPage = goPrev();
     if (typeof nextPage === 'number') {
       startSequenceFromPage(nextPage);
     }
-  }, [goPrev, startSequenceFromPage]);
+  }, [
+    deckRef,
+    currentPptPageRef,
+    resolveAudioSequenceIndexByDirection,
+    goPrev,
+    startSequenceFromIndex,
+    startSequenceFromPage,
+  ]);
 
   const onNext = useCallback(() => {
+    const currentPage =
+      deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
+    const targetSequenceIndex = resolveAudioSequenceIndexByDirection(
+      currentPage,
+      1,
+    );
+    if (typeof targetSequenceIndex === 'number') {
+      startSequenceFromIndex(targetSequenceIndex);
+      return;
+    }
     const nextPage = goNext();
     if (typeof nextPage === 'number') {
       startSequenceFromPage(nextPage);
     }
-  }, [goNext, startSequenceFromPage]);
+  }, [
+    deckRef,
+    currentPptPageRef,
+    resolveAudioSequenceIndexByDirection,
+    goNext,
+    startSequenceFromIndex,
+    startSequenceFromPage,
+  ]);
 
   const currentInteractionPage = useMemo(() => {
     if (!currentInteraction) {
