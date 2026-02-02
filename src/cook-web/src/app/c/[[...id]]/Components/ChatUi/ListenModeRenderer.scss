@@ -35,12 +35,16 @@
       left: 0 !important;
       margin: 0 !important;
       padding: 0 !important;
-      display: flex !important;
+      display: none !important;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       transform: none !important;
       box-sizing: border-box;
+    }
+
+    section.present {
+      display: flex !important;
     }
   }
 }
