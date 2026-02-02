@@ -495,10 +495,10 @@ function AudioPlayerBase(
           initialOffset,
         );
         activeSourceNodesRef.current.add(sourceNode);
-        const originalOnEnded = sourceNode.onended;
-        sourceNode.onended = () => {
+        const originalOnEnded = sourceNode.onended as any;
+        sourceNode.onended = event => {
           activeSourceNodesRef.current.delete(sourceNode);
-          originalOnEnded?.();
+          originalOnEnded?.(event);
         };
         sourceNodeRef.current = sourceNode;
         setIsLoading(false);
