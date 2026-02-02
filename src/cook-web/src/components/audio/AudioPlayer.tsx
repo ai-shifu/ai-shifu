@@ -56,7 +56,7 @@ export interface AudioPlayerProps {
 export interface AudioPlayerHandle {
   togglePlay: () => void;
   play: () => void;
-  pause: () => void;
+  pause: (options?: { traceId?: string }) => void;
 }
 
 /**
@@ -96,6 +96,9 @@ function AudioPlayerBase(
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
+  const activeSourceNodesRef = useRef<Set<AudioBufferSourceNode>>(
+    new Set(),
+  );
   // Track how many seconds have been played from streaming segments in this play session.
   const playedSecondsRef = useRef(0);
   const playSessionRef = useRef(0);
@@ -105,6 +108,9 @@ function AudioPlayerBase(
   const segmentOffsetRef = useRef(0);
   const segmentStartTimeRef = useRef(0);
   const segmentDurationRef = useRef(0);
+  const playerIdRef = useRef(
+    Math.random().toString(36).slice(2, 8),
+  );
 
   const effectiveAudioUrl = audioUrl || localAudioUrl;
 
@@ -146,10 +152,18 @@ function AudioPlayerBase(
     [],
   );
 
-  // Cleanup audio resources
-  const cleanupAudio = useCallback(() => {
-    // Release the segment lock
-    isPlayingSegmentRef.current = false;
+  const stopAllSourceNodes = useCallback(() => {
+    if (activeSourceNodesRef.current.size > 0) {
+      activeSourceNodesRef.current.forEach(node => {
+        try {
+          node.stop();
+          node.disconnect();
+        } catch {
+          // Ignore errors when stopping
+        }
+      });
+      activeSourceNodesRef.current.clear();
+    }
     if (sourceNodeRef.current) {
       try {
         sourceNodeRef.current.stop();
@@ -159,11 +173,18 @@ function AudioPlayerBase(
       }
       sourceNodeRef.current = null;
     }
+  }, []);
+
+  // Cleanup audio resources
+  const cleanupAudio = useCallback(() => {
+    // Release the segment lock
+    isPlayingSegmentRef.current = false;
+    stopAllSourceNodes();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
-  }, []);
+  }, [stopAllSourceNodes]);
 
   const stopPlayback = useCallback(() => {
     playSessionRef.current += 1;
@@ -182,11 +203,48 @@ function AudioPlayerBase(
     releaseExclusive();
   }, [cleanupAudio, releaseExclusive]);
 
-  const pausePlayback = useCallback(() => {
-    if (!isPlayingRef.current) {
+  const pausePlayback = useCallback((options?: { traceId?: string }) => {
+    const hasLiveAudio =
+      Boolean(sourceNodeRef.current) ||
+      activeSourceNodesRef.current.size > 0 ||
+      Boolean(audioRef.current && !audioRef.current.paused);
+    const shouldPause = isPlayingRef.current || hasLiveAudio;
+    const htmlAudio = audioRef.current;
+    const wasHtmlPlaying = Boolean(htmlAudio && !htmlAudio.paused);
+    const htmlTime = wasHtmlPlaying ? htmlAudio?.currentTime ?? 0 : null;
+    if (!shouldPause) {
+      // console.log('audio-player-pause-skip', {
+      //   id: playerIdRef.current,
+      //   traceId: options?.traceId,
+      //   isPlaying: isPlayingRef.current,
+      //   hasSourceNode: Boolean(sourceNodeRef.current),
+      //   htmlAudioPaused: audioRef.current?.paused,
+      //   audioUrl: audioUrlRef.current,
+      //   activeNodes: activeSourceNodesRef.current.size,
+      //   wasHtmlPlaying,
+      // });
       return;
     }
 
+    // console.log('audio-player-stop-others', {
+    //   id: playerIdRef.current,
+    //   traceId: options?.traceId,
+    //   isPlaying: isPlayingRef.current,
+    //   activeNodes: activeSourceNodesRef.current.size,
+    // });
+    requestExclusive(() => {});
+
+    // console.log('audio-player-pause', {
+    //   id: playerIdRef.current,
+    //   traceId: options?.traceId,
+    //   isPlaying: isPlayingRef.current,
+    //   hasSourceNode: Boolean(sourceNodeRef.current),
+    //   htmlAudioPaused: audioRef.current?.paused,
+    //   audioUrl: audioUrlRef.current,
+    //   activeNodes: activeSourceNodesRef.current.size,
+    //   wasHtmlPlaying,
+    //   htmlTime,
+    // });
     playSessionRef.current += 1;
     isPausedRef.current = true;
     setIsPlaying(false);
@@ -195,18 +253,9 @@ function AudioPlayerBase(
     setIsWaitingForSegment(false);
     onPlayStateChangeRef.current?.(false);
 
-    if (useOssUrl) {
-      if (audioRef.current) {
-        const currentTime = audioRef.current.currentTime;
-        pausedAtRef.current = Number.isFinite(currentTime) ? currentTime : 0;
-        audioRef.current.pause();
-      }
-      releaseExclusive();
-      return;
-    }
-
     const audioContext = audioContextRef.current;
-    if (audioContext && sourceNodeRef.current) {
+    const activeNodes = activeSourceNodesRef.current.size;
+    if (audioContext && (sourceNodeRef.current || activeNodes > 0)) {
       const elapsed = Math.max(
         0,
         audioContext.currentTime - segmentStartTimeRef.current,
@@ -222,20 +271,37 @@ function AudioPlayerBase(
       );
       segmentOffsetRef.current = nextOffset;
       pausedAtRef.current = playedSecondsRef.current;
-      try {
-        sourceNodeRef.current.stop();
-        sourceNodeRef.current.disconnect();
-      } catch {
-        // Ignore errors when stopping
-      }
-      sourceNodeRef.current = null;
+      stopAllSourceNodes();
+      // console.log('audio-player-stop-nodes', {
+      //   id: playerIdRef.current,
+      //   traceId: options?.traceId,
+      //   activeNodes,
+      //   audioContextState: audioContext.state,
+      // });
+      audioContext.suspend().catch(() => {});
+      audioContext.close().catch(() => {});
+      audioContextRef.current = null;
       isPlayingSegmentRef.current = false;
     } else {
       pausedAtRef.current = playedSecondsRef.current;
+      stopAllSourceNodes();
+      if (audioContextRef.current) {
+        audioContextRef.current.suspend().catch(() => {});
+        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current = null;
+      }
+    }
+
+    if (wasHtmlPlaying && htmlAudio) {
+      const safeHtmlTime = Number.isFinite(htmlTime as number)
+        ? Math.max(0, htmlTime as number)
+        : pausedAtRef.current;
+      pausedAtRef.current = safeHtmlTime;
+      htmlAudio.pause();
     }
 
     releaseExclusive();
-  }, [releaseExclusive, useOssUrl]);
+  }, [releaseExclusive, requestExclusive, stopAllSourceNodes]);
 
   // Play audio from OSS URL
   const playFromUrl = useCallback(
@@ -428,6 +494,12 @@ function AudioPlayerBase(
           },
           initialOffset,
         );
+        activeSourceNodesRef.current.add(sourceNode);
+        const originalOnEnded = sourceNode.onended;
+        sourceNode.onended = () => {
+          activeSourceNodesRef.current.delete(sourceNode);
+          originalOnEnded?.();
+        };
         sourceNodeRef.current = sourceNode;
         setIsLoading(false);
         setIsPlaying(true);
@@ -674,10 +746,17 @@ function AudioPlayerBase(
           togglePlay();
         }
       },
-      pause: () => {
-        if (isPlayingRef.current) {
-          pausePlayback();
-        }
+      pause: (options?: { traceId?: string }) => {
+        // console.log('audio-player-ref-pause', {
+        //   id: playerIdRef.current,
+        //   traceId: options?.traceId,
+        //   isPlaying: isPlayingRef.current,
+        //   hasSourceNode: Boolean(sourceNodeRef.current),
+        //   htmlAudioPaused: audioRef.current?.paused,
+        //   audioUrl: audioUrlRef.current,
+        //   activeNodes: activeSourceNodesRef.current.size,
+        // });
+        pausePlayback(options);
       },
     }),
     [pausePlayback, togglePlay],

@@ -23,6 +23,7 @@ interface ListenPlayerProps {
   onVolume?: () => void;
   onPrev?: () => void;
   onPlay?: () => void;
+  onPause?: (traceId: string) => void;
   onNext?: () => void;
   onFullscreen?: () => void;
   onSubtitles?: () => void;
@@ -41,6 +42,7 @@ const ListenPlayer = ({
   onVolume,
   onPrev,
   onPlay,
+  onPause,
   onNext,
   onFullscreen,
   onSubtitles,
@@ -159,13 +161,23 @@ const ListenPlayer = ({
         >
           <RotateCcw size={32} />
         </button>
-        <button
-          type='button'
-          aria-label='Play'
-          className={styles.playButton}
-          onClick={onPlay}
-        >
-          {isAudioPlaying ? (
+        {isAudioPlaying ? (
+          <button
+            type='button'
+            aria-label='Pause'
+            className={styles.playButton}
+            onClick={() => {
+              const traceId = `pause-${Date.now()}-${Math.random()
+                .toString(36)
+                .slice(2, 8)}`;
+              console.log('listen-player-pause-click', {
+                traceId,
+                isAudioPlaying,
+                interactionBid: interaction?.generated_block_bid,
+              });
+              onPause?.(traceId);
+            }}
+          >
             <svg
               xmlns='http://www.w3.org/2000/svg'
               width='34'
@@ -182,7 +194,14 @@ const ListenPlayer = ({
                 fill='white'
               />
             </svg>
-          ) : (
+          </button>
+        ) : (
+          <button
+            type='button'
+            aria-label='Play'
+            className={styles.playButton}
+            onClick={onPlay}
+          >
             <svg
               xmlns='http://www.w3.org/2000/svg'
               width='34'
@@ -199,8 +218,8 @@ const ListenPlayer = ({
                 fill='white'
               />
             </svg>
-          )}
-        </button>
+          </button>
+        )}
         <button
           type='button'
           aria-label='Forward'

@@ -632,6 +632,7 @@ export const useListenAudioSequence = ({
     useState<AudioInteractionItem | null>(null);
   const [isAudioSequenceActive, setIsAudioSequenceActive] = useState(false);
   const [audioSequenceToken, setAudioSequenceToken] = useState(0);
+  const isSequencePausedRef = useRef(false);
 
   const lastPlayedAudioBidRef = useRef<string | null>(null);
 
@@ -689,6 +690,9 @@ export const useListenAudioSequence = ({
       if (audioSequenceIndexRef.current === index && isAudioSequenceActive) {
         return;
       }
+      if (isSequencePausedRef.current) {
+        return;
+      }
 
       clearAudioSequenceTimer();
       const list = audioSequenceListRef.current;
@@ -730,6 +734,9 @@ export const useListenAudioSequence = ({
     const nextLength = audioAndInteractionList.length;
     prevAudioSequenceLengthRef.current = nextLength;
     if (previewMode || !nextLength) {
+      return;
+    }
+    if (isSequencePausedRef.current) {
       return;
     }
     const currentIndex = audioSequenceIndexRef.current;
@@ -802,6 +809,7 @@ export const useListenAudioSequence = ({
 
   const startSequenceFromPage = useCallback(
     (page: number) => {
+      isSequencePausedRef.current = false;
       clearAudioSequenceTimer();
       audioPlayerRef.current?.pause();
       audioSequenceIndexRef.current = -1;
@@ -843,6 +851,9 @@ export const useListenAudioSequence = ({
       return;
     }
     if (!audioAndInteractionList.length) {
+      return;
+    }
+    if (isSequencePausedRef.current) {
       return;
     }
     shouldStartSequenceRef.current = false;
@@ -926,6 +937,9 @@ export const useListenAudioSequence = ({
   ]);
 
   const handleAudioEnded = useCallback(() => {
+    if (isSequencePausedRef.current) {
+      return;
+    }
     const list = audioSequenceListRef.current;
     if (list.length) {
       const nextIndex = audioSequenceIndexRef.current + 1;
@@ -961,24 +975,92 @@ export const useListenAudioSequence = ({
     pendingAutoNextRef,
   ]);
 
-  const handleTogglePlay = useCallback(() => {
+  const logAudioAction = useCallback(
+    (action: 'play' | 'pause') => {
+      console.log(`listen-audio-${action}`, {
+        activeAudioBid,
+        activeAudioBlockBid,
+        audioUrl: activeContentItem?.audioUrl,
+        content: activeContentItem?.content,
+        listLength: audioSequenceListRef.current.length,
+        sequenceIndex: audioSequenceIndexRef.current,
+        isAudioSequenceActive,
+      });
+    },
+    [
+      activeAudioBid,
+      activeAudioBlockBid,
+      activeContentItem?.audioUrl,
+      activeContentItem?.content,
+      isAudioSequenceActive,
+    ],
+  );
+
+  const handlePlay = useCallback(() => {
     if (previewMode) {
       return;
     }
+    isSequencePausedRef.current = false;
+    // console.log('listen-toggle-play', {
+    //   activeAudioBid,
+    //   hasAudioRef: Boolean(audioPlayerRef.current),
+    //   listLength: audioSequenceListRef.current.length,
+    //   sequenceIndex: audioSequenceIndexRef.current,
+    //   isAudioSequenceActive,
+    // });
+    logAudioAction('play');
     if (!activeAudioBid && audioSequenceListRef.current.length) {
       const currentPage =
         deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
       startSequenceFromPage(currentPage);
       return;
     }
-    audioPlayerRef.current?.togglePlay();
+    audioPlayerRef.current?.play();
   }, [
     previewMode,
     activeAudioBid,
+    isAudioSequenceActive,
+    logAudioAction,
     startSequenceFromPage,
     deckRef,
     currentPptPageRef,
   ]);
+
+  const handlePause = useCallback(
+    (traceId?: string) => {
+      if (previewMode) {
+        return;
+      }
+      // console.log('listen-mode-handle-pause', {
+      //   traceId,
+      //   activeAudioBid,
+      //   activeAudioBlockBid,
+      //   audioUrl: activeContentItem?.audioUrl,
+      //   content: activeContentItem?.content,
+      //   isAudioSequenceActive,
+      //   sequenceIndex: audioSequenceIndexRef.current,
+      // });
+      logAudioAction('pause');
+      isSequencePausedRef.current = true;
+      clearAudioSequenceTimer();
+      audioPlayerRef.current?.pause({ traceId });
+      // console.log('listen-mode-handle-pause-end', {
+      //   traceId,
+      //   activeAudioBid,
+      //   activeAudioBlockBid,
+      // });
+    },
+    [
+      previewMode,
+      activeAudioBid,
+      activeAudioBlockBid,
+      activeContentItem?.audioUrl,
+      activeContentItem?.content,
+      isAudioSequenceActive,
+      logAudioAction,
+      clearAudioSequenceTimer,
+    ],
+  );
 
   useEffect(() => {
     setIsAudioPlaying(false);
@@ -992,7 +1074,8 @@ export const useListenAudioSequence = ({
     isAudioSequenceActive,
     audioSequenceToken,
     handleAudioEnded,
-    handleTogglePlay,
+    handlePlay,
+    handlePause,
     startSequenceFromPage,
   };
 };

@@ -623,10 +623,6 @@ function useChatLogicHook({
                         ),
                         isHistory: true, // Prevent AskButton from triggering typewriter
                       };
-                      console.log(
-                        'updatedList[i].content',
-                        updatedList[i].content,
-                      );
                       break;
                     }
                   }

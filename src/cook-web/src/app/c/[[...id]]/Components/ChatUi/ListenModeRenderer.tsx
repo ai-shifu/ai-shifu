@@ -148,7 +148,8 @@ const ListenModeRenderer = ({
     isAudioSequenceActive,
     audioSequenceToken,
     handleAudioEnded,
-    handleTogglePlay,
+    handlePlay,
+    handlePause,
     startSequenceFromPage,
   } = useListenAudioSequence({
     audioAndInteractionList,
@@ -306,7 +307,8 @@ const ListenModeRenderer = ({
       ) : null}
       <ListenPlayer
         onPrev={onPrev}
-        onPlay={handleTogglePlay}
+        onPlay={handlePlay}
+        onPause={handlePause}
         onNext={onNext}
         prevDisabled={isPrevDisabled}
         nextDisabled={isNextDisabled}
