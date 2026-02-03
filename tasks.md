@@ -12,5 +12,5 @@
 - [x] 在 LLM `invoke_llm` / `chat_llm` 中落库使用量
 - [x] 在 TTS 流程中落库使用量（segment + request 总量）
 - [x] 增加计费侧的聚合查询/报表接口
-- [ ] 增加测试覆盖（LLM/TTS usage 记录）
+- [x] 增加测试覆盖（LLM/TTS usage 记录）
 - [ ] 评估并补充历史数据回填策略（如需要）
