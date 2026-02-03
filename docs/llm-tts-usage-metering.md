@@ -81,6 +81,7 @@ How
 Notes
 - Ensure `stream_options={"include_usage": True}` is enabled for both `invoke_llm` and `chat_llm`.
 - Set `billable=0` for preview/editor/debug flows.
+- Populate `usage_scene` explicitly when possible (0=debug, 1=preview, 2=production).
 
 ### TTS
 Where
@@ -114,6 +115,7 @@ Core API
 Behavior
 - Best-effort write; never raise to caller.
 - Optional async mode (queue + background thread) if write latency is a concern.
+- `UsageContext` carries `usage_scene` and optionally `billable`; `billable` defaults to 0 for debug/preview.
 
 ## Billing Aggregation (Examples)
 - Per-user daily usage:

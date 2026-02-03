@@ -9,7 +9,7 @@
 - [x] 输出统一的设计方案文档（docs/llm-tts-usage-metering.md）
 - [x] 新增 usage 统一表模型 + Alembic 迁移
 - [x] 新增 metering 服务（UsageContext + record helpers）
-- [ ] 在 LLM `invoke_llm` / `chat_llm` 中落库使用量
+- [x] 在 LLM `invoke_llm` / `chat_llm` 中落库使用量
 - [ ] 在 TTS 流程中落库使用量（segment + request 总量）
 - [ ] 增加计费侧的聚合查询/报表接口
 - [ ] 增加测试覆盖（LLM/TTS usage 记录）

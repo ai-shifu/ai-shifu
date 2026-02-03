@@ -16,6 +16,7 @@ from flaskr.service.user.repository import UserAggregate
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.utils_v2 import init_generated_block
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
+from flaskr.service.metering import UsageContext
 
 
 class BreakException(Exception):
@@ -34,6 +35,7 @@ def check_text_with_llm_response(
     llm_settings: LLMSettings,
     attend_id: str,
     fmt_prompt: str,
+    usage_context: UsageContext,
 ):
     res = check_text(app, log_script.generated_block_bid, input, user_info.user_id)
     span.event(name="check_text", input=input, output=res)
@@ -75,6 +77,8 @@ def check_text_with_llm_response(
             json=False,
             stream=True,
             generation_name="check_text_reject_" + str(log_script.generated_block_bid),
+            usage_context=usage_context,
+            usage_scene=usage_context.usage_scene,
             **{"temperature": llm_settings.temperature},
         )
         response_text = ""
