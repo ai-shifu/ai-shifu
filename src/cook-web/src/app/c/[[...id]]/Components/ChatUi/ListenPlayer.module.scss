@@ -67,7 +67,7 @@
     position: fixed;
     left: 0;
     right: 0;
-    bottom: calc(40px + var(--safe-area-bottom, 0px));
+    bottom: 40px;
     width: 100%;
     transform: none;
     border: 1px solid #0000001A;

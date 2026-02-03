@@ -152,7 +152,7 @@
   &.mobile {
     width: 100%;
     // padding-top: 80px;
-    padding-bottom: calc(40px + var(--safe-area-bottom, 0px));
+    padding-bottom: 40px;
     overflow: hidden;
     .chatComponents {
       padding-top: 0;
@@ -163,7 +163,7 @@
       left: 0;
       right: 0;
       bottom: 0;
-      padding-bottom: var(--safe-area-bottom, 0px);
+      padding-bottom: 0;
     }
   }
 

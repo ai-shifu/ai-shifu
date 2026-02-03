@@ -1,6 +1,6 @@
 import styles from './ChatUi.module.scss';
 
-import { memo, useEffect } from 'react';
+import { memo } from 'react';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
@@ -55,44 +55,6 @@ export const ChatUi = ({
   const hideMobileFooter = frameLayout === FRAME_LAYOUT_MOBILE && isNavOpen;
   const showHeader = frameLayout !== FRAME_LAYOUT_MOBILE;
   const showModeToggle = showLearningModeToggle;
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const root = document.documentElement;
-    const updateSafeAreaBottom = () => {
-      const viewport = window.visualViewport;
-      const viewportHeight = viewport?.height ?? window.innerHeight;
-      const viewportOffsetTop = viewport?.offsetTop ?? 0;
-      const bottomInset = Math.max(
-        0,
-        window.innerHeight - viewportHeight - viewportOffsetTop,
-      );
-      if(!showHeader){
-        alert(bottomInset);
-      }
-      root.style.setProperty(
-        '--safe-area-bottom',
-        `${Math.round(bottomInset)}px`,
-      );
-    };
-
-    updateSafeAreaBottom();
-    window.addEventListener('resize', updateSafeAreaBottom);
-    window.addEventListener('orientationchange', updateSafeAreaBottom);
-    window.visualViewport?.addEventListener('resize', updateSafeAreaBottom);
-    window.visualViewport?.addEventListener('scroll', updateSafeAreaBottom);
-
-    return () => {
-      window.removeEventListener('resize', updateSafeAreaBottom);
-      window.removeEventListener('orientationchange', updateSafeAreaBottom);
-      window.visualViewport?.removeEventListener('resize', updateSafeAreaBottom);
-      window.visualViewport?.removeEventListener('scroll', updateSafeAreaBottom);
-      root.style.removeProperty('--safe-area-bottom');
-    };
-  }, []);
 
   return (
     <div

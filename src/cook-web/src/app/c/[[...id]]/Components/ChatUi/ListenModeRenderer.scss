@@ -19,15 +19,9 @@
 
   &.mobile {
     padding: 0 !important;
-    height: calc(
-      100dvh - 76px - 40px - 88px - var(--safe-area-bottom, 0px)
-    );
-    min-height: calc(
-      100dvh - 76px - 40px - 88px - var(--safe-area-bottom, 0px)
-    );
-    max-height: calc(
-      100dvh - 76px - 40px - 88px - var(--safe-area-bottom, 0px)
-    );
+    height: calc(100dvh - 76px - 40px - 88px);
+    min-height: calc(100dvh - 76px - 40px - 88px);
+    max-height: calc(100dvh - 76px - 40px - 88px);
     overflow: hidden;
     overflow-y: hidden !important;
 

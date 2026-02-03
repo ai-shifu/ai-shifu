@@ -189,7 +189,7 @@
 
     .scrollToBottom {
       position: fixed;
-      bottom: calc(40px + var(--safe-area-bottom, 0px) + 20px);
+      bottom: 60px;
       z-index: 50;
     }
   }
