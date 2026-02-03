@@ -10,6 +10,10 @@ if dao.db is None:
     _test_app = Flask("test-learn-record")
     _test_app.config.update(
         SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+        SQLALCHEMY_BINDS={
+            "ai_shifu_saas": "sqlite:///:memory:",
+            "ai_shifu_admin": "sqlite:///:memory:",
+        },
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
     )
     _db = SQLAlchemy()
@@ -37,6 +41,10 @@ class LearnRecordFallbackTests(unittest.TestCase):
         cls.app = Flask("learn-record-fallback")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+            SQLALCHEMY_BINDS={
+                "ai_shifu_saas": "sqlite:///:memory:",
+                "ai_shifu_admin": "sqlite:///:memory:",
+            },
             SQLALCHEMY_TRACK_MODIFICATIONS=False,
         )
         dao.db.init_app(cls.app)

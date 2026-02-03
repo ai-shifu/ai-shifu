@@ -106,6 +106,10 @@ class NextChapterInteractionTests(unittest.TestCase):
         cls.app = Flask("next-chapter-tests")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+            SQLALCHEMY_BINDS={
+                "ai_shifu_saas": "sqlite:///:memory:",
+                "ai_shifu_admin": "sqlite:///:memory:",
+            },
             SQLALCHEMY_TRACK_MODIFICATIONS=False,
         )
         dao.db.init_app(cls.app)
