@@ -125,6 +125,11 @@ Behavior
   - SUM `input` / `duration_ms` (TTS, chars)
 - Per-shifu usage window for creator billing.
 
+Suggested endpoint (backend)
+- `GET /api/metering/usage-summary`
+  - Query params: `start_date`, `end_date` (YYYY-MM-DD), `user_bid`, `shifu_bid`, `usage_scene`
+  - Aggregates request-level records (`record_level=0`) only
+
 Pricing can be layered later via:
 - Config-based pricing rules, or
 - A `billing_pricing_rules` table keyed by provider/model.
