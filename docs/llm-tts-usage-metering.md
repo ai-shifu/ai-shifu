@@ -93,14 +93,16 @@ Where
 How
 - Record per segment (each `synthesize_text` call) with `record_level=segment`.
 - Create an optional parent request record with `record_level=request`, storing totals:
-  - `input` = len(cleaned_text)
+  - `input` = len(raw_text)
+  - `output` / `total` = len(cleaned_text)
   - `duration_ms` = total duration across segments
   - `segment_count` = number of segments
 
 Notes
 - Use `TTSResult.word_count` as provider-reported word count (may be `len(text)` in some providers).
-- Always store `input` derived from the cleaned text for consistency.
+- Use `input` from raw text length; use `output`/`total` from cleaned text length.
 - Preview flows set `billable=0`.
+- Segment records can use `parent_usage_bid` to link back to the request-level record.
 
 ## Usage Recorder Service
 Introduce a small service module to centralize writes and keep call sites clean.

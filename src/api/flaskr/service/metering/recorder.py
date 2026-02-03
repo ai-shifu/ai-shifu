@@ -114,6 +114,7 @@ def record_tts_usage(
     app: Flask,
     context: UsageContext,
     *,
+    usage_bid: Optional[str] = None,
     provider: str,
     model: str,
     is_stream: bool,
@@ -131,9 +132,9 @@ def record_tts_usage(
     error_message: str = "",
     metadata: Optional[Dict[str, Any]] = None,
 ) -> str:
-    usage_bid = generate_id(app)
+    resolved_usage_bid = usage_bid or generate_id(app)
     record = BillingUsageRecord(
-        usage_bid=usage_bid,
+        usage_bid=resolved_usage_bid,
         parent_usage_bid=parent_usage_bid or "",
         user_bid=context.user_bid or "",
         shifu_bid=context.shifu_bid or "",
@@ -163,5 +164,5 @@ def record_tts_usage(
         metadata=metadata or None,
     )
     if _persist_usage_record(app, record):
-        return usage_bid
+        return resolved_usage_bid
     return ""
