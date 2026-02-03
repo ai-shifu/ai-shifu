@@ -72,7 +72,7 @@ def record_llm_usage(
     latency_ms: int = 0,
     status: int = 0,
     error_message: str = "",
-    metadata: Optional[Dict[str, Any]] = None,
+    extra: Optional[Dict[str, Any]] = None,
 ) -> str:
     usage_bid = generate_id(app)
     record = BillingUsageRecord(
@@ -103,7 +103,7 @@ def record_llm_usage(
         billable=_resolve_billable(context.usage_scene, context.billable),
         status=int(status or 0),
         error_message=error_message or "",
-        metadata=metadata or None,
+        extra=extra or None,
     )
     if _persist_usage_record(app, record):
         return usage_bid
@@ -130,7 +130,7 @@ def record_tts_usage(
     segment_count: int = 0,
     status: int = 0,
     error_message: str = "",
-    metadata: Optional[Dict[str, Any]] = None,
+    extra: Optional[Dict[str, Any]] = None,
 ) -> str:
     resolved_usage_bid = usage_bid or generate_id(app)
     record = BillingUsageRecord(
@@ -161,7 +161,7 @@ def record_tts_usage(
         billable=_resolve_billable(context.usage_scene, context.billable),
         status=int(status or 0),
         error_message=error_message or "",
-        metadata=metadata or None,
+        extra=extra or None,
     )
     if _persist_usage_record(app, record):
         return resolved_usage_bid

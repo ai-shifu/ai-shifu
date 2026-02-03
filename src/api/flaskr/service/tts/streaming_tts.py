@@ -296,7 +296,7 @@ class StreamingTTSProcessor:
                 parent_usage_bid=self._usage_parent_bid,
                 segment_index=segment.index,
                 segment_count=0,
-                metadata={
+                extra={
                     "voice_id": self.voice_settings.voice_id or "",
                     "speed": self.voice_settings.speed,
                     "pitch": self.voice_settings.pitch,
@@ -495,7 +495,7 @@ class StreamingTTSProcessor:
                 parent_usage_bid="",
                 segment_index=0,
                 segment_count=len(audio_data_list),
-                metadata={
+                extra={
                     "voice_id": self.voice_settings.voice_id or "",
                     "speed": self.voice_settings.speed,
                     "pitch": self.voice_settings.pitch,
@@ -607,7 +607,7 @@ class StreamingTTSProcessor:
             parent_usage_bid="",
             segment_index=0,
             segment_count=len(self._all_audio_data),
-            metadata={
+            extra={
                 "voice_id": self.voice_settings.voice_id or "",
                 "speed": self.voice_settings.speed,
                 "pitch": self.voice_settings.pitch,

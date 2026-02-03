@@ -780,7 +780,7 @@ def stream_generated_block_audio(
                     parent_usage_bid=parent_usage_bid,
                     segment_index=index,
                     segment_count=0,
-                    metadata=usage_metadata,
+                    extra=usage_metadata,
                 )
                 base64_audio = base64.b64encode(audio_data).decode("utf-8")
                 yield RunMarkdownFlowDTO(
@@ -851,7 +851,7 @@ def stream_generated_block_audio(
                 parent_usage_bid="",
                 segment_index=0,
                 segment_count=segment_count,
-                metadata=usage_metadata,
+                extra=usage_metadata,
             )
 
             yield RunMarkdownFlowDTO(
@@ -954,7 +954,7 @@ def stream_preview_tts_audio(
                     parent_usage_bid=parent_usage_bid,
                     segment_index=index,
                     segment_count=0,
-                    metadata=usage_metadata,
+                    extra=usage_metadata,
                 )
                 base64_audio = base64.b64encode(audio_data).decode("utf-8")
                 yield RunMarkdownFlowDTO(
@@ -995,7 +995,7 @@ def stream_preview_tts_audio(
                 parent_usage_bid="",
                 segment_index=0,
                 segment_count=segment_count,
-                metadata=usage_metadata,
+                extra=usage_metadata,
             )
 
             yield RunMarkdownFlowDTO(

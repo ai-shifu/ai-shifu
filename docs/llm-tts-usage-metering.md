@@ -57,7 +57,7 @@ Lifecycle & metadata
 - `billable` SmallInteger (0/1)
 - `status` SmallInteger (0=success, 1=failed)
 - `error_message` Text
-- `metadata` JSON (temperature, voice settings, usage_source, etc.)
+- `extra` JSON (temperature, voice settings, usage_source, etc.)
 - `deleted` SmallInteger
 - `created_at`, `updated_at`
 
@@ -76,7 +76,7 @@ Where
 How
 - Capture `ModelUsage` after the stream completes.
 - Record one `billing_usage_records` row per LLM invocation.
-- For Dify (no usage), write `input=0`, `output=0`, and set `metadata.usage_source="missing"`.
+- For Dify (no usage), write `input=0`, `output=0`, and set `extra.usage_source="missing"`.
 
 Notes
 - Ensure `stream_options={"include_usage": True}` is enabled for both `invoke_llm` and `chat_llm`.

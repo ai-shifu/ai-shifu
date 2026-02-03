@@ -240,7 +240,7 @@ class BillingUsageRecord(db.Model):
         comment="Error message",
     )
 
-    metadata = Column(
+    extra = Column(
         JSON,
         nullable=True,
         comment="Extra metadata",

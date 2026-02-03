@@ -690,7 +690,7 @@ def invoke_llm(
             latency_ms=latency_ms,
             status=0,
             error_message="",
-            metadata=usage_metadata,
+            extra=usage_metadata,
         )
     else:
         usage_metadata.setdefault("usage_source", "litellm")
@@ -706,7 +706,7 @@ def invoke_llm(
             latency_ms=latency_ms,
             status=0,
             error_message="",
-            metadata=usage_metadata,
+            extra=usage_metadata,
         )
     generation.end(
         input=generation_input,
@@ -859,7 +859,7 @@ def chat_llm(
             latency_ms=latency_ms,
             status=0,
             error_message="",
-            metadata=usage_metadata,
+            extra=usage_metadata,
         )
     else:
         usage_metadata.setdefault("usage_source", "litellm")
@@ -875,7 +875,7 @@ def chat_llm(
             latency_ms=latency_ms,
             status=0,
             error_message="",
-            metadata=usage_metadata,
+            extra=usage_metadata,
         )
     generation.end(
         input=generation_input,

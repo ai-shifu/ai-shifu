@@ -314,7 +314,7 @@ def synthesize_long_text_to_oss(
                     parent_usage_bid=usage_parent_bid,
                     segment_index=index,
                     segment_count=0,
-                    metadata=usage_metadata,
+                    extra=usage_metadata,
                 )
             if sleep_between_segments and index < len(segments) - 1:
                 time.sleep(sleep_between_segments)
@@ -365,7 +365,7 @@ def synthesize_long_text_to_oss(
                         parent_usage_bid=usage_parent_bid,
                         segment_index=index,
                         segment_count=0,
-                        metadata=usage_metadata,
+                        extra=usage_metadata,
                     )
 
     final_audio = concat_audio_best_effort(audio_parts)
@@ -398,7 +398,7 @@ def synthesize_long_text_to_oss(
             parent_usage_bid="",
             segment_index=0,
             segment_count=len(segments),
-            metadata=usage_metadata,
+            extra=usage_metadata,
         )
 
     return SynthesizeToOssResult(
