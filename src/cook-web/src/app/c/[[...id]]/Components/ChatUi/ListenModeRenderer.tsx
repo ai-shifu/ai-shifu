@@ -328,7 +328,11 @@ const ListenModeRenderer = ({
 
   return (
     <div
-      className={cn(containerClassName, 'listen-reveal-wrapper', mobileStyle ? 'mobile' : '')}
+      className={cn(
+        containerClassName,
+        'listen-reveal-wrapper',
+        mobileStyle ? 'mobile' : '',
+      )}
       style={{ background: '#F7F9FF', position: 'relative' }}
     >
       <div
@@ -396,6 +400,7 @@ const ListenModeRenderer = ({
         interaction={listenPlayerInteraction}
         interactionReadonly={interactionReadonly}
         onSend={onSend}
+        mobileStyle={mobileStyle}
       />
     </div>
   );

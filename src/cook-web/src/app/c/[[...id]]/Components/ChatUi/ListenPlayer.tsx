@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 
 interface ListenPlayerProps {
   className?: string;
+  mobileStyle?: boolean;
   onMore?: () => void;
   onVolume?: () => void;
   onPrev?: () => void;
@@ -38,6 +39,7 @@ interface ListenPlayerProps {
 
 const ListenPlayer = ({
   className,
+  mobileStyle = false,
   onMore,
   onVolume,
   onPrev,
@@ -99,7 +101,14 @@ const ListenPlayer = ({
   );
 
   return (
-    <div className={cn(styles.playerContainer, 'relative', className)}>
+    <div
+      className={cn(
+        styles.playerContainer,
+        'relative',
+        mobileStyle ? styles.mobile : '',
+        className,
+      )}
+    >
       {interaction && isInteractionOpen ? (
         <div
           className={cn(

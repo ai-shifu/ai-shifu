@@ -63,4 +63,21 @@
       }
     }
   }
+  &.mobile {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+    width: 100%;
+    transform: none;
+    border: 1px solid #0000001A;
+    border-radius: 0;
+    box-shadow: none;
+    z-index: 0;
+
+    .interactionContainer {
+      width: 100%;
+    }
+  }
+  
 }
