@@ -258,6 +258,21 @@ const ListenModeRenderer = ({
     startSequenceFromPage,
   ]);
 
+  const currentSequencePage =
+    deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
+  const prevSequenceIndex = resolveAudioSequenceIndexByDirection(
+    currentSequencePage,
+    -1,
+  );
+  const nextSequenceIndex = resolveAudioSequenceIndexByDirection(
+    currentSequencePage,
+    1,
+  );
+  const prevControlDisabled =
+    isPrevDisabled && typeof prevSequenceIndex !== 'number';
+  const nextControlDisabled =
+    isNextDisabled && typeof nextSequenceIndex !== 'number';
+
   const onNext = useCallback(() => {
     const currentPage =
       deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
@@ -394,8 +409,8 @@ const ListenModeRenderer = ({
         onPlay={handlePlay}
         onPause={handlePause}
         onNext={onNext}
-        prevDisabled={isPrevDisabled}
-        nextDisabled={isNextDisabled}
+        prevDisabled={prevControlDisabled}
+        nextDisabled={nextControlDisabled}
         isAudioPlaying={isAudioPlaying}
         interaction={listenPlayerInteraction}
         interactionReadonly={interactionReadonly}
