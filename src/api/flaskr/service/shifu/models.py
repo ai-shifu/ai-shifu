@@ -243,10 +243,7 @@ class DraftShifu(db.Model):
         String(32),
         nullable=False,
         default="",
-        comment=(
-            "TTS provider: minimax, volcengine, baidu, aliyun "
-            "(empty=use system default)"
-        ),
+        comment="TTS provider: minimax, volcengine, baidu, aliyun",
     )
     tts_model = Column(
         String(64),
@@ -649,10 +646,7 @@ class PublishedShifu(db.Model):
         String(32),
         nullable=False,
         default="",
-        comment=(
-            "TTS provider: minimax, volcengine, baidu, aliyun "
-            "(empty=use system default)"
-        ),
+        comment="TTS provider: minimax, volcengine, baidu, aliyun",
     )
     tts_model = Column(
         String(64),

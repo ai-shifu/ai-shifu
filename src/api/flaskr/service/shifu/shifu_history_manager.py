@@ -383,7 +383,11 @@ def delete_block_history(app: Flask, user_id: str, shifu_bid: str, block_bid: st
 
 
 def save_outline_tree_history(
-    app: Flask, user_id: str, shifu_bid: str, outline_tree: List[HistoryItem]
+    app: Flask,
+    user_id: str,
+    shifu_bid: str,
+    outline_tree: List[HistoryItem],
+    shifu_id: int = None,
 ):
     """
     Save outline tree history
@@ -392,10 +396,13 @@ def save_outline_tree_history(
         user_id: User ID
         shifu_bid: Shifu bid
         outline_tree: Outline tree
+        shifu_id: Optional shifu database id to ensure root node id is correct
     Returns:
         None
     """
     history = get_shifu_history(app, shifu_bid)
+    if shifu_id is not None:
+        history.id = shifu_id
     q = queue.Queue()
     q.put(history)
     blocks_infos = {}

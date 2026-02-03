@@ -132,7 +132,7 @@ class StreamingTTSProcessor:
         self._enabled = is_tts_configured(tts_provider)
         if not self._enabled:
             logger.warning(
-                f"TTS is not configured for provider '{tts_provider or 'default'}', streaming TTS disabled"
+                f"TTS is not configured for provider '{tts_provider or '(unset)'}', streaming TTS disabled"
             )
 
     def process_chunk(self, chunk: str) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -224,7 +224,7 @@ class StreamingTTSProcessor:
         segment = TTSSegment(index=segment_index, text=text)
 
         logger.info(
-            f"Submitting TTS task {segment_index}: {len(text)} chars, provider={self.tts_provider or 'default'}"
+            f"Submitting TTS task {segment_index}: {len(text)} chars, provider={self.tts_provider or '(unset)'}"
         )
 
         future = _tts_executor.submit(
