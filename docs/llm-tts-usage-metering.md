@@ -141,3 +141,11 @@ Pricing can be layered later via:
 4. Instrument TTS flows (segment + request totals).
 5. Add tests (unit + integration).
 6. Add reporting endpoints/queries for finance.
+
+## Backfill Strategy (Optional)
+- TTS historical backfill can be derived from `learn_generated_audios` (duration, text_length, model, voice settings).
+  - Insert request-level records only (`record_level=0`, `record_level=segment` omitted).
+  - Set `usage_scene=2` and `billable=1` only if the original records represent production.
+- LLM historical backfill depends on external observability (Langfuse, provider logs).
+  - If Langfuse is enabled, export trace usage and map to `billing_usage_records`.
+  - If not available, skip LLM backfill and start counting from deployment.
