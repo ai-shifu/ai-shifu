@@ -108,8 +108,8 @@ Suggested module
 - `src/api/flaskr/service/metering/`
 
 Core API
-- `record_llm_usage(app, context, usage, metadata)`
-- `record_tts_usage(app, context, metrics, metadata)`
+- `record_llm_usage(app, context, input, output, total, ...)`
+- `record_tts_usage(app, context, input, output, total, word_count, duration_ms, ...)`
 
 Behavior
 - Best-effort write; never raise to caller.
