@@ -20,13 +20,13 @@
   &.mobile {
     padding: 0 !important;
     height: calc(
-      100dvh - 76px - 40px - 88px - env(safe-area-inset-bottom, 0px)
+      100dvh - 76px - 40px - 88px - var(--safe-area-bottom, 0px)
     );
     min-height: calc(
-      100dvh - 76px - 40px - 88px - env(safe-area-inset-bottom, 0px)
+      100dvh - 76px - 40px - 88px - var(--safe-area-bottom, 0px)
     );
     max-height: calc(
-      100dvh - 76px - 40px - 88px - env(safe-area-inset-bottom, 0px)
+      100dvh - 76px - 40px - 88px - var(--safe-area-bottom, 0px)
     );
     overflow: hidden;
     overflow-y: hidden !important;
