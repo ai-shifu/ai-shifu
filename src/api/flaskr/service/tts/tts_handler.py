@@ -9,11 +9,12 @@ from typing import Tuple
 
 from flask import Flask
 
+from flaskr.common.log import AppLoggerProxy
 from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES
 from flaskr.service.common.storage import upload_to_storage
 
 
-logger = logging.getLogger(__name__)
+logger = AppLoggerProxy(logging.getLogger(__name__))
 
 
 def upload_audio_to_oss(

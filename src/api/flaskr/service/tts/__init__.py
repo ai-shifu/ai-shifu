@@ -10,9 +10,10 @@ import html
 
 # Import models to ensure they are registered with SQLAlchemy
 from .models import LearnGeneratedAudio  # noqa: F401
+from flaskr.common.log import AppLoggerProxy
 
 
-logger = logging.getLogger(__name__)
+logger = AppLoggerProxy(logging.getLogger(__name__))
 
 # Pattern to match code blocks (both fenced and inline)
 CODE_BLOCK_PATTERN = re.compile(r"```[\s\S]*?```|`[^`]+`")

@@ -33,6 +33,7 @@ from flaskr.service.tts.audio_utils import (
     get_audio_duration_ms,
     is_audio_processing_available,
 )
+from flaskr.common.log import AppLoggerProxy
 from flaskr.service.tts.models import (
     LearnGeneratedAudio,
     AUDIO_STATUS_COMPLETED,
@@ -45,7 +46,7 @@ from flaskr.service.learn.learn_dtos import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = AppLoggerProxy(logging.getLogger(__name__))
 
 # Sentence ending patterns
 SENTENCE_ENDINGS = re.compile(r"[.!?。！？；;]")
@@ -246,30 +247,31 @@ class StreamingTTSProcessor:
         tts_model: str = "",
     ) -> TTSSegment:
         """Synthesize a segment in a background thread."""
-        try:
-            result = synthesize_text(
-                text=segment.text,
-                voice_settings=voice_settings,
-                audio_settings=audio_settings,
-                model=tts_model,
-                provider_name=tts_provider,
-            )
-            segment.audio_data = result.audio_data
-            segment.duration_ms = result.duration_ms
-            segment.is_ready = True
+        with self.app.app_context():
+            try:
+                result = synthesize_text(
+                    text=segment.text,
+                    voice_settings=voice_settings,
+                    audio_settings=audio_settings,
+                    model=tts_model,
+                    provider_name=tts_provider,
+                )
+                segment.audio_data = result.audio_data
+                segment.duration_ms = result.duration_ms
+                segment.is_ready = True
 
-            logger.info(
-                f"TTS segment {segment.index} synthesized: "
-                f"text_len={len(segment.text)}, duration={segment.duration_ms}ms"
-            )
-        except Exception as e:
-            logger.error(f"TTS segment {segment.index} failed: {e}")
-            segment.error = str(e)
-            segment.is_ready = True
+                logger.info(
+                    f"TTS segment {segment.index} synthesized: "
+                    f"text_len={len(segment.text)}, duration={segment.duration_ms}ms"
+                )
+            except Exception as e:
+                logger.error(f"TTS segment {segment.index} failed: {e}")
+                segment.error = str(e)
+                segment.is_ready = True
 
-        # Store in completed segments
-        with self._lock:
-            self._completed_segments[segment.index] = segment
+            # Store in completed segments
+            with self._lock:
+                self._completed_segments[segment.index] = segment
 
         return segment
 
