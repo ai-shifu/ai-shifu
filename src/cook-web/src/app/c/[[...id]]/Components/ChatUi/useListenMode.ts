@@ -1,15 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Reveal from 'reveal.js';
+import Reveal, { Options } from 'reveal.js';
 import {
   splitContentSegments,
   type RenderSegment,
 } from 'markdown-flow-ui/renderer';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import type { AudioPlayerHandle } from '@/components/audio/AudioPlayer';
-
-type RevealOptionsWithScrollMode = Reveal.Options & {
-  scrollMode?: 'classic' | 'scroll';
-};
 
 export type AudioInteractionItem = ChatContentItem & {
   page: number;
@@ -105,6 +101,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
 
         pageCursor += slideSegments.length;
       });
+      console.log('items',items)
       return {
         slideItems: nextSlideItems,
         interactionByPage: mapping,
@@ -365,12 +362,23 @@ export const useListenPpt = ({
       return;
     }
 
-    const revealOptions: RevealOptionsWithScrollMode = {
+    const revealOptions: Options = {
+      width: '100%',
+      height: '100%',
+      margin: 0,
+      minScale: 1,
+      maxScale: 1,
       transition: 'slide',
       slideNumber: true,
       progress: false,
-      controls: false,
+      controls: true,
       hideInactiveCursor: false,
+      center: false,
+      disableLayout: true,
+      view: null,
+      scrollActivationWidth: 0,
+      scrollProgress: false,
+      scrollSnap: false,
     };
 
     deckRef.current = new Reveal(chatRef.current, revealOptions);

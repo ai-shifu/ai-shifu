@@ -607,7 +607,7 @@ function useChatLogicHook({
                 );
                 // Find the last CONTENT type item and append AskButton to its content
                 // Set isHistory=true to prevent triggering typewriter effect for AskButton
-                if (mobileStyle) {
+                if (mobileStyle && !isListenMode) {
                   for (let i = updatedList.length - 1; i >= 0; i--) {
                     if (
                       updatedList[i].type === ChatContentItemType.CONTENT &&
@@ -761,7 +761,7 @@ function useChatLogicHook({
           // flush the previously cached ask entries
           flushBuffer();
           const normalizedContent = item.content ?? '';
-          const contentWithButton = mobileStyle
+          const contentWithButton = mobileStyle && !isListenMode
             ? appendCustomButtonAfterContent(
                 normalizedContent,
                 getAskButtonMarkup(),

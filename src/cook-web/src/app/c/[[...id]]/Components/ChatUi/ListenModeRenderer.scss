@@ -11,6 +11,29 @@
   box-sizing: border-box;
   overflow: hidden;
   position: relative;
+  &.mobile {
+    padding: 0 !important;
+    height: calc(100dvh - 76px - 40px - env(safe-area-inset-bottom, 0px));
+    min-height: calc(100dvh - 76px - 40px - env(safe-area-inset-bottom, 0px));
+    max-height: calc(100dvh - 76px - 40px - env(safe-area-inset-bottom, 0px));
+    overflow: hidden;
+    overflow-y: hidden !important;
+
+    .listen-reveal {
+      height: 100%;
+      min-height: 100%;
+    }
+
+    .listen-reveal .slides {
+      height: 100% !important;
+      min-height: 100%;
+    }
+
+    .listen-reveal .slides section {
+      height: 100% !important;
+      min-height: 100%;
+    }
+  }
 }
 
 .listen-reveal {

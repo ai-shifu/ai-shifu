@@ -325,9 +325,10 @@ const ListenModeRenderer = ({
     ? !isLatestInteractionEditable
     : true;
 
+
   return (
     <div
-      className={cn(containerClassName, 'listen-reveal-wrapper')}
+      className={cn(containerClassName, 'listen-reveal-wrapper', mobileStyle ? 'mobile' : '')}
       style={{ background: '#F7F9FF', position: 'relative' }}
     >
       <div
@@ -338,7 +339,7 @@ const ListenModeRenderer = ({
           {!isLoading &&
             slideItems.map(({ item, segments }, idx) => {
               const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
-              // console.log('segments', baseKey, segments)
+              console.log('segments', baseKey, segments)
               return (
                 <ContentIframe
                   key={baseKey}
