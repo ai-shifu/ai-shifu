@@ -13,9 +13,15 @@
   position: relative;
   &.mobile {
     padding: 0 !important;
-    height: calc(100dvh - 76px - 40px - env(safe-area-inset-bottom, 0px));
-    min-height: calc(100dvh - 76px - 40px - env(safe-area-inset-bottom, 0px));
-    max-height: calc(100dvh - 76px - 40px - env(safe-area-inset-bottom, 0px));
+    height: calc(
+      100dvh - 76px - 40px - 88px - env(safe-area-inset-bottom, 0px)
+    );
+    min-height: calc(
+      100dvh - 76px - 40px - 88px - env(safe-area-inset-bottom, 0px)
+    );
+    max-height: calc(
+      100dvh - 76px - 40px - 88px - env(safe-area-inset-bottom, 0px)
+    );
     overflow: hidden;
     overflow-y: hidden !important;
 
@@ -32,6 +38,15 @@
     .listen-reveal .slides section {
       height: 100% !important;
       min-height: 100%;
+    }
+    .content-render-iframe-sandbox{
+      padding: 0 16px;
+      img{
+        width: 100%;
+      }
+    }
+    .mobile-empty-slide{
+      padding: 0 16px !important;
     }
   }
 }

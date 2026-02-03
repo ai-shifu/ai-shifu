@@ -357,10 +357,10 @@ const ListenModeRenderer = ({
             })}
           {shouldRenderEmptyPpt ? (
             <section
-              className='present'
+              className={cn('present text-center', mobileStyle ? 'mobile-empty-slide' : '')}
               data-generated-block-bid={emptySlideBlockBid}
             >
-              <div className='w-full h-full font-bold flex items-center justify-center text-primary'>
+              <div className='w-full h-full font-bold flex items-center justify-center text-primary '>
                 {sectionTitle}
               </div>
             </section>
