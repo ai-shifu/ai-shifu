@@ -70,6 +70,9 @@ export const ChatUi = ({
         0,
         window.innerHeight - viewportHeight - viewportOffsetTop,
       );
+      if(!showHeader){
+        alert(bottomInset);
+      }
       root.style.setProperty(
         '--safe-area-bottom',
         `${Math.round(bottomInset)}px`,
