@@ -102,6 +102,14 @@ def _log_warning(message: str) -> None:
     _log("warning", message)
 
 
+def _extract_usage_value(usage: Any, key: str) -> int:
+    if usage is None:
+        return 0
+    if isinstance(usage, dict):
+        return int(usage.get(key) or 0)
+    return int(getattr(usage, key, 0) or 0)
+
+
 def _get_request_id() -> str:
     try:
         return request.headers.get("X-Request-ID", "") or ""
@@ -700,9 +708,9 @@ def invoke_llm(
             provider=provider_name or "",
             model=model,
             is_stream=stream_flag,
-            input=int(usage.input or 0),
-            output=int(usage.output or 0),
-            total=int(usage.total or 0),
+            input=_extract_usage_value(usage, "input"),
+            output=_extract_usage_value(usage, "output"),
+            total=_extract_usage_value(usage, "total"),
             latency_ms=latency_ms,
             status=0,
             error_message="",
@@ -869,9 +877,9 @@ def chat_llm(
             provider=provider_name or "",
             model=model,
             is_stream=stream_flag,
-            input=int(usage.input or 0),
-            output=int(usage.output or 0),
-            total=int(usage.total or 0),
+            input=_extract_usage_value(usage, "input"),
+            output=_extract_usage_value(usage, "output"),
+            total=_extract_usage_value(usage, "total"),
             latency_ms=latency_ms,
             status=0,
             error_message="",
