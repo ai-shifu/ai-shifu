@@ -3,7 +3,7 @@ import styles from './MainMenuModal.module.scss';
 import { memo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
-import i18n, { normalizeLanguage } from '@/i18n';
+import { normalizeLanguage } from '@/i18n';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import api from '@/api';
 import {
@@ -24,10 +24,10 @@ import { shifu } from '@/c-service/Shifu';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 
 import Image from 'next/image';
-import imgUserInfo from '@/c-assets/newchat/light/userInfo.png';
 import imgPersonal from '@/c-assets/newchat/light/personal.png';
 import imgMultiLanguage from '@/c-assets/newchat/light/multiLanguage.png';
 import imgSignIn from '@/c-assets/newchat/light/signin.png';
+import { Monitor, BookPlus } from 'lucide-react';
 
 import LanguageSelect from '@/components/language-select';
 
@@ -44,12 +44,15 @@ const MainMenuModal = ({
   const { t } = useTranslation();
 
   const htmlRef = useRef(null);
-  const { isLoggedIn, logout } = useUserStore(
+  const { isLoggedIn, logout, userInfo } = useUserStore(
     useShallow(state => ({
       logout: state.logout,
       isLoggedIn: state.isLoggedIn,
+      userInfo: state.userInfo,
     })),
   );
+
+  const isCreator = userInfo?.is_creator ?? false;
 
   const { trackEvent } = useTracking();
 
@@ -72,6 +75,15 @@ const MainMenuModal = ({
     }
 
     onPersonalInfoClick?.();
+  };
+
+  const onAdminEntryClick = (evt: React.MouseEvent) => {
+    evt.preventDefault();
+    evt.stopPropagation();
+    // Admin console handles login redirect and permission request internally
+    window.open('/admin', '_blank');
+    // @ts-expect-error EXPECT
+    onClose?.(evt);
   };
 
   const onLoginClick = () => {
@@ -167,6 +179,21 @@ const MainMenuModal = ({
                 />
                 <div className={styles.rowTitle}>
                   {t('component.menus.navigationMenus.personalInfo')}
+                </div>
+              </div>
+              <div
+                className={cn(styles.mainMenuModalRow, 'px-2.5')}
+                onClick={onAdminEntryClick}
+              >
+                {isCreator ? (
+                  <Monitor className={styles.rowIcon} size={16} />
+                ) : (
+                  <BookPlus className={styles.rowIcon} size={16} />
+                )}
+                <div className={styles.rowTitle}>
+                  {isCreator
+                    ? t('component.menus.navigationMenus.adminConsole')
+                    : t('component.menus.navigationMenus.createCourse')}
                 </div>
               </div>
             </>

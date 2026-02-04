@@ -2,6 +2,8 @@
   "__namespace__": "component.menus",
   "navigationMenus": {
     "language": "Language",
-    "personalInfo": "Personal Settings"
+    "personalInfo": "Personal Settings",
+    "adminConsole": "Admin Console",
+    "createCourse": "Create Course"
   }
 }

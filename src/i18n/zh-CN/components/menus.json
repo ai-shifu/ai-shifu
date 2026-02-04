@@ -2,6 +2,8 @@
   "__namespace__": "component.menus",
   "navigationMenus": {
     "language": "语言",
-    "personalInfo": "个性化设置"
+    "personalInfo": "个性化设置",
+    "adminConsole": "管理后台",
+    "createCourse": "建一门课"
   }
 }
