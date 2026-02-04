@@ -1,7 +1,7 @@
 """add billing usage records
 
 Revision ID: b7c1d6e9f2a3
-Revises: a4d68cce5ce6
+Revises: 9f3a0c3aebe0
 Create Date: 2026-02-03 00:00:00.000000
 
 """
@@ -12,7 +12,7 @@ from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
 revision = "b7c1d6e9f2a3"
-down_revision = "a4d68cce5ce6"
+down_revision = "9f3a0c3aebe0"
 branch_labels = None
 depends_on = None
 
