@@ -11,8 +11,6 @@
   box-sizing: border-box;
   overflow: hidden;
   position: relative;
-  --listen-safe-area-top: constant(safe-area-inset-top);
-  --listen-safe-area-top: env(safe-area-inset-top);
   .content-render-iframe-sandbox{
     img{
       width: 100%;
@@ -21,7 +19,6 @@
 
   &.mobile {
     padding: 0 !important;
-    padding-top: var(--listen-safe-area-top, 0px) !important;
     height: calc(100vh - 76px - 40px - 88px);
     min-height: calc(100vh - 76px - 40px - 88px);
     max-height: calc(100vh - 76px - 40px - 88px);
