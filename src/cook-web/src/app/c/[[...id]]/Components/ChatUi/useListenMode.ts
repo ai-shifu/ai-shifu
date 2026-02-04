@@ -918,6 +918,34 @@ export const useListenAudioSequence = ({
     );
   }, [activeAudioBlockBid, audioContentByBid, contentByBid]);
 
+  const tryAdvanceToNextBlock = useCallback(() => {
+    const currentBid = resolveContentBid(activeBlockBidRef.current);
+    const nextBid = getNextContentBid(currentBid);
+    if (!nextBid) {
+      return false;
+    }
+
+    const moved = goToBlock(nextBid);
+    if (moved) {
+      return true;
+    }
+
+    if (shouldRenderEmptyPpt) {
+      activeBlockBidRef.current = `empty-ppt-${nextBid}`;
+      return true;
+    }
+
+    pendingAutoNextRef.current = true;
+    return true;
+  }, [
+    activeBlockBidRef,
+    getNextContentBid,
+    goToBlock,
+    pendingAutoNextRef,
+    resolveContentBid,
+    shouldRenderEmptyPpt,
+  ]);
+
   useEffect(() => {
     if (!activeAudioBlockBid) {
       return;
@@ -966,35 +994,18 @@ export const useListenAudioSequence = ({
     if (list.length) {
       const nextIndex = audioSequenceIndexRef.current + 1;
       if (nextIndex >= list.length) {
+        setActiveAudioBid(null);
         setIsAudioSequenceActive(false);
+        tryAdvanceToNextBlock();
         return;
       }
       playAudioSequenceFromIndex(nextIndex);
       return;
     }
-    const currentBid = resolveContentBid(activeBlockBidRef.current);
-    const nextBid = getNextContentBid(currentBid);
-    if (!nextBid) {
-      return;
-    }
-    const moved = goToBlock(nextBid);
-    if (moved) {
-      return;
-    }
-    if (shouldRenderEmptyPpt) {
-      const nextSlideBid = `empty-ppt-${nextBid}`;
-      activeBlockBidRef.current = nextSlideBid;
-      return;
-    }
-    pendingAutoNextRef.current = true;
+    tryAdvanceToNextBlock();
   }, [
-    getNextContentBid,
-    goToBlock,
-    resolveContentBid,
-    shouldRenderEmptyPpt,
     playAudioSequenceFromIndex,
-    activeBlockBidRef,
-    pendingAutoNextRef,
+    tryAdvanceToNextBlock,
   ]);
 
   const logAudioAction = useCallback(
