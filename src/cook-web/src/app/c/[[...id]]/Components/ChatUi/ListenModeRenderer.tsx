@@ -404,7 +404,7 @@ const ListenModeRenderer = ({
           />
         </div>
       ) : null}
-      <ListenPlayer
+      {mobileStyle ? null : <ListenPlayer
         onPrev={onPrev}
         onPlay={handlePlay}
         onPause={handlePause}
@@ -416,7 +416,7 @@ const ListenModeRenderer = ({
         interactionReadonly={interactionReadonly}
         onSend={onSend}
         mobileStyle={mobileStyle}
-      />
+      />}
     </div>
   );
 };
