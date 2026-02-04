@@ -186,9 +186,15 @@ const MainMenuModal = ({
                 onClick={onAdminEntryClick}
               >
                 {isCreator ? (
-                  <Monitor className={styles.rowIcon} size={16} />
+                  <Monitor
+                    className={styles.rowIcon}
+                    size={16}
+                  />
                 ) : (
-                  <BookPlus className={styles.rowIcon} size={16} />
+                  <BookPlus
+                    className={styles.rowIcon}
+                    size={16}
+                  />
                 )}
                 <div className={styles.rowTitle}>
                   {isCreator
