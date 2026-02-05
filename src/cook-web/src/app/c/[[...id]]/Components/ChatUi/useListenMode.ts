@@ -101,7 +101,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
 
         pageCursor += slideSegments.length;
       });
-      console.log('items', items);
+      // console.log('items', items);
       return {
         slideItems: nextSlideItems,
         interactionByPage: mapping,
@@ -646,7 +646,7 @@ export const useListenAudioSequence = ({
 
   useEffect(() => {
     audioSequenceListRef.current = audioAndInteractionList;
-    console.log('audioAndInteractionList', audioSequenceListRef.current);
+    // console.log('audioAndInteractionList', audioSequenceListRef.current);
   }, [audioAndInteractionList]);
 
   const clearAudioSequenceTimer = useCallback(() => {
@@ -842,7 +842,6 @@ export const useListenAudioSequence = ({
   const startSequenceFromPage = useCallback(
     (page: number) => {
       const startIndex = resolveSequenceStartIndex(page);
-      console.log('startSequenceFromPage', page, startIndex);
       if (startIndex < 0) {
         return;
       }
@@ -1007,15 +1006,15 @@ export const useListenAudioSequence = ({
 
   const logAudioAction = useCallback(
     (action: 'play' | 'pause') => {
-      console.log(`listen-audio-${action}`, {
-        activeAudioBid,
-        activeAudioBlockBid,
-        audioUrl: activeContentItem?.audioUrl,
-        content: activeContentItem?.content,
-        listLength: audioSequenceListRef.current.length,
-        sequenceIndex: audioSequenceIndexRef.current,
-        isAudioSequenceActive,
-      });
+      // console.log(`listen-audio-${action}`, {
+      //   activeAudioBid,
+      //   activeAudioBlockBid,
+      //   audioUrl: activeContentItem?.audioUrl,
+      //   content: activeContentItem?.content,
+      //   listLength: audioSequenceListRef.current.length,
+      //   sequenceIndex: audioSequenceIndexRef.current,
+      //   isAudioSequenceActive,
+      // });
     },
     [
       activeAudioBid,

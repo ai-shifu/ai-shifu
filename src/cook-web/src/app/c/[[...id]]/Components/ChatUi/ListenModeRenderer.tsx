@@ -357,7 +357,7 @@ const ListenModeRenderer = ({
           {!isLoading &&
             slideItems.map(({ item, segments }, idx) => {
               const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
-              console.log('segments', baseKey, segments);
+              // console.log('segments', baseKey, segments);
               return (
                 <ContentIframe
                   key={baseKey}

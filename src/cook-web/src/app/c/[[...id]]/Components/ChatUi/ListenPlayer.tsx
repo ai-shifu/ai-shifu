@@ -179,11 +179,6 @@ const ListenPlayer = ({
               const traceId = `pause-${Date.now()}-${Math.random()
                 .toString(36)
                 .slice(2, 8)}`;
-              console.log('listen-player-pause-click', {
-                traceId,
-                isAudioPlaying,
-                interactionBid: interaction?.generated_block_bid,
-              });
               onPause?.(traceId);
             }}
           >
