@@ -45,6 +45,7 @@ def run_script_inner(
     input: str | dict = None,
     input_type: str = None,
     reload_generated_block_bid: str = None,
+    listen: bool = True,
     preview_mode: bool = False,
     stop_event: threading.Event | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -111,6 +112,7 @@ def run_script_inner(
                 outline_item_info=outline_item_info,
                 user_info=user_info,
                 is_paid=is_paid,
+                listen=listen,
                 preview_mode=preview_mode,
             )
 
@@ -156,6 +158,7 @@ def run_script(
     input: str | dict = None,
     input_type: str = None,
     reload_generated_block_bid: str = None,
+    listen: bool = True,
     preview_mode: bool = False,
     shifu_context_snapshot: Optional[dict[str, Any]] = None,
 ) -> Generator[str, None, None]:
@@ -191,6 +194,7 @@ def run_script(
             input=input,
             input_type=input_type,
             reload_generated_block_bid=reload_generated_block_bid,
+            listen=listen,
             preview_mode=preview_mode,
             stop_event=stop_event,
         )

@@ -167,29 +167,6 @@
     }
   }
 
-  &.listenMode {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-  }
-
-  &.mobile.listenMode {
-    height: 100%;
-
-    .chatComponents {
-      flex: 1 1 auto;
-      min-height: 0;
-      height: 100%;
-      overflow: hidden;
-      display: flex;
-    }
-
-    .footer {
-      position: relative;
-      flex: 0 0 auto;
-    }
-  }
-
   .chatComponents {
     width: 100%;
 

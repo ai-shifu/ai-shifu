@@ -978,6 +978,7 @@ class RunScriptContextV2:
     _user_info: UserAggregate
     _is_paid: bool
     _preview_mode: bool
+    _listen: bool
     _shifu_ids: list[str]
     _run_type: RunType
     _app: Flask
@@ -1000,6 +1001,7 @@ class RunScriptContextV2:
         user_info: UserAggregate,
         is_paid: bool,
         preview_mode: bool,
+        listen: bool = True,
     ):
         self._last_position = -1
         self.app = app
@@ -1007,6 +1009,7 @@ class RunScriptContextV2:
         self._outline_item_info = outline_item_info
         self._user_info = user_info
         self._is_paid = is_paid
+        self._listen = listen
         self._preview_mode = preview_mode
         self._shifu_info = shifu_info
         self.shifu_ids = []
@@ -1046,6 +1049,9 @@ class RunScriptContextV2:
         if not hasattr(context_local, "current_context"):
             return None
         return context_local.current_context
+
+    def _should_stream_tts(self) -> bool:
+        return (not self._preview_mode) and self._listen
 
     def _get_current_attend(self, outline_bid: str) -> LearnProgressRecord:
         attend_info: LearnProgressRecord = (
@@ -2023,7 +2029,7 @@ class RunScriptContextV2:
                 app.logger.info(f"process_stream: {run_script_info.block_position}")
                 app.logger.info(f"variables: {user_profile}")
 
-                if not self._preview_mode:
+                if self._should_stream_tts():
                     try:
                         from flaskr.common.config import get_config
                         from flaskr.service.tts.streaming_tts import (

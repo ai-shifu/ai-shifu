@@ -4,8 +4,8 @@
   height: 100%;
   position: relative;
   box-sizing: border-box;
-  &.mobile{
-      min-height: 0;
+  &.mobile {
+    min-height: 0;
   }
 
   :global(.content-render-theme) {

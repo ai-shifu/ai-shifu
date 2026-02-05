@@ -61,6 +61,12 @@ export interface AudioPlayerHandle {
   pause: (options?: { traceId?: string }) => void;
 }
 
+export interface AudioPlayerHandle {
+  togglePlay: () => void;
+  play: () => void;
+  pause: (options?: { traceId?: string }) => void;
+}
+
 /**
  * Audio player component for TTS playback.
  *
