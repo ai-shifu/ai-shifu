@@ -11,4 +11,4 @@
 - [x] 维护前端配置：新增 provider 的 `models`(cluster)、`voices`(voice_type)、`emotions`、speed/pitch 范围与默认值，确保 UI 可选/默认值可落盘
 - [x] 处理文本长度限制：在 `src/api/flaskr/service/tts/pipeline.py` 对新 provider 追加 UTF-8 1024 bytes 限制（必要时评估 streaming 分段）
 - [x] 更新配置示例与文档：运行 `python scripts/generate_env_examples.py`，检查 `docker/.env.example.full`，补充使用说明
-- [ ] 测试：mock HTTP 接口、provider 配置返回、校验/分段逻辑；并跑相关 `pytest` 与 `pre-commit`
+- [x] 测试：mock HTTP 接口、provider 配置返回、校验/分段逻辑；并跑相关 `pytest` 与 `pre-commit`
