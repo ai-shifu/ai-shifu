@@ -1,23 +1,14 @@
-# Redis Hard Dependency Removal (Redis 可选化改造)
+# Volcengine Standard TTS (HTTP) Integration Plan
 
-目标：
-- 未配置/不可用 Redis 时：系统可运行，使用**服务器内存缓存**（非持久）+ **数据库存储**（持久）替代关键能力。
-- 配置并可用 Redis 时：启用 Redis 缓存/分布式锁等机制。
-- 通过 provider 形式解耦具体实现，避免业务代码直接依赖 `redis_client`。
+## Context
+- 目标：按照 `docs/bytedance-tts-api.md` 接入火山引擎普通语音合成，复用现有火山引擎 TTS 配置，新增一个 provider。
 
 ## Checklist
-
-- [x] 定义 `CacheProvider` 接口（get/set/setex/getex/delete/incr/ttl/lock）
-- [x] 实现 `InMemoryCacheProvider`（带 TTL + 本地锁）
-- [x] 让 Redis 初始化可选化：未配置/连接失败时自动降级且不影响启动
-- [x] 配置读取缓存（`service/config/funcs.py`）改用 provider（无 Redis 时使用内存缓存；DB 仍为来源）
-- [x] Token 存储改用 provider：无 Redis 时使用数据库 `user_token` 表实现过期与滑动续期
-- [x] 手机/邮箱验证码校验改造：无 Redis 时从 `user_verify_code` 表校验有效期并标记已使用
-- [x] 发送频控/封禁（IP/手机号/邮箱）改造：无 Redis 时使用内存缓存（可接受单实例语义）
-- [x] Google OAuth state 存储改造：无 Redis 时使用内存缓存或数据库（按可用性选择）
-- [x] Shifu 权限缓存改造：无 Redis 时使用内存缓存
-- [x] 运行脚本相关分布式锁改造：无 Redis 时使用本地锁
-- [x] Feishu tenant token 缓存改造：无 Redis 时使用内存缓存
-- [x] 移除所有 docker-compose 中的 Redis service/depends_on/环境变量
-- [x] 更新相关文档/示例配置（说明 Redis 为可选项）
-- [x] 更新/新增测试用例，确保 `pytest` 通过
+- [x] 阅读 `docs/bytedance-tts-api.md` 并梳理现有 TTS provider/配置/调用链
+- [x] 确认新增 provider 的标识名（如 `volcengine_http`）及 appid/token/cluster 与现有配置的映射；如需新增 env，补到 `src/api/flaskr/common/config.py`
+- [ ] 新增 HTTP provider 实现（如 `src/api/flaskr/api/tts/volcengine_http_provider.py`）：按 v1/tts 组装请求、`Authorization: Bearer;{token}`、`operation=query`、解析 base64 音频与 duration、统一错误处理
+- [ ] 注册 provider（`src/api/flaskr/api/tts/__init__.py`）、更新 `TTSProvider` enum（`src/api/flaskr/api/tts/base.py`）与校验白名单（`src/api/flaskr/service/tts/validation.py`），必要时更新 shifu 模型/文档注释中的 provider 列表
+- [ ] 维护前端配置：新增 provider 的 `models`(cluster)、`voices`(voice_type)、`emotions`、speed/pitch 范围与默认值，确保 UI 可选/默认值可落盘
+- [ ] 处理文本长度限制：在 `src/api/flaskr/service/tts/pipeline.py` 对新 provider 追加 UTF-8 1024 bytes 限制（必要时评估 streaming 分段）
+- [ ] 更新配置示例与文档：运行 `python scripts/generate_env_examples.py`，检查 `docker/.env.example.full`，补充使用说明
+- [ ] 测试：mock HTTP 接口、provider 配置返回、校验/分段逻辑；并跑相关 `pytest` 与 `pre-commit`
