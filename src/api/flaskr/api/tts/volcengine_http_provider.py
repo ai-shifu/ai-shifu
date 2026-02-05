@@ -37,11 +37,6 @@ VOLCENGINE_HTTP_ENCODING_MAP = {
 }
 
 VOLCENGINE_HTTP_SAMPLE_RATES = {8000, 16000, 24000}
-VOLCENGINE_HTTP_DEFAULT_CLUSTER = "volcano_tts"
-
-VOLCENGINE_HTTP_MODELS = [
-    {"value": VOLCENGINE_HTTP_DEFAULT_CLUSTER, "label": "volcano_tts"},
-]
 
 VOLCENGINE_HTTP_VOICES = [
     {"value": "BV700_V2_streaming", "label": "Can Can 2.0"},
@@ -147,28 +142,6 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
             bitrate=get_config("VOLCENGINE_TTS_BITRATE") or 128000,
             channel=1,
         )
-
-    def _build_model_options(self) -> List[dict]:
-        configured_cluster = (get_config("VOLCENGINE_TTS_RESOURCE_ID") or "").strip()
-        models: List[dict] = []
-        seen: set[str] = set()
-
-        def add_model(value: str, label: str) -> None:
-            if not value or value in seen:
-                return
-            seen.add(value)
-            models.append({"value": value, "label": label})
-
-        if configured_cluster:
-            add_model(configured_cluster, f"{configured_cluster} (configured)")
-
-        for model in VOLCENGINE_HTTP_MODELS:
-            add_model(
-                (model.get("value") or "").strip(),
-                (model.get("label") or "").strip(),
-            )
-
-        return models
 
     def get_supported_voices(self) -> List[dict]:
         """Get list of supported voices."""
@@ -318,7 +291,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
             speed=ParamRange(min=0.2, max=3.0, step=0.1, default=1.0),
             pitch=ParamRange(min=1, max=30, step=1, default=10),
             supports_emotion=True,
-            models=self._build_model_options(),
+            models=None,
             voices=VOLCENGINE_HTTP_VOICES,
             emotions=VOLCENGINE_HTTP_EMOTIONS,
         )

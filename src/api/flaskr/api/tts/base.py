@@ -49,21 +49,23 @@ class ProviderConfig:
     speed: ParamRange
     pitch: ParamRange
     supports_emotion: bool
-    models: List[Dict[str, str]] = field(default_factory=list)
+    models: Optional[List[Dict[str, str]]] = None
     voices: List[Dict[str, str]] = field(default_factory=list)
     emotions: List[Dict[str, str]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        data = {
             "name": self.name,
             "label": self.label,
             "speed": self.speed.to_dict(),
             "pitch": self.pitch.to_dict(),
             "supports_emotion": self.supports_emotion,
-            "models": self.models,
             "voices": self.voices,
             "emotions": self.emotions,
         }
+        if self.models is not None:
+            data["models"] = self.models
+        return data
 
 
 @dataclass

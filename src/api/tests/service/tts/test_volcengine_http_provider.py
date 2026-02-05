@@ -70,12 +70,11 @@ def test_volcengine_http_synthesize_success(monkeypatch):
     assert captured["json"]["audio"]["emotion"] == "happy"
 
 
-def test_volcengine_http_provider_config_includes_configured_cluster(monkeypatch):
+def test_volcengine_http_provider_config_omits_models(monkeypatch):
     monkeypatch.setenv("VOLCENGINE_TTS_RESOURCE_ID", "custom_cluster")
     provider = VolcengineHttpTTSProvider()
-    config = provider.get_provider_config()
-    model_values = {model["value"] for model in config.models}
-    assert "custom_cluster" in model_values
+    config = provider.get_provider_config().to_dict()
+    assert "models" not in config
 
 
 def test_split_text_for_tts_volcengine_http_byte_limit():
@@ -91,7 +90,7 @@ def test_validate_tts_settings_strict_volcengine_http(monkeypatch):
     monkeypatch.setenv("VOLCENGINE_TTS_RESOURCE_ID", "volcano_tts")
     settings = validate_tts_settings_strict(
         provider="volcengine_http",
-        model="volcano_tts",
+        model="",
         voice_id="BV700_streaming",
         speed=1.0,
         pitch=10,

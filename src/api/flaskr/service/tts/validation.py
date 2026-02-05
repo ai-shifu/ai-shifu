@@ -14,7 +14,7 @@ SUPPORTED_TTS_PROVIDERS = {
     "baidu",
     "aliyun",
 }
-PROVIDERS_REQUIRING_MODEL = {"minimax", "volcengine", "volcengine_http"}
+PROVIDERS_REQUIRING_MODEL = {"minimax", "volcengine"}
 
 
 @dataclass(frozen=True)
