@@ -9,6 +9,7 @@ import requests
 from typing import Optional, Dict, Any, List
 
 from flaskr.common.config import get_config
+from flaskr.common.log import AppLoggerProxy
 from flaskr.api.tts.base import (
     BaseTTSProvider,
     TTSResult,
@@ -19,7 +20,7 @@ from flaskr.api.tts.base import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = AppLoggerProxy(logging.getLogger(__name__))
 
 # Minimax TTS API endpoint
 MINIMAX_TTS_API_URL = "https://api.minimax.chat/v1/t2a_v2"

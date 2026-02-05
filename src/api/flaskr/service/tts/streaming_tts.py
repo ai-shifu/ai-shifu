@@ -34,6 +34,7 @@ from flaskr.service.tts.audio_utils import (
     get_audio_duration_ms,
     is_audio_processing_available,
 )
+from flaskr.common.log import AppLoggerProxy
 from flaskr.service.tts.models import (
     LearnGeneratedAudio,
     AUDIO_STATUS_COMPLETED,
@@ -48,7 +49,7 @@ from flaskr.service.learn.learn_dtos import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = AppLoggerProxy(logging.getLogger(__name__))
 
 # Sentence ending patterns
 SENTENCE_ENDINGS = re.compile(r"[.!?。！？；;]")
@@ -264,64 +265,65 @@ class StreamingTTSProcessor:
         tts_model: str = "",
     ) -> TTSSegment:
         """Synthesize a segment in a background thread."""
-        try:
-            segment_start = time.monotonic()
-            result = synthesize_text(
-                text=segment.text,
-                voice_settings=voice_settings,
-                audio_settings=audio_settings,
-                model=tts_model,
-                provider_name=tts_provider,
-            )
-            segment.audio_data = result.audio_data
-            segment.duration_ms = result.duration_ms
-            segment.word_count = int(result.word_count or 0)
-            segment.latency_ms = int((time.monotonic() - segment_start) * 1000)
-            segment.is_ready = True
+        with self.app.app_context():
+            try:
+                segment_start = time.monotonic()
+                result = synthesize_text(
+                    text=segment.text,
+                    voice_settings=voice_settings,
+                    audio_settings=audio_settings,
+                    model=tts_model,
+                    provider_name=tts_provider,
+                )
+                segment.audio_data = result.audio_data
+                segment.duration_ms = result.duration_ms
+                segment.word_count = int(result.word_count or 0)
+                segment.latency_ms = int((time.monotonic() - segment_start) * 1000)
+                segment.is_ready = True
 
-            segment_length = len(segment.text or "")
-            record_tts_usage(
-                self.app,
-                self.usage_context,
-                provider=tts_provider or "",
-                model=tts_model or "",
-                is_stream=True,
-                input=segment_length,
-                output=segment_length,
-                total=segment_length,
-                word_count=segment.word_count,
-                duration_ms=int(segment.duration_ms or 0),
-                latency_ms=segment.latency_ms,
-                record_level=1,
-                parent_usage_bid=self._usage_parent_bid,
-                segment_index=segment.index,
-                segment_count=0,
-                extra={
-                    "voice_id": self.voice_settings.voice_id or "",
-                    "speed": self.voice_settings.speed,
-                    "pitch": self.voice_settings.pitch,
-                    "emotion": self.voice_settings.emotion,
-                    "volume": self.voice_settings.volume,
-                    "format": self.audio_settings.format or "mp3",
-                    "sample_rate": self.audio_settings.sample_rate or 24000,
-                },
-            )
+                segment_length = len(segment.text or "")
+                record_tts_usage(
+                    self.app,
+                    self.usage_context,
+                    provider=tts_provider or "",
+                    model=tts_model or "",
+                    is_stream=True,
+                    input=segment_length,
+                    output=segment_length,
+                    total=segment_length,
+                    word_count=segment.word_count,
+                    duration_ms=int(segment.duration_ms or 0),
+                    latency_ms=segment.latency_ms,
+                    record_level=1,
+                    parent_usage_bid=self._usage_parent_bid,
+                    segment_index=segment.index,
+                    segment_count=0,
+                    extra={
+                        "voice_id": self.voice_settings.voice_id or "",
+                        "speed": self.voice_settings.speed,
+                        "pitch": self.voice_settings.pitch,
+                        "emotion": self.voice_settings.emotion,
+                        "volume": self.voice_settings.volume,
+                        "format": self.audio_settings.format or "mp3",
+                        "sample_rate": self.audio_settings.sample_rate or 24000,
+                    },
+                )
 
+                with self._lock:
+                    self._word_count_total += segment.word_count
+
+                logger.info(
+                    f"TTS segment {segment.index} synthesized: "
+                    f"text_len={len(segment.text)}, duration={segment.duration_ms}ms"
+                )
+            except Exception as e:
+                logger.error(f"TTS segment {segment.index} failed: {e}")
+                segment.error = str(e)
+                segment.is_ready = True
+
+            # Store in completed segments
             with self._lock:
-                self._word_count_total += segment.word_count
-
-            logger.info(
-                f"TTS segment {segment.index} synthesized: "
-                f"text_len={len(segment.text)}, duration={segment.duration_ms}ms"
-            )
-        except Exception as e:
-            logger.error(f"TTS segment {segment.index} failed: {e}")
-            segment.error = str(e)
-            segment.is_ready = True
-
-        # Store in completed segments
-        with self._lock:
-            self._completed_segments[segment.index] = segment
+                self._completed_segments[segment.index] = segment
 
         return segment
 
@@ -362,10 +364,22 @@ class StreamingTTSProcessor:
                     ),
                 )
 
-    def finalize(self) -> Generator[RunMarkdownFlowDTO, None, None]:
+    def finalize(
+        self, *, commit: bool = True
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """
         Finalize TTS processing after content streaming is complete.
         """
+        raw_text = self._buffer
+        cleaned_text = ""
+        cleaned_text_length = 0
+        try:
+            cleaned_text = preprocess_for_tts(self._buffer or "")
+            cleaned_text_length = len(cleaned_text)
+        except Exception:
+            cleaned_text = ""
+            cleaned_text_length = 0
+
         logger.info(
             f"TTS finalize called: enabled={self._enabled}, "
             f"buffer_len={len(self._buffer)}, "
@@ -373,7 +387,6 @@ class StreamingTTSProcessor:
             f"pending_futures={len(self._pending_futures)}, "
             f"all_audio_data={len(self._all_audio_data)}"
         )
-        raw_text = self._buffer
         if not self._enabled:
             logger.info("TTS finalize: TTS not enabled, returning early")
             return
@@ -469,15 +482,18 @@ class StreamingTTSProcessor:
                     "volume": self.voice_settings.volume,
                 },
                 model=self.tts_model or "",
-                text_length=0,
+                text_length=cleaned_text_length,
                 segment_count=len(audio_data_list),
                 status=AUDIO_STATUS_COMPLETED,
             )
             db.session.add(audio_record)
-            db.session.commit()
-            logger.info("TTS finalize: database save complete")
+            if commit:
+                db.session.commit()
+                logger.info("TTS finalize: database commit complete")
+            else:
+                db.session.flush()
+                logger.info("TTS finalize: database flush complete")
 
-            cleaned_text = preprocess_for_tts(raw_text or "")
             record_tts_usage(
                 self.app,
                 self.usage_context,
@@ -589,7 +605,12 @@ class StreamingTTSProcessor:
             ),
         )
 
-        cleaned_text = preprocess_for_tts(raw_text or "")
+        cleaned_text = ""
+        try:
+            cleaned_text = preprocess_for_tts(raw_text or "")
+        except Exception:
+            cleaned_text = ""
+
         record_tts_usage(
             self.app,
             self.usage_context,

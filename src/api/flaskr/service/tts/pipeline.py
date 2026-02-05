@@ -36,11 +36,12 @@ from flaskr.service.tts.audio_utils import (
     get_audio_duration_ms,
 )
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
+from flaskr.common.log import AppLoggerProxy
 from flaskr.service.metering import UsageContext, record_tts_usage
 from flaskr.util.uuid import generate_id
 
 
-logger = logging.getLogger(__name__)
+logger = AppLoggerProxy(logging.getLogger(__name__))
 
 
 _DEFAULT_SENTENCE_ENDINGS = set(".!?。！？；;")
@@ -284,40 +285,41 @@ def synthesize_long_text_to_oss(
 
     if max_workers == 1:
         audio_parts: list[bytes] = []
-        for index, segment_text in enumerate(segments):
-            segment_start = time.monotonic()
-            result = synthesize_text(
-                text=segment_text,
-                voice_settings=voice_settings,
-                audio_settings=audio_settings,
-                model=(model or "").strip() or None,
-                provider_name=provider,
-            )
-            audio_parts.append(result.audio_data)
-            if usage_context is not None:
-                segment_length = len(segment_text or "")
-                total_word_count += int(result.word_count or 0)
-                latency_ms = int((time.monotonic() - segment_start) * 1000)
-                record_tts_usage(
-                    app,
-                    usage_context,
-                    provider=provider,
-                    model=(model or "").strip(),
-                    is_stream=False,
-                    input=segment_length,
-                    output=segment_length,
-                    total=segment_length,
-                    word_count=int(result.word_count or 0),
-                    duration_ms=int(result.duration_ms or 0),
-                    latency_ms=latency_ms,
-                    record_level=1,
-                    parent_usage_bid=usage_parent_bid,
-                    segment_index=index,
-                    segment_count=0,
-                    extra=usage_metadata,
+        with app.app_context():
+            for index, segment_text in enumerate(segments):
+                segment_start = time.monotonic()
+                result = synthesize_text(
+                    text=segment_text,
+                    voice_settings=voice_settings,
+                    audio_settings=audio_settings,
+                    model=(model or "").strip() or None,
+                    provider_name=provider,
                 )
-            if sleep_between_segments and index < len(segments) - 1:
-                time.sleep(sleep_between_segments)
+                audio_parts.append(result.audio_data)
+                if usage_context is not None:
+                    segment_length = len(segment_text or "")
+                    total_word_count += int(result.word_count or 0)
+                    latency_ms = int((time.monotonic() - segment_start) * 1000)
+                    record_tts_usage(
+                        app,
+                        usage_context,
+                        provider=provider,
+                        model=(model or "").strip(),
+                        is_stream=False,
+                        input=segment_length,
+                        output=segment_length,
+                        total=segment_length,
+                        word_count=int(result.word_count or 0),
+                        duration_ms=int(result.duration_ms or 0),
+                        latency_ms=latency_ms,
+                        record_level=1,
+                        parent_usage_bid=usage_parent_bid,
+                        segment_index=index,
+                        segment_count=0,
+                        extra=usage_metadata,
+                    )
+                if sleep_between_segments and index < len(segments) - 1:
+                    time.sleep(sleep_between_segments)
     else:
         if sleep_between_segments:
             logger.info(
@@ -326,17 +328,24 @@ def synthesize_long_text_to_oss(
             )
         audio_parts = [b""] * len(segments)
         segment_map = {idx: segment for idx, segment in enumerate(segments)}
-        with ThreadPoolExecutor(
-            max_workers=min(max_workers, len(segments))
-        ) as executor:
-            future_map = {
-                executor.submit(
-                    synthesize_text,
+
+        def _synthesize_in_app_context(segment_text: str):
+            with app.app_context():
+                return synthesize_text(
                     text=segment_text,
                     voice_settings=voice_settings,
                     audio_settings=audio_settings,
                     model=(model or "").strip() or None,
                     provider_name=provider,
+                )
+
+        with ThreadPoolExecutor(
+            max_workers=min(max_workers, len(segments))
+        ) as executor:
+            future_map = {
+                executor.submit(
+                    _synthesize_in_app_context,
+                    segment_text,
                 ): index
                 for index, segment_text in enumerate(segments)
             }
@@ -441,10 +450,10 @@ def write_html_report(
         )
 
     html_body = f"""<!doctype html>
-<html lang="en">
+<html lang=\"en\">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset=\"utf-8\" />
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
     <title>{html.escape(title)}</title>
     <style>
       body {{ font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 24px; }}
@@ -457,7 +466,7 @@ def write_html_report(
   </head>
   <body>
     <h1>{html.escape(title)}</h1>
-    <p class="muted">Rows: {len(results)}</p>
+    <p class=\"muted\">Rows: {len(results)}</p>
     <table>
       <thead>
         <tr>

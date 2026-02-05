@@ -15,6 +15,7 @@ import threading
 from typing import Optional, List
 
 from flaskr.common.config import get_config
+from flaskr.common.log import AppLoggerProxy
 from flaskr.api.tts.base import (
     BaseTTSProvider,
     TTSResult,
@@ -38,7 +39,7 @@ except ImportError:
     websocket = None
 
 
-logger = logging.getLogger(__name__)
+logger = AppLoggerProxy(logging.getLogger(__name__))
 
 # Volcengine TTS WebSocket endpoint
 VOLCENGINE_TTS_WS_URL = "wss://openspeech.bytedance.com/api/v3/tts/bidirection"

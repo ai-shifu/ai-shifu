@@ -161,6 +161,22 @@ class NextChapterInteractionTests(unittest.TestCase):
             )
 
 
+class StreamTtsGateTests(unittest.TestCase):
+    def test_should_stream_tts_respects_preview_and_listen(self):
+        ctx = _make_context()
+
+        ctx._preview_mode = False
+        ctx._listen = True
+        self.assertTrue(ctx._should_stream_tts())
+
+        ctx._listen = False
+        self.assertFalse(ctx._should_stream_tts())
+
+        ctx._preview_mode = True
+        ctx._listen = True
+        self.assertFalse(ctx._should_stream_tts())
+
+
 class PreviewResolveLlmSettingsTests(unittest.TestCase):
     def test_falls_back_to_allowlist_when_persisted_model_not_allowed(self):
         app = Flask("preview-llm-settings")
