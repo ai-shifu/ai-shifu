@@ -1662,6 +1662,7 @@ export const ShifuProvider = ({
       };
 
       parentNode.children = [...(parentNode.children || []), placeholder];
+      parentNode.collapsed = false;
       addedPlaceholder = placeholder;
       placeholderParentId = parentNode.id;
       return cleaned;

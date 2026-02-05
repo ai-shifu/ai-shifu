@@ -42,6 +42,7 @@ export interface Outline {
   is_hidden?: boolean;
   type?: LearningPermission;
   system_prompt?: string;
+  collapsed?: boolean;
 }
 
 export interface LessonCreationSettings {
