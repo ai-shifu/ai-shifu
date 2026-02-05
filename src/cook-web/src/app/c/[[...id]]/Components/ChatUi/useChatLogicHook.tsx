@@ -458,7 +458,7 @@ function useChatLogicHook({
         shifuBid,
         outlineBid,
         effectivePreviewMode,
-        sseParams,
+        { ...sseParams, listen: isListenMode },
         async response => {
           // if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
           //   if (!isEnd) {
@@ -761,12 +761,13 @@ function useChatLogicHook({
           // flush the previously cached ask entries
           flushBuffer();
           const normalizedContent = item.content ?? '';
-          const contentWithButton = mobileStyle && !isListenMode
-            ? appendCustomButtonAfterContent(
-                normalizedContent,
-                getAskButtonMarkup(),
-              )
-            : normalizedContent;
+          const contentWithButton =
+            mobileStyle && !isListenMode
+              ? appendCustomButtonAfterContent(
+                  normalizedContent,
+                  getAskButtonMarkup(),
+                )
+              : normalizedContent;
           result.push({
             generated_block_bid: item.generated_block_bid,
             content: contentWithButton,
