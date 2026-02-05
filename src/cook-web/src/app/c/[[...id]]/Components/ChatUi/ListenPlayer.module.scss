@@ -64,16 +64,17 @@
     }
   }
   &.mobile {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 40px;
+    position: relative;
+    left: auto;
+    right: auto;
+    bottom: auto;
     width: 100%;
     transform: none;
     border: 1px solid #0000001A;
     border-radius: 0;
     box-shadow: none;
     z-index: 1;
+    flex: 0 0 auto;
 
     .interactionContainer {
       width: 95%;

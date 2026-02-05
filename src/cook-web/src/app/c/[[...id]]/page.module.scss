@@ -11,4 +11,13 @@
     top: 0;
     z-index: 10;
   }
+
+  &.listenMode {
+    height: 100svh;
+    overflow: hidden;
+
+    .chatMobileHeader {
+      position: relative;
+    }
+  }
 }

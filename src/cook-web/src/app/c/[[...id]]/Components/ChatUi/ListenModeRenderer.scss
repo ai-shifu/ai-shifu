@@ -19,7 +19,11 @@
 
   &.mobile {
     padding: 0 !important;
-    height: 80vh;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
     // height: calc(100vh - 76px - 40px - 88px);
     // min-height: calc(100vh - 76px - 40px - 88px);
     // max-height: calc(100vh - 76px - 40px - 88px);
@@ -29,6 +33,7 @@
     .listen-reveal {
       height: 100%;
       min-height: 0 !important;
+      flex: 1 1 auto;
     }
 
     .listen-reveal .slides {
@@ -101,7 +106,7 @@
 }
 
 .listen-audio-controls {
-  position: absolute;
+  position: relative;
   right: 24px;
   bottom: 24px;
   z-index: 10;

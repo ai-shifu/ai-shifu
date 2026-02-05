@@ -54,10 +54,11 @@ export default function ChatPage() {
   const isUserInitialized = useUserStore(state => state.isInitialized);
   const initialized = isUserInitialized;
 
-  const { wechatCode, previewMode } = useSystemStore(
+  const { wechatCode, previewMode, learningMode } = useSystemStore(
     useShallow(state => ({
       wechatCode: state.wechatCode,
       previewMode: state.previewMode,
+      learningMode: state.learningMode,
     })),
   );
 
@@ -96,6 +97,7 @@ export default function ChatPage() {
    */
   const { frameLayout, updateFrameLayout } = useUiLayoutStore(state => state);
   const mobileStyle = frameLayout === FRAME_LAYOUT_MOBILE;
+  const isListenMode = learningMode === 'listen';
 
   // check the frame layout
   useEffect(() => {
@@ -421,6 +423,7 @@ export default function ChatPage() {
         styles.newChatPage,
         mobileStyle ? 'flex-col' : 'h-screen flex-row',
         'flex',
+        mobileStyle && isListenMode ? styles.listenMode : '',
       )}
     >
       <AppContext.Provider
