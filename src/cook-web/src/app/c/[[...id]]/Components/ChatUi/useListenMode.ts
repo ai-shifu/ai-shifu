@@ -101,7 +101,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
 
         pageCursor += slideSegments.length;
       });
-      console.log('items',items)
+      console.log('items', items);
       return {
         slideItems: nextSlideItems,
         interactionByPage: mapping,
@@ -1003,10 +1003,7 @@ export const useListenAudioSequence = ({
       return;
     }
     tryAdvanceToNextBlock();
-  }, [
-    playAudioSequenceFromIndex,
-    tryAdvanceToNextBlock,
-  ]);
+  }, [playAudioSequenceFromIndex, tryAdvanceToNextBlock]);
 
   const logAudioAction = useCallback(
     (action: 'play' | 'pause') => {

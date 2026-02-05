@@ -11,8 +11,8 @@
   box-sizing: border-box;
   overflow: hidden;
   position: relative;
-  .content-render-iframe-sandbox{
-    img{
+  .content-render-iframe-sandbox {
+    img {
       width: 100%;
     }
   }
@@ -39,10 +39,10 @@
       height: 100% !important;
       min-height: 100%;
     }
-    .content-render-iframe-sandbox{
+    .content-render-iframe-sandbox {
       padding: 0 16px;
     }
-    .mobile-empty-slide{
+    .mobile-empty-slide {
       padding: 0 16px !important;
     }
   }

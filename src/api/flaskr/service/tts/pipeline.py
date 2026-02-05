@@ -281,6 +281,7 @@ def synthesize_long_text_to_oss(
                 provider,
             )
         audio_parts = [b""] * len(segments)
+
         def _synthesize_in_app_context(segment_text: str):
             with app.app_context():
                 return synthesize_text(

@@ -340,7 +340,6 @@ const ListenModeRenderer = ({
     ? !isLatestInteractionEditable
     : true;
 
-
   return (
     <div
       className={cn(
@@ -358,7 +357,7 @@ const ListenModeRenderer = ({
           {!isLoading &&
             slideItems.map(({ item, segments }, idx) => {
               const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
-              console.log('segments', baseKey, segments)
+              console.log('segments', baseKey, segments);
               return (
                 <ContentIframe
                   key={baseKey}
@@ -372,7 +371,10 @@ const ListenModeRenderer = ({
             })}
           {shouldRenderEmptyPpt ? (
             <section
-              className={cn('present text-center', mobileStyle ? 'mobile-empty-slide' : '')}
+              className={cn(
+                'present text-center',
+                mobileStyle ? 'mobile-empty-slide' : '',
+              )}
               data-generated-block-bid={emptySlideBlockBid}
             >
               <div className='w-full h-full font-bold flex items-center justify-center text-primary '>
