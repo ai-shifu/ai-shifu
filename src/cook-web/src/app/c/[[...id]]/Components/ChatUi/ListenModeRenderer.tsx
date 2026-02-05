@@ -386,10 +386,10 @@ const ListenModeRenderer = ({
         <div className={cn('listen-audio-controls', 'hidden')}>
           <AudioPlayer
             ref={audioPlayerRef}
-            key={`${activeAudioBlockBid ?? 'listen-audio'}-${audioSequenceToken}`}
             audioUrl={activeContentItem.audioUrl}
             streamingSegments={activeContentItem.audioSegments}
             isStreaming={Boolean(activeContentItem.isAudioStreaming)}
+            playbackKey={`${activeAudioBlockBid ?? 'listen-audio'}-${audioSequenceToken}`}
             alwaysVisible={true}
             disabled={previewMode}
             onRequestAudio={

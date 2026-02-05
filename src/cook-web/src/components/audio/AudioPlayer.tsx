@@ -51,6 +51,8 @@ export interface AudioPlayerProps {
   onEnded?: () => void;
   /** Auto-play when new audio content arrives */
   autoPlay?: boolean;
+  /** Stable identifier for a playback item in queue scenarios */
+  playbackKey?: string;
 }
 
 export interface AudioPlayerHandle {
@@ -80,6 +82,7 @@ function AudioPlayerBase(
     onPlayStateChange,
     onEnded,
     autoPlay = false,
+    playbackKey,
   }: AudioPlayerProps,
   ref: React.ForwardedRef<AudioPlayerHandle>,
 ) {
@@ -779,6 +782,26 @@ function AudioPlayerBase(
   // Track previous autoPlay value to detect changes
   const prevAutoPlayRef = useRef(autoPlay);
   const hasAutoPlayedForCurrentContentRef = useRef(false);
+  const prevPlaybackKeyRef = useRef<string | undefined>(playbackKey);
+
+  useEffect(() => {
+    if (typeof playbackKey === 'undefined') {
+      return;
+    }
+    if (typeof prevPlaybackKeyRef.current === 'undefined') {
+      prevPlaybackKeyRef.current = playbackKey;
+      return;
+    }
+    if (prevPlaybackKeyRef.current === playbackKey) {
+      return;
+    }
+
+    // Reset internal playback state when queue item changes without remounting.
+    prevPlaybackKeyRef.current = playbackKey;
+    stopPlayback();
+    setLocalAudioUrl(undefined);
+    hasAutoPlayedForCurrentContentRef.current = false;
+  }, [playbackKey, stopPlayback]);
 
   useEffect(() => {
     // Reset auto-played flag when autoPlay changes from false to true
