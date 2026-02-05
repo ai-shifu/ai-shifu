@@ -184,6 +184,9 @@ def split_text_for_tts(
     if (provider_name or "").strip().lower() == "baidu":
         # Baidu requires <= 1024 bytes in GBK encoding.
         segments = _split_text_by_max_bytes(segments, max_bytes=1024, encoding="gbk")
+    elif (provider_name or "").strip().lower() == "volcengine_http":
+        # Volcengine HTTP v1/tts requires <= 1024 bytes in UTF-8 encoding.
+        segments = _split_text_by_max_bytes(segments, max_bytes=1024, encoding="utf-8")
 
     return [s for s in segments if s and s.strip()]
 
