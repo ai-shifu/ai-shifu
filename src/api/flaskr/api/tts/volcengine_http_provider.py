@@ -10,7 +10,7 @@ from __future__ import annotations
 import base64
 import logging
 import uuid
-from typing import Optional
+from typing import Optional, List
 
 import requests
 
@@ -37,6 +37,75 @@ VOLCENGINE_HTTP_ENCODING_MAP = {
 }
 
 VOLCENGINE_HTTP_SAMPLE_RATES = {8000, 16000, 24000}
+VOLCENGINE_HTTP_DEFAULT_CLUSTER = "volcano_tts"
+
+VOLCENGINE_HTTP_MODELS = [
+    {"value": VOLCENGINE_HTTP_DEFAULT_CLUSTER, "label": "volcano_tts"},
+]
+
+VOLCENGINE_HTTP_VOICES = [
+    {"value": "BV700_V2_streaming", "label": "Can Can 2.0"},
+    {"value": "BV705_streaming", "label": "Yang Yang"},
+    {"value": "BV701_V2_streaming", "label": "Qing Cang 2.0"},
+    {"value": "BV001_V2_streaming", "label": "General Female 2.0"},
+    {"value": "BV700_streaming", "label": "Can Can"},
+    {"value": "BV701_streaming", "label": "Qing Cang"},
+    {"value": "BV001_streaming", "label": "General Female"},
+    {"value": "BV002_streaming", "label": "General Male"},
+    {"value": "BV406_streaming", "label": "Zi Zi"},
+    {"value": "BV123_streaming", "label": "Sunny Youth"},
+    {"value": "BV120_streaming", "label": "Anti-involution Youth"},
+    {"value": "BV119_streaming", "label": "General Son-in-law"},
+    {"value": "BV115_streaming", "label": "Ancient Style Young Master"},
+    {"value": "BV107_streaming", "label": "Domineering Uncle"},
+    {"value": "BV100_streaming", "label": "Simple Youth"},
+    {"value": "BV104_streaming", "label": "Gentle Lady"},
+    {"value": "BV004_streaming", "label": "Cheerful Youth"},
+    {"value": "BV113_streaming", "label": "Sweet Young Master"},
+    {"value": "BV102_streaming", "label": "Elegant Youth"},
+    {"value": "BV405_streaming", "label": "Sweet Xiao Yuan"},
+    {"value": "BV009_streaming", "label": "Intellectual Female"},
+    {"value": "BV008_streaming", "label": "Kind Male"},
+    {"value": "BV064_streaming", "label": "Little Loli"},
+    {"value": "BV437_streaming", "label": "Commentary Xiao Shuai"},
+    {"value": "BV511_streaming", "label": "Lazy Female - Ava"},
+    {"value": "BV040_streaming", "label": "Kind Female - Anna"},
+    {"value": "BV138_streaming", "label": "Emotional Female - Lawrence"},
+    {"value": "BV704_streaming", "label": "Dialect Can Can"},
+    {"value": "BV702_streaming", "label": "Stefan"},
+    {"value": "BV421_streaming", "label": "Talented Girl"},
+]
+
+VOLCENGINE_HTTP_EMOTIONS = [
+    {"value": "pleased", "label": "Pleased"},
+    {"value": "sorry", "label": "Sorry"},
+    {"value": "annoyed", "label": "Annoyed"},
+    {"value": "happy", "label": "Happy"},
+    {"value": "sad", "label": "Sad"},
+    {"value": "angry", "label": "Angry"},
+    {"value": "scare", "label": "Scare"},
+    {"value": "hate", "label": "Hate"},
+    {"value": "surprise", "label": "Surprise"},
+    {"value": "tear", "label": "Tear"},
+    {"value": "novel_dialog", "label": "Novel Dialog"},
+    {"value": "customer_service", "label": "Customer Service"},
+    {"value": "professional", "label": "Professional"},
+    {"value": "serious", "label": "Serious"},
+    {"value": "narrator", "label": "Narrator"},
+    {"value": "narrator_immersive", "label": "Narrator Immersive"},
+    {"value": "comfort", "label": "Comfort"},
+    {"value": "lovey-dovey", "label": "Lovey-dovey"},
+    {"value": "energetic", "label": "Energetic"},
+    {"value": "conniving", "label": "Conniving"},
+    {"value": "tsundere", "label": "Tsundere"},
+    {"value": "charming", "label": "Charming"},
+    {"value": "storytelling", "label": "Storytelling"},
+    {"value": "radio", "label": "Radio"},
+    {"value": "yoga", "label": "Yoga"},
+    {"value": "advertising", "label": "Advertising"},
+    {"value": "assistant", "label": "Assistant"},
+    {"value": "chat", "label": "Chat"},
+]
 
 
 class VolcengineHttpTTSProvider(BaseTTSProvider):
@@ -78,6 +147,32 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
             bitrate=get_config("VOLCENGINE_TTS_BITRATE") or 128000,
             channel=1,
         )
+
+    def _build_model_options(self) -> List[dict]:
+        configured_cluster = (get_config("VOLCENGINE_TTS_RESOURCE_ID") or "").strip()
+        models: List[dict] = []
+        seen: set[str] = set()
+
+        def add_model(value: str, label: str) -> None:
+            if not value or value in seen:
+                return
+            seen.add(value)
+            models.append({"value": value, "label": label})
+
+        if configured_cluster:
+            add_model(configured_cluster, f"{configured_cluster} (configured)")
+
+        for model in VOLCENGINE_HTTP_MODELS:
+            add_model(
+                (model.get("value") or "").strip(),
+                (model.get("label") or "").strip(),
+            )
+
+        return models
+
+    def get_supported_voices(self) -> List[dict]:
+        """Get list of supported voices."""
+        return VOLCENGINE_HTTP_VOICES
 
     def _resolve_encoding(self, audio_settings: AudioSettings) -> str:
         encoding = (audio_settings.format or "mp3").strip().lower()
@@ -216,14 +311,14 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         )
 
     def get_provider_config(self) -> ProviderConfig:
-        """Get provider configuration for frontend (placeholder values)."""
+        """Get provider configuration for frontend."""
         return ProviderConfig(
             name="volcengine_http",
-            label="火山引擎 (HTTP)",
+            label="Volcengine (HTTP)",
             speed=ParamRange(min=0.2, max=3.0, step=0.1, default=1.0),
             pitch=ParamRange(min=1, max=30, step=1, default=10),
             supports_emotion=True,
-            models=[],
-            voices=[],
-            emotions=[],
+            models=self._build_model_options(),
+            voices=VOLCENGINE_HTTP_VOICES,
+            emotions=VOLCENGINE_HTTP_EMOTIONS,
         )
