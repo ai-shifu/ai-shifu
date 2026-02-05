@@ -4,6 +4,9 @@
   height: 100%;
   position: relative;
   box-sizing: border-box;
+  &.mobile {
+    min-height: 0;
+  }
 
   :global(.content-render-theme) {
     position: relative;
@@ -186,7 +189,7 @@
 
     .scrollToBottom {
       position: fixed;
-      bottom: calc(40px + env(safe-area-inset-bottom, 0px) + 20px);
+      bottom: 60px;
       z-index: 50;
     }
   }

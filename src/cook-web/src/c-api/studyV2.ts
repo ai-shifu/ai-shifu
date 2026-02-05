@@ -141,7 +141,11 @@ export const getRunMessage = (
   shifu_bid: string,
   outline_bid: string,
   preview_mode: boolean,
-  body: { input: Record<string, any> | string; [key: string]: any },
+  body: {
+    input: Record<string, any> | string;
+    listen?: boolean;
+    [key: string]: any;
+  },
   onMessage: (data: any) => void,
 ) => {
   const token = useUserStore.getState().getToken();
