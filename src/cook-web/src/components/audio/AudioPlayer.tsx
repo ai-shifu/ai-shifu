@@ -335,6 +335,23 @@ function AudioPlayerBase(
         onEndedRef.current?.();
         releaseExclusive();
       };
+      audio.onpause = () => {
+        if (!isSessionActive(sessionId)) return;
+        if (isPausedRef.current) return;
+        const duration = audio.duration;
+        const current = audio.currentTime;
+        const hasDuration = Number.isFinite(duration) && duration > 0;
+        const isNearEnd = hasDuration && duration - current <= 0.1;
+        if (audio.ended || isNearEnd) {
+          setIsPlaying(false);
+          isPlayingRef.current = false;
+          setIsLoading(false);
+          setIsWaitingForSegment(false);
+          onPlayStateChangeRef.current?.(false);
+          onEndedRef.current?.();
+          releaseExclusive();
+        }
+      };
       audio.onerror = () => {
         if (!isSessionActive(sessionId)) return;
         setIsPlaying(false);
@@ -379,6 +396,10 @@ function AudioPlayerBase(
           isPlayingRef.current = false;
           setIsLoading(false);
           setIsWaitingForSegment(false);
+          onPlayStateChangeRef.current?.(false);
+          if (err instanceof DOMException && err.name === 'NotAllowedError') {
+            isPausedRef.current = true;
+          }
           releaseExclusive();
         });
     },
@@ -513,6 +534,15 @@ function AudioPlayerBase(
         isPlayingSegmentRef.current = false;
         setIsLoading(false);
         setIsWaitingForSegment(false);
+
+        if (error instanceof DOMException && error.name === 'NotAllowedError') {
+          setIsPlaying(false);
+          isPlayingRef.current = false;
+          onPlayStateChangeRef.current?.(false);
+          isPausedRef.current = true;
+          releaseExclusive();
+          return;
+        }
 
         // Try next segment when we are already in a play session.
         if (isPlayingRef.current) {
