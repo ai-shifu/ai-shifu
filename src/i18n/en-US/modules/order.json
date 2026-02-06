@@ -73,7 +73,7 @@
     "courseRequired": "Course is required",
     "description": "Create a zero-amount order and activate the course.",
     "emailConfirmDescription": "{mobiles}, import {count} emails. Proceed?",
-    "emailConfirmTitle": "Confirm import emails",
+    "emailConfirmTitle": "Confirm email import",
     "emailDuplicate": "Duplicate emails: {numbers}. Please remove duplicates before importing.",
     "emailInvalidLines": "Unrecognized email content: {values}",
     "emailLabel": "Email",

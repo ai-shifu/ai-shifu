@@ -79,9 +79,9 @@ PAYMENT_STATUS_KEY_MAP = {
     4: "module.order.paymentStatus.failed",
 }
 
-IMPORT_ACTIVATION_MOBILE_PATTERN = re.compile(r"\d{11}")
+IMPORT_ACTIVATION_MOBILE_PATTERN = re.compile(r"(?<!\d)\d{11}(?!\d)")
 IMPORT_ACTIVATION_EMAIL_PATTERN = re.compile(
-    r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"
+    r"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![A-Za-z0-9.-])"
 )
 IMPORT_ACTIVATION_TEXT_PATTERN = re.compile(r"[A-Za-z\u4E00-\u9FFF]")
 
@@ -388,7 +388,7 @@ def import_activation_order(
     contact_type: str = "phone",
     allow_empty_nickname: bool = False,
 ) -> Dict[str, str]:
-    """Create activation order for a phone/email user and shifu (manual import)."""
+    """Create activation order for a user identified by phone or email."""
     with app.app_context():
         normalized_identifier = normalize_contact_identifier(mobile, contact_type)
 

@@ -479,10 +479,10 @@ def register_order_handler(app: Flask, path_prefix: str):
                 type: object
                 properties:
                     lines:
-                        type: array
-                        items:
-                            type: string
-                        description: Raw input lines (mobile with optional nickname)
+                      type: array
+                      items:
+                        type: string
+                        description: Raw input lines (contact with optional nickname; format depends on contact_type)
                     mobile:
                         type: string
                         description: User mobile

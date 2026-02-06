@@ -64,10 +64,12 @@ const MAX_BULK_MOBILE_COUNT = 50;
 const MOBILE_SAMPLE_LIMIT = 5;
 const MAX_IMPORT_TEXT_LENGTH = 10000;
 const TEXT_CHAR_PATTERN = /[A-Za-z\u4E00-\u9FFF]/;
-const PHONE_MATCH_PATTERN = /\d{11}/g;
-const PHONE_TEST_PATTERN = /\d{11}/;
-const EMAIL_MATCH_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
-const EMAIL_TEST_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
+const PHONE_MATCH_PATTERN = /(?<!\d)\d{11}(?!\d)/g;
+const PHONE_TEST_PATTERN = /(?<!\d)\d{11}(?!\d)/;
+const EMAIL_MATCH_PATTERN =
+  /(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![A-Za-z0-9.-])/g;
+const EMAIL_TEST_PATTERN =
+  /(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![A-Za-z0-9.-])/;
 
 const trimNickname = (value: string): string => {
   const text = value.trim();
@@ -174,6 +176,7 @@ const ImportActivationDialog = ({
     ImportActivationEntry[]
   >([]);
   const [isImporting, setIsImporting] = React.useState(false);
+  const isImportingRef = React.useRef(false);
   const joinedIdentifiers = React.useMemo(() => {
     const separator = isEmailMode ? ', ' : '，';
     return pendingMobiles.join(separator);
@@ -375,9 +378,10 @@ const ImportActivationDialog = ({
     entries: ImportActivationEntry[],
     values: z.infer<typeof formSchema>,
   ) => {
-    if (isImporting) {
+    if (isImportingRef.current) {
       return;
     }
+    isImportingRef.current = true;
     setIsImporting(true);
     const lines = entries.map(entry =>
       entry.nickname ? `${entry.mobile} ${entry.nickname}` : entry.mobile,
@@ -457,6 +461,7 @@ const ImportActivationDialog = ({
       });
     } finally {
       setIsImporting(false);
+      isImportingRef.current = false;
     }
   };
 
@@ -470,6 +475,7 @@ const ImportActivationDialog = ({
     setPendingMobiles([]);
     setPendingEntries([]);
     setIsImporting(false);
+    isImportingRef.current = false;
   }, [open, form]);
 
   React.useEffect(() => {
@@ -723,9 +729,9 @@ const ImportActivationDialog = ({
                 </Button>
                 <Button
                   type='submit'
-                  disabled={form.formState.isSubmitting}
+                  disabled={form.formState.isSubmitting || isImporting}
                 >
-                  {form.formState.isSubmitting
+                  {form.formState.isSubmitting || isImporting
                     ? t('module.order.importActivation.submitting')
                     : t('module.order.importActivation.submit')}
                 </Button>
