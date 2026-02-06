@@ -24,7 +24,7 @@ from .utils import (
     parse_shifu_res_bid,
     get_shifu_res_url_dict,
 )
-from .models import DraftShifu, FavoriteScenario, ShifuUserArchive
+from .models import DraftShifu, FavoriteScenario, ShifuUserArchive, PublishedShifu
 from .permissions import get_user_shifu_permissions
 from .shifu_history_manager import save_shifu_history
 from ..common.dtos import PageNationDTO
@@ -555,6 +555,79 @@ def get_user_created_shifu_bids(app: Flask, user_id: str) -> list[str]:
             .all()
         )
         return [row[0] for row in rows if row and row[0]]
+
+
+def get_user_created_published_shifu_bids(app: Flask, user_id: str) -> list[str]:
+    """Return published shifu bids created by the specified user."""
+    with app.app_context():
+        rows = (
+            db.session.query(PublishedShifu.shifu_bid)
+            .filter(
+                PublishedShifu.created_user_bid == user_id,
+                PublishedShifu.deleted == 0,
+            )
+            .distinct()
+            .all()
+        )
+        return [row[0] for row in rows if row and row[0]]
+
+
+def get_shifu_published_list(
+    app,
+    user_id: str,
+    page_index: int,
+    page_size: int,
+    creator_only: bool = True,
+):
+    """Get published shifu list."""
+    with app.app_context():
+        page_index = max(page_index, 1)
+        page_size = max(page_size, 1)
+
+        if creator_only:
+            shifu_bids = get_user_created_published_shifu_bids(app, user_id)
+        else:
+            shifu_bids = get_user_created_published_shifu_bids(app, user_id)
+        if not shifu_bids:
+            return PageNationDTO(page_index, page_size, 0, [])
+
+        latest_subquery = (
+            db.session.query(db.func.max(PublishedShifu.id))
+            .filter(
+                PublishedShifu.shifu_bid.in_(shifu_bids),
+                PublishedShifu.deleted == 0,
+            )
+            .group_by(PublishedShifu.shifu_bid)
+        ).subquery()
+
+        shifus: list[PublishedShifu] = (
+            db.session.query(PublishedShifu)
+            .filter(PublishedShifu.id.in_(latest_subquery))
+            .order_by(PublishedShifu.title.asc(), PublishedShifu.shifu_bid.asc())
+            .all()
+        )
+
+        total = len(shifus)
+        page_count = math.ceil(total / page_size) if page_size > 0 else 0
+        safe_page_index = min(page_index, max(page_count, 1))
+        page_offset = (safe_page_index - 1) * page_size
+        shifus = shifus[page_offset : page_offset + page_size]
+
+        res_bids = [shifu.avatar_res_bid for shifu in shifus]
+        res_url_map = get_shifu_res_url_dict(res_bids)
+        shifu_dtos = [
+            ShifuDto(
+                shifu.shifu_bid,
+                shifu.title,
+                shifu.description,
+                res_url_map.get(shifu.avatar_res_bid, ""),
+                STATUS_DRAFT,
+                False,
+                False,
+            )
+            for shifu in shifus
+        ]
+        return PageNationDTO(safe_page_index, page_size, total, shifu_dtos)
 
 
 def _set_shifu_archive_state(app, user_id: str, shifu_id: str, archived: bool):

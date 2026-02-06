@@ -13,11 +13,16 @@ from flaskr.service.order import (
 from flaskr.service.order.admin import (
     get_order_detail,
     import_activation_orders,
+    import_activation_orders_from_entries,
+    parse_import_activation_entries,
     list_orders,
 )
 from flaskr.service.learn.learn_funcs import get_shifu_info
 from flaskr.common.shifu_context import with_shifu_context
-from flaskr.service.shifu.shifu_draft_funcs import get_shifu_draft_list
+from flaskr.service.shifu.shifu_draft_funcs import (
+    get_shifu_draft_list,
+    get_shifu_published_list,
+)
 
 
 def register_order_handler(app: Flask, path_prefix: str):
@@ -399,6 +404,10 @@ def register_order_handler(app: Flask, path_prefix: str):
               type: boolean
               required: false
               description: Whether to include archived shifus
+            - name: published
+              type: boolean
+              required: false
+              description: Whether to include only published shifus
         responses:
             200:
                 description: Creator-owned shifu list
@@ -420,6 +429,10 @@ def register_order_handler(app: Flask, path_prefix: str):
         archived = False
         if archived_param is not None:
             archived = archived_param.lower() == "true"
+        published_param = request.args.get("published")
+        published = False
+        if published_param is not None:
+            published = published_param.lower() == "true"
         try:
             page_index = int(page_index)
             page_size = int(page_size)
@@ -429,6 +442,16 @@ def register_order_handler(app: Flask, path_prefix: str):
             raise_param_error("page_index or page_size is less than 1")
 
         user_id = request.user.user_id
+        if published:
+            return make_common_response(
+                get_shifu_published_list(
+                    app,
+                    user_id,
+                    page_index,
+                    page_size,
+                    creator_only=True,
+                )
+            )
         return make_common_response(
             get_shifu_draft_list(
                 app,
@@ -455,6 +478,11 @@ def register_order_handler(app: Flask, path_prefix: str):
               schema:
                 type: object
                 properties:
+                    lines:
+                        type: array
+                        items:
+                            type: string
+                        description: Raw input lines (mobile with optional nickname)
                     mobile:
                         type: string
                         description: User mobile
@@ -464,6 +492,9 @@ def register_order_handler(app: Flask, path_prefix: str):
                     user_nick_name:
                         type: string
                         description: User nickname
+                    contact_type:
+                        type: string
+                        description: Contact type (phone or email)
         responses:
             200:
                 description: Import success
@@ -483,14 +514,36 @@ def register_order_handler(app: Flask, path_prefix: str):
         """
         _require_creator()
         payload = request.get_json() or {}
-        mobile_field = str(payload.get("mobile", "")).strip()
+        lines = payload.get("lines")
         course_id = str(payload.get("course_id", "")).strip()
         user_nick_name = payload.get("user_nick_name")
+        contact_type = str(payload.get("contact_type", "phone") or "phone").lower()
 
-        if not mobile_field:
-            raise_param_error("mobile")
         if not course_id:
             raise_param_error("course_id")
+        if contact_type not in {"phone", "email"}:
+            raise_param_error("contact_type")
+
+        if isinstance(lines, list) and lines:
+            raw_text = "\n".join([str(item) for item in lines if str(item).strip()])
+            entries = parse_import_activation_entries(raw_text, contact_type)
+            if not entries:
+                raise_param_error("mobile")
+            if len(entries) > 50:
+                raise_param_error("mobile limit 50")
+
+            # Validate course exists before iterating mobiles to avoid repeated errors
+            get_shifu_info(app, course_id, False)
+
+            return make_common_response(
+                import_activation_orders_from_entries(
+                    app, entries, course_id, contact_type=contact_type
+                )
+            )
+
+        mobile_field = str(payload.get("mobile", "")).strip()
+        if not mobile_field:
+            raise_param_error("mobile")
 
         mobiles = [item.strip() for item in mobile_field.split(",") if item.strip()]
         if not mobiles:
@@ -502,7 +555,9 @@ def register_order_handler(app: Flask, path_prefix: str):
         get_shifu_info(app, course_id, False)
 
         return make_common_response(
-            import_activation_orders(app, mobiles, course_id, user_nick_name)
+            import_activation_orders(
+                app, mobiles, course_id, user_nick_name, contact_type=contact_type
+            )
         )
 
     @app.route(path_prefix + "/admin/orders/<order_bid>", methods=["GET"])

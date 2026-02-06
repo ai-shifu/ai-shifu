@@ -390,7 +390,19 @@ const OrdersPage = () => {
     [t],
   );
 
+  const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
+
+  const isEmailMode = useMemo(
+    () =>
+      typeof window !== 'undefined' &&
+      window.location.hostname.endsWith('.com'),
+    [],
+  );
+
   const userBidPlaceholder = useMemo(() => {
+    if (isEmailMode) {
+      return t('module.order.filters.userBidEmail');
+    }
     const methods = loginMethodsEnabled || [];
     const hasPhone = methods.includes('phone');
     const hasEmail = methods.includes('email');
@@ -401,7 +413,7 @@ const OrdersPage = () => {
       return t('module.order.filters.userBidEmail');
     }
     return t('module.order.filters.userBid');
-  }, [loginMethodsEnabled, t]);
+  }, [isEmailMode, loginMethodsEnabled, t]);
 
   const displayStatusValue = filters.status || ALL_OPTION_VALUE;
   const displayChannelValue = filters.payment_channel || ALL_OPTION_VALUE;
@@ -538,8 +550,9 @@ const OrdersPage = () => {
         orderId: order => [order.order_bid],
         shifu: order => [order.shifu_name || order.shifu_bid],
         user: order => [
-          order.user_mobile || order.user_bid,
-          order.user_nickname || order.user_bid,
+          (isEmailMode ? order.user_email : order.user_mobile) ||
+            order.user_bid,
+          order.user_nickname || defaultUserName,
         ],
         amount: order => [formatMoney(order.paid_price)],
         status: order => [t(order.status_key)],
@@ -595,7 +608,7 @@ const OrdersPage = () => {
         return updated;
       });
     },
-    [formatMoney, t],
+    [defaultUserName, formatMoney, isEmailMode, t],
   );
 
   const resolveStatusLabel = useCallback(
@@ -1319,12 +1332,14 @@ const OrdersPage = () => {
                         style={getColumnStyle('user')}
                       >
                         {renderTooltipText(
-                          order.user_mobile || order.user_bid,
+                          (isEmailMode
+                            ? order.user_email
+                            : order.user_mobile) || order.user_bid,
                           'text-foreground whitespace-nowrap',
                         )}
                         <br />
                         {renderTooltipText(
-                          order.user_nickname || order.user_bid,
+                          order.user_nickname || defaultUserName,
                           'text-xs text-muted-foreground mt-1',
                         )}
                       </TableCell>

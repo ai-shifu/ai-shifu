@@ -50,7 +50,7 @@ from flaskr.service.promo.consts import (
     COUPON_TYPE_PERCENT,
 )
 from flaskr.service.promo.models import CouponUsage
-from flaskr.service.shifu.models import DraftShifu
+from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.shifu.shifu_draft_funcs import get_user_created_shifu_bids
 from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
@@ -78,6 +78,12 @@ PAYMENT_STATUS_KEY_MAP = {
     4: "module.order.paymentStatus.failed",
 }
 
+IMPORT_ACTIVATION_MOBILE_PATTERN = re.compile(r"\d{11}")
+IMPORT_ACTIVATION_EMAIL_PATTERN = re.compile(
+    r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"
+)
+IMPORT_ACTIVATION_TEXT_PATTERN = re.compile(r"[A-Za-z\u4E00-\u9FFF]")
+
 ACTIVE_STATUS_KEY_MAP = {
     ACTIVE_JOIN_STATUS_ENABLE: "module.order.activeStatus.active",
     ACTIVE_JOIN_STATUS_FAILURE: "module.order.activeStatus.failed",
@@ -102,6 +108,7 @@ PAYMENT_CHANNEL_KEY_MAP = {
 }
 
 MOBILE_PATTERN = re.compile(r"^\d{11}$")
+EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 
 
 def normalize_mobile(mobile: str) -> str:
@@ -112,6 +119,24 @@ def normalize_mobile(mobile: str) -> str:
     if not MOBILE_PATTERN.fullmatch(normalized_mobile):
         raise_param_error(f"mobile format invalid: {normalized_mobile}")
     return normalized_mobile
+
+
+def normalize_email(email: str) -> str:
+    """Normalize and validate an email address."""
+    normalized_email = str(email or "").strip().lower()
+    if not normalized_email:
+        raise_param_error("email")
+    if not EMAIL_PATTERN.fullmatch(normalized_email):
+        raise_param_error(f"email format invalid: {normalized_email}")
+    return normalized_email
+
+
+def normalize_contact_identifier(identifier: str, contact_type: str) -> str:
+    if contact_type == "email":
+        return normalize_email(identifier)
+    if contact_type == "phone":
+        return normalize_mobile(identifier)
+    raise_param_error("contact_type")
 
 
 def _format_decimal(value: Optional[Decimal]) -> str:
@@ -165,22 +190,80 @@ def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
     return None
 
 
-def _load_shifu_map(shifu_bids: list[str]) -> Dict[str, DraftShifu]:
-    """Load latest draft shifu records for given bids and map by bid."""
+def _trim_import_activation_nickname(value: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    start = 0
+    end = len(text)
+    while start < end and not IMPORT_ACTIVATION_TEXT_PATTERN.match(text[start]):
+        start += 1
+    while end > start and not IMPORT_ACTIVATION_TEXT_PATTERN.match(text[end - 1]):
+        end -= 1
+    return text[start:end].strip()
+
+
+def parse_import_activation_entries(
+    text: str, contact_type: str = "phone"
+) -> List[Dict[str, str]]:
+    if not text:
+        return []
+    pattern = (
+        IMPORT_ACTIVATION_EMAIL_PATTERN
+        if contact_type == "email"
+        else IMPORT_ACTIVATION_MOBILE_PATTERN
+    )
+    matches = list(pattern.finditer(text))
+    if not matches:
+        return []
+    entries: List[Dict[str, str]] = []
+    for index, match in enumerate(matches):
+        start = match.start()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        segment = text[start:end]
+        identifier = match.group(0)
+        nickname_source = segment.replace(identifier, "", 1)
+        nickname = _trim_import_activation_nickname(nickname_source)
+        entries.append({"mobile": identifier, "nickname": nickname})
+    return entries
+
+
+def _load_shifu_map(
+    shifu_bids: list[str],
+) -> Dict[str, DraftShifu | PublishedShifu]:
+    """Load latest published shifu records for given bids and map by bid."""
     if not shifu_bids:
         return {}
+    shifu_map: Dict[str, DraftShifu | PublishedShifu] = {}
+
+    published_shifus = (
+        PublishedShifu.query.filter(
+            PublishedShifu.shifu_bid.in_(shifu_bids),
+            PublishedShifu.deleted == 0,
+        )
+        .order_by(PublishedShifu.id.desc())
+        .all()
+    )
+    for shifu in published_shifus:
+        if shifu.shifu_bid and shifu.shifu_bid not in shifu_map:
+            shifu_map[shifu.shifu_bid] = shifu
+
+    missing_bids = [bid for bid in shifu_bids if bid not in shifu_map]
+    if not missing_bids:
+        return shifu_map
+
     shifu_drafts = (
         DraftShifu.query.filter(
-            DraftShifu.shifu_bid.in_(shifu_bids),
+            DraftShifu.shifu_bid.in_(missing_bids),
             DraftShifu.deleted == 0,
         )
         .order_by(DraftShifu.id.desc())
         .all()
     )
-    shifu_map: Dict[str, DraftShifu] = {}
     for shifu in shifu_drafts:
         if shifu.shifu_bid and shifu.shifu_bid not in shifu_map:
             shifu_map[shifu.shifu_bid] = shifu
+
     return shifu_map
 
 
@@ -191,24 +274,35 @@ def _load_user_map(user_bids: list[str]) -> Dict[str, Dict[str, str]]:
     credentials = (
         AuthCredential.query.filter(
             AuthCredential.user_bid.in_(user_bids),
-            AuthCredential.provider_name == "phone",
+            AuthCredential.provider_name.in_(["phone", "email"]),
         )
         .order_by(AuthCredential.id.desc())
         .all()
     )
     phone_map: Dict[str, str] = {}
+    email_map: Dict[str, str] = {}
     for credential in credentials:
-        if credential.user_bid and credential.user_bid not in phone_map:
-            phone_map[credential.user_bid] = credential.identifier or ""
+        if not credential.user_bid:
+            continue
+        if credential.provider_name == "phone":
+            if credential.user_bid not in phone_map:
+                phone_map[credential.user_bid] = credential.identifier or ""
+        if credential.provider_name == "email":
+            if credential.user_bid not in email_map:
+                email_map[credential.user_bid] = credential.identifier or ""
 
     users = UserEntity.query.filter(UserEntity.user_bid.in_(user_bids)).all()
     user_map: Dict[str, Dict[str, str]] = {}
     for user in users:
         mobile = phone_map.get(user.user_bid, "")
+        email = email_map.get(user.user_bid, "")
         if not mobile and (user.user_identify or "").isdigit():
             mobile = user.user_identify
+        if not email and "@" in (user.user_identify or ""):
+            email = user.user_identify
         user_map[user.user_bid] = {
             "mobile": mobile or "",
+            "email": email or "",
             "nickname": user.nickname or "",
             "identify": user.user_identify or "",
         }
@@ -241,7 +335,7 @@ def _load_coupon_code_map(order_bids: list[str]) -> Dict[str, List[str]]:
 
 def _build_order_item(
     order: Order,
-    shifu_map: Dict[str, DraftShifu],
+    shifu_map: Dict[str, DraftShifu | PublishedShifu],
     user_map: Dict[str, Dict[str, str]],
     coupon_map: Optional[Dict[str, List[str]]] = None,
 ) -> OrderAdminSummaryDTO:
@@ -259,6 +353,7 @@ def _build_order_item(
         shifu_name=shifu.title if shifu else "",
         user_bid=order.user_bid,
         user_mobile=user.get("mobile", ""),
+        user_email=user.get("email", ""),
         user_nickname=user.get("nickname", ""),
         payable_price=_format_decimal(order.payable_price),
         paid_price=_format_decimal(order.paid_price),
@@ -282,26 +377,33 @@ def import_activation_order(
     mobile: str,
     course_id: str,
     user_nick_name: Optional[str] = None,
+    contact_type: str = "phone",
+    allow_empty_nickname: bool = False,
 ) -> Dict[str, str]:
     """Create activation order for a mobile user and shifu (manual import)."""
     with app.app_context():
-        normalized_mobile = normalize_mobile(mobile)
+        normalized_identifier = normalize_contact_identifier(mobile, contact_type)
 
         normalized_course_id = str(course_id or "").strip()
         if not normalized_course_id:
             raise_param_error("course_id")
 
         normalized_nickname = str(user_nick_name or "").strip()
+        nickname_value = (
+            normalized_nickname
+            if allow_empty_nickname
+            else normalized_nickname or normalized_identifier
+        )
         defaults = {
-            "identify": normalized_mobile,
-            "nickname": normalized_nickname or normalized_mobile,
+            "identify": normalized_identifier,
+            "nickname": nickname_value,
             "language": "en-US",
             "state": USER_STATE_REGISTERED,
         }
         aggregate, _ = ensure_user_for_identifier(
             app,
-            provider="phone",
-            identifier=normalized_mobile,
+            provider=contact_type,
+            identifier=normalized_identifier,
             defaults=defaults,
         )
 
@@ -321,13 +423,19 @@ def import_activation_order(
             .first()
         )
         if existing_success_order:
-            raise_error_with_args(
-                "server.order.mobileAlreadyActivated", mobile=normalized_mobile
-            )
+            if contact_type == "email":
+                raise_error_with_args(
+                    "server.order.emailAlreadyActivated", email=normalized_identifier
+                )
+            else:
+                raise_error_with_args(
+                    "server.order.mobileAlreadyActivated",
+                    mobile=normalized_identifier,
+                )
 
         entity = get_user_entity_by_bid(user_id, include_deleted=True)
         if entity:
-            updates = {"identify": normalized_mobile}
+            updates = {"identify": normalized_identifier}
             if normalized_nickname:
                 updates["nickname"] = normalized_nickname
             if aggregate.state == USER_STATE_UNREGISTERED:
@@ -337,10 +445,10 @@ def import_activation_order(
         upsert_credential(
             app,
             user_bid=user_id,
-            provider_name="phone",
-            subject_id=normalized_mobile,
-            subject_format="phone",
-            identifier=normalized_mobile,
+            provider_name=contact_type,
+            subject_id=normalized_identifier,
+            subject_format=contact_type,
+            identifier=normalized_identifier,
             metadata={"course_id": normalized_course_id},
             verified=True,
         )
@@ -366,6 +474,7 @@ def import_activation_orders(
     mobiles: List[str],
     course_id: str,
     user_nick_name: Optional[str] = None,
+    contact_type: str = "phone",
 ) -> Dict[str, Any]:
     """Bulk import activation orders from a list of mobile numbers."""
     results: Dict[str, Any] = {"success": [], "failed": []}
@@ -373,7 +482,53 @@ def import_activation_orders(
         normalized_mobile = str(mobile or "").strip()
         try:
             order = import_activation_order(
-                app, normalized_mobile, course_id, user_nick_name
+                app,
+                normalized_mobile,
+                course_id,
+                user_nick_name,
+                contact_type=contact_type,
+            )
+            results["success"].append({"mobile": normalized_mobile, **order})
+        except AppException as exc:
+            if hasattr(app, "logger"):
+                app.logger.warning(
+                    "import activation failed for %s: %s",
+                    normalized_mobile,
+                    exc.message,
+                )
+            results["failed"].append(
+                {"mobile": normalized_mobile, "message": exc.message}
+            )
+        except Exception as exc:  # noqa: BLE001
+            if hasattr(app, "logger"):
+                app.logger.exception(
+                    "import activation unexpected failure for %s", normalized_mobile
+                )
+            results["failed"].append({"mobile": normalized_mobile, "message": str(exc)})
+    return results
+
+
+def import_activation_orders_from_entries(
+    app: Flask,
+    entries: List[Dict[str, str]],
+    course_id: str,
+    contact_type: str = "phone",
+) -> Dict[str, Any]:
+    """Bulk import activation orders from parsed mobile+nickname entries."""
+    results: Dict[str, Any] = {"success": [], "failed": []}
+    for entry in entries:
+        normalized_mobile = str(entry.get("mobile", "")).strip()
+        if not normalized_mobile:
+            continue
+        nickname = entry.get("nickname") or ""
+        try:
+            order = import_activation_order(
+                app,
+                normalized_mobile,
+                course_id,
+                nickname,
+                contact_type=contact_type,
+                allow_empty_nickname=True,
             )
             results["success"].append({"mobile": normalized_mobile, **order})
         except AppException as exc:

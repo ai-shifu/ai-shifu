@@ -42,7 +42,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/Popover';
-import { ScrollArea } from '@/components/ui/ScrollArea';
 import { cn } from '@/lib/utils';
 import { ChevronDown } from 'lucide-react';
 import type { Shifu } from '@/types/shifu';
@@ -53,16 +52,91 @@ interface ImportActivationDialogProps {
   onSuccess?: (orderBid: string) => void;
 }
 
-const MAX_BULK_MOBILE_COUNT = 50;
-const MOBILE_PATTERN = /^\d{11}$/;
-const MOBILE_SAMPLE_LIMIT = 5;
+interface ImportActivationEntry {
+  mobile: string;
+  nickname: string;
+}
 
-const tokenizeMobiles = (value: string): string[] => {
-  // Split by common delimiters: commas (en/zh), ideographic comma, dots, slashes, backslashes, semicolons, pipes, whitespace, and new lines; keep non-empty tokens
-  return value
-    .split(/[,，、\.。;\/\\\|\s\n]+/)
-    .map(item => item.trim())
-    .filter(Boolean);
+const MAX_BULK_MOBILE_COUNT = 50;
+const MOBILE_SAMPLE_LIMIT = 5;
+const TEXT_CHAR_PATTERN = /[A-Za-z\u4E00-\u9FFF]/;
+const PHONE_MATCH_PATTERN = /\d{11}/g;
+const PHONE_TEST_PATTERN = /\d{11}/;
+const EMAIL_MATCH_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+const EMAIL_TEST_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
+
+const trimNickname = (value: string): string => {
+  const text = value.trim();
+  if (!text) {
+    return '';
+  }
+  let start = 0;
+  let end = text.length;
+  while (start < end && !TEXT_CHAR_PATTERN.test(text[start])) {
+    start += 1;
+  }
+  while (end > start && !TEXT_CHAR_PATTERN.test(text[end - 1])) {
+    end -= 1;
+  }
+  return text.slice(start, end).trim();
+};
+
+const trimDisplayLine = (value: string): string => {
+  return value.replace(/^[\s,，、]+|[\s,，、]+$/g, '');
+};
+
+const parseImportText = (
+  value: string,
+  contactType: 'phone' | 'email',
+): {
+  entries: ImportActivationEntry[];
+  normalizedText: string;
+  invalidItems: string[];
+} => {
+  const testPattern =
+    contactType === 'email' ? EMAIL_TEST_PATTERN : PHONE_TEST_PATTERN;
+  const invalidItems = value
+    .split(/\r?\n/)
+    .map(line => trimDisplayLine(line))
+    .filter(item => item.length > 0 && !testPattern.test(item));
+  const matchPattern =
+    contactType === 'email' ? EMAIL_MATCH_PATTERN : PHONE_MATCH_PATTERN;
+  const matches = Array.from(
+    value.matchAll(new RegExp(matchPattern.source, 'g')),
+  );
+  if (matches.length === 0) {
+    return { entries: [], normalizedText: value, invalidItems };
+  }
+
+  const entries = matches.map((match, index) => {
+    const start = match.index ?? 0;
+    const end =
+      index + 1 < matches.length
+        ? (matches[index + 1].index ?? value.length)
+        : value.length;
+    const segment = value.slice(start, end);
+    const identifier =
+      contactType === 'email' ? match[0].toLowerCase() : match[0];
+    const nicknameSource = segment.replace(match[0], '');
+    const nickname = trimNickname(nicknameSource);
+    return { mobile: identifier, nickname };
+  });
+
+  const displayLines = matches.map((match, index) => {
+    const start = match.index ?? 0;
+    const end =
+      index + 1 < matches.length
+        ? (matches[index + 1].index ?? value.length)
+        : value.length;
+    const segment = value.slice(start, end);
+    return trimDisplayLine(segment);
+  });
+
+  return {
+    entries,
+    normalizedText: displayLines.join('\n'),
+    invalidItems,
+  };
 };
 
 const ImportActivationDialog = ({
@@ -80,25 +154,72 @@ const ImportActivationDialog = ({
   const dialogContentRef = React.useRef<HTMLDivElement | null>(null);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [pendingMobiles, setPendingMobiles] = React.useState<string[]>([]);
-  const joinedMobiles = React.useMemo(
+  const [pendingEntries, setPendingEntries] = React.useState<
+    ImportActivationEntry[]
+  >([]);
+  const joinedIdentifiers = React.useMemo(
     () => pendingMobiles.join('，'),
     [pendingMobiles],
+  );
+  const isEmailMode = React.useMemo(
+    () =>
+      typeof window !== 'undefined' &&
+      window.location.hostname.endsWith('.com'),
+    [],
+  );
+  const contactType = isEmailMode ? 'email' : 'phone';
+  const contactLabel = isEmailMode
+    ? t('module.order.importActivation.emailLabel')
+    : t('module.order.importActivation.mobileLabel');
+  const contactPlaceholder = isEmailMode
+    ? t('module.order.importActivation.emailPlaceholder')
+    : t('module.order.importActivation.mobilePlaceholder');
+  const contactRequiredMessage = isEmailMode
+    ? t('module.order.importActivation.emailRequired')
+    : t('module.order.importActivation.mobileRequired');
+  const contactConfirmTitle = isEmailMode
+    ? t('module.order.importActivation.emailConfirmTitle')
+    : t('module.order.importActivation.confirmTitle');
+  const buildInvalidMessage = React.useCallback(
+    (values: string) =>
+      isEmailMode
+        ? t('module.order.importActivation.emailInvalidLines', { values })
+        : t('module.order.importActivation.mobileInvalidLines', { values }),
+    [isEmailMode, t],
+  );
+  const buildDuplicateMessage = React.useCallback(
+    (numbers: string) =>
+      isEmailMode
+        ? t('module.order.importActivation.emailDuplicate', { numbers })
+        : t('module.order.importActivation.mobileDuplicate', { numbers }),
+    [isEmailMode, t],
+  );
+  const buildLimitMessage = React.useCallback(
+    (count: number) =>
+      isEmailMode
+        ? t('module.order.importActivation.emailLimit', { count })
+        : t('module.order.importActivation.mobileLimit', { count }),
+    [isEmailMode, t],
+  );
+  const buildSuccessSummary = React.useCallback(
+    (count: number) =>
+      isEmailMode
+        ? t('module.order.importActivation.emailSuccessSummary', { count })
+        : t('module.order.importActivation.successSummary', { count }),
+    [isEmailMode, t],
   );
 
   const formSchema = React.useMemo(
     () =>
       z.object({
-        mobile: z
-          .string()
-          .trim()
-          .min(1, t('module.order.importActivation.mobileRequired')),
+        mobile: z.string().trim().min(1, contactRequiredMessage),
         course_id: z
           .string()
           .trim()
           .min(1, t('module.order.importActivation.courseRequired')),
         user_nick_name: z.string().optional(),
       }),
-    [t],
+    [contactRequiredMessage, t],
   );
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -123,11 +244,16 @@ const ImportActivationDialog = ({
 
   const confirmText = React.useMemo(
     () =>
-      t('module.order.importActivation.confirmDescription', {
-        mobiles: joinedMobiles,
-        count: pendingMobiles.length,
-      }),
-    [joinedMobiles, pendingMobiles.length, t],
+      isEmailMode
+        ? t('module.order.importActivation.emailConfirmDescription', {
+            mobiles: joinedIdentifiers,
+            count: pendingMobiles.length,
+          })
+        : t('module.order.importActivation.confirmDescription', {
+            mobiles: joinedIdentifiers,
+            count: pendingMobiles.length,
+          }),
+    [isEmailMode, joinedIdentifiers, pendingMobiles.length, t],
   );
 
   const filteredCourses = React.useMemo(() => {
@@ -144,70 +270,107 @@ const ImportActivationDialog = ({
     });
   }, [courseSearch, courses]);
 
-  const parseMobiles = React.useCallback((value: string) => {
-    return tokenizeMobiles(value);
-  }, []);
+  const normalizeMobileField = React.useCallback(
+    (value: string) => {
+      const { entries, normalizedText, invalidItems } = parseImportText(
+        value,
+        contactType,
+      );
+      if (
+        invalidItems.length === 0 &&
+        entries.length > 0 &&
+        normalizedText &&
+        normalizedText !== value
+      ) {
+        form.setValue('mobile', normalizedText, {
+          shouldDirty: true,
+          shouldTouch: true,
+        });
+      }
+    },
+    [contactType, form],
+  );
 
   const handleSubmit = async (values: z.infer<typeof formSchema>) => {
     const mobileInput = values.mobile || '';
-    const mobiles = parseMobiles(mobileInput);
-    if (mobiles.length === 0) {
+    const { entries, normalizedText, invalidItems } = parseImportText(
+      mobileInput,
+      contactType,
+    );
+    if (invalidItems.length > 0) {
+      const sample = invalidItems.slice(0, MOBILE_SAMPLE_LIMIT).join('，');
+      const displayValues =
+        invalidItems.length > MOBILE_SAMPLE_LIMIT ? `${sample}...` : sample;
       form.setError('mobile', {
-        message: t('module.order.importActivation.mobileRequired'),
+        message: buildInvalidMessage(displayValues),
       });
       return;
     }
-    if (mobiles.length > MAX_BULK_MOBILE_COUNT) {
+    if (entries.length === 0) {
       form.setError('mobile', {
-        message: t('module.order.importActivation.mobileLimit', {
-          count: MAX_BULK_MOBILE_COUNT,
-        }),
+        message: contactRequiredMessage,
+      });
+      return;
+    }
+    if (entries.length > MAX_BULK_MOBILE_COUNT) {
+      form.setError('mobile', {
+        message: buildLimitMessage(MAX_BULK_MOBILE_COUNT),
       });
       return;
     }
 
+    if (normalizedText && normalizedText !== mobileInput) {
+      form.setValue('mobile', normalizedText, {
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+    }
+
+    const fallbackNickname = values.user_nick_name?.trim() || '';
+    const hasLineNickname = entries.some(entry => entry.nickname);
+    const entriesForPayload =
+      fallbackNickname && !hasLineNickname
+        ? entries.map(entry => ({
+            ...entry,
+            nickname: fallbackNickname,
+          }))
+        : entries;
+
+    const mobiles = entriesForPayload.map(entry => entry.mobile);
+    const uniqueKeys = mobiles.map(mobile =>
+      contactType === 'email' ? mobile.toLowerCase() : mobile,
+    );
     const duplicateMobiles = Array.from(
-      new Set(mobiles.filter((mobile, idx) => mobiles.indexOf(mobile) !== idx)),
+      new Set(
+        uniqueKeys.filter((mobile, idx) => uniqueKeys.indexOf(mobile) !== idx),
+      ),
     );
     if (duplicateMobiles.length > 0) {
       const sample = duplicateMobiles.slice(0, MOBILE_SAMPLE_LIMIT).join(', ');
       const messageMobiles =
         duplicateMobiles.length > MOBILE_SAMPLE_LIMIT ? `${sample}...` : sample;
       form.setError('mobile', {
-        message: t('module.order.importActivation.mobileDuplicate', {
-          numbers: messageMobiles,
-        }),
+        message: buildDuplicateMessage(messageMobiles),
       });
       return;
     }
 
-    const invalidMobiles = mobiles.filter(
-      mobile => !MOBILE_PATTERN.test(mobile),
-    );
-    if (invalidMobiles.length > 0) {
-      const sample = invalidMobiles.slice(0, MOBILE_SAMPLE_LIMIT).join(', ');
-      const messageMobiles =
-        invalidMobiles.length > MOBILE_SAMPLE_LIMIT ? `${sample}...` : sample;
-      form.setError('mobile', {
-        message: t('module.order.importActivation.mobileInvalid', {
-          numbers: messageMobiles,
-        }),
-      });
-      return;
-    }
-
+    setPendingEntries(entriesForPayload);
     setPendingMobiles(mobiles);
     setConfirmOpen(true);
   };
 
   const handleConfirmImport = async (
-    mobiles: string[],
+    entries: ImportActivationEntry[],
     values: z.infer<typeof formSchema>,
   ) => {
+    const lines = entries.map(entry =>
+      entry.nickname ? `${entry.mobile} ${entry.nickname}` : entry.mobile,
+    );
     const payload = {
-      mobile: mobiles.join(','),
+      lines,
       course_id: values.course_id.trim(),
-      user_nick_name: values.user_nick_name?.trim() || undefined,
+      contact_type: contactType,
     };
 
     try {
@@ -218,13 +381,12 @@ const ImportActivationDialog = ({
       const successCount = response?.success?.length ?? 0;
       const failedCount = response?.failed?.length ?? 0;
       const failedEntries = response?.failed ?? [];
+      const totalCount = entries.length;
 
       if (failedCount === 0) {
         toast({
           title: t('module.order.importActivation.success'),
-          description: t('module.order.importActivation.successSummary', {
-            count: successCount,
-          }),
+          description: buildSuccessSummary(successCount),
         });
         onSuccess?.('');
         onOpenChange(false);
@@ -233,7 +395,7 @@ const ImportActivationDialog = ({
 
       const isCourseError =
         successCount === 0 &&
-        failedCount === mobiles.length &&
+        failedCount === totalCount &&
         failedEntries.length > 0 &&
         failedEntries.every(entry => {
           const msg = entry.message?.toLowerCase() || '';
@@ -315,6 +477,7 @@ const ImportActivationDialog = ({
           const { items } = await api.getAdminOrderShifus({
             page_index: pageIndex,
             page_size: pageSize,
+            published: true,
           });
           const pageItems = (items || []) as Shifu[];
           pageItems.forEach(item => {
@@ -376,18 +539,18 @@ const ImportActivationDialog = ({
                 name='mobile'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      {t('module.order.importActivation.mobileLabel')}
-                    </FormLabel>
+                    <FormLabel>{contactLabel}</FormLabel>
                     <FormControl>
                       <Textarea
                         autoComplete='off'
-                        placeholder={t(
-                          'module.order.importActivation.mobilePlaceholder',
-                        )}
+                        placeholder={contactPlaceholder}
                         className='min-h-[80px]'
                         {...field}
                         onChange={e => field.onChange(e.target.value)}
+                        onBlur={event => {
+                          field.onBlur();
+                          normalizeMobileField(event.target.value);
+                        }}
                       />
                     </FormControl>
                     <FormMessage />
@@ -457,7 +620,7 @@ const ImportActivationDialog = ({
                           )}
                           className='h-8'
                         />
-                        <ScrollArea className='mt-3 h-48'>
+                        <div className='mt-3 max-h-48 overflow-auto'>
                           {coursesLoading ? (
                             <div className='flex items-center justify-center py-4'>
                               <Loading className='h-5 w-5' />
@@ -499,7 +662,7 @@ const ImportActivationDialog = ({
                               })}
                             </div>
                           )}
-                        </ScrollArea>
+                        </div>
                       </PopoverContent>
                     </Popover>
                     <FormMessage />
@@ -555,12 +718,7 @@ const ImportActivationDialog = ({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t(
-                'module.order.importActivation.confirmTitle',
-                '确认导入手机号',
-              )}
-            </AlertDialogTitle>
+            <AlertDialogTitle>{contactConfirmTitle}</AlertDialogTitle>
             <AlertDialogDescription className='text-muted-foreground'>
               {confirmText}
             </AlertDialogDescription>
@@ -573,7 +731,7 @@ const ImportActivationDialog = ({
               onClick={() => {
                 const currentValues = form.getValues();
                 setConfirmOpen(false);
-                void handleConfirmImport(pendingMobiles, currentValues);
+                void handleConfirmImport(pendingEntries, currentValues);
               }}
             >
               {t('common.core.confirm')}

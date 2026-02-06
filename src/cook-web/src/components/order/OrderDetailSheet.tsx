@@ -52,6 +52,12 @@ const OrderDetailSheet = ({
   onOpenChange,
 }: OrderDetailSheetProps) => {
   const { t } = useTranslation();
+  const isEmailMode = useMemo(
+    () =>
+      typeof window !== 'undefined' &&
+      window.location.hostname.endsWith('.com'),
+    [],
+  );
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ message: string; code?: number } | null>(
@@ -227,7 +233,8 @@ const OrderDetailSheet = ({
                 <DetailRow
                   label={t('module.order.fields.user')}
                   value={fallbackValue(
-                    summary.user_mobile || summary.user_bid,
+                    (isEmailMode ? summary.user_email : summary.user_mobile) ||
+                      summary.user_bid,
                     emptyValue,
                   )}
                 />
