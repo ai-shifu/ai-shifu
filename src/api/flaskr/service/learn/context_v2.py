@@ -1074,7 +1074,7 @@ class RunScriptContextV2:
         return context_local.current_context
 
     def _should_stream_tts(self) -> bool:
-        return (not self._preview_mode) and self._listen
+        return (not self._preview_mode) and bool(getattr(self, "_listen", False))
 
     def _get_current_attend(self, outline_bid: str) -> LearnProgressRecord:
         attend_info: LearnProgressRecord = (
