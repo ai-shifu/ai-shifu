@@ -27,6 +27,9 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
+const SILENT_AUDIO_DATA_URI =
+  'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=';
+
 export interface AudioPlayerProps {
   /** OSS URL when audio is complete */
   audioUrl?: string;
@@ -112,6 +115,8 @@ function AudioPlayerBase(
   const segmentDurationRef = useRef(0);
   const playerIdRef = useRef(Math.random().toString(36).slice(2, 8));
   const contentKeyRef = useRef(contentKey ?? null);
+  const isHtmlAudioPrimedRef = useRef(false);
+  const isPrimingRef = useRef(false);
 
   const effectiveAudioUrl = audioUrl || localAudioUrl;
 
@@ -175,6 +180,60 @@ function AudioPlayerBase(
       sourceNodeRef.current = null;
     }
   }, []);
+
+  const ensureHtmlAudioElement = useCallback(() => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+      audioRef.current.preload = 'auto';
+      audioRef.current.setAttribute('playsinline', 'true');
+    }
+    return audioRef.current;
+  }, []);
+
+  const primeHtmlAudio = useCallback(async () => {
+    if (isHtmlAudioPrimedRef.current || isPrimingRef.current) {
+      return isHtmlAudioPrimedRef.current;
+    }
+    isPrimingRef.current = true;
+    try {
+      const audio = ensureHtmlAudioElement();
+      const prevSrc = audio.src;
+      const prevMuted = audio.muted;
+      const prevVolume = audio.volume;
+      const prevTime = audio.currentTime;
+
+      audio.muted = true;
+      audio.volume = 0;
+      audio.src = SILENT_AUDIO_DATA_URI;
+      await audio.play();
+      audio.pause();
+      audio.currentTime = 0;
+      audio.muted = prevMuted;
+      audio.volume = prevVolume;
+      audio.src = prevSrc || '';
+      if (prevSrc) {
+        try {
+          audio.currentTime = prevTime;
+        } catch {
+          // Ignore restore errors
+        }
+      }
+      isHtmlAudioPrimedRef.current = true;
+      emitListenDebugAlert('prime-html-audio', {
+        playerId: playerIdRef.current,
+      });
+      return true;
+    } catch (error) {
+      emitListenDebugAlert('prime-html-audio-failed', {
+        playerId: playerIdRef.current,
+        errorName: (error as DOMException | Error | undefined)?.name,
+        errorMessage: (error as DOMException | Error | undefined)?.message,
+      });
+      return false;
+    } finally {
+      isPrimingRef.current = false;
+    }
+  }, [ensureHtmlAudioElement]);
 
   // Cleanup audio resources
   const cleanupAudio = useCallback(() => {
@@ -322,13 +381,7 @@ function AudioPlayerBase(
       const sessionId = startPlaySession();
       requestExclusive(stopPlayback);
 
-      if (!audioRef.current) {
-        audioRef.current = new Audio();
-        audioRef.current.preload = 'auto';
-        audioRef.current.setAttribute('playsinline', 'true');
-      }
-
-      const audio = audioRef.current;
+      const audio = ensureHtmlAudioElement();
       emitListenDebugAlert('playFromUrl', {
         playerId: playerIdRef.current,
         sessionId,
@@ -410,11 +463,13 @@ function AudioPlayerBase(
           onPlayStateChangeRef.current?.(false);
           if (err instanceof DOMException && err.name === 'NotAllowedError') {
             isPausedRef.current = true;
+            isHtmlAudioPrimedRef.current = false;
           }
           releaseExclusive();
         });
     },
     [
+      ensureHtmlAudioElement,
       isSessionActive,
       releaseExclusive,
       requestExclusive,
@@ -725,7 +780,9 @@ function AudioPlayerBase(
       // Pause
       pausePlayback();
       return;
-    } else {
+    }
+
+    const startPlayback = () => {
       if (isPausedRef.current) {
         if (useOssUrl && effectiveAudioUrl) {
           playFromUrl(pausedAtRef.current);
@@ -771,13 +828,21 @@ function AudioPlayerBase(
             stopPlayback();
           });
       }
-    }
+    };
+
+    void primeHtmlAudio().finally(() => {
+      if (isPlayingRef.current || isLoading) {
+        return;
+      }
+      startPlayback();
+    });
   }, [
     isPlaying,
     isLoading,
     effectiveAudioUrl,
     useOssUrl,
     isStreaming,
+    primeHtmlAudio,
     pausePlayback,
     playFromUrl,
     playFromSegments,
@@ -818,6 +883,8 @@ function AudioPlayerBase(
       isPlayingRef.current = false;
       playSessionRef.current += 1;
       pendingStreamRef.current = false;
+      isHtmlAudioPrimedRef.current = false;
+      isPrimingRef.current = false;
       cleanupAudio();
       releaseExclusive();
       if (audioContextRef.current) {
