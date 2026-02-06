@@ -1,8 +1,8 @@
-"""add billing usage records
+"""add bill usage table
 
-Revision ID: b7c1d6e9f2a3
+Revision ID: b2793bb43f97
 Revises: 9f3a0c3aebe0
-Create Date: 2026-02-03 00:00:00.000000
+Create Date: 2026-02-05 00:00:00.000000
 
 """
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
-revision = "b7c1d6e9f2a3"
+revision = "b2793bb43f97"
 down_revision = "9f3a0c3aebe0"
 branch_labels = None
 depends_on = None
@@ -19,7 +19,7 @@ depends_on = None
 
 def upgrade():
     op.create_table(
-        "billing_usage_records",
+        "bill_usage",
         sa.Column(
             "id",
             mysql.BIGINT(),
@@ -184,7 +184,7 @@ def upgrade():
             comment="Status: 0=success, 1=failed",
         ),
         sa.Column("error_message", sa.Text(), nullable=True, comment="Error message"),
-        sa.Column("metadata", sa.JSON(), nullable=True, comment="Extra metadata"),
+        sa.Column("extra", sa.JSON(), nullable=True),
         sa.Column(
             "deleted",
             sa.SmallInteger(),
@@ -207,88 +207,50 @@ def upgrade():
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    with op.batch_alter_table("billing_usage_records", schema=None) as batch_op:
+    with op.batch_alter_table("bill_usage", schema=None) as batch_op:
+        batch_op.create_index("idx_bill_usage_user_created", ["user_bid", "created_at"])
         batch_op.create_index(
-            batch_op.f("ix_billing_usage_records_audio_bid"),
-            ["audio_bid"],
-            unique=False,
+            "idx_bill_usage_shifu_created", ["shifu_bid", "created_at"]
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_usage_records_generated_block_bid"),
-            ["generated_block_bid"],
-            unique=False,
+            "idx_bill_usage_type_created", ["usage_type", "created_at"]
+        )
+        batch_op.create_index("ix_bill_usage_audio_bid", ["audio_bid"], unique=False)
+        batch_op.create_index(
+            "ix_bill_usage_generated_block_bid", ["generated_block_bid"], unique=False
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_usage_records_outline_item_bid"),
-            ["outline_item_bid"],
-            unique=False,
+            "ix_bill_usage_outline_item_bid", ["outline_item_bid"], unique=False
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_usage_records_parent_usage_bid"),
-            ["parent_usage_bid"],
-            unique=False,
+            "ix_bill_usage_parent_usage_bid", ["parent_usage_bid"], unique=False
         )
         batch_op.create_index(
-            batch_op.f("ix_billing_usage_records_progress_record_bid"),
+            "ix_bill_usage_progress_record_bid",
             ["progress_record_bid"],
             unique=False,
         )
-        batch_op.create_index(
-            batch_op.f("ix_billing_usage_records_request_id"),
-            ["request_id"],
-            unique=False,
-        )
-        batch_op.create_index(
-            batch_op.f("ix_billing_usage_records_shifu_bid"),
-            ["shifu_bid"],
-            unique=False,
-        )
-        batch_op.create_index(
-            batch_op.f("ix_billing_usage_records_usage_bid"),
-            ["usage_bid"],
-            unique=False,
-        )
-        batch_op.create_index(
-            batch_op.f("ix_billing_usage_records_user_bid"),
-            ["user_bid"],
-            unique=False,
-        )
-        batch_op.create_index(
-            batch_op.f("ix_billing_usage_records_deleted"),
-            ["deleted"],
-            unique=False,
-        )
-        batch_op.create_index(
-            "idx_billing_usage_user_created",
-            ["user_bid", "created_at"],
-            unique=False,
-        )
-        batch_op.create_index(
-            "idx_billing_usage_shifu_created",
-            ["shifu_bid", "created_at"],
-            unique=False,
-        )
-        batch_op.create_index(
-            "idx_billing_usage_type_created",
-            ["usage_type", "created_at"],
-            unique=False,
-        )
+        batch_op.create_index("ix_bill_usage_request_id", ["request_id"], unique=False)
+        batch_op.create_index("ix_bill_usage_shifu_bid", ["shifu_bid"], unique=False)
+        batch_op.create_index("ix_bill_usage_usage_bid", ["usage_bid"], unique=False)
+        batch_op.create_index("ix_bill_usage_user_bid", ["user_bid"], unique=False)
+        batch_op.create_index("ix_bill_usage_deleted", ["deleted"], unique=False)
 
 
 def downgrade():
-    with op.batch_alter_table("billing_usage_records", schema=None) as batch_op:
-        batch_op.drop_index("idx_billing_usage_type_created")
-        batch_op.drop_index("idx_billing_usage_shifu_created")
-        batch_op.drop_index("idx_billing_usage_user_created")
-        batch_op.drop_index(batch_op.f("ix_billing_usage_records_deleted"))
-        batch_op.drop_index(batch_op.f("ix_billing_usage_records_user_bid"))
-        batch_op.drop_index(batch_op.f("ix_billing_usage_records_usage_bid"))
-        batch_op.drop_index(batch_op.f("ix_billing_usage_records_shifu_bid"))
-        batch_op.drop_index(batch_op.f("ix_billing_usage_records_request_id"))
-        batch_op.drop_index(batch_op.f("ix_billing_usage_records_progress_record_bid"))
-        batch_op.drop_index(batch_op.f("ix_billing_usage_records_parent_usage_bid"))
-        batch_op.drop_index(batch_op.f("ix_billing_usage_records_outline_item_bid"))
-        batch_op.drop_index(batch_op.f("ix_billing_usage_records_generated_block_bid"))
-        batch_op.drop_index(batch_op.f("ix_billing_usage_records_audio_bid"))
+    with op.batch_alter_table("bill_usage", schema=None) as batch_op:
+        batch_op.drop_index("idx_bill_usage_user_created")
+        batch_op.drop_index("idx_bill_usage_shifu_created")
+        batch_op.drop_index("idx_bill_usage_type_created")
+        batch_op.drop_index("ix_bill_usage_audio_bid")
+        batch_op.drop_index("ix_bill_usage_generated_block_bid")
+        batch_op.drop_index("ix_bill_usage_outline_item_bid")
+        batch_op.drop_index("ix_bill_usage_parent_usage_bid")
+        batch_op.drop_index("ix_bill_usage_progress_record_bid")
+        batch_op.drop_index("ix_bill_usage_request_id")
+        batch_op.drop_index("ix_bill_usage_shifu_bid")
+        batch_op.drop_index("ix_bill_usage_usage_bid")
+        batch_op.drop_index("ix_bill_usage_user_bid")
+        batch_op.drop_index("ix_bill_usage_deleted")
 
-    op.drop_table("billing_usage_records")
+    op.drop_table("bill_usage")
