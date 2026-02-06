@@ -144,6 +144,9 @@ const ListenModeRenderer = ({
     audioPlayerRef,
     activeContentItem,
     activeAudioBlockBid,
+    audioPlaylist,
+    audioPlaylistStartIndex,
+    handlePlaylistItemChange,
     sequenceInteraction,
     isAudioSequenceActive,
     audioSequenceToken,
@@ -392,6 +395,10 @@ const ListenModeRenderer = ({
             audioUrl={activeContentItem.audioUrl}
             streamingSegments={activeContentItem.audioSegments}
             isStreaming={Boolean(activeContentItem.isAudioStreaming)}
+            playlist={audioPlaylist}
+            playlistStartIndex={audioPlaylistStartIndex}
+            isAutoPlayNext={!previewMode}
+            onPlaylistItemChange={handlePlaylistItemChange}
             alwaysVisible={true}
             disabled={previewMode}
             onRequestAudio={

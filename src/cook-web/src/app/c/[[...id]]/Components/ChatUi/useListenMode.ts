@@ -5,7 +5,10 @@ import {
   type RenderSegment,
 } from 'markdown-flow-ui/renderer';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
-import type { AudioPlayerHandle } from '@/components/audio/AudioPlayer';
+import type {
+  AudioPlayerHandle,
+  AudioPlaylistItem,
+} from '@/components/audio/AudioPlayer';
 import { emitListenDebugAlert } from '@/c-utils/listen-debug';
 
 export type AudioInteractionItem = ChatContentItem & {
@@ -635,8 +638,11 @@ export const useListenAudioSequence = ({
     null,
   );
   const audioSequenceListRef = useRef<AudioInteractionItem[]>([]);
+  const playlistSequenceIndexMapRef = useRef<number[]>([]);
   const prevAudioSequenceLengthRef = useRef(0);
   const [activeAudioBid, setActiveAudioBid] = useState<string | null>(null);
+  const [audioPlaylist, setAudioPlaylist] = useState<AudioPlaylistItem[]>([]);
+  const [audioPlaylistStartIndex, setAudioPlaylistStartIndex] = useState(0);
   const [sequenceInteraction, setSequenceInteraction] =
     useState<AudioInteractionItem | null>(null);
   const [isAudioSequenceActive, setIsAudioSequenceActive] = useState(false);
@@ -693,6 +699,33 @@ export const useListenAudioSequence = ({
     return nextIndex;
   }, []);
 
+  const buildPlaylistFromIndex = useCallback((startIndex: number) => {
+    const list = audioSequenceListRef.current;
+    const items: AudioPlaylistItem[] = [];
+    const indexMap: number[] = [];
+    if (!list.length || startIndex < 0) {
+      return { items, indexMap };
+    }
+    for (let i = startIndex; i < list.length; i += 1) {
+      const item = list[i];
+      if (item.type === ChatContentItemType.INTERACTION) {
+        break;
+      }
+      if (item.type !== ChatContentItemType.CONTENT) {
+        continue;
+      }
+      items.push({
+        audioUrl: item.audioUrl,
+        streamingSegments: item.audioSegments,
+        isStreaming: item.isAudioStreaming,
+        contentKey: item.generated_block_bid ?? null,
+        itemId: item.generated_block_bid ?? undefined,
+      });
+      indexMap.push(i);
+    }
+    return { items, indexMap };
+  }, []);
+
   const playAudioSequenceFromIndex = useCallback(
     (index: number) => {
       // Prevent redundant calls for the same index if already active
@@ -712,6 +745,9 @@ export const useListenAudioSequence = ({
           index,
           listLength: list.length,
         });
+        setAudioPlaylist([]);
+        setAudioPlaylistStartIndex(0);
+        playlistSequenceIndexMapRef.current = [];
         setSequenceInteraction(null);
         setActiveAudioBid(null);
         setIsAudioSequenceActive(false);
@@ -731,6 +767,9 @@ export const useListenAudioSequence = ({
       }
 
       if (nextItem.type === ChatContentItemType.INTERACTION) {
+        setAudioPlaylist([]);
+        setAudioPlaylistStartIndex(0);
+        playlistSequenceIndexMapRef.current = [];
         setSequenceInteraction(nextItem);
         setActiveAudioBid(null);
         if (index >= list.length - 1) {
@@ -744,8 +783,49 @@ export const useListenAudioSequence = ({
       setSequenceInteraction(null);
       setActiveAudioBid(nextItem.generated_block_bid);
       setAudioSequenceToken(prev => prev + 1);
+      const { items, indexMap } = buildPlaylistFromIndex(index);
+      setAudioPlaylist(items);
+      setAudioPlaylistStartIndex(0);
+      playlistSequenceIndexMapRef.current = indexMap;
     },
-    [clearAudioSequenceTimer, syncToSequencePage, isAudioSequenceActive],
+    [
+      buildPlaylistFromIndex,
+      clearAudioSequenceTimer,
+      syncToSequencePage,
+      isAudioSequenceActive,
+    ],
+  );
+
+  const handlePlaylistItemChange = useCallback(
+    (playlistIndex: number, item: AudioPlaylistItem | null) => {
+      if (isSequencePausedRef.current) {
+        return;
+      }
+      const sequenceIndex =
+        playlistSequenceIndexMapRef.current[playlistIndex];
+      if (sequenceIndex === undefined) {
+        return;
+      }
+      const listItem = audioSequenceListRef.current[sequenceIndex];
+      if (!listItem) {
+        return;
+      }
+      emitListenDebugAlert('sequence-playlist-item', {
+        playlistIndex,
+        sequenceIndex,
+        blockBid: listItem.generated_block_bid,
+        itemId: item?.itemId,
+      });
+      syncToSequencePage(listItem.page);
+      audioSequenceIndexRef.current = sequenceIndex;
+      setIsAudioSequenceActive(true);
+      setSequenceInteraction(null);
+      if (listItem.generated_block_bid) {
+        setActiveAudioBid(listItem.generated_block_bid);
+        lastPlayedAudioBidRef.current = listItem.generated_block_bid;
+      }
+    },
+    [syncToSequencePage],
   );
 
   useEffect(() => {
@@ -831,6 +911,9 @@ export const useListenAudioSequence = ({
     clearAudioSequenceTimer();
     audioPlayerRef.current?.pause();
     audioSequenceIndexRef.current = -1;
+    playlistSequenceIndexMapRef.current = [];
+    setAudioPlaylist([]);
+    setAudioPlaylistStartIndex(0);
     setSequenceInteraction(null);
     setActiveAudioBid(null);
     setIsAudioSequenceActive(false);
@@ -873,6 +956,9 @@ export const useListenAudioSequence = ({
     }
     clearAudioSequenceTimer();
     audioSequenceIndexRef.current = -1;
+    playlistSequenceIndexMapRef.current = [];
+    setAudioPlaylist([]);
+    setAudioPlaylistStartIndex(0);
     setActiveAudioBid(null);
     setSequenceInteraction(null);
     setIsAudioSequenceActive(false);
@@ -1125,6 +1211,9 @@ export const useListenAudioSequence = ({
     audioPlayerRef,
     activeContentItem,
     activeAudioBlockBid,
+    audioPlaylist,
+    audioPlaylistStartIndex,
+    handlePlaylistItemChange,
     sequenceInteraction,
     isAudioSequenceActive,
     audioSequenceToken,
