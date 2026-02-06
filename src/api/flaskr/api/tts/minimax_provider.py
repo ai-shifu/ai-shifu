@@ -172,7 +172,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
 
         logger.info(
             f"Minimax TTS synthesis completed: duration={duration_ms}ms, "
-            f"size={len(audio_data)} bytes, usage_characters={word_count}"
+            f"size={len(audio_data)} bytes, usage_characters={word_count}, extra_info={extra_info}"
         )
 
         return TTSResult(
