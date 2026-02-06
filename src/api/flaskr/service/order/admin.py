@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from collections import defaultdict
+import hashlib
 import re
 from typing import Any, Dict, List, Optional
 
@@ -127,8 +128,15 @@ def normalize_email(email: str) -> str:
     if not normalized_email:
         raise_param_error("email")
     if not EMAIL_PATTERN.fullmatch(normalized_email):
-        raise_param_error(f"email format invalid: {normalized_email}")
+        raise_param_error("email format invalid")
     return normalized_email
+
+
+def _mask_contact_identifier(identifier: str) -> str:
+    if not identifier:
+        return ""
+    digest = hashlib.sha256(identifier.encode("utf-8")).hexdigest()[:8]
+    return f"hash:{digest}"
 
 
 def normalize_contact_identifier(identifier: str, contact_type: str) -> str:
@@ -491,9 +499,10 @@ def import_activation_orders(
             results["success"].append({"mobile": normalized_mobile, **order})
         except AppException as exc:
             if hasattr(app, "logger"):
+                masked_identifier = _mask_contact_identifier(normalized_mobile)
                 app.logger.warning(
                     "import activation failed for %s: %s",
-                    normalized_mobile,
+                    masked_identifier,
                     exc.message,
                 )
             results["failed"].append(
@@ -501,8 +510,10 @@ def import_activation_orders(
             )
         except Exception as exc:  # noqa: BLE001
             if hasattr(app, "logger"):
+                masked_identifier = _mask_contact_identifier(normalized_mobile)
                 app.logger.exception(
-                    "import activation unexpected failure for %s", normalized_mobile
+                    "import activation unexpected failure for %s",
+                    masked_identifier,
                 )
             results["failed"].append({"mobile": normalized_mobile, "message": str(exc)})
     return results
@@ -533,9 +544,10 @@ def import_activation_orders_from_entries(
             results["success"].append({"mobile": normalized_mobile, **order})
         except AppException as exc:
             if hasattr(app, "logger"):
+                masked_identifier = _mask_contact_identifier(normalized_mobile)
                 app.logger.warning(
                     "import activation failed for %s: %s",
-                    normalized_mobile,
+                    masked_identifier,
                     exc.message,
                 )
             results["failed"].append(
@@ -543,8 +555,10 @@ def import_activation_orders_from_entries(
             )
         except Exception as exc:  # noqa: BLE001
             if hasattr(app, "logger"):
+                masked_identifier = _mask_contact_identifier(normalized_mobile)
                 app.logger.exception(
-                    "import activation unexpected failure for %s", normalized_mobile
+                    "import activation unexpected failure for %s",
+                    masked_identifier,
                 )
             results["failed"].append({"mobile": normalized_mobile, "message": str(exc)})
     return results

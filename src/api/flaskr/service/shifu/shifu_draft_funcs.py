@@ -16,7 +16,12 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from datetime import datetime
 from .dtos import ShifuDto, ShifuDetailDto
 from ...util import generate_id
-from .consts import STATUS_DRAFT, SHIFU_NAME_MAX_LENGTH, UNIT_TYPE_GUEST
+from .consts import (
+    STATUS_DRAFT,
+    STATUS_PUBLISHED,
+    SHIFU_NAME_MAX_LENGTH,
+    UNIT_TYPE_GUEST,
+)
 from ..check_risk.funcs import check_text_with_risk_control
 from ..common.models import raise_error, raise_error_with_args, AppException
 from .utils import (
@@ -587,7 +592,8 @@ def get_shifu_published_list(
         if creator_only:
             shifu_bids = get_user_created_published_shifu_bids(app, user_id)
         else:
-            shifu_bids = get_user_created_published_shifu_bids(app, user_id)
+            permission_map = get_user_shifu_permissions(app, user_id)
+            shifu_bids = list(permission_map.keys())
         if not shifu_bids:
             return PageNationDTO(page_index, page_size, 0, [])
 
@@ -600,18 +606,19 @@ def get_shifu_published_list(
             .group_by(PublishedShifu.shifu_bid)
         ).subquery()
 
-        shifus: list[PublishedShifu] = (
+        base_query = (
             db.session.query(PublishedShifu)
             .filter(PublishedShifu.id.in_(latest_subquery))
             .order_by(PublishedShifu.title.asc(), PublishedShifu.shifu_bid.asc())
-            .all()
         )
 
-        total = len(shifus)
+        total = base_query.order_by(None).count()
         page_count = math.ceil(total / page_size) if page_size > 0 else 0
         safe_page_index = min(page_index, max(page_count, 1))
         page_offset = (safe_page_index - 1) * page_size
-        shifus = shifus[page_offset : page_offset + page_size]
+        shifus: list[PublishedShifu] = (
+            base_query.limit(page_size).offset(page_offset).all()
+        )
 
         res_bids = [shifu.avatar_res_bid for shifu in shifus]
         res_url_map = get_shifu_res_url_dict(res_bids)
@@ -621,7 +628,7 @@ def get_shifu_published_list(
                 shifu.title,
                 shifu.description,
                 res_url_map.get(shifu.avatar_res_bid, ""),
-                STATUS_DRAFT,
+                STATUS_PUBLISHED,
                 False,
                 False,
             )

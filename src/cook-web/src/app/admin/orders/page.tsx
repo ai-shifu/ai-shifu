@@ -57,6 +57,7 @@ import {
 import OrderDetailSheet from '@/components/order/OrderDetailSheet';
 import ImportActivationDialog from '@/components/order/ImportActivationDialog';
 import { cn } from '@/lib/utils';
+import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import { CalendarIcon, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import type { OrderSummary } from '@/components/order/order-types';
 import type { Shifu } from '@/types/shifu';
@@ -248,6 +249,9 @@ const OrdersPage = () => {
   const loginMethodsEnabled = useEnvStore(
     (state: EnvStoreState) => state.loginMethodsEnabled,
   );
+  const defaultLoginMethod = useEnvStore(
+    (state: EnvStoreState) => state.defaultLoginMethod,
+  );
   const currencySymbol = useEnvStore(
     (state: EnvStoreState) => state.currencySymbol,
   );
@@ -392,12 +396,11 @@ const OrdersPage = () => {
 
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
 
-  const isEmailMode = useMemo(
-    () =>
-      typeof window !== 'undefined' &&
-      window.location.hostname.endsWith('.com'),
-    [],
+  const contactType = useMemo(
+    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+    [defaultLoginMethod, loginMethodsEnabled],
   );
+  const isEmailMode = contactType === 'email';
 
   const userBidPlaceholder = useMemo(() => {
     if (isEmailMode) {

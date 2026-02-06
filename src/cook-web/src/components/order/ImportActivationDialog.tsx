@@ -8,6 +8,7 @@ import api from '@/api';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/hooks/useToast';
 import { ErrorWithCode } from '@/lib/request';
+import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import Loading from '@/components/loading';
 import {
   Dialog,
@@ -45,6 +46,8 @@ import {
 import { cn } from '@/lib/utils';
 import { ChevronDown } from 'lucide-react';
 import type { Shifu } from '@/types/shifu';
+import { useEnvStore } from '@/c-store';
+import type { EnvStoreState } from '@/c-types/store';
 
 interface ImportActivationDialogProps {
   open: boolean;
@@ -59,6 +62,7 @@ interface ImportActivationEntry {
 
 const MAX_BULK_MOBILE_COUNT = 50;
 const MOBILE_SAMPLE_LIMIT = 5;
+const MAX_IMPORT_TEXT_LENGTH = 10000;
 const TEXT_CHAR_PATTERN = /[A-Za-z\u4E00-\u9FFF]/;
 const PHONE_MATCH_PATTERN = /\d{11}/g;
 const PHONE_TEST_PATTERN = /\d{11}/;
@@ -93,28 +97,29 @@ const parseImportText = (
   normalizedText: string;
   invalidItems: string[];
 } => {
+  const safeValue = value.slice(0, MAX_IMPORT_TEXT_LENGTH);
   const testPattern =
     contactType === 'email' ? EMAIL_TEST_PATTERN : PHONE_TEST_PATTERN;
-  const invalidItems = value
+  const invalidItems = safeValue
     .split(/\r?\n/)
     .map(line => trimDisplayLine(line))
     .filter(item => item.length > 0 && !testPattern.test(item));
   const matchPattern =
     contactType === 'email' ? EMAIL_MATCH_PATTERN : PHONE_MATCH_PATTERN;
   const matches = Array.from(
-    value.matchAll(new RegExp(matchPattern.source, 'g')),
+    safeValue.matchAll(new RegExp(matchPattern.source, 'g')),
   );
   if (matches.length === 0) {
-    return { entries: [], normalizedText: value, invalidItems };
+    return { entries: [], normalizedText: safeValue, invalidItems };
   }
 
   const entries = matches.map((match, index) => {
     const start = match.index ?? 0;
     const end =
       index + 1 < matches.length
-        ? (matches[index + 1].index ?? value.length)
-        : value.length;
-    const segment = value.slice(start, end);
+        ? (matches[index + 1].index ?? safeValue.length)
+        : safeValue.length;
+    const segment = safeValue.slice(start, end);
     const identifier =
       contactType === 'email' ? match[0].toLowerCase() : match[0];
     const nicknameSource = segment.replace(match[0], '');
@@ -126,9 +131,9 @@ const parseImportText = (
     const start = match.index ?? 0;
     const end =
       index + 1 < matches.length
-        ? (matches[index + 1].index ?? value.length)
-        : value.length;
-    const segment = value.slice(start, end);
+        ? (matches[index + 1].index ?? safeValue.length)
+        : safeValue.length;
+    const segment = safeValue.slice(start, end);
     return trimDisplayLine(segment);
   });
 
@@ -146,29 +151,33 @@ const ImportActivationDialog = ({
 }: ImportActivationDialogProps) => {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const loginMethodsEnabled = useEnvStore(
+    (state: EnvStoreState) => state.loginMethodsEnabled,
+  );
+  const defaultLoginMethod = useEnvStore(
+    (state: EnvStoreState) => state.defaultLoginMethod,
+  );
   const [courses, setCourses] = React.useState<Shifu[]>([]);
   const [coursesLoading, setCoursesLoading] = React.useState(false);
   const [coursesError, setCoursesError] = React.useState<string | null>(null);
   const [courseSearch, setCourseSearch] = React.useState('');
   const [courseOpen, setCourseOpen] = React.useState(false);
   const dialogContentRef = React.useRef<HTMLDivElement | null>(null);
+  const contactType = React.useMemo(
+    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+    [defaultLoginMethod, loginMethodsEnabled],
+  );
+  const isEmailMode = contactType === 'email';
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [pendingMobiles, setPendingMobiles] = React.useState<string[]>([]);
   const [pendingEntries, setPendingEntries] = React.useState<
     ImportActivationEntry[]
   >([]);
   const [isImporting, setIsImporting] = React.useState(false);
-  const joinedIdentifiers = React.useMemo(
-    () => pendingMobiles.join('，'),
-    [pendingMobiles],
-  );
-  const isEmailMode = React.useMemo(
-    () =>
-      typeof window !== 'undefined' &&
-      window.location.hostname.endsWith('.com'),
-    [],
-  );
-  const contactType = isEmailMode ? 'email' : 'phone';
+  const joinedIdentifiers = React.useMemo(() => {
+    const separator = isEmailMode ? ', ' : '，';
+    return pendingMobiles.join(separator);
+  }, [isEmailMode, pendingMobiles]);
   const contactLabel = isEmailMode
     ? t('module.order.importActivation.emailLabel')
     : t('module.order.importActivation.mobileLabel');
@@ -299,7 +308,8 @@ const ImportActivationDialog = ({
       contactType,
     );
     if (invalidItems.length > 0) {
-      const sample = invalidItems.slice(0, MOBILE_SAMPLE_LIMIT).join('，');
+      const separator = isEmailMode ? ', ' : '，';
+      const sample = invalidItems.slice(0, MOBILE_SAMPLE_LIMIT).join(separator);
       const displayValues =
         invalidItems.length > MOBILE_SAMPLE_LIMIT ? `${sample}...` : sample;
       form.setError('mobile', {
@@ -557,6 +567,7 @@ const ImportActivationDialog = ({
                         autoComplete='off'
                         placeholder={contactPlaceholder}
                         className='min-h-[80px]'
+                        maxLength={MAX_IMPORT_TEXT_LENGTH}
                         {...field}
                         onChange={e => field.onChange(e.target.value)}
                         onBlur={event => {
