@@ -168,11 +168,11 @@ class MinimaxTTSProvider(BaseTTSProvider):
         duration_ms = extra_info.get("audio_length", 0)
         sample_rate = extra_info.get("audio_sample_rate", 24000)
         audio_format = extra_info.get("audio_format", "mp3")
-        word_count = extra_info.get("word_count", 0)
+        word_count = extra_info.get("usage_characters", 0)
 
         logger.info(
             f"Minimax TTS synthesis completed: duration={duration_ms}ms, "
-            f"size={len(audio_data)} bytes, words={word_count}"
+            f"size={len(audio_data)} bytes, usage_characters={word_count}, extra_info={extra_info}"
         )
 
         return TTSResult(

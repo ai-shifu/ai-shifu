@@ -37,6 +37,8 @@ from flaskr.service.tts.audio_utils import (
 )
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.common.log import AppLoggerProxy
+from flaskr.service.metering import UsageContext, record_tts_usage
+from flaskr.util.uuid import generate_id
 
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
@@ -220,6 +222,8 @@ def synthesize_long_text_to_oss(
     audio_bid: Optional[str] = None,
     voice_settings: Optional[VoiceSettings] = None,
     audio_settings: Optional[AudioSettings] = None,
+    usage_context: Optional[UsageContext] = None,
+    parent_usage_bid: Optional[str] = None,
 ) -> SynthesizeToOssResult:
     """
     Synthesize a long text, upload the final audio to OSS, and return URL + metrics.
@@ -244,6 +248,15 @@ def synthesize_long_text_to_oss(
     if not segments:
         raise ValueError("No speakable text after preprocessing")
 
+    cleaned_text = preprocess_for_tts(text or "")
+    raw_length = len(text or "")
+    cleaned_length = len(cleaned_text or "")
+    usage_parent_bid = ""
+    usage_metadata: Optional[dict] = None
+    total_word_count = 0
+    if usage_context is not None:
+        usage_parent_bid = parent_usage_bid or generate_id(app)
+
     if voice_settings is None:
         voice_settings = get_default_voice_settings(provider)
     if voice_id:
@@ -253,6 +266,16 @@ def synthesize_long_text_to_oss(
         audio_settings = get_default_audio_settings(provider)
     # Force MP3 for OSS playback and consistent file naming.
     audio_settings.format = "mp3"
+    if usage_context is not None:
+        usage_metadata = {
+            "voice_id": voice_settings.voice_id or "",
+            "speed": voice_settings.speed,
+            "pitch": voice_settings.pitch,
+            "emotion": voice_settings.emotion,
+            "volume": voice_settings.volume,
+            "format": audio_settings.format or "mp3",
+            "sample_rate": audio_settings.sample_rate or 24000,
+        }
 
     start = time.monotonic()
     max_workers = max(1, int(max_workers or 1))
@@ -264,6 +287,7 @@ def synthesize_long_text_to_oss(
         audio_parts: list[bytes] = []
         with app.app_context():
             for index, segment_text in enumerate(segments):
+                segment_start = time.monotonic()
                 result = synthesize_text(
                     text=segment_text,
                     voice_settings=voice_settings,
@@ -272,6 +296,28 @@ def synthesize_long_text_to_oss(
                     provider_name=provider,
                 )
                 audio_parts.append(result.audio_data)
+                if usage_context is not None:
+                    segment_length = len(segment_text or "")
+                    total_word_count += int(result.word_count or 0)
+                    latency_ms = int((time.monotonic() - segment_start) * 1000)
+                    record_tts_usage(
+                        app,
+                        usage_context,
+                        provider=provider,
+                        model=(model or "").strip(),
+                        is_stream=False,
+                        input=segment_length,
+                        output=segment_length,
+                        total=segment_length,
+                        word_count=int(result.word_count or 0),
+                        duration_ms=int(result.duration_ms or 0),
+                        latency_ms=latency_ms,
+                        record_level=1,
+                        parent_usage_bid=usage_parent_bid,
+                        segment_index=index,
+                        segment_count=0,
+                        extra=usage_metadata,
+                    )
                 if sleep_between_segments and index < len(segments) - 1:
                     time.sleep(sleep_between_segments)
     else:
@@ -281,6 +327,7 @@ def synthesize_long_text_to_oss(
                 provider,
             )
         audio_parts = [b""] * len(segments)
+        segment_map = {idx: segment for idx, segment in enumerate(segments)}
 
         def _synthesize_in_app_context(segment_text: str):
             with app.app_context():
@@ -307,6 +354,28 @@ def synthesize_long_text_to_oss(
                 index = future_map[future]
                 result = future.result()
                 audio_parts[index] = result.audio_data
+                if usage_context is not None:
+                    segment_text = segment_map.get(index, "")
+                    segment_length = len(segment_text or "")
+                    total_word_count += int(result.word_count or 0)
+                    record_tts_usage(
+                        app,
+                        usage_context,
+                        provider=provider,
+                        model=(model or "").strip(),
+                        is_stream=False,
+                        input=segment_length,
+                        output=segment_length,
+                        total=segment_length,
+                        word_count=int(result.word_count or 0),
+                        duration_ms=int(result.duration_ms or 0),
+                        latency_ms=0,
+                        record_level=1,
+                        parent_usage_bid=usage_parent_bid,
+                        segment_index=index,
+                        segment_count=0,
+                        extra=usage_metadata,
+                    )
 
     final_audio = concat_audio_best_effort(audio_parts)
     if not final_audio:
@@ -319,6 +388,27 @@ def synthesize_long_text_to_oss(
         audio_url, _bucket = upload_audio_to_oss(app, final_audio, audio_bid)
 
     elapsed = time.monotonic() - start
+
+    if usage_context is not None:
+        record_tts_usage(
+            app,
+            usage_context,
+            usage_bid=usage_parent_bid,
+            provider=provider,
+            model=(model or "").strip(),
+            is_stream=False,
+            input=raw_length,
+            output=cleaned_length,
+            total=cleaned_length,
+            word_count=total_word_count,
+            duration_ms=int(duration_ms or 0),
+            latency_ms=0,
+            record_level=0,
+            parent_usage_bid="",
+            segment_index=0,
+            segment_count=len(segments),
+            extra=usage_metadata,
+        )
 
     return SynthesizeToOssResult(
         provider=provider,
@@ -360,10 +450,10 @@ def write_html_report(
         )
 
     html_body = f"""<!doctype html>
-<html lang="en">
+<html lang=\"en\">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset=\"utf-8\" />
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
     <title>{html.escape(title)}</title>
     <style>
       body {{ font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 24px; }}
@@ -376,7 +466,7 @@ def write_html_report(
   </head>
   <body>
     <h1>{html.escape(title)}</h1>
-    <p class="muted">Rows: {len(results)}</p>
+    <p class=\"muted\">Rows: {len(results)}</p>
     <table>
       <thead>
         <tr>

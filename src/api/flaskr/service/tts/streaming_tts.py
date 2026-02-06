@@ -12,6 +12,7 @@ import base64
 import logging
 import uuid
 import threading
+import time
 from typing import Generator, Optional, List, Dict
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, Future
@@ -38,6 +39,9 @@ from flaskr.service.tts.models import (
     LearnGeneratedAudio,
     AUDIO_STATUS_COMPLETED,
 )
+from flaskr.service.metering import UsageContext, record_tts_usage
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD
+from flaskr.util.uuid import generate_id
 from flaskr.service.learn.learn_dtos import (
     RunMarkdownFlowDTO,
     GeneratedType,
@@ -63,6 +67,8 @@ class TTSSegment:
     text: str
     audio_data: Optional[bytes] = None
     duration_ms: int = 0
+    word_count: int = 0
+    latency_ms: int = 0
     error: Optional[str] = None
     is_ready: bool = False
 
@@ -89,6 +95,7 @@ class StreamingTTSProcessor:
         max_segment_chars: int = 300,
         tts_provider: str = "",
         tts_model: str = "",
+        usage_scene: int = BILL_USAGE_SCENE_PROD,
     ):
         self.app = app
         self.generated_block_bid = generated_block_bid
@@ -118,6 +125,18 @@ class StreamingTTSProcessor:
         self._first_sentence_done = False
         self._segment_index = 0
         self._audio_bid = str(uuid.uuid4()).replace("-", "")
+        self._usage_parent_bid = generate_id(app)
+        self._word_count_total = 0
+        self._usage_scene = usage_scene
+        self.usage_context = UsageContext(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            progress_record_bid=progress_record_bid,
+            generated_block_bid=generated_block_bid,
+            audio_bid=self._audio_bid,
+            usage_scene=usage_scene,
+        )
 
         # Thread-safe queue for completed segments
         self._completed_segments: Dict[int, TTSSegment] = {}
@@ -249,6 +268,7 @@ class StreamingTTSProcessor:
         """Synthesize a segment in a background thread."""
         with self.app.app_context():
             try:
+                segment_start = time.monotonic()
                 result = synthesize_text(
                     text=segment.text,
                     voice_settings=voice_settings,
@@ -258,7 +278,40 @@ class StreamingTTSProcessor:
                 )
                 segment.audio_data = result.audio_data
                 segment.duration_ms = result.duration_ms
+                segment.word_count = int(result.word_count or 0)
+                segment.latency_ms = int((time.monotonic() - segment_start) * 1000)
                 segment.is_ready = True
+
+                segment_length = len(segment.text or "")
+                record_tts_usage(
+                    self.app,
+                    self.usage_context,
+                    provider=tts_provider or "",
+                    model=tts_model or "",
+                    is_stream=True,
+                    input=segment_length,
+                    output=segment_length,
+                    total=segment_length,
+                    word_count=segment.word_count,
+                    duration_ms=int(segment.duration_ms or 0),
+                    latency_ms=segment.latency_ms,
+                    record_level=1,
+                    parent_usage_bid=self._usage_parent_bid,
+                    segment_index=segment.index,
+                    segment_count=0,
+                    extra={
+                        "voice_id": self.voice_settings.voice_id or "",
+                        "speed": self.voice_settings.speed,
+                        "pitch": self.voice_settings.pitch,
+                        "emotion": self.voice_settings.emotion,
+                        "volume": self.voice_settings.volume,
+                        "format": self.audio_settings.format or "mp3",
+                        "sample_rate": self.audio_settings.sample_rate or 24000,
+                    },
+                )
+
+                with self._lock:
+                    self._word_count_total += segment.word_count
 
                 logger.info(
                     f"TTS segment {segment.index} synthesized: "
@@ -318,10 +371,14 @@ class StreamingTTSProcessor:
         """
         Finalize TTS processing after content streaming is complete.
         """
+        raw_text = self._buffer
+        cleaned_text = ""
         cleaned_text_length = 0
         try:
-            cleaned_text_length = len(preprocess_for_tts(self._buffer or ""))
+            cleaned_text = preprocess_for_tts(self._buffer or "")
+            cleaned_text_length = len(cleaned_text)
         except Exception:
+            cleaned_text = ""
             cleaned_text_length = 0
 
         logger.info(
@@ -438,6 +495,34 @@ class StreamingTTSProcessor:
                 db.session.flush()
                 logger.info("TTS finalize: database flush complete")
 
+            record_tts_usage(
+                self.app,
+                self.usage_context,
+                usage_bid=self._usage_parent_bid,
+                provider=self.tts_provider or "",
+                model=self.tts_model or "",
+                is_stream=True,
+                input=len(raw_text or ""),
+                output=len(cleaned_text or ""),
+                total=len(cleaned_text or ""),
+                word_count=self._word_count_total,
+                duration_ms=int(final_duration_ms or 0),
+                latency_ms=0,
+                record_level=0,
+                parent_usage_bid="",
+                segment_index=0,
+                segment_count=len(audio_data_list),
+                extra={
+                    "voice_id": self.voice_settings.voice_id or "",
+                    "speed": self.voice_settings.speed,
+                    "pitch": self.voice_settings.pitch,
+                    "emotion": self.voice_settings.emotion,
+                    "volume": self.voice_settings.volume,
+                    "format": self.audio_settings.format or "mp3",
+                    "sample_rate": self.audio_settings.sample_rate or 24000,
+                },
+            )
+
             # Yield completion
             logger.info("TTS finalize: yielding AUDIO_COMPLETE")
             yield RunMarkdownFlowDTO(
@@ -477,6 +562,7 @@ class StreamingTTSProcessor:
             f"pending_futures={len(self._pending_futures)}, "
             f"all_audio_data={len(self._all_audio_data)}"
         )
+        raw_text = self._buffer
         if not self._enabled:
             return
 
@@ -518,4 +604,38 @@ class StreamingTTSProcessor:
                 audio_bid=self._audio_bid,
                 duration_ms=total_duration_ms,
             ),
+        )
+
+        cleaned_text = ""
+        try:
+            cleaned_text = preprocess_for_tts(raw_text or "")
+        except Exception:
+            cleaned_text = ""
+
+        record_tts_usage(
+            self.app,
+            self.usage_context,
+            usage_bid=self._usage_parent_bid,
+            provider=self.tts_provider or "",
+            model=self.tts_model or "",
+            is_stream=True,
+            input=len(raw_text or ""),
+            output=len(cleaned_text or ""),
+            total=len(cleaned_text or ""),
+            word_count=self._word_count_total,
+            duration_ms=int(total_duration_ms or 0),
+            latency_ms=0,
+            record_level=0,
+            parent_usage_bid="",
+            segment_index=0,
+            segment_count=len(self._all_audio_data),
+            extra={
+                "voice_id": self.voice_settings.voice_id or "",
+                "speed": self.voice_settings.speed,
+                "pitch": self.voice_settings.pitch,
+                "emotion": self.voice_settings.emotion,
+                "volume": self.voice_settings.volume,
+                "format": self.audio_settings.format or "mp3",
+                "sample_rate": self.audio_settings.sample_rate or 24000,
+            },
         )

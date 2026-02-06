@@ -83,6 +83,11 @@ from flaskr.service.profile.profile_manage import (
     get_profile_item_definition_list,
     ProfileItemDefinition,
 )
+from flaskr.service.metering import UsageContext
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
 from flaskr.service.learn.learn_dtos import VariableUpdateDTO
 from flaskr.service.learn.check_text import check_text_with_llm_response
 from flaskr.service.learn.llmsetting import LLMSettings
@@ -123,6 +128,8 @@ class RUNLLMProvider(LLMProvider):
     llm_settings: LLMSettings
     trace: StatefulTraceClient
     trace_args: dict
+    usage_context: UsageContext
+    usage_scene: int
 
     def __init__(
         self,
@@ -130,11 +137,15 @@ class RUNLLMProvider(LLMProvider):
         llm_settings: LLMSettings,
         trace: StatefulTraceClient,
         trace_args: dict,
+        usage_context: UsageContext,
+        usage_scene: int,
     ):
         self.app = app
         self.llm_settings = llm_settings
         self.trace = trace
         self.trace_args = trace_args
+        self.usage_context = usage_context
+        self.usage_scene = usage_scene
 
     def complete(
         self,
@@ -160,6 +171,8 @@ class RUNLLMProvider(LLMProvider):
             stream=False,
             generation_name="run_llm",
             temperature=actual_temperature,
+            usage_context=self.usage_context,
+            usage_scene=self.usage_scene,
         )
         # Collect all stream responses and concatenate the results
         content_parts = []
@@ -200,6 +213,8 @@ class RUNLLMProvider(LLMProvider):
             stream=True,
             generation_name="run_llm",
             temperature=actual_temperature,
+            usage_context=self.usage_context,
+            usage_scene=self.usage_scene,
         )
         self.app.logger.info(f"stream invoke_llm res: {res}")
         first_result = False
@@ -479,11 +494,19 @@ class RunScriptPreviewContextV2:
             },
         }
         trace = langfuse.trace(**trace_args)
+        usage_context = UsageContext(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            usage_scene=BILL_USAGE_SCENE_PREVIEW,
+        )
         provider = RUNLLMProvider(
             self.app,
             LLMSettings(model=model, temperature=temperature),
             trace,
             trace_args,
+            usage_context,
+            BILL_USAGE_SCENE_PREVIEW,
         )
 
         resolved_variables = self._resolve_preview_variables(
@@ -1051,7 +1074,7 @@ class RunScriptContextV2:
         return context_local.current_context
 
     def _should_stream_tts(self) -> bool:
-        return (not self._preview_mode) and self._listen
+        return (not self._preview_mode) and bool(getattr(self, "_listen", False))
 
     def _get_current_attend(self, outline_bid: str) -> LearnProgressRecord:
         attend_info: LearnProgressRecord = (
@@ -1579,7 +1602,24 @@ class RunScriptContextV2:
             document=run_script_info.mdflow,
             document_prompt=system_prompt,
             llm_provider=RUNLLMProvider(
-                app, llm_settings, self._trace, self._trace_args
+                app,
+                llm_settings,
+                self._trace,
+                self._trace_args,
+                UsageContext(
+                    user_bid=self._user_info.user_id,
+                    shifu_bid=self._outline_item_info.shifu_bid,
+                    outline_item_bid=run_script_info.outline_bid,
+                    progress_record_bid=self._current_attend.progress_record_bid,
+                    usage_scene=(
+                        BILL_USAGE_SCENE_PREVIEW
+                        if self._preview_mode
+                        else BILL_USAGE_SCENE_PROD
+                    ),
+                ),
+                BILL_USAGE_SCENE_PREVIEW
+                if self._preview_mode
+                else BILL_USAGE_SCENE_PROD,
             ),
             use_learner_language=self._shifu_info.use_learner_language,
         )

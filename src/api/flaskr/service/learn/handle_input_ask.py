@@ -23,6 +23,11 @@ from flaskr.service.shifu.consts import (
 )
 from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO, GeneratedType
 from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.metering import UsageContext
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
 
 
 @extensible_generic
@@ -46,6 +51,15 @@ def handle_input_ask(
     # Get follow-up information (including Q&A prompts and model configuration)
     follow_up_info = get_follow_up_info_v2(
         app, outline_item_info.shifu_bid, outline_item_info.bid, attend_id, is_preview
+    )
+
+    usage_scene = BILL_USAGE_SCENE_PREVIEW if is_preview else BILL_USAGE_SCENE_PROD
+    usage_context = UsageContext(
+        user_bid=user_info.user_id,
+        shifu_bid=outline_item_info.shifu_bid,
+        outline_item_bid=outline_item_info.bid,
+        progress_record_bid=attend_id,
+        usage_scene=usage_scene,
     )
 
     app.logger.info("follow_up_info:{}".format(follow_up_info.__json__()))
@@ -150,6 +164,7 @@ def handle_input_ask(
         ),
         attend_id,
         follow_up_info.ask_prompt,
+        usage_context,
     )
     has_content = False
     for i in res:
@@ -195,6 +210,8 @@ def handle_input_ask(
         + "_"
         + str(outline_item_info.position),
         messages=messages,  # Pass complete conversation history
+        usage_context=usage_context,
+        usage_scene=usage_scene,
     )
 
     response_text = ""  # Store complete response text
