@@ -369,7 +369,7 @@ export const useListenPpt = ({
       minScale: 1,
       maxScale: 1,
       transition: 'slide',
-      slideNumber: true,
+      slideNumber: false,
       progress: false,
       controls: false,
       hideInactiveCursor: false,
