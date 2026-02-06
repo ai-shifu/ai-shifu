@@ -6,6 +6,7 @@ import {
 } from 'markdown-flow-ui/renderer';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import type { AudioPlayerHandle } from '@/components/audio/AudioPlayer';
+import { emitListenDebugAlert } from '@/c-utils/listen-debug';
 
 export type AudioInteractionItem = ChatContentItem & {
   page: number;
@@ -707,11 +708,21 @@ export const useListenAudioSequence = ({
       const nextItem = list[index];
 
       if (!nextItem) {
+        emitListenDebugAlert('sequence-empty', {
+          index,
+          listLength: list.length,
+        });
         setSequenceInteraction(null);
         setActiveAudioBid(null);
         setIsAudioSequenceActive(false);
         return;
       }
+      emitListenDebugAlert('sequence-next-item', {
+        index,
+        type: nextItem.type,
+        page: nextItem.page,
+        blockBid: nextItem.generated_block_bid,
+      });
       syncToSequencePage(nextItem.page);
       audioSequenceIndexRef.current = index;
       setIsAudioSequenceActive(true);
@@ -990,6 +1001,11 @@ export const useListenAudioSequence = ({
       return;
     }
     const list = audioSequenceListRef.current;
+    emitListenDebugAlert('sequence-audio-ended', {
+      currentIndex: audioSequenceIndexRef.current,
+      listLength: list.length,
+      activeAudioBid,
+    });
     if (list.length) {
       const nextIndex = audioSequenceIndexRef.current + 1;
       if (nextIndex >= list.length) {
@@ -1030,6 +1046,11 @@ export const useListenAudioSequence = ({
       return;
     }
     isSequencePausedRef.current = false;
+    emitListenDebugAlert('sequence-play', {
+      activeAudioBid,
+      listLength: audioSequenceListRef.current.length,
+      sequenceIndex: audioSequenceIndexRef.current,
+    });
     // console.log('listen-toggle-play', {
     //   activeAudioBid,
     //   hasAudioRef: Boolean(audioPlayerRef.current),
@@ -1060,6 +1081,11 @@ export const useListenAudioSequence = ({
       if (previewMode) {
         return;
       }
+      emitListenDebugAlert('sequence-pause', {
+        traceId,
+        activeAudioBid,
+        sequenceIndex: audioSequenceIndexRef.current,
+      });
       // console.log('listen-mode-handle-pause', {
       //   traceId,
       //   activeAudioBid,

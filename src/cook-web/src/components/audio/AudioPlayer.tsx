@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import type { AudioSegment } from '@/c-utils/audio-utils';
+import { emitListenDebugAlert } from '@/c-utils/listen-debug';
 import {
   createAudioContext,
   decodeAudioBufferFromBase64,
@@ -51,12 +52,8 @@ export interface AudioPlayerProps {
   onEnded?: () => void;
   /** Auto-play when new audio content arrives */
   autoPlay?: boolean;
-}
-
-export interface AudioPlayerHandle {
-  togglePlay: () => void;
-  play: () => void;
-  pause: (options?: { traceId?: string }) => void;
+  /** Content identifier for resetting internal state between items */
+  contentKey?: string | null;
 }
 
 export interface AudioPlayerHandle {
@@ -86,6 +83,7 @@ function AudioPlayerBase(
     onPlayStateChange,
     onEnded,
     autoPlay = false,
+    contentKey,
   }: AudioPlayerProps,
   ref: React.ForwardedRef<AudioPlayerHandle>,
 ) {
@@ -113,6 +111,7 @@ function AudioPlayerBase(
   const segmentStartTimeRef = useRef(0);
   const segmentDurationRef = useRef(0);
   const playerIdRef = useRef(Math.random().toString(36).slice(2, 8));
+  const contentKeyRef = useRef(contentKey ?? null);
 
   const effectiveAudioUrl = audioUrl || localAudioUrl;
 
@@ -325,11 +324,24 @@ function AudioPlayerBase(
 
       if (!audioRef.current) {
         audioRef.current = new Audio();
+        audioRef.current.preload = 'auto';
+        audioRef.current.setAttribute('playsinline', 'true');
       }
 
       const audio = audioRef.current;
+      emitListenDebugAlert('playFromUrl', {
+        playerId: playerIdRef.current,
+        sessionId,
+        url,
+        startAtSeconds,
+      });
       audio.onended = () => {
         if (!isSessionActive(sessionId)) return;
+        emitListenDebugAlert('playFromUrl-ended', {
+          playerId: playerIdRef.current,
+          sessionId,
+          url,
+        });
         setIsPlaying(false);
         isPlayingRef.current = false;
         setIsLoading(false);
@@ -340,6 +352,12 @@ function AudioPlayerBase(
       };
       audio.onerror = () => {
         if (!isSessionActive(sessionId)) return;
+        emitListenDebugAlert('playFromUrl-error', {
+          playerId: playerIdRef.current,
+          sessionId,
+          url,
+          errorCode: audio.error?.code,
+        });
         setIsPlaying(false);
         isPlayingRef.current = false;
         setIsLoading(false);
@@ -377,6 +395,13 @@ function AudioPlayerBase(
         })
         .catch(err => {
           if (!isSessionActive(sessionId)) return;
+          emitListenDebugAlert('playFromUrl-rejected', {
+            playerId: playerIdRef.current,
+            sessionId,
+            url,
+            errorName: err?.name,
+            errorMessage: err?.message,
+          });
           console.error('Failed to play audio:', err);
           setIsPlaying(false);
           isPlayingRef.current = false;
@@ -515,6 +540,13 @@ function AudioPlayerBase(
         isPlayingRef.current = true;
         onPlayStateChangeRef.current?.(true);
       } catch (error) {
+        emitListenDebugAlert('playSegment-error', {
+          playerId: playerIdRef.current,
+          sessionId,
+          index,
+          errorName: (error as DOMException | Error | undefined)?.name,
+          errorMessage: (error as DOMException | Error | undefined)?.message,
+        });
         console.error('Failed to play audio segment:', error);
         // Release lock so future attempts can proceed.
         isPlayingSegmentRef.current = false;
@@ -568,9 +600,9 @@ function AudioPlayerBase(
           isPlayingRef.current = true;
           currentSegmentIndexRef.current = 0;
           playedSecondsRef.current = 0;
-          onPlayStateChangeRef.current?.(true);
-          return;
-        }
+        onPlayStateChangeRef.current?.(true);
+        return;
+      }
         releaseExclusive();
         return;
       }
@@ -794,6 +826,29 @@ function AudioPlayerBase(
     };
   }, [cleanupAudio, releaseExclusive]);
 
+  useEffect(() => {
+    const nextKey = contentKey ?? null;
+    if (contentKeyRef.current === nextKey) {
+      return;
+    }
+    contentKeyRef.current = nextKey;
+    emitListenDebugAlert('contentKey-change', {
+      playerId: playerIdRef.current,
+      contentKey: nextKey,
+    });
+    stopPlayback();
+    setLocalAudioUrl(undefined);
+    currentSegmentIndexRef.current = 0;
+    playedSecondsRef.current = 0;
+    isPausedRef.current = false;
+    pendingStreamRef.current = false;
+    segmentOffsetRef.current = 0;
+    segmentStartTimeRef.current = 0;
+    segmentDurationRef.current = 0;
+    isPlayingSegmentRef.current = false;
+    hasAutoPlayedForCurrentContentRef.current = false;
+  }, [contentKey, stopPlayback]);
+
   // Auto-play when enabled and audio is available
   // Track previous autoPlay value to detect changes
   const prevAutoPlayRef = useRef(autoPlay);
@@ -821,6 +876,14 @@ function AudioPlayerBase(
       !hasAutoPlayedForCurrentContentRef.current &&
       !isPausedRef.current
     ) {
+      emitListenDebugAlert('autoPlay-trigger', {
+        playerId: playerIdRef.current,
+        contentKey: contentKeyRef.current,
+        useOssUrl,
+        hasUrl: Boolean(effectiveAudioUrl),
+        isStreaming,
+        segments: streamingSegments.length,
+      });
       if (useOssUrl && effectiveAudioUrl) {
         hasAutoPlayedForCurrentContentRef.current = true;
         playFromUrl();
