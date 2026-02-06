@@ -151,20 +151,20 @@ def handle_input_ask(
     # Check if user input needs special processing (such as sensitive word filtering, etc.)
     res = check_text_with_llm_response(
         app,
-        user_info,
-        log_script,
-        input,
-        span,
-        outline_item_info.bid,
-        outline_item_info.position,
-        outline_item_info.shifu_bid,
-        LLMSettings(
+        user_info=user_info,
+        log_script=log_script,
+        input=input,
+        span=span,
+        outline_item_bid=outline_item_info.bid,
+        shifu_bid=outline_item_info.shifu_bid,
+        block_position=last_position,
+        llm_settings=LLMSettings(
             model=follow_up_model,
             temperature=follow_up_info.model_args["temperature"],
         ),
-        attend_id,
-        follow_up_info.ask_prompt,
-        usage_context,
+        attend_id=attend_id,
+        fmt_prompt=follow_up_info.ask_prompt,
+        usage_context=usage_context,
     )
     has_content = False
     for i in res:

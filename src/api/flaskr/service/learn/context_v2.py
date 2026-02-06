@@ -1598,6 +1598,16 @@ class RunScriptContextV2:
             .all()
         )
 
+        usage_scene = (
+            BILL_USAGE_SCENE_PREVIEW if self._preview_mode else BILL_USAGE_SCENE_PROD
+        )
+        usage_context = UsageContext(
+            user_bid=self._user_info.user_id,
+            shifu_bid=self._outline_item_info.shifu_bid,
+            outline_item_bid=run_script_info.outline_bid,
+            progress_record_bid=self._current_attend.progress_record_bid,
+            usage_scene=usage_scene,
+        )
         mdflow_context = MdflowContextV2(
             document=run_script_info.mdflow,
             document_prompt=system_prompt,
@@ -1606,20 +1616,8 @@ class RunScriptContextV2:
                 llm_settings,
                 self._trace,
                 self._trace_args,
-                UsageContext(
-                    user_bid=self._user_info.user_id,
-                    shifu_bid=self._outline_item_info.shifu_bid,
-                    outline_item_bid=run_script_info.outline_bid,
-                    progress_record_bid=self._current_attend.progress_record_bid,
-                    usage_scene=(
-                        BILL_USAGE_SCENE_PREVIEW
-                        if self._preview_mode
-                        else BILL_USAGE_SCENE_PROD
-                    ),
-                ),
-                BILL_USAGE_SCENE_PREVIEW
-                if self._preview_mode
-                else BILL_USAGE_SCENE_PROD,
+                usage_context,
+                usage_scene,
             ),
             use_learner_language=self._shifu_info.use_learner_language,
         )
@@ -1793,16 +1791,17 @@ class RunScriptContextV2:
             db.session.flush()
             res = check_text_with_llm_response(
                 app,
-                self._user_info,
-                generated_block,
-                generated_block.generated_content,  # Use converted string value
-                self._trace,
-                self._outline_item_info.bid,
-                self._outline_item_info.shifu_bid,
-                self._outline_item_info.position,
-                llm_settings,
-                self._current_attend.progress_record_bid,
-                "",
+                user_info=self._user_info,
+                log_script=generated_block,
+                input=generated_block.generated_content,  # Use converted string value
+                span=self._trace,
+                outline_item_bid=self._outline_item_info.bid,
+                shifu_bid=self._outline_item_info.shifu_bid,
+                block_position=run_script_info.block_position,
+                llm_settings=llm_settings,
+                attend_id=self._current_attend.progress_record_bid,
+                fmt_prompt="",
+                usage_context=usage_context,
             )
             # Check if the generator yields any content (not None)
             has_content = False
