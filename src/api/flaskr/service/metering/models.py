@@ -170,6 +170,13 @@ class BillUsageRecord(db.Model):
         comment="Input usage (tokens for LLM, chars for TTS)",
     )
 
+    input_cache = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Cached input tokens (LLM only)",
+    )
+
     output = Column(
         Integer,
         nullable=False,

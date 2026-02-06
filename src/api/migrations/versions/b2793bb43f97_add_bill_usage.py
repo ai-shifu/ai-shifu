@@ -130,6 +130,12 @@ def upgrade():
             comment="Input usage (tokens for LLM, chars for TTS)",
         ),
         sa.Column(
+            "input_cache",
+            sa.Integer(),
+            nullable=False,
+            comment="Cached input tokens (LLM only)",
+        ),
+        sa.Column(
             "output",
             sa.Integer(),
             nullable=False,

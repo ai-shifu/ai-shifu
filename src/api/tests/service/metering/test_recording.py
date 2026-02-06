@@ -26,6 +26,7 @@ def test_record_llm_usage_persists(app):
             model="gpt-test",
             is_stream=True,
             input=10,
+            input_cache=4,
             output=20,
             total=30,
             latency_ms=123,
@@ -35,6 +36,7 @@ def test_record_llm_usage_persists(app):
         assert record is not None
         assert record.usage_type == BILL_USAGE_TYPE_LLM
         assert record.input == 10
+        assert record.input_cache == 4
         assert record.output == 20
         assert record.total == 30
         assert record.billable == 1

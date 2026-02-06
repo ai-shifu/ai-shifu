@@ -111,6 +111,31 @@ def _extract_usage_value(usage: Any, key: str) -> int:
     return int(getattr(usage, key, 0) or 0)
 
 
+def _extract_input_cache(usage: Any) -> int:
+    if usage is None:
+        return 0
+    if isinstance(usage, dict):
+        if "input_cache" in usage:
+            return int(usage.get("input_cache") or 0)
+        details = usage.get("input_tokens_details") or usage.get(
+            "prompt_tokens_details"
+        )
+        if isinstance(details, dict):
+            return int(details.get("cached_tokens") or 0)
+        return 0
+    value = getattr(usage, "input_cache", None)
+    if value is not None:
+        return int(value or 0)
+    details = getattr(usage, "input_tokens_details", None) or getattr(
+        usage, "prompt_tokens_details", None
+    )
+    if isinstance(details, dict):
+        return int(details.get("cached_tokens") or 0)
+    if details is not None:
+        return int(getattr(details, "cached_tokens", 0) or 0)
+    return 0
+
+
 def _get_request_id() -> str:
     try:
         return request.headers.get("X-Request-ID", "") or ""
@@ -694,6 +719,7 @@ def invoke_llm(
             model=model,
             is_stream=stream_flag,
             input=0,
+            input_cache=_extract_input_cache(usage),
             output=0,
             total=0,
             latency_ms=latency_ms,
@@ -710,6 +736,7 @@ def invoke_llm(
             model=model,
             is_stream=stream_flag,
             input=_extract_usage_value(usage, "input"),
+            input_cache=_extract_input_cache(usage),
             output=_extract_usage_value(usage, "output"),
             total=_extract_usage_value(usage, "total"),
             latency_ms=latency_ms,
@@ -863,6 +890,7 @@ def chat_llm(
             model=model,
             is_stream=stream_flag,
             input=0,
+            input_cache=_extract_input_cache(usage),
             output=0,
             total=0,
             latency_ms=latency_ms,
@@ -879,6 +907,7 @@ def chat_llm(
             model=model,
             is_stream=stream_flag,
             input=_extract_usage_value(usage, "input"),
+            input_cache=_extract_input_cache(usage),
             output=_extract_usage_value(usage, "output"),
             total=_extract_usage_value(usage, "total"),
             latency_ms=latency_ms,
