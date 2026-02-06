@@ -67,7 +67,7 @@
   "importActivation": {
     "action": "Import Activation",
     "confirmDescription": "{mobiles}, import {count} mobile numbers. Proceed?",
-    "confirmTitle": "Confirm import mobiles",
+    "confirmTitle": "Confirm mobile import",
     "courseLabel": "Course",
     "coursePlaceholder": "Select a course",
     "courseRequired": "Course is required",

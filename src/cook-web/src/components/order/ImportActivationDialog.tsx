@@ -157,6 +157,7 @@ const ImportActivationDialog = ({
   const [pendingEntries, setPendingEntries] = React.useState<
     ImportActivationEntry[]
   >([]);
+  const [isImporting, setIsImporting] = React.useState(false);
   const joinedIdentifiers = React.useMemo(
     () => pendingMobiles.join('，'),
     [pendingMobiles],
@@ -364,6 +365,10 @@ const ImportActivationDialog = ({
     entries: ImportActivationEntry[],
     values: z.infer<typeof formSchema>,
   ) => {
+    if (isImporting) {
+      return;
+    }
+    setIsImporting(true);
     const lines = entries.map(entry =>
       entry.nickname ? `${entry.mobile} ${entry.nickname}` : entry.mobile,
     );
@@ -440,6 +445,8 @@ const ImportActivationDialog = ({
         title: message,
         variant: 'destructive',
       });
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -447,7 +454,12 @@ const ImportActivationDialog = ({
     if (open) {
       form.reset();
       form.clearErrors();
+      return;
     }
+    setConfirmOpen(false);
+    setPendingMobiles([]);
+    setPendingEntries([]);
+    setIsImporting(false);
   }, [open, form]);
 
   React.useEffect(() => {
@@ -724,7 +736,10 @@ const ImportActivationDialog = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setConfirmOpen(false)}>
+            <AlertDialogCancel
+              onClick={() => setConfirmOpen(false)}
+              disabled={isImporting}
+            >
               {t('common.core.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
@@ -733,6 +748,7 @@ const ImportActivationDialog = ({
                 setConfirmOpen(false);
                 void handleConfirmImport(pendingEntries, currentValues);
               }}
+              disabled={isImporting}
             >
               {t('common.core.confirm')}
             </AlertDialogAction>

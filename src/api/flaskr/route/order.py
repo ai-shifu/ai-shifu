@@ -524,13 +524,15 @@ def register_order_handler(app: Flask, path_prefix: str):
         if contact_type not in {"phone", "email"}:
             raise_param_error("contact_type")
 
+        contact_label = "email" if contact_type == "email" else "mobile"
+
         if isinstance(lines, list) and lines:
             raw_text = "\n".join([str(item) for item in lines if str(item).strip()])
             entries = parse_import_activation_entries(raw_text, contact_type)
             if not entries:
-                raise_param_error("mobile")
+                raise_param_error(contact_label)
             if len(entries) > 50:
-                raise_param_error("mobile limit 50")
+                raise_param_error(f"{contact_label} limit 50")
 
             # Validate course exists before iterating mobiles to avoid repeated errors
             get_shifu_info(app, course_id, False)
@@ -543,13 +545,13 @@ def register_order_handler(app: Flask, path_prefix: str):
 
         mobile_field = str(payload.get("mobile", "")).strip()
         if not mobile_field:
-            raise_param_error("mobile")
+            raise_param_error(contact_label)
 
         mobiles = [item.strip() for item in mobile_field.split(",") if item.strip()]
         if not mobiles:
-            raise_param_error("mobile")
+            raise_param_error(contact_label)
         if len(mobiles) > 50:
-            raise_param_error("mobile limit 50")
+            raise_param_error(f"{contact_label} limit 50")
 
         # Validate course exists before iterating mobiles to avoid repeated errors
         get_shifu_info(app, course_id, False)

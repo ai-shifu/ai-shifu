@@ -380,7 +380,7 @@ def import_activation_order(
     contact_type: str = "phone",
     allow_empty_nickname: bool = False,
 ) -> Dict[str, str]:
-    """Create activation order for a mobile user and shifu (manual import)."""
+    """Create activation order for a phone/email user and shifu (manual import)."""
     with app.app_context():
         normalized_identifier = normalize_contact_identifier(mobile, contact_type)
 
@@ -476,7 +476,7 @@ def import_activation_orders(
     user_nick_name: Optional[str] = None,
     contact_type: str = "phone",
 ) -> Dict[str, Any]:
-    """Bulk import activation orders from a list of mobile numbers."""
+    """Bulk import activation orders from a list of phone/email identifiers."""
     results: Dict[str, Any] = {"success": [], "failed": []}
     for mobile in mobiles:
         normalized_mobile = str(mobile or "").strip()
@@ -514,7 +514,7 @@ def import_activation_orders_from_entries(
     course_id: str,
     contact_type: str = "phone",
 ) -> Dict[str, Any]:
-    """Bulk import activation orders from parsed mobile+nickname entries."""
+    """Bulk import activation orders from parsed phone/email+nickname entries."""
     results: Dict[str, Any] = {"success": [], "failed": []}
     for entry in entries:
         normalized_mobile = str(entry.get("mobile", "")).strip()
