@@ -110,6 +110,7 @@ export interface UseChatSessionParams {
   lessonId: string;
   chapterId?: string;
   previewMode?: boolean;
+  isListenMode?: boolean;
   trackEvent: (name: string, payload?: Record<string, any>) => void;
   trackTrailProgress: (courseId: string, generatedBlockBid: string) => void;
   lessonUpdate?: (params: Record<string, any>) => void;
@@ -150,6 +151,7 @@ function useChatLogicHook({
   lessonId,
   chapterId,
   previewMode,
+  isListenMode = false,
   trackEvent,
   chatBoxBottomRef,
   trackTrailProgress,
@@ -432,21 +434,23 @@ function useChatLogicHook({
       currentContentRef.current = '';
       // setLastInteractionBlock(null);
       lastInteractionBlockRef.current = null;
-      setTrackedContentList(prev => {
-        const hasLoading = prev.some(
-          item => item.generated_block_bid === 'loading',
-        );
-        if (hasLoading) {
-          return prev;
-        }
-        const placeholderItem: ChatContentItem = {
-          generated_block_bid: 'loading',
-          content: '',
-          customRenderBar: () => <LoadingBar />,
-          type: ChatContentItemType.CONTENT,
-        };
-        return [...prev, placeholderItem];
-      });
+      if (!isListenMode) {
+        setTrackedContentList(prev => {
+          const hasLoading = prev.some(
+            item => item.generated_block_bid === 'loading',
+          );
+          if (hasLoading) {
+            return prev;
+          }
+          const placeholderItem: ChatContentItem = {
+            generated_block_bid: 'loading',
+            content: '',
+            customRenderBar: () => <LoadingBar />,
+            type: ChatContentItemType.CONTENT,
+          };
+          return [...prev, placeholderItem];
+        });
+      }
 
       let isEnd = false;
 
@@ -454,7 +458,7 @@ function useChatLogicHook({
         shifuBid,
         outlineBid,
         effectivePreviewMode,
-        sseParams,
+        { ...sseParams, listen: isListenMode },
         async response => {
           // if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
           //   if (!isEnd) {
@@ -603,7 +607,7 @@ function useChatLogicHook({
                 );
                 // Find the last CONTENT type item and append AskButton to its content
                 // Set isHistory=true to prevent triggering typewriter effect for AskButton
-                if (mobileStyle) {
+                if (mobileStyle && !isListenMode) {
                   for (let i = updatedList.length - 1; i >= 0; i--) {
                     if (
                       updatedList[i].type === ChatContentItemType.CONTENT &&
@@ -697,6 +701,7 @@ function useChatLogicHook({
     [
       chapterUpdate,
       effectivePreviewMode,
+      isListenMode,
       lessonUpdateResp,
       outlineBid,
       isTypeFinishedRef,
@@ -756,12 +761,13 @@ function useChatLogicHook({
           // flush the previously cached ask entries
           flushBuffer();
           const normalizedContent = item.content ?? '';
-          const contentWithButton = mobileStyle
-            ? appendCustomButtonAfterContent(
-                normalizedContent,
-                getAskButtonMarkup(),
-              )
-            : normalizedContent;
+          const contentWithButton =
+            mobileStyle && !isListenMode
+              ? appendCustomButtonAfterContent(
+                  normalizedContent,
+                  getAskButtonMarkup(),
+                )
+              : normalizedContent;
           result.push({
             generated_block_bid: item.generated_block_bid,
             content: contentWithButton,
@@ -1026,13 +1032,15 @@ function useChatLogicHook({
           defaultInputText: params.inputText || '',
           defaultSelectedValues: params.selectedValues,
         };
-        newList.length = needChangeItemIndex + 1;
+        if (!isListenMode) {
+          newList.length = needChangeItemIndex + 1;
+        }
         setTrackedContentList(newList);
       }
 
       return { newList, needChangeItemIndex };
     },
-    [setTrackedContentList],
+    [isListenMode, setTrackedContentList],
   );
 
   /**

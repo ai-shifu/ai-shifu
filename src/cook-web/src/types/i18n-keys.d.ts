@@ -166,6 +166,7 @@ export type I18nKey =
   | 'module.chat.dislike'
   | 'module.chat.generating'
   | 'module.chat.like'
+  | 'module.chat.listenInteractionHint'
   | 'module.chat.markdownFlow'
   | 'module.chat.noMoreLessons'
   | 'module.chat.outputInProgress'

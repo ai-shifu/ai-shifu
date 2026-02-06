@@ -6,12 +6,14 @@ This module provides text preprocessing for TTS synthesis.
 
 import re
 import logging
+import html
 
 # Import models to ensure they are registered with SQLAlchemy
 from .models import LearnGeneratedAudio  # noqa: F401
+from flaskr.common.log import AppLoggerProxy
 
 
-logger = logging.getLogger(__name__)
+logger = AppLoggerProxy(logging.getLogger(__name__))
 
 # Pattern to match code blocks (both fenced and inline)
 CODE_BLOCK_PATTERN = re.compile(r"```[\s\S]*?```|`[^`]+`")
@@ -94,6 +96,41 @@ def _strip_incomplete_xml_block(text: str, tag_name: str) -> tuple[str, bool]:
     return text, False
 
 
+def _strip_incomplete_angle_bracket_tag(text: str) -> tuple[str, bool]:
+    """
+    Strip an incomplete angle-bracket tag from the end of the buffer.
+
+    This is a best-effort safeguard for streaming content where we might receive
+    a partial HTML/XML tag split across chunks (e.g. '<p' or '<span class=\"').
+
+    We only strip when the tail looks like a tag start (e.g. '<' followed by a
+    letter, '/', '!' or '?'). This avoids removing common non-tag uses like
+    '< 3' or 'a < b' where '<' is followed by whitespace or digits.
+    """
+    if not text:
+        return text, False
+
+    last_lt = text.rfind("<")
+    if last_lt == -1:
+        return text, False
+
+    tail = text[last_lt:]
+    if ">" in tail:
+        return text, False
+
+    if len(tail) == 1:
+        return text[:last_lt], True
+
+    next_char = tail[1]
+    if next_char.isspace():
+        return text, False
+
+    if not (next_char.isalpha() or next_char in {"/", "!", "?"}):
+        return text, False
+
+    return text[:last_lt], True
+
+
 def _strip_incomplete_blocks(text: str) -> tuple[str, bool]:
     """
     Strip known incomplete blocks from the end of the buffer.
@@ -110,6 +147,10 @@ def _strip_incomplete_blocks(text: str) -> tuple[str, bool]:
     for tag in ("svg", "math", "script", "style"):
         text, removed = _strip_incomplete_xml_block(text, tag)
         had_incomplete = had_incomplete or removed
+
+    # Strip incomplete generic HTML/XML tags (e.g. '<p' at buffer tail).
+    text, removed = _strip_incomplete_angle_bracket_tag(text)
+    had_incomplete = had_incomplete or removed
 
     return text, had_incomplete
 
@@ -162,6 +203,22 @@ def preprocess_for_tts(text: str) -> str:
     """
     if not text:
         return ""
+
+    # Normalize common HTML entity escaping (e.g. '&lt;p&gt;') so tag stripping
+    # works consistently for content coming from HTML renderers.
+    try:
+        for _ in range(2):  # handle double-escaped content (e.g. '&amp;lt;')
+            unescaped = html.unescape(text)
+            if unescaped == text:
+                break
+            text = unescaped
+    except Exception:
+        # Best-effort only; keep original text on unescape errors.
+        pass
+
+    # Replace non-breaking spaces from HTML with regular spaces.
+    if "\xa0" in text:
+        text = text.replace("\xa0", " ")
 
     # Strip incomplete blocks at the tail of the stream buffer. This prevents
     # partial SVG/code blocks leaking into TTS between chunks.

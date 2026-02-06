@@ -163,6 +163,10 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     input_type:
                         type: string
                         required: false
+                    listen:
+                        type: boolean
+                        required: false
+                        description: Whether to enable streaming TTS during learning (default: true)
                     reload_generated_block_bid:
                         type: string
                         required: false
@@ -179,14 +183,20 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                             $ref: "#/components/schemas/RunMarkdownFlowDTO"
         """
         user_bid = request.user.user_id
-        input = request.get_json().get("input", None)
-        input_type = request.get_json().get("input_type", None)
-        reload_generated_block_bid = request.get_json().get(
-            "reload_generated_block_bid", None
-        )
+        payload = request.get_json() or {}
+        input = payload.get("input", None)
+        input_type = payload.get("input_type", None)
+        reload_generated_block_bid = payload.get("reload_generated_block_bid", None)
+        listen_raw = payload.get("listen", True)
+        if isinstance(listen_raw, str):
+            listen = listen_raw.strip().lower() == "true"
+        elif listen_raw is None:
+            listen = True
+        else:
+            listen = bool(listen_raw)
         preview_mode = request.args.get("preview_mode", "False")
         app.logger.info(
-            f"run outline item, shifu_bid: {shifu_bid}, outline_bid: {outline_bid}, preview_mode: {preview_mode}"
+            f"run outline item, shifu_bid: {shifu_bid}, outline_bid: {outline_bid}, preview_mode: {preview_mode}, listen: {listen}"
         )
         preview_mode = True if preview_mode.lower() == "true" else False
         shifu_context_snapshot = get_shifu_context_snapshot()
@@ -200,6 +210,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     input=input,
                     input_type=input_type,
                     reload_generated_block_bid=reload_generated_block_bid,
+                    listen=listen,
                     preview_mode=preview_mode,
                     shifu_context_snapshot=shifu_context_snapshot,
                 ),

@@ -94,6 +94,9 @@ def app():
         return
     original_env = os.environ.copy()
     os.environ["SQLALCHEMY_DATABASE_URI"] = _test_db_uri
+    # Ensure plugin binds use SQLite in tests.
+    os.environ["SAAS_DB_URI"] = _test_db_uri
+    os.environ["ADMIN_DB_URI"] = _test_db_uri
     os.environ["SECRET_KEY"] = "test-secret-key"
     os.environ["UNIVERSAL_VERIFICATION_CODE"] = "9999"
     os.environ["DEFAULT_LLM_MODEL"] = "gpt-test"

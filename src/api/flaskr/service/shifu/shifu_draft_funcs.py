@@ -79,8 +79,6 @@ def return_shifu_draft_dto(
     )
 
     stored_provider = getattr(shifu_draft, "tts_provider", "") or ""
-    if stored_provider == "default":
-        stored_provider = ""
 
     return ShifuDetailDto(
         shifu_id=shifu_draft.shifu_bid,

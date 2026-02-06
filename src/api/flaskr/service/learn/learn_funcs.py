@@ -3,6 +3,7 @@ from markdown_flow import (
 )
 from flask import Flask, request
 import base64
+import time
 import logging
 from dataclasses import replace
 import uuid
@@ -33,6 +34,11 @@ from flaskr.service.shifu.models import (
 )
 from flaskr.service.learn.models import LearnProgressRecord, LearnGeneratedBlock
 from flaskr.service.tts.models import LearnGeneratedAudio, AUDIO_STATUS_COMPLETED
+from flaskr.service.metering import UsageContext, record_tts_usage
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
 from flaskr.service.tts.pipeline import (
     synthesize_long_text_to_oss,
     split_text_for_tts,
@@ -629,12 +635,10 @@ def _yield_tts_segments(
     audio_settings,
 ):
     provider_name = (provider or "").strip().lower()
-    if provider_name == "default":
-        provider_name = ""
+    if not provider_name:
+        raise ValueError("TTS provider is required")
     if not is_tts_configured(provider_name):
-        raise ValueError(
-            f"TTS provider is not configured: {provider_name or 'default'}"
-        )
+        raise ValueError(f"TTS provider is not configured: {provider_name}")
 
     segments = split_text_for_tts(text, provider_name=provider_name)
     if not segments:
@@ -642,6 +646,7 @@ def _yield_tts_segments(
 
     safe_audio_settings = replace(audio_settings, format="mp3")
     for index, segment_text in enumerate(segments):
+        segment_start = time.monotonic()
         result = synthesize_text(
             text=segment_text,
             voice_settings=voice_settings,
@@ -649,7 +654,15 @@ def _yield_tts_segments(
             model=(tts_model or "").strip() or None,
             provider_name=provider_name,
         )
-        yield index, result.audio_data, int(result.duration_ms or 0)
+        latency_ms = int((time.monotonic() - segment_start) * 1000)
+        yield (
+            index,
+            result.audio_data,
+            int(result.duration_ms or 0),
+            segment_text,
+            int(result.word_count or 0),
+            latency_ms,
+        )
 
 
 def stream_generated_block_audio(
@@ -712,10 +725,41 @@ def stream_generated_block_audio(
             )
 
         audio_bid = uuid.uuid4().hex
+        usage_scene = (
+            BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
+        )
+        usage_context = UsageContext(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=generated_block.outline_item_bid or "",
+            progress_record_bid=generated_block.progress_record_bid or "",
+            generated_block_bid=generated_block_bid,
+            audio_bid=audio_bid,
+            usage_scene=usage_scene,
+        )
+        parent_usage_bid = generate_id(app)
+        usage_metadata = {
+            "voice_id": voice_settings.voice_id or "",
+            "speed": voice_settings.speed,
+            "pitch": voice_settings.pitch,
+            "emotion": voice_settings.emotion,
+            "volume": voice_settings.volume,
+            "format": audio_settings.format or "mp3",
+            "sample_rate": audio_settings.sample_rate or 24000,
+        }
+        segment_count = 0
+        total_word_count = 0
         audio_parts: list[bytes] = []
 
         try:
-            for index, audio_data, duration_ms in _yield_tts_segments(
+            for (
+                index,
+                audio_data,
+                duration_ms,
+                segment_text,
+                word_count,
+                latency_ms,
+            ) in _yield_tts_segments(
                 text=raw_text,
                 provider=provider,
                 tts_model=tts_model,
@@ -723,6 +767,27 @@ def stream_generated_block_audio(
                 audio_settings=audio_settings,
             ):
                 audio_parts.append(audio_data)
+                segment_count += 1
+                total_word_count += int(word_count or 0)
+                segment_length = len(segment_text or "")
+                record_tts_usage(
+                    app,
+                    usage_context,
+                    provider=provider,
+                    model=tts_model or "",
+                    is_stream=True,
+                    input=segment_length,
+                    output=segment_length,
+                    total=segment_length,
+                    word_count=int(word_count or 0),
+                    duration_ms=int(duration_ms or 0),
+                    latency_ms=int(latency_ms or 0),
+                    record_level=1,
+                    parent_usage_bid=parent_usage_bid,
+                    segment_index=index,
+                    segment_count=0,
+                    extra=usage_metadata,
+                )
                 base64_audio = base64.b64encode(audio_data).decode("utf-8")
                 yield RunMarkdownFlowDTO(
                     outline_bid=generated_block.outline_item_bid or "",
@@ -773,6 +838,28 @@ def stream_generated_block_audio(
             db.session.add(audio_record)
             db.session.commit()
 
+            raw_length = len(raw_text or "")
+            cleaned_length = len(cleaned_text or "")
+            record_tts_usage(
+                app,
+                usage_context,
+                usage_bid=parent_usage_bid,
+                provider=provider,
+                model=tts_model or "",
+                is_stream=True,
+                input=raw_length,
+                output=cleaned_length,
+                total=cleaned_length,
+                word_count=total_word_count,
+                duration_ms=int(duration_ms or 0),
+                latency_ms=0,
+                record_level=0,
+                parent_usage_bid="",
+                segment_index=0,
+                segment_count=segment_count,
+                extra=usage_metadata,
+            )
+
             yield RunMarkdownFlowDTO(
                 outline_bid=generated_block.outline_item_bid or "",
                 generated_block_bid=generated_block_bid,
@@ -817,10 +904,38 @@ def stream_preview_tts_audio(
             )
 
         audio_bid = uuid.uuid4().hex
+        usage_scene = (
+            BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
+        )
+        usage_context = UsageContext(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            audio_bid=audio_bid,
+            usage_scene=usage_scene,
+        )
+        parent_usage_bid = generate_id(app)
+        usage_metadata = {
+            "voice_id": voice_settings.voice_id or "",
+            "speed": voice_settings.speed,
+            "pitch": voice_settings.pitch,
+            "emotion": voice_settings.emotion,
+            "volume": voice_settings.volume,
+            "format": audio_settings.format or "mp3",
+            "sample_rate": audio_settings.sample_rate or 24000,
+        }
+        segment_count = 0
+        total_word_count = 0
         audio_parts: list[bytes] = []
 
         try:
-            for index, audio_data, duration_ms in _yield_tts_segments(
+            for (
+                index,
+                audio_data,
+                duration_ms,
+                segment_text,
+                word_count,
+                latency_ms,
+            ) in _yield_tts_segments(
                 text=text or "",
                 provider=provider,
                 tts_model=tts_model,
@@ -828,6 +943,27 @@ def stream_preview_tts_audio(
                 audio_settings=audio_settings,
             ):
                 audio_parts.append(audio_data)
+                segment_count += 1
+                total_word_count += int(word_count or 0)
+                segment_length = len(segment_text or "")
+                record_tts_usage(
+                    app,
+                    usage_context,
+                    provider=provider,
+                    model=tts_model or "",
+                    is_stream=True,
+                    input=segment_length,
+                    output=segment_length,
+                    total=segment_length,
+                    word_count=int(word_count or 0),
+                    duration_ms=int(duration_ms or 0),
+                    latency_ms=int(latency_ms or 0),
+                    record_level=1,
+                    parent_usage_bid=parent_usage_bid,
+                    segment_index=index,
+                    segment_count=0,
+                    extra=usage_metadata,
+                )
                 base64_audio = base64.b64encode(audio_data).decode("utf-8")
                 yield RunMarkdownFlowDTO(
                     outline_bid="",
@@ -847,6 +983,28 @@ def stream_preview_tts_audio(
 
             duration_ms = get_audio_duration_ms(final_audio, format="mp3")
             oss_url, _bucket_name = upload_audio_to_oss(app, final_audio, audio_bid)
+
+            raw_length = len(text or "")
+            cleaned_length = len(cleaned_text or "")
+            record_tts_usage(
+                app,
+                usage_context,
+                usage_bid=parent_usage_bid,
+                provider=provider,
+                model=tts_model or "",
+                is_stream=True,
+                input=raw_length,
+                output=cleaned_length,
+                total=cleaned_length,
+                word_count=total_word_count,
+                duration_ms=int(duration_ms or 0),
+                latency_ms=0,
+                record_level=0,
+                parent_usage_bid="",
+                segment_index=0,
+                segment_count=segment_count,
+                extra=usage_metadata,
+            )
 
             yield RunMarkdownFlowDTO(
                 outline_bid="",
@@ -927,6 +1085,19 @@ def synthesize_generated_block_audio(
             )
 
         audio_bid = uuid.uuid4().hex
+        usage_scene = (
+            BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
+        )
+        usage_context = UsageContext(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=generated_block.outline_item_bid or "",
+            progress_record_bid=generated_block.progress_record_bid or "",
+            generated_block_bid=generated_block_bid,
+            audio_bid=audio_bid,
+            usage_scene=usage_scene,
+        )
+        parent_usage_bid = generate_id(app)
         try:
             result = synthesize_long_text_to_oss(
                 app,
@@ -936,6 +1107,8 @@ def synthesize_generated_block_audio(
                 voice_settings=voice_settings,
                 audio_settings=audio_settings,
                 audio_bid=audio_bid,
+                usage_context=usage_context,
+                parent_usage_bid=parent_usage_bid,
             )
         except ValueError as exc:
             raise_error_with_args("server.common.paramsError", param_message=str(exc))
@@ -1013,6 +1186,16 @@ def synthesize_preview_tts_audio(
             )
 
         audio_bid = uuid.uuid4().hex
+        usage_scene = (
+            BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
+        )
+        usage_context = UsageContext(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            audio_bid=audio_bid,
+            usage_scene=usage_scene,
+        )
+        parent_usage_bid = generate_id(app)
         try:
             result = synthesize_long_text_to_oss(
                 app,
@@ -1022,6 +1205,8 @@ def synthesize_preview_tts_audio(
                 voice_settings=voice_settings,
                 audio_settings=audio_settings,
                 audio_bid=audio_bid,
+                usage_context=usage_context,
+                parent_usage_bid=parent_usage_bid,
             )
         except ValueError as exc:
             raise_error_with_args("server.common.paramsError", param_message=str(exc))

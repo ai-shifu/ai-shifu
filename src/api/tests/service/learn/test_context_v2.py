@@ -106,6 +106,10 @@ class NextChapterInteractionTests(unittest.TestCase):
         cls.app = Flask("next-chapter-tests")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+            SQLALCHEMY_BINDS={
+                "ai_shifu_saas": "sqlite:///:memory:",
+                "ai_shifu_admin": "sqlite:///:memory:",
+            },
             SQLALCHEMY_TRACK_MODIFICATIONS=False,
         )
         dao.db.init_app(cls.app)
@@ -155,6 +159,22 @@ class NextChapterInteractionTests(unittest.TestCase):
                 ).count(),
                 1,
             )
+
+
+class StreamTtsGateTests(unittest.TestCase):
+    def test_should_stream_tts_respects_preview_and_listen(self):
+        ctx = _make_context()
+
+        ctx._preview_mode = False
+        ctx._listen = True
+        self.assertTrue(ctx._should_stream_tts())
+
+        ctx._listen = False
+        self.assertFalse(ctx._should_stream_tts())
+
+        ctx._preview_mode = True
+        ctx._listen = True
+        self.assertFalse(ctx._should_stream_tts())
 
 
 class PreviewResolveLlmSettingsTests(unittest.TestCase):

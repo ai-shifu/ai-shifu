@@ -1,6 +1,13 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  forwardRef,
+  useImperativeHandle,
+} from 'react';
 import { Volume2, Pause, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -40,8 +47,16 @@ export interface AudioPlayerProps {
   className?: string;
   /** Callback when play state changes */
   onPlayStateChange?: (isPlaying: boolean) => void;
+  /** Callback when playback reaches the natural end */
+  onEnded?: () => void;
   /** Auto-play when new audio content arrives */
   autoPlay?: boolean;
+}
+
+export interface AudioPlayerHandle {
+  togglePlay: () => void;
+  play: () => void;
+  pause: (options?: { traceId?: string }) => void;
 }
 
 /**
@@ -51,19 +66,23 @@ export interface AudioPlayerProps {
  * 1. Streaming mode: Plays base64-encoded audio segments as they arrive
  * 2. Complete mode: Plays from OSS URL after all segments are uploaded
  */
-export function AudioPlayer({
-  audioUrl,
-  streamingSegments = [],
-  isStreaming = false,
-  previewMode = false,
-  alwaysVisible = false,
-  disabled = false,
-  onRequestAudio,
-  size = 16,
-  className,
-  onPlayStateChange,
-  autoPlay = false,
-}: AudioPlayerProps) {
+function AudioPlayerBase(
+  {
+    audioUrl,
+    streamingSegments = [],
+    isStreaming = false,
+    previewMode = false,
+    alwaysVisible = false,
+    disabled = false,
+    onRequestAudio,
+    size = 16,
+    className,
+    onPlayStateChange,
+    onEnded,
+    autoPlay = false,
+  }: AudioPlayerProps,
+  ref: React.ForwardedRef<AudioPlayerHandle>,
+) {
   const { t } = useTranslation();
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -77,6 +96,7 @@ export function AudioPlayer({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
+  const activeSourceNodesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   // Track how many seconds have been played from streaming segments in this play session.
   const playedSecondsRef = useRef(0);
   const playSessionRef = useRef(0);
@@ -86,6 +106,7 @@ export function AudioPlayer({
   const segmentOffsetRef = useRef(0);
   const segmentStartTimeRef = useRef(0);
   const segmentDurationRef = useRef(0);
+  const playerIdRef = useRef(Math.random().toString(36).slice(2, 8));
 
   const effectiveAudioUrl = audioUrl || localAudioUrl;
 
@@ -108,6 +129,9 @@ export function AudioPlayer({
   const onPlayStateChangeRef = useRef(onPlayStateChange);
   onPlayStateChangeRef.current = onPlayStateChange;
 
+  const onEndedRef = useRef(onEnded);
+  onEndedRef.current = onEnded;
+
   // Check if we have audio to play
   const hasAudio = Boolean(effectiveAudioUrl) || streamingSegments.length > 0;
 
@@ -124,24 +148,39 @@ export function AudioPlayer({
     [],
   );
 
-  // Cleanup audio resources
-  const cleanupAudio = useCallback(() => {
-    // Release the segment lock
-    isPlayingSegmentRef.current = false;
+  const stopAllSourceNodes = useCallback(() => {
+    if (activeSourceNodesRef.current.size > 0) {
+      activeSourceNodesRef.current.forEach(node => {
+        try {
+          node.stop();
+          node.disconnect();
+        } catch {
+          // Ignore errors when stopping
+        }
+      });
+      activeSourceNodesRef.current.clear();
+    }
     if (sourceNodeRef.current) {
       try {
         sourceNodeRef.current.stop();
         sourceNodeRef.current.disconnect();
-      } catch (e) {
+      } catch {
         // Ignore errors when stopping
       }
       sourceNodeRef.current = null;
     }
+  }, []);
+
+  // Cleanup audio resources
+  const cleanupAudio = useCallback(() => {
+    // Release the segment lock
+    isPlayingSegmentRef.current = false;
+    stopAllSourceNodes();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
-  }, []);
+  }, [stopAllSourceNodes]);
 
   const stopPlayback = useCallback(() => {
     playSessionRef.current += 1;
@@ -160,60 +199,108 @@ export function AudioPlayer({
     releaseExclusive();
   }, [cleanupAudio, releaseExclusive]);
 
-  const pausePlayback = useCallback(() => {
-    if (!isPlayingRef.current) {
-      return;
-    }
-
-    playSessionRef.current += 1;
-    isPausedRef.current = true;
-    setIsPlaying(false);
-    isPlayingRef.current = false;
-    setIsLoading(false);
-    setIsWaitingForSegment(false);
-    onPlayStateChangeRef.current?.(false);
-
-    if (useOssUrl) {
-      if (audioRef.current) {
-        const currentTime = audioRef.current.currentTime;
-        pausedAtRef.current = Number.isFinite(currentTime) ? currentTime : 0;
-        audioRef.current.pause();
+  const pausePlayback = useCallback(
+    (options?: { traceId?: string }) => {
+      const hasLiveAudio =
+        Boolean(sourceNodeRef.current) ||
+        activeSourceNodesRef.current.size > 0 ||
+        Boolean(audioRef.current && !audioRef.current.paused);
+      const shouldPause = isPlayingRef.current || hasLiveAudio;
+      const htmlAudio = audioRef.current;
+      const wasHtmlPlaying = Boolean(htmlAudio && !htmlAudio.paused);
+      const htmlTime = wasHtmlPlaying ? (htmlAudio?.currentTime ?? 0) : null;
+      if (!shouldPause) {
+        // console.log('audio-player-pause-skip', {
+        //   id: playerIdRef.current,
+        //   traceId: options?.traceId,
+        //   isPlaying: isPlayingRef.current,
+        //   hasSourceNode: Boolean(sourceNodeRef.current),
+        //   htmlAudioPaused: audioRef.current?.paused,
+        //   audioUrl: audioUrlRef.current,
+        //   activeNodes: activeSourceNodesRef.current.size,
+        //   wasHtmlPlaying,
+        // });
+        return;
       }
+
+      // console.log('audio-player-stop-others', {
+      //   id: playerIdRef.current,
+      //   traceId: options?.traceId,
+      //   isPlaying: isPlayingRef.current,
+      //   activeNodes: activeSourceNodesRef.current.size,
+      // });
+      requestExclusive(() => {});
+
+      // console.log('audio-player-pause', {
+      //   id: playerIdRef.current,
+      //   traceId: options?.traceId,
+      //   isPlaying: isPlayingRef.current,
+      //   hasSourceNode: Boolean(sourceNodeRef.current),
+      //   htmlAudioPaused: audioRef.current?.paused,
+      //   audioUrl: audioUrlRef.current,
+      //   activeNodes: activeSourceNodesRef.current.size,
+      //   wasHtmlPlaying,
+      //   htmlTime,
+      // });
+      playSessionRef.current += 1;
+      isPausedRef.current = true;
+      setIsPlaying(false);
+      isPlayingRef.current = false;
+      setIsLoading(false);
+      setIsWaitingForSegment(false);
+      onPlayStateChangeRef.current?.(false);
+
+      const audioContext = audioContextRef.current;
+      const activeNodes = activeSourceNodesRef.current.size;
+      if (audioContext && (sourceNodeRef.current || activeNodes > 0)) {
+        const elapsed = Math.max(
+          0,
+          audioContext.currentTime - segmentStartTimeRef.current,
+        );
+        const duration = segmentDurationRef.current;
+        const nextOffset = Math.min(
+          segmentOffsetRef.current + elapsed,
+          duration > 0 ? duration : segmentOffsetRef.current + elapsed,
+        );
+        playedSecondsRef.current += Math.max(
+          0,
+          nextOffset - segmentOffsetRef.current,
+        );
+        segmentOffsetRef.current = nextOffset;
+        pausedAtRef.current = playedSecondsRef.current;
+        stopAllSourceNodes();
+        // console.log('audio-player-stop-nodes', {
+        //   id: playerIdRef.current,
+        //   traceId: options?.traceId,
+        //   activeNodes,
+        //   audioContextState: audioContext.state,
+        // });
+        audioContext.suspend().catch(() => {});
+        audioContext.close().catch(() => {});
+        audioContextRef.current = null;
+        isPlayingSegmentRef.current = false;
+      } else {
+        pausedAtRef.current = playedSecondsRef.current;
+        stopAllSourceNodes();
+        if (audioContextRef.current) {
+          audioContextRef.current.suspend().catch(() => {});
+          audioContextRef.current.close().catch(() => {});
+          audioContextRef.current = null;
+        }
+      }
+
+      if (wasHtmlPlaying && htmlAudio) {
+        const safeHtmlTime = Number.isFinite(htmlTime as number)
+          ? Math.max(0, htmlTime as number)
+          : pausedAtRef.current;
+        pausedAtRef.current = safeHtmlTime;
+        htmlAudio.pause();
+      }
+
       releaseExclusive();
-      return;
-    }
-
-    const audioContext = audioContextRef.current;
-    if (audioContext && sourceNodeRef.current) {
-      const elapsed = Math.max(
-        0,
-        audioContext.currentTime - segmentStartTimeRef.current,
-      );
-      const duration = segmentDurationRef.current;
-      const nextOffset = Math.min(
-        segmentOffsetRef.current + elapsed,
-        duration > 0 ? duration : segmentOffsetRef.current + elapsed,
-      );
-      playedSecondsRef.current += Math.max(
-        0,
-        nextOffset - segmentOffsetRef.current,
-      );
-      segmentOffsetRef.current = nextOffset;
-      pausedAtRef.current = playedSecondsRef.current;
-      try {
-        sourceNodeRef.current.stop();
-        sourceNodeRef.current.disconnect();
-      } catch {
-        // Ignore errors when stopping
-      }
-      sourceNodeRef.current = null;
-      isPlayingSegmentRef.current = false;
-    } else {
-      pausedAtRef.current = playedSecondsRef.current;
-    }
-
-    releaseExclusive();
-  }, [releaseExclusive, useOssUrl]);
+    },
+    [releaseExclusive, requestExclusive, stopAllSourceNodes],
+  );
 
   // Play audio from OSS URL
   const playFromUrl = useCallback(
@@ -242,6 +329,7 @@ export function AudioPlayer({
         setIsLoading(false);
         setIsWaitingForSegment(false);
         onPlayStateChangeRef.current?.(false);
+        onEndedRef.current?.();
         releaseExclusive();
       };
       audio.onerror = () => {
@@ -337,6 +425,7 @@ export function AudioPlayer({
           setIsLoading(false);
           setIsWaitingForSegment(false);
           onPlayStateChangeRef.current?.(false);
+          onEndedRef.current?.();
           releaseExclusive();
           return;
         }
@@ -404,6 +493,12 @@ export function AudioPlayer({
           },
           initialOffset,
         );
+        activeSourceNodesRef.current.add(sourceNode);
+        const originalOnEnded = sourceNode.onended as any;
+        sourceNode.onended = event => {
+          activeSourceNodesRef.current.delete(sourceNode);
+          originalOnEnded?.(event);
+        };
         sourceNodeRef.current = sourceNode;
         setIsLoading(false);
         setIsPlaying(true);
@@ -553,6 +648,7 @@ export function AudioPlayer({
         setIsLoading(false);
         setIsWaitingForSegment(false);
         onPlayStateChangeRef.current?.(false);
+        onEndedRef.current?.();
         releaseExclusive();
       }
     }
@@ -640,6 +736,31 @@ export function AudioPlayer({
     stopPlayback,
   ]);
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      togglePlay,
+      play: () => {
+        if (!isPlayingRef.current) {
+          togglePlay();
+        }
+      },
+      pause: (options?: { traceId?: string }) => {
+        // console.log('audio-player-ref-pause', {
+        //   id: playerIdRef.current,
+        //   traceId: options?.traceId,
+        //   isPlaying: isPlayingRef.current,
+        //   hasSourceNode: Boolean(sourceNodeRef.current),
+        //   htmlAudioPaused: audioRef.current?.paused,
+        //   audioUrl: audioUrlRef.current,
+        //   activeNodes: activeSourceNodesRef.current.size,
+        // });
+        pausePlayback(options);
+      },
+    }),
+    [pausePlayback, togglePlay],
+  );
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -681,12 +802,12 @@ export function AudioPlayer({
       !hasAutoPlayedForCurrentContentRef.current &&
       !isPausedRef.current
     ) {
-      if (streamingSegments.length > 0 || isStreaming) {
-        hasAutoPlayedForCurrentContentRef.current = true;
-        playFromSegments();
-      } else if (effectiveAudioUrl) {
+      if (useOssUrl && effectiveAudioUrl) {
         hasAutoPlayedForCurrentContentRef.current = true;
         playFromUrl();
+      } else if (streamingSegments.length > 0 || isStreaming) {
+        hasAutoPlayedForCurrentContentRef.current = true;
+        playFromSegments();
       }
     }
   }, [
@@ -696,6 +817,7 @@ export function AudioPlayer({
     disabled,
     streamingSegments.length,
     isStreaming,
+    useOssUrl,
     effectiveAudioUrl,
     playFromSegments,
     playFromUrl,
@@ -781,5 +903,9 @@ export function AudioPlayer({
     </TooltipProvider>
   );
 }
+
+export const AudioPlayer = forwardRef(AudioPlayerBase);
+
+AudioPlayer.displayName = 'AudioPlayer';
 
 export default AudioPlayer;

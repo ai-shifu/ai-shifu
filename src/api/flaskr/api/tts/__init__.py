@@ -15,6 +15,7 @@ import logging
 from typing import Optional, Tuple
 
 from flaskr.common.config import get_config
+from flaskr.common.log import AppLoggerProxy
 
 # Re-export base classes for backward compatibility
 from flaskr.api.tts.base import (
@@ -30,7 +31,7 @@ from flaskr.api.tts.baidu_provider import BaiduTTSProvider
 from flaskr.api.tts.aliyun_provider import AliyunTTSProvider
 
 
-logger = logging.getLogger(__name__)
+logger = AppLoggerProxy(logging.getLogger(__name__))
 
 # Provider registry (ordered by default selection priority)
 _PROVIDER_REGISTRY = {
@@ -225,12 +226,8 @@ def get_all_provider_configs() -> dict:
         except Exception as e:
             logger.warning("Failed to get %s config: %s", name, e)
 
-    # Determine default provider
-    default_provider = _auto_detect_provider_name()
-
     return {
         "providers": providers,
-        "default_provider": default_provider,
     }
 
 
