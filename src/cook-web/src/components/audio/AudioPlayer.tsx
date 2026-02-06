@@ -15,12 +15,6 @@ import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import type { AudioSegment } from '@/c-utils/audio-utils';
 import { emitListenDebugAlert } from '@/c-utils/listen-debug';
 import {
-  createAudioContext,
-  decodeAudioBufferFromBase64,
-  playAudioBuffer,
-  resumeAudioContext,
-} from '@/lib/audio-playback';
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -121,18 +115,16 @@ function AudioPlayerBase(
   );
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
-  const activeSourceNodesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   // Track how many seconds have been played from streaming segments in this play session.
   const playedSecondsRef = useRef(0);
   const playSessionRef = useRef(0);
   const pendingStreamRef = useRef(false);
   const isPausedRef = useRef(false);
   const pausedAtRef = useRef(0);
-  const segmentOffsetRef = useRef(0);
-  const segmentStartTimeRef = useRef(0);
-  const segmentDurationRef = useRef(0);
+  const pausedSegmentIndexRef = useRef(0);
+  const segmentStartOffsetRef = useRef(0);
+  const playModeRef = useRef<'url' | 'segment' | null>(null);
+  const segmentUrlMapRef = useRef<Map<number, string>>(new Map());
   const playerIdRef = useRef(Math.random().toString(36).slice(2, 8));
   const contentKeyRef = useRef(contentKey ?? null);
   const playlistRef = useRef<AudioPlaylistItem[]>([]);
@@ -168,8 +160,6 @@ function AudioPlayerBase(
   const isPlayingRef = useRef(false);
   const segmentsRef = useRef<AudioSegment[]>([]);
   const isStreamingRef = useRef(false);
-  // Lock to prevent concurrent playSegmentByIndex calls
-  const isPlayingSegmentRef = useRef(false);
 
   // Keep refs in sync with props/state
   segmentsRef.current = activeStreamingSegments;
@@ -189,6 +179,72 @@ function AudioPlayerBase(
   // Track auto-play state per content
   const prevAutoPlayRef = useRef(autoPlay);
   const hasAutoPlayedForCurrentContentRef = useRef(false);
+
+  const ensureAudioElement = useCallback(() => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+      audioRef.current.preload = 'auto';
+      audioRef.current.setAttribute('playsinline', 'true');
+    }
+    return audioRef.current;
+  }, []);
+
+  const resolveSegmentMime = useCallback((audioData: string) => {
+    const head = audioData.slice(0, 8);
+    if (
+      head.startsWith('SUQz') ||
+      head.startsWith('////') ||
+      head.startsWith('//uQ')
+    ) {
+      return 'audio/mpeg';
+    }
+    if (head.startsWith('UklGR')) {
+      return 'audio/wav';
+    }
+    if (head.startsWith('T2dn')) {
+      return 'audio/ogg';
+    }
+    return 'audio/mpeg';
+  }, []);
+
+  const getSegmentUrl = useCallback(
+    (segment: AudioSegment) => {
+      const key = segment.segmentIndex;
+      const cached = segmentUrlMapRef.current.get(key);
+      if (cached) {
+        return cached;
+      }
+      const mime = resolveSegmentMime(segment.audioData);
+      const binary = atob(segment.audioData);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: mime });
+      const url = URL.createObjectURL(blob);
+      segmentUrlMapRef.current.set(key, url);
+      return url;
+    },
+    [resolveSegmentMime],
+  );
+
+  const revokeSegmentUrls = useCallback(() => {
+    segmentUrlMapRef.current.forEach(url => {
+      URL.revokeObjectURL(url);
+    });
+    segmentUrlMapRef.current.clear();
+  }, []);
+
+  const getSegmentDurationSeconds = useCallback((segment?: AudioSegment) => {
+    if (segment?.durationMs && segment.durationMs > 0) {
+      return segment.durationMs / 1000;
+    }
+    const audio = audioRef.current;
+    if (audio && Number.isFinite(audio.duration) && audio.duration > 0) {
+      return audio.duration;
+    }
+    return 0;
+  }, []);
 
   // Check if we have audio to play
   const hasAudio =
@@ -231,12 +287,13 @@ function AudioPlayerBase(
     playedSecondsRef.current = 0;
     isPausedRef.current = false;
     pendingStreamRef.current = false;
-    segmentOffsetRef.current = 0;
-    segmentStartTimeRef.current = 0;
-    segmentDurationRef.current = 0;
-    isPlayingSegmentRef.current = false;
+    pausedAtRef.current = 0;
+    pausedSegmentIndexRef.current = 0;
+    segmentStartOffsetRef.current = 0;
+    playModeRef.current = null;
+    revokeSegmentUrls();
     hasAutoPlayedForCurrentContentRef.current = false;
-  }, []);
+  }, [revokeSegmentUrls]);
 
   const startPlaySession = useCallback(() => {
     playSessionRef.current += 1;
@@ -248,48 +305,23 @@ function AudioPlayerBase(
     [],
   );
 
-  const stopAllSourceNodes = useCallback(() => {
-    if (activeSourceNodesRef.current.size > 0) {
-      activeSourceNodesRef.current.forEach(node => {
-        try {
-          node.stop();
-          node.disconnect();
-        } catch {
-          // Ignore errors when stopping
-        }
-      });
-      activeSourceNodesRef.current.clear();
-    }
-    if (sourceNodeRef.current) {
-      try {
-        sourceNodeRef.current.stop();
-        sourceNodeRef.current.disconnect();
-      } catch {
-        // Ignore errors when stopping
-      }
-      sourceNodeRef.current = null;
-    }
-  }, []);
-
   // Cleanup audio resources
   const cleanupAudio = useCallback(() => {
-    // Release the segment lock
-    isPlayingSegmentRef.current = false;
-    stopAllSourceNodes();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
-  }, [stopAllSourceNodes]);
+  }, []);
 
   const stopPlayback = useCallback(() => {
     playSessionRef.current += 1;
     pendingStreamRef.current = false;
     isPausedRef.current = false;
     pausedAtRef.current = 0;
-    segmentOffsetRef.current = 0;
-    segmentStartTimeRef.current = 0;
-    segmentDurationRef.current = 0;
+    pausedSegmentIndexRef.current = 0;
+    segmentStartOffsetRef.current = 0;
+    playModeRef.current = null;
+    revokeSegmentUrls();
     cleanupAudio();
     setIsPlaying(false);
     isPlayingRef.current = false;
@@ -297,7 +329,7 @@ function AudioPlayerBase(
     setIsWaitingForSegment(false);
     onPlayStateChangeRef.current?.(false);
     releaseExclusive();
-  }, [cleanupAudio, releaseExclusive]);
+  }, [cleanupAudio, releaseExclusive, revokeSegmentUrls]);
 
   const finalizeTrackState = useCallback(() => {
     setIsPlaying(false);
@@ -391,14 +423,11 @@ function AudioPlayerBase(
 
   const pausePlayback = useCallback(
     (options?: { traceId?: string }) => {
-      const hasLiveAudio =
-        Boolean(sourceNodeRef.current) ||
-        activeSourceNodesRef.current.size > 0 ||
-        Boolean(audioRef.current && !audioRef.current.paused);
-      const shouldPause = isPlayingRef.current || hasLiveAudio;
       const htmlAudio = audioRef.current;
       const wasHtmlPlaying = Boolean(htmlAudio && !htmlAudio.paused);
       const htmlTime = wasHtmlPlaying ? (htmlAudio?.currentTime ?? 0) : null;
+      const shouldPause =
+        isPlayingRef.current || wasHtmlPlaying || isWaitingForSegment;
       if (!shouldPause) {
         // console.log('audio-player-pause-skip', {
         //   id: playerIdRef.current,
@@ -425,10 +454,8 @@ function AudioPlayerBase(
       //   id: playerIdRef.current,
       //   traceId: options?.traceId,
       //   isPlaying: isPlayingRef.current,
-      //   hasSourceNode: Boolean(sourceNodeRef.current),
       //   htmlAudioPaused: audioRef.current?.paused,
       //   audioUrl: audioUrlRef.current,
-      //   activeNodes: activeSourceNodesRef.current.size,
       //   wasHtmlPlaying,
       //   htmlTime,
       // });
@@ -440,56 +467,24 @@ function AudioPlayerBase(
       setIsWaitingForSegment(false);
       onPlayStateChangeRef.current?.(false);
 
-      const audioContext = audioContextRef.current;
-      const activeNodes = activeSourceNodesRef.current.size;
-      if (audioContext && (sourceNodeRef.current || activeNodes > 0)) {
-        const elapsed = Math.max(
-          0,
-          audioContext.currentTime - segmentStartTimeRef.current,
-        );
-        const duration = segmentDurationRef.current;
-        const nextOffset = Math.min(
-          segmentOffsetRef.current + elapsed,
-          duration > 0 ? duration : segmentOffsetRef.current + elapsed,
-        );
-        playedSecondsRef.current += Math.max(
-          0,
-          nextOffset - segmentOffsetRef.current,
-        );
-        segmentOffsetRef.current = nextOffset;
-        pausedAtRef.current = playedSecondsRef.current;
-        stopAllSourceNodes();
-        // console.log('audio-player-stop-nodes', {
-        //   id: playerIdRef.current,
-        //   traceId: options?.traceId,
-        //   activeNodes,
-        //   audioContextState: audioContext.state,
-        // });
-        audioContext.suspend().catch(() => {});
-        audioContext.close().catch(() => {});
-        audioContextRef.current = null;
-        isPlayingSegmentRef.current = false;
-      } else {
-        pausedAtRef.current = playedSecondsRef.current;
-        stopAllSourceNodes();
-        if (audioContextRef.current) {
-          audioContextRef.current.suspend().catch(() => {});
-          audioContextRef.current.close().catch(() => {});
-          audioContextRef.current = null;
-        }
-      }
-
       if (wasHtmlPlaying && htmlAudio) {
         const safeHtmlTime = Number.isFinite(htmlTime as number)
           ? Math.max(0, htmlTime as number)
-          : pausedAtRef.current;
+          : 0;
         pausedAtRef.current = safeHtmlTime;
         htmlAudio.pause();
+      } else if (Number.isFinite(htmlTime as number)) {
+        pausedAtRef.current = Math.max(0, htmlTime as number);
       }
+
+      pausedSegmentIndexRef.current =
+        playModeRef.current === 'segment'
+          ? currentSegmentIndexRef.current
+          : 0;
 
       releaseExclusive();
     },
-    [releaseExclusive, requestExclusive, stopAllSourceNodes],
+    [isWaitingForSegment, releaseExclusive, requestExclusive],
   );
 
   // Play audio from OSS URL
@@ -500,20 +495,14 @@ function AudioPlayerBase(
 
       isPausedRef.current = false;
       pausedAtRef.current = 0;
-      segmentOffsetRef.current = 0;
-      segmentStartTimeRef.current = 0;
-      segmentDurationRef.current = 0;
+      pausedSegmentIndexRef.current = 0;
+      segmentStartOffsetRef.current = 0;
+      playModeRef.current = 'url';
 
       const sessionId = startPlaySession();
       requestExclusive(stopPlayback);
 
-      if (!audioRef.current) {
-        audioRef.current = new Audio();
-        audioRef.current.preload = 'auto';
-        audioRef.current.setAttribute('playsinline', 'true');
-      }
-
-      const audio = audioRef.current;
+      const audio = ensureAudioElement();
       emitListenDebugAlert('playFromUrl', {
         playerId: playerIdRef.current,
         sessionId,
@@ -613,12 +602,6 @@ function AudioPlayerBase(
       startOffsetSeconds: number = 0,
     ) {
       if (!isSessionActive(sessionId)) {
-        isPlayingSegmentRef.current = false;
-        return;
-      }
-
-      // Prevent concurrent calls - if already playing a segment, skip
-      if (isPlayingSegmentRef.current) {
         return;
       }
 
@@ -631,106 +614,104 @@ function AudioPlayerBase(
           // Still streaming, wait for more segments
           setIsWaitingForSegment(true);
           setIsLoading(true);
+          setIsPlaying(true);
+          isPlayingRef.current = true;
+          onPlayStateChangeRef.current?.(true);
           currentSegmentIndexRef.current = index;
           return;
-        } else {
-          // Streaming is complete and we reached the end of the received segments.
-          // Do NOT auto-switch to the final URL here: providers may report 0/incorrect
-          // `durationMs` per segment, which can cause overlap/replay when seeking.
-          finalizeTrackState();
-          handleTrackEnded();
-          return;
         }
+        finalizeTrackState();
+        handleTrackEnded();
+        return;
       }
 
-      // Acquire lock
+      const segment = segments[index];
+      const audio = ensureAudioElement();
+      playModeRef.current = 'segment';
+      currentSegmentIndexRef.current = index;
+      segmentStartOffsetRef.current = Number.isFinite(startOffsetSeconds)
+        ? Math.max(0, startOffsetSeconds)
+        : 0;
       pendingStreamRef.current = false;
-      isPlayingSegmentRef.current = true;
+
+      emitListenDebugAlert('playSegment-start', {
+        playerId: playerIdRef.current,
+        sessionId,
+        index,
+        segments: segments.length,
+        isStreaming: isStreamingRef.current,
+      });
+
+      const segmentUrl = getSegmentUrl(segment);
+      audio.onended = () => {
+        if (!isSessionActive(sessionId)) return;
+        emitListenDebugAlert('playSegment-ended', {
+          playerId: playerIdRef.current,
+          sessionId,
+          index,
+        });
+        const durationSeconds = getSegmentDurationSeconds(segment);
+        const offsetSeconds = segmentStartOffsetRef.current;
+        playedSecondsRef.current += Math.max(
+          0,
+          durationSeconds - offsetSeconds,
+        );
+        segmentStartOffsetRef.current = 0;
+        const nextIndex = index + 1;
+        currentSegmentIndexRef.current = nextIndex;
+        if (nextIndex < segmentsRef.current.length) {
+          playSegmentByIndex(nextIndex, sessionId);
+          return;
+        }
+        if (isStreamingRef.current) {
+          setIsWaitingForSegment(true);
+          setIsLoading(true);
+          setIsPlaying(true);
+          isPlayingRef.current = true;
+          onPlayStateChangeRef.current?.(true);
+          return;
+        }
+        finalizeTrackState();
+        handleTrackEnded();
+      };
+      audio.onerror = () => {
+        if (!isSessionActive(sessionId)) return;
+        emitListenDebugAlert('playSegment-error', {
+          playerId: playerIdRef.current,
+          sessionId,
+          index,
+          errorCode: audio.error?.code,
+        });
+        console.error('Failed to play audio segment:', audio.error);
+        setIsLoading(false);
+        setIsWaitingForSegment(false);
+        setIsPlaying(false);
+        isPlayingRef.current = false;
+        onPlayStateChangeRef.current?.(false);
+        releaseExclusive();
+      };
+      audio.oncanplay = () => {
+        if (!isSessionActive(sessionId)) return;
+        setIsLoading(false);
+      };
 
       try {
+        audio.pause();
+        audio.src = segmentUrl;
         setIsWaitingForSegment(false);
         setIsLoading(true);
-
-        // Initialize AudioContext if needed
-        if (!audioContextRef.current) {
-          audioContextRef.current = createAudioContext();
-        }
-
-        const audioContext = audioContextRef.current;
-
-        // Resume context if suspended (may fail without user gesture in some browsers)
-        await resumeAudioContext(audioContext);
-        if (!isSessionActive(sessionId)) {
-          isPlayingSegmentRef.current = false;
-          return;
-        }
-
-        const segment = segments[index];
-        emitListenDebugAlert('playSegment-start', {
-          playerId: playerIdRef.current,
-          sessionId,
-          index,
-          segments: segments.length,
-          isStreaming: isStreamingRef.current,
-        });
-        currentSegmentIndexRef.current = index;
-
-        const audioBuffer = await decodeAudioBufferFromBase64(
-          audioContext,
-          segment.audioData,
-        );
-        if (!isSessionActive(sessionId)) {
-          isPlayingSegmentRef.current = false;
-          return;
-        }
-        emitListenDebugAlert('playSegment-decoded', {
-          playerId: playerIdRef.current,
-          sessionId,
-          index,
-          duration: audioBuffer.duration,
-        });
-
-        const initialOffset = Number.isFinite(startOffsetSeconds)
-          ? Math.max(0, startOffsetSeconds)
+        const seekTarget = Number.isFinite(segmentStartOffsetRef.current)
+          ? Math.max(0, segmentStartOffsetRef.current)
           : 0;
-        segmentOffsetRef.current = initialOffset;
-        segmentStartTimeRef.current = audioContext.currentTime;
-        segmentDurationRef.current = audioBuffer.duration || 0;
-
-        const sourceNode = playAudioBuffer(
-          audioContext,
-          audioBuffer,
-          () => {
-            if (!isSessionActive(sessionId)) return;
-            emitListenDebugAlert('playSegment-ended', {
-              playerId: playerIdRef.current,
-              sessionId,
-              index,
-            });
-            // Release lock before playing next segment
-            isPlayingSegmentRef.current = false;
-            const remainingSeconds = Math.max(
-              0,
-              (audioBuffer.duration || 0) - initialOffset,
-            );
-            playedSecondsRef.current += remainingSeconds;
-            segmentOffsetRef.current = 0;
-            segmentDurationRef.current = 0;
-            // Play next segment
-            if (isPlayingRef.current) {
-              playSegmentByIndex(index + 1, sessionId);
-            }
-          },
-          initialOffset,
-        );
-        activeSourceNodesRef.current.add(sourceNode);
-        const originalOnEnded = sourceNode.onended as any;
-        sourceNode.onended = event => {
-          activeSourceNodesRef.current.delete(sourceNode);
-          originalOnEnded?.(event);
-        };
-        sourceNodeRef.current = sourceNode;
-        setIsLoading(false);
+        try {
+          if (seekTarget > 0) {
+            audio.currentTime = seekTarget;
+          }
+        } catch {
+          // Ignore seek errors for streaming segments.
+        }
+        await audio.play();
+        if (!isSessionActive(sessionId)) return;
         setIsPlaying(true);
         isPlayingRef.current = true;
         onPlayStateChangeRef.current?.(true);
@@ -743,29 +724,28 @@ function AudioPlayerBase(
           errorMessage: (error as DOMException | Error | undefined)?.message,
         });
         console.error('Failed to play audio segment:', error);
-        // Release lock so future attempts can proceed.
-        isPlayingSegmentRef.current = false;
         setIsLoading(false);
         setIsWaitingForSegment(false);
-
+        setIsPlaying(false);
+        isPlayingRef.current = false;
         if (error instanceof DOMException && error.name === 'NotAllowedError') {
-          setIsPlaying(false);
-          isPlayingRef.current = false;
-          onPlayStateChangeRef.current?.(false);
           isPausedRef.current = true;
+          onPlayStateChangeRef.current?.(false);
           releaseExclusive();
-          return;
-        }
-
-        // Try next segment when we are already in a play session.
-        if (isPlayingRef.current) {
-          playSegmentByIndex(index + 1, sessionId);
           return;
         }
         releaseExclusive();
       }
     },
-    [finalizeTrackState, handleTrackEnded, isSessionActive, releaseExclusive],
+    [
+      ensureAudioElement,
+      finalizeTrackState,
+      getSegmentDurationSeconds,
+      getSegmentUrl,
+      handleTrackEnded,
+      isSessionActive,
+      releaseExclusive,
+    ],
   );
 
   // Start playback from segments
@@ -775,9 +755,9 @@ function AudioPlayerBase(
       requestExclusive(stopPlayback);
       isPausedRef.current = false;
       pausedAtRef.current = 0;
-      segmentOffsetRef.current = 0;
-      segmentStartTimeRef.current = 0;
-      segmentDurationRef.current = 0;
+      pausedSegmentIndexRef.current = 0;
+      segmentStartOffsetRef.current = 0;
+      playModeRef.current = 'segment';
 
       if (segmentsRef.current.length === 0) {
         if (
@@ -834,13 +814,13 @@ function AudioPlayerBase(
     const sessionId = startPlaySession();
     requestExclusive(stopPlayback);
     isPausedRef.current = false;
-    pausedAtRef.current = 0;
     setIsLoading(true);
     setIsWaitingForSegment(false);
     setIsPlaying(true);
     isPlayingRef.current = true;
+    playModeRef.current = 'segment';
 
-    const resumeIndex = currentSegmentIndexRef.current;
+    const resumeIndex = pausedSegmentIndexRef.current;
     const segments = segmentsRef.current;
 
     if (segments.length === 0) {
@@ -867,7 +847,7 @@ function AudioPlayerBase(
       return;
     }
 
-    playSegmentByIndex(resumeIndex, sessionId, segmentOffsetRef.current);
+    playSegmentByIndex(resumeIndex, sessionId, pausedAtRef.current);
   }, [
     playSegmentByIndex,
     releaseExclusive,
@@ -899,8 +879,8 @@ function AudioPlayerBase(
         // Streaming finished and no more segments. If final URL exists, continue playback with it.
         if (effectiveAudioUrl) {
           pendingStreamRef.current = false;
+          setIsWaitingForSegment(false);
           const startAtSeconds = playedSecondsRef.current;
-          cleanupAudio();
           playFromUrl(startAtSeconds);
           return;
         }
@@ -920,7 +900,6 @@ function AudioPlayerBase(
     isSessionActive,
     playSegmentByIndex,
     effectiveAudioUrl,
-    cleanupAudio,
     playFromUrl,
     finalizeTrackState,
     handleTrackEnded,
@@ -938,6 +917,10 @@ function AudioPlayerBase(
       return;
     } else {
       if (isPausedRef.current) {
+        if (playModeRef.current === 'segment') {
+          resumeFromSegments();
+          return;
+        }
         if (useOssUrl && effectiveAudioUrl) {
           playFromUrl(pausedAtRef.current);
           return;
@@ -1034,11 +1017,9 @@ function AudioPlayerBase(
       pendingStreamRef.current = false;
       cleanupAudio();
       releaseExclusive();
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
+      revokeSegmentUrls();
     };
-  }, [cleanupAudio, releaseExclusive]);
+  }, [cleanupAudio, releaseExclusive, revokeSegmentUrls]);
 
   useEffect(() => {
     if (!playlist || playlist.length === 0) {
