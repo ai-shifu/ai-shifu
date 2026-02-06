@@ -198,18 +198,25 @@ class CouponUsage(db.Model):
 
 
 class PromoCampaign(db.Model):
-    """Promo campaign definition."""
+    """Promotion campaign definition."""
 
-    __tablename__ = "promo_campaigns"
-    __table_args__ = {"comment": "Promo campaigns"}
+    __tablename__ = "promo_promos"
+    __table_args__ = {
+        "comment": (
+            "Promotion campaign definition table. Defines a discount campaign for a specific "
+            "Shifu (join/apply type, time window, discount configuration, channel, and targeting "
+            "filter). Stores configuration only; user participation/claim/redemption records are "
+            "stored in table promo_redemptions."
+        )
+    }
 
     id = Column(BIGINT, primary_key=True, autoincrement=True)
-    campaign_bid = Column(
+    promo_bid = Column(
         String(36),
         index=True,
         nullable=False,
         default="",
-        comment="Campaign business identifier",
+        comment="Promotion business identifier",
     )
     shifu_bid = Column(
         String(36),
@@ -218,15 +225,18 @@ class PromoCampaign(db.Model):
         default="",
         comment="Shifu business identifier",
     )
-    name = Column(String(255), nullable=False, default="", comment="Campaign name")
+    name = Column(String(255), nullable=False, default="", comment="Promotion name")
     description = Column(
-        Text, nullable=False, default="", comment="Campaign description"
+        Text, nullable=False, default="", comment="Promotion description"
     )
-    join_type = Column(
+    apply_type = Column(
         SmallInteger,
         nullable=False,
         default=PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
-        comment="Join type: 2101=auto, 2102=event, 2103=manual",
+        comment=(
+            "Apply/join type: 2101=auto(eligible users get it automatically), "
+            "2102=event(granted on specific events), 2103=manual(granted manually)"
+        ),
     )
     status = Column(
         SmallInteger,
@@ -240,14 +250,14 @@ class PromoCampaign(db.Model):
         nullable=False,
         index=True,
         default=func.now(),
-        comment="Campaign start time",
+        comment="Promotion start time(inclusive)",
     )
     end_at = Column(
         DateTime,
         nullable=False,
         index=True,
         default=func.now(),
-        comment="Campaign end time",
+        comment="Promotion end time(recommended exclusive): start_at <= now < end_at",
     )
     discount_type = Column(
         SmallInteger,
@@ -259,14 +269,21 @@ class PromoCampaign(db.Model):
         Numeric(10, 2),
         nullable=False,
         default="0.00",
-        comment="Discount value: interpreted by discount_type",
+        comment=(
+            "Discount value: interpreted by discount_type(fixed = amount off; percent = percentage off)"
+        ),
     )
-    channel = Column(String(36), nullable=False, default="", comment="Campaign channel")
+    channel = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Promotion channel(e.g., web/app/partner; business-defined)",
+    )
     filter = Column(
         Text,
         nullable=False,
-        default="",
-        comment="Campaign filter: JSON string for user/shifu targeting",
+        default="{}",
+        comment="Promotion filter: JSON string for user/shifu targeting;{} means no restriction.",
     )
     deleted = Column(
         SmallInteger,
@@ -304,34 +321,41 @@ class PromoCampaign(db.Model):
     )
 
 
-class PromoCampaignApplication(db.Model):
-    """Order-level promo campaign application record."""
+class PromoRedemption(db.Model):
+    """Promotion campaign redemption ledger."""
 
-    __tablename__ = "promo_campaign_applications"
+    __tablename__ = "promo_redemptions"
     __table_args__ = (
         UniqueConstraint(
             "order_bid",
-            "campaign_bid",
+            "promo_bid",
             "deleted",
             name="uk_promo_campaign_application_order_campaign_deleted",
         ),
-        {"comment": "Promo campaign applications"},
+        {
+            "comment": (
+                "Promotion campaign redemption ledger. Records each time a user redeems/applies a "
+                "promo campaign to an order, including snapshot fields (campaign name/discount "
+                "type/value) and the computed discount amount. This table is transactional/"
+                "immutable-by-intent; campaign definitions live in promo_promos."
+            )
+        },
     )
 
     id = Column(BIGINT, primary_key=True, autoincrement=True)
-    campaign_application_bid = Column(
+    redemption_bid = Column(
         String(36),
         index=True,
         nullable=False,
         default="",
-        comment="Campaign application business identifier",
+        comment="Promotion application business identifier",
     )
-    campaign_bid = Column(
+    promo_bid = Column(
         String(36),
         index=True,
         nullable=False,
         default="",
-        comment="Campaign business identifier",
+        comment="Promotion business identifier",
     )
     order_bid = Column(
         String(36),
@@ -354,8 +378,8 @@ class PromoCampaignApplication(db.Model):
         default="",
         comment="Shifu business identifier",
     )
-    campaign_name = Column(
-        String(255), nullable=False, default="", comment="Campaign name snapshot"
+    promo_name = Column(
+        String(255), nullable=False, default="", comment="Promotion name snapshot"
     )
     discount_type = Column(
         SmallInteger,
@@ -373,7 +397,9 @@ class PromoCampaignApplication(db.Model):
         Numeric(10, 2),
         nullable=False,
         default="0.00",
-        comment="Applied discount amount for this order",
+        comment=(
+            "Discount amount actually applied to this order (computed result for this redemption)"
+        ),
     )
     status = Column(
         SmallInteger,

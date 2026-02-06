@@ -46,7 +46,7 @@ from flaskr.service.promo.consts import (
     PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
     PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED,
 )
-from flaskr.service.promo.models import CouponUsage, PromoCampaignApplication
+from flaskr.service.promo.models import CouponUsage, PromoRedemption
 from flaskr.service.shifu.models import DraftShifu
 from flaskr.service.shifu.shifu_draft_funcs import get_user_created_shifu_bids
 from flaskr.service.shifu.utils import get_shifu_creator_bid
@@ -486,16 +486,16 @@ def list_orders(
 
 def _load_order_activities(order_bid: str) -> List[OrderAdminActivityDTO]:
     """Load activity records tied to an order and format as DTOs."""
-    records = PromoCampaignApplication.query.filter(
-        PromoCampaignApplication.order_bid == order_bid,
-        PromoCampaignApplication.deleted == 0,
+    records = PromoRedemption.query.filter(
+        PromoRedemption.order_bid == order_bid,
+        PromoRedemption.deleted == 0,
     ).all()
     activities: List[OrderAdminActivityDTO] = []
     for record in records:
         activities.append(
             OrderAdminActivityDTO(
-                active_id=record.campaign_bid,
-                active_name=record.campaign_name,
+                active_id=record.promo_bid,
+                active_name=record.promo_name,
                 price=_format_decimal(record.discount_amount),
                 status=record.status,
                 status_key=ACTIVE_STATUS_KEY_MAP.get(

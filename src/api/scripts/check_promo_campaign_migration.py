@@ -33,33 +33,29 @@ def main() -> int:
     from app import create_app
     from flaskr.dao import db
     from flaskr.service.active.models import Active, ActiveUserRecord
-    from flaskr.service.promo.models import PromoCampaign, PromoCampaignApplication
+    from flaskr.service.promo.models import PromoCampaign, PromoRedemption
 
     app = create_app()
     with app.app_context():
         print("== Counts ==")
         print(f"active: {Active.query.count()}")
-        print(f"promo_campaigns: {PromoCampaign.query.count()}")
+        print(f"promo_promos: {PromoCampaign.query.count()}")
         print(f"active_user_record: {ActiveUserRecord.query.count()}")
-        print(f"promo_campaign_applications: {PromoCampaignApplication.query.count()}")
+        print(f"promo_redemptions: {PromoRedemption.query.count()}")
         print()
 
         print("== Aggregates ==")
         active_sum = db.session.query(func.sum(ActiveUserRecord.price)).scalar()
-        app_sum = db.session.query(
-            func.sum(PromoCampaignApplication.discount_amount)
-        ).scalar()
+        app_sum = db.session.query(func.sum(PromoRedemption.discount_amount)).scalar()
         print(f"sum(active_user_record.price): {_format_decimal(active_sum)}")
-        print(
-            f"sum(promo_campaign_applications.discount_amount): {_format_decimal(app_sum)}"
-        )
+        print(f"sum(promo_redemptions.discount_amount): {_format_decimal(app_sum)}")
         print()
 
-        print("== Missing campaigns (active -> promo_campaigns) ==")
+        print("== Missing promos (active -> promo_promos) ==")
         missing_campaigns = (
             db.session.query(Active.active_id)
-            .outerjoin(PromoCampaign, PromoCampaign.campaign_bid == Active.active_id)
-            .filter(PromoCampaign.campaign_bid.is_(None))
+            .outerjoin(PromoCampaign, PromoCampaign.promo_bid == Active.active_id)
+            .filter(PromoCampaign.promo_bid.is_(None))
             .limit(args.limit)
             .all()
         )
@@ -70,17 +66,14 @@ def main() -> int:
             print("OK")
         print()
 
-        print(
-            "== Missing applications (active_user_record -> promo_campaign_applications) =="
-        )
+        print("== Missing redemptions (active_user_record -> promo_redemptions) ==")
         missing_applications = (
             db.session.query(ActiveUserRecord.record_id)
             .outerjoin(
-                PromoCampaignApplication,
-                PromoCampaignApplication.campaign_application_bid
-                == ActiveUserRecord.record_id,
+                PromoRedemption,
+                PromoRedemption.redemption_bid == ActiveUserRecord.record_id,
             )
-            .filter(PromoCampaignApplication.campaign_application_bid.is_(None))
+            .filter(PromoRedemption.redemption_bid.is_(None))
             .limit(args.limit)
             .all()
         )

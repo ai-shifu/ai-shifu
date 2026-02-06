@@ -1,4 +1,4 @@
-"""backfill promo campaign tables from active tables
+"""backfill promo tables from active tables
 
 Revision ID: ef7dbc5a8be3
 Revises: c221d355ffb7
@@ -33,9 +33,7 @@ def _column_exists(table_name: str, column_name: str) -> bool:
 
 
 def upgrade():
-    if not _table_exists("promo_campaigns") or not _table_exists(
-        "promo_campaign_applications"
-    ):
+    if not _table_exists("promo_promos") or not _table_exists("promo_redemptions"):
         return
 
     if not _table_exists("active") or not _table_exists("active_user_record"):
@@ -84,12 +82,12 @@ def upgrade():
     # Deduplicate by active_id (pick the latest row by id).
     op.execute(
         f"""
-        INSERT INTO promo_campaigns (
-            campaign_bid,
+        INSERT INTO promo_promos (
+            promo_bid,
             shifu_bid,
             name,
             description,
-            join_type,
+            apply_type,
             status,
             start_at,
             end_at,
@@ -132,8 +130,8 @@ def upgrade():
         ) latest ON latest.active_id = a.active_id AND latest.max_id = a.id
         WHERE NOT EXISTS (
             SELECT 1
-            FROM promo_campaigns pc
-            WHERE pc.campaign_bid = a.active_id
+            FROM promo_promos pc
+            WHERE pc.promo_bid = a.active_id
         )
         """
     )
@@ -141,13 +139,13 @@ def upgrade():
     # Deduplicate per (order_id, active_id) (pick the latest row by id).
     op.execute(
         f"""
-        INSERT INTO promo_campaign_applications (
-            campaign_application_bid,
-            campaign_bid,
+        INSERT INTO promo_redemptions (
+            redemption_bid,
+            promo_bid,
             order_bid,
             user_bid,
             shifu_bid,
-            campaign_name,
+            promo_name,
             discount_type,
             value,
             discount_amount,
@@ -179,8 +177,8 @@ def upgrade():
         LEFT JOIN active a ON a.active_id = r.active_id
         WHERE NOT EXISTS (
             SELECT 1
-            FROM promo_campaign_applications pca
-            WHERE pca.campaign_application_bid = r.record_id
+            FROM promo_redemptions pca
+            WHERE pca.redemption_bid = r.record_id
         )
         """
     )

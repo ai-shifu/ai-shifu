@@ -14,7 +14,7 @@ from .models import (
     Coupon,
     CouponUsage as CouponUsageModel,
     PromoCampaign,
-    PromoCampaignApplication,
+    PromoRedemption,
 )
 from ...dao import db
 from .consts import (
@@ -148,14 +148,13 @@ def timeout_coupon_code_rollback(app: Flask, user_bid, order_bid):
 def void_promo_campaign_applications(app: Flask, user_bid: str, order_bid: str) -> None:
     """Mark applied promo campaign applications as voided for an order."""
     with app.app_context():
-        PromoCampaignApplication.query.filter(
-            PromoCampaignApplication.order_bid == order_bid,
-            PromoCampaignApplication.user_bid == user_bid,
-            PromoCampaignApplication.deleted == 0,
-            PromoCampaignApplication.status
-            == PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+        PromoRedemption.query.filter(
+            PromoRedemption.order_bid == order_bid,
+            PromoRedemption.user_bid == user_bid,
+            PromoRedemption.deleted == 0,
+            PromoRedemption.status == PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
         ).update(
-            {PromoCampaignApplication.status: PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED},
+            {PromoRedemption.status: PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED},
             synchronize_session="fetch",
         )
         db.session.commit()
@@ -180,9 +179,9 @@ def apply_promo_campaigns(
     shifu_bid: str,
     user_bid: str,
     order_bid: str,
-    campaign_bid: str | None,
+    promo_bid: str | None,
     payable_price: decimal.Decimal,
-) -> list[PromoCampaignApplication]:
+) -> list[PromoRedemption]:
     """Apply eligible promo campaigns to an order and create application records."""
     with app.app_context():
         now = datetime.now(pytz.timezone("Asia/Shanghai"))
@@ -192,13 +191,13 @@ def apply_promo_campaigns(
             PromoCampaign.status == PROMO_CAMPAIGN_STATUS_ACTIVE,
             PromoCampaign.start_at <= now,
             PromoCampaign.end_at >= now,
-            PromoCampaign.join_type == PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
+            PromoCampaign.apply_type == PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
             PromoCampaign.deleted == 0,
         ).all()
 
-        if campaign_bid:
+        if promo_bid:
             manual_campaign = PromoCampaign.query.filter(
-                PromoCampaign.campaign_bid == campaign_bid,
+                PromoCampaign.promo_bid == promo_bid,
                 PromoCampaign.status == PROMO_CAMPAIGN_STATUS_ACTIVE,
                 PromoCampaign.start_at <= now,
                 PromoCampaign.end_at >= now,
@@ -206,29 +205,29 @@ def apply_promo_campaigns(
                 PromoCampaign.deleted == 0,
             ).first()
             if manual_campaign and all(
-                campaign.campaign_bid != manual_campaign.campaign_bid
+                campaign.promo_bid != manual_campaign.promo_bid
                 for campaign in campaigns
             ):
                 campaigns.append(manual_campaign)
 
-        applications: list[PromoCampaignApplication] = []
+        applications: list[PromoRedemption] = []
         for campaign in campaigns:
-            existing = PromoCampaignApplication.query.filter(
-                PromoCampaignApplication.order_bid == order_bid,
-                PromoCampaignApplication.campaign_bid == campaign.campaign_bid,
-                PromoCampaignApplication.deleted == 0,
+            existing = PromoRedemption.query.filter(
+                PromoRedemption.order_bid == order_bid,
+                PromoRedemption.promo_bid == campaign.promo_bid,
+                PromoRedemption.deleted == 0,
             ).first()
             if existing:
                 applications.append(existing)
                 continue
 
-            application = PromoCampaignApplication()
-            application.campaign_application_bid = generate_id(app)
-            application.campaign_bid = campaign.campaign_bid
+            application = PromoRedemption()
+            application.redemption_bid = generate_id(app)
+            application.promo_bid = campaign.promo_bid
             application.order_bid = order_bid
             application.user_bid = user_bid
             application.shifu_bid = shifu_bid
-            application.campaign_name = campaign.name
+            application.promo_name = campaign.name
             application.discount_type = campaign.discount_type
             application.value = campaign.value
             application.discount_amount = _calculate_discount_amount(
@@ -243,27 +242,26 @@ def apply_promo_campaigns(
 
 def query_promo_campaign_applications(
     app: Flask, order_bid: str, recalc_discount: bool
-) -> list[PromoCampaignApplication]:
+) -> list[PromoRedemption]:
     """Query promo campaign applications tied to an order."""
     with app.app_context():
-        records: list[PromoCampaignApplication] = PromoCampaignApplication.query.filter(
-            PromoCampaignApplication.order_bid == order_bid,
-            PromoCampaignApplication.deleted == 0,
-            PromoCampaignApplication.status
-            == PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+        records: list[PromoRedemption] = PromoRedemption.query.filter(
+            PromoRedemption.order_bid == order_bid,
+            PromoRedemption.deleted == 0,
+            PromoRedemption.status == PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
         ).all()
 
         if not recalc_discount or not records:
             return records
 
         now = datetime.now(pytz.timezone("Asia/Shanghai"))
-        campaign_bids = [record.campaign_bid for record in records]
+        campaign_bids = [record.promo_bid for record in records]
         campaigns = PromoCampaign.query.filter(
-            PromoCampaign.campaign_bid.in_(campaign_bids),
+            PromoCampaign.promo_bid.in_(campaign_bids),
             PromoCampaign.status == PROMO_CAMPAIGN_STATUS_ACTIVE,
             PromoCampaign.start_at <= now,
             PromoCampaign.end_at >= now,
             PromoCampaign.deleted == 0,
         ).all()
-        valid_bids = {campaign.campaign_bid for campaign in campaigns}
-        return [record for record in records if record.campaign_bid in valid_bids]
+        valid_bids = {campaign.promo_bid for campaign in campaigns}
+        return [record for record in records if record.promo_bid in valid_bids]

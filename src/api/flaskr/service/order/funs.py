@@ -322,7 +322,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
                 shifu_bid=course_id,
                 user_bid=user_id,
                 order_bid=order_id,
-                campaign_bid=active_id,
+                promo_bid=active_id,
                 payable_price=buy_record.payable_price,
             )
             price_items = []
@@ -344,7 +344,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
                     price_items.append(
                         PayItemDto(
                             _("server.order.payItemPromotion"),
-                            campaign_application.campaign_name,
+                            campaign_application.promo_name,
                             campaign_application.discount_amount,
                             True,
                             None,
@@ -1377,7 +1377,7 @@ def calculate_discount_value(
             items.append(
                 PayItemDto(
                     _("server.order.payItemPromotion"),
-                    campaign_application.campaign_name,
+                    campaign_application.promo_name,
                     campaign_discount_amount,
                     True,
                     None,
