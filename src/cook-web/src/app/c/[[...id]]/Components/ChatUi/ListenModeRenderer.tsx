@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import ListenPlayer from './ListenPlayer';
+import ListenModeTestAudioPlayer from './ListenModeTestAudioPlayer';
 import { cn } from '@/lib/utils';
 import type Reveal from 'reveal.js';
 import 'reveal.js/dist/reveal.css';
@@ -198,6 +199,19 @@ const ListenModeRenderer = ({
       ),
     [audioAndInteractionList],
   );
+
+  const recordAudioUrls = useMemo(() => {
+    const urls = items
+      .filter(
+        item =>
+          item.type === ChatContentItemType.CONTENT &&
+          Boolean(item.isHistory) &&
+          typeof item.audioUrl === 'string' &&
+          item.audioUrl.trim().length > 0,
+      )
+      .map(item => item.audioUrl!.trim());
+    return Array.from(new Set(urls));
+  }, [items]);
 
   const resolveAudioSequenceIndexByDirection = useCallback(
     (page: number, direction: -1 | 1) => {
@@ -406,7 +420,13 @@ const ListenModeRenderer = ({
           />
         </div>
       ) : null}
-      <ListenPlayer
+      {mobileStyle ? (
+        <ListenModeTestAudioPlayer
+          className='mx-4 mb-3'
+          audioUrls={recordAudioUrls}
+        />
+      ) : null}
+      {/* <ListenPlayer
         onPrev={onPrev}
         onPlay={handlePlay}
         onPause={handlePause}
@@ -418,7 +438,7 @@ const ListenModeRenderer = ({
         interactionReadonly={interactionReadonly}
         onSend={onSend}
         mobileStyle={mobileStyle}
-      />
+      /> */}
     </div>
   );
 };
