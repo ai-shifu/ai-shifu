@@ -84,6 +84,8 @@ def record_llm_usage(
     extra: Optional[Dict[str, Any]] = None,
 ) -> str:
     usage_bid = generate_id(app)
+    normalized_usage_scene = normalize_usage_scene(context.usage_scene)
+    resolved_billable = _resolve_billable(normalized_usage_scene, context.billable)
     record = BillUsageRecord(
         usage_bid=usage_bid,
         parent_usage_bid="",
@@ -97,7 +99,7 @@ def record_llm_usage(
         trace_id=context.trace_id or "",
         usage_type=BILL_USAGE_TYPE_LLM,
         record_level=0,
-        usage_scene=normalize_usage_scene(context.usage_scene),
+        usage_scene=normalized_usage_scene,
         provider=provider or "",
         model=model or "",
         is_stream=1 if is_stream else 0,
@@ -110,12 +112,39 @@ def record_llm_usage(
         latency_ms=int(latency_ms or 0),
         segment_index=0,
         segment_count=0,
-        billable=_resolve_billable(context.usage_scene, context.billable),
+        billable=resolved_billable,
         status=int(status or 0),
         error_message=error_message or "",
         extra=extra or None,
     )
     if _persist_usage_record(app, record):
+        try:
+            usage_source = (
+                (extra or {}).get("usage_source", "") if isinstance(extra, dict) else ""
+            )
+            app.logger.info(
+                "record_llm_usage saved usage_bid=%s provider=%s model=%s stream=%s "
+                "input=%s input_cache=%s output=%s total=%s latency_ms=%s status=%s "
+                "scene=%s billable=%s usage_source=%s user_bid=%s request_id=%s trace_id=%s",
+                usage_bid,
+                provider or "",
+                model or "",
+                1 if is_stream else 0,
+                int(input or 0),
+                int(input_cache or 0),
+                int(output or 0),
+                int(total or 0),
+                int(latency_ms or 0),
+                int(status or 0),
+                int(normalized_usage_scene or 0),
+                int(resolved_billable or 0),
+                usage_source,
+                context.user_bid or "",
+                context.request_id or "",
+                context.trace_id or "",
+            )
+        except Exception:
+            pass
         return usage_bid
     return ""
 

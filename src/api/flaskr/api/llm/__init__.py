@@ -611,6 +611,7 @@ def invoke_llm(
     )
     response_text = ""
     usage = None
+    input_cache_tokens = 0
     provider_name = ""
     start_time = time.monotonic()
     params, invoke_model, reload_params = get_litellm_params_and_model(model)
@@ -656,6 +657,7 @@ def invoke_llm(
                 )
             res_usage = getattr(res, "usage", None)
             if res_usage:
+                input_cache_tokens = _extract_input_cache(res_usage)
                 usage = ModelUsage(
                     unit="TOKENS",
                     input=res_usage.prompt_tokens,
@@ -719,7 +721,7 @@ def invoke_llm(
             model=model,
             is_stream=stream_flag,
             input=0,
-            input_cache=_extract_input_cache(usage),
+            input_cache=input_cache_tokens,
             output=0,
             total=0,
             latency_ms=latency_ms,
@@ -736,7 +738,7 @@ def invoke_llm(
             model=model,
             is_stream=stream_flag,
             input=_extract_usage_value(usage, "input"),
-            input_cache=_extract_input_cache(usage),
+            input_cache=input_cache_tokens,
             output=_extract_usage_value(usage, "output"),
             total=_extract_usage_value(usage, "total"),
             latency_ms=latency_ms,
@@ -787,6 +789,7 @@ def chat_llm(
     )
     response_text = ""
     usage = None
+    input_cache_tokens = 0
     provider_name = ""
     start_time = time.monotonic()
     start_completion_time = None
@@ -825,6 +828,7 @@ def chat_llm(
                 )
             res_usage = getattr(res, "usage", None)
             if res_usage:
+                input_cache_tokens = _extract_input_cache(res_usage)
                 usage = ModelUsage(
                     unit="TOKENS",
                     input=res_usage.prompt_tokens,
@@ -890,7 +894,7 @@ def chat_llm(
             model=model,
             is_stream=stream_flag,
             input=0,
-            input_cache=_extract_input_cache(usage),
+            input_cache=input_cache_tokens,
             output=0,
             total=0,
             latency_ms=latency_ms,
@@ -907,7 +911,7 @@ def chat_llm(
             model=model,
             is_stream=stream_flag,
             input=_extract_usage_value(usage, "input"),
-            input_cache=_extract_input_cache(usage),
+            input_cache=input_cache_tokens,
             output=_extract_usage_value(usage, "output"),
             total=_extract_usage_value(usage, "total"),
             latency_ms=latency_ms,
