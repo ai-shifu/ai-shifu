@@ -34,7 +34,7 @@ class BillUsageRecord(db.Model):
     )
 
     # 1. Primary key
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
 
     # 2. Business identifier
     usage_bid = Column(

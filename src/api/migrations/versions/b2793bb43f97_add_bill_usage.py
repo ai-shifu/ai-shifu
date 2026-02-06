@@ -91,7 +91,7 @@ def upgrade():
             "usage_type",
             sa.SmallInteger(),
             nullable=False,
-            comment="Usage type: 1=LLM, 2=TTS",
+            comment="Usage type: 1101=LLM, 1102=TTS",
         ),
         sa.Column(
             "record_level",
@@ -103,7 +103,7 @@ def upgrade():
             "usage_scene",
             sa.SmallInteger(),
             nullable=False,
-            comment="Usage scene: 0=debug, 1=preview, 2=production",
+            comment="Usage scene: 1201=debug, 1202=preview, 1203=production",
         ),
         sa.Column(
             "provider",
@@ -190,7 +190,7 @@ def upgrade():
             comment="Status: 0=success, 1=failed",
         ),
         sa.Column("error_message", sa.Text(), nullable=True, comment="Error message"),
-        sa.Column("extra", sa.JSON(), nullable=True),
+        sa.Column("extra", sa.JSON(), nullable=True, comment="Extra metadata"),
         sa.Column(
             "deleted",
             sa.SmallInteger(),

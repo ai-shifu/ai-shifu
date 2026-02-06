@@ -129,7 +129,7 @@ class RUNLLMProvider(LLMProvider):
     trace: StatefulTraceClient
     trace_args: dict
     usage_context: UsageContext
-    usage_scene: str
+    usage_scene: int
 
     def __init__(
         self,
@@ -138,7 +138,7 @@ class RUNLLMProvider(LLMProvider):
         trace: StatefulTraceClient,
         trace_args: dict,
         usage_context: UsageContext,
-        usage_scene: str,
+        usage_scene: int,
     ):
         self.app = app
         self.llm_settings = llm_settings

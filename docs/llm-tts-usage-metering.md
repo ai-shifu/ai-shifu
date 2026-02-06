@@ -27,10 +27,10 @@ Single table for both LLM and TTS usage. The schema is intentionally wide to kee
 Core identifiers
 - `id` BIGINT PK
 - `usage_bid` String(36), indexed, unique business identifier
-- `usage_type` SmallInteger (1=LLM, 2=TTS)
+- `usage_type` SmallInteger (1101=LLM, 1102=TTS)
 - `record_level` SmallInteger (0=request, 1=segment)
 - `parent_usage_bid` String(36), indexed (group segment records under a request)
-- `usage_scene` SmallInteger (0=debug, 1=preview, 2=production)
+- `usage_scene` SmallInteger (1201=debug, 1202=preview, 1203=production)
 
 Context fields (all indexed)
 - `user_bid` String(36)

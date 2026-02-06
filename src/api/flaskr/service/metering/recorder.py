@@ -59,10 +59,12 @@ def _persist_usage_record(app: Flask, record: BillUsageRecord) -> bool:
         try:
             app.logger.error("Usage metering persist failed: %s", exc, exc_info=True)
         except Exception:
+            # Ignore logging failures to avoid masking the original persistence error.
             pass
         try:
             db.session.rollback()
         except Exception:
+            # Ignore rollback failures; session may already be invalidated.
             pass
         return False
 
@@ -144,6 +146,7 @@ def record_llm_usage(
                 context.trace_id or "",
             )
         except Exception:
+            # Best-effort logging; ignore failures so they do not mask the result.
             pass
         return usage_bid
     return ""

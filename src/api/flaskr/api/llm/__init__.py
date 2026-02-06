@@ -859,11 +859,11 @@ def chat_llm(
             model=model,
         )
 
-    app.logger.info(f"invoke_llm response: {response_text} ")
+    app.logger.info(f"chat_llm response: {response_text} ")
     if usage is None:
-        app.logger.info("invoke_llm usage: None")
+        app.logger.info("chat_llm usage: None")
     else:
-        app.logger.info(f"invoke_llm usage: {usage.__str__()}")
+        app.logger.info(f"chat_llm usage: {usage.__str__()}")
     latency_ms = int((time.monotonic() - start_time) * 1000)
     resolved_usage_scene = normalize_usage_scene(usage_scene)
     if usage_context is None:

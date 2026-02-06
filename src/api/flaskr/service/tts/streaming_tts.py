@@ -95,7 +95,7 @@ class StreamingTTSProcessor:
         max_segment_chars: int = 300,
         tts_provider: str = "",
         tts_model: str = "",
-        usage_scene: str = BILL_USAGE_SCENE_PROD,
+        usage_scene: int = BILL_USAGE_SCENE_PROD,
     ):
         self.app = app
         self.generated_block_bid = generated_block_bid
