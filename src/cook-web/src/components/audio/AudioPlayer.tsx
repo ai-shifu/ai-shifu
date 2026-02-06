@@ -91,8 +91,6 @@ function AudioPlayerBase(
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const unlockedRef = useRef(false);
-
   // Track if we're waiting for the next segment during streaming
   const [isWaitingForSegment, setIsWaitingForSegment] = useState(false);
   const [localAudioUrl, setLocalAudioUrl] = useState<string | undefined>(
@@ -386,8 +384,6 @@ function AudioPlayerBase(
       } catch {
         // Some browsers require metadata before seeking; we'll best-effort seek later.
       }
-
-      if (!unlockedRef.current) return;
 
       audio
         .play()
@@ -721,13 +717,6 @@ function AudioPlayerBase(
 
   // Handle play/pause toggle
   const togglePlay = useCallback(() => {
-    if (!unlockedRef.current && audioRef.current) {
-      audioRef.current.play().then(() => {
-        audioRef.current?.pause();
-        unlockedRef.current = true;
-      }).catch(() => {});
-    }
-    
     if (isLoading) {
       return;
     }
