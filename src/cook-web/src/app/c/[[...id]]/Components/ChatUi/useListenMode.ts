@@ -639,6 +639,7 @@ export const useListenAudioSequence = ({
   );
   const audioSequenceListRef = useRef<AudioInteractionItem[]>([]);
   const playlistSequenceIndexMapRef = useRef<number[]>([]);
+  const playlistActiveIndexRef = useRef(0);
   const prevAudioSequenceLengthRef = useRef(0);
   const [activeAudioBid, setActiveAudioBid] = useState<string | null>(null);
   const [audioPlaylist, setAudioPlaylist] = useState<AudioPlaylistItem[]>([]);
@@ -748,6 +749,7 @@ export const useListenAudioSequence = ({
         setAudioPlaylist([]);
         setAudioPlaylistStartIndex(0);
         playlistSequenceIndexMapRef.current = [];
+        playlistActiveIndexRef.current = 0;
         setSequenceInteraction(null);
         setActiveAudioBid(null);
         setIsAudioSequenceActive(false);
@@ -770,6 +772,7 @@ export const useListenAudioSequence = ({
         setAudioPlaylist([]);
         setAudioPlaylistStartIndex(0);
         playlistSequenceIndexMapRef.current = [];
+        playlistActiveIndexRef.current = 0;
         setSequenceInteraction(nextItem);
         setActiveAudioBid(null);
         if (index >= list.length - 1) {
@@ -787,6 +790,7 @@ export const useListenAudioSequence = ({
       setAudioPlaylist(items);
       setAudioPlaylistStartIndex(0);
       playlistSequenceIndexMapRef.current = indexMap;
+      playlistActiveIndexRef.current = 0;
     },
     [
       buildPlaylistFromIndex,
@@ -801,6 +805,7 @@ export const useListenAudioSequence = ({
       if (isSequencePausedRef.current) {
         return;
       }
+      playlistActiveIndexRef.current = playlistIndex;
       const sequenceIndex =
         playlistSequenceIndexMapRef.current[playlistIndex];
       if (sequenceIndex === undefined) {
@@ -827,6 +832,60 @@ export const useListenAudioSequence = ({
     },
     [syncToSequencePage],
   );
+
+  const refreshPlaylistFromSequence = useCallback(
+    (reason: string) => {
+      const indexMap = playlistSequenceIndexMapRef.current;
+      if (!indexMap.length) {
+        return;
+      }
+      const list = audioSequenceListRef.current;
+      const items: AudioPlaylistItem[] = [];
+      const nextIndexMap: number[] = [];
+      indexMap.forEach(sequenceIndex => {
+        const listItem = list[sequenceIndex];
+        if (!listItem || listItem.type !== ChatContentItemType.CONTENT) {
+          return;
+        }
+        items.push({
+          audioUrl: listItem.audioUrl,
+          streamingSegments: listItem.audioSegments,
+          isStreaming: listItem.isAudioStreaming,
+          contentKey: listItem.generated_block_bid ?? null,
+          itemId: listItem.generated_block_bid ?? undefined,
+        });
+        nextIndexMap.push(sequenceIndex);
+      });
+      if (!items.length) {
+        setAudioPlaylist([]);
+        setAudioPlaylistStartIndex(0);
+        playlistSequenceIndexMapRef.current = [];
+        playlistActiveIndexRef.current = 0;
+        return;
+      }
+      const safeStartIndex = Math.min(
+        Math.max(playlistActiveIndexRef.current, 0),
+        Math.max(items.length - 1, 0),
+      );
+      setAudioPlaylist(items);
+      setAudioPlaylistStartIndex(safeStartIndex);
+      playlistSequenceIndexMapRef.current = nextIndexMap;
+      emitListenDebugAlert('sequence-playlist-refresh', {
+        reason,
+        items: items.length,
+        startIndex: safeStartIndex,
+        mapLength: nextIndexMap.length,
+      });
+    },
+    [emitListenDebugAlert],
+  );
+
+  useEffect(() => {
+    if (!audioAndInteractionList.length) {
+      return;
+    }
+    refreshPlaylistFromSequence('list-update');
+  }, [audioAndInteractionList, refreshPlaylistFromSequence]);
 
   useEffect(() => {
     const prevLength = prevAudioSequenceLengthRef.current;
@@ -912,6 +971,7 @@ export const useListenAudioSequence = ({
     audioPlayerRef.current?.pause();
     audioSequenceIndexRef.current = -1;
     playlistSequenceIndexMapRef.current = [];
+    playlistActiveIndexRef.current = 0;
     setAudioPlaylist([]);
     setAudioPlaylistStartIndex(0);
     setSequenceInteraction(null);
@@ -957,6 +1017,7 @@ export const useListenAudioSequence = ({
     clearAudioSequenceTimer();
     audioSequenceIndexRef.current = -1;
     playlistSequenceIndexMapRef.current = [];
+    playlistActiveIndexRef.current = 0;
     setAudioPlaylist([]);
     setAudioPlaylistStartIndex(0);
     setActiveAudioBid(null);

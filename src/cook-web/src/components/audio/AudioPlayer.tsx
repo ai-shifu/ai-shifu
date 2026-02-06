@@ -203,6 +203,14 @@ function AudioPlayerBase(
       setPlaylistIndex(nextIndex);
       playlistItemRef.current = nextItem;
       setPlaylistItem(nextItem);
+      emitListenDebugAlert('playlist-item-change', {
+        playerId: playerIdRef.current,
+        nextIndex,
+        itemId: nextItem?.itemId,
+        hasUrl: Boolean(nextItem?.audioUrl),
+        segments: nextItem?.streamingSegments?.length ?? 0,
+        isStreaming: Boolean(nextItem?.isStreaming),
+      });
       onPlaylistItemChangeRef.current?.(nextIndex, nextItem);
     },
     [],
@@ -302,16 +310,32 @@ function AudioPlayerBase(
   const playNextFromPlaylist = useCallback(() => {
     const list = playlistRef.current;
     if (!list.length) {
+      emitListenDebugAlert('playlist-empty', {
+        playerId: playerIdRef.current,
+      });
       return false;
     }
-    let nextIndex = playlistIndexRef.current + 1;
-    while (nextIndex < list.length && !isPlaylistItemPlayable(list[nextIndex])) {
-      nextIndex += 1;
-    }
+    const nextIndex = playlistIndexRef.current + 1;
     if (nextIndex >= list.length) {
+      emitListenDebugAlert('playlist-end', {
+        playerId: playerIdRef.current,
+        currentIndex: playlistIndexRef.current,
+        listLength: list.length,
+      });
       return false;
     }
     const nextItem = list[nextIndex] ?? null;
+    const isPlayable = isPlaylistItemPlayable(nextItem);
+    emitListenDebugAlert('playlist-next', {
+      playerId: playerIdRef.current,
+      currentIndex: playlistIndexRef.current,
+      nextIndex,
+      itemId: nextItem?.itemId,
+      hasUrl: Boolean(nextItem?.audioUrl),
+      segments: nextItem?.streamingSegments?.length ?? 0,
+      isStreaming: Boolean(nextItem?.isStreaming),
+      isPlayable,
+    });
     updatePlaylistItem(nextIndex, nextItem);
     resetForNextItem();
     cleanupAudio();
@@ -324,26 +348,40 @@ function AudioPlayerBase(
     segmentsRef.current = nextSegments;
     isStreamingRef.current = nextIsStreaming;
 
-    // Mark as auto-played so the autoPlay effect does not double-trigger.
-    hasAutoPlayedForCurrentContentRef.current = true;
-
     if (nextAudioUrl && !nextIsStreaming) {
+      // Mark as auto-played so the autoPlay effect does not double-trigger.
+      hasAutoPlayedForCurrentContentRef.current = true;
       playFromUrlRef.current();
       return true;
     }
     if (nextSegments.length > 0 || nextIsStreaming) {
+      // Mark as auto-played so the autoPlay effect does not double-trigger.
+      hasAutoPlayedForCurrentContentRef.current = true;
       playFromSegmentsRef.current();
       return true;
     }
-    return false;
+    emitListenDebugAlert('playlist-next-pending', {
+      playerId: playerIdRef.current,
+      nextIndex,
+      itemId: nextItem?.itemId,
+    });
+    releaseExclusive();
+    return true;
   }, [
     cleanupAudio,
     isPlaylistItemPlayable,
+    releaseExclusive,
     resetForNextItem,
     updatePlaylistItem,
   ]);
 
   const handleTrackEnded = useCallback(() => {
+    emitListenDebugAlert('track-ended', {
+      playerId: playerIdRef.current,
+      playlistIndex: playlistIndexRef.current,
+      isAutoPlayNext: isAutoPlayNextRef.current,
+      hasPlaylist: Boolean(playlistRef.current.length),
+    });
     if (isAutoPlayNextRef.current && playNextFromPlaylist()) {
       return;
     }
@@ -628,6 +666,13 @@ function AudioPlayerBase(
         }
 
         const segment = segments[index];
+        emitListenDebugAlert('playSegment-start', {
+          playerId: playerIdRef.current,
+          sessionId,
+          index,
+          segments: segments.length,
+          isStreaming: isStreamingRef.current,
+        });
         currentSegmentIndexRef.current = index;
 
         const audioBuffer = await decodeAudioBufferFromBase64(
@@ -638,6 +683,12 @@ function AudioPlayerBase(
           isPlayingSegmentRef.current = false;
           return;
         }
+        emitListenDebugAlert('playSegment-decoded', {
+          playerId: playerIdRef.current,
+          sessionId,
+          index,
+          duration: audioBuffer.duration,
+        });
 
         const initialOffset = Number.isFinite(startOffsetSeconds)
           ? Math.max(0, startOffsetSeconds)
@@ -651,6 +702,11 @@ function AudioPlayerBase(
           audioBuffer,
           () => {
             if (!isSessionActive(sessionId)) return;
+            emitListenDebugAlert('playSegment-ended', {
+              playerId: playerIdRef.current,
+              sessionId,
+              index,
+            });
             // Release lock before playing next segment
             isPlayingSegmentRef.current = false;
             const remainingSeconds = Math.max(
@@ -733,6 +789,11 @@ function AudioPlayerBase(
             pendingStreamRef.current = true;
           }
           // No segments yet but streaming, wait
+          emitListenDebugAlert('playSegments-wait', {
+            playerId: playerIdRef.current,
+            sessionId,
+            forceStreaming,
+          });
           setIsWaitingForSegment(true);
           setIsLoading(true);
           setIsPlaying(true);
@@ -823,6 +884,13 @@ function AudioPlayerBase(
         return;
       }
       const nextIndex = currentSegmentIndexRef.current;
+      emitListenDebugAlert('segment-wait-tick', {
+        playerId: playerIdRef.current,
+        sessionId,
+        nextIndex,
+        segments: activeStreamingSegments.length,
+        isStreaming: activeIsStreaming,
+      });
       if (nextIndex < activeStreamingSegments.length) {
         // New segment available, continue playback
         pendingStreamRef.current = false;
