@@ -978,6 +978,7 @@ class RunScriptContextV2:
     _user_info: UserAggregate
     _is_paid: bool
     _preview_mode: bool
+    _listen: bool
     _shifu_ids: list[str]
     _run_type: RunType
     _app: Flask
@@ -1000,6 +1001,7 @@ class RunScriptContextV2:
         user_info: UserAggregate,
         is_paid: bool,
         preview_mode: bool,
+        listen: bool = True,
     ):
         self._last_position = -1
         self.app = app
@@ -1007,6 +1009,7 @@ class RunScriptContextV2:
         self._outline_item_info = outline_item_info
         self._user_info = user_info
         self._is_paid = is_paid
+        self._listen = listen
         self._preview_mode = preview_mode
         self._shifu_info = shifu_info
         self.shifu_ids = []
@@ -1046,6 +1049,9 @@ class RunScriptContextV2:
         if not hasattr(context_local, "current_context"):
             return None
         return context_local.current_context
+
+    def _should_stream_tts(self) -> bool:
+        return (not self._preview_mode) and self._listen
 
     def _get_current_attend(self, outline_bid: str) -> LearnProgressRecord:
         attend_info: LearnProgressRecord = (
@@ -2017,10 +2023,85 @@ class RunScriptContextV2:
             else:
                 generated_block.type = BLOCK_TYPE_MDCONTENT_VALUE
                 generated_content = ""
+                tts_processor = None
 
                 # Direct synchronous stream processing (markdown-flow 0.2.27+)
                 app.logger.info(f"process_stream: {run_script_info.block_position}")
                 app.logger.info(f"variables: {user_profile}")
+
+                if self._should_stream_tts():
+                    try:
+                        from flaskr.common.config import get_config
+                        from flaskr.service.tts.streaming_tts import (
+                            StreamingTTSProcessor,
+                        )
+                        from flaskr.service.tts.validation import (
+                            validate_tts_settings_strict,
+                        )
+
+                        shifu_record = (
+                            self._shifu_model.query.filter(
+                                self._shifu_model.shifu_bid
+                                == run_script_info.attend.shifu_bid,
+                                self._shifu_model.deleted == 0,
+                            )
+                            .order_by(self._shifu_model.id.desc())
+                            .first()
+                        )
+
+                        if shifu_record and getattr(shifu_record, "tts_enabled", False):
+                            provider_raw = (
+                                getattr(shifu_record, "tts_provider", "") or ""
+                            )
+                            provider_name = provider_raw.strip().lower()
+                            if provider_name == "default":
+                                provider_name = ""
+
+                            try:
+                                validated = validate_tts_settings_strict(
+                                    provider=provider_name,
+                                    model=(
+                                        getattr(shifu_record, "tts_model", "") or ""
+                                    ).strip(),
+                                    voice_id=(
+                                        getattr(shifu_record, "tts_voice_id", "") or ""
+                                    ).strip(),
+                                    speed=getattr(shifu_record, "tts_speed", None),
+                                    pitch=getattr(shifu_record, "tts_pitch", None),
+                                    emotion=(
+                                        getattr(shifu_record, "tts_emotion", "") or ""
+                                    ).strip(),
+                                )
+                            except Exception as exc:
+                                app.logger.warning(
+                                    "TTS settings invalid; skip streaming TTS: %s",
+                                    exc,
+                                )
+                                validated = None
+
+                            if validated:
+                                max_segment_chars = get_config("TTS_MAX_SEGMENT_CHARS")
+                                if not max_segment_chars:
+                                    max_segment_chars = 300
+                                tts_processor = StreamingTTSProcessor(
+                                    app=app,
+                                    generated_block_bid=generated_block.generated_block_bid,
+                                    outline_bid=run_script_info.outline_bid,
+                                    progress_record_bid=run_script_info.attend.progress_record_bid,
+                                    user_bid=self._user_info.user_id,
+                                    shifu_bid=run_script_info.attend.shifu_bid,
+                                    voice_id=validated.voice_id,
+                                    speed=validated.speed,
+                                    pitch=validated.pitch,
+                                    emotion=validated.emotion,
+                                    max_segment_chars=int(max_segment_chars),
+                                    tts_provider=validated.provider,
+                                    tts_model=validated.model,
+                                )
+                    except Exception as exc:
+                        app.logger.warning(
+                            "Initialize streaming TTS failed: %s", exc, exc_info=True
+                        )
 
                 stream_result = mdflow_context.process(
                     block_index=run_script_info.block_position,
@@ -2047,6 +2128,18 @@ class RunScriptContextV2:
                                 type=GeneratedType.CONTENT,
                                 content=chunk_content,
                             )
+                            if tts_processor:
+                                try:
+                                    yield from tts_processor.process_chunk(
+                                        chunk_content
+                                    )
+                                except Exception as exc:
+                                    app.logger.warning(
+                                        "Streaming TTS failed; disable for this block: %s",
+                                        exc,
+                                        exc_info=True,
+                                    )
+                                    tts_processor = None
                 else:
                     # It's a single LLMResult object (edge case)
                     chunk_content = (
@@ -2061,6 +2154,24 @@ class RunScriptContextV2:
                             generated_block_bid=generated_block.generated_block_bid,
                             type=GeneratedType.CONTENT,
                             content=chunk_content,
+                        )
+                        if tts_processor:
+                            try:
+                                yield from tts_processor.process_chunk(chunk_content)
+                            except Exception as exc:
+                                app.logger.warning(
+                                    "Streaming TTS failed; disable for this block: %s",
+                                    exc,
+                                    exc_info=True,
+                                )
+                                tts_processor = None
+
+                if tts_processor:
+                    try:
+                        yield from tts_processor.finalize(commit=False)
+                    except Exception as exc:
+                        app.logger.warning(
+                            "Finalize streaming TTS failed: %s", exc, exc_info=True
                         )
 
                 yield RunMarkdownFlowDTO(

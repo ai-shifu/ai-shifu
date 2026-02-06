@@ -7,6 +7,7 @@
   "dislike": "Dislike",
   "generating": "Generating diagram...",
   "like": "Like",
+  "listenInteractionHint": "Submit the following to continue learning",
   "markdownFlow": "MarkdownFlow",
   "noMoreLessons": "You've completed all available sections.",
   "outputInProgress": "Content is still generating. Please wait before retrying.",

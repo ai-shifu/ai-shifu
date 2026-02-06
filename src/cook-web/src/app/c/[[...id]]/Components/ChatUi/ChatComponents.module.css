@@ -1,11 +1,27 @@
 .chatComponents {
   width: 100%;
+  min-width: 0;
   height: 100%;
   position: relative;
   box-sizing: border-box;
 }
+.chatComponents.mobile {
+  min-height: 0;
+}
 .chatComponents :global(.content-render-theme) {
   position: relative;
+  min-width: 0;
+}
+.chatComponents :global(.content-render-theme) .content-render,
+.chatComponents
+  :global(.content-render-theme)
+  .content-render
+  .content-render-svg-scroll,
+.chatComponents
+  :global(.content-render-theme)
+  .content-render
+  .content-render-svg {
+  min-width: 0;
 }
 .chatComponents :global(.long-press-overlay) {
   position: absolute;
@@ -204,7 +220,7 @@
 }
 .chatComponents.mobile .scrollToBottom {
   position: fixed;
-  bottom: calc(40px + env(safe-area-inset-bottom, 0px) + 20px);
+  bottom: 60px;
   z-index: 50;
 }
 .chatComponents .messageContentOperation {

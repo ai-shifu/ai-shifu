@@ -17,8 +17,9 @@ from dataclasses import dataclass
 from typing import Optional, Dict, Any, Union
 from enum import IntEnum
 
+from flaskr.common.log import AppLoggerProxy
 
-logger = logging.getLogger(__name__)
+logger = AppLoggerProxy(logging.getLogger(__name__))
 
 
 class MessageType(IntEnum):

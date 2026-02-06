@@ -50,6 +50,54 @@ def test_preprocess_for_tts_strips_incomplete_fenced_code(app):
     assert cleaned == "Hello."
 
 
+def test_preprocess_for_tts_strips_escaped_html_tags(app):
+    _require_app(app)
+
+    from flaskr.service.tts import preprocess_for_tts
+
+    text = "Before &lt;p&gt;Hello&lt;/p&gt; After."
+    cleaned = preprocess_for_tts(text)
+
+    assert cleaned == "Before Hello After."
+    assert "&lt;" not in cleaned
+    assert "<p>" not in cleaned
+
+
+def test_preprocess_for_tts_strips_double_escaped_html_tags(app):
+    _require_app(app)
+
+    from flaskr.service.tts import preprocess_for_tts
+
+    text = "Before &amp;lt;p&amp;gt;Hello&amp;lt;/p&amp;gt; After."
+    cleaned = preprocess_for_tts(text)
+
+    assert cleaned == "Before Hello After."
+    assert "&amp;lt;" not in cleaned
+    assert "&lt;" not in cleaned
+
+
+def test_preprocess_for_tts_strips_incomplete_html_tag_tail(app):
+    _require_app(app)
+
+    from flaskr.service.tts import preprocess_for_tts
+
+    text = 'Before.\n\n<p class="x"'
+    cleaned = preprocess_for_tts(text)
+
+    assert cleaned == "Before."
+
+
+def test_preprocess_for_tts_keeps_non_tag_angle_brackets(app):
+    _require_app(app)
+
+    from flaskr.service.tts import preprocess_for_tts
+
+    text = "I love you < 3."
+    cleaned = preprocess_for_tts(text)
+
+    assert cleaned == "I love you < 3."
+
+
 def test_streaming_tts_processor_skips_svg_and_keeps_following_text(app, monkeypatch):
     _require_app(app)
 

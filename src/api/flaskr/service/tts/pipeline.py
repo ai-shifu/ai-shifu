@@ -36,9 +36,10 @@ from flaskr.service.tts.audio_utils import (
     get_audio_duration_ms,
 )
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
+from flaskr.common.log import AppLoggerProxy
 
 
-logger = logging.getLogger(__name__)
+logger = AppLoggerProxy(logging.getLogger(__name__))
 
 
 _DEFAULT_SENTENCE_ENDINGS = set(".!?。！？；;")
@@ -261,17 +262,18 @@ def synthesize_long_text_to_oss(
 
     if max_workers == 1:
         audio_parts: list[bytes] = []
-        for index, segment_text in enumerate(segments):
-            result = synthesize_text(
-                text=segment_text,
-                voice_settings=voice_settings,
-                audio_settings=audio_settings,
-                model=(model or "").strip() or None,
-                provider_name=provider,
-            )
-            audio_parts.append(result.audio_data)
-            if sleep_between_segments and index < len(segments) - 1:
-                time.sleep(sleep_between_segments)
+        with app.app_context():
+            for index, segment_text in enumerate(segments):
+                result = synthesize_text(
+                    text=segment_text,
+                    voice_settings=voice_settings,
+                    audio_settings=audio_settings,
+                    model=(model or "").strip() or None,
+                    provider_name=provider,
+                )
+                audio_parts.append(result.audio_data)
+                if sleep_between_segments and index < len(segments) - 1:
+                    time.sleep(sleep_between_segments)
     else:
         if sleep_between_segments:
             logger.info(
@@ -279,17 +281,24 @@ def synthesize_long_text_to_oss(
                 provider,
             )
         audio_parts = [b""] * len(segments)
-        with ThreadPoolExecutor(
-            max_workers=min(max_workers, len(segments))
-        ) as executor:
-            future_map = {
-                executor.submit(
-                    synthesize_text,
+
+        def _synthesize_in_app_context(segment_text: str):
+            with app.app_context():
+                return synthesize_text(
                     text=segment_text,
                     voice_settings=voice_settings,
                     audio_settings=audio_settings,
                     model=(model or "").strip() or None,
                     provider_name=provider,
+                )
+
+        with ThreadPoolExecutor(
+            max_workers=min(max_workers, len(segments))
+        ) as executor:
+            future_map = {
+                executor.submit(
+                    _synthesize_in_app_context,
+                    segment_text,
                 ): index
                 for index, segment_text in enumerate(segments)
             }
