@@ -111,6 +111,7 @@ def upgrade():
             "created_at",
             sa.DateTime(),
             nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             comment="Creation timestamp",
         ),
         sa.Column(
@@ -123,6 +124,7 @@ def upgrade():
             "updated_at",
             sa.DateTime(),
             nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             comment="Last update timestamp",
         ),
         sa.Column(
@@ -252,19 +254,15 @@ def upgrade():
             "created_at",
             sa.DateTime(),
             nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             comment="Creation timestamp",
         ),
         sa.Column(
             "updated_at",
             sa.DateTime(),
             nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             comment="Last update timestamp",
-        ),
-        sa.UniqueConstraint(
-            "order_bid",
-            "promo_bid",
-            "deleted",
-            name="uk_promo_campaign_application_order_campaign_deleted",
         ),
         sa.PrimaryKeyConstraint("id"),
         comment=(

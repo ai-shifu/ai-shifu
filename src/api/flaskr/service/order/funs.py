@@ -350,6 +350,8 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
                             None,
                         )
                     )
+            if discount_value > buy_record.payable_price:
+                discount_value = buy_record.payable_price
             buy_record.paid_price = decimal.Decimal(
                 buy_record.payable_price
             ) - decimal.Decimal(discount_value)
@@ -1366,19 +1368,12 @@ def calculate_discount_value(
     items = []
     if campaign_applications is not None and len(campaign_applications) > 0:
         for campaign_application in campaign_applications:
-            if campaign_application.discount_type == COUPON_TYPE_FIXED:
-                campaign_discount_amount = campaign_application.value
-            elif campaign_application.discount_type == COUPON_TYPE_PERCENT:
-                campaign_discount_amount = campaign_application.value * price / 100
-            else:
-                campaign_discount_amount = 0
-
-            discount_value += campaign_discount_amount
+            discount_value += campaign_application.discount_amount
             items.append(
                 PayItemDto(
                     _("server.order.payItemPromotion"),
                     campaign_application.promo_name,
-                    campaign_discount_amount,
+                    campaign_application.discount_amount,
                     True,
                     None,
                 )

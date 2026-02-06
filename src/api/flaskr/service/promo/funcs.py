@@ -9,6 +9,7 @@ import string
 import json
 
 import pytz
+from sqlalchemy.sql import func
 
 from .models import (
     Coupon,
@@ -154,7 +155,10 @@ def void_promo_campaign_applications(app: Flask, user_bid: str, order_bid: str) 
             PromoRedemption.deleted == 0,
             PromoRedemption.status == PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
         ).update(
-            {PromoRedemption.status: PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED},
+            {
+                PromoRedemption.status: PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED,
+                PromoRedemption.updated_at: func.now(),
+            },
             synchronize_session="fetch",
         )
         db.session.commit()
@@ -164,14 +168,16 @@ def _calculate_discount_amount(
     payable_price: decimal.Decimal, discount_type: int, value: decimal.Decimal
 ) -> decimal.Decimal:
     if discount_type == COUPON_TYPE_FIXED:
-        return decimal.Decimal(value)
-    if discount_type == COUPON_TYPE_PERCENT:
-        return (
+        result = decimal.Decimal(value)
+    elif discount_type == COUPON_TYPE_PERCENT:
+        result = (
             decimal.Decimal(value)
             * decimal.Decimal(payable_price)
             / decimal.Decimal(100)
         )
-    return decimal.Decimal("0.00")
+    else:
+        result = decimal.Decimal("0.00")
+    return result.quantize(decimal.Decimal("0.01"), rounding=decimal.ROUND_HALF_UP)
 
 
 def apply_promo_campaigns(
@@ -211,12 +217,19 @@ def apply_promo_campaigns(
                 campaigns.append(manual_campaign)
 
         applications: list[PromoRedemption] = []
-        for campaign in campaigns:
-            existing = PromoRedemption.query.filter(
+        campaign_bids = [campaign.promo_bid for campaign in campaigns]
+        existing_by_campaign: dict[str, PromoRedemption] = {}
+        if campaign_bids:
+            existing_records = PromoRedemption.query.filter(
                 PromoRedemption.order_bid == order_bid,
-                PromoRedemption.promo_bid == campaign.promo_bid,
+                PromoRedemption.promo_bid.in_(campaign_bids),
                 PromoRedemption.deleted == 0,
-            ).first()
+            ).all()
+            existing_by_campaign = {
+                record.promo_bid: record for record in existing_records
+            }
+        for campaign in campaigns:
+            existing = existing_by_campaign.get(campaign.promo_bid)
             if existing:
                 applications.append(existing)
                 continue

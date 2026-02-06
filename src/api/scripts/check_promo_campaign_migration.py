@@ -37,6 +37,8 @@ def main() -> int:
 
     app = create_app()
     with app.app_context():
+        has_issues = False
+
         print("== Counts ==")
         print(f"active: {Active.query.count()}")
         print(f"promo_promos: {PromoCampaign.query.count()}")
@@ -60,6 +62,7 @@ def main() -> int:
             .all()
         )
         if missing_campaigns:
+            has_issues = True
             for (active_id,) in missing_campaigns:
                 print(f"- {active_id}")
         else:
@@ -78,6 +81,7 @@ def main() -> int:
             .all()
         )
         if missing_applications:
+            has_issues = True
             for (record_id,) in missing_applications:
                 print(f"- {record_id}")
         else:
@@ -100,12 +104,13 @@ def main() -> int:
             .all()
         )
         if duplicates:
+            has_issues = True
             for order_id, active_id, cnt in duplicates:
                 print(f"- order_id={order_id} active_id={active_id} count={cnt}")
         else:
             print("OK")
 
-    return 0
+    return 1 if has_issues else 0
 
 
 if __name__ == "__main__":

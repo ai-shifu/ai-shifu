@@ -27,7 +27,7 @@ def _column_exists(table_name: str, column_name: str) -> bool:
     inspector = sa.inspect(bind)
     try:
         columns = inspector.get_columns(table_name)
-    except Exception:
+    except sa.exc.NoSuchTableError:
         return False
     return any(column["name"] == column_name for column in columns)
 
@@ -161,7 +161,10 @@ def upgrade():
             r.user_id,
             COALESCE(a.active_course, ''),
             r.active_name,
-            701,
+            CASE
+                WHEN a.active_discount_type IN (701, 702) THEN a.active_discount_type
+                ELSE 701
+            END,
             r.price,
             r.price,
             r.status,

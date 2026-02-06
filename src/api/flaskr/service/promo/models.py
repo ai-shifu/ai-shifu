@@ -5,7 +5,6 @@ from sqlalchemy import (
     Numeric,
     SmallInteger,
     DateTime,
-    UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
@@ -296,6 +295,7 @@ class PromoCampaign(db.Model):
         DateTime,
         nullable=False,
         default=func.now(),
+        server_default=func.now(),
         comment="Creation timestamp",
     )
     created_user_bid = Column(
@@ -309,6 +309,7 @@ class PromoCampaign(db.Model):
         DateTime,
         nullable=False,
         default=func.now(),
+        server_default=func.now(),
         onupdate=func.now(),
         comment="Last update timestamp",
     )
@@ -325,22 +326,14 @@ class PromoRedemption(db.Model):
     """Promotion campaign redemption ledger."""
 
     __tablename__ = "promo_redemptions"
-    __table_args__ = (
-        UniqueConstraint(
-            "order_bid",
-            "promo_bid",
-            "deleted",
-            name="uk_promo_campaign_application_order_campaign_deleted",
-        ),
-        {
-            "comment": (
-                "Promotion campaign redemption ledger. Records each time a user redeems/applies a "
-                "promo campaign to an order, including snapshot fields (campaign name/discount "
-                "type/value) and the computed discount amount. This table is transactional/"
-                "immutable-by-intent; campaign definitions live in promo_promos."
-            )
-        },
-    )
+    __table_args__ = {
+        "comment": (
+            "Promotion campaign redemption ledger. Records each time a user redeems/applies a "
+            "promo campaign to an order, including snapshot fields (campaign name/discount "
+            "type/value) and the computed discount amount. This table is transactional/"
+            "immutable-by-intent; campaign definitions live in promo_promos."
+        )
+    }
 
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     redemption_bid = Column(
@@ -419,12 +412,14 @@ class PromoRedemption(db.Model):
         DateTime,
         nullable=False,
         default=func.now(),
+        server_default=func.now(),
         comment="Creation timestamp",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
         default=func.now(),
+        server_default=func.now(),
         onupdate=func.now(),
         comment="Last update timestamp",
     )
