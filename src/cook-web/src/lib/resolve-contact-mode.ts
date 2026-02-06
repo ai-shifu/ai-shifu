@@ -6,9 +6,7 @@ type DefaultLoginInput = string | null | undefined;
 
 const normalizeMethods = (methods: LoginMethodsInput): string[] => {
   if (Array.isArray(methods)) {
-    return methods
-      .map(method => method.trim().toLowerCase())
-      .filter(Boolean);
+    return methods.map(method => method.trim().toLowerCase()).filter(Boolean);
   }
   if (typeof methods === 'string') {
     return methods
