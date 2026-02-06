@@ -52,6 +52,7 @@
     "server.genMdf",
     "server.learn",
     "server.llm",
+    "server.metering",
     "server.order",
     "server.outline",
     "server.pay",

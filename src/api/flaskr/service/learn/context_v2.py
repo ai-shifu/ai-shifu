@@ -84,6 +84,10 @@ from flaskr.service.profile.profile_manage import (
     ProfileItemDefinition,
 )
 from flaskr.service.metering import UsageContext
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
 from flaskr.service.learn.learn_dtos import VariableUpdateDTO
 from flaskr.service.learn.check_text import check_text_with_llm_response
 from flaskr.service.learn.llmsetting import LLMSettings
@@ -125,7 +129,7 @@ class RUNLLMProvider(LLMProvider):
     trace: StatefulTraceClient
     trace_args: dict
     usage_context: UsageContext
-    usage_scene: int
+    usage_scene: str
 
     def __init__(
         self,
@@ -134,7 +138,7 @@ class RUNLLMProvider(LLMProvider):
         trace: StatefulTraceClient,
         trace_args: dict,
         usage_context: UsageContext,
-        usage_scene: int,
+        usage_scene: str,
     ):
         self.app = app
         self.llm_settings = llm_settings
@@ -494,7 +498,7 @@ class RunScriptPreviewContextV2:
             user_bid=user_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
-            usage_scene=1,
+            usage_scene=BILL_USAGE_SCENE_PREVIEW,
         )
         provider = RUNLLMProvider(
             self.app,
@@ -502,7 +506,7 @@ class RunScriptPreviewContextV2:
             trace,
             trace_args,
             usage_context,
-            1,
+            BILL_USAGE_SCENE_PREVIEW,
         )
 
         resolved_variables = self._resolve_preview_variables(
@@ -1607,9 +1611,15 @@ class RunScriptContextV2:
                     shifu_bid=self._outline_item_info.shifu_bid,
                     outline_item_bid=run_script_info.outline_bid,
                     progress_record_bid=self._current_attend.progress_record_bid,
-                    usage_scene=1 if self._preview_mode else 2,
+                    usage_scene=(
+                        BILL_USAGE_SCENE_PREVIEW
+                        if self._preview_mode
+                        else BILL_USAGE_SCENE_PROD
+                    ),
                 ),
-                1 if self._preview_mode else 2,
+                BILL_USAGE_SCENE_PREVIEW
+                if self._preview_mode
+                else BILL_USAGE_SCENE_PROD,
             ),
             use_learner_language=self._shifu_info.use_learner_language,
         )

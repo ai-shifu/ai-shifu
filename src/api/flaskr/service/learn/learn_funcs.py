@@ -35,6 +35,10 @@ from flaskr.service.shifu.models import (
 from flaskr.service.learn.models import LearnProgressRecord, LearnGeneratedBlock
 from flaskr.service.tts.models import LearnGeneratedAudio, AUDIO_STATUS_COMPLETED
 from flaskr.service.metering import UsageContext, record_tts_usage
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
 from flaskr.service.tts.pipeline import (
     synthesize_long_text_to_oss,
     split_text_for_tts,
@@ -721,7 +725,9 @@ def stream_generated_block_audio(
             )
 
         audio_bid = uuid.uuid4().hex
-        usage_scene = 1 if preview_mode else 2
+        usage_scene = (
+            BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
+        )
         usage_context = UsageContext(
             user_bid=user_bid,
             shifu_bid=shifu_bid,
@@ -898,7 +904,9 @@ def stream_preview_tts_audio(
             )
 
         audio_bid = uuid.uuid4().hex
-        usage_scene = 1 if preview_mode else 2
+        usage_scene = (
+            BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
+        )
         usage_context = UsageContext(
             user_bid=user_bid,
             shifu_bid=shifu_bid,
@@ -1077,7 +1085,9 @@ def synthesize_generated_block_audio(
             )
 
         audio_bid = uuid.uuid4().hex
-        usage_scene = 1 if preview_mode else 2
+        usage_scene = (
+            BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
+        )
         usage_context = UsageContext(
             user_bid=user_bid,
             shifu_bid=shifu_bid,
@@ -1176,7 +1186,9 @@ def synthesize_preview_tts_audio(
             )
 
         audio_bid = uuid.uuid4().hex
-        usage_scene = 1 if preview_mode else 2
+        usage_scene = (
+            BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
+        )
         usage_context = UsageContext(
             user_bid=user_bid,
             shifu_bid=shifu_bid,

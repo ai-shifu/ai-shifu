@@ -20,17 +20,17 @@ from sqlalchemy.sql import func
 from flaskr.dao import db
 
 
-class BillingUsageRecord(db.Model):
+class BillUsageRecord(db.Model):
     """
     Usage metering record for LLM/TTS billing.
     """
 
-    __tablename__ = "billing_usage_records"
+    __tablename__ = "bill_usage"
     __table_args__ = (
-        Index("idx_billing_usage_user_created", "user_bid", "created_at"),
-        Index("idx_billing_usage_shifu_created", "shifu_bid", "created_at"),
-        Index("idx_billing_usage_type_created", "usage_type", "created_at"),
-        {"comment": "Usage metering records for LLM/TTS billing"},
+        Index("idx_bill_usage_user_created", "user_bid", "created_at"),
+        Index("idx_bill_usage_shifu_created", "shifu_bid", "created_at"),
+        Index("idx_bill_usage_type_created", "usage_type", "created_at"),
+        {"comment": "Bill usage records for LLM/TTS billing"},
     )
 
     # 1. Primary key
@@ -122,8 +122,8 @@ class BillingUsageRecord(db.Model):
     usage_type = Column(
         SmallInteger,
         nullable=False,
-        default=1,
-        comment="Usage type: 1=LLM, 2=TTS",
+        default=0,
+        comment="Usage type: 1101=LLM, 1102=TTS",
     )
 
     record_level = Column(
@@ -136,8 +136,8 @@ class BillingUsageRecord(db.Model):
     usage_scene = Column(
         SmallInteger,
         nullable=False,
-        default=2,
-        comment="Usage scene: 0=debug, 1=preview, 2=production",
+        default=0,
+        comment="Usage scene: 1201=debug, 1202=preview, 1203=production",
     )
 
     # 6. Provider metadata

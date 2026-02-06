@@ -6,7 +6,12 @@ from sqlalchemy import func
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response
 from flaskr.service.common.models import raise_param_error
-from flaskr.service.metering.models import BillingUsageRecord
+from flaskr.service.metering.consts import (
+    BILL_USAGE_TYPE_LLM,
+    BILL_USAGE_TYPE_TTS,
+    normalize_usage_scene,
+)
+from flaskr.service.metering.models import BillUsageRecord
 
 
 def _parse_date(value: str, *, field_name: str) -> datetime.datetime:
@@ -28,48 +33,48 @@ def register_metering_routes(app: Flask, path_prefix: str = "/api/metering") -> 
         shifu_bid = request.args.get("shifu_bid", "")
         usage_scene = request.args.get("usage_scene", "")
 
-        query = BillingUsageRecord.query.filter(
-            BillingUsageRecord.deleted == 0,
-            BillingUsageRecord.record_level == 0,
+        query = BillUsageRecord.query.filter(
+            BillUsageRecord.deleted == 0,
+            BillUsageRecord.record_level == 0,
         )
 
         if start_date:
             start_dt = _parse_date(start_date, field_name="start_date")
-            query = query.filter(BillingUsageRecord.created_at >= start_dt)
+            query = query.filter(BillUsageRecord.created_at >= start_dt)
         if end_date:
             end_dt = _parse_date(end_date, field_name="end_date")
             end_dt = end_dt + datetime.timedelta(days=1)
-            query = query.filter(BillingUsageRecord.created_at < end_dt)
+            query = query.filter(BillUsageRecord.created_at < end_dt)
         if user_bid:
-            query = query.filter(BillingUsageRecord.user_bid == user_bid)
+            query = query.filter(BillUsageRecord.user_bid == user_bid)
         if shifu_bid:
-            query = query.filter(BillingUsageRecord.shifu_bid == shifu_bid)
+            query = query.filter(BillUsageRecord.shifu_bid == shifu_bid)
         if usage_scene != "":
             try:
-                scene_value = int(usage_scene)
+                scene_value = normalize_usage_scene(usage_scene, strict=True)
             except ValueError:
-                raise_param_error("usage_scene must be an integer")
-            query = query.filter(BillingUsageRecord.usage_scene == scene_value)
+                raise_param_error("usage_scene must be a valid code")
+            query = query.filter(BillUsageRecord.usage_scene == scene_value)
 
         llm_summary = (
-            query.filter(BillingUsageRecord.usage_type == 1)
+            query.filter(BillUsageRecord.usage_type == BILL_USAGE_TYPE_LLM)
             .with_entities(
-                func.coalesce(func.sum(BillingUsageRecord.input), 0),
-                func.coalesce(func.sum(BillingUsageRecord.output), 0),
-                func.coalesce(func.sum(BillingUsageRecord.total), 0),
-                func.coalesce(func.count(BillingUsageRecord.id), 0),
+                func.coalesce(func.sum(BillUsageRecord.input), 0),
+                func.coalesce(func.sum(BillUsageRecord.output), 0),
+                func.coalesce(func.sum(BillUsageRecord.total), 0),
+                func.coalesce(func.count(BillUsageRecord.id), 0),
             )
             .first()
         )
         tts_summary = (
-            query.filter(BillingUsageRecord.usage_type == 2)
+            query.filter(BillUsageRecord.usage_type == BILL_USAGE_TYPE_TTS)
             .with_entities(
-                func.coalesce(func.sum(BillingUsageRecord.input), 0),
-                func.coalesce(func.sum(BillingUsageRecord.output), 0),
-                func.coalesce(func.sum(BillingUsageRecord.total), 0),
-                func.coalesce(func.sum(BillingUsageRecord.word_count), 0),
-                func.coalesce(func.sum(BillingUsageRecord.duration_ms), 0),
-                func.coalesce(func.count(BillingUsageRecord.id), 0),
+                func.coalesce(func.sum(BillUsageRecord.input), 0),
+                func.coalesce(func.sum(BillUsageRecord.output), 0),
+                func.coalesce(func.sum(BillUsageRecord.total), 0),
+                func.coalesce(func.sum(BillUsageRecord.word_count), 0),
+                func.coalesce(func.sum(BillUsageRecord.duration_ms), 0),
+                func.coalesce(func.count(BillUsageRecord.id), 0),
             )
             .first()
         )

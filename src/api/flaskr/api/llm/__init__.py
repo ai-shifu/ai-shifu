@@ -15,6 +15,7 @@ from .dify import DifyChunkChatCompletionResponse, dify_chat_message
 from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
 from flaskr.service.metering import UsageContext, record_llm_usage
+from flaskr.service.metering.consts import normalize_usage_scene
 from litellm import get_max_tokens
 
 logger = logging.getLogger(__name__)
@@ -559,7 +560,7 @@ def invoke_llm(
     json: bool = False,
     generation_name: str = "invoke_llm",
     usage_context: Optional[UsageContext] = None,
-    usage_scene: Optional[int] = None,
+    usage_scene: Optional[Union[str, int]] = None,
     billable: Optional[int] = None,
     request_id: Optional[str] = None,
     trace_id: Optional[str] = None,
@@ -664,7 +665,7 @@ def invoke_llm(
     else:
         app.logger.info(f"invoke_llm usage: {usage.__str__()}")
     latency_ms = int((time.monotonic() - start_time) * 1000)
-    resolved_usage_scene = 2 if usage_scene is None else int(usage_scene)
+    resolved_usage_scene = normalize_usage_scene(usage_scene)
     if usage_context is None:
         usage_context = UsageContext(
             user_bid=user_id or "",
@@ -735,7 +736,7 @@ def chat_llm(
     json: bool = False,
     generation_name: str = "user_follow_ask",
     usage_context: Optional[UsageContext] = None,
-    usage_scene: Optional[int] = None,
+    usage_scene: Optional[Union[str, int]] = None,
     billable: Optional[int] = None,
     request_id: Optional[str] = None,
     trace_id: Optional[str] = None,
@@ -833,7 +834,7 @@ def chat_llm(
     else:
         app.logger.info(f"invoke_llm usage: {usage.__str__()}")
     latency_ms = int((time.monotonic() - start_time) * 1000)
-    resolved_usage_scene = 2 if usage_scene is None else int(usage_scene)
+    resolved_usage_scene = normalize_usage_scene(usage_scene)
     if usage_context is None:
         usage_context = UsageContext(
             user_bid=user_id or "",

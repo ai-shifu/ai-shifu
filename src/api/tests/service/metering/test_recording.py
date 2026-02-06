@@ -1,7 +1,13 @@
 import pytest
 
 from flaskr.service.metering import UsageContext, record_llm_usage, record_tts_usage
-from flaskr.service.metering.models import BillingUsageRecord
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    BILL_USAGE_TYPE_TTS,
+)
+from flaskr.service.metering.models import BillUsageRecord
 from flaskr.util.uuid import generate_id
 
 
@@ -11,7 +17,7 @@ def test_record_llm_usage_persists(app):
         context = UsageContext(
             user_bid="user-1",
             shifu_bid="shifu-1",
-            usage_scene=2,
+            usage_scene=BILL_USAGE_SCENE_PROD,
         )
         usage_bid = record_llm_usage(
             app,
@@ -25,9 +31,9 @@ def test_record_llm_usage_persists(app):
             latency_ms=123,
         )
         assert usage_bid
-        record = BillingUsageRecord.query.filter_by(usage_bid=usage_bid).first()
+        record = BillUsageRecord.query.filter_by(usage_bid=usage_bid).first()
         assert record is not None
-        assert record.usage_type == 1
+        assert record.usage_type == BILL_USAGE_TYPE_LLM
         assert record.input == 10
         assert record.output == 20
         assert record.total == 30
@@ -40,7 +46,7 @@ def test_record_tts_usage_preview_billable_off(app):
         context = UsageContext(
             user_bid="user-2",
             shifu_bid="shifu-2",
-            usage_scene=1,
+            usage_scene=BILL_USAGE_SCENE_PREVIEW,
         )
         parent_usage_bid = generate_id(app)
         segment_usage_bid = record_tts_usage(
@@ -78,11 +84,11 @@ def test_record_tts_usage_preview_billable_off(app):
         )
         assert parent_record_bid == parent_usage_bid
 
-        parent_record = BillingUsageRecord.query.filter_by(
+        parent_record = BillUsageRecord.query.filter_by(
             usage_bid=parent_usage_bid
         ).first()
         assert parent_record is not None
-        assert parent_record.usage_type == 2
+        assert parent_record.usage_type == BILL_USAGE_TYPE_TTS
         assert parent_record.billable == 0
         assert parent_record.record_level == 0
         assert parent_record.segment_count == 1

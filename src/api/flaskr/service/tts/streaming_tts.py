@@ -40,6 +40,7 @@ from flaskr.service.tts.models import (
     AUDIO_STATUS_COMPLETED,
 )
 from flaskr.service.metering import UsageContext, record_tts_usage
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD
 from flaskr.util.uuid import generate_id
 from flaskr.service.learn.learn_dtos import (
     RunMarkdownFlowDTO,
@@ -94,7 +95,7 @@ class StreamingTTSProcessor:
         max_segment_chars: int = 300,
         tts_provider: str = "",
         tts_model: str = "",
-        usage_scene: int = 2,
+        usage_scene: str = BILL_USAGE_SCENE_PROD,
     ):
         self.app = app
         self.generated_block_bid = generated_block_bid

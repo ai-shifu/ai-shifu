@@ -14,7 +14,14 @@ from flask import Flask
 from flaskr.dao import db
 from flaskr.util.uuid import generate_id
 
-from .models import BillingUsageRecord
+from .consts import (
+    BILL_USAGE_SCENE_NON_BILLABLE,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    BILL_USAGE_TYPE_TTS,
+    normalize_usage_scene,
+)
+from .models import BillUsageRecord
 
 
 @dataclass(frozen=True)
@@ -29,19 +36,20 @@ class UsageContext:
     audio_bid: str = ""
     request_id: str = ""
     trace_id: str = ""
-    usage_scene: int = 2
+    usage_scene: int = BILL_USAGE_SCENE_PROD
     billable: Optional[int] = None
 
 
 def _resolve_billable(usage_scene: int, billable: Optional[int]) -> int:
     if billable is not None:
         return int(billable)
-    if usage_scene in (0, 1):
+    normalized_scene = normalize_usage_scene(usage_scene)
+    if normalized_scene in BILL_USAGE_SCENE_NON_BILLABLE:
         return 0
     return 1
 
 
-def _persist_usage_record(app: Flask, record: BillingUsageRecord) -> bool:
+def _persist_usage_record(app: Flask, record: BillUsageRecord) -> bool:
     try:
         with app.app_context():
             db.session.add(record)
@@ -75,7 +83,7 @@ def record_llm_usage(
     extra: Optional[Dict[str, Any]] = None,
 ) -> str:
     usage_bid = generate_id(app)
-    record = BillingUsageRecord(
+    record = BillUsageRecord(
         usage_bid=usage_bid,
         parent_usage_bid="",
         user_bid=context.user_bid or "",
@@ -86,9 +94,9 @@ def record_llm_usage(
         audio_bid=context.audio_bid or "",
         request_id=context.request_id or "",
         trace_id=context.trace_id or "",
-        usage_type=1,
+        usage_type=BILL_USAGE_TYPE_LLM,
         record_level=0,
-        usage_scene=int(context.usage_scene),
+        usage_scene=normalize_usage_scene(context.usage_scene),
         provider=provider or "",
         model=model or "",
         is_stream=1 if is_stream else 0,
@@ -133,7 +141,7 @@ def record_tts_usage(
     extra: Optional[Dict[str, Any]] = None,
 ) -> str:
     resolved_usage_bid = usage_bid or generate_id(app)
-    record = BillingUsageRecord(
+    record = BillUsageRecord(
         usage_bid=resolved_usage_bid,
         parent_usage_bid=parent_usage_bid or "",
         user_bid=context.user_bid or "",
@@ -144,9 +152,9 @@ def record_tts_usage(
         audio_bid=context.audio_bid or "",
         request_id=context.request_id or "",
         trace_id=context.trace_id or "",
-        usage_type=2,
+        usage_type=BILL_USAGE_TYPE_TTS,
         record_level=int(record_level or 0),
-        usage_scene=int(context.usage_scene),
+        usage_scene=normalize_usage_scene(context.usage_scene),
         provider=provider or "",
         model=model or "",
         is_stream=1 if is_stream else 0,

@@ -24,6 +24,10 @@ from flaskr.service.shifu.consts import (
 from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO, GeneratedType
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.metering import UsageContext
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
 
 
 @extensible_generic
@@ -49,7 +53,7 @@ def handle_input_ask(
         app, outline_item_info.shifu_bid, outline_item_info.bid, attend_id, is_preview
     )
 
-    usage_scene = 1 if is_preview else 2
+    usage_scene = BILL_USAGE_SCENE_PREVIEW if is_preview else BILL_USAGE_SCENE_PROD
     usage_context = UsageContext(
         user_bid=user_info.user_id,
         shifu_bid=outline_item_info.shifu_bid,
