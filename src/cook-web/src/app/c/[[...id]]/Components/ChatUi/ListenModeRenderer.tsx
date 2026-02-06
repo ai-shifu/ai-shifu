@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ListenPlayer from './ListenPlayer';
 import { cn } from '@/lib/utils';
 import type Reveal from 'reveal.js';
@@ -139,6 +139,37 @@ const ListenModeRenderer = ({
   const handleResetSequence = useCallback(() => {
     shouldStartSequenceRef.current = true;
   }, []);
+
+  const prevFirstContentBidRef = useRef<string | null>(null);
+  const prevSectionTitleRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const nextFirstBid = orderedContentBlockBids[0] ?? null;
+    if (!nextFirstBid) {
+      prevFirstContentBidRef.current = null;
+      return;
+    }
+    if (!prevFirstContentBidRef.current) {
+      shouldStartSequenceRef.current = true;
+    } else if (prevFirstContentBidRef.current !== nextFirstBid) {
+      shouldStartSequenceRef.current = true;
+    }
+    prevFirstContentBidRef.current = nextFirstBid;
+  }, [orderedContentBlockBids]);
+
+  useEffect(() => {
+    if (!sectionTitle) {
+      prevSectionTitleRef.current = null;
+      return;
+    }
+    if (
+      prevSectionTitleRef.current &&
+      prevSectionTitleRef.current !== sectionTitle
+    ) {
+      shouldStartSequenceRef.current = true;
+    }
+    prevSectionTitleRef.current = sectionTitle;
+  }, [sectionTitle]);
 
   const {
     audioPlayerRef,

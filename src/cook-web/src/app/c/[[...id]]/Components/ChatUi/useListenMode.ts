@@ -874,9 +874,7 @@ export const useListenAudioSequence = ({
     if (!audioAndInteractionList.length) {
       return;
     }
-    if (isSequencePausedRef.current) {
-      return;
-    }
+    isSequencePausedRef.current = false;
     shouldStartSequenceRef.current = false;
 
     // Check if we can resume from the last played block (e.g. after a list flash/refresh)
