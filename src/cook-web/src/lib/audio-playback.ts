@@ -62,16 +62,3 @@ export const playAudioBuffer = (
   sourceNode.start(0, Math.min(safeOffset, maxOffset));
   return sourceNode;
 };
-
-export const fetchAudioBufferFromUrl = async (
-  audioContext: AudioContext,
-  url: string,
-  signal?: AbortSignal,
-): Promise<AudioBuffer> => {
-  const response = await fetch(url, { signal });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch audio (${response.status}).`);
-  }
-  const arrayBuffer = await response.arrayBuffer();
-  return audioContext.decodeAudioData(arrayBuffer);
-};

@@ -16,7 +16,6 @@ import type { AudioSegment } from '@/c-utils/audio-utils';
 import {
   createAudioContext,
   decodeAudioBufferFromBase64,
-  fetchAudioBufferFromUrl,
   playAudioBuffer,
   resumeAudioContext,
 } from '@/lib/audio-playback';
@@ -114,10 +113,6 @@ function AudioPlayerBase(
   const segmentStartTimeRef = useRef(0);
   const segmentDurationRef = useRef(0);
   const playerIdRef = useRef(Math.random().toString(36).slice(2, 8));
-  const urlAudioBufferRef = useRef<{ url: string; buffer: AudioBuffer } | null>(
-    null,
-  );
-  const urlFetchAbortRef = useRef<AbortController | null>(null);
 
   const effectiveAudioUrl = audioUrl || localAudioUrl;
 
@@ -159,13 +154,6 @@ function AudioPlayerBase(
     [],
   );
 
-  const abortUrlFetch = useCallback(() => {
-    if (urlFetchAbortRef.current) {
-      urlFetchAbortRef.current.abort();
-      urlFetchAbortRef.current = null;
-    }
-  }, []);
-
   const stopAllSourceNodes = useCallback(() => {
     if (activeSourceNodesRef.current.size > 0) {
       activeSourceNodesRef.current.forEach(node => {
@@ -193,13 +181,12 @@ function AudioPlayerBase(
   const cleanupAudio = useCallback(() => {
     // Release the segment lock
     isPlayingSegmentRef.current = false;
-    abortUrlFetch();
     stopAllSourceNodes();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
-  }, [abortUrlFetch, stopAllSourceNodes]);
+  }, [stopAllSourceNodes]);
 
   const stopPlayback = useCallback(() => {
     playSessionRef.current += 1;
@@ -321,8 +308,8 @@ function AudioPlayerBase(
     [releaseExclusive, requestExclusive, stopAllSourceNodes],
   );
 
-  // Play audio from OSS URL via HTMLAudio (fallback)
-  const playFromUrlWithHtmlAudio = useCallback(
+  // Play audio from OSS URL
+  const playFromUrl = useCallback(
     (startAtSeconds: number = 0) => {
       const url = audioUrlRef.current;
       if (!url) return;
@@ -404,130 +391,6 @@ function AudioPlayerBase(
     },
     [
       isSessionActive,
-      releaseExclusive,
-      requestExclusive,
-      startPlaySession,
-      stopPlayback,
-    ],
-  );
-
-  // Play audio from OSS URL via WebAudio
-  const playFromUrl = useCallback(
-    async (startAtSeconds: number = 0) => {
-      const url = audioUrlRef.current;
-      if (!url) {
-        return;
-      }
-
-      isPausedRef.current = false;
-      pausedAtRef.current = 0;
-      segmentOffsetRef.current = 0;
-      segmentStartTimeRef.current = 0;
-      segmentDurationRef.current = 0;
-      isPlayingSegmentRef.current = false;
-
-      const sessionId = startPlaySession();
-      requestExclusive(stopPlayback);
-      setIsLoading(true);
-      setIsWaitingForSegment(false);
-
-      try {
-        if (!audioContextRef.current) {
-          audioContextRef.current = createAudioContext();
-        }
-        const audioContext = audioContextRef.current;
-        await resumeAudioContext(audioContext);
-        if (!isSessionActive(sessionId)) {
-          return;
-        }
-
-        let audioBuffer: AudioBuffer | null = null;
-        const cached = urlAudioBufferRef.current;
-        if (cached?.url === url) {
-          audioBuffer = cached.buffer;
-        }
-
-        if (!audioBuffer) {
-          abortUrlFetch();
-          const controller = new AbortController();
-          urlFetchAbortRef.current = controller;
-          audioBuffer = await fetchAudioBufferFromUrl(
-            audioContext,
-            url,
-            controller.signal,
-          );
-          if (!isSessionActive(sessionId)) {
-            return;
-          }
-          urlAudioBufferRef.current = { url, buffer: audioBuffer };
-        }
-
-        const safeOffset = Number.isFinite(startAtSeconds)
-          ? Math.max(0, startAtSeconds)
-          : 0;
-        const maxOffset = Math.max(0, audioBuffer.duration - 0.01);
-        const startOffset = Math.min(safeOffset, maxOffset);
-
-        segmentOffsetRef.current = startOffset;
-        segmentStartTimeRef.current = audioContext.currentTime;
-        segmentDurationRef.current = audioBuffer.duration || 0;
-        playedSecondsRef.current = startOffset;
-
-        const sourceNode = playAudioBuffer(
-          audioContext,
-          audioBuffer,
-          () => {
-            if (!isSessionActive(sessionId)) return;
-            isPlayingSegmentRef.current = false;
-            setIsPlaying(false);
-            isPlayingRef.current = false;
-            setIsLoading(false);
-            setIsWaitingForSegment(false);
-            onPlayStateChangeRef.current?.(false);
-            onEndedRef.current?.();
-            releaseExclusive();
-          },
-          startOffset,
-        );
-        activeSourceNodesRef.current.add(sourceNode);
-        const originalOnEnded = sourceNode.onended as any;
-        sourceNode.onended = event => {
-          activeSourceNodesRef.current.delete(sourceNode);
-          originalOnEnded?.(event);
-        };
-        sourceNodeRef.current = sourceNode;
-
-        setIsLoading(false);
-        setIsPlaying(true);
-        isPlayingRef.current = true;
-        onPlayStateChangeRef.current?.(true);
-      } catch (error) {
-        if (!isSessionActive(sessionId)) {
-          return;
-        }
-        console.error('Failed to play audio:', error);
-        setIsPlaying(false);
-        isPlayingRef.current = false;
-        setIsLoading(false);
-        setIsWaitingForSegment(false);
-        onPlayStateChangeRef.current?.(false);
-        if (error instanceof DOMException) {
-          if (error.name === 'NotAllowedError') {
-            isPausedRef.current = true;
-          }
-          if (error.name === 'AbortError') {
-            releaseExclusive();
-            return;
-          }
-        }
-        releaseExclusive();
-        playFromUrlWithHtmlAudio(startAtSeconds);
-      }
-    },
-    [
-      abortUrlFetch,
-      isSessionActive,
-      playFromUrlWithHtmlAudio,
       releaseExclusive,
       requestExclusive,
       startPlaySession,
