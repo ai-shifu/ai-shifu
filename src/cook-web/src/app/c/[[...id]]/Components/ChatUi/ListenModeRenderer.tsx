@@ -399,7 +399,7 @@ const ListenModeRenderer = ({
         </div>
       </div>
       {activeContentItem ? (
-        <div className={cn('listen-audio-controls', 'hidden')}>
+        // <div className={cn('listen-audio-controls', 'hidden')}>
           <AudioPlayer
             ref={audioPlayerRef}
             contentKey={activeAudioBlockBid ?? 'listen-audio'}
@@ -418,7 +418,7 @@ const ListenModeRenderer = ({
             onEnded={handleAudioEnded}
             size={18}
           />
-        </div>
+        // </div>
       ) : null}
       {mobileStyle ? (
         <ListenModeTestAudioPlayer
@@ -426,7 +426,7 @@ const ListenModeRenderer = ({
           audioUrls={recordAudioUrls}
         />
       ) : null}
-      {/* <ListenPlayer
+      <ListenPlayer
         onPrev={onPrev}
         onPlay={handlePlay}
         onPause={handlePause}
@@ -438,7 +438,7 @@ const ListenModeRenderer = ({
         interactionReadonly={interactionReadonly}
         onSend={onSend}
         mobileStyle={mobileStyle}
-      /> */}
+      />
     </div>
   );
 };

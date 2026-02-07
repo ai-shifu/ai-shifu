@@ -98,6 +98,8 @@ function AudioPlayerBase(
   );
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const htmlAudioSessionRef = useRef<number | null>(null);
+  const htmlAudioUrlRef = useRef<string | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
   const activeSourceNodesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
@@ -152,6 +154,88 @@ function AudioPlayerBase(
     (sessionId: number) => playSessionRef.current === sessionId,
     [],
   );
+
+  const resolveHtmlSessionId = useCallback(() => {
+    const sessionId = htmlAudioSessionRef.current;
+    if (typeof sessionId !== 'number') {
+      return null;
+    }
+    if (!isSessionActive(sessionId)) {
+      return null;
+    }
+    return sessionId;
+  }, [isSessionActive]);
+
+  const handleHtmlAudioCanPlay = useCallback(() => {
+    const sessionId = resolveHtmlSessionId();
+    if (sessionId === null) {
+      return;
+    }
+    setIsLoading(false);
+  }, [resolveHtmlSessionId]);
+
+  const handleHtmlAudioPlay = useCallback(() => {
+    const sessionId = resolveHtmlSessionId();
+    if (sessionId === null) {
+      return;
+    }
+    setIsLoading(false);
+    setIsPlaying(true);
+    isPlayingRef.current = true;
+    onPlayStateChangeRef.current?.(true);
+  }, [resolveHtmlSessionId]);
+
+  const handleHtmlAudioPause = useCallback(() => {
+    const sessionId = resolveHtmlSessionId();
+    if (sessionId === null) {
+      return;
+    }
+    setIsPlaying(false);
+    isPlayingRef.current = false;
+    setIsLoading(false);
+    setIsWaitingForSegment(false);
+    onPlayStateChangeRef.current?.(false);
+    releaseExclusive();
+  }, [releaseExclusive, resolveHtmlSessionId]);
+
+  const handleHtmlAudioEnded = useCallback(() => {
+    const sessionId = resolveHtmlSessionId();
+    if (sessionId === null) {
+      return;
+    }
+    emitListenDebugAlert('playFromUrl-ended', {
+      playerId: playerIdRef.current,
+      sessionId,
+      url: htmlAudioUrlRef.current,
+    });
+    setIsPlaying(false);
+    isPlayingRef.current = false;
+    setIsLoading(false);
+    setIsWaitingForSegment(false);
+    onPlayStateChangeRef.current?.(false);
+    onEndedRef.current?.();
+    releaseExclusive();
+  }, [releaseExclusive, resolveHtmlSessionId]);
+
+  const handleHtmlAudioError = useCallback(() => {
+    const sessionId = resolveHtmlSessionId();
+    if (sessionId === null) {
+      return;
+    }
+    const audio = audioRef.current;
+    emitListenDebugAlert('playFromUrl-error', {
+      playerId: playerIdRef.current,
+      sessionId,
+      url: htmlAudioUrlRef.current,
+      errorCode: audio?.error?.code,
+    });
+    setIsPlaying(false);
+    isPlayingRef.current = false;
+    setIsLoading(false);
+    setIsWaitingForSegment(false);
+    onPlayStateChangeRef.current?.(false);
+    releaseExclusive();
+  }, [releaseExclusive, resolveHtmlSessionId]);
 
   const stopAllSourceNodes = useCallback(() => {
     if (activeSourceNodesRef.current.size > 0) {
@@ -322,55 +406,27 @@ function AudioPlayerBase(
       const sessionId = startPlaySession();
       requestExclusive(stopPlayback);
 
-      if (!audioRef.current) {
-        audioRef.current = new Audio();
-        audioRef.current.preload = 'auto';
-        audioRef.current.setAttribute('playsinline', 'true');
-      }
-
       const audio = audioRef.current;
+      if (!audio) {
+        setIsPlaying(false);
+        isPlayingRef.current = false;
+        setIsLoading(false);
+        setIsWaitingForSegment(false);
+        onPlayStateChangeRef.current?.(false);
+        releaseExclusive();
+        return;
+      }
+      htmlAudioSessionRef.current = sessionId;
+      htmlAudioUrlRef.current = url;
       emitListenDebugAlert('playFromUrl', {
         playerId: playerIdRef.current,
         sessionId,
         url,
         startAtSeconds,
       });
-      audio.onended = () => {
-        if (!isSessionActive(sessionId)) return;
-        emitListenDebugAlert('playFromUrl-ended', {
-          playerId: playerIdRef.current,
-          sessionId,
-          url,
-        });
-        setIsPlaying(false);
-        isPlayingRef.current = false;
-        setIsLoading(false);
-        setIsWaitingForSegment(false);
-        onPlayStateChangeRef.current?.(false);
-        onEndedRef.current?.();
-        releaseExclusive();
-      };
-      audio.onerror = () => {
-        if (!isSessionActive(sessionId)) return;
-        emitListenDebugAlert('playFromUrl-error', {
-          playerId: playerIdRef.current,
-          sessionId,
-          url,
-          errorCode: audio.error?.code,
-        });
-        setIsPlaying(false);
-        isPlayingRef.current = false;
-        setIsLoading(false);
-        setIsWaitingForSegment(false);
-        onPlayStateChangeRef.current?.(false);
-        releaseExclusive();
-      };
-      audio.oncanplay = () => {
-        if (!isSessionActive(sessionId)) return;
-        setIsLoading(false);
-      };
 
       audio.src = url;
+      audio.load();
       setIsLoading(true);
       setIsWaitingForSegment(false);
 
@@ -389,9 +445,11 @@ function AudioPlayerBase(
         .play()
         .then(() => {
           if (!isSessionActive(sessionId)) return;
-          setIsPlaying(true);
-          isPlayingRef.current = true;
-          onPlayStateChangeRef.current?.(true);
+          if (!isPlayingRef.current) {
+            setIsPlaying(true);
+            isPlayingRef.current = true;
+            onPlayStateChangeRef.current?.(true);
+          }
         })
         .catch(err => {
           if (!isSessionActive(sessionId)) return;
@@ -966,23 +1024,36 @@ function AudioPlayerBase(
   );
 
   return (
-    <TooltipProvider delayDuration={150}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          {isButtonDisabled ? (
-            <span className='inline-flex'>{button}</span>
-          ) : (
-            button
-          )}
-        </TooltipTrigger>
-        <TooltipContent
-          side='top'
-          className='bg-black text-white border-none'
-        >
-          {ariaLabel}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <>
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {isButtonDisabled ? (
+              <span className='inline-flex'>{button}</span>
+            ) : (
+              button
+            )}
+          </TooltipTrigger>
+          <TooltipContent
+            side='top'
+            className='bg-black text-white border-none'
+          >
+            {ariaLabel}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <audio
+        ref={audioRef}
+        preload='auto'
+        playsInline
+        onCanPlay={handleHtmlAudioCanPlay}
+        onPlay={handleHtmlAudioPlay}
+        onPause={handleHtmlAudioPause}
+        onEnded={handleHtmlAudioEnded}
+        onError={handleHtmlAudioError}
+        className='hidden'
+      />
+    </>
   );
 }
 

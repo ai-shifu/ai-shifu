@@ -148,8 +148,8 @@ const ListenModeTestAudioPlayer = ({
     }
     if (!audioRef.current?.src && playlist[0]) {
       currentUrlRef.current = playlist[currentIndex] ?? playlist[0];
-      audioRef.current.src = currentUrlRef.current;
-      audioRef.current.load();
+      audioRef.current!.src = currentUrlRef.current ?? '';
+      audioRef.current!.load();
     }
     startPlayback();
   }, [playlist, currentIndex, startPlayback]);
