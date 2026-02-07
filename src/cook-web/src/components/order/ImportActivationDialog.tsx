@@ -420,13 +420,21 @@ const ImportActivationDialog = ({
         return;
       }
 
+      const courseNotFoundMessage = t(
+        'server.shifu.courseNotFound',
+        'Course not found',
+      )
+        .trim()
+        .toLowerCase();
       const isCourseError =
         successCount === 0 &&
         failedCount === totalCount &&
         failedEntries.length > 0 &&
         failedEntries.every(entry => {
           const msg = entry.message?.toLowerCase() || '';
-          return msg.includes('课程不存在') || msg.includes('course not found');
+          return courseNotFoundMessage
+            ? msg.includes(courseNotFoundMessage)
+            : false;
         });
       if (isCourseError) {
         toast({
@@ -690,9 +698,6 @@ const ImportActivationDialog = ({
                                       <span className='text-sm text-foreground truncate'>
                                         {courseName}
                                       </span>
-                                      {/* <span className='text-xs text-muted-foreground'>
-                                        {course.bid}
-                                      </span> */}
                                     </span>
                                   </button>
                                 );

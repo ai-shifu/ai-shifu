@@ -527,7 +527,9 @@ def register_order_handler(app: Flask, path_prefix: str):
         contact_label = "email" if contact_type == "email" else "mobile"
 
         if isinstance(lines, list) and lines:
-            raw_text = "\n".join([str(item) for item in lines if str(item).strip()])
+            raw_text = "\n".join(
+                [str(item) for item in lines if item is not None and str(item).strip()]
+            )
             entries = parse_import_activation_entries(raw_text, contact_type)
             if not entries:
                 raise_param_error(contact_label)
