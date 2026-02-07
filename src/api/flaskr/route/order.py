@@ -527,9 +527,22 @@ def register_order_handler(app: Flask, path_prefix: str):
         contact_label = "email" if contact_type == "email" else "mobile"
 
         if isinstance(lines, list) and lines:
-            raw_text = "\n".join(
-                [str(item) for item in lines if item is not None and str(item).strip()]
-            )
+            normalized_lines = []
+            for item in lines:
+                if item is None:
+                    continue
+                text = str(item).strip()
+                if text:
+                    normalized_lines.append(text)
+            if not normalized_lines:
+                raise_param_error(contact_label)
+            if len(normalized_lines) > 50:
+                raise_param_error(f"{contact_label} limit 50")
+            for line in normalized_lines:
+                if not parse_import_activation_entries(line, contact_type):
+                    raise_param_error(contact_label)
+
+            raw_text = "\n".join(normalized_lines)
             entries = parse_import_activation_entries(raw_text, contact_type)
             if not entries:
                 raise_param_error(contact_label)

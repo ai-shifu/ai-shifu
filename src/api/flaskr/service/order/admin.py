@@ -26,6 +26,7 @@ from flaskr.service.common.models import (
     raise_error_with_args,
     raise_param_error,
 )
+from flaskr.i18n import _
 from flaskr.service.order.admin_dtos import (
     OrderAdminActivityDTO,
     OrderAdminCouponDTO,
@@ -508,14 +509,19 @@ def import_activation_orders(
             results["failed"].append(
                 {"mobile": normalized_mobile, "message": exc.message}
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception:  # noqa: BLE001
             if hasattr(app, "logger"):
                 masked_identifier = _mask_contact_identifier(normalized_mobile)
                 app.logger.exception(
                     "import activation unexpected failure for %s",
                     masked_identifier,
                 )
-            results["failed"].append({"mobile": normalized_mobile, "message": str(exc)})
+            results["failed"].append(
+                {
+                    "mobile": normalized_mobile,
+                    "message": _("server.common.unknownError"),
+                }
+            )
     return results
 
 
@@ -553,14 +559,19 @@ def import_activation_orders_from_entries(
             results["failed"].append(
                 {"mobile": normalized_mobile, "message": exc.message}
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception:  # noqa: BLE001
             if hasattr(app, "logger"):
                 masked_identifier = _mask_contact_identifier(normalized_mobile)
                 app.logger.exception(
                     "import activation unexpected failure for %s",
                     masked_identifier,
                 )
-            results["failed"].append({"mobile": normalized_mobile, "message": str(exc)})
+            results["failed"].append(
+                {
+                    "mobile": normalized_mobile,
+                    "message": _("server.common.unknownError"),
+                }
+            )
     return results
 
 
