@@ -25,12 +25,12 @@
   "stripeResultMissingOrder": "We couldn't find the matching order. Please reopen the chat or contact support.",
   "stripeResultPending": "We will sync your order once Stripe finishes processing.",
   "stripeResultPendingTitle": "Payment pending",
-  "stripeResultRedirectCountDown": "Taking you back to the course in {{seconds}}s...",
+  "stripeResultRedirectCountDown": "Taking you back to the course in {seconds}s...",
   "stripeResultSuccessTitle": "Payment confirmed",
   "title": "Payment",
   "userPrivacyPolicy": "User Privacy Policy",
   "virtualProductDesc": "Note:",
-  "virtualProductPoint1": "1. Purchase indicates you have read and agreed to {{modelServiceAgreement}} and {{userPrivacyPolicy}}.",
+  "virtualProductPoint1": "1. Purchase indicates you have read and agreed to <modelServiceAgreement>{modelServiceAgreement}</modelServiceAgreement> and <userPrivacyPolicy>{userPrivacyPolicy}</userPrivacyPolicy>.",
   "virtualProductPoint2": "2. Virtual products are non-refundable and non-transferable.",
   "wechatPay": "WeChat Pay"
 }

@@ -52,6 +52,9 @@ interface LessonPreviewProps {
   onHideOrRestore?: () => void;
   actionType?: 'hide' | 'restore';
   actionDisabled?: boolean;
+  customVariableKeys?: string[];
+  unusedVariableKeys?: string[];
+  onHideVariable?: (name: string) => void;
 }
 
 const noop = () => {};
@@ -71,6 +74,9 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   onHideOrRestore,
   actionType,
   actionDisabled,
+  customVariableKeys,
+  unusedVariableKeys,
+  onHideVariable,
 }) => {
   const { t } = useTranslation();
   const confirmButtonText = t('module.renderUi.core.confirm');
@@ -135,6 +141,23 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     });
   }, [actionType, onHideOrRestore, showAlert, t]);
 
+  const handleHideVariableConfirm = React.useCallback(
+    (name: string) => {
+      if (!onHideVariable) return;
+      showAlert({
+        title: t('module.shifu.previewArea.variablesHideSingleConfirmTitle'),
+        description: t(
+          'module.shifu.previewArea.variablesHideSingleConfirmDesc',
+          { name },
+        ),
+        confirmText: t('common.core.confirm'),
+        cancelText: t('common.core.cancel'),
+        onConfirm: () => onHideVariable(name),
+      });
+    },
+    [onHideVariable, showAlert, t],
+  );
+
   return (
     <div className={cn(styles.lessonPreview, 'text-sm')}>
       <div className='flex items-baseline gap-2 pt-[4px]'>
@@ -161,6 +184,9 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
               actionType={actionType}
               onAction={handleActionConfirm}
               actionDisabled={actionDisabled}
+              customVariableKeys={customVariableKeys}
+              unusedVariableKeys={unusedVariableKeys}
+              onHideVariable={handleHideVariableConfirm}
             />
           </div>
         )}

@@ -397,6 +397,8 @@ export type I18nKey =
   | 'module.shifu.previewArea.variablesCollapse'
   | 'module.shifu.previewArea.variablesDescription'
   | 'module.shifu.previewArea.variablesExpand'
+  | 'module.shifu.previewArea.variablesHideSingleConfirmDesc'
+  | 'module.shifu.previewArea.variablesHideSingleConfirmTitle'
   | 'module.shifu.previewArea.variablesLearnMore'
   | 'module.shifu.previewArea.variablesPlaceholder'
   | 'module.shifu.previewArea.variablesTitle'
