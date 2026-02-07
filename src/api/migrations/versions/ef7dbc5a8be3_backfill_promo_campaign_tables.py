@@ -136,55 +136,67 @@ def upgrade():
         """
     )
 
-    # Deduplicate per (order_id, active_id) (pick the latest row by id).
-    op.execute(
-        f"""
-        INSERT INTO promo_redemptions (
-            redemption_bid,
-            promo_bid,
-            order_bid,
-            user_bid,
-            shifu_bid,
-            promo_name,
-            discount_type,
-            value,
-            discount_amount,
-            status,
-            deleted,
-            created_at,
-            updated_at
+    # Backfill redemptions in batches to avoid long locks on large tables.
+    batch_size = 1000
+    while True:
+        result = bind.execute(
+            sa.text(
+                f"""
+                INSERT INTO promo_redemptions (
+                    redemption_bid,
+                    promo_bid,
+                    order_bid,
+                    user_bid,
+                    shifu_bid,
+                    promo_name,
+                    discount_type,
+                    value,
+                    discount_amount,
+                    status,
+                    deleted,
+                    created_at,
+                    updated_at
+                )
+                SELECT
+                    r.record_id,
+                    r.active_id,
+                    r.order_id,
+                    r.user_id,
+                    COALESCE(a.active_course, ''),
+                    r.active_name,
+                    CASE
+                        WHEN a.active_discount_type IN (701, 702)
+                            THEN a.active_discount_type
+                        ELSE 701
+                    END,
+                    r.price,
+                    r.price,
+                    r.status,
+                    0,
+                    COALESCE(r.created, {now_expr}),
+                    COALESCE(r.updated, {now_expr})
+                FROM active_user_record r
+                INNER JOIN (
+                    SELECT order_id, active_id, MAX(id) AS max_id
+                    FROM active_user_record
+                    GROUP BY order_id, active_id
+                ) latest
+                    ON latest.order_id = r.order_id
+                    AND latest.active_id = r.active_id
+                    AND latest.max_id = r.id
+                LEFT JOIN active a ON a.active_id = r.active_id
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM promo_redemptions pca
+                    WHERE pca.redemption_bid = r.record_id
+                )
+                LIMIT :batch_size
+                """
+            ),
+            {"batch_size": batch_size},
         )
-        SELECT
-            r.record_id,
-            r.active_id,
-            r.order_id,
-            r.user_id,
-            COALESCE(a.active_course, ''),
-            r.active_name,
-            CASE
-                WHEN a.active_discount_type IN (701, 702) THEN a.active_discount_type
-                ELSE 701
-            END,
-            r.price,
-            r.price,
-            r.status,
-            0,
-            COALESCE(r.created, {now_expr}),
-            COALESCE(r.updated, {now_expr})
-        FROM active_user_record r
-        INNER JOIN (
-            SELECT order_id, active_id, MAX(id) AS max_id
-            FROM active_user_record
-            GROUP BY order_id, active_id
-        ) latest ON latest.order_id = r.order_id AND latest.active_id = r.active_id AND latest.max_id = r.id
-        LEFT JOIN active a ON a.active_id = r.active_id
-        WHERE NOT EXISTS (
-            SELECT 1
-            FROM promo_redemptions pca
-            WHERE pca.redemption_bid = r.record_id
-        )
-        """
-    )
+        if result.rowcount == 0:
+            break
 
 
 def downgrade():
