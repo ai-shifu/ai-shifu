@@ -151,7 +151,7 @@ const ImportActivationDialog = ({
   onOpenChange,
   onSuccess,
 }: ImportActivationDialogProps) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const loginMethodsEnabled = useEnvStore(
     (state: EnvStoreState) => state.loginMethodsEnabled,
@@ -171,16 +171,21 @@ const ImportActivationDialog = ({
   );
   const isEmailMode = contactType === 'email';
   const [confirmOpen, setConfirmOpen] = React.useState(false);
-  const [pendingMobiles, setPendingMobiles] = React.useState<string[]>([]);
+  const [pendingIdentifiers, setPendingIdentifiers] = React.useState<string[]>(
+    [],
+  );
   const [pendingEntries, setPendingEntries] = React.useState<
     ImportActivationEntry[]
   >([]);
   const [isImporting, setIsImporting] = React.useState(false);
   const isImportingRef = React.useRef(false);
+  const listSeparator = React.useMemo(
+    () => (i18n.language?.startsWith('zh') ? '，' : ', '),
+    [i18n.language],
+  );
   const joinedIdentifiers = React.useMemo(() => {
-    const separator = isEmailMode ? ', ' : '，';
-    return pendingMobiles.join(separator);
-  }, [isEmailMode, pendingMobiles]);
+    return pendingIdentifiers.join(listSeparator);
+  }, [listSeparator, pendingIdentifiers]);
   const contactLabel = isEmailMode
     ? t('module.order.importActivation.emailLabel')
     : t('module.order.importActivation.mobileLabel');
@@ -260,13 +265,13 @@ const ImportActivationDialog = ({
       isEmailMode
         ? t('module.order.importActivation.emailConfirmDescription', {
             mobiles: joinedIdentifiers,
-            count: pendingMobiles.length,
+            count: pendingIdentifiers.length,
           })
         : t('module.order.importActivation.confirmDescription', {
             mobiles: joinedIdentifiers,
-            count: pendingMobiles.length,
+            count: pendingIdentifiers.length,
           }),
-    [isEmailMode, joinedIdentifiers, pendingMobiles.length, t],
+    [isEmailMode, joinedIdentifiers, pendingIdentifiers.length, t],
   );
 
   const filteredCourses = React.useMemo(() => {
@@ -283,7 +288,7 @@ const ImportActivationDialog = ({
     });
   }, [courseSearch, courses]);
 
-  const normalizeMobileField = React.useCallback(
+  const normalizeContactField = React.useCallback(
     (value: string) => {
       const { entries, normalizedText, invalidItems } = parseImportText(
         value,
@@ -311,8 +316,9 @@ const ImportActivationDialog = ({
       contactType,
     );
     if (invalidItems.length > 0) {
-      const separator = isEmailMode ? ', ' : '，';
-      const sample = invalidItems.slice(0, MOBILE_SAMPLE_LIMIT).join(separator);
+      const sample = invalidItems
+        .slice(0, MOBILE_SAMPLE_LIMIT)
+        .join(listSeparator);
       const displayValues =
         invalidItems.length > MOBILE_SAMPLE_LIMIT ? `${sample}...` : sample;
       form.setError('mobile', {
@@ -360,7 +366,9 @@ const ImportActivationDialog = ({
       ),
     );
     if (duplicateMobiles.length > 0) {
-      const sample = duplicateMobiles.slice(0, MOBILE_SAMPLE_LIMIT).join(', ');
+      const sample = duplicateMobiles
+        .slice(0, MOBILE_SAMPLE_LIMIT)
+        .join(listSeparator);
       const messageMobiles =
         duplicateMobiles.length > MOBILE_SAMPLE_LIMIT ? `${sample}...` : sample;
       form.setError('mobile', {
@@ -370,7 +378,7 @@ const ImportActivationDialog = ({
     }
 
     setPendingEntries(entriesForPayload);
-    setPendingMobiles(mobiles);
+    setPendingIdentifiers(mobiles);
     setConfirmOpen(true);
   };
 
@@ -472,7 +480,7 @@ const ImportActivationDialog = ({
       return;
     }
     setConfirmOpen(false);
-    setPendingMobiles([]);
+    setPendingIdentifiers([]);
     setPendingEntries([]);
     setIsImporting(false);
     isImportingRef.current = false;
@@ -578,7 +586,7 @@ const ImportActivationDialog = ({
                         onChange={e => field.onChange(e.target.value)}
                         onBlur={event => {
                           field.onBlur();
-                          normalizeMobileField(event.target.value);
+                          normalizeContactField(event.target.value);
                         }}
                       />
                     </FormControl>

@@ -533,6 +533,11 @@ def register_order_handler(app: Flask, path_prefix: str):
                 raise_param_error(contact_label)
             if len(entries) > 50:
                 raise_param_error(f"{contact_label} limit 50")
+            fallback_nickname = str(user_nick_name or "").strip()
+            if fallback_nickname:
+                for entry in entries:
+                    if not entry.get("nickname"):
+                        entry["nickname"] = fallback_nickname
 
             # Validate course exists before iterating mobiles to avoid repeated errors
             get_shifu_info(app, course_id, False)
