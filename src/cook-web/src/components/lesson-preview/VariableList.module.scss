@@ -159,10 +159,10 @@
     cursor: pointer;
     opacity: 0;
     transition: opacity 0.15s ease;
-    color: #9ca3af;
+    color: var(--muted-foreground, #9ca3af);
 
     &:hover {
-      color: #111827;
+      color: var(--secondary-foreground, #111827);
     }
   }
 

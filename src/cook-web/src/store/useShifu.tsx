@@ -1618,6 +1618,9 @@ export const ShifuProvider = ({
       let resolvedUnusedKeys = options?.unusedKeys;
       if (!resolvedUnusedKeys) {
         const usage = await refreshVariableUsage(shifuId);
+        if (!usage) {
+          return;
+        }
         resolvedUnusedKeys = usage?.unused_keys || [];
       }
       if (!resolvedUnusedKeys) {
