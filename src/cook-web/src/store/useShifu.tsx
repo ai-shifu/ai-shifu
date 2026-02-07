@@ -1359,12 +1359,7 @@ export const ShifuProvider = ({
     if (shifuId) {
       writeHiddenToStorage(shifuId, hiddenVariableKeys);
       const storedMode = readHideModeFromStorage(shifuId);
-      const resolvedMode =
-        storedMode !== null ? storedMode : hiddenVariableKeys.length > 0;
-      setHideUnusedMode(resolvedMode);
-      if (storedMode === null) {
-        writeHideModeToStorage(shifuId, resolvedMode);
-      }
+      setHideUnusedMode(storedMode ?? false);
     }
 
     const systemVariableKeys = sysVariables.map(variable => variable.name);
@@ -1653,7 +1648,13 @@ export const ShifuProvider = ({
         // Only unhide keys that became used to keep manual hides stable.
         await applyUpdate(keysToUnhide, false);
         if (appliedList) {
+          const existingCache = profileDefinitionCacheRef.current[shifuId];
           applyProfileDefinitionList(appliedList, shifuId);
+          const updatedCache = profileDefinitionCacheRef.current[shifuId];
+          if (updatedCache) {
+            updatedCache.unusedKeys =
+              resolvedUnusedKeys ?? existingCache?.unusedKeys ?? [];
+          }
         } else {
           delete profileDefinitionCacheRef.current[shifuId];
           await refreshProfileDefinitions(shifuId);
