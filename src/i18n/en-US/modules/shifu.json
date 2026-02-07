@@ -24,6 +24,8 @@
     "variablesHideUnused": "Hide unused",
     "variablesHideUnusedConfirmDesc": "Hide custom variables not used in the course. After hiding, you can click this button to show them again.",
     "variablesHideUnusedConfirmTitle": "Hide unused custom variables",
+    "variablesHideSingleConfirmDesc": "Hide \"{name}\". You can restore it by clicking \"Show all\".",
+    "variablesHideSingleConfirmTitle": "Hide variable",
     "variablesHideUnusedTooltip": "Hide custom variables not used in the course",
     "variablesPlaceholder": "UNKNOWN",
     "variablesRestoreHidden": "Show all",

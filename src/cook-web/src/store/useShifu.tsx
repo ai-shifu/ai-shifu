@@ -41,9 +41,13 @@ import { useTracking } from '@/c-common/hooks/useTracking';
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
 const PROFILE_CACHE_TTL = 5000; // 5s
 const HIDDEN_STORAGE_PREFIX = 'hidden_profile_variables';
+const HIDE_MODE_STORAGE_PREFIX = 'hidden_profile_variables_mode';
 
 const buildHiddenStorageKey = (shifuId?: string) =>
   shifuId ? `${HIDDEN_STORAGE_PREFIX}:${shifuId}` : '';
+
+const buildHideModeStorageKey = (shifuId?: string) =>
+  shifuId ? `${HIDE_MODE_STORAGE_PREFIX}:${shifuId}` : '';
 
 const readHiddenFromStorage = (shifuId?: string): string[] => {
   if (typeof window === 'undefined') {
@@ -73,6 +77,37 @@ const writeHiddenToStorage = (shifuId: string, hiddenKeys: string[]) => {
     window.localStorage.setItem(key, JSON.stringify(hiddenKeys));
   } catch (error) {
     console.warn('Failed to write hidden variables to storage', error);
+  }
+};
+
+const readHideModeFromStorage = (shifuId?: string): boolean | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const key = buildHideModeStorageKey(shifuId);
+  if (!key) return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (raw === null) {
+      return null;
+    }
+    return raw === '1';
+  } catch (error) {
+    console.warn('Failed to read hide mode from storage', error);
+    return null;
+  }
+};
+
+const writeHideModeToStorage = (shifuId: string, mode: boolean) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const key = buildHideModeStorageKey(shifuId);
+  if (!key) return;
+  try {
+    window.localStorage.setItem(key, mode ? '1' : '0');
+  } catch (error) {
+    console.warn('Failed to write hide mode to storage', error);
   }
 };
 
@@ -161,6 +196,7 @@ export const ShifuProvider = ({
   const [variables, setVariables] = useState<string[]>([]);
   const [hiddenVariables, setHiddenVariables] = useState<string[]>([]);
   const [unusedVariables, setUnusedVariables] = useState<string[]>([]);
+  const [hideUnusedMode, setHideUnusedMode] = useState(false);
   const currentMdflow = useRef<string>('');
   const lastPersistedMdflowRef = useRef<Record<string, string>>({});
   const saveMdflowLockRef = useRef<{
@@ -1322,6 +1358,13 @@ export const ShifuProvider = ({
     setHiddenVariables(hiddenVariableKeys);
     if (shifuId) {
       writeHiddenToStorage(shifuId, hiddenVariableKeys);
+      const storedMode = readHideModeFromStorage(shifuId);
+      const resolvedMode =
+        storedMode !== null ? storedMode : hiddenVariableKeys.length > 0;
+      setHideUnusedMode(resolvedMode);
+      if (storedMode === null) {
+        writeHideModeToStorage(shifuId, resolvedMode);
+      }
     }
 
     const systemVariableKeys = sysVariables.map(variable => variable.name);
@@ -1441,11 +1484,12 @@ export const ShifuProvider = ({
     blocksCount: number;
     systemVariableKeys: string[];
     allVariableKeys?: string[];
+    unusedKeys?: string[];
   }> => {
     try {
       const resolvedShifuId = shifuId || currentShifu?.bid || '';
       const resolvedOutlineId = outlineId || currentNode?.bid || '';
-      const { systemVariableKeys } =
+      const { systemVariableKeys, unusedKeys } =
         (await refreshProfileDefinitions(resolvedShifuId, {
           forceRefresh: true,
         })) || {};
@@ -1473,6 +1517,7 @@ export const ShifuProvider = ({
         blocksCount: result?.blocks_count ?? 0,
         systemVariableKeys: resolvedSystemKeys,
         allVariableKeys: variableKeys,
+        unusedKeys,
       };
     } catch (error) {
       console.error(error);
@@ -1496,6 +1541,31 @@ export const ShifuProvider = ({
           refreshVariableUsage(shifuId),
         ]);
       }
+      setHideUnusedMode(true);
+      writeHideModeToStorage(shifuId, true);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const hideVariableByKey = async (shifuId: string, key: string) => {
+    if (!key) return;
+    try {
+      const list = await api.updateProfileHiddenState({
+        parent_id: shifuId,
+        profile_keys: [key],
+        hidden: true,
+      });
+      if (list) {
+        applyProfileDefinitionList(list as ProfileItem[], shifuId);
+        await refreshVariableUsage(shifuId);
+      } else {
+        delete profileDefinitionCacheRef.current[shifuId];
+        await Promise.all([
+          refreshProfileDefinitions(shifuId),
+          refreshVariableUsage(shifuId),
+        ]);
+      }
     } catch (error) {
       console.error(error);
     }
@@ -1504,6 +1574,8 @@ export const ShifuProvider = ({
   const restoreHiddenVariables = async (shifuId: string) => {
     try {
       if (!hiddenVariables.length) {
+        setHideUnusedMode(false);
+        writeHideModeToStorage(shifuId, false);
         return;
       }
       const list = await api.updateProfileHiddenState({
@@ -1524,10 +1596,75 @@ export const ShifuProvider = ({
           refreshVariableUsage(shifuId),
         ]);
       }
+      setHideUnusedMode(false);
+      writeHideModeToStorage(shifuId, false);
     } catch (error) {
       console.error(error);
     }
   };
+
+  const syncHiddenVariablesToUsage = useCallback(
+    async (
+      shifuId: string,
+      options?: { unusedKeys?: string[]; hiddenKeys?: string[] },
+    ) => {
+      if (!shifuId || !hideUnusedMode) {
+        return;
+      }
+      const storedHidden = readHiddenFromStorage(shifuId);
+      const resolvedHiddenKeys =
+        options?.hiddenKeys ??
+        (storedHidden.length ? storedHidden : hiddenVariables);
+      let resolvedUnusedKeys = options?.unusedKeys;
+      if (!resolvedUnusedKeys) {
+        const usage = await refreshVariableUsage(shifuId);
+        resolvedUnusedKeys = usage?.unused_keys || [];
+      }
+      if (!resolvedUnusedKeys) {
+        return;
+      }
+
+      const unusedSet = new Set(resolvedUnusedKeys);
+      const keysToUnhide = resolvedHiddenKeys.filter(key => !unusedSet.has(key));
+
+      if (!keysToUnhide.length) {
+        return;
+      }
+
+      let appliedList: ProfileItem[] | null = null;
+      const applyUpdate = async (keys: string[], hidden: boolean) => {
+        if (!keys.length) return;
+        const list = await api.updateProfileHiddenState({
+          parent_id: shifuId,
+          profile_keys: keys,
+          hidden,
+        });
+        if (list) {
+          appliedList = list as ProfileItem[];
+        }
+      };
+
+      try {
+        // Only unhide keys that became used to keep manual hides stable.
+        await applyUpdate(keysToUnhide, false);
+        if (appliedList) {
+          applyProfileDefinitionList(appliedList, shifuId);
+        } else {
+          delete profileDefinitionCacheRef.current[shifuId];
+          await refreshProfileDefinitions(shifuId);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    },
+    [
+      applyProfileDefinitionList,
+      hideUnusedMode,
+      hiddenVariables,
+      refreshProfileDefinitions,
+      refreshVariableUsage,
+    ],
+  );
 
   const saveMdflow = async (payload?: SaveMdflowPayload) => {
     const shifu_bid = payload?.shifu_bid ?? currentShifu?.bid ?? '';
@@ -1713,6 +1850,7 @@ export const ShifuProvider = ({
     hiddenVariables,
     systemVariables,
     unusedVariables,
+    hideUnusedMode,
     actions: {
       setFocusId,
       addChapter,
@@ -1753,6 +1891,8 @@ export const ShifuProvider = ({
       previewParse,
       hideUnusedVariables,
       restoreHiddenVariables,
+      hideVariableByKey,
+      syncHiddenVariablesToUsage,
       unhideVariablesByKeys: async (shifuId: string, keys: string[]) => {
         if (!keys.length) return;
         try {
