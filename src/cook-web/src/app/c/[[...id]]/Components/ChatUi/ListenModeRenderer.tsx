@@ -213,6 +213,36 @@ const ListenModeRenderer = ({
     return Array.from(new Set(urls));
   }, [items]);
 
+  const audioSequenceIndexByUrl = useMemo(() => {
+    const mapping = new Map<string, number>();
+    audioAndInteractionList.forEach((item, index) => {
+      if (item.type !== ChatContentItemType.CONTENT) {
+        return;
+      }
+      const url = item.audioUrl?.trim();
+      if (!url) {
+        return;
+      }
+      if (!mapping.has(url)) {
+        mapping.set(url, index);
+      }
+    });
+    return mapping;
+  }, [audioAndInteractionList]);
+
+  const syncSequenceByAudioUrl = useCallback(
+    (audioUrl: string | null) => {
+      if (!audioUrl) {
+        return;
+      }
+      const nextIndex = audioSequenceIndexByUrl.get(audioUrl.trim());
+      if (typeof nextIndex === 'number') {
+        startSequenceFromIndex(nextIndex);
+      }
+    },
+    [audioSequenceIndexByUrl, startSequenceFromIndex],
+  );
+
   const resolveAudioSequenceIndexByDirection = useCallback(
     (page: number, direction: -1 | 1) => {
       if (!audioContentSequence.length) {
@@ -430,6 +460,12 @@ const ListenModeRenderer = ({
           interaction={listenPlayerInteraction}
           audioUrls={recordAudioUrls}
           onSend={onSend}
+          isSequenceActive={isAudioSequenceActive}
+          onSequencePlay={handlePlay}
+          onSequencePause={handlePause}
+          onSequenceAdvance={handleAudioEnded}
+          onSequenceJump={syncSequenceByAudioUrl}
+          sequenceAudioUrl={activeContentItem?.audioUrl ?? null}
         />
       {/* ) : null} */}
       {/* <ListenPlayer
