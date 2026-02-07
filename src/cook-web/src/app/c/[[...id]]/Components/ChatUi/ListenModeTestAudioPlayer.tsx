@@ -175,7 +175,7 @@ const ListenModeTestAudioPlayer = ({
 
   return (
     <div className={cn('w-full', className)}>
-      <div className='rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 shadow-sm'>
+      <div className='border border-[var(--border)] bg-[var(--card)] px-4 py-3 shadow-sm'>
         <div className='flex items-center justify-between gap-3'>
           <div className='min-w-0'>
             <p className='text-xs font-semibold uppercase tracking-wide text-foreground/60'>
@@ -219,6 +219,7 @@ const ListenModeTestAudioPlayer = ({
         ref={audioRef}
         preload='metadata'
         playsInline
+        autoPlay
         onPlay={() => {
           setIsPlaying(true);
           requestExclusive(() => {

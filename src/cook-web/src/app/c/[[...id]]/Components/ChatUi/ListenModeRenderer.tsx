@@ -424,7 +424,7 @@ const ListenModeRenderer = ({
       ) : null}
       {mobileStyle ? (
         <ListenModeTestAudioPlayer
-          className='mx-4 mb-3'
+          // className='mx-4 mb-3'
           audioUrls={recordAudioUrls}
         />
       ) : null}
