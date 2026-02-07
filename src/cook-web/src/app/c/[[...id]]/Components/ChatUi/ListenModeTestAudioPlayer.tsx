@@ -2,16 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 
-const PLAY_MODE_ORDER = ['list', 'random', 'single'] as const;
-
-type PlayMode = (typeof PLAY_MODE_ORDER)[number];
-
-const PLAY_MODE_LABEL: Record<PlayMode, string> = {
-  list: 'List',
-  random: 'Random',
-  single: 'Single',
-};
-
 const normalizeUrlList = (audioUrls: string[]) => {
   const normalized = audioUrls
     .map(url => url.trim())
@@ -19,38 +9,18 @@ const normalizeUrlList = (audioUrls: string[]) => {
   return Array.from(new Set(normalized));
 };
 
-const getNextIndex = (
-  currentIndex: number,
-  listLength: number,
-  mode: PlayMode,
-) => {
+const getNextIndex = (currentIndex: number, listLength: number) => {
   if (listLength <= 0) {
     return 0;
   }
-  if (mode === 'random') {
-    return Math.floor(Math.random() * listLength);
-  }
-  if (mode === 'list') {
-    return (currentIndex + 1) % listLength;
-  }
-  return currentIndex;
+  return currentIndex + 1 < listLength ? currentIndex + 1 : currentIndex;
 };
 
-const getPrevIndex = (
-  currentIndex: number,
-  listLength: number,
-  mode: PlayMode,
-) => {
+const getPrevIndex = (currentIndex: number, listLength: number) => {
   if (listLength <= 0) {
     return 0;
   }
-  if (mode === 'random') {
-    return Math.floor(Math.random() * listLength);
-  }
-  if (mode === 'list') {
-    return (currentIndex - 1 + listLength) % listLength;
-  }
-  return currentIndex;
+  return currentIndex > 0 ? currentIndex - 1 : currentIndex;
 };
 
 interface ListenModeTestAudioPlayerProps {
@@ -67,7 +37,6 @@ const ListenModeTestAudioPlayer = ({
   const isPlayingRef = useRef(false);
   const currentUrlRef = useRef<string | null>(null);
   const shouldResumeRef = useRef(false);
-  const [playMode, setPlayMode] = useState<PlayMode>('list');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -83,7 +52,7 @@ const ListenModeTestAudioPlayer = ({
       return;
     }
     if (currentIndex >= playlist.length) {
-      setCurrentIndex(0);
+      setCurrentIndex(Math.max(playlist.length - 1, 0));
     }
   }, [playlist.length, currentIndex]);
 
@@ -148,8 +117,8 @@ const ListenModeTestAudioPlayer = ({
     }
     if (!audioRef.current?.src && playlist[0]) {
       currentUrlRef.current = playlist[currentIndex] ?? playlist[0];
-      audioRef.current!.src = currentUrlRef.current ?? '';
-      audioRef.current!.load();
+      audioRef.current.src = currentUrlRef.current;
+      audioRef.current.load();
     }
     startPlayback();
   }, [playlist, currentIndex, startPlayback]);
@@ -162,54 +131,43 @@ const ListenModeTestAudioPlayer = ({
     if (!playlist.length) {
       return;
     }
+    const nextIndex = getNextIndex(currentIndex, playlist.length);
+    if (nextIndex === currentIndex) {
+      return;
+    }
     if (isPlayingRef.current) {
       shouldResumeRef.current = true;
     }
-    const nextIndex = getNextIndex(currentIndex, playlist.length, playMode);
     setCurrentIndex(nextIndex);
-  }, [playlist.length, currentIndex, playMode]);
+  }, [playlist.length, currentIndex]);
 
   const handlePrev = useCallback(() => {
     if (!playlist.length) {
       return;
     }
+    const prevIndex = getPrevIndex(currentIndex, playlist.length);
+    if (prevIndex === currentIndex) {
+      return;
+    }
     if (isPlayingRef.current) {
       shouldResumeRef.current = true;
     }
-    const prevIndex = getPrevIndex(currentIndex, playlist.length, playMode);
     setCurrentIndex(prevIndex);
-  }, [playlist.length, currentIndex, playMode]);
+  }, [playlist.length, currentIndex]);
 
   const handleEnded = useCallback(() => {
     if (!playlist.length) {
       return;
     }
-    if (playMode === 'single') {
-      const audio = audioRef.current;
-      if (audio) {
-        audio.currentTime = 0;
-        startPlayback();
-      }
-      return;
-    }
-    const nextIndex = getNextIndex(currentIndex, playlist.length, playMode);
+    const nextIndex = getNextIndex(currentIndex, playlist.length);
     if (nextIndex === currentIndex) {
-      const audio = audioRef.current;
-      if (audio) {
-        audio.currentTime = 0;
-        startPlayback();
-      }
+      shouldResumeRef.current = false;
+      setIsPlaying(false);
       return;
     }
     shouldResumeRef.current = true;
     setCurrentIndex(nextIndex);
-  }, [playlist.length, currentIndex, playMode, startPlayback]);
-
-  const handleToggleMode = useCallback(() => {
-    const currentIdx = PLAY_MODE_ORDER.indexOf(playMode);
-    const nextIdx = (currentIdx + 1) % PLAY_MODE_ORDER.length;
-    setPlayMode(PLAY_MODE_ORDER[nextIdx]);
-  }, [playMode]);
+  }, [playlist.length, currentIndex]);
 
   if (!playlist.length) {
     return null;
@@ -251,17 +209,10 @@ const ListenModeTestAudioPlayer = ({
             </button>
           </div>
         </div>
-        <div className='mt-2 flex items-center justify-between text-xs text-foreground/60'>
+        <div className='mt-2 flex items-center text-xs text-foreground/60'>
           <span>
             {currentIndex + 1}/{playlist.length}
           </span>
-          <button
-            type='button'
-            onClick={handleToggleMode}
-            className='rounded-full border border-[var(--border)] px-3 py-1 font-semibold text-[var(--card-foreground)]'
-          >
-            Mode: {PLAY_MODE_LABEL[playMode]}
-          </button>
         </div>
       </div>
       <audio
