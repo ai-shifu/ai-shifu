@@ -36,6 +36,7 @@ import { ErrorWithCode } from '@/lib/request';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import { canManageArchive as canManageArchiveForShifu } from '@/lib/shifu-permissions';
 interface ShifuCardProps {
   id: string;
   image: string | undefined;
@@ -299,18 +300,7 @@ const ScriptManagementPage = () => {
   }, [setHasMoreState]);
 
   const canManageArchive = useCallback(
-    (shifu: Shifu) => {
-      if (!shifu?.bid) {
-        return false;
-      }
-      if (typeof shifu.can_manage_archive === 'boolean') {
-        return shifu.can_manage_archive;
-      }
-      if (shifu.created_user_bid) {
-        return shifu.created_user_bid === currentUserId;
-      }
-      return !shifu.readonly;
-    },
+    (shifu: Shifu) => canManageArchiveForShifu(shifu, currentUserId),
     [currentUserId],
   );
 
