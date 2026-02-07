@@ -1625,7 +1625,9 @@ export const ShifuProvider = ({
       }
 
       const unusedSet = new Set(resolvedUnusedKeys);
-      const keysToUnhide = resolvedHiddenKeys.filter(key => !unusedSet.has(key));
+      const keysToUnhide = resolvedHiddenKeys.filter(
+        key => !unusedSet.has(key),
+      );
 
       if (!keysToUnhide.length) {
         return;
