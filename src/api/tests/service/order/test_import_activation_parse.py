@@ -34,7 +34,6 @@ def test_parse_import_activation_entries_rejects_longer_digit_runs():
         ),
     ],
 )
-
 def test_parse_import_activation_entries_email_with_nickname(text, expected):
     entries = parse_import_activation_entries(text, contact_type="email")
 
