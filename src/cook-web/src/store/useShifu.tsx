@@ -1652,8 +1652,7 @@ export const ShifuProvider = ({
           applyProfileDefinitionList(appliedList, shifuId);
           const updatedCache = profileDefinitionCacheRef.current[shifuId];
           if (updatedCache) {
-            updatedCache.unusedKeys =
-              resolvedUnusedKeys ?? existingCache?.unusedKeys ?? [];
+            updatedCache.unusedKeys = resolvedUnusedKeys;
           }
         } else {
           delete profileDefinitionCacheRef.current[shifuId];
