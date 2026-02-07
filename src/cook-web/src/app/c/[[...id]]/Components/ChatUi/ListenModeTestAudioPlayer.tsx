@@ -1,6 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { cn } from '@/lib/utils';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
+import ListenPlayer from './ListenPlayer';
+import type { ChatContentItem } from './useChatLogicHook';
+import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 
 const normalizeUrlList = (audioUrls: string[]) => {
   const normalized = audioUrls
@@ -26,11 +28,19 @@ const getPrevIndex = (currentIndex: number, listLength: number) => {
 interface ListenModeTestAudioPlayerProps {
   audioUrls: string[];
   className?: string;
+  mobileStyle?: boolean;
+  interaction?: ChatContentItem | null;
+  interactionReadonly?: boolean;
+  onSend?: (content: OnSendContentParams, blockBid: string) => void;
 }
 
 const ListenModeTestAudioPlayer = ({
   audioUrls,
   className,
+  mobileStyle = false,
+  interaction,
+  interactionReadonly,
+  onSend,
 }: ListenModeTestAudioPlayerProps) => {
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -97,33 +107,19 @@ const ListenModeTestAudioPlayer = ({
     };
   }, [releaseExclusive]);
 
-  const currentLabel = useMemo(() => {
-    const url = playlist[currentIndex];
-    if (!url) {
-      return 'No audio';
-    }
-    try {
-      const parsed = new URL(url);
-      const name = parsed.pathname.split('/').pop() || url;
-      return decodeURIComponent(name);
-    } catch {
-      return url;
-    }
-  }, [playlist, currentIndex]);
-
   const handlePlay = useCallback(() => {
     if (!playlist.length) {
       return;
     }
     if (!audioRef.current?.src && playlist[0]) {
       currentUrlRef.current = playlist[currentIndex] ?? playlist[0];
-      audioRef.current.src = currentUrlRef.current;
-      audioRef.current.load();
+      audioRef.current!.src = currentUrlRef.current!;
+      audioRef.current!.load();
     }
     startPlayback();
   }, [playlist, currentIndex, startPlayback]);
 
-  const handlePause = useCallback(() => {
+  const handlePause = useCallback((_traceId?: string) => {
     audioRef.current?.pause();
   }, []);
 
@@ -169,52 +165,31 @@ const ListenModeTestAudioPlayer = ({
     setCurrentIndex(nextIndex);
   }, [playlist.length, currentIndex]);
 
-  if (!playlist.length) {
+  const prevDisabled = !playlist.length || currentIndex <= 0;
+  const nextDisabled =
+    !playlist.length || currentIndex >= playlist.length - 1;
+  const shouldRenderPlayer = Boolean(playlist.length || interaction);
+
+  if (!shouldRenderPlayer) {
     return null;
   }
 
   return (
-    <div className={cn('w-full', className)}>
-      <div className='border border-[var(--border)] bg-[var(--card)] px-4 py-3 shadow-sm'>
-        <div className='flex items-center justify-between gap-3'>
-          <div className='min-w-0'>
-            <p className='text-xs font-semibold uppercase tracking-wide text-foreground/60'>
-              Listen Mode Test Player
-            </p>
-            <p className='truncate text-sm font-medium text-[var(--card-foreground)]'>
-              {currentLabel}
-            </p>
-          </div>
-          <div className='flex items-center gap-2'>
-            <button
-              type='button'
-              onClick={handlePrev}
-              className='rounded-full border border-[var(--border)] px-3 py-1 text-xs font-semibold text-[var(--card-foreground)]'
-            >
-              Prev
-            </button>
-            <button
-              type='button'
-              onClick={isPlaying ? handlePause : handlePlay}
-              className='rounded-full bg-[var(--primary)] px-4 py-1 text-xs font-semibold text-[var(--primary-foreground)]'
-            >
-              {isPlaying ? 'Pause' : 'Play'}
-            </button>
-            <button
-              type='button'
-              onClick={handleNext}
-              className='rounded-full border border-[var(--border)] px-3 py-1 text-xs font-semibold text-[var(--card-foreground)]'
-            >
-              Next
-            </button>
-          </div>
-        </div>
-        <div className='mt-2 flex items-center text-xs text-foreground/60'>
-          <span>
-            {currentIndex + 1}/{playlist.length}
-          </span>
-        </div>
-      </div>
+    <>
+      <ListenPlayer
+        className={className}
+        mobileStyle={mobileStyle}
+        onPrev={handlePrev}
+        onPlay={handlePlay}
+        onPause={handlePause}
+        onNext={handleNext}
+        prevDisabled={prevDisabled}
+        nextDisabled={nextDisabled}
+        isAudioPlaying={isPlaying}
+        interaction={interaction}
+        interactionReadonly={interactionReadonly}
+        onSend={onSend}
+      />
       <audio
         ref={audioRef}
         preload='metadata'
@@ -236,7 +211,7 @@ const ListenModeTestAudioPlayer = ({
         }}
         className='hidden'
       />
-    </div>
+    </>
   );
 };
 
