@@ -24,8 +24,12 @@ export const resolveContactMode = (
   const methods = normalizeMethods(loginMethodsEnabled);
   const hasEmail = methods.includes('email');
   const hasPhone = methods.includes('phone');
+  const hasGoogle = methods.includes('google');
   const normalizedDefault = (defaultLoginMethod || '').trim().toLowerCase();
 
+  if (hasGoogle && !hasEmail && !hasPhone) {
+    return 'email';
+  }
   if (hasEmail && !hasPhone) {
     return 'email';
   }
