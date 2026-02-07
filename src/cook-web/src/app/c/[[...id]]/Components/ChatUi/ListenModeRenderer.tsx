@@ -200,47 +200,61 @@ const ListenModeRenderer = ({
     [audioAndInteractionList],
   );
 
-  const recordAudioUrls = useMemo(() => {
-    const urls = items
-      .filter(
-        item =>
-          item.type === ChatContentItemType.CONTENT &&
-          Boolean(item.isHistory) &&
-          typeof item.audioUrl === 'string' &&
-          item.audioUrl.trim().length > 0,
-      )
-      .map(item => item.audioUrl!.trim());
-    return Array.from(new Set(urls));
-  }, [items]);
+  const audioUrls = useMemo(() => {
+    const order: string[] = [];
+    const mapping = new Map<string, ChatContentItem>();
+    audioAndInteractionList.forEach(item => {
+      if (item.type !== ChatContentItemType.CONTENT) {
+        return;
+      }
+      const bid = item.generated_block_bid;
+      if (!bid || bid === 'loading') {
+        return;
+      }
+      if (!mapping.has(bid)) {
+        order.push(bid);
+      }
+      mapping.set(bid, item);
+    });
+    return order.map(bid => {
+      const item = mapping.get(bid)!;
+      return {
+        generated_block_bid: item.generated_block_bid,
+        audioUrl: item.audioUrl?.trim(),
+        audioSegments: item.audioSegments,
+        isAudioStreaming: item.isAudioStreaming,
+      };
+    });
+  }, [audioAndInteractionList]);
 
-  const audioSequenceIndexByUrl = useMemo(() => {
+  const audioSequenceIndexByBlockBid = useMemo(() => {
     const mapping = new Map<string, number>();
     audioAndInteractionList.forEach((item, index) => {
       if (item.type !== ChatContentItemType.CONTENT) {
         return;
       }
-      const url = item.audioUrl?.trim();
-      if (!url) {
+      const bid = item.generated_block_bid;
+      if (!bid || bid === 'loading') {
         return;
       }
-      if (!mapping.has(url)) {
-        mapping.set(url, index);
+      if (!mapping.has(bid)) {
+        mapping.set(bid, index);
       }
     });
     return mapping;
   }, [audioAndInteractionList]);
 
-  const syncSequenceByAudioUrl = useCallback(
-    (audioUrl: string | null) => {
-      if (!audioUrl) {
+  const syncSequenceByBlockBid = useCallback(
+    (blockBid: string | null) => {
+      if (!blockBid) {
         return;
       }
-      const nextIndex = audioSequenceIndexByUrl.get(audioUrl.trim());
+      const nextIndex = audioSequenceIndexByBlockBid.get(blockBid);
       if (typeof nextIndex === 'number') {
         startSequenceFromIndex(nextIndex);
       }
     },
-    [audioSequenceIndexByUrl, startSequenceFromIndex],
+    [audioSequenceIndexByBlockBid, startSequenceFromIndex],
   );
 
   const resolveAudioSequenceIndexByDirection = useCallback(
@@ -458,14 +472,14 @@ const ListenModeRenderer = ({
           mobileStyle={mobileStyle}
           interactionReadonly={interactionReadonly}
           interaction={listenPlayerInteraction}
-          audioUrls={recordAudioUrls}
+          audioUrls={audioUrls}
           onSend={onSend}
           isSequenceActive={isAudioSequenceActive}
           onSequencePlay={handlePlay}
           onSequencePause={handlePause}
           onSequenceAdvance={handleAudioEnded}
-          onSequenceJump={syncSequenceByAudioUrl}
-          sequenceAudioUrl={activeContentItem?.audioUrl ?? null}
+          onSequenceJump={syncSequenceByBlockBid}
+          sequenceBlockBid={activeAudioBlockBid ?? null}
         />
       {/* ) : null} */}
       {/* <ListenPlayer
