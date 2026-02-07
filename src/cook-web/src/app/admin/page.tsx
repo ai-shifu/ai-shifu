@@ -2,22 +2,31 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import {
-  PlusIcon,
-  StarIcon as StarOutlineIcon,
-  RectangleStackIcon as RectangleStackOutlineIcon,
-} from '@heroicons/react/24/outline';
-import {
-  TrophyIcon,
-  RectangleStackIcon,
-  StarIcon,
-} from '@heroicons/react/24/solid';
+import { PlusIcon } from '@heroicons/react/24/outline';
+import { TrophyIcon, StarIcon } from '@heroicons/react/24/solid';
+import { MoreHorizontal } from 'lucide-react';
 import api from '@/api';
 import { Shifu } from '@/types/shifu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/DropdownMenu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/AlertDialog';
 import { CreateShifuDialog } from '@/components/create-shifu-dialog';
 import { useToast } from '@/hooks/useToast';
 import { useRouter } from 'next/navigation';
@@ -34,6 +43,8 @@ interface ShifuCardProps {
   description: string;
   isFavorite: boolean;
   archived?: boolean;
+  canManageArchive?: boolean;
+  onArchiveRequest?: () => void;
 }
 
 const CARD_CONTAINER_CLASS =
@@ -47,47 +58,88 @@ const ShifuCard = ({
   description,
   isFavorite,
   archived,
+  canManageArchive,
+  onArchiveRequest,
 }: ShifuCardProps) => {
   const { t } = useTranslation();
   return (
-    <Link
-      href={`/shifu/${id}`}
-      className='block w-full h-full'
-    >
-      <Card className={CARD_CONTAINER_CLASS}>
-        <CardContent className={CARD_CONTENT_CLASS}>
-          <div className='flex flex-row items-center justify-between'>
-            <div className='flex flex-row items-center mb-2 w-full'>
-              <div className='p-2 h-10 w-10 rounded-lg bg-primary/10 mr-4 flex items-center justify-center shrink-0'>
-                {image && (
-                  <img
-                    src={image}
-                    alt='recipe'
-                    className='w-full h-full object-cover rounded-lg'
-                  />
-                )}
-                {!image && <TrophyIcon className='w-6 h-6 text-primary' />}
-              </div>
+    <div className='relative w-full h-full'>
+      <Link
+        href={`/shifu/${id}`}
+        className='block w-full h-full'
+      >
+        <Card className={CARD_CONTAINER_CLASS}>
+          <CardContent className={CARD_CONTENT_CLASS}>
+            <div className='flex flex-row items-center justify-between'>
+              <div className='flex flex-row items-center mb-2 w-full'>
+                <div className='p-2 h-10 w-10 rounded-lg bg-primary/10 mr-4 flex items-center justify-center shrink-0'>
+                  {image && (
+                    <img
+                      src={image}
+                      alt='recipe'
+                      className='w-full h-full object-cover rounded-lg'
+                    />
+                  )}
+                  {!image && <TrophyIcon className='w-6 h-6 text-primary' />}
+                </div>
 
-              <h3 className='font-medium text-gray-900 leading-5 whitespace-nowrap overflow-hidden text-ellipsis'>
-                {title}
-              </h3>
+                <h3 className='font-medium text-gray-900 leading-5 whitespace-nowrap overflow-hidden text-ellipsis'>
+                  {title}
+                </h3>
+                {archived && (
+                  <Badge className='ml-2 rounded-full bg-muted text-muted-foreground px-2 py-0 text-xs whitespace-nowrap'>
+                    {t('common.core.archived')}
+                  </Badge>
+                )}
+              </div>
+              <div className='flex items-center gap-2'>
+                {isFavorite && <StarIcon className='w-5 h-5 text-yellow-400' />}
+              </div>
             </div>
-            <div className='flex items-center gap-2'>
-              {isFavorite && <StarIcon className='w-5 h-5 text-yellow-400' />}
-              {archived && (
-                <Badge className='rounded-full bg-muted text-muted-foreground px-3 py-0 text-xs whitespace-nowrap'>
-                  {t('common.core.archived')}
-                </Badge>
-              )}
-            </div>
-          </div>
-          <p className='text-sm text-gray-500 line-clamp-3 break-words break-all min-h-[1.25rem]'>
-            {description || ''}
-          </p>
-        </CardContent>
-      </Card>
-    </Link>
+            <p className='text-sm text-gray-500 line-clamp-3 break-words break-all min-h-[1.25rem]'>
+              {description || ''}
+            </p>
+          </CardContent>
+        </Card>
+      </Link>
+      {canManageArchive && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type='button'
+              variant='ghost'
+              size='icon'
+              className='absolute top-0 right-0 h-10 w-10'
+              title={t('common.core.more')}
+              aria-label={t('common.core.more')}
+              onClick={event => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+            >
+              <MoreHorizontal className='h-4 w-4 text-muted-foreground' />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align='end'
+            sideOffset={0}
+            className='min-w-0'
+          >
+            <DropdownMenuItem
+              onSelect={event => {
+                event.preventDefault();
+                event.stopPropagation();
+                onArchiveRequest?.();
+              }}
+            >
+              {archived
+                ? t('module.shifuSetting.unarchive')
+                : t('module.shifuSetting.archive')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
   );
 };
 
@@ -98,6 +150,7 @@ const ScriptManagementPage = () => {
   const { t, i18n } = useTranslation();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
+  const currentUserId = useUserStore(state => state.userInfo?.user_id || '');
   const [adminReady, setAdminReady] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'archived'>('all');
   const [shifus, setShifus] = useState<Shifu[]>([]);
@@ -107,6 +160,9 @@ const ScriptManagementPage = () => {
   const [error, setError] = useState<{ message: string; code?: number } | null>(
     null,
   );
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [archiveTarget, setArchiveTarget] = useState<Shifu | null>(null);
   const pageSize = 30;
   const currentPage = useRef(1);
   const containerRef = useRef(null);
@@ -211,8 +267,7 @@ const ScriptManagementPage = () => {
     setShowCreateShifuModal(true);
   };
 
-  useEffect(() => {
-    if (!isInitialized || !adminReady) return;
+  const resetListAndFetch = useCallback(() => {
     setShifus([]);
     setHasMore(true);
     currentPage.current = 1;
@@ -220,18 +275,83 @@ const ScriptManagementPage = () => {
     if (fetchShifusRef.current) {
       fetchShifusRef.current();
     }
-  }, [activeTab, isInitialized, adminReady]);
+  }, []);
 
-  // Reload list when language changes to reflect localized fields
-  useEffect(() => {
-    setShifus([]);
-    setHasMore(true);
-    currentPage.current = 1;
-    setError(null);
-    if (isInitialized && adminReady && fetchShifusRef.current) {
-      fetchShifusRef.current();
+  const canManageArchive = useCallback(
+    (shifu: Shifu) => {
+      if (!shifu?.bid) {
+        return false;
+      }
+      if (typeof shifu.can_manage_archive === 'boolean') {
+        return shifu.can_manage_archive;
+      }
+      if (shifu.created_user_bid) {
+        return shifu.created_user_bid === currentUserId;
+      }
+      return !shifu.readonly;
+    },
+    [currentUserId],
+  );
+
+  const handleArchiveRequest = useCallback((shifu: Shifu) => {
+    setArchiveTarget(shifu);
+    setArchiveDialogOpen(true);
+  }, []);
+
+  const handleArchiveConfirm = useCallback(async () => {
+    if (!archiveTarget?.bid || archiveLoading) {
+      return;
     }
-  }, [i18n.language, isInitialized, adminReady]);
+    if (!canManageArchive(archiveTarget)) {
+      return;
+    }
+    setArchiveLoading(true);
+    try {
+      if (archiveTarget.archived) {
+        await api.unarchiveShifu({ shifu_bid: archiveTarget.bid });
+        toast({
+          title: t('module.shifuSetting.unarchiveSuccess'),
+        });
+      } else {
+        await api.archiveShifu({ shifu_bid: archiveTarget.bid });
+        toast({
+          title: t('module.shifuSetting.archiveSuccess'),
+        });
+      }
+      const isArchivedTab = activeTabRef.current === 'archived';
+      setShifus(prev => {
+        if (archiveTarget.archived && isArchivedTab) {
+          return prev.filter(item => item.bid !== archiveTarget.bid);
+        }
+        if (!archiveTarget.archived && !isArchivedTab) {
+          return prev.filter(item => item.bid !== archiveTarget.bid);
+        }
+        return prev.map(item =>
+          item.bid === archiveTarget.bid
+            ? { ...item, archived: !archiveTarget.archived }
+            : item,
+        );
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : t('common.core.unknownError');
+      toast({
+        title: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setArchiveLoading(false);
+      setArchiveDialogOpen(false);
+      setArchiveTarget(null);
+    }
+  }, [archiveLoading, archiveTarget, canManageArchive, t, toast]);
+
+  useEffect(() => {
+    if (!isInitialized || !adminReady) {
+      return;
+    }
+    resetListAndFetch();
+  }, [activeTab, i18n.language, isInitialized, adminReady, resetListAndFetch]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -291,15 +411,6 @@ const ScriptManagementPage = () => {
     };
   }, [isInitialized, isGuest]);
 
-  // Fetch data when user is initialized
-  useEffect(() => {
-    if (isInitialized && adminReady && fetchShifusRef.current) {
-      if (shifus.length === 0 && !loading) {
-        fetchShifusRef.current();
-      }
-    }
-  }, [isInitialized, adminReady, shifus.length, loading]);
-
   if (error) {
     return (
       <div className='h-full p-0'>
@@ -319,72 +430,111 @@ const ScriptManagementPage = () => {
   }
 
   return (
-    <div className='h-full p-0'>
-      <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
-        <div className='mb-3'>
-          <h1 className='text-2xl font-semibold text-gray-900'>
-            {t('common.core.shifu')}
-          </h1>
-        </div>
-        <div className='flex items-center gap-3 mb-5'>
-          <Button
-            size='sm'
-            variant='outline'
-            onClick={handleCreateShifuModal}
-          >
-            <PlusIcon className='w-5 h-5 mr-1' />
-            {t('common.core.createBlankShifu')}
-          </Button>
-          <Tabs
-            value={activeTab}
-            onValueChange={value => setActiveTab(value as 'all' | 'archived')}
-          >
-            <TabsList className='h-9 rounded-full bg-muted/40'>
-              <TabsTrigger value='all'>{t('common.core.all')}</TabsTrigger>
-              <TabsTrigger value='archived'>
-                {t('common.core.archived')}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <CreateShifuDialog
-            open={showCreateShifuModal}
-            onOpenChange={setShowCreateShifuModal}
-            onSubmit={onCreateShifu}
-          />
-        </div>
-        <div className='flex-1 overflow-auto'>
-          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-3'>
-            {shifus.map(shifu => (
-              <ShifuCard
-                id={shifu.bid + ''}
-                key={shifu.bid}
-                image={shifu.avatar}
-                title={shifu.name || ''}
-                description={shifu.description || ''}
-                isFavorite={shifu.is_favorite || false}
-                archived={Boolean(shifu.archived)}
-              />
-            ))}
+    <>
+      <AlertDialog
+        open={archiveDialogOpen}
+        onOpenChange={open => {
+          setArchiveDialogOpen(open);
+          if (!open) {
+            setArchiveTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {archiveTarget?.archived
+                ? t('module.shifuSetting.unarchiveTitle')
+                : t('module.shifuSetting.archiveTitle')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {archiveTarget?.archived
+                ? t('module.shifuSetting.unarchiveConfirm')
+                : t('module.shifuSetting.archiveConfirm')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={archiveLoading}>
+              {t('common.core.cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleArchiveConfirm}
+              disabled={archiveLoading}
+            >
+              {t('common.core.ok')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <div className='h-full p-0'>
+        <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
+          <div className='mb-3'>
+            <h1 className='text-2xl font-semibold text-gray-900'>
+              {t('common.core.shifu')}
+            </h1>
           </div>
-          <div
-            ref={containerRef}
-            className='w-full h-10 flex items-center justify-center'
-          >
-            {loading && <Loading />}
-            {!hasMore && shifus.length > 0 && (
-              <p className='text-gray-500 text-sm'>
-                {t('common.core.noMoreShifus')}
-              </p>
-            )}
-            {!loading && !hasMore && shifus.length == 0 && (
-              <p className='text-gray-500 text-sm'>
-                {t('common.core.noShifus')}
-              </p>
-            )}
+          <div className='flex items-center gap-3 mb-5'>
+            <Button
+              size='sm'
+              variant='outline'
+              onClick={handleCreateShifuModal}
+            >
+              <PlusIcon className='w-5 h-5 mr-1' />
+              {t('common.core.createBlankShifu')}
+            </Button>
+            <Tabs
+              value={activeTab}
+              onValueChange={value => setActiveTab(value as 'all' | 'archived')}
+            >
+              <TabsList className='h-9 rounded-full bg-muted/40'>
+                <TabsTrigger value='all'>{t('common.core.all')}</TabsTrigger>
+                <TabsTrigger value='archived'>
+                  {t('common.core.archived')}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <CreateShifuDialog
+              open={showCreateShifuModal}
+              onOpenChange={setShowCreateShifuModal}
+              onSubmit={onCreateShifu}
+            />
+          </div>
+          <div className='flex-1 overflow-auto'>
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-3'>
+              {shifus.map(shifu => (
+                <ShifuCard
+                  id={shifu.bid + ''}
+                  key={shifu.bid}
+                  image={shifu.avatar}
+                  title={shifu.name || ''}
+                  description={shifu.description || ''}
+                  isFavorite={shifu.is_favorite || false}
+                  archived={Boolean(shifu.archived)}
+                  canManageArchive={canManageArchive(shifu)}
+                  onArchiveRequest={() => handleArchiveRequest(shifu)}
+                />
+              ))}
+            </div>
+            <div
+              ref={containerRef}
+              className='w-full h-10 flex items-center justify-center'
+            >
+              {loading && <Loading />}
+              {!hasMore && shifus.length > 0 && (
+                <p className='text-gray-500 text-sm'>
+                  {t('common.core.noMoreShifus')}
+                </p>
+              )}
+              {!loading && !hasMore && shifus.length == 0 && (
+                <p className='text-gray-500 text-sm'>
+                  {t('common.core.noShifus')}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
