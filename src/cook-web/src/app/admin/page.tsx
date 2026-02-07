@@ -166,6 +166,7 @@ const ScriptManagementPage = () => {
   const currentPage = useRef(1);
   const containerRef = useRef(null);
   const fetchShifusRef = useRef<(() => Promise<void>) | null>(null);
+  const loadingRef = useRef(false);
   const hasMoreRef = useRef(true);
   const listVersionRef = useRef(0);
 
@@ -181,9 +182,10 @@ const ScriptManagementPage = () => {
   }, []);
 
   const fetchShifus = useCallback(async () => {
-    if (loading || !hasMoreRef.current) return;
+    if (loadingRef.current || !hasMoreRef.current) return;
 
     const requestVersion = listVersionRef.current;
+    loadingRef.current = true;
     setLoading(true);
     try {
       // Use a snapshot of the tab at request time to avoid mixing responses
@@ -244,10 +246,11 @@ const ScriptManagementPage = () => {
       }
     } finally {
       if (requestVersion === listVersionRef.current) {
+        loadingRef.current = false;
         setLoading(false);
       }
     }
-  }, [loading, pageSize, setHasMoreState]);
+  }, [pageSize, setHasMoreState]);
 
   // Store the latest fetchShifus in ref
   fetchShifusRef.current = fetchShifus;
@@ -286,6 +289,7 @@ const ScriptManagementPage = () => {
     listVersionRef.current += 1;
     setShifus([]);
     setHasMoreState(true);
+    loadingRef.current = false;
     setLoading(false);
     currentPage.current = 1;
     setError(null);
@@ -541,7 +545,7 @@ const ScriptManagementPage = () => {
                   {t('common.core.noMoreShifus')}
                 </p>
               )}
-              {!loading && !hasMore && shifus.length == 0 && (
+              {!loading && !hasMore && shifus.length === 0 && (
                 <p className='text-gray-500 text-sm'>
                   {t('common.core.noShifus')}
                 </p>
