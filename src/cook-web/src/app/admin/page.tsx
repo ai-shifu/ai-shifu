@@ -127,7 +127,6 @@ const ShifuCard = ({
           >
             <DropdownMenuItem
               onSelect={event => {
-                event.preventDefault();
                 event.stopPropagation();
                 onArchiveRequest?.();
               }}
@@ -167,6 +166,8 @@ const ScriptManagementPage = () => {
   const currentPage = useRef(1);
   const containerRef = useRef(null);
   const fetchShifusRef = useRef<(() => Promise<void>) | null>(null);
+  const hasMoreRef = useRef(true);
+  const listVersionRef = useRef(0);
 
   const activeTabRef = useRef<'all' | 'archived'>(activeTab);
 
@@ -174,9 +175,15 @@ const ScriptManagementPage = () => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
 
-  const fetchShifus = useCallback(async () => {
-    if (loading || !hasMore) return;
+  const setHasMoreState = useCallback((value: boolean) => {
+    hasMoreRef.current = value;
+    setHasMore(value);
+  }, []);
 
+  const fetchShifus = useCallback(async () => {
+    if (loading || !hasMoreRef.current) return;
+
+    const requestVersion = listVersionRef.current;
     setLoading(true);
     try {
       // Use a snapshot of the tab at request time to avoid mixing responses
@@ -188,18 +195,21 @@ const ScriptManagementPage = () => {
         page_size: pageSize,
         archived: isArchivedTab,
       });
+      if (requestVersion !== listVersionRef.current) {
+        return;
+      }
+
       if (process.env.NODE_ENV !== 'production') {
         console.info('[shifu-list] request page', currentPage.current);
         console.info('[shifu-list] fetched items', items.length);
-        console.info('[shifu-list] hasMore before', hasMore);
+        console.info('[shifu-list] hasMore before', hasMoreRef.current);
       }
 
       if (requestTab !== activeTabRef.current) {
-        setLoading(false);
         return;
       }
       if (items.length < pageSize) {
-        setHasMore(false);
+        setHasMoreState(false);
       }
 
       setShifus(prev => {
@@ -217,12 +227,13 @@ const ScriptManagementPage = () => {
       currentPage.current += 1;
       if (process.env.NODE_ENV !== 'production') {
         console.info('[shifu-list] next page', currentPage.current);
-        console.info('[shifu-list] hasMore after', hasMore);
+        console.info('[shifu-list] hasMore after', hasMoreRef.current);
       }
-      setLoading(false);
     } catch (error: any) {
+      if (requestVersion !== listVersionRef.current) {
+        return;
+      }
       console.error('Failed to fetch shifus:', error);
-      setLoading(false);
       if (error instanceof ErrorWithCode) {
         // Pass the error code and original message to ErrorDisplay
         // ErrorDisplay will handle the translation based on error code
@@ -231,8 +242,12 @@ const ScriptManagementPage = () => {
         // For unknown errors, pass a generic error code
         setError({ message: error.message || 'Unknown error', code: 0 });
       }
+    } finally {
+      if (requestVersion === listVersionRef.current) {
+        setLoading(false);
+      }
     }
-  }, [loading, hasMore, activeTab]);
+  }, [loading, pageSize, setHasMoreState]);
 
   // Store the latest fetchShifus in ref
   fetchShifusRef.current = fetchShifus;
@@ -268,14 +283,16 @@ const ScriptManagementPage = () => {
   };
 
   const resetListAndFetch = useCallback(() => {
+    listVersionRef.current += 1;
     setShifus([]);
-    setHasMore(true);
+    setHasMoreState(true);
+    setLoading(false);
     currentPage.current = 1;
     setError(null);
     if (fetchShifusRef.current) {
       fetchShifusRef.current();
     }
-  }, []);
+  }, [setHasMoreState]);
 
   const canManageArchive = useCallback(
     (shifu: Shifu) => {
@@ -418,11 +435,7 @@ const ScriptManagementPage = () => {
           errorCode={error.code || 0}
           errorMessage={error.message}
           onRetry={() => {
-            setError(null);
-            setShifus([]);
-            setHasMore(true);
-            currentPage.current = 1;
-            fetchShifus();
+            resetListAndFetch();
           }}
         />
       </div>
@@ -458,7 +471,10 @@ const ScriptManagementPage = () => {
               {t('common.core.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleArchiveConfirm}
+              onClick={event => {
+                event.preventDefault();
+                handleArchiveConfirm();
+              }}
               disabled={archiveLoading}
             >
               {t('common.core.ok')}
