@@ -34,6 +34,14 @@ def upgrade():
 
 
 def downgrade():
+    """
+    WARNING:
+    This downgrade recreates legacy tables/schema only. It does NOT restore any legacy data.
+
+    The companion backfill migration (Revision ID: 6b956399315e) has an irreversible
+    downgrade (no-op). To fully roll back legacy data, restore from a database backup
+    taken before upgrading.
+    """
     if not _table_exists("user_profile"):
         op.create_table(
             "user_profile",

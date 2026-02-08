@@ -1,5 +1,6 @@
 from flask import Flask
 from datetime import datetime
+import hashlib
 import json
 from markdown_flow import MarkdownFlow
 from .models import (
@@ -180,6 +181,12 @@ def convert_variable_definition_to_profile_item_definition(
     as text variables, and the rest of the DTO fields are derived.
     """
 
+    seed = (definition.key or "") + (definition.variable_bid or "")
+    color_index = 0
+    if seed and DEFAULT_COLOR_SETTINGS:
+        digest = hashlib.md5(seed.encode("utf-8")).digest()
+        color_index = int.from_bytes(digest[:4], "big") % len(DEFAULT_COLOR_SETTINGS)
+
     scope = (
         CONST_PROFILE_SCOPE_SYSTEM
         if definition.shifu_bid == ""
@@ -187,7 +194,7 @@ def convert_variable_definition_to_profile_item_definition(
     )
     return ProfileItemDefinition(
         definition.key,
-        DEFAULT_COLOR_SETTINGS[0],
+        DEFAULT_COLOR_SETTINGS[color_index],
         "text",
         _("PROFILE.PROFILE_TYPE_TEXT"),
         "",

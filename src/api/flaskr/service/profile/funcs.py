@@ -753,21 +753,3 @@ def update_user_profile_with_lable(
                 user_values.insert(0, new_value)
     db.session.flush()
     return True
-
-
-def get_user_variable_by_variable_id(app: Flask, user_id: str, variable_id: str):
-    try:
-        user_value = (
-            VariableValue.query.filter(
-                VariableValue.user_bid == user_id,
-                VariableValue.variable_bid == variable_id,
-                VariableValue.deleted == 0,
-            )
-            .order_by(VariableValue.id.desc())
-            .first()
-        )
-        if user_value:
-            return user_value.value
-    except Exception as exc:  # pragma: no cover - defensive fallback
-        app.logger.warning("Failed to fetch var_variable_values: %s", exc)
-    return None
