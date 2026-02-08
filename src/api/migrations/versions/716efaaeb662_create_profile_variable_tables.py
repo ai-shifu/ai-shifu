@@ -193,7 +193,6 @@ def upgrade():
                 "value",
                 sa.Text(),
                 nullable=False,
-                server_default=sa.text("''"),
                 comment="Variable value",
             ),
             sa.Column(
