@@ -289,7 +289,7 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
             value = (row.value or "").strip()
             if not value:
                 continue
-            if row.key == "sys_user_nickname":
+            if row.key == "sys_user_nickname" and not nickname:
                 nickname = value
             elif row.key == "avatar" and not avatar:
                 avatar = value

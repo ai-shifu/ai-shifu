@@ -488,6 +488,17 @@ def save_profile_item(
                 ).first()
                 if not definition:
                     raise_error("server.profile.notFound")
+
+                # Keep (shifu_bid, key) unique at the application layer.
+                # (DB unique constraints are intentionally not used in this project.)
+                exist_item = Variable.query.filter(
+                    Variable.shifu_bid == parent_id,
+                    Variable.deleted == 0,
+                    Variable.key == key,
+                    Variable.variable_bid != profile_id,
+                ).first()
+                if exist_item:
+                    raise_error("server.profile.keyExist")
                 definition.key = key
                 definition.updated_at = datetime.now()
                 definition.updated_user_bid = user_id or ""
