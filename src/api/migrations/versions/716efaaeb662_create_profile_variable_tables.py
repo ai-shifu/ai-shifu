@@ -1,7 +1,7 @@
 """create variable tables
 
 Revision ID: 716efaaeb662
-Revises: d7a8e2f1b3c9
+Revises: ef7dbc5a8be3
 Create Date: 2026-01-27 00:00:00.000000
 
 """
@@ -12,7 +12,7 @@ from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
 revision = "716efaaeb662"
-down_revision = "d7a8e2f1b3c9"
+down_revision = "ef7dbc5a8be3"
 branch_labels = None
 depends_on = None
 
