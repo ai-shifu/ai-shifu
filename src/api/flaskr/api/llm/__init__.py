@@ -1,18 +1,21 @@
 import asyncio
 import os
-from dataclasses import dataclass, field
+import time
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 from datetime import datetime
 import logging
 import requests
 import litellm
-from flask import Flask, current_app
+from flask import Flask, current_app, request
 from langfuse.client import StatefulSpanClient
 from langfuse.model import ModelUsage
 
 from .dify import DifyChunkChatCompletionResponse, dify_chat_message
 from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
+from flaskr.service.metering import UsageContext, record_llm_usage
+from flaskr.service.metering.consts import normalize_usage_scene
 from litellm import get_max_tokens
 
 logger = logging.getLogger(__name__)
@@ -98,6 +101,46 @@ def _log_info(message: str) -> None:
 
 def _log_warning(message: str) -> None:
     _log("warning", message)
+
+
+def _extract_usage_value(usage: Any, key: str) -> int:
+    if usage is None:
+        return 0
+    if isinstance(usage, dict):
+        return int(usage.get(key) or 0)
+    return int(getattr(usage, key, 0) or 0)
+
+
+def _extract_input_cache(usage: Any) -> int:
+    if usage is None:
+        return 0
+    if isinstance(usage, dict):
+        if "input_cache" in usage:
+            return int(usage.get("input_cache") or 0)
+        details = usage.get("input_tokens_details") or usage.get(
+            "prompt_tokens_details"
+        )
+        if isinstance(details, dict):
+            return int(details.get("cached_tokens") or 0)
+        return 0
+    value = getattr(usage, "input_cache", None)
+    if value is not None:
+        return int(value or 0)
+    details = getattr(usage, "input_tokens_details", None) or getattr(
+        usage, "prompt_tokens_details", None
+    )
+    if isinstance(details, dict):
+        return int(details.get("cached_tokens") or 0)
+    if details is not None:
+        return int(getattr(details, "cached_tokens", 0) or 0)
+    return 0
+
+
+def _get_request_id() -> str:
+    try:
+        return request.headers.get("X-Request-ID", "") or ""
+    except RuntimeError:
+        return ""
 
 
 def _normalize_model_config(value: Any) -> list[str]:
@@ -541,9 +584,23 @@ def invoke_llm(
     system: str = None,
     json: bool = False,
     generation_name: str = "invoke_llm",
+    usage_context: Optional[UsageContext] = None,
+    usage_scene: Optional[Union[str, int]] = None,
+    billable: Optional[int] = None,
+    request_id: Optional[str] = None,
+    trace_id: Optional[str] = None,
+    usage_metadata: Optional[Dict[str, Any]] = None,
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
+    stream_flag = bool(kwargs.get("stream", True))
     kwargs.pop("stream", None)
+    usage_scene = (
+        usage_scene if usage_scene is not None else kwargs.pop("usage_scene", None)
+    )
+    billable = billable if billable is not None else kwargs.pop("billable", None)
+    request_id = request_id or kwargs.pop("request_id", None) or _get_request_id()
+    trace_id = trace_id or kwargs.pop("trace_id", None) or getattr(span, "trace_id", "")
+    usage_metadata = usage_metadata or kwargs.pop("usage_metadata", None) or {}
     model = model.strip()
     generation_input = []
     if system:
@@ -554,9 +611,14 @@ def invoke_llm(
     )
     response_text = ""
     usage = None
+    input_cache_tokens = 0
+    provider_name = ""
+    start_time = time.monotonic()
     params, invoke_model, reload_params = get_litellm_params_and_model(model)
     start_completion_time = None
     if params:
+        provider_key, _normalized = _resolve_provider_for_model(model)
+        provider_name = provider_key or ""
         messages = []
         if system:
             messages.append({"content": system, "role": "system"})
@@ -595,6 +657,7 @@ def invoke_llm(
                 )
             res_usage = getattr(res, "usage", None)
             if res_usage:
+                input_cache_tokens = _extract_input_cache(res_usage)
                 usage = ModelUsage(
                     unit="TOKENS",
                     input=res_usage.prompt_tokens,
@@ -602,6 +665,7 @@ def invoke_llm(
                     total=res_usage.total_tokens,
                 )
     elif model in DIFY_MODELS:
+        provider_name = "dify"
         response = dify_chat_message(app, message, user_id)
         for res in response:
             if start_completion_time is None:
@@ -623,7 +687,65 @@ def invoke_llm(
         )
 
     app.logger.info(f"invoke_llm response: {response_text} ")
-    app.logger.info(f"invoke_llm usage: {usage.__str__()}")
+    if usage is None:
+        app.logger.info("invoke_llm usage: None")
+    else:
+        app.logger.info(f"invoke_llm usage: {usage.__str__()}")
+    latency_ms = int((time.monotonic() - start_time) * 1000)
+    resolved_usage_scene = normalize_usage_scene(usage_scene)
+    if usage_context is None:
+        usage_context = UsageContext(
+            user_bid=user_id or "",
+            request_id=request_id or "",
+            trace_id=trace_id or "",
+            usage_scene=resolved_usage_scene,
+            billable=billable,
+        )
+    else:
+        usage_context = replace(
+            usage_context,
+            request_id=request_id or usage_context.request_id,
+            trace_id=trace_id or usage_context.trace_id,
+            usage_scene=resolved_usage_scene,
+            billable=billable if billable is not None else usage_context.billable,
+        )
+    usage_metadata.setdefault("generation_name", generation_name)
+    if "temperature" in kwargs:
+        usage_metadata.setdefault("temperature", kwargs.get("temperature"))
+    if usage is None:
+        usage_metadata.setdefault("usage_source", "missing")
+        record_llm_usage(
+            app,
+            usage_context,
+            provider=provider_name or "",
+            model=model,
+            is_stream=stream_flag,
+            input=0,
+            input_cache=input_cache_tokens,
+            output=0,
+            total=0,
+            latency_ms=latency_ms,
+            status=0,
+            error_message="",
+            extra=usage_metadata,
+        )
+    else:
+        usage_metadata.setdefault("usage_source", "litellm")
+        record_llm_usage(
+            app,
+            usage_context,
+            provider=provider_name or "",
+            model=model,
+            is_stream=stream_flag,
+            input=_extract_usage_value(usage, "input"),
+            input_cache=input_cache_tokens,
+            output=_extract_usage_value(usage, "output"),
+            total=_extract_usage_value(usage, "total"),
+            latency_ms=latency_ms,
+            status=0,
+            error_message="",
+            extra=usage_metadata,
+        )
     generation.end(
         input=generation_input,
         output=response_text,
@@ -642,10 +764,24 @@ def chat_llm(
     messages: list,
     json: bool = False,
     generation_name: str = "user_follow_ask",
+    usage_context: Optional[UsageContext] = None,
+    usage_scene: Optional[Union[str, int]] = None,
+    billable: Optional[int] = None,
+    request_id: Optional[str] = None,
+    trace_id: Optional[str] = None,
+    usage_metadata: Optional[Dict[str, Any]] = None,
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
     app.logger.info(f"chat_llm [{model}] {messages} ,json:{json} ,kwargs:{kwargs}")
+    stream_flag = bool(kwargs.get("stream", True))
     kwargs.pop("stream", None)
+    usage_scene = (
+        usage_scene if usage_scene is not None else kwargs.pop("usage_scene", None)
+    )
+    billable = billable if billable is not None else kwargs.pop("billable", None)
+    request_id = request_id or kwargs.pop("request_id", None) or _get_request_id()
+    trace_id = trace_id or kwargs.pop("trace_id", None) or getattr(span, "trace_id", "")
+    usage_metadata = usage_metadata or kwargs.pop("usage_metadata", None) or {}
     model = model.strip()
     generation_input = messages
     generation = span.generation(
@@ -653,9 +789,14 @@ def chat_llm(
     )
     response_text = ""
     usage = None
+    input_cache_tokens = 0
+    provider_name = ""
+    start_time = time.monotonic()
     start_completion_time = None
     params, invoke_model, reload_params = get_litellm_params_and_model(model)
     if params:
+        provider_key, _normalized = _resolve_provider_for_model(model)
+        provider_name = provider_key or ""
         if reload_params:
             kwargs.update(reload_params(model, float(kwargs.get("temperature", 0.3))))
         else:
@@ -664,6 +805,7 @@ def chat_llm(
                     "temperature": float(kwargs.get("temperature", 0.3)),
                 }
             )
+        kwargs["stream_options"] = {"include_usage": True}
         response = _stream_litellm_completion(
             app,
             invoke_model,
@@ -686,6 +828,7 @@ def chat_llm(
                 )
             res_usage = getattr(res, "usage", None)
             if res_usage:
+                input_cache_tokens = _extract_input_cache(res_usage)
                 usage = ModelUsage(
                     unit="TOKENS",
                     input=res_usage.prompt_tokens,
@@ -693,6 +836,7 @@ def chat_llm(
                     total=res_usage.total_tokens,
                 )
     elif model in DIFY_MODELS:
+        provider_name = "dify"
         response: Generator[DifyChunkChatCompletionResponse, None, None] = (
             dify_chat_message(app, messages[-1]["content"], user_id)
         )
@@ -715,8 +859,66 @@ def chat_llm(
             model=model,
         )
 
-    app.logger.info(f"invoke_llm response: {response_text} ")
-    app.logger.info(f"invoke_llm usage: {usage.__str__()}")
+    app.logger.info(f"chat_llm response: {response_text} ")
+    if usage is None:
+        app.logger.info("chat_llm usage: None")
+    else:
+        app.logger.info(f"chat_llm usage: {usage.__str__()}")
+    latency_ms = int((time.monotonic() - start_time) * 1000)
+    resolved_usage_scene = normalize_usage_scene(usage_scene)
+    if usage_context is None:
+        usage_context = UsageContext(
+            user_bid=user_id or "",
+            request_id=request_id or "",
+            trace_id=trace_id or "",
+            usage_scene=resolved_usage_scene,
+            billable=billable,
+        )
+    else:
+        usage_context = replace(
+            usage_context,
+            request_id=request_id or usage_context.request_id,
+            trace_id=trace_id or usage_context.trace_id,
+            usage_scene=resolved_usage_scene,
+            billable=billable if billable is not None else usage_context.billable,
+        )
+    usage_metadata.setdefault("generation_name", generation_name)
+    if "temperature" in kwargs:
+        usage_metadata.setdefault("temperature", kwargs.get("temperature"))
+    if usage is None:
+        usage_metadata.setdefault("usage_source", "missing")
+        record_llm_usage(
+            app,
+            usage_context,
+            provider=provider_name or "",
+            model=model,
+            is_stream=stream_flag,
+            input=0,
+            input_cache=input_cache_tokens,
+            output=0,
+            total=0,
+            latency_ms=latency_ms,
+            status=0,
+            error_message="",
+            extra=usage_metadata,
+        )
+    else:
+        usage_metadata.setdefault("usage_source", "litellm")
+        record_llm_usage(
+            app,
+            usage_context,
+            provider=provider_name or "",
+            model=model,
+            is_stream=stream_flag,
+            input=_extract_usage_value(usage, "input"),
+            input_cache=input_cache_tokens,
+            output=_extract_usage_value(usage, "output"),
+            total=_extract_usage_value(usage, "total"),
+            latency_ms=latency_ms,
+            status=0,
+            error_message="",
+            extra=usage_metadata,
+        )
     generation.end(
         input=generation_input,
         output=response_text,

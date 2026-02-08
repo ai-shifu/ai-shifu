@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import styles from './VariableList.module.scss';
 import type { PreviewVariablesMap } from './variableStorage';
 import { Input } from '../ui/Input';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -22,6 +22,9 @@ interface VariableListProps {
   actionType?: 'hide' | 'restore';
   onAction?: () => void;
   actionDisabled?: boolean;
+  customVariableKeys?: string[];
+  unusedVariableKeys?: string[];
+  onHideVariable?: (name: string) => void;
 }
 
 const VariableList: React.FC<VariableListProps> = ({
@@ -33,10 +36,21 @@ const VariableList: React.FC<VariableListProps> = ({
   actionType,
   onAction,
   actionDisabled = false,
+  customVariableKeys,
+  unusedVariableKeys,
+  onHideVariable,
 }) => {
   const { t } = useTranslation();
 
   const isHideAction = actionType === 'hide';
+  const customKeySet = useMemo(
+    () => new Set(customVariableKeys || []),
+    [customVariableKeys],
+  );
+  const unusedKeySet = useMemo(
+    () => new Set(unusedVariableKeys || []),
+    [unusedVariableKeys],
+  );
 
   const entries = useMemo(() => {
     const sourceEntries = Object.entries(variables || {});
@@ -135,6 +149,7 @@ const VariableList: React.FC<VariableListProps> = ({
         >
           {entries.map(([name, value]) => {
             const displayValue = value || '';
+            const canHide = customKeySet.has(name) && unusedKeySet.has(name);
             return (
               <div
                 className={styles.item}
@@ -162,6 +177,25 @@ const VariableList: React.FC<VariableListProps> = ({
                     }}
                   />
                 </div>
+                {canHide && onHideVariable && (
+                  <button
+                    type='button'
+                    className={styles.hideBadge}
+                    onClick={event => {
+                      event.stopPropagation();
+                      onHideVariable(name);
+                    }}
+                    aria-label={t(
+                      'module.shifu.previewArea.variablesHideSingleConfirmTitle',
+                    )}
+                  >
+                    <X
+                      size={12}
+                      strokeWidth={2}
+                      aria-hidden='true'
+                    />
+                  </button>
+                )}
               </div>
             );
           })}

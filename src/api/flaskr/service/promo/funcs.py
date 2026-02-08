@@ -3,20 +3,34 @@ Promo functions
 """
 
 from datetime import datetime
+import decimal
 import random
 import string
 import json
 
-from .models import Coupon, CouponUsage as CouponUsageModel
+import pytz
+from sqlalchemy.sql import func
+
+from .models import (
+    Coupon,
+    CouponUsage as CouponUsageModel,
+    PromoCampaign,
+    PromoRedemption,
+)
 from ...dao import db
 from .consts import (
     COUPON_APPLY_TYPE_SPECIFIC,
     COUPON_STATUS_ACTIVE,
     COUPON_STATUS_USED,
+    PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+    PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED,
+    PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
+    PROMO_CAMPAIGN_STATUS_ACTIVE,
 )
 from flask import Flask
 from ...util import generate_id
 from ..common import raise_error
+from .consts import COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT
 
 
 def generate_coupon_strcode(app: Flask):
@@ -130,3 +144,137 @@ def timeout_coupon_code_rollback(app: Flask, user_bid, order_bid):
             return
         usage.status = COUPON_STATUS_ACTIVE
         db.session.commit()
+
+
+def void_promo_campaign_applications(app: Flask, user_bid: str, order_bid: str) -> None:
+    """Mark applied promo campaign applications as voided for an order."""
+    with app.app_context():
+        PromoRedemption.query.filter(
+            PromoRedemption.order_bid == order_bid,
+            PromoRedemption.user_bid == user_bid,
+            PromoRedemption.deleted == 0,
+            PromoRedemption.status == PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+        ).update(
+            {
+                PromoRedemption.status: PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED,
+                PromoRedemption.updated_at: func.now(),
+            },
+            synchronize_session="fetch",
+        )
+        db.session.commit()
+
+
+def _calculate_discount_amount(
+    payable_price: decimal.Decimal, discount_type: int, value: decimal.Decimal
+) -> decimal.Decimal:
+    if discount_type == COUPON_TYPE_FIXED:
+        result = decimal.Decimal(value)
+    elif discount_type == COUPON_TYPE_PERCENT:
+        result = (
+            decimal.Decimal(value)
+            * decimal.Decimal(payable_price)
+            / decimal.Decimal(100)
+        )
+    else:
+        result = decimal.Decimal("0.00")
+    return result.quantize(decimal.Decimal("0.01"), rounding=decimal.ROUND_HALF_UP)
+
+
+def apply_promo_campaigns(
+    app: Flask,
+    shifu_bid: str,
+    user_bid: str,
+    order_bid: str,
+    promo_bid: str | None,
+    payable_price: decimal.Decimal,
+) -> list[PromoRedemption]:
+    """Apply eligible promo campaigns to an order and create application records."""
+    with app.app_context():
+        now = datetime.now(pytz.timezone("Asia/Shanghai"))
+
+        campaigns: list[PromoCampaign] = PromoCampaign.query.filter(
+            PromoCampaign.shifu_bid == shifu_bid,
+            PromoCampaign.status == PROMO_CAMPAIGN_STATUS_ACTIVE,
+            PromoCampaign.start_at <= now,
+            PromoCampaign.end_at >= now,
+            PromoCampaign.apply_type == PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
+            PromoCampaign.deleted == 0,
+        ).all()
+
+        if promo_bid:
+            manual_campaign = PromoCampaign.query.filter(
+                PromoCampaign.promo_bid == promo_bid,
+                PromoCampaign.status == PROMO_CAMPAIGN_STATUS_ACTIVE,
+                PromoCampaign.start_at <= now,
+                PromoCampaign.end_at >= now,
+                PromoCampaign.shifu_bid == shifu_bid,
+                PromoCampaign.deleted == 0,
+            ).first()
+            if manual_campaign and all(
+                campaign.promo_bid != manual_campaign.promo_bid
+                for campaign in campaigns
+            ):
+                campaigns.append(manual_campaign)
+
+        applications: list[PromoRedemption] = []
+        campaign_bids = [campaign.promo_bid for campaign in campaigns]
+        existing_by_campaign: dict[str, PromoRedemption] = {}
+        if campaign_bids:
+            existing_records = PromoRedemption.query.filter(
+                PromoRedemption.order_bid == order_bid,
+                PromoRedemption.promo_bid.in_(campaign_bids),
+                PromoRedemption.deleted == 0,
+            ).all()
+            existing_by_campaign = {
+                record.promo_bid: record for record in existing_records
+            }
+        for campaign in campaigns:
+            existing = existing_by_campaign.get(campaign.promo_bid)
+            if existing:
+                applications.append(existing)
+                continue
+
+            application = PromoRedemption()
+            application.redemption_bid = generate_id(app)
+            application.promo_bid = campaign.promo_bid
+            application.order_bid = order_bid
+            application.user_bid = user_bid
+            application.shifu_bid = shifu_bid
+            application.promo_name = campaign.name
+            application.discount_type = campaign.discount_type
+            application.value = campaign.value
+            application.discount_amount = _calculate_discount_amount(
+                payable_price, campaign.discount_type, campaign.value
+            )
+            application.status = PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED
+            db.session.add(application)
+            applications.append(application)
+
+        return applications
+
+
+def query_promo_campaign_applications(
+    app: Flask, order_bid: str, recalc_discount: bool
+) -> list[PromoRedemption]:
+    """Query promo campaign applications tied to an order."""
+    with app.app_context():
+        records: list[PromoRedemption] = PromoRedemption.query.filter(
+            PromoRedemption.order_bid == order_bid,
+            PromoRedemption.deleted == 0,
+            PromoRedemption.status == PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
+        ).all()
+
+        if not recalc_discount or not records:
+            return records
+
+        now = datetime.now(pytz.timezone("Asia/Shanghai"))
+        campaign_bids = [record.promo_bid for record in records]
+        campaigns = PromoCampaign.query.filter(
+            PromoCampaign.promo_bid.in_(campaign_bids),
+            PromoCampaign.status == PROMO_CAMPAIGN_STATUS_ACTIVE,
+            PromoCampaign.start_at <= now,
+            PromoCampaign.end_at >= now,
+            PromoCampaign.deleted == 0,
+        ).all()
+        valid_bids = {campaign.promo_bid for campaign in campaigns}
+        return [record for record in records if record.promo_bid in valid_bids]

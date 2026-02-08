@@ -13,6 +13,22 @@ import requests
 thread_local = threading.local()
 
 
+class AppLoggerProxy:
+    def __init__(self, fallback: logging.Logger):
+        self._fallback = fallback
+
+    def _resolve(self) -> logging.Logger:
+        try:
+            from flask import current_app
+
+            return current_app.logger
+        except Exception:
+            return self._fallback
+
+    def __getattr__(self, name: str):
+        return getattr(self._resolve(), name)
+
+
 class RequestFormatter(logging.Formatter):
     def formatTime(self, record, datefmt=None):
         # create time zone info

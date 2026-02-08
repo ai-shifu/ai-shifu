@@ -8,7 +8,9 @@ import io
 import logging
 from typing import List, Sequence
 
-logger = logging.getLogger(__name__)
+from flaskr.common.log import AppLoggerProxy
+
+logger = AppLoggerProxy(logging.getLogger(__name__))
 
 # Try to import pydub, which wraps ffmpeg
 try:

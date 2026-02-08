@@ -14,6 +14,7 @@ import requests
 from typing import Optional, List
 
 from flaskr.common.config import get_config
+from flaskr.common.log import AppLoggerProxy
 from flaskr.api.tts.base import (
     BaseTTSProvider,
     TTSResult,
@@ -24,7 +25,7 @@ from flaskr.api.tts.base import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = AppLoggerProxy(logging.getLogger(__name__))
 
 # Aliyun TTS API endpoints by region
 ALIYUN_TTS_ENDPOINTS = {

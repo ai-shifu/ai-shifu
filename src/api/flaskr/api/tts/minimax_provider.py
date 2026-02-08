@@ -9,6 +9,7 @@ import requests
 from typing import Optional, Dict, Any, List
 
 from flaskr.common.config import get_config
+from flaskr.common.log import AppLoggerProxy
 from flaskr.api.tts.base import (
     BaseTTSProvider,
     TTSResult,
@@ -19,7 +20,7 @@ from flaskr.api.tts.base import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = AppLoggerProxy(logging.getLogger(__name__))
 
 # Minimax TTS API endpoint
 MINIMAX_TTS_API_URL = "https://api.minimax.chat/v1/t2a_v2"
@@ -167,11 +168,11 @@ class MinimaxTTSProvider(BaseTTSProvider):
         duration_ms = extra_info.get("audio_length", 0)
         sample_rate = extra_info.get("audio_sample_rate", 24000)
         audio_format = extra_info.get("audio_format", "mp3")
-        word_count = extra_info.get("word_count", 0)
+        word_count = extra_info.get("usage_characters", 0)
 
         logger.info(
             f"Minimax TTS synthesis completed: duration={duration_ms}ms, "
-            f"size={len(audio_data)} bytes, words={word_count}"
+            f"size={len(audio_data)} bytes, usage_characters={word_count}, extra_info={extra_info}"
         )
 
         return TTSResult(

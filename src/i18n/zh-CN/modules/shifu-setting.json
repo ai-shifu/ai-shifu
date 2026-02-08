@@ -23,7 +23,7 @@
   "shifuDescriptionMaxLength": "简介不能超过500个字符",
   "shifuName": "名称",
   "shifuNameEmpty": "名称不能为空",
-  "shifuNameMaxLength": "名称不能超过{{maxLength}}个字符",
+  "shifuNameMaxLength": "名称不能超过{maxLength}个字符",
   "shifuPriceEmpty": "价格不能为空",
   "shifuPriceFormat": "价格必须为有效数字格式",
   "shifuPrompt": "课程提示词",

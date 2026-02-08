@@ -96,6 +96,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     systemVariables,
     hiddenVariables,
     unusedVariables,
+    hideUnusedMode,
     currentShifu,
     currentNode,
   } = useShifu();
@@ -232,6 +233,18 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
   }, [actions, currentShifu?.bid]);
 
+  const handleHideSingleVariable = useCallback(
+    async (name: string) => {
+      if (!currentShifu?.bid) return;
+      try {
+        await actions.hideVariableByKey(currentShifu.bid, name);
+      } catch (error) {
+        console.error('Failed to hide variable', error);
+      }
+    },
+    [actions, currentShifu?.bid],
+  );
+
   useEffect(() => {
     currentNodeBidRef.current = currentNode?.bid ?? null;
   }, [currentNode?.bid]);
@@ -282,24 +295,35 @@ const ScriptEditor = ({ id }: { id: string }) => {
         blocksCount,
         systemVariableKeys,
         allVariableKeys,
+        unusedKeys,
       } = await actions.previewParse(targetMdflow, targetShifu, targetOutline);
 
-      // Auto-unhide only the hidden variables that are actually used in current prompts (use parsed keys)
-      const parsedVariableKeys =
-        allVariableKeys || Object.keys(parsedVariablesMap || {});
-      const usedHiddenKeys = hiddenVariables.filter(
-        key => parsedVariableKeys.includes(key) && targetMdflow.includes(key),
-      );
-      if (usedHiddenKeys.length) {
-        try {
-          await actions.unhideVariablesByKeys(targetShifu, usedHiddenKeys);
-          if (outlineChanged()) {
-            return;
+      if (hideUnusedMode) {
+        // In "hide unused" mode, refresh hidden list from full-course usage.
+        await actions.syncHiddenVariablesToUsage(targetShifu, { unusedKeys });
+        if (outlineChanged()) {
+          return;
+        }
+      } else {
+        // Auto-unhide only the hidden variables that are actually used in current prompts (use parsed keys)
+        const parsedVariableKeys =
+          allVariableKeys || Object.keys(parsedVariablesMap || {});
+        const mdflowVariableNames = new Set(extractVariableNames(targetMdflow));
+        const usedHiddenKeys = hiddenVariables.filter(
+          key =>
+            parsedVariableKeys.includes(key) && mdflowVariableNames.has(key),
+        );
+        if (usedHiddenKeys.length) {
+          try {
+            await actions.unhideVariablesByKeys(targetShifu, usedHiddenKeys);
+            if (outlineChanged()) {
+              return;
+            }
+            // refresh local visible/hidden lists to reflect the change
+            await actions.refreshProfileDefinitions(targetShifu);
+          } catch (unhideError) {
+            console.error('Failed to auto-unhide variables:', unhideError);
           }
-          // refresh local visible/hidden lists to reflect the change
-          await actions.refreshProfileDefinitions(targetShifu);
-        } catch (unhideError) {
-          console.error('Failed to auto-unhide variables:', unhideError);
         }
       }
       if (outlineChanged()) {
@@ -775,6 +799,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   variableOrder={variableOrder}
                   onRequestAudioForBlock={requestPreviewAudioForBlock}
                   reGenerateConfirm={reGenerateConfirm}
+                  customVariableKeys={variables}
+                  unusedVariableKeys={unusedVisibleVariables}
+                  onHideVariable={handleHideSingleVariable}
                   onHideOrRestore={
                     hideRestoreActionType === 'hide'
                       ? handleHideUnusedVariables
