@@ -6,6 +6,7 @@ from .models import VariableValue
 from ...dao import db
 from typing import Optional
 
+import logging
 from flaskr.service.user.repository import (
     UserAggregate,
     _ensure_user_entity as ensure_user_entity,
@@ -30,6 +31,8 @@ from flaskr.service.profile.models import (
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.user.dtos import UserProfileLabelDTO, UserProfileLabelItemDTO
 from flaskr.service.user.repository import UserEntity
+
+logger = logging.getLogger(__name__)
 
 _LANGUAGE_BASE_DISPLAY = {
     "en": "English",
@@ -134,30 +137,34 @@ def _fetch_latest_variable_value(
     Tries variable_bid first (when provided) and falls back to variable_key.
     """
     target_shifu = shifu_bid or ""
-    if variable_bid:
-        profile = (
+    try:
+        if variable_bid:
+            profile = (
+                VariableValue.query.filter(
+                    VariableValue.user_bid == user_bid,
+                    VariableValue.shifu_bid == target_shifu,
+                    VariableValue.variable_bid == variable_bid,
+                    VariableValue.deleted == 0,
+                )
+                .order_by(VariableValue.id.desc())
+                .first()
+            )
+            if profile:
+                return profile
+
+        return (
             VariableValue.query.filter(
                 VariableValue.user_bid == user_bid,
                 VariableValue.shifu_bid == target_shifu,
-                VariableValue.variable_bid == variable_bid,
+                VariableValue.key == variable_key,
                 VariableValue.deleted == 0,
             )
             .order_by(VariableValue.id.desc())
             .first()
         )
-        if profile:
-            return profile
-
-    return (
-        VariableValue.query.filter(
-            VariableValue.user_bid == user_bid,
-            VariableValue.shifu_bid == target_shifu,
-            VariableValue.key == variable_key,
-            VariableValue.deleted == 0,
-        )
-        .order_by(VariableValue.id.desc())
-        .first()
-    )
+    except Exception as exc:  # pragma: no cover - mixed migration envs
+        logger.warning("Failed to fetch var_variable_values: %s", exc)
+        return None
 
 
 def _ensure_user_aggregate(user_id: str) -> Optional[UserAggregate]:

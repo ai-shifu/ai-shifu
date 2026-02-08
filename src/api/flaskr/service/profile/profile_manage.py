@@ -696,7 +696,7 @@ def delete_profile_item(app: Flask, user_id: str, profile_id: str):
                     raise
 
         if not _table_exists("profile_item"):
-            raise
+            raise_error("server.profile.notFound")
 
         profile_item = ProfileItem.query.filter_by(profile_id=profile_id).first()
         if not profile_item:

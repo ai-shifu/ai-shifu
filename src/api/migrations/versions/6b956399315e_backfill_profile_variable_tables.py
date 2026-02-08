@@ -106,7 +106,7 @@ def upgrade():
                 SELECT
                     REPLACE(UUID(), '-', ''),
                     u.user_id,
-                    '',
+                    COALESCE(pi.parent_id, ''),
                     u.profile_id,
                     u.profile_key,
                     u.profile_value,
@@ -130,6 +130,8 @@ def upgrade():
                         profile_value,
                         created
                 ) u
+                LEFT JOIN profile_item pi
+                    ON pi.profile_id = u.profile_id
                 LEFT JOIN var_variable_values v
                     ON v.user_bid = u.user_id
                     AND v.variable_bid = u.profile_id
