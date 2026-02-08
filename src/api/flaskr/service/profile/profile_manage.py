@@ -15,6 +15,7 @@ from .models import (
     PROFILE_CONF_TYPE_ITEM,
 )
 from ...dao import db
+import sqlalchemy as sa
 from sqlalchemy import func
 from flaskr.util.uuid import generate_id
 from flaskr.service.common import raise_error
@@ -38,6 +39,15 @@ from .models import (
 
 from flaskr.service.shifu.models import PublishedShifu, DraftShifu, DraftOutlineItem
 from flaskr.common.i18n_utils import get_markdownflow_output_language
+
+
+def _table_exists(table_name: str) -> bool:
+    try:
+        bind = db.session.get_bind()
+        inspector = sa.inspect(bind)
+        return table_name in inspector.get_table_names()
+    except Exception:  # pragma: no cover - best effort for mixed migration envs
+        return False
 
 
 # get color setting
@@ -201,24 +211,30 @@ def get_profile_item_definition_list(
             # Option/enum variables are no longer supported after refactor.
             return []
 
-        # Prefer new table, fallback to legacy tables when DB is not migrated yet.
-        try:
-            definitions = (
-                Variable.query.filter(
-                    Variable.shifu_bid.in_([parent_id, ""]),
-                    Variable.deleted == 0,
+        # Prefer new schema. Only fall back to legacy tables when new tables do not exist.
+        if _table_exists("var_variables"):
+            try:
+                definitions = (
+                    Variable.query.filter(
+                        Variable.shifu_bid.in_([parent_id, ""]),
+                        Variable.deleted == 0,
+                    )
+                    .order_by(Variable.id.asc())
+                    .all()
                 )
-                .order_by(Variable.id.asc())
-                .all()
-            )
-            if definitions:
                 return [
                     convert_variable_definition_to_profile_item_definition(item)
-                    for item in definitions
+                    for item in (definitions or [])
                 ]
-        except Exception as exc:  # pragma: no cover - defensive fallback
-            app.logger.warning("Failed to load profile variable definitions: %s", exc)
+            except Exception as exc:  # pragma: no cover - defensive fallback
+                app.logger.warning(
+                    "Failed to load var_variables (shifu=%s): %s", parent_id, exc
+                )
+                if not _table_exists("profile_item"):
+                    raise
 
+        if not _table_exists("profile_item"):
+            return []
         query = ProfileItem.query.filter(
             ProfileItem.parent_id.in_([parent_id, ""]), ProfileItem.status == 1
         )
@@ -244,25 +260,33 @@ def update_profile_item_hidden_state(
         return get_profile_item_definition_list(app, parent_id=parent_id)
 
     with app.app_context():
-        try:
-            target_items = (
-                Variable.query.filter(
-                    Variable.shifu_bid == parent_id,
-                    Variable.deleted == 0,
-                    Variable.key.in_(profile_keys),
+        if _table_exists("var_variables"):
+            try:
+                target_items = (
+                    Variable.query.filter(
+                        Variable.shifu_bid == parent_id,
+                        Variable.deleted == 0,
+                        Variable.key.in_(profile_keys),
+                    )
+                    .order_by(Variable.id.asc())
+                    .all()
                 )
-                .order_by(Variable.id.asc())
-                .all()
-            )
-            if target_items:
-                for item in target_items:
-                    item.is_hidden = 1 if hidden else 0
-                    item.updated_at = datetime.now()
-                    item.updated_user_bid = user_id or ""
-                db.session.commit()
-            return get_profile_item_definition_list(app, parent_id=parent_id)
-        except Exception as exc:  # pragma: no cover - defensive fallback
-            app.logger.warning("Failed to update profile hidden state: %s", exc)
+                if target_items:
+                    for item in target_items:
+                        item.is_hidden = 1 if hidden else 0
+                        item.updated_at = datetime.now()
+                        item.updated_user_bid = user_id or ""
+                    db.session.commit()
+                return get_profile_item_definition_list(app, parent_id=parent_id)
+            except Exception as exc:  # pragma: no cover - defensive fallback
+                app.logger.warning(
+                    "Failed to update var_variables hidden state: %s", exc
+                )
+                if not _table_exists("profile_item"):
+                    raise
+
+        if not _table_exists("profile_item"):
+            raise_error("server.profile.notFound")
 
         target_items = (
             ProfileItem.query.filter(
@@ -347,34 +371,39 @@ def add_profile_item_quick(app: Flask, parent_id: str, key: str, user_id: str):
 # quick add profile item
 def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_id: str):
     # Prefer new table, fallback to legacy when DB is not migrated yet.
-    try:
-        existing = (
-            Variable.query.filter(
-                Variable.key == key,
-                Variable.shifu_bid.in_([parent_id, ""]),
-                Variable.deleted == 0,
+    if _table_exists("var_variables"):
+        try:
+            existing = (
+                Variable.query.filter(
+                    Variable.key == key,
+                    Variable.shifu_bid.in_([parent_id, ""]),
+                    Variable.deleted == 0,
+                )
+                .order_by(Variable.id.asc())
+                .first()
             )
-            .order_by(Variable.id.asc())
-            .first()
-        )
-        if existing:
-            return convert_variable_definition_to_profile_item_definition(existing)
+            if existing:
+                return convert_variable_definition_to_profile_item_definition(existing)
 
-        definition = Variable(
-            variable_bid=generate_id(app),
-            shifu_bid=parent_id,
-            key=key,
-            is_hidden=0,
-            deleted=0,
-            created_user_bid=user_id or "",
-            updated_user_bid=user_id or "",
-        )
-        db.session.add(definition)
-        db.session.flush()
-        return convert_variable_definition_to_profile_item_definition(definition)
-    except Exception as exc:  # pragma: no cover - defensive fallback
-        app.logger.warning("Failed to quick-add profile variable: %s", exc)
+            definition = Variable(
+                variable_bid=generate_id(app),
+                shifu_bid=parent_id,
+                key=key,
+                is_hidden=0,
+                deleted=0,
+                created_user_bid=user_id or "",
+                updated_user_bid=user_id or "",
+            )
+            db.session.add(definition)
+            db.session.flush()
+            return convert_variable_definition_to_profile_item_definition(definition)
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            app.logger.warning("Failed to quick-add var_variables: %s", exc)
+            if not _table_exists("profile_item"):
+                raise
 
+    if not _table_exists("profile_item"):
+        raise_error("server.profile.notFound")
     exist_profile_item_list = get_profile_item_definition_list(app, parent_id)
     for exist_profile_item in exist_profile_item_list or []:
         if exist_profile_item.profile_key == key:
@@ -482,6 +511,9 @@ def save_profile_item(
             app.logger.warning(
                 "Failed to save profile variable definition in new table: %s", exc
             )
+
+        if not _table_exists("profile_item"):
+            raise_error("server.profile.notFound")
 
         # Legacy fallback (pre-refactor schema): keep minimal text variable support.
         if profile_id:
@@ -629,25 +661,35 @@ def delete_profile_item(app: Flask, user_id: str, profile_id: str):
     from flaskr.service.common.models import AppException
 
     with app.app_context():
-        try:
-            definition = Variable.query.filter(
-                Variable.variable_bid == profile_id,
-                Variable.deleted == 0,
-            ).first()
-            if not definition:
-                raise_error("server.profile.notFound")
-            if definition.shifu_bid == "" or definition.shifu_bid is None:
-                raise_error("server.profile.systemProfileNotAllowDelete")
+        if _table_exists("var_variables"):
+            try:
+                definition = Variable.query.filter(
+                    Variable.variable_bid == profile_id,
+                    Variable.deleted == 0,
+                ).first()
+                if not definition:
+                    raise_error("server.profile.notFound")
+                if definition.shifu_bid == "" or definition.shifu_bid is None:
+                    raise_error("server.profile.systemProfileNotAllowDelete")
 
-            definition.deleted = 1
-            definition.updated_at = datetime.now()
-            definition.updated_user_bid = user_id or ""
-            db.session.commit()
-            return True
-        except AppException:
+                definition.deleted = 1
+                definition.updated_at = datetime.now()
+                definition.updated_user_bid = user_id or ""
+                db.session.commit()
+                return True
+            except AppException:
+                raise
+            except Exception as exc:  # pragma: no cover - defensive fallback
+                app.logger.warning(
+                    "Failed to delete var_variables definition (bid=%s): %s",
+                    profile_id,
+                    exc,
+                )
+                if not _table_exists("profile_item"):
+                    raise
+
+        if not _table_exists("profile_item"):
             raise
-        except Exception as exc:  # pragma: no cover - defensive fallback
-            app.logger.warning("Failed to delete profile variable definition: %s", exc)
 
         profile_item = ProfileItem.query.filter_by(profile_id=profile_id).first()
         if not profile_item:

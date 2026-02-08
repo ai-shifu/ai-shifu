@@ -113,9 +113,26 @@ def upgrade():
                     CASE WHEN COALESCE(u.status, 0) = 1 THEN 0 ELSE 1 END,
                     u.created,
                     u.updated
-                FROM user_profile u
+                FROM (
+                    SELECT
+                        user_id,
+                        profile_id,
+                        profile_key,
+                        profile_value,
+                        MAX(COALESCE(status, 0)) AS status,
+                        created,
+                        MAX(updated) AS updated
+                    FROM user_profile
+                    GROUP BY
+                        user_id,
+                        profile_id,
+                        profile_key,
+                        profile_value,
+                        created
+                ) u
                 LEFT JOIN var_variable_values v
                     ON v.user_bid = u.user_id
+                    AND v.variable_bid = u.profile_id
                     AND v.`key` = u.profile_key
                     AND v.created_at = u.created
                     AND v.`value` = u.profile_value
