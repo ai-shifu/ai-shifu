@@ -1034,8 +1034,8 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         secret=True,
         group="tts",
     ),
-    "VOLCENGINE_TTS_RESOURCE_ID": EnvVar(
-        name="VOLCENGINE_TTS_RESOURCE_ID",
+    "VOLCENGINE_TTS_CLUSTER_ID": EnvVar(
+        name="VOLCENGINE_TTS_CLUSTER_ID",
         default="",
         description="Volcengine TTS cluster for HTTP v1/tts (e.g., volcano_tts)",
         group="tts",

@@ -533,7 +533,7 @@ class VolcengineTTSProvider(BaseTTSProvider):
         """Get Volcengine provider configuration for frontend."""
         return ProviderConfig(
             name="volcengine",
-            label="火山引擎",
+            label="火山引擎大模型",
             speed=ParamRange(min=0.5, max=2.0, step=0.1, default=1.0),
             pitch=ParamRange(min=-12, max=12, step=1, default=0),
             supports_emotion=True,

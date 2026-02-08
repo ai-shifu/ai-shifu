@@ -14,13 +14,18 @@ from flaskr.service.tts.validation import validate_tts_settings_strict
 def test_volcengine_http_synthesize_success(monkeypatch):
     monkeypatch.setenv("VOLCENGINE_TTS_APP_KEY", "test-app")
     monkeypatch.setenv("VOLCENGINE_TTS_ACCESS_KEY", "test-token")
-    monkeypatch.setenv("VOLCENGINE_TTS_RESOURCE_ID", "volcano_tts")
+    monkeypatch.setenv("VOLCENGINE_TTS_CLUSTER_ID", "volcano_tts")
 
     audio_bytes = b"audio-bytes"
     audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
     captured = {}
 
     class DummyResponse:
+        status_code = 200
+        url = VOLCENGINE_HTTP_TTS_URL
+        headers = {"Content-Type": "application/json"}
+        text = ""
+
         def raise_for_status(self):
             return None
 
@@ -71,7 +76,7 @@ def test_volcengine_http_synthesize_success(monkeypatch):
 
 
 def test_volcengine_http_provider_config_omits_models(monkeypatch):
-    monkeypatch.setenv("VOLCENGINE_TTS_RESOURCE_ID", "custom_cluster")
+    monkeypatch.setenv("VOLCENGINE_TTS_CLUSTER_ID", "custom_cluster")
     provider = VolcengineHttpTTSProvider()
     config = provider.get_provider_config().to_dict()
     assert "models" not in config
@@ -87,7 +92,7 @@ def test_split_text_for_tts_volcengine_http_byte_limit():
 
 
 def test_validate_tts_settings_strict_volcengine_http(monkeypatch):
-    monkeypatch.setenv("VOLCENGINE_TTS_RESOURCE_ID", "volcano_tts")
+    monkeypatch.setenv("VOLCENGINE_TTS_CLUSTER_ID", "volcano_tts")
     settings = validate_tts_settings_strict(
         provider="volcengine_http",
         model="",

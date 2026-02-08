@@ -12,6 +12,7 @@ The provider can be selected per-Shifu configuration.
 
 import base64
 import logging
+import os
 from typing import Optional, Tuple
 
 from flaskr.common.config import get_config
@@ -70,7 +71,10 @@ def _auto_detect_provider_name() -> str:
     if (
         get_config("VOLCENGINE_TTS_APP_KEY")
         and get_config("VOLCENGINE_TTS_ACCESS_KEY")
-        and get_config("VOLCENGINE_TTS_RESOURCE_ID")
+        and (
+            get_config("VOLCENGINE_TTS_CLUSTER_ID")
+            or os.environ.get("VOLCENGINE_TTS_RESOURCE_ID")
+        )
     ):
         return "volcengine_http"
     if get_config("BAIDU_TTS_API_KEY") and get_config("BAIDU_TTS_SECRET_KEY"):

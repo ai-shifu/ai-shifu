@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import base64
 import logging
+import os
 import uuid
 from typing import Optional, List
 
 import requests
+from requests import Response
 
 from flaskr.common.config import get_config
 from flaskr.api.tts.base import (
@@ -113,7 +115,10 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
     def _get_credentials(self) -> tuple[str, str, str]:
         app_id = (get_config("VOLCENGINE_TTS_APP_KEY") or "").strip()
         token = (get_config("VOLCENGINE_TTS_ACCESS_KEY") or "").strip()
-        cluster = (get_config("VOLCENGINE_TTS_RESOURCE_ID") or "").strip()
+        cluster = (get_config("VOLCENGINE_TTS_CLUSTER_ID") or "").strip()
+        if not cluster:
+            # Backward compatibility: previously named as VOLCENGINE_TTS_RESOURCE_ID.
+            cluster = (os.environ.get("VOLCENGINE_TTS_RESOURCE_ID") or "").strip()
         return app_id, token, cluster
 
     def is_configured(self) -> bool:
@@ -184,7 +189,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
             raise ValueError(
                 "Volcengine HTTP TTS credentials are not configured. "
                 "Set VOLCENGINE_TTS_APP_KEY, VOLCENGINE_TTS_ACCESS_KEY, "
-                "and VOLCENGINE_TTS_RESOURCE_ID"
+                "and VOLCENGINE_TTS_CLUSTER_ID"
             )
 
         if not voice_settings:
@@ -234,18 +239,65 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
                 headers=headers,
                 timeout=60,
             )
-            response.raise_for_status()
-            result = response.json()
         except requests.RequestException as exc:
-            logger.error("Volcengine HTTP TTS request failed: %s", exc)
+            logger.error(
+                "Volcengine HTTP TTS request error: url=%s reqid=%s cluster=%s voice=%s encoding=%s rate=%s text_len=%s err=%s",
+                VOLCENGINE_HTTP_TTS_URL,
+                req_id,
+                payload["app"]["cluster"],
+                voice_settings.voice_id,
+                encoding,
+                sample_rate,
+                len(text),
+                exc,
+                exc_info=True,
+            )
             raise ValueError(f"Volcengine HTTP TTS request failed: {exc}") from exc
+
+        if response.status_code != 200:
+            self._log_http_error_response(
+                response=response,
+                req_id=req_id,
+                cluster=payload["app"]["cluster"],
+                voice_type=voice_settings.voice_id,
+                encoding=encoding,
+                sample_rate=sample_rate,
+                text_len=len(text),
+            )
+            try:
+                response.raise_for_status()
+            except requests.RequestException as exc:
+                body_preview = (response.text or "")[:2000]
+                raise ValueError(
+                    f"Volcengine HTTP TTS HTTP {response.status_code}: "
+                    f"{body_preview or response.reason}"
+                ) from exc
+
+        try:
+            result = response.json()
         except ValueError as exc:
-            logger.error("Volcengine HTTP TTS invalid JSON response: %s", exc)
+            body_preview = (response.text or "")[:2000]
+            logger.error(
+                "Volcengine HTTP TTS invalid JSON response: url=%s status=%s reqid=%s content_type=%s body=%s",
+                response.url,
+                response.status_code,
+                req_id,
+                response.headers.get("Content-Type", ""),
+                body_preview,
+            )
             raise ValueError("Volcengine HTTP TTS response is not valid JSON") from exc
 
         code = result.get("code")
         message = result.get("message") or ""
         if code != 3000:
+            logger.error(
+                "Volcengine HTTP TTS API error: url=%s status=%s reqid=%s code=%s message=%s",
+                response.url,
+                response.status_code,
+                req_id,
+                code,
+                message,
+            )
             raise ValueError(f"Volcengine HTTP TTS error {code}: {message}")
 
         audio_base64 = result.get("data") or ""
@@ -283,11 +335,60 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
             word_count=len(text),
         )
 
+    @staticmethod
+    def _log_http_error_response(
+        response: Response,
+        req_id: str,
+        cluster: str,
+        voice_type: str,
+        encoding: str,
+        sample_rate: int,
+        text_len: int,
+    ) -> None:
+        """Log Volcengine HTTP error response with useful debugging context.
+
+        Notes:
+        - Never log credentials (token).
+        - Avoid logging full request text; use only text_len.
+        """
+
+        body_preview = (response.text or "")[:2000]
+        # Keep only a small, stable subset of headers to avoid log noise and
+        # reduce the risk of accidentally logging sensitive data.
+        header_allowlist = {
+            "Content-Type",
+            "X-Request-Id",
+            "X-Tt-Logid",
+            "X-Tt-Trace-Id",
+            "Date",
+            "Server",
+        }
+        header_allowlist_lower = {h.lower() for h in header_allowlist}
+        safe_headers = {
+            k: v
+            for k, v in (response.headers or {}).items()
+            if k.lower() in header_allowlist_lower
+        }
+
+        logger.error(
+            "Volcengine HTTP TTS HTTP error: url=%s status=%s reqid=%s cluster=%s voice=%s encoding=%s rate=%s text_len=%s resp_headers=%s resp_body=%s",
+            response.url,
+            response.status_code,
+            req_id,
+            cluster,
+            voice_type,
+            encoding,
+            sample_rate,
+            text_len,
+            safe_headers,
+            body_preview,
+        )
+
     def get_provider_config(self) -> ProviderConfig:
         """Get provider configuration for frontend."""
         return ProviderConfig(
             name="volcengine_http",
-            label="Volcengine (HTTP)",
+            label="火山引擎",
             speed=ParamRange(min=0.2, max=3.0, step=0.1, default=1.0),
             pitch=ParamRange(min=1, max=30, step=1, default=10),
             supports_emotion=True,
