@@ -1,4 +1,4 @@
-"""create profile variable tables
+"""create variable tables
 
 Revision ID: 716efaaeb662
 Revises: d7a8e2f1b3c9
@@ -24,9 +24,9 @@ def _table_exists(table_name: str) -> bool:
 
 
 def upgrade():
-    if not _table_exists("profile_variable_definitions"):
+    if not _table_exists("var_variables"):
         op.create_table(
-            "profile_variable_definitions",
+            "var_variables",
             sa.Column(
                 "id",
                 mysql.BIGINT(),
@@ -46,10 +46,13 @@ def upgrade():
                 sa.String(length=32),
                 nullable=False,
                 server_default=sa.text("''"),
-                comment="Shifu business identifier (empty=system scope)",
+                comment=(
+                    "Shifu business identifier (empty means system/global scope; "
+                    "otherwise the variable belongs to the specified Shifu)"
+                ),
             ),
             sa.Column(
-                "variable_key",
+                "key",
                 sa.String(length=255),
                 nullable=False,
                 server_default=sa.text("''"),
@@ -77,46 +80,73 @@ def upgrade():
                 comment="Creation timestamp",
             ),
             sa.Column(
+                "created_user_bid",
+                sa.String(length=36),
+                nullable=False,
+                comment="Creator user business identifier",
+            ),
+            sa.Column(
                 "updated_at",
                 sa.DateTime(),
                 nullable=False,
                 server_default=sa.text("CURRENT_TIMESTAMP"),
                 comment="Last update timestamp",
             ),
+            sa.Column(
+                "updated_user_bid",
+                sa.String(length=36),
+                nullable=False,
+                comment="Last updater user business identifier",
+            ),
             sa.PrimaryKeyConstraint("id"),
+            comment=(
+                "Variable definition table for MarkdownFlow-based shifu. Defines variables "
+                "referenced in course content (via MarkdownFlow markers) and used to collect "
+                "learner inputs. Variables can be scoped to a specific Shifu or defined at "
+                "system scope (empty shifu_bid). This table stores definitions only; per-user "
+                "variable values are stored in the user variable table."
+            ),
         )
-        with op.batch_alter_table(
-            "profile_variable_definitions", schema=None
-        ) as batch_op:
+        with op.batch_alter_table("var_variables", schema=None) as batch_op:
             batch_op.create_index(
-                batch_op.f("ix_profile_variable_definitions_deleted"),
+                batch_op.f("ix_var_variables_created_user_bid"),
+                ["created_user_bid"],
+                unique=False,
+            )
+            batch_op.create_index(
+                batch_op.f("ix_var_variables_deleted"),
                 ["deleted"],
                 unique=False,
             )
             batch_op.create_index(
-                batch_op.f("ix_profile_variable_definitions_is_hidden"),
+                batch_op.f("ix_var_variables_is_hidden"),
                 ["is_hidden"],
                 unique=False,
             )
             batch_op.create_index(
-                batch_op.f("ix_profile_variable_definitions_shifu_bid"),
+                batch_op.f("ix_var_variables_key"),
+                ["key"],
+                unique=False,
+            )
+            batch_op.create_index(
+                batch_op.f("ix_var_variables_shifu_bid"),
                 ["shifu_bid"],
                 unique=False,
             )
             batch_op.create_index(
-                batch_op.f("ix_profile_variable_definitions_variable_bid"),
-                ["variable_bid"],
+                batch_op.f("ix_var_variables_updated_user_bid"),
+                ["updated_user_bid"],
                 unique=False,
             )
             batch_op.create_index(
-                batch_op.f("ix_profile_variable_definitions_variable_key"),
-                ["variable_key"],
+                batch_op.f("ix_var_variables_variable_bid"),
+                ["variable_bid"],
                 unique=False,
             )
 
-    if not _table_exists("profile_variable_values"):
+    if not _table_exists("var_variable_values"):
         op.create_table(
-            "profile_variable_values",
+            "var_variable_values",
             sa.Column(
                 "id",
                 mysql.BIGINT(),
@@ -132,11 +162,11 @@ def upgrade():
                 comment="Variable value business identifier",
             ),
             sa.Column(
-                "user_bid",
+                "variable_bid",
                 sa.String(length=32),
                 nullable=False,
                 server_default=sa.text("''"),
-                comment="User business identifier",
+                comment="Variable business identifier",
             ),
             sa.Column(
                 "shifu_bid",
@@ -146,21 +176,21 @@ def upgrade():
                 comment="Shifu business identifier (empty=global/system scope)",
             ),
             sa.Column(
-                "variable_bid",
+                "user_bid",
                 sa.String(length=32),
                 nullable=False,
                 server_default=sa.text("''"),
-                comment="Variable business identifier",
+                comment="User business identifier",
             ),
             sa.Column(
-                "variable_key",
+                "key",
                 sa.String(length=255),
                 nullable=False,
                 server_default=sa.text("''"),
                 comment="Variable key (fallback lookup)",
             ),
             sa.Column(
-                "variable_value",
+                "value",
                 sa.Text(),
                 nullable=False,
                 server_default=sa.text("''"),
@@ -188,64 +218,64 @@ def upgrade():
                 comment="Last update timestamp",
             ),
             sa.PrimaryKeyConstraint("id"),
+            comment=(
+                "User variable value table for variables. Stores the actual values entered "
+                "during learning for variables defined in var_variables. Each record represents "
+                "a user's value for a variable within a Shifu or global/system scope. Important: "
+                "This table stores user data (values), not variable definitions."
+            ),
         )
-        with op.batch_alter_table("profile_variable_values", schema=None) as batch_op:
+        with op.batch_alter_table("var_variable_values", schema=None) as batch_op:
             batch_op.create_index(
-                batch_op.f("ix_profile_variable_values_deleted"),
+                batch_op.f("ix_var_variable_values_deleted"),
                 ["deleted"],
                 unique=False,
             )
             batch_op.create_index(
-                batch_op.f("ix_profile_variable_values_shifu_bid"),
+                batch_op.f("ix_var_variable_values_key"),
+                ["key"],
+                unique=False,
+            )
+            batch_op.create_index(
+                batch_op.f("ix_var_variable_values_shifu_bid"),
                 ["shifu_bid"],
                 unique=False,
             )
             batch_op.create_index(
-                batch_op.f("ix_profile_variable_values_user_bid"),
+                batch_op.f("ix_var_variable_values_user_bid"),
                 ["user_bid"],
                 unique=False,
             )
             batch_op.create_index(
-                batch_op.f("ix_profile_variable_values_variable_bid"),
+                batch_op.f("ix_var_variable_values_variable_bid"),
                 ["variable_bid"],
                 unique=False,
             )
             batch_op.create_index(
-                batch_op.f("ix_profile_variable_values_variable_key"),
-                ["variable_key"],
-                unique=False,
-            )
-            batch_op.create_index(
-                batch_op.f("ix_profile_variable_values_variable_value_bid"),
+                batch_op.f("ix_var_variable_values_variable_value_bid"),
                 ["variable_value_bid"],
                 unique=False,
             )
 
 
 def downgrade():
-    if _table_exists("profile_variable_values"):
-        with op.batch_alter_table("profile_variable_values", schema=None) as batch_op:
-            batch_op.drop_index(
-                batch_op.f("ix_profile_variable_values_variable_value_bid")
-            )
-            batch_op.drop_index(batch_op.f("ix_profile_variable_values_variable_key"))
-            batch_op.drop_index(batch_op.f("ix_profile_variable_values_variable_bid"))
-            batch_op.drop_index(batch_op.f("ix_profile_variable_values_user_bid"))
-            batch_op.drop_index(batch_op.f("ix_profile_variable_values_shifu_bid"))
-            batch_op.drop_index(batch_op.f("ix_profile_variable_values_deleted"))
-        op.drop_table("profile_variable_values")
+    if _table_exists("var_variable_values"):
+        with op.batch_alter_table("var_variable_values", schema=None) as batch_op:
+            batch_op.drop_index(batch_op.f("ix_var_variable_values_variable_value_bid"))
+            batch_op.drop_index(batch_op.f("ix_var_variable_values_variable_bid"))
+            batch_op.drop_index(batch_op.f("ix_var_variable_values_user_bid"))
+            batch_op.drop_index(batch_op.f("ix_var_variable_values_shifu_bid"))
+            batch_op.drop_index(batch_op.f("ix_var_variable_values_key"))
+            batch_op.drop_index(batch_op.f("ix_var_variable_values_deleted"))
+        op.drop_table("var_variable_values")
 
-    if _table_exists("profile_variable_definitions"):
-        with op.batch_alter_table(
-            "profile_variable_definitions", schema=None
-        ) as batch_op:
-            batch_op.drop_index(
-                batch_op.f("ix_profile_variable_definitions_variable_key")
-            )
-            batch_op.drop_index(
-                batch_op.f("ix_profile_variable_definitions_variable_bid")
-            )
-            batch_op.drop_index(batch_op.f("ix_profile_variable_definitions_shifu_bid"))
-            batch_op.drop_index(batch_op.f("ix_profile_variable_definitions_is_hidden"))
-            batch_op.drop_index(batch_op.f("ix_profile_variable_definitions_deleted"))
-        op.drop_table("profile_variable_definitions")
+    if _table_exists("var_variables"):
+        with op.batch_alter_table("var_variables", schema=None) as batch_op:
+            batch_op.drop_index(batch_op.f("ix_var_variables_variable_bid"))
+            batch_op.drop_index(batch_op.f("ix_var_variables_updated_user_bid"))
+            batch_op.drop_index(batch_op.f("ix_var_variables_shifu_bid"))
+            batch_op.drop_index(batch_op.f("ix_var_variables_key"))
+            batch_op.drop_index(batch_op.f("ix_var_variables_is_hidden"))
+            batch_op.drop_index(batch_op.f("ix_var_variables_deleted"))
+            batch_op.drop_index(batch_op.f("ix_var_variables_created_user_bid"))
+        op.drop_table("var_variables")

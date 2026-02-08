@@ -223,16 +223,26 @@ class ProfileItemI18n(db.Model):
     updated_by = Column(String(36), nullable=False, default="", comment="Updated by")
 
 
-class ProfileVariableDefinition(db.Model):
+class Variable(db.Model):
     """
-    Variable definition used by MarkdownFlow variables.
+    Variable definition table for MarkdownFlow-based shifu.
 
-    Note: This table intentionally keeps only the minimum set of columns needed
-    by the current product requirements. All variables are treated as text
-    variables; option/enum metadata is no longer stored.
+    Defines variables referenced in course content (via MarkdownFlow markers) and used to
+    collect learner inputs. Variables can be scoped to a specific Shifu or defined at
+    system scope (empty shifu_bid). This table stores definitions only; per-user variable
+    values are stored in the user variable table.
     """
 
-    __tablename__ = "profile_variable_definitions"
+    __tablename__ = "var_variables"
+    __table_args__ = {
+        "comment": (
+            "Variable definition table for MarkdownFlow-based shifu. Defines variables "
+            "referenced in course content (via MarkdownFlow markers) and used to collect "
+            "learner inputs. Variables can be scoped to a specific Shifu or defined at "
+            "system scope (empty shifu_bid). This table stores definitions only; per-user "
+            "variable values are stored in the user variable table."
+        )
+    }
 
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
     variable_bid = Column(
@@ -247,9 +257,12 @@ class ProfileVariableDefinition(db.Model):
         nullable=False,
         default="",
         index=True,
-        comment="Shifu business identifier (empty=system scope)",
+        comment=(
+            "Shifu business identifier (empty means system/global scope; otherwise the "
+            "variable belongs to the specified Shifu)"
+        ),
     )
-    variable_key = Column(
+    key = Column(
         String(255),
         nullable=False,
         default="",
@@ -274,26 +287,51 @@ class ProfileVariableDefinition(db.Model):
         DateTime,
         nullable=False,
         default=func.now(),
+        server_default=func.now(),
         comment="Creation timestamp",
+    )
+    created_user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Creator user business identifier",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
         default=func.now(),
+        server_default=func.now(),
         onupdate=func.now(),
         comment="Last update timestamp",
     )
+    updated_user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Last updater user business identifier",
+    )
 
 
-class ProfileVariableValue(db.Model):
+class VariableValue(db.Model):
     """
-    User-provided variable values.
+    User variable value table for variables.
 
-    Values are stored as append-only rows (no UNIQUE constraints enforced at DB
-    level). The "latest" row should be used when reading.
+    Stores the actual values entered during learning for variables defined in var_variables.
+    Each record represents a user's value for a variable within a Shifu or global/system
+    scope. Important: This table stores user data (values), not variable definitions.
     """
 
-    __tablename__ = "profile_variable_values"
+    __tablename__ = "var_variable_values"
+    __table_args__ = {
+        "comment": (
+            "User variable value table for variables. Stores the actual values entered "
+            "during learning for variables defined in var_variables. Each record represents "
+            "a user's value for a variable within a Shifu or global/system scope. Important: "
+            "This table stores user data (values), not variable definitions."
+        )
+    }
 
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
     variable_value_bid = Column(
@@ -303,12 +341,12 @@ class ProfileVariableValue(db.Model):
         index=True,
         comment="Variable value business identifier",
     )
-    user_bid = Column(
+    variable_bid = Column(
         String(32),
         nullable=False,
         default="",
         index=True,
-        comment="User business identifier",
+        comment="Variable business identifier",
     )
     shifu_bid = Column(
         String(32),
@@ -317,21 +355,21 @@ class ProfileVariableValue(db.Model):
         index=True,
         comment="Shifu business identifier (empty=global/system scope)",
     )
-    variable_bid = Column(
+    user_bid = Column(
         String(32),
         nullable=False,
         default="",
         index=True,
-        comment="Variable business identifier",
+        comment="User business identifier",
     )
-    variable_key = Column(
+    key = Column(
         String(255),
         nullable=False,
         default="",
         index=True,
         comment="Variable key (fallback lookup)",
     )
-    variable_value = Column(
+    value = Column(
         Text,
         nullable=False,
         default="",
@@ -348,12 +386,14 @@ class ProfileVariableValue(db.Model):
         DateTime,
         nullable=False,
         default=func.now(),
+        server_default=func.now(),
         comment="Creation timestamp",
     )
     updated_at = Column(
         DateTime,
         nullable=False,
         default=func.now(),
+        server_default=func.now(),
         onupdate=func.now(),
         comment="Last update timestamp",
     )

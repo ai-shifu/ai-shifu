@@ -1,4 +1,4 @@
-"""backfill profile variable tables
+"""backfill variable tables
 
 Revision ID: 6b956399315e
 Revises: 716efaaeb662
@@ -33,9 +33,9 @@ def _column_exists(table_name: str, column_name: str) -> bool:
 
 
 def upgrade():
-    if not _table_exists("profile_variable_definitions"):
+    if not _table_exists("var_variables"):
         return
-    if not _table_exists("profile_variable_values"):
+    if not _table_exists("var_variable_values"):
         return
 
     # Backfill definitions from legacy profile_item.
@@ -45,17 +45,29 @@ def upgrade():
             if _column_exists("profile_item", "is_hidden")
             else "0"
         )
+        created_user_expr = (
+            "COALESCE(p.created_by, '')"
+            if _column_exists("profile_item", "created_by")
+            else "''"
+        )
+        updated_user_expr = (
+            "COALESCE(p.updated_by, '')"
+            if _column_exists("profile_item", "updated_by")
+            else "''"
+        )
         op.execute(
             sa.text(
                 f"""
-                INSERT INTO profile_variable_definitions (
+                INSERT INTO var_variables (
                     variable_bid,
                     shifu_bid,
-                    variable_key,
+                    `key`,
                     is_hidden,
                     deleted,
                     created_at,
-                    updated_at
+                    created_user_bid,
+                    updated_at,
+                    updated_user_bid
                 )
                 SELECT
                     p.profile_id,
@@ -64,9 +76,11 @@ def upgrade():
                     {is_hidden_expr},
                     CASE WHEN COALESCE(p.status, 0) = 1 THEN 0 ELSE 1 END,
                     p.created,
-                    p.updated
+                    {created_user_expr},
+                    p.updated,
+                    {updated_user_expr}
                 FROM profile_item p
-                LEFT JOIN profile_variable_definitions d
+                LEFT JOIN var_variables d
                     ON d.variable_bid = p.profile_id
                 WHERE d.id IS NULL
                 """
@@ -78,13 +92,13 @@ def upgrade():
         op.execute(
             sa.text(
                 """
-                INSERT INTO profile_variable_values (
+                INSERT INTO var_variable_values (
                     variable_value_bid,
                     user_bid,
                     shifu_bid,
                     variable_bid,
-                    variable_key,
-                    variable_value,
+                    `key`,
+                    `value`,
                     deleted,
                     created_at,
                     updated_at
@@ -100,11 +114,11 @@ def upgrade():
                     u.created,
                     u.updated
                 FROM user_profile u
-                LEFT JOIN profile_variable_values v
+                LEFT JOIN var_variable_values v
                     ON v.user_bid = u.user_id
-                    AND v.variable_key = u.profile_key
+                    AND v.`key` = u.profile_key
                     AND v.created_at = u.created
-                    AND v.variable_value = u.profile_value
+                    AND v.`value` = u.profile_value
                 WHERE v.id IS NULL
                 """
             )

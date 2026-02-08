@@ -4,7 +4,7 @@ from datetime import date as Date
 from sqlalchemy import or_
 
 from .models import AuthCredential, UserInfo as UserEntity
-from ..profile.models import ProfileVariableValue
+from ..profile.models import VariableValue
 from .repository import load_user_aggregate
 
 
@@ -93,17 +93,17 @@ def _resolve_user_sex(user_bid: str) -> int:
     profile_value = None
     try:
         row = (
-            ProfileVariableValue.query.filter(
-                ProfileVariableValue.user_bid == user_bid,
-                ProfileVariableValue.variable_key == "sex",
-                ProfileVariableValue.deleted == 0,
-                ProfileVariableValue.shifu_bid == "",
+            VariableValue.query.filter(
+                VariableValue.user_bid == user_bid,
+                VariableValue.key == "sex",
+                VariableValue.deleted == 0,
+                VariableValue.shifu_bid == "",
             )
-            .order_by(ProfileVariableValue.id.desc())
+            .order_by(VariableValue.id.desc())
             .first()
         )
-        if row and row.variable_value is not None:
-            profile_value = row.variable_value
+        if row and row.value is not None:
+            profile_value = row.value
     except Exception:  # pragma: no cover - defensive fallback
         profile_value = None
 

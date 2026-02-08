@@ -2,7 +2,7 @@ from flask import Flask
 
 
 from .constants import SYS_USER_LANGUAGE, SYS_USER_NICKNAME
-from .models import ProfileVariableValue
+from .models import VariableValue
 from ...dao import db
 from typing import Optional
 
@@ -63,11 +63,11 @@ _DEFAULT_LANGUAGE_DISPLAY = "English"
 
 
 def _get_latest_variable_value(
-    values: list[ProfileVariableValue],
+    values: list[VariableValue],
     variable_key: str,
     shifu_bid: str,
     variable_bid: Optional[str] = None,
-) -> Optional[ProfileVariableValue]:
+) -> Optional[VariableValue]:
     """
     Return the newest variable value row from a pre-fetched, id-desc sorted
     collection.
@@ -94,7 +94,7 @@ def _get_latest_variable_value(
         (
             item
             for item in values
-            if item.variable_key == variable_key and item.shifu_bid == target_shifu
+            if item.key == variable_key and item.shifu_bid == target_shifu
         ),
         None,
     )
@@ -117,11 +117,7 @@ def _get_latest_variable_value(
             return fallback
 
     return next(
-        (
-            item
-            for item in values
-            if item.variable_key == variable_key and item.shifu_bid == ""
-        ),
+        (item for item in values if item.key == variable_key and item.shifu_bid == ""),
         None,
     )
 
@@ -131,7 +127,7 @@ def _fetch_latest_variable_value(
     variable_key: str,
     shifu_bid: str,
     variable_bid: Optional[str] = None,
-) -> Optional[ProfileVariableValue]:
+) -> Optional[VariableValue]:
     """
     Fetch the newest variable value row for a user.
 
@@ -140,26 +136,26 @@ def _fetch_latest_variable_value(
     target_shifu = shifu_bid or ""
     if variable_bid:
         profile = (
-            ProfileVariableValue.query.filter(
-                ProfileVariableValue.user_bid == user_bid,
-                ProfileVariableValue.shifu_bid == target_shifu,
-                ProfileVariableValue.variable_bid == variable_bid,
-                ProfileVariableValue.deleted == 0,
+            VariableValue.query.filter(
+                VariableValue.user_bid == user_bid,
+                VariableValue.shifu_bid == target_shifu,
+                VariableValue.variable_bid == variable_bid,
+                VariableValue.deleted == 0,
             )
-            .order_by(ProfileVariableValue.id.desc())
+            .order_by(VariableValue.id.desc())
             .first()
         )
         if profile:
             return profile
 
     return (
-        ProfileVariableValue.query.filter(
-            ProfileVariableValue.user_bid == user_bid,
-            ProfileVariableValue.shifu_bid == target_shifu,
-            ProfileVariableValue.variable_key == variable_key,
-            ProfileVariableValue.deleted == 0,
+        VariableValue.query.filter(
+            VariableValue.user_bid == user_bid,
+            VariableValue.shifu_bid == target_shifu,
+            VariableValue.key == variable_key,
+            VariableValue.deleted == 0,
         )
-        .order_by(ProfileVariableValue.id.desc())
+        .order_by(VariableValue.id.desc())
         .first()
     )
 
@@ -339,8 +335,8 @@ def get_user_profile_by_user_id(
     if user_profile:
         return UserProfileDTO(
             user_profile.user_bid,
-            user_profile.variable_key,
-            user_profile.variable_value,
+            user_profile.key,
+            user_profile.value,
             PROFILE_TYPE_INPUT_TEXT,
         )
     return None
@@ -357,14 +353,14 @@ def save_user_profile(
     )
     aggregate = _ensure_user_aggregate(user_id)
     user_profile = existing_profile
-    if not existing_profile or existing_profile.variable_value != profile_value:
-        user_profile = ProfileVariableValue(
+    if not existing_profile or existing_profile.value != profile_value:
+        user_profile = VariableValue(
             variable_value_bid=uuid.uuid4().hex,
             user_bid=user_id,
             shifu_bid="",
             variable_bid="",
-            variable_key=profile_key,
-            variable_value=profile_value or "",
+            key=profile_key,
+            value=profile_value or "",
             deleted=0,
         )
         db.session.add(user_profile)
@@ -382,8 +378,8 @@ def save_user_profile(
     db.session.flush()
     return UserProfileDTO(
         user_profile.user_bid,
-        user_profile.variable_key,
-        user_profile.variable_value,
+        user_profile.key,
+        user_profile.value,
         PROFILE_TYPE_INPUT_TEXT,
     )
 
@@ -401,17 +397,17 @@ def save_user_profiles(
         candidate_shifus.append("")
 
     try:
-        user_values: list[ProfileVariableValue] = (
-            ProfileVariableValue.query.filter(
-                ProfileVariableValue.user_bid == user_id,
-                ProfileVariableValue.deleted == 0,
-                ProfileVariableValue.shifu_bid.in_(candidate_shifus),
+        user_values: list[VariableValue] = (
+            VariableValue.query.filter(
+                VariableValue.user_bid == user_id,
+                VariableValue.deleted == 0,
+                VariableValue.shifu_bid.in_(candidate_shifus),
             )
-            .order_by(ProfileVariableValue.id.desc())
+            .order_by(VariableValue.id.desc())
             .all()
         )
     except Exception as exc:  # pragma: no cover - defensive fallback
-        app.logger.warning("Failed to load profile_variable_values: %s", exc)
+        app.logger.warning("Failed to load var_variable_values: %s", exc)
         user_values = []
 
     for profile in profiles:
@@ -429,14 +425,14 @@ def save_user_profiles(
             shifu_bid=target_shifu,
             variable_bid=variable_bid or None,
         )
-        if not latest_value or latest_value.variable_value != profile.value:
-            user_value = ProfileVariableValue(
+        if not latest_value or latest_value.value != profile.value:
+            user_value = VariableValue(
                 variable_value_bid=generate_id(app),
                 user_bid=user_id,
                 shifu_bid=target_shifu,
                 variable_bid=variable_bid,
-                variable_key=profile.key,
-                variable_value=profile.value or "",
+                key=profile.key,
+                value=profile.value or "",
                 deleted=0,
             )
             db.session.add(user_value)
@@ -475,17 +471,17 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
         candidate_shifus.append("")
 
     try:
-        user_values: list[ProfileVariableValue] = (
-            ProfileVariableValue.query.filter(
-                ProfileVariableValue.user_bid == user_id,
-                ProfileVariableValue.deleted == 0,
-                ProfileVariableValue.shifu_bid.in_(candidate_shifus),
+        user_values: list[VariableValue] = (
+            VariableValue.query.filter(
+                VariableValue.user_bid == user_id,
+                VariableValue.deleted == 0,
+                VariableValue.shifu_bid.in_(candidate_shifus),
             )
-            .order_by(ProfileVariableValue.id.desc())
+            .order_by(VariableValue.id.desc())
             .all()
         )
     except Exception as exc:  # pragma: no cover - defensive fallback
-        app.logger.warning("Failed to load profile_variable_values: %s", exc)
+        app.logger.warning("Failed to load var_variable_values: %s", exc)
         user_values = []
     user_info: UserEntity = UserEntity.query.filter(
         UserEntity.user_bid == user_id
@@ -503,7 +499,7 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
             else None
         )
         if user_value:
-            result[profile_item.profile_key] = user_value.variable_value
+            result[profile_item.profile_key] = user_value.value
     if result.get(SYS_USER_LANGUAGE, None) is None:
         result[SYS_USER_LANGUAGE] = user_info.language if user_info else "en-US"
     if (
@@ -532,17 +528,17 @@ def get_user_profile_labels(
         candidate_shifus.append("")
 
     try:
-        user_values: list[ProfileVariableValue] = (
-            ProfileVariableValue.query.filter(
-                ProfileVariableValue.user_bid == user_id,
-                ProfileVariableValue.deleted == 0,
-                ProfileVariableValue.shifu_bid.in_(candidate_shifus),
+        user_values: list[VariableValue] = (
+            VariableValue.query.filter(
+                VariableValue.user_bid == user_id,
+                VariableValue.deleted == 0,
+                VariableValue.shifu_bid.in_(candidate_shifus),
             )
-            .order_by(ProfileVariableValue.id.desc())
+            .order_by(VariableValue.id.desc())
             .all()
         )
     except Exception as exc:  # pragma: no cover - defensive fallback
-        app.logger.warning("Failed to load profile_variable_values: %s", exc)
+        app.logger.warning("Failed to load var_variable_values: %s", exc)
         user_values = []
     profiles_items = get_profile_item_definition_list(app, course_id)
     PROFILES_LABLES = get_profile_labels()
@@ -568,7 +564,7 @@ def get_user_profile_labels(
                     else None
                 )
                 if value_entry:
-                    raw_value = value_entry.variable_value
+                    raw_value = value_entry.value
             display_value = raw_value
             if meta.get("items_mapping"):
                 mapping_items = meta.get("items", [])
@@ -622,7 +618,7 @@ def get_user_profile_labels(
                 shifu_bid="",
             )
         if user_value:
-            item["value"] = user_value.variable_value
+            item["value"] = user_value.value
         result.profiles.append(
             UserProfileLabelItemDTO(
                 key=item["key"],
@@ -675,17 +671,17 @@ def update_user_profile_with_lable(
         candidate_shifus.append("")
 
     try:
-        user_values: list[ProfileVariableValue] = (
-            ProfileVariableValue.query.filter(
-                ProfileVariableValue.user_bid == user_id,
-                ProfileVariableValue.deleted == 0,
-                ProfileVariableValue.shifu_bid.in_(candidate_shifus),
+        user_values: list[VariableValue] = (
+            VariableValue.query.filter(
+                VariableValue.user_bid == user_id,
+                VariableValue.deleted == 0,
+                VariableValue.shifu_bid.in_(candidate_shifus),
             )
-            .order_by(ProfileVariableValue.id.desc())
+            .order_by(VariableValue.id.desc())
             .all()
         )
     except Exception as exc:  # pragma: no cover - defensive fallback
-        app.logger.warning("Failed to load profile_variable_values: %s", exc)
+        app.logger.warning("Failed to load var_variable_values: %s", exc)
         user_values = []
 
     for profile in profiles:
@@ -742,17 +738,15 @@ def update_user_profile_with_lable(
                 shifu_bid="",
                 variable_bid=(profile_item.profile_id if profile_item else None),
             )
-            if latest_value is None or latest_value.variable_value != profile_value:
+            if latest_value is None or latest_value.value != profile_value:
                 variable_bid = profile_item.profile_id if profile_item else ""
-                new_value = ProfileVariableValue(
+                new_value = VariableValue(
                     variable_value_bid=generate_id(app),
                     user_bid=user_id,
                     shifu_bid="",
                     variable_bid=variable_bid,
-                    variable_key=key,
-                    variable_value=str(profile_value)
-                    if profile_value is not None
-                    else "",
+                    key=key,
+                    value=str(profile_value) if profile_value is not None else "",
                     deleted=0,
                 )
                 db.session.add(new_value)
@@ -764,16 +758,16 @@ def update_user_profile_with_lable(
 def get_user_variable_by_variable_id(app: Flask, user_id: str, variable_id: str):
     try:
         user_value = (
-            ProfileVariableValue.query.filter(
-                ProfileVariableValue.user_bid == user_id,
-                ProfileVariableValue.variable_bid == variable_id,
-                ProfileVariableValue.deleted == 0,
+            VariableValue.query.filter(
+                VariableValue.user_bid == user_id,
+                VariableValue.variable_bid == variable_id,
+                VariableValue.deleted == 0,
             )
-            .order_by(ProfileVariableValue.id.desc())
+            .order_by(VariableValue.id.desc())
             .first()
         )
         if user_value:
-            return user_value.variable_value
+            return user_value.value
     except Exception as exc:  # pragma: no cover - defensive fallback
-        app.logger.warning("Failed to fetch profile_variable_values: %s", exc)
+        app.logger.warning("Failed to fetch var_variable_values: %s", exc)
     return None

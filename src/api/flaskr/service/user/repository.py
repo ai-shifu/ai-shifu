@@ -260,34 +260,34 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
     birthday: Optional[date] = None
 
     try:
-        from flaskr.service.profile.models import ProfileVariableValue  # type: ignore
+        from flaskr.service.profile.models import VariableValue  # type: ignore
     except ImportError:  # pragma: no cover - defensive fallback
-        ProfileVariableValue = None  # type: ignore[assignment]
+        VariableValue = None  # type: ignore[assignment]
 
-    if ProfileVariableValue is not None:
+    if VariableValue is not None:
         rows = (
-            ProfileVariableValue.query.filter(
-                ProfileVariableValue.user_bid == user_bid,
-                ProfileVariableValue.deleted == 0,
-                ProfileVariableValue.shifu_bid == "",
-                ProfileVariableValue.variable_key.in_(
+            VariableValue.query.filter(
+                VariableValue.user_bid == user_bid,
+                VariableValue.deleted == 0,
+                VariableValue.shifu_bid == "",
+                VariableValue.key.in_(
                     ["sys_user_nickname", "avatar", "language", "birth"]
                 ),
             )
-            .order_by(ProfileVariableValue.id.desc())
+            .order_by(VariableValue.id.desc())
             .all()
         )
         for row in rows:
-            value = (row.variable_value or "").strip()
+            value = (row.value or "").strip()
             if not value:
                 continue
-            if row.variable_key == "sys_user_nickname":
+            if row.key == "sys_user_nickname":
                 nickname = value
-            elif row.variable_key == "avatar" and not avatar:
+            elif row.key == "avatar" and not avatar:
                 avatar = value
-            elif row.variable_key == "language" and not language:
+            elif row.key == "language" and not language:
                 language = value
-            elif row.variable_key == "birth" and not birthday:
+            elif row.key == "birth" and not birthday:
                 try:
                     birthday = date.fromisoformat(value)
                 except ValueError:

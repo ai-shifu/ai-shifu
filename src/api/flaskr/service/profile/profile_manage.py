@@ -6,7 +6,7 @@ from .models import (
     ProfileItem,
     ProfileItemValue,
     ProfileItemI18n,
-    ProfileVariableDefinition,
+    Variable,
     PROFILE_TYPE_INPUT_UNCONF,
     PROFILE_SHOW_TYPE_HIDDEN,
     PROFILE_TYPE_INPUT_TEXT,
@@ -161,7 +161,7 @@ def convert_profile_item_to_profile_item_definition(
 
 
 def convert_variable_definition_to_profile_item_definition(
-    definition: ProfileVariableDefinition,
+    definition: Variable,
 ) -> ProfileItemDefinition:
     """
     Convert new minimal variable definition model to legacy DTO shape.
@@ -176,7 +176,7 @@ def convert_variable_definition_to_profile_item_definition(
         else CONST_PROFILE_SCOPE_USER
     )
     return ProfileItemDefinition(
-        definition.variable_key,
+        definition.key,
         DEFAULT_COLOR_SETTINGS[0],
         "text",
         _("PROFILE.PROFILE_TYPE_TEXT"),
@@ -204,11 +204,11 @@ def get_profile_item_definition_list(
         # Prefer new table, fallback to legacy tables when DB is not migrated yet.
         try:
             definitions = (
-                ProfileVariableDefinition.query.filter(
-                    ProfileVariableDefinition.shifu_bid.in_([parent_id, ""]),
-                    ProfileVariableDefinition.deleted == 0,
+                Variable.query.filter(
+                    Variable.shifu_bid.in_([parent_id, ""]),
+                    Variable.deleted == 0,
                 )
-                .order_by(ProfileVariableDefinition.id.asc())
+                .order_by(Variable.id.asc())
                 .all()
             )
             if definitions:
@@ -246,18 +246,19 @@ def update_profile_item_hidden_state(
     with app.app_context():
         try:
             target_items = (
-                ProfileVariableDefinition.query.filter(
-                    ProfileVariableDefinition.shifu_bid == parent_id,
-                    ProfileVariableDefinition.deleted == 0,
-                    ProfileVariableDefinition.variable_key.in_(profile_keys),
+                Variable.query.filter(
+                    Variable.shifu_bid == parent_id,
+                    Variable.deleted == 0,
+                    Variable.key.in_(profile_keys),
                 )
-                .order_by(ProfileVariableDefinition.id.asc())
+                .order_by(Variable.id.asc())
                 .all()
             )
             if target_items:
                 for item in target_items:
                     item.is_hidden = 1 if hidden else 0
                     item.updated_at = datetime.now()
+                    item.updated_user_bid = user_id or ""
                 db.session.commit()
             return get_profile_item_definition_list(app, parent_id=parent_id)
         except Exception as exc:  # pragma: no cover - defensive fallback
@@ -348,23 +349,25 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
     # Prefer new table, fallback to legacy when DB is not migrated yet.
     try:
         existing = (
-            ProfileVariableDefinition.query.filter(
-                ProfileVariableDefinition.variable_key == key,
-                ProfileVariableDefinition.shifu_bid.in_([parent_id, ""]),
-                ProfileVariableDefinition.deleted == 0,
+            Variable.query.filter(
+                Variable.key == key,
+                Variable.shifu_bid.in_([parent_id, ""]),
+                Variable.deleted == 0,
             )
-            .order_by(ProfileVariableDefinition.id.asc())
+            .order_by(Variable.id.asc())
             .first()
         )
         if existing:
             return convert_variable_definition_to_profile_item_definition(existing)
 
-        definition = ProfileVariableDefinition(
+        definition = Variable(
             variable_bid=generate_id(app),
             shifu_bid=parent_id,
-            variable_key=key,
+            key=key,
             is_hidden=0,
             deleted=0,
+            created_user_bid=user_id or "",
+            updated_user_bid=user_id or "",
         )
         db.session.add(definition)
         db.session.flush()
@@ -418,7 +421,7 @@ def save_profile_item(
     Save (create/update) a custom variable definition.
 
     After the variable table refactor, the definition table only stores:
-    - variable_key
+    - key
     - is_hidden
 
     Other legacy fields (type/remark/options/prompt/etc.) are ignored.
@@ -433,38 +436,41 @@ def save_profile_item(
             raise_error("server.profile.keyRequired")
 
         try:
-            system_conflict = ProfileVariableDefinition.query.filter(
-                ProfileVariableDefinition.shifu_bid == "",
-                ProfileVariableDefinition.deleted == 0,
-                ProfileVariableDefinition.variable_key == key,
+            system_conflict = Variable.query.filter(
+                Variable.shifu_bid == "",
+                Variable.deleted == 0,
+                Variable.key == key,
             ).first()
             if system_conflict:
                 raise_error("server.profile.systemProfileKeyExist")
 
             if profile_id:
-                definition = ProfileVariableDefinition.query.filter(
-                    ProfileVariableDefinition.variable_bid == profile_id,
-                    ProfileVariableDefinition.shifu_bid == parent_id,
-                    ProfileVariableDefinition.deleted == 0,
+                definition = Variable.query.filter(
+                    Variable.variable_bid == profile_id,
+                    Variable.shifu_bid == parent_id,
+                    Variable.deleted == 0,
                 ).first()
                 if not definition:
                     raise_error("server.profile.notFound")
-                definition.variable_key = key
+                definition.key = key
                 definition.updated_at = datetime.now()
+                definition.updated_user_bid = user_id or ""
             else:
-                exist_item = ProfileVariableDefinition.query.filter(
-                    ProfileVariableDefinition.shifu_bid == parent_id,
-                    ProfileVariableDefinition.deleted == 0,
-                    ProfileVariableDefinition.variable_key == key,
+                exist_item = Variable.query.filter(
+                    Variable.shifu_bid == parent_id,
+                    Variable.deleted == 0,
+                    Variable.key == key,
                 ).first()
                 if exist_item:
                     raise_error("server.profile.keyExist")
-                definition = ProfileVariableDefinition(
+                definition = Variable(
                     variable_bid=generate_id(app),
                     shifu_bid=parent_id,
-                    variable_key=key,
+                    key=key,
                     is_hidden=0,
                     deleted=0,
+                    created_user_bid=user_id or "",
+                    updated_user_bid=user_id or "",
                 )
                 db.session.add(definition)
 
@@ -624,9 +630,9 @@ def delete_profile_item(app: Flask, user_id: str, profile_id: str):
 
     with app.app_context():
         try:
-            definition = ProfileVariableDefinition.query.filter(
-                ProfileVariableDefinition.variable_bid == profile_id,
-                ProfileVariableDefinition.deleted == 0,
+            definition = Variable.query.filter(
+                Variable.variable_bid == profile_id,
+                Variable.deleted == 0,
             ).first()
             if not definition:
                 raise_error("server.profile.notFound")
@@ -635,6 +641,7 @@ def delete_profile_item(app: Flask, user_id: str, profile_id: str):
 
             definition.deleted = 1
             definition.updated_at = datetime.now()
+            definition.updated_user_bid = user_id or ""
             db.session.commit()
             return True
         except AppException:
