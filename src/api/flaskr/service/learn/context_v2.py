@@ -1768,9 +1768,33 @@ class RunScriptContextV2:
                 db.session.add(generated_block)
                 db.session.flush()
                 return
-            normalized_input = MdflowContextV2.normalize_user_input_map(self._input)
+            expected_variable = (parsed_interaction.get("variable") or "input").strip()
+            if not expected_variable:
+                expected_variable = "input"
+
+            user_input_param = MdflowContextV2.normalize_user_input_map(
+                self._input, expected_variable
+            )
+            # Backward compatible: some clients may still send `{input: [...]}` or a single
+            # unnamed key even when the interaction expects a specific variable.
+            if expected_variable and expected_variable not in user_input_param:
+                if "input" in user_input_param and len(user_input_param) == 1:
+                    app.logger.warning(
+                        "Remap interaction input key 'input' -> '%s'", expected_variable
+                    )
+                    user_input_param = {expected_variable: user_input_param["input"]}
+                elif len(user_input_param) == 1:
+                    only_key, only_values = next(iter(user_input_param.items()))
+                    if only_values:
+                        app.logger.warning(
+                            "Remap interaction input key '%s' -> '%s'",
+                            only_key,
+                            expected_variable,
+                        )
+                        user_input_param = {expected_variable: only_values}
+
             generated_block.generated_content = MdflowContextV2.flatten_user_input_map(
-                normalized_input
+                user_input_param
             )
             generated_block.role = ROLE_STUDENT
             generated_block.position = run_script_info.block_position
@@ -1856,12 +1880,6 @@ class RunScriptContextV2:
                 self._current_attend.block_position += 1
                 db.session.flush()
                 return
-            # Direct synchronous call - no async wrapper needed (markdown-flow 0.2.27+)
-            user_input_param = MdflowContextV2.normalize_user_input_map(
-                self._input,
-                parsed_interaction.get("variable", "input"),
-            )
-
             validate_result = mdflow_context.process(
                 block_index=run_script_info.block_position,
                 mode=ProcessMode.COMPLETE,
@@ -1929,13 +1947,32 @@ class RunScriptContextV2:
                 db.session.add(generated_block)
                 db.session.flush()
                 content = ""
-                for i in validate_result.content:
-                    content += i
+                error_content = getattr(validate_result, "content", "")
+                if isinstance(error_content, str):
+                    error_chunks = [error_content] if error_content else []
+                elif inspect.isgenerator(error_content):
+                    error_chunks = error_content
+                elif isinstance(error_content, (list, tuple)):
+                    error_chunks = [
+                        str(item) for item in error_content if item is not None
+                    ]
+                elif error_content:
+                    error_chunks = [str(error_content)]
+                else:
+                    error_chunks = []
+
+                for chunk in error_chunks:
+                    if chunk is None:
+                        continue
+                    chunk_str = str(chunk)
+                    if not chunk_str:
+                        continue
+                    content += chunk_str
                     yield RunMarkdownFlowDTO(
                         outline_bid=run_script_info.outline_bid,
                         generated_block_bid=generated_block.generated_block_bid,
                         type=GeneratedType.CONTENT,
-                        content=i,
+                        content=chunk_str,
                     )
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
