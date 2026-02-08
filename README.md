@@ -121,6 +121,6 @@ AI-Shifu supports multiple TTS providers. To enable Volcengine HTTP v1/tts, set:
 
 - `VOLCENGINE_TTS_APP_KEY` (AppID)
 - `VOLCENGINE_TTS_ACCESS_KEY` (Token used by `Authorization: Bearer;{token}`)
-- `VOLCENGINE_TTS_CLUSTER_ID` (Cluster, e.g., `volcano_tts`)
+- `VOLCENGINE_TTS_CLUSTER_ID` (Cluster, default: `volcano_tts`)
 
 In Shifu settings, select the provider name `volcengine_http` and choose a voice/model.

@@ -115,10 +115,13 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
     def _get_credentials(self) -> tuple[str, str, str]:
         app_id = (get_config("VOLCENGINE_TTS_APP_KEY") or "").strip()
         token = (get_config("VOLCENGINE_TTS_ACCESS_KEY") or "").strip()
-        cluster = (get_config("VOLCENGINE_TTS_CLUSTER_ID") or "").strip()
+        # Prefer explicit env vars over config defaults.
+        cluster = (os.environ.get("VOLCENGINE_TTS_CLUSTER_ID") or "").strip()
         if not cluster:
             # Backward compatibility: previously named as VOLCENGINE_TTS_RESOURCE_ID.
             cluster = (os.environ.get("VOLCENGINE_TTS_RESOURCE_ID") or "").strip()
+        if not cluster:
+            cluster = (get_config("VOLCENGINE_TTS_CLUSTER_ID") or "").strip()
         return app_id, token, cluster
 
     def is_configured(self) -> bool:

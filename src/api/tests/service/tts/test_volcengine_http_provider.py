@@ -75,6 +75,51 @@ def test_volcengine_http_synthesize_success(monkeypatch):
     assert captured["json"]["audio"]["emotion"] == "happy"
 
 
+def test_volcengine_http_legacy_resource_id_overrides_default_cluster(monkeypatch):
+    """Ensure old VOLCENGINE_TTS_RESOURCE_ID still works when new cluster var is unset."""
+    monkeypatch.setenv("VOLCENGINE_TTS_APP_KEY", "test-app")
+    monkeypatch.setenv("VOLCENGINE_TTS_ACCESS_KEY", "test-token")
+    monkeypatch.delenv("VOLCENGINE_TTS_CLUSTER_ID", raising=False)
+    monkeypatch.setenv("VOLCENGINE_TTS_RESOURCE_ID", "legacy_cluster")
+
+    audio_base64 = base64.b64encode(b"audio-bytes").decode("utf-8")
+    captured = {}
+
+    class DummyResponse:
+        status_code = 200
+        url = VOLCENGINE_HTTP_TTS_URL
+        headers = {"Content-Type": "application/json"}
+        text = ""
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "reqid": "reqid",
+                "code": 3000,
+                "message": "Success",
+                "sequence": -1,
+                "data": audio_base64,
+                "addition": {"duration": "0"},
+            }
+
+    def fake_post(url, json=None, headers=None, timeout=None):
+        captured["url"] = url
+        captured["json"] = json
+        captured["headers"] = headers
+        captured["timeout"] = timeout
+        return DummyResponse()
+
+    monkeypatch.setattr(requests, "post", fake_post)
+
+    provider = VolcengineHttpTTSProvider()
+    provider.synthesize("Hello world", model=None)
+
+    assert captured["url"] == VOLCENGINE_HTTP_TTS_URL
+    assert captured["json"]["app"]["cluster"] == "legacy_cluster"
+
+
 def test_volcengine_http_provider_config_omits_models(monkeypatch):
     monkeypatch.setenv("VOLCENGINE_TTS_CLUSTER_ID", "custom_cluster")
     provider = VolcengineHttpTTSProvider()
