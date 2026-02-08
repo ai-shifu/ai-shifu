@@ -93,7 +93,7 @@ class ShifuDetailDto(BaseModel):
     tts_enabled: bool = Field(False, description="TTS enabled", required=False)
     tts_provider: str = Field(
         "",
-        description="TTS provider: minimax, volcengine, baidu, aliyun",
+        description="TTS provider: minimax, volcengine, volcengine_http, baidu, aliyun",
         required=False,
     )
     tts_model: str = Field("", description="TTS model/resource ID", required=False)

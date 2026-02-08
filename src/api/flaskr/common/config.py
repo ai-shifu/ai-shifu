@@ -1019,6 +1019,27 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="TTS audio bitrate (32000-256000)",
         group="tts",
     ),
+    # Volcengine TTS HTTP (v1/tts) Configuration
+    "VOLCENGINE_TTS_APP_KEY": EnvVar(
+        name="VOLCENGINE_TTS_APP_KEY",
+        default="",
+        description="Volcengine TTS AppID for HTTP v1/tts",
+        secret=True,
+        group="tts",
+    ),
+    "VOLCENGINE_TTS_ACCESS_KEY": EnvVar(
+        name="VOLCENGINE_TTS_ACCESS_KEY",
+        default="",
+        description="Volcengine TTS token for HTTP v1/tts (Authorization: Bearer;{token})",
+        secret=True,
+        group="tts",
+    ),
+    "VOLCENGINE_TTS_CLUSTER_ID": EnvVar(
+        name="VOLCENGINE_TTS_CLUSTER_ID",
+        default="volcano_tts",
+        description="Volcengine TTS cluster for HTTP v1/tts (e.g., volcano_tts)",
+        group="tts",
+    ),
     # Volcengine TTS Configuration
     # Note: Uses ARK_ACCESS_KEY_ID and ARK_SECRET_ACCESS_KEY for authentication.
     "VOLCENGINE_TTS_SAMPLE_RATE": EnvVar(

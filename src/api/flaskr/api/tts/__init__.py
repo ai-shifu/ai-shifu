@@ -12,6 +12,7 @@ The provider can be selected per-Shifu configuration.
 
 import base64
 import logging
+import os
 from typing import Optional, Tuple
 
 from flaskr.common.config import get_config
@@ -27,6 +28,7 @@ from flaskr.api.tts.base import (
 )
 from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
 from flaskr.api.tts.volcengine_provider import VolcengineTTSProvider
+from flaskr.api.tts.volcengine_http_provider import VolcengineHttpTTSProvider
 from flaskr.api.tts.baidu_provider import BaiduTTSProvider
 from flaskr.api.tts.aliyun_provider import AliyunTTSProvider
 
@@ -37,10 +39,17 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 _PROVIDER_REGISTRY = {
     "minimax": MinimaxTTSProvider,
     "volcengine": VolcengineTTSProvider,
+    "volcengine_http": VolcengineHttpTTSProvider,
     "baidu": BaiduTTSProvider,
     "aliyun": AliyunTTSProvider,
 }
-_PROVIDER_PRIORITY = ("minimax", "volcengine", "baidu", "aliyun")
+_PROVIDER_PRIORITY = (
+    "minimax",
+    "volcengine",
+    "volcengine_http",
+    "baidu",
+    "aliyun",
+)
 
 # Provider instances (lazy initialized)
 _provider_instances: dict = {}
@@ -59,6 +68,15 @@ def _auto_detect_provider_name() -> str:
         return "minimax"
     if get_config("ARK_ACCESS_KEY_ID") and get_config("ARK_SECRET_ACCESS_KEY"):
         return "volcengine"
+    if (
+        get_config("VOLCENGINE_TTS_APP_KEY")
+        and get_config("VOLCENGINE_TTS_ACCESS_KEY")
+        and (
+            get_config("VOLCENGINE_TTS_CLUSTER_ID")
+            or os.environ.get("VOLCENGINE_TTS_RESOURCE_ID")
+        )
+    ):
+        return "volcengine_http"
     if get_config("BAIDU_TTS_API_KEY") and get_config("BAIDU_TTS_SECRET_KEY"):
         return "baidu"
     if get_config("ALIYUN_TTS_APPKEY") and get_config("ALIYUN_TTS_TOKEN"):
@@ -83,7 +101,7 @@ def get_tts_provider(provider_name: str = "") -> BaseTTSProvider:
     Get a TTS provider instance.
 
     Args:
-        provider_name: Provider name ("minimax", "volcengine", "baidu", "aliyun").
+        provider_name: Provider name ("minimax", "volcengine", "volcengine_http", "baidu", "aliyun").
                       If empty, auto-detects.
 
     Returns:

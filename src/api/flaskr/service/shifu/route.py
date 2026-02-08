@@ -395,7 +395,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                         description: TTS enabled
                     tts_provider:
                         type: string
-                        description: TTS provider (minimax, volcengine, baidu, aliyun)
+                        description: TTS provider (minimax, volcengine, volcengine_http, baidu, aliyun)
                     tts_model:
                         type: string
                         description: TTS model/resource ID
