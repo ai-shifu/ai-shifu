@@ -8,6 +8,7 @@ import {
   useCallback,
   useState,
   useEffect,
+  useMemo,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -19,12 +20,15 @@ import { useEnvStore } from '@/c-store/envStore';
 import { useUserStore } from '@/store';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { toast } from '@/hooks/useToast';
+import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import InteractionBlock from './InteractionBlock';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import type { ChatContentItem } from './useChatLogicHook';
 import AskBlock from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
+import ListenModeRenderer from './ListenModeRenderer';
+import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import {
   Dialog,
   DialogContent,
@@ -33,6 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
+import { useSystemStore } from '@/c-store/useSystemStore';
 
 export const NewChatComponents = ({
   className,
@@ -40,6 +45,7 @@ export const NewChatComponents = ({
   onGoChapter,
   chapterId,
   lessonId,
+  lessonTitle = '',
   onPurchased,
   chapterUpdate,
   updateSelectedLesson,
@@ -74,6 +80,8 @@ export const NewChatComponents = ({
     appendMsg: () => {},
     deleteMsg: () => {},
   });
+
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   // const { scrollToBottom } = useAutoScroll(chatRef as any, {
   //   threshold: 120,
   // });
@@ -133,6 +141,10 @@ export const NewChatComponents = ({
       payModalResult: state.payModalResult,
     })),
   );
+  const learningMode = useSystemStore(state => state.learningMode);
+  const isListenMode = learningMode === 'listen';
+  const shouldShowAudioAction = previewMode || isListenMode;
+  const { requestExclusive, releaseExclusive } = useExclusiveAudio();
 
   const onPayModalOpen = useCallback(() => {
     openPayModal();
@@ -153,6 +165,28 @@ export const NewChatComponents = ({
   });
   const [longPressedBlockBid, setLongPressedBlockBid] = useState<string>('');
 
+  // Streaming TTS sequential playback (auto-play next block)
+  const autoPlayAudio = isListenMode;
+  const [currentPlayingBlockBid, setCurrentPlayingBlockBid] = useState<
+    string | null
+  >(null);
+  const currentPlayingBlockBidRef = useRef<string | null>(null);
+  const playedBlocksRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    currentPlayingBlockBidRef.current = currentPlayingBlockBid;
+  }, [currentPlayingBlockBid]);
+
+  useEffect(() => {
+    if (isListenMode) {
+      return;
+    }
+    requestExclusive(() => {});
+    releaseExclusive();
+    currentPlayingBlockBidRef.current = null;
+    setCurrentPlayingBlockBid(null);
+  }, [isListenMode, releaseExclusive, requestExclusive]);
+
   const {
     items,
     isLoading,
@@ -160,6 +194,7 @@ export const NewChatComponents = ({
     onRefresh,
     toggleAskExpanded,
     reGenerateConfirm,
+    requestAudioForBlock,
   } = useChatLogicHook({
     onGoChapter,
     shifuBid,
@@ -167,6 +202,7 @@ export const NewChatComponents = ({
     lessonId,
     chapterId,
     previewMode,
+    isListenMode,
     trackEvent,
     chatBoxBottomRef,
     trackTrailProgress,
@@ -179,6 +215,82 @@ export const NewChatComponents = ({
     showOutputInProgressToast,
     onPayModalOpen,
   });
+
+  const itemByGeneratedBid = useMemo(() => {
+    const mapping = new Map<string, ChatContentItem>();
+    items.forEach(item => {
+      if (item.generated_block_bid) {
+        mapping.set(item.generated_block_bid, item);
+      }
+    });
+    return mapping;
+  }, [items]);
+
+  const handleAudioPlayStateChange = useCallback(
+    (blockBid: string, isPlaying: boolean) => {
+      if (!isPlaying) {
+        return;
+      }
+      currentPlayingBlockBidRef.current = blockBid;
+      setCurrentPlayingBlockBid(blockBid);
+    },
+    [],
+  );
+
+  const handleAudioEnded = useCallback((blockBid: string) => {
+    if (currentPlayingBlockBidRef.current !== blockBid) {
+      return;
+    }
+    playedBlocksRef.current.add(blockBid);
+    currentPlayingBlockBidRef.current = null;
+    setCurrentPlayingBlockBid(null);
+  }, []);
+
+  useEffect(() => {
+    playedBlocksRef.current.clear();
+    currentPlayingBlockBidRef.current = null;
+    setCurrentPlayingBlockBid(null);
+  }, [lessonId]);
+
+  const autoPlayTargetBlockBid = useMemo(() => {
+    if (!autoPlayAudio || previewMode) {
+      return null;
+    }
+
+    if (currentPlayingBlockBid) {
+      return currentPlayingBlockBid;
+    }
+
+    for (const item of items) {
+      if (item.type !== ChatContentItemType.CONTENT) {
+        continue;
+      }
+      if (item.isHistory) {
+        continue;
+      }
+      const blockBid = item.generated_block_bid;
+      if (!blockBid || blockBid === 'loading') {
+        continue;
+      }
+      if (playedBlocksRef.current.has(blockBid)) {
+        continue;
+      }
+      const hasAudioContent = Boolean(
+        item.isAudioStreaming ||
+        (item.audioSegments && item.audioSegments.length > 0),
+      );
+      const hasOssAudio = Boolean(item.audioUrl);
+      if (!hasAudioContent && !hasOssAudio) {
+        continue;
+      }
+      return blockBid;
+    }
+
+    return null;
+  }, [autoPlayAudio, currentPlayingBlockBid, items, previewMode]);
+
+  // Memoize onSend to prevent new function references
+  const memoizedOnSend = useCallback(onSend, [onSend]);
 
   const handleLongPress = useCallback(
     (event: any, currentBlock: ChatContentItem) => {
@@ -300,10 +412,6 @@ export const NewChatComponents = ({
     };
   }, [checkScroll, items, mobileStyle]); // Added items as dependency to re-bind if structure changes significantly
 
-  // Memoize onSend to prevent new function references
-  const memoizedOnSend = useCallback(onSend, [onSend]);
-
-  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   useEffect(() => {
     if (mobileStyle) {
       setPortalTarget(document.getElementById('chat-scroll-target'));
@@ -311,6 +419,12 @@ export const NewChatComponents = ({
       setPortalTarget(null);
     }
   }, [mobileStyle]);
+
+  const containerClassName = cn(
+    styles.chatComponents,
+    className,
+    mobileStyle ? styles.mobile : '',
+  );
 
   const scrollButton = (
     <button
@@ -327,119 +441,175 @@ export const NewChatComponents = ({
 
   return (
     <div
-      className={cn(
-        styles.chatComponents,
-        className,
-        mobileStyle ? styles.mobile : '',
-      )}
+      className={containerClassName}
       style={{ position: 'relative', overflow: 'hidden', padding: 0 }}
     >
-      <div
-        className={cn(
-          styles.chatComponents,
-          className,
-          mobileStyle ? styles.mobile : '',
-        )}
-        ref={chatRef}
-        style={{ width: '100%', height: '100%', overflowY: 'auto' }}
-      >
-        <div>
-          {isLoading ? (
-            <></>
-          ) : (
-            items.map((item, idx) => {
-              const isLongPressed =
-                longPressedBlockBid === item.generated_block_bid;
-              const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
-              const parentKey = item.parent_block_bid || baseKey;
+      {isListenMode ? (
+        <ListenModeRenderer
+          items={items}
+          mobileStyle={mobileStyle}
+          chatRef={chatRef as React.RefObject<HTMLDivElement>}
+          containerClassName={containerClassName}
+          isLoading={isLoading}
+          sectionTitle={lessonTitle}
+          previewMode={previewMode}
+          onRequestAudioForBlock={requestAudioForBlock}
+          onSend={memoizedOnSend}
+        />
+      ) : (
+        <div
+          className={containerClassName}
+          ref={chatRef}
+          style={{ width: '100%', height: '100%', overflowY: 'auto' }}
+        >
+          <div>
+            {isLoading ? (
+              <></>
+            ) : (
+              items.map((item, idx) => {
+                const isLongPressed =
+                  longPressedBlockBid === item.generated_block_bid;
+                const baseKey =
+                  item.generated_block_bid || `${item.type}-${idx}`;
+                const parentKey = item.parent_block_bid || baseKey;
+                if (item.type === ChatContentItemType.ASK) {
+                  return (
+                    <div
+                      key={`ask-${parentKey}`}
+                      style={{
+                        position: 'relative',
+                        margin: '0 auto',
+                        maxWidth: mobileStyle ? '100%' : '1000px',
+                        padding: '0 20px',
+                      }}
+                    >
+                      <AskBlock
+                        isExpanded={item.isAskExpanded}
+                        shifu_bid={shifuBid}
+                        outline_bid={lessonId}
+                        preview_mode={previewMode}
+                        generated_block_bid={item.parent_block_bid || ''}
+                        onToggleAskExpanded={toggleAskExpanded}
+                        askList={(item.ask_list || []) as any[]}
+                      />
+                    </div>
+                  );
+                }
 
-              if (item.type === ChatContentItemType.ASK) {
+                if (item.type === ChatContentItemType.LIKE_STATUS) {
+                  const parentBlockBid = item.parent_block_bid || '';
+                  const parentContentItem = parentBlockBid
+                    ? itemByGeneratedBid.get(parentBlockBid)
+                    : undefined;
+                  const canRequestAudio =
+                    !previewMode && Boolean(parentBlockBid);
+                  const hasAudioForBlock = Boolean(
+                    parentContentItem?.audioUrl ||
+                    parentContentItem?.isAudioStreaming ||
+                    (parentContentItem?.audioSegments &&
+                      parentContentItem.audioSegments.length > 0),
+                  );
+                  const shouldAutoPlay =
+                    autoPlayTargetBlockBid === parentBlockBid;
+                  return mobileStyle ? null : (
+                    <div
+                      key={`like-${parentKey}`}
+                      style={{
+                        margin: '0 auto',
+                        maxWidth: '1000px',
+                        padding: '0px 20px',
+                      }}
+                    >
+                      <InteractionBlock
+                        shifu_bid={shifuBid}
+                        generated_block_bid={parentBlockBid}
+                        like_status={item.like_status}
+                        readonly={item.readonly}
+                        onRefresh={onRefresh}
+                        onToggleAskExpanded={toggleAskExpanded}
+                        extraActions={
+                          shouldShowAudioAction &&
+                          (canRequestAudio || hasAudioForBlock) ? (
+                            <AudioPlayer
+                              audioUrl={parentContentItem?.audioUrl}
+                              streamingSegments={
+                                parentContentItem?.audioSegments
+                              }
+                              isStreaming={Boolean(
+                                parentContentItem?.isAudioStreaming,
+                              )}
+                              alwaysVisible={canRequestAudio}
+                              onRequestAudio={
+                                canRequestAudio
+                                  ? () => requestAudioForBlock(parentBlockBid)
+                                  : undefined
+                              }
+                              autoPlay={shouldAutoPlay}
+                              onPlayStateChange={isPlaying =>
+                                handleAudioPlayStateChange(
+                                  parentBlockBid,
+                                  isPlaying,
+                                )
+                              }
+                              onEnded={() => handleAudioEnded(parentBlockBid)}
+                              className='interaction-icon-btn'
+                              size={16}
+                            />
+                          ) : null
+                        }
+                      />
+                    </div>
+                  );
+                }
+
                 return (
                   <div
-                    key={`ask-${parentKey}`}
+                    key={`content-${baseKey}`}
                     style={{
                       position: 'relative',
-                      margin: '0 auto',
+                      margin:
+                        !idx || item.type === ChatContentItemType.INTERACTION
+                          ? '0 auto'
+                          : '40px auto 0 auto',
                       maxWidth: mobileStyle ? '100%' : '1000px',
                       padding: '0 20px',
                     }}
                   >
-                    <AskBlock
-                      isExpanded={item.isAskExpanded}
-                      shifu_bid={shifuBid}
-                      outline_bid={lessonId}
-                      preview_mode={previewMode}
-                      generated_block_bid={item.parent_block_bid || ''}
-                      onToggleAskExpanded={toggleAskExpanded}
-                      askList={(item.ask_list || []) as any[]}
+                    {isLongPressed && mobileStyle && (
+                      <div className='long-press-overlay' />
+                    )}
+                    <ContentBlock
+                      item={item}
+                      mobileStyle={mobileStyle}
+                      blockBid={item.generated_block_bid}
+                      confirmButtonText={confirmButtonText}
+                      copyButtonText={copyButtonText}
+                      copiedButtonText={copiedButtonText}
+                      onClickCustomButtonAfterContent={handleClickAskButton}
+                      onSend={memoizedOnSend}
+                      onLongPress={handleLongPress}
+                      autoPlayAudio={
+                        autoPlayTargetBlockBid === item.generated_block_bid
+                      }
+                      showAudioAction={shouldShowAudioAction}
+                      onAudioPlayStateChange={handleAudioPlayStateChange}
+                      onAudioEnded={handleAudioEnded}
                     />
                   </div>
                 );
-              }
-
-              if (item.type === ChatContentItemType.LIKE_STATUS) {
-                const parentBlockBid = item.parent_block_bid || '';
-                return mobileStyle ? null : (
-                  <div
-                    key={`like-${parentKey}`}
-                    style={{
-                      margin: '0 auto',
-                      maxWidth: '1000px',
-                      padding: '0px 20px',
-                    }}
-                  >
-                    <InteractionBlock
-                      shifu_bid={shifuBid}
-                      generated_block_bid={parentBlockBid}
-                      like_status={item.like_status}
-                      readonly={item.readonly}
-                      onRefresh={onRefresh}
-                      onToggleAskExpanded={toggleAskExpanded}
-                    />
-                  </div>
-                );
-              }
-
-              return (
-                <div
-                  key={`content-${baseKey}`}
-                  style={{
-                    position: 'relative',
-                    margin:
-                      !idx || item.type === ChatContentItemType.INTERACTION
-                        ? '0 auto'
-                        : '40px auto 0 auto',
-                    maxWidth: mobileStyle ? '100%' : '1000px',
-                    padding: '0 20px',
-                  }}
-                >
-                  {isLongPressed && mobileStyle && (
-                    <div className='long-press-overlay' />
-                  )}
-                  <ContentBlock
-                    item={item}
-                    mobileStyle={mobileStyle}
-                    blockBid={item.generated_block_bid}
-                    confirmButtonText={confirmButtonText}
-                    copyButtonText={copyButtonText}
-                    copiedButtonText={copiedButtonText}
-                    onClickCustomButtonAfterContent={handleClickAskButton}
-                    onSend={memoizedOnSend}
-                    onLongPress={handleLongPress}
-                  />
-                </div>
-              );
-            })
-          )}
-          <div
-            ref={chatBoxBottomRef}
-            id='chat-box-bottom'
-          ></div>
+              })
+            )}
+            <div
+              ref={chatBoxBottomRef}
+              id='chat-box-bottom'
+            ></div>
+          </div>
         </div>
-      </div>
-      {mobileStyle && portalTarget
-        ? createPortal(scrollButton, portalTarget)
-        : scrollButton}
+      )}
+      {!isListenMode &&
+        (mobileStyle && portalTarget
+          ? createPortal(scrollButton, portalTarget)
+          : scrollButton)}
       {mobileStyle && mobileInteraction?.generatedBlockBid && (
         <InteractionBlockM
           open={mobileInteraction.open}
@@ -454,6 +624,24 @@ export const NewChatComponents = ({
           generated_block_bid={mobileInteraction.generatedBlockBid}
           like_status={mobileInteraction.likeStatus}
           onRefresh={onRefresh}
+          audioUrl={
+            itemByGeneratedBid.get(mobileInteraction.generatedBlockBid)
+              ?.audioUrl
+          }
+          streamingSegments={
+            itemByGeneratedBid.get(mobileInteraction.generatedBlockBid)
+              ?.audioSegments
+          }
+          isStreaming={Boolean(
+            itemByGeneratedBid.get(mobileInteraction.generatedBlockBid)
+              ?.isAudioStreaming,
+          )}
+          onRequestAudio={
+            !previewMode && mobileInteraction.generatedBlockBid
+              ? () => requestAudioForBlock(mobileInteraction.generatedBlockBid)
+              : undefined
+          }
+          showAudioAction={shouldShowAudioAction}
         />
       )}
       <Dialog

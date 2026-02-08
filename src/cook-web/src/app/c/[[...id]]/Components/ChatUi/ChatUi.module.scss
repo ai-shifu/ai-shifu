@@ -22,6 +22,57 @@
     font-size: 14px;
     color: rgba(0, 0, 0, 0.65);
     line-height: 20px;
+
+    .headerActions {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .modeButton {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #d9d9d9;
+      background: #fff;
+      color: #0a0a0a;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        border-color: #1677ff;
+        color: #1677ff;
+      }
+
+      svg {
+        width: 16px;
+        height: 16px;
+      }
+    }
+
+    .modeButtonActive {
+      background: #1677ff;
+      border-color: #1677ff;
+      color: #fff;
+
+      &:hover {
+        background: #4096ff;
+        border-color: #4096ff;
+        color: #fff;
+      }
+
+      svg {
+        color: #fff;
+      }
+    }
   }
 
   .headerMobile {
@@ -101,7 +152,7 @@
   &.mobile {
     width: 100%;
     // padding-top: 80px;
-    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+    // padding-bottom: 40px;
     overflow: hidden;
     .chatComponents {
       padding-top: 0;
@@ -112,7 +163,7 @@
       left: 0;
       right: 0;
       bottom: 0;
-      padding-bottom: env(safe-area-inset-bottom, 0px);
+      padding-bottom: 0;
     }
   }
 

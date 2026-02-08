@@ -23,7 +23,7 @@
   "shifuDescriptionMaxLength": "Description cannot exceed 500 characters",
   "shifuName": "Name",
   "shifuNameEmpty": "Name cannot be empty",
-  "shifuNameMaxLength": "Name cannot exceed {{maxLength}} characters",
+  "shifuNameMaxLength": "Name cannot exceed {maxLength} characters",
   "shifuPriceEmpty": "Price cannot be empty",
   "shifuPriceFormat": "Price must be a valid number",
   "shifuPrompt": "Course Prompt",

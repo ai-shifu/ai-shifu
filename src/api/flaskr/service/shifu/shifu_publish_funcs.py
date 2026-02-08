@@ -29,6 +29,8 @@ import queue
 from flaskr.service.shifu.shifu_struct_manager import ShifuInfoDto
 from flaskr.api.llm import invoke_llm
 from flaskr.api.langfuse import langfuse_client
+from flaskr.service.metering import UsageContext
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.util.prompt_loader import load_prompt_template
 from flaskr.service.shifu.consts import (
     ASK_MODE_ENABLE,
@@ -475,6 +477,14 @@ def _get_summary(app, prompt, model_name, user_id=None, temperature=0.8):
         prompt,
         temperature=temperature,
         generation_name="shifu_summary",
+        usage_context=UsageContext(
+            user_bid=user_id or "shifu-summary",
+            shifu_bid="",
+            usage_scene=BILL_USAGE_SCENE_DEBUG,
+            billable=0,
+        ),
+        usage_scene=BILL_USAGE_SCENE_DEBUG,
+        billable=0,
     )
     summary = ""
     for chunk in response:

@@ -1,45 +1,40 @@
 import { memo } from 'react';
 import styles from './PayModalFooter.module.scss';
 import classNames from 'classnames';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 
 export const PayModalFooter = ({ className = '' }) => {
   const { t } = useTranslation();
 
   const renderVirtualProductPoint1 = () => {
-    const point1Text = t('module.pay.virtualProductPoint1');
-    const parts = point1Text.split(
-      /\{\{modelServiceAgreement\}\}|\{\{userPrivacyPolicy\}\}/g,
-    );
-
-    if (parts.length !== 3) {
-      return point1Text;
-    }
-
     return (
-      <>
-        {parts[0]}
-        <a
-          className={styles.protocolLink}
-          href='/useragreement'
-          target='_blank'
-          referrerPolicy='no-referrer'
-          rel='noopener'
-        >
-          {t('module.pay.modelServiceAgreement')}
-        </a>
-        {parts[1]}
-        <a
-          className={styles.protocolLink}
-          href='/privacypolicy'
-          target='_blank'
-          referrerPolicy='no-referrer'
-          rel='noopener'
-        >
-          {t('module.pay.userPrivacyPolicy')}
-        </a>
-        {parts[2]}
-      </>
+      <Trans
+        i18nKey='module.pay.virtualProductPoint1'
+        components={{
+          modelServiceAgreement: (
+            <a
+              className={styles.protocolLink}
+              href='/useragreement'
+              target='_blank'
+              referrerPolicy='no-referrer'
+              rel='noopener'
+            />
+          ),
+          userPrivacyPolicy: (
+            <a
+              className={styles.protocolLink}
+              href='/privacypolicy'
+              target='_blank'
+              referrerPolicy='no-referrer'
+              rel='noopener'
+            />
+          ),
+        }}
+        values={{
+          modelServiceAgreement: t('module.pay.modelServiceAgreement'),
+          userPrivacyPolicy: t('module.pay.userPrivacyPolicy'),
+        }}
+      />
     );
   };
 

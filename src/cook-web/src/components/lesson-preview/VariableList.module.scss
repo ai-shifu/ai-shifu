@@ -115,6 +115,15 @@
 
   .item {
     display: flex;
+    position: relative;
+
+    &:hover .hideBadge {
+      opacity: 1;
+    }
+
+    &:focus-within .hideBadge {
+      opacity: 1;
+    }
   }
 
   .name {
@@ -137,6 +146,34 @@
     text-align: center;
     border: var(--border-width-border, 1px) solid var(--base-input, #e5e5e5);
     border-right: none;
+  }
+
+  .hideBadge {
+    position: absolute;
+    top: -6px;
+    right: -4px;
+    width: 14px;
+    height: 14px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    color: var(--muted-foreground, #9ca3af);
+
+    &:hover {
+      color: var(--secondary-foreground, #111827);
+    }
+
+    &:focus-visible {
+      opacity: 1;
+      outline: 2px solid var(--primary, #0f63ee);
+      outline-offset: 2px;
+    }
   }
 
   .value {

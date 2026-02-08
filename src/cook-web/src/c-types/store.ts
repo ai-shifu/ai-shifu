@@ -69,12 +69,16 @@ export interface SystemStoreState {
   showVip: boolean;
   previewMode: boolean;
   skip: boolean;
+  learningMode: 'listen' | 'read';
+  showLearningModeToggle: boolean;
   updateLanguage: (language: string) => void;
   updateChannel: (channel: string) => void;
   updateWechatCode: (code: string) => void;
   setShowVip: (show: boolean) => void;
   updatePreviewMode: (mode: boolean) => void;
   updateSkip: (skip: boolean) => void;
+  updateLearningMode: (mode: 'listen' | 'read') => void;
+  updateShowLearningModeToggle: (show: boolean) => void;
 }
 
 export interface CourseStoreState {
