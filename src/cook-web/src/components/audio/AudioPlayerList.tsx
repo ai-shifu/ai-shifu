@@ -208,11 +208,15 @@ const AudioPlayerListBase = (
         audio.pause();
       });
       const playPromise = audio.play();
-      if (playPromise && typeof playPromise.catch === 'function') {
-        playPromise.catch(() => {
-          setPlayingState(false);
-          releaseExclusive();
-        });
+      if (playPromise && typeof playPromise.then === 'function') {
+        playPromise
+          .then(() => {
+            setPlayingState(true);
+          })
+          .catch(() => {
+            setPlayingState(false);
+            releaseExclusive();
+          });
       }
       return true;
     },
@@ -263,11 +267,15 @@ const AudioPlayerListBase = (
         audio.pause();
       });
       const playPromise = audio.play();
-      if (playPromise && typeof playPromise.catch === 'function') {
-        playPromise.catch(() => {
-          setPlayingState(false);
-          releaseExclusive();
-        });
+      if (playPromise && typeof playPromise.then === 'function') {
+        playPromise
+          .then(() => {
+            setPlayingState(true);
+          })
+          .catch(() => {
+            setPlayingState(false);
+            releaseExclusive();
+          });
       }
       return true;
     },
