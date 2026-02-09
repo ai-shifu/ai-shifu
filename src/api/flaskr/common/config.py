@@ -319,14 +319,14 @@ Default: "phone".""",
     "ARK_ACCESS_KEY_ID": EnvVar(
         name="ARK_ACCESS_KEY_ID",
         default="",
-        description="ByteDance Volcengine Ark access key ID (used for Volcengine TTS WebSocket auth)",
+        description="ByteDance Volcengine Ark access key ID",
         secret=True,
         group="llm",
     ),
     "ARK_SECRET_ACCESS_KEY": EnvVar(
         name="ARK_SECRET_ACCESS_KEY",
         default="",
-        description="ByteDance Volcengine Ark secret access key (used for Volcengine TTS WebSocket auth)",
+        description="ByteDance Volcengine Ark secret access key",
         secret=True,
         group="llm",
     ),
@@ -1041,7 +1041,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         group="tts",
     ),
     # Volcengine TTS Configuration
-    # Note: Uses ARK_ACCESS_KEY_ID and ARK_SECRET_ACCESS_KEY for authentication.
+    # Note: Uses VOLCENGINE_TTS_APP_KEY and VOLCENGINE_TTS_ACCESS_KEY for authentication.
     "VOLCENGINE_TTS_SAMPLE_RATE": EnvVar(
         name="VOLCENGINE_TTS_SAMPLE_RATE",
         default=24000,
