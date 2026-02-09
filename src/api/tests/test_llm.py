@@ -1,5 +1,3 @@
-from types import SimpleNamespace
-
 import pytest
 
 from flaskr.api import llm
@@ -23,26 +21,35 @@ class DummySpan:
         self.update_args = kwargs
 
 
-class FakeResponse:
-    def __init__(self, chunk_id, content=None, finish_reason=None, usage=None):
-        self.id = chunk_id
-        delta = SimpleNamespace(content=content)
-        self.choices = [SimpleNamespace(delta=delta, finish_reason=finish_reason)]
-        self.usage = usage
-
-
 def test_chat_llm_streams(monkeypatch, app):
     captured_kwargs = {}
 
-    def fake_completion(*args, **kwargs):
+    def fake_responses(*args, **kwargs):
         captured_kwargs["kwargs"] = kwargs
+        assert kwargs.get("input") == messages
         chunks = [
-            FakeResponse("chunk-1", content="Hi "),
-            FakeResponse("chunk-2", content="there", finish_reason="stop"),
+            {
+                "type": "response.output_text.delta",
+                "delta": "Hi ",
+                "response_id": "resp-1",
+            },
+            {
+                "type": "response.output_text.delta",
+                "delta": "there",
+                "response_id": "resp-1",
+            },
+            {
+                "type": "response.completed",
+                "response_id": "resp-1",
+                "response": {
+                    "id": "resp-1",
+                    "usage": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+                },
+            },
         ]
         return iter(chunks)
 
-    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    monkeypatch.setattr(llm.litellm, "responses", fake_responses)
     provider_state = llm.ProviderState(
         enabled=True,
         params={"api_key": "test-key", "api_base": "https://example.com"},

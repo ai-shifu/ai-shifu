@@ -1,5 +1,3 @@
-from types import SimpleNamespace
-
 import pytest
 
 from flaskr.api import llm
@@ -24,35 +22,36 @@ class DummySpan:
         self.updated = kwargs
 
 
-class FakeResponse:
-    def __init__(self, chunk_id, content=None, finish_reason=None, usage=None):
-        self.id = chunk_id
-        delta = SimpleNamespace(content=content)
-        self.choices = [SimpleNamespace(delta=delta, finish_reason=finish_reason)]
-        self.usage = usage
-
-
-class FakeUsage:
-    def __init__(self, prompt_tokens, completion_tokens, total_tokens):
-        self.prompt_tokens = prompt_tokens
-        self.completion_tokens = completion_tokens
-        self.total_tokens = total_tokens
-
-
 def test_invoke_llm_streams_via_litellm(monkeypatch, app):
     captured_kwargs = {}
 
-    def fake_completion(*args, **kwargs):
+    def fake_responses(*args, **kwargs):
         captured_kwargs["args"] = args
         captured_kwargs["kwargs"] = kwargs
-        usage = FakeUsage(prompt_tokens=5, completion_tokens=4, total_tokens=9)
+        assert isinstance(kwargs.get("input"), list)
         chunks = [
-            FakeResponse("chunk-1", content="Hello "),
-            FakeResponse("chunk-2", content="world", finish_reason="stop", usage=usage),
+            {
+                "type": "response.output_text.delta",
+                "delta": "Hello ",
+                "response_id": "resp-1",
+            },
+            {
+                "type": "response.output_text.delta",
+                "delta": "world",
+                "response_id": "resp-1",
+            },
+            {
+                "type": "response.completed",
+                "response_id": "resp-1",
+                "response": {
+                    "id": "resp-1",
+                    "usage": {"input_tokens": 5, "output_tokens": 4, "total_tokens": 9},
+                },
+            },
         ]
         return iter(chunks)
 
-    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    monkeypatch.setattr(llm.litellm, "responses", fake_responses)
     provider_state = llm.ProviderState(
         enabled=True,
         params={"api_key": "test-key", "api_base": "https://example.com"},

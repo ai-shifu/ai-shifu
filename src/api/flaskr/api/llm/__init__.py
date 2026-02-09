@@ -136,6 +136,158 @@ def _extract_input_cache(usage: Any) -> int:
     return 0
 
 
+def _extract_stream_event_type(event: Any) -> str:
+    if event is None:
+        return ""
+    if isinstance(event, dict):
+        return str(event.get("type") or "")
+    event_type = getattr(event, "type", None)
+    # LiteLLM emits pydantic models with `type` set to a StrEnum
+    # (e.g. ResponsesAPIStreamEvents). `str(enum)` returns "EnumName.MEMBER",
+    # while `.value` contains the actual event string like "response.completed".
+    if hasattr(event_type, "value"):
+        return str(getattr(event_type, "value") or "")
+    return str(event_type or "")
+
+
+def _extract_stream_event_value(event: Any, key: str) -> Any:
+    if event is None:
+        return None
+    if isinstance(event, dict):
+        return event.get(key)
+    return getattr(event, key, None)
+
+
+def _is_chat_completion_chunk(obj: Any) -> bool:
+    # LiteLLM completion() yields ChatCompletionChunk objects with `.choices`.
+    # We keep supporting this shape for safety across providers.
+    return hasattr(obj, "choices")
+
+
+def _parse_litellm_stream_event(
+    event: Any,
+) -> tuple[Optional[str], Optional[str], Any, str, bool, Optional[str]]:
+    """Parse a LiteLLM stream item into normalized fields.
+
+    Returns: (delta_text, finish_reason, raw_usage, event_id, is_terminal, error_message)
+
+    Supports both:
+    - ChatCompletionChunk-like objects (choices[0].delta.content, choices[0].finish_reason, usage, id)
+    - OpenAI Responses stream events (type="response.output_text.delta"/"response.completed", etc.)
+    """
+
+    if event is None:
+        return None, None, None, "", False, None
+
+    if _is_chat_completion_chunk(event):
+        try:
+            choice0 = event.choices[0]
+        except Exception:
+            choice0 = None
+        delta_text = None
+        finish_reason = None
+        if choice0 is not None:
+            try:
+                delta_text = choice0.delta.content
+            except Exception:
+                delta_text = None
+            try:
+                finish_reason = choice0.finish_reason
+            except Exception:
+                finish_reason = None
+        raw_usage = getattr(event, "usage", None)
+        event_id = str(getattr(event, "id", "") or "")
+        is_terminal = bool(finish_reason)
+        return delta_text, finish_reason, raw_usage, event_id, is_terminal, None
+
+    event_type = _extract_stream_event_type(event)
+    event_id = str(
+        _extract_stream_event_value(event, "response_id")
+        or _extract_stream_event_value(event, "id")
+        or ""
+    )
+
+    # Default: no text, no usage, not terminal.
+    delta_text = None
+    raw_usage = None
+    is_terminal = False
+    finish_reason = None
+    error_message = None
+
+    # Text deltas (primary user-facing stream).
+    if event_type in ("response.output_text.delta", "response.refusal.delta"):
+        raw_delta = _extract_stream_event_value(event, "delta")
+        if isinstance(raw_delta, str) and raw_delta:
+            delta_text = raw_delta
+        return delta_text, None, None, event_id, False, None
+
+    # Terminal events. Usage (if requested via stream_options.include_usage)
+    # is typically on the embedded `response` object.
+    if event_type.startswith("response.") and (
+        event_type.endswith("completed")
+        or event_type.endswith("incomplete")
+        or event_type.endswith("failed")
+    ):
+        is_terminal = True
+        if event_type == "response.completed":
+            finish_reason = "stop"
+        elif event_type == "response.incomplete":
+            finish_reason = "length"
+        else:
+            finish_reason = "error"
+
+        resp = _extract_stream_event_value(event, "response")
+        if resp is not None:
+            raw_usage = _extract_stream_event_value(resp, "usage")
+            # Prefer response.id if present.
+            event_id = str(
+                event_id or _extract_stream_event_value(resp, "id") or event_id or ""
+            )
+            if event_type != "response.completed":
+                err = _extract_stream_event_value(resp, "error")
+                if err:
+                    error_message = str(err)
+        return None, finish_reason, raw_usage, event_id, is_terminal, error_message
+
+    # Explicit error events.
+    if event_type in ("error", "response.error"):
+        is_terminal = True
+        finish_reason = "error"
+        error_message = str(_extract_stream_event_value(event, "error") or "Unknown")
+        return None, finish_reason, None, event_id, is_terminal, error_message
+
+    return None, None, None, event_id, False, None
+
+
+def _to_langfuse_usage(raw_usage: Any) -> Optional[ModelUsage]:
+    if not raw_usage:
+        return None
+
+    # ChatCompletions usage shape.
+    prompt_tokens = _extract_usage_value(raw_usage, "prompt_tokens")
+    completion_tokens = _extract_usage_value(raw_usage, "completion_tokens")
+    total_tokens = _extract_usage_value(raw_usage, "total_tokens")
+
+    # Responses usage shape.
+    input_tokens = _extract_usage_value(raw_usage, "input_tokens") or prompt_tokens
+    output_tokens = (
+        _extract_usage_value(raw_usage, "output_tokens") or completion_tokens
+    )
+    total = total_tokens or _extract_usage_value(raw_usage, "total_tokens")
+    if not total:
+        total = input_tokens + output_tokens
+
+    if not (input_tokens or output_tokens or total):
+        return None
+
+    return ModelUsage(
+        unit="TOKENS",
+        input=int(input_tokens or 0),
+        output=int(output_tokens or 0),
+        total=int(total or 0),
+    )
+
+
 def _get_request_id() -> str:
     try:
         return request.headers.get("X-Request-ID", "") or ""
@@ -241,11 +393,23 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
             _log_info(
                 "Skipping GEMINI_API_URL override to use LiteLLM default endpoint"
             )
+
+    custom_llm_provider = config.custom_llm_provider
+    # Some OpenAI-compatible providers only implement native `/responses` on
+    # specific base URLs. Default to LiteLLM's Responses->ChatCompletions
+    # transformation and switch to native `/responses` only when the configured
+    # endpoint is known to support it.
+    if config.key == "qwen" and base_url:
+        # Alibaba Cloud Model Studio documents Responses API support on:
+        #   https://dashscope-intl.aliyuncs.com/api/v2/apps/protocols/compatible-mode/v1
+        # while the classic compatible-mode endpoint is chat-completions only.
+        if "/api/v2/apps/protocols/compatible-mode/v1" in base_url:
+            custom_llm_provider = "openai"
     params: Dict[str, str] = {"api_key": api_key}
     if base_url:
         params["api_base"] = base_url
-    if config.custom_llm_provider:
-        params["custom_llm_provider"] = config.custom_llm_provider
+    if custom_llm_provider:
+        params["custom_llm_provider"] = custom_llm_provider
     if config.model_loader:
         raw_models = config.model_loader(config, params, base_url)
     else:
@@ -291,27 +455,28 @@ def _fetch_provider_models(api_key: str, base_url: str | None) -> list[str]:
     return [item.get("id", "") for item in data.get("data", []) if item.get("id")]
 
 
-def _stream_litellm_completion(
+def _stream_litellm_responses(
     app: Flask, model: str, messages: list, params: dict, kwargs: dict
 ):
     try:
         try:
             max_tokens = get_max_tokens(model)
-            kwargs["max_tokens"] = max_tokens
+            # OpenAI Responses API uses max_output_tokens (LiteLLM normalizes this).
+            kwargs["max_output_tokens"] = max_tokens
         except Exception as exc:
             _log_warning(f"get max tokens for {model} failed: {exc}")
         app.logger.info(
-            f"stream_litellm_completion: {model} {messages} {params} {kwargs}"
+            f"stream_litellm_responses: {model} {messages} {params} {kwargs}"
         )
-        return litellm.completion(
+        return litellm.responses(
             model=model,
-            messages=messages,
+            input=messages,
             stream=True,
             **params,
             **kwargs,
         )
     except Exception as exc:
-        _log_warning(f"LiteLLM completion failed for {model}: {exc}")
+        _log_warning(f"LiteLLM responses failed for {model}: {exc}")
         raise_error_with_args(
             "server.llm.requestFailed",
             model=model,
@@ -440,6 +605,13 @@ def _reload_silicon_params(model_id: str, temperature: float) -> Dict[str, Any]:
     }
 
 
+# Many OpenAI-compatible providers do not implement `/v1/responses`. For these
+# providers, we use `custom_openai` so LiteLLM Responses API falls back to its
+# Responses->ChatCompletions transformation instead of calling `/responses` on
+# the upstream.
+#
+# For providers that officially support OpenAI-compatible `/responses`, prefer
+# native `/responses` (set `custom_llm_provider="openai"`).
 LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
     ProviderConfig(
         key="openai",
@@ -460,7 +632,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         prefix=QWEN_PREFIX,
         extra_models=["deepseek-r1", "deepseek-v3"],
         config_hint="QWEN_API_KEY,QWEN_API_URL",
-        custom_llm_provider="openai",
+        custom_llm_provider="custom_openai",
     ),
     ProviderConfig(
         key="ernie_v2",
@@ -477,7 +649,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         default_base_url="https://api.deepseek.com",
         extra_models=DEEPSEEK_EXTRA_MODELS,
         config_hint="DEEPSEEK_API_KEY,DEEPSEEK_API_URL",
-        custom_llm_provider="openai",
+        custom_llm_provider="custom_openai",
     ),
     ProviderConfig(
         key="gemini",
@@ -498,7 +670,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         default_base_url="https://open.bigmodel.cn/api/paas/v4",
         prefix=GLM_PREFIX,
         config_hint="BIGMODEL_API_KEY",
-        custom_llm_provider="openai",
+        custom_llm_provider="custom_openai",
     ),
     ProviderConfig(
         key="silicon",
@@ -506,7 +678,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         default_base_url="https://api.siliconflow.cn/v1",
         prefix=SILICON_PREFIX,
         config_hint="SILICON_API_KEY,SILICON_API_URL",
-        custom_llm_provider="openai",
+        custom_llm_provider="custom_openai",
         reload_params=_reload_silicon_params,
     ),
     ProviderConfig(
@@ -624,8 +796,7 @@ def invoke_llm(
             messages.append({"content": system, "role": "system"})
         messages.append({"content": message, "role": "user"})
         if json:
-            kwargs["response_format"] = {"type": "json_object"}
-        kwargs["stream_options"] = {"include_usage": True}
+            kwargs.setdefault("text", {"format": {"type": "json_object"}})
         if reload_params:
             kwargs.update(reload_params(model, float(kwargs.get("temperature", 0.3))))
         else:
@@ -634,7 +805,7 @@ def invoke_llm(
                     "temperature": float(kwargs.get("temperature", 0.3)),
                 }
             )
-        response = _stream_litellm_completion(
+        response = _stream_litellm_responses(
             app,
             invoke_model,
             messages,
@@ -642,28 +813,91 @@ def invoke_llm(
             kwargs,
         )
 
-        for res in response:
+        pending_text: Optional[str] = None
+        pending_id = ""
+        for event in response:
+            (
+                delta_text,
+                finish_reason,
+                raw_usage,
+                event_id,
+                is_terminal,
+                error_message,
+            ) = _parse_litellm_stream_event(event)
+
+            if error_message:
+                raise_error_with_args(
+                    "server.llm.requestFailed",
+                    model=model,
+                    message=error_message,
+                )
+
+            if raw_usage:
+                input_cache_tokens = _extract_input_cache(raw_usage)
+                converted_usage = _to_langfuse_usage(raw_usage)
+                if converted_usage is not None:
+                    usage = converted_usage
+
+            if delta_text:
+                if start_completion_time is None:
+                    start_completion_time = datetime.now()
+                if pending_text is not None:
+                    response_text += pending_text
+                    yield LLMStreamResponse(
+                        pending_id or event_id,
+                        False,
+                        False,
+                        pending_text,
+                        None,
+                        None,
+                    )
+                pending_text = delta_text
+                pending_id = event_id or pending_id
+
+                # ChatCompletionChunk-style final delta may carry finish_reason.
+                if is_terminal and finish_reason:
+                    response_text += pending_text
+                    yield LLMStreamResponse(
+                        pending_id,
+                        True,
+                        False,
+                        pending_text,
+                        finish_reason,
+                        None,
+                    )
+                    pending_text = None
+                    pending_id = ""
+                continue
+
+            if is_terminal and finish_reason:
+                if pending_text is not None:
+                    if start_completion_time is None:
+                        start_completion_time = datetime.now()
+                    response_text += pending_text
+                    yield LLMStreamResponse(
+                        pending_id or event_id,
+                        True,
+                        False,
+                        pending_text,
+                        finish_reason,
+                        None,
+                    )
+                    pending_text = None
+                    pending_id = ""
+                break
+
+        if pending_text is not None:
             if start_completion_time is None:
                 start_completion_time = datetime.now()
-            if len(res.choices) and res.choices[0].delta.content:
-                response_text += res.choices[0].delta.content
-                yield LLMStreamResponse(
-                    res.id,
-                    True if res.choices[0].finish_reason else False,
-                    False,
-                    res.choices[0].delta.content,
-                    res.choices[0].finish_reason,
-                    None,
-                )
-            res_usage = getattr(res, "usage", None)
-            if res_usage:
-                input_cache_tokens = _extract_input_cache(res_usage)
-                usage = ModelUsage(
-                    unit="TOKENS",
-                    input=res_usage.prompt_tokens,
-                    output=res_usage.completion_tokens,
-                    total=res_usage.total_tokens,
-                )
+            response_text += pending_text
+            yield LLMStreamResponse(
+                pending_id,
+                True,
+                False,
+                pending_text,
+                "stop",
+                None,
+            )
     elif model in DIFY_MODELS:
         provider_name = "dify"
         response = dify_chat_message(app, message, user_id)
@@ -797,6 +1031,8 @@ def chat_llm(
     if params:
         provider_key, _normalized = _resolve_provider_for_model(model)
         provider_name = provider_key or ""
+        if json:
+            kwargs.setdefault("text", {"format": {"type": "json_object"}})
         if reload_params:
             kwargs.update(reload_params(model, float(kwargs.get("temperature", 0.3))))
         else:
@@ -805,36 +1041,97 @@ def chat_llm(
                     "temperature": float(kwargs.get("temperature", 0.3)),
                 }
             )
-        kwargs["stream_options"] = {"include_usage": True}
-        response = _stream_litellm_completion(
+        response = _stream_litellm_responses(
             app,
             invoke_model,
             messages,
             params,
             kwargs,
         )
-        for res in response:
+        pending_text: Optional[str] = None
+        pending_id = ""
+        for event in response:
+            (
+                delta_text,
+                finish_reason,
+                raw_usage,
+                event_id,
+                is_terminal,
+                error_message,
+            ) = _parse_litellm_stream_event(event)
+
+            if error_message:
+                raise_error_with_args(
+                    "server.llm.requestFailed",
+                    model=model,
+                    message=error_message,
+                )
+
+            if raw_usage:
+                input_cache_tokens = _extract_input_cache(raw_usage)
+                converted_usage = _to_langfuse_usage(raw_usage)
+                if converted_usage is not None:
+                    usage = converted_usage
+
+            if delta_text:
+                if start_completion_time is None:
+                    start_completion_time = datetime.now()
+                if pending_text is not None:
+                    response_text += pending_text
+                    yield LLMStreamResponse(
+                        pending_id or event_id,
+                        False,
+                        False,
+                        pending_text,
+                        None,
+                        None,
+                    )
+                pending_text = delta_text
+                pending_id = event_id or pending_id
+
+                if is_terminal and finish_reason:
+                    response_text += pending_text
+                    yield LLMStreamResponse(
+                        pending_id,
+                        True,
+                        False,
+                        pending_text,
+                        finish_reason,
+                        None,
+                    )
+                    pending_text = None
+                    pending_id = ""
+                continue
+
+            if is_terminal and finish_reason:
+                if pending_text is not None:
+                    if start_completion_time is None:
+                        start_completion_time = datetime.now()
+                    response_text += pending_text
+                    yield LLMStreamResponse(
+                        pending_id or event_id,
+                        True,
+                        False,
+                        pending_text,
+                        finish_reason,
+                        None,
+                    )
+                    pending_text = None
+                    pending_id = ""
+                break
+
+        if pending_text is not None:
             if start_completion_time is None:
                 start_completion_time = datetime.now()
-            if len(res.choices) and res.choices[0].delta.content:
-                response_text += res.choices[0].delta.content
-                yield LLMStreamResponse(
-                    res.id,
-                    True if res.choices[0].finish_reason else False,
-                    False,
-                    res.choices[0].delta.content,
-                    res.choices[0].finish_reason,
-                    None,
-                )
-            res_usage = getattr(res, "usage", None)
-            if res_usage:
-                input_cache_tokens = _extract_input_cache(res_usage)
-                usage = ModelUsage(
-                    unit="TOKENS",
-                    input=res_usage.prompt_tokens,
-                    output=res_usage.completion_tokens,
-                    total=res_usage.total_tokens,
-                )
+            response_text += pending_text
+            yield LLMStreamResponse(
+                pending_id,
+                True,
+                False,
+                pending_text,
+                "stop",
+                None,
+            )
     elif model in DIFY_MODELS:
         provider_name = "dify"
         response: Generator[DifyChunkChatCompletionResponse, None, None] = (
