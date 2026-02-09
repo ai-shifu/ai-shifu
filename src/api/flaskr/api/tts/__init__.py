@@ -31,6 +31,7 @@ from flaskr.api.tts.volcengine_provider import VolcengineTTSProvider
 from flaskr.api.tts.volcengine_http_provider import VolcengineHttpTTSProvider
 from flaskr.api.tts.baidu_provider import BaiduTTSProvider
 from flaskr.api.tts.aliyun_provider import AliyunTTSProvider
+from flaskr.api.tts.aliyun_nls_token import is_aliyun_nls_token_configured
 
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
@@ -79,7 +80,7 @@ def _auto_detect_provider_name() -> str:
         return "volcengine_http"
     if get_config("BAIDU_TTS_API_KEY") and get_config("BAIDU_TTS_SECRET_KEY"):
         return "baidu"
-    if get_config("ALIYUN_TTS_APPKEY") and get_config("ALIYUN_TTS_TOKEN"):
+    if get_config("ALIYUN_TTS_APPKEY") and is_aliyun_nls_token_configured():
         return "aliyun"
     return "minimax"  # Default fallback
 
