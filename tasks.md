@@ -25,7 +25,7 @@
 ## Frontend (Cook Web)
 
 - [x] Extend types: `StudyRecordItem` to accept `audios[]` in addition to legacy `audio_url`.
-- [ ] Extend types: `ChatContentItem` to store segmented audio metadata (e.g. `audios[]` and per-position streaming state).
+- [x] Extend types: `ChatContentItem` to store segmented audio metadata (e.g. `audios[]` and per-position streaming state).
 - [ ] Listen Mode: parse content boundaries consistently:
 - [ ] Use `splitContentSegments(content, true)` to compute text-segment ordering and map `position -> slide page`.
 - [ ] Listen Mode: update audio sequencing:

@@ -96,6 +96,18 @@ export interface ChatContentItem {
   audioSegments?: AudioSegment[];
   isAudioStreaming?: boolean;
   audioDurationMs?: number;
+  // Segmented AV TTS (multiple audios per generated block)
+  audios?: AudioCompleteData[];
+  audioTracksByPosition?: Record<
+    number,
+    {
+      audioUrl?: string;
+      audioSegments?: AudioSegment[];
+      isAudioStreaming?: boolean;
+      audioDurationMs?: number;
+      audioBid?: string;
+    }
+  >;
 }
 
 interface SSEParams {
