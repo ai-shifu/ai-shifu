@@ -29,6 +29,9 @@ import { Calendar } from '@/components/ui/Calendar';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DashboardOverview } from '@/types/dashboard';
+import EChart from '@/components/charts/EChart';
+import ChartCard from '@/components/charts/ChartCard';
+import { buildBarOption, buildLineOption } from '@/lib/charts/options';
 
 const formatDateValue = (value: Date): string => {
   const year = value.getFullYear();
@@ -284,6 +287,42 @@ export default function AdminDashboardPage() {
     return `${percent}%`;
   }, [overview]);
 
+  const progressDistributionOption = useMemo(() => {
+    const categories =
+      overview?.progress_distribution?.map(item => item.label) ?? [];
+    const values =
+      overview?.progress_distribution?.map(item => item.value) ?? [];
+    return buildBarOption({ categories, values });
+  }, [overview]);
+
+  const followUpTrendOption = useMemo(() => {
+    const x = overview?.follow_up_trend?.map(item => item.label) ?? [];
+    const y = overview?.follow_up_trend?.map(item => item.value) ?? [];
+    return buildLineOption({ x, y });
+  }, [overview]);
+
+  const topOutlinesOption = useMemo(() => {
+    const categories =
+      overview?.top_outlines_by_follow_ups?.map(item => item.title) ?? [];
+    const values =
+      overview?.top_outlines_by_follow_ups?.map(item => item.ask_count) ?? [];
+    const option = buildBarOption({ categories, values });
+
+    const xAxis = (option as any).xAxis ?? {};
+    const axisLabel = xAxis.axisLabel ?? {};
+    (option as any).xAxis = {
+      ...xAxis,
+      axisLabel: {
+        ...axisLabel,
+        rotate: categories.length > 5 ? 30 : 0,
+        formatter: (value: string) =>
+          value && value.length > 12 ? `${value.slice(0, 12)}...` : value,
+      },
+    };
+
+    return option;
+  }, [overview]);
+
   return (
     <div className='h-full p-0'>
       <div className='h-full overflow-hidden flex flex-col'>
@@ -397,6 +436,41 @@ export default function AdminDashboardPage() {
         {overviewError ? (
           <div className='mt-3 text-sm text-destructive'>{overviewError}</div>
         ) : null}
+
+        <div className='mt-5 grid flex-1 grid-cols-1 gap-3 overflow-auto pb-4 lg:grid-cols-2'>
+          <ChartCard title={t('module.dashboard.chart.progressDistribution')}>
+            <div className='h-[280px]'>
+              <EChart
+                option={progressDistributionOption}
+                loading={overviewLoading}
+                style={{ height: '100%' }}
+              />
+            </div>
+          </ChartCard>
+
+          <ChartCard title={t('module.dashboard.chart.followUpsTrend')}>
+            <div className='h-[280px]'>
+              <EChart
+                option={followUpTrendOption}
+                loading={overviewLoading}
+                style={{ height: '100%' }}
+              />
+            </div>
+          </ChartCard>
+
+          <ChartCard
+            title={t('module.dashboard.chart.topOutlinesByFollowUps')}
+            className='lg:col-span-2'
+          >
+            <div className='h-[320px]'>
+              <EChart
+                option={topOutlinesOption}
+                loading={overviewLoading}
+                style={{ height: '100%' }}
+              />
+            </div>
+          </ChartCard>
+        </div>
       </div>
     </div>
   );

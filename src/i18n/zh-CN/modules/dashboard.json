@@ -1,5 +1,10 @@
 {
   "__namespace__": "module.dashboard",
+  "chart": {
+    "followUpsTrend": "追问趋势",
+    "progressDistribution": "进度分布",
+    "topOutlinesByFollowUps": "追问最多的课时"
+  },
   "filters": {
     "dateRange": "时间范围",
     "dateRangePlaceholder": "选择时间范围",

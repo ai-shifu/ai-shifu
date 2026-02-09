@@ -39,7 +39,7 @@
 - [x] Add page: `src/cook-web/src/app/admin/dashboard/page.tsx`
 - [x] Implement header controls (course selector + date range filter)
 - [x] Implement KPI cards section (learners, completion rate, follow-ups, last active)
-- [ ] Implement charts section (progress distribution, follow-up trend, top outlines)
+- [x] Implement charts section (progress distribution, follow-up trend, top outlines)
 - [ ] Implement learner table (pagination, keyword search, sorting)
 - [ ] Implement learner detail `Sheet` with tabs (progress, follow-ups, personalization)
 - [ ] Implement loading + error states consistent with existing admin pages (`Loading`, `ErrorDisplay`)
