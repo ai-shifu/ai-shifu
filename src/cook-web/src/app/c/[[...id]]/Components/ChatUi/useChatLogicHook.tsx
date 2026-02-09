@@ -673,10 +673,31 @@ function useChatLogicHook({
               }
               // Handle audio segment during TTS streaming
               const audioSegment = response.content as AudioSegmentData;
+              const position = Number(audioSegment.position ?? 0);
+              const normalizedPosition = Number.isNaN(position) ? 0 : position;
               if (blockId) {
-                setTrackedContentList(prevState =>
-                  upsertAudioSegment(prevState, blockId, audioSegment),
-                );
+                setTrackedContentList(prevState => {
+                  if (!isListenMode) {
+                    return upsertAudioSegment(prevState, blockId, audioSegment);
+                  }
+
+                  // Listen mode may emit multiple audio tracks per block (by position).
+                  // Keep legacy position=0 fields for backward compatibility.
+                  let nextState = upsertAudioSegmentByPosition(
+                    prevState,
+                    blockId,
+                    normalizedPosition,
+                    audioSegment,
+                  );
+                  if (normalizedPosition === 0) {
+                    nextState = upsertAudioSegment(
+                      nextState,
+                      blockId,
+                      audioSegment,
+                    );
+                  }
+                  return nextState;
+                });
               }
             } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
               if (!allowTtsStreaming) {
@@ -684,10 +705,33 @@ function useChatLogicHook({
               }
               // Handle audio completion with OSS URL
               const audioComplete = response.content as AudioCompleteData;
+              const position = Number(audioComplete.position ?? 0);
+              const normalizedPosition = Number.isNaN(position) ? 0 : position;
               if (blockId) {
-                setTrackedContentList(prevState =>
-                  upsertAudioComplete(prevState, blockId, audioComplete),
-                );
+                setTrackedContentList(prevState => {
+                  if (!isListenMode) {
+                    return upsertAudioComplete(
+                      prevState,
+                      blockId,
+                      audioComplete,
+                    );
+                  }
+
+                  let nextState = upsertAudioCompleteByPosition(
+                    prevState,
+                    blockId,
+                    normalizedPosition,
+                    audioComplete,
+                  );
+                  if (normalizedPosition === 0) {
+                    nextState = upsertAudioComplete(
+                      nextState,
+                      blockId,
+                      audioComplete,
+                    );
+                  }
+                  return nextState;
+                });
               }
             }
           } catch (error) {

@@ -36,7 +36,7 @@
 - [x] Advance Reveal slides according to the mapped page for each audio segment.
 - [x] Update TTS request path in Listen Mode:
 - [x] Stop auto-calling on-demand segmented TTS (`/generated-blocks/<bid>/tts?listen=true`); RUN SSE is source of truth.
-- [ ] Group incoming run SSE `audio_segment/audio_complete` by `position` (store in `audioTracksByPosition`).
+- [x] Group incoming run SSE `audio_segment/audio_complete` by `position` (store in `audioTracksByPosition`).
 - [x] Regression: ensure non-listen mode audio button still works (single audio_url path unchanged).
 
 ## QA / Ops
