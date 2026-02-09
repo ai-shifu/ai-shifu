@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/Sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import Loading from '@/components/loading';
+import ErrorDisplay from '@/components/ErrorDisplay';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
@@ -37,6 +38,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
+import { ErrorWithCode } from '@/lib/request';
 import type {
   DashboardFollowUpItem,
   DashboardLearnerDetail,
@@ -51,6 +53,8 @@ type LearnerDetailSheetProps = {
   endDate?: string;
   onOpenChange?: (open: boolean) => void;
 };
+
+type ErrorState = { message: string; code?: number };
 
 const FOLLOWUPS_OUTLINE_ALL_VALUE = '__all__';
 
@@ -107,11 +111,11 @@ export default function LearnerDetailSheet({
 
   const [detail, setDetail] = useState<DashboardLearnerDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailError, setDetailError] = useState<ErrorState | null>(null);
 
   const [followups, setFollowups] = useState<DashboardFollowUpItem[]>([]);
   const [followupsLoading, setFollowupsLoading] = useState(false);
-  const [followupsError, setFollowupsError] = useState<string | null>(null);
+  const [followupsError, setFollowupsError] = useState<ErrorState | null>(null);
   const [followupsPageIndex, setFollowupsPageIndex] = useState(1);
   const [followupsPageCount, setFollowupsPageCount] = useState(1);
   const [followupsTotal, setFollowupsTotal] = useState(0);
@@ -146,9 +150,15 @@ export default function LearnerDetailSheet({
         user_bid: userBid,
       })) as DashboardLearnerDetail;
       setDetail(result);
-    } catch {
+    } catch (err) {
       setDetail(null);
-      setDetailError(t('common.core.networkError'));
+      if (err instanceof ErrorWithCode) {
+        setDetailError({ message: err.message, code: err.code });
+      } else if (err instanceof Error) {
+        setDetailError({ message: err.message });
+      } else {
+        setDetailError({ message: t('common.core.unknownError') });
+      }
     } finally {
       setDetailLoading(false);
     }
@@ -186,12 +196,18 @@ export default function LearnerDetailSheet({
         setFollowupsPageIndex(response.page || targetPage);
         setFollowupsPageCount(response.page_count || 1);
         setFollowupsTotal(response.total || 0);
-      } catch {
+      } catch (err) {
         setFollowups([]);
         setFollowupsPageIndex(targetPage);
         setFollowupsPageCount(1);
         setFollowupsTotal(0);
-        setFollowupsError(t('common.core.networkError'));
+        if (err instanceof ErrorWithCode) {
+          setFollowupsError({ message: err.message, code: err.code });
+        } else if (err instanceof Error) {
+          setFollowupsError({ message: err.message });
+        } else {
+          setFollowupsError({ message: t('common.core.unknownError') });
+        }
       } finally {
         setFollowupsLoading(false);
       }
@@ -284,7 +300,11 @@ export default function LearnerDetailSheet({
               <Loading />
             </div>
           ) : detailError ? (
-            <div className='text-sm text-destructive'>{detailError}</div>
+            <ErrorDisplay
+              errorCode={detailError.code || 500}
+              errorMessage={detailError.message}
+              onRetry={fetchDetail}
+            />
           ) : (
             <Tabs
               value={activeTab}
@@ -406,133 +426,158 @@ export default function LearnerDetailSheet({
                     </div>
                   </div>
 
-                  {followupsError ? (
-                    <div className='text-sm text-destructive'>
-                      {followupsError}
-                    </div>
-                  ) : null}
+                  {followupsError &&
+                  !followupsLoading &&
+                  followups.length === 0 ? (
+                    <ErrorDisplay
+                      errorCode={followupsError.code || 500}
+                      errorMessage={followupsError.message}
+                      onRetry={() => fetchFollowups(1)}
+                    />
+                  ) : (
+                    <>
+                      {followupsError ? (
+                        <div className='text-sm text-destructive'>
+                          {followupsError.message}
+                        </div>
+                      ) : null}
 
-                  <div className='overflow-auto rounded-lg border border-border bg-white'>
-                    {followupsLoading ? (
-                      <div className='flex h-40 items-center justify-center'>
-                        <Loading />
+                      <div className='overflow-auto rounded-lg border border-border bg-white'>
+                        {followupsLoading ? (
+                          <div className='flex h-40 items-center justify-center'>
+                            <Loading />
+                          </div>
+                        ) : (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>
+                                  {t(
+                                    'module.dashboard.detail.followUps.outline',
+                                  )}
+                                </TableHead>
+                                <TableHead>
+                                  {t(
+                                    'module.dashboard.detail.followUps.askedAt',
+                                  )}
+                                </TableHead>
+                                <TableHead>
+                                  {t(
+                                    'module.dashboard.detail.followUps.question',
+                                  )}
+                                </TableHead>
+                                <TableHead>
+                                  {t(
+                                    'module.dashboard.detail.followUps.answer',
+                                  )}
+                                </TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {followups.length === 0 && (
+                                <TableEmpty colSpan={4}>
+                                  {t('module.dashboard.detail.followUps.empty')}
+                                </TableEmpty>
+                              )}
+                              {followups.map(item => (
+                                <TableRow
+                                  key={`${item.outline_item_bid}-${item.asked_at}-${item.position}`}
+                                >
+                                  <TableCell className='min-w-[180px]'>
+                                    <div className='text-sm text-foreground'>
+                                      {item.outline_title ||
+                                        item.outline_item_bid}
+                                    </div>
+                                    <div className='text-xs text-muted-foreground'>
+                                      {item.position > 0
+                                        ? `#${item.position}`
+                                        : item.outline_item_bid}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className='whitespace-nowrap'>
+                                    {item.asked_at || '-'}
+                                  </TableCell>
+                                  <TableCell className='min-w-[240px]'>
+                                    <div className='whitespace-pre-wrap break-words text-sm text-foreground'>
+                                      {item.question || '-'}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className='min-w-[240px]'>
+                                    <div className='whitespace-pre-wrap break-words text-sm text-foreground'>
+                                      {item.answer || '-'}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        )}
                       </div>
-                    ) : (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>
-                              {t('module.dashboard.detail.followUps.outline')}
-                            </TableHead>
-                            <TableHead>
-                              {t('module.dashboard.detail.followUps.askedAt')}
-                            </TableHead>
-                            <TableHead>
-                              {t('module.dashboard.detail.followUps.question')}
-                            </TableHead>
-                            <TableHead>
-                              {t('module.dashboard.detail.followUps.answer')}
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {followups.length === 0 && (
-                            <TableEmpty colSpan={4}>
-                              {t('module.dashboard.detail.followUps.empty')}
-                            </TableEmpty>
-                          )}
-                          {followups.map(item => (
-                            <TableRow
-                              key={`${item.outline_item_bid}-${item.asked_at}-${item.position}`}
-                            >
-                              <TableCell className='min-w-[180px]'>
-                                <div className='text-sm text-foreground'>
-                                  {item.outline_title || item.outline_item_bid}
-                                </div>
-                                <div className='text-xs text-muted-foreground'>
-                                  {item.position > 0
-                                    ? `#${item.position}`
-                                    : item.outline_item_bid}
-                                </div>
-                              </TableCell>
-                              <TableCell className='whitespace-nowrap'>
-                                {item.asked_at || '-'}
-                              </TableCell>
-                              <TableCell className='min-w-[240px]'>
-                                <div className='whitespace-pre-wrap break-words text-sm text-foreground'>
-                                  {item.question || '-'}
-                                </div>
-                              </TableCell>
-                              <TableCell className='min-w-[240px]'>
-                                <div className='whitespace-pre-wrap break-words text-sm text-foreground'>
-                                  {item.answer || '-'}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    )}
-                  </div>
 
-                  <div className='flex justify-end'>
-                    <Pagination className='justify-end w-auto mx-0'>
-                      <PaginationContent>
-                        <PaginationItem>
-                          <PaginationPrevious
-                            href='#'
-                            onClick={event => {
-                              event.preventDefault();
-                              handleFollowupsPageChange(followupsPageIndex - 1);
-                            }}
-                            aria-disabled={followupsPageIndex <= 1}
-                            className={
-                              followupsPageIndex <= 1
-                                ? 'pointer-events-none opacity-50'
-                                : ''
-                            }
-                          >
-                            {t('module.dashboard.pagination.prev')}
-                          </PaginationPrevious>
-                        </PaginationItem>
+                      <div className='flex justify-end'>
+                        <Pagination className='justify-end w-auto mx-0'>
+                          <PaginationContent>
+                            <PaginationItem>
+                              <PaginationPrevious
+                                href='#'
+                                onClick={event => {
+                                  event.preventDefault();
+                                  handleFollowupsPageChange(
+                                    followupsPageIndex - 1,
+                                  );
+                                }}
+                                aria-disabled={followupsPageIndex <= 1}
+                                className={
+                                  followupsPageIndex <= 1
+                                    ? 'pointer-events-none opacity-50'
+                                    : ''
+                                }
+                              >
+                                {t('module.dashboard.pagination.prev')}
+                              </PaginationPrevious>
+                            </PaginationItem>
 
-                        {followupsPages.map(page => (
-                          <PaginationItem key={page}>
-                            <PaginationLink
-                              href='#'
-                              onClick={event => {
-                                event.preventDefault();
-                                handleFollowupsPageChange(page);
-                              }}
-                              isActive={page === followupsPageIndex}
-                            >
-                              {page}
-                            </PaginationLink>
-                          </PaginationItem>
-                        ))}
+                            {followupsPages.map(page => (
+                              <PaginationItem key={page}>
+                                <PaginationLink
+                                  href='#'
+                                  onClick={event => {
+                                    event.preventDefault();
+                                    handleFollowupsPageChange(page);
+                                  }}
+                                  isActive={page === followupsPageIndex}
+                                >
+                                  {page}
+                                </PaginationLink>
+                              </PaginationItem>
+                            ))}
 
-                        <PaginationItem>
-                          <PaginationNext
-                            href='#'
-                            onClick={event => {
-                              event.preventDefault();
-                              handleFollowupsPageChange(followupsPageIndex + 1);
-                            }}
-                            aria-disabled={
-                              followupsPageIndex >= followupsPageCount
-                            }
-                            className={
-                              followupsPageIndex >= followupsPageCount
-                                ? 'pointer-events-none opacity-50'
-                                : ''
-                            }
-                          >
-                            {t('module.dashboard.pagination.next')}
-                          </PaginationNext>
-                        </PaginationItem>
-                      </PaginationContent>
-                    </Pagination>
-                  </div>
+                            <PaginationItem>
+                              <PaginationNext
+                                href='#'
+                                onClick={event => {
+                                  event.preventDefault();
+                                  handleFollowupsPageChange(
+                                    followupsPageIndex + 1,
+                                  );
+                                }}
+                                aria-disabled={
+                                  followupsPageIndex >= followupsPageCount
+                                }
+                                className={
+                                  followupsPageIndex >= followupsPageCount
+                                    ? 'pointer-events-none opacity-50'
+                                    : ''
+                                }
+                              >
+                                {t('module.dashboard.pagination.next')}
+                              </PaginationNext>
+                            </PaginationItem>
+                          </PaginationContent>
+                        </Pagination>
+                      </div>
+                    </>
+                  )}
                 </div>
               </TabsContent>
 

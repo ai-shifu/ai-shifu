@@ -42,7 +42,7 @@
 - [x] Implement charts section (progress distribution, follow-up trend, top outlines)
 - [x] Implement learner table (pagination, keyword search, sorting)
 - [x] Implement learner detail `Sheet` with tabs (progress, follow-ups, personalization)
-- [ ] Implement loading + error states consistent with existing admin pages (`Loading`, `ErrorDisplay`)
+- [x] Implement loading + error states consistent with existing admin pages (`Loading`, `ErrorDisplay`)
 - [ ] (Optional) Add frontend tests for chart wrappers and dashboard page (Jest)
 
 ## QA / Quality Gates
