@@ -861,12 +861,18 @@ class AVStreamingTTSProcessor:
 
             boundary = self._find_next_boundary(self._raw_buffer)
             if boundary is None:
-                speakable = self._raw_buffer
-                self._raw_buffer = ""
+                # Keep a small tail so we don't lose boundary markers split across chunks,
+                # e.g. `<di` + `v ...>` or partial fences/backticks.
+                tail_len = 32
+                if len(self._raw_buffer) <= tail_len:
+                    break
+
+                speakable = self._raw_buffer[:-tail_len]
+                self._raw_buffer = self._raw_buffer[-tail_len:]
                 if speakable:
                     processor = self._ensure_processor()
                     yield from processor.process_chunk(speakable)
-                break
+                continue
 
             kind, start, end, complete = boundary
             speakable = self._raw_buffer[:start]
