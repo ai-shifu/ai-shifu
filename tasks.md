@@ -14,7 +14,7 @@
 - [x] Add unit tests for segmentation helper (SVG, img, markdown images, mermaid/code fences, sandbox HTML).
 - [x] Extend DTOs: add optional `position` to `AudioSegmentDTO` + `AudioCompleteDTO`.
 - [x] Extend DTOs: extend `GeneratedBlockDTO` to return `audios[]` (position + url + duration + bid).
-- [ ] Update `/records` assembly: `get_learn_record()` returns `audios[]` per `generated_block_bid` (sorted by `position`).
+- [x] Update `/records` assembly: `get_learn_record()` returns `audios[]` per `generated_block_bid` (sorted by `position`).
 - [ ] Update `/records` assembly: keep `audio_url` behavior backward-compatible as needed.
 - [ ] Update on-demand TTS endpoint:
 - [ ] Add query param `av_mode=true` (or new endpoint) to trigger segmented behavior.

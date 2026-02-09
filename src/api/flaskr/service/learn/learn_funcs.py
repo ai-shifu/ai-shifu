@@ -356,14 +356,33 @@ def get_learn_record(
             .all()
         )
 
-        # Get audio URLs for generated blocks
+        # Get audio records for generated blocks (no joins; compose in Python).
         generated_block_bids = [b.generated_block_bid for b in generated_blocks]
-        audio_records = LearnGeneratedAudio.query.filter(
-            LearnGeneratedAudio.generated_block_bid.in_(generated_block_bids),
-            LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
-            LearnGeneratedAudio.deleted == 0,
-        ).all()
-        audio_url_map = {a.generated_block_bid: a.oss_url for a in audio_records}
+        audios_map: dict[str, list[AudioCompleteDTO]] = {}
+        if generated_block_bids:
+            audio_records = (
+                LearnGeneratedAudio.query.filter(
+                    LearnGeneratedAudio.generated_block_bid.in_(generated_block_bids),
+                    LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
+                    LearnGeneratedAudio.deleted == 0,
+                )
+                .order_by(
+                    LearnGeneratedAudio.generated_block_bid.asc(),
+                    LearnGeneratedAudio.position.asc(),
+                    LearnGeneratedAudio.id.asc(),
+                )
+                .all()
+            )
+            for audio in audio_records:
+                position = int(getattr(audio, "position", 0) or 0)
+                audios_map.setdefault(audio.generated_block_bid, []).append(
+                    AudioCompleteDTO(
+                        audio_url=audio.oss_url or "",
+                        audio_bid=audio.audio_bid or "",
+                        duration_ms=int(audio.duration_ms or 0),
+                        position=position,
+                    )
+                )
 
         records: list[GeneratedBlockDTO] = []
         interaction = ""
@@ -415,7 +434,12 @@ def get_learn_record(
                 generated_block.generated_content
                 if block_type == BlockType.INTERACTION
                 else "",
-                audio_url=audio_url_map.get(generated_block.generated_block_bid),
+                audio_url=(
+                    audios_map.get(generated_block.generated_block_bid)[0].audio_url
+                    if audios_map.get(generated_block.generated_block_bid)
+                    else None
+                ),
+                audios=audios_map.get(generated_block.generated_block_bid),
             )
             records.append(record)
         if len(records) > 0:
