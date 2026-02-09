@@ -10,10 +10,13 @@ from datetime import date, datetime, timedelta
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from flask import Flask
+from sqlalchemy import or_
 
 from flaskr.dao import db
+from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.dashboard.dtos import (
+    DashboardLearnerSummaryDTO,
     DashboardOutlineDTO,
     DashboardOverviewDTO,
     DashboardOverviewKpiDTO,
@@ -525,3 +528,207 @@ def build_dashboard_overview(
             start_date=str(resolved_start),
             end_date=str(resolved_end),
         )
+
+
+def _search_user_bids(keyword: str) -> List[str]:
+    normalized = str(keyword or "").strip()
+    if not normalized:
+        return []
+
+    like_pattern = f"%{normalized}%"
+    user_bids: set[str] = set()
+
+    users = (
+        UserEntity.query.filter(
+            UserEntity.deleted == 0,
+            or_(
+                UserEntity.user_bid.like(like_pattern),
+                UserEntity.nickname.like(like_pattern),
+                UserEntity.user_identify.like(like_pattern),
+            ),
+        )
+        .order_by(UserEntity.id.desc())
+        .all()
+    )
+    for user in users:
+        if user and user.user_bid:
+            user_bids.add(user.user_bid)
+
+    credentials = (
+        AuthCredential.query.filter(
+            AuthCredential.deleted == 0,
+            AuthCredential.provider_name == "phone",
+            AuthCredential.identifier.like(like_pattern),
+        )
+        .order_by(AuthCredential.id.desc())
+        .all()
+    )
+    for credential in credentials:
+        if credential and credential.user_bid:
+            user_bids.add(credential.user_bid)
+
+    return list(user_bids)
+
+
+def _load_last_active_map(shifu_bid: str, user_bids: List[str]) -> Dict[str, datetime]:
+    if not user_bids:
+        return {}
+    result: Dict[str, datetime] = {}
+    for chunk in _chunked(user_bids):
+        rows = (
+            db.session.query(
+                LearnProgressRecord.user_bid.label("user_bid"),
+                db.func.max(LearnProgressRecord.updated_at).label("last_active"),
+            )
+            .filter(
+                LearnProgressRecord.shifu_bid == shifu_bid,
+                LearnProgressRecord.deleted == 0,
+                LearnProgressRecord.status != LEARN_STATUS_RESET,
+                LearnProgressRecord.user_bid.in_(chunk),
+            )
+            .group_by(LearnProgressRecord.user_bid)
+            .all()
+        )
+        for user_bid, last_active in rows:
+            if not user_bid or not last_active:
+                continue
+            result[str(user_bid)] = last_active
+    return result
+
+
+def _load_follow_up_count_map(
+    shifu_bid: str,
+    user_bids: List[str],
+) -> Dict[str, int]:
+    if not user_bids:
+        return {}
+    result: Dict[str, int] = {}
+    for chunk in _chunked(user_bids):
+        rows = (
+            db.session.query(
+                LearnGeneratedBlock.user_bid.label("user_bid"),
+                db.func.count(LearnGeneratedBlock.id).label("c"),
+            )
+            .filter(
+                LearnGeneratedBlock.shifu_bid == shifu_bid,
+                LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
+                LearnGeneratedBlock.user_bid.in_(chunk),
+            )
+            .group_by(LearnGeneratedBlock.user_bid)
+            .all()
+        )
+        for user_bid, c in rows:
+            if not user_bid:
+                continue
+            result[str(user_bid)] = int(c or 0)
+    return result
+
+
+def _load_completed_count_map(
+    shifu_bid: str,
+    required_outline_bids: List[str],
+    user_bids: List[str],
+) -> Dict[str, int]:
+    if not required_outline_bids or not user_bids:
+        return {}
+
+    completed: Dict[str, int] = {bid: 0 for bid in user_bids}
+
+    outline_chunks = (
+        list(_chunked(required_outline_bids))
+        if len(required_outline_bids) > 800
+        else [required_outline_bids]
+    )
+    for outline_chunk in outline_chunks:
+        for user_chunk in _chunked(user_bids):
+            rows = _load_latest_progress_records(
+                shifu_bid,
+                outline_item_bids=outline_chunk,
+                user_bids=user_chunk,
+            )
+            for row in rows:
+                if not row.user_bid:
+                    continue
+                if int(row.status or 0) == LEARN_STATUS_COMPLETED:
+                    completed[row.user_bid] = completed.get(row.user_bid, 0) + 1
+    return completed
+
+
+def list_dashboard_learners(
+    app: Flask,
+    shifu_bid: str,
+    *,
+    page_index: int = 1,
+    page_size: int = 20,
+    keyword: Optional[str] = None,
+    sort: Optional[str] = None,
+) -> PageNationDTO:
+    with app.app_context():
+        safe_page_index = max(int(page_index or 1), 1)
+        safe_page_size = max(int(page_size or 20), 1)
+        safe_page_size = min(safe_page_size, 100)
+
+        published_outlines = load_published_outlines(app, shifu_bid)
+        required_bids = _required_outline_bids(
+            published_outlines, include_trial=False, include_guest=False
+        )
+        required_total = len(required_bids)
+
+        learner_bids_all = _load_learner_bids(shifu_bid)
+        if keyword and str(keyword).strip():
+            matched_bids = set(_search_user_bids(str(keyword)))
+            learner_bids = [bid for bid in learner_bids_all if bid in matched_bids]
+        else:
+            learner_bids = learner_bids_all
+
+        total = len(learner_bids)
+        if total == 0:
+            return PageNationDTO(safe_page_index, safe_page_size, 0, [])
+
+        page_count = (total + safe_page_size - 1) // safe_page_size
+        safe_page_index = min(safe_page_index, max(page_count, 1))
+
+        last_active_map = _load_last_active_map(shifu_bid, learner_bids)
+        follow_up_count_map = _load_follow_up_count_map(shifu_bid, learner_bids)
+        completed_count_map = _load_completed_count_map(
+            shifu_bid, required_bids, learner_bids
+        )
+        user_contact_map = _load_user_contact_map(learner_bids)
+
+        items: List[DashboardLearnerSummaryDTO] = []
+        for user_bid in learner_bids:
+            contact = user_contact_map.get(user_bid, {})
+            completed = completed_count_map.get(user_bid, 0)
+            percent = 0.0 if required_total == 0 else completed / required_total
+            last_active_dt = last_active_map.get(user_bid)
+            items.append(
+                DashboardLearnerSummaryDTO(
+                    user_bid=user_bid,
+                    nickname=contact.get("nickname", ""),
+                    mobile=contact.get("mobile", ""),
+                    required_outline_total=required_total,
+                    completed_outline_count=completed,
+                    progress_percent=float(percent),
+                    last_active_at=last_active_dt.isoformat() if last_active_dt else "",
+                    follow_up_ask_count=follow_up_count_map.get(user_bid, 0),
+                )
+            )
+
+        normalized_sort = str(sort or "").strip()
+        if normalized_sort == "progress_desc":
+            items.sort(
+                key=lambda item: (item.progress_percent, item.last_active_at),
+                reverse=True,
+            )
+        elif normalized_sort == "followups_desc":
+            items.sort(
+                key=lambda item: (item.follow_up_ask_count, item.last_active_at),
+                reverse=True,
+            )
+        else:
+            items.sort(key=lambda item: item.last_active_at, reverse=True)
+
+        start = (safe_page_index - 1) * safe_page_size
+        page_items = items[start : start + safe_page_size]
+        return PageNationDTO(safe_page_index, safe_page_size, total, page_items)
