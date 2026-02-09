@@ -203,7 +203,7 @@ class TestDashboardRoutes:
             db.session.commit()
 
         resp = test_client.get(
-            "/api/dashboard/shifus/course-2/overview?start_date=2020-01-01&end_date=2030-01-01"
+            "/api/dashboard/shifus/course-2/overview?start_date=2025-01-01&end_date=2025-12-31"
         )
         payload = resp.get_json(force=True)
 
