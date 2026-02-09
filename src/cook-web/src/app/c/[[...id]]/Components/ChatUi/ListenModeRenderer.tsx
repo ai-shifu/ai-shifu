@@ -7,7 +7,7 @@ import 'reveal.js/dist/theme/white.css';
 import ContentIframe from './ContentIframe';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import './ListenModeRenderer.scss';
-import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import { AudioPlayerList } from '@/components/audio/AudioPlayerList';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import {
   useListenAudioSequence,
@@ -199,6 +199,11 @@ const ListenModeRenderer = ({
     [audioAndInteractionList],
   );
 
+  const audioList = useMemo(
+    () => audioContentSequence.map(entry => entry.item),
+    [audioContentSequence],
+  );
+
   const resolveAudioSequenceIndexByDirection = useCallback(
     (page: number, direction: -1 | 1) => {
       if (!audioContentSequence.length) {
@@ -384,15 +389,13 @@ const ListenModeRenderer = ({
           ) : null}
         </div>
       </div>
-      {activeContentItem ? (
+      {audioList.length ? (
         <div className={cn('listen-audio-controls', 'hidden')}>
-          <AudioPlayer
+          <AudioPlayerList
             ref={audioPlayerRef}
-            key={`${activeAudioBlockBid ?? 'listen-audio'}-${audioSequenceToken}`}
-            audioUrl={activeContentItem.audioUrl}
-            streamingSegments={activeContentItem.audioSegments}
-            isStreaming={Boolean(activeContentItem.isAudioStreaming)}
-            alwaysVisible={true}
+            audioList={audioList}
+            sequenceBlockBid={activeAudioBlockBid}
+            isSequenceActive={isAudioSequenceActive}
             disabled={previewMode}
             onRequestAudio={
               !previewMode && onRequestAudioForBlock && activeAudioBlockBid
@@ -402,7 +405,7 @@ const ListenModeRenderer = ({
             autoPlay={!previewMode}
             onPlayStateChange={setIsAudioPlaying}
             onEnded={handleAudioEnded}
-            size={18}
+            className='hidden'
           />
         </div>
       ) : null}

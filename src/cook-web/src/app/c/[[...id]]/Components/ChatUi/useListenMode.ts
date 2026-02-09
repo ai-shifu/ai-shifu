@@ -818,7 +818,10 @@ export const useListenAudioSequence = ({
   const resetSequenceState = useCallback(() => {
     isSequencePausedRef.current = false;
     clearAudioSequenceTimer();
-    audioPlayerRef.current?.pause();
+    audioPlayerRef.current?.pause({
+      traceId: 'sequence-reset',
+      keepAutoPlay: true,
+    });
     audioSequenceIndexRef.current = -1;
     setSequenceInteraction(null);
     setActiveAudioBid(null);
