@@ -105,22 +105,25 @@ const ShifuCard = ({
       </Link>
       {canManageArchive && (
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type='button'
-              variant='ghost'
-              size='icon'
-              className='absolute top-0 right-0 h-10 w-10'
-              title={t('common.core.more')}
-              aria-label={t('common.core.more')}
-              onClick={event => {
-                event.preventDefault();
-                event.stopPropagation();
-              }}
-            >
-              <MoreHorizontal className='h-4 w-4 text-muted-foreground' />
-            </Button>
-          </DropdownMenuTrigger>
+          {/* Reveal the menu only when hovering the top-right hotspot to avoid overlapping the archive badge. */}
+          <div className='absolute top-0 right-0 h-10 w-10 flex items-center justify-center z-10 group'>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type='button'
+                variant='ghost'
+                size='icon'
+                className='h-8 w-8 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto data-[state=open]:opacity-100 data-[state=open]:pointer-events-auto'
+                title={t('common.core.more')}
+                aria-label={t('common.core.more')}
+                onClick={event => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+              >
+                <MoreHorizontal className='h-4 w-4 text-muted-foreground' />
+              </Button>
+            </DropdownMenuTrigger>
+          </div>
           <DropdownMenuContent
             align='end'
             sideOffset={0}
