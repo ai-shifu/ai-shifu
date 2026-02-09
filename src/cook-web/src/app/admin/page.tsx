@@ -112,7 +112,7 @@ const ShifuCard = ({
                 type='button'
                 variant='ghost'
                 size='icon'
-                className='h-8 w-8 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto data-[state=open]:opacity-100 data-[state=open]:pointer-events-auto'
+              className='h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 data-[state=open]:opacity-100'
                 title={t('common.core.more')}
                 aria-label={t('common.core.more')}
                 onClick={event => {
