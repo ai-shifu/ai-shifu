@@ -25,10 +25,10 @@
 ## Frontend (Cook Web)
 
 - [x] Add chart deps: `echarts` + `echarts-for-react` in `src/cook-web/package.json`
-- [ ] Add reusable chart primitives:
-- [ ] Create `src/cook-web/src/components/charts/EChart.tsx` (client-only `next/dynamic` wrapper around `echarts-for-react`)
-- [ ] Create `src/cook-web/src/components/charts/ChartCard.tsx` (standard title/subtitle/actions chrome)
-- [ ] Add shared chart option builders: `src/cook-web/src/lib/charts/options.ts`
+- [x] Add reusable chart primitives:
+- [x] Create `src/cook-web/src/components/charts/EChart.tsx` (client-only `next/dynamic` wrapper around `echarts-for-react`)
+- [x] Create `src/cook-web/src/components/charts/ChartCard.tsx` (standard title/subtitle/actions chrome)
+- [x] Add shared chart option builders: `src/cook-web/src/lib/charts/options.ts`
 - [ ] Add new API definitions in `src/cook-web/src/api/api.ts` for dashboard endpoints
 - [ ] Add TS types: `src/cook-web/src/types/dashboard.ts` (overview, learner list, learner detail, follow-up items)
 - [ ] Add i18n namespace:
