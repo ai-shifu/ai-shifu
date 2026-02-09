@@ -6,7 +6,7 @@ def _require_app(app):
         pytest.skip("App fixture disabled")
 
 
-def test_stream_generated_block_audio_av_mode_persists_positions(app, monkeypatch):
+def test_stream_generated_block_audio_listen_persists_positions(app, monkeypatch):
     _require_app(app)
 
     from flaskr.dao import db
@@ -97,7 +97,7 @@ def test_stream_generated_block_audio_av_mode_persists_positions(app, monkeypatc
             generated_block_bid=generated_block_bid,
             user_bid=user_bid,
             preview_mode=False,
-            av_mode=True,
+            listen=True,
         )
     )
 

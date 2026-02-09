@@ -472,7 +472,7 @@ function useChatLogicHook({
         shifuBid,
         outlineBid,
         effectivePreviewMode,
-        // Listen Mode now relies on on-demand segmented TTS (av_mode=true) for AV sync.
+        // Listen Mode now relies on on-demand segmented TTS (`listen=true`) for AV sync.
         // Keep run SSE free of TTS to avoid generating a single merged track.
         { ...sseParams, listen: false },
         async response => {
@@ -1405,7 +1405,7 @@ function useChatLogicHook({
           shifu_bid: shifuBid,
           generated_block_bid: generatedBlockBid,
           preview_mode: effectivePreviewMode,
-          av_mode: isListenMode,
+          listen: isListenMode,
           onMessage: response => {
             if (response?.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
               const audioPayload = response.content ?? response.data;

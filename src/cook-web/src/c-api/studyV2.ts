@@ -136,7 +136,7 @@ export interface StreamGeneratedBlockAudioParams {
   shifu_bid: string;
   generated_block_bid: string;
   preview_mode?: boolean;
-  av_mode?: boolean;
+  listen?: boolean;
   onMessage: (data: any) => void;
   onError?: (error: unknown) => void;
 }
@@ -248,12 +248,12 @@ export const streamGeneratedBlockAudio = ({
   shifu_bid,
   generated_block_bid,
   preview_mode = false,
-  av_mode = false,
+  listen = false,
   onMessage,
   onError,
 }: StreamGeneratedBlockAudioParams) => {
   const baseURL = getResolvedBaseURL();
-  const url = `${baseURL}/api/learn/shifu/${shifu_bid}/generated-blocks/${generated_block_bid}/tts?preview_mode=${preview_mode}${av_mode ? '&av_mode=true' : ''}`;
+  const url = `${baseURL}/api/learn/shifu/${shifu_bid}/generated-blocks/${generated_block_bid}/tts?preview_mode=${preview_mode}${listen ? '&listen=true' : ''}`;
   return createSseSource(url, {}, onMessage, onError);
 };
 

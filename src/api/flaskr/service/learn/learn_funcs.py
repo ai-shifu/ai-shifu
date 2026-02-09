@@ -708,7 +708,7 @@ def stream_generated_block_audio(
     generated_block_bid: str,
     user_bid: str,
     preview_mode: bool,
-    av_mode: bool = False,
+    listen: bool = False,
 ):
     with app.app_context():
         generated_block = LearnGeneratedBlock.query.filter(
@@ -721,7 +721,7 @@ def stream_generated_block_audio(
         if not generated_block:
             raise_error("server.learn.generatedBlockNotFound")
 
-        if not av_mode:
+        if not listen:
             existing_audio = (
                 LearnGeneratedAudio.query.filter(
                     LearnGeneratedAudio.generated_block_bid == generated_block_bid,
@@ -755,7 +755,7 @@ def stream_generated_block_audio(
         )
 
         raw_text = generated_block.generated_content or ""
-        if av_mode:
+        if listen:
             speakable_segments = split_av_speakable_segments(raw_text)
             if not speakable_segments:
                 raise_error_with_args(

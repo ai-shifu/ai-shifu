@@ -146,12 +146,12 @@ Files:
 
 Add a query param (or a new endpoint) to avoid breaking existing behavior:
 
-- `?av_mode=true` (recommended)
+- `?listen=true` (recommended)
 
 Behavior:
 
-- `av_mode=false` (default): existing single-audio behavior remains.
-- `av_mode=true`: stream or return multiple audio segments, each with `position`.
+- `listen=false` (default): existing single-audio behavior remains.
+- `listen=true`: stream or return multiple audio segments, each with `position`.
 
 SSE payload additions:
 
@@ -184,8 +184,8 @@ Backward compatibility:
 
 ## Rollout / Risk Control
 
-- Gate new behavior behind `av_mode=true` on the TTS endpoint first.
-- Update Listen Mode frontend to request `av_mode=true`.
+- Gate new behavior behind `listen=true` on the TTS endpoint first.
+- Update Listen Mode frontend to request `listen=true`.
 - Keep normal chat mode using the existing single-audio behavior unless explicitly updated later.
 
 ## Testing Plan
@@ -197,7 +197,7 @@ Backend:
   - markdown images
   - fenced code blocks (ensure we do not split inside fences)
   - HTML sandbox blocks
-- Integration test for `/generated-blocks/<bid>/tts?av_mode=true`:
+- Integration test for `/generated-blocks/<bid>/tts?listen=true`:
   - verify DB writes multiple rows with increasing `position`
   - verify SSE payload includes `position`
 
