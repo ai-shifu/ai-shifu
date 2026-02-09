@@ -9,7 +9,7 @@
 ## Backend
 
 - [x] Add `position` column to `learn_generated_audios` (new Alembic migration).
-- [ ] Update `LearnGeneratedAudio` model to include `position` and (optionally) index metadata.
+- [x] Update `LearnGeneratedAudio` model to include `position` and (optionally) index metadata.
 - [ ] Implement backend AV segmentation helper `split_av_speakable_segments(raw: str) -> list[str]`.
 - [ ] Add unit tests for segmentation helper (SVG, img, markdown images, mermaid/code fences, sandbox HTML).
 - [ ] Extend DTOs: add optional `position` to `AudioSegmentDTO` + `AudioCompleteDTO`.
