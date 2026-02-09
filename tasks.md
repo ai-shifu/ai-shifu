@@ -20,7 +20,7 @@
 - [x] Add query param `av_mode=true` (or new endpoint) to trigger segmented behavior.
 - [x] When `av_mode=true`, synthesize and persist multiple audio rows with increasing `position`.
 - [x] Ensure idempotency: if segmented audio already exists, return existing records instead of regenerating.
-- [ ] Add integration test for segmented on-demand TTS (DB rows + SSE payload includes `position`).
+- [x] Add integration test for segmented on-demand TTS (DB rows + SSE payload includes `position`).
 
 ## Frontend (Cook Web)
 
