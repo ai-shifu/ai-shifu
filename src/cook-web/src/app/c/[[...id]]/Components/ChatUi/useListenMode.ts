@@ -111,7 +111,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
         segments.length > 0
       ) {
         const visualSegmentIndices: number[] = [];
-        const textSegmentIndices: number[] = [];
+        const speakableTextSegmentIndices: number[] = [];
 
         segments.forEach((segment, index) => {
           if (segment.type === 'markdown' || segment.type === 'sandbox') {
@@ -119,12 +119,17 @@ export const useListenContentData = (items: ChatContentItem[]) => {
             return;
           }
           if (segment.type === 'text') {
-            textSegmentIndices.push(index);
+            // Keep position mapping aligned with backend streaming TTS:
+            // ignore whitespace-only or too-short segments which backend will not synthesize.
+            const raw = typeof segment.value === 'string' ? segment.value : '';
+            if (raw.trim().length >= 2) {
+              speakableTextSegmentIndices.push(index);
+            }
           }
         });
 
         const pages: number[] = [];
-        textSegmentIndices.forEach((textIndex, position) => {
+        speakableTextSegmentIndices.forEach((textIndex, position) => {
           let mappedPage: number | null = null;
 
           for (let i = visualSegmentIndices.length - 1; i >= 0; i -= 1) {
@@ -134,18 +139,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
             }
           }
 
-          if (mappedPage === null) {
-            for (let i = 0; i < visualSegmentIndices.length; i += 1) {
-              if (visualSegmentIndices[i] > textIndex) {
-                mappedPage = pageCursor + i;
-                break;
-              }
-            }
-          }
-
-          pages[position] =
-            mappedPage ??
-            (slideSegments.length > 0 ? pageCursor : fallbackPage);
+          pages[position] = mappedPage ?? fallbackPage;
         });
 
         if (pages.length > 0) {
