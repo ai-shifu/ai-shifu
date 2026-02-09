@@ -48,7 +48,7 @@
 ## QA / Quality Gates
 
 - [x] Run backend tests: `cd src/api && pytest`
-- [ ] Run frontend checks: `cd src/cook-web && npm run lint && npm run type-check && npm test` (as needed)
+- [x] Run frontend checks: `cd src/cook-web && npm run lint && npm run type-check && npm test` (as needed)
 - [ ] Run repo pre-commit: `pre-commit run -a`
 - [ ] Manual smoke test:
 - [ ] Load `/admin/dashboard`
