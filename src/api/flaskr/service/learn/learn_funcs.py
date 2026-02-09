@@ -707,6 +707,7 @@ def stream_generated_block_audio(
     generated_block_bid: str,
     user_bid: str,
     preview_mode: bool,
+    av_mode: bool = False,
 ):
     with app.app_context():
         generated_block = LearnGeneratedBlock.query.filter(

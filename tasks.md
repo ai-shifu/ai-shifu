@@ -17,7 +17,7 @@
 - [x] Update `/records` assembly: `get_learn_record()` returns `audios[]` per `generated_block_bid` (sorted by `position`).
 - [x] Update `/records` assembly: keep `audio_url` behavior backward-compatible as needed.
 - [ ] Update on-demand TTS endpoint:
-- [ ] Add query param `av_mode=true` (or new endpoint) to trigger segmented behavior.
+- [x] Add query param `av_mode=true` (or new endpoint) to trigger segmented behavior.
 - [ ] When `av_mode=true`, synthesize and persist multiple audio rows with increasing `position`.
 - [ ] Ensure idempotency: if segmented audio already exists, return existing records instead of regenerating.
 - [ ] Add integration test for segmented on-demand TTS (DB rows + SSE payload includes `position`).

@@ -605,6 +605,11 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
               name: preview_mode
               type: string
               required: false
+            - in: query
+              name: av_mode
+              type: string
+              required: false
+              description: Whether to enable AV segmented TTS (default: false)
         responses:
             200:
                 description: stream synthesized audio
@@ -617,6 +622,8 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         user_bid = request.user.user_id
         preview_mode = request.args.get("preview_mode", "False")
         preview_mode = preview_mode.lower() == "true"
+        av_mode = request.args.get("av_mode", "False")
+        av_mode = av_mode.lower() == "true"
 
         def event_stream():
             try:
@@ -626,6 +633,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     generated_block_bid=generated_block_bid,
                     user_bid=user_bid,
                     preview_mode=preview_mode,
+                    av_mode=av_mode,
                 ):
                     payload = (
                         message.__json__() if hasattr(message, "__json__") else message
