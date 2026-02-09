@@ -763,6 +763,54 @@ def stream_generated_block_audio(
                     param_message="No speakable text available for TTS synthesis",
                 )
 
+            expected_segment_count = len(speakable_segments)
+            existing_by_position: dict[int, LearnGeneratedAudio] = {}
+            existing_records = (
+                LearnGeneratedAudio.query.filter(
+                    LearnGeneratedAudio.generated_block_bid == generated_block_bid,
+                    LearnGeneratedAudio.user_bid == user_bid,
+                    LearnGeneratedAudio.shifu_bid == shifu_bid,
+                    LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
+                    LearnGeneratedAudio.deleted == 0,
+                )
+                .order_by(
+                    LearnGeneratedAudio.position.asc(), LearnGeneratedAudio.id.desc()
+                )
+                .all()
+            )
+            for record in existing_records:
+                pos = int(getattr(record, "position", 0) or 0)
+                if pos in existing_by_position:
+                    continue
+                if not record.oss_url:
+                    continue
+                existing_by_position[pos] = record
+
+            has_segmented_records = len(existing_by_position) > 1 or any(
+                pos > 0 for pos in existing_by_position
+            )
+            if expected_segment_count > 1 and not has_segmented_records:
+                # Existing single-audio records are not compatible with AV mode.
+                existing_by_position = {}
+
+            if expected_segment_count and all(
+                pos in existing_by_position for pos in range(expected_segment_count)
+            ):
+                for pos in range(expected_segment_count):
+                    record = existing_by_position[pos]
+                    yield RunMarkdownFlowDTO(
+                        outline_bid=generated_block.outline_item_bid or "",
+                        generated_block_bid=generated_block_bid,
+                        type=GeneratedType.AUDIO_COMPLETE,
+                        content=AudioCompleteDTO(
+                            audio_url=record.oss_url,
+                            audio_bid=record.audio_bid,
+                            duration_ms=int(record.duration_ms or 0),
+                            position=pos,
+                        ),
+                    )
+                return
+
             usage_scene = (
                 BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
             )
@@ -778,6 +826,21 @@ def stream_generated_block_audio(
 
             try:
                 for position, speakable_text in enumerate(speakable_segments):
+                    if position in existing_by_position:
+                        record = existing_by_position[position]
+                        yield RunMarkdownFlowDTO(
+                            outline_bid=generated_block.outline_item_bid or "",
+                            generated_block_bid=generated_block_bid,
+                            type=GeneratedType.AUDIO_COMPLETE,
+                            content=AudioCompleteDTO(
+                                audio_url=record.oss_url,
+                                audio_bid=record.audio_bid,
+                                duration_ms=int(record.duration_ms or 0),
+                                position=position,
+                            ),
+                        )
+                        continue
+
                     cleaned_segment = preprocess_for_tts(speakable_text or "")
                     if not cleaned_segment or len(cleaned_segment.strip()) < 2:
                         continue
