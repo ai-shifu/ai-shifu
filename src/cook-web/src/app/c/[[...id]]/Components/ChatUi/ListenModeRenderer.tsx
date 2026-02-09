@@ -23,7 +23,6 @@ interface ListenModeRendererProps {
   isLoading?: boolean;
   sectionTitle?: string;
   previewMode?: boolean;
-  onRequestAudioForBlock?: (generatedBlockBid: string) => Promise<any>;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
 }
 
@@ -35,7 +34,6 @@ const ListenModeRenderer = ({
   isLoading = false,
   sectionTitle,
   previewMode = false,
-  onRequestAudioForBlock,
   onSend,
 }: ListenModeRendererProps) => {
   const deckRef = useRef<Reveal.Api | null>(null);
@@ -50,10 +48,8 @@ const ListenModeRenderer = ({
     slideItems,
     interactionByPage,
     audioAndInteractionList,
-    audioPageByBid,
     contentByBid,
     audioContentByBid,
-    ttsReadyBlockBids,
     lastInteractionBid,
     lastItemIsInteraction,
     firstContentItem,
@@ -164,8 +160,6 @@ const ListenModeRenderer = ({
     shouldStartSequenceRef,
     contentByBid,
     audioContentByBid,
-    ttsReadyBlockBids,
-    onRequestAudioForBlock,
     previewMode,
     shouldRenderEmptyPpt,
     getNextContentBid,
@@ -173,13 +167,6 @@ const ListenModeRenderer = ({
     resolveContentBid,
     setIsAudioPlaying,
   });
-
-  const expectedActiveAudioSegmentCount = useMemo(() => {
-    if (!activeAudioBlockBid) {
-      return 1;
-    }
-    return audioPageByBid.get(activeAudioBlockBid)?.length ?? 1;
-  }, [activeAudioBlockBid, audioPageByBid]);
 
   const activeAudioTrack = useMemo(() => {
     if (!activeContentItem) {
@@ -195,21 +182,17 @@ const ListenModeRenderer = ({
       audioUrl:
         track?.audioUrl ??
         persisted?.audio_url ??
-        (activeAudioPosition === 0 && expectedActiveAudioSegmentCount <= 1
-          ? activeContentItem.audioUrl
-          : undefined),
+        (activeAudioPosition === 0 ? activeContentItem.audioUrl : undefined),
       streamingSegments:
         track?.audioSegments ??
-        (activeAudioPosition === 0 && expectedActiveAudioSegmentCount <= 1
-          ? activeContentItem.audioSegments
-          : []),
+        (activeAudioPosition === 0 ? activeContentItem.audioSegments : []),
       isStreaming:
         track?.isAudioStreaming ??
-        (activeAudioPosition === 0 && expectedActiveAudioSegmentCount <= 1
+        (activeAudioPosition === 0
           ? Boolean(activeContentItem.isAudioStreaming)
           : false),
     };
-  }, [activeAudioPosition, activeContentItem, expectedActiveAudioSegmentCount]);
+  }, [activeAudioPosition, activeContentItem]);
 
   const { currentInteraction, isPrevDisabled, isNextDisabled, goPrev, goNext } =
     useListenPpt({
@@ -436,11 +419,6 @@ const ListenModeRenderer = ({
             isStreaming={activeAudioTrack?.isStreaming}
             alwaysVisible={true}
             disabled={previewMode}
-            onRequestAudio={
-              !previewMode && onRequestAudioForBlock && activeAudioBlockBid
-                ? () => onRequestAudioForBlock(activeAudioBlockBid)
-                : undefined
-            }
             autoPlay={!previewMode}
             onPlayStateChange={setIsAudioPlaying}
             onEnded={handleAudioEnded}

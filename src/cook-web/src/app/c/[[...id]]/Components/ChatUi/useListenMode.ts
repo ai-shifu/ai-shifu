@@ -103,13 +103,6 @@ export const useListenContentData = (items: ChatContentItem[]) => {
         hasAnySegmentedAudio,
       );
 
-      const isTtsReady =
-        item.type === ChatContentItemType.CONTENT &&
-        Boolean(item.generated_block_bid) &&
-        item.generated_block_bid !== 'loading' &&
-        (Boolean(item.isHistory) ||
-          ttsReadyBlockBids.has(item.generated_block_bid));
-
       let pagesForAudio: number[] | null = null;
       if (
         item.type === ChatContentItemType.CONTENT &&
@@ -161,34 +154,49 @@ export const useListenContentData = (items: ChatContentItem[]) => {
         }
       }
 
-      if (item.type === ChatContentItemType.CONTENT && isTtsReady) {
-        const positions =
-          pagesForAudio && pagesForAudio.length > 0
-            ? pagesForAudio.map((_, index) => index)
-            : item.audios && item.audios.length > 0
-              ? Array.from(
-                  new Set(
-                    item.audios.map(audio => (audio as any).position ?? 0),
-                  ),
-                ).sort((a, b) => a - b)
-              : item.audioTracksByPosition &&
-                  Object.keys(item.audioTracksByPosition).length > 0
-                ? Object.keys(item.audioTracksByPosition)
-                    .map(Number)
-                    .filter(value => !Number.isNaN(value))
-                    .sort((a, b) => a - b)
-                : hasAudio
-                  ? [0]
-                  : [];
+      if (item.type === ChatContentItemType.CONTENT && hasAudio) {
+        const persistedPositions =
+          item.audios && item.audios.length > 0
+            ? Array.from(
+                new Set(
+                  item.audios
+                    .map(audio => Number((audio as any).position ?? 0))
+                    .filter(value => !Number.isNaN(value)),
+                ),
+              )
+            : [];
+        const trackPositions =
+          item.audioTracksByPosition &&
+          Object.keys(item.audioTracksByPosition).length > 0
+            ? Object.keys(item.audioTracksByPosition)
+                .map(Number)
+                .filter(value => !Number.isNaN(value))
+            : [];
+        const availablePositions = Array.from(
+          new Set([...persistedPositions, ...trackPositions]),
+        ).sort((a, b) => a - b);
+        const hasMultiplePositions =
+          availablePositions.length > 1 ||
+          availablePositions.some(position => position > 0);
 
-        positions.forEach(position => {
-          const mappedPage = pagesForAudio?.[position];
+        if (hasMultiplePositions) {
+          const positions = availablePositions.length
+            ? availablePositions
+            : [0];
+          positions.forEach(position => {
+            const mappedPage = pagesForAudio?.[position];
+            nextAudioAndInteractionList.push({
+              ...item,
+              page: typeof mappedPage === 'number' ? mappedPage : contentPage,
+              audioPosition: position,
+            });
+          });
+        } else {
           nextAudioAndInteractionList.push({
             ...item,
-            page: typeof mappedPage === 'number' ? mappedPage : contentPage,
-            audioPosition: position,
+            page: contentPage,
           });
-        });
+        }
       }
 
       if (item.type === ChatContentItemType.INTERACTION) {
@@ -215,7 +223,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
       audioAndInteractionList: nextAudioAndInteractionList,
       audioPageByBid,
     };
-  }, [items, ttsReadyBlockBids]);
+  }, [items]);
 
   const contentByBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();
@@ -686,7 +694,6 @@ export const useListenPpt = ({
 
 interface UseListenAudioSequenceParams {
   audioAndInteractionList: AudioInteractionItem[];
-  audioPageByBid: Map<string, number[]>;
   deckRef: React.MutableRefObject<Reveal.Api | null>;
   currentPptPageRef: React.MutableRefObject<number>;
   activeBlockBidRef: React.MutableRefObject<string | null>;
@@ -694,8 +701,6 @@ interface UseListenAudioSequenceParams {
   shouldStartSequenceRef: React.MutableRefObject<boolean>;
   contentByBid: Map<string, ChatContentItem>;
   audioContentByBid: Map<string, ChatContentItem>;
-  ttsReadyBlockBids: Set<string>;
-  onRequestAudioForBlock?: (generatedBlockBid: string) => Promise<any>;
   previewMode: boolean;
   shouldRenderEmptyPpt: boolean;
   getNextContentBid: (currentBid: string | null) => string | null;
@@ -706,7 +711,6 @@ interface UseListenAudioSequenceParams {
 
 export const useListenAudioSequence = ({
   audioAndInteractionList,
-  audioPageByBid,
   deckRef,
   currentPptPageRef,
   activeBlockBidRef,
@@ -714,8 +718,6 @@ export const useListenAudioSequence = ({
   shouldStartSequenceRef,
   contentByBid,
   audioContentByBid,
-  ttsReadyBlockBids,
-  onRequestAudioForBlock,
   previewMode,
   shouldRenderEmptyPpt,
   getNextContentBid,
@@ -724,7 +726,6 @@ export const useListenAudioSequence = ({
   setIsAudioPlaying,
 }: UseListenAudioSequenceParams) => {
   const audioPlayerRef = useRef<AudioPlayerHandle | null>(null);
-  const requestedAudioBlockBidsRef = useRef<Set<string>>(new Set());
   const audioSequenceIndexRef = useRef(-1);
   const audioSequenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -1043,64 +1044,6 @@ export const useListenAudioSequence = ({
     pendingAutoNextRef,
     resolveContentBid,
     shouldRenderEmptyPpt,
-  ]);
-
-  useEffect(() => {
-    if (!activeAudioBlockBid) {
-      return;
-    }
-    const item = contentByBid.get(activeAudioBlockBid);
-    if (!item) {
-      return;
-    }
-
-    const isBlockReadyForTts =
-      Boolean(item.isHistory) || ttsReadyBlockBids.has(activeAudioBlockBid);
-    if (!isBlockReadyForTts) {
-      return;
-    }
-
-    const track = item.audioTracksByPosition?.[activeAudioPosition];
-    const persistedMatches = (item.audios || []).filter(
-      audio => (audio.position ?? 0) === activeAudioPosition,
-    );
-    const persisted = persistedMatches[persistedMatches.length - 1];
-    const expectedSegmentCount =
-      audioPageByBid.get(activeAudioBlockBid)?.length ?? 1;
-    const shouldIgnoreLegacyAudioUrl = expectedSegmentCount > 1;
-    const hasLegacyAudio =
-      !shouldIgnoreLegacyAudioUrl &&
-      activeAudioPosition === 0 &&
-      (item.audioUrl ||
-        item.isAudioStreaming ||
-        (item.audioSegments && item.audioSegments.length > 0));
-    const hasAudio = Boolean(
-      hasLegacyAudio ||
-      persisted?.audio_url ||
-      track?.audioUrl ||
-      track?.isAudioStreaming ||
-      (track?.audioSegments && track.audioSegments.length > 0),
-    );
-
-    if (
-      !hasAudio &&
-      onRequestAudioForBlock &&
-      !previewMode &&
-      !requestedAudioBlockBidsRef.current.has(activeAudioBlockBid)
-    ) {
-      requestedAudioBlockBidsRef.current.add(activeAudioBlockBid);
-      onRequestAudioForBlock(activeAudioBlockBid).catch(() => {
-        // errors handled by request layer toast; ignore here
-      });
-    }
-  }, [
-    activeAudioBlockBid,
-    activeAudioPosition,
-    audioPageByBid,
-    contentByBid,
-    onRequestAudioForBlock,
-    previewMode,
-    ttsReadyBlockBids,
   ]);
 
   const handleAudioEnded = useCallback(() => {

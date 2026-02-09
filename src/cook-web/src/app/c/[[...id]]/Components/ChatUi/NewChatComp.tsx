@@ -470,7 +470,6 @@ export const NewChatComponents = ({
             isLoading={isLoading}
             sectionTitle={lessonTitle}
             previewMode={previewMode}
-            onRequestAudioForBlock={requestAudioForBlock}
             onSend={memoizedOnSend}
           />
         ) : (
