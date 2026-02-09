@@ -11,10 +11,10 @@
 - [x] Add new module skeleton: `src/api/flaskr/service/dashboard/` (`__init__.py`, `dtos.py`, `funcs.py`, `routes.py`)
 - [x] Implement permission checks: require `view` permission via `shifu_permission_verification(app, user_id, shifu_bid, "view")`
 - [x] Implement published outline loader (from `LogPublishedStruct` + `PublishedOutlineItem`) and flatten to the “required outline set”
-- [ ] Implement “latest progress record” selection per `(user_bid, outline_item_bid)` using `max(id)` subquery (exclude `LEARN_STATUS_RESET`, `deleted=0`)
-- [ ] Implement grouped follow-up queries from `LearnGeneratedBlock` (MDASK/MDANSWER) with time-range filters
+- [x] Implement “latest progress record” selection per `(user_bid, outline_item_bid)` using `max(id)` subquery (exclude `LEARN_STATUS_RESET`, `deleted=0`)
+- [x] Implement grouped follow-up queries from `LearnGeneratedBlock` (MDASK/MDANSWER) with time-range filters
 - [x] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/outlines`
-- [ ] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/overview` (KPIs + chart-ready series)
+- [x] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/overview` (KPIs + chart-ready series)
 - [ ] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/learners` (pagination, keyword search, sorting)
 - [ ] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/learners/{user_bid}` (progress + variables + follow-up summary)
 - [ ] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/learners/{user_bid}/followups` (pagination + filters)
