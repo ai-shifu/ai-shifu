@@ -38,7 +38,7 @@
 - [x] Add admin navigation entry for dashboard in `src/cook-web/src/app/admin/layout.tsx`
 - [x] Add page: `src/cook-web/src/app/admin/dashboard/page.tsx`
 - [x] Implement header controls (course selector + date range filter)
-- [ ] Implement KPI cards section (learners, completion rate, follow-ups, last active)
+- [x] Implement KPI cards section (learners, completion rate, follow-ups, last active)
 - [ ] Implement charts section (progress distribution, follow-up trend, top outlines)
 - [ ] Implement learner table (pagination, keyword search, sorting)
 - [ ] Implement learner detail `Sheet` with tabs (progress, follow-ups, personalization)

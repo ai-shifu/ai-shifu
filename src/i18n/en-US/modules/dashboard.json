@@ -6,5 +6,11 @@
     "reset": "Reset",
     "selectCourse": "Select course"
   },
+  "kpi": {
+    "completionRate": "Completion Rate",
+    "followUps": "Follow-ups",
+    "learners": "Learners",
+    "requiredOutlines": "Required Lessons"
+  },
   "title": "Dashboard"
 }

@@ -1,11 +1,18 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { useUserStore } from '@/store';
 import type { Shifu } from '@/types/shifu';
 import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
 import {
   Select,
   SelectContent,
@@ -21,6 +28,7 @@ import {
 import { Calendar } from '@/components/ui/Calendar';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { DashboardOverview } from '@/types/dashboard';
 
 const formatDateValue = (value: Date): string => {
   const year = value.getFullYear();
@@ -139,6 +147,16 @@ export default function AdminDashboardPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  const [overview, setOverview] = useState<DashboardOverview | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
+
+  const lastFetchedOverviewRef = useRef<{
+    shifuBid: string;
+    startDate: string;
+    endDate: string;
+  } | null>(null);
+
   useEffect(() => {
     if (!isInitialized || isGuest) {
       setCourses([]);
@@ -200,6 +218,72 @@ export default function AdminDashboardPage() {
     };
   }, [isInitialized, isGuest, t]);
 
+  const fetchOverview = useCallback(async () => {
+    if (!shifuBid) {
+      setOverview(null);
+      setOverviewLoading(false);
+      setOverviewError(null);
+      return;
+    }
+
+    const cached = lastFetchedOverviewRef.current;
+    if (
+      overview &&
+      cached?.shifuBid === shifuBid &&
+      cached?.startDate === startDate &&
+      cached?.endDate === endDate
+    ) {
+      return;
+    }
+
+    setOverviewLoading(true);
+    setOverviewError(null);
+    try {
+      const result = (await api.getDashboardOverview({
+        shifu_bid: shifuBid,
+        start_date: startDate,
+        end_date: endDate,
+      })) as DashboardOverview;
+      setOverview(result);
+
+      lastFetchedOverviewRef.current = {
+        shifuBid,
+        startDate: result.start_date || startDate,
+        endDate: result.end_date || endDate,
+      };
+
+      if (result.start_date && result.start_date !== startDate) {
+        setStartDate(result.start_date);
+      }
+      if (result.end_date && result.end_date !== endDate) {
+        setEndDate(result.end_date);
+      }
+    } catch {
+      setOverview(null);
+      setOverviewError(t('common.core.networkError'));
+    } finally {
+      setOverviewLoading(false);
+    }
+  }, [endDate, overview, shifuBid, startDate, t]);
+
+  useEffect(() => {
+    if (!isInitialized || isGuest) {
+      setOverview(null);
+      setOverviewLoading(false);
+      setOverviewError(null);
+      return;
+    }
+    fetchOverview();
+  }, [fetchOverview, isInitialized, isGuest]);
+
+  const completionRateText = useMemo(() => {
+    if (!overview) {
+      return '-';
+    }
+    const percent = Math.round((overview.kpis.completion_rate || 0) * 100);
+    return `${percent}%`;
+  }, [overview]);
+
   return (
     <div className='h-full p-0'>
       <div className='h-full overflow-hidden flex flex-col'>
@@ -258,6 +342,60 @@ export default function AdminDashboardPage() {
         </div>
         {coursesError ? (
           <div className='text-sm text-destructive'>{coursesError}</div>
+        ) : null}
+
+        <div className='grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4'>
+          <Card>
+            <CardContent className='p-4'>
+              <div className='text-sm text-muted-foreground'>
+                {t('module.dashboard.kpi.learners')}
+              </div>
+              <div className='mt-2 text-2xl font-semibold text-foreground'>
+                {overviewLoading ? '-' : (overview?.kpis.learner_count ?? '-')}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className='p-4'>
+              <div className='text-sm text-muted-foreground'>
+                {t('module.dashboard.kpi.completionRate')}
+              </div>
+              <div className='mt-2 text-2xl font-semibold text-foreground'>
+                {overviewLoading ? '-' : completionRateText}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className='p-4'>
+              <div className='text-sm text-muted-foreground'>
+                {t('module.dashboard.kpi.followUps')}
+              </div>
+              <div className='mt-2 text-2xl font-semibold text-foreground'>
+                {overviewLoading
+                  ? '-'
+                  : (overview?.kpis.follow_up_ask_total ?? '-')}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className='p-4'>
+              <div className='text-sm text-muted-foreground'>
+                {t('module.dashboard.kpi.requiredOutlines')}
+              </div>
+              <div className='mt-2 text-2xl font-semibold text-foreground'>
+                {overviewLoading
+                  ? '-'
+                  : (overview?.kpis.required_outline_total ?? '-')}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {overviewError ? (
+          <div className='mt-3 text-sm text-destructive'>{overviewError}</div>
         ) : null}
       </div>
     </div>

@@ -6,5 +6,11 @@
     "reset": "重置",
     "selectCourse": "选择课程"
   },
+  "kpi": {
+    "completionRate": "完课率",
+    "followUps": "追问数",
+    "learners": "学员数",
+    "requiredOutlines": "必修课时"
+  },
   "title": "数据看板"
 }
