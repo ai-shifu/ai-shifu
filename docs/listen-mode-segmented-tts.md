@@ -15,6 +15,7 @@ Today, the backend synthesizes speech in *provider-safe chunks* (sentence/length
 - Keep the existing “split long text into safe segments + concatenate” logic **within each speakable segment**.
 - Let the **frontend control pacing** (when to advance visuals and when to play each audio segment).
 - Make changes as small as possible and **reuse existing TTS pipeline**.
+- **No extra on-demand TTS calls during `run`**: Listen Mode uses **RUN SSE** streaming TTS as the source of truth.
 
 ## Non-goals
 
@@ -72,6 +73,19 @@ Concrete example for this feature (already consistent with current code in `get_
 - Child: `LearnGeneratedAudio` filtered by `generated_block_bid IN (parent_bids)` and `deleted/status`
 - Compose: `audios_by_block_bid[generated_block_bid] = sorted(list, key=position)`
 
+### Listen Mode Source Of Truth: RUN SSE Only
+
+Listen Mode must **not** auto-trigger additional TTS synthesis via:
+
+- `POST /api/learn/shifu/<shifu_bid>/generated-blocks/<bid>/tts?listen=true`
+
+Instead, Listen Mode relies on **RUN SSE** streaming audio events:
+
+- `audio_segment` and `audio_complete`
+
+When AV segmentation is enabled (Listen Mode), the backend run SSE stream must emit
+multiple audio tracks per block, identified by `position`.
+
 ### 1) Database: add `position` to `learn_generated_audios`
 
 Add a new integer field:
@@ -121,11 +135,11 @@ When segmented AV TTS is enabled for a block:
 2. For each speakable segment `i`:
    - run existing long-text pipeline (split by length/sentence + concat)
    - upload resulting MP3 to OSS
-   - persist a `LearnGeneratedAudio` row with:
+- persist a `LearnGeneratedAudio` row with:
      - `generated_block_bid = ...`
      - `audio_bid = new uuid`
-     - `position = i`
-     - `duration_ms`, `segment_count`, etc.
+      - `position = i`
+      - `duration_ms`, `segment_count`, etc.
 
 ### 4) API + DTO changes
 
@@ -144,7 +158,7 @@ Files:
 
 #### 4.2 On-demand TTS (`/generated-blocks/<bid>/tts`)
 
-Add a query param (or a new endpoint) to avoid breaking existing behavior:
+Keep a query param (or a new endpoint) to avoid breaking existing behavior:
 
 - `?listen=true` (recommended)
 
@@ -152,6 +166,10 @@ Behavior:
 
 - `listen=false` (default): existing single-audio behavior remains.
 - `listen=true`: stream or return multiple audio segments, each with `position`.
+
+Important:
+
+- This endpoint is **manual/backfill only** and must not be auto-called by Listen Mode during `run`.
 
 SSE payload additions:
 
@@ -184,9 +202,8 @@ Backward compatibility:
 
 ## Rollout / Risk Control
 
-- Gate new behavior behind `listen=true` on the TTS endpoint first.
-- Update Listen Mode frontend to request `listen=true`.
 - Keep normal chat mode using the existing single-audio behavior unless explicitly updated later.
+- Listen Mode relies on RUN SSE and does **not** auto-call the on-demand TTS endpoint.
 
 ## Testing Plan
 

@@ -16,11 +16,14 @@
 - [x] Extend DTOs: extend `GeneratedBlockDTO` to return `audios[]` (position + url + duration + bid).
 - [x] Update `/records` assembly: `get_learn_record()` returns `audios[]` per `generated_block_bid` (sorted by `position`).
 - [x] Update `/records` assembly: keep `audio_url` behavior backward-compatible as needed.
-- [x] Update on-demand TTS endpoint:
-- [x] Add query param `listen=true` (or new endpoint) to trigger segmented behavior.
+- [x] Update on-demand TTS endpoint (manual/backfill only):
+- [x] Keep query param `listen=true` to trigger segmented behavior.
 - [x] When `listen=true`, synthesize and persist multiple audio rows with increasing `position`.
 - [x] Ensure idempotency: if segmented audio already exists, return existing records instead of regenerating.
 - [x] Add integration test for segmented on-demand TTS (DB rows + SSE payload includes `position`).
+- [ ] Update run SSE streaming TTS (Listen Mode):
+- [ ] Segment streaming TTS by AV boundaries and emit `position` in SSE audio payloads.
+- [ ] Persist one `LearnGeneratedAudio` row per `(generated_block_bid, position)`.
 
 ## Frontend (Cook Web)
 
@@ -32,8 +35,8 @@
 - [x] Iterate through `(generated_block_bid, position)` steps instead of one track per block.
 - [x] Advance Reveal slides according to the mapped page for each audio segment.
 - [x] Update TTS request path in Listen Mode:
-- [x] Request segmented audio with `listen=true`.
-- [x] Group incoming SSE audio_segment/audio_complete by `position`.
+- [x] Stop auto-calling on-demand segmented TTS (`/generated-blocks/<bid>/tts?listen=true`); RUN SSE is source of truth.
+- [ ] Group incoming run SSE `audio_segment/audio_complete` by `position` (store in `audioTracksByPosition`).
 - [x] Regression: ensure non-listen mode audio button still works (single audio_url path unchanged).
 
 ## QA / Ops
