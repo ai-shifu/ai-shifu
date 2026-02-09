@@ -24,7 +24,7 @@
 
 ## Frontend (Cook Web)
 
-- [ ] Add chart deps: `echarts` + `echarts-for-react` in `src/cook-web/package.json`
+- [x] Add chart deps: `echarts` + `echarts-for-react` in `src/cook-web/package.json`
 - [ ] Add reusable chart primitives:
 - [ ] Create `src/cook-web/src/components/charts/EChart.tsx` (client-only `next/dynamic` wrapper around `echarts-for-react`)
 - [ ] Create `src/cook-web/src/components/charts/ChartCard.tsx` (standard title/subtitle/actions chrome)
