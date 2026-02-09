@@ -12,7 +12,7 @@
 - [x] Update `LearnGeneratedAudio` model to include `position` and (optionally) index metadata.
 - [x] Implement backend AV segmentation helper `split_av_speakable_segments(raw: str) -> list[str]`.
 - [x] Add unit tests for segmentation helper (SVG, img, markdown images, mermaid/code fences, sandbox HTML).
-- [ ] Extend DTOs: add optional `position` to `AudioSegmentDTO` + `AudioCompleteDTO`.
+- [x] Extend DTOs: add optional `position` to `AudioSegmentDTO` + `AudioCompleteDTO`.
 - [ ] Extend DTOs: extend `GeneratedBlockDTO` to return `audios[]` (position + url + duration + bid).
 - [ ] Update `/records` assembly: `get_learn_record()` returns `audios[]` per `generated_block_bid` (sorted by `position`).
 - [ ] Update `/records` assembly: keep `audio_url` behavior backward-compatible as needed.

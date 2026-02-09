@@ -284,6 +284,9 @@ class LearnOutlineItemsWithBannerInfoDTO(BaseModel):
 class AudioSegmentDTO(BaseModel):
     """DTO for streaming audio segment during TTS synthesis."""
 
+    position: int = Field(
+        default=0, description="Audio position within the block (0-based)"
+    )
     segment_index: int = Field(..., description="Segment sequence number")
     audio_data: str = Field(..., description="Base64-encoded audio data")
     duration_ms: int = Field(default=0, description="Segment duration in milliseconds")
@@ -297,8 +300,10 @@ class AudioSegmentDTO(BaseModel):
         audio_data: str,
         duration_ms: int = 0,
         is_final: bool = False,
+        position: int = 0,
     ):
         super().__init__(
+            position=position,
             segment_index=segment_index,
             audio_data=audio_data,
             duration_ms=duration_ms,
@@ -307,6 +312,7 @@ class AudioSegmentDTO(BaseModel):
 
     def __json__(self):
         return {
+            "position": self.position,
             "segment_index": self.segment_index,
             "audio_data": self.audio_data,
             "duration_ms": self.duration_ms,
@@ -318,6 +324,9 @@ class AudioSegmentDTO(BaseModel):
 class AudioCompleteDTO(BaseModel):
     """DTO for completed TTS audio with OSS URL."""
 
+    position: int = Field(
+        default=0, description="Audio position within the block (0-based)"
+    )
     audio_url: str = Field(..., description="OSS URL of complete audio")
     audio_bid: str = Field(..., description="Audio business identifier")
     duration_ms: int = Field(..., description="Total audio duration in milliseconds")
@@ -327,8 +336,10 @@ class AudioCompleteDTO(BaseModel):
         audio_url: str,
         audio_bid: str,
         duration_ms: int,
+        position: int = 0,
     ):
         super().__init__(
+            position=position,
             audio_url=audio_url,
             audio_bid=audio_bid,
             duration_ms=duration_ms,
@@ -336,6 +347,7 @@ class AudioCompleteDTO(BaseModel):
 
     def __json__(self):
         return {
+            "position": self.position,
             "audio_url": self.audio_url,
             "audio_bid": self.audio_bid,
             "duration_ms": self.duration_ms,
