@@ -57,6 +57,8 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dompurify": "^3.2.6",
+    "echarts": "^6.0.0",
+    "echarts-for-react": "^3.0.6",
     "eruda": "^3.4.3",
     "i18next": ">=23.2.3",
     "i18next-icu": "^2.3.0",
