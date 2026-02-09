@@ -1,5 +1,10 @@
 {
   "__namespace__": "module.dashboard",
+  "chart": {
+    "followUpsTrend": "Follow-ups Trend",
+    "progressDistribution": "Progress Distribution",
+    "topOutlinesByFollowUps": "Top Outlines by Follow-ups"
+  },
   "filters": {
     "dateRange": "Date Range",
     "dateRangePlaceholder": "Select date range",
