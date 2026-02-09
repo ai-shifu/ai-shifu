@@ -19,7 +19,7 @@ import { useTracking } from '@/c-common/hooks/useTracking';
 import { useEnvStore } from '@/c-store/envStore';
 import { useUserStore } from '@/store';
 import { useCourseStore } from '@/c-store/useCourseStore';
-import { toast } from '@/hooks/useToast';
+import { fail, toast } from '@/hooks/useToast';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import InteractionBlock from './InteractionBlock';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
@@ -87,6 +87,7 @@ export const NewChatComponents = ({
   // });
 
   const [showScrollDown, setShowScrollDown] = useState(false);
+  const listenTtsToastShownRef = useRef(false);
 
   const scrollToBottom = useCallback(() => {
     chatBoxBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -143,7 +144,10 @@ export const NewChatComponents = ({
   );
   const learningMode = useSystemStore(state => state.learningMode);
   const isListenMode = learningMode === 'listen';
-  const shouldShowAudioAction = previewMode || isListenMode;
+  const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
+  const isListenModeAvailable = courseTtsEnabled !== false;
+  const isListenModeActive = isListenMode && isListenModeAvailable;
+  const shouldShowAudioAction = previewMode || isListenModeActive;
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
 
   const onPayModalOpen = useCallback(() => {
@@ -166,7 +170,7 @@ export const NewChatComponents = ({
   const [longPressedBlockBid, setLongPressedBlockBid] = useState<string>('');
 
   // Streaming TTS sequential playback (auto-play next block)
-  const autoPlayAudio = isListenMode;
+  const autoPlayAudio = isListenModeActive;
   const [currentPlayingBlockBid, setCurrentPlayingBlockBid] = useState<
     string | null
   >(null);
@@ -178,14 +182,26 @@ export const NewChatComponents = ({
   }, [currentPlayingBlockBid]);
 
   useEffect(() => {
-    if (isListenMode) {
+    if (isListenModeActive) {
       return;
     }
     requestExclusive(() => {});
     releaseExclusive();
     currentPlayingBlockBidRef.current = null;
     setCurrentPlayingBlockBid(null);
-  }, [isListenMode, releaseExclusive, requestExclusive]);
+  }, [isListenModeActive, releaseExclusive, requestExclusive]);
+
+  useEffect(() => {
+    if (!isListenMode || isListenModeAvailable) {
+      listenTtsToastShownRef.current = false;
+      return;
+    }
+    if (listenTtsToastShownRef.current) {
+      return;
+    }
+    fail(t('module.chat.listenModeTtsDisabled'));
+    listenTtsToastShownRef.current = true;
+  }, [isListenMode, isListenModeAvailable, t]);
 
   const {
     items,
@@ -202,7 +218,7 @@ export const NewChatComponents = ({
     lessonId,
     chapterId,
     previewMode,
-    isListenMode,
+    isListenMode: isListenModeActive,
     trackEvent,
     chatBoxBottomRef,
     trackTrailProgress,
@@ -445,17 +461,28 @@ export const NewChatComponents = ({
       style={{ position: 'relative', overflow: 'hidden', padding: 0 }}
     >
       {isListenMode ? (
-        <ListenModeRenderer
-          items={items}
-          mobileStyle={mobileStyle}
-          chatRef={chatRef as React.RefObject<HTMLDivElement>}
-          containerClassName={containerClassName}
-          isLoading={isLoading}
-          sectionTitle={lessonTitle}
-          previewMode={previewMode}
-          onRequestAudioForBlock={requestAudioForBlock}
-          onSend={memoizedOnSend}
-        />
+        isListenModeAvailable ? (
+          <ListenModeRenderer
+            items={items}
+            mobileStyle={mobileStyle}
+            chatRef={chatRef as React.RefObject<HTMLDivElement>}
+            containerClassName={containerClassName}
+            isLoading={isLoading}
+            sectionTitle={lessonTitle}
+            previewMode={previewMode}
+            onRequestAudioForBlock={requestAudioForBlock}
+            onSend={memoizedOnSend}
+          />
+        ) : (
+          <div
+            className={cn(
+              containerClassName,
+              'listen-reveal-wrapper',
+              mobileStyle ? 'mobile' : '',
+              'bg-[var(--color-4)]',
+            )}
+          />
+        )
       ) : (
         <div
           className={containerClassName}

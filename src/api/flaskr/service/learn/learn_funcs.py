@@ -158,6 +158,19 @@ def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifu
         )
         if not shifu:
             raise_error("server.shifu.shifuNotFound")
+        published_shifu = None
+        if preview_mode:
+            published_shifu = (
+                PublishedShifu.query.filter(
+                    PublishedShifu.shifu_bid == shifu_bid,
+                    PublishedShifu.deleted == 0,
+                )
+                .order_by(PublishedShifu.id.desc())
+                .first()
+            )
+        else:
+            published_shifu = shifu
+        tts_enabled = bool(getattr(published_shifu, "tts_enabled", 0))
         return LearnShifuInfoDTO(
             bid=shifu.shifu_bid,
             title=shifu.title,
@@ -165,6 +178,7 @@ def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifu
             avatar=get_shifu_res_url(shifu.avatar_res_bid),
             price=str(shifu.price),
             keywords=shifu.keywords.split(",") if shifu.keywords else [],
+            tts_enabled=tts_enabled,
         )
 
 

@@ -8,6 +8,7 @@
   "generating": "插图生成中...",
   "like": "点赞",
   "listenInteractionHint": "提交以下内容后继续学习",
+  "listenModeTtsDisabled": "当前课程没有开启语音合成，无法使用听课模式",
   "markdownFlow": "MarkdownFlow",
   "noMoreLessons": "已学习完所有章节",
   "outputInProgress": "正在有内容输出中，请等待输出结束后再重试",

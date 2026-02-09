@@ -167,6 +167,7 @@ export type I18nKey =
   | 'module.chat.generating'
   | 'module.chat.like'
   | 'module.chat.listenInteractionHint'
+  | 'module.chat.listenModeTtsDisabled'
   | 'module.chat.markdownFlow'
   | 'module.chat.noMoreLessons'
   | 'module.chat.outputInProgress'
