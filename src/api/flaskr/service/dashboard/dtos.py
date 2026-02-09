@@ -170,3 +170,39 @@ class DashboardOverviewDTO(BaseModel):
             "start_date": self.start_date,
             "end_date": self.end_date,
         }
+
+
+@register_schema_to_swagger
+class DashboardLearnerSummaryDTO(BaseModel):
+    """Learner summary row for teacher dashboard."""
+
+    user_bid: str = Field(..., description="User business identifier", required=False)
+    nickname: str = Field(..., description="User nickname", required=False)
+    mobile: str = Field(..., description="User mobile", required=False)
+    required_outline_total: int = Field(
+        ..., description="Required outline items total", required=False
+    )
+    completed_outline_count: int = Field(
+        ..., description="Completed outline items count", required=False
+    )
+    progress_percent: float = Field(
+        ..., description="Progress percent (0..1)", required=False
+    )
+    last_active_at: str = Field(
+        default="", description="Last active timestamp (ISO)", required=False
+    )
+    follow_up_ask_count: int = Field(
+        default=0, description="Follow-up asks total", required=False
+    )
+
+    def __json__(self) -> Dict[str, Any]:
+        return {
+            "user_bid": self.user_bid,
+            "nickname": self.nickname,
+            "mobile": self.mobile,
+            "required_outline_total": int(self.required_outline_total),
+            "completed_outline_count": int(self.completed_outline_count),
+            "progress_percent": float(self.progress_percent),
+            "last_active_at": self.last_active_at,
+            "follow_up_ask_count": int(self.follow_up_ask_count),
+        }

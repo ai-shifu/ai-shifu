@@ -15,7 +15,7 @@
 - [x] Implement grouped follow-up queries from `LearnGeneratedBlock` (MDASK/MDANSWER) with time-range filters
 - [x] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/outlines`
 - [x] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/overview` (KPIs + chart-ready series)
-- [ ] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/learners` (pagination, keyword search, sorting)
+- [x] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/learners` (pagination, keyword search, sorting)
 - [ ] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/learners/{user_bid}` (progress + variables + follow-up summary)
 - [ ] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/learners/{user_bid}/followups` (pagination + filters)
 - [ ] Add swagger schemas for DTOs (`@register_schema_to_swagger`) and keep responses compatible with `make_common_response`
