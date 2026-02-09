@@ -144,6 +144,7 @@ const ListenModeRenderer = ({
     audioPlayerRef,
     activeContentItem,
     activeAudioBlockBid,
+    activeAudioPosition,
     sequenceInteraction,
     isAudioSequenceActive,
     audioSequenceToken,
@@ -170,6 +171,31 @@ const ListenModeRenderer = ({
     resolveContentBid,
     setIsAudioPlaying,
   });
+
+  const activeAudioTrack = useMemo(() => {
+    if (!activeContentItem) {
+      return null;
+    }
+    const track =
+      activeContentItem.audioTracksByPosition?.[activeAudioPosition];
+    const persisted = (activeContentItem.audios || []).find(
+      audio => ((audio as any).position ?? 0) === activeAudioPosition,
+    ) as any;
+    return {
+      audioUrl:
+        track?.audioUrl ??
+        persisted?.audio_url ??
+        (activeAudioPosition === 0 ? activeContentItem.audioUrl : undefined),
+      streamingSegments:
+        track?.audioSegments ??
+        (activeAudioPosition === 0 ? activeContentItem.audioSegments : []),
+      isStreaming:
+        track?.isAudioStreaming ??
+        (activeAudioPosition === 0
+          ? Boolean(activeContentItem.isAudioStreaming)
+          : false),
+    };
+  }, [activeAudioPosition, activeContentItem]);
 
   const { currentInteraction, isPrevDisabled, isNextDisabled, goPrev, goNext } =
     useListenPpt({
@@ -207,7 +233,9 @@ const ListenModeRenderer = ({
       let currentIndex = -1;
       if (activeAudioBlockBid) {
         currentIndex = audioContentSequence.findIndex(
-          entry => entry.item.generated_block_bid === activeAudioBlockBid,
+          entry =>
+            entry.item.generated_block_bid === activeAudioBlockBid &&
+            (entry.item.audioPosition ?? 0) === activeAudioPosition,
         );
       }
       if (currentIndex < 0) {
@@ -231,7 +259,7 @@ const ListenModeRenderer = ({
       }
       return audioContentSequence[targetIndex].index;
     },
-    [audioContentSequence, activeAudioBlockBid],
+    [audioContentSequence, activeAudioBlockBid, activeAudioPosition],
   );
 
   const onPrev = useCallback(() => {
@@ -389,9 +417,9 @@ const ListenModeRenderer = ({
           <AudioPlayer
             ref={audioPlayerRef}
             key={`${activeAudioBlockBid ?? 'listen-audio'}-${audioSequenceToken}`}
-            audioUrl={activeContentItem.audioUrl}
-            streamingSegments={activeContentItem.audioSegments}
-            isStreaming={Boolean(activeContentItem.isAudioStreaming)}
+            audioUrl={activeAudioTrack?.audioUrl}
+            streamingSegments={activeAudioTrack?.streamingSegments}
+            isStreaming={activeAudioTrack?.isStreaming}
             alwaysVisible={true}
             disabled={previewMode}
             onRequestAudio={

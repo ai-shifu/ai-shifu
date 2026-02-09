@@ -28,9 +28,9 @@
 - [x] Extend types: `ChatContentItem` to store segmented audio metadata (e.g. `audios[]` and per-position streaming state).
 - [x] Listen Mode: parse content boundaries consistently:
 - [x] Use `splitContentSegments(content, true)` to compute text-segment ordering and map `position -> slide page`.
-- [ ] Listen Mode: update audio sequencing:
-- [ ] Iterate through `(generated_block_bid, position)` steps instead of one track per block.
-- [ ] Advance Reveal slides according to the mapped page for each audio segment.
+- [x] Listen Mode: update audio sequencing:
+- [x] Iterate through `(generated_block_bid, position)` steps instead of one track per block.
+- [x] Advance Reveal slides according to the mapped page for each audio segment.
 - [ ] Update TTS request path in Listen Mode:
 - [ ] Request segmented audio with `av_mode=true`.
 - [ ] Group incoming SSE audio_segment/audio_complete by `position`.
