@@ -29,7 +29,7 @@
 - [x] Create `src/cook-web/src/components/charts/EChart.tsx` (client-only `next/dynamic` wrapper around `echarts-for-react`)
 - [x] Create `src/cook-web/src/components/charts/ChartCard.tsx` (standard title/subtitle/actions chrome)
 - [x] Add shared chart option builders: `src/cook-web/src/lib/charts/options.ts`
-- [ ] Add new API definitions in `src/cook-web/src/api/api.ts` for dashboard endpoints
+- [x] Add new API definitions in `src/cook-web/src/api/api.ts` for dashboard endpoints
 - [ ] Add TS types: `src/cook-web/src/types/dashboard.ts` (overview, learner list, learner detail, follow-up items)
 - [ ] Add i18n namespace:
 - [ ] Create `src/i18n/en-US/modules/dashboard.json`
