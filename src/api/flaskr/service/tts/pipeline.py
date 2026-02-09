@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import html
 import logging
+import re
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -45,6 +46,163 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 
 
 _DEFAULT_SENTENCE_ENDINGS = set(".!?。！？；;")
+
+_AV_SANDBOX_START_PATTERN = re.compile(
+    r"<(script|style|link|iframe|html|head|body|meta|title|base|template|div|section|article|main)[\s>]",
+    re.IGNORECASE,
+)
+_AV_MARKDOWN_IMAGE_PATTERN = re.compile(
+    r"!\[[^\]]*\]\([^\s)\n]+(?:\s+\"[^\"]*\")?\)",
+    re.IGNORECASE,
+)
+_AV_IMG_TAG_PATTERN = re.compile(r"<img\b[^>]*?>", re.IGNORECASE)
+_AV_SVG_OPEN_PATTERN = re.compile(r"<svg\b", re.IGNORECASE)
+_AV_SVG_CLOSE_PATTERN = re.compile(r"</svg>", re.IGNORECASE)
+_AV_CLOSING_BOUNDARY_PATTERN = re.compile(
+    r"</[a-z][^>]*>\s*\n(?=[^\s<])", re.IGNORECASE
+)
+
+
+def _get_fence_ranges(raw: str) -> list[tuple[int, int]]:
+    """
+    Return ranges for triple-backtick fenced blocks: [(start, end), ...].
+
+    If a fence is not closed, the range will extend to the end of the string.
+    """
+    ranges: list[tuple[int, int]] = []
+    if not raw:
+        return ranges
+
+    cursor = 0
+    while True:
+        start = raw.find("```", cursor)
+        if start == -1:
+            break
+        close = raw.find("```", start + 3)
+        if close == -1:
+            ranges.append((start, len(raw)))
+            break
+        end = close + 3
+        ranges.append((start, end))
+        cursor = end
+
+    return ranges
+
+
+def _is_index_in_ranges(index: int, ranges: list[tuple[int, int]]) -> bool:
+    return any(start <= index < end for start, end in ranges)
+
+
+def _find_first_match_outside_fence(
+    raw: str, pattern: re.Pattern[str], fence_ranges: list[tuple[int, int]]
+) -> re.Match[str] | None:
+    """
+    Find the first regex match whose start index is not inside a fenced block.
+    """
+    match = pattern.search(raw)
+    while match:
+        if not _is_index_in_ranges(match.start(), fence_ranges):
+            return match
+        match = pattern.search(raw, match.end())
+    return None
+
+
+def _find_first_index_outside_fence(
+    raw: str, pattern: re.Pattern[str], fence_ranges: list[tuple[int, int]]
+) -> int:
+    match = _find_first_match_outside_fence(raw, pattern, fence_ranges)
+    return -1 if match is None else match.start()
+
+
+def _find_html_block_end(raw: str, start_index: int) -> int:
+    """
+    Best-effort end boundary for a sandbox HTML block.
+
+    Mirrors the heuristic used by the frontend `splitContentSegments` utility:
+    end at the first closing-tag boundary after `start_index`.
+    """
+    for match in _AV_CLOSING_BOUNDARY_PATTERN.finditer(raw):
+        if match.start() <= start_index:
+            continue
+        return match.end()
+    return len(raw)
+
+
+def _find_svg_block_end(raw: str, start_index: int) -> int:
+    close = _AV_SVG_CLOSE_PATTERN.search(raw, start_index)
+    if not close:
+        return len(raw)
+    return close.end()
+
+
+def split_av_speakable_segments(raw: str) -> list[str]:
+    """
+    Split raw Markdown/HTML content into ordered speakable segments for AV sync.
+
+    The output segments correspond to "text" gaps between visual blocks such as
+    SVG, images, fenced code/mermaid blocks, and sandbox HTML blocks.
+    """
+    if not raw or not raw.strip():
+        return []
+
+    def _split(text: str) -> list[str]:
+        if not text or not text.strip():
+            return []
+
+        fence_ranges = _get_fence_ranges(text)
+
+        candidates: list[tuple[int, int]] = []
+
+        # Treat fenced blocks as non-speakable boundaries.
+        if fence_ranges:
+            start, end = fence_ranges[0]
+            candidates.append((start, end))
+
+        svg_start = _find_first_index_outside_fence(
+            text, _AV_SVG_OPEN_PATTERN, fence_ranges
+        )
+        if svg_start != -1:
+            candidates.append((svg_start, _find_svg_block_end(text, svg_start)))
+
+        img_match = _find_first_match_outside_fence(
+            text, _AV_IMG_TAG_PATTERN, fence_ranges
+        )
+        if img_match is not None:
+            candidates.append((img_match.start(), img_match.end()))
+
+        md_img_match = _find_first_match_outside_fence(
+            text, _AV_MARKDOWN_IMAGE_PATTERN, fence_ranges
+        )
+        if md_img_match is not None:
+            candidates.append((md_img_match.start(), md_img_match.end()))
+
+        sandbox_match = _find_first_match_outside_fence(
+            text, _AV_SANDBOX_START_PATTERN, fence_ranges
+        )
+        if sandbox_match is not None:
+            sandbox_start = sandbox_match.start()
+            candidates.append(
+                (sandbox_start, _find_html_block_end(text, sandbox_start))
+            )
+
+        if not candidates:
+            return [text]
+
+        start, end = min(candidates, key=lambda item: item[0])
+        if end <= start:
+            # Safety guard; should not happen for the patterns above.
+            return [text]
+
+        before = text[:start]
+        after = text[end:]
+
+        output: list[str] = []
+        if before.strip():
+            output.append(before)
+        output.extend(_split(after))
+        return output
+
+    return [segment.strip() for segment in _split(raw) if segment and segment.strip()]
 
 
 def _split_by_sentence_and_newline(text: str) -> list[str]:
