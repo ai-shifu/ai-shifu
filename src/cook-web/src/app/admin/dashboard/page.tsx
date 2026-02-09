@@ -52,6 +52,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import type { DashboardLearnerSummary, DashboardPage } from '@/types/dashboard';
+import LearnerDetailSheet from '@/components/dashboard/LearnerDetailSheet';
 
 const formatDateValue = (value: Date): string => {
   const year = value.getFullYear();
@@ -183,6 +184,9 @@ export default function AdminDashboardPage() {
   const [learnerTotal, setLearnerTotal] = useState(0);
   const [learnersLoading, setLearnersLoading] = useState(false);
   const [learnersError, setLearnersError] = useState<string | null>(null);
+
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailUserBid, setDetailUserBid] = useState('');
 
   const lastFetchedOverviewRef = useRef<{
     shifuBid: string;
@@ -359,6 +363,8 @@ export default function AdminDashboardPage() {
       setLearnerTotal(0);
       setLearnersLoading(false);
       setLearnersError(null);
+      setDetailOpen(false);
+      setDetailUserBid('');
       return;
     }
     if (!shifuBid) {
@@ -368,6 +374,8 @@ export default function AdminDashboardPage() {
       setLearnerTotal(0);
       setLearnersLoading(false);
       setLearnersError(null);
+      setDetailOpen(false);
+      setDetailUserBid('');
       return;
     }
 
@@ -717,7 +725,14 @@ export default function AdminDashboardPage() {
                           (item.progress_percent || 0) * 100,
                         );
                         return (
-                          <TableRow key={item.user_bid}>
+                          <TableRow
+                            key={item.user_bid}
+                            className='cursor-pointer'
+                            onClick={() => {
+                              setDetailUserBid(item.user_bid);
+                              setDetailOpen(true);
+                            }}
+                          >
                             <TableCell className='whitespace-nowrap'>
                               <div className='text-sm text-foreground'>
                                 {item.mobile || item.user_bid}
@@ -825,6 +840,20 @@ export default function AdminDashboardPage() {
             </CardContent>
           </Card>
         </div>
+
+        <LearnerDetailSheet
+          open={detailOpen}
+          shifuBid={shifuBid}
+          userBid={detailUserBid || undefined}
+          startDate={startDate || undefined}
+          endDate={endDate || undefined}
+          onOpenChange={open => {
+            setDetailOpen(open);
+            if (!open) {
+              setDetailUserBid('');
+            }
+          }}
+        />
       </div>
     </div>
   );
