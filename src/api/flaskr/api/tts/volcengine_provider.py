@@ -214,14 +214,27 @@ class VolcengineTTSProvider(BaseTTSProvider):
         """
         Get Volcengine TTS credentials.
 
-        Uses ARK_* config for authentication.
+        Uses VOLCENGINE_TTS_* config for authentication.
+
+        Notes:
+        - VOLCENGINE_TTS_APP_KEY and VOLCENGINE_TTS_ACCESS_KEY are also used by
+          the HTTP v1/tts provider. Keeping the same vars avoids duplicated
+          secrets across providers.
+        - ARK_* fallback is kept for backward compatibility with legacy
+          deployments, but VOLCENGINE_TTS_* is preferred.
 
         Returns:
             tuple: (app_key, access_key, resource_id)
         """
-        app_key = get_config("ARK_ACCESS_KEY_ID") or ""
+        app_key = (get_config("VOLCENGINE_TTS_APP_KEY") or "").strip()
+        access_key = (get_config("VOLCENGINE_TTS_ACCESS_KEY") or "").strip()
 
-        access_key = get_config("ARK_SECRET_ACCESS_KEY") or ""
+        # Backward compatibility: historically Volcengine WebSocket TTS used ARK_*.
+        # Prefer VOLCENGINE_TTS_* to avoid coupling TTS auth with LLM auth.
+        if not app_key:
+            app_key = (get_config("ARK_ACCESS_KEY_ID") or "").strip()
+        if not access_key:
+            access_key = (get_config("ARK_SECRET_ACCESS_KEY") or "").strip()
 
         # Resource ID (X-Api-Resource-Id) is required in the WebSocket handshake.
         # The `model` argument is treated as a resource ID for this provider.
@@ -322,7 +335,8 @@ class VolcengineTTSProvider(BaseTTSProvider):
 
         if not app_key or not access_key or not resource_id:
             raise ValueError(
-                "Volcengine TTS credentials are not configured. Set ARK_ACCESS_KEY_ID and ARK_SECRET_ACCESS_KEY"
+                "Volcengine TTS credentials are not configured. "
+                "Set VOLCENGINE_TTS_APP_KEY and VOLCENGINE_TTS_ACCESS_KEY."
             )
 
         # Generate unique IDs
