@@ -32,9 +32,9 @@
 - [x] Iterate through `(generated_block_bid, position)` steps instead of one track per block.
 - [x] Advance Reveal slides according to the mapped page for each audio segment.
 - [ ] Update TTS request path in Listen Mode:
-- [ ] Request segmented audio with `av_mode=true`.
-- [ ] Group incoming SSE audio_segment/audio_complete by `position`.
-- [ ] Regression: ensure non-listen mode audio button still works (single audio_url path unchanged).
+- [x] Request segmented audio with `av_mode=true`.
+- [x] Group incoming SSE audio_segment/audio_complete by `position`.
+- [x] Regression: ensure non-listen mode audio button still works (single audio_url path unchanged).
 
 ## QA / Ops
 

@@ -34,7 +34,9 @@ import {
 } from '@/c-api/studyV2';
 import {
   upsertAudioComplete,
+  upsertAudioCompleteByPosition,
   upsertAudioSegment,
+  upsertAudioSegmentByPosition,
   type AudioSegment,
 } from '@/c-utils/audio-utils';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
@@ -470,7 +472,9 @@ function useChatLogicHook({
         shifuBid,
         outlineBid,
         effectivePreviewMode,
-        { ...sseParams, listen: isListenMode },
+        // Listen Mode now relies on on-demand segmented TTS (av_mode=true) for AV sync.
+        // Keep run SSE free of TTS to avoid generating a single merged track.
+        { ...sseParams, listen: false },
         async response => {
           // if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
           //   if (!isEnd) {
@@ -791,6 +795,25 @@ function useChatLogicHook({
             type: item.block_type,
             // Include audio URL from history
             audioUrl: item.audio_url,
+            audios: item.audios,
+            audioTracksByPosition: item.audios
+              ? item.audios.reduce(
+                  (acc, audio) => {
+                    const position = Number(audio.position ?? 0);
+                    if (Number.isNaN(position)) {
+                      return acc;
+                    }
+                    acc[position] = {
+                      audioUrl: audio.audio_url,
+                      audioDurationMs: audio.duration_ms,
+                      audioBid: audio.audio_bid,
+                      isAudioStreaming: false,
+                    };
+                    return acc;
+                  },
+                  {} as NonNullable<ChatContentItem['audioTracksByPosition']>,
+                )
+              : undefined,
           });
           lastContentId = item.generated_block_bid;
 
@@ -1321,7 +1344,11 @@ function useChatLogicHook({
       const existingItem = contentListRef.current.find(
         item => item.generated_block_bid === generatedBlockBid,
       );
-      if (existingItem?.audioUrl && !existingItem.isAudioStreaming) {
+      if (
+        !isListenMode &&
+        existingItem?.audioUrl &&
+        !existingItem.isAudioStreaming
+      ) {
         return {
           audio_url: existingItem.audioUrl,
           audio_bid: '',
@@ -1341,6 +1368,9 @@ function useChatLogicHook({
 
           return {
             ...item,
+            audioTracksByPosition: isListenMode
+              ? {}
+              : item.audioTracksByPosition,
             audioSegments: [],
             audioUrl: undefined,
             audioDurationMs: undefined,
@@ -1350,19 +1380,49 @@ function useChatLogicHook({
       );
 
       return new Promise((resolve, reject) => {
+        let resolved = false;
+        let firstComplete: AudioCompleteData | null = null;
+
+        const safeResolve = (value: AudioCompleteData | null) => {
+          if (resolved) {
+            return;
+          }
+          resolved = true;
+          resolve(value);
+        };
+
+        const safeReject = (error: unknown) => {
+          if (resolved) {
+            return;
+          }
+          resolved = true;
+          reject(
+            error instanceof Error ? error : new Error('TTS stream failed'),
+          );
+        };
+
         const source = streamGeneratedBlockAudio({
           shifu_bid: shifuBid,
           generated_block_bid: generatedBlockBid,
           preview_mode: effectivePreviewMode,
+          av_mode: isListenMode,
           onMessage: response => {
             if (response?.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
               const audioPayload = response.content ?? response.data;
+              const position = Number(audioPayload?.position ?? 0);
               setTrackedContentList(prevState =>
-                upsertAudioSegment(
-                  prevState,
-                  generatedBlockBid,
-                  audioPayload as AudioSegmentData,
-                ),
+                isListenMode
+                  ? upsertAudioSegmentByPosition(
+                      prevState,
+                      generatedBlockBid,
+                      Number.isNaN(position) ? 0 : position,
+                      audioPayload as AudioSegmentData,
+                    )
+                  : upsertAudioSegment(
+                      prevState,
+                      generatedBlockBid,
+                      audioPayload as AudioSegmentData,
+                    ),
               );
               return;
             }
@@ -1370,15 +1430,28 @@ function useChatLogicHook({
             if (response?.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
               const audioPayload = response.content ?? response.data;
               const audioComplete = audioPayload as AudioCompleteData;
+              const position = Number(audioComplete?.position ?? 0);
+              if (!firstComplete) {
+                firstComplete = audioComplete;
+              }
               setTrackedContentList(prevState =>
-                upsertAudioComplete(
-                  prevState,
-                  generatedBlockBid,
-                  audioComplete,
-                ),
+                isListenMode
+                  ? upsertAudioCompleteByPosition(
+                      prevState,
+                      generatedBlockBid,
+                      Number.isNaN(position) ? 0 : position,
+                      audioComplete,
+                    )
+                  : upsertAudioComplete(
+                      prevState,
+                      generatedBlockBid,
+                      audioComplete,
+                    ),
               );
-              closeTtsStream(generatedBlockBid);
-              resolve(audioComplete ?? null);
+              if (!isListenMode) {
+                closeTtsStream(generatedBlockBid);
+                safeResolve(audioComplete ?? null);
+              }
             }
           },
           onError: () => {
@@ -1394,8 +1467,30 @@ function useChatLogicHook({
               }),
             );
             closeTtsStream(generatedBlockBid);
-            reject(new Error('TTS stream failed'));
+            safeReject(new Error('TTS stream failed'));
           },
+        });
+
+        source.addEventListener('readystatechange', () => {
+          if (!isListenMode) {
+            return;
+          }
+          if (source.readyState !== 2) {
+            return;
+          }
+          setTrackedContentList(prev =>
+            prev.map(item => {
+              if (item.generated_block_bid !== generatedBlockBid) {
+                return item;
+              }
+              return {
+                ...item,
+                isAudioStreaming: false,
+              };
+            }),
+          );
+          closeTtsStream(generatedBlockBid);
+          safeResolve(firstComplete);
         });
 
         ttsSseRef.current[generatedBlockBid] = source;
@@ -1405,6 +1500,7 @@ function useChatLogicHook({
       allowTtsStreaming,
       closeTtsStream,
       effectivePreviewMode,
+      isListenMode,
       setTrackedContentList,
       shifuBid,
     ],

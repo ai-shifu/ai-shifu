@@ -686,6 +686,7 @@ export const useListenPpt = ({
 
 interface UseListenAudioSequenceParams {
   audioAndInteractionList: AudioInteractionItem[];
+  audioPageByBid: Map<string, number[]>;
   deckRef: React.MutableRefObject<Reveal.Api | null>;
   currentPptPageRef: React.MutableRefObject<number>;
   activeBlockBidRef: React.MutableRefObject<string | null>;
@@ -705,6 +706,7 @@ interface UseListenAudioSequenceParams {
 
 export const useListenAudioSequence = ({
   audioAndInteractionList,
+  audioPageByBid,
   deckRef,
   currentPptPageRef,
   activeBlockBidRef,
@@ -1059,14 +1061,21 @@ export const useListenAudioSequence = ({
     }
 
     const track = item.audioTracksByPosition?.[activeAudioPosition];
-    const persisted = (item.audios || []).find(
-      audio => ((audio as any).position ?? 0) === activeAudioPosition,
-    ) as any;
+    const persistedMatches = (item.audios || []).filter(
+      audio => (audio.position ?? 0) === activeAudioPosition,
+    );
+    const persisted = persistedMatches[persistedMatches.length - 1];
+    const expectedSegmentCount =
+      audioPageByBid.get(activeAudioBlockBid)?.length ?? 1;
+    const shouldIgnoreLegacyAudioUrl = expectedSegmentCount > 1;
+    const hasLegacyAudio =
+      !shouldIgnoreLegacyAudioUrl &&
+      activeAudioPosition === 0 &&
+      (item.audioUrl ||
+        item.isAudioStreaming ||
+        (item.audioSegments && item.audioSegments.length > 0));
     const hasAudio = Boolean(
-      (activeAudioPosition === 0 &&
-        (item.audioUrl ||
-          item.isAudioStreaming ||
-          (item.audioSegments && item.audioSegments.length > 0))) ||
+      hasLegacyAudio ||
       persisted?.audio_url ||
       track?.audioUrl ||
       track?.isAudioStreaming ||
@@ -1087,6 +1096,7 @@ export const useListenAudioSequence = ({
   }, [
     activeAudioBlockBid,
     activeAudioPosition,
+    audioPageByBid,
     contentByBid,
     onRequestAudioForBlock,
     previewMode,

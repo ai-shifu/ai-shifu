@@ -13,6 +13,16 @@ export interface AudioItem {
   audioUrl?: string;
   isAudioStreaming?: boolean;
   audioDurationMs?: number;
+  audioTracksByPosition?: Record<
+    number,
+    {
+      audioUrl?: string;
+      audioSegments?: AudioSegment[];
+      isAudioStreaming?: boolean;
+      audioDurationMs?: number;
+      audioBid?: string;
+    }
+  >;
 }
 
 type EnsureItem<T> = (items: T[], blockId: string) => T[];
@@ -113,6 +123,80 @@ export const upsertAudioComplete = <T extends AudioItem>(
       audioUrl: complete.audio_url ?? undefined,
       audioDurationMs: complete.duration_ms,
       isAudioStreaming: false,
+    };
+  });
+};
+
+export const upsertAudioSegmentByPosition = <T extends AudioItem>(
+  items: T[],
+  blockId: string,
+  position: number,
+  segment: AudioSegmentData,
+  ensureItem?: EnsureItem<T>,
+): T[] => {
+  const nextItems = ensureItem ? ensureItem(items, blockId) : items;
+  const mappedSegment = toAudioSegment(segment);
+
+  return nextItems.map(item => {
+    if (item.generated_block_bid !== blockId) {
+      return item;
+    }
+
+    const existingTracks = item.audioTracksByPosition || {};
+    const existingTrack = existingTracks[position] || {};
+    const existingSegments = existingTrack.audioSegments || [];
+    const updatedSegments = mergeAudioSegment(existingSegments, mappedSegment);
+
+    if (
+      updatedSegments === existingSegments &&
+      existingTrack.isAudioStreaming
+    ) {
+      return item;
+    }
+
+    return {
+      ...item,
+      audioTracksByPosition: {
+        ...existingTracks,
+        [position]: {
+          ...existingTrack,
+          audioSegments: updatedSegments,
+          isAudioStreaming: !mappedSegment.isFinal,
+        },
+      },
+    };
+  });
+};
+
+export const upsertAudioCompleteByPosition = <T extends AudioItem>(
+  items: T[],
+  blockId: string,
+  position: number,
+  complete: Partial<AudioCompleteData>,
+  ensureItem?: EnsureItem<T>,
+): T[] => {
+  const nextItems = ensureItem ? ensureItem(items, blockId) : items;
+
+  return nextItems.map(item => {
+    if (item.generated_block_bid !== blockId) {
+      return item;
+    }
+
+    const existingTracks = item.audioTracksByPosition || {};
+    const existingTrack = existingTracks[position] || {};
+
+    return {
+      ...item,
+      audioTracksByPosition: {
+        ...existingTracks,
+        [position]: {
+          ...existingTrack,
+          audioUrl: complete.audio_url ?? undefined,
+          audioDurationMs: complete.duration_ms,
+          isAudioStreaming: false,
+          audioBid: complete.audio_bid ?? existingTrack.audioBid,
+        },
+      },
     };
   });
 };

@@ -122,18 +122,21 @@ export interface AudioSegmentData {
   audio_data: string; // Base64 encoded
   duration_ms: number;
   is_final: boolean;
+  position?: number;
 }
 
 export interface AudioCompleteData {
   audio_url: string;
   audio_bid: string;
   duration_ms: number;
+  position?: number;
 }
 
 export interface StreamGeneratedBlockAudioParams {
   shifu_bid: string;
   generated_block_bid: string;
   preview_mode?: boolean;
+  av_mode?: boolean;
   onMessage: (data: any) => void;
   onError?: (error: unknown) => void;
 }
@@ -245,11 +248,12 @@ export const streamGeneratedBlockAudio = ({
   shifu_bid,
   generated_block_bid,
   preview_mode = false,
+  av_mode = false,
   onMessage,
   onError,
 }: StreamGeneratedBlockAudioParams) => {
   const baseURL = getResolvedBaseURL();
-  const url = `${baseURL}/api/learn/shifu/${shifu_bid}/generated-blocks/${generated_block_bid}/tts?preview_mode=${preview_mode}`;
+  const url = `${baseURL}/api/learn/shifu/${shifu_bid}/generated-blocks/${generated_block_bid}/tts?preview_mode=${preview_mode}${av_mode ? '&av_mode=true' : ''}`;
   return createSseSource(url, {}, onMessage, onError);
 };
 

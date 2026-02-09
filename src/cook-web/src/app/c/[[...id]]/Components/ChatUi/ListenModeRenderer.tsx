@@ -50,6 +50,7 @@ const ListenModeRenderer = ({
     slideItems,
     interactionByPage,
     audioAndInteractionList,
+    audioPageByBid,
     contentByBid,
     audioContentByBid,
     ttsReadyBlockBids,
@@ -155,6 +156,7 @@ const ListenModeRenderer = ({
     startSequenceFromPage,
   } = useListenAudioSequence({
     audioAndInteractionList,
+    audioPageByBid,
     deckRef,
     currentPptPageRef,
     activeBlockBidRef,
@@ -172,30 +174,42 @@ const ListenModeRenderer = ({
     setIsAudioPlaying,
   });
 
+  const expectedActiveAudioSegmentCount = useMemo(() => {
+    if (!activeAudioBlockBid) {
+      return 1;
+    }
+    return audioPageByBid.get(activeAudioBlockBid)?.length ?? 1;
+  }, [activeAudioBlockBid, audioPageByBid]);
+
   const activeAudioTrack = useMemo(() => {
     if (!activeContentItem) {
       return null;
     }
     const track =
       activeContentItem.audioTracksByPosition?.[activeAudioPosition];
-    const persisted = (activeContentItem.audios || []).find(
-      audio => ((audio as any).position ?? 0) === activeAudioPosition,
-    ) as any;
+    const persistedMatches = (activeContentItem.audios || []).filter(
+      audio => (audio.position ?? 0) === activeAudioPosition,
+    );
+    const persisted = persistedMatches[persistedMatches.length - 1];
     return {
       audioUrl:
         track?.audioUrl ??
         persisted?.audio_url ??
-        (activeAudioPosition === 0 ? activeContentItem.audioUrl : undefined),
+        (activeAudioPosition === 0 && expectedActiveAudioSegmentCount <= 1
+          ? activeContentItem.audioUrl
+          : undefined),
       streamingSegments:
         track?.audioSegments ??
-        (activeAudioPosition === 0 ? activeContentItem.audioSegments : []),
+        (activeAudioPosition === 0 && expectedActiveAudioSegmentCount <= 1
+          ? activeContentItem.audioSegments
+          : []),
       isStreaming:
         track?.isAudioStreaming ??
-        (activeAudioPosition === 0
+        (activeAudioPosition === 0 && expectedActiveAudioSegmentCount <= 1
           ? Boolean(activeContentItem.isAudioStreaming)
           : false),
     };
-  }, [activeAudioPosition, activeContentItem]);
+  }, [activeAudioPosition, activeContentItem, expectedActiveAudioSegmentCount]);
 
   const { currentInteraction, isPrevDisabled, isNextDisabled, goPrev, goNext } =
     useListenPpt({
