@@ -15,7 +15,7 @@
 - [x] Extend DTOs: add optional `position` to `AudioSegmentDTO` + `AudioCompleteDTO`.
 - [x] Extend DTOs: extend `GeneratedBlockDTO` to return `audios[]` (position + url + duration + bid).
 - [x] Update `/records` assembly: `get_learn_record()` returns `audios[]` per `generated_block_bid` (sorted by `position`).
-- [ ] Update `/records` assembly: keep `audio_url` behavior backward-compatible as needed.
+- [x] Update `/records` assembly: keep `audio_url` behavior backward-compatible as needed.
 - [ ] Update on-demand TTS endpoint:
 - [ ] Add query param `av_mode=true` (or new endpoint) to trigger segmented behavior.
 - [ ] When `av_mode=true`, synthesize and persist multiple audio rows with increasing `position`.

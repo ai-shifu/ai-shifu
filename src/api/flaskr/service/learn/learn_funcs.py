@@ -426,6 +426,7 @@ def get_learn_record(
                 # INTERACTION and other types use block_content_conf
                 content = generated_block.block_content_conf
 
+            block_audios = audios_map.get(generated_block.generated_block_bid) or []
             record = GeneratedBlockDTO(
                 generated_block.generated_block_bid,
                 content,
@@ -434,12 +435,8 @@ def get_learn_record(
                 generated_block.generated_content
                 if block_type == BlockType.INTERACTION
                 else "",
-                audio_url=(
-                    audios_map.get(generated_block.generated_block_bid)[0].audio_url
-                    if audios_map.get(generated_block.generated_block_bid)
-                    else None
-                ),
-                audios=audios_map.get(generated_block.generated_block_bid),
+                audio_url=block_audios[0].audio_url if len(block_audios) == 1 else None,
+                audios=block_audios or None,
             )
             records.append(record)
         if len(records) > 0:
