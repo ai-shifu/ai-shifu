@@ -152,7 +152,6 @@ const ListenModeRenderer = ({
     startSequenceFromPage,
   } = useListenAudioSequence({
     audioAndInteractionList,
-    audioPageByBid,
     deckRef,
     currentPptPageRef,
     activeBlockBidRef,
