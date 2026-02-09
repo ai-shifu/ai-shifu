@@ -732,10 +732,6 @@ export const useListenAudioSequence = ({
   );
   const audioSequenceListRef = useRef<AudioInteractionItem[]>([]);
   const prevAudioSequenceLengthRef = useRef(0);
-  const slideWaitStateRef = useRef<{ index: number; tries: number }>({
-    index: -1,
-    tries: 0,
-  });
   const [activeAudioBid, setActiveAudioBid] = useState<string | null>(null);
   const [activeAudioPosition, setActiveAudioPosition] = useState(0);
   const [sequenceInteraction, setSequenceInteraction] =
@@ -761,11 +757,11 @@ export const useListenAudioSequence = ({
   const syncToSequencePage = useCallback(
     (page: number) => {
       if (page < 0) {
-        return true;
+        return;
       }
       const deck = deckRef.current;
       if (!deck) {
-        return false;
+        return;
       }
 
       // Ensure Reveal sees newly appended slides before attempting to navigate.
@@ -782,22 +778,10 @@ export const useListenAudioSequence = ({
         // Ignore sync/layout errors; we will retry.
       }
 
-      const totalSlides =
-        typeof (deck as any).getTotalSlides === 'function'
-          ? (deck as any).getTotalSlides()
-          : typeof (deck as any).getSlides === 'function'
-            ? (deck as any).getSlides().length
-            : 0;
-      if (totalSlides > 0 && page > totalSlides - 1) {
-        return false;
-      }
-
       const currentIndex = deck.getIndices?.().h ?? 0;
       if (currentIndex !== page) {
         deck.slide(page);
       }
-      const nextIndex = deck.getIndices?.().h ?? currentIndex;
-      return nextIndex === page;
     },
     [deckRef],
   );
@@ -842,27 +826,7 @@ export const useListenAudioSequence = ({
         return;
       }
 
-      const slideReady = syncToSequencePage(nextItem.page);
-      if (!slideReady) {
-        // Wait for the slide to be rendered/synced before starting audio.
-        const state = slideWaitStateRef.current;
-        if (state.index !== index) {
-          state.index = index;
-          state.tries = 0;
-        }
-        state.tries += 1;
-
-        if (state.tries <= 50) {
-          audioSequenceTimerRef.current = setTimeout(() => {
-            playAudioSequenceFromIndex(index);
-          }, 80);
-          return;
-        }
-        // Fallback: proceed to avoid a hard stall if the slide never appears.
-      } else {
-        slideWaitStateRef.current.index = -1;
-        slideWaitStateRef.current.tries = 0;
-      }
+      syncToSequencePage(nextItem.page);
 
       audioSequenceIndexRef.current = index;
       setIsAudioSequenceActive(true);
