@@ -408,6 +408,9 @@ class GeneratedBlockDTO(BaseModel):
     audio_url: Optional[str] = Field(
         default=None, description="TTS audio URL for this block"
     )
+    audios: Optional[List[AudioCompleteDTO]] = Field(
+        default=None, description="TTS audio segments for this block"
+    )
 
     def __init__(
         self,
@@ -417,6 +420,7 @@ class GeneratedBlockDTO(BaseModel):
         block_type: BlockType,
         user_input: str,
         audio_url: Optional[str] = None,
+        audios: Optional[List[AudioCompleteDTO]] = None,
     ):
         super().__init__(
             generated_block_bid=generated_block_bid,
@@ -425,6 +429,7 @@ class GeneratedBlockDTO(BaseModel):
             block_type=block_type,
             user_input=user_input,
             audio_url=audio_url,
+            audios=audios,
         )
 
     def __json__(self):
@@ -438,6 +443,11 @@ class GeneratedBlockDTO(BaseModel):
             ret["like_status"] = self.like_status.value
         if self.audio_url:
             ret["audio_url"] = self.audio_url
+        if self.audios:
+            ret["audios"] = [
+                audio.__json__() if isinstance(audio, BaseModel) else audio
+                for audio in self.audios
+            ]
         return ret
 
 
