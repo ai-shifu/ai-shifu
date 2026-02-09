@@ -21,9 +21,10 @@
 - [x] When `listen=true`, synthesize and persist multiple audio rows with increasing `position`.
 - [x] Ensure idempotency: if segmented audio already exists, return existing records instead of regenerating.
 - [x] Add integration test for segmented on-demand TTS (DB rows + SSE payload includes `position`).
-- [ ] Update run SSE streaming TTS (Listen Mode):
+- [x] Update run SSE streaming TTS (Listen Mode):
 - [x] Segment streaming TTS by AV boundaries and emit `position` in SSE audio payloads.
 - [x] Persist one `LearnGeneratedAudio` row per `(generated_block_bid, position)`.
+- [x] Guard against AV boundary markers split across stream chunks (do not speak sandbox/visual HTML).
 
 ## Frontend (Cook Web)
 
