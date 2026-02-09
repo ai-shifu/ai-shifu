@@ -78,6 +78,7 @@ export interface StudyRecordItem {
   user_input?: string;
   isHistory?: boolean;
   audio_url?: string;
+  audios?: AudioCompleteData[];
 }
 
 export interface LessonStudyRecords {
