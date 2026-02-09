@@ -40,4 +40,4 @@
 
 - [ ] Manual test scenario with one block containing multiple `<svg>` visuals and narration between them.
 - [ ] Verify playback controls: play/pause/prev/next works across positions and blocks.
-- [ ] Run backend tests (`pytest`) and `pre-commit run -a` before any commit.
+- [x] Run backend tests (`pytest`) and `pre-commit run -a` before any commit.
