@@ -52,62 +52,116 @@ export const useListenContentData = (items: ChatContentItem[]) => {
     };
   }, [items]);
 
-  const { slideItems, interactionByPage, audioAndInteractionList } =
-    useMemo(() => {
-      let pageCursor = 0;
-      const mapping = new Map<number, ChatContentItem>();
-      const nextSlideItems: ListenSlideItem[] = [];
-      const nextAudioAndInteractionList: AudioInteractionItem[] = [];
+  const {
+    slideItems,
+    interactionByPage,
+    audioAndInteractionList,
+    audioPageByBid,
+  } = useMemo(() => {
+    let pageCursor = 0;
+    const mapping = new Map<number, ChatContentItem>();
+    const audioPageByBid = new Map<string, number[]>();
+    const nextSlideItems: ListenSlideItem[] = [];
+    const nextAudioAndInteractionList: AudioInteractionItem[] = [];
 
-      items.forEach(item => {
-        const segments =
-          item.type === ChatContentItemType.CONTENT && !!item.content
-            ? splitContentSegments(item.content || '', true)
-            : [];
-        const slideSegments = segments.filter(
-          segment => segment.type === 'markdown' || segment.type === 'sandbox',
-        );
-        const fallbackPage = Math.max(pageCursor - 1, 0);
-        const contentPage =
-          slideSegments.length > 0 ? pageCursor : fallbackPage;
-        const interactionPage = fallbackPage;
-        const hasAudio = Boolean(
-          item.audioUrl ||
-          (item.audioSegments && item.audioSegments.length > 0) ||
-          item.isAudioStreaming,
-        );
+    items.forEach(item => {
+      const segments =
+        item.type === ChatContentItemType.CONTENT && !!item.content
+          ? splitContentSegments(item.content || '', true)
+          : [];
+      const slideSegments = segments.filter(
+        segment => segment.type === 'markdown' || segment.type === 'sandbox',
+      );
+      const fallbackPage = Math.max(pageCursor - 1, 0);
+      const contentPage = slideSegments.length > 0 ? pageCursor : fallbackPage;
+      const interactionPage = fallbackPage;
+      const hasAudio = Boolean(
+        item.audioUrl ||
+        (item.audioSegments && item.audioSegments.length > 0) ||
+        item.isAudioStreaming,
+      );
 
-        if (item.type === ChatContentItemType.CONTENT && hasAudio) {
-          nextAudioAndInteractionList.push({
-            ...item,
-            page: contentPage,
-          });
+      if (
+        item.type === ChatContentItemType.CONTENT &&
+        item.generated_block_bid &&
+        item.generated_block_bid !== 'loading' &&
+        segments.length > 0
+      ) {
+        const visualSegmentIndices: number[] = [];
+        const textSegmentIndices: number[] = [];
+
+        segments.forEach((segment, index) => {
+          if (segment.type === 'markdown' || segment.type === 'sandbox') {
+            visualSegmentIndices.push(index);
+            return;
+          }
+          if (segment.type === 'text') {
+            textSegmentIndices.push(index);
+          }
+        });
+
+        const pages: number[] = [];
+        textSegmentIndices.forEach((textIndex, position) => {
+          let mappedPage: number | null = null;
+
+          for (let i = visualSegmentIndices.length - 1; i >= 0; i -= 1) {
+            if (visualSegmentIndices[i] < textIndex) {
+              mappedPage = pageCursor + i;
+              break;
+            }
+          }
+
+          if (mappedPage === null) {
+            for (let i = 0; i < visualSegmentIndices.length; i += 1) {
+              if (visualSegmentIndices[i] > textIndex) {
+                mappedPage = pageCursor + i;
+                break;
+              }
+            }
+          }
+
+          pages[position] =
+            mappedPage ??
+            (slideSegments.length > 0 ? pageCursor : fallbackPage);
+        });
+
+        if (pages.length > 0) {
+          audioPageByBid.set(item.generated_block_bid, pages);
         }
+      }
 
-        if (item.type === ChatContentItemType.INTERACTION) {
-          mapping.set(interactionPage, item);
-          nextAudioAndInteractionList.push({
-            ...item,
-            page: interactionPage,
-          });
-        }
+      if (item.type === ChatContentItemType.CONTENT && hasAudio) {
+        nextAudioAndInteractionList.push({
+          ...item,
+          page: contentPage,
+        });
+      }
 
-        if (slideSegments.length > 0) {
-          nextSlideItems.push({
-            item,
-            segments: slideSegments,
-          });
-        }
+      if (item.type === ChatContentItemType.INTERACTION) {
+        mapping.set(interactionPage, item);
+        nextAudioAndInteractionList.push({
+          ...item,
+          page: interactionPage,
+        });
+      }
 
-        pageCursor += slideSegments.length;
-      });
-      // console.log('items', items);
-      return {
-        slideItems: nextSlideItems,
-        interactionByPage: mapping,
-        audioAndInteractionList: nextAudioAndInteractionList,
-      };
-    }, [items]);
+      if (slideSegments.length > 0) {
+        nextSlideItems.push({
+          item,
+          segments: slideSegments,
+        });
+      }
+
+      pageCursor += slideSegments.length;
+    });
+    // console.log('items', items);
+    return {
+      slideItems: nextSlideItems,
+      interactionByPage: mapping,
+      audioAndInteractionList: nextAudioAndInteractionList,
+      audioPageByBid,
+    };
+  }, [items]);
 
   const contentByBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();
@@ -173,6 +227,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
     slideItems,
     interactionByPage,
     audioAndInteractionList,
+    audioPageByBid,
     contentByBid,
     audioContentByBid,
     ttsReadyBlockBids,

@@ -26,8 +26,8 @@
 
 - [x] Extend types: `StudyRecordItem` to accept `audios[]` in addition to legacy `audio_url`.
 - [x] Extend types: `ChatContentItem` to store segmented audio metadata (e.g. `audios[]` and per-position streaming state).
-- [ ] Listen Mode: parse content boundaries consistently:
-- [ ] Use `splitContentSegments(content, true)` to compute text-segment ordering and map `position -> slide page`.
+- [x] Listen Mode: parse content boundaries consistently:
+- [x] Use `splitContentSegments(content, true)` to compute text-segment ordering and map `position -> slide page`.
 - [ ] Listen Mode: update audio sequencing:
 - [ ] Iterate through `(generated_block_bid, position)` steps instead of one track per block.
 - [ ] Advance Reveal slides according to the mapped page for each audio segment.
