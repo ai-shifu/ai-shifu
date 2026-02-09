@@ -36,7 +36,7 @@
 - [x] Create `src/i18n/zh-CN/modules/dashboard.json`
 - [x] Run i18n validation scripts when implemented (`python scripts/check_translations.py`, `python scripts/check_translation_usage.py --fail-on-unused`)
 - [x] Add admin navigation entry for dashboard in `src/cook-web/src/app/admin/layout.tsx`
-- [ ] Add page: `src/cook-web/src/app/admin/dashboard/page.tsx`
+- [x] Add page: `src/cook-web/src/app/admin/dashboard/page.tsx`
 - [ ] Implement header controls (course selector + date range filter)
 - [ ] Implement KPI cards section (learners, completion rate, follow-ups, last active)
 - [ ] Implement charts section (progress distribution, follow-up trend, top outlines)
