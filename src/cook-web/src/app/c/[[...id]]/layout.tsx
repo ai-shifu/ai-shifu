@@ -61,12 +61,14 @@ export default function ChatLayout({
     (state: EnvStoreState) => state.enableWxcode,
   );
 
-  const { updateCourseName, updateCourseAvatar } = useCourseStore(
-    useShallow((state: CourseStoreState) => ({
-      updateCourseName: state.updateCourseName,
-      updateCourseAvatar: state.updateCourseAvatar,
-    })),
-  );
+  const { updateCourseName, updateCourseAvatar, updateCourseTtsEnabled } =
+    useCourseStore(
+      useShallow((state: CourseStoreState) => ({
+        updateCourseName: state.updateCourseName,
+        updateCourseAvatar: state.updateCourseAvatar,
+        updateCourseTtsEnabled: state.updateCourseTtsEnabled,
+      })),
+    );
 
   const { userInfo, initUser } = useUserStore();
 
@@ -176,6 +178,7 @@ export default function ChatLayout({
             setShowVip(resp.course_price > 0);
             updateCourseName(resp.course_name);
             updateCourseAvatar(resp.course_avatar);
+            updateCourseTtsEnabled(resp.course_tts_enabled ?? null);
             document.title = resp.course_name + ' - AI 师傅';
             const metaDescription = document.querySelector(
               'meta[name="description"]',
@@ -213,6 +216,8 @@ export default function ChatLayout({
     envDataInitialized,
     setShowVip,
     updateCourseName,
+    updateCourseAvatar,
+    updateCourseTtsEnabled,
     isPreviewMode,
   ]);
 

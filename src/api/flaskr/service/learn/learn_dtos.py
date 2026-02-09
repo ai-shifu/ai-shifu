@@ -135,6 +135,7 @@ class LearnShifuInfoDTO(BaseModel):
     keywords: list[str] = Field(..., description="shifu keywords", required=False)
     avatar: str = Field(..., description="shifu avatar", required=False)
     price: str = Field(..., description="shifu price", required=False)
+    tts_enabled: bool = Field(False, description="tts enabled", required=False)
 
     def __init__(
         self,
@@ -144,6 +145,7 @@ class LearnShifuInfoDTO(BaseModel):
         keywords: list[str],
         avatar: str,
         price: str,
+        tts_enabled: bool = False,
     ):
         super().__init__(
             bid=bid,
@@ -152,6 +154,7 @@ class LearnShifuInfoDTO(BaseModel):
             keywords=keywords,
             avatar=avatar,
             price=price,
+            tts_enabled=tts_enabled,
         )
 
     def __json__(self):
@@ -162,6 +165,7 @@ class LearnShifuInfoDTO(BaseModel):
             "keywords": self.keywords,
             "avatar": self.avatar,
             "price": self.price,
+            "tts_enabled": self.tts_enabled,
         }
 
 
