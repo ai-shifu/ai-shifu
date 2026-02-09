@@ -5,6 +5,36 @@
     "progressDistribution": "Progress Distribution",
     "topOutlinesByFollowUps": "Top Outlines by Follow-ups"
   },
+  "detail": {
+    "followUps": {
+      "answer": "Answer",
+      "askedAt": "Asked at",
+      "empty": "No follow-ups",
+      "outline": "Outline",
+      "outlinePlaceholder": "Filter by outline",
+      "question": "Question",
+      "title": "Follow-ups",
+      "totalCount": "Total: {{count}}"
+    },
+    "personalization": {
+      "empty": "No variables",
+      "key": "Key",
+      "value": "Value"
+    },
+    "progress": {
+      "empty": "No outlines",
+      "outline": "Outline",
+      "status": "Status",
+      "updatedAt": "Updated at"
+    },
+    "subtitle": "Learner Detail",
+    "tabs": {
+      "followUps": "Follow-ups",
+      "personalization": "Personalization",
+      "progress": "Progress"
+    },
+    "title": "Learner Detail"
+  },
   "filters": {
     "dateRange": "Date Range",
     "dateRangePlaceholder": "Select date range",

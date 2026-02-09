@@ -5,6 +5,36 @@
     "progressDistribution": "进度分布",
     "topOutlinesByFollowUps": "追问最多的课时"
   },
+  "detail": {
+    "followUps": {
+      "answer": "回答",
+      "askedAt": "提问时间",
+      "empty": "暂无追问",
+      "outline": "课时",
+      "outlinePlaceholder": "按课时筛选",
+      "question": "问题",
+      "title": "追问",
+      "totalCount": "共 {{count}}"
+    },
+    "personalization": {
+      "empty": "暂无信息",
+      "key": "字段",
+      "value": "内容"
+    },
+    "progress": {
+      "empty": "暂无进度",
+      "outline": "课时",
+      "status": "状态",
+      "updatedAt": "更新时间"
+    },
+    "subtitle": "学员详情",
+    "tabs": {
+      "followUps": "追问",
+      "personalization": "个性化",
+      "progress": "学习进度"
+    },
+    "title": "学员详情"
+  },
   "filters": {
     "dateRange": "时间范围",
     "dateRangePlaceholder": "选择时间范围",
