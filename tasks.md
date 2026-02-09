@@ -31,11 +31,11 @@
 - [x] Add shared chart option builders: `src/cook-web/src/lib/charts/options.ts`
 - [x] Add new API definitions in `src/cook-web/src/api/api.ts` for dashboard endpoints
 - [x] Add TS types: `src/cook-web/src/types/dashboard.ts` (overview, learner list, learner detail, follow-up items)
-- [ ] Add i18n namespace:
-- [ ] Create `src/i18n/en-US/modules/dashboard.json`
-- [ ] Create `src/i18n/zh-CN/modules/dashboard.json`
-- [ ] Run i18n validation scripts when implemented (`python scripts/check_translations.py`, `python scripts/check_translation_usage.py --fail-on-unused`)
-- [ ] Add admin navigation entry for dashboard in `src/cook-web/src/app/admin/layout.tsx`
+- [x] Add i18n namespace:
+- [x] Create `src/i18n/en-US/modules/dashboard.json`
+- [x] Create `src/i18n/zh-CN/modules/dashboard.json`
+- [x] Run i18n validation scripts when implemented (`python scripts/check_translations.py`, `python scripts/check_translation_usage.py --fail-on-unused`)
+- [x] Add admin navigation entry for dashboard in `src/cook-web/src/app/admin/layout.tsx`
 - [ ] Add page: `src/cook-web/src/app/admin/dashboard/page.tsx`
 - [ ] Implement header controls (course selector + date range filter)
 - [ ] Implement KPI cards section (learners, completion rate, follow-ups, last active)

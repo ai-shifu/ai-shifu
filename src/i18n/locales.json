@@ -26,6 +26,7 @@
     "module.auth",
     "module.chapterSetting",
     "module.chat",
+    "module.dashboard",
     "module.feedback",
     "module.groupon",
     "module.lesson",
