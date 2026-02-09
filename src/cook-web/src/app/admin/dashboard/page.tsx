@@ -820,6 +820,10 @@ export default function AdminDashboardPage() {
                             const percent = Math.round(
                               (item.progress_percent || 0) * 100,
                             );
+                            const progressText =
+                              total > 0
+                                ? `${completed}/${total} (${percent}%)`
+                                : `- (${percent}%)`;
                             return (
                               <TableRow
                                 key={item.user_bid}
@@ -838,8 +842,7 @@ export default function AdminDashboardPage() {
                                   </div>
                                 </TableCell>
                                 <TableCell className='whitespace-nowrap'>
-                                  {total > 0 ? `${completed}/${total}` : '-'} (
-                                  {percent}%)
+                                  {progressText}
                                 </TableCell>
                                 <TableCell className='whitespace-nowrap'>
                                   {item.follow_up_ask_count ?? 0}
