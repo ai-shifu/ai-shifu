@@ -48,6 +48,16 @@ from flaskr.service.learn.learn_dtos import (
     AudioSegmentDTO,
     AudioCompleteDTO,
 )
+from flaskr.service.tts.pipeline import (
+    _AV_CLOSING_BOUNDARY_PATTERN,
+    _AV_IMG_TAG_PATTERN,
+    _AV_MARKDOWN_IMAGE_PATTERN,
+    _AV_SANDBOX_START_PATTERN,
+    _AV_SVG_OPEN_PATTERN,
+    _find_first_match_outside_fence,
+    _find_html_block_end,
+    _get_fence_ranges,
+)
 
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
@@ -88,6 +98,7 @@ class StreamingTTSProcessor:
         progress_record_bid: str,
         user_bid: str,
         shifu_bid: str,
+        position: int = 0,
         voice_id: str = "",
         speed: float = 1.0,
         pitch: int = 0,
@@ -103,6 +114,7 @@ class StreamingTTSProcessor:
         self.progress_record_bid = progress_record_bid
         self.user_bid = user_bid
         self.shifu_bid = shifu_bid
+        self.position = int(position or 0)
         self.max_segment_chars = max_segment_chars
         self.tts_provider = tts_provider
         self.tts_model = tts_model
@@ -362,6 +374,7 @@ class StreamingTTSProcessor:
                         audio_data=base64_audio,
                         duration_ms=segment.duration_ms,
                         is_final=False,
+                        position=self.position,
                     ),
                 )
 
@@ -467,6 +480,7 @@ class StreamingTTSProcessor:
             audio_record = LearnGeneratedAudio(
                 audio_bid=self._audio_bid,
                 generated_block_bid=self.generated_block_bid,
+                position=self.position,
                 progress_record_bid=self.progress_record_bid,
                 user_bid=self.user_bid,
                 shifu_bid=self.shifu_bid,
@@ -533,6 +547,7 @@ class StreamingTTSProcessor:
                     audio_url=oss_url,
                     audio_bid=self._audio_bid,
                     duration_ms=final_duration_ms,
+                    position=self.position,
                 ),
             )
 
@@ -603,6 +618,7 @@ class StreamingTTSProcessor:
                 audio_url="",
                 audio_bid=self._audio_bid,
                 duration_ms=total_duration_ms,
+                position=self.position,
             ),
         )
 
@@ -639,3 +655,265 @@ class StreamingTTSProcessor:
                 "sample_rate": self.audio_settings.sample_rate or 24000,
             },
         )
+
+
+class AVStreamingTTSProcessor:
+    """
+    Streaming TTS processor that segments audio by AV boundaries (e.g. SVG, fences).
+
+    Each speakable segment (text gap between visual elements) is synthesized as a
+    separate audio track, identified by `position` (0-based) within the same
+    generated block.
+
+    This processor is intended to be used for Listen Mode RUN SSE so the frontend
+    can sync audio playback with visuals without making additional on-demand TTS calls.
+    """
+
+    def __init__(
+        self,
+        *,
+        app: Flask,
+        generated_block_bid: str,
+        outline_bid: str,
+        progress_record_bid: str,
+        user_bid: str,
+        shifu_bid: str,
+        voice_id: str = "",
+        speed: float = 1.0,
+        pitch: int = 0,
+        emotion: str = "",
+        max_segment_chars: int = 300,
+        tts_provider: str = "",
+        tts_model: str = "",
+        usage_scene: int = BILL_USAGE_SCENE_PROD,
+    ):
+        self.app = app
+        self.generated_block_bid = generated_block_bid
+        self.outline_bid = outline_bid
+        self.progress_record_bid = progress_record_bid
+        self.user_bid = user_bid
+        self.shifu_bid = shifu_bid
+        self.voice_id = voice_id
+        self.speed = speed
+        self.pitch = pitch
+        self.emotion = emotion
+        self.max_segment_chars = max_segment_chars
+        self.tts_provider = tts_provider
+        self.tts_model = tts_model
+        self.usage_scene = usage_scene
+
+        self._position_cursor = 0
+        self._current_processor: Optional[StreamingTTSProcessor] = None
+        self._raw_buffer = ""
+
+        # When we hit a non-speakable block boundary (e.g. `<svg>`), we may need to
+        # wait for its closing marker before resuming segmentation.
+        self._skip_mode: Optional[str] = None  # 'fence' | 'svg' | 'sandbox'
+
+    def _ensure_processor(self) -> StreamingTTSProcessor:
+        if self._current_processor is not None:
+            return self._current_processor
+        self._current_processor = StreamingTTSProcessor(
+            app=self.app,
+            generated_block_bid=self.generated_block_bid,
+            outline_bid=self.outline_bid,
+            progress_record_bid=self.progress_record_bid,
+            user_bid=self.user_bid,
+            shifu_bid=self.shifu_bid,
+            position=self._position_cursor,
+            voice_id=self.voice_id,
+            speed=self.speed,
+            pitch=self.pitch,
+            emotion=self.emotion,
+            max_segment_chars=self.max_segment_chars,
+            tts_provider=self.tts_provider,
+            tts_model=self.tts_model,
+            usage_scene=self.usage_scene,
+        )
+        return self._current_processor
+
+    def _finalize_current(
+        self, *, commit: bool
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if self._current_processor is None:
+            return
+        did_complete = False
+        for event in self._current_processor.finalize(commit=commit):
+            if event.type == GeneratedType.AUDIO_COMPLETE:
+                did_complete = True
+            yield event
+        self._current_processor = None
+        if did_complete:
+            self._position_cursor += 1
+
+    def _find_skip_end(self, raw: str) -> Optional[int]:
+        if not raw:
+            return None
+        if self._skip_mode == "fence":
+            close = raw.find("```", 3)
+            if close == -1:
+                return None
+            return close + 3
+        if self._skip_mode == "svg":
+            close = re.search(r"</svg>", raw, flags=re.IGNORECASE)
+            if not close:
+                return None
+            return close.end()
+        if self._skip_mode == "sandbox":
+            # Best-effort end boundary matching pipeline's heuristic.
+            for match in _AV_CLOSING_BOUNDARY_PATTERN.finditer(raw):
+                if match.start() <= 0:
+                    continue
+                return match.end()
+            return None
+        return None
+
+    def _find_next_boundary(self, raw: str) -> Optional[tuple[str, int, int, bool]]:
+        """
+        Return (kind, start, end, complete) for the earliest AV boundary in `raw`.
+
+        `start` and `end` are indices in `raw`.
+        """
+        if not raw:
+            return None
+
+        fence_ranges = _get_fence_ranges(raw)
+        candidates: list[tuple[str, int, int, bool]] = []
+
+        # Fenced blocks are always treated as boundaries (even if unclosed).
+        fence_start = raw.find("```")
+        if fence_start != -1:
+            fence_close = raw.find("```", fence_start + 3)
+            if fence_close == -1:
+                candidates.append(("fence", fence_start, len(raw), False))
+            else:
+                candidates.append(("fence", fence_start, fence_close + 3, True))
+
+        svg_match = _find_first_match_outside_fence(
+            raw, _AV_SVG_OPEN_PATTERN, fence_ranges
+        )
+        if svg_match is not None:
+            svg_start = svg_match.start()
+            svg_close = re.search(r"</svg>", raw[svg_start:], flags=re.IGNORECASE)
+            if svg_close:
+                candidates.append(
+                    (
+                        "svg",
+                        svg_start,
+                        svg_start + svg_close.end(),
+                        True,
+                    )
+                )
+            else:
+                candidates.append(("svg", svg_start, len(raw), False))
+
+        img_match = _find_first_match_outside_fence(
+            raw, _AV_IMG_TAG_PATTERN, fence_ranges
+        )
+        if img_match is not None:
+            candidates.append(("img", img_match.start(), img_match.end(), True))
+
+        md_img_match = _find_first_match_outside_fence(
+            raw, _AV_MARKDOWN_IMAGE_PATTERN, fence_ranges
+        )
+        if md_img_match is not None:
+            candidates.append(
+                ("md_img", md_img_match.start(), md_img_match.end(), True)
+            )
+
+        sandbox_match = _find_first_match_outside_fence(
+            raw, _AV_SANDBOX_START_PATTERN, fence_ranges
+        )
+        if sandbox_match is not None:
+            sandbox_start = sandbox_match.start()
+            sandbox_end = _find_html_block_end(raw, sandbox_start)
+            sandbox_complete = sandbox_end != len(raw)
+            candidates.append(
+                (
+                    "sandbox",
+                    sandbox_start,
+                    sandbox_end,
+                    sandbox_complete,
+                )
+            )
+
+        if not candidates:
+            return None
+
+        return min(candidates, key=lambda item: item[1])
+
+    def process_chunk(self, chunk: str) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if not chunk:
+            if self._current_processor is not None:
+                yield from self._current_processor.process_chunk("")
+            return
+
+        self._raw_buffer += chunk
+
+        while self._raw_buffer:
+            if self._skip_mode:
+                skip_end = self._find_skip_end(self._raw_buffer)
+                if skip_end is None:
+                    break
+                self._raw_buffer = self._raw_buffer[skip_end:]
+                self._skip_mode = None
+                continue
+
+            boundary = self._find_next_boundary(self._raw_buffer)
+            if boundary is None:
+                speakable = self._raw_buffer
+                self._raw_buffer = ""
+                if speakable:
+                    processor = self._ensure_processor()
+                    yield from processor.process_chunk(speakable)
+                break
+
+            kind, start, end, complete = boundary
+            speakable = self._raw_buffer[:start]
+            remainder = self._raw_buffer[start:]
+
+            if speakable:
+                processor = self._ensure_processor()
+                yield from processor.process_chunk(speakable)
+
+            # Boundary encountered: finalize the current speakable segment.
+            yield from self._finalize_current(commit=False)
+
+            # Consume the boundary itself.
+            boundary_len = max(end - start, 0)
+            self._raw_buffer = remainder
+            if kind in {"fence", "svg", "sandbox"} and not complete:
+                self._skip_mode = kind
+                break
+            self._raw_buffer = self._raw_buffer[boundary_len:]
+
+    def finalize(
+        self, *, commit: bool = True
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        # Ignore any trailing non-speakable content if we are mid-boundary.
+        if self._skip_mode:
+            self._raw_buffer = ""
+            self._skip_mode = None
+
+        if self._raw_buffer:
+            processor = self._ensure_processor()
+            yield from processor.process_chunk(self._raw_buffer)
+            self._raw_buffer = ""
+
+        yield from self._finalize_current(commit=commit)
+
+    def finalize_preview(self) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if self._skip_mode:
+            self._raw_buffer = ""
+            self._skip_mode = None
+
+        if self._raw_buffer:
+            processor = self._ensure_processor()
+            yield from processor.process_chunk(self._raw_buffer)
+            self._raw_buffer = ""
+
+        if self._current_processor is None:
+            return
+        for event in self._current_processor.finalize_preview():
+            yield event
+        self._current_processor = None
