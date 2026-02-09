@@ -85,9 +85,48 @@ export const useListenContentData = (items: ChatContentItem[]) => {
         item.type === ChatContentItemType.CONTENT && !!item.content
           ? splitContentSegments(item.content || '', true)
           : [];
-      const slideSegments = segments.filter(
+      const visualSegments = segments.filter(
         segment => segment.type === 'markdown' || segment.type === 'sandbox',
       );
+      const hasVisualSegments = visualSegments.length > 0;
+      const hasSpeakableText = segments.some(segment => {
+        if (segment.type !== 'text') {
+          return false;
+        }
+        const raw = typeof segment.value === 'string' ? segment.value : '';
+        return raw.trim().length >= 2;
+      });
+
+      // In listen mode, a generated block might contain only narration (no visual blocks).
+      // We still need a slide "page" so audio and interactions can be sequenced.
+      //
+      // Also, when narration appears *before* the first visual block in the same generated
+      // block, we add a placeholder slide so the first audio segment has a stable page.
+      const firstVisualIndex = segments.findIndex(
+        segment => segment.type === 'markdown' || segment.type === 'sandbox',
+      );
+      const firstSpeakableTextIndex = segments.findIndex(segment => {
+        if (segment.type !== 'text') {
+          return false;
+        }
+        const raw = typeof segment.value === 'string' ? segment.value : '';
+        return raw.trim().length >= 2;
+      });
+      const shouldPrependPlaceholder =
+        item.type === ChatContentItemType.CONTENT &&
+        hasSpeakableText &&
+        hasVisualSegments &&
+        firstSpeakableTextIndex !== -1 &&
+        firstVisualIndex !== -1 &&
+        firstSpeakableTextIndex < firstVisualIndex;
+
+      const slideSegments: RenderSegment[] = hasVisualSegments
+        ? shouldPrependPlaceholder
+          ? [{ type: 'text', value: '' }, ...visualSegments]
+          : visualSegments
+        : item.type === ChatContentItemType.CONTENT && hasSpeakableText
+          ? [{ type: 'text', value: '' }]
+          : [];
       const fallbackPage = Math.max(pageCursor - 1, 0);
       const contentPage = slideSegments.length > 0 ? pageCursor : fallbackPage;
       const interactionPage = fallbackPage;
@@ -128,18 +167,30 @@ export const useListenContentData = (items: ChatContentItem[]) => {
           }
         });
 
+        const slidePageOffset = shouldPrependPlaceholder ? 1 : 0;
         const pages: number[] = [];
         speakableTextSegmentIndices.forEach((textIndex, position) => {
           let mappedPage: number | null = null;
 
-          for (let i = visualSegmentIndices.length - 1; i >= 0; i -= 1) {
-            if (visualSegmentIndices[i] < textIndex) {
-              mappedPage = pageCursor + i;
-              break;
+          if (!hasVisualSegments) {
+            // No visual boundaries: keep narration on the placeholder slide.
+            mappedPage = contentPage;
+          } else {
+            for (let i = visualSegmentIndices.length - 1; i >= 0; i -= 1) {
+              if (visualSegmentIndices[i] < textIndex) {
+                mappedPage = pageCursor + slidePageOffset + i;
+                break;
+              }
+            }
+
+            // Text before the first visual block should stay on the placeholder slide.
+            if (mappedPage === null && shouldPrependPlaceholder) {
+              mappedPage = pageCursor;
             }
           }
 
-          pages[position] = mappedPage ?? fallbackPage;
+          pages[position] =
+            typeof mappedPage === 'number' ? mappedPage : fallbackPage;
         });
 
         if (pages.length > 0) {
@@ -751,11 +802,11 @@ export const useListenAudioSequence = ({
   const syncToSequencePage = useCallback(
     (page: number) => {
       if (page < 0) {
-        return;
+        return false;
       }
       const deck = deckRef.current;
       if (!deck) {
-        return;
+        return false;
       }
 
       // Ensure Reveal sees newly appended slides before attempting to navigate.
@@ -772,10 +823,21 @@ export const useListenAudioSequence = ({
         // Ignore sync/layout errors; we will retry.
       }
 
+      const slidesLength =
+        typeof deck.getSlides === 'function'
+          ? deck.getSlides().length
+          : typeof deck.getTotalSlides === 'function'
+            ? deck.getTotalSlides()
+            : 0;
+      if (page >= slidesLength) {
+        return false;
+      }
+
       const currentIndex = deck.getIndices?.().h ?? 0;
       if (currentIndex !== page) {
         deck.slide(page);
       }
+      return true;
     },
     [deckRef],
   );
@@ -820,7 +882,16 @@ export const useListenAudioSequence = ({
         return;
       }
 
-      syncToSequencePage(nextItem.page);
+      const pageReady = syncToSequencePage(nextItem.page);
+      if (!pageReady) {
+        // Wait until the target slide is actually present in the deck before
+        // advancing playback. This prevents audio from starting "ahead" of the
+        // rendered visual during streaming output.
+        audioSequenceTimerRef.current = setTimeout(() => {
+          playAudioSequenceFromIndex(index);
+        }, 120);
+        return;
+      }
 
       audioSequenceIndexRef.current = index;
       setIsAudioSequenceActive(true);
