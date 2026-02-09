@@ -200,9 +200,9 @@ function fail(description: string, duration = 20000) {
     title: '',
     variant: 'destructive',
     description: (
-      <div className='flex flex-row items-center whitespace-nowrap'>
+      <div className='flex flex-row items-center'>
         <AlertCircle className='h-6 w-6 text-destructive-foreground' />
-        <span className='ml-2 whitespace-nowrap'>{description}</span>
+        <span className='ml-2'>{description}</span>
       </div>
     ),
     duration,
