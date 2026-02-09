@@ -1,19 +1,264 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import api from '@/api';
+import { useUserStore } from '@/store';
+import type { Shifu } from '@/types/shifu';
+import { Button } from '@/components/ui/Button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/Popover';
+import { Calendar } from '@/components/ui/Calendar';
+import { CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+const formatDateValue = (value: Date): string => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateValue = (value: string): Date | undefined => {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return undefined;
+  }
+  return parsed;
+};
+
+type DateRangeFilterProps = {
+  startValue: string;
+  endValue: string;
+  placeholder: string;
+  resetLabel: string;
+  onChange: (range: { start: string; end: string }) => void;
+};
+
+const DateRangeFilter = ({
+  startValue,
+  endValue,
+  placeholder,
+  resetLabel,
+  onChange,
+}: DateRangeFilterProps) => {
+  const selectedRange = useMemo(
+    () => ({
+      from: parseDateValue(startValue),
+      to: parseDateValue(endValue),
+    }),
+    [startValue, endValue],
+  );
+
+  const label = useMemo(() => {
+    if (selectedRange.from && selectedRange.to) {
+      return `${formatDateValue(selectedRange.from)} ~ ${formatDateValue(
+        selectedRange.to,
+      )}`;
+    }
+    if (selectedRange.from) {
+      return formatDateValue(selectedRange.from);
+    }
+    return placeholder;
+  }, [placeholder, selectedRange]);
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          size='sm'
+          variant='outline'
+          type='button'
+          className='h-9 w-full justify-between font-normal'
+        >
+          <span
+            className={cn(
+              'flex-1 truncate text-left',
+              startValue ? 'text-foreground' : 'text-muted-foreground',
+            )}
+          >
+            {label}
+          </span>
+          <CalendarIcon className='h-4 w-4 text-muted-foreground' />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align='start'
+        className='w-auto max-w-[90vw] p-0'
+      >
+        <Calendar
+          mode='range'
+          numberOfMonths={2}
+          selected={selectedRange}
+          onSelect={range =>
+            onChange({
+              start: range?.from ? formatDateValue(range.from) : '',
+              end: range?.to ? formatDateValue(range.to) : '',
+            })
+          }
+          className='p-3 md:p-4 [--cell-size:2.4rem]'
+        />
+        <div className='flex items-center justify-end gap-2 border-t border-border px-3 py-2'>
+          <Button
+            size='sm'
+            variant='ghost'
+            type='button'
+            onClick={() => onChange({ start: '', end: '' })}
+          >
+            {resetLabel}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 export default function AdminDashboardPage() {
   const { t } = useTranslation();
+  const isInitialized = useUserStore(state => state.isInitialized);
+  const isGuest = useUserStore(state => state.isGuest);
+
+  const [courses, setCourses] = useState<Shifu[]>([]);
+  const [coursesLoading, setCoursesLoading] = useState(false);
+  const [coursesError, setCoursesError] = useState<string | null>(null);
+
+  const [shifuBid, setShifuBid] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  useEffect(() => {
+    if (!isInitialized || isGuest) {
+      setCourses([]);
+      setCoursesLoading(false);
+      setCoursesError(null);
+      setShifuBid('');
+      return;
+    }
+
+    let canceled = false;
+    const loadCourses = async () => {
+      setCoursesLoading(true);
+      setCoursesError(null);
+      try {
+        const pageSize = 100;
+        let pageIndex = 1;
+        const collected: Shifu[] = [];
+        const seen = new Set<string>();
+
+        while (true) {
+          const { items } = await api.getShifuList({
+            page_index: pageIndex,
+            page_size: pageSize,
+            archived: false,
+          });
+          const pageItems = (items || []) as Shifu[];
+          pageItems.forEach(item => {
+            if (item?.bid && !seen.has(item.bid)) {
+              seen.add(item.bid);
+              collected.push(item);
+            }
+          });
+          if (pageItems.length < pageSize) {
+            break;
+          }
+          pageIndex += 1;
+        }
+
+        if (!canceled) {
+          setCourses(collected);
+          setShifuBid(prev => prev || collected[0]?.bid || '');
+        }
+      } catch {
+        if (!canceled) {
+          setCourses([]);
+          setCoursesError(t('common.core.networkError'));
+        }
+      } finally {
+        if (!canceled) {
+          setCoursesLoading(false);
+        }
+      }
+    };
+
+    loadCourses();
+
+    return () => {
+      canceled = true;
+    };
+  }, [isInitialized, isGuest, t]);
 
   return (
     <div className='h-full p-0'>
       <div className='h-full overflow-hidden flex flex-col'>
-        <div className='flex items-center justify-between mb-5'>
+        <div className='flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-5'>
           <h1 className='text-2xl font-semibold text-gray-900'>
             {t('module.dashboard.title')}
           </h1>
+          <div className='flex flex-col gap-3 md:flex-row md:items-center md:justify-end'>
+            <div className='flex items-center gap-2'>
+              <span className='text-sm text-muted-foreground whitespace-nowrap'>
+                {t('common.core.shifu')}
+              </span>
+              <Select
+                value={shifuBid}
+                onValueChange={setShifuBid}
+                disabled={coursesLoading || courses.length === 0}
+              >
+                <SelectTrigger className='h-9 w-[240px] max-w-[80vw]'>
+                  <SelectValue
+                    placeholder={t('module.dashboard.filters.selectCourse')}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {courses.map(course => (
+                    <SelectItem
+                      key={course.bid}
+                      value={course.bid}
+                    >
+                      {course.name || course.bid}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className='flex items-center gap-2'>
+              <span className='text-sm text-muted-foreground whitespace-nowrap'>
+                {t('module.dashboard.filters.dateRange')}
+              </span>
+              <div className='w-[260px] max-w-[80vw]'>
+                <DateRangeFilter
+                  startValue={startDate}
+                  endValue={endDate}
+                  onChange={range => {
+                    setStartDate(range.start);
+                    setEndDate(range.end);
+                  }}
+                  placeholder={t(
+                    'module.dashboard.filters.dateRangePlaceholder',
+                  )}
+                  resetLabel={t('module.dashboard.filters.reset')}
+                />
+              </div>
+            </div>
+          </div>
         </div>
+        {coursesError ? (
+          <div className='text-sm text-destructive'>{coursesError}</div>
+        ) : null}
       </div>
     </div>
   );

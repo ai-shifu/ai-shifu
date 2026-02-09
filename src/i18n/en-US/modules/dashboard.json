@@ -1,4 +1,10 @@
 {
   "__namespace__": "module.dashboard",
+  "filters": {
+    "dateRange": "Date Range",
+    "dateRangePlaceholder": "Select date range",
+    "reset": "Reset",
+    "selectCourse": "Select course"
+  },
   "title": "Dashboard"
 }
