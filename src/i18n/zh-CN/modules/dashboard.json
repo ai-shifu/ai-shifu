@@ -17,5 +17,27 @@
     "learners": "学员数",
     "requiredOutlines": "必修课时"
   },
+  "pagination": {
+    "next": "下一页",
+    "prev": "上一页"
+  },
+  "sort": {
+    "followUps": "追问",
+    "lastActive": "最近学习",
+    "progress": "进度"
+  },
+  "table": {
+    "empty": "暂无学员",
+    "followUps": "追问",
+    "keywordPlaceholder": "搜索 user_bid / 手机号 / 昵称",
+    "lastActive": "最近学习",
+    "progress": "进度",
+    "reset": "重置",
+    "search": "查询",
+    "sort": "排序",
+    "title": "学员",
+    "totalCount": "共 {{count}}",
+    "user": "学员"
+  },
   "title": "数据看板"
 }

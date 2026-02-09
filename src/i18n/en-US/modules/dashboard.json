@@ -17,5 +17,27 @@
     "learners": "Learners",
     "requiredOutlines": "Required Lessons"
   },
+  "pagination": {
+    "next": "Next",
+    "prev": "Previous"
+  },
+  "sort": {
+    "followUps": "Follow-ups",
+    "lastActive": "Last active",
+    "progress": "Progress"
+  },
+  "table": {
+    "empty": "No learners",
+    "followUps": "Follow-ups",
+    "keywordPlaceholder": "Search by user id / mobile / nickname",
+    "lastActive": "Last active",
+    "progress": "Progress",
+    "reset": "Reset",
+    "search": "Search",
+    "sort": "Sort",
+    "title": "Learners",
+    "totalCount": "Total: {{count}}",
+    "user": "Learner"
+  },
   "title": "Dashboard"
 }

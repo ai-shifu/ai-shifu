@@ -13,6 +13,7 @@ import { useUserStore } from '@/store';
 import type { Shifu } from '@/types/shifu';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
 import {
   Select,
   SelectContent,
@@ -32,6 +33,25 @@ import type { DashboardOverview } from '@/types/dashboard';
 import EChart from '@/components/charts/EChart';
 import ChartCard from '@/components/charts/ChartCard';
 import { buildBarOption, buildLineOption } from '@/lib/charts/options';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/Table';
+import Loading from '@/components/loading';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+import type { DashboardLearnerSummary, DashboardPage } from '@/types/dashboard';
 
 const formatDateValue = (value: Date): string => {
   const year = value.getFullYear();
@@ -153,6 +173,16 @@ export default function AdminDashboardPage() {
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(false);
   const [overviewError, setOverviewError] = useState<string | null>(null);
+
+  const [learnerKeyword, setLearnerKeyword] = useState('');
+  const [learnerSort, setLearnerSort] = useState('last_active_desc');
+
+  const [learners, setLearners] = useState<DashboardLearnerSummary[]>([]);
+  const [learnerPageIndex, setLearnerPageIndex] = useState(1);
+  const [learnerPageCount, setLearnerPageCount] = useState(1);
+  const [learnerTotal, setLearnerTotal] = useState(0);
+  const [learnersLoading, setLearnersLoading] = useState(false);
+  const [learnersError, setLearnersError] = useState<string | null>(null);
 
   const lastFetchedOverviewRef = useRef<{
     shifuBid: string;
@@ -279,6 +309,74 @@ export default function AdminDashboardPage() {
     fetchOverview();
   }, [fetchOverview, isInitialized, isGuest]);
 
+  const fetchLearners = useCallback(
+    async (targetPage: number, params: { keyword: string; sort: string }) => {
+      if (!shifuBid) {
+        setLearners([]);
+        setLearnerPageIndex(1);
+        setLearnerPageCount(1);
+        setLearnerTotal(0);
+        setLearnersLoading(false);
+        setLearnersError(null);
+        return;
+      }
+
+      setLearnersLoading(true);
+      setLearnersError(null);
+      try {
+        const response = (await api.getDashboardLearners({
+          shifu_bid: shifuBid,
+          page_index: targetPage,
+          page_size: 20,
+          keyword: params.keyword.trim(),
+          sort: params.sort,
+        })) as DashboardPage<DashboardLearnerSummary>;
+
+        setLearners(response.items || []);
+        setLearnerPageIndex(response.page || targetPage);
+        setLearnerPageCount(response.page_count || 1);
+        setLearnerTotal(response.total || 0);
+      } catch {
+        setLearners([]);
+        setLearnerPageIndex(targetPage);
+        setLearnerPageCount(1);
+        setLearnerTotal(0);
+        setLearnersError(t('common.core.networkError'));
+      } finally {
+        setLearnersLoading(false);
+      }
+    },
+    [shifuBid, t],
+  );
+
+  useEffect(() => {
+    if (!isInitialized || isGuest) {
+      setLearnerKeyword('');
+      setLearnerSort('last_active_desc');
+      setLearners([]);
+      setLearnerPageIndex(1);
+      setLearnerPageCount(1);
+      setLearnerTotal(0);
+      setLearnersLoading(false);
+      setLearnersError(null);
+      return;
+    }
+    if (!shifuBid) {
+      setLearners([]);
+      setLearnerPageIndex(1);
+      setLearnerPageCount(1);
+      setLearnerTotal(0);
+      setLearnersLoading(false);
+      setLearnersError(null);
+      return;
+    }
+
+    const defaultSort = 'last_active_desc';
+    setLearnerKeyword('');
+    setLearnerSort(defaultSort);
+    fetchLearners(1, { keyword: '', sort: defaultSort });
+  }, [fetchLearners, isInitialized, isGuest, shifuBid]);
+
   const completionRateText = useMemo(() => {
     if (!overview) {
       return '-';
@@ -322,6 +420,28 @@ export default function AdminDashboardPage() {
 
     return option;
   }, [overview]);
+
+  const formatLastActive = useCallback((value: string) => {
+    if (!value) {
+      return '-';
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+    return parsed.toLocaleString();
+  }, []);
+
+  const handleLearnerPageChange = (nextPage: number) => {
+    if (
+      nextPage < 1 ||
+      nextPage > learnerPageCount ||
+      nextPage === learnerPageIndex
+    ) {
+      return;
+    }
+    fetchLearners(nextPage, { keyword: learnerKeyword, sort: learnerSort });
+  };
 
   return (
     <div className='h-full p-0'>
@@ -379,97 +499,331 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         </div>
-        {coursesError ? (
-          <div className='text-sm text-destructive'>{coursesError}</div>
-        ) : null}
 
-        <div className='grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4'>
+        <div className='flex-1 overflow-auto pb-4 space-y-5'>
+          {coursesError ? (
+            <div className='text-sm text-destructive'>{coursesError}</div>
+          ) : null}
+
+          <div className='grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4'>
+            <Card>
+              <CardContent className='p-4'>
+                <div className='text-sm text-muted-foreground'>
+                  {t('module.dashboard.kpi.learners')}
+                </div>
+                <div className='mt-2 text-2xl font-semibold text-foreground'>
+                  {overviewLoading
+                    ? '-'
+                    : (overview?.kpis.learner_count ?? '-')}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className='p-4'>
+                <div className='text-sm text-muted-foreground'>
+                  {t('module.dashboard.kpi.completionRate')}
+                </div>
+                <div className='mt-2 text-2xl font-semibold text-foreground'>
+                  {overviewLoading ? '-' : completionRateText}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className='p-4'>
+                <div className='text-sm text-muted-foreground'>
+                  {t('module.dashboard.kpi.followUps')}
+                </div>
+                <div className='mt-2 text-2xl font-semibold text-foreground'>
+                  {overviewLoading
+                    ? '-'
+                    : (overview?.kpis.follow_up_ask_total ?? '-')}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className='p-4'>
+                <div className='text-sm text-muted-foreground'>
+                  {t('module.dashboard.kpi.requiredOutlines')}
+                </div>
+                <div className='mt-2 text-2xl font-semibold text-foreground'>
+                  {overviewLoading
+                    ? '-'
+                    : (overview?.kpis.required_outline_total ?? '-')}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {overviewError ? (
+            <div className='text-sm text-destructive'>{overviewError}</div>
+          ) : null}
+
+          <div className='grid grid-cols-1 gap-3 lg:grid-cols-2'>
+            <ChartCard title={t('module.dashboard.chart.progressDistribution')}>
+              <div className='h-[280px]'>
+                <EChart
+                  option={progressDistributionOption}
+                  loading={overviewLoading}
+                  style={{ height: '100%' }}
+                />
+              </div>
+            </ChartCard>
+
+            <ChartCard title={t('module.dashboard.chart.followUpsTrend')}>
+              <div className='h-[280px]'>
+                <EChart
+                  option={followUpTrendOption}
+                  loading={overviewLoading}
+                  style={{ height: '100%' }}
+                />
+              </div>
+            </ChartCard>
+
+            <ChartCard
+              title={t('module.dashboard.chart.topOutlinesByFollowUps')}
+            >
+              <div className='h-[320px]'>
+                <EChart
+                  option={topOutlinesOption}
+                  loading={overviewLoading}
+                  style={{ height: '100%' }}
+                />
+              </div>
+            </ChartCard>
+          </div>
+
           <Card>
             <CardContent className='p-4'>
-              <div className='text-sm text-muted-foreground'>
-                {t('module.dashboard.kpi.learners')}
+              <div className='flex flex-col gap-3 md:flex-row md:items-center md:justify-between'>
+                <div className='flex items-baseline gap-2'>
+                  <h2 className='text-base font-semibold text-foreground'>
+                    {t('module.dashboard.table.title')}
+                  </h2>
+                  <span className='text-sm text-muted-foreground'>
+                    {t('module.dashboard.table.totalCount', {
+                      count: learnerTotal,
+                    })}
+                  </span>
+                </div>
+
+                <div className='flex flex-col gap-2 md:flex-row md:items-center md:justify-end'>
+                  <Input
+                    value={learnerKeyword}
+                    onChange={event => setLearnerKeyword(event.target.value)}
+                    placeholder={t('module.dashboard.table.keywordPlaceholder')}
+                    className='h-9 w-[260px] max-w-[80vw]'
+                  />
+
+                  <Select
+                    value={learnerSort}
+                    onValueChange={value => {
+                      setLearnerSort(value);
+                      fetchLearners(1, {
+                        keyword: learnerKeyword,
+                        sort: value,
+                      });
+                    }}
+                  >
+                    <SelectTrigger className='h-9 w-[200px] max-w-[80vw]'>
+                      <SelectValue
+                        placeholder={t('module.dashboard.table.sort')}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='last_active_desc'>
+                        {t('module.dashboard.sort.lastActive')}
+                      </SelectItem>
+                      <SelectItem value='progress_desc'>
+                        {t('module.dashboard.sort.progress')}
+                      </SelectItem>
+                      <SelectItem value='followups_desc'>
+                        {t('module.dashboard.sort.followUps')}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <div className='flex items-center gap-2'>
+                    <Button
+                      size='sm'
+                      type='button'
+                      onClick={() =>
+                        fetchLearners(1, {
+                          keyword: learnerKeyword,
+                          sort: learnerSort,
+                        })
+                      }
+                    >
+                      {t('module.dashboard.table.search')}
+                    </Button>
+                    <Button
+                      size='sm'
+                      variant='outline'
+                      type='button'
+                      onClick={() => {
+                        const defaultSort = 'last_active_desc';
+                        setLearnerKeyword('');
+                        setLearnerSort(defaultSort);
+                        fetchLearners(1, { keyword: '', sort: defaultSort });
+                      }}
+                    >
+                      {t('module.dashboard.table.reset')}
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <div className='mt-2 text-2xl font-semibold text-foreground'>
-                {overviewLoading ? '-' : (overview?.kpis.learner_count ?? '-')}
+
+              {learnersError ? (
+                <div className='mt-3 text-sm text-destructive'>
+                  {learnersError}
+                </div>
+              ) : null}
+
+              <div className='mt-4 overflow-auto rounded-lg border border-border bg-white'>
+                {learnersLoading ? (
+                  <div className='flex h-40 items-center justify-center'>
+                    <Loading />
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>
+                          {t('module.dashboard.table.user')}
+                        </TableHead>
+                        <TableHead>
+                          {t('module.dashboard.table.progress')}
+                        </TableHead>
+                        <TableHead>
+                          {t('module.dashboard.table.followUps')}
+                        </TableHead>
+                        <TableHead>
+                          {t('module.dashboard.table.lastActive')}
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {learners.length === 0 && (
+                        <TableEmpty colSpan={4}>
+                          {t('module.dashboard.table.empty')}
+                        </TableEmpty>
+                      )}
+                      {learners.map(item => {
+                        const completed = item.completed_outline_count ?? 0;
+                        const total = item.required_outline_total ?? 0;
+                        const percent = Math.round(
+                          (item.progress_percent || 0) * 100,
+                        );
+                        return (
+                          <TableRow key={item.user_bid}>
+                            <TableCell className='whitespace-nowrap'>
+                              <div className='text-sm text-foreground'>
+                                {item.mobile || item.user_bid}
+                              </div>
+                              <div className='text-xs text-muted-foreground'>
+                                {item.nickname || item.user_bid}
+                              </div>
+                            </TableCell>
+                            <TableCell className='whitespace-nowrap'>
+                              {total > 0 ? `${completed}/${total}` : '-'} (
+                              {percent}%)
+                            </TableCell>
+                            <TableCell className='whitespace-nowrap'>
+                              {item.follow_up_ask_count ?? 0}
+                            </TableCell>
+                            <TableCell className='whitespace-nowrap'>
+                              {formatLastActive(item.last_active_at)}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+
+              <div className='mt-4 flex justify-end'>
+                <Pagination className='justify-end w-auto mx-0'>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href='#'
+                        onClick={event => {
+                          event.preventDefault();
+                          handleLearnerPageChange(learnerPageIndex - 1);
+                        }}
+                        aria-disabled={learnerPageIndex <= 1}
+                        className={
+                          learnerPageIndex <= 1
+                            ? 'pointer-events-none opacity-50'
+                            : ''
+                        }
+                      >
+                        {t('module.dashboard.pagination.prev')}
+                      </PaginationPrevious>
+                    </PaginationItem>
+
+                    {(() => {
+                      const startPage =
+                        learnerPageCount <= 5
+                          ? 1
+                          : Math.max(
+                              1,
+                              Math.min(
+                                learnerPageIndex - 2,
+                                learnerPageCount - 4,
+                              ),
+                            );
+                      const endPage =
+                        learnerPageCount <= 5
+                          ? learnerPageCount
+                          : Math.min(learnerPageCount, startPage + 4);
+
+                      const pages: number[] = [];
+                      for (let page = startPage; page <= endPage; page += 1) {
+                        pages.push(page);
+                      }
+
+                      return pages.map(page => (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            href='#'
+                            onClick={event => {
+                              event.preventDefault();
+                              handleLearnerPageChange(page);
+                            }}
+                            isActive={page === learnerPageIndex}
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      ));
+                    })()}
+
+                    <PaginationItem>
+                      <PaginationNext
+                        href='#'
+                        onClick={event => {
+                          event.preventDefault();
+                          handleLearnerPageChange(learnerPageIndex + 1);
+                        }}
+                        aria-disabled={learnerPageIndex >= learnerPageCount}
+                        className={
+                          learnerPageIndex >= learnerPageCount
+                            ? 'pointer-events-none opacity-50'
+                            : ''
+                        }
+                      >
+                        {t('module.dashboard.pagination.next')}
+                      </PaginationNext>
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
               </div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardContent className='p-4'>
-              <div className='text-sm text-muted-foreground'>
-                {t('module.dashboard.kpi.completionRate')}
-              </div>
-              <div className='mt-2 text-2xl font-semibold text-foreground'>
-                {overviewLoading ? '-' : completionRateText}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className='p-4'>
-              <div className='text-sm text-muted-foreground'>
-                {t('module.dashboard.kpi.followUps')}
-              </div>
-              <div className='mt-2 text-2xl font-semibold text-foreground'>
-                {overviewLoading
-                  ? '-'
-                  : (overview?.kpis.follow_up_ask_total ?? '-')}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className='p-4'>
-              <div className='text-sm text-muted-foreground'>
-                {t('module.dashboard.kpi.requiredOutlines')}
-              </div>
-              <div className='mt-2 text-2xl font-semibold text-foreground'>
-                {overviewLoading
-                  ? '-'
-                  : (overview?.kpis.required_outline_total ?? '-')}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {overviewError ? (
-          <div className='mt-3 text-sm text-destructive'>{overviewError}</div>
-        ) : null}
-
-        <div className='mt-5 grid flex-1 grid-cols-1 gap-3 overflow-auto pb-4 lg:grid-cols-2'>
-          <ChartCard title={t('module.dashboard.chart.progressDistribution')}>
-            <div className='h-[280px]'>
-              <EChart
-                option={progressDistributionOption}
-                loading={overviewLoading}
-                style={{ height: '100%' }}
-              />
-            </div>
-          </ChartCard>
-
-          <ChartCard title={t('module.dashboard.chart.followUpsTrend')}>
-            <div className='h-[280px]'>
-              <EChart
-                option={followUpTrendOption}
-                loading={overviewLoading}
-                style={{ height: '100%' }}
-              />
-            </div>
-          </ChartCard>
-
-          <ChartCard
-            title={t('module.dashboard.chart.topOutlinesByFollowUps')}
-            className='lg:col-span-2'
-          >
-            <div className='h-[320px]'>
-              <EChart
-                option={topOutlinesOption}
-                loading={overviewLoading}
-                style={{ height: '100%' }}
-              />
-            </div>
-          </ChartCard>
         </div>
       </div>
     </div>

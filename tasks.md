@@ -40,7 +40,7 @@
 - [x] Implement header controls (course selector + date range filter)
 - [x] Implement KPI cards section (learners, completion rate, follow-ups, last active)
 - [x] Implement charts section (progress distribution, follow-up trend, top outlines)
-- [ ] Implement learner table (pagination, keyword search, sorting)
+- [x] Implement learner table (pagination, keyword search, sorting)
 - [ ] Implement learner detail `Sheet` with tabs (progress, follow-ups, personalization)
 - [ ] Implement loading + error states consistent with existing admin pages (`Loading`, `ErrorDisplay`)
 - [ ] (Optional) Add frontend tests for chart wrappers and dashboard page (Jest)
