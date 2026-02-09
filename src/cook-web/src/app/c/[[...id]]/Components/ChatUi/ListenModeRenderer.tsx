@@ -150,7 +150,6 @@ const ListenModeRenderer = ({
     handleAudioEnded,
     handlePlay,
     handlePause,
-    startSequenceFromIndex,
     startSequenceFromPage,
   } = useListenAudioSequence({
     audioAndInteractionList,
@@ -191,116 +190,29 @@ const ListenModeRenderer = ({
       resolveContentBid,
     });
 
-  const audioContentSequence = useMemo(
+  const audioList = useMemo(
     () =>
-      audioAndInteractionList.flatMap((item, index) =>
-        item.type === ChatContentItemType.CONTENT ? [{ item, index }] : [],
+      audioAndInteractionList.flatMap(item =>
+        item.type === ChatContentItemType.CONTENT ? [item] : [],
       ),
     [audioAndInteractionList],
   );
 
-  const audioList = useMemo(
-    () => audioContentSequence.map(entry => entry.item),
-    [audioContentSequence],
-  );
-
-  const resolveAudioSequenceIndexByDirection = useCallback(
-    (page: number, direction: -1 | 1) => {
-      if (!audioContentSequence.length) {
-        return null;
-      }
-      let currentIndex = -1;
-      if (activeAudioBlockBid) {
-        currentIndex = audioContentSequence.findIndex(
-          entry => entry.item.generated_block_bid === activeAudioBlockBid,
-        );
-      }
-      if (currentIndex < 0) {
-        for (let i = audioContentSequence.length - 1; i >= 0; i -= 1) {
-          if (audioContentSequence[i].item.page <= page) {
-            currentIndex = i;
-            break;
-          }
-        }
-      }
-      if (direction === -1) {
-        const targetIndex = currentIndex - 1;
-        if (targetIndex < 0) {
-          return null;
-        }
-        return audioContentSequence[targetIndex].index;
-      }
-      const targetIndex = currentIndex < 0 ? 0 : currentIndex + 1;
-      if (targetIndex >= audioContentSequence.length) {
-        return null;
-      }
-      return audioContentSequence[targetIndex].index;
-    },
-    [audioContentSequence, activeAudioBlockBid],
-  );
-
   const onPrev = useCallback(() => {
-    const currentPage =
-      deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
-    const targetSequenceIndex = resolveAudioSequenceIndexByDirection(
-      currentPage,
-      -1,
-    );
-    if (typeof targetSequenceIndex === 'number') {
-      startSequenceFromIndex(targetSequenceIndex);
-      return;
-    }
     const nextPage = goPrev();
     if (typeof nextPage === 'number') {
       startSequenceFromPage(nextPage);
     }
-  }, [
-    deckRef,
-    currentPptPageRef,
-    resolveAudioSequenceIndexByDirection,
-    goPrev,
-    startSequenceFromIndex,
-    startSequenceFromPage,
-  ]);
-
-  const currentSequencePage =
-    deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
-  const prevSequenceIndex = resolveAudioSequenceIndexByDirection(
-    currentSequencePage,
-    -1,
-  );
-  const nextSequenceIndex = resolveAudioSequenceIndexByDirection(
-    currentSequencePage,
-    1,
-  );
-  const prevControlDisabled =
-    isPrevDisabled && typeof prevSequenceIndex !== 'number';
-  const nextControlDisabled =
-    isNextDisabled && typeof nextSequenceIndex !== 'number';
+  }, [goPrev, startSequenceFromPage]);
+  const prevControlDisabled = isPrevDisabled;
+  const nextControlDisabled = isNextDisabled;
 
   const onNext = useCallback(() => {
-    const currentPage =
-      deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
-    const targetSequenceIndex = resolveAudioSequenceIndexByDirection(
-      currentPage,
-      1,
-    );
-    if (typeof targetSequenceIndex === 'number') {
-      startSequenceFromIndex(targetSequenceIndex);
-      return;
-    }
     const nextPage = goNext();
     if (typeof nextPage === 'number') {
       startSequenceFromPage(nextPage);
     }
-  }, [
-    deckRef,
-    currentPptPageRef,
-    resolveAudioSequenceIndexByDirection,
-    goNext,
-    startSequenceFromIndex,
-    startSequenceFromPage,
-  ]);
+  }, [goNext, startSequenceFromPage]);
 
   const currentInteractionPage = useMemo(() => {
     if (!currentInteraction) {
