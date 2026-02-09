@@ -206,3 +206,122 @@ class DashboardLearnerSummaryDTO(BaseModel):
             "last_active_at": self.last_active_at,
             "follow_up_ask_count": int(self.follow_up_ask_count),
         }
+
+
+@register_schema_to_swagger
+class DashboardLearnerVariableDTO(BaseModel):
+    """Learner variable key/value."""
+
+    key: str = Field(..., description="Variable key", required=False)
+    value: str = Field(..., description="Variable value", required=False)
+
+    def __json__(self) -> Dict[str, Any]:
+        return {"key": self.key, "value": self.value}
+
+
+@register_schema_to_swagger
+class DashboardLearnerOutlineProgressDTO(BaseModel):
+    """Learner progress info on a single outline item."""
+
+    outline_item_bid: str = Field(
+        ..., description="Outline item business identifier", required=False
+    )
+    title: str = Field(..., description="Outline title", required=False)
+    type: int = Field(..., description="Outline type", required=False)
+    hidden: bool = Field(default=False, description="Hidden flag", required=False)
+    status: int = Field(..., description="Learn status", required=False)
+    block_position: int = Field(
+        default=0, description="Current block position", required=False
+    )
+    updated_at: str = Field(
+        default="", description="Last update timestamp (ISO)", required=False
+    )
+
+    def __json__(self) -> Dict[str, Any]:
+        return {
+            "outline_item_bid": self.outline_item_bid,
+            "title": self.title,
+            "type": int(self.type),
+            "hidden": bool(self.hidden),
+            "status": int(self.status),
+            "block_position": int(self.block_position),
+            "updated_at": self.updated_at,
+        }
+
+
+@register_schema_to_swagger
+class DashboardLearnerFollowUpSummaryDTO(BaseModel):
+    """Follow-up summary info for a learner."""
+
+    total_ask_count: int = Field(
+        default=0, description="Total follow-up asks", required=False
+    )
+    by_outline: List[DashboardTopOutlineDTO] = Field(
+        default_factory=list,
+        description="Follow-up asks count grouped by outline",
+        required=False,
+    )
+
+    def __json__(self) -> Dict[str, Any]:
+        return {
+            "total_ask_count": int(self.total_ask_count),
+            "by_outline": [item.__json__() for item in self.by_outline],
+        }
+
+
+@register_schema_to_swagger
+class DashboardLearnerDetailDTO(BaseModel):
+    """Learner detail payload."""
+
+    user_bid: str = Field(..., description="User business identifier", required=False)
+    nickname: str = Field(..., description="User nickname", required=False)
+    mobile: str = Field(..., description="User mobile", required=False)
+    outlines: List[DashboardLearnerOutlineProgressDTO] = Field(
+        default_factory=list, description="Outline progress list", required=False
+    )
+    variables: List[DashboardLearnerVariableDTO] = Field(
+        default_factory=list, description="Learner variables", required=False
+    )
+    followups: DashboardLearnerFollowUpSummaryDTO = Field(
+        ..., description="Follow-up summary", required=False
+    )
+
+    def __json__(self) -> Dict[str, Any]:
+        return {
+            "user_bid": self.user_bid,
+            "nickname": self.nickname,
+            "mobile": self.mobile,
+            "outlines": [item.__json__() for item in self.outlines],
+            "variables": [item.__json__() for item in self.variables],
+            "followups": self.followups.__json__(),
+        }
+
+
+@register_schema_to_swagger
+class DashboardFollowUpItemDTO(BaseModel):
+    """A single follow-up Q/A item."""
+
+    outline_item_bid: str = Field(
+        ..., description="Outline item business identifier", required=False
+    )
+    outline_title: str = Field(..., description="Outline title", required=False)
+    position: int = Field(
+        default=0, description="Outline block position", required=False
+    )
+    asked_at: str = Field(default="", description="Ask timestamp (ISO)", required=False)
+    question: str = Field(default="", description="Learner question", required=False)
+    answered_at: str = Field(
+        default="", description="Answer timestamp (ISO)", required=False
+    )
+    answer: str = Field(default="", description="Tutor answer", required=False)
+
+    def __json__(self) -> Dict[str, Any]:
+        return {
+            "outline_item_bid": self.outline_item_bid,
+            "outline_title": self.outline_title,
+            "position": int(self.position),
+            "asked_at": self.asked_at,
+            "question": self.question,
+            "answered_at": self.answered_at,
+            "answer": self.answer,
+        }

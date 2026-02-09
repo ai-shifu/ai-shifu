@@ -16,9 +16,9 @@
 - [x] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/outlines`
 - [x] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/overview` (KPIs + chart-ready series)
 - [x] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/learners` (pagination, keyword search, sorting)
-- [ ] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/learners/{user_bid}` (progress + variables + follow-up summary)
-- [ ] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/learners/{user_bid}/followups` (pagination + filters)
-- [ ] Add swagger schemas for DTOs (`@register_schema_to_swagger`) and keep responses compatible with `make_common_response`
+- [x] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/learners/{user_bid}` (progress + variables + follow-up summary)
+- [x] Implement endpoint: `GET /api/dashboard/shifus/{shifu_bid}/learners/{user_bid}/followups` (pagination + filters)
+- [x] Add swagger schemas for DTOs (`@register_schema_to_swagger`) and keep responses compatible with `make_common_response`
 - [ ] Add backend tests under `src/api/tests/service/dashboard/` (permission, outline selection, latest-record correctness, pagination)
 - [ ] (Optional) Add DB indexes/migration if performance requires it (e.g., `learn_generated_blocks(shifu_bid,type,created_at)`)
 

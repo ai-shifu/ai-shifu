@@ -16,7 +16,12 @@ from flaskr.dao import db
 from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.dashboard.dtos import (
+    DashboardFollowUpItemDTO,
+    DashboardLearnerDetailDTO,
+    DashboardLearnerFollowUpSummaryDTO,
+    DashboardLearnerOutlineProgressDTO,
     DashboardLearnerSummaryDTO,
+    DashboardLearnerVariableDTO,
     DashboardOutlineDTO,
     DashboardOverviewDTO,
     DashboardOverviewKpiDTO,
@@ -28,8 +33,10 @@ from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_LOCKED,
+    LEARN_STATUS_NOT_STARTED,
     LEARN_STATUS_RESET,
 )
+from flaskr.service.profile.funcs import get_user_profiles
 from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_GUEST,
     UNIT_TYPE_VALUE_NORMAL,
@@ -38,7 +45,10 @@ from flaskr.service.shifu.consts import (
 from flaskr.service.shifu.funcs import shifu_permission_verification
 from flaskr.service.shifu.models import LogPublishedStruct, PublishedOutlineItem
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from flaskr.service.shifu.consts import BLOCK_TYPE_MDASK_VALUE
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDASK_VALUE,
+)
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 
 
@@ -732,3 +742,281 @@ def list_dashboard_learners(
         start = (safe_page_index - 1) * safe_page_size
         page_items = items[start : start + safe_page_size]
         return PageNationDTO(safe_page_index, safe_page_size, total, page_items)
+
+
+def build_dashboard_learner_detail(
+    app: Flask,
+    shifu_bid: str,
+    user_bid: str,
+) -> DashboardLearnerDetailDTO:
+    with app.app_context():
+        published_outlines = load_published_outlines(app, shifu_bid)
+        outline_bids = [item.outline_item_bid for item in published_outlines]
+        outline_title_map = {
+            item.outline_item_bid: item.title for item in published_outlines
+        }
+
+        progress_map: Dict[str, LearnProgressRecord] = {}
+        if outline_bids:
+            latest_rows = _load_latest_progress_records(
+                shifu_bid,
+                outline_item_bids=outline_bids,
+                user_bids=[user_bid],
+            )
+            progress_map = {
+                row.outline_item_bid: row
+                for row in latest_rows
+                if row and row.outline_item_bid
+            }
+
+        outline_progress: List[DashboardLearnerOutlineProgressDTO] = []
+        for outline in published_outlines:
+            row = progress_map.get(outline.outline_item_bid)
+            status = LEARN_STATUS_NOT_STARTED
+            block_position = 0
+            updated_at = ""
+            if row:
+                raw_status = int(row.status or LEARN_STATUS_NOT_STARTED)
+                status = (
+                    LEARN_STATUS_NOT_STARTED
+                    if raw_status == LEARN_STATUS_LOCKED
+                    else raw_status
+                )
+                block_position = int(row.block_position or 0)
+                updated_at = row.updated_at.isoformat() if row.updated_at else ""
+            outline_progress.append(
+                DashboardLearnerOutlineProgressDTO(
+                    outline_item_bid=outline.outline_item_bid,
+                    title=outline.title,
+                    type=int(outline.type),
+                    hidden=bool(outline.hidden),
+                    status=int(status),
+                    block_position=block_position,
+                    updated_at=updated_at,
+                )
+            )
+
+        contact_map = _load_user_contact_map([user_bid])
+        contact = contact_map.get(user_bid, {})
+
+        variables_dict = get_user_profiles(app, user_bid, shifu_bid) or {}
+        variables = [
+            DashboardLearnerVariableDTO(key=str(key), value=str(value))
+            for key, value in sorted(variables_dict.items(), key=lambda item: item[0])
+        ]
+
+        follow_up_rows = (
+            db.session.query(
+                LearnGeneratedBlock.outline_item_bid.label("outline_bid"),
+                db.func.count(LearnGeneratedBlock.id).label("c"),
+            )
+            .filter(
+                LearnGeneratedBlock.shifu_bid == shifu_bid,
+                LearnGeneratedBlock.user_bid == user_bid,
+                LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
+            )
+            .group_by(LearnGeneratedBlock.outline_item_bid)
+            .order_by(db.func.count(LearnGeneratedBlock.id).desc())
+            .all()
+        )
+        by_outline: List[DashboardTopOutlineDTO] = []
+        total_asks = 0
+        for outline_bid, c in follow_up_rows:
+            outline_bid_str = str(outline_bid or "")
+            if not outline_bid_str:
+                continue
+            count = int(c or 0)
+            total_asks += count
+            by_outline.append(
+                DashboardTopOutlineDTO(
+                    outline_item_bid=outline_bid_str,
+                    title=outline_title_map.get(outline_bid_str, ""),
+                    ask_count=count,
+                )
+            )
+
+        return DashboardLearnerDetailDTO(
+            user_bid=user_bid,
+            nickname=contact.get("nickname", ""),
+            mobile=contact.get("mobile", ""),
+            outlines=outline_progress,
+            variables=variables,
+            followups=DashboardLearnerFollowUpSummaryDTO(
+                total_ask_count=total_asks, by_outline=by_outline
+            ),
+        )
+
+
+def _parse_datetime_value(
+    raw: Optional[str], *, is_end: bool = False
+) -> Optional[datetime]:
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if not text:
+        return None
+    for fmt in (
+        "%Y-%m-%d",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M",
+        "%Y-%m-%dT%H:%M:%S",
+    ):
+        try:
+            parsed = datetime.strptime(text, fmt)
+            if fmt == "%Y-%m-%d":
+                if is_end:
+                    parsed = parsed.replace(hour=23, minute=59, second=59)
+                else:
+                    parsed = parsed.replace(hour=0, minute=0, second=0)
+            return parsed
+        except ValueError:
+            continue
+    try:
+        parsed = datetime.fromisoformat(text)
+        if (
+            is_end
+            and parsed.time() == datetime.min.time()
+            and "T" not in text
+            and " " not in text
+        ):
+            parsed = parsed.replace(hour=23, minute=59, second=59)
+        return parsed
+    except ValueError:
+        raise_param_error(f"invalid datetime: {text}")
+
+
+def list_dashboard_followups(
+    app: Flask,
+    shifu_bid: str,
+    user_bid: str,
+    *,
+    outline_item_bid: Optional[str] = None,
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    page_index: int = 1,
+    page_size: int = 20,
+) -> PageNationDTO:
+    with app.app_context():
+        safe_page_index = max(int(page_index or 1), 1)
+        safe_page_size = max(int(page_size or 20), 1)
+        safe_page_size = min(safe_page_size, 100)
+
+        start_dt = _parse_datetime_value(start_time, is_end=False)
+        end_dt = _parse_datetime_value(end_time, is_end=True)
+        if start_dt and end_dt and start_dt > end_dt:
+            raise_param_error("start_time must be <= end_time")
+
+        if start_dt is None and end_dt is None:
+            resolved_start, resolved_end = _resolve_date_range(
+                None, None, default_days=30
+            )
+            start_dt = datetime.combine(resolved_start, datetime.min.time())
+            end_dt = datetime.combine(
+                resolved_end, datetime.max.time().replace(microsecond=0)
+            )
+
+        published_outlines = load_published_outlines(app, shifu_bid)
+        outline_title_map = {
+            item.outline_item_bid: item.title for item in published_outlines
+        }
+
+        ask_query = LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.shifu_bid == shifu_bid,
+            LearnGeneratedBlock.user_bid == user_bid,
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
+        )
+        if outline_item_bid:
+            ask_query = ask_query.filter(
+                LearnGeneratedBlock.outline_item_bid == outline_item_bid
+            )
+        if start_dt:
+            ask_query = ask_query.filter(LearnGeneratedBlock.created_at >= start_dt)
+        if end_dt:
+            ask_query = ask_query.filter(LearnGeneratedBlock.created_at <= end_dt)
+
+        total = int(ask_query.count())
+        if total == 0:
+            return PageNationDTO(safe_page_index, safe_page_size, 0, [])
+
+        page_count = (total + safe_page_size - 1) // safe_page_size
+        safe_page_index = min(safe_page_index, max(page_count, 1))
+        offset = (safe_page_index - 1) * safe_page_size
+
+        asks: List[LearnGeneratedBlock] = (
+            ask_query.order_by(
+                LearnGeneratedBlock.created_at.desc(), LearnGeneratedBlock.id.desc()
+            )
+            .offset(offset)
+            .limit(safe_page_size)
+            .all()
+        )
+
+        progress_record_bids = sorted(
+            {a.progress_record_bid for a in asks if a and a.progress_record_bid}
+        )
+        positions = sorted({int(a.position or 0) for a in asks})
+
+        answer_map: Dict[Tuple[str, int], List[LearnGeneratedBlock]] = {}
+        if progress_record_bids:
+            answer_query = LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.shifu_bid == shifu_bid,
+                LearnGeneratedBlock.user_bid == user_bid,
+                LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.type == BLOCK_TYPE_MDANSWER_VALUE,
+                LearnGeneratedBlock.progress_record_bid.in_(progress_record_bids),
+                LearnGeneratedBlock.position.in_(positions),
+            )
+            if outline_item_bid:
+                answer_query = answer_query.filter(
+                    LearnGeneratedBlock.outline_item_bid == outline_item_bid
+                )
+            if start_dt:
+                answer_query = answer_query.filter(
+                    LearnGeneratedBlock.created_at >= start_dt
+                )
+            if end_dt:
+                answer_query = answer_query.filter(
+                    LearnGeneratedBlock.created_at <= end_dt
+                )
+
+            answers: List[LearnGeneratedBlock] = answer_query.order_by(
+                LearnGeneratedBlock.created_at.asc(), LearnGeneratedBlock.id.asc()
+            ).all()
+            for answer in answers:
+                key = (answer.progress_record_bid or "", int(answer.position or 0))
+                if not key[0]:
+                    continue
+                answer_map.setdefault(key, []).append(answer)
+
+        items: List[DashboardFollowUpItemDTO] = []
+        for ask in asks:
+            outline_bid = ask.outline_item_bid or ""
+            key = (ask.progress_record_bid or "", int(ask.position or 0))
+            matched_answer = None
+            candidates = answer_map.get(key, [])
+            if candidates:
+                for candidate in candidates:
+                    if not candidate.created_at or not ask.created_at:
+                        matched_answer = candidate
+                        break
+                    if candidate.created_at >= ask.created_at:
+                        matched_answer = candidate
+                        break
+
+            items.append(
+                DashboardFollowUpItemDTO(
+                    outline_item_bid=outline_bid,
+                    outline_title=outline_title_map.get(outline_bid, ""),
+                    position=int(ask.position or 0),
+                    asked_at=ask.created_at.isoformat() if ask.created_at else "",
+                    question=ask.generated_content or "",
+                    answered_at=matched_answer.created_at.isoformat()
+                    if matched_answer and matched_answer.created_at
+                    else "",
+                    answer=matched_answer.generated_content if matched_answer else "",
+                )
+            )
+
+        return PageNationDTO(safe_page_index, safe_page_size, total, items)
