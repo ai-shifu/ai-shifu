@@ -33,6 +33,16 @@ const isListenModeSpeakableText = (raw: string) => {
   return true;
 };
 
+const isListenModeSpeakableSandbox = (raw: string) => {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) {
+    return false;
+  }
+  // Conservative heuristic to match backend: only narrate sandbox blocks that
+  // look like actual text content (paragraphs/lists/headings), not layout-only divs.
+  return /<(p|li|h[1-6])\b/i.test(trimmed);
+};
+
 const findFirstHtmlVisualBlock = (
   raw: string,
 ): { kind: HtmlVisualKind; start: number; end: number } | null => {
@@ -345,12 +355,22 @@ export const useListenContentData = (items: ChatContentItem[]) => {
         item.generated_block_bid !== 'loading' &&
         segments.length > 0
       ) {
-        const visualSegmentIndices: number[] = [];
+        const visualSegmentsMeta: Array<{
+          segmentIndex: number;
+          isSpeakableSandbox: boolean;
+        }> = [];
         const speakableTextSegmentIndices: number[] = [];
 
         segments.forEach((segment, index) => {
           if (segment.type === 'markdown' || segment.type === 'sandbox') {
-            visualSegmentIndices.push(index);
+            const value =
+              typeof segment.value === 'string' ? segment.value : '';
+            visualSegmentsMeta.push({
+              segmentIndex: index,
+              isSpeakableSandbox:
+                segment.type === 'sandbox' &&
+                isListenModeSpeakableSandbox(value),
+            });
             return;
           }
           if (segment.type === 'text') {
@@ -365,29 +385,44 @@ export const useListenContentData = (items: ChatContentItem[]) => {
 
         const slidePageOffset = shouldPrependPlaceholder ? 1 : 0;
         const pages: number[] = [];
-        speakableTextSegmentIndices.forEach((textIndex, position) => {
-          let mappedPage: number | null = null;
+        let positionCursor = 0;
 
-          if (!hasVisualSegments) {
+        if (!hasVisualSegments) {
+          if (speakableTextSegmentIndices.length > 0) {
             // No visual boundaries: keep narration on the placeholder slide.
-            mappedPage = contentPage;
-          } else {
-            for (let i = visualSegmentIndices.length - 1; i >= 0; i -= 1) {
-              if (visualSegmentIndices[i] < textIndex) {
-                mappedPage = pageCursor + slidePageOffset + i;
-                break;
-              }
-            }
-
-            // Text before the first visual block should stay on the placeholder slide.
-            if (mappedPage === null && shouldPrependPlaceholder) {
-              mappedPage = pageCursor;
-            }
+            pages[positionCursor] = contentPage;
+          }
+        } else {
+          // Placeholder slide for narration before the first visual.
+          if (shouldPrependPlaceholder) {
+            pages[positionCursor] = pageCursor;
+            positionCursor += 1;
           }
 
-          pages[position] =
-            typeof mappedPage === 'number' ? mappedPage : fallbackPage;
-        });
+          // One position per "window" after each visual boundary.
+          for (let i = 0; i < visualSegmentsMeta.length; i += 1) {
+            const current = visualSegmentsMeta[i];
+            const next = visualSegmentsMeta[i + 1];
+            const windowStart = current.segmentIndex + 1;
+            const windowEnd = next ? next.segmentIndex : segments.length;
+
+            const hasSpeakableTextInWindow = speakableTextSegmentIndices.some(
+              idx => idx >= windowStart && idx < windowEnd,
+            );
+
+            // Backend may synthesize narration from some sandbox blocks even when
+            // there is no text gap after them (e.g. styled <div> with <p> at EOF).
+            const hasSpeakableContent =
+              hasSpeakableTextInWindow || current.isSpeakableSandbox;
+
+            if (!hasSpeakableContent) {
+              continue;
+            }
+
+            pages[positionCursor] = pageCursor + slidePageOffset + i;
+            positionCursor += 1;
+          }
+        }
 
         if (pages.length > 0) {
           audioPageByBid.set(item.generated_block_bid, pages);
@@ -435,7 +470,10 @@ export const useListenContentData = (items: ChatContentItem[]) => {
         } else {
           nextAudioAndInteractionList.push({
             ...item,
-            page: contentPage,
+            page:
+              typeof pagesForAudio?.[0] === 'number'
+                ? pagesForAudio[0]
+                : contentPage,
           });
         }
       }
