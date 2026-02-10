@@ -177,14 +177,12 @@
   }
 
   .value {
+    position: relative;
     font-size: 13px;
     font-weight: 600;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    overflow: hidden;
+    overflow: visible;
     color: #171717;
-    text-overflow: ellipsis;
 
     font-size: var(--text-sm-font-size, 14px);
     font-style: normal;
