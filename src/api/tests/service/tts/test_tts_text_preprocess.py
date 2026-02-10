@@ -98,6 +98,18 @@ def test_preprocess_for_tts_keeps_non_tag_angle_brackets(app):
     assert cleaned == "I love you < 3."
 
 
+def test_preprocess_for_tts_strips_stray_svg_text_elements(app):
+    _require_app(app)
+
+    from flaskr.service.tts import preprocess_for_tts
+
+    text = "Before.\n<text>Hello</text>\nAfter."
+    cleaned = preprocess_for_tts(text)
+
+    assert cleaned == "Before.\n\nAfter."
+    assert "Hello" not in cleaned
+
+
 def test_streaming_tts_processor_skips_svg_and_keeps_following_text(app, monkeypatch):
     _require_app(app)
 

@@ -12,6 +12,7 @@
 - [x] Update `LearnGeneratedAudio` model to include `position` and (optionally) index metadata.
 - [x] Implement backend AV segmentation helper `split_av_speakable_segments(raw: str) -> list[str]`.
 - [x] Add unit tests for segmentation helper (SVG, img, markdown images, mermaid/code fences, sandbox HTML).
+- [x] Fix: prevent stray SVG text fragments (e.g. `<text>...</text>`) from being synthesized.
 - [x] Treat `<video>...</video>` and `<table>...</table>` as AV boundaries (do not speak; split positions).
 - [x] Treat `<iframe>...</iframe>` (Admin video embeds, e.g. Bilibili) as AV boundaries; handle MarkdownFlow fixed markers (`=== ... ===`) without swallowing later visuals.
 - [x] Treat Markdown tables as AV boundaries (do not speak; split positions).

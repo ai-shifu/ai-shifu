@@ -236,6 +236,17 @@ def preprocess_for_tts(text: str) -> str:
     # Remove other XML block elements (math, script, style)
     text = XML_BLOCK_PATTERN.sub("", text)
 
+    # Remove stray SVG text-related elements that can leak when the model emits
+    # malformed/incomplete SVG (e.g. we might end up with a `<text>` fragment
+    # without the surrounding `<svg>` block in streaming).
+    for _tag in ("text", "tspan", "title", "desc"):
+        text = re.sub(
+            rf"<{_tag}\b[^>]*>[\s\S]*?</{_tag}>",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
+
     # Remove any remaining angle bracket content that looks like tags
     # This catches malformed or partial SVG/HTML
     text = re.sub(r"<[^>]*>", "", text)
