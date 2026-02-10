@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ListenPlayer from './ListenPlayer';
 import { cn } from '@/lib/utils';
 import type Reveal from 'reveal.js';
@@ -44,6 +44,7 @@ const ListenModeRenderer = ({
   const pendingAutoNextRef = useRef(false);
   const shouldStartSequenceRef = useRef(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [debugEnabled, setDebugEnabled] = useState(false);
 
   const {
     orderedContentBlockBids,
@@ -140,6 +141,53 @@ const ListenModeRenderer = ({
     shouldStartSequenceRef.current = true;
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const debugParam = params.get('debug');
+    const enabled =
+      params.has('debug') &&
+      (debugParam === null ||
+        debugParam === '' ||
+        debugParam === '1' ||
+        debugParam === 'true');
+    setDebugEnabled(enabled);
+  }, []);
+
+  const safeStringify = useCallback((payload?: Record<string, any>) => {
+    if (!payload) {
+      return '';
+    }
+    try {
+      return JSON.stringify(payload);
+    } catch (error) {
+      return '{"error":"stringify_failed"}';
+    }
+  }, []);
+
+  const onDebugLog = useCallback(
+    (event: string, payload?: Record<string, any>) => {
+      if (!debugEnabled) {
+        return;
+      }
+      console.log('[listen-debug]', event, payload);
+    },
+    [debugEnabled],
+  );
+
+  const onDebugAlert = useCallback(
+    (message: string, payload?: Record<string, any>) => {
+      if (!debugEnabled || !mobileStyle || typeof window === 'undefined') {
+        return;
+      }
+      const detail = safeStringify(payload);
+      window.alert(detail ? `${message}\n${detail}` : message);
+    },
+    [debugEnabled, mobileStyle, safeStringify],
+  );
+
   const {
     audioPlayerRef,
     activeContentItem,
@@ -168,6 +216,8 @@ const ListenModeRenderer = ({
     goToBlock,
     resolveContentBid,
     setIsAudioPlaying,
+    onDebugLog,
+    onDebugAlert,
   });
 
   const { currentInteraction, isPrevDisabled, isNextDisabled, goPrev, goNext } =
@@ -256,6 +306,36 @@ const ListenModeRenderer = ({
   const interactionReadonly = listenPlayerInteraction
     ? !isLatestInteractionEditable
     : true;
+
+  useEffect(() => {
+    if (!debugEnabled) {
+      return;
+    }
+    onDebugLog('listen-render-state', {
+      isAudioPlaying,
+      isAudioSequenceActive,
+      audioSequenceToken,
+      activeAudioBlockBid,
+      currentInteractionBid: currentInteraction?.generated_block_bid ?? null,
+      listenPlayerInteractionBid:
+        listenPlayerInteraction?.generated_block_bid ?? null,
+      currentInteractionPage,
+      hasAudioForCurrentPage,
+      shouldHideFallbackInteraction,
+    });
+  }, [
+    debugEnabled,
+    onDebugLog,
+    isAudioPlaying,
+    isAudioSequenceActive,
+    audioSequenceToken,
+    activeAudioBlockBid,
+    currentInteraction?.generated_block_bid,
+    listenPlayerInteraction?.generated_block_bid,
+    currentInteractionPage,
+    hasAudioForCurrentPage,
+    shouldHideFallbackInteraction,
+  ]);
 
   return (
     <div
