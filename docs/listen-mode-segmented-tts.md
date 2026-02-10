@@ -113,8 +113,15 @@ Source-of-truth for boundary rules (frontend):
   - `<svg...></svg>` (outside fenced code)
   - `<img ...>` (inline HTML)
   - Markdown images `!\[...\](...)`
+  - Markdown tables (pipe table blocks, treat as visual)
   - mermaid fences and other fenced code blocks
   - “sandbox HTML blocks” beginning with tags like `script/style/iframe/div/section/...` (outside fences)
+
+Cook Web Listen Mode additionally treats these HTML blocks as visual boundaries
+for slide rendering (post-processing the `splitContentSegments` output):
+
+- `<video ...></video>`
+- `<table ...></table>`
 
 Backend helper (new):
 

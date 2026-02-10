@@ -60,6 +60,34 @@ def test_split_av_speakable_segments_treats_fenced_code_as_boundary(app):
     assert split_av_speakable_segments(text) == ["Before.", "After."]
 
 
+def test_split_av_speakable_segments_splits_markdown_table(app):
+    _require_app(app)
+
+    from flaskr.service.tts.pipeline import split_av_speakable_segments
+
+    text = "Before.\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter."
+
+    assert split_av_speakable_segments(text) == ["Before.", "After."]
+
+
+def test_split_av_speakable_segments_splits_html_table(app):
+    _require_app(app)
+
+    from flaskr.service.tts.pipeline import split_av_speakable_segments
+
+    text = "Before.\n<table><tr><td>1</td></tr></table>\nAfter."
+    assert split_av_speakable_segments(text) == ["Before.", "After."]
+
+
+def test_split_av_speakable_segments_splits_video_tag(app):
+    _require_app(app)
+
+    from flaskr.service.tts.pipeline import split_av_speakable_segments
+
+    text = 'Before.\n<video src="https://example.com/a.mp4"></video>\nAfter.'
+    assert split_av_speakable_segments(text) == ["Before.", "After."]
+
+
 def test_split_av_speakable_segments_splits_sandbox_html_block(app):
     _require_app(app)
 

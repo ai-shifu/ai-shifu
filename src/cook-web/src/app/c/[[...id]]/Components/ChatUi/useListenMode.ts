@@ -7,6 +7,96 @@ import {
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import type { AudioPlayerHandle } from '@/components/audio/AudioPlayer';
 
+type HtmlVisualKind = 'video' | 'table';
+
+const findFirstHtmlVisualBlock = (
+  raw: string,
+): { kind: HtmlVisualKind; start: number; end: number } | null => {
+  if (!raw) {
+    return null;
+  }
+
+  const lower = raw.toLowerCase();
+  const videoStart = lower.indexOf('<video');
+  const tableStart = lower.indexOf('<table');
+
+  let kind: HtmlVisualKind | null = null;
+  let start = -1;
+  if (videoStart !== -1 && (tableStart === -1 || videoStart < tableStart)) {
+    kind = 'video';
+    start = videoStart;
+  } else if (tableStart !== -1) {
+    kind = 'table';
+    start = tableStart;
+  }
+
+  if (!kind || start < 0) {
+    return null;
+  }
+
+  const closeTag = kind === 'video' ? '</video>' : '</table>';
+  const closeIdx = lower.indexOf(closeTag, start);
+  if (closeIdx !== -1) {
+    return { kind, start, end: closeIdx + closeTag.length };
+  }
+
+  // Best-effort support for self-closing <video ... /> tags.
+  if (kind === 'video') {
+    const openEnd = raw.indexOf('>', start);
+    if (openEnd !== -1) {
+      const head = raw.slice(start, openEnd + 1);
+      if (/\/\s*>$/.test(head)) {
+        return { kind, start, end: openEnd + 1 };
+      }
+    }
+  }
+
+  return null;
+};
+
+const splitTextByHtmlVisualBlocks = (raw: string): RenderSegment[] => {
+  if (!raw || !raw.trim()) {
+    return [];
+  }
+
+  const block = findFirstHtmlVisualBlock(raw);
+  if (!block) {
+    return [{ type: 'text', value: raw }];
+  }
+
+  const before = raw.slice(0, block.start);
+  const matched = raw.slice(block.start, block.end);
+  const after = raw.slice(block.end);
+
+  const output: RenderSegment[] = [];
+  if (before.trim()) {
+    output.push({ type: 'text', value: before });
+  }
+  output.push({ type: 'markdown', value: matched });
+  if (after.trim()) {
+    output.push(...splitTextByHtmlVisualBlocks(after));
+  }
+  return output;
+};
+
+const splitListenModeSegments = (raw: string): RenderSegment[] => {
+  const baseSegments = splitContentSegments(raw || '', true);
+  if (!baseSegments.length) {
+    return baseSegments;
+  }
+
+  const output: RenderSegment[] = [];
+  baseSegments.forEach(segment => {
+    if (segment.type !== 'text') {
+      output.push(segment);
+      return;
+    }
+    output.push(...splitTextByHtmlVisualBlocks(segment.value));
+  });
+
+  return output;
+};
+
 export type AudioInteractionItem = ChatContentItem & {
   page: number;
   audioPosition?: number;
@@ -83,7 +173,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
     items.forEach(item => {
       const segments =
         item.type === ChatContentItemType.CONTENT && !!item.content
-          ? splitContentSegments(item.content || '', true)
+          ? splitListenModeSegments(item.content || '')
           : [];
       const visualSegments = segments.filter(
         segment => segment.type === 'markdown' || segment.type === 'sandbox',

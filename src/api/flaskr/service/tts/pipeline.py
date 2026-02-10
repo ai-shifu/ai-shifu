@@ -58,9 +58,14 @@ _AV_MARKDOWN_IMAGE_PATTERN = re.compile(
 _AV_IMG_TAG_PATTERN = re.compile(r"<img\b[^>]*?>", re.IGNORECASE)
 _AV_SVG_OPEN_PATTERN = re.compile(r"<svg\b", re.IGNORECASE)
 _AV_SVG_CLOSE_PATTERN = re.compile(r"</svg>", re.IGNORECASE)
+_AV_VIDEO_OPEN_PATTERN = re.compile(r"<video\b", re.IGNORECASE)
+_AV_VIDEO_CLOSE_PATTERN = re.compile(r"</video>", re.IGNORECASE)
+_AV_TABLE_OPEN_PATTERN = re.compile(r"<table\b", re.IGNORECASE)
+_AV_TABLE_CLOSE_PATTERN = re.compile(r"</table>", re.IGNORECASE)
 _AV_CLOSING_BOUNDARY_PATTERN = re.compile(
     r"</[a-z][^>]*>\s*\n(?=[^\s<])", re.IGNORECASE
 )
+_AV_MARKDOWN_TABLE_ROW_PATTERN = re.compile(r"^\s*\|.+\|\s*$", re.MULTILINE)
 
 
 def _get_fence_ranges(raw: str) -> list[tuple[int, int]]:
@@ -135,6 +140,59 @@ def _find_svg_block_end(raw: str, start_index: int) -> int:
     return close.end()
 
 
+def _find_video_block_end(raw: str, start_index: int) -> int:
+    close = _AV_VIDEO_CLOSE_PATTERN.search(raw, start_index)
+    if not close:
+        return len(raw)
+    return close.end()
+
+
+def _find_table_block_end(raw: str, start_index: int) -> int:
+    close = _AV_TABLE_CLOSE_PATTERN.search(raw, start_index)
+    if not close:
+        return len(raw)
+    return close.end()
+
+
+def _find_markdown_table_block(
+    raw: str, fence_ranges: list[tuple[int, int]]
+) -> tuple[int, int, bool] | None:
+    """
+    Find the first Markdown table block outside fences.
+
+    Returns: (start, end, complete)
+    """
+    if not raw:
+        return None
+
+    for match in _AV_MARKDOWN_TABLE_ROW_PATTERN.finditer(raw):
+        if _is_index_in_ranges(match.start(), fence_ranges):
+            continue
+
+        line = match.group(0) or ""
+        leading_ws = len(line) - len(line.lstrip())
+        table_start = match.start() + leading_ws
+
+        cursor = table_start
+        while cursor < len(raw):
+            nl = raw.find("\n", cursor)
+            line_end = len(raw) if nl == -1 else nl
+            line_text = raw[cursor:line_end]
+            if line_text.strip().startswith("|"):
+                if nl == -1:
+                    # Buffer ends while still inside the table block.
+                    return (table_start, len(raw), False)
+                cursor = nl + 1
+                continue
+
+            # Table ended at the first non-table line.
+            return (table_start, cursor, True)
+
+        return (table_start, len(raw), False)
+
+    return None
+
+
 def split_av_speakable_segments(raw: str) -> list[str]:
     """
     Split raw Markdown/HTML content into ordered speakable segments for AV sync.
@@ -164,6 +222,20 @@ def split_av_speakable_segments(raw: str) -> list[str]:
         if svg_start != -1:
             candidates.append((svg_start, _find_svg_block_end(text, svg_start)))
 
+        video_match = _find_first_match_outside_fence(
+            text, _AV_VIDEO_OPEN_PATTERN, fence_ranges
+        )
+        if video_match is not None:
+            video_start = video_match.start()
+            candidates.append((video_start, _find_video_block_end(text, video_start)))
+
+        table_match = _find_first_match_outside_fence(
+            text, _AV_TABLE_OPEN_PATTERN, fence_ranges
+        )
+        if table_match is not None:
+            table_start = table_match.start()
+            candidates.append((table_start, _find_table_block_end(text, table_start)))
+
         img_match = _find_first_match_outside_fence(
             text, _AV_IMG_TAG_PATTERN, fence_ranges
         )
@@ -175,6 +247,11 @@ def split_av_speakable_segments(raw: str) -> list[str]:
         )
         if md_img_match is not None:
             candidates.append((md_img_match.start(), md_img_match.end()))
+
+        md_table = _find_markdown_table_block(text, fence_ranges)
+        if md_table is not None:
+            start, end, _complete = md_table
+            candidates.append((start, end))
 
         sandbox_match = _find_first_match_outside_fence(
             text, _AV_SANDBOX_START_PATTERN, fence_ranges

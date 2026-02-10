@@ -54,9 +54,14 @@ from flaskr.service.tts.pipeline import (
     _AV_MARKDOWN_IMAGE_PATTERN,
     _AV_SANDBOX_START_PATTERN,
     _AV_SVG_OPEN_PATTERN,
+    _AV_TABLE_OPEN_PATTERN,
+    _AV_TABLE_CLOSE_PATTERN,
+    _AV_VIDEO_OPEN_PATTERN,
+    _AV_VIDEO_CLOSE_PATTERN,
     _find_first_match_outside_fence,
     _find_html_block_end,
     _get_fence_ranges,
+    _find_markdown_table_block,
 )
 
 
@@ -708,7 +713,9 @@ class AVStreamingTTSProcessor:
 
         # When we hit a non-speakable block boundary (e.g. `<svg>`), we may need to
         # wait for its closing marker before resuming segmentation.
-        self._skip_mode: Optional[str] = None  # 'fence' | 'svg' | 'sandbox'
+        self._skip_mode: Optional[str] = (
+            None  # 'fence' | 'svg' | 'video' | 'html_table' | 'md_table' | 'sandbox'
+        )
 
     def _ensure_processor(self) -> StreamingTTSProcessor:
         if self._current_processor is not None:
@@ -759,6 +766,25 @@ class AVStreamingTTSProcessor:
             if not close:
                 return None
             return close.end()
+        if self._skip_mode == "video":
+            close = _AV_VIDEO_CLOSE_PATTERN.search(raw)
+            if not close:
+                return None
+            return close.end()
+        if self._skip_mode == "html_table":
+            close = _AV_TABLE_CLOSE_PATTERN.search(raw)
+            if not close:
+                return None
+            return close.end()
+        if self._skip_mode == "md_table":
+            fence_ranges = _get_fence_ranges(raw)
+            block = _find_markdown_table_block(raw, fence_ranges)
+            if block is None:
+                return None
+            _start, end, complete = block
+            if not complete:
+                return None
+            return end
         if self._skip_mode == "sandbox":
             # Best-effort end boundary matching pipeline's heuristic.
             for match in _AV_CLOSING_BOUNDARY_PATTERN.finditer(raw):
@@ -807,6 +833,42 @@ class AVStreamingTTSProcessor:
             else:
                 candidates.append(("svg", svg_start, len(raw), False))
 
+        video_match = _find_first_match_outside_fence(
+            raw, _AV_VIDEO_OPEN_PATTERN, fence_ranges
+        )
+        if video_match is not None:
+            video_start = video_match.start()
+            video_close = _AV_VIDEO_CLOSE_PATTERN.search(raw[video_start:])
+            if video_close:
+                candidates.append(
+                    (
+                        "video",
+                        video_start,
+                        video_start + video_close.end(),
+                        True,
+                    )
+                )
+            else:
+                candidates.append(("video", video_start, len(raw), False))
+
+        table_match = _find_first_match_outside_fence(
+            raw, _AV_TABLE_OPEN_PATTERN, fence_ranges
+        )
+        if table_match is not None:
+            table_start = table_match.start()
+            table_close = _AV_TABLE_CLOSE_PATTERN.search(raw[table_start:])
+            if table_close:
+                candidates.append(
+                    (
+                        "html_table",
+                        table_start,
+                        table_start + table_close.end(),
+                        True,
+                    )
+                )
+            else:
+                candidates.append(("html_table", table_start, len(raw), False))
+
         img_match = _find_first_match_outside_fence(
             raw, _AV_IMG_TAG_PATTERN, fence_ranges
         )
@@ -820,6 +882,11 @@ class AVStreamingTTSProcessor:
             candidates.append(
                 ("md_img", md_img_match.start(), md_img_match.end(), True)
             )
+
+        md_table = _find_markdown_table_block(raw, fence_ranges)
+        if md_table is not None:
+            start, end, complete = md_table
+            candidates.append(("md_table", start, end, complete))
 
         sandbox_match = _find_first_match_outside_fence(
             raw, _AV_SANDBOX_START_PATTERN, fence_ranges
@@ -888,7 +955,10 @@ class AVStreamingTTSProcessor:
             # Consume the boundary itself.
             boundary_len = max(end - start, 0)
             self._raw_buffer = remainder
-            if kind in {"fence", "svg", "sandbox"} and not complete:
+            if (
+                kind in {"fence", "svg", "video", "html_table", "md_table", "sandbox"}
+                and not complete
+            ):
                 self._skip_mode = kind
                 break
             self._raw_buffer = self._raw_buffer[boundary_len:]

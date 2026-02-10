@@ -12,6 +12,8 @@
 - [x] Update `LearnGeneratedAudio` model to include `position` and (optionally) index metadata.
 - [x] Implement backend AV segmentation helper `split_av_speakable_segments(raw: str) -> list[str]`.
 - [x] Add unit tests for segmentation helper (SVG, img, markdown images, mermaid/code fences, sandbox HTML).
+- [x] Treat `<video>...</video>` and `<table>...</table>` as AV boundaries (do not speak; split positions).
+- [x] Treat Markdown tables as AV boundaries (do not speak; split positions).
 - [x] Extend DTOs: add optional `position` to `AudioSegmentDTO` + `AudioCompleteDTO`.
 - [x] Extend DTOs: extend `GeneratedBlockDTO` to return `audios[]` (position + url + duration + bid).
 - [x] Update `/records` assembly: `get_learn_record()` returns `audios[]` per `generated_block_bid` (sorted by `position`).
@@ -32,6 +34,7 @@
 - [x] Extend types: `ChatContentItem` to store segmented audio metadata (e.g. `audios[]` and per-position streaming state).
 - [x] Listen Mode: parse content boundaries consistently:
 - [x] Use `splitContentSegments(content, true)` to compute text-segment ordering and map `position -> slide page`.
+- [x] Treat `<video>...</video>` and `<table>...</table>` as visual slides in Listen Mode.
 - [x] Listen Mode: update audio sequencing:
 - [x] Iterate through `(generated_block_bid, position)` steps instead of one track per block.
 - [x] Advance Reveal slides according to the mapped page for each audio segment.
