@@ -46,6 +46,26 @@ XML_BLOCK_PATTERN = re.compile(
 
 _FENCE = "```"
 
+# Combined pattern to match all visual element boundaries that should cause
+# an audio position split.  Order matters: mermaid fences must be tried before
+# generic fenced code blocks so they are not partially consumed.
+VISUAL_BOUNDARY_PATTERN = re.compile(
+    r"(?:"
+    # Mermaid fenced blocks
+    r"```mermaid[\s\S]*?```"
+    r"|"
+    # Generic fenced code blocks (``` ... ```)
+    r"```[\s\S]*?```"
+    r"|"
+    # SVG blocks
+    r"<svg[\s\S]*?</svg>"
+    r"|"
+    # Other non-speakable XML block elements (math, script, style)
+    r"<(?:math|script|style)[^>]*>[\s\S]*?</(?:math|script|style)>"
+    r")",
+    re.IGNORECASE,
+)
+
 
 def _strip_incomplete_fenced_code(text: str) -> tuple[str, bool]:
     """
@@ -267,3 +287,40 @@ def preprocess_for_tts(text: str) -> str:
     text = "\n".join(lines)
 
     return text.strip()
+
+
+def split_text_by_visual_boundaries(text: str) -> list[str]:
+    """
+    Split raw markdown text at visual element boundaries (SVG, code blocks,
+    mermaid diagrams, etc.) and return a list of cleaned text segments.
+
+    Each segment is run through ``preprocess_for_tts`` so it is ready for
+    TTS synthesis.  Empty segments (e.g. two consecutive SVGs with no text
+    between them) are filtered out.
+
+    If *text* contains no visual elements the result is a single-item list
+    equivalent to ``[preprocess_for_tts(text)]`` (when non-empty).
+
+    Args:
+        text: Raw markdown text that may contain visual elements.
+
+    Returns:
+        A list of cleaned, non-empty text segments ordered by their
+        position in the original text.  The list may be empty if the
+        input consists entirely of visual elements / whitespace.
+    """
+    if not text:
+        return []
+
+    # Split the text around visual element boundaries.  ``re.split`` with a
+    # capturing group would include the matched visual blocks; using a
+    # non-capturing group (our pattern) simply drops them.
+    parts = VISUAL_BOUNDARY_PATTERN.split(text)
+
+    segments: list[str] = []
+    for part in parts:
+        cleaned = preprocess_for_tts(part)
+        if cleaned:
+            segments.append(cleaned)
+
+    return segments

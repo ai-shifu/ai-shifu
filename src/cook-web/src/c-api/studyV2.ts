@@ -78,6 +78,7 @@ export interface StudyRecordItem {
   user_input?: string;
   isHistory?: boolean;
   audio_url?: string;
+  audio_urls?: AudioUrlEntry[];
 }
 
 export interface LessonStudyRecords {
@@ -121,12 +122,22 @@ export interface AudioSegmentData {
   audio_data: string; // Base64 encoded
   duration_ms: number;
   is_final: boolean;
+  position?: number; // Audio position within block, split at visual boundaries
 }
 
 export interface AudioCompleteData {
   audio_url: string;
   audio_bid: string;
   duration_ms: number;
+  position?: number; // Audio position within block, split at visual boundaries
+}
+
+// Per-position audio entry returned by history query
+export interface AudioUrlEntry {
+  audio_url: string;
+  audio_bid: string;
+  duration_ms: number;
+  position: number;
 }
 
 export interface StreamGeneratedBlockAudioParams {

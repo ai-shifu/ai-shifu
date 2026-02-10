@@ -5,6 +5,8 @@ This module provides real-time TTS synthesis during content streaming.
 - First sentence is synthesized immediately for instant feedback
 - Subsequent text is batched at ~300 chars at sentence boundaries
 - TTS synthesis runs in background threads to avoid blocking content streaming
+- Audio is split at visual element boundaries (SVG, code blocks, etc.) so the
+  frontend can synchronize playback with visual content.
 """
 
 import re
@@ -13,6 +15,7 @@ import logging
 import uuid
 import threading
 import time
+from collections import defaultdict
 from typing import Generator, Optional, List, Dict
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, Future
@@ -28,7 +31,7 @@ from flaskr.api.tts import (
     get_default_voice_settings,
     get_default_audio_settings,
 )
-from flaskr.service.tts import preprocess_for_tts
+from flaskr.service.tts import preprocess_for_tts, VISUAL_BOUNDARY_PATTERN
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
     get_audio_duration_ms,
@@ -65,6 +68,7 @@ class TTSSegment:
 
     index: int
     text: str
+    position: int = 0
     audio_data: Optional[bytes] = None
     duration_ms: int = 0
     word_count: int = 0
@@ -78,6 +82,8 @@ class StreamingTTSProcessor:
     Processes text for TTS in real-time during content streaming.
 
     Uses background threads for TTS synthesis to avoid blocking content streaming.
+    Audio is split into separate positions at visual element boundaries so the
+    frontend can synchronize audio playback with visual content display.
     """
 
     def __init__(
@@ -145,8 +151,12 @@ class StreamingTTSProcessor:
         self._lock = threading.Lock()
 
         # Storage for all yielded audio data (for final concatenation)
-        # List of (index, audio_data, duration_ms)
+        # List of (index, audio_data, duration_ms, position)
         self._all_audio_data: List[tuple] = []
+
+        # Position tracking for visual element boundary splitting
+        self._current_position = 0
+        self._position_audio_bids: Dict[int, str] = {0: self._audio_bid}
 
         # Check if TTS is configured for the specified provider
         self._enabled = is_tts_configured(tts_provider)
@@ -168,11 +178,74 @@ class StreamingTTSProcessor:
 
         self._buffer += chunk
 
+        # Detect complete visual elements and split into positions.
+        # Must run BEFORE _try_submit_tts_task to prevent text after a
+        # visual element being submitted under the wrong position.
+        self._check_visual_boundaries()
+
         # Check if we should submit a new TTS task
         self._try_submit_tts_task()
 
         # Yield any segments that are ready
         yield from self._yield_ready_segments()
+
+    # ------------------------------------------------------------------
+    # Visual boundary detection
+    # ------------------------------------------------------------------
+
+    def _check_visual_boundaries(self):
+        """
+        Detect complete visual elements (SVG, code blocks, etc.) in the buffer
+        and advance to a new audio position at each boundary.
+
+        This is non-blocking: it only submits any remaining text before the
+        boundary and resets state for the next position.  Actual concatenation
+        and upload happen later in ``finalize()``.
+        """
+        while True:
+            match = VISUAL_BOUNDARY_PATTERN.search(self._buffer)
+            if not match:
+                break
+
+            text_before = self._buffer[: match.start()]
+            text_after = self._buffer[match.end() :]
+
+            # Submit any remaining text before the boundary for the current
+            # position (the text after the last processed offset).
+            self._buffer = text_before
+            self._submit_remaining_buffer()
+
+            # Advance to the next position.
+            self._buffer = text_after
+            self._processed_text_offset = 0
+            self._first_sentence_done = False
+            self._current_position += 1
+            new_bid = str(uuid.uuid4()).replace("-", "")
+            self._position_audio_bids[self._current_position] = new_bid
+
+            logger.info(
+                f"Visual boundary detected at position {self._current_position - 1}, "
+                f"starting position {self._current_position}"
+            )
+
+    def _submit_remaining_buffer(self):
+        """Submit any remaining unprocessed text in the buffer for TTS."""
+        if not self._buffer:
+            return
+        full_text = preprocess_for_tts(self._buffer)
+        if not full_text:
+            return
+        if self._processed_text_offset > len(full_text):
+            self._processed_text_offset = len(full_text)
+        remaining = full_text[self._processed_text_offset :].strip()
+        if remaining and len(remaining) >= 2:
+            self._submit_tts_task(remaining)
+        # Mark the entire preprocessed text as consumed.
+        self._processed_text_offset = len(full_text)
+
+    # ------------------------------------------------------------------
+    # TTS task submission
+    # ------------------------------------------------------------------
 
     def _try_submit_tts_task(self):
         """Check if we have enough content to submit a TTS task."""
@@ -241,10 +314,15 @@ class StreamingTTSProcessor:
             segment_index = self._segment_index
             self._segment_index += 1
 
-        segment = TTSSegment(index=segment_index, text=text)
+        segment = TTSSegment(
+            index=segment_index,
+            text=text,
+            position=self._current_position,
+        )
 
         logger.info(
-            f"Submitting TTS task {segment_index}: {len(text)} chars, provider={self.tts_provider or '(unset)'}"
+            f"Submitting TTS task {segment_index} (pos={self._current_position}): "
+            f"{len(text)} chars, provider={self.tts_provider or '(unset)'}"
         )
 
         future = _tts_executor.submit(
@@ -314,7 +392,7 @@ class StreamingTTSProcessor:
                     self._word_count_total += segment.word_count
 
                 logger.info(
-                    f"TTS segment {segment.index} synthesized: "
+                    f"TTS segment {segment.index} (pos={segment.position}) synthesized: "
                     f"text_len={len(segment.text)}, duration={segment.duration_ms}ms"
                 )
             except Exception as e:
@@ -328,6 +406,10 @@ class StreamingTTSProcessor:
 
         return segment
 
+    # ------------------------------------------------------------------
+    # Segment yielding
+    # ------------------------------------------------------------------
+
     def _yield_ready_segments(self) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Yield segments that are ready in order."""
         while True:
@@ -339,14 +421,19 @@ class StreamingTTSProcessor:
                 segment = self._completed_segments.pop(self._next_yield_index)
                 self._next_yield_index += 1
 
-                # Store audio data for final concatenation (before popping)
+                # Store audio data for final concatenation
                 if segment.audio_data and not segment.error:
                     self._all_audio_data.append(
-                        (segment.index, segment.audio_data, segment.duration_ms)
+                        (
+                            segment.index,
+                            segment.audio_data,
+                            segment.duration_ms,
+                            segment.position,
+                        )
                     )
                     logger.info(
-                        f"TTS stored segment {segment.index} for concatenation, "
-                        f"total stored: {len(self._all_audio_data)}"
+                        f"TTS stored segment {segment.index} (pos={segment.position}) "
+                        f"for concatenation, total stored: {len(self._all_audio_data)}"
                     )
 
             if segment.audio_data and not segment.error:
@@ -362,8 +449,13 @@ class StreamingTTSProcessor:
                         audio_data=base64_audio,
                         duration_ms=segment.duration_ms,
                         is_final=False,
+                        position=segment.position,
                     ),
                 )
+
+    # ------------------------------------------------------------------
+    # Finalization
+    # ------------------------------------------------------------------
 
     def finalize(
         self, *, commit: bool = True
@@ -373,20 +465,18 @@ class StreamingTTSProcessor:
         """
         raw_text = self._buffer
         cleaned_text = ""
-        cleaned_text_length = 0
         try:
             cleaned_text = preprocess_for_tts(self._buffer or "")
-            cleaned_text_length = len(cleaned_text)
         except Exception:
             cleaned_text = ""
-            cleaned_text_length = 0
 
         logger.info(
             f"TTS finalize called: enabled={self._enabled}, "
             f"buffer_len={len(self._buffer)}, "
             f"segment_index={self._segment_index}, "
             f"pending_futures={len(self._pending_futures)}, "
-            f"all_audio_data={len(self._all_audio_data)}"
+            f"all_audio_data={len(self._all_audio_data)}, "
+            f"positions=0..{self._current_position}"
         )
         if not self._enabled:
             logger.info("TTS finalize: TTS not enabled, returning early")
@@ -430,64 +520,92 @@ class StreamingTTSProcessor:
             )
             return
 
-        # Sort by index and concatenate
-        all_segments.sort(key=lambda x: x[0])
-        audio_data_list = [s[1] for s in all_segments]
-        total_duration_ms = sum(s[2] for s in all_segments)
+        # Group segments by position
+        position_groups: Dict[int, list] = defaultdict(list)
+        for idx, audio_data, duration_ms, position in all_segments:
+            position_groups[position].append((idx, audio_data, duration_ms))
 
-        logger.info(
-            f"Concatenating {len(audio_data_list)} audio segments, "
-            f"total duration: {total_duration_ms}ms"
-        )
+        total_segment_count = len(all_segments)
+        total_final_duration_ms = 0
+        voice_settings_dict = {
+            "speed": self.voice_settings.speed,
+            "pitch": self.voice_settings.pitch,
+            "emotion": self.voice_settings.emotion,
+            "volume": self.voice_settings.volume,
+        }
 
         try:
-            # Concatenate all segments
+            from flaskr.service.tts.tts_handler import upload_audio_to_oss
+
             logger.info(
                 f"TTS finalize: audio_processing_available={is_audio_processing_available()}"
             )
-            final_audio = concat_audio_best_effort(audio_data_list)
 
-            final_duration_ms = get_audio_duration_ms(final_audio)
-            file_size = len(final_audio)
-            logger.info(
-                f"TTS finalize: final_audio_size={file_size}, duration={final_duration_ms}ms"
-            )
+            for position in sorted(position_groups.keys()):
+                segments = position_groups[position]
+                segments.sort(key=lambda x: x[0])
+                audio_data_list = [s[1] for s in segments]
 
-            # Upload to OSS
-            from flaskr.service.tts.tts_handler import upload_audio_to_oss
+                audio_bid = self._position_audio_bids.get(
+                    position, str(uuid.uuid4()).replace("-", "")
+                )
 
-            logger.info(f"TTS finalize: uploading to OSS, audio_bid={self._audio_bid}")
-            oss_url, bucket_name = upload_audio_to_oss(
-                self.app, final_audio, self._audio_bid
-            )
-            logger.info(f"TTS finalize: OSS upload complete, url={oss_url}")
+                logger.info(
+                    f"Concatenating position {position}: "
+                    f"{len(audio_data_list)} audio segments"
+                )
 
-            # Save to database - use existing context if available
-            logger.info("TTS finalize: saving to database")
-            audio_record = LearnGeneratedAudio(
-                audio_bid=self._audio_bid,
-                generated_block_bid=self.generated_block_bid,
-                progress_record_bid=self.progress_record_bid,
-                user_bid=self.user_bid,
-                shifu_bid=self.shifu_bid,
-                oss_url=oss_url,
-                oss_bucket=bucket_name,
-                oss_object_key=f"tts-audio/{self._audio_bid}.mp3",
-                duration_ms=final_duration_ms,
-                file_size=file_size,
-                voice_id=self.voice_settings.voice_id,
-                voice_settings={
-                    "speed": self.voice_settings.speed,
-                    "pitch": self.voice_settings.pitch,
-                    "emotion": self.voice_settings.emotion,
-                    "volume": self.voice_settings.volume,
-                },
-                model=self.tts_model or "",
-                text_length=cleaned_text_length,
-                segment_count=len(audio_data_list),
-                status=AUDIO_STATUS_COMPLETED,
-            )
-            db.session.add(audio_record)
+                final_audio = concat_audio_best_effort(audio_data_list)
+                final_duration_ms = get_audio_duration_ms(final_audio)
+                file_size = len(final_audio)
+                total_final_duration_ms += final_duration_ms
+
+                logger.info(
+                    f"TTS finalize pos={position}: uploading to OSS, audio_bid={audio_bid}"
+                )
+                oss_url, bucket_name = upload_audio_to_oss(
+                    self.app, final_audio, audio_bid
+                )
+
+                audio_record = LearnGeneratedAudio(
+                    audio_bid=audio_bid,
+                    generated_block_bid=self.generated_block_bid,
+                    progress_record_bid=self.progress_record_bid,
+                    user_bid=self.user_bid,
+                    shifu_bid=self.shifu_bid,
+                    oss_url=oss_url,
+                    oss_bucket=bucket_name,
+                    oss_object_key=f"tts-audio/{audio_bid}.mp3",
+                    duration_ms=final_duration_ms,
+                    file_size=file_size,
+                    voice_id=self.voice_settings.voice_id,
+                    voice_settings=voice_settings_dict,
+                    model=self.tts_model or "",
+                    text_length=sum(len(s[1]) for s in segments),
+                    segment_count=len(audio_data_list),
+                    status=AUDIO_STATUS_COMPLETED,
+                    position=position,
+                )
+                db.session.add(audio_record)
+
+                yield RunMarkdownFlowDTO(
+                    outline_bid=self.outline_bid,
+                    generated_block_bid=self.generated_block_bid,
+                    type=GeneratedType.AUDIO_COMPLETE,
+                    content=AudioCompleteDTO(
+                        audio_url=oss_url,
+                        audio_bid=audio_bid,
+                        duration_ms=final_duration_ms,
+                        position=position,
+                    ),
+                )
+
+                logger.info(
+                    f"TTS position {position} complete: audio_bid={audio_bid}, "
+                    f"segments={len(audio_data_list)}, duration={final_duration_ms}ms"
+                )
+
+            # Commit / flush all position records at once.
             if commit:
                 db.session.commit()
                 logger.info("TTS finalize: database commit complete")
@@ -495,6 +613,7 @@ class StreamingTTSProcessor:
                 db.session.flush()
                 logger.info("TTS finalize: database flush complete")
 
+            # Record overall usage (once, across all positions).
             record_tts_usage(
                 self.app,
                 self.usage_context,
@@ -506,12 +625,12 @@ class StreamingTTSProcessor:
                 output=len(cleaned_text or ""),
                 total=len(cleaned_text or ""),
                 word_count=self._word_count_total,
-                duration_ms=int(final_duration_ms or 0),
+                duration_ms=int(total_final_duration_ms or 0),
                 latency_ms=0,
                 record_level=0,
                 parent_usage_bid="",
                 segment_index=0,
-                segment_count=len(audio_data_list),
+                segment_count=total_segment_count,
                 extra={
                     "voice_id": self.voice_settings.voice_id or "",
                     "speed": self.voice_settings.speed,
@@ -521,25 +640,6 @@ class StreamingTTSProcessor:
                     "format": self.audio_settings.format or "mp3",
                     "sample_rate": self.audio_settings.sample_rate or 24000,
                 },
-            )
-
-            # Yield completion
-            logger.info("TTS finalize: yielding AUDIO_COMPLETE")
-            yield RunMarkdownFlowDTO(
-                outline_bid=self.outline_bid,
-                generated_block_bid=self.generated_block_bid,
-                type=GeneratedType.AUDIO_COMPLETE,
-                content=AudioCompleteDTO(
-                    audio_url=oss_url,
-                    audio_bid=self._audio_bid,
-                    duration_ms=final_duration_ms,
-                ),
-            )
-
-            logger.info(
-                f"TTS complete: audio_bid={self._audio_bid}, "
-                f"segments={len(audio_data_list)}, "
-                f"duration={final_duration_ms}ms"
             )
 
         except Exception as e:
@@ -588,29 +688,41 @@ class StreamingTTSProcessor:
         yield from self._yield_ready_segments()
 
         with self._lock:
-            total_duration_ms = sum(seg[2] for seg in self._all_audio_data)
             has_audio = bool(self._all_audio_data)
+            all_segments = list(self._all_audio_data)
 
         if not has_audio:
             return
 
-        # Yield completion marker (no OSS URL in preview mode).
-        yield RunMarkdownFlowDTO(
-            outline_bid=self.outline_bid,
-            generated_block_bid=self.generated_block_bid,
-            type=GeneratedType.AUDIO_COMPLETE,
-            content=AudioCompleteDTO(
-                audio_url="",
-                audio_bid=self._audio_bid,
-                duration_ms=total_duration_ms,
-            ),
-        )
+        # Group by position and yield one AUDIO_COMPLETE per position.
+        position_groups: Dict[int, list] = defaultdict(list)
+        for _idx, _audio_data, duration_ms, position in all_segments:
+            position_groups[position].append(duration_ms)
+
+        for position in sorted(position_groups.keys()):
+            pos_duration = sum(position_groups[position])
+            audio_bid = self._position_audio_bids.get(
+                position, str(uuid.uuid4()).replace("-", "")
+            )
+            yield RunMarkdownFlowDTO(
+                outline_bid=self.outline_bid,
+                generated_block_bid=self.generated_block_bid,
+                type=GeneratedType.AUDIO_COMPLETE,
+                content=AudioCompleteDTO(
+                    audio_url="",
+                    audio_bid=audio_bid,
+                    duration_ms=pos_duration,
+                    position=position,
+                ),
+            )
 
         cleaned_text = ""
         try:
             cleaned_text = preprocess_for_tts(raw_text or "")
         except Exception:
             cleaned_text = ""
+
+        total_duration_ms = sum(seg[2] for seg in all_segments)
 
         record_tts_usage(
             self.app,
@@ -628,7 +740,7 @@ class StreamingTTSProcessor:
             record_level=0,
             parent_usage_bid="",
             segment_index=0,
-            segment_count=len(self._all_audio_data),
+            segment_count=len(all_segments),
             extra={
                 "voice_id": self.voice_settings.voice_id or "",
                 "speed": self.voice_settings.speed,

@@ -49,7 +49,7 @@ from flaskr.api.tts import (
     synthesize_text,
     is_tts_configured,
 )
-from flaskr.service.tts import preprocess_for_tts
+from flaskr.service.tts import preprocess_for_tts, split_text_by_visual_boundaries
 from flaskr.service.tts.audio_utils import (
     concat_audio_best_effort,
     get_audio_duration_ms,
@@ -356,14 +356,28 @@ def get_learn_record(
             .all()
         )
 
-        # Get audio URLs for generated blocks
+        # Get audio URLs for generated blocks, grouped by block and ordered by position
         generated_block_bids = [b.generated_block_bid for b in generated_blocks]
-        audio_records = LearnGeneratedAudio.query.filter(
-            LearnGeneratedAudio.generated_block_bid.in_(generated_block_bids),
-            LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
-            LearnGeneratedAudio.deleted == 0,
-        ).all()
-        audio_url_map = {a.generated_block_bid: a.oss_url for a in audio_records}
+        audio_records = (
+            LearnGeneratedAudio.query.filter(
+                LearnGeneratedAudio.generated_block_bid.in_(generated_block_bids),
+                LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
+                LearnGeneratedAudio.deleted == 0,
+            )
+            .order_by(LearnGeneratedAudio.position.asc())
+            .all()
+        )
+        # Build a map: generated_block_bid -> list of audio entries ordered by position
+        audio_urls_map: dict[str, list[dict]] = {}
+        for a in audio_records:
+            audio_urls_map.setdefault(a.generated_block_bid, []).append(
+                {
+                    "audio_url": a.oss_url,
+                    "audio_bid": a.audio_bid,
+                    "duration_ms": a.duration_ms or 0,
+                    "position": a.position,
+                }
+            )
 
         records: list[GeneratedBlockDTO] = []
         interaction = ""
@@ -407,6 +421,7 @@ def get_learn_record(
                 # INTERACTION and other types use block_content_conf
                 content = generated_block.block_content_conf
 
+            block_audio_urls = audio_urls_map.get(generated_block.generated_block_bid)
             record = GeneratedBlockDTO(
                 generated_block.generated_block_bid,
                 content,
@@ -415,7 +430,7 @@ def get_learn_record(
                 generated_block.generated_content
                 if block_type == BlockType.INTERACTION
                 else "",
-                audio_url=audio_url_map.get(generated_block.generated_block_bid),
+                audio_urls=block_audio_urls,
             )
             records.append(record)
         if len(records) > 0:
@@ -698,7 +713,8 @@ def stream_generated_block_audio(
         if not generated_block:
             raise_error("server.learn.generatedBlockNotFound")
 
-        existing_audio = (
+        # Cache hit: query all completed audio records ordered by position
+        existing_audios = (
             LearnGeneratedAudio.query.filter(
                 LearnGeneratedAudio.generated_block_bid == generated_block_bid,
                 LearnGeneratedAudio.user_bid == user_bid,
@@ -706,20 +722,22 @@ def stream_generated_block_audio(
                 LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
                 LearnGeneratedAudio.deleted == 0,
             )
-            .order_by(LearnGeneratedAudio.id.desc())
-            .first()
+            .order_by(LearnGeneratedAudio.position.asc())
+            .all()
         )
-        if existing_audio and existing_audio.oss_url:
-            yield RunMarkdownFlowDTO(
-                outline_bid=generated_block.outline_item_bid or "",
-                generated_block_bid=generated_block_bid,
-                type=GeneratedType.AUDIO_COMPLETE,
-                content=AudioCompleteDTO(
-                    audio_url=existing_audio.oss_url,
-                    audio_bid=existing_audio.audio_bid,
-                    duration_ms=existing_audio.duration_ms or 0,
-                ),
-            )
+        if existing_audios and all(a.oss_url for a in existing_audios):
+            for audio_rec in existing_audios:
+                yield RunMarkdownFlowDTO(
+                    outline_bid=generated_block.outline_item_bid or "",
+                    generated_block_bid=generated_block_bid,
+                    type=GeneratedType.AUDIO_COMPLETE,
+                    content=AudioCompleteDTO(
+                        audio_url=audio_rec.oss_url,
+                        audio_bid=audio_rec.audio_bid,
+                        duration_ms=audio_rec.duration_ms or 0,
+                        position=audio_rec.position,
+                    ),
+                )
             return
 
         provider, tts_model, voice_settings, audio_settings = (
@@ -731,25 +749,16 @@ def stream_generated_block_audio(
         )
 
         raw_text = generated_block.generated_content or ""
-        cleaned_text = preprocess_for_tts(raw_text)
-        if not cleaned_text or len(cleaned_text.strip()) < 2:
+        # Split text at visual element boundaries into per-position segments
+        position_texts = split_text_by_visual_boundaries(raw_text)
+        if not position_texts:
             raise_error_with_args(
                 "server.common.paramsError",
                 param_message="No speakable text available for TTS synthesis",
             )
 
-        audio_bid = uuid.uuid4().hex
         usage_scene = (
             BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
-        )
-        usage_context = UsageContext(
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_item_bid=generated_block.outline_item_bid or "",
-            progress_record_bid=generated_block.progress_record_bid or "",
-            generated_block_bid=generated_block_bid,
-            audio_bid=audio_bid,
-            usage_scene=usage_scene,
         )
         parent_usage_bid = generate_id(app)
         usage_metadata = {
@@ -761,102 +770,147 @@ def stream_generated_block_audio(
             "format": audio_settings.format or "mp3",
             "sample_rate": audio_settings.sample_rate or 24000,
         }
-        segment_count = 0
         total_word_count = 0
-        audio_parts: list[bytes] = []
+        total_segment_count = 0
+        audio_records_to_save: list[LearnGeneratedAudio] = []
 
         try:
-            for (
-                index,
-                audio_data,
-                duration_ms,
-                segment_text,
-                word_count,
-                latency_ms,
-            ) in _yield_tts_segments(
-                text=raw_text,
-                provider=provider,
-                tts_model=tts_model,
-                voice_settings=voice_settings,
-                audio_settings=audio_settings,
-            ):
-                audio_parts.append(audio_data)
-                segment_count += 1
-                total_word_count += int(word_count or 0)
-                segment_length = len(segment_text or "")
-                record_tts_usage(
-                    app,
-                    usage_context,
-                    provider=provider,
-                    model=tts_model or "",
-                    is_stream=True,
-                    input=segment_length,
-                    output=segment_length,
-                    total=segment_length,
-                    word_count=int(word_count or 0),
-                    duration_ms=int(duration_ms or 0),
-                    latency_ms=int(latency_ms or 0),
-                    record_level=1,
-                    parent_usage_bid=parent_usage_bid,
-                    segment_index=index,
-                    segment_count=0,
-                    extra=usage_metadata,
+            for position, pos_text in enumerate(position_texts):
+                audio_bid = uuid.uuid4().hex
+                usage_context = UsageContext(
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_item_bid=generated_block.outline_item_bid or "",
+                    progress_record_bid=generated_block.progress_record_bid or "",
+                    generated_block_bid=generated_block_bid,
+                    audio_bid=audio_bid,
+                    usage_scene=usage_scene,
                 )
-                base64_audio = base64.b64encode(audio_data).decode("utf-8")
+                pos_segment_count = 0
+                pos_word_count = 0
+                audio_parts: list[bytes] = []
+
+                for (
+                    index,
+                    audio_data,
+                    duration_ms,
+                    segment_text,
+                    word_count,
+                    latency_ms,
+                ) in _yield_tts_segments(
+                    text=pos_text,
+                    provider=provider,
+                    tts_model=tts_model,
+                    voice_settings=voice_settings,
+                    audio_settings=audio_settings,
+                ):
+                    audio_parts.append(audio_data)
+                    pos_segment_count += 1
+                    pos_word_count += int(word_count or 0)
+                    segment_length = len(segment_text or "")
+                    record_tts_usage(
+                        app,
+                        usage_context,
+                        provider=provider,
+                        model=tts_model or "",
+                        is_stream=True,
+                        input=segment_length,
+                        output=segment_length,
+                        total=segment_length,
+                        word_count=int(word_count or 0),
+                        duration_ms=int(duration_ms or 0),
+                        latency_ms=int(latency_ms or 0),
+                        record_level=1,
+                        parent_usage_bid=parent_usage_bid,
+                        segment_index=index,
+                        segment_count=0,
+                        extra=usage_metadata,
+                    )
+                    base64_audio = base64.b64encode(audio_data).decode("utf-8")
+                    yield RunMarkdownFlowDTO(
+                        outline_bid=generated_block.outline_item_bid or "",
+                        generated_block_bid=generated_block_bid,
+                        type=GeneratedType.AUDIO_SEGMENT,
+                        content=AudioSegmentDTO(
+                            segment_index=index,
+                            audio_data=base64_audio,
+                            duration_ms=duration_ms,
+                            is_final=False,
+                            position=position,
+                        ),
+                    )
+
+                final_audio = concat_audio_best_effort(audio_parts)
+                if not final_audio:
+                    continue
+
+                duration_ms = get_audio_duration_ms(final_audio, format="mp3")
+                oss_url, bucket_name = upload_audio_to_oss(app, final_audio, audio_bid)
+                object_key = f"tts-audio/{audio_bid}.mp3"
+
+                audio_record = LearnGeneratedAudio(
+                    audio_bid=audio_bid,
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid=generated_block.progress_record_bid,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    oss_url=oss_url,
+                    oss_bucket=bucket_name or "",
+                    oss_object_key=object_key,
+                    duration_ms=int(duration_ms or 0),
+                    file_size=len(final_audio),
+                    audio_format=audio_settings.format or "mp3",
+                    sample_rate=audio_settings.sample_rate or 24000,
+                    voice_id=voice_settings.voice_id or "",
+                    voice_settings={
+                        "speed": voice_settings.speed,
+                        "pitch": voice_settings.pitch,
+                        "emotion": voice_settings.emotion,
+                        "volume": voice_settings.volume,
+                    },
+                    model=tts_model or "",
+                    text_length=len(pos_text),
+                    segment_count=pos_segment_count,
+                    position=position,
+                    status=AUDIO_STATUS_COMPLETED,
+                )
+                audio_records_to_save.append(audio_record)
+                total_word_count += pos_word_count
+                total_segment_count += pos_segment_count
+
                 yield RunMarkdownFlowDTO(
                     outline_bid=generated_block.outline_item_bid or "",
                     generated_block_bid=generated_block_bid,
-                    type=GeneratedType.AUDIO_SEGMENT,
-                    content=AudioSegmentDTO(
-                        segment_index=index,
-                        audio_data=base64_audio,
-                        duration_ms=duration_ms,
-                        is_final=False,
+                    type=GeneratedType.AUDIO_COMPLETE,
+                    content=AudioCompleteDTO(
+                        audio_url=oss_url,
+                        audio_bid=audio_bid,
+                        duration_ms=int(duration_ms or 0),
+                        position=position,
                     ),
                 )
 
-            final_audio = concat_audio_best_effort(audio_parts)
-            if not final_audio:
-                raise ValueError("No audio data produced")
-
-            duration_ms = get_audio_duration_ms(final_audio, format="mp3")
-            oss_url, bucket_name = upload_audio_to_oss(app, final_audio, audio_bid)
-            segment_count = len(audio_parts)
-            object_key = f"tts-audio/{audio_bid}.mp3"
-
-            audio_record = LearnGeneratedAudio(
-                audio_bid=audio_bid,
-                generated_block_bid=generated_block_bid,
-                progress_record_bid=generated_block.progress_record_bid,
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                oss_url=oss_url,
-                oss_bucket=bucket_name or "",
-                oss_object_key=object_key,
-                duration_ms=int(duration_ms or 0),
-                file_size=len(final_audio),
-                audio_format=audio_settings.format or "mp3",
-                sample_rate=audio_settings.sample_rate or 24000,
-                voice_id=voice_settings.voice_id or "",
-                voice_settings={
-                    "speed": voice_settings.speed,
-                    "pitch": voice_settings.pitch,
-                    "emotion": voice_settings.emotion,
-                    "volume": voice_settings.volume,
-                },
-                model=tts_model or "",
-                text_length=len(cleaned_text),
-                segment_count=segment_count,
-                status=AUDIO_STATUS_COMPLETED,
-            )
-            db.session.add(audio_record)
+            # Persist all audio records in a single commit
+            for rec in audio_records_to_save:
+                db.session.add(rec)
             db.session.commit()
 
+            # Record overall usage
             raw_length = len(raw_text or "")
-            cleaned_length = len(cleaned_text or "")
+            cleaned_length = sum(len(t) for t in position_texts)
             record_tts_usage(
                 app,
-                usage_context,
+                UsageContext(
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_item_bid=generated_block.outline_item_bid or "",
+                    progress_record_bid=generated_block.progress_record_bid or "",
+                    generated_block_bid=generated_block_bid,
+                    audio_bid=audio_records_to_save[0].audio_bid
+                    if audio_records_to_save
+                    else "",
+                    usage_scene=usage_scene,
+                ),
                 usage_bid=parent_usage_bid,
                 provider=provider,
                 model=tts_model or "",
@@ -865,24 +919,13 @@ def stream_generated_block_audio(
                 output=cleaned_length,
                 total=cleaned_length,
                 word_count=total_word_count,
-                duration_ms=int(duration_ms or 0),
+                duration_ms=0,
                 latency_ms=0,
                 record_level=0,
                 parent_usage_bid="",
                 segment_index=0,
-                segment_count=segment_count,
+                segment_count=total_segment_count,
                 extra=usage_metadata,
-            )
-
-            yield RunMarkdownFlowDTO(
-                outline_bid=generated_block.outline_item_bid or "",
-                generated_block_bid=generated_block_bid,
-                type=GeneratedType.AUDIO_COMPLETE,
-                content=AudioCompleteDTO(
-                    audio_url=oss_url,
-                    audio_bid=audio_bid,
-                    duration_ms=int(duration_ms or 0),
-                ),
             )
         except ValueError as exc:
             raise_error_with_args("server.common.paramsError", param_message=str(exc))
@@ -910,22 +953,16 @@ def stream_preview_tts_audio(
             )
         )
 
-        cleaned_text = preprocess_for_tts(text or "")
-        if not cleaned_text or len(cleaned_text.strip()) < 2:
+        # Split text at visual element boundaries into per-position segments
+        position_texts = split_text_by_visual_boundaries(text or "")
+        if not position_texts:
             raise_error_with_args(
                 "server.common.paramsError",
                 param_message="No speakable text available for TTS synthesis",
             )
 
-        audio_bid = uuid.uuid4().hex
         usage_scene = (
             BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
-        )
-        usage_context = UsageContext(
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            audio_bid=audio_bid,
-            usage_scene=usage_scene,
         )
         parent_usage_bid = generate_id(app)
         usage_metadata = {
@@ -937,72 +974,100 @@ def stream_preview_tts_audio(
             "format": audio_settings.format or "mp3",
             "sample_rate": audio_settings.sample_rate or 24000,
         }
-        segment_count = 0
+        total_segment_count = 0
         total_word_count = 0
-        audio_parts: list[bytes] = []
 
         try:
-            for (
-                index,
-                audio_data,
-                duration_ms,
-                segment_text,
-                word_count,
-                latency_ms,
-            ) in _yield_tts_segments(
-                text=text or "",
-                provider=provider,
-                tts_model=tts_model,
-                voice_settings=voice_settings,
-                audio_settings=audio_settings,
-            ):
-                audio_parts.append(audio_data)
-                segment_count += 1
-                total_word_count += int(word_count or 0)
-                segment_length = len(segment_text or "")
-                record_tts_usage(
-                    app,
-                    usage_context,
-                    provider=provider,
-                    model=tts_model or "",
-                    is_stream=True,
-                    input=segment_length,
-                    output=segment_length,
-                    total=segment_length,
-                    word_count=int(word_count or 0),
-                    duration_ms=int(duration_ms or 0),
-                    latency_ms=int(latency_ms or 0),
-                    record_level=1,
-                    parent_usage_bid=parent_usage_bid,
-                    segment_index=index,
-                    segment_count=0,
-                    extra=usage_metadata,
+            for position, pos_text in enumerate(position_texts):
+                audio_bid = uuid.uuid4().hex
+                usage_context = UsageContext(
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    audio_bid=audio_bid,
+                    usage_scene=usage_scene,
                 )
-                base64_audio = base64.b64encode(audio_data).decode("utf-8")
+                audio_parts: list[bytes] = []
+
+                for (
+                    index,
+                    audio_data,
+                    duration_ms,
+                    segment_text,
+                    word_count,
+                    latency_ms,
+                ) in _yield_tts_segments(
+                    text=pos_text,
+                    provider=provider,
+                    tts_model=tts_model,
+                    voice_settings=voice_settings,
+                    audio_settings=audio_settings,
+                ):
+                    audio_parts.append(audio_data)
+                    total_segment_count += 1
+                    total_word_count += int(word_count or 0)
+                    segment_length = len(segment_text or "")
+                    record_tts_usage(
+                        app,
+                        usage_context,
+                        provider=provider,
+                        model=tts_model or "",
+                        is_stream=True,
+                        input=segment_length,
+                        output=segment_length,
+                        total=segment_length,
+                        word_count=int(word_count or 0),
+                        duration_ms=int(duration_ms or 0),
+                        latency_ms=int(latency_ms or 0),
+                        record_level=1,
+                        parent_usage_bid=parent_usage_bid,
+                        segment_index=index,
+                        segment_count=0,
+                        extra=usage_metadata,
+                    )
+                    base64_audio = base64.b64encode(audio_data).decode("utf-8")
+                    yield RunMarkdownFlowDTO(
+                        outline_bid="",
+                        generated_block_bid="",
+                        type=GeneratedType.AUDIO_SEGMENT,
+                        content=AudioSegmentDTO(
+                            segment_index=index,
+                            audio_data=base64_audio,
+                            duration_ms=duration_ms,
+                            is_final=False,
+                            position=position,
+                        ),
+                    )
+
+                final_audio = concat_audio_best_effort(audio_parts)
+                if not final_audio:
+                    continue
+
+                duration_ms = get_audio_duration_ms(final_audio, format="mp3")
+                oss_url, _bucket_name = upload_audio_to_oss(app, final_audio, audio_bid)
+
                 yield RunMarkdownFlowDTO(
                     outline_bid="",
                     generated_block_bid="",
-                    type=GeneratedType.AUDIO_SEGMENT,
-                    content=AudioSegmentDTO(
-                        segment_index=index,
-                        audio_data=base64_audio,
-                        duration_ms=duration_ms,
-                        is_final=False,
+                    type=GeneratedType.AUDIO_COMPLETE,
+                    content=AudioCompleteDTO(
+                        audio_url=oss_url,
+                        audio_bid=audio_bid,
+                        duration_ms=int(duration_ms or 0),
+                        position=position,
                     ),
                 )
 
-            final_audio = concat_audio_best_effort(audio_parts)
-            if not final_audio:
-                raise ValueError("No audio data produced")
-
-            duration_ms = get_audio_duration_ms(final_audio, format="mp3")
-            oss_url, _bucket_name = upload_audio_to_oss(app, final_audio, audio_bid)
-
+            # Record overall usage once
             raw_length = len(text or "")
-            cleaned_length = len(cleaned_text or "")
+            cleaned_length = sum(len(t) for t in position_texts)
             record_tts_usage(
                 app,
-                usage_context,
+                UsageContext(
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    audio_bid="",
+                    usage_scene=usage_scene,
+                ),
                 usage_bid=parent_usage_bid,
                 provider=provider,
                 model=tts_model or "",
@@ -1011,24 +1076,13 @@ def stream_preview_tts_audio(
                 output=cleaned_length,
                 total=cleaned_length,
                 word_count=total_word_count,
-                duration_ms=int(duration_ms or 0),
+                duration_ms=0,
                 latency_ms=0,
                 record_level=0,
                 parent_usage_bid="",
                 segment_index=0,
-                segment_count=segment_count,
+                segment_count=total_segment_count,
                 extra=usage_metadata,
-            )
-
-            yield RunMarkdownFlowDTO(
-                outline_bid="",
-                generated_block_bid="",
-                type=GeneratedType.AUDIO_COMPLETE,
-                content=AudioCompleteDTO(
-                    audio_url=oss_url,
-                    audio_bid=audio_bid,
-                    duration_ms=int(duration_ms or 0),
-                ),
             )
         except ValueError as exc:
             raise_error_with_args("server.common.paramsError", param_message=str(exc))
@@ -1064,7 +1118,8 @@ def synthesize_generated_block_audio(
         if not generated_block:
             raise_error("server.learn.generatedBlockNotFound")
 
-        existing_audio = (
+        # Cache hit: return all completed audio records ordered by position
+        existing_audios = (
             LearnGeneratedAudio.query.filter(
                 LearnGeneratedAudio.generated_block_bid == generated_block_bid,
                 LearnGeneratedAudio.user_bid == user_bid,
@@ -1072,14 +1127,25 @@ def synthesize_generated_block_audio(
                 LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
                 LearnGeneratedAudio.deleted == 0,
             )
-            .order_by(LearnGeneratedAudio.id.desc())
-            .first()
+            .order_by(LearnGeneratedAudio.position.asc())
+            .all()
         )
-        if existing_audio and existing_audio.oss_url:
+        if existing_audios and all(a.oss_url for a in existing_audios):
+            audio_urls = [
+                {
+                    "audio_url": a.oss_url,
+                    "audio_bid": a.audio_bid,
+                    "duration_ms": a.duration_ms or 0,
+                    "position": a.position,
+                }
+                for a in existing_audios
+            ]
             return {
-                "audio_url": existing_audio.oss_url,
-                "audio_bid": existing_audio.audio_bid,
-                "duration_ms": existing_audio.duration_ms,
+                "audio_urls": audio_urls,
+                # Backward compat
+                "audio_url": audio_urls[0]["audio_url"],
+                "audio_bid": audio_urls[0]["audio_bid"],
+                "duration_ms": audio_urls[0]["duration_ms"],
             }
 
         provider, tts_model, voice_settings, audio_settings = (
@@ -1091,77 +1157,92 @@ def synthesize_generated_block_audio(
         )
 
         raw_text = generated_block.generated_content or ""
-        cleaned_text = preprocess_for_tts(raw_text)
-        if not cleaned_text or len(cleaned_text.strip()) < 2:
+        position_texts = split_text_by_visual_boundaries(raw_text)
+        if not position_texts:
             raise_error_with_args(
                 "server.common.paramsError",
                 param_message="No speakable text available for TTS synthesis",
             )
 
-        audio_bid = uuid.uuid4().hex
         usage_scene = (
             BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
         )
-        usage_context = UsageContext(
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_item_bid=generated_block.outline_item_bid or "",
-            progress_record_bid=generated_block.progress_record_bid or "",
-            generated_block_bid=generated_block_bid,
-            audio_bid=audio_bid,
-            usage_scene=usage_scene,
-        )
         parent_usage_bid = generate_id(app)
+        audio_urls: list[dict] = []
+
         try:
-            result = synthesize_long_text_to_oss(
-                app,
-                text=raw_text,
-                provider_name=provider,
-                model=tts_model,
-                voice_settings=voice_settings,
-                audio_settings=audio_settings,
-                audio_bid=audio_bid,
-                usage_context=usage_context,
-                parent_usage_bid=parent_usage_bid,
-            )
+            for position, pos_text in enumerate(position_texts):
+                audio_bid = uuid.uuid4().hex
+                usage_context = UsageContext(
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_item_bid=generated_block.outline_item_bid or "",
+                    progress_record_bid=generated_block.progress_record_bid or "",
+                    generated_block_bid=generated_block_bid,
+                    audio_bid=audio_bid,
+                    usage_scene=usage_scene,
+                )
+                result = synthesize_long_text_to_oss(
+                    app,
+                    text=pos_text,
+                    provider_name=provider,
+                    model=tts_model,
+                    voice_settings=voice_settings,
+                    audio_settings=audio_settings,
+                    audio_bid=audio_bid,
+                    usage_context=usage_context,
+                    parent_usage_bid=parent_usage_bid,
+                )
+
+                audio_record = LearnGeneratedAudio(
+                    audio_bid=audio_bid,
+                    generated_block_bid=generated_block_bid,
+                    progress_record_bid=generated_block.progress_record_bid,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    oss_url=result.audio_url,
+                    oss_bucket="",
+                    oss_object_key=f"tts-audio/{audio_bid}.mp3",
+                    duration_ms=int(result.duration_ms or 0),
+                    file_size=0,
+                    audio_format="mp3",
+                    sample_rate=24000,
+                    voice_id=voice_settings.voice_id or "",
+                    voice_settings={
+                        "speed": voice_settings.speed,
+                        "pitch": voice_settings.pitch,
+                        "emotion": voice_settings.emotion,
+                        "volume": voice_settings.volume,
+                    },
+                    model=tts_model or "",
+                    text_length=len(pos_text),
+                    segment_count=int(result.segment_count or 0),
+                    position=position,
+                    status=AUDIO_STATUS_COMPLETED,
+                )
+                db.session.add(audio_record)
+                audio_urls.append(
+                    {
+                        "audio_url": result.audio_url,
+                        "audio_bid": audio_bid,
+                        "duration_ms": int(result.duration_ms or 0),
+                        "position": position,
+                    }
+                )
+
+            db.session.commit()
         except ValueError as exc:
             raise_error_with_args("server.common.paramsError", param_message=str(exc))
         except Exception:
             app.logger.error("TTS synthesis failed", exc_info=True)
             raise_error("server.common.unknownError")
 
-        audio_record = LearnGeneratedAudio(
-            audio_bid=audio_bid,
-            generated_block_bid=generated_block_bid,
-            progress_record_bid=generated_block.progress_record_bid,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            oss_url=result.audio_url,
-            oss_bucket="",
-            oss_object_key=f"tts-audio/{audio_bid}.mp3",
-            duration_ms=int(result.duration_ms or 0),
-            file_size=0,
-            audio_format="mp3",
-            sample_rate=24000,
-            voice_id=voice_settings.voice_id or "",
-            voice_settings={
-                "speed": voice_settings.speed,
-                "pitch": voice_settings.pitch,
-                "emotion": voice_settings.emotion,
-                "volume": voice_settings.volume,
-            },
-            model=tts_model or "",
-            text_length=len(cleaned_text),
-            segment_count=int(result.segment_count or 0),
-            status=AUDIO_STATUS_COMPLETED,
-        )
-        db.session.add(audio_record)
-        db.session.commit()
-
         return {
-            "audio_url": result.audio_url,
-            "audio_bid": audio_bid,
-            "duration_ms": int(result.duration_ms or 0),
+            "audio_urls": audio_urls,
+            # Backward compat
+            "audio_url": audio_urls[0]["audio_url"] if audio_urls else "",
+            "audio_bid": audio_urls[0]["audio_bid"] if audio_urls else "",
+            "duration_ms": audio_urls[0]["duration_ms"] if audio_urls else 0,
         }
 
 
