@@ -779,6 +779,18 @@ function AudioPlayerBase(
   // Track previous autoPlay value to detect changes
   const prevAutoPlayRef = useRef(autoPlay);
   const hasAutoPlayedForCurrentContentRef = useRef(false);
+  const prevEffectiveAudioUrlRef = useRef<string | undefined>(undefined);
+
+  // When a final OSS URL becomes available (streaming -> complete), allow autoPlay to
+  // retry from the URL. This is important if streaming playback failed due to
+  // browser autoplay/user-gesture restrictions.
+  useEffect(() => {
+    const prev = prevEffectiveAudioUrlRef.current;
+    prevEffectiveAudioUrlRef.current = effectiveAudioUrl;
+    if (effectiveAudioUrl && effectiveAudioUrl !== prev) {
+      hasAutoPlayedForCurrentContentRef.current = false;
+    }
+  }, [effectiveAudioUrl]);
 
   useEffect(() => {
     // Reset auto-played flag when autoPlay changes from false to true

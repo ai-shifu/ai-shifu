@@ -50,6 +50,7 @@
 - [x] Fix: align `position -> page` mapping with backend (sandbox HTML is never narrated).
 - [x] Fix: stabilize streaming SVG rendering to avoid blank flicker during generation.
 - [x] Fix: ensure SVG slides never render blank (fallback to raw SVG until a stable parse is ready).
+- [x] Fix: allow listen-mode autoplay to retry from final audio URL after streaming completes.
 - [x] Regression: ensure non-listen mode audio button still works (single audio_url path unchanged).
 
 ## QA / Ops
