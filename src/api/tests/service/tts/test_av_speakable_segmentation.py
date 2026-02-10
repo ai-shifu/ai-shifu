@@ -88,6 +88,29 @@ def test_split_av_speakable_segments_splits_video_tag(app):
     assert split_av_speakable_segments(text) == ["Before.", "After."]
 
 
+def test_split_av_speakable_segments_splits_iframe_tag(app):
+    _require_app(app)
+
+    from flaskr.service.tts.pipeline import split_av_speakable_segments
+
+    text = 'Before.\n<iframe src="https://player.bilibili.com/player.html?bvid=BV1x84y187yS"></iframe>\nAfter.'
+    assert split_av_speakable_segments(text) == ["Before.", "After."]
+
+
+def test_split_av_speakable_segments_splits_iframe_wrapped_by_fixed_markers(app):
+    _require_app(app)
+
+    from flaskr.service.tts.pipeline import split_av_speakable_segments
+
+    text = (
+        '=== <iframe src="https://player.bilibili.com/player.html?bvid=BV1x84y187yS"></iframe> ===\n\n'
+        "Hello.\n\n"
+        "<svg><text>hi</text></svg>\n\n"
+        "After."
+    )
+    assert split_av_speakable_segments(text) == ["Hello.", "After."]
+
+
 def test_split_av_speakable_segments_splits_sandbox_html_block(app):
     _require_app(app)
 

@@ -7,7 +7,24 @@ import {
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import type { AudioPlayerHandle } from '@/components/audio/AudioPlayer';
 
-type HtmlVisualKind = 'video' | 'table';
+type HtmlVisualKind = 'video' | 'table' | 'iframe';
+
+const isFixedMarkerText = (raw: string) => {
+  const trimmed = (raw || '').trim();
+  return Boolean(trimmed && /^!?=+$/.test(trimmed));
+};
+
+const isListenModeSpeakableText = (raw: string) => {
+  const trimmed = (raw || '').trim();
+  if (trimmed.length < 2) {
+    return false;
+  }
+  // Avoid synthesizing MarkdownFlow fixed marker delimiters such as `===`/`!===`.
+  if (isFixedMarkerText(trimmed)) {
+    return false;
+  }
+  return true;
+};
 
 const findFirstHtmlVisualBlock = (
   raw: string,
@@ -19,29 +36,40 @@ const findFirstHtmlVisualBlock = (
   const lower = raw.toLowerCase();
   const videoStart = lower.indexOf('<video');
   const tableStart = lower.indexOf('<table');
+  const iframeStart = lower.indexOf('<iframe');
 
   let kind: HtmlVisualKind | null = null;
   let start = -1;
-  if (videoStart !== -1 && (tableStart === -1 || videoStart < tableStart)) {
-    kind = 'video';
-    start = videoStart;
-  } else if (tableStart !== -1) {
-    kind = 'table';
-    start = tableStart;
+  const candidates: Array<{ kind: HtmlVisualKind; start: number }> = [];
+  if (videoStart !== -1) {
+    candidates.push({ kind: 'video', start: videoStart });
+  }
+  if (tableStart !== -1) {
+    candidates.push({ kind: 'table', start: tableStart });
+  }
+  if (iframeStart !== -1) {
+    candidates.push({ kind: 'iframe', start: iframeStart });
+  }
+  candidates.sort((a, b) => a.start - b.start);
+  const first = candidates[0];
+  if (first) {
+    kind = first.kind;
+    start = first.start;
   }
 
   if (!kind || start < 0) {
     return null;
   }
 
-  const closeTag = kind === 'video' ? '</video>' : '</table>';
+  const closeTag =
+    kind === 'video' ? '</video>' : kind === 'table' ? '</table>' : '</iframe>';
   const closeIdx = lower.indexOf(closeTag, start);
   if (closeIdx !== -1) {
     return { kind, start, end: closeIdx + closeTag.length };
   }
 
-  // Best-effort support for self-closing <video ... /> tags.
-  if (kind === 'video') {
+  // Best-effort support for self-closing <video ... /> / <iframe ... /> tags.
+  if (kind === 'video' || kind === 'iframe') {
     const openEnd = raw.indexOf('>', start);
     if (openEnd !== -1) {
       const head = raw.slice(start, openEnd + 1);
@@ -72,7 +100,10 @@ const splitTextByHtmlVisualBlocks = (raw: string): RenderSegment[] => {
   if (before.trim()) {
     output.push({ type: 'text', value: before });
   }
-  output.push({ type: 'markdown', value: matched });
+  output.push({
+    type: block.kind === 'iframe' ? 'sandbox' : 'markdown',
+    value: matched,
+  });
   if (after.trim()) {
     output.push(...splitTextByHtmlVisualBlocks(after));
   }
@@ -86,11 +117,50 @@ const splitListenModeSegments = (raw: string): RenderSegment[] => {
   }
 
   const output: RenderSegment[] = [];
-  baseSegments.forEach(segment => {
+  baseSegments.forEach((segment, index) => {
     if (segment.type !== 'text') {
+      if (segment.type === 'sandbox') {
+        const value = segment.value || '';
+        const trimmed = value.trimStart();
+        const lower = trimmed.toLowerCase();
+        if (lower.startsWith('<iframe')) {
+          const closeTag = '</iframe>';
+          const closeIdx = lower.indexOf(closeTag);
+          if (closeIdx !== -1) {
+            let end = closeIdx + closeTag.length;
+            // Keep trailing fixed markers on the same line (e.g. `</iframe> ===`).
+            const nl = trimmed.indexOf('\n', end);
+            const lineEnd = nl === -1 ? trimmed.length : nl;
+            const tail = trimmed.slice(end, lineEnd);
+            if (/^[\s!=]*$/.test(tail)) {
+              end = nl === -1 ? trimmed.length : nl + 1;
+            }
+            // Avoid infinite recursion when end doesn't advance.
+            if (end > 0 && end < trimmed.length) {
+              output.push({ type: 'sandbox', value: trimmed.slice(0, end) });
+              const rest = trimmed.slice(end);
+              if (rest.trim()) {
+                output.push(...splitListenModeSegments(rest));
+              }
+              return;
+            }
+          }
+        }
+      }
       output.push(segment);
       return;
     }
+
+    // Drop fixed marker-only segments that would otherwise become speakable.
+    const next = baseSegments[index + 1];
+    if (
+      isFixedMarkerText(segment.value) &&
+      next &&
+      (next.type === 'sandbox' || next.type === 'markdown')
+    ) {
+      return;
+    }
+
     output.push(...splitTextByHtmlVisualBlocks(segment.value));
   });
 
@@ -184,7 +254,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
           return false;
         }
         const raw = typeof segment.value === 'string' ? segment.value : '';
-        return raw.trim().length >= 2;
+        return isListenModeSpeakableText(raw);
       });
 
       // In listen mode, a generated block might contain only narration (no visual blocks).
@@ -200,7 +270,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
           return false;
         }
         const raw = typeof segment.value === 'string' ? segment.value : '';
-        return raw.trim().length >= 2;
+        return isListenModeSpeakableText(raw);
       });
       const shouldPrependPlaceholder =
         item.type === ChatContentItemType.CONTENT &&
@@ -251,7 +321,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
             // Keep position mapping aligned with backend streaming TTS:
             // ignore whitespace-only or too-short segments which backend will not synthesize.
             const raw = typeof segment.value === 'string' ? segment.value : '';
-            if (raw.trim().length >= 2) {
+            if (isListenModeSpeakableText(raw)) {
               speakableTextSegmentIndices.push(index);
             }
           }

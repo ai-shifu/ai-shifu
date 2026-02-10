@@ -54,6 +54,8 @@ from flaskr.service.tts.pipeline import (
     _AV_MARKDOWN_IMAGE_PATTERN,
     _AV_SANDBOX_START_PATTERN,
     _AV_SVG_OPEN_PATTERN,
+    _AV_IFRAME_OPEN_PATTERN,
+    _AV_IFRAME_CLOSE_PATTERN,
     _AV_TABLE_OPEN_PATTERN,
     _AV_TABLE_CLOSE_PATTERN,
     _AV_VIDEO_OPEN_PATTERN,
@@ -62,6 +64,8 @@ from flaskr.service.tts.pipeline import (
     _find_html_block_end,
     _get_fence_ranges,
     _find_markdown_table_block,
+    _rewind_fixed_marker_start,
+    _extend_fixed_marker_end,
 )
 
 
@@ -714,7 +718,8 @@ class AVStreamingTTSProcessor:
         # When we hit a non-speakable block boundary (e.g. `<svg>`), we may need to
         # wait for its closing marker before resuming segmentation.
         self._skip_mode: Optional[str] = (
-            None  # 'fence' | 'svg' | 'video' | 'html_table' | 'md_table' | 'sandbox'
+            None
+            # 'fence' | 'svg' | 'iframe' | 'video' | 'html_table' | 'md_table' | 'sandbox'
         )
 
     def _ensure_processor(self) -> StreamingTTSProcessor:
@@ -766,6 +771,11 @@ class AVStreamingTTSProcessor:
             if not close:
                 return None
             return close.end()
+        if self._skip_mode == "iframe":
+            close = _AV_IFRAME_CLOSE_PATTERN.search(raw)
+            if not close:
+                return None
+            return _extend_fixed_marker_end(raw, close.end())
         if self._skip_mode == "video":
             close = _AV_VIDEO_CLOSE_PATTERN.search(raw)
             if not close:
@@ -832,6 +842,18 @@ class AVStreamingTTSProcessor:
                 )
             else:
                 candidates.append(("svg", svg_start, len(raw), False))
+
+        iframe_match = _find_first_match_outside_fence(
+            raw, _AV_IFRAME_OPEN_PATTERN, fence_ranges
+        )
+        if iframe_match is not None:
+            iframe_start = _rewind_fixed_marker_start(raw, iframe_match.start())
+            iframe_close = _AV_IFRAME_CLOSE_PATTERN.search(raw, iframe_start)
+            if iframe_close:
+                iframe_end = _extend_fixed_marker_end(raw, iframe_close.end())
+                candidates.append(("iframe", iframe_start, iframe_end, True))
+            else:
+                candidates.append(("iframe", iframe_start, len(raw), False))
 
         video_match = _find_first_match_outside_fence(
             raw, _AV_VIDEO_OPEN_PATTERN, fence_ranges
@@ -956,7 +978,16 @@ class AVStreamingTTSProcessor:
             boundary_len = max(end - start, 0)
             self._raw_buffer = remainder
             if (
-                kind in {"fence", "svg", "video", "html_table", "md_table", "sandbox"}
+                kind
+                in {
+                    "fence",
+                    "svg",
+                    "iframe",
+                    "video",
+                    "html_table",
+                    "md_table",
+                    "sandbox",
+                }
                 and not complete
             ):
                 self._skip_mode = kind

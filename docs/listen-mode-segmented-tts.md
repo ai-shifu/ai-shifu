@@ -122,6 +122,14 @@ for slide rendering (post-processing the `splitContentSegments` output):
 
 - `<video ...></video>`
 - `<table ...></table>`
+- `<iframe ...></iframe>` (Admin “Insert Video”, e.g. Bilibili embeds)
+
+Notes:
+
+- MarkdownFlow fixed markers like `=== <iframe ...></iframe> ===` can confuse
+  `splitContentSegments` (it may swallow following visuals into one sandbox).
+  Listen Mode applies a small post-processing split so each visual stays on its
+  own slide and narration remains in `text` segments.
 
 Backend helper (new):
 

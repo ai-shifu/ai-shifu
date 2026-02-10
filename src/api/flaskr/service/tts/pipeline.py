@@ -58,6 +58,8 @@ _AV_MARKDOWN_IMAGE_PATTERN = re.compile(
 _AV_IMG_TAG_PATTERN = re.compile(r"<img\b[^>]*?>", re.IGNORECASE)
 _AV_SVG_OPEN_PATTERN = re.compile(r"<svg\b", re.IGNORECASE)
 _AV_SVG_CLOSE_PATTERN = re.compile(r"</svg>", re.IGNORECASE)
+_AV_IFRAME_OPEN_PATTERN = re.compile(r"<iframe\b", re.IGNORECASE)
+_AV_IFRAME_CLOSE_PATTERN = re.compile(r"</iframe>", re.IGNORECASE)
 _AV_VIDEO_OPEN_PATTERN = re.compile(r"<video\b", re.IGNORECASE)
 _AV_VIDEO_CLOSE_PATTERN = re.compile(r"</video>", re.IGNORECASE)
 _AV_TABLE_OPEN_PATTERN = re.compile(r"<table\b", re.IGNORECASE)
@@ -138,6 +140,55 @@ def _find_svg_block_end(raw: str, start_index: int) -> int:
     if not close:
         return len(raw)
     return close.end()
+
+
+def _rewind_fixed_marker_start(raw: str, start_index: int) -> int:
+    """
+    If `raw` contains a MarkdownFlow fixed marker prefix on the same line as a
+    visual tag (e.g. `=== <iframe ...`), rewind start to include the marker.
+    """
+    if not raw or start_index <= 0:
+        return start_index
+
+    line_start = raw.rfind("\n", 0, start_index)
+    line_start = 0 if line_start == -1 else line_start + 1
+    prefix = raw[line_start:start_index]
+    stripped = prefix.strip()
+    if not stripped:
+        return start_index
+
+    # Fixed markers look like: === / !=== / !=== ...
+    chars = set(stripped)
+    if chars.issubset({"=", "!"}) and stripped.count("=") >= 3:
+        return line_start
+    return start_index
+
+
+def _extend_fixed_marker_end(raw: str, end_index: int) -> int:
+    """
+    If `raw` contains a trailing fixed marker suffix on the same line as a
+    visual close tag (e.g. `</iframe> ===`), extend end to include it (and one
+    trailing newline if present).
+    """
+    if not raw or end_index <= 0 or end_index >= len(raw):
+        return end_index
+
+    nl = raw.find("\n", end_index)
+    line_end = len(raw) if nl == -1 else nl
+    tail = raw[end_index:line_end]
+    if not tail:
+        return end_index
+
+    if re.fullmatch(r"[\s!=]*", tail) and ("=" in tail or "!" in tail):
+        return len(raw) if nl == -1 else nl + 1
+    return end_index
+
+
+def _find_iframe_block_end(raw: str, start_index: int) -> int:
+    close = _AV_IFRAME_CLOSE_PATTERN.search(raw, start_index)
+    if not close:
+        return len(raw)
+    return _extend_fixed_marker_end(raw, close.end())
 
 
 def _find_video_block_end(raw: str, start_index: int) -> int:
@@ -221,6 +272,15 @@ def split_av_speakable_segments(raw: str) -> list[str]:
         )
         if svg_start != -1:
             candidates.append((svg_start, _find_svg_block_end(text, svg_start)))
+
+        iframe_match = _find_first_match_outside_fence(
+            text, _AV_IFRAME_OPEN_PATTERN, fence_ranges
+        )
+        if iframe_match is not None:
+            iframe_start = _rewind_fixed_marker_start(text, iframe_match.start())
+            candidates.append(
+                (iframe_start, _find_iframe_block_end(text, iframe_start))
+            )
 
         video_match = _find_first_match_outside_fence(
             text, _AV_VIDEO_OPEN_PATTERN, fence_ranges
