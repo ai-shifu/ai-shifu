@@ -2,7 +2,7 @@
 
 import styles from './page.module.scss';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import clsx from 'clsx';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
@@ -117,6 +117,15 @@ export default function ChatPage() {
   } = useDisclosure({
     initOpen: mobileStyle ? false : true,
   });
+
+  const mobileStyleRef = useRef(mobileStyle);
+
+  useEffect(() => {
+    if (!mobileStyleRef.current && mobileStyle) {
+      onNavClose();
+    }
+    mobileStyleRef.current = mobileStyle;
+  }, [mobileStyle, onNavClose]);
 
   const { open: feedbackModalOpen, onClose: onFeedbackModalClose } =
     useDisclosure();

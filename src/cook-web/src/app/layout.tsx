@@ -8,6 +8,7 @@ import RuntimeConfigInitializer from '@/components/RuntimeConfigInitializer';
 import { UserProvider } from '@/store';
 import '@/i18n';
 import I18nGlobalLoading from '@/components/I18nGlobalLoading';
+import RootContainer from '@/components/root-container/RootContainer';
 import 'markdown-flow-ui/dist/markdown-flow-ui.css';
 // fix: dont't use, it will cause logo in dark mode is not blue
 // import 'markdown-flow-ui/dist/markdown-flow-ui-lib.css';
@@ -33,10 +34,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen overflow-x-hidden overscroll-none`}
       >
-        <div
-          id='root'
-          className='min-h-screen'
-        >
+        <RootContainer>
           <ConfigProvider>
             <RuntimeConfigInitializer />
             <UmamiLoader />
@@ -48,7 +46,7 @@ export default function RootLayout({
               </AlertProvider>
             </UserProvider>
           </ConfigProvider>
-        </div>
+        </RootContainer>
       </body>
     </html>
   );
