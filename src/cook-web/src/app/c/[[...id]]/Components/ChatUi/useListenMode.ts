@@ -874,12 +874,22 @@ export const useListenPpt = ({
           (activeContentItem?.audioSegments &&
             activeContentItem.audioSegments.length > 0),
         );
+      const shouldHoldForSegmentedAudio =
+        isAudioPlaying &&
+        Boolean(
+          activeContentItem?.audioTracksByPosition &&
+          Object.values(activeContentItem.audioTracksByPosition).some(
+            track =>
+              Boolean(track?.isAudioStreaming) ||
+              Boolean(track?.audioSegments && track.audioSegments.length > 0),
+          ),
+        );
       if (pendingAutoNextRef.current) {
         const moved = goToNextBlock();
         pendingAutoNextRef.current = !moved;
       }
 
-      if (shouldHoldForStreamingAudio) {
+      if (shouldHoldForStreamingAudio || shouldHoldForSegmentedAudio) {
         prevSlidesLengthRef.current = nextSlidesLength;
         return;
       }
