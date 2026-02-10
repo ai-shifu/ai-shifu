@@ -26,14 +26,8 @@ const extractFirstSvg = (raw: string) => {
   return match[0];
 };
 
-const hasBalancedQuotes = (raw: string) => {
-  const doubleQuotes = (raw.match(/"/g) || []).length;
-  const singleQuotes = (raw.match(/'/g) || []).length;
-  return doubleQuotes % 2 === 0 && singleQuotes % 2 === 0;
-};
-
 const StableSvgSlide = ({ raw }: { raw: string }) => {
-  const svgCandidate = useMemo(() => extractFirstSvg(raw), [raw]);
+  const svgCandidate = useMemo(() => extractFirstSvg(raw) ?? raw, [raw]);
   const [stableSvgHtml, setStableSvgHtml] = useState('');
 
   useEffect(() => {
@@ -41,9 +35,6 @@ const StableSvgSlide = ({ raw }: { raw: string }) => {
       return;
     }
     if (typeof window === 'undefined') {
-      return;
-    }
-    if (!hasBalancedQuotes(svgCandidate)) {
       return;
     }
 
@@ -70,7 +61,7 @@ const StableSvgSlide = ({ raw }: { raw: string }) => {
       type='markdown'
       mode='blackboard'
       hideFullScreen
-      content={stableSvgHtml || ''}
+      content={stableSvgHtml || svgCandidate || ''}
     />
   );
 };
