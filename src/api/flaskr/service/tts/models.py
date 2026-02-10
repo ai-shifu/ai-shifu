@@ -55,6 +55,14 @@ class LearnGeneratedAudio(db.Model):
         comment="Generated block business identifier",
     )
 
+    position = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        index=True,
+        comment="Audio part position within the generated block (0-based)",
+    )
+
     progress_record_bid = Column(
         String(36),
         nullable=False,
@@ -211,6 +219,7 @@ class LearnGeneratedAudio(db.Model):
         return {
             "audio_bid": self.audio_bid,
             "generated_block_bid": self.generated_block_bid,
+            "position": self.position,
             "oss_url": self.oss_url,
             "duration_ms": self.duration_ms,
             "file_size": self.file_size,

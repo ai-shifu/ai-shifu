@@ -284,6 +284,10 @@ class LearnOutlineItemsWithBannerInfoDTO(BaseModel):
 class AudioSegmentDTO(BaseModel):
     """DTO for streaming audio segment during TTS synthesis."""
 
+    position: int = Field(
+        default=0,
+        description="Audio part position within the generated block (0-based)",
+    )
     segment_index: int = Field(..., description="Segment sequence number")
     audio_data: str = Field(..., description="Base64-encoded audio data")
     duration_ms: int = Field(default=0, description="Segment duration in milliseconds")
@@ -297,8 +301,10 @@ class AudioSegmentDTO(BaseModel):
         audio_data: str,
         duration_ms: int = 0,
         is_final: bool = False,
+        position: int = 0,
     ):
         super().__init__(
+            position=position,
             segment_index=segment_index,
             audio_data=audio_data,
             duration_ms=duration_ms,
@@ -307,6 +313,7 @@ class AudioSegmentDTO(BaseModel):
 
     def __json__(self):
         return {
+            "position": self.position,
             "segment_index": self.segment_index,
             "audio_data": self.audio_data,
             "duration_ms": self.duration_ms,
@@ -318,17 +325,63 @@ class AudioSegmentDTO(BaseModel):
 class AudioCompleteDTO(BaseModel):
     """DTO for completed TTS audio with OSS URL."""
 
+    position: int = Field(
+        default=0,
+        description="Audio part position within the generated block (0-based)",
+    )
     audio_url: str = Field(..., description="OSS URL of complete audio")
     audio_bid: str = Field(..., description="Audio business identifier")
     duration_ms: int = Field(..., description="Total audio duration in milliseconds")
+    is_last: bool = Field(
+        default=True, description="Whether this is the last audio part for the block"
+    )
 
     def __init__(
         self,
         audio_url: str,
         audio_bid: str,
         duration_ms: int,
+        position: int = 0,
+        is_last: bool = True,
     ):
         super().__init__(
+            position=position,
+            audio_url=audio_url,
+            audio_bid=audio_bid,
+            duration_ms=duration_ms,
+            is_last=is_last,
+        )
+
+    def __json__(self):
+        return {
+            "position": self.position,
+            "audio_url": self.audio_url,
+            "audio_bid": self.audio_bid,
+            "duration_ms": self.duration_ms,
+            "is_last": self.is_last,
+        }
+
+
+@register_schema_to_swagger
+class GeneratedAudioPartDTO(BaseModel):
+    """DTO for persisted TTS audio parts for a generated block."""
+
+    position: int = Field(
+        ..., description="Audio part position within the generated block (0-based)"
+    )
+    audio_url: str = Field(..., description="OSS URL of this audio part")
+    audio_bid: str = Field(..., description="Audio business identifier")
+    duration_ms: int = Field(..., description="Audio duration in milliseconds")
+
+    def __init__(
+        self,
+        position: int,
+        audio_url: str,
+        audio_bid: str,
+        duration_ms: int,
+    ):
+        super().__init__(
+            position=position,
             audio_url=audio_url,
             audio_bid=audio_bid,
             duration_ms=duration_ms,
@@ -336,6 +389,7 @@ class AudioCompleteDTO(BaseModel):
 
     def __json__(self):
         return {
+            "position": self.position,
             "audio_url": self.audio_url,
             "audio_bid": self.audio_bid,
             "duration_ms": self.duration_ms,
@@ -396,6 +450,10 @@ class GeneratedBlockDTO(BaseModel):
     audio_url: Optional[str] = Field(
         default=None, description="TTS audio URL for this block"
     )
+    audio_list: Optional[list[GeneratedAudioPartDTO]] = Field(
+        default=None,
+        description="TTS audio parts for this block (ordered by position)",
+    )
 
     def __init__(
         self,
@@ -405,6 +463,7 @@ class GeneratedBlockDTO(BaseModel):
         block_type: BlockType,
         user_input: str,
         audio_url: Optional[str] = None,
+        audio_list: Optional[list[GeneratedAudioPartDTO]] = None,
     ):
         super().__init__(
             generated_block_bid=generated_block_bid,
@@ -413,6 +472,7 @@ class GeneratedBlockDTO(BaseModel):
             block_type=block_type,
             user_input=user_input,
             audio_url=audio_url,
+            audio_list=audio_list,
         )
 
     def __json__(self):
@@ -426,6 +486,8 @@ class GeneratedBlockDTO(BaseModel):
             ret["like_status"] = self.like_status.value
         if self.audio_url:
             ret["audio_url"] = self.audio_url
+        if self.audio_list:
+            ret["audio_list"] = [a.__json__() for a in self.audio_list]
         return ret
 
 

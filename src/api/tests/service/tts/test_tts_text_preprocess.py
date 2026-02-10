@@ -101,18 +101,25 @@ def test_preprocess_for_tts_keeps_non_tag_angle_brackets(app):
 def test_streaming_tts_processor_skips_svg_and_keeps_following_text(app, monkeypatch):
     _require_app(app)
 
-    from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
+    from flaskr.service.tts.streaming_tts import (
+        StreamingTTSProcessor,
+        _StreamingTTSPart,
+    )
 
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.is_tts_configured", lambda _provider: True
     )
 
-    captured: list[str] = []
+    captured: list[tuple[int, str]] = []
 
     def _capture_submit(self, text: str):
-        captured.append(text)
+        captured.append((int(getattr(self, "position", 0) or 0), text))
+        # Keep `segment_count` semantics so position advances when a part has
+        # speakable text, without actually running background TTS synthesis.
+        current = int(getattr(self, "_segment_index", 0) or 0)
+        setattr(self, "_segment_index", current + 1)
 
-    monkeypatch.setattr(StreamingTTSProcessor, "_submit_tts_task", _capture_submit)
+    monkeypatch.setattr(_StreamingTTSPart, "_submit_tts_task", _capture_submit)
 
     processor = StreamingTTSProcessor(
         app=app,
@@ -130,7 +137,7 @@ def test_streaming_tts_processor_skips_svg_and_keeps_following_text(app, monkeyp
             '<svg width="800" xmlns="http://www.w3.org/2000/svg">'
         )
     )
-    assert captured == ["I'll create a diagram."]
+    assert captured == [(0, "I'll create a diagram.")]
 
     list(
         processor.process_chunk(
@@ -140,5 +147,5 @@ def test_streaming_tts_processor_skips_svg_and_keeps_following_text(app, monkeyp
 
     list(processor.finalize())
 
-    assert any("Hello after svg!" in t for t in captured)
-    assert all("http://www.w3.org" not in t for t in captured)
+    assert any(pos == 1 and "Hello after svg!" in t for pos, t in captured)
+    assert all("http://www.w3.org" not in t for _pos, t in captured)
