@@ -69,6 +69,9 @@ _AV_CLOSING_BOUNDARY_PATTERN = re.compile(
 )
 _AV_MARKDOWN_TABLE_ROW_PATTERN = re.compile(r"^\s*\|.+\|\s*$", re.MULTILINE)
 
+_AV_SPEAKABLE_SANDBOX_ROOT_TAGS = {"div", "section", "article", "main", "template"}
+_AV_SPEAKABLE_SANDBOX_HINT_PATTERN = re.compile(r"<(p|li|h[1-6])\b", re.IGNORECASE)
+
 
 def _get_fence_ranges(raw: str) -> list[tuple[int, int]]:
     """
@@ -128,11 +131,116 @@ def _find_html_block_end(raw: str, start_index: int) -> int:
     Mirrors the heuristic used by the frontend `splitContentSegments` utility:
     end at the first closing-tag boundary after `start_index`.
     """
+    return _find_html_block_end_with_complete(raw, start_index)[0]
+
+
+def _find_html_block_end_with_complete(raw: str, start_index: int) -> tuple[int, bool]:
+    """
+    Best-effort end boundary for a sandbox HTML block.
+
+    Returns: (end, complete)
+
+    `complete` is True when we can confidently identify the end boundary even if
+    it ends at the end of the buffer (common in streaming).
+    """
+    if not raw:
+        return (0, False)
+    if start_index < 0 or start_index >= len(raw):
+        return (len(raw), False)
+
+    # 1) Primary heuristic: match a closing-tag boundary that is followed by
+    # non-tag, non-whitespace text (mirrors markdown-flow-ui).
     for match in _AV_CLOSING_BOUNDARY_PATTERN.finditer(raw):
         if match.start() <= start_index:
             continue
-        return match.end()
-    return len(raw)
+        return (match.end(), True)
+
+    # 2) Fallback: when the HTML block ends at EOF or before another tag, the
+    # closingBoundary heuristic may fail. Attempt to find the matching root
+    # closing tag for common container tags, accounting for nesting.
+    head = raw[start_index:].lstrip()
+    if not head.startswith("<"):
+        return (len(raw), False)
+
+    tag_match = re.match(r"<([a-z0-9-]+)\b", head, flags=re.IGNORECASE)
+    if not tag_match:
+        return (len(raw), False)
+
+    tag = (tag_match.group(1) or "").lower()
+    match_offset = raw[start_index:].find("<")
+    root_start = start_index if match_offset <= 0 else start_index + match_offset
+
+    if tag in {"script", "style"}:
+        close = re.search(rf"</{tag}\s*>", raw[root_start:], flags=re.IGNORECASE)
+        if not close:
+            return (len(raw), False)
+        return (root_start + close.end(), True)
+
+    if tag not in {
+        "div",
+        "section",
+        "article",
+        "main",
+        "template",
+        "html",
+        "head",
+        "body",
+    }:
+        return (len(raw), False)
+
+    token_pattern = re.compile(rf"</?{re.escape(tag)}\b", flags=re.IGNORECASE)
+    depth = 0
+    cursor = root_start
+    while True:
+        match = token_pattern.search(raw, cursor)
+        if not match:
+            return (len(raw), False)
+
+        token = raw[match.start() : match.end()]
+        if token.startswith("</"):
+            depth -= 1
+            if depth <= 0:
+                gt = raw.find(">", match.end())
+                if gt == -1:
+                    return (len(raw), False)
+                end = gt + 1
+                end = _extend_fixed_marker_end(raw, end)
+                return (end, True)
+        else:
+            depth += 1
+
+        cursor = match.end()
+
+
+def _extract_speakable_text_from_sandbox_html(raw: str) -> str:
+    """
+    Extract speakable text from a sandbox HTML block.
+
+    By default, sandbox blocks are treated as visual boundaries (not spoken).
+    For some textual blocks (e.g. a styled <div> containing <p> paragraphs), we
+    still want narration in Listen Mode. We keep this conservative and only
+    opt-in when the block contains common text tags (<p>/<li>/headings).
+    """
+    if not raw or not raw.strip():
+        return ""
+
+    head = raw.lstrip()
+    if not head.startswith("<"):
+        return ""
+
+    tag_match = re.match(r"<([a-z0-9-]+)\b", head, flags=re.IGNORECASE)
+    if not tag_match:
+        return ""
+
+    tag = (tag_match.group(1) or "").lower()
+    if tag not in _AV_SPEAKABLE_SANDBOX_ROOT_TAGS:
+        return ""
+
+    if not _AV_SPEAKABLE_SANDBOX_HINT_PATTERN.search(raw):
+        return ""
+
+    cleaned = preprocess_for_tts(raw)
+    return cleaned.strip() if cleaned and cleaned.strip() else ""
 
 
 def _find_svg_block_end(raw: str, start_index: int) -> int:
@@ -260,18 +368,18 @@ def split_av_speakable_segments(raw: str) -> list[str]:
 
         fence_ranges = _get_fence_ranges(text)
 
-        candidates: list[tuple[int, int]] = []
+        candidates: list[tuple[str, int, int]] = []
 
         # Treat fenced blocks as non-speakable boundaries.
         if fence_ranges:
             start, end = fence_ranges[0]
-            candidates.append((start, end))
+            candidates.append(("fence", start, end))
 
         svg_start = _find_first_index_outside_fence(
             text, _AV_SVG_OPEN_PATTERN, fence_ranges
         )
         if svg_start != -1:
-            candidates.append((svg_start, _find_svg_block_end(text, svg_start)))
+            candidates.append(("svg", svg_start, _find_svg_block_end(text, svg_start)))
 
         iframe_match = _find_first_match_outside_fence(
             text, _AV_IFRAME_OPEN_PATTERN, fence_ranges
@@ -279,7 +387,7 @@ def split_av_speakable_segments(raw: str) -> list[str]:
         if iframe_match is not None:
             iframe_start = _rewind_fixed_marker_start(text, iframe_match.start())
             candidates.append(
-                (iframe_start, _find_iframe_block_end(text, iframe_start))
+                ("iframe", iframe_start, _find_iframe_block_end(text, iframe_start))
             )
 
         video_match = _find_first_match_outside_fence(
@@ -287,55 +395,65 @@ def split_av_speakable_segments(raw: str) -> list[str]:
         )
         if video_match is not None:
             video_start = video_match.start()
-            candidates.append((video_start, _find_video_block_end(text, video_start)))
+            candidates.append(
+                ("video", video_start, _find_video_block_end(text, video_start))
+            )
 
         table_match = _find_first_match_outside_fence(
             text, _AV_TABLE_OPEN_PATTERN, fence_ranges
         )
         if table_match is not None:
             table_start = table_match.start()
-            candidates.append((table_start, _find_table_block_end(text, table_start)))
+            candidates.append(
+                ("html_table", table_start, _find_table_block_end(text, table_start))
+            )
 
         img_match = _find_first_match_outside_fence(
             text, _AV_IMG_TAG_PATTERN, fence_ranges
         )
         if img_match is not None:
-            candidates.append((img_match.start(), img_match.end()))
+            candidates.append(("img", img_match.start(), img_match.end()))
 
         md_img_match = _find_first_match_outside_fence(
             text, _AV_MARKDOWN_IMAGE_PATTERN, fence_ranges
         )
         if md_img_match is not None:
-            candidates.append((md_img_match.start(), md_img_match.end()))
+            candidates.append(("md_img", md_img_match.start(), md_img_match.end()))
 
         md_table = _find_markdown_table_block(text, fence_ranges)
         if md_table is not None:
             start, end, _complete = md_table
-            candidates.append((start, end))
+            candidates.append(("md_table", start, end))
 
         sandbox_match = _find_first_match_outside_fence(
             text, _AV_SANDBOX_START_PATTERN, fence_ranges
         )
         if sandbox_match is not None:
             sandbox_start = sandbox_match.start()
-            candidates.append(
-                (sandbox_start, _find_html_block_end(text, sandbox_start))
+            sandbox_end, _complete = _find_html_block_end_with_complete(
+                text, sandbox_start
             )
+            candidates.append(("sandbox", sandbox_start, sandbox_end))
 
         if not candidates:
             return [text]
 
-        start, end = min(candidates, key=lambda item: item[0])
+        kind, start, end = min(candidates, key=lambda item: item[1])
         if end <= start:
             # Safety guard; should not happen for the patterns above.
             return [text]
 
         before = text[:start]
+        boundary = text[start:end]
         after = text[end:]
 
         output: list[str] = []
         if before.strip():
             output.append(before)
+        if kind == "sandbox":
+            injected = _extract_speakable_text_from_sandbox_html(boundary)
+            if injected:
+                after = f"{injected}\n{after.lstrip()}" if after else injected
         output.extend(_split(after))
         return output
 

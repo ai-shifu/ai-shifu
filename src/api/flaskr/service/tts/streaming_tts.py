@@ -49,7 +49,6 @@ from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
 )
 from flaskr.service.tts.pipeline import (
-    _AV_CLOSING_BOUNDARY_PATTERN,
     _AV_IMG_TAG_PATTERN,
     _AV_MARKDOWN_IMAGE_PATTERN,
     _AV_SANDBOX_START_PATTERN,
@@ -61,7 +60,8 @@ from flaskr.service.tts.pipeline import (
     _AV_VIDEO_OPEN_PATTERN,
     _AV_VIDEO_CLOSE_PATTERN,
     _find_first_match_outside_fence,
-    _find_html_block_end,
+    _find_html_block_end_with_complete,
+    _extract_speakable_text_from_sandbox_html,
     _get_fence_ranges,
     _find_markdown_table_block,
     _rewind_fixed_marker_start,
@@ -796,12 +796,8 @@ class AVStreamingTTSProcessor:
                 return None
             return end
         if self._skip_mode == "sandbox":
-            # Best-effort end boundary matching pipeline's heuristic.
-            for match in _AV_CLOSING_BOUNDARY_PATTERN.finditer(raw):
-                if match.start() <= 0:
-                    continue
-                return match.end()
-            return None
+            end, complete = _find_html_block_end_with_complete(raw, 0)
+            return end if complete else None
         return None
 
     def _find_next_boundary(self, raw: str) -> Optional[tuple[str, int, int, bool]]:
@@ -915,8 +911,9 @@ class AVStreamingTTSProcessor:
         )
         if sandbox_match is not None:
             sandbox_start = sandbox_match.start()
-            sandbox_end = _find_html_block_end(raw, sandbox_start)
-            sandbox_complete = sandbox_end != len(raw)
+            sandbox_end, sandbox_complete = _find_html_block_end_with_complete(
+                raw, sandbox_start
+            )
             candidates.append(
                 (
                     "sandbox",
@@ -941,11 +938,18 @@ class AVStreamingTTSProcessor:
 
         while self._raw_buffer:
             if self._skip_mode:
+                skip_kind = self._skip_mode
                 skip_end = self._find_skip_end(self._raw_buffer)
                 if skip_end is None:
                     break
+                skipped = self._raw_buffer[:skip_end]
                 self._raw_buffer = self._raw_buffer[skip_end:]
                 self._skip_mode = None
+                if skip_kind == "sandbox":
+                    injected = _extract_speakable_text_from_sandbox_html(skipped)
+                    if injected:
+                        processor = self._ensure_processor()
+                        yield from processor.process_chunk(injected)
                 continue
 
             boundary = self._find_next_boundary(self._raw_buffer)
@@ -966,6 +970,8 @@ class AVStreamingTTSProcessor:
             kind, start, end, complete = boundary
             speakable = self._raw_buffer[:start]
             remainder = self._raw_buffer[start:]
+            boundary_len = max(end - start, 0)
+            boundary_chunk = remainder[:boundary_len] if boundary_len else ""
 
             if speakable:
                 processor = self._ensure_processor()
@@ -975,7 +981,6 @@ class AVStreamingTTSProcessor:
             yield from self._finalize_current(commit=False)
 
             # Consume the boundary itself.
-            boundary_len = max(end - start, 0)
             self._raw_buffer = remainder
             if (
                 kind
@@ -993,6 +998,11 @@ class AVStreamingTTSProcessor:
                 self._skip_mode = kind
                 break
             self._raw_buffer = self._raw_buffer[boundary_len:]
+            if kind == "sandbox" and boundary_chunk:
+                injected = _extract_speakable_text_from_sandbox_html(boundary_chunk)
+                if injected:
+                    processor = self._ensure_processor()
+                    yield from processor.process_chunk(injected)
 
     def finalize(
         self, *, commit: bool = True
