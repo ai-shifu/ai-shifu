@@ -8,6 +8,13 @@ import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import type { AudioPlayerHandle } from '@/components/audio/AudioPlayer';
 
 type HtmlVisualKind = 'video' | 'table' | 'iframe';
+type HtmlSandboxRootTag =
+  | 'iframe'
+  | 'div'
+  | 'section'
+  | 'article'
+  | 'main'
+  | 'template';
 
 const isFixedMarkerText = (raw: string) => {
   const trimmed = (raw || '').trim();
@@ -110,6 +117,55 @@ const splitTextByHtmlVisualBlocks = (raw: string): RenderSegment[] => {
   return output;
 };
 
+const splitSandboxByRootBoundary = (
+  raw: string,
+): { head: string; rest: string } | null => {
+  if (!raw || !raw.trim()) {
+    return null;
+  }
+
+  const trimmed = raw.trimStart();
+  const lower = trimmed.toLowerCase();
+  const match = lower.match(/^<([a-z0-9-]+)/);
+  if (!match) {
+    return null;
+  }
+
+  const tag = match[1] as HtmlSandboxRootTag;
+  if (
+    !['iframe', 'div', 'section', 'article', 'main', 'template'].includes(tag)
+  ) {
+    return null;
+  }
+
+  const closeTag = `</${tag}>`;
+  const closeIdx =
+    tag === 'iframe' ? lower.indexOf(closeTag) : lower.lastIndexOf(closeTag);
+  if (closeIdx === -1) {
+    return null;
+  }
+
+  let end = closeIdx + closeTag.length;
+  // Keep trailing fixed markers on the same line (e.g. `</div> ===`).
+  const nl = trimmed.indexOf('\n', end);
+  const lineEnd = nl === -1 ? trimmed.length : nl;
+  const tail = trimmed.slice(end, lineEnd);
+  if (/^[\s!=]*$/.test(tail)) {
+    end = nl === -1 ? trimmed.length : nl + 1;
+  }
+
+  if (end <= 0 || end >= trimmed.length) {
+    return null;
+  }
+
+  const rest = trimmed.slice(end);
+  if (!rest.trim()) {
+    return null;
+  }
+
+  return { head: trimmed.slice(0, end), rest };
+};
+
 const splitListenModeSegments = (raw: string): RenderSegment[] => {
   const baseSegments = splitContentSegments(raw || '', true);
   if (!baseSegments.length) {
@@ -120,31 +176,11 @@ const splitListenModeSegments = (raw: string): RenderSegment[] => {
   baseSegments.forEach((segment, index) => {
     if (segment.type !== 'text') {
       if (segment.type === 'sandbox') {
-        const value = segment.value || '';
-        const trimmed = value.trimStart();
-        const lower = trimmed.toLowerCase();
-        if (lower.startsWith('<iframe')) {
-          const closeTag = '</iframe>';
-          const closeIdx = lower.indexOf(closeTag);
-          if (closeIdx !== -1) {
-            let end = closeIdx + closeTag.length;
-            // Keep trailing fixed markers on the same line (e.g. `</iframe> ===`).
-            const nl = trimmed.indexOf('\n', end);
-            const lineEnd = nl === -1 ? trimmed.length : nl;
-            const tail = trimmed.slice(end, lineEnd);
-            if (/^[\s!=]*$/.test(tail)) {
-              end = nl === -1 ? trimmed.length : nl + 1;
-            }
-            // Avoid infinite recursion when end doesn't advance.
-            if (end > 0 && end < trimmed.length) {
-              output.push({ type: 'sandbox', value: trimmed.slice(0, end) });
-              const rest = trimmed.slice(end);
-              if (rest.trim()) {
-                output.push(...splitListenModeSegments(rest));
-              }
-              return;
-            }
-          }
+        const split = splitSandboxByRootBoundary(segment.value || '');
+        if (split) {
+          output.push({ type: 'sandbox', value: split.head });
+          output.push(...splitListenModeSegments(split.rest));
+          return;
         }
       }
       output.push(segment);
