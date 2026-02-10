@@ -142,8 +142,10 @@ const ListenModeRenderer = ({
 
   const {
     audioPlayerRef,
+    activeAudioKey,
     activeContentItem,
     activeAudioBlockBid,
+    activeAudioPart,
     sequenceInteraction,
     isAudioSequenceActive,
     audioSequenceToken,
@@ -184,6 +186,7 @@ const ListenModeRenderer = ({
       isLoading,
       isAudioPlaying,
       activeContentItem,
+      activeAudioPart,
       shouldRenderEmptyPpt,
       onResetSequence: handleResetSequence,
       getNextContentBid,
@@ -205,9 +208,9 @@ const ListenModeRenderer = ({
         return null;
       }
       let currentIndex = -1;
-      if (activeAudioBlockBid) {
+      if (activeAudioKey) {
         currentIndex = audioContentSequence.findIndex(
-          entry => entry.item.generated_block_bid === activeAudioBlockBid,
+          entry => entry.item.audioKey === activeAudioKey,
         );
       }
       if (currentIndex < 0) {
@@ -231,7 +234,7 @@ const ListenModeRenderer = ({
       }
       return audioContentSequence[targetIndex].index;
     },
-    [audioContentSequence, activeAudioBlockBid],
+    [audioContentSequence, activeAudioKey],
   );
 
   const onPrev = useCallback(() => {
@@ -388,17 +391,12 @@ const ListenModeRenderer = ({
         <div className={cn('listen-audio-controls', 'hidden')}>
           <AudioPlayer
             ref={audioPlayerRef}
-            key={`${activeAudioBlockBid ?? 'listen-audio'}-${audioSequenceToken}`}
-            audioUrl={activeContentItem.audioUrl}
-            streamingSegments={activeContentItem.audioSegments}
-            isStreaming={Boolean(activeContentItem.isAudioStreaming)}
+            key={`${activeAudioKey ?? 'listen-audio'}-${audioSequenceToken}`}
+            audioUrl={activeAudioPart?.audioUrl}
+            streamingSegments={activeAudioPart?.audioSegments}
+            isStreaming={Boolean(activeAudioPart?.isAudioStreaming)}
             alwaysVisible={true}
             disabled={previewMode}
-            onRequestAudio={
-              !previewMode && onRequestAudioForBlock && activeAudioBlockBid
-                ? () => onRequestAudioForBlock(activeAudioBlockBid)
-                : undefined
-            }
             autoPlay={!previewMode}
             onPlayStateChange={setIsAudioPlaying}
             onEnded={handleAudioEnded}

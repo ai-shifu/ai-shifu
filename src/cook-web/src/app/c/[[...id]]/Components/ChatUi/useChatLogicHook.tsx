@@ -37,6 +37,7 @@ import {
   upsertAudioSegment,
   type AudioSegment,
 } from '@/c-utils/audio-utils';
+import type { AudioPartState } from '@/c-utils/audio-utils';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import {
   events,
@@ -92,6 +93,7 @@ export interface ChatContentItem {
   generateTime?: number;
   variables?: PreviewVariablesMap;
   // Audio properties for TTS
+  audioParts?: Record<number, AudioPartState>;
   audioUrl?: string;
   audioSegments?: AudioSegment[];
   isAudioStreaming?: boolean;
@@ -458,7 +460,9 @@ function useChatLogicHook({
         shifuBid,
         outlineBid,
         effectivePreviewMode,
-        { ...sseParams, listen: isListenMode },
+        // Listen mode supports sandbox-aligned streaming TTS (part-aware, `position`).
+        // For non-listen mode we keep it disabled to avoid unnecessary synthesis.
+        { ...sseParams, listen: Boolean(isListenMode && allowTtsStreaming) },
         async response => {
           // if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
           //   if (!isEnd) {
@@ -658,10 +662,17 @@ function useChatLogicHook({
                 return;
               }
               // Handle audio segment during TTS streaming
-              const audioSegment = response.content as AudioSegmentData;
+              const audioPayload = response.content as AudioSegmentData;
+              const position = Number((audioPayload as any)?.position ?? 0);
               if (blockId) {
                 setTrackedContentList(prevState =>
-                  upsertAudioSegment(prevState, blockId, audioSegment),
+                  upsertAudioSegment(
+                    prevState,
+                    blockId,
+                    audioPayload,
+                    undefined,
+                    position,
+                  ),
                 );
               }
             } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
@@ -669,10 +680,17 @@ function useChatLogicHook({
                 return;
               }
               // Handle audio completion with OSS URL
-              const audioComplete = response.content as AudioCompleteData;
+              const audioPayload = response.content as AudioCompleteData;
+              const position = Number((audioPayload as any)?.position ?? 0);
               if (blockId) {
                 setTrackedContentList(prevState =>
-                  upsertAudioComplete(prevState, blockId, audioComplete),
+                  upsertAudioComplete(
+                    prevState,
+                    blockId,
+                    audioPayload,
+                    undefined,
+                    position,
+                  ),
                 );
               }
             }
@@ -778,7 +796,21 @@ function useChatLogicHook({
             isHistory: true,
             type: item.block_type,
             // Include audio URL from history
-            audioUrl: item.audio_url,
+            audioUrl: item.audio_url ?? item.audio_list?.[0]?.audio_url,
+            audioParts: item.audio_list
+              ? Object.fromEntries(
+                  item.audio_list.map(part => [
+                    part.position,
+                    {
+                      audioUrl: part.audio_url,
+                      audioDurationMs: part.duration_ms,
+                      isAudioStreaming: false,
+                      audioSegments: [],
+                    },
+                  ]),
+                )
+              : undefined,
+            audioDurationMs: item.audio_list?.[0]?.duration_ms,
           });
           lastContentId = item.generated_block_bid;
 
@@ -1309,12 +1341,34 @@ function useChatLogicHook({
       const existingItem = contentListRef.current.find(
         item => item.generated_block_bid === generatedBlockBid,
       );
-      if (existingItem?.audioUrl && !existingItem.isAudioStreaming) {
-        return {
-          audio_url: existingItem.audioUrl,
-          audio_bid: '',
-          duration_ms: existingItem.audioDurationMs ?? 0,
-        };
+      const hasAudioParts = Boolean(
+        existingItem?.audioParts &&
+        Object.keys(existingItem.audioParts).length > 0,
+      );
+      if (existingItem && !existingItem.isAudioStreaming) {
+        // In listen mode we need sandbox-aligned audio parts. Legacy records may
+        // only have `audioUrl` (position=0) which is insufficient for syncing,
+        // so we only short-circuit when `audioParts` already exists.
+        if (isListenMode) {
+          if (hasAudioParts) {
+            const part0 = existingItem.audioParts?.[0];
+            const url = part0?.audioUrl ?? existingItem.audioUrl;
+            if (url) {
+              return {
+                audio_url: url,
+                audio_bid: '',
+                duration_ms:
+                  part0?.audioDurationMs ?? existingItem.audioDurationMs ?? 0,
+              };
+            }
+          }
+        } else if (existingItem.audioUrl) {
+          return {
+            audio_url: existingItem.audioUrl,
+            audio_bid: '',
+            duration_ms: existingItem.audioDurationMs ?? 0,
+          };
+        }
       }
 
       if (ttsSseRef.current[generatedBlockBid]) {
@@ -1329,6 +1383,7 @@ function useChatLogicHook({
 
           return {
             ...item,
+            audioParts: {},
             audioSegments: [],
             audioUrl: undefined,
             audioDurationMs: undefined,
@@ -1338,6 +1393,7 @@ function useChatLogicHook({
       );
 
       return new Promise((resolve, reject) => {
+        let resolved = false;
         const source = streamGeneratedBlockAudio({
           shifu_bid: shifuBid,
           generated_block_bid: generatedBlockBid,
@@ -1345,11 +1401,14 @@ function useChatLogicHook({
           onMessage: response => {
             if (response?.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
               const audioPayload = response.content ?? response.data;
+              const position = Number(audioPayload?.position ?? 0);
               setTrackedContentList(prevState =>
                 upsertAudioSegment(
                   prevState,
                   generatedBlockBid,
                   audioPayload as AudioSegmentData,
+                  undefined,
+                  position,
                 ),
               );
               return;
@@ -1358,15 +1417,26 @@ function useChatLogicHook({
             if (response?.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
               const audioPayload = response.content ?? response.data;
               const audioComplete = audioPayload as AudioCompleteData;
+              const position = Number(audioPayload?.position ?? 0);
               setTrackedContentList(prevState =>
                 upsertAudioComplete(
                   prevState,
                   generatedBlockBid,
                   audioComplete,
+                  undefined,
+                  position,
                 ),
               );
-              closeTtsStream(generatedBlockBid);
-              resolve(audioComplete ?? null);
+              if (!resolved) {
+                resolved = true;
+                resolve(audioComplete ?? null);
+              }
+              const isLast = Boolean(
+                audioPayload?.is_last ?? audioPayload?.isLast ?? false,
+              );
+              if (isLast) {
+                closeTtsStream(generatedBlockBid);
+              }
             }
           },
           onError: () => {

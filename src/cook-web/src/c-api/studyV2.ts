@@ -78,6 +78,7 @@ export interface StudyRecordItem {
   user_input?: string;
   isHistory?: boolean;
   audio_url?: string;
+  audio_list?: GeneratedAudioPartData[];
 }
 
 export interface LessonStudyRecords {
@@ -117,6 +118,7 @@ export interface RunningResult {
 
 // Audio types for TTS
 export interface AudioSegmentData {
+  position?: number;
   segment_index: number;
   audio_data: string; // Base64 encoded
   duration_ms: number;
@@ -124,6 +126,15 @@ export interface AudioSegmentData {
 }
 
 export interface AudioCompleteData {
+  position?: number;
+  audio_url: string;
+  audio_bid: string;
+  duration_ms: number;
+  is_last?: boolean;
+}
+
+export interface GeneratedAudioPartData {
+  position: number;
   audio_url: string;
   audio_bid: string;
   duration_ms: number;
