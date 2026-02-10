@@ -1,7 +1,6 @@
-import { memo } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { isEqual } from 'lodash';
 import { IframeSandbox, type RenderSegment } from 'markdown-flow-ui/renderer';
-import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 
 interface ContentIframeProps {
   // item: ChatContentItem;
@@ -15,6 +14,66 @@ interface ContentIframeProps {
   //   onSend: (content: OnSendContentParams, blockBid: string) => void;
   sectionTitle?: string;
 }
+
+const extractFirstSvg = (raw: string) => {
+  if (!raw) {
+    return null;
+  }
+  const match = raw.match(/<svg[\s\S]*?<\/svg>/i);
+  if (!match) {
+    return null;
+  }
+  return match[0];
+};
+
+const hasBalancedQuotes = (raw: string) => {
+  const doubleQuotes = (raw.match(/"/g) || []).length;
+  const singleQuotes = (raw.match(/'/g) || []).length;
+  return doubleQuotes % 2 === 0 && singleQuotes % 2 === 0;
+};
+
+const StableSvgSlide = ({ raw }: { raw: string }) => {
+  const svgCandidate = useMemo(() => extractFirstSvg(raw), [raw]);
+  const [stableSvgHtml, setStableSvgHtml] = useState('');
+
+  useEffect(() => {
+    if (!svgCandidate) {
+      return;
+    }
+    if (typeof window === 'undefined') {
+      return;
+    }
+    if (!hasBalancedQuotes(svgCandidate)) {
+      return;
+    }
+
+    // Parse with the HTML parser to be tolerant to partial SVG (streaming).
+    // If parsing fails, keep the last stable SVG to avoid flicker/blank flashes.
+    try {
+      const template = window.document.createElement('template');
+      template.innerHTML = svgCandidate;
+      template.content
+        .querySelectorAll('script')
+        .forEach(node => node.remove());
+      const svgEl = template.content.querySelector('svg');
+      if (!svgEl) {
+        return;
+      }
+      setStableSvgHtml(svgEl.outerHTML);
+    } catch {
+      // Keep last stable SVG
+    }
+  }, [svgCandidate]);
+
+  return (
+    <IframeSandbox
+      type='markdown'
+      mode='blackboard'
+      hideFullScreen
+      content={stableSvgHtml || ''}
+    />
+  );
+};
 
 const ContentIframe = memo(
   ({ segments, blockBid, sectionTitle }: ContentIframeProps) => {
@@ -35,7 +94,18 @@ const ContentIframe = memo(
             );
           }
 
-          const iframeNode = (
+          const segmentValue =
+            typeof segment.value === 'string' ? segment.value : '';
+
+          const isSvgSegment =
+            segment.type === 'markdown' && /^\s*<svg\b/i.test(segmentValue);
+
+          const iframeNode = isSvgSegment ? (
+            <StableSvgSlide
+              key={'stable-svg' + index}
+              raw={segmentValue}
+            />
+          ) : (
             <IframeSandbox
               key={'iframe' + index}
               type={segment.type}

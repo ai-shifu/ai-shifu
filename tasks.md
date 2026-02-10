@@ -47,6 +47,7 @@
 - [x] Group incoming run SSE `audio_segment/audio_complete` by `position` (store in `audioTracksByPosition`).
 - [x] Fix: map single-position audio to `pagesForAudio[0]` when available (sync to correct slide).
 - [x] Fix: align `position -> page` mapping with backend when narration comes from textual sandbox HTML blocks.
+- [x] Fix: stabilize streaming SVG rendering to avoid blank flicker during generation.
 - [x] Regression: ensure non-listen mode audio button still works (single audio_url path unchanged).
 
 ## QA / Ops
