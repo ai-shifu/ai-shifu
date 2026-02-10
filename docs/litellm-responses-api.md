@@ -5,6 +5,8 @@ LLM call path has been migrated from Chat Completions (`litellm.completion`) to
 the LiteLLM Responses API (`litellm.responses`) so we can use a single, future
 proof interface while keeping multi-provider support.
 
+Chinese translation: `docs/litellm-responses-api_ZH-CN.md`
+
 ## Terminology
 
 - Native `/responses`: the upstream provider implements an OpenAI-compatible
