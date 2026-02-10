@@ -217,30 +217,11 @@ def _extract_speakable_text_from_sandbox_html(raw: str) -> str:
     Extract speakable text from a sandbox HTML block.
 
     By default, sandbox blocks are treated as visual boundaries (not spoken).
-    For some textual blocks (e.g. a styled <div> containing <p> paragraphs), we
-    still want narration in Listen Mode. We keep this conservative and only
-    opt-in when the block contains common text tags (<p>/<li>/headings).
+
+    Listen Mode requirement: sandbox HTML content must never be narrated, even
+    if it contains textual tags like <p>/<li>/<h*>.
     """
-    if not raw or not raw.strip():
-        return ""
-
-    head = raw.lstrip()
-    if not head.startswith("<"):
-        return ""
-
-    tag_match = re.match(r"<([a-z0-9-]+)\b", head, flags=re.IGNORECASE)
-    if not tag_match:
-        return ""
-
-    tag = (tag_match.group(1) or "").lower()
-    if tag not in _AV_SPEAKABLE_SANDBOX_ROOT_TAGS:
-        return ""
-
-    if not _AV_SPEAKABLE_SANDBOX_HINT_PATTERN.search(raw):
-        return ""
-
-    cleaned = preprocess_for_tts(raw)
-    return cleaned.strip() if cleaned and cleaned.strip() else ""
+    return ""
 
 
 def _find_svg_block_end(raw: str, start_index: int) -> int:

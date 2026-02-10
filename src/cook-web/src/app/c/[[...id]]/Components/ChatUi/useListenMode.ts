@@ -34,13 +34,9 @@ const isListenModeSpeakableText = (raw: string) => {
 };
 
 const isListenModeSpeakableSandbox = (raw: string) => {
-  const trimmed = (raw || '').trim();
-  if (!trimmed) {
-    return false;
-  }
-  // Conservative heuristic to match backend: only narrate sandbox blocks that
-  // look like actual text content (paragraphs/lists/headings), not layout-only divs.
-  return /<(p|li|h[1-6])\b/i.test(trimmed);
+  // Listen Mode requirement: never narrate sandbox HTML blocks.
+  void raw;
+  return false;
 };
 
 const findFirstHtmlVisualBlock = (
@@ -410,10 +406,9 @@ export const useListenContentData = (items: ChatContentItem[]) => {
               idx => idx >= windowStart && idx < windowEnd,
             );
 
-            // Backend may synthesize narration from some sandbox blocks even when
-            // there is no text gap after them (e.g. styled <div> with <p> at EOF).
-            const hasSpeakableContent =
-              hasSpeakableTextInWindow || current.isSpeakableSandbox;
+            // Listen Mode does not narrate sandbox HTML blocks, so only plain text
+            // windows become audio positions.
+            const hasSpeakableContent = hasSpeakableTextInWindow;
 
             if (!hasSpeakableContent) {
               continue;

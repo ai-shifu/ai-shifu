@@ -30,7 +30,7 @@
 - [x] Persist one `LearnGeneratedAudio` row per `(generated_block_bid, position)`.
 - [x] Guard against AV boundary markers split across stream chunks (do not speak sandbox/visual HTML).
 - [x] Fix: treat sandbox blocks closed at EOF as complete in streaming segmentation (avoid dropping content).
-- [x] Fix: inject narration from textual sandbox HTML blocks (`<p>/<li>/<h*>`) to avoid missing audio after visuals.
+- [x] Change: do not narrate any sandbox HTML blocks (remove textual-sandbox narration fallback).
 
 ## Frontend (Cook Web)
 
@@ -47,7 +47,7 @@
 - [x] Stop auto-calling on-demand segmented TTS (`/generated-blocks/<bid>/tts?listen=true`); RUN SSE is source of truth.
 - [x] Group incoming run SSE `audio_segment/audio_complete` by `position` (store in `audioTracksByPosition`).
 - [x] Fix: map single-position audio to `pagesForAudio[0]` when available (sync to correct slide).
-- [x] Fix: align `position -> page` mapping with backend when narration comes from textual sandbox HTML blocks.
+- [x] Fix: align `position -> page` mapping with backend (sandbox HTML is never narrated).
 - [x] Fix: stabilize streaming SVG rendering to avoid blank flicker during generation.
 - [x] Regression: ensure non-listen mode audio button still works (single audio_url path unchanged).
 

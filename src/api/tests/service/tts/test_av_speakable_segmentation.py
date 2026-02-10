@@ -120,13 +120,13 @@ def test_split_av_speakable_segments_splits_sandbox_html_block(app):
     assert split_av_speakable_segments(text) == ["Before.", "After."]
 
 
-def test_split_av_speakable_segments_injects_speakable_sandbox_html_block(app):
+def test_split_av_speakable_segments_does_not_narrate_sandbox_html_block(app):
     _require_app(app)
 
     from flaskr.service.tts.pipeline import split_av_speakable_segments
 
     text = "Before.\n<div><h3>Title</h3><p>Story.</p></div>\nAfter."
-    assert split_av_speakable_segments(text) == ["Before.", "TitleStory.\nAfter."]
+    assert split_av_speakable_segments(text) == ["Before.", "After."]
 
 
 def test_split_av_speakable_segments_returns_single_segment_when_no_boundaries(app):

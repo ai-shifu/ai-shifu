@@ -7,7 +7,7 @@ In **Listen Mode** (audiovisual / 视听模式), the LLM can return a mixture of
 - speakable text
 - visual elements treated as boundaries (e.g. `<svg>...</svg>`, `<img ...>`, mermaid/code fences, HTML sandbox blocks)
 
-Sandbox HTML blocks are visual boundaries. By default we do **not** narrate them; however, for some “textual” sandbox blocks (e.g. styled `<div>` containing `<p>/<li>/<h*>`), we may extract and narrate their text so Listen Mode is not silent when the LLM wraps narration in HTML.
+Sandbox HTML blocks are visual boundaries and must **never** be narrated in Listen Mode.
 
 Today, the backend synthesizes speech in *provider-safe chunks* (sentence/length-based) and then **concatenates the whole block into a single audio file**. This prevents the frontend from synchronizing narration with multiple visual segments inside the same generated block.
 
@@ -207,7 +207,6 @@ Listen Mode should treat audio as **multiple tracks per generated block**:
 - One audio `position` corresponds to one “narration window” between visual boundaries.
 - Map that narration window to the closest preceding visual slide page.
 - If narration appears before the first visual, map it to a placeholder slide (so the first position has a stable page).
-- If the backend injected narration from a “textual” sandbox block (no text gap after the sandbox), map that position to the sandbox slide page.
 
 Data model changes (frontend):
 
