@@ -1877,6 +1877,8 @@ export const useListenAudioSequence = ({
     const nextIndex = currentIndex + 1;
     const currentItem = list[currentIndex];
     const nextItem = list[nextIndex];
+    const currentPage = currentItem?.page ?? currentPptPageRef.current;
+    const nextPage = nextItem?.page ?? null;
     const currentBid =
       currentItem?.type === ChatContentItemType.CONTENT
         ? resolveContentBid(currentItem.generated_block_bid)
@@ -1885,6 +1887,29 @@ export const useListenAudioSequence = ({
       nextItem?.type === ChatContentItemType.CONTENT
         ? resolveContentBid(nextItem.generated_block_bid)
         : null;
+
+    // Do not skip silent visual slides. If the next timeline item is on a later page,
+    // stop at the immediate next slide and wait for manual navigation.
+    if (
+      typeof currentPage === 'number' &&
+      typeof nextPage === 'number' &&
+      nextPage > currentPage + 1
+    ) {
+      const targetPage = currentPage + 1;
+      const moved = syncToSequencePage(targetPage);
+      if (!moved) {
+        // If Reveal hasn't caught up yet, retry briefly.
+        clearAudioSequenceTimer();
+        audioSequenceTimerRef.current = setTimeout(() => {
+          handleAudioEnded();
+        }, 120);
+        return;
+      }
+      setSequenceInteraction(null);
+      setActiveAudioBid(null);
+      setIsAudioSequenceActive(false);
+      return;
+    }
 
     // Keep immediate progression for segmented audio within the same content block.
     if (currentBid && nextBid && currentBid === nextBid) {
@@ -1903,7 +1928,13 @@ export const useListenAudioSequence = ({
     };
 
     continueSequence();
-  }, [playAudioSequenceFromIndex, resolveContentBid, tryAdvanceToNextBlock]);
+  }, [
+    clearAudioSequenceTimer,
+    playAudioSequenceFromIndex,
+    resolveContentBid,
+    syncToSequencePage,
+    tryAdvanceToNextBlock,
+  ]);
 
   const logAudioAction = useCallback(
     (action: 'play' | 'pause') => {

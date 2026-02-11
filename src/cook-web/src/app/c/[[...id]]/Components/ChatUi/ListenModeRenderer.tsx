@@ -231,6 +231,17 @@ const ListenModeRenderer = ({
     [audioAndInteractionList],
   );
 
+  const pagesWithAudio = useMemo(() => {
+    const pages = new Set<number>();
+    audioAndInteractionList.forEach(item => {
+      if (item.type !== ChatContentItemType.CONTENT) {
+        return;
+      }
+      pages.add(item.page);
+    });
+    return pages;
+  }, [audioAndInteractionList]);
+
   const resolveAudioSequenceIndexByDirection = useCallback(
     (page: number, direction: -1 | 1) => {
       if (!audioContentSequence.length) {
@@ -269,6 +280,13 @@ const ListenModeRenderer = ({
   );
 
   const onPrev = useCallback(() => {
+    if (!isAudioSequenceActive) {
+      const prevPage = goPrev();
+      if (typeof prevPage === 'number' && pagesWithAudio.has(prevPage)) {
+        startSequenceFromPage(prevPage);
+      }
+      return;
+    }
     const currentPage =
       deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
     const targetSequenceIndex = resolveAudioSequenceIndexByDirection(
@@ -286,10 +304,12 @@ const ListenModeRenderer = ({
   }, [
     deckRef,
     currentPptPageRef,
-    resolveAudioSequenceIndexByDirection,
+    isAudioSequenceActive,
     goPrev,
-    startSequenceFromIndex,
+    pagesWithAudio,
     startSequenceFromPage,
+    resolveAudioSequenceIndexByDirection,
+    startSequenceFromIndex,
   ]);
 
   const currentSequencePage =
@@ -312,6 +332,13 @@ const ListenModeRenderer = ({
       continueAfterInteraction();
       return;
     }
+    if (!isAudioSequenceActive) {
+      const nextPage = goNext();
+      if (typeof nextPage === 'number' && pagesWithAudio.has(nextPage)) {
+        startSequenceFromPage(nextPage);
+      }
+      return;
+    }
     const currentPage =
       deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
     const targetSequenceIndex = resolveAudioSequenceIndexByDirection(
@@ -329,12 +356,14 @@ const ListenModeRenderer = ({
   }, [
     deckRef,
     currentPptPageRef,
-    resolveAudioSequenceIndexByDirection,
+    isAudioSequenceActive,
     goNext,
+    pagesWithAudio,
+    startSequenceFromPage,
+    resolveAudioSequenceIndexByDirection,
     sequenceInteraction,
     continueAfterInteraction,
     startSequenceFromIndex,
-    startSequenceFromPage,
   ]);
 
   const currentInteractionPage = useMemo(() => {
