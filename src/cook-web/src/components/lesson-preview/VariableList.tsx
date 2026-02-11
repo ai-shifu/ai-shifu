@@ -176,26 +176,26 @@ const VariableList: React.FC<VariableListProps> = ({
                       onChange?.(name, nextValue);
                     }}
                   />
+                  {canHide && onHideVariable && (
+                    <button
+                      type='button'
+                      className={styles.hideBadge}
+                      onClick={event => {
+                        event.stopPropagation();
+                        onHideVariable(name);
+                      }}
+                      aria-label={t(
+                        'module.shifu.previewArea.variablesHideSingleConfirmTitle',
+                      )}
+                    >
+                      <X
+                        size={12}
+                        strokeWidth={2}
+                        aria-hidden='true'
+                      />
+                    </button>
+                  )}
                 </div>
-                {canHide && onHideVariable && (
-                  <button
-                    type='button'
-                    className={styles.hideBadge}
-                    onClick={event => {
-                      event.stopPropagation();
-                      onHideVariable(name);
-                    }}
-                    aria-label={t(
-                      'module.shifu.previewArea.variablesHideSingleConfirmTitle',
-                    )}
-                  >
-                    <X
-                      size={12}
-                      strokeWidth={2}
-                      aria-hidden='true'
-                    />
-                  </button>
-                )}
               </div>
             );
           })}
