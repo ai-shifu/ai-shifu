@@ -84,8 +84,10 @@ export interface SystemStoreState {
 export interface CourseStoreState {
   courseName: string;
   courseAvatar: string;
+  courseTtsEnabled: boolean | null;
   updateCourseAvatar: (avatar: string) => void;
   updateCourseName: (name: string) => void;
+  updateCourseTtsEnabled: (enabled: boolean | null) => void;
   lessonId: string | undefined;
   updateLessonId: (id: string) => void;
   chapterId: string;

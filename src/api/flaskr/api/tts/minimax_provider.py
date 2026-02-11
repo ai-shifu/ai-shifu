@@ -83,7 +83,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
 
     @property
     def provider_name(self) -> str:
-        return "minimax"
+        return "MiniMax"
 
     def is_configured(self) -> bool:
         """Check if Minimax TTS is properly configured."""
@@ -292,8 +292,8 @@ class MinimaxTTSProvider(BaseTTSProvider):
     def get_provider_config(self) -> ProviderConfig:
         """Get Minimax provider configuration for frontend."""
         return ProviderConfig(
-            name="minimax",
-            label="Minimax",
+            name="MiniMax",
+            label="MiniMax",
             speed=ParamRange(min=0.5, max=2.0, step=0.1, default=1.0),
             pitch=ParamRange(min=-12, max=12, step=1, default=0),
             supports_emotion=True,

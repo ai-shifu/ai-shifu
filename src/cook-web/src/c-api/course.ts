@@ -17,6 +17,7 @@ export const getCourseInfo = async (courseId: string, previewMode: boolean) => {
         course_price: res.price,
         course_teacher_avatar: res.avatar,
         course_avatar: res.avatar,
+        course_tts_enabled: !!res?.tts_enabled,
       };
       return data;
     })

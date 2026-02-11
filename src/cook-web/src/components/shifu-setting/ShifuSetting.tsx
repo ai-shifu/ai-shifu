@@ -77,6 +77,7 @@ import { useEnvStore } from '@/c-store';
 import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
 import { useShifu, useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import { canManageArchive as canManageArchiveForShifu } from '@/lib/shifu-permissions';
 
 interface Shifu {
   description: string;
@@ -159,12 +160,10 @@ export default function ShifuSettingDialog({
     url: null,
   });
   const { trackEvent } = useTracking();
-  const canManageArchive =
-    !!currentShifu?.bid &&
-    (currentShifu?.can_manage_archive ??
-      (currentShifu?.created_user_bid
-        ? currentShifu.created_user_bid === currentUserId
-        : !currentShifu?.readonly));
+  const canManageArchive = canManageArchiveForShifu(
+    currentShifu,
+    currentUserId,
+  );
   const handleArchiveToggle = useCallback(async () => {
     if (!currentShifu?.bid || !canManageArchive) {
       return;

@@ -7,7 +7,13 @@ from flaskr.api.tts import get_tts_provider
 from flaskr.service.common.models import raise_error_with_args
 
 
-SUPPORTED_TTS_PROVIDERS = {"minimax", "volcengine", "baidu", "aliyun"}
+SUPPORTED_TTS_PROVIDERS = {
+    "minimax",
+    "volcengine",
+    "volcengine_http",
+    "baidu",
+    "aliyun",
+}
 PROVIDERS_REQUIRING_MODEL = {"minimax", "volcengine"}
 
 

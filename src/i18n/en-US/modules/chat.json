@@ -8,6 +8,7 @@
   "generating": "Generating diagram...",
   "like": "Like",
   "listenInteractionHint": "Submit the following to continue learning",
+  "listenModeTtsDisabled": "Text-to-Speech is not enabled for this course, so listen mode is unavailable.",
   "markdownFlow": "MarkdownFlow",
   "noMoreLessons": "You've completed all available sections.",
   "outputInProgress": "Content is still generating. Please wait before retrying.",

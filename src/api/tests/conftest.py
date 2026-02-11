@@ -200,9 +200,34 @@ def isolate_env_for_non_app_tests(request):
     original = {key: os.environ.get(key) for key in ENV_VARS.keys()}
     for key in ENV_VARS.keys():
         os.environ.pop(key, None)
+
+    # Some tests monkeypatch env vars while a session-scoped Flask app has
+    # already initialized the enhanced config cache. Clear caches so get_config
+    # reflects per-test env changes.
+    from flaskr.common import config as config_module
+
+    try:
+        config_module.__ENHANCED_CONFIG__._cache.clear()
+    except Exception:
+        pass
+    try:
+        if config_module.__INSTANCE__ is not None:
+            config_module.__INSTANCE__.enhanced._cache.clear()
+    except Exception:
+        pass
     yield
     for key, value in original.items():
         if value is None:
             os.environ.pop(key, None)
         else:
             os.environ[key] = value
+
+    try:
+        config_module.__ENHANCED_CONFIG__._cache.clear()
+    except Exception:
+        pass
+    try:
+        if config_module.__INSTANCE__ is not None:
+            config_module.__INSTANCE__.enhanced._cache.clear()
+    except Exception:
+        pass

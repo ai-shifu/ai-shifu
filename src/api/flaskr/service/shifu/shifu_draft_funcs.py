@@ -336,7 +336,7 @@ def save_shifu_draft_info(
         shifu_system_prompt: Shifu system prompt
         base_url: Base URL to build shifu links
         tts_enabled: Whether TTS is enabled
-        tts_provider: TTS provider (minimax, volcengine, baidu, aliyun)
+        tts_provider: TTS provider (minimax, volcengine, volcengine_http, baidu, aliyun)
         tts_model: TTS model/resource ID
         tts_voice_id: TTS voice ID
         tts_speed: TTS speech speed
