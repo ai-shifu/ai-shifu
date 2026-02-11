@@ -1,5 +1,5 @@
 import styles from './ChatComponents.module.scss';
-import { ChevronsDown } from 'lucide-react';
+import { ChevronsDown, Loader2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import {
   useContext,
@@ -143,7 +143,6 @@ export const NewChatComponents = ({
       payModalResult: state.payModalResult,
     })),
   );
-  const resetedLessonId = useCourseStore(state => state.resetedLessonId);
   const learningMode = useSystemStore(state => state.learningMode);
   const isListenMode = learningMode === 'listen';
   const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
@@ -151,7 +150,6 @@ export const NewChatComponents = ({
   const isListenModeActive = isListenMode && isListenModeAvailable;
   const shouldShowAudioAction = previewMode || isListenModeActive;
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
-  const [listenModeResetKey, setListenModeResetKey] = useState(0);
 
   const onPayModalOpen = useCallback(() => {
     openPayModal();
@@ -205,15 +203,6 @@ export const NewChatComponents = ({
     fail(t('module.chat.listenModeTtsDisabled'));
     listenTtsToastShownRef.current = true;
   }, [isListenMode, isListenModeAvailable, t]);
-
-  useEffect(() => {
-    if (!resetedLessonId || resetedLessonId !== lessonId) {
-      return;
-    }
-    // Force remount to reset listen sequence state after lesson reset.
-    setListenModeResetKey(prev => prev + 1);
-    console.log('销毁当前listenmode')
-  }, [lessonId, resetedLessonId]);
 
   const {
     items,
@@ -489,6 +478,9 @@ export const NewChatComponents = ({
     </button>
   );
 
+  useEffect(() => {
+    console.log('isLoading', isLoading);
+  }, [isLoading]);
   return (
     <div
       className={containerClassName}
@@ -496,18 +488,23 @@ export const NewChatComponents = ({
     >
       {isListenMode ? (
         isListenModeAvailable ? (
-          <ListenModeRenderer
-            key={`${lessonId}-${listenModeResetKey}`}
-            items={listenModeItems}
-            mobileStyle={mobileStyle}
-            chatRef={chatRef as React.RefObject<HTMLDivElement>}
-            containerClassName={containerClassName}
-            isLoading={isLoading}
-            sectionTitle={lessonTitle}
-            previewMode={previewMode}
-            onRequestAudioForBlock={requestAudioForBlock}
-            onSend={memoizedOnSend}
-          />
+          isLoading ? (
+              <div className='w-full h-full flex items-center justify-center'>
+                <Loader2 className='animate-spin size-6 text-primary' />
+              </div>
+          ) : (
+            <ListenModeRenderer
+              items={listenModeItems}
+              mobileStyle={mobileStyle}
+              chatRef={chatRef as React.RefObject<HTMLDivElement>}
+              containerClassName={containerClassName}
+              isLoading={isLoading}
+              sectionTitle={lessonTitle}
+              previewMode={previewMode}
+              onRequestAudioForBlock={requestAudioForBlock}
+              onSend={memoizedOnSend}
+            />
+          )
         ) : (
           <div
             className={cn(
