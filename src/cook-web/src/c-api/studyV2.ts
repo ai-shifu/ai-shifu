@@ -79,6 +79,7 @@ export interface StudyRecordItem {
   isHistory?: boolean;
   audio_url?: string;
   audios?: AudioCompleteData[];
+  av_contract?: AvContractData;
 }
 
 export interface LessonStudyRecords {
@@ -117,12 +118,33 @@ export interface RunningResult {
 }
 
 // Audio types for TTS
+export interface AvVisualBoundaryData {
+  kind: string;
+  position: number;
+  block_bid: string;
+  source_span: number[];
+}
+
+export interface AvSpeakableSegmentData {
+  position: number;
+  text: string;
+  after_visual_kind: string;
+  block_bid: string;
+  source_span: number[];
+}
+
+export interface AvContractData {
+  visual_boundaries: AvVisualBoundaryData[];
+  speakable_segments: AvSpeakableSegmentData[];
+}
+
 export interface AudioSegmentData {
   segment_index: number;
   audio_data: string; // Base64 encoded
   duration_ms: number;
   is_final: boolean;
   position?: number;
+  av_contract?: AvContractData;
 }
 
 export interface AudioCompleteData {
@@ -130,6 +152,7 @@ export interface AudioCompleteData {
   audio_bid: string;
   duration_ms: number;
   position?: number;
+  av_contract?: AvContractData;
 }
 
 export interface StreamGeneratedBlockAudioParams {

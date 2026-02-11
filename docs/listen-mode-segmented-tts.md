@@ -11,6 +11,24 @@ Sandbox HTML blocks are visual boundaries and must **never** be narrated in List
 
 Today, the backend synthesizes speech in *provider-safe chunks* (sentence/length-based) and then **concatenates the whole block into a single audio file**. This prevents the frontend from synchronizing narration with multiple visual segments inside the same generated block.
 
+## Requirement Baseline (2026-02-11)
+
+Reference section: [`Requirement Baseline (2026-02-11)`](#requirement-baseline-2026-02-11)
+
+### Core Rules
+
+- Rule A: each visual element (`table/svg/img/html/div/iframe/video/markdown table`) plus its following narration text forms one slide unit.
+- Rule B: slide switching happens only after the narration audio for that slide finishes.
+- Rule C: behavior must remain identical for single-block and cross-block content.
+- Rule D: interaction popup always opens on the current slide and must not re-show title content.
+
+### Examples
+
+- Single block: `<svg>...</svg> text A <svg>...</svg> text B` maps to two slide units.
+- Cross block: block A ends with `<svg>...</svg>`, block B starts with narration text, that narration belongs to block A visual slide.
+- No narration after visual: visual slide stays until manual next (default policy).
+- Multi interactions on one page: interactions are queued in order and are not overwritten.
+
 ## Goals
 
 - Generate **multiple audio files per generated block**, each representing **one speakable segment between visual elements**.

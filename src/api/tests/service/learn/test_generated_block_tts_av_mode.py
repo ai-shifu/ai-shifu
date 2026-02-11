@@ -106,6 +106,11 @@ def test_stream_generated_block_audio_listen_persists_positions(app, monkeypatch
         for event in events
         if event.type == GeneratedType.AUDIO_COMPLETE
     ]
+    complete_contracts = [
+        event.content.av_contract
+        for event in events
+        if event.type == GeneratedType.AUDIO_COMPLETE
+    ]
     segment_positions = [
         event.content.position
         for event in events
@@ -114,6 +119,12 @@ def test_stream_generated_block_audio_listen_persists_positions(app, monkeypatch
 
     assert complete_positions == [0, 1]
     assert segment_positions == [0, 1]
+    assert all(contract for contract in complete_contracts)
+    assert complete_contracts[0]["visual_boundaries"][0]["kind"] == "svg"
+    assert [s["position"] for s in complete_contracts[0]["speakable_segments"]] == [
+        0,
+        1,
+    ]
 
     with app.app_context():
         records = (

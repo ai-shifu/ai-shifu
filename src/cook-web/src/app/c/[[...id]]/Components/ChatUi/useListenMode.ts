@@ -33,10 +33,162 @@ const isListenModeSpeakableText = (raw: string) => {
   return true;
 };
 
-const isListenModeSpeakableSandbox = (raw: string) => {
-  // Listen Mode requirement: never narrate sandbox HTML blocks.
-  void raw;
-  return false;
+const escapeHtml = (raw: string) =>
+  raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const parseMarkdownTableRow = (line: string): string[] => {
+  const trimmed = line.trim();
+  const withoutLeading = trimmed.startsWith('|') ? trimmed.slice(1) : trimmed;
+  const withoutEdges = withoutLeading.endsWith('|')
+    ? withoutLeading.slice(0, -1)
+    : withoutLeading;
+  return withoutEdges.split('|').map(cell => cell.trim());
+};
+
+const parseMarkdownTableAlign = (
+  line: string,
+): Array<'left' | 'center' | 'right' | ''> => {
+  const cells = parseMarkdownTableRow(line);
+  return cells.map(cell => {
+    const token = cell.replace(/\s+/g, '');
+    if (!/^:?-{3,}:?$/.test(token)) {
+      return '';
+    }
+    if (token.startsWith(':') && token.endsWith(':')) {
+      return 'center';
+    }
+    if (token.endsWith(':')) {
+      return 'right';
+    }
+    if (token.startsWith(':')) {
+      return 'left';
+    }
+    return '';
+  });
+};
+
+const isMarkdownTableSeparatorLine = (line: string): boolean => {
+  const cells = parseMarkdownTableRow(line);
+  if (cells.length < 2) {
+    return false;
+  }
+  return cells.every(cell => {
+    const token = cell.replace(/\s+/g, '');
+    return /^:?-{3,}:?$/.test(token);
+  });
+};
+
+const findFirstMarkdownTableBlock = (
+  raw: string,
+): { start: number; end: number } | null => {
+  if (!raw) {
+    return null;
+  }
+
+  const lines = raw.split('\n');
+  if (lines.length < 2) {
+    return null;
+  }
+
+  const lineStarts: number[] = [];
+  let cursor = 0;
+  lines.forEach(line => {
+    lineStarts.push(cursor);
+    cursor += line.length + 1;
+  });
+
+  for (let index = 0; index < lines.length - 1; index += 1) {
+    const headerLine = lines[index];
+    const separatorLine = lines[index + 1];
+    if (!headerLine.includes('|') || !separatorLine.includes('|')) {
+      continue;
+    }
+    const headerCells = parseMarkdownTableRow(headerLine);
+    if (headerCells.length < 2) {
+      continue;
+    }
+    if (!isMarkdownTableSeparatorLine(separatorLine)) {
+      continue;
+    }
+
+    let endLine = index + 2;
+    while (endLine < lines.length) {
+      const line = lines[endLine];
+      if (!line.trim()) {
+        break;
+      }
+      if (!line.includes('|')) {
+        break;
+      }
+      endLine += 1;
+    }
+
+    const start = lineStarts[index];
+    const lastLineIndex = Math.max(endLine - 1, index + 1);
+    let end = lineStarts[lastLineIndex] + lines[lastLineIndex].length;
+    if (end < raw.length && raw[end] === '\n') {
+      end += 1;
+    }
+    return { start, end };
+  }
+
+  return null;
+};
+
+const markdownTableToSandboxHtml = (raw: string): string | null => {
+  const lines = (raw || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+  if (lines.length < 2) {
+    return null;
+  }
+
+  const headerLine = lines[0];
+  const separatorLine = lines[1];
+  if (!headerLine.includes('|') || !separatorLine.includes('|')) {
+    return null;
+  }
+
+  const headers = parseMarkdownTableRow(headerLine);
+  const alignments = parseMarkdownTableAlign(separatorLine);
+  if (!headers.length || !alignments.length) {
+    return null;
+  }
+
+  const bodyLines = lines.slice(2).filter(line => line.includes('|'));
+  const headerHtml = headers
+    .map((header, index) => {
+      const align = alignments[index] || '';
+      const alignAttr = align ? ` style="text-align:${align};"` : '';
+      return `<th${alignAttr}>${escapeHtml(header)}</th>`;
+    })
+    .join('');
+
+  const bodyHtml = bodyLines
+    .map(line => {
+      const cells = parseMarkdownTableRow(line);
+      if (!cells.length) {
+        return '';
+      }
+      const cellsHtml = cells
+        .map((cell, index) => {
+          const align = alignments[index] || '';
+          const alignAttr = align ? ` style="text-align:${align};"` : '';
+          return `<td${alignAttr}>${escapeHtml(cell)}</td>`;
+        })
+        .join('');
+      return `<tr>${cellsHtml}</tr>`;
+    })
+    .filter(Boolean)
+    .join('');
+
+  return `<div><table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table></div>`;
 };
 
 const findFirstHtmlVisualBlock = (
@@ -74,11 +226,14 @@ const findFirstHtmlVisualBlock = (
     return null;
   }
 
-  const closeTag =
-    kind === 'video' ? '</video>' : kind === 'table' ? '</table>' : '</iframe>';
-  const closeIdx = lower.indexOf(closeTag, start);
+  const closeTagName =
+    kind === 'video' ? 'video' : kind === 'table' ? 'table' : 'iframe';
+  const closeIdx = lower.indexOf(`</${closeTagName}`, start);
   if (closeIdx !== -1) {
-    return { kind, start, end: closeIdx + closeTag.length };
+    const closeEnd = raw.indexOf('>', closeIdx);
+    if (closeEnd !== -1) {
+      return { kind, start, end: closeEnd + 1 };
+    }
   }
 
   // Best-effort support for self-closing <video ... /> / <iframe ... /> tags.
@@ -95,12 +250,33 @@ const findFirstHtmlVisualBlock = (
   return null;
 };
 
-const splitTextByHtmlVisualBlocks = (raw: string): RenderSegment[] => {
+type TextVisualBlock =
+  | { kind: HtmlVisualKind; start: number; end: number }
+  | { kind: 'markdown-table'; start: number; end: number };
+
+const findFirstTextVisualBlock = (raw: string): TextVisualBlock | null => {
+  const htmlBlock = findFirstHtmlVisualBlock(raw);
+  const markdownTableBlock = findFirstMarkdownTableBlock(raw);
+  if (!htmlBlock && !markdownTableBlock) {
+    return null;
+  }
+  if (!htmlBlock) {
+    return { kind: 'markdown-table', ...markdownTableBlock! };
+  }
+  if (!markdownTableBlock) {
+    return htmlBlock;
+  }
+  return markdownTableBlock.start < htmlBlock.start
+    ? { kind: 'markdown-table', ...markdownTableBlock }
+    : htmlBlock;
+};
+
+const splitTextByVisualBlocks = (raw: string): RenderSegment[] => {
   if (!raw || !raw.trim()) {
     return [];
   }
 
-  const block = findFirstHtmlVisualBlock(raw);
+  const block = findFirstTextVisualBlock(raw);
   if (!block) {
     return [{ type: 'text', value: raw }];
   }
@@ -113,12 +289,41 @@ const splitTextByHtmlVisualBlocks = (raw: string): RenderSegment[] => {
   if (before.trim()) {
     output.push({ type: 'text', value: before });
   }
-  output.push({
-    type: block.kind === 'iframe' ? 'sandbox' : 'markdown',
-    value: matched,
-  });
+  if (block.kind === 'markdown-table') {
+    const markdownTableSandbox = markdownTableToSandboxHtml(matched);
+    if (markdownTableSandbox) {
+      output.push({
+        type: 'sandbox',
+        value: markdownTableSandbox,
+      });
+    } else {
+      output.push({
+        type: 'markdown',
+        value: matched,
+      });
+    }
+  } else {
+    if (block.kind === 'iframe') {
+      output.push({
+        type: 'sandbox',
+        value: matched,
+      });
+    } else if (block.kind === 'table') {
+      // In blackboard mode, IframeSandbox only mounts content extracted from
+      // sandbox-root HTML blocks. Wrap bare <table> so it renders in sandbox.
+      output.push({
+        type: 'sandbox',
+        value: `<div>${matched}</div>`,
+      });
+    } else {
+      output.push({
+        type: 'markdown',
+        value: matched,
+      });
+    }
+  }
   if (after.trim()) {
-    output.push(...splitTextByHtmlVisualBlocks(after));
+    output.push(...splitTextByVisualBlocks(after));
   }
   return output;
 };
@@ -172,8 +377,72 @@ const splitSandboxByRootBoundary = (
   return { head: trimmed.slice(0, end), rest };
 };
 
+const mergeHtmlTableSegments = (segments: RenderSegment[]): RenderSegment[] => {
+  if (!segments.length) {
+    return segments;
+  }
+
+  const output: RenderSegment[] = [];
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    if (segment.type !== 'text') {
+      output.push(segment);
+      continue;
+    }
+
+    const raw = typeof segment.value === 'string' ? segment.value : '';
+    const lower = raw.toLowerCase();
+    const tableStart = lower.indexOf('<table');
+    if (tableStart === -1) {
+      output.push(segment);
+      continue;
+    }
+
+    // If the closing tag is already present, keep the segment intact.
+    // `splitTextByVisualBlocks()` will handle turning it into a visual sandbox segment.
+    if (lower.indexOf('</table', tableStart) !== -1) {
+      output.push(segment);
+      continue;
+    }
+
+    // Merge forward to reconstruct tables that were split by other HTML/markdown
+    // detectors (e.g. <img> inside <table>), otherwise the table ends up as
+    // non-visual `text` and gets dropped from slides.
+    let merged = raw;
+    let mergedLower = lower;
+    let foundClose = false;
+    let nextIndex = index;
+
+    for (let scan = index + 1; scan < segments.length; scan += 1) {
+      const next = segments[scan];
+      const nextValue = typeof next.value === 'string' ? next.value : '';
+      const nextLower = nextValue.toLowerCase();
+      merged += nextValue;
+      mergedLower += nextLower;
+      if (mergedLower.includes('</table')) {
+        foundClose = true;
+        nextIndex = scan;
+        break;
+      }
+    }
+
+    if (!foundClose) {
+      output.push(segment);
+      continue;
+    }
+
+    output.push({ type: 'text', value: merged });
+    index = nextIndex;
+  }
+
+  return output;
+};
+
 const splitListenModeSegments = (raw: string): RenderSegment[] => {
-  const baseSegments = splitContentSegments(raw || '', true);
+  const baseSegments = mergeHtmlTableSegments(
+    splitContentSegments(raw || '', true),
+  );
   if (!baseSegments.length) {
     return baseSegments;
   }
@@ -186,6 +455,18 @@ const splitListenModeSegments = (raw: string): RenderSegment[] => {
         if (split) {
           output.push({ type: 'sandbox', value: split.head });
           output.push(...splitListenModeSegments(split.rest));
+          return;
+        }
+      }
+      if (segment.type === 'markdown') {
+        const markdownTableSandbox = markdownTableToSandboxHtml(
+          typeof segment.value === 'string' ? segment.value : '',
+        );
+        if (markdownTableSandbox) {
+          output.push({
+            type: 'sandbox',
+            value: markdownTableSandbox,
+          });
           return;
         }
       }
@@ -203,7 +484,7 @@ const splitListenModeSegments = (raw: string): RenderSegment[] => {
       return;
     }
 
-    output.push(...splitTextByHtmlVisualBlocks(segment.value));
+    output.push(...splitTextByVisualBlocks(segment.value));
   });
 
   return output;
@@ -217,6 +498,66 @@ export type AudioInteractionItem = ChatContentItem & {
 export type ListenSlideItem = {
   item: ChatContentItem;
   segments: RenderSegment[];
+};
+
+const resolveListenInteractionAutoContinueMs = () => {
+  const raw = process.env.NEXT_PUBLIC_LISTEN_INTERACTION_AUTOCONTINUE_MS;
+  if (!raw) {
+    return 0;
+  }
+  const value = Number(raw);
+  if (Number.isNaN(value) || value <= 0) {
+    return 0;
+  }
+  return Math.floor(value);
+};
+
+const getAvailableAudioPositions = (item: ChatContentItem): number[] => {
+  const contractPositions =
+    item.avContract && item.avContract.speakable_segments
+      ? item.avContract.speakable_segments
+          .map(segment => Number(segment.position ?? 0))
+          .filter(value => !Number.isNaN(value))
+      : [];
+  const persistedPositions =
+    item.audios && item.audios.length > 0
+      ? Array.from(
+          new Set(
+            item.audios
+              .map(audio => Number((audio as any).position ?? 0))
+              .filter(value => !Number.isNaN(value)),
+          ),
+        )
+      : [];
+  const trackPositions =
+    item.audioTracksByPosition &&
+    Object.keys(item.audioTracksByPosition).length > 0
+      ? Object.keys(item.audioTracksByPosition)
+          .map(Number)
+          .filter(value => !Number.isNaN(value))
+      : [];
+  return Array.from(
+    new Set([...contractPositions, ...persistedPositions, ...trackPositions]),
+  ).sort((a, b) => a - b);
+};
+
+const hasAnyAudioPayload = (item: ChatContentItem): boolean => {
+  const hasAnySegmentedAudio = Boolean(
+    (item.audios && item.audios.length > 0) ||
+    (item.audioTracksByPosition &&
+      Object.keys(item.audioTracksByPosition).length > 0),
+  );
+  const hasContractAudioPositions = Boolean(
+    item.avContract?.speakable_segments &&
+    item.avContract.speakable_segments.length > 0,
+  );
+  return Boolean(
+    item.audioUrl ||
+    (item.audioSegments && item.audioSegments.length > 0) ||
+    item.isAudioStreaming ||
+    hasAnySegmentedAudio ||
+    hasContractAudioPositions,
+  );
 };
 
 export const useListenContentData = (items: ChatContentItem[]) => {
@@ -277,223 +618,266 @@ export const useListenContentData = (items: ChatContentItem[]) => {
     audioPageByBid,
   } = useMemo(() => {
     let pageCursor = 0;
-    const mapping = new Map<number, ChatContentItem>();
+    let latestVisualPage = -1;
+    const interactionMapping = new Map<number, ChatContentItem[]>();
     const audioPageByBid = new Map<string, number[]>();
     const nextSlideItems: ListenSlideItem[] = [];
     const nextAudioAndInteractionList: AudioInteractionItem[] = [];
+    type SegmentTuple = {
+      sourceIndex: number;
+      item: ChatContentItem;
+      segments: RenderSegment[];
+      visualSegments: RenderSegment[];
+      firstVisualPage: number;
+      lastVisualPage: number;
+      pagesForAudio: number[];
+    };
+    const contentSegments: SegmentTuple[] = [];
 
-    items.forEach(item => {
-      const segments =
-        item.type === ChatContentItemType.CONTENT && !!item.content
-          ? splitListenModeSegments(item.content || '')
-          : [];
+    items.forEach((item, sourceIndex) => {
+      if (item.type !== ChatContentItemType.CONTENT) {
+        return;
+      }
+
+      const segments = item.content
+        ? splitListenModeSegments(item.content || '')
+        : [];
+      const previousVisualPageBeforeBlock = latestVisualPage;
       const visualSegments = segments.filter(
         segment => segment.type === 'markdown' || segment.type === 'sandbox',
       );
-      const hasVisualSegments = visualSegments.length > 0;
-      const hasSpeakableText = segments.some(segment => {
-        if (segment.type !== 'text') {
-          return false;
+      const visualPageBySegmentIndex = new Map<number, number>();
+      let localVisualOffset = 0;
+      segments.forEach((segment, segmentIndex) => {
+        if (segment.type !== 'markdown' && segment.type !== 'sandbox') {
+          return;
         }
-        const raw = typeof segment.value === 'string' ? segment.value : '';
-        return isListenModeSpeakableText(raw);
+        visualPageBySegmentIndex.set(
+          segmentIndex,
+          pageCursor + localVisualOffset,
+        );
+        localVisualOffset += 1;
       });
 
-      // In listen mode, a generated block might contain only narration (no visual blocks).
-      // We still need a slide "page" so audio and interactions can be sequenced.
-      //
-      // Also, when narration appears *before* the first visual block in the same generated
-      // block, we add a placeholder slide so the first audio segment has a stable page.
-      const firstVisualIndex = segments.findIndex(
-        segment => segment.type === 'markdown' || segment.type === 'sandbox',
-      );
-      const firstSpeakableTextIndex = segments.findIndex(segment => {
-        if (segment.type !== 'text') {
-          return false;
+      const firstVisualPage = visualSegments.length > 0 ? pageCursor : -1;
+      const lastVisualPage =
+        visualSegments.length > 0
+          ? pageCursor + visualSegments.length - 1
+          : latestVisualPage;
+      if (visualSegments.length > 0) {
+        nextSlideItems.push({
+          item,
+          segments: visualSegments,
+        });
+      }
+
+      const pagesForAudioLocal: number[] = [];
+      let windowHasSpeakableText = false;
+      segments.forEach((segment, segmentIndex) => {
+        if (segment.type === 'text') {
+          const raw = typeof segment.value === 'string' ? segment.value : '';
+          if (isListenModeSpeakableText(raw)) {
+            windowHasSpeakableText = true;
+          }
+          return;
         }
-        const raw = typeof segment.value === 'string' ? segment.value : '';
-        return isListenModeSpeakableText(raw);
+        if (segment.type !== 'markdown' && segment.type !== 'sandbox') {
+          return;
+        }
+        if (windowHasSpeakableText) {
+          pagesForAudioLocal.push(latestVisualPage);
+          windowHasSpeakableText = false;
+        }
+        const pageForVisual = visualPageBySegmentIndex.get(segmentIndex);
+        if (typeof pageForVisual === 'number') {
+          latestVisualPage = pageForVisual;
+        }
       });
-      const shouldPrependPlaceholder =
-        item.type === ChatContentItemType.CONTENT &&
-        hasSpeakableText &&
-        hasVisualSegments &&
-        firstSpeakableTextIndex !== -1 &&
-        firstVisualIndex !== -1 &&
-        firstSpeakableTextIndex < firstVisualIndex;
+      if (windowHasSpeakableText) {
+        pagesForAudioLocal.push(latestVisualPage);
+      }
 
-      const slideSegments: RenderSegment[] = hasVisualSegments
-        ? shouldPrependPlaceholder
-          ? [{ type: 'text', value: '' }, ...visualSegments]
-          : visualSegments
-        : item.type === ChatContentItemType.CONTENT && hasSpeakableText
-          ? [{ type: 'text', value: '' }]
-          : [];
-      const fallbackPage = Math.max(pageCursor - 1, 0);
-      const contentPage = slideSegments.length > 0 ? pageCursor : fallbackPage;
-      const interactionPage = fallbackPage;
-      const hasAnySegmentedAudio = Boolean(
-        (item.audios && item.audios.length > 0) ||
-        (item.audioTracksByPosition &&
-          Object.keys(item.audioTracksByPosition).length > 0),
-      );
-      const hasAudio = Boolean(
-        item.audioUrl ||
-        (item.audioSegments && item.audioSegments.length > 0) ||
-        item.isAudioStreaming ||
-        hasAnySegmentedAudio,
-      );
-
-      let pagesForAudio: number[] | null = null;
-      if (
-        item.type === ChatContentItemType.CONTENT &&
-        item.generated_block_bid &&
-        item.generated_block_bid !== 'loading' &&
-        segments.length > 0
-      ) {
-        const visualSegmentsMeta: Array<{
-          segmentIndex: number;
-          isSpeakableSandbox: boolean;
-        }> = [];
-        const speakableTextSegmentIndices: number[] = [];
-
-        segments.forEach((segment, index) => {
-          if (segment.type === 'markdown' || segment.type === 'sandbox') {
-            const value =
-              typeof segment.value === 'string' ? segment.value : '';
-            visualSegmentsMeta.push({
-              segmentIndex: index,
-              isSpeakableSandbox:
-                segment.type === 'sandbox' &&
-                isListenModeSpeakableSandbox(value),
-            });
+      let pagesForAudio = pagesForAudioLocal;
+      const contractSpeakable = item.avContract?.speakable_segments || [];
+      const contractBoundaries = item.avContract?.visual_boundaries || [];
+      if (contractSpeakable.length > 0) {
+        const normalizedBoundaries = contractBoundaries
+          .map(boundary => {
+            const position = Number((boundary as any).position ?? -1);
+            const sourceSpan = Array.isArray((boundary as any).source_span)
+              ? ((boundary as any).source_span as number[])
+              : [];
+            const end = Number(sourceSpan[1] ?? -1);
+            if (Number.isNaN(position) || Number.isNaN(end)) {
+              return null;
+            }
+            return { position, end };
+          })
+          .filter(
+            (boundary): boundary is { position: number; end: number } =>
+              boundary !== null,
+          )
+          .sort((a, b) => a.position - b.position);
+        const contractPages: number[] = [];
+        contractSpeakable.forEach(segment => {
+          const position = Number((segment as any).position ?? -1);
+          const sourceSpan = Array.isArray((segment as any).source_span)
+            ? ((segment as any).source_span as number[])
+            : [];
+          const sourceStart = Number(sourceSpan[0] ?? -1);
+          if (Number.isNaN(position) || position < 0) {
             return;
           }
-          if (segment.type === 'text') {
-            // Keep position mapping aligned with backend streaming TTS:
-            // ignore whitespace-only or too-short segments which backend will not synthesize.
-            const raw = typeof segment.value === 'string' ? segment.value : '';
-            if (isListenModeSpeakableText(raw)) {
-              speakableTextSegmentIndices.push(index);
-            }
+          const precedingBoundary =
+            !Number.isNaN(sourceStart) && sourceStart >= 0
+              ? normalizedBoundaries
+                  .filter(boundary => boundary.end <= sourceStart)
+                  .sort((a, b) => a.end - b.end)
+                  .pop()
+              : undefined;
+          if (!precedingBoundary) {
+            contractPages[position] = previousVisualPageBeforeBlock;
+            return;
           }
+          if (
+            precedingBoundary.position >= visualSegments.length ||
+            firstVisualPage < 0
+          ) {
+            // eslint-disable-next-line no-console
+            console.warn('[listen-timeline] boundary/slide mismatch', {
+              generated_block_bid: item.generated_block_bid,
+              boundaryPosition: precedingBoundary.position,
+              visualSlides: visualSegments.length,
+              firstVisualPage,
+            });
+            contractPages[position] = previousVisualPageBeforeBlock;
+            return;
+          }
+          contractPages[position] =
+            firstVisualPage + precedingBoundary.position;
         });
-
-        const slidePageOffset = shouldPrependPlaceholder ? 1 : 0;
-        const pages: number[] = [];
-        let positionCursor = 0;
-
-        if (!hasVisualSegments) {
-          if (speakableTextSegmentIndices.length > 0) {
-            // No visual boundaries: keep narration on the placeholder slide.
-            pages[positionCursor] = contentPage;
-          }
-        } else {
-          // Placeholder slide for narration before the first visual.
-          if (shouldPrependPlaceholder) {
-            pages[positionCursor] = pageCursor;
-            positionCursor += 1;
-          }
-
-          // One position per "window" after each visual boundary.
-          for (let i = 0; i < visualSegmentsMeta.length; i += 1) {
-            const current = visualSegmentsMeta[i];
-            const next = visualSegmentsMeta[i + 1];
-            const windowStart = current.segmentIndex + 1;
-            const windowEnd = next ? next.segmentIndex : segments.length;
-
-            const hasSpeakableTextInWindow = speakableTextSegmentIndices.some(
-              idx => idx >= windowStart && idx < windowEnd,
-            );
-
-            // Listen Mode does not narrate sandbox HTML blocks, so only plain text
-            // windows become audio positions.
-            const hasSpeakableContent = hasSpeakableTextInWindow;
-
-            if (!hasSpeakableContent) {
-              continue;
-            }
-
-            pages[positionCursor] = pageCursor + slidePageOffset + i;
-            positionCursor += 1;
-          }
-        }
-
-        if (pages.length > 0) {
-          audioPageByBid.set(item.generated_block_bid, pages);
-          pagesForAudio = pages;
+        if (contractPages.some(page => typeof page === 'number')) {
+          pagesForAudio = contractPages;
         }
       }
 
-      if (item.type === ChatContentItemType.CONTENT && hasAudio) {
-        const persistedPositions =
-          item.audios && item.audios.length > 0
-            ? Array.from(
-                new Set(
-                  item.audios
-                    .map(audio => Number((audio as any).position ?? 0))
-                    .filter(value => !Number.isNaN(value)),
-                ),
-              )
-            : [];
-        const trackPositions =
-          item.audioTracksByPosition &&
-          Object.keys(item.audioTracksByPosition).length > 0
-            ? Object.keys(item.audioTracksByPosition)
-                .map(Number)
-                .filter(value => !Number.isNaN(value))
-            : [];
-        const availablePositions = Array.from(
-          new Set([...persistedPositions, ...trackPositions]),
-        ).sort((a, b) => a - b);
+      const blockBid = item.generated_block_bid;
+      if (blockBid && blockBid !== 'loading') {
+        audioPageByBid.set(blockBid, pagesForAudio);
+      }
+
+      contentSegments.push({
+        sourceIndex,
+        item,
+        segments,
+        visualSegments,
+        firstVisualPage,
+        lastVisualPage,
+        pagesForAudio,
+      });
+
+      pageCursor += visualSegments.length;
+    });
+
+    const contentBySourceIndex = new Map<number, SegmentTuple>();
+    contentSegments.forEach(contentSegment => {
+      contentBySourceIndex.set(contentSegment.sourceIndex, contentSegment);
+    });
+
+    let activeTimelinePage = -1;
+    items.forEach((item, sourceIndex) => {
+      if (item.type === ChatContentItemType.CONTENT) {
+        const contentSegment = contentBySourceIndex.get(sourceIndex);
+        if (!contentSegment) {
+          return;
+        }
+        const {
+          item: contentItem,
+          pagesForAudio,
+          firstVisualPage,
+          lastVisualPage,
+        } = contentSegment;
+
+        if (firstVisualPage >= 0) {
+          activeTimelinePage = firstVisualPage;
+        }
+        if (!hasAnyAudioPayload(contentItem)) {
+          if (lastVisualPage >= 0) {
+            activeTimelinePage = lastVisualPage;
+          }
+          return;
+        }
+
+        const availablePositions = getAvailableAudioPositions(contentItem);
         const hasMultiplePositions =
           availablePositions.length > 1 ||
           availablePositions.some(position => position > 0);
-
-        if (hasMultiplePositions) {
-          const positions = availablePositions.length
+        const positions = hasMultiplePositions
+          ? availablePositions.length
             ? availablePositions
-            : [0];
-          positions.forEach(position => {
-            const mappedPage = pagesForAudio?.[position];
-            nextAudioAndInteractionList.push({
-              ...item,
-              page: typeof mappedPage === 'number' ? mappedPage : contentPage,
-              audioPosition: position,
+            : [0]
+          : [0];
+
+        const fallbackPage =
+          (firstVisualPage >= 0 ? firstVisualPage : null) ??
+          (lastVisualPage >= 0 ? lastVisualPage : null) ??
+          (activeTimelinePage >= 0 ? activeTimelinePage : null) ??
+          0;
+
+        positions.forEach(position => {
+          const mappedPage = pagesForAudio[position];
+          const resolvedPage =
+            typeof mappedPage === 'number' && mappedPage >= 0
+              ? mappedPage
+              : fallbackPage;
+          if (typeof mappedPage !== 'number' || mappedPage < 0) {
+            // eslint-disable-next-line no-console
+            console.warn('[listen-timeline] position exists but no slide', {
+              generated_block_bid: contentItem.generated_block_bid,
+              position,
+              mappedPage,
+              fallbackPage,
             });
-          });
-        } else {
+          }
           nextAudioAndInteractionList.push({
-            ...item,
-            page:
-              typeof pagesForAudio?.[0] === 'number'
-                ? pagesForAudio[0]
-                : contentPage,
+            ...contentItem,
+            page: resolvedPage,
+            audioPosition: hasMultiplePositions ? position : undefined,
           });
-        }
-      }
-
-      if (item.type === ChatContentItemType.INTERACTION) {
-        mapping.set(interactionPage, item);
-        nextAudioAndInteractionList.push({
-          ...item,
-          page: interactionPage,
+          activeTimelinePage = resolvedPage;
         });
-      }
 
-      if (slideSegments.length > 0) {
-        nextSlideItems.push({
-          item,
-          segments: slideSegments,
+        pagesForAudio.forEach((mappedPage, mappedPosition) => {
+          if (mappedPage < 0) {
+            return;
+          }
+          if (!positions.includes(mappedPosition)) {
+            // eslint-disable-next-line no-console
+            console.warn('[listen-timeline] slide exists but no position', {
+              generated_block_bid: contentItem.generated_block_bid,
+              position: mappedPosition,
+              mappedPage,
+            });
+          }
         });
+        return;
       }
 
-      pageCursor += slideSegments.length;
+      if (item.type !== ChatContentItemType.INTERACTION) {
+        return;
+      }
+      const interactionPage = activeTimelinePage >= 0 ? activeTimelinePage : 0;
+      const queue = interactionMapping.get(interactionPage) || [];
+      interactionMapping.set(interactionPage, [...queue, item]);
+      nextAudioAndInteractionList.push({
+        ...item,
+        page: interactionPage,
+      });
     });
-    // console.log('items', items);
+
     return {
       slideItems: nextSlideItems,
-      interactionByPage: mapping,
+      interactionByPage: interactionMapping,
       audioAndInteractionList: nextAudioAndInteractionList,
       audioPageByBid,
     };
@@ -565,11 +949,10 @@ interface UseListenPptParams {
   activeBlockBidRef: React.MutableRefObject<string | null>;
   pendingAutoNextRef: React.MutableRefObject<boolean>;
   slideItems: ListenSlideItem[];
-  interactionByPage: Map<number, ChatContentItem>;
+  interactionByPage: Map<number, ChatContentItem[]>;
   sectionTitle?: string;
   isLoading: boolean;
   isAudioPlaying: boolean;
-  activeContentItem?: ChatContentItem;
   shouldRenderEmptyPpt: boolean;
   onResetSequence?: () => void;
   getNextContentBid: (currentBid: string | null) => string | null;
@@ -588,7 +971,6 @@ export const useListenPpt = ({
   sectionTitle,
   isLoading,
   isAudioPlaying,
-  activeContentItem,
   shouldRenderEmptyPpt,
   onResetSequence,
   getNextContentBid,
@@ -644,7 +1026,8 @@ export const useListenPpt = ({
     (pageIndex?: number) => {
       const targetPage =
         typeof pageIndex === 'number' ? pageIndex : currentPptPageRef.current;
-      setCurrentInteraction(interactionByPage.get(targetPage) ?? null);
+      const queue = interactionByPage.get(targetPage) || [];
+      setCurrentInteraction(queue[0] ?? null);
     },
     [interactionByPage, currentPptPageRef],
   );
@@ -867,34 +1250,15 @@ export const useListenPpt = ({
         prevSlidesLength > 0 &&
         nextSlidesLength > prevSlidesLength &&
         currentIndex >= prevLastIndex;
-      const shouldHoldForStreamingAudio =
-        isAudioPlaying &&
-        Boolean(
-          activeContentItem?.isAudioStreaming ||
-          (activeContentItem?.audioSegments &&
-            activeContentItem.audioSegments.length > 0),
-        );
-      const shouldHoldForSegmentedAudio =
-        isAudioPlaying &&
-        Boolean(
-          activeContentItem?.audioTracksByPosition &&
-          Object.values(activeContentItem.audioTracksByPosition).some(
-            track =>
-              Boolean(track?.isAudioStreaming) ||
-              Boolean(track?.audioSegments && track.audioSegments.length > 0),
-          ),
-        );
       if (pendingAutoNextRef.current) {
         const moved = goToNextBlock();
         pendingAutoNextRef.current = !moved;
       }
 
-      if (shouldHoldForStreamingAudio || shouldHoldForSegmentedAudio) {
-        prevSlidesLengthRef.current = nextSlidesLength;
-        return;
-      }
-
-      if (isAudioPlaying && !shouldAutoFollowOnAppend) {
+      // During playback, slide progression should be controlled by audio sequence
+      // mapping only. Auto-following newly appended slides here causes premature
+      // visual jumps before narration finishes.
+      if (isAudioPlaying) {
         prevSlidesLengthRef.current = nextSlidesLength;
         return;
       }
@@ -921,8 +1285,6 @@ export const useListenPpt = ({
     goToNextBlock,
     chatRef,
     updateNavState,
-    activeContentItem?.isAudioStreaming,
-    activeContentItem?.audioSegments?.length,
     deckRef,
     pendingAutoNextRef,
   ]);
@@ -990,6 +1352,7 @@ interface UseListenAudioSequenceParams {
   getNextContentBid: (currentBid: string | null) => string | null;
   goToBlock: (blockBid: string) => boolean;
   resolveContentBid: (blockBid: string | null) => string | null;
+  isAudioPlaying: boolean;
   setIsAudioPlaying: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
@@ -1007,6 +1370,7 @@ export const useListenAudioSequence = ({
   getNextContentBid,
   goToBlock,
   resolveContentBid,
+  isAudioPlaying,
   setIsAudioPlaying,
 }: UseListenAudioSequenceParams) => {
   const audioPlayerRef = useRef<AudioPlayerHandle | null>(null);
@@ -1023,8 +1387,37 @@ export const useListenAudioSequence = ({
   const [isAudioSequenceActive, setIsAudioSequenceActive] = useState(false);
   const [audioSequenceToken, setAudioSequenceToken] = useState(0);
   const isSequencePausedRef = useRef(false);
+  const interactionNextIndexRef = useRef<number | null>(null);
+  const interactionAutoContinueMsRef = useRef<number>(
+    resolveListenInteractionAutoContinueMs(),
+  );
 
   const lastPlayedAudioBidRef = useRef<string | null>(null);
+
+  const hasPlayableAudioForItem = useCallback((item: AudioInteractionItem) => {
+    if (item.type !== ChatContentItemType.CONTENT) {
+      return true;
+    }
+    const position = item.audioPosition ?? 0;
+    const track = item.audioTracksByPosition?.[position];
+    const persisted = (item.audios || [])
+      .filter(audio => Number(audio.position ?? 0) === position)
+      .pop();
+    const legacyForZero = position === 0;
+    const hasUrl = Boolean(
+      track?.audioUrl ||
+      persisted?.audio_url ||
+      (legacyForZero && item.audioUrl),
+    );
+    const hasSegments = Boolean(
+      (track?.audioSegments && track.audioSegments.length > 0) ||
+      (legacyForZero && item.audioSegments && item.audioSegments.length > 0),
+    );
+    const isStreaming = Boolean(
+      track?.isAudioStreaming || (legacyForZero && item.isAudioStreaming),
+    );
+    return hasUrl || hasSegments || isStreaming;
+  }, []);
 
   useEffect(() => {
     audioSequenceListRef.current = audioAndInteractionList;
@@ -1045,7 +1438,7 @@ export const useListenAudioSequence = ({
       }
       const deck = deckRef.current;
       if (!deck) {
-        return false;
+        return true;
       }
 
       // Ensure Reveal sees newly appended slides before attempting to navigate.
@@ -1068,6 +1461,9 @@ export const useListenAudioSequence = ({
           : typeof deck.getTotalSlides === 'function'
             ? deck.getTotalSlides()
             : 0;
+      if (slidesLength <= 0) {
+        return true;
+      }
       if (page >= slidesLength) {
         return false;
       }
@@ -1092,6 +1488,12 @@ export const useListenAudioSequence = ({
     if (audioIndex >= 0) {
       return audioIndex;
     }
+    const nextAudioIndex = list.findIndex(
+      item => item.page > page && item.type === ChatContentItemType.CONTENT,
+    );
+    if (nextAudioIndex >= 0) {
+      return nextAudioIndex;
+    }
     const pageIndex = list.findIndex(item => item.page === page);
     if (pageIndex >= 0) {
       return pageIndex;
@@ -1101,7 +1503,7 @@ export const useListenAudioSequence = ({
   }, []);
 
   const playAudioSequenceFromIndex = useCallback(
-    (index: number) => {
+    (index: number, retryCount = 0) => {
       // Prevent redundant calls for the same index if already active
       if (audioSequenceIndexRef.current === index && isAudioSequenceActive) {
         return;
@@ -1127,8 +1529,32 @@ export const useListenAudioSequence = ({
         // advancing playback. This prevents audio from starting "ahead" of the
         // rendered visual during streaming output.
         audioSequenceTimerRef.current = setTimeout(() => {
-          playAudioSequenceFromIndex(index);
+          playAudioSequenceFromIndex(index, retryCount + 1);
         }, 120);
+        return;
+      }
+
+      if (
+        nextItem.type === ChatContentItemType.CONTENT &&
+        !hasPlayableAudioForItem(nextItem)
+      ) {
+        // The timeline may know this position from contract before audio chunks/URL
+        // arrive. Retry briefly instead of switching to an empty track.
+        if (retryCount < 80) {
+          audioSequenceTimerRef.current = setTimeout(() => {
+            playAudioSequenceFromIndex(index, retryCount + 1);
+          }, 120);
+          return;
+        }
+        // Guard fallback: if still unavailable after retries, skip to next item.
+        const listLength = list.length;
+        if (index + 1 < listLength) {
+          playAudioSequenceFromIndex(index + 1);
+        } else {
+          setSequenceInteraction(null);
+          setActiveAudioBid(null);
+          setIsAudioSequenceActive(false);
+        }
         return;
       }
 
@@ -1141,20 +1567,32 @@ export const useListenAudioSequence = ({
       if (nextItem.type === ChatContentItemType.INTERACTION) {
         setSequenceInteraction(nextItem);
         setActiveAudioBid(null);
-        if (index >= list.length - 1) {
-          return;
+        const nextSequenceIndex = index >= list.length - 1 ? null : index + 1;
+        interactionNextIndexRef.current = nextSequenceIndex;
+        const autoContinueMs = interactionAutoContinueMsRef.current;
+        if (
+          nextSequenceIndex !== null &&
+          Number.isFinite(autoContinueMs) &&
+          autoContinueMs > 0
+        ) {
+          audioSequenceTimerRef.current = setTimeout(() => {
+            playAudioSequenceFromIndex(nextSequenceIndex);
+          }, autoContinueMs);
         }
-        audioSequenceTimerRef.current = setTimeout(() => {
-          playAudioSequenceFromIndex(index + 1);
-        }, 2000);
         return;
       }
+      interactionNextIndexRef.current = null;
       setSequenceInteraction(null);
       setActiveAudioBid(nextItem.generated_block_bid);
       setActiveAudioPosition(nextItem.audioPosition ?? 0);
       setAudioSequenceToken(prev => prev + 1);
     },
-    [clearAudioSequenceTimer, syncToSequencePage, isAudioSequenceActive],
+    [
+      clearAudioSequenceTimer,
+      hasPlayableAudioForItem,
+      isAudioSequenceActive,
+      syncToSequencePage,
+    ],
   );
 
   useEffect(() => {
@@ -1172,14 +1610,47 @@ export const useListenAudioSequence = ({
     if (
       isAudioSequenceActive &&
       sequenceInteraction &&
-      currentIndex >= 0 &&
-      prevLength > 0 &&
-      currentIndex === prevLength - 1 &&
       nextLength > prevLength
     ) {
-      // Continue after the last interaction when new audio arrives.
-      playAudioSequenceFromIndex(currentIndex + 1);
-      return;
+      // If audio for the same interaction page arrives after interaction was shown,
+      // prioritize that content block before attempting to continue.
+      const samePageAudioIndex = audioAndInteractionList.findIndex(
+        item =>
+          item.type === ChatContentItemType.CONTENT &&
+          item.page === sequenceInteraction.page,
+      );
+      if (samePageAudioIndex >= 0) {
+        playAudioSequenceFromIndex(samePageAudioIndex);
+        return;
+      }
+
+      const interactionIndex = sequenceInteraction.generated_block_bid
+        ? audioAndInteractionList.findIndex(
+            item =>
+              item.type === ChatContentItemType.INTERACTION &&
+              item.generated_block_bid ===
+                sequenceInteraction.generated_block_bid,
+          )
+        : currentIndex;
+      if (interactionIndex >= 0) {
+        const nextAudioIndex = audioAndInteractionList.findIndex(
+          (item, index) =>
+            index > interactionIndex &&
+            item.type === ChatContentItemType.CONTENT,
+        );
+        if (nextAudioIndex >= 0) {
+          playAudioSequenceFromIndex(nextAudioIndex);
+          return;
+        }
+      }
+
+      if (currentIndex >= 0 && currentIndex === prevLength - 1) {
+        const fallbackIndex = Math.min(currentIndex + 1, nextLength - 1);
+        if (fallbackIndex > currentIndex) {
+          playAudioSequenceFromIndex(fallbackIndex);
+          return;
+        }
+      }
     }
 
     // Auto-play new content if it matches the current page (e.g. Retake, or streaming new content)
@@ -1240,6 +1711,7 @@ export const useListenAudioSequence = ({
     clearAudioSequenceTimer();
     audioPlayerRef.current?.pause();
     audioSequenceIndexRef.current = -1;
+    interactionNextIndexRef.current = null;
     setSequenceInteraction(null);
     setActiveAudioBid(null);
     setActiveAudioPosition(0);
@@ -1283,6 +1755,7 @@ export const useListenAudioSequence = ({
     }
     clearAudioSequenceTimer();
     audioSequenceIndexRef.current = -1;
+    interactionNextIndexRef.current = null;
     setActiveAudioBid(null);
     setActiveAudioPosition(0);
     setSequenceInteraction(null);
@@ -1367,13 +1840,59 @@ export const useListenAudioSequence = ({
     shouldRenderEmptyPpt,
   ]);
 
+  const continueAfterInteraction = useCallback(() => {
+    if (previewMode) {
+      return;
+    }
+    clearAudioSequenceTimer();
+    isSequencePausedRef.current = false;
+    const nextIndex = interactionNextIndexRef.current;
+    interactionNextIndexRef.current = null;
+    setSequenceInteraction(null);
+    if (typeof nextIndex === 'number' && nextIndex >= 0) {
+      playAudioSequenceFromIndex(nextIndex);
+      return;
+    }
+    setActiveAudioBid(null);
+    setIsAudioSequenceActive(false);
+    tryAdvanceToNextBlock();
+  }, [
+    clearAudioSequenceTimer,
+    playAudioSequenceFromIndex,
+    previewMode,
+    tryAdvanceToNextBlock,
+  ]);
+
   const handleAudioEnded = useCallback(() => {
     if (isSequencePausedRef.current) {
       return;
     }
     const list = audioSequenceListRef.current;
-    if (list.length) {
-      const nextIndex = audioSequenceIndexRef.current + 1;
+    if (!list.length) {
+      tryAdvanceToNextBlock();
+      return;
+    }
+
+    const currentIndex = audioSequenceIndexRef.current;
+    const nextIndex = currentIndex + 1;
+    const currentItem = list[currentIndex];
+    const nextItem = list[nextIndex];
+    const currentBid =
+      currentItem?.type === ChatContentItemType.CONTENT
+        ? resolveContentBid(currentItem.generated_block_bid)
+        : null;
+    const nextBid =
+      nextItem?.type === ChatContentItemType.CONTENT
+        ? resolveContentBid(nextItem.generated_block_bid)
+        : null;
+
+    // Keep immediate progression for segmented audio within the same content block.
+    if (currentBid && nextBid && currentBid === nextBid) {
+      playAudioSequenceFromIndex(nextIndex);
+      return;
+    }
+
+    const continueSequence = () => {
       if (nextIndex >= list.length) {
         setActiveAudioBid(null);
         setIsAudioSequenceActive(false);
@@ -1381,10 +1900,10 @@ export const useListenAudioSequence = ({
         return;
       }
       playAudioSequenceFromIndex(nextIndex);
-      return;
-    }
-    tryAdvanceToNextBlock();
-  }, [playAudioSequenceFromIndex, tryAdvanceToNextBlock]);
+    };
+
+    continueSequence();
+  }, [playAudioSequenceFromIndex, resolveContentBid, tryAdvanceToNextBlock]);
 
   const logAudioAction = useCallback(
     (action: 'play' | 'pause') => {
@@ -1420,6 +1939,10 @@ export const useListenAudioSequence = ({
     //   isAudioSequenceActive,
     // });
     logAudioAction('play');
+    if (sequenceInteraction) {
+      continueAfterInteraction();
+      return;
+    }
     if (!activeAudioBid && audioSequenceListRef.current.length) {
       const currentPage =
         deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
@@ -1431,6 +1954,8 @@ export const useListenAudioSequence = ({
     previewMode,
     activeAudioBid,
     isAudioSequenceActive,
+    sequenceInteraction,
+    continueAfterInteraction,
     logAudioAction,
     startSequenceFromPage,
     deckRef,
@@ -1477,6 +2002,26 @@ export const useListenAudioSequence = ({
     setIsAudioPlaying(false);
   }, [audioSequenceToken, setIsAudioPlaying]);
 
+  // Watchdog: if the sequence is active and we have an activeAudioBid (i.e. we
+  // expect audio to be playing), but the AudioPlayer has not reported "playing"
+  // state for 8 seconds, force-advance to the next item. This catches any
+  // remaining edge cases where onEnded is never fired.
+  const handleAudioEndedRef = useRef(handleAudioEnded);
+  handleAudioEndedRef.current = handleAudioEnded;
+
+  useEffect(() => {
+    if (!isAudioSequenceActive || !activeAudioBid || isAudioPlaying) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      // Re-check conditions inside the timeout to avoid stale closure issues.
+      // isAudioPlaying is from the outer scope snapshot, but if the effect
+      // hasn't been cleaned up it means the conditions still hold.
+      handleAudioEndedRef.current();
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [isAudioSequenceActive, activeAudioBid, isAudioPlaying]);
+
   return {
     audioPlayerRef,
     activeContentItem,
@@ -1488,6 +2033,7 @@ export const useListenAudioSequence = ({
     handleAudioEnded,
     handlePlay,
     handlePause,
+    continueAfterInteraction,
     startSequenceFromIndex,
     startSequenceFromPage,
   };

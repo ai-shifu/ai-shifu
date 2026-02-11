@@ -23,6 +23,7 @@ export interface AudioItem {
       audioBid?: string;
     }
   >;
+  avContract?: AudioCompleteData['av_contract'];
 }
 
 type EnsureItem<T> = (items: T[], blockId: string) => T[];
@@ -101,6 +102,7 @@ export const upsertAudioSegment = <T extends AudioItem>(
       ...item,
       audioSegments: updatedSegments,
       isAudioStreaming: !mappedSegment.isFinal,
+      avContract: segment.av_contract ?? item.avContract,
     };
   });
 };
@@ -123,6 +125,7 @@ export const upsertAudioComplete = <T extends AudioItem>(
       audioUrl: complete.audio_url ?? undefined,
       audioDurationMs: complete.duration_ms,
       isAudioStreaming: false,
+      avContract: complete.av_contract ?? item.avContract,
     };
   });
 };
@@ -164,6 +167,7 @@ export const upsertAudioSegmentByPosition = <T extends AudioItem>(
           isAudioStreaming: !mappedSegment.isFinal,
         },
       },
+      avContract: segment.av_contract ?? item.avContract,
     };
   });
 };
@@ -197,6 +201,7 @@ export const upsertAudioCompleteByPosition = <T extends AudioItem>(
           audioBid: complete.audio_bid ?? existingTrack.audioBid,
         },
       },
+      avContract: complete.av_contract ?? item.avContract,
     };
   });
 };

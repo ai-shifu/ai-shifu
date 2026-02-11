@@ -339,6 +339,7 @@ function AudioPlayerBase(
         setIsLoading(false);
         setIsWaitingForSegment(false);
         onPlayStateChangeRef.current?.(false);
+        onEndedRef.current?.();
         releaseExclusive();
       };
       audio.oncanplay = () => {
@@ -376,6 +377,7 @@ function AudioPlayerBase(
           isPlayingRef.current = false;
           setIsLoading(false);
           setIsWaitingForSegment(false);
+          onEndedRef.current?.();
           releaseExclusive();
         });
     },
@@ -516,6 +518,7 @@ function AudioPlayerBase(
           playSegmentByIndex(index + 1, sessionId);
           return;
         }
+        onEndedRef.current?.();
         releaseExclusive();
       }
     },
@@ -552,6 +555,7 @@ function AudioPlayerBase(
           onPlayStateChangeRef.current?.(true);
           return;
         }
+        onEndedRef.current?.();
         releaseExclusive();
         return;
       }
@@ -592,6 +596,7 @@ function AudioPlayerBase(
       setIsPlaying(false);
       isPlayingRef.current = false;
       setIsLoading(false);
+      onEndedRef.current?.();
       releaseExclusive();
       return;
     }
@@ -604,6 +609,7 @@ function AudioPlayerBase(
       setIsPlaying(false);
       isPlayingRef.current = false;
       setIsLoading(false);
+      onEndedRef.current?.();
       releaseExclusive();
       return;
     }

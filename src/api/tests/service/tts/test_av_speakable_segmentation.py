@@ -135,3 +135,29 @@ def test_split_av_speakable_segments_returns_single_segment_when_no_boundaries(a
     from flaskr.service.tts.pipeline import split_av_speakable_segments
 
     assert split_av_speakable_segments("Hello.") == ["Hello."]
+
+
+def test_build_av_segmentation_contract_contains_boundaries_and_positions(app):
+    _require_app(app)
+
+    from flaskr.service.tts.pipeline import build_av_segmentation_contract
+
+    text = (
+        "Intro.\n"
+        '<svg width="10" height="10"></svg>\n'
+        "After svg.\n"
+        "| a | b |\n|---|---|\n| 1 | 2 |\n"
+        "After table."
+    )
+
+    contract = build_av_segmentation_contract(text, "block-1")
+
+    assert "visual_boundaries" in contract
+    assert "speakable_segments" in contract
+    assert [b["kind"] for b in contract["visual_boundaries"]] == ["svg", "md_table"]
+    assert [s["position"] for s in contract["speakable_segments"]] == [0, 1, 2]
+    assert [s["after_visual_kind"] for s in contract["speakable_segments"]] == [
+        "",
+        "svg",
+        "md_table",
+    ]

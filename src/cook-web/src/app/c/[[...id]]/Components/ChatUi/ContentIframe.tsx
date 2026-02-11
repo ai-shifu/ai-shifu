@@ -12,7 +12,6 @@ interface ContentIframeProps {
   copiedButtonText?: string;
   //   onClickCustomButtonAfterContent?: (blockBid: string) => void;
   //   onSend: (content: OnSendContentParams, blockBid: string) => void;
-  sectionTitle?: string;
 }
 
 const extractFirstSvg = (raw: string) => {
@@ -67,22 +66,12 @@ const StableSvgSlide = ({ raw }: { raw: string }) => {
 };
 
 const ContentIframe = memo(
-  ({ segments, blockBid, sectionTitle }: ContentIframeProps) => {
+  ({ segments, blockBid }: ContentIframeProps) => {
     return (
       <>
         {segments.map((segment, index) => {
           if (segment.type === 'text') {
-            return (
-              <section
-                key={'text' + index}
-                data-generated-block-bid={blockBid}
-                //   className='w-full h-full'
-              >
-                <div className='w-full h-full font-bold flex items-center justify-center text-primary'>
-                  {sectionTitle}
-                </div>
-              </section>
-            );
+            return null;
           }
 
           const segmentValue =
@@ -135,8 +124,7 @@ const ContentIframe = memo(
       prevProps.blockBid === nextProps.blockBid &&
       prevProps.confirmButtonText === nextProps.confirmButtonText &&
       prevProps.copyButtonText === nextProps.copyButtonText &&
-      prevProps.copiedButtonText === nextProps.copiedButtonText &&
-      prevProps.sectionTitle === nextProps.sectionTitle
+      prevProps.copiedButtonText === nextProps.copiedButtonText
     );
   },
 );

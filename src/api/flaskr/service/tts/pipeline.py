@@ -333,25 +333,50 @@ def _find_markdown_table_block(
     return None
 
 
-def split_av_speakable_segments(raw: str) -> list[str]:
+def build_av_segmentation_contract(raw: str, block_bid: str = "") -> dict:
     """
-    Split raw Markdown/HTML content into ordered speakable segments for AV sync.
+    Build a shared AV segmentation contract used by backend and frontend.
 
-    The output segments correspond to "text" gaps between visual blocks such as
-    SVG, images, fenced code/mermaid blocks, and sandbox HTML blocks.
+    Contract shape:
+    - visual_boundaries[]: {kind, position, block_bid, source_span}
+    - speakable_segments[]: {position, text, after_visual_kind, block_bid, source_span}
     """
+    visual_boundaries: list[dict] = []
+    speakable_segments: list[dict] = []
+
     if not raw or not raw.strip():
-        return []
+        return {
+            "visual_boundaries": visual_boundaries,
+            "speakable_segments": speakable_segments,
+        }
 
-    def _split(text: str) -> list[str]:
+    def _append_speakable(
+        *,
+        text: str,
+        start_offset: int,
+        end_offset: int,
+        after_visual_kind: str,
+    ):
+        cleaned = (text or "").strip()
+        if not cleaned:
+            return
+        speakable_segments.append(
+            {
+                "position": len(speakable_segments),
+                "text": cleaned,
+                "after_visual_kind": after_visual_kind,
+                "block_bid": block_bid or "",
+                "source_span": [int(start_offset), int(end_offset)],
+            }
+        )
+
+    def _split(text: str, base_offset: int, after_visual_kind: str):
         if not text or not text.strip():
-            return []
+            return
 
         fence_ranges = _get_fence_ranges(text)
-
         candidates: list[tuple[str, int, int]] = []
 
-        # Treat fenced blocks as non-speakable boundaries.
         if fence_ranges:
             start, end = fence_ranges[0]
             candidates.append(("fence", start, end))
@@ -417,28 +442,61 @@ def split_av_speakable_segments(raw: str) -> list[str]:
             candidates.append(("sandbox", sandbox_start, sandbox_end))
 
         if not candidates:
-            return [text]
+            _append_speakable(
+                text=text,
+                start_offset=base_offset,
+                end_offset=base_offset + len(text),
+                after_visual_kind=after_visual_kind,
+            )
+            return
 
         kind, start, end = min(candidates, key=lambda item: item[1])
         if end <= start:
-            # Safety guard; should not happen for the patterns above.
-            return [text]
+            _append_speakable(
+                text=text,
+                start_offset=base_offset,
+                end_offset=base_offset + len(text),
+                after_visual_kind=after_visual_kind,
+            )
+            return
 
-        before = text[:start]
-        boundary = text[start:end]
-        after = text[end:]
+        _append_speakable(
+            text=text[:start],
+            start_offset=base_offset,
+            end_offset=base_offset + start,
+            after_visual_kind=after_visual_kind,
+        )
+        visual_boundaries.append(
+            {
+                "kind": kind,
+                "position": len(visual_boundaries),
+                "block_bid": block_bid or "",
+                "source_span": [int(base_offset + start), int(base_offset + end)],
+            }
+        )
+        _split(text[end:], base_offset + end, kind)
 
-        output: list[str] = []
-        if before.strip():
-            output.append(before)
-        if kind == "sandbox":
-            injected = _extract_speakable_text_from_sandbox_html(boundary)
-            if injected:
-                after = f"{injected}\n{after.lstrip()}" if after else injected
-        output.extend(_split(after))
-        return output
+    _split(raw, 0, "")
 
-    return [segment.strip() for segment in _split(raw) if segment and segment.strip()]
+    return {
+        "visual_boundaries": visual_boundaries,
+        "speakable_segments": speakable_segments,
+    }
+
+
+def split_av_speakable_segments(raw: str) -> list[str]:
+    """
+    Split raw Markdown/HTML content into ordered speakable segments for AV sync.
+
+    The output segments correspond to "text" gaps between visual blocks such as
+    SVG, images, fenced code/mermaid blocks, and sandbox HTML blocks.
+    """
+    contract = build_av_segmentation_contract(raw)
+    return [
+        segment.get("text", "").strip()
+        for segment in contract.get("speakable_segments", [])
+        if (segment.get("text", "") or "").strip()
+    ]
 
 
 def _split_by_sentence_and_newline(text: str) -> list[str]:

@@ -42,6 +42,15 @@ const ListenModeRenderer = ({
   const pendingAutoNextRef = useRef(false);
   const shouldStartSequenceRef = useRef(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const hasAnyTimelineItem = useMemo(
+    () =>
+      items.some(
+        item =>
+          item.type === ChatContentItemType.CONTENT ||
+          item.type === ChatContentItemType.INTERACTION,
+      ),
+    [items],
+  );
 
   const {
     orderedContentBlockBids,
@@ -130,8 +139,8 @@ const ListenModeRenderer = ({
     if (isLoading) {
       return false;
     }
-    return slideItems.length === 0;
-  }, [isLoading, slideItems.length]);
+    return !hasAnyTimelineItem;
+  }, [hasAnyTimelineItem, isLoading]);
 
   const handleResetSequence = useCallback(() => {
     shouldStartSequenceRef.current = true;
@@ -148,6 +157,7 @@ const ListenModeRenderer = ({
     handleAudioEnded,
     handlePlay,
     handlePause,
+    continueAfterInteraction,
     startSequenceFromIndex,
     startSequenceFromPage,
   } = useListenAudioSequence({
@@ -164,6 +174,7 @@ const ListenModeRenderer = ({
     getNextContentBid,
     goToBlock,
     resolveContentBid,
+    isAudioPlaying,
     setIsAudioPlaying,
   });
 
@@ -205,7 +216,6 @@ const ListenModeRenderer = ({
       sectionTitle,
       isLoading,
       isAudioPlaying,
-      activeContentItem,
       shouldRenderEmptyPpt,
       onResetSequence: handleResetSequence,
       getNextContentBid,
@@ -298,6 +308,10 @@ const ListenModeRenderer = ({
     isNextDisabled && typeof nextSequenceIndex !== 'number';
 
   const onNext = useCallback(() => {
+    if (sequenceInteraction) {
+      continueAfterInteraction();
+      return;
+    }
     const currentPage =
       deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
     const targetSequenceIndex = resolveAudioSequenceIndexByDirection(
@@ -317,6 +331,8 @@ const ListenModeRenderer = ({
     currentPptPageRef,
     resolveAudioSequenceIndexByDirection,
     goNext,
+    sequenceInteraction,
+    continueAfterInteraction,
     startSequenceFromIndex,
     startSequenceFromPage,
   ]);
@@ -325,8 +341,8 @@ const ListenModeRenderer = ({
     if (!currentInteraction) {
       return -1;
     }
-    for (const [page, item] of interactionByPage.entries()) {
-      if (item === currentInteraction) {
+    for (const [page, queue] of interactionByPage.entries()) {
+      if (queue.includes(currentInteraction)) {
         return page;
       }
     }
@@ -363,6 +379,15 @@ const ListenModeRenderer = ({
   const interactionReadonly = listenPlayerInteraction
     ? !isLatestInteractionEditable
     : true;
+  const handleListenInteractionSend = useCallback(
+    (content: OnSendContentParams, blockBid: string) => {
+      onSend?.(content, blockBid);
+      if (sequenceInteraction) {
+        continueAfterInteraction();
+      }
+    },
+    [onSend, sequenceInteraction, continueAfterInteraction],
+  );
 
   return (
     <div
@@ -389,7 +414,6 @@ const ListenModeRenderer = ({
                   segments={segments}
                   mobileStyle={mobileStyle}
                   blockBid={item.generated_block_bid}
-                  sectionTitle={sectionTitle}
                 />
               );
             })}
@@ -435,7 +459,7 @@ const ListenModeRenderer = ({
         isAudioPlaying={isAudioPlaying}
         interaction={listenPlayerInteraction}
         interactionReadonly={interactionReadonly}
-        onSend={onSend}
+        onSend={handleListenInteractionSend}
         mobileStyle={mobileStyle}
       />
     </div>

@@ -20,6 +20,7 @@ import {
   StudyRecordItem,
   LikeStatus,
   AudioCompleteData,
+  type AvContractData,
   type AudioSegmentData,
   getRunMessage,
   SSE_INPUT_TYPE,
@@ -110,6 +111,7 @@ export interface ChatContentItem {
       audioBid?: string;
     }
   >;
+  avContract?: AvContractData;
 }
 
 interface SSEParams {
@@ -838,6 +840,7 @@ function useChatLogicHook({
             // Include audio URL from history
             audioUrl: item.audio_url,
             audios: item.audios,
+            avContract: item.av_contract,
             audioTracksByPosition: item.audios
               ? item.audios.reduce(
                   (acc, audio) => {

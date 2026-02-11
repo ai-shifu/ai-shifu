@@ -1,5 +1,130 @@
 # Listen Mode Segmented TTS (AV Sync) - Task List
 
+## 2026-02-11 Listen Mode Display & Playback Alignment (New)
+
+### 0. Requirement Baseline (Source of Truth)
+
+- [x] Freeze baseline requirement in docs:
+- [x] Rule A: each visual element (`table/svg/img/html/div/iframe/video/markdown table`) + the following narration text is one slide unit.
+- [x] Rule B: slide switch happens only after the narration audio for that slide is finished.
+- [x] Rule C: behavior must be identical for single-block and cross-block content.
+- [x] Rule D: interaction popup opens on current slide and must not re-show title.
+- [x] Add requirement examples (single block, cross block, no narration after visual, multi interactions).
+- [x] Link requirement section from `docs/listen-mode-segmented-tts.md`.
+
+### 1. Single Segmentation Contract (Backend as Authority)
+
+- [x] Define one shared AV boundary contract (JSON schema):
+- [x] `visual_boundaries[]` with `kind`, `position`, `block_bid`, `source_span`.
+- [x] `speakable_segments[]` with `position`, `text`, `after_visual_kind`, `block_bid`.
+- [x] Ensure image boundaries are included (`<img>` and markdown image).
+- [x] Ensure sandbox boundaries are included (`div/section/article/main/template/...`) and never speak sandbox text.
+- [x] Expose this contract in run/on-demand TTS payload (SSE metadata + records DTO where needed).
+- [x] Add migration/compat handling so old clients still work when metadata is absent.
+
+### 2. Frontend Timeline Refactor (Cross-Block Slide Unit)
+
+- [x] Replace per-item page mapping with a global timeline builder across all content items.
+- [ ] Build `SlideUnit` model:
+- [ ] `slide_id`, `visual_ref`, `audio_ref(position)`, `source_block_bid`, `next_block_continuation`.
+- [ ] Support cross-block pairing:
+- [x] If a block ends with visual and next block begins with narration, bind that narration to previous visual slide.
+- [x] Remove title placeholder slide for narration-only fallback in listen mode.
+- [x] Keep reveal sections contiguous per logical slide unit, not strictly per `generated_block_bid`.
+- [x] Keep backward path for non-listen mode unchanged.
+
+### 3. Audio Position -> Slide Mapping Consistency
+
+- [x] Stop local heuristic that skips image-only markdown as audio boundary.
+- [x] Drive mapping from backend `position` contract (no independent front-end re-segmentation for mapping).
+- [ ] Validate mapping for:
+- [ ] SVG boundary
+- [ ] HTML table boundary
+- [ ] Markdown table boundary
+- [ ] HTML image and markdown image boundary
+- [ ] Sandbox HTML boundary
+- [ ] iframe/video boundary with fixed markers
+- [x] Add guard logs for mismatch (`position exists but no slide`, `slide exists but no position`).
+
+### 4. Interaction Popup Behavior Fix
+
+- [x] Change interaction anchor from `fallbackPage` heuristic to active timeline slide.
+- [ ] Ensure popup always overlays current slide visual container.
+- [x] Disable title rendering while interaction popup is visible.
+- [x] Remove auto-advance after fixed timeout when interaction is pending.
+- [ ] Add explicit continuation policy:
+- [x] Continue only after submit/skip action, or
+- [x] Continue by config flag `LISTEN_INTERACTION_AUTOCONTINUE_MS` (default off).
+- [x] Handle multi-interaction on same page with queue/list instead of map overwrite.
+
+### 5. Reveal Navigation and End-of-Audio Progression
+
+- [x] Remove auto-carousel of trailing visuals without narration (`1200ms` loop).
+- [ ] Enforce progression rule:
+- [x] Same slide unit: stay until its narration completes.
+- [x] Next slide unit: advance only after completion event.
+- [ ] If slide has no narration:
+- [x] define deterministic policy (`manual-next` by default, optional timed auto-next).
+- [x] Update prev/next controls to navigate timeline units, not raw reveal pages.
+
+### 6. Rendering & Title Layer Cleanup
+
+- [ ] Refactor `ContentIframe` text segment rendering:
+- [x] No section-title-only pseudo slide in listen mode content timeline.
+- [x] Dedicated title slide only for explicit empty-state (no content at all).
+- [x] Confirm interaction popup never reveals empty-state title behind overlay.
+- [ ] Keep mobile and desktop behavior consistent.
+
+### 7. Test Plan (Must Add)
+
+- [x] Frontend unit tests for timeline builder:
+- [x] Single block: visual -> text -> visual -> text.
+- [x] Cross block: block A visual, block B text.
+- [x] Cross block: block A text end, block B visual start.
+- [x] Image-only visual boundaries.
+- [x] Multiple interactions on one slide.
+- [ ] Frontend integration tests (React + mocked SSE):
+- [ ] Position/page sync with streaming append.
+- [ ] Interaction popup blocks progression until resolved.
+- [ ] No title re-show on interaction popup.
+- [x] Backend tests:
+- [x] Extend AV segmentation cases to assert emitted metadata contract.
+- [x] Verify `position` continuity with mixed boundaries and fixed markers.
+- [ ] E2E manual checklist:
+- [ ] one-block multi-visual
+- [ ] multi-block cross-pairing
+- [ ] interaction on current slide
+- [ ] replay from history records (`audios[]`)
+
+### 8. Rollout & Safety
+
+- [ ] Add feature flag `LISTEN_TIMELINE_V2` for staged rollout.
+- [ ] Add telemetry:
+- [ ] mapping mismatch counter
+- [ ] interaction auto-advance counter
+- [ ] user manual-next frequency
+- [x] Run `pytest` for related backend suites.
+- [ ] Run `npm run lint` + `npm run type-check` for cook-web.
+- [ ] Run `pre-commit run -a` before commit.
+- [ ] Prepare rollback notes: disable `LISTEN_TIMELINE_V2` to return old behavior.
+
+### 9. Implementation Order
+
+- [x] Step 1: Contract + backend metadata
+- [x] Step 2: Frontend timeline builder + mapping switch
+- [x] Step 3: Interaction behavior fix (no title re-show, no forced timeout)
+- [x] Step 4: Navigation/progression polish
+- [ ] Step 5: Tests + feature flag rollout
+
+### 10. Acceptance Criteria
+
+- [ ] For all supported visual kinds, each visual + following narration is one slide unit.
+- [ ] Cross-block and single-block cases produce the same progression behavior.
+- [ ] Slide advances only after corresponding narration audio ends.
+- [ ] Interaction popup stays on current slide and title is never re-shown during popup.
+- [ ] No frontend/backend `position` mapping mismatches in test fixtures.
+- [ ] Existing non-listen mode behavior remains unchanged.
+
 ## Discovery / Design
 
 - [x] Audit current backend TTS generation + persistence paths (run streaming + on-demand).

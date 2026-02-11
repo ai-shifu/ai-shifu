@@ -287,6 +287,9 @@ class AudioSegmentDTO(BaseModel):
     position: int = Field(
         default=0, description="Audio position within the block (0-based)"
     )
+    av_contract: Dict[str, Any] | None = Field(
+        default=None, description="AV boundary contract metadata"
+    )
     segment_index: int = Field(..., description="Segment sequence number")
     audio_data: str = Field(..., description="Base64-encoded audio data")
     duration_ms: int = Field(default=0, description="Segment duration in milliseconds")
@@ -301,9 +304,11 @@ class AudioSegmentDTO(BaseModel):
         duration_ms: int = 0,
         is_final: bool = False,
         position: int = 0,
+        av_contract: Dict[str, Any] | None = None,
     ):
         super().__init__(
             position=position,
+            av_contract=av_contract,
             segment_index=segment_index,
             audio_data=audio_data,
             duration_ms=duration_ms,
@@ -311,13 +316,16 @@ class AudioSegmentDTO(BaseModel):
         )
 
     def __json__(self):
-        return {
+        ret = {
             "position": self.position,
             "segment_index": self.segment_index,
             "audio_data": self.audio_data,
             "duration_ms": self.duration_ms,
             "is_final": self.is_final,
         }
+        if self.av_contract is not None:
+            ret["av_contract"] = self.av_contract
+        return ret
 
 
 @register_schema_to_swagger
@@ -326,6 +334,9 @@ class AudioCompleteDTO(BaseModel):
 
     position: int = Field(
         default=0, description="Audio position within the block (0-based)"
+    )
+    av_contract: Dict[str, Any] | None = Field(
+        default=None, description="AV boundary contract metadata"
     )
     audio_url: str = Field(..., description="OSS URL of complete audio")
     audio_bid: str = Field(..., description="Audio business identifier")
@@ -337,21 +348,26 @@ class AudioCompleteDTO(BaseModel):
         audio_bid: str,
         duration_ms: int,
         position: int = 0,
+        av_contract: Dict[str, Any] | None = None,
     ):
         super().__init__(
             position=position,
+            av_contract=av_contract,
             audio_url=audio_url,
             audio_bid=audio_bid,
             duration_ms=duration_ms,
         )
 
     def __json__(self):
-        return {
+        ret = {
             "position": self.position,
             "audio_url": self.audio_url,
             "audio_bid": self.audio_bid,
             "duration_ms": self.duration_ms,
         }
+        if self.av_contract is not None:
+            ret["av_contract"] = self.av_contract
+        return ret
 
 
 @register_schema_to_swagger
@@ -411,6 +427,9 @@ class GeneratedBlockDTO(BaseModel):
     audios: Optional[List[AudioCompleteDTO]] = Field(
         default=None, description="TTS audio segments for this block"
     )
+    av_contract: Dict[str, Any] | None = Field(
+        default=None, description="AV boundary contract metadata"
+    )
 
     def __init__(
         self,
@@ -421,6 +440,7 @@ class GeneratedBlockDTO(BaseModel):
         user_input: str,
         audio_url: Optional[str] = None,
         audios: Optional[List[AudioCompleteDTO]] = None,
+        av_contract: Dict[str, Any] | None = None,
     ):
         super().__init__(
             generated_block_bid=generated_block_bid,
@@ -430,6 +450,7 @@ class GeneratedBlockDTO(BaseModel):
             user_input=user_input,
             audio_url=audio_url,
             audios=audios,
+            av_contract=av_contract,
         )
 
     def __json__(self):
@@ -448,6 +469,8 @@ class GeneratedBlockDTO(BaseModel):
                 audio.__json__() if isinstance(audio, BaseModel) else audio
                 for audio in self.audios
             ]
+        if self.av_contract:
+            ret["av_contract"] = self.av_contract
         return ret
 
 

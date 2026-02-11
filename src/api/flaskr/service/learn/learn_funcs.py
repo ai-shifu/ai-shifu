@@ -42,7 +42,7 @@ from flaskr.service.metering.consts import (
 from flaskr.service.tts.pipeline import (
     synthesize_long_text_to_oss,
     split_text_for_tts,
-    split_av_speakable_segments,
+    build_av_segmentation_contract,
 )
 from flaskr.api.tts import (
     get_default_audio_settings,
@@ -428,6 +428,13 @@ def get_learn_record(
                 content = generated_block.block_content_conf
 
             block_audios = audios_map.get(generated_block.generated_block_bid) or []
+            av_contract = (
+                build_av_segmentation_contract(
+                    content or "", generated_block.generated_block_bid
+                )
+                if block_type == BlockType.CONTENT and (content or "").strip()
+                else None
+            )
             record = GeneratedBlockDTO(
                 generated_block.generated_block_bid,
                 content,
@@ -438,6 +445,7 @@ def get_learn_record(
                 else "",
                 audio_url=block_audios[0].audio_url if len(block_audios) == 1 else None,
                 audios=block_audios or None,
+                av_contract=av_contract,
             )
             records.append(record)
         if len(records) > 0:
@@ -756,7 +764,11 @@ def stream_generated_block_audio(
 
         raw_text = generated_block.generated_content or ""
         if listen:
-            speakable_segments = split_av_speakable_segments(raw_text)
+            av_contract = build_av_segmentation_contract(raw_text, generated_block_bid)
+            speakable_segments = [
+                segment.get("text", "")
+                for segment in av_contract.get("speakable_segments", [])
+            ]
             if not speakable_segments:
                 raise_error_with_args(
                     "server.common.paramsError",
@@ -807,6 +819,7 @@ def stream_generated_block_audio(
                             audio_bid=record.audio_bid,
                             duration_ms=int(record.duration_ms or 0),
                             position=pos,
+                            av_contract=av_contract,
                         ),
                     )
                 return
@@ -837,6 +850,7 @@ def stream_generated_block_audio(
                                 audio_bid=record.audio_bid,
                                 duration_ms=int(record.duration_ms or 0),
                                 position=position,
+                                av_contract=av_contract,
                             ),
                         )
                         continue
@@ -907,6 +921,7 @@ def stream_generated_block_audio(
                                 duration_ms=duration_ms,
                                 is_final=False,
                                 position=position,
+                                av_contract=av_contract,
                             ),
                         )
 
@@ -978,6 +993,7 @@ def stream_generated_block_audio(
                             audio_bid=audio_bid,
                             duration_ms=int(duration_ms or 0),
                             position=position,
+                            av_contract=av_contract,
                         ),
                     )
             except ValueError as exc:

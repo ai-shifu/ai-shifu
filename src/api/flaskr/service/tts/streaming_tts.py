@@ -13,7 +13,7 @@ import logging
 import uuid
 import threading
 import time
-from typing import Generator, Optional, List, Dict
+from typing import Any, Generator, Optional, List, Dict
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, Future
 
@@ -49,6 +49,7 @@ from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
 )
 from flaskr.service.tts.pipeline import (
+    build_av_segmentation_contract,
     _AV_IMG_TAG_PATTERN,
     _AV_MARKDOWN_IMAGE_PATTERN,
     _AV_SANDBOX_START_PATTERN,
@@ -115,6 +116,7 @@ class StreamingTTSProcessor:
         max_segment_chars: int = 300,
         tts_provider: str = "",
         tts_model: str = "",
+        av_contract: Optional[Dict[str, Any]] = None,
         usage_scene: int = BILL_USAGE_SCENE_PROD,
     ):
         self.app = app
@@ -127,6 +129,7 @@ class StreamingTTSProcessor:
         self.max_segment_chars = max_segment_chars
         self.tts_provider = tts_provider
         self.tts_model = tts_model
+        self.av_contract = av_contract
 
         # Audio settings - use provider-specific defaults
         self.voice_settings = get_default_voice_settings(tts_provider)
@@ -384,6 +387,7 @@ class StreamingTTSProcessor:
                         duration_ms=segment.duration_ms,
                         is_final=False,
                         position=self.position,
+                        av_contract=self.av_contract,
                     ),
                 )
 
@@ -557,6 +561,7 @@ class StreamingTTSProcessor:
                     audio_bid=self._audio_bid,
                     duration_ms=final_duration_ms,
                     position=self.position,
+                    av_contract=self.av_contract,
                 ),
             )
 
@@ -628,6 +633,7 @@ class StreamingTTSProcessor:
                 audio_bid=self._audio_bid,
                 duration_ms=total_duration_ms,
                 position=self.position,
+                av_contract=self.av_contract,
             ),
         )
 
@@ -714,6 +720,8 @@ class AVStreamingTTSProcessor:
         self._position_cursor = 0
         self._current_processor: Optional[StreamingTTSProcessor] = None
         self._raw_buffer = ""
+        self._raw_full_content = ""
+        self._av_contract: Optional[Dict[str, Any]] = None
 
         # When we hit a non-speakable block boundary (e.g. `<svg>`), we may need to
         # wait for its closing marker before resuming segmentation.
@@ -721,6 +729,14 @@ class AVStreamingTTSProcessor:
             None
             # 'fence' | 'svg' | 'iframe' | 'video' | 'html_table' | 'md_table' | 'sandbox'
         )
+
+    def _update_av_contract(self):
+        try:
+            self._av_contract = build_av_segmentation_contract(
+                self._raw_full_content, self.generated_block_bid
+            )
+        except Exception:
+            self._av_contract = None
 
     def _ensure_processor(self) -> StreamingTTSProcessor:
         if self._current_processor is not None:
@@ -740,6 +756,7 @@ class AVStreamingTTSProcessor:
             max_segment_chars=self.max_segment_chars,
             tts_provider=self.tts_provider,
             tts_model=self.tts_model,
+            av_contract=self._av_contract,
             usage_scene=self.usage_scene,
         )
         return self._current_processor
@@ -934,6 +951,10 @@ class AVStreamingTTSProcessor:
                 yield from self._current_processor.process_chunk("")
             return
 
+        self._raw_full_content += chunk
+        self._update_av_contract()
+        if self._current_processor is not None:
+            self._current_processor.av_contract = self._av_contract
         self._raw_buffer += chunk
 
         while self._raw_buffer:
