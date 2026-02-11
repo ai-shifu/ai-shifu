@@ -607,8 +607,6 @@ interface UseListenAudioSequenceParams {
   goToBlock: (blockBid: string) => boolean;
   resolveContentBid: (blockBid: string | null) => string | null;
   setIsAudioPlaying: React.Dispatch<React.SetStateAction<boolean>>;
-  onDebugLog?: (event: string, payload?: Record<string, any>) => void;
-  onDebugAlert?: (message: string, payload?: Record<string, any>) => void;
 }
 
 export const useListenAudioSequence = ({
@@ -628,8 +626,6 @@ export const useListenAudioSequence = ({
   goToBlock,
   resolveContentBid,
   setIsAudioPlaying,
-  onDebugLog,
-  onDebugAlert,
 }: UseListenAudioSequenceParams) => {
   const audioPlayerRef = useRef<AudioPlayerHandle | null>(null);
   const requestedAudioBlockBidsRef = useRef<Set<string>>(new Set());
@@ -659,20 +655,6 @@ export const useListenAudioSequence = ({
       audioSequenceTimerRef.current = null;
     }
   }, []);
-
-  const emitDebugLog = useCallback(
-    (event: string, payload?: Record<string, any>) => {
-      onDebugLog?.(event, payload);
-    },
-    [onDebugLog],
-  );
-
-  const emitDebugAlert = useCallback(
-    (message: string, payload?: Record<string, any>) => {
-      onDebugAlert?.(message, payload);
-    },
-    [onDebugAlert],
-  );
 
   const syncToSequencePage = useCallback(
     (page: number) => {
@@ -725,23 +707,11 @@ export const useListenAudioSequence = ({
       const nextItem = list[index];
 
       if (!nextItem) {
-        emitDebugLog('sequence-next-missing', {
-          index,
-          listLength: list.length,
-          isAudioSequenceActive,
-        });
         setSequenceInteraction(null);
         setActiveAudioBid(null);
         setIsAudioSequenceActive(false);
         return;
       }
-      emitDebugLog('sequence-play', {
-        index,
-        listLength: list.length,
-        page: nextItem.page,
-        type: nextItem.type,
-        generated_block_bid: nextItem.generated_block_bid,
-      });
       syncToSequencePage(nextItem.page);
       audioSequenceIndexRef.current = index;
       setIsAudioSequenceActive(true);
@@ -753,11 +723,6 @@ export const useListenAudioSequence = ({
         setSequenceInteraction(nextItem);
         setActiveAudioBid(null);
         if (index >= list.length - 1) {
-          emitDebugLog('sequence-interaction-last', {
-            index,
-            listLength: list.length,
-            generated_block_bid: nextItem.generated_block_bid,
-          });
           return;
         }
         audioSequenceTimerRef.current = setTimeout(() => {
@@ -769,24 +734,13 @@ export const useListenAudioSequence = ({
       setActiveAudioBid(nextItem.generated_block_bid);
       setAudioSequenceToken(prev => prev + 1);
     },
-    [
-      clearAudioSequenceTimer,
-      syncToSequencePage,
-      isAudioSequenceActive,
-      emitDebugLog,
-    ],
+    [clearAudioSequenceTimer, syncToSequencePage, isAudioSequenceActive],
   );
 
   useEffect(() => {
     const prevLength = prevAudioSequenceLengthRef.current;
     const nextLength = audioAndInteractionList.length;
     prevAudioSequenceLengthRef.current = nextLength;
-    emitDebugLog('sequence-list-change', {
-      prevLength,
-      nextLength,
-      isAudioSequenceActive,
-      isSequencePaused: isSequencePausedRef.current,
-    });
     if (previewMode || !nextLength) {
       return;
     }
@@ -804,11 +758,6 @@ export const useListenAudioSequence = ({
       nextLength > prevLength
     ) {
       // Continue after the last interaction when new audio arrives.
-      emitDebugLog('sequence-continue-after-interaction', {
-        currentIndex,
-        prevLength,
-        nextLength,
-      });
       playAudioSequenceFromIndex(currentIndex + 1);
       return;
     }
@@ -837,19 +786,10 @@ export const useListenAudioSequence = ({
 
           if (resumeIndex >= 0) {
             // Resume playback from the last known block to maintain continuity
-            emitDebugLog('sequence-resume-from-last', {
-              resumeIndex,
-              lastBid,
-              currentPage,
-            });
             playAudioSequenceFromIndex(resumeIndex);
           } else {
             const startIndex = resolveSequenceStartIndex(currentPage);
             if (startIndex >= 0) {
-              emitDebugLog('sequence-start-from-page', {
-                startIndex,
-                currentPage,
-              });
               playAudioSequenceFromIndex(startIndex);
             }
           }
@@ -859,11 +799,6 @@ export const useListenAudioSequence = ({
             !isAudioSequenceActive ||
             audioSequenceIndexRef.current === newItemIndex
           ) {
-            emitDebugLog('sequence-append-play', {
-              newItemIndex,
-              currentPage,
-              generated_block_bid: newItem?.generated_block_bid,
-            });
             playAudioSequenceFromIndex(newItemIndex);
           }
         }
@@ -878,7 +813,6 @@ export const useListenAudioSequence = ({
     deckRef,
     currentPptPageRef,
     resolveSequenceStartIndex,
-    emitDebugLog,
   ]);
 
   const resetSequenceState = useCallback(() => {
@@ -902,27 +836,21 @@ export const useListenAudioSequence = ({
       }
       const maxIndex = Math.max(listLength - 1, 0);
       const nextIndex = Math.min(Math.max(index, 0), maxIndex);
-      emitDebugLog('sequence-start-from-index', {
-        index,
-        nextIndex,
-        listLength,
-      });
       resetSequenceState();
       playAudioSequenceFromIndex(nextIndex);
     },
-    [playAudioSequenceFromIndex, resetSequenceState, emitDebugLog],
+    [playAudioSequenceFromIndex, resetSequenceState],
   );
 
   const startSequenceFromPage = useCallback(
     (page: number) => {
       const startIndex = resolveSequenceStartIndex(page);
       if (startIndex < 0) {
-        emitDebugLog('sequence-start-page-missing', { page });
         return;
       }
       startSequenceFromIndex(startIndex);
     },
-    [resolveSequenceStartIndex, startSequenceFromIndex, emitDebugLog],
+    [resolveSequenceStartIndex, startSequenceFromIndex],
   );
 
   useEffect(() => {
@@ -950,9 +878,6 @@ export const useListenAudioSequence = ({
       return;
     }
     if (isSequencePausedRef.current) {
-      emitDebugLog('sequence-start-blocked', {
-        listLength: audioAndInteractionList.length,
-      });
       return;
     }
     shouldStartSequenceRef.current = false;
@@ -965,25 +890,17 @@ export const useListenAudioSequence = ({
       if (resumeIndex >= 0) {
         // We found the last played item, so we are likely just recovering from a refresh.
         // Resume from there instead of restarting.
-        emitDebugLog('sequence-should-start-resume', {
-          resumeIndex,
-          lastBid: lastPlayedAudioBidRef.current,
-        });
         playAudioSequenceFromIndex(resumeIndex);
         return;
       }
     }
 
     // Otherwise, truly start from the beginning
-    emitDebugLog('sequence-should-start-from-begin', {
-      listLength: audioAndInteractionList.length,
-    });
     playAudioSequenceFromIndex(0);
   }, [
     audioAndInteractionList,
     playAudioSequenceFromIndex,
     shouldStartSequenceRef,
-    emitDebugLog,
   ]);
 
   const activeAudioBlockBid = useMemo(() => {
@@ -1073,34 +990,12 @@ export const useListenAudioSequence = ({
 
   const handleAudioEnded = useCallback(() => {
     if (isSequencePausedRef.current) {
-      emitDebugLog('audio-ended-ignored-paused', {
-        sequenceIndex: audioSequenceIndexRef.current,
-      });
       return;
     }
     const list = audioSequenceListRef.current;
-    emitDebugLog('audio-ended', {
-      listLength: list.length,
-      sequenceIndex: audioSequenceIndexRef.current,
-      isAudioSequenceActive,
-      activeAudioBid,
-      activeAudioBlockBid,
-    });
-    emitDebugAlert('listen-audio-ended', {
-      listLength: list.length,
-      sequenceIndex: audioSequenceIndexRef.current,
-      isAudioSequenceActive,
-      activeAudioBid,
-      activeAudioBlockBid,
-      currentPage: deckRef.current?.getIndices?.().h ?? currentPptPageRef.current,
-    });
     if (list.length) {
       const nextIndex = audioSequenceIndexRef.current + 1;
       if (nextIndex >= list.length) {
-        emitDebugLog('audio-ended-sequence-finished', {
-          nextIndex,
-          listLength: list.length,
-        });
         setActiveAudioBid(null);
         setIsAudioSequenceActive(false);
         tryAdvanceToNextBlock();
@@ -1110,17 +1005,7 @@ export const useListenAudioSequence = ({
       return;
     }
     tryAdvanceToNextBlock();
-  }, [
-    playAudioSequenceFromIndex,
-    tryAdvanceToNextBlock,
-    emitDebugLog,
-    emitDebugAlert,
-    isAudioSequenceActive,
-    activeAudioBid,
-    activeAudioBlockBid,
-    deckRef,
-    currentPptPageRef,
-  ]);
+  }, [playAudioSequenceFromIndex, tryAdvanceToNextBlock]);
 
   const logAudioAction = useCallback(
     (action: 'play' | 'pause') => {
@@ -1156,12 +1041,6 @@ export const useListenAudioSequence = ({
     //   isAudioSequenceActive,
     // });
     logAudioAction('play');
-    emitDebugLog('audio-play', {
-      activeAudioBid,
-      sequenceIndex: audioSequenceIndexRef.current,
-      listLength: audioSequenceListRef.current.length,
-      isAudioSequenceActive,
-    });
     if (!activeAudioBid && audioSequenceListRef.current.length) {
       const currentPage =
         deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
@@ -1177,7 +1056,6 @@ export const useListenAudioSequence = ({
     startSequenceFromPage,
     deckRef,
     currentPptPageRef,
-    emitDebugLog,
   ]);
 
   const handlePause = useCallback(
@@ -1195,12 +1073,6 @@ export const useListenAudioSequence = ({
       //   sequenceIndex: audioSequenceIndexRef.current,
       // });
       logAudioAction('pause');
-      emitDebugLog('audio-pause', {
-        traceId,
-        activeAudioBid,
-        sequenceIndex: audioSequenceIndexRef.current,
-        isAudioSequenceActive,
-      });
       isSequencePausedRef.current = true;
       clearAudioSequenceTimer();
       audioPlayerRef.current?.pause({ traceId });
@@ -1219,7 +1091,6 @@ export const useListenAudioSequence = ({
       isAudioSequenceActive,
       logAudioAction,
       clearAudioSequenceTimer,
-      emitDebugLog,
     ],
   );
 

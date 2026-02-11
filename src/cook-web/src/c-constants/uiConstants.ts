@@ -18,10 +18,6 @@ export const FRAME_LAYOUT_PAD_INTENSIVE_WIDTH = 800;
 export const FRAME_LAYOUT_MOBILE_WIDTH = 430;
 
 export const calcFrameLayout = selector => {
-  if (typeof document === 'undefined') {
-    return FRAME_LAYOUT_PC;
-  }
-
   const elem = document.querySelector(selector);
   if (!elem) {
     return FRAME_LAYOUT_PC;
