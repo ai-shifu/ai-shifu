@@ -29,6 +29,7 @@ import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
 import ListenModeRenderer from './ListenModeRenderer';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import { stripCustomButtonAfterContent } from './chatUiUtils';
 import {
   Dialog,
   DialogContent,
@@ -231,6 +232,28 @@ export const NewChatComponents = ({
     showOutputInProgressToast,
     onPayModalOpen,
   });
+
+  const listenModeItems = useMemo(() => {
+    if (!isListenModeActive || !mobileStyle) {
+      return items;
+    }
+    let hasChanges = false;
+    const nextItems = items.map(item => {
+      if (item.type !== ChatContentItemType.CONTENT) {
+        return item;
+      }
+      const sanitizedContent = stripCustomButtonAfterContent(item.content);
+      if (sanitizedContent === item.content) {
+        return item;
+      }
+      hasChanges = true;
+      return {
+        ...item,
+        content: sanitizedContent ?? '',
+      };
+    });
+    return hasChanges ? nextItems : items;
+  }, [isListenModeActive, items, mobileStyle]);
 
   const itemByGeneratedBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();
@@ -463,7 +486,7 @@ export const NewChatComponents = ({
       {isListenMode ? (
         isListenModeAvailable ? (
           <ListenModeRenderer
-            items={items}
+            items={listenModeItems}
             mobileStyle={mobileStyle}
             chatRef={chatRef as React.RefObject<HTMLDivElement>}
             containerClassName={containerClassName}
