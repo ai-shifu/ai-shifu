@@ -6,6 +6,31 @@ export type DashboardPage<T> = {
   total: number;
 };
 
+export type DashboardEntrySummary = {
+  course_count: number;
+  learner_count: number;
+  order_count: number;
+  generation_count: number;
+};
+
+export type DashboardEntryCourseItem = {
+  shifu_bid: string;
+  shifu_name: string;
+  learner_count: number;
+  order_count: number;
+  generation_count: number;
+  last_active_at: string;
+};
+
+export type DashboardEntryResponse = {
+  summary: DashboardEntrySummary;
+  page: number;
+  page_count: number;
+  page_size: number;
+  total: number;
+  items: DashboardEntryCourseItem[];
+};
+
 export type DashboardOutline = {
   outline_item_bid: string;
   title: string;

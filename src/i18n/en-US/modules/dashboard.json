@@ -35,11 +35,31 @@
     },
     "title": "Learner Detail"
   },
+  "entry": {
+    "kpi": {
+      "courses": "Courses",
+      "generations": "Generations",
+      "learners": "Learners",
+      "orders": "Orders"
+    },
+    "table": {
+      "course": "Course",
+      "empty": "No courses",
+      "generations": "Generations",
+      "lastActive": "Last active",
+      "learners": "Learners",
+      "orders": "Orders",
+      "reset": "Reset",
+      "search": "Search",
+      "searchPlaceholder": "Search by course name / course id",
+      "title": "Course List",
+      "totalCount": "Total: {{count}}"
+    }
+  },
   "filters": {
     "dateRange": "Date Range",
     "dateRangePlaceholder": "Select date range",
-    "reset": "Reset",
-    "selectCourse": "Select course"
+    "reset": "Reset"
   },
   "kpi": {
     "completionRate": "Completion Rate",
