@@ -498,6 +498,20 @@ export const useListenPpt = ({
           (activeContentItem?.audioSegments &&
             activeContentItem.audioSegments.length > 0),
         );
+      const resolvedActiveBid = resolveContentBid(
+        activeContentItem?.generated_block_bid ?? null,
+      );
+      const resolvedCurrentBid = resolveContentBid(activeBlockBidRef.current);
+      if (resolvedActiveBid && resolvedActiveBid !== resolvedCurrentBid) {
+        const moved = goToBlock(resolvedActiveBid);
+        if (moved) {
+          pendingAutoNextRef.current = false;
+          updateNavState();
+          prevSlidesLengthRef.current = nextSlidesLength;
+          return;
+        }
+      }
+
       if (pendingAutoNextRef.current) {
         const moved = goToNextBlock();
         pendingAutoNextRef.current = !moved;
@@ -533,12 +547,15 @@ export const useListenPpt = ({
     isAudioPlaying,
     isLoading,
     goToNextBlock,
+    goToBlock,
     chatRef,
     updateNavState,
+    activeContentItem?.generated_block_bid,
     activeContentItem?.isAudioStreaming,
     activeContentItem?.audioSegments?.length,
     deckRef,
     pendingAutoNextRef,
+    resolveContentBid,
   ]);
 
   const goPrev = useCallback(() => {
