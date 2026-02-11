@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ListenPlayer from './ListenPlayer';
 import { cn } from '@/lib/utils';
 import type Reveal from 'reveal.js';
@@ -256,6 +256,28 @@ const ListenModeRenderer = ({
   const interactionReadonly = listenPlayerInteraction
     ? !isLatestInteractionEditable
     : true;
+
+  useEffect(() => {
+    console.log('listen-render-state', {
+      isLoading,
+      audioSequenceToken,
+      isAudioSequenceActive,
+      currentInteractionBid: currentInteraction?.generated_block_bid ?? null,
+      sequenceInteractionBid: sequenceInteraction?.generated_block_bid ?? null,
+      listenInteractionBid: listenPlayerInteraction?.generated_block_bid ?? null,
+      hasAudioForCurrentPage,
+      shouldHideFallbackInteraction,
+    });
+  }, [
+    isLoading,
+    audioSequenceToken,
+    isAudioSequenceActive,
+    currentInteraction?.generated_block_bid,
+    sequenceInteraction?.generated_block_bid,
+    listenPlayerInteraction?.generated_block_bid,
+    hasAudioForCurrentPage,
+    shouldHideFallbackInteraction,
+  ]);
 
   return (
     <div
