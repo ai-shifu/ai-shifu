@@ -46,7 +46,8 @@ import type {
 } from '@/types/dashboard';
 
 type LearnerDetailSheetProps = {
-  open: boolean;
+  mode?: 'sheet' | 'page';
+  open?: boolean;
   shifuBid: string;
   userBid?: string;
   startDate?: string;
@@ -97,6 +98,7 @@ const resolveLearnStatusVariant = (status: number) => {
 };
 
 export default function LearnerDetailSheet({
+  mode = 'sheet',
   open,
   shifuBid,
   userBid,
@@ -105,6 +107,8 @@ export default function LearnerDetailSheet({
   onOpenChange,
 }: LearnerDetailSheetProps) {
   const { t } = useTranslation();
+  const isActive =
+    mode === 'page' ? Boolean(shifuBid && userBid) : Boolean(open);
   const [activeTab, setActiveTab] = useState<
     'progress' | 'followups' | 'profile'
   >('progress');
@@ -134,7 +138,7 @@ export default function LearnerDetailSheet({
   }, [detail?.outlines]);
 
   const fetchDetail = useCallback(async () => {
-    if (!open || !shifuBid || !userBid) {
+    if (!isActive || !shifuBid || !userBid) {
       setDetail(null);
       setDetailLoading(false);
       setDetailError(null);
@@ -162,11 +166,11 @@ export default function LearnerDetailSheet({
     } finally {
       setDetailLoading(false);
     }
-  }, [open, shifuBid, t, userBid]);
+  }, [isActive, shifuBid, t, userBid]);
 
   const fetchFollowups = useCallback(
     async (targetPage: number) => {
-      if (!open || !shifuBid || !userBid) {
+      if (!isActive || !shifuBid || !userBid) {
         setFollowups([]);
         setFollowupsLoading(false);
         setFollowupsError(null);
@@ -212,11 +216,11 @@ export default function LearnerDetailSheet({
         setFollowupsLoading(false);
       }
     },
-    [endDate, followupsOutlineBid, open, shifuBid, startDate, t, userBid],
+    [endDate, followupsOutlineBid, isActive, shifuBid, startDate, t, userBid],
   );
 
   useEffect(() => {
-    if (!open) {
+    if (!isActive) {
       setActiveTab('progress');
       setDetail(null);
       setDetailLoading(false);
@@ -231,14 +235,14 @@ export default function LearnerDetailSheet({
       return;
     }
     fetchDetail();
-  }, [fetchDetail, open]);
+  }, [fetchDetail, isActive]);
 
   useEffect(() => {
-    if (!open || activeTab !== 'followups') {
+    if (!isActive || activeTab !== 'followups') {
       return;
     }
     fetchFollowups(1);
-  }, [activeTab, fetchFollowups, open]);
+  }, [activeTab, fetchFollowups, isActive]);
 
   const handleFollowupsPageChange = (nextPage: number) => {
     if (
@@ -277,9 +281,334 @@ export default function LearnerDetailSheet({
     return `${primary}${secondary}`;
   }, [detail, t]);
 
+  const content = detailLoading ? (
+    <div className='flex h-40 items-center justify-center'>
+      <Loading />
+    </div>
+  ) : detailError ? (
+    <ErrorDisplay
+      errorCode={detailError.code || 500}
+      errorMessage={detailError.message}
+      onRetry={fetchDetail}
+    />
+  ) : (
+    <Tabs
+      value={activeTab}
+      onValueChange={value =>
+        setActiveTab(value as 'progress' | 'followups' | 'profile')
+      }
+    >
+      <TabsList className='w-full justify-start'>
+        <TabsTrigger value='progress'>
+          {t('module.dashboard.detail.tabs.progress')}
+        </TabsTrigger>
+        <TabsTrigger value='followups'>
+          {t('module.dashboard.detail.tabs.followUps')}
+        </TabsTrigger>
+        <TabsTrigger value='profile'>
+          {t('module.dashboard.detail.tabs.personalization')}
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value='progress'>
+        <div className='overflow-auto rounded-lg border border-border bg-white'>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  {t('module.dashboard.detail.progress.outline')}
+                </TableHead>
+                <TableHead>
+                  {t('module.dashboard.detail.progress.status')}
+                </TableHead>
+                <TableHead>
+                  {t('module.dashboard.detail.progress.updatedAt')}
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(detail?.outlines || []).length === 0 && (
+                <TableEmpty colSpan={3}>
+                  {t('module.dashboard.detail.progress.empty')}
+                </TableEmpty>
+              )}
+              {(detail?.outlines || []).map(item => (
+                <TableRow key={item.outline_item_bid}>
+                  <TableCell className='min-w-[240px]'>
+                    <div className='text-sm text-foreground'>
+                      {item.title || item.outline_item_bid}
+                    </div>
+                    <div className='text-xs text-muted-foreground'>
+                      {item.outline_item_bid}
+                    </div>
+                  </TableCell>
+                  <TableCell className='whitespace-nowrap'>
+                    <Badge variant={resolveLearnStatusVariant(item.status)}>
+                      {resolveLearnStatusLabel(item.status, t)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className='whitespace-nowrap'>
+                    {item.updated_at || '-'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </TabsContent>
+
+      <TabsContent value='followups'>
+        <div className='flex flex-col gap-3'>
+          <div className='flex flex-col gap-2 md:flex-row md:items-center md:justify-between'>
+            <div className='flex items-baseline gap-2'>
+              <div className='text-sm font-medium text-foreground'>
+                {t('module.dashboard.detail.followUps.title')}
+              </div>
+              <div className='text-xs text-muted-foreground'>
+                {t('module.dashboard.detail.followUps.totalCount', {
+                  count: followupsTotal,
+                })}
+              </div>
+            </div>
+            <div className='flex items-center gap-2'>
+              <Select
+                value={followupsOutlineBid}
+                onValueChange={value => {
+                  setFollowupsOutlineBid(value);
+                  setFollowupsPageIndex(1);
+                }}
+              >
+                <SelectTrigger className='h-9 w-[260px] max-w-[80vw]'>
+                  <SelectValue
+                    placeholder={t(
+                      'module.dashboard.detail.followUps.outlinePlaceholder',
+                    )}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={FOLLOWUPS_OUTLINE_ALL_VALUE}>
+                    {t('common.core.all')}
+                  </SelectItem>
+                  {outlineOptions.map(option => (
+                    <SelectItem
+                      key={option.bid}
+                      value={option.bid}
+                    >
+                      {option.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                size='sm'
+                variant='outline'
+                type='button'
+                onClick={() => fetchFollowups(1)}
+              >
+                {t('common.core.retry')}
+              </Button>
+            </div>
+          </div>
+
+          {followupsError && !followupsLoading && followups.length === 0 ? (
+            <ErrorDisplay
+              errorCode={followupsError.code || 500}
+              errorMessage={followupsError.message}
+              onRetry={() => fetchFollowups(1)}
+            />
+          ) : (
+            <>
+              {followupsError ? (
+                <div className='text-sm text-destructive'>
+                  {followupsError.message}
+                </div>
+              ) : null}
+
+              <div className='overflow-auto rounded-lg border border-border bg-white'>
+                {followupsLoading ? (
+                  <div className='flex h-40 items-center justify-center'>
+                    <Loading />
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>
+                          {t('module.dashboard.detail.followUps.outline')}
+                        </TableHead>
+                        <TableHead>
+                          {t('module.dashboard.detail.followUps.askedAt')}
+                        </TableHead>
+                        <TableHead>
+                          {t('module.dashboard.detail.followUps.question')}
+                        </TableHead>
+                        <TableHead>
+                          {t('module.dashboard.detail.followUps.answer')}
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {followups.length === 0 && (
+                        <TableEmpty colSpan={4}>
+                          {t('module.dashboard.detail.followUps.empty')}
+                        </TableEmpty>
+                      )}
+                      {followups.map(item => (
+                        <TableRow
+                          key={`${item.outline_item_bid}-${item.asked_at}-${item.position}`}
+                        >
+                          <TableCell className='min-w-[180px]'>
+                            <div className='text-sm text-foreground'>
+                              {item.outline_title || item.outline_item_bid}
+                            </div>
+                            <div className='text-xs text-muted-foreground'>
+                              {item.position > 0
+                                ? `#${item.position}`
+                                : item.outline_item_bid}
+                            </div>
+                          </TableCell>
+                          <TableCell className='whitespace-nowrap'>
+                            {item.asked_at || '-'}
+                          </TableCell>
+                          <TableCell className='min-w-[240px]'>
+                            <div className='whitespace-pre-wrap break-words text-sm text-foreground'>
+                              {item.question || '-'}
+                            </div>
+                          </TableCell>
+                          <TableCell className='min-w-[240px]'>
+                            <div className='whitespace-pre-wrap break-words text-sm text-foreground'>
+                              {item.answer || '-'}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+
+              <div className='flex justify-end'>
+                <Pagination className='justify-end w-auto mx-0'>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href='#'
+                        onClick={event => {
+                          event.preventDefault();
+                          handleFollowupsPageChange(followupsPageIndex - 1);
+                        }}
+                        aria-disabled={followupsPageIndex <= 1}
+                        className={
+                          followupsPageIndex <= 1
+                            ? 'pointer-events-none opacity-50'
+                            : ''
+                        }
+                      >
+                        {t('module.dashboard.pagination.prev')}
+                      </PaginationPrevious>
+                    </PaginationItem>
+
+                    {followupsPages.map(page => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          href='#'
+                          onClick={event => {
+                            event.preventDefault();
+                            handleFollowupsPageChange(page);
+                          }}
+                          isActive={page === followupsPageIndex}
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+
+                    <PaginationItem>
+                      <PaginationNext
+                        href='#'
+                        onClick={event => {
+                          event.preventDefault();
+                          handleFollowupsPageChange(followupsPageIndex + 1);
+                        }}
+                        aria-disabled={followupsPageIndex >= followupsPageCount}
+                        className={
+                          followupsPageIndex >= followupsPageCount
+                            ? 'pointer-events-none opacity-50'
+                            : ''
+                        }
+                      >
+                        {t('module.dashboard.pagination.next')}
+                      </PaginationNext>
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            </>
+          )}
+        </div>
+      </TabsContent>
+
+      <TabsContent value='profile'>
+        <div className='overflow-auto rounded-lg border border-border bg-white'>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  {t('module.dashboard.detail.personalization.key')}
+                </TableHead>
+                <TableHead>
+                  {t('module.dashboard.detail.personalization.value')}
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(detail?.variables || []).length === 0 && (
+                <TableEmpty colSpan={2}>
+                  {t('module.dashboard.detail.personalization.empty')}
+                </TableEmpty>
+              )}
+              {(detail?.variables || []).map(item => (
+                <TableRow key={item.key}>
+                  <TableCell className='whitespace-nowrap'>
+                    {item.key}
+                  </TableCell>
+                  <TableCell>
+                    <div className='whitespace-pre-wrap break-words text-sm text-foreground'>
+                      {item.value || '-'}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </TabsContent>
+    </Tabs>
+  );
+
+  if (mode === 'page') {
+    return (
+      <div className='h-full overflow-hidden rounded-lg border border-border bg-white'>
+        <div className='border-b border-border px-6 py-4'>
+          <div className='flex flex-col gap-1'>
+            <span className='text-xs font-medium text-muted-foreground'>
+              {t('module.dashboard.detail.subtitle')}
+            </span>
+            <span className='text-base font-semibold text-foreground'>
+              {titleText}
+            </span>
+          </div>
+        </div>
+        <div className='h-[calc(100%-73px)] overflow-y-auto px-6 py-5'>
+          {content}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Sheet
-      open={open}
+      open={Boolean(open)}
       onOpenChange={onOpenChange}
     >
       <SheetContent className='flex w-full flex-col overflow-hidden border-l border-border bg-white p-0 sm:w-[420px] md:w-[620px] lg:w-[760px]'>
@@ -294,331 +623,7 @@ export default function LearnerDetailSheet({
           </SheetTitle>
         </SheetHeader>
 
-        <div className='flex-1 overflow-y-auto px-6 py-5'>
-          {detailLoading ? (
-            <div className='flex h-40 items-center justify-center'>
-              <Loading />
-            </div>
-          ) : detailError ? (
-            <ErrorDisplay
-              errorCode={detailError.code || 500}
-              errorMessage={detailError.message}
-              onRetry={fetchDetail}
-            />
-          ) : (
-            <Tabs
-              value={activeTab}
-              onValueChange={value =>
-                setActiveTab(value as 'progress' | 'followups' | 'profile')
-              }
-            >
-              <TabsList className='w-full justify-start'>
-                <TabsTrigger value='progress'>
-                  {t('module.dashboard.detail.tabs.progress')}
-                </TabsTrigger>
-                <TabsTrigger value='followups'>
-                  {t('module.dashboard.detail.tabs.followUps')}
-                </TabsTrigger>
-                <TabsTrigger value='profile'>
-                  {t('module.dashboard.detail.tabs.personalization')}
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value='progress'>
-                <div className='overflow-auto rounded-lg border border-border bg-white'>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>
-                          {t('module.dashboard.detail.progress.outline')}
-                        </TableHead>
-                        <TableHead>
-                          {t('module.dashboard.detail.progress.status')}
-                        </TableHead>
-                        <TableHead>
-                          {t('module.dashboard.detail.progress.updatedAt')}
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(detail?.outlines || []).length === 0 && (
-                        <TableEmpty colSpan={3}>
-                          {t('module.dashboard.detail.progress.empty')}
-                        </TableEmpty>
-                      )}
-                      {(detail?.outlines || []).map(item => (
-                        <TableRow key={item.outline_item_bid}>
-                          <TableCell className='min-w-[240px]'>
-                            <div className='text-sm text-foreground'>
-                              {item.title || item.outline_item_bid}
-                            </div>
-                            <div className='text-xs text-muted-foreground'>
-                              {item.outline_item_bid}
-                            </div>
-                          </TableCell>
-                          <TableCell className='whitespace-nowrap'>
-                            <Badge
-                              variant={resolveLearnStatusVariant(item.status)}
-                            >
-                              {resolveLearnStatusLabel(item.status, t)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className='whitespace-nowrap'>
-                            {item.updated_at || '-'}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </TabsContent>
-
-              <TabsContent value='followups'>
-                <div className='flex flex-col gap-3'>
-                  <div className='flex flex-col gap-2 md:flex-row md:items-center md:justify-between'>
-                    <div className='flex items-baseline gap-2'>
-                      <div className='text-sm font-medium text-foreground'>
-                        {t('module.dashboard.detail.followUps.title')}
-                      </div>
-                      <div className='text-xs text-muted-foreground'>
-                        {t('module.dashboard.detail.followUps.totalCount', {
-                          count: followupsTotal,
-                        })}
-                      </div>
-                    </div>
-                    <div className='flex items-center gap-2'>
-                      <Select
-                        value={followupsOutlineBid}
-                        onValueChange={value => {
-                          setFollowupsOutlineBid(value);
-                          setFollowupsPageIndex(1);
-                        }}
-                      >
-                        <SelectTrigger className='h-9 w-[260px] max-w-[80vw]'>
-                          <SelectValue
-                            placeholder={t(
-                              'module.dashboard.detail.followUps.outlinePlaceholder',
-                            )}
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={FOLLOWUPS_OUTLINE_ALL_VALUE}>
-                            {t('common.core.all')}
-                          </SelectItem>
-                          {outlineOptions.map(option => (
-                            <SelectItem
-                              key={option.bid}
-                              value={option.bid}
-                            >
-                              {option.title}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        size='sm'
-                        variant='outline'
-                        type='button'
-                        onClick={() => fetchFollowups(1)}
-                      >
-                        {t('common.core.retry')}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {followupsError &&
-                  !followupsLoading &&
-                  followups.length === 0 ? (
-                    <ErrorDisplay
-                      errorCode={followupsError.code || 500}
-                      errorMessage={followupsError.message}
-                      onRetry={() => fetchFollowups(1)}
-                    />
-                  ) : (
-                    <>
-                      {followupsError ? (
-                        <div className='text-sm text-destructive'>
-                          {followupsError.message}
-                        </div>
-                      ) : null}
-
-                      <div className='overflow-auto rounded-lg border border-border bg-white'>
-                        {followupsLoading ? (
-                          <div className='flex h-40 items-center justify-center'>
-                            <Loading />
-                          </div>
-                        ) : (
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>
-                                  {t(
-                                    'module.dashboard.detail.followUps.outline',
-                                  )}
-                                </TableHead>
-                                <TableHead>
-                                  {t(
-                                    'module.dashboard.detail.followUps.askedAt',
-                                  )}
-                                </TableHead>
-                                <TableHead>
-                                  {t(
-                                    'module.dashboard.detail.followUps.question',
-                                  )}
-                                </TableHead>
-                                <TableHead>
-                                  {t(
-                                    'module.dashboard.detail.followUps.answer',
-                                  )}
-                                </TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {followups.length === 0 && (
-                                <TableEmpty colSpan={4}>
-                                  {t('module.dashboard.detail.followUps.empty')}
-                                </TableEmpty>
-                              )}
-                              {followups.map(item => (
-                                <TableRow
-                                  key={`${item.outline_item_bid}-${item.asked_at}-${item.position}`}
-                                >
-                                  <TableCell className='min-w-[180px]'>
-                                    <div className='text-sm text-foreground'>
-                                      {item.outline_title ||
-                                        item.outline_item_bid}
-                                    </div>
-                                    <div className='text-xs text-muted-foreground'>
-                                      {item.position > 0
-                                        ? `#${item.position}`
-                                        : item.outline_item_bid}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className='whitespace-nowrap'>
-                                    {item.asked_at || '-'}
-                                  </TableCell>
-                                  <TableCell className='min-w-[240px]'>
-                                    <div className='whitespace-pre-wrap break-words text-sm text-foreground'>
-                                      {item.question || '-'}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className='min-w-[240px]'>
-                                    <div className='whitespace-pre-wrap break-words text-sm text-foreground'>
-                                      {item.answer || '-'}
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        )}
-                      </div>
-
-                      <div className='flex justify-end'>
-                        <Pagination className='justify-end w-auto mx-0'>
-                          <PaginationContent>
-                            <PaginationItem>
-                              <PaginationPrevious
-                                href='#'
-                                onClick={event => {
-                                  event.preventDefault();
-                                  handleFollowupsPageChange(
-                                    followupsPageIndex - 1,
-                                  );
-                                }}
-                                aria-disabled={followupsPageIndex <= 1}
-                                className={
-                                  followupsPageIndex <= 1
-                                    ? 'pointer-events-none opacity-50'
-                                    : ''
-                                }
-                              >
-                                {t('module.dashboard.pagination.prev')}
-                              </PaginationPrevious>
-                            </PaginationItem>
-
-                            {followupsPages.map(page => (
-                              <PaginationItem key={page}>
-                                <PaginationLink
-                                  href='#'
-                                  onClick={event => {
-                                    event.preventDefault();
-                                    handleFollowupsPageChange(page);
-                                  }}
-                                  isActive={page === followupsPageIndex}
-                                >
-                                  {page}
-                                </PaginationLink>
-                              </PaginationItem>
-                            ))}
-
-                            <PaginationItem>
-                              <PaginationNext
-                                href='#'
-                                onClick={event => {
-                                  event.preventDefault();
-                                  handleFollowupsPageChange(
-                                    followupsPageIndex + 1,
-                                  );
-                                }}
-                                aria-disabled={
-                                  followupsPageIndex >= followupsPageCount
-                                }
-                                className={
-                                  followupsPageIndex >= followupsPageCount
-                                    ? 'pointer-events-none opacity-50'
-                                    : ''
-                                }
-                              >
-                                {t('module.dashboard.pagination.next')}
-                              </PaginationNext>
-                            </PaginationItem>
-                          </PaginationContent>
-                        </Pagination>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value='profile'>
-                <div className='overflow-auto rounded-lg border border-border bg-white'>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>
-                          {t('module.dashboard.detail.personalization.key')}
-                        </TableHead>
-                        <TableHead>
-                          {t('module.dashboard.detail.personalization.value')}
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(detail?.variables || []).length === 0 && (
-                        <TableEmpty colSpan={2}>
-                          {t('module.dashboard.detail.personalization.empty')}
-                        </TableEmpty>
-                      )}
-                      {(detail?.variables || []).map(item => (
-                        <TableRow key={item.key}>
-                          <TableCell className='whitespace-nowrap'>
-                            {item.key}
-                          </TableCell>
-                          <TableCell>
-                            <div className='whitespace-pre-wrap break-words text-sm text-foreground'>
-                              {item.value || '-'}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </TabsContent>
-            </Tabs>
-          )}
-        </div>
+        <div className='flex-1 overflow-y-auto px-6 py-5'>{content}</div>
       </SheetContent>
     </Sheet>
   );

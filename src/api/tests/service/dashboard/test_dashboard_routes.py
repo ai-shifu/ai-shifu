@@ -13,13 +13,19 @@ from flaskr.service.order.consts import (
     LEARN_STATUS_IN_PROGRESS,
     LEARN_STATUS_NOT_STARTED,
 )
+from flaskr.service.order.models import Order
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,
     BLOCK_TYPE_MDASK_VALUE,
     UNIT_TYPE_VALUE_GUEST,
     UNIT_TYPE_VALUE_NORMAL,
 )
-from flaskr.service.shifu.models import LogPublishedStruct, PublishedOutlineItem
+from flaskr.service.shifu.models import (
+    DraftShifu,
+    LogPublishedStruct,
+    PublishedOutlineItem,
+    ShifuUserArchive,
+)
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
 
@@ -100,6 +106,322 @@ class TestDashboardRoutes:
         )
         db.session.commit()
         return rows
+
+    def _seed_dashboard_course(
+        self,
+        *,
+        shifu_bid: str,
+        title: str,
+        user_id: str = "teacher-1",
+    ) -> None:
+        now = datetime.utcnow()
+        db.session.add(
+            DraftShifu(
+                shifu_bid=shifu_bid,
+                title=title,
+                description="",
+                avatar_res_bid="",
+                llm="",
+                llm_temperature=0,
+                llm_system_prompt="",
+                ask_enabled_status=0,
+                ask_llm="",
+                ask_llm_temperature=0,
+                ask_llm_system_prompt="",
+                price=0,
+                deleted=0,
+                created_at=now,
+                created_user_bid=user_id,
+                updated_at=now,
+                updated_user_bid=user_id,
+            )
+        )
+
+    def test_entry_summary_excludes_archived_courses(
+        self,
+        monkeypatch,
+        test_client,
+        app,
+    ):
+        self._mock_request_user(monkeypatch)
+
+        now = datetime(2025, 1, 15, 10, 0, 0)
+        with app.app_context():
+            self._seed_dashboard_course(shifu_bid="course-a", title="Course A")
+            self._seed_dashboard_course(shifu_bid="course-b", title="Course B")
+            db.session.add(
+                ShifuUserArchive(
+                    shifu_bid="course-b",
+                    user_bid="teacher-1",
+                    archived=1,
+                    archived_at=now,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+
+            db.session.add_all(
+                [
+                    LearnProgressRecord(
+                        progress_record_bid="entry-progress-a-1",
+                        shifu_bid="course-a",
+                        outline_item_bid="outline-1",
+                        user_bid="learner-1",
+                        status=LEARN_STATUS_IN_PROGRESS,
+                        block_position=0,
+                        deleted=0,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                    LearnProgressRecord(
+                        progress_record_bid="entry-progress-a-2",
+                        shifu_bid="course-a",
+                        outline_item_bid="outline-1",
+                        user_bid="learner-2",
+                        status=LEARN_STATUS_NOT_STARTED,
+                        block_position=0,
+                        deleted=0,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                    LearnProgressRecord(
+                        progress_record_bid="entry-progress-b-1",
+                        shifu_bid="course-b",
+                        outline_item_bid="outline-2",
+                        user_bid="learner-3",
+                        status=LEARN_STATUS_IN_PROGRESS,
+                        block_position=0,
+                        deleted=0,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                ]
+            )
+
+            db.session.add_all(
+                [
+                    Order(
+                        order_bid="order-a-1",
+                        shifu_bid="course-a",
+                        user_bid="learner-1",
+                        deleted=0,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                    Order(
+                        order_bid="order-a-2",
+                        shifu_bid="course-a",
+                        user_bid="learner-2",
+                        deleted=0,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                    Order(
+                        order_bid="order-b-1",
+                        shifu_bid="course-b",
+                        user_bid="learner-3",
+                        deleted=0,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                ]
+            )
+
+            db.session.add_all(
+                [
+                    LearnGeneratedBlock(
+                        generated_block_bid="entry-ask-a-1",
+                        progress_record_bid="entry-progress-a-1",
+                        user_bid="learner-1",
+                        block_bid="",
+                        outline_item_bid="outline-1",
+                        shifu_bid="course-a",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=2,
+                        generated_content="Q1",
+                        position=1,
+                        block_content_conf="",
+                        liked=0,
+                        deleted=0,
+                        status=1,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                    LearnGeneratedBlock(
+                        generated_block_bid="entry-ask-a-2",
+                        progress_record_bid="entry-progress-a-2",
+                        user_bid="learner-2",
+                        block_bid="",
+                        outline_item_bid="outline-1",
+                        shifu_bid="course-a",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=2,
+                        generated_content="Q2",
+                        position=1,
+                        block_content_conf="",
+                        liked=0,
+                        deleted=0,
+                        status=1,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                    LearnGeneratedBlock(
+                        generated_block_bid="entry-ask-b-1",
+                        progress_record_bid="entry-progress-b-1",
+                        user_bid="learner-3",
+                        block_bid="",
+                        outline_item_bid="outline-2",
+                        shifu_bid="course-b",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=2,
+                        generated_content="QB",
+                        position=1,
+                        block_content_conf="",
+                        liked=0,
+                        deleted=0,
+                        status=1,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                ]
+            )
+            db.session.commit()
+
+        resp = test_client.get("/api/dashboard/entry?page_index=1&page_size=20")
+        payload = resp.get_json(force=True)
+
+        assert resp.status_code == 200
+        assert payload["code"] == 0
+        assert payload["data"]["summary"]["course_count"] == 1
+        assert payload["data"]["summary"]["learner_count"] == 2
+        assert payload["data"]["summary"]["order_count"] == 2
+        assert payload["data"]["summary"]["generation_count"] == 2
+        assert payload["data"]["total"] == 1
+        assert len(payload["data"]["items"]) == 1
+        assert payload["data"]["items"][0]["shifu_bid"] == "course-a"
+
+    def test_entry_keyword_and_date_range_filters(
+        self,
+        monkeypatch,
+        test_client,
+        app,
+    ):
+        self._mock_request_user(monkeypatch)
+
+        in_range = datetime(2025, 1, 10, 9, 0, 0)
+        out_of_range = datetime(2024, 12, 20, 9, 0, 0)
+        with app.app_context():
+            self._seed_dashboard_course(shifu_bid="course-alg", title="Algebra 101")
+            self._seed_dashboard_course(shifu_bid="course-bio", title="Biology 101")
+
+            db.session.add_all(
+                [
+                    LearnProgressRecord(
+                        progress_record_bid="entry-filter-progress-alg",
+                        shifu_bid="course-alg",
+                        outline_item_bid="outline-1",
+                        user_bid="learner-a",
+                        status=LEARN_STATUS_IN_PROGRESS,
+                        block_position=0,
+                        deleted=0,
+                        created_at=in_range,
+                        updated_at=in_range,
+                    ),
+                    LearnProgressRecord(
+                        progress_record_bid="entry-filter-progress-bio",
+                        shifu_bid="course-bio",
+                        outline_item_bid="outline-2",
+                        user_bid="learner-b",
+                        status=LEARN_STATUS_IN_PROGRESS,
+                        block_position=0,
+                        deleted=0,
+                        created_at=in_range,
+                        updated_at=in_range,
+                    ),
+                ]
+            )
+
+            db.session.add_all(
+                [
+                    Order(
+                        order_bid="entry-filter-order-in",
+                        shifu_bid="course-alg",
+                        user_bid="learner-a",
+                        deleted=0,
+                        created_at=in_range,
+                        updated_at=in_range,
+                    ),
+                    Order(
+                        order_bid="entry-filter-order-out",
+                        shifu_bid="course-alg",
+                        user_bid="learner-a",
+                        deleted=0,
+                        created_at=out_of_range,
+                        updated_at=out_of_range,
+                    ),
+                ]
+            )
+
+            db.session.add_all(
+                [
+                    LearnGeneratedBlock(
+                        generated_block_bid="entry-filter-ask-in",
+                        progress_record_bid="entry-filter-progress-alg",
+                        user_bid="learner-a",
+                        block_bid="",
+                        outline_item_bid="outline-1",
+                        shifu_bid="course-alg",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=2,
+                        generated_content="In range",
+                        position=1,
+                        block_content_conf="",
+                        liked=0,
+                        deleted=0,
+                        status=1,
+                        created_at=in_range,
+                        updated_at=in_range,
+                    ),
+                    LearnGeneratedBlock(
+                        generated_block_bid="entry-filter-ask-out",
+                        progress_record_bid="entry-filter-progress-alg",
+                        user_bid="learner-a",
+                        block_bid="",
+                        outline_item_bid="outline-1",
+                        shifu_bid="course-alg",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=2,
+                        generated_content="Out range",
+                        position=1,
+                        block_content_conf="",
+                        liked=0,
+                        deleted=0,
+                        status=1,
+                        created_at=out_of_range,
+                        updated_at=out_of_range,
+                    ),
+                ]
+            )
+            db.session.commit()
+
+        resp = test_client.get(
+            "/api/dashboard/entry"
+            "?keyword=alG"
+            "&start_date=2025-01-01"
+            "&end_date=2025-01-31"
+            "&page_index=1&page_size=20"
+        )
+        payload = resp.get_json(force=True)
+
+        assert resp.status_code == 200
+        assert payload["code"] == 0
+        assert payload["data"]["summary"]["course_count"] == 1
+        assert payload["data"]["summary"]["learner_count"] == 1
+        assert payload["data"]["summary"]["order_count"] == 1
+        assert payload["data"]["summary"]["generation_count"] == 1
+        assert payload["data"]["items"][0]["shifu_bid"] == "course-alg"
+        assert payload["data"]["items"][0]["order_count"] == 1
+        assert payload["data"]["items"][0]["generation_count"] == 1
 
     def test_outlines_requires_permission(self, monkeypatch, test_client):
         self._mock_request_user(monkeypatch)
