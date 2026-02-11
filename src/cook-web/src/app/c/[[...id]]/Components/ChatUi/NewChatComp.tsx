@@ -143,6 +143,7 @@ export const NewChatComponents = ({
       payModalResult: state.payModalResult,
     })),
   );
+  const resetedLessonId = useCourseStore(state => state.resetedLessonId);
   const learningMode = useSystemStore(state => state.learningMode);
   const isListenMode = learningMode === 'listen';
   const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
@@ -150,6 +151,7 @@ export const NewChatComponents = ({
   const isListenModeActive = isListenMode && isListenModeAvailable;
   const shouldShowAudioAction = previewMode || isListenModeActive;
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
+  const [listenModeResetKey, setListenModeResetKey] = useState(0);
 
   const onPayModalOpen = useCallback(() => {
     openPayModal();
@@ -203,6 +205,15 @@ export const NewChatComponents = ({
     fail(t('module.chat.listenModeTtsDisabled'));
     listenTtsToastShownRef.current = true;
   }, [isListenMode, isListenModeAvailable, t]);
+
+  useEffect(() => {
+    if (!resetedLessonId || resetedLessonId !== lessonId) {
+      return;
+    }
+    // Force remount to reset listen sequence state after lesson reset.
+    setListenModeResetKey(prev => prev + 1);
+    console.log('销毁当前listenmode')
+  }, [lessonId, resetedLessonId]);
 
   const {
     items,
@@ -486,6 +497,7 @@ export const NewChatComponents = ({
       {isListenMode ? (
         isListenModeAvailable ? (
           <ListenModeRenderer
+            key={`${lessonId}-${listenModeResetKey}`}
             items={listenModeItems}
             mobileStyle={mobileStyle}
             chatRef={chatRef as React.RefObject<HTMLDivElement>}
