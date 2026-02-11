@@ -66,10 +66,11 @@ const MAX_IMPORT_TEXT_LENGTH = 10000;
 const TEXT_CHAR_PATTERN = /[A-Za-z\u4E00-\u9FFF]/;
 const PHONE_MATCH_PATTERN = /(?:^|\D)(\d{11})(?!\d)/g;
 const PHONE_TEST_PATTERN = /(?:^|\D)\d{11}(?!\d)/;
-const EMAIL_TEST_PATTERN =
-  /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+const EMAIL_TEST_PATTERN = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 const EMAIL_ALLOWED_CHARS = new Set(
-  'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._%+-'.split(''),
+  'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._%+-'.split(
+    '',
+  ),
 );
 
 const trimNickname = (value: string): string => {
@@ -175,9 +176,7 @@ const parseImportText = (
   const invalidItems = safeValue
     .split(/\r?\n/)
     .map(line => trimDisplayLine(line))
-    .filter(
-      item => item.length > 0 && !hasValidIdentifier(item, contactType),
-    );
+    .filter(item => item.length > 0 && !hasValidIdentifier(item, contactType));
   const matches =
     contactType === 'email'
       ? findEmailMatches(safeValue)
@@ -189,9 +188,7 @@ const parseImportText = (
   const entries = matches.map((match, index) => {
     const start = match.index;
     const end =
-      index + 1 < matches.length
-        ? matches[index + 1].index
-        : safeValue.length;
+      index + 1 < matches.length ? matches[index + 1].index : safeValue.length;
     const segment = safeValue.slice(start, end);
     const identifier =
       contactType === 'email' ? match.value.toLowerCase() : match.value;
@@ -203,9 +200,7 @@ const parseImportText = (
   const displayLines = matches.map((match, index) => {
     const start = match.index;
     const end =
-      index + 1 < matches.length
-        ? matches[index + 1].index
-        : safeValue.length;
+      index + 1 < matches.length ? matches[index + 1].index : safeValue.length;
     const segment = safeValue.slice(start, end);
     return trimDisplayLine(segment);
   });
