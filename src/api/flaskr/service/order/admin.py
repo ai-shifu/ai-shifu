@@ -239,11 +239,7 @@ def _parse_import_activation_mobiles(text: str) -> List[Dict[str, str]]:
     entries: List[Dict[str, str]] = []
     for index, match in enumerate(matches):
         start = match.start()
-        end = (
-            matches[index + 1].start()
-            if index + 1 < len(matches)
-            else len(text)
-        )
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
         segment = text[start:end]
         identifier = match.group(0)
         nickname_source = segment.replace(identifier, "", 1)
