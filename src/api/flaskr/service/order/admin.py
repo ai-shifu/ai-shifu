@@ -79,8 +79,6 @@ PAYMENT_STATUS_KEY_MAP = {
 
 IMPORT_ACTIVATION_MOBILE_PATTERN = re.compile(r"(?<!\d)\d{11}(?!\d)")
 IMPORT_ACTIVATION_TEXT_PATTERN = re.compile(r"[A-Za-z\u4E00-\u9FFF]")
-IMPORT_ACTIVATION_EMAIL_TOKEN_PATTERN = re.compile(r"\S+")
-IMPORT_ACTIVATION_SEPARATORS = ",，;；|/"
 IMPORT_ACTIVATION_MAX_TEXT_LENGTH = 10_000
 
 ACTIVE_STATUS_KEY_MAP = {
@@ -254,34 +252,50 @@ def _parse_import_activation_emails(text: str) -> List[Dict[str, str]]:
         line = raw_line.strip()
         if not line:
             continue
-        matches: List[tuple[int, int, str]] = []
-        for token_match in IMPORT_ACTIVATION_EMAIL_TOKEN_PATTERN.finditer(line):
-            raw_token = token_match.group(0)
-            stripped = raw_token.strip(IMPORT_ACTIVATION_SEPARATORS)
-            if not stripped:
-                continue
-            if not EMAIL_PATTERN.fullmatch(stripped):
-                continue
-            left_trim = len(raw_token) - len(
-                raw_token.lstrip(IMPORT_ACTIVATION_SEPARATORS)
-            )
-            right_trim = len(raw_token) - len(
-                raw_token.rstrip(IMPORT_ACTIVATION_SEPARATORS)
-            )
-            start = token_match.start() + left_trim
-            end = token_match.end() - right_trim
-            matches.append((start, end, stripped))
-
+        matches = _find_email_matches(line)
         if not matches:
             continue
 
         for index, (start, _end, identifier) in enumerate(matches):
-            next_start = matches[index + 1][0] if index + 1 < len(matches) else len(line)
+            next_start = (
+                matches[index + 1][0] if index + 1 < len(matches) else len(line)
+            )
             segment = line[start:next_start]
             nickname_source = segment.replace(identifier, "", 1)
             nickname = _trim_import_activation_nickname(nickname_source)
             entries.append({"mobile": identifier, "nickname": nickname})
     return entries
+
+
+def _find_email_matches(line: str) -> List[tuple[int, int, str]]:
+    """Find email candidates in a line using linear scanning."""
+    if "@" not in line:
+        return []
+    allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._%+-")
+    matches: List[tuple[int, int, str]] = []
+    seen: set[tuple[int, int]] = set()
+    length = len(line)
+    for index, char in enumerate(line):
+        if char != "@":
+            continue
+        left = index - 1
+        while left >= 0 and line[left] in allowed:
+            left -= 1
+        right = index + 1
+        while right < length and line[right] in allowed:
+            right += 1
+        start = left + 1
+        end = right
+        if end - start <= 3:
+            continue
+        if (start, end) in seen:
+            continue
+        candidate = line[start:end]
+        if EMAIL_PATTERN.fullmatch(candidate):
+            matches.append((start, end, candidate))
+            seen.add((start, end))
+    matches.sort(key=lambda item: item[0])
+    return matches
 
 
 def _load_shifu_map(
