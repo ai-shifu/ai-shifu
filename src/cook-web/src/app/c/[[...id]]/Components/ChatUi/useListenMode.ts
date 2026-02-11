@@ -386,12 +386,11 @@ const mergeHtmlTableSegments = (segments: RenderSegment[]): RenderSegment[] => {
 
   for (let index = 0; index < segments.length; index += 1) {
     const segment = segments[index];
-    if (segment.type !== 'text') {
+    const raw = typeof segment.value === 'string' ? segment.value : '';
+    if (!raw) {
       output.push(segment);
       continue;
     }
-
-    const raw = typeof segment.value === 'string' ? segment.value : '';
     const lower = raw.toLowerCase();
     const tableStart = lower.indexOf('<table');
     if (tableStart === -1) {
@@ -432,7 +431,7 @@ const mergeHtmlTableSegments = (segments: RenderSegment[]): RenderSegment[] => {
       continue;
     }
 
-    output.push({ type: 'text', value: merged });
+    output.push({ ...segment, value: merged });
     index = nextIndex;
   }
 
@@ -451,6 +450,20 @@ const splitListenModeSegments = (raw: string): RenderSegment[] => {
   baseSegments.forEach((segment, index) => {
     if (segment.type !== 'text') {
       if (segment.type === 'sandbox') {
+        const sandboxRaw =
+          typeof segment.value === 'string' ? segment.value : '';
+        const sandboxTrimmed = sandboxRaw.trimStart();
+        if (
+          /^\s*<table\b/i.test(sandboxTrimmed) &&
+          /<\/table\b/i.test(sandboxTrimmed)
+        ) {
+          output.push({
+            type: 'sandbox',
+            value: `<div>${sandboxTrimmed}</div>`,
+          });
+          return;
+        }
+
         const split = splitSandboxByRootBoundary(segment.value || '');
         if (split) {
           output.push({ type: 'sandbox', value: split.head });
@@ -459,14 +472,28 @@ const splitListenModeSegments = (raw: string): RenderSegment[] => {
         }
       }
       if (segment.type === 'markdown') {
-        const markdownTableSandbox = markdownTableToSandboxHtml(
-          typeof segment.value === 'string' ? segment.value : '',
-        );
+        const markdownRaw =
+          typeof segment.value === 'string' ? segment.value : '';
+        const markdownTableSandbox = markdownTableToSandboxHtml(markdownRaw);
         if (markdownTableSandbox) {
           output.push({
             type: 'sandbox',
             value: markdownTableSandbox,
           });
+          return;
+        }
+
+        // splitContentSegments() can return raw HTML blocks (including <table>)
+        // as markdown segments. In blackboard mode, we need to wrap <table>
+        // with a sandbox-root container so it renders.
+        if (
+          !/^\s*```/.test(markdownRaw) &&
+          !/^\s*~~~/.test(markdownRaw) &&
+          (/<table\b/i.test(markdownRaw) ||
+            /<iframe\b/i.test(markdownRaw) ||
+            /<video\b/i.test(markdownRaw))
+        ) {
+          output.push(...splitTextByVisualBlocks(markdownRaw));
           return;
         }
       }
