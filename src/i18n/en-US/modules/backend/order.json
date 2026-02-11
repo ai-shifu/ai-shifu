@@ -3,6 +3,7 @@
   "__flat__": {
     "checkout": "Checkout",
     "courseNotPaid": "Course not purchased, please purchase the course first",
+    "emailAlreadyActivated": "Email {email} is already activated for this course",
     "learnStatusBranch": "Branch",
     "learnStatusCompleted": "Done",
     "learnStatusInProgress": "Lrning",
