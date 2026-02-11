@@ -233,6 +233,14 @@ const ListenModeRenderer = ({
     [audioAndInteractionList],
   );
 
+  const audioContentSequence = useMemo(
+    () =>
+      audioAndInteractionList.flatMap((item, index) =>
+        item.type === ChatContentItemType.CONTENT ? [{ item, index }] : [],
+      ),
+    [audioAndInteractionList],
+  );
+
   const pagesWithAudio = useMemo(() => {
     const pages = new Set<number>();
     audioAndInteractionList.forEach(item => {
