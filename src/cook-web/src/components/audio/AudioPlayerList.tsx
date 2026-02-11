@@ -699,8 +699,8 @@ const AudioPlayerListBase = (
     };
   }, [releaseExclusive]);
 
-  console.log('playlist', playlist);
-  console.log('currentTrack', currentTrack);
+  // console.log('playlist', playlist);
+  // console.log('currentTrack', currentTrack);
 
   return (
     <audio

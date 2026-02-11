@@ -258,17 +258,17 @@ const ListenModeRenderer = ({
     : true;
 
   useEffect(() => {
-    console.log('listen-render-state', {
-      isLoading,
-      audioSequenceToken,
-      isAudioSequenceActive,
-      currentInteractionBid: currentInteraction?.generated_block_bid ?? null,
-      sequenceInteractionBid: sequenceInteraction?.generated_block_bid ?? null,
-      listenInteractionBid:
-        listenPlayerInteraction?.generated_block_bid ?? null,
-      hasAudioForCurrentPage,
-      shouldHideFallbackInteraction,
-    });
+    // console.log('listen-render-state', {
+    //   isLoading,
+    //   audioSequenceToken,
+    //   isAudioSequenceActive,
+    //   currentInteractionBid: currentInteraction?.generated_block_bid ?? null,
+    //   sequenceInteractionBid: sequenceInteraction?.generated_block_bid ?? null,
+    //   listenInteractionBid:
+    //     listenPlayerInteraction?.generated_block_bid ?? null,
+    //   hasAudioForCurrentPage,
+    //   shouldHideFallbackInteraction,
+    // });
   }, [
     isLoading,
     audioSequenceToken,
