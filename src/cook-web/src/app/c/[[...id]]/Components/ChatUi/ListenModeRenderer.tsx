@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ListenPlayer from './ListenPlayer';
 import { cn } from '@/lib/utils';
 import type Reveal from 'reveal.js';
@@ -23,6 +23,7 @@ interface ListenModeRendererProps {
   isLoading?: boolean;
   sectionTitle?: string;
   previewMode?: boolean;
+  onRequestAudioForBlock?: (blockBid: string) => Promise<any>;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
 }
 
@@ -34,6 +35,7 @@ const ListenModeRenderer = ({
   isLoading = false,
   sectionTitle,
   previewMode = false,
+  onRequestAudioForBlock,
   onSend,
 }: ListenModeRendererProps) => {
   const deckRef = useRef<Reveal.Api | null>(null);
@@ -223,10 +225,10 @@ const ListenModeRenderer = ({
       resolveContentBid,
     });
 
-  const audioContentSequence = useMemo(
+  const audioList = useMemo(
     () =>
-      audioAndInteractionList.flatMap((item, index) =>
-        item.type === ChatContentItemType.CONTENT ? [{ item, index }] : [],
+      audioAndInteractionList.flatMap(item =>
+        item.type === ChatContentItemType.CONTENT ? [item] : [],
       ),
     [audioAndInteractionList],
   );
@@ -418,6 +420,29 @@ const ListenModeRenderer = ({
     [onSend, sequenceInteraction, continueAfterInteraction],
   );
 
+  useEffect(() => {
+    // console.log('listen-render-state', {
+    //   isLoading,
+    //   audioSequenceToken,
+    //   isAudioSequenceActive,
+    //   currentInteractionBid: currentInteraction?.generated_block_bid ?? null,
+    //   sequenceInteractionBid: sequenceInteraction?.generated_block_bid ?? null,
+    //   listenInteractionBid:
+    //     listenPlayerInteraction?.generated_block_bid ?? null,
+    //   hasAudioForCurrentPage,
+    //   shouldHideFallbackInteraction,
+    // });
+  }, [
+    isLoading,
+    audioSequenceToken,
+    isAudioSequenceActive,
+    currentInteraction?.generated_block_bid,
+    sequenceInteraction?.generated_block_bid,
+    listenPlayerInteraction?.generated_block_bid,
+    hasAudioForCurrentPage,
+    shouldHideFallbackInteraction,
+  ]);
+
   return (
     <div
       className={cn(
@@ -461,7 +486,7 @@ const ListenModeRenderer = ({
           ) : null}
         </div>
       </div>
-      {activeContentItem ? (
+      {audioList.length ? (
         <div className={cn('listen-audio-controls', 'hidden')}>
           <AudioPlayer
             ref={audioPlayerRef}
@@ -470,11 +495,16 @@ const ListenModeRenderer = ({
             streamingSegments={activeAudioTrack?.streamingSegments}
             isStreaming={activeAudioTrack?.isStreaming}
             alwaysVisible={true}
+            onRequestAudio={
+              onRequestAudioForBlock && activeAudioBlockBid
+                ? () => onRequestAudioForBlock(activeAudioBlockBid)
+                : undefined
+            }
             disabled={previewMode}
             autoPlay={!previewMode}
             onPlayStateChange={setIsAudioPlaying}
             onEnded={handleAudioEnded}
-            size={18}
+            className='hidden'
           />
         </div>
       ) : null}

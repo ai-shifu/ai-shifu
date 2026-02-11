@@ -1283,10 +1283,12 @@ export const useListenPpt = ({
     isAudioPlaying,
     isLoading,
     goToNextBlock,
+    goToBlock,
     chatRef,
     updateNavState,
     deckRef,
     pendingAutoNextRef,
+    resolveContentBid,
   ]);
 
   const goPrev = useCallback(() => {
@@ -1422,6 +1424,15 @@ export const useListenAudioSequence = ({
   useEffect(() => {
     audioSequenceListRef.current = audioAndInteractionList;
     // console.log('audioAndInteractionList', audioSequenceListRef.current);
+    // console.log('listen-sequence-list-update', {
+    //   listLength: audioAndInteractionList.length,
+    //   contentCount: audioAndInteractionList.filter(
+    //     item => item.type === ChatContentItemType.CONTENT,
+    //   ).length,
+    //   interactionCount: audioAndInteractionList.filter(
+    //     item => item.type === ChatContentItemType.INTERACTION,
+    //   ).length,
+    // });
   }, [audioAndInteractionList]);
 
   const clearAudioSequenceTimer = useCallback(() => {
@@ -1509,6 +1520,7 @@ export const useListenAudioSequence = ({
         return;
       }
       if (isSequencePausedRef.current) {
+        // console.log('listen-sequence-skip-play-paused', { index });
         return;
       }
 
@@ -1517,6 +1529,7 @@ export const useListenAudioSequence = ({
       const nextItem = list[index];
 
       if (!nextItem) {
+        // console.log('listen-sequence-end', { index, listLength: list.length });
         setSequenceInteraction(null);
         setActiveAudioBid(null);
         setIsAudioSequenceActive(false);
@@ -1599,10 +1612,19 @@ export const useListenAudioSequence = ({
     const prevLength = prevAudioSequenceLengthRef.current;
     const nextLength = audioAndInteractionList.length;
     prevAudioSequenceLengthRef.current = nextLength;
+    // console.log('listen-sequence-length-change', {
+    //   prevLength,
+    //   nextLength,
+    //   isAudioSequenceActive,
+    //   sequenceIndex: audioSequenceIndexRef.current,
+    // });
     if (previewMode || !nextLength) {
       return;
     }
     if (isSequencePausedRef.current) {
+      // console.log('listen-sequence-skip-length-change-paused', {
+      //   nextLength,
+      // });
       return;
     }
     const currentIndex = audioSequenceIndexRef.current;
@@ -1709,24 +1731,30 @@ export const useListenAudioSequence = ({
   const resetSequenceState = useCallback(() => {
     isSequencePausedRef.current = false;
     clearAudioSequenceTimer();
-    audioPlayerRef.current?.pause();
+    audioPlayerRef.current?.pause({
+      traceId: 'sequence-reset',
+      keepAutoPlay: true,
+    });
     audioSequenceIndexRef.current = -1;
     interactionNextIndexRef.current = null;
     setSequenceInteraction(null);
     setActiveAudioBid(null);
     setActiveAudioPosition(0);
     setIsAudioSequenceActive(false);
+    // console.log('listen-sequence-reset');
   }, [clearAudioSequenceTimer]);
 
   const startSequenceFromIndex = useCallback(
     (index: number) => {
       const listLength = audioSequenceListRef.current.length;
       if (!listLength) {
+        // console.log('listen-sequence-start-empty', { index });
         return;
       }
       const maxIndex = Math.max(listLength - 1, 0);
       const nextIndex = Math.min(Math.max(index, 0), maxIndex);
       resetSequenceState();
+      // console.log('listen-sequence-start-index', { index, nextIndex });
       playAudioSequenceFromIndex(nextIndex);
     },
     [playAudioSequenceFromIndex, resetSequenceState],
@@ -1736,8 +1764,10 @@ export const useListenAudioSequence = ({
     (page: number) => {
       const startIndex = resolveSequenceStartIndex(page);
       if (startIndex < 0) {
+        // console.log('listen-sequence-start-page-miss', { page });
         return;
       }
+      // console.log('listen-sequence-start-page', { page, startIndex });
       startSequenceFromIndex(startIndex);
     },
     [resolveSequenceStartIndex, startSequenceFromIndex],
@@ -1767,9 +1797,11 @@ export const useListenAudioSequence = ({
       return;
     }
     if (!audioAndInteractionList.length) {
+      // console.log('listen-sequence-auto-start-skip-empty');
       return;
     }
     if (isSequencePausedRef.current) {
+      // console.log('listen-sequence-auto-start-skip-paused');
       return;
     }
     shouldStartSequenceRef.current = false;
@@ -1782,12 +1814,17 @@ export const useListenAudioSequence = ({
       if (resumeIndex >= 0) {
         // We found the last played item, so we are likely just recovering from a refresh.
         // Resume from there instead of restarting.
+        // console.log('listen-sequence-auto-resume', {
+        //   resumeIndex,
+        //   blockBid: lastPlayedAudioBidRef.current,
+        // });
         playAudioSequenceFromIndex(resumeIndex);
         return;
       }
     }
 
     // Otherwise, truly start from the beginning
+    // console.log('listen-sequence-auto-start');
     playAudioSequenceFromIndex(0);
   }, [
     audioAndInteractionList,
@@ -1816,20 +1853,27 @@ export const useListenAudioSequence = ({
     const currentBid = resolveContentBid(activeBlockBidRef.current);
     const nextBid = getNextContentBid(currentBid);
     if (!nextBid) {
+      // console.log('listen-sequence-advance-miss', { currentBid });
       return false;
     }
 
     const moved = goToBlock(nextBid);
     if (moved) {
+      // console.log('listen-sequence-advance-success', {
+      //   currentBid,
+      //   nextBid,
+      // });
       return true;
     }
 
     if (shouldRenderEmptyPpt) {
       activeBlockBidRef.current = `empty-ppt-${nextBid}`;
+      // console.log('listen-sequence-advance-empty-ppt', { nextBid });
       return true;
     }
 
     pendingAutoNextRef.current = true;
+    // console.log('listen-sequence-advance-pending', { nextBid });
     return true;
   }, [
     activeBlockBidRef,
@@ -1865,6 +1909,7 @@ export const useListenAudioSequence = ({
 
   const handleAudioEnded = useCallback(() => {
     if (isSequencePausedRef.current) {
+      // console.log('listen-sequence-ended-skip-paused');
       return;
     }
     const list = audioSequenceListRef.current;
@@ -1919,11 +1964,16 @@ export const useListenAudioSequence = ({
 
     const continueSequence = () => {
       if (nextIndex >= list.length) {
+        // console.log('listen-sequence-ended-last', {
+        //   nextIndex,
+        //   listLength: list.length,
+        // });
         setActiveAudioBid(null);
         setIsAudioSequenceActive(false);
         tryAdvanceToNextBlock();
         return;
       }
+      // console.log('listen-sequence-ended-next', { nextIndex });
       playAudioSequenceFromIndex(nextIndex);
     };
 
@@ -1962,6 +2012,10 @@ export const useListenAudioSequence = ({
       return;
     }
     isSequencePausedRef.current = false;
+    // console.log('listen-sequence-handle-play', {
+    //   activeAudioBid,
+    //   listLength: audioSequenceListRef.current.length,
+    // });
     // console.log('listen-toggle-play', {
     //   activeAudioBid,
     //   hasAudioRef: Boolean(audioPlayerRef.current),
@@ -2009,6 +2063,7 @@ export const useListenAudioSequence = ({
       // });
       logAudioAction('pause');
       isSequencePausedRef.current = true;
+      // console.log('listen-sequence-handle-pause', { traceId });
       clearAudioSequenceTimer();
       audioPlayerRef.current?.pause({ traceId });
       // console.log('listen-mode-handle-pause-end', {
