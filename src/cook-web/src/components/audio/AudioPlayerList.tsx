@@ -154,7 +154,7 @@ const AudioPlayerListBase = (
       }
       return Boolean(
         track.isAudioStreaming ||
-          (track.audioSegments && track.audioSegments.length > 0),
+        (track.audioSegments && track.audioSegments.length > 0),
       );
     },
     [shouldUseUrl],
@@ -441,7 +441,7 @@ const AudioPlayerListBase = (
     const segment = segments[index];
     const duration = segment?.durationMs
       ? segment.durationMs / 1000
-      : audio?.duration ?? 0;
+      : (audio?.duration ?? 0);
     if (Number.isFinite(duration) && duration > 0) {
       playedSecondsRef.current += duration;
     }
@@ -699,8 +699,8 @@ const AudioPlayerListBase = (
     };
   }, [releaseExclusive]);
 
-  console.log('playlist', playlist)
-  console.log('currentTrack', currentTrack)
+  console.log('playlist', playlist);
+  console.log('currentTrack', currentTrack);
 
   return (
     <audio

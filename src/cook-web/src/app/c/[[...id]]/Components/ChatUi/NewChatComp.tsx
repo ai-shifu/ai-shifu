@@ -489,9 +489,9 @@ export const NewChatComponents = ({
       {isListenMode ? (
         isListenModeAvailable ? (
           isLoading ? (
-              <div className='w-full h-full flex items-center justify-center'>
-                <Loader2 className='animate-spin size-6 text-primary' />
-              </div>
+            <div className='w-full h-full flex items-center justify-center'>
+              <Loader2 className='animate-spin size-6 text-primary' />
+            </div>
           ) : (
             <ListenModeRenderer
               items={listenModeItems}

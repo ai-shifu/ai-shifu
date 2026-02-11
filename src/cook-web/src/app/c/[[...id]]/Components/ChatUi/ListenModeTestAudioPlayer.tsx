@@ -159,9 +159,9 @@ const ListenModeTestAudioPlayer = ({
     (track: ListenModeAudioUrlItem | null) =>
       Boolean(
         track &&
-          !shouldUseUrl(track) &&
-          (track.isAudioStreaming ||
-            (track.audioSegments && track.audioSegments.length > 0)),
+        !shouldUseUrl(track) &&
+        (track.isAudioStreaming ||
+          (track.audioSegments && track.audioSegments.length > 0)),
       ),
     [shouldUseUrl],
   );
@@ -243,7 +243,11 @@ const ListenModeTestAudioPlayer = ({
   );
 
   const playStreamSegment = useCallback(
-    async (index: number, sessionId: number, startOffsetSeconds: number = 0) => {
+    async (
+      index: number,
+      sessionId: number,
+      startOffsetSeconds: number = 0,
+    ) => {
       if (streamSessionRef.current !== sessionId) {
         isPlayingSegmentRef.current = false;
         return;
@@ -341,12 +345,7 @@ const ListenModeTestAudioPlayer = ({
         releaseExclusive();
       }
     },
-    [
-      handleEnded,
-      releaseExclusive,
-      startUrlPlayback,
-      stopStreamPlayback,
-    ],
+    [handleEnded, releaseExclusive, startUrlPlayback, stopStreamPlayback],
   );
 
   const startStreamPlayback = useCallback(
@@ -492,7 +491,11 @@ const ListenModeTestAudioPlayer = ({
       streamSessionRef.current,
       segmentOffsetRef.current,
     );
-  }, [currentSegments.length, currentTrack?.isAudioStreaming, playStreamSegment]);
+  }, [
+    currentSegments.length,
+    currentTrack?.isAudioStreaming,
+    playStreamSegment,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -546,14 +549,17 @@ const ListenModeTestAudioPlayer = ({
     syncSequenceByBlock,
   ]);
 
-  const handlePause = useCallback((_traceId?: string) => {
-    onSequencePause?.(_traceId);
-    if (isUsingStreamRef.current || shouldUseStream(currentTrack)) {
-      pauseStreamPlayback(_traceId);
-      return;
-    }
-    audioRef.current?.pause();
-  }, [currentTrack, onSequencePause, pauseStreamPlayback, shouldUseStream]);
+  const handlePause = useCallback(
+    (_traceId?: string) => {
+      onSequencePause?.(_traceId);
+      if (isUsingStreamRef.current || shouldUseStream(currentTrack)) {
+        pauseStreamPlayback(_traceId);
+        return;
+      }
+      audioRef.current?.pause();
+    },
+    [currentTrack, onSequencePause, pauseStreamPlayback, shouldUseStream],
+  );
 
   const handleNext = useCallback(() => {
     if (!playlist.length) {
@@ -592,8 +598,7 @@ const ListenModeTestAudioPlayer = ({
   }, [playlist.length, currentIndex, playlist, syncSequenceByBlock]);
 
   const prevDisabled = !playlist.length || currentIndex <= 0;
-  const nextDisabled =
-    !playlist.length || currentIndex >= playlist.length - 1;
+  const nextDisabled = !playlist.length || currentIndex >= playlist.length - 1;
 
   return (
     <>

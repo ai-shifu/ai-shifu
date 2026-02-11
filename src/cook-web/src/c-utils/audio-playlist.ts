@@ -1,4 +1,6 @@
-export const normalizeAudioItemList = <T extends { generated_block_bid?: string }>(
+export const normalizeAudioItemList = <
+  T extends { generated_block_bid?: string },
+>(
   items: T[],
 ): T[] => {
   const order: string[] = [];

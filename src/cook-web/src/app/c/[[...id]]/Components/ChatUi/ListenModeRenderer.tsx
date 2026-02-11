@@ -264,7 +264,8 @@ const ListenModeRenderer = ({
       isAudioSequenceActive,
       currentInteractionBid: currentInteraction?.generated_block_bid ?? null,
       sequenceInteractionBid: sequenceInteraction?.generated_block_bid ?? null,
-      listenInteractionBid: listenPlayerInteraction?.generated_block_bid ?? null,
+      listenInteractionBid:
+        listenPlayerInteraction?.generated_block_bid ?? null,
       hasAudioForCurrentPage,
       shouldHideFallbackInteraction,
     });

@@ -1,8 +1,6 @@
-
 const CUSTOM_BUTTON_AFTER_CONTENT_TAG = '<custom-button-after-content>';
 const CUSTOM_BUTTON_AFTER_CONTENT_REGEX =
   /<custom-button-after-content>[\s\S]*?<\/custom-button-after-content>/g;
-
 
 export const appendCustomButtonAfterContent = (
   content: string | undefined,
