@@ -136,6 +136,13 @@ def _mask_contact_identifier(identifier: str) -> str:
     return f"hash:{digest}"
 
 
+def _log_error_code(exc: AppException) -> str:
+    """Return a safe error identifier for logs without leaking PII."""
+    if getattr(exc, "code", None) is not None:
+        return str(exc.code)
+    return exc.__class__.__name__
+
+
 def normalize_contact_identifier(identifier: str, contact_type: str) -> str:
     """Normalize and validate phone/email identifiers."""
     if contact_type == "email":
@@ -563,9 +570,9 @@ def import_activation_orders(
             if hasattr(app, "logger"):
                 masked_identifier = _mask_contact_identifier(normalized_mobile)
                 app.logger.warning(
-                    "import activation failed for %s: %s",
+                    "import activation failed for %s (code=%s)",
                     masked_identifier,
-                    exc.message,
+                    _log_error_code(exc),
                 )
             results["failed"].append(
                 {"mobile": normalized_mobile, "message": exc.message}
@@ -613,9 +620,9 @@ def import_activation_orders_from_entries(
             if hasattr(app, "logger"):
                 masked_identifier = _mask_contact_identifier(normalized_mobile)
                 app.logger.warning(
-                    "import activation failed for %s: %s",
+                    "import activation failed for %s (code=%s)",
                     masked_identifier,
-                    exc.message,
+                    _log_error_code(exc),
                 )
             results["failed"].append(
                 {"mobile": normalized_mobile, "message": exc.message}

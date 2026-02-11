@@ -64,12 +64,13 @@ const MAX_BULK_MOBILE_COUNT = 50;
 const MOBILE_SAMPLE_LIMIT = 5;
 const MAX_IMPORT_TEXT_LENGTH = 10000;
 const TEXT_CHAR_PATTERN = /[A-Za-z\u4E00-\u9FFF]/;
-const PHONE_MATCH_PATTERN = /(?<!\d)\d{11}(?!\d)/g;
-const PHONE_TEST_PATTERN = /(?<!\d)\d{11}(?!\d)/;
-const EMAIL_MATCH_PATTERN =
-  /(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![A-Za-z0-9.-])/g;
+const PHONE_MATCH_PATTERN = /(?:^|\D)(\d{11})(?!\d)/g;
+const PHONE_TEST_PATTERN = /(?:^|\D)\d{11}(?!\d)/;
 const EMAIL_TEST_PATTERN =
-  /(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![A-Za-z0-9.-])/;
+  /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+const EMAIL_ALLOWED_CHARS = new Set(
+  'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._%+-'.split(''),
+);
 
 const trimNickname = (value: string): string => {
   const text = value.trim();
@@ -91,6 +92,77 @@ const trimDisplayLine = (value: string): string => {
   return value.replace(/^[\s,，、]+|[\s,，、]+$/g, '');
 };
 
+const findPhoneMatches = (
+  value: string,
+): Array<{ index: number; value: string }> => {
+  const matches: Array<{ index: number; value: string }> = [];
+  const pattern = new RegExp(PHONE_MATCH_PATTERN.source, 'g');
+  let match = pattern.exec(value);
+  while (match) {
+    const raw = match[0];
+    const digits = match[1];
+    if (digits) {
+      const start = (match.index ?? 0) + raw.length - digits.length;
+      matches.push({ index: start, value: digits });
+    }
+    match = pattern.exec(value);
+  }
+  return matches;
+};
+
+const findEmailMatches = (
+  value: string,
+): Array<{ index: number; value: string }> => {
+  if (!value.includes('@')) {
+    return [];
+  }
+  const matches: Array<{ index: number; value: string }> = [];
+  const seen = new Set<string>();
+  for (let index = 0; index < value.length; index += 1) {
+    if (value[index] !== '@') {
+      continue;
+    }
+    let left = index - 1;
+    while (left >= 0 && EMAIL_ALLOWED_CHARS.has(value[left])) {
+      left -= 1;
+    }
+    let right = index + 1;
+    while (right < value.length && EMAIL_ALLOWED_CHARS.has(value[right])) {
+      right += 1;
+    }
+    const start = left + 1;
+    const end = right;
+    if (end - start <= 3) {
+      continue;
+    }
+    const candidate = value.slice(start, end);
+    if (!EMAIL_TEST_PATTERN.test(candidate)) {
+      continue;
+    }
+    const key = `${start}:${end}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    matches.push({ index: start, value: candidate });
+    seen.add(key);
+  }
+  matches.sort((a, b) => a.index - b.index);
+  return matches;
+};
+
+const hasValidIdentifier = (
+  line: string,
+  contactType: 'phone' | 'email',
+): boolean => {
+  if (!line) {
+    return false;
+  }
+  if (contactType === 'email') {
+    return findEmailMatches(line).length > 0;
+  }
+  return PHONE_TEST_PATTERN.test(line);
+};
+
 const parseImportText = (
   value: string,
   contactType: 'phone' | 'email',
@@ -100,40 +172,39 @@ const parseImportText = (
   invalidItems: string[];
 } => {
   const safeValue = value.slice(0, MAX_IMPORT_TEXT_LENGTH);
-  const testPattern =
-    contactType === 'email' ? EMAIL_TEST_PATTERN : PHONE_TEST_PATTERN;
   const invalidItems = safeValue
     .split(/\r?\n/)
     .map(line => trimDisplayLine(line))
-    .filter(item => item.length > 0 && !testPattern.test(item));
-  const matchPattern =
-    contactType === 'email' ? EMAIL_MATCH_PATTERN : PHONE_MATCH_PATTERN;
-  const matches = Array.from(
-    safeValue.matchAll(new RegExp(matchPattern.source, 'g')),
-  );
+    .filter(
+      item => item.length > 0 && !hasValidIdentifier(item, contactType),
+    );
+  const matches =
+    contactType === 'email'
+      ? findEmailMatches(safeValue)
+      : findPhoneMatches(safeValue);
   if (matches.length === 0) {
     return { entries: [], normalizedText: safeValue, invalidItems };
   }
 
   const entries = matches.map((match, index) => {
-    const start = match.index ?? 0;
+    const start = match.index;
     const end =
       index + 1 < matches.length
-        ? (matches[index + 1].index ?? safeValue.length)
+        ? matches[index + 1].index
         : safeValue.length;
     const segment = safeValue.slice(start, end);
     const identifier =
-      contactType === 'email' ? match[0].toLowerCase() : match[0];
-    const nicknameSource = segment.replace(match[0], '');
+      contactType === 'email' ? match.value.toLowerCase() : match.value;
+    const nicknameSource = segment.replace(match.value, '');
     const nickname = trimNickname(nicknameSource);
     return { mobile: identifier, nickname };
   });
 
   const displayLines = matches.map((match, index) => {
-    const start = match.index ?? 0;
+    const start = match.index;
     const end =
       index + 1 < matches.length
-        ? (matches[index + 1].index ?? safeValue.length)
+        ? matches[index + 1].index
         : safeValue.length;
     const segment = safeValue.slice(start, end);
     return trimDisplayLine(segment);
@@ -347,14 +418,17 @@ const ImportActivationDialog = ({
     }
 
     const fallbackNickname = values.user_nick_name?.trim() || '';
-    const hasLineNickname = entries.some(entry => entry.nickname);
-    const entriesForPayload =
-      fallbackNickname && !hasLineNickname
-        ? entries.map(entry => ({
-            ...entry,
-            nickname: fallbackNickname,
-          }))
-        : entries;
+    const entriesForPayload = entries.map(entry => {
+      if (!fallbackNickname) {
+        return entry;
+      }
+      const hasNickname =
+        typeof entry.nickname === 'string' && entry.nickname.trim().length > 0;
+      if (hasNickname) {
+        return entry;
+      }
+      return { ...entry, nickname: fallbackNickname };
+    });
 
     const mobiles = entriesForPayload.map(entry => entry.mobile);
     const uniqueKeys = mobiles.map(mobile =>
