@@ -446,14 +446,21 @@ def save_shifu_draft_info(
         has_edit_permission = shifu_permission_verification(
             app, user_id, shifu_id, "edit"
         )
+        has_view_permission = shifu_permission_verification(
+            app, user_id, shifu_id, "view"
+        )
         has_publish_permission = shifu_permission_verification(
             app, user_id, shifu_id, "publish"
         )
         readonly = not has_edit_permission
+        archive_map = _get_user_archive_map(app, user_id, [shifu_id])
+        archived_override = archive_map.get(shifu_id)
         return return_shifu_draft_dto(
             shifu_draft,
             base_url,
             readonly,
+            archived_override,
+            can_manage_archive=has_view_permission,
             can_publish=has_publish_permission,
         )
 
@@ -758,13 +765,20 @@ def save_shifu_draft_detail(
             has_edit_permission = shifu_permission_verification(
                 app, user_id, shifu_id, "edit"
             )
+            has_view_permission = shifu_permission_verification(
+                app, user_id, shifu_id, "view"
+            )
             has_publish_permission = shifu_permission_verification(
                 app, user_id, shifu_id, "publish"
             )
             readonly = not has_edit_permission
+            archive_map = _get_user_archive_map(app, user_id, [shifu_id])
+            archived_override = archive_map.get(shifu_id)
             return return_shifu_draft_dto(
                 new_shifu,
                 base_url,
                 readonly,
+                archived_override,
+                can_manage_archive=has_view_permission,
                 can_publish=has_publish_permission,
             )

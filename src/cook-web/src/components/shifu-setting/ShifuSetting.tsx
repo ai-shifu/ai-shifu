@@ -156,12 +156,12 @@ const PERMISSION_PHONE_PATTERN = /^\d{11}$/;
 const PHONE_EXTRACT_PATTERN = /(?:^|\D)(1[3-9](?:\D*\d){9})(?!\d)/g;
 const PHONE_CANDIDATE_PATTERN = /(?:^|\D)(\d{11})(?!\d)/g;
 const EMAIL_EXTRACT_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
-const EMAIL_CANDIDATE_PATTERN = /[^\s,，;；]+@[^\s,，;；]+/g;
+const EMAIL_CANDIDATE_PATTERN = /[^\s,\uFF0C;\uFF1B]+@[^\s,\uFF0C;\uFF1B]+/g;
 
 const unique = (items: string[]): string[] => Array.from(new Set(items));
 
 const normalizeEmailCandidate = (value: string): string =>
-  value.replace(/^[,，;；.。]+|[,，;；.。]+$/g, '');
+  value.replace(/^[,\uFF0C;\uFF1B.\u3002]+|[,\uFF0C;\uFF1B.\u3002]+$/g, '');
 
 export default function ShifuSettingDialog({
   shifuId,
