@@ -19,7 +19,7 @@ body.listen-mode {
 }
 
 body.listen-mode #root {
-  height: 100vh;
+  height: 100dvh;
   min-height: auto;
 }
 
