@@ -15,6 +15,7 @@
   "permissionCount": "Shared users: {count}/{max}",
   "permissionDialogTitle": "Shared permissions",
   "permissionDuplicate": "Already shared: {values}",
+  "permissionOwnerNotAllowed": "You can't grant permissions to the course creator",
   "permissionEdit": "Edit",
   "permissionEditChangeItem": "{identifier}: {from} → {to}",
   "permissionEditChangeTitle": "Permission changes",

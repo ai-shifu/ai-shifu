@@ -15,6 +15,7 @@
   "permissionCount": "已共享：{count}/{max}",
   "permissionDialogTitle": "共享权限",
   "permissionDuplicate": "账号已开通共享权限：{values}",
+  "permissionOwnerNotAllowed": "不可为课程创作者本人开通权限",
   "permissionEdit": "编辑",
   "permissionEditChangeItem": "{identifier}：{from} → {to}",
   "permissionEditChangeTitle": "权限修改",

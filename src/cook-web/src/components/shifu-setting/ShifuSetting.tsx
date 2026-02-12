@@ -179,7 +179,8 @@ export default function ShifuSettingDialog({
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
   const { currentShifu, models, actions } = useShifu();
-  const currentUserId = useUserStore(state => state.userInfo?.user_id || '');
+  const currentUser = useUserStore(state => state.userInfo);
+  const currentUserId = currentUser?.user_id || '';
   const { toast } = useToast();
   const defaultLlmModel = useEnvStore(state => state.defaultLlmModel);
   const currencySymbol = useEnvStore(state => state.currencySymbol);
@@ -423,6 +424,24 @@ export default function ShifuSettingDialog({
     const normalizedContacts = contacts.map(contact =>
       contactType === 'email' ? contact.toLowerCase() : contact,
     );
+    const ownerEmail =
+      typeof currentUser?.email === 'string'
+        ? currentUser.email.toLowerCase()
+        : '';
+    const ownerPhoneCandidate =
+      typeof currentUser?.phone === 'string'
+        ? currentUser.phone
+        : typeof currentUser?.mobile === 'string'
+        ? currentUser.mobile
+        : typeof currentUser?.user_mobile === 'string'
+        ? currentUser.user_mobile
+        : '';
+    const ownerPhone = ownerPhoneCandidate.replace(/\D/g, '');
+    const ownerContact = contactType === 'email' ? ownerEmail : ownerPhone;
+    if (ownerContact && normalizedContacts.includes(ownerContact)) {
+      setPermissionError(t('module.shifuSetting.permissionOwnerNotAllowed'));
+      return;
+    }
     const existingContacts = contacts.filter((contact, index) =>
       normalizedExisting.has(normalizedContacts[index]),
     );
@@ -471,6 +490,7 @@ export default function ShifuSettingDialog({
     permissionLevel,
     permissionList,
     t,
+    currentUser,
   ]);
 
   const handleConfirmGrantPermissions = useCallback(async () => {

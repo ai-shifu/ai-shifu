@@ -471,6 +471,7 @@ export type I18nKey =
   | 'module.shifuSetting.permissionCount'
   | 'module.shifuSetting.permissionDialogTitle'
   | 'module.shifuSetting.permissionDuplicate'
+  | 'module.shifuSetting.permissionOwnerNotAllowed'
   | 'module.shifuSetting.permissionEdit'
   | 'module.shifuSetting.permissionEditChangeItem'
   | 'module.shifuSetting.permissionEditChangeTitle'
