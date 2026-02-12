@@ -597,27 +597,35 @@ export default function ShifuSettingDialog({
         throw new Error(t('module.shifuSetting.permissionContactRequired'));
       }
 
-      const results = await Promise.allSettled(
-        operations.map(operation => {
-          if (operation.type === 'remove') {
-            return api.removeShifuPermission({
-              shifu_bid: currentShifu.bid,
-              user_id: operation.userId,
-            });
-          }
-          return api.grantShifuPermissions({
+      const removals = operations.filter(
+        operation => operation.type === 'remove',
+      );
+      const grants = operations.filter(operation => operation.type === 'grant');
+
+      const removalResults = await Promise.allSettled(
+        removals.map(operation =>
+          api.removeShifuPermission({
+            shifu_bid: currentShifu.bid,
+            user_id: operation.userId,
+          }),
+        ),
+      );
+      const grantResults = await Promise.allSettled(
+        grants.map(operation =>
+          api.grantShifuPermissions({
             shifu_bid: currentShifu.bid,
             contact_type: contactType,
             contacts: [operation.identifier || ''],
             permission: operation.permission || 'view',
-          });
-        }),
+          }),
+        ),
       );
+      const results = [...removalResults, ...grantResults];
 
       const failed = results
         .map((result, index) => ({
           result,
-          operation: operations[index],
+          operation: [...removals, ...grants][index],
         }))
         .filter(item => item.result.status === 'rejected')
         .map(item => item.operation.identifier || item.operation.userId);
