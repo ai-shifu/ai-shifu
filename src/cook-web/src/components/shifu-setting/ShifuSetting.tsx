@@ -561,23 +561,31 @@ export default function ShifuSettingDialog({
     }
     setPermissionSaveLoading(true);
     try {
-      const operations: Array<{
+      type PermissionOperation = {
         type: 'remove' | 'grant';
         userId: string;
         permission?: SharedPermission['permission'];
         identifier?: string;
-      }> = [
-        ...removalIds.map(userId => ({ type: 'remove', userId })),
-        ...updates.map(([userId, nextPermission]) => {
+      };
+
+      const removalOperations: PermissionOperation[] = removalIds.map(
+        userId => ({
+          type: 'remove' as const,
+          userId,
+        }),
+      );
+      const grantOperations: PermissionOperation[] = updates.map(
+        ([userId, nextPermission]) => {
           const item = permissionList.find(entry => entry.user_id === userId);
           return {
-            type: 'grant',
+            type: 'grant' as const,
             userId,
             permission: nextPermission,
             identifier: item?.identifier || '',
           };
-        }),
-      ];
+        },
+      );
+      const operations = [...removalOperations, ...grantOperations];
 
       const missingIdentifiers = operations.filter(
         operation => operation.type === 'grant' && !operation.identifier,
