@@ -44,6 +44,9 @@ const ListenModeRenderer = ({
   const pendingAutoNextRef = useRef(false);
   const shouldStartSequenceRef = useRef(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [dismissedInteractionBids, setDismissedInteractionBids] = useState<
+    Set<string>
+  >(() => new Set());
   const hasAnyTimelineItem = useMemo(
     () =>
       items.some(
@@ -225,6 +228,30 @@ const ListenModeRenderer = ({
       resolveContentBid,
     });
 
+  useEffect(() => {
+    setDismissedInteractionBids(prev => {
+      if (!prev.size) {
+        return prev;
+      }
+      const existingInteractionBids = new Set(
+        items
+          .filter(
+            item =>
+              item.type === ChatContentItemType.INTERACTION &&
+              Boolean(item.generated_block_bid),
+          )
+          .map(item => item.generated_block_bid),
+      );
+      const next = new Set(
+        Array.from(prev).filter(bid => existingInteractionBids.has(bid)),
+      );
+      if (next.size === prev.size) {
+        return prev;
+      }
+      return next;
+    });
+  }, [items]);
+
   const audioList = useMemo(
     () =>
       audioAndInteractionList.flatMap(item =>
@@ -404,11 +431,24 @@ const ListenModeRenderer = ({
     audioSequenceToken === 0 &&
     !isAudioSequenceActive;
 
-  const listenPlayerInteraction = isAudioSequenceActive
-    ? sequenceInteraction
-    : shouldHideFallbackInteraction
+  const visibleSequenceInteraction =
+    sequenceInteraction &&
+    sequenceInteraction.generated_block_bid &&
+    dismissedInteractionBids.has(sequenceInteraction.generated_block_bid)
+      ? null
+      : sequenceInteraction;
+  const visibleCurrentInteraction =
+    currentInteraction &&
+    currentInteraction.generated_block_bid &&
+    dismissedInteractionBids.has(currentInteraction.generated_block_bid)
       ? null
       : currentInteraction;
+
+  const listenPlayerInteraction = isAudioSequenceActive
+    ? visibleSequenceInteraction
+    : shouldHideFallbackInteraction
+      ? null
+      : visibleCurrentInteraction;
   const isLatestInteractionEditable = Boolean(
     listenPlayerInteraction?.generated_block_bid &&
     lastItemIsInteraction &&
@@ -420,6 +460,16 @@ const ListenModeRenderer = ({
     : true;
   const handleListenInteractionSend = useCallback(
     (content: OnSendContentParams, blockBid: string) => {
+      if (blockBid) {
+        setDismissedInteractionBids(prev => {
+          if (prev.has(blockBid)) {
+            return prev;
+          }
+          const next = new Set(prev);
+          next.add(blockBid);
+          return next;
+        });
+      }
       onSend?.(content, blockBid);
       if (sequenceInteraction) {
         continueAfterInteraction();

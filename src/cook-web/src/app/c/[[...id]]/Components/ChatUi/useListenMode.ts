@@ -1054,7 +1054,7 @@ export const useListenPpt = ({
       const targetPage =
         typeof pageIndex === 'number' ? pageIndex : currentPptPageRef.current;
       const queue = interactionByPage.get(targetPage) || [];
-      setCurrentInteraction(queue[0] ?? null);
+      setCurrentInteraction(queue[queue.length - 1] ?? null);
     },
     [interactionByPage, currentPptPageRef],
   );
@@ -1831,7 +1831,6 @@ export const useListenAudioSequence = ({
       // console.log('listen-sequence-auto-start-skip-paused');
       return;
     }
-    shouldStartSequenceRef.current = false;
 
     // Check if we can resume from the last played block (e.g. after a list flash/refresh)
     if (lastPlayedAudioBidRef.current) {
@@ -1839,6 +1838,7 @@ export const useListenAudioSequence = ({
         item => item.generated_block_bid === lastPlayedAudioBidRef.current,
       );
       if (resumeIndex >= 0) {
+        shouldStartSequenceRef.current = false;
         // We found the last played item, so we are likely just recovering from a refresh.
         // Resume from there instead of restarting.
         // console.log('listen-sequence-auto-resume', {
@@ -1850,12 +1850,27 @@ export const useListenAudioSequence = ({
       }
     }
 
-    // Otherwise, truly start from the beginning
-    // console.log('listen-sequence-auto-start');
-    playAudioSequenceFromIndex(0);
+    const currentPage =
+      deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
+    const startIndex = resolveSequenceStartIndex(currentPage);
+    if (startIndex < 0) {
+      // The user can be ahead of currently available audio.
+      // Keep auto-start armed and wait for matching page audio instead of jumping backwards.
+      return;
+    }
+
+    shouldStartSequenceRef.current = false;
+    // console.log('listen-sequence-auto-start-from-current-page', {
+    //   currentPage,
+    //   startIndex,
+    // });
+    playAudioSequenceFromIndex(startIndex);
   }, [
     audioAndInteractionList,
+    currentPptPageRef,
+    deckRef,
     playAudioSequenceFromIndex,
+    resolveSequenceStartIndex,
     shouldStartSequenceRef,
   ]);
 
@@ -2115,6 +2130,16 @@ export const useListenAudioSequence = ({
     setIsAudioPlaying(false);
   }, [audioSequenceToken, setIsAudioPlaying]);
 
+  const isAudioPlayerBusy = useCallback(() => {
+    const state = audioPlayerRef.current?.getPlaybackState?.();
+    if (!state) {
+      return false;
+    }
+    return Boolean(
+      state.isPlaying || state.isLoading || state.isWaitingForSegment,
+    );
+  }, []);
+
   // Watchdog: if the sequence is active and we have an activeAudioBid (i.e. we
   // expect audio to be playing), but the AudioPlayer has not reported "playing"
   // state for 8 seconds, force-advance to the next item. This catches any
@@ -2126,14 +2151,22 @@ export const useListenAudioSequence = ({
     if (!isAudioSequenceActive || !activeAudioBid || isAudioPlaying) {
       return;
     }
+    if (isAudioPlayerBusy()) {
+      return;
+    }
     const timer = setTimeout(() => {
-      // Re-check conditions inside the timeout to avoid stale closure issues.
-      // isAudioPlaying is from the outer scope snapshot, but if the effect
-      // hasn't been cleaned up it means the conditions still hold.
+      if (isAudioPlayerBusy() || isSequencePausedRef.current) {
+        return;
+      }
       handleAudioEndedRef.current();
     }, 8000);
     return () => clearTimeout(timer);
-  }, [isAudioSequenceActive, activeAudioBid, isAudioPlaying]);
+  }, [
+    isAudioSequenceActive,
+    activeAudioBid,
+    isAudioPlaying,
+    isAudioPlayerBusy,
+  ]);
 
   return {
     audioPlayerRef,
