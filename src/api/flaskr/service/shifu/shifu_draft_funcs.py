@@ -291,7 +291,7 @@ def get_shifu_draft_info(
         has_publish_permission = shifu_permission_verification(
             app, user_id, shifu_id, "publish"
         )
-        readonly = not has_edit_permission
+        readonly = not (has_edit_permission or has_publish_permission)
         archive_map = _get_user_archive_map(app, user_id, [shifu_id])
         archived_override = archive_map.get(shifu_id)
         return return_shifu_draft_dto(
@@ -452,7 +452,7 @@ def save_shifu_draft_info(
         has_publish_permission = shifu_permission_verification(
             app, user_id, shifu_id, "publish"
         )
-        readonly = not has_edit_permission
+        readonly = not (has_edit_permission or has_publish_permission)
         archive_map = _get_user_archive_map(app, user_id, [shifu_id])
         archived_override = archive_map.get(shifu_id)
         return return_shifu_draft_dto(
@@ -771,7 +771,7 @@ def save_shifu_draft_detail(
             has_publish_permission = shifu_permission_verification(
                 app, user_id, shifu_id, "publish"
             )
-            readonly = not has_edit_permission
+            readonly = not (has_edit_permission or has_publish_permission)
             archive_map = _get_user_archive_map(app, user_id, [shifu_id])
             archived_override = archive_map.get(shifu_id)
             return return_shifu_draft_dto(
