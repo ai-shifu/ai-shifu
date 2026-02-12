@@ -15,7 +15,10 @@ import {
   SSE_INPUT_TYPE,
   SSE_OUTPUT_TYPE,
 } from '@/c-api/studyV2';
-import { fixMarkdownStream } from '@/c-utils/markdownUtils';
+import {
+  fixMarkdownStream,
+  unwrapVisualCodeFence,
+} from '@/c-utils/markdownUtils';
 import LoadingBar from './LoadingBar';
 import styles from './AskBlock.module.scss';
 import { toast } from '@/hooks/useToast';
@@ -63,7 +66,7 @@ export default function AskBlock({
   const courseAvatar = useCourseStore(state => state.courseAvatar);
   const [displayList, setDisplayList] = useState<AskMessage[]>(() => {
     return askList.map(item => ({
-      content: item.content || '',
+      content: unwrapVisualCodeFence(item.content || ''),
       type: item.type,
     }));
   });
@@ -150,6 +153,7 @@ export default function AskBlock({
             const delta = fixMarkdownStream(prevText, response.content || '');
             const nextText = prevText + delta;
             currentContentRef.current = nextText;
+            const displayText = unwrapVisualCodeFence(nextText);
 
             // Update the content of the last teacher message
             setDisplayList(prev => {
@@ -161,7 +165,7 @@ export default function AskBlock({
               ) {
                 newList[lastIndex] = {
                   ...newList[lastIndex],
-                  content: nextText,
+                  content: displayText,
                   isStreaming: true,
                 };
               }

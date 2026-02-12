@@ -15,6 +15,7 @@ import { getStringEnv } from '@/c-utils/envUtils';
 import {
   fixMarkdownStream,
   maskIncompleteMermaidBlock,
+  unwrapVisualCodeFence,
 } from '@/c-utils/markdownUtils';
 import { upsertAudioComplete, upsertAudioSegment } from '@/c-utils/audio-utils';
 import { getDynamicApiBaseUrl } from '@/config/environment';
@@ -462,7 +463,9 @@ export function usePreviewChat() {
           );
           const nextText = prevText + delta;
           currentContentRef.current = nextText;
-          const displayText = maskIncompleteMermaidBlock(nextText);
+          const displayText = unwrapVisualCodeFence(
+            maskIncompleteMermaidBlock(nextText),
+          );
           setTrackedContentList(prev =>
             prev.map(item =>
               item.generated_block_bid === contentId

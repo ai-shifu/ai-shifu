@@ -22,6 +22,51 @@ export const fixCodeStream = (text, curr) => {
   return curr;
 };
 
+const VISUAL_CODE_FENCE_REGEX =
+  /(^|\n)(`{3,}|~{3,})[ \t]*([a-zA-Z0-9_+-]*)[^\r\n]*\r?\n([\s\S]*?)\r?\n\2[ \t]*(?=\s*(?:\r?\n|$))/g;
+
+const VISUAL_LANGS = new Set(['', 'svg', 'svg+xml', 'html', 'xml', 'xhtml']);
+const VISUAL_ROOT_TAG_REGEX =
+  /^<(svg|iframe|video|table|div|section|article|main)\b/i;
+
+const shouldUnwrapVisualFence = (lang: string, body: string): boolean => {
+  const normalizedLang = (lang || '').trim().toLowerCase();
+  if (!VISUAL_LANGS.has(normalizedLang)) {
+    return false;
+  }
+
+  const trimmedBody = (body || '').trim();
+  if (!trimmedBody) {
+    return false;
+  }
+
+  if (normalizedLang === 'svg' || normalizedLang === 'svg+xml') {
+    return true;
+  }
+
+  return VISUAL_ROOT_TAG_REGEX.test(trimmedBody);
+};
+
+/**
+ * Unwrap fenced blocks that actually contain renderable visual markup.
+ * This prevents LLM outputs like ```svg ... ``` from being shown as raw code.
+ */
+export const unwrapVisualCodeFence = (text: string): string => {
+  if (!text || (text.indexOf('```') === -1 && text.indexOf('~~~') === -1)) {
+    return text;
+  }
+
+  return text.replace(
+    VISUAL_CODE_FENCE_REGEX,
+    (fullMatch, lineBreak, _fence, lang, body) => {
+      if (!shouldUnwrapVisualFence(lang, body)) {
+        return fullMatch;
+      }
+      return `${lineBreak}${body}`;
+    },
+  );
+};
+
 const MERMAID_FENCE = '```mermaid';
 const STREAMING_MARKER_REGEX = /```mermaid\s*_streaming\s*/gi;
 

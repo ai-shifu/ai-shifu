@@ -12,6 +12,7 @@ import { useLatest, useMountedState } from 'react-use';
 import {
   fixMarkdownStream,
   maskIncompleteMermaidBlock,
+  unwrapVisualCodeFence,
 } from '@/c-utils/markdownUtils';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { useUserStore } from '@/store';
@@ -564,7 +565,9 @@ function useChatLogicHook({
               const delta = fixMarkdownStream(prevText, response.content || '');
               const nextText = prevText + delta;
               currentContentRef.current = nextText;
-              const displayText = maskIncompleteMermaidBlock(nextText);
+              const displayText = unwrapVisualCodeFence(
+                maskIncompleteMermaidBlock(nextText),
+              );
               if (blockId) {
                 setTrackedContentList(prevState => {
                   let hasItem = false;
@@ -820,7 +823,9 @@ function useChatLogicHook({
         if (item.block_type === BLOCK_TYPE.CONTENT) {
           // flush the previously cached ask entries
           flushBuffer();
-          const normalizedContent = item.content ?? '';
+          const normalizedContent = unwrapVisualCodeFence(
+            maskIncompleteMermaidBlock(item.content ?? ''),
+          );
           const contentWithButton =
             mobileStyle && !isListenMode
               ? appendCustomButtonAfterContent(
