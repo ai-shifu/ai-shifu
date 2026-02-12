@@ -27,6 +27,7 @@
     "@fontsource/inter": "^5.2.8",
     "@heroicons/react": "^2.2.0",
     "@hookform/resolvers": "^4.1.2",
+    "@mdx-js/loader": "^3.1.0",
     "@mdxeditor/editor": "^3.24.0",
     "@next/mdx": "^15.3.3",
     "@radix-ui/react-alert-dialog": "^1.1.6",

@@ -76,6 +76,7 @@ from flaskr.service.user.repository import (
     set_user_state,
     upsert_credential,
 )
+from flaskr.i18n import _
 from flaskr.util.uuid import generate_id
 
 
@@ -207,6 +208,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     app.logger.info(f"register shifu routes {path_prefix}")
 
     def _get_login_methods_enabled() -> set[str]:
+        """Resolve enabled login methods from configuration."""
         raw = get_config("LOGIN_METHODS_ENABLED", "phone")
         if isinstance(raw, (list, tuple, set)):
             items = raw
@@ -218,9 +220,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         return methods
 
     def _normalize_contact_type(raw_type: str) -> str:
+        """Normalize the incoming contact type value."""
         return (raw_type or "").strip().lower()
 
     def _normalize_contacts(raw_contacts: object) -> list[str]:
+        """Split and normalize contact identifiers from request payloads."""
         if isinstance(raw_contacts, str):
             items = re.split(r"[,，\n]", raw_contacts)
         elif isinstance(raw_contacts, (list, tuple, set)):
@@ -237,6 +241,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         return normalized
 
     def _validate_contacts(contact_type: str, contacts: list[str]) -> list[str]:
+        """Validate and deduplicate contact identifiers."""
         normalized: list[str] = []
         seen: set[str] = set()
         for contact in contacts:
@@ -256,7 +261,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         return normalized
 
     def _require_shifu_owner(shifu_bid: str) -> str:
+        """Ensure the current user is the shifu owner and a creator."""
         user_id = request.user.user_id
+        if not getattr(request.user, "is_creator", False):
+            raise_error("server.shifu.noPermission")
         creator_bid = get_shifu_creator_bid(app, shifu_bid)
         if not creator_bid:
             raise_error("server.shifu.shifuNotFound")
@@ -265,6 +273,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         return user_id
 
     def _clear_shifu_permission_cache(user_id: str, shifu_bid: str) -> None:
+        """Remove cached permission entries for a given user/shifu pair."""
         # Clear both legacy and current redis prefixes to avoid stale permissions.
         prefixes = {
             app.config.get("CACHE_KEY_PREFIX", ""),
@@ -461,7 +470,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             len(existing_user_ids) + len(new_existing_user_ids) + new_contact_count
             > MAX_SHARED_COURSE_USERS
         ):
-            raise_param_error(f"contact limit {MAX_SHARED_COURSE_USERS}")
+            raise_param_error(
+                _("server.shifu.permissionContactLimit", count=MAX_SHARED_COURSE_USERS)
+            )
 
         auth_types = ["view"]
         if permission == "edit":
