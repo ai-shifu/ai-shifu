@@ -6,7 +6,9 @@ type ShifuDetailPayload = {
 
 export const normalizeShifuDetail = <T extends ShifuDetailPayload>(
   payload: T | null | undefined,
-): (Omit<T, 'can_publish' | 'canPublish'> & { canPublish?: boolean }) | null => {
+):
+  | (Omit<T, 'can_publish' | 'canPublish'> & { canPublish?: boolean })
+  | null => {
   if (!payload) {
     return null;
   }
