@@ -432,10 +432,10 @@ export default function ShifuSettingDialog({
       typeof currentUser?.phone === 'string'
         ? currentUser.phone
         : typeof currentUser?.mobile === 'string'
-        ? currentUser.mobile
-        : typeof currentUser?.user_mobile === 'string'
-        ? currentUser.user_mobile
-        : '';
+          ? currentUser.mobile
+          : typeof currentUser?.user_mobile === 'string'
+            ? currentUser.user_mobile
+            : '';
     const ownerPhone = ownerPhoneCandidate.replace(/\D/g, '');
     const ownerContact = contactType === 'email' ? ownerEmail : ownerPhone;
     if (ownerContact && normalizedContacts.includes(ownerContact)) {
