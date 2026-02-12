@@ -36,6 +36,9 @@ const Header = () => {
     }
   };
   const publish = async () => {
+    if (!canPublish || publishing || !currentShifu?.bid) {
+      return;
+    }
     trackEvent('creator_publish_click', {
       shifu_bid: currentShifu?.bid || '',
     });

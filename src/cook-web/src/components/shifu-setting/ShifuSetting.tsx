@@ -25,6 +25,7 @@ import useSWR from 'swr';
 import { uploadFile } from '@/lib/file';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { normalizeShifuDetail } from '@/lib/shifu-normalize';
+import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import {
   type AudioSegment,
   mergeAudioSegment,
@@ -238,23 +239,10 @@ export default function ShifuSettingDialog({
   const [permissionConfirmOpen, setPermissionConfirmOpen] = useState(false);
   const [permissionSaveLoading, setPermissionSaveLoading] = useState(false);
 
-  const contactType = useMemo(() => {
-    const methods = (loginMethodsEnabled || []).map(item =>
-      String(item).toLowerCase(),
-    );
-    const hasPhone = methods.includes('phone');
-    const hasEmail = methods.includes('email') || methods.includes('google');
-    if (hasPhone && !hasEmail) {
-      return 'phone';
-    }
-    if (hasEmail && !hasPhone) {
-      return 'email';
-    }
-    if (defaultLoginMethod === 'email' || defaultLoginMethod === 'google') {
-      return 'email';
-    }
-    return 'phone';
-  }, [defaultLoginMethod, loginMethodsEnabled]);
+  const contactType = useMemo(
+    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+    [defaultLoginMethod, loginMethodsEnabled],
+  );
 
   const permissionKey = useMemo(() => {
     if (!permissionDialogOpen || !currentShifu?.bid || !canManagePermissions) {
@@ -1535,6 +1523,13 @@ export default function ShifuSettingDialog({
             setPermissionEditMode(false);
             setPermissionEdits({});
             setPermissionRemovals(new Set());
+            setGrantConfirmOpen(false);
+            setPermissionConfirmOpen(false);
+            setPendingGrantContacts([]);
+            setPendingGrantPermission('view');
+            setPermissionLevel('view');
+            setGrantLoading(false);
+            setPermissionSaveLoading(false);
           }
         }}
       >
