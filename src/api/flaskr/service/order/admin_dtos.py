@@ -16,6 +16,7 @@ class OrderAdminSummaryDTO(BaseModel):
     shifu_name: str = Field(..., description="Shifu name", required=False)
     user_bid: str = Field(..., description="User business identifier", required=False)
     user_mobile: str = Field(..., description="User mobile", required=False)
+    user_email: str = Field(..., description="User email", required=False)
     user_nickname: str = Field(..., description="User nickname", required=False)
     payable_price: str = Field(..., description="Payable price", required=False)
     paid_price: str = Field(..., description="Paid price", required=False)
@@ -41,6 +42,7 @@ class OrderAdminSummaryDTO(BaseModel):
         shifu_name: str,
         user_bid: str,
         user_mobile: str,
+        user_email: str,
         user_nickname: str,
         payable_price: str,
         paid_price: str,
@@ -59,6 +61,7 @@ class OrderAdminSummaryDTO(BaseModel):
             shifu_name=shifu_name,
             user_bid=user_bid,
             user_mobile=user_mobile,
+            user_email=user_email,
             user_nickname=user_nickname,
             payable_price=payable_price,
             paid_price=paid_price,
@@ -79,6 +82,7 @@ class OrderAdminSummaryDTO(BaseModel):
             "shifu_name": self.shifu_name,
             "user_bid": self.user_bid,
             "user_mobile": self.user_mobile,
+            "user_email": self.user_email,
             "user_nickname": self.user_nickname,
             "payable_price": self.payable_price,
             "paid_price": self.paid_price,
