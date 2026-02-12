@@ -82,6 +82,7 @@ IMPORT_ACTIVATION_EMAIL_PATTERN = re.compile(
     r"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![A-Za-z0-9.-])"
 )
 IMPORT_ACTIVATION_TEXT_PATTERN = re.compile(r"[A-Za-z\u4E00-\u9FFF]")
+IMPORT_ACTIVATION_MAX_TEXT_LENGTH = 10_000
 
 ACTIVE_STATUS_KEY_MAP = {
     PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED: "module.order.activeStatus.active",
@@ -131,13 +132,22 @@ def normalize_email(email: str) -> str:
 
 
 def _mask_contact_identifier(identifier: str) -> str:
+    """Return a non-reversible hash label for contact identifiers."""
     if not identifier:
         return ""
     digest = hashlib.sha256(identifier.encode("utf-8")).hexdigest()[:8]
     return f"hash:{digest}"
 
 
+def _log_error_code(exc: AppException) -> str:
+    """Return a safe error identifier for logs without leaking PII."""
+    if getattr(exc, "code", None) is not None:
+        return str(exc.code)
+    return exc.__class__.__name__
+
+
 def normalize_contact_identifier(identifier: str, contact_type: str) -> str:
+    """Normalize and validate phone/email identifiers."""
     if contact_type == "email":
         return normalize_email(identifier)
     if contact_type == "phone":
@@ -197,6 +207,7 @@ def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
 
 
 def _trim_import_activation_nickname(value: str) -> str:
+    """Trim nickname content around non-text separators."""
     text = str(value or "").strip()
     if not text:
         return ""
@@ -212,14 +223,20 @@ def _trim_import_activation_nickname(value: str) -> str:
 def parse_import_activation_entries(
     text: str, contact_type: str = "phone"
 ) -> List[Dict[str, str]]:
+    """Parse contact identifiers and optional nicknames from raw text."""
     if not text:
         return []
-    pattern = (
-        IMPORT_ACTIVATION_EMAIL_PATTERN
-        if contact_type == "email"
-        else IMPORT_ACTIVATION_MOBILE_PATTERN
-    )
-    matches = list(pattern.finditer(text))
+    safe_text = str(text)
+    if len(safe_text) > IMPORT_ACTIVATION_MAX_TEXT_LENGTH:
+        safe_text = safe_text[:IMPORT_ACTIVATION_MAX_TEXT_LENGTH]
+    if contact_type == "email":
+        return _parse_import_activation_emails(safe_text)
+    return _parse_import_activation_mobiles(safe_text)
+
+
+def _parse_import_activation_mobiles(text: str) -> List[Dict[str, str]]:
+    """Parse phone identifiers and optional nicknames from raw text."""
+    matches = list(IMPORT_ACTIVATION_MOBILE_PATTERN.finditer(text))
     if not matches:
         return []
     entries: List[Dict[str, str]] = []
@@ -233,11 +250,63 @@ def parse_import_activation_entries(
         entries.append({"mobile": identifier, "nickname": nickname})
     return entries
 
+def _parse_import_activation_emails(text: str) -> List[Dict[str, str]]:
+    """Parse email identifiers and optional nicknames from raw text."""
+    entries: List[Dict[str, str]] = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        matches = _find_email_matches(line)
+        if not matches:
+            continue
+
+        for index, (start, _end, identifier) in enumerate(matches):
+            next_start = (
+                matches[index + 1][0] if index + 1 < len(matches) else len(line)
+            )
+            segment = line[start:next_start]
+            nickname_source = segment.replace(identifier, "", 1)
+            nickname = _trim_import_activation_nickname(nickname_source)
+            entries.append({"mobile": identifier, "nickname": nickname})
+    return entries
+
+
+def _find_email_matches(line: str) -> List[tuple[int, int, str]]:
+    """Find email candidates in a line using linear scanning."""
+    if "@" not in line:
+        return []
+    allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._%+-")
+    matches: List[tuple[int, int, str]] = []
+    seen: set[tuple[int, int]] = set()
+    length = len(line)
+    for index, char in enumerate(line):
+        if char != "@":
+            continue
+        left = index - 1
+        while left >= 0 and line[left] in allowed:
+            left -= 1
+        right = index + 1
+        while right < length and line[right] in allowed:
+            right += 1
+        start = left + 1
+        end = right
+        if end - start <= 3:
+            continue
+        if (start, end) in seen:
+            continue
+        candidate = line[start:end]
+        if EMAIL_PATTERN.fullmatch(candidate):
+            matches.append((start, end, candidate))
+            seen.add((start, end))
+    matches.sort(key=lambda item: item[0])
+    return matches
+
 
 def _load_shifu_map(
     shifu_bids: list[str],
 ) -> Dict[str, DraftShifu | PublishedShifu]:
-    """Load latest published shifu records for given bids and map by bid."""
+    """Load shifu records for given bids, preferring published with draft fallback."""
     if not shifu_bids:
         return {}
     shifu_map: Dict[str, DraftShifu | PublishedShifu] = {}
@@ -499,9 +568,9 @@ def import_activation_orders(
             if hasattr(app, "logger"):
                 masked_identifier = _mask_contact_identifier(normalized_mobile)
                 app.logger.warning(
-                    "import activation failed for %s: %s",
+                    "import activation failed for %s (code=%s)",
                     masked_identifier,
-                    exc.message,
+                    _log_error_code(exc),
                 )
             results["failed"].append(
                 {"mobile": normalized_mobile, "message": exc.message}
@@ -549,9 +618,9 @@ def import_activation_orders_from_entries(
             if hasattr(app, "logger"):
                 masked_identifier = _mask_contact_identifier(normalized_mobile)
                 app.logger.warning(
-                    "import activation failed for %s: %s",
+                    "import activation failed for %s (code=%s)",
                     masked_identifier,
-                    exc.message,
+                    _log_error_code(exc),
                 )
             results["failed"].append(
                 {"mobile": normalized_mobile, "message": exc.message}

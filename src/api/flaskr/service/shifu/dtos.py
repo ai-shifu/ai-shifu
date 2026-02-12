@@ -86,6 +86,9 @@ class ShifuDetailDto(BaseModel):
     can_manage_archive: bool = Field(
         False, description="whether current user can archive/unarchive", required=False
     )
+    can_publish: bool = Field(
+        False, description="whether current user can publish", required=False
+    )
     created_user_bid: str = Field(
         "", description="owner user business id", required=False
     )
@@ -129,6 +132,7 @@ class ShifuDetailDto(BaseModel):
         readonly: bool,
         archived: bool,
         can_manage_archive: bool = False,
+        can_publish: bool = False,
         created_user_bid: str = "",
         tts_enabled: bool = False,
         tts_provider: str = "",
@@ -154,6 +158,7 @@ class ShifuDetailDto(BaseModel):
             readonly=readonly,
             archived=archived,
             can_manage_archive=can_manage_archive,
+            can_publish=can_publish,
             created_user_bid=created_user_bid or "",
             tts_enabled=tts_enabled,
             tts_provider=tts_provider,
@@ -181,6 +186,7 @@ class ShifuDetailDto(BaseModel):
             "readonly": self.readonly,
             "archived": self.archived,
             "can_manage_archive": self.can_manage_archive,
+            "can_publish": self.can_publish,
             "created_user_bid": self.created_user_bid,
             "tts_enabled": self.tts_enabled,
             "tts_provider": self.tts_provider,

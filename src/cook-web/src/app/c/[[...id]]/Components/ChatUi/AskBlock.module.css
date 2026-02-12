@@ -47,6 +47,9 @@
   font-weight: var(--font-weight-normal, 400);
   line-height: 24px;
 }
+.askBlock .askIframeWrapper :global(.content-render-iframe-sandbox) {
+  height: auto !important;
+}
 .askBlock .userInput {
   display: flex;
   align-items: center;

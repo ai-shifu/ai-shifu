@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ListenPlayer from './ListenPlayer';
 import { cn } from '@/lib/utils';
 import type Reveal from 'reveal.js';
@@ -7,7 +7,7 @@ import 'reveal.js/dist/theme/white.css';
 import ContentIframe from './ContentIframe';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import './ListenModeRenderer.scss';
-import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import { AudioPlayerList } from '@/components/audio/AudioPlayerList';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import {
   useListenAudioSequence,
@@ -150,7 +150,6 @@ const ListenModeRenderer = ({
     handleAudioEnded,
     handlePlay,
     handlePause,
-    startSequenceFromIndex,
     startSequenceFromPage,
   } = useListenAudioSequence({
     audioAndInteractionList,
@@ -191,111 +190,29 @@ const ListenModeRenderer = ({
       resolveContentBid,
     });
 
-  const audioContentSequence = useMemo(
+  const audioList = useMemo(
     () =>
-      audioAndInteractionList.flatMap((item, index) =>
-        item.type === ChatContentItemType.CONTENT ? [{ item, index }] : [],
+      audioAndInteractionList.flatMap(item =>
+        item.type === ChatContentItemType.CONTENT ? [item] : [],
       ),
     [audioAndInteractionList],
   );
 
-  const resolveAudioSequenceIndexByDirection = useCallback(
-    (page: number, direction: -1 | 1) => {
-      if (!audioContentSequence.length) {
-        return null;
-      }
-      let currentIndex = -1;
-      if (activeAudioBlockBid) {
-        currentIndex = audioContentSequence.findIndex(
-          entry => entry.item.generated_block_bid === activeAudioBlockBid,
-        );
-      }
-      if (currentIndex < 0) {
-        for (let i = audioContentSequence.length - 1; i >= 0; i -= 1) {
-          if (audioContentSequence[i].item.page <= page) {
-            currentIndex = i;
-            break;
-          }
-        }
-      }
-      if (direction === -1) {
-        const targetIndex = currentIndex - 1;
-        if (targetIndex < 0) {
-          return null;
-        }
-        return audioContentSequence[targetIndex].index;
-      }
-      const targetIndex = currentIndex < 0 ? 0 : currentIndex + 1;
-      if (targetIndex >= audioContentSequence.length) {
-        return null;
-      }
-      return audioContentSequence[targetIndex].index;
-    },
-    [audioContentSequence, activeAudioBlockBid],
-  );
-
   const onPrev = useCallback(() => {
-    const currentPage =
-      deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
-    const targetSequenceIndex = resolveAudioSequenceIndexByDirection(
-      currentPage,
-      -1,
-    );
-    if (typeof targetSequenceIndex === 'number') {
-      startSequenceFromIndex(targetSequenceIndex);
-      return;
-    }
     const nextPage = goPrev();
     if (typeof nextPage === 'number') {
       startSequenceFromPage(nextPage);
     }
-  }, [
-    deckRef,
-    currentPptPageRef,
-    resolveAudioSequenceIndexByDirection,
-    goPrev,
-    startSequenceFromIndex,
-    startSequenceFromPage,
-  ]);
-
-  const currentSequencePage =
-    deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
-  const prevSequenceIndex = resolveAudioSequenceIndexByDirection(
-    currentSequencePage,
-    -1,
-  );
-  const nextSequenceIndex = resolveAudioSequenceIndexByDirection(
-    currentSequencePage,
-    1,
-  );
-  const prevControlDisabled =
-    isPrevDisabled && typeof prevSequenceIndex !== 'number';
-  const nextControlDisabled =
-    isNextDisabled && typeof nextSequenceIndex !== 'number';
+  }, [goPrev, startSequenceFromPage]);
+  const prevControlDisabled = isPrevDisabled;
+  const nextControlDisabled = isNextDisabled;
 
   const onNext = useCallback(() => {
-    const currentPage =
-      deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
-    const targetSequenceIndex = resolveAudioSequenceIndexByDirection(
-      currentPage,
-      1,
-    );
-    if (typeof targetSequenceIndex === 'number') {
-      startSequenceFromIndex(targetSequenceIndex);
-      return;
-    }
     const nextPage = goNext();
     if (typeof nextPage === 'number') {
       startSequenceFromPage(nextPage);
     }
-  }, [
-    deckRef,
-    currentPptPageRef,
-    resolveAudioSequenceIndexByDirection,
-    goNext,
-    startSequenceFromIndex,
-    startSequenceFromPage,
-  ]);
+  }, [goNext, startSequenceFromPage]);
 
   const currentInteractionPage = useMemo(() => {
     if (!currentInteraction) {
@@ -339,6 +256,29 @@ const ListenModeRenderer = ({
   const interactionReadonly = listenPlayerInteraction
     ? !isLatestInteractionEditable
     : true;
+
+  useEffect(() => {
+    // console.log('listen-render-state', {
+    //   isLoading,
+    //   audioSequenceToken,
+    //   isAudioSequenceActive,
+    //   currentInteractionBid: currentInteraction?.generated_block_bid ?? null,
+    //   sequenceInteractionBid: sequenceInteraction?.generated_block_bid ?? null,
+    //   listenInteractionBid:
+    //     listenPlayerInteraction?.generated_block_bid ?? null,
+    //   hasAudioForCurrentPage,
+    //   shouldHideFallbackInteraction,
+    // });
+  }, [
+    isLoading,
+    audioSequenceToken,
+    isAudioSequenceActive,
+    currentInteraction?.generated_block_bid,
+    sequenceInteraction?.generated_block_bid,
+    listenPlayerInteraction?.generated_block_bid,
+    hasAudioForCurrentPage,
+    shouldHideFallbackInteraction,
+  ]);
 
   return (
     <div
@@ -384,15 +324,13 @@ const ListenModeRenderer = ({
           ) : null}
         </div>
       </div>
-      {activeContentItem ? (
+      {audioList.length ? (
         <div className={cn('listen-audio-controls', 'hidden')}>
-          <AudioPlayer
+          <AudioPlayerList
             ref={audioPlayerRef}
-            key={`${activeAudioBlockBid ?? 'listen-audio'}-${audioSequenceToken}`}
-            audioUrl={activeContentItem.audioUrl}
-            streamingSegments={activeContentItem.audioSegments}
-            isStreaming={Boolean(activeContentItem.isAudioStreaming)}
-            alwaysVisible={true}
+            audioList={audioList}
+            sequenceBlockBid={activeAudioBlockBid}
+            isSequenceActive={isAudioSequenceActive}
             disabled={previewMode}
             onRequestAudio={
               !previewMode && onRequestAudioForBlock && activeAudioBlockBid
@@ -402,7 +340,7 @@ const ListenModeRenderer = ({
             autoPlay={!previewMode}
             onPlayStateChange={setIsAudioPlaying}
             onEnded={handleAudioEnded}
-            size={18}
+            className='hidden'
           />
         </div>
       ) : null}

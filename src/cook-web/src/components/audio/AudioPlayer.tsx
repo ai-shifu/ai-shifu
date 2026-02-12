@@ -56,7 +56,7 @@ export interface AudioPlayerProps {
 export interface AudioPlayerHandle {
   togglePlay: () => void;
   play: () => void;
-  pause: (options?: { traceId?: string }) => void;
+  pause: (options?: { traceId?: string; keepAutoPlay?: boolean }) => void;
 }
 
 /**
@@ -200,7 +200,7 @@ function AudioPlayerBase(
   }, [cleanupAudio, releaseExclusive]);
 
   const pausePlayback = useCallback(
-    (options?: { traceId?: string }) => {
+    (options?: { traceId?: string; keepAutoPlay?: boolean }) => {
       const hasLiveAudio =
         Boolean(sourceNodeRef.current) ||
         activeSourceNodesRef.current.size > 0 ||
@@ -243,7 +243,7 @@ function AudioPlayerBase(
       //   htmlTime,
       // });
       playSessionRef.current += 1;
-      isPausedRef.current = true;
+      isPausedRef.current = !options?.keepAutoPlay;
       setIsPlaying(false);
       isPlayingRef.current = false;
       setIsLoading(false);
