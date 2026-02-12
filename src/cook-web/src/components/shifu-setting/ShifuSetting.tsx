@@ -120,6 +120,8 @@ interface Shifu {
   system_prompt?: string;
   archived?: boolean;
   created_user_bid?: string;
+  canPublish?: boolean;
+  can_publish?: boolean;
   // TTS Configuration
   tts_enabled?: boolean;
   tts_provider?: string;
