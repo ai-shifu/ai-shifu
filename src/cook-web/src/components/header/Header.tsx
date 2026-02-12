@@ -29,13 +29,16 @@ const Header = () => {
   const { isSaving, lastSaveTime, currentShifu, error, actions } = useShifu();
   // Only allow publish when backend grants explicit publish permission.
   const canPublish =
-    Boolean(currentShifu?.bid) && currentShifu?.can_publish === true;
+    Boolean(currentShifu?.bid) && currentShifu?.canPublish === true;
   const onShifuSave = async () => {
     if (currentShifu) {
       await actions.loadShifu(currentShifu.bid, { silent: true });
     }
   };
   const publish = async () => {
+    if (!canPublish || publishing || !currentShifu?.bid) {
+      return;
+    }
     trackEvent('creator_publish_click', {
       shifu_bid: currentShifu?.bid || '',
     });

@@ -37,7 +37,6 @@ import uuid
 import re
 from dataclasses import replace
 from pathlib import Path
-from urllib.parse import urlsplit
 
 from flask import (
     Flask,
@@ -187,16 +186,23 @@ class ShifuTokenValidation:
 
 def _get_request_base_url() -> str:
     """
-    Determine the base URL based on the incoming request headers.
+    Determine the base URL for frontend links.
     """
-    origin = request.headers.get("Origin")
-    if origin:
-        return origin.rstrip("/")
-    referer = request.headers.get("Referer")
-    if referer:
-        parsed_referer = urlsplit(referer)
-        if parsed_referer.scheme and parsed_referer.netloc:
-            return f"{parsed_referer.scheme}://{parsed_referer.netloc}"
+    configured_base = (get_config("FRONTEND_BASE_URL") or "").strip()
+    if configured_base:
+        return configured_base.rstrip("/")
+
+    server_name = current_app.config.get("SERVER_NAME")
+    if server_name:
+        scheme = "https" if request.is_secure else "http"
+        return f"{scheme}://{server_name}".rstrip("/")
+
+    if current_app.debug or current_app.config.get("ENV") == "development":
+        return request.url_root.rstrip("/")
+
+    current_app.logger.warning(
+        "FRONTEND_BASE_URL is not configured; falling back to request.url_root"
+    )
     return request.url_root.rstrip("/")
 
 
@@ -226,7 +232,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     def _normalize_contacts(raw_contacts: object) -> list[str]:
         """Split and normalize contact identifiers from request payloads."""
         if isinstance(raw_contacts, str):
-            items = re.split(r"[,，\n]", raw_contacts)
+            items = re.split(r"[,\uFF0C\n]", raw_contacts)
         elif isinstance(raw_contacts, (list, tuple, set)):
             items = list(raw_contacts)
         else:
@@ -276,8 +282,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         """Remove cached permission entries for a given user/shifu pair."""
         # Clear both legacy and current redis prefixes to avoid stale permissions.
         prefixes = {
-            app.config.get("CACHE_KEY_PREFIX", ""),
-            get_config("REDIS_KEY_PREFIX"),
+            app.config.get("CACHE_KEY_PREFIX", "") or "",
+            get_config("REDIS_KEY_PREFIX") or "",
         }
         for prefix in prefixes:
             cache_key = f"{prefix}shifu_permission:{user_id}:{shifu_bid}"
@@ -362,6 +368,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     @app.route(path_prefix + "/shifus/<shifu_bid>/permissions", methods=["GET"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
     def list_shifu_permissions_api(shifu_bid: str):
+        """List shared permissions for a shifu."""
         owner_id = _require_shifu_owner(shifu_bid)
         contact_type = _normalize_contact_type(request.args.get("contact_type", ""))
         allowed_methods = _get_login_methods_enabled()
@@ -392,11 +399,13 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 continue
 
             if contact_type == "email":
-                identifier = aggregate.email or aggregate.identify
+                identifier = aggregate.email or ""
             elif contact_type == "phone":
-                identifier = aggregate.mobile or aggregate.identify
+                identifier = aggregate.mobile or ""
             else:
-                identifier = aggregate.email or aggregate.mobile or aggregate.identify
+                identifier = aggregate.email or aggregate.mobile or ""
+            if not identifier:
+                continue
 
             items.append(
                 {
@@ -414,6 +423,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     )
     @ShifuTokenValidation(ShifuPermission.VIEW)
     def grant_shifu_permissions_api(shifu_bid: str):
+        """Grant shared permissions for a shifu."""
         owner_id = _require_shifu_owner(shifu_bid)
         payload = request.get_json() or {}
         contact_type = _normalize_contact_type(payload.get("contact_type", ""))
@@ -471,7 +481,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             > MAX_SHARED_COURSE_USERS
         ):
             raise_param_error(
-                _("server.shifu.permissionContactLimit", count=MAX_SHARED_COURSE_USERS)
+                _("server.shifu.permissionContactLimit").format(
+                    count=MAX_SHARED_COURSE_USERS
+                )
             )
 
         auth_types = ["view"]
@@ -539,6 +551,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     )
     @ShifuTokenValidation(ShifuPermission.VIEW)
     def remove_shifu_permissions_api(shifu_bid: str):
+        """Remove a shared permission from a shifu."""
         owner_id = _require_shifu_owner(shifu_bid)
         payload = request.get_json() or {}
         user_id = str(payload.get("user_id", "")).strip()

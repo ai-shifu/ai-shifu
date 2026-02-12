@@ -141,6 +141,12 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Default redirect path after login",
         group="frontend",
     ),
+    "FRONTEND_BASE_URL": EnvVar(
+        name="FRONTEND_BASE_URL",
+        default="",
+        description="Public frontend base URL for building shifu links",
+        group="frontend",
+    ),
     "LOGO_WIDE_URL": EnvVar(
         name="LOGO_WIDE_URL",
         default="",

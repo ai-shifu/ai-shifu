@@ -21,8 +21,11 @@ import {
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
+import useSWR from 'swr';
 import { uploadFile } from '@/lib/file';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
+import { normalizeShifuDetail } from '@/lib/shifu-normalize';
+import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import {
   type AudioSegment,
   mergeAudioSegment,
@@ -153,8 +156,9 @@ const MAX_SHARED_PERMISSION_COUNT = 10;
 const INVALID_CONTACT_SAMPLE_LIMIT = 5;
 // Keep phone validation aligned with backend bulk rules (11 digits only).
 const PERMISSION_PHONE_PATTERN = /^\d{11}$/;
-const PHONE_EXTRACT_PATTERN = /(?:^|\D)(1[3-9](?:\D*\d){9})(?!\d)/g;
-const PHONE_CANDIDATE_PATTERN = /(?:^|\D)(\d{11})(?!\d)/g;
+const PHONE_EXTRACT_PATTERN = /(?:^|\D)(\d{11})(?!\d)/g;
+const PHONE_TOKEN_PATTERN = /\d{11}/;
+const PHONE_TOKEN_SPLIT_PATTERN = /[\s,;\n\uFF0C\uFF1B]+/;
 const EMAIL_EXTRACT_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 const EMAIL_CANDIDATE_PATTERN = /[^\s,\uFF0C;\uFF1B]+@[^\s,\uFF0C;\uFF1B]+/g;
 
@@ -214,8 +218,6 @@ export default function ShifuSettingDialog({
     Boolean(currentShifu?.created_user_bid) &&
     currentShifu?.created_user_bid === currentUserId;
   const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
-  const [permissionList, setPermissionList] = useState<SharedPermission[]>([]);
-  const [permissionLoading, setPermissionLoading] = useState(false);
   const [permissionInput, setPermissionInput] = useState('');
   const [permissionError, setPermissionError] = useState('');
   const [permissionLevel, setPermissionLevel] =
@@ -237,23 +239,53 @@ export default function ShifuSettingDialog({
   const [permissionConfirmOpen, setPermissionConfirmOpen] = useState(false);
   const [permissionSaveLoading, setPermissionSaveLoading] = useState(false);
 
-  const contactType = useMemo(() => {
-    const methods = (loginMethodsEnabled || []).map(item =>
-      String(item).toLowerCase(),
-    );
-    const hasPhone = methods.includes('phone');
-    const hasEmail = methods.includes('email') || methods.includes('google');
-    if (hasPhone && !hasEmail) {
-      return 'phone';
+  const contactType = useMemo(
+    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+    [defaultLoginMethod, loginMethodsEnabled],
+  );
+
+  const permissionKey = useMemo(() => {
+    if (!permissionDialogOpen || !currentShifu?.bid || !canManagePermissions) {
+      return null;
     }
-    if (hasEmail && !hasPhone) {
-      return 'email';
+    return ['shifu-permissions', currentShifu.bid, contactType] as const;
+  }, [
+    canManagePermissions,
+    contactType,
+    currentShifu?.bid,
+    permissionDialogOpen,
+  ]);
+
+  const {
+    data: permissionData,
+    error: permissionLoadError,
+    isLoading: permissionLoading,
+    mutate: refreshPermissionList,
+  } = useSWR(
+    permissionKey,
+    async ([, shifuBid, contactTypeValue]) =>
+      (await api.listShifuPermissions({
+        shifu_bid: shifuBid,
+        contact_type: contactTypeValue,
+      })) as { items?: SharedPermission[] },
+    { revalidateOnFocus: false },
+  );
+
+  const permissionList = useMemo(
+    () => permissionData?.items || [],
+    [permissionData],
+  );
+
+  useEffect(() => {
+    if (!permissionLoadError || !permissionDialogOpen) {
+      return;
     }
-    if (defaultLoginMethod === 'email' || defaultLoginMethod === 'google') {
-      return 'email';
-    }
-    return 'phone';
-  }, [defaultLoginMethod, loginMethodsEnabled]);
+    const message =
+      permissionLoadError instanceof Error
+        ? permissionLoadError.message
+        : t('common.core.unknownError');
+    toast({ title: message, variant: 'destructive' });
+  }, [permissionDialogOpen, permissionLoadError, t, toast]);
 
   const contactLabel =
     contactType === 'email'
@@ -313,16 +345,25 @@ export default function ShifuSettingDialog({
 
       if (contactType === 'phone') {
         const matches = Array.from(value.matchAll(PHONE_EXTRACT_PATTERN)).map(
-          match => match[1].replace(/\D/g, ''),
+          match => match[1],
         );
         const contacts = unique(matches).filter(phone =>
           PERMISSION_PHONE_PATTERN.test(phone),
         );
-        const candidates = Array.from(
-          value.matchAll(PHONE_CANDIDATE_PATTERN),
-        ).map(match => match[1]);
-        const invalidContacts = unique(candidates).filter(
-          candidate => !PERMISSION_PHONE_PATTERN.test(candidate),
+        const tokens = value
+          .split(PHONE_TOKEN_SPLIT_PATTERN)
+          .filter(token => token.length > 0);
+        const invalidContacts = unique(
+          tokens
+            .filter(
+              token => /\d/.test(token) && !PHONE_TOKEN_PATTERN.test(token),
+            )
+            .map(token => token.replace(/\D/g, ''))
+            .filter(
+              candidate =>
+                candidate.length > 0 &&
+                !PERMISSION_PHONE_PATTERN.test(candidate),
+            ),
         );
         return { contacts, invalidContacts };
       }
@@ -341,26 +382,6 @@ export default function ShifuSettingDialog({
     },
     [contactType],
   );
-
-  const loadPermissionList = useCallback(async () => {
-    if (!currentShifu?.bid || !canManagePermissions) {
-      return;
-    }
-    setPermissionLoading(true);
-    try {
-      const response = (await api.listShifuPermissions({
-        shifu_bid: currentShifu.bid,
-        contact_type: contactType,
-      })) as { items?: SharedPermission[] };
-      setPermissionList(response?.items || []);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : t('common.core.unknownError');
-      toast({ title: message, variant: 'destructive' });
-    } finally {
-      setPermissionLoading(false);
-    }
-  }, [canManagePermissions, contactType, currentShifu?.bid, t, toast]);
 
   const handleGrantPermissions = useCallback(async () => {
     if (!currentShifu?.bid || !canManagePermissions) {
@@ -470,7 +491,7 @@ export default function ShifuSettingDialog({
       });
       toast({ title: t('module.shifuSetting.permissionGrantSuccess') });
       setPermissionInput('');
-      await loadPermissionList();
+      await refreshPermissionList();
       setPermissionDialogOpen(false);
       setGrantConfirmOpen(false);
       setPendingGrantContacts([]);
@@ -485,9 +506,9 @@ export default function ShifuSettingDialog({
     canManagePermissions,
     contactType,
     currentShifu?.bid,
-    loadPermissionList,
     pendingGrantContacts,
     pendingGrantPermission,
+    refreshPermissionList,
     t,
     toast,
   ]);
@@ -540,30 +561,82 @@ export default function ShifuSettingDialog({
     }
     setPermissionSaveLoading(true);
     try {
-      for (const userId of removalIds) {
-        await api.removeShifuPermission({
-          shifu_bid: currentShifu.bid,
-          user_id: userId,
-        });
+      const operations: Array<{
+        type: 'remove' | 'grant';
+        userId: string;
+        permission?: SharedPermission['permission'];
+        identifier?: string;
+      }> = [
+        ...removalIds.map(userId => ({ type: 'remove', userId })),
+        ...updates.map(([userId, nextPermission]) => {
+          const item = permissionList.find(entry => entry.user_id === userId);
+          return {
+            type: 'grant',
+            userId,
+            permission: nextPermission,
+            identifier: item?.identifier || '',
+          };
+        }),
+      ];
+
+      const missingIdentifiers = operations.filter(
+        operation => operation.type === 'grant' && !operation.identifier,
+      );
+      if (missingIdentifiers.length > 0) {
+        throw new Error(t('module.shifuSetting.permissionContactRequired'));
       }
-      for (const [userId, nextPermission] of updates) {
-        const item = permissionList.find(entry => entry.user_id === userId);
-        if (!item?.identifier) {
-          throw new Error(t('module.shifuSetting.permissionContactRequired'));
-        }
-        await api.grantShifuPermissions({
-          shifu_bid: currentShifu.bid,
-          contact_type: contactType,
-          contacts: [item.identifier],
-          permission: nextPermission,
+
+      const removals = operations.filter(
+        operation => operation.type === 'remove',
+      );
+      const grants = operations.filter(operation => operation.type === 'grant');
+
+      const removalResults = await Promise.allSettled(
+        removals.map(operation =>
+          api.removeShifuPermission({
+            shifu_bid: currentShifu.bid,
+            user_id: operation.userId,
+          }),
+        ),
+      );
+      const grantResults = await Promise.allSettled(
+        grants.map(operation =>
+          api.grantShifuPermissions({
+            shifu_bid: currentShifu.bid,
+            contact_type: contactType,
+            contacts: [operation.identifier || ''],
+            permission: operation.permission || 'view',
+          }),
+        ),
+      );
+      const results = [...removalResults, ...grantResults];
+
+      const failed = results
+        .map((result, index) => ({
+          result,
+          operation: [...removals, ...grants][index],
+        }))
+        .filter(item => item.result.status === 'rejected')
+        .map(item => item.operation.identifier || item.operation.userId);
+
+      await refreshPermissionList();
+      setPermissionConfirmOpen(false);
+
+      if (failed.length > 0) {
+        setPermissionEdits({});
+        setPermissionRemovals(new Set());
+        toast({
+          title: t('common.core.unknownError'),
+          description: failed.join(', '),
+          variant: 'destructive',
         });
+        return;
       }
+
       toast({ title: t('module.shifuSetting.permissionEditSuccess') });
-      await loadPermissionList();
       setPermissionEditMode(false);
       setPermissionEdits({});
       setPermissionRemovals(new Set());
-      setPermissionConfirmOpen(false);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : t('common.core.unknownError');
@@ -575,19 +648,14 @@ export default function ShifuSettingDialog({
     canManagePermissions,
     contactType,
     currentShifu?.bid,
-    loadPermissionList,
     permissionEdits,
     permissionList,
     permissionRemovals,
+    refreshPermissionList,
     t,
     toast,
   ]);
 
-  useEffect(() => {
-    if (open) {
-      loadPermissionList();
-    }
-  }, [loadPermissionList, open]);
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   // TTS Configuration state
   const [ttsEnabled, setTtsEnabled] = useState(false);
@@ -1140,9 +1208,11 @@ export default function ShifuSettingDialog({
 
   const init = async () => {
     ttsProviderToastShownRef.current = false;
-    const result = (await api.getShifuDetail({
-      shifu_bid: shifuId,
-    })) as Shifu;
+    const result = normalizeShifuDetail(
+      (await api.getShifuDetail({
+        shifu_bid: shifuId,
+      })) as Shifu,
+    );
 
     if (result) {
       form.reset({
@@ -1453,6 +1523,13 @@ export default function ShifuSettingDialog({
             setPermissionEditMode(false);
             setPermissionEdits({});
             setPermissionRemovals(new Set());
+            setGrantConfirmOpen(false);
+            setPermissionConfirmOpen(false);
+            setPendingGrantContacts([]);
+            setPendingGrantPermission('view');
+            setPermissionLevel('view');
+            setGrantLoading(false);
+            setPermissionSaveLoading(false);
           }
         }}
       >
@@ -1619,7 +1696,6 @@ export default function ShifuSettingDialog({
                               {permissionLabelMap[item.permission] ||
                                 item.permission}
                             </span>
-                            <ChevronDown className='h-3.5 w-3.5 opacity-60' />
                           </div>
                         ) : (
                           <DropdownMenu>
