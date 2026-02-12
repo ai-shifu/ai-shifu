@@ -1,14 +1,14 @@
 .newChatPage {
   width: 100%;
-  min-height: 100svh;
+  height: 100%;
   display: flex;
   font-size: var(--font-size-4);
   font-weight: var(--font-weight-4-1);
   color: var(--font-color-main);
 
   .chatMobileHeader {
-    position: sticky;
-    top: 0;
+    // position: sticky;
+    // top: 0;
     z-index: 10;
   }
 }

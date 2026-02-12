@@ -497,7 +497,6 @@ export const NewChatComponents = ({
               items={listenModeItems}
               mobileStyle={mobileStyle}
               chatRef={chatRef as React.RefObject<HTMLDivElement>}
-              containerClassName={containerClassName}
               isLoading={isLoading}
               sectionTitle={lessonTitle}
               previewMode={previewMode}

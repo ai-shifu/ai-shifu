@@ -153,9 +153,9 @@
     width: 100%;
     // padding-top: 80px;
     // padding-bottom: 40px;
-    overflow: hidden;
+    // overflow: hidden;
     .chatComponents {
-      padding-top: 0;
+      padding: 0 0 128px 0 !important;
       overflow-y: auto;
     }
     .footer {

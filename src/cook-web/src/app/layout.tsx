@@ -31,11 +31,11 @@ export default function RootLayout({
     <html lang='en'>
       <head></head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-screen overflow-x-hidden overscroll-none`}
+        className={`${geistSans.variable} ${geistMono.variable} h-full overflow-x-hidden overscroll-none`}      
       >
         <div
           id='root'
-          className='min-h-screen'
+          className='h-screen'
         >
           <ConfigProvider>
             <RuntimeConfigInitializer />
