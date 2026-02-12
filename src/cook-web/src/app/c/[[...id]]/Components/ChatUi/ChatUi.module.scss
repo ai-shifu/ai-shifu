@@ -153,9 +153,9 @@
     width: 100%;
     // padding-top: 80px;
     // padding-bottom: 40px;
-    // overflow: hidden;
+    overflow: hidden;
     .chatComponents {
-      padding: 0 0 128px 0 !important;
+      padding-top: 0;
       overflow-y: auto;
     }
     .footer {
@@ -164,6 +164,13 @@
       right: 0;
       bottom: 0;
       padding-bottom: 0;
+    }
+  }
+
+  &.mobile.listenMode {
+    overflow: visible;
+    .chatComponents {
+      padding: 0 0 128px 0 !important;
     }
   }
 
