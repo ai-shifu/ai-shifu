@@ -24,6 +24,7 @@ import { useForm } from 'react-hook-form';
 import useSWR from 'swr';
 import { uploadFile } from '@/lib/file';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
+import { normalizeShifuDetail } from '@/lib/shifu-normalize';
 import {
   type AudioSegment,
   mergeAudioSegment,
@@ -1219,9 +1220,11 @@ export default function ShifuSettingDialog({
 
   const init = async () => {
     ttsProviderToastShownRef.current = false;
-    const result = (await api.getShifuDetail({
-      shifu_bid: shifuId,
-    })) as Shifu;
+    const result = normalizeShifuDetail(
+      (await api.getShifuDetail({
+        shifu_bid: shifuId,
+      })) as Shifu,
+    );
 
     if (result) {
       form.reset({
