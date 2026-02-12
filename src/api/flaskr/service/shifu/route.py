@@ -380,7 +380,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             contact_type = "email" if "email" in allowed_methods else "phone"
 
         items = []
-        auths = AiCourseAuth.query.filter(AiCourseAuth.course_id == shifu_bid).all()
+        auths = AiCourseAuth.query.filter(
+            AiCourseAuth.course_id == shifu_bid,
+            AiCourseAuth.status == 1,
+        ).all()
         for auth in auths:
             if not auth.user_id or auth.user_id == owner_id:
                 continue

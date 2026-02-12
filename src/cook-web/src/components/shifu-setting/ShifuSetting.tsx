@@ -557,7 +557,6 @@ export default function ShifuSettingDialog({
     if (removalIds.length === 0 && updates.length === 0) {
       toast({
         title: t('module.shifuSetting.permissionEditNoChanges'),
-        variant: 'destructive',
       });
       return;
     }
