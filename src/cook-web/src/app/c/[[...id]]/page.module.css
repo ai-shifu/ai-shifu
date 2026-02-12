@@ -1,1 +1,21 @@
-.newChatPage{width:100%;min-height:100svh;display:flex;font-size:var(--font-size-4);font-weight:var(--font-weight-4-1);color:var(--font-color-main)}.newChatPage .chatMobileHeader{position:sticky;top:0;z-index:10}.newChatPage.listenMode{height:100%;min-height:auto}.newChatPage.listenMode .chatMobileHeader{position:static;top:auto}
+.newChatPage {
+  width: 100%;
+  min-height: 100svh;
+  display: flex;
+  font-size: var(--font-size-4);
+  font-weight: var(--font-weight-4-1);
+  color: var(--font-color-main);
+}
+.newChatPage .chatMobileHeader {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.newChatPage.listenMode {
+  height: 100%;
+  min-height: auto;
+}
+.newChatPage.listenMode .chatMobileHeader {
+  position: static;
+  top: auto;
+}

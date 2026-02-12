@@ -280,10 +280,7 @@ const ListenModeRenderer = ({
 
   return (
     <div
-      className={cn(
-        'listen-reveal-wrapper',
-        mobileStyle ? 'mobile' : '',
-      )}
+      className={cn('listen-reveal-wrapper', mobileStyle ? 'mobile' : '')}
       style={{ background: '#F7F9FF', position: 'relative' }}
     >
       <div
