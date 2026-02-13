@@ -4,7 +4,7 @@
 - [x] Audit frontend run/listen flow and identify missing run-level queue gating.
 - [x] Write design document: `docs/listen-mode-av-sync-design.md`.
 
-- [ ] Add DB migration to append `position` to `learn_generated_audios` with index `(generated_block_bid, position)`.
+- [x] Add DB migration to append `position` to `learn_generated_audios` with index `(generated_block_bid, position)`.
 - [ ] Update `LearnGeneratedAudio` model to include `position`.
 - [ ] Extend audio DTOs (`AudioSegmentDTO`, `AudioCompleteDTO`) with optional `position`.
 - [ ] Refactor `StreamingTTSProcessor` to flush/persist multiple audio units by visual boundaries and emit positioned audio events.
