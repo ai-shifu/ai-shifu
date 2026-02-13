@@ -188,21 +188,10 @@ def _get_request_base_url() -> str:
     """
     Determine the base URL for frontend links.
     """
-    configured_base = (get_config("FRONTEND_BASE_URL") or "").strip()
-    if configured_base:
-        return configured_base.rstrip("/")
-
     server_name = current_app.config.get("SERVER_NAME")
     if server_name:
         scheme = "https" if request.is_secure else "http"
         return f"{scheme}://{server_name}".rstrip("/")
-
-    if current_app.debug or current_app.config.get("ENV") == "development":
-        return request.url_root.rstrip("/")
-
-    current_app.logger.warning(
-        "FRONTEND_BASE_URL is not configured; falling back to request.url_root"
-    )
     return request.url_root.rstrip("/")
 
 
