@@ -9,6 +9,8 @@ from flaskr.service.user.password_utils import (
     verify_password,
     validate_password_strength,
 )
+from flaskr.service.user.models import AuthCredential
+from flaskr.util.uuid import generate_id
 from flaskr.service.user.repository import (
     find_credential,
     load_user_aggregate_by_identifier,
@@ -633,6 +635,8 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         provider = get_provider("password")
         vr = VerificationRequest(identifier=identifier, code=password)
+        # TODO: Add rate-limiting and failed login attempt tracking
+        # (record identifier, request.remote_addr, timestamp on failure)
         auth_result = provider.verify(app, vr)
         db.session.commit()
         return make_common_response(auth_result.token)
@@ -645,15 +649,13 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         tags:
             - user
         """
-        from flaskr.service.user.models import AuthCredential
-        from flaskr.util.uuid import generate_id
 
         new_password = request.get_json().get("new_password", None)
         if not new_password:
             raise_param_error("new_password")
         is_valid, err_msg = validate_password_strength(new_password)
         if not is_valid:
-            raise_param_error(err_msg)
+            raise_error(err_msg)
 
         user = request.user
         user_bid = user.user_id
@@ -715,7 +717,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         is_valid, err_msg = validate_password_strength(new_password)
         if not is_valid:
-            raise_param_error(err_msg)
+            raise_error(err_msg)
 
         user = request.user
         user_bid = user.user_id
@@ -743,8 +745,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         tags:
             - user
         """
-        from flaskr.service.user.models import AuthCredential
-        from flaskr.util.uuid import generate_id
 
         identifier = request.get_json().get("identifier", None)
         code = request.get_json().get("code", None)
@@ -758,7 +758,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         is_valid, err_msg = validate_password_strength(new_password)
         if not is_valid:
-            raise_param_error(err_msg)
+            raise_error(err_msg)
 
         # Verify identity via verification code (choose phone or email provider)
         from flaskr.service.user.auth.base import VerificationRequest as VR
