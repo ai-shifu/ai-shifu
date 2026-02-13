@@ -276,13 +276,13 @@
 
 ### 2. Shared Slide Builder (In-Memory)
 
-- [ ] Implement shared helper to build listen slides from:
-- [ ] raw generated content
-- [ ] AV contract (`visual_boundaries`, `speakable_segments`)
-- [ ] generated block bid
-- [ ] Generate `slide_id` with UUID dynamically (response/run scoped only).
-- [ ] Build mapping `audio_position -> slide_id`.
-- [ ] Support placeholder slide for pre-visual narration / text-only content.
+- [x] Implement shared helper to build listen slides from:
+- [x] raw generated content
+- [x] AV contract (`visual_boundaries`, `speakable_segments`)
+- [x] generated block bid
+- [x] Generate `slide_id` with UUID dynamically (response/run scoped only).
+- [x] Build mapping `audio_position -> slide_id`.
+- [x] Support placeholder slide for pre-visual narration / text-only content.
 - [ ] Reuse this helper in both `/run` and `/records` paths.
 
 ### 3. `/run` SSE Path
