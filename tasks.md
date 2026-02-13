@@ -287,11 +287,11 @@
 
 ### 3. `/run` SSE Path
 
-- [ ] Add run-local slide registry for current stream.
-- [ ] Emit `new_slide` before first audio event for each slide.
-- [ ] Enrich `audio_segment` with `slide_id`.
-- [ ] Enrich `audio_complete` with `slide_id`.
-- [ ] Add ordering guard to prevent audio before corresponding `new_slide`.
+- [x] Add run-local slide registry for current stream.
+- [x] Emit `new_slide` before first audio event for each slide.
+- [x] Enrich `audio_segment` with `slide_id`.
+- [x] Enrich `audio_complete` with `slide_id`.
+- [x] Add ordering guard to prevent audio before corresponding `new_slide`.
 - [ ] Preserve legacy behavior when flag is off.
 
 ### 4. `/records` Path

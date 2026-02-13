@@ -47,7 +47,9 @@ from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     AudioSegmentDTO,
     AudioCompleteDTO,
+    NewSlideDTO,
 )
+from flaskr.service.learn.listen_slide_builder import build_listen_slides_for_block
 from flaskr.service.tts.pipeline import (
     build_av_segmentation_contract,
     _AV_IMG_TAG_PATTERN,
@@ -702,6 +704,7 @@ class AVStreamingTTSProcessor:
         tts_provider: str = "",
         tts_model: str = "",
         usage_scene: int = BILL_USAGE_SCENE_PROD,
+        slide_index_offset: int = 0,
     ):
         self.app = app
         self.generated_block_bid = generated_block_bid
@@ -717,12 +720,17 @@ class AVStreamingTTSProcessor:
         self.tts_provider = tts_provider
         self.tts_model = tts_model
         self.usage_scene = usage_scene
+        self.slide_index_offset = int(slide_index_offset or 0)
 
         self._position_cursor = 0
         self._current_processor: Optional[StreamingTTSProcessor] = None
         self._raw_buffer = ""
         self._raw_full_content = ""
         self._av_contract: Optional[Dict[str, Any]] = None
+        self._slide_id_by_position: Dict[int, str] = {}
+        self._slides_by_id: Dict[str, NewSlideDTO] = {}
+        self._emitted_slide_ids: set[str] = set()
+        self._next_slide_index = self.slide_index_offset
 
         # When we hit a non-speakable block boundary (e.g. `<svg>`), we may need to
         # wait for its closing marker before resuming segmentation.
@@ -762,13 +770,104 @@ class AVStreamingTTSProcessor:
         )
         return self._current_processor
 
+    @property
+    def next_slide_index(self) -> int:
+        return int(self._next_slide_index or self.slide_index_offset)
+
+    def _sync_slide_registry_from_contract(self):
+        slides, mapping = build_listen_slides_for_block(
+            raw_content=self._raw_full_content,
+            generated_block_bid=self.generated_block_bid,
+            av_contract=self._av_contract,
+            slide_index_offset=self.slide_index_offset,
+        )
+        if not slides or not mapping:
+            return
+
+        slide_by_id = {slide.slide_id: slide for slide in slides}
+        for position, candidate_slide_id in sorted(mapping.items()):
+            if position in self._slide_id_by_position:
+                continue
+            slide = slide_by_id.get(candidate_slide_id)
+            if slide is None:
+                continue
+            self._slide_id_by_position[position] = candidate_slide_id
+            self._slides_by_id[candidate_slide_id] = slide
+            self._next_slide_index = max(
+                self._next_slide_index, int(slide.slide_index or 0) + 1
+            )
+
+    def _build_fallback_slide(self, position: int) -> NewSlideDTO:
+        slide = NewSlideDTO(
+            slide_id=uuid.uuid4().hex,
+            generated_block_bid=self.generated_block_bid,
+            slide_index=self._next_slide_index,
+            audio_position=position,
+            visual_kind="placeholder",
+            segment_type="placeholder",
+            segment_content="",
+            source_span=[],
+            is_placeholder=True,
+        )
+        self._slide_id_by_position[position] = slide.slide_id
+        self._slides_by_id[slide.slide_id] = slide
+        self._next_slide_index += 1
+        return slide
+
+    def _ensure_slide_for_position(self, position: int) -> NewSlideDTO:
+        self._sync_slide_registry_from_contract()
+
+        existing_slide_id = self._slide_id_by_position.get(position)
+        if existing_slide_id:
+            existing_slide = self._slides_by_id.get(existing_slide_id)
+            if existing_slide is not None:
+                return existing_slide
+
+        return self._build_fallback_slide(position)
+
+    def _bind_slide_for_audio_event(
+        self, event: RunMarkdownFlowDTO
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if event.type not in {
+            GeneratedType.AUDIO_SEGMENT,
+            GeneratedType.AUDIO_COMPLETE,
+        }:
+            yield event
+            return
+
+        content = event.content
+        position = int(getattr(content, "position", 0) or 0)
+        slide = self._ensure_slide_for_position(position)
+
+        if hasattr(content, "slide_id"):
+            content.slide_id = slide.slide_id
+
+        if slide.slide_id not in self._emitted_slide_ids:
+            self._emitted_slide_ids.add(slide.slide_id)
+            yield RunMarkdownFlowDTO(
+                outline_bid=self.outline_bid,
+                generated_block_bid=self.generated_block_bid,
+                type=GeneratedType.NEW_SLIDE,
+                content=slide,
+            )
+
+        yield event
+
+    def _emit_with_slide_binding(
+        self, events: Generator[RunMarkdownFlowDTO, None, None]
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        for event in events:
+            yield from self._bind_slide_for_audio_event(event)
+
     def _finalize_current(
         self, *, commit: bool
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         if self._current_processor is None:
             return
         did_complete = False
-        for event in self._current_processor.finalize(commit=commit):
+        for event in self._emit_with_slide_binding(
+            self._current_processor.finalize(commit=commit)
+        ):
             if event.type == GeneratedType.AUDIO_COMPLETE:
                 did_complete = True
             yield event
@@ -975,7 +1074,9 @@ class AVStreamingTTSProcessor:
     def process_chunk(self, chunk: str) -> Generator[RunMarkdownFlowDTO, None, None]:
         if not chunk:
             if self._current_processor is not None:
-                yield from self._current_processor.process_chunk("")
+                yield from self._emit_with_slide_binding(
+                    self._current_processor.process_chunk("")
+                )
             return
 
         self._raw_full_content += chunk
@@ -997,7 +1098,9 @@ class AVStreamingTTSProcessor:
                     injected = _extract_speakable_text_from_sandbox_html(skipped)
                     if injected:
                         processor = self._ensure_processor()
-                        yield from processor.process_chunk(injected)
+                        yield from self._emit_with_slide_binding(
+                            processor.process_chunk(injected)
+                        )
                 continue
 
             boundary = self._find_next_boundary(self._raw_buffer)
@@ -1012,7 +1115,9 @@ class AVStreamingTTSProcessor:
                 self._raw_buffer = self._raw_buffer[-tail_len:]
                 if speakable:
                     processor = self._ensure_processor()
-                    yield from processor.process_chunk(speakable)
+                    yield from self._emit_with_slide_binding(
+                        processor.process_chunk(speakable)
+                    )
                 continue
 
             kind, start, end, complete = boundary
@@ -1023,7 +1128,9 @@ class AVStreamingTTSProcessor:
 
             if speakable:
                 processor = self._ensure_processor()
-                yield from processor.process_chunk(speakable)
+                yield from self._emit_with_slide_binding(
+                    processor.process_chunk(speakable)
+                )
 
             # Boundary encountered: finalize the current speakable segment.
             yield from self._finalize_current(commit=False)
@@ -1051,7 +1158,9 @@ class AVStreamingTTSProcessor:
                 injected = _extract_speakable_text_from_sandbox_html(boundary_chunk)
                 if injected:
                     processor = self._ensure_processor()
-                    yield from processor.process_chunk(injected)
+                    yield from self._emit_with_slide_binding(
+                        processor.process_chunk(injected)
+                    )
 
     def finalize(
         self, *, commit: bool = True
@@ -1063,7 +1172,9 @@ class AVStreamingTTSProcessor:
 
         if self._raw_buffer:
             processor = self._ensure_processor()
-            yield from processor.process_chunk(self._raw_buffer)
+            yield from self._emit_with_slide_binding(
+                processor.process_chunk(self._raw_buffer)
+            )
             self._raw_buffer = ""
 
         yield from self._finalize_current(commit=commit)
