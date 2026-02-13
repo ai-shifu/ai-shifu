@@ -45,6 +45,7 @@ XML_BLOCK_PATTERN = re.compile(
 )
 
 _FENCE = "```"
+TTS_VISUAL_BOUNDARY_TOKEN = "[[TTS_VISUAL_BOUNDARY]]"
 
 
 def _strip_incomplete_fenced_code(text: str) -> tuple[str, bool]:
@@ -191,7 +192,50 @@ def has_incomplete_block(text: str) -> bool:
     return False
 
 
-def preprocess_for_tts(text: str) -> str:
+def _post_process_tts_text(text: str) -> str:
+    # Normalize whitespace
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = re.sub(r"[ \t]+", " ", text)
+
+    # Remove leading/trailing whitespace from each line
+    lines = [line.strip() for line in text.split("\n")]
+    text = "\n".join(lines)
+
+    return text.strip()
+
+
+def _normalize_visual_boundaries(text: str, boundary_marker: str) -> str:
+    marker = boundary_marker.strip()
+    if not marker:
+        return text
+
+    parts = text.split(marker)
+    if len(parts) == 1:
+        return text
+
+    output: list[str] = []
+    for index, part in enumerate(parts):
+        chunk = part.strip()
+        if chunk:
+            output.append(chunk)
+
+        if index >= len(parts) - 1:
+            continue
+
+        has_left = any(p.strip() for p in parts[: index + 1])
+        has_right = any(p.strip() for p in parts[index + 1 :])
+        if has_left and has_right:
+            if not output or output[-1] != marker:
+                output.append(marker)
+
+    return "\n".join(output).strip()
+
+
+def _preprocess_for_tts(
+    text: str,
+    *,
+    boundary_marker: str = "",
+) -> str:
     """
     Remove code blocks and markdown formatting not suitable for TTS.
 
@@ -224,17 +268,19 @@ def preprocess_for_tts(text: str) -> str:
     # partial SVG/code blocks leaking into TTS between chunks.
     text, _ = _strip_incomplete_blocks(text)
 
+    block_replacement = boundary_marker if boundary_marker else ""
+
     # IMPORTANT: Remove code blocks FIRST (they may contain SVG, mermaid, etc.)
-    text = CODE_BLOCK_PATTERN.sub("", text)
+    text = CODE_BLOCK_PATTERN.sub(block_replacement, text)
 
     # Remove mermaid diagrams (in case they're not in code blocks)
-    text = MERMAID_PATTERN.sub("", text)
+    text = MERMAID_PATTERN.sub(block_replacement, text)
 
     # Remove SVG blocks - handle multiline and nested content
-    text = SVG_PATTERN.sub("", text)
+    text = SVG_PATTERN.sub(block_replacement, text)
 
     # Remove other XML block elements (math, script, style)
-    text = XML_BLOCK_PATTERN.sub("", text)
+    text = XML_BLOCK_PATTERN.sub(block_replacement, text)
 
     # Remove any remaining angle bracket content that looks like tags
     # This catches malformed or partial SVG/HTML
@@ -258,12 +304,23 @@ def preprocess_for_tts(text: str) -> str:
     # Remove data URIs (base64 encoded content)
     text = re.sub(r"data:[a-zA-Z0-9/+;=,]+", "", text)
 
-    # Normalize whitespace
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    text = re.sub(r"[ \t]+", " ", text)
+    text = _post_process_tts_text(text)
 
-    # Remove leading/trailing whitespace from each line
-    lines = [line.strip() for line in text.split("\n")]
-    text = "\n".join(lines)
+    if boundary_marker:
+        text = _normalize_visual_boundaries(text, boundary_marker)
 
-    return text.strip()
+    return text
+
+
+def preprocess_for_tts_with_boundaries(text: str) -> str:
+    """
+    Remove non-speakable content and keep visual boundaries as explicit markers.
+
+    The returned text contains `TTS_VISUAL_BOUNDARY_TOKEN` between speech parts
+    split by SVG/code/mermaid/XML blocks.
+    """
+    return _preprocess_for_tts(text, boundary_marker=TTS_VISUAL_BOUNDARY_TOKEN)
+
+
+def preprocess_for_tts(text: str) -> str:
+    return _preprocess_for_tts(text, boundary_marker="")
