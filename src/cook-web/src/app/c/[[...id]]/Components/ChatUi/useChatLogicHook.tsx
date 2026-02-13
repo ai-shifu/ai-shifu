@@ -39,6 +39,7 @@ import {
   type AudioTrack,
   type AudioSegment,
 } from '@/c-utils/audio-utils';
+import { pickNextListenQueueIndex } from '@/c-utils/listen-queue';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import {
   events,
@@ -773,45 +774,21 @@ function useChatLogicHook({
               return;
             }
             listenQueueProcessingRef.current = true;
-            const isAudioQueueType = (type?: string) =>
-              type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT ||
-              type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE;
-            const isVisualQueueType = (type?: string) =>
-              type === SSE_OUTPUT_TYPE.CONTENT ||
-              type === SSE_OUTPUT_TYPE.TEXT_END;
             try {
               while (listenEventQueueRef.current.length > 0) {
-                if (listenInteractionBlockedRef.current) {
+                const queue = listenEventQueueRef.current as ListenQueueItem[];
+                const nextQueueIndex = pickNextListenQueueIndex({
+                  queue,
+                  pendingAudioCount: listenPendingAudioUnitsRef.current.size,
+                  isInteractionBlocked: listenInteractionBlockedRef.current,
+                });
+                if (nextQueueIndex < 0) {
                   break;
                 }
-                const queue = listenEventQueueRef.current;
-                const hasPendingAudio =
-                  listenPendingAudioUnitsRef.current.size > 0;
-                const headType = queue[0]?.response?.type;
-                const shouldGateVisualHead =
-                  hasPendingAudio && isVisualQueueType(headType);
-
-                let nextItem: ListenQueueItem | undefined;
-                if (shouldGateVisualHead) {
-                  const nextAudioIndex = queue.findIndex(item =>
-                    isAudioQueueType(item?.response?.type),
-                  );
-                  if (nextAudioIndex < 0) {
-                    break;
-                  }
-                  nextItem = queue.splice(
-                    nextAudioIndex,
-                    1,
-                  )[0] as ListenQueueItem;
-                } else {
-                  const audioEventIndex = queue.findIndex(item =>
-                    isAudioQueueType(item?.response?.type),
-                  );
-                  nextItem =
-                    audioEventIndex >= 0
-                      ? (queue.splice(audioEventIndex, 1)[0] as ListenQueueItem)
-                      : (queue.shift() as ListenQueueItem);
-                }
+                const nextItem =
+                  nextQueueIndex === 0
+                    ? (queue.shift() as ListenQueueItem)
+                    : (queue.splice(nextQueueIndex, 1)[0] as ListenQueueItem);
 
                 if (!nextItem?.response) {
                   continue;
