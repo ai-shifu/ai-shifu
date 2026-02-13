@@ -531,6 +531,17 @@ const toRenderSegmentFromBackendSlide = (
   return { type: 'markdown', value: slide.segment_content || '' };
 };
 
+const isRenderableBackendSlide = (slide: ListenSlideData): boolean => {
+  if (slide.is_placeholder || slide.segment_type === 'placeholder') {
+    return false;
+  }
+  const content =
+    typeof slide.segment_content === 'string'
+      ? slide.segment_content.trim()
+      : '';
+  return content.length > 0;
+};
+
 export type AudioInteractionItem = ChatContentItem & {
   page: number;
   audioPosition?: number;
@@ -703,9 +714,15 @@ export const useListenContentData = (
           Number.isFinite(Number(slide?.slide_index)),
       )
       .sort((a, b) => Number(a.slide_index) - Number(b.slide_index));
+    const shouldUseBackendSlides = normalizedBackendSlides.some(
+      isRenderableBackendSlide,
+    );
+    const effectiveBackendSlides = shouldUseBackendSlides
+      ? normalizedBackendSlides
+      : [];
     const backendPageByBlockPosition = new Map<string, number>();
     const backendSlideIdByBlockPosition = new Map<string, string>();
-    const backendSlideItems: ListenSlideItem[] = normalizedBackendSlides.map(
+    const backendSlideItems: ListenSlideItem[] = effectiveBackendSlides.map(
       (slide, page) => {
         const blockBid = slide.generated_block_bid || '';
         const audioPosition = Number(slide.audio_position ?? 0);
@@ -927,8 +944,8 @@ export const useListenContentData = (
           activeTimelinePage = firstVisualPage;
         }
         if (!hasAnyAudioPayload(contentItem)) {
-          if (normalizedBackendSlides.length > 0) {
-            const backendPagesForBlock = normalizedBackendSlides
+          if (effectiveBackendSlides.length > 0) {
+            const backendPagesForBlock = effectiveBackendSlides
               .filter(
                 slide =>
                   slide.generated_block_bid === contentItem.generated_block_bid,
@@ -1050,7 +1067,9 @@ export const useListenContentData = (
     });
 
     const finalSlideItems =
-      backendSlideItems.length > 0 ? backendSlideItems : nextSlideItems;
+      shouldUseBackendSlides && backendSlideItems.length > 0
+        ? backendSlideItems
+        : nextSlideItems;
 
     return {
       slideItems: finalSlideItems,

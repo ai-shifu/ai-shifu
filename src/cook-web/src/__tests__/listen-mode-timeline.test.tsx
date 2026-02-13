@@ -215,6 +215,60 @@ describe('useListenContentData timeline mapping', () => {
     expect(audioEntries[1].audioSlideId).toBe('slide-1');
   });
 
+  it('falls back to local visual parsing when backend slides are not renderable', () => {
+    const content = makeContent(
+      'block-fallback',
+      '<svg><text>v1</text></svg>\nNarration A.\n<svg><text>v2</text></svg>\nNarration B.',
+      [0, 1],
+    );
+    const backendSlides: ListenSlideData[] = [
+      {
+        slide_id: 'slide-placeholder',
+        generated_block_bid: 'block-fallback',
+        slide_index: 0,
+        audio_position: 0,
+        visual_kind: 'placeholder',
+        segment_type: 'placeholder',
+        segment_content: '',
+        source_span: [0, 0],
+        is_placeholder: true,
+      },
+      {
+        slide_id: 'slide-empty',
+        generated_block_bid: 'block-fallback',
+        slide_index: 1,
+        audio_position: 1,
+        visual_kind: 'svg',
+        segment_type: 'markdown',
+        segment_content: '',
+        source_span: [0, 0],
+        is_placeholder: false,
+      },
+    ];
+
+    const { result } = renderHook(() =>
+      useListenContentData([content], backendSlides),
+    );
+    const audioEntries = pickAudioEntries(
+      result.current.audioAndInteractionList,
+      'block-fallback',
+    );
+
+    expect(result.current.slideItems).toHaveLength(1);
+    expect(result.current.slideItems[0].segments).toHaveLength(2);
+    expect(String(result.current.slideItems[0].segments[0].value)).toContain(
+      '<svg',
+    );
+    expect(String(result.current.slideItems[0].segments[1].value)).toContain(
+      '<svg',
+    );
+    expect(audioEntries).toHaveLength(2);
+    expect(audioEntries[0].page).toBe(0);
+    expect(audioEntries[0].audioSlideId).toBeUndefined();
+    expect(audioEntries[1].page).toBe(1);
+    expect(audioEntries[1].audioSlideId).toBeUndefined();
+  });
+
   it('uses av_contract speakable positions when audio payload is partial', () => {
     const avContract: NonNullable<ChatContentItem['avContract']> = {
       visual_boundaries: [

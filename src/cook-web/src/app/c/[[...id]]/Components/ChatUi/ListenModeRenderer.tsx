@@ -50,15 +50,6 @@ const ListenModeRenderer = ({
   const [dismissedInteractionBids, setDismissedInteractionBids] = useState<
     Set<string>
   >(() => new Set());
-  const hasAnyTimelineItem = useMemo(
-    () =>
-      items.some(
-        item =>
-          item.type === ChatContentItemType.CONTENT ||
-          item.type === ChatContentItemType.INTERACTION,
-      ) || (backendSlides?.length ?? 0) > 0,
-    [backendSlides, items],
-  );
 
   const {
     orderedContentBlockBids,
@@ -71,6 +62,12 @@ const ListenModeRenderer = ({
     lastItemIsInteraction,
     firstContentItem,
   } = useListenContentData(items, backendSlides);
+  const hasAnyTimelineItem = useMemo(
+    () =>
+      slideItems.length > 0 ||
+      items.some(item => item.type === ChatContentItemType.INTERACTION),
+    [items, slideItems],
+  );
 
   const resolveContentBid = useCallback((blockBid: string | null) => {
     if (!blockBid) {
