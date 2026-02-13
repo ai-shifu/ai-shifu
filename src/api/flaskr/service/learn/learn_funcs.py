@@ -21,6 +21,7 @@ from flaskr.service.learn.learn_dtos import (
     GeneratedInfoDTO,
     RunMarkdownFlowDTO,
     GeneratedType,
+    GeneratedAudioTrackDTO,
     AudioSegmentDTO,
     AudioCompleteDTO,
 )
@@ -358,12 +359,23 @@ def get_learn_record(
 
         # Get audio URLs for generated blocks
         generated_block_bids = [b.generated_block_bid for b in generated_blocks]
-        audio_records = LearnGeneratedAudio.query.filter(
-            LearnGeneratedAudio.generated_block_bid.in_(generated_block_bids),
-            LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
-            LearnGeneratedAudio.deleted == 0,
-        ).all()
-        audio_url_map = {a.generated_block_bid: a.oss_url for a in audio_records}
+        audio_records = (
+            LearnGeneratedAudio.query.filter(
+                LearnGeneratedAudio.generated_block_bid.in_(generated_block_bids),
+                LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
+                LearnGeneratedAudio.deleted == 0,
+            )
+            .order_by(
+                LearnGeneratedAudio.generated_block_bid.asc(),
+                LearnGeneratedAudio.position.asc(),
+                LearnGeneratedAudio.id.asc(),
+            )
+            .all()
+        )
+        audio_tracks_map: dict[str, list[LearnGeneratedAudio]] = {}
+        for audio_record in audio_records:
+            tracks = audio_tracks_map.setdefault(audio_record.generated_block_bid, [])
+            tracks.append(audio_record)
 
         records: list[GeneratedBlockDTO] = []
         interaction = ""
@@ -407,6 +419,29 @@ def get_learn_record(
                 # INTERACTION and other types use block_content_conf
                 content = generated_block.block_content_conf
 
+            raw_audio_tracks = audio_tracks_map.get(
+                generated_block.generated_block_bid, []
+            )
+            audio_tracks = (
+                [
+                    GeneratedAudioTrackDTO(
+                        audio_bid=audio_record.audio_bid,
+                        audio_url=audio_record.oss_url,
+                        duration_ms=int(audio_record.duration_ms or 0),
+                        position=int(getattr(audio_record, "position", 0) or 0),
+                    )
+                    for audio_record in raw_audio_tracks
+                    if audio_record.oss_url
+                ]
+                if raw_audio_tracks
+                else None
+            )
+            fallback_audio_url = (
+                audio_tracks[0].audio_url
+                if audio_tracks and len(audio_tracks) > 0
+                else None
+            )
+
             record = GeneratedBlockDTO(
                 generated_block.generated_block_bid,
                 content,
@@ -415,7 +450,8 @@ def get_learn_record(
                 generated_block.generated_content
                 if block_type == BlockType.INTERACTION
                 else "",
-                audio_url=audio_url_map.get(generated_block.generated_block_bid),
+                audio_url=fallback_audio_url,
+                audio_tracks=audio_tracks,
             )
             records.append(record)
         if len(records) > 0:

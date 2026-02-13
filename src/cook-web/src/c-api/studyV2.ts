@@ -78,6 +78,12 @@ export interface StudyRecordItem {
   user_input?: string;
   isHistory?: boolean;
   audio_url?: string;
+  audio_tracks?: {
+    audio_bid: string;
+    audio_url: string;
+    duration_ms: number;
+    position: number;
+  }[];
 }
 
 export interface LessonStudyRecords {

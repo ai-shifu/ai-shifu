@@ -401,6 +401,36 @@ class RunMarkdownFlowDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class GeneratedAudioTrackDTO(BaseModel):
+    audio_bid: str = Field(..., description="Audio business identifier")
+    audio_url: str = Field(..., description="Audio URL")
+    duration_ms: int = Field(..., description="Audio duration in milliseconds")
+    position: int = Field(..., description="Audio unit position")
+
+    def __init__(
+        self,
+        audio_bid: str,
+        audio_url: str,
+        duration_ms: int,
+        position: int,
+    ):
+        super().__init__(
+            audio_bid=audio_bid,
+            audio_url=audio_url,
+            duration_ms=duration_ms,
+            position=position,
+        )
+
+    def __json__(self):
+        return {
+            "audio_bid": self.audio_bid,
+            "audio_url": self.audio_url,
+            "duration_ms": self.duration_ms,
+            "position": self.position,
+        }
+
+
+@register_schema_to_swagger
 class GeneratedBlockDTO(BaseModel):
     generated_block_bid: str = Field(
         ..., description="generated block id", required=False
@@ -412,6 +442,9 @@ class GeneratedBlockDTO(BaseModel):
     audio_url: Optional[str] = Field(
         default=None, description="TTS audio URL for this block"
     )
+    audio_tracks: Optional[list[GeneratedAudioTrackDTO]] = Field(
+        default=None, description="Ordered TTS audio tracks for this block"
+    )
 
     def __init__(
         self,
@@ -421,6 +454,7 @@ class GeneratedBlockDTO(BaseModel):
         block_type: BlockType,
         user_input: str,
         audio_url: Optional[str] = None,
+        audio_tracks: Optional[list[GeneratedAudioTrackDTO]] = None,
     ):
         super().__init__(
             generated_block_bid=generated_block_bid,
@@ -429,6 +463,7 @@ class GeneratedBlockDTO(BaseModel):
             block_type=block_type,
             user_input=user_input,
             audio_url=audio_url,
+            audio_tracks=audio_tracks,
         )
 
     def __json__(self):
@@ -442,6 +477,8 @@ class GeneratedBlockDTO(BaseModel):
             ret["like_status"] = self.like_status.value
         if self.audio_url:
             ret["audio_url"] = self.audio_url
+        if self.audio_tracks:
+            ret["audio_tracks"] = [track.__json__() for track in self.audio_tracks]
         return ret
 
 

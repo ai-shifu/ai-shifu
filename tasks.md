@@ -8,7 +8,7 @@
 - [x] Update `LearnGeneratedAudio` model to include `position`.
 - [x] Extend audio DTOs (`AudioSegmentDTO`, `AudioCompleteDTO`) with optional `position`.
 - [x] Refactor `StreamingTTSProcessor` to flush/persist multiple audio units by visual boundaries and emit positioned audio events.
-- [ ] Update `get_learn_record`/DTOs to expose ordered audio tracks while keeping `audio_url` fallback compatibility.
+- [x] Update `get_learn_record`/DTOs to expose ordered audio tracks while keeping `audio_url` fallback compatibility.
 
 - [ ] Add listen-mode run event queue in `useChatLogicHook` for audio-first gating.
 - [ ] Queue visual commits to run only after prior audio completion.
