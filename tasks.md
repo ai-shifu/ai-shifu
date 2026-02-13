@@ -18,5 +18,5 @@
 
 - [x] Add backend tests for positioned audio persistence and ordered SSE emission.
 - [x] Add frontend tests for queue gating and interaction pause/resume behavior.
-- [ ] Execute regression checks for run/reload/history/listen-mode paths.
+- [x] Execute regression checks for run/reload/history/listen-mode paths.
 - [ ] Run `pre-commit run` and fix all hook issues.
