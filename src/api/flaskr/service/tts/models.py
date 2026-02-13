@@ -166,6 +166,13 @@ class LearnGeneratedAudio(db.Model):
         comment="Number of segments synthesized",
     )
 
+    position = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Audio unit position within generated block",
+    )
+
     # Status
     status = Column(
         SmallInteger,
@@ -216,6 +223,7 @@ class LearnGeneratedAudio(db.Model):
             "file_size": self.file_size,
             "audio_format": self.audio_format,
             "voice_id": self.voice_id,
+            "position": self.position,
             "status": self.status,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
