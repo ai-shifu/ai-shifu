@@ -49,6 +49,8 @@ export interface AudioPlayerProps {
   onPlayStateChange?: (isPlaying: boolean) => void;
   /** Callback when playback reaches the natural end */
   onEnded?: () => void;
+  /** Callback when playback fails (media/decode/playback exception) */
+  onError?: (error?: unknown) => void;
   /** Auto-play when new audio content arrives */
   autoPlay?: boolean;
 }
@@ -57,7 +59,24 @@ export interface AudioPlayerHandle {
   togglePlay: () => void;
   play: () => void;
   pause: (options?: { traceId?: string; keepAutoPlay?: boolean }) => void;
+  getPlaybackState?: () => {
+    isPlaying: boolean;
+    isLoading: boolean;
+    isWaitingForSegment: boolean;
+    hasAudio: boolean;
+    isPaused: boolean;
+  };
 }
+
+export const shouldPreferOssUrl = ({
+  audioUrl,
+  isStreaming,
+  segmentCount,
+}: {
+  audioUrl?: string;
+  isStreaming: boolean;
+  segmentCount: number;
+}) => Boolean(audioUrl) && !isStreaming && segmentCount <= 0;
 
 /**
  * Audio player component for TTS playback.
@@ -79,6 +98,7 @@ function AudioPlayerBase(
     className,
     onPlayStateChange,
     onEnded,
+    onError,
     autoPlay = false,
   }: AudioPlayerProps,
   ref: React.ForwardedRef<AudioPlayerHandle>,
@@ -94,6 +114,8 @@ function AudioPlayerBase(
   );
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isLoadingRef = useRef(false);
+  const isWaitingForSegmentRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
   const activeSourceNodesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
@@ -131,12 +153,27 @@ function AudioPlayerBase(
 
   const onEndedRef = useRef(onEnded);
   onEndedRef.current = onEnded;
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+
+  useEffect(() => {
+    isLoadingRef.current = isLoading;
+  }, [isLoading]);
+
+  useEffect(() => {
+    isWaitingForSegmentRef.current = isWaitingForSegment;
+  }, [isWaitingForSegment]);
 
   // Check if we have audio to play
   const hasAudio = Boolean(effectiveAudioUrl) || streamingSegments.length > 0;
 
-  // Use OSS URL if available and streaming is complete
-  const useOssUrl = Boolean(effectiveAudioUrl) && !isStreaming;
+  // Prefer segment playback whenever segments are available. In listen mode, the
+  // final URL is a merged fallback and should not replace segmented playback.
+  const useOssUrl = shouldPreferOssUrl({
+    audioUrl: effectiveAudioUrl,
+    isStreaming,
+    segmentCount: streamingSegments.length,
+  });
 
   const startPlaySession = useCallback(() => {
     playSessionRef.current += 1;
@@ -169,6 +206,15 @@ function AudioPlayerBase(
       }
       sourceNodeRef.current = null;
     }
+  }, []);
+
+  const notifyPlaybackError = useCallback((error?: unknown) => {
+    if (onErrorRef.current) {
+      onErrorRef.current(error);
+      return;
+    }
+    // Backward compatibility for existing callers that only listen to onEnded.
+    onEndedRef.current?.();
   }, []);
 
   // Cleanup audio resources
@@ -339,7 +385,7 @@ function AudioPlayerBase(
         setIsLoading(false);
         setIsWaitingForSegment(false);
         onPlayStateChangeRef.current?.(false);
-        onEndedRef.current?.();
+        notifyPlaybackError(new Error('Audio element playback error'));
         releaseExclusive();
       };
       audio.oncanplay = () => {
@@ -377,12 +423,14 @@ function AudioPlayerBase(
           isPlayingRef.current = false;
           setIsLoading(false);
           setIsWaitingForSegment(false);
-          onEndedRef.current?.();
+          onPlayStateChangeRef.current?.(false);
+          notifyPlaybackError(err);
           releaseExclusive();
         });
     },
     [
       isSessionActive,
+      notifyPlaybackError,
       releaseExclusive,
       requestExclusive,
       startPlaySession,
@@ -518,11 +566,14 @@ function AudioPlayerBase(
           playSegmentByIndex(index + 1, sessionId);
           return;
         }
-        onEndedRef.current?.();
+        setIsPlaying(false);
+        isPlayingRef.current = false;
+        onPlayStateChangeRef.current?.(false);
+        notifyPlaybackError(error);
         releaseExclusive();
       }
     },
-    [isSessionActive, releaseExclusive],
+    [isSessionActive, notifyPlaybackError, releaseExclusive],
   );
 
   // Start playback from segments
@@ -555,7 +606,14 @@ function AudioPlayerBase(
           onPlayStateChangeRef.current?.(true);
           return;
         }
-        onEndedRef.current?.();
+        setIsPlaying(false);
+        isPlayingRef.current = false;
+        setIsLoading(false);
+        setIsWaitingForSegment(false);
+        onPlayStateChangeRef.current?.(false);
+        notifyPlaybackError(
+          new Error('No audio segments available for playback'),
+        );
         releaseExclusive();
         return;
       }
@@ -568,6 +626,7 @@ function AudioPlayerBase(
     },
     [
       playSegmentByIndex,
+      notifyPlaybackError,
       releaseExclusive,
       requestExclusive,
       startPlaySession,
@@ -596,7 +655,11 @@ function AudioPlayerBase(
       setIsPlaying(false);
       isPlayingRef.current = false;
       setIsLoading(false);
-      onEndedRef.current?.();
+      setIsWaitingForSegment(false);
+      onPlayStateChangeRef.current?.(false);
+      notifyPlaybackError(
+        new Error('Cannot resume playback: audio segments are unavailable'),
+      );
       releaseExclusive();
       return;
     }
@@ -609,7 +672,11 @@ function AudioPlayerBase(
       setIsPlaying(false);
       isPlayingRef.current = false;
       setIsLoading(false);
-      onEndedRef.current?.();
+      setIsWaitingForSegment(false);
+      onPlayStateChangeRef.current?.(false);
+      notifyPlaybackError(
+        new Error('Cannot resume playback: segment index is out of range'),
+      );
       releaseExclusive();
       return;
     }
@@ -617,6 +684,7 @@ function AudioPlayerBase(
     playSegmentByIndex(resumeIndex, sessionId, segmentOffsetRef.current);
   }, [
     playSegmentByIndex,
+    notifyPlaybackError,
     releaseExclusive,
     requestExclusive,
     startPlaySession,
@@ -636,15 +704,7 @@ function AudioPlayerBase(
         pendingStreamRef.current = false;
         playSegmentByIndex(nextIndex, sessionId);
       } else if (!isStreaming) {
-        // Streaming finished and no more segments. If final URL exists, continue playback with it.
-        if (effectiveAudioUrl) {
-          pendingStreamRef.current = false;
-          const startAtSeconds = playedSecondsRef.current;
-          cleanupAudio();
-          playFromUrl(startAtSeconds);
-          return;
-        }
-
+        // Streaming finished and no more segments.
         if (pendingStreamRef.current) {
           return;
         }
@@ -664,9 +724,6 @@ function AudioPlayerBase(
     isWaitingForSegment,
     isSessionActive,
     playSegmentByIndex,
-    effectiveAudioUrl,
-    cleanupAudio,
-    playFromUrl,
     releaseExclusive,
   ]);
 
@@ -751,7 +808,7 @@ function AudioPlayerBase(
           togglePlay();
         }
       },
-      pause: (options?: { traceId?: string }) => {
+      pause: (options?: { traceId?: string; keepAutoPlay?: boolean }) => {
         // console.log('audio-player-ref-pause', {
         //   id: playerIdRef.current,
         //   traceId: options?.traceId,
@@ -763,6 +820,16 @@ function AudioPlayerBase(
         // });
         pausePlayback(options);
       },
+      getPlaybackState: () => ({
+        isPlaying: isPlayingRef.current,
+        isLoading: isLoadingRef.current,
+        isWaitingForSegment: isWaitingForSegmentRef.current,
+        hasAudio:
+          Boolean(audioUrlRef.current) ||
+          segmentsRef.current.length > 0 ||
+          pendingStreamRef.current,
+        isPaused: isPausedRef.current,
+      }),
     }),
     [pausePlayback, togglePlay],
   );
@@ -785,7 +852,14 @@ function AudioPlayerBase(
   // Track previous autoPlay value to detect changes
   const prevAutoPlayRef = useRef(autoPlay);
   const hasAutoPlayedForCurrentContentRef = useRef(false);
+  const hasObservedPlaybackForCurrentContentRef = useRef(false);
   const prevEffectiveAudioUrlRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (isPlaying) {
+      hasObservedPlaybackForCurrentContentRef.current = true;
+    }
+  }, [isPlaying]);
 
   // When a final OSS URL becomes available (streaming -> complete), allow autoPlay to
   // retry from the URL. This is important if streaming playback failed due to
@@ -793,7 +867,11 @@ function AudioPlayerBase(
   useEffect(() => {
     const prev = prevEffectiveAudioUrlRef.current;
     prevEffectiveAudioUrlRef.current = effectiveAudioUrl;
-    if (effectiveAudioUrl && effectiveAudioUrl !== prev) {
+    if (
+      effectiveAudioUrl &&
+      effectiveAudioUrl !== prev &&
+      !hasObservedPlaybackForCurrentContentRef.current
+    ) {
       hasAutoPlayedForCurrentContentRef.current = false;
     }
   }, [effectiveAudioUrl]);

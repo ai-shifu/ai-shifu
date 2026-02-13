@@ -52,7 +52,7 @@ _AV_SANDBOX_START_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _AV_MARKDOWN_IMAGE_PATTERN = re.compile(
-    r"!\[[^\]]*\]\([^\s)\n]+(?:\s+\"[^\"]*\")?\)",
+    r"!\[[^\]]*\]\([^\)\n]*\)",
     re.IGNORECASE,
 )
 _AV_IMG_TAG_PATTERN = re.compile(r"<img\b[^>]*?>", re.IGNORECASE)

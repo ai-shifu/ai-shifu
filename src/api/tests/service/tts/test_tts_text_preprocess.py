@@ -98,6 +98,19 @@ def test_preprocess_for_tts_keeps_non_tag_angle_brackets(app):
     assert cleaned == "I love you < 3."
 
 
+def test_preprocess_for_tts_strips_incomplete_markdown_image_tail(app):
+    _require_app(app)
+
+    from flaskr.service.tts import preprocess_for_tts
+
+    text = "Before.\n\n![v2-image](https://picx.zhimg.com/v2-36cc97a3a8ec8942"
+    cleaned = preprocess_for_tts(text)
+
+    assert cleaned == "Before."
+    assert "picx.zhimg.com" not in cleaned
+    assert "![" not in cleaned
+
+
 def test_preprocess_for_tts_strips_stray_svg_text_elements(app):
     _require_app(app)
 
@@ -154,3 +167,46 @@ def test_streaming_tts_processor_skips_svg_and_keeps_following_text(app, monkeyp
 
     assert any("Hello after svg!" in t for t in captured)
     assert all("http://www.w3.org" not in t for t in captured)
+
+
+def test_streaming_tts_processor_skips_chunked_markdown_image(app, monkeypatch):
+    _require_app(app)
+
+    from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
+
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.is_tts_configured", lambda _provider: True
+    )
+
+    captured: list[str] = []
+
+    def _capture_submit(self, text: str):
+        captured.append(text)
+
+    monkeypatch.setattr(StreamingTTSProcessor, "_submit_tts_task", _capture_submit)
+
+    processor = StreamingTTSProcessor(
+        app=app,
+        generated_block_bid="generated_block_bid",
+        outline_bid="outline_bid",
+        progress_record_bid="progress_record_bid",
+        user_bid="user_bid",
+        shifu_bid="shifu_bid",
+        tts_provider="minimax",
+    )
+
+    list(
+        processor.process_chunk(
+            "先看这张图：![v2-36cc97a3a8ec8942a57cd2052097b01a_r.jpg](https://picx.zhimg.com/"
+        )
+    )
+    list(
+        processor.process_chunk(
+            "v2-36cc97a3a8ec8942a57cd2052097b01a_r.jpg?source=2c26e567)\n这是后续讲解。"
+        )
+    )
+    list(processor.finalize())
+
+    assert any("这是后续讲解。" in t for t in captured)
+    assert all("picx.zhimg.com" not in t for t in captured)
+    assert all("![" not in t for t in captured)

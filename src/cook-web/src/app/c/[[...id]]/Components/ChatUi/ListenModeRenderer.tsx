@@ -156,10 +156,13 @@ const ListenModeRenderer = ({
     activeContentItem,
     activeAudioBlockBid,
     activeAudioPosition,
+    activeSequencePage,
     sequenceInteraction,
     isAudioSequenceActive,
+    isAudioPlayerBusy,
     audioSequenceToken,
     handleAudioEnded,
+    handleAudioError,
     handlePlay,
     handlePause,
     continueAfterInteraction,
@@ -209,6 +212,35 @@ const ListenModeRenderer = ({
     };
   }, [activeAudioPosition, activeContentItem]);
 
+  const latestAudioSequenceTokenRef = useRef(audioSequenceToken);
+  useEffect(() => {
+    latestAudioSequenceTokenRef.current = audioSequenceToken;
+  }, [audioSequenceToken]);
+
+  const handleAudioPlayStateChange = useCallback(
+    (token: number, nextIsPlaying: boolean) => {
+      if (token !== latestAudioSequenceTokenRef.current) {
+        return;
+      }
+      setIsAudioPlaying(nextIsPlaying);
+    },
+    [],
+  );
+
+  const handleAudioEndedWithToken = useCallback(
+    (token: number) => {
+      handleAudioEnded(token);
+    },
+    [handleAudioEnded],
+  );
+
+  const handleAudioErrorWithToken = useCallback(
+    (token: number) => {
+      handleAudioError(token);
+    },
+    [handleAudioError],
+  );
+
   const { currentInteraction, isPrevDisabled, isNextDisabled, goPrev, goNext } =
     useListenPpt({
       chatRef,
@@ -221,6 +253,8 @@ const ListenModeRenderer = ({
       sectionTitle,
       isLoading,
       isAudioPlaying,
+      isAudioSequenceActive,
+      isAudioPlayerBusy,
       shouldRenderEmptyPpt,
       onResetSequence: handleResetSequence,
       getNextContentBid,
@@ -427,9 +461,7 @@ const ListenModeRenderer = ({
   }, [currentInteractionPage, audioAndInteractionList]);
 
   const shouldHideFallbackInteraction =
-    hasAudioForCurrentPage &&
-    audioSequenceToken === 0 &&
-    !isAudioSequenceActive;
+    hasAudioForCurrentPage && !isAudioSequenceActive;
 
   const visibleSequenceInteraction =
     sequenceInteraction &&
@@ -444,8 +476,18 @@ const ListenModeRenderer = ({
       ? null
       : currentInteraction;
 
+  const activeRenderPage =
+    deckRef.current?.getIndices?.().h ??
+    (activeSequencePage >= 0 ? activeSequencePage : currentPptPageRef.current);
+  const isSequenceInteractionOnActivePage = Boolean(
+    visibleSequenceInteraction &&
+    visibleSequenceInteraction.page === activeRenderPage,
+  );
+
   const listenPlayerInteraction = isAudioSequenceActive
-    ? visibleSequenceInteraction
+    ? isSequenceInteractionOnActivePage
+      ? visibleSequenceInteraction
+      : null
     : shouldHideFallbackInteraction
       ? null
       : visibleCurrentInteraction;
@@ -470,10 +512,10 @@ const ListenModeRenderer = ({
           return next;
         });
       }
-      onSend?.(content, blockBid);
       if (sequenceInteraction) {
         continueAfterInteraction();
       }
+      onSend?.(content, blockBid);
     },
     [onSend, sequenceInteraction, continueAfterInteraction],
   );
@@ -497,6 +539,9 @@ const ListenModeRenderer = ({
     currentInteraction?.generated_block_bid,
     sequenceInteraction?.generated_block_bid,
     listenPlayerInteraction?.generated_block_bid,
+    activeSequencePage,
+    activeRenderPage,
+    isSequenceInteractionOnActivePage,
     hasAudioForCurrentPage,
     shouldHideFallbackInteraction,
   ]);
@@ -560,8 +605,11 @@ const ListenModeRenderer = ({
             }
             disabled={previewMode}
             autoPlay={!previewMode}
-            onPlayStateChange={setIsAudioPlaying}
-            onEnded={handleAudioEnded}
+            onPlayStateChange={nextIsPlaying =>
+              handleAudioPlayStateChange(audioSequenceToken, nextIsPlaying)
+            }
+            onEnded={() => handleAudioEndedWithToken(audioSequenceToken)}
+            onError={() => handleAudioErrorWithToken(audioSequenceToken)}
             className='hidden'
           />
         </div>

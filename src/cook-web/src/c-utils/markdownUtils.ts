@@ -27,7 +27,30 @@ const VISUAL_CODE_FENCE_REGEX =
 
 const VISUAL_LANGS = new Set(['', 'svg', 'svg+xml', 'html', 'xml', 'xhtml']);
 const VISUAL_ROOT_TAG_REGEX =
-  /^<(svg|iframe|video|table|div|section|article|main)\b/i;
+  /^<(svg|iframe|video|table|div|section|article|main|html)\b/i;
+
+const normalizeEscapedVisualFenceBody = (body: string): string => {
+  if (!body || body.indexOf('\\') === -1) {
+    return body;
+  }
+
+  return body
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\r')
+    .replace(/\\t/g, '\t')
+    .replace(/\\"/g, '"')
+    .replace(/\\'/g, "'");
+};
+
+const stripDocumentPreamble = (body: string): string => {
+  if (!body) {
+    return body;
+  }
+  return body
+    .replace(/^<\?xml[^>]*>\s*/i, '')
+    .replace(/^<!doctype[^>]*>\s*/i, '');
+};
 
 const shouldUnwrapVisualFence = (lang: string, body: string): boolean => {
   const normalizedLang = (lang || '').trim().toLowerCase();
@@ -35,7 +58,8 @@ const shouldUnwrapVisualFence = (lang: string, body: string): boolean => {
     return false;
   }
 
-  const trimmedBody = (body || '').trim();
+  const normalizedBody = normalizeEscapedVisualFenceBody(body || '');
+  const trimmedBody = normalizedBody.trim();
   if (!trimmedBody) {
     return false;
   }
@@ -44,7 +68,8 @@ const shouldUnwrapVisualFence = (lang: string, body: string): boolean => {
     return true;
   }
 
-  return VISUAL_ROOT_TAG_REGEX.test(trimmedBody);
+  const bodyWithoutPreamble = stripDocumentPreamble(trimmedBody);
+  return VISUAL_ROOT_TAG_REGEX.test(bodyWithoutPreamble);
 };
 
 /**
@@ -62,7 +87,8 @@ export const unwrapVisualCodeFence = (text: string): string => {
       if (!shouldUnwrapVisualFence(lang, body)) {
         return fullMatch;
       }
-      return `${lineBreak}${body}`;
+      const normalizedBody = normalizeEscapedVisualFenceBody(body || '');
+      return `${lineBreak}${normalizedBody}`;
     },
   );
 };

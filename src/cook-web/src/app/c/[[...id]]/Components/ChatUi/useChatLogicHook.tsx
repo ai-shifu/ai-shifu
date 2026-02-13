@@ -41,6 +41,10 @@ import {
   upsertAudioSegmentByPosition,
   type AudioSegment,
 } from '@/c-utils/audio-utils';
+import {
+  normalizeListenRecordAudios,
+  toListenInboundAudioEvent,
+} from '@/c-utils/listen-orchestrator';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import {
   events,
@@ -677,67 +681,77 @@ function useChatLogicHook({
                 return;
               }
               // Handle audio segment during TTS streaming
-              const audioSegment = response.content as AudioSegmentData;
-              const position = Number(audioSegment.position ?? 0);
-              const normalizedPosition = Number.isNaN(position) ? 0 : position;
-              if (blockId) {
-                setTrackedContentList(prevState => {
-                  if (!isListenMode) {
-                    return upsertAudioSegment(prevState, blockId, audioSegment);
-                  }
+              const inboundEvent = toListenInboundAudioEvent(response, blockId);
+              if (!inboundEvent) {
+                return;
+              }
+              const targetBlockBid = inboundEvent.generatedBlockBid;
+              const normalizedPosition = inboundEvent.position;
+              const audioSegment = inboundEvent.payload as AudioSegmentData;
 
-                  // Listen mode may emit multiple audio tracks per block (by position).
-                  // Keep legacy position=0 fields for backward compatibility.
-                  let nextState = upsertAudioSegmentByPosition(
+              setTrackedContentList(prevState => {
+                if (!isListenMode) {
+                  return upsertAudioSegment(
                     prevState,
-                    blockId,
-                    normalizedPosition,
+                    targetBlockBid,
                     audioSegment,
                   );
-                  if (normalizedPosition === 0) {
-                    nextState = upsertAudioSegment(
-                      nextState,
-                      blockId,
-                      audioSegment,
-                    );
-                  }
-                  return nextState;
-                });
-              }
+                }
+
+                // Listen mode may emit multiple audio tracks per block (by position).
+                // Keep legacy position=0 fields for backward compatibility.
+                let nextState = upsertAudioSegmentByPosition(
+                  prevState,
+                  targetBlockBid,
+                  normalizedPosition,
+                  audioSegment,
+                );
+                if (normalizedPosition === 0) {
+                  nextState = upsertAudioSegment(
+                    nextState,
+                    targetBlockBid,
+                    audioSegment,
+                  );
+                }
+                return nextState;
+              });
             } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
               if (!allowTtsStreaming) {
                 return;
               }
               // Handle audio completion with OSS URL
-              const audioComplete = response.content as AudioCompleteData;
-              const position = Number(audioComplete.position ?? 0);
-              const normalizedPosition = Number.isNaN(position) ? 0 : position;
-              if (blockId) {
-                setTrackedContentList(prevState => {
-                  if (!isListenMode) {
-                    return upsertAudioComplete(
-                      prevState,
-                      blockId,
-                      audioComplete,
-                    );
-                  }
+              const inboundEvent = toListenInboundAudioEvent(response, blockId);
+              if (!inboundEvent) {
+                return;
+              }
+              const targetBlockBid = inboundEvent.generatedBlockBid;
+              const normalizedPosition = inboundEvent.position;
+              const audioComplete = inboundEvent.payload as AudioCompleteData;
 
-                  let nextState = upsertAudioCompleteByPosition(
+              setTrackedContentList(prevState => {
+                if (!isListenMode) {
+                  return upsertAudioComplete(
                     prevState,
-                    blockId,
-                    normalizedPosition,
+                    targetBlockBid,
                     audioComplete,
                   );
-                  if (normalizedPosition === 0) {
-                    nextState = upsertAudioComplete(
-                      nextState,
-                      blockId,
-                      audioComplete,
-                    );
-                  }
-                  return nextState;
-                });
-              }
+                }
+
+                let nextState = upsertAudioCompleteByPosition(
+                  prevState,
+                  targetBlockBid,
+                  normalizedPosition,
+                  audioComplete,
+                );
+                if (normalizedPosition === 0) {
+                  nextState = upsertAudioComplete(
+                    nextState,
+                    targetBlockBid,
+                    audioComplete,
+                  );
+                }
+                return nextState;
+              });
             }
           } catch (error) {
             console.warn('SSE handling error:', error);
@@ -833,6 +847,10 @@ function useChatLogicHook({
                   getAskButtonMarkup(),
                 )
               : normalizedContent;
+          const normalizedRecordAudios = normalizeListenRecordAudios({
+            audioUrl: item.audio_url,
+            audios: item.audios,
+          });
           result.push({
             generated_block_bid: item.generated_block_bid,
             content: contentWithButton,
@@ -844,26 +862,14 @@ function useChatLogicHook({
             type: item.block_type,
             // Include audio URL from history
             audioUrl: item.audio_url,
-            audios: item.audios,
+            audios: normalizedRecordAudios.audios as
+              | AudioCompleteData[]
+              | undefined,
             avContract: item.av_contract,
-            audioTracksByPosition: item.audios
-              ? item.audios.reduce(
-                  (acc, audio) => {
-                    const position = Number(audio.position ?? 0);
-                    if (Number.isNaN(position)) {
-                      return acc;
-                    }
-                    acc[position] = {
-                      audioUrl: audio.audio_url,
-                      audioDurationMs: audio.duration_ms,
-                      audioBid: audio.audio_bid,
-                      isAudioStreaming: false,
-                    };
-                    return acc;
-                  },
-                  {} as NonNullable<ChatContentItem['audioTracksByPosition']>,
-                )
-              : undefined,
+            audioTracksByPosition:
+              normalizedRecordAudios.audioTracksByPosition as
+                | NonNullable<ChatContentItem['audioTracksByPosition']>
+                | undefined,
           });
           lastContentId = item.generated_block_bid;
 
@@ -1477,30 +1483,35 @@ function useChatLogicHook({
           preview_mode: effectivePreviewMode,
           listen: isListenMode,
           onMessage: response => {
-            if (response?.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
-              const audioPayload = response.content ?? response.data;
-              const position = Number(audioPayload?.position ?? 0);
+            const inboundEvent = toListenInboundAudioEvent(
+              response,
+              generatedBlockBid,
+            );
+            if (!inboundEvent) {
+              return;
+            }
+
+            if (inboundEvent.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+              const audioPayload = inboundEvent.payload as AudioSegmentData;
               setTrackedContentList(prevState =>
                 isListenMode
                   ? upsertAudioSegmentByPosition(
                       prevState,
-                      generatedBlockBid,
-                      Number.isNaN(position) ? 0 : position,
-                      audioPayload as AudioSegmentData,
+                      inboundEvent.generatedBlockBid,
+                      inboundEvent.position,
+                      audioPayload,
                     )
                   : upsertAudioSegment(
                       prevState,
-                      generatedBlockBid,
-                      audioPayload as AudioSegmentData,
+                      inboundEvent.generatedBlockBid,
+                      audioPayload,
                     ),
               );
               return;
             }
 
-            if (response?.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
-              const audioPayload = response.content ?? response.data;
-              const audioComplete = audioPayload as AudioCompleteData;
-              const position = Number(audioComplete?.position ?? 0);
+            if (inboundEvent.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+              const audioComplete = inboundEvent.payload as AudioCompleteData;
               if (!firstComplete) {
                 firstComplete = audioComplete;
               }
@@ -1508,13 +1519,13 @@ function useChatLogicHook({
                 isListenMode
                   ? upsertAudioCompleteByPosition(
                       prevState,
-                      generatedBlockBid,
-                      Number.isNaN(position) ? 0 : position,
+                      inboundEvent.generatedBlockBid,
+                      inboundEvent.position,
                       audioComplete,
                     )
                   : upsertAudioComplete(
                       prevState,
-                      generatedBlockBid,
+                      inboundEvent.generatedBlockBid,
                       audioComplete,
                     ),
               );

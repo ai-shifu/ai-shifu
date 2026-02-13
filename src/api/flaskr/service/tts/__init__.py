@@ -131,6 +131,31 @@ def _strip_incomplete_angle_bracket_tag(text: str) -> tuple[str, bool]:
     return text[:last_lt], True
 
 
+def _strip_incomplete_markdown_image(text: str) -> tuple[str, bool]:
+    """
+    Strip an incomplete markdown image token from the end of the buffer.
+
+    Streaming chunks may split `![alt](url)` across messages. If the trailing
+    image token is incomplete, we should not let any part of it reach TTS.
+    """
+    if not text:
+        return text, False
+
+    last_start = text.rfind("![")
+    if last_start == -1:
+        return text, False
+
+    image_open = text.find("](", last_start + 2)
+    if image_open == -1:
+        return text[:last_start], True
+
+    image_close = text.find(")", image_open + 2)
+    if image_close == -1:
+        return text[:last_start], True
+
+    return text, False
+
+
 def _strip_incomplete_blocks(text: str) -> tuple[str, bool]:
     """
     Strip known incomplete blocks from the end of the buffer.
@@ -150,6 +175,10 @@ def _strip_incomplete_blocks(text: str) -> tuple[str, bool]:
 
     # Strip incomplete generic HTML/XML tags (e.g. '<p' at buffer tail).
     text, removed = _strip_incomplete_angle_bracket_tag(text)
+    had_incomplete = had_incomplete or removed
+
+    # Strip trailing incomplete markdown image tokens (e.g. `![alt](https://...`).
+    text, removed = _strip_incomplete_markdown_image(text)
     had_incomplete = had_incomplete or removed
 
     return text, had_incomplete
@@ -187,6 +216,15 @@ def has_incomplete_block(text: str) -> bool:
     # If we see ```mermaid but buffer has odd ``` count, it's incomplete
     if "```mermaid" in text.lower() and code_block_count % 2 == 1:
         return True
+
+    # Check for incomplete markdown image token `![alt](url`
+    image_start = text.rfind("![")
+    if image_start != -1:
+        image_open = text.find("](", image_start + 2)
+        if image_open == -1:
+            return True
+        if text.find(")", image_open + 2) == -1:
+            return True
 
     return False
 

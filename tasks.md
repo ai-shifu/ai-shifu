@@ -184,3 +184,75 @@
 - [ ] Manual test scenario with one block containing multiple `<svg>` visuals and narration between them.
 - [ ] Verify playback controls: play/pause/prev/next works across positions and blocks.
 - [x] Run backend tests (`pytest`) and `pre-commit run -a` before any commit.
+
+## 2026-02-13 Listen Mode Event-Driven Orchestrator Refactor
+
+### 0. Discovery and Design
+
+- [x] Re-audit current listen-mode progression paths in:
+- [x] `useListenMode.ts` (`playAudioSequenceFromIndex`, `handleAudioEnded`, `useListenPpt` auto-follow)
+- [x] `useChatLogicHook.tsx` (`run`/`records` audio event ingestion)
+- [x] `AudioPlayer.tsx` callback semantics (`onPlayStateChange`, `onEnded`, `onError`)
+- [x] Write event-driven design doc: `docs/listen-mode-event-driven-orchestrator-design.md`.
+- [x] Capture current gap summary for the reported cases:
+- [x] audio not finished but slide switches ahead
+- [x] image -> html switch happened but expected audio not played in order
+
+### 1. Event Model and State Machine
+
+- [x] Define `OrchestratorEvent` types and payload schema in frontend.
+- [x] Define `UnitId` convention: `<generated_block_bid>:<position>`.
+- [x] Define state model (`idle`, `waiting_audio`, `playing`, `interaction_blocked`, `paused`) and single event dispatcher.
+- [ ] Add transition table tests for all core events.
+
+### 2. Unified Queue for `/records` + `/run`
+
+- [x] Implement records audio adapter: normalize history `audio_url/audios[]` into position-aware payload and per-position tracks.
+- [x] Implement run audio adapter: normalize SSE `audio_segment/audio_complete` into one inbound event model.
+- [x] Ensure idempotent merge by `UnitId` (late audio updates patch existing unit, no duplicate queue slot).
+- [x] Remove direct sequence mutation from list-length side effects.
+
+### 3. Visual Rendering Commands
+
+- [x] Add orchestrator command channel for `SHOW_PAGE`.
+- [ ] Ensure visuals can start rendering when visual stream starts (no full-block wait).
+- [x] Keep Reveal sync/layout as rendering infrastructure only, not progression authority.
+- [x] Remove/disable auto-follow progression logic that bypasses orchestrator.
+
+### 4. Audio Playback Commands
+
+- [x] Add orchestrator command channel for `PLAY_UNIT`.
+- [x] Trigger next unit only from `PLAYER_ENDED`.
+- [x] Ensure `PLAYER_ERROR` pauses current unit and never auto-advances.
+- [x] Remove forced timeout auto-advance behavior from watchdog paths.
+
+### 5. Interaction Gating
+
+- [x] Gate progression with explicit interaction events (`INTERACTION_OPENED`/`INTERACTION_RESOLVED`).
+- [x] Ensure interaction overlay binds to current active unit page.
+- [x] Keep optional auto-continue flag behavior behind explicit configuration and orchestrator events.
+
+### 6. Compatibility and Rollout
+
+- [ ] Add feature flag `LISTEN_EVENT_ORCHESTRATOR_V1` for staged rollout.
+- [ ] Keep legacy path as fallback for one release cycle.
+- [ ] Add transition logs/metrics:
+- [ ] unit mismatch counter
+- [ ] audio stalled/error counter
+- [ ] manual-next frequency
+- [ ] Define rollback procedure (flag off -> legacy logic).
+
+### 7. Verification
+
+- [ ] Frontend unit tests for reducer and adapters.
+- [x] Frontend unit tests for adapter helpers (`listen-orchestrator-adapters.test.ts`).
+- [x] Frontend regression test for list index shift continuity (`listen-mode-audio-sequence.test.tsx`).
+- [x] Frontend regression test for `image -> html -> delayed audio` wait/resume sequencing.
+- [x] Frontend regression test for interaction gating (no auto-advance until explicit resolve).
+- [ ] Frontend integration tests for:
+- [ ] interaction -> image -> html -> delayed audio
+- [ ] multi-position audio sequence ordering
+- [ ] audio error (no auto-advance)
+- [ ] Run `npm run lint` and `npm run type-check` in `src/cook-web`.
+- [x] Run targeted listen-mode test suites.
+- [ ] Run `pre-commit run -a` before commit.

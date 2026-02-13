@@ -275,6 +275,30 @@ describe('useListenContentData timeline mapping', () => {
     ]);
   });
 
+  it('deduplicates queue units by block+position and patches latest payload', () => {
+    const first = makeContent('block-dup', 'Narration A.', [0]);
+    const second = makeContent('block-dup', 'Narration A updated.', [0]);
+    second.audioTracksByPosition = {
+      0: {
+        audioUrl: 'https://example.com/new.mp3',
+        isAudioStreaming: false,
+      },
+    };
+
+    const items = [first, second];
+    const { result } = renderHook(() => useListenContentData(items));
+    const audioEntries = pickAudioEntries(
+      result.current.audioAndInteractionList,
+      'block-dup',
+    );
+
+    expect(audioEntries).toHaveLength(1);
+    expect(audioEntries[0].content).toBe('Narration A updated.');
+    expect(audioEntries[0].audioTracksByPosition?.[0]?.audioUrl).toBe(
+      'https://example.com/new.mp3',
+    );
+  });
+
   it('renders gfm tables without outer pipes as visual segments', () => {
     const items = [
       makeContent('block-table', 'Name | Score\n--- | ---\nAlice | 95', [0]),
@@ -285,6 +309,24 @@ describe('useListenContentData timeline mapping', () => {
     const firstSegment = result.current.slideItems[0].segments[0];
     expect(firstSegment.type).toBe('sandbox');
     expect(String(firstSegment.value)).toContain('<table>');
+  });
+
+  it('renders text-only content as blank fallback slide', () => {
+    const items = [
+      makeContent('block-text', '# Title\n\nOnly text content.', [0]),
+    ];
+    const { result } = renderHook(() => useListenContentData(items));
+
+    expect(result.current.slideItems).toHaveLength(1);
+    const firstSegment = result.current.slideItems[0].segments[0];
+    expect(firstSegment.type).toBe('sandbox');
+    expect(String(firstSegment.value)).toContain('<div');
+    const audioEntries = pickAudioEntries(
+      result.current.audioAndInteractionList,
+      'block-text',
+    );
+    expect(audioEntries).toHaveLength(1);
+    expect(audioEntries[0].page).toBe(0);
   });
 
   it('renders html tables split by embedded <img> tags as visual segments', () => {

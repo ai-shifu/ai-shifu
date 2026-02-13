@@ -74,6 +74,7 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 
 # Sentence ending patterns
 SENTENCE_ENDINGS = re.compile(r"[.!?。！？；;]")
+_AV_MARKDOWN_IMAGE_START_PATTERN = re.compile(r"!\[")
 
 # Global thread pool for TTS synthesis
 _tts_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="tts_")
@@ -727,7 +728,7 @@ class AVStreamingTTSProcessor:
         # wait for its closing marker before resuming segmentation.
         self._skip_mode: Optional[str] = (
             None
-            # 'fence' | 'svg' | 'iframe' | 'video' | 'html_table' | 'md_table' | 'sandbox'
+            # 'fence' | 'svg' | 'iframe' | 'video' | 'html_table' | 'md_table' | 'sandbox' | 'md_img'
         )
 
     def _update_av_contract(self):
@@ -815,6 +816,17 @@ class AVStreamingTTSProcessor:
         if self._skip_mode == "sandbox":
             end, complete = _find_html_block_end_with_complete(raw, 0)
             return end if complete else None
+        if self._skip_mode == "md_img":
+            start = raw.find("![")
+            if start == -1:
+                return None
+            image_open = raw.find("](", start + 2)
+            if image_open == -1:
+                return None
+            image_close = raw.find(")", image_open + 2)
+            if image_close == -1:
+                return None
+            return image_close + 1
         return None
 
     def _find_next_boundary(self, raw: str) -> Optional[tuple[str, int, int, bool]]:
@@ -917,6 +929,21 @@ class AVStreamingTTSProcessor:
             candidates.append(
                 ("md_img", md_img_match.start(), md_img_match.end(), True)
             )
+        else:
+            # Guard against split markdown image tokens in streaming chunks:
+            # treat `![...` without a closing `)` as an incomplete visual boundary.
+            md_img_start = _find_first_match_outside_fence(
+                raw, _AV_MARKDOWN_IMAGE_START_PATTERN, fence_ranges
+            )
+            if md_img_start is not None:
+                start = md_img_start.start()
+                image_open = raw.find("](", start + 2)
+                if image_open == -1:
+                    candidates.append(("md_img", start, len(raw), False))
+                else:
+                    image_close = raw.find(")", image_open + 2)
+                    if image_close == -1:
+                        candidates.append(("md_img", start, len(raw), False))
 
         md_table = _find_markdown_table_block(raw, fence_ranges)
         if md_table is not None:
@@ -1013,6 +1040,7 @@ class AVStreamingTTSProcessor:
                     "html_table",
                     "md_table",
                     "sandbox",
+                    "md_img",
                 }
                 and not complete
             ):

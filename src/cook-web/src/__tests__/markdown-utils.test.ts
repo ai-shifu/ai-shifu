@@ -36,6 +36,39 @@ describe('unwrapVisualCodeFence', () => {
     expect(output).toBe('<div><table><tr><td>A</td></tr></table></div>');
   });
 
+  it('unwraps html fenced blocks with doctype and html root', () => {
+    const input = [
+      '```html',
+      '<!DOCTYPE html>',
+      '<html lang="zh-CN">',
+      '<head><meta charset="UTF-8"></head>',
+      '<body><div>hello</div></body>',
+      '</html>',
+      '```',
+    ].join('\n');
+
+    const output = unwrapVisualCodeFence(input);
+
+    expect(output).toContain('<!DOCTYPE html>');
+    expect(output).toContain('<html lang="zh-CN">');
+    expect(output).not.toContain('```html');
+  });
+
+  it('normalizes escaped newlines and quotes inside visual html fences', () => {
+    const input = [
+      '```html',
+      '\\n<!DOCTYPE html>\\n<html lang=\\"zh-CN\\">\\n<body>ok</body>\\n</html>',
+      '```',
+    ].join('\n');
+
+    const output = unwrapVisualCodeFence(input);
+
+    expect(output).toContain('<!DOCTYPE html>');
+    expect(output).toContain('<html lang="zh-CN">');
+    expect(output).not.toContain('\\n');
+    expect(output).not.toContain('\\"');
+  });
+
   it('unwraps no-language fenced blocks when body starts with visual root tag', () => {
     const input = [
       '```',
