@@ -31,7 +31,8 @@ export const buildListenUnitId = ({
 }): string => {
   if (type === 'content') {
     if (slideId) {
-      return `content-slide:${slideId}`;
+      const stablePosition = normalizeListenAudioPosition(position);
+      return `content-slide:${slideId}:${stablePosition}`;
     }
     const resolved =
       resolveContentBid?.(generatedBlockBid || null) ?? generatedBlockBid ?? '';

@@ -1,4 +1,5 @@
 import {
+  buildListenUnitId,
   normalizeListenRecordAudios,
   toListenInboundAudioEvent,
 } from '@/c-utils/listen-orchestrator';
@@ -73,5 +74,26 @@ describe('listen slide contract adapters', () => {
     expect(inbound?.generatedBlockBid).toBe('block-legacy');
     expect(inbound?.position).toBe(3);
     expect(inbound?.slideId).toBeUndefined();
+  });
+
+  it('keeps position in slide-based content unit id', () => {
+    const first = buildListenUnitId({
+      type: 'content',
+      generatedBlockBid: 'block-1',
+      position: 0,
+      slideId: 'slide-1',
+      fallbackIndex: 0,
+    });
+    const second = buildListenUnitId({
+      type: 'content',
+      generatedBlockBid: 'block-1',
+      position: 1,
+      slideId: 'slide-1',
+      fallbackIndex: 1,
+    });
+
+    expect(first).toBe('content-slide:slide-1:0');
+    expect(second).toBe('content-slide:slide-1:1');
+    expect(first).not.toBe(second);
   });
 });

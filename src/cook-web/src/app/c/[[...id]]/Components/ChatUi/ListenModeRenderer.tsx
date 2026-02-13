@@ -25,7 +25,10 @@ interface ListenModeRendererProps {
   isLoading?: boolean;
   sectionTitle?: string;
   previewMode?: boolean;
-  onRequestAudioForBlock?: (blockBid: string) => Promise<any>;
+  onRequestAudioForBlock?: (
+    blockBid: string,
+    audioPosition?: number,
+  ) => Promise<any>;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
 }
 
@@ -600,7 +603,11 @@ const ListenModeRenderer = ({
             alwaysVisible={true}
             onRequestAudio={
               onRequestAudioForBlock && activeAudioBlockBid
-                ? () => onRequestAudioForBlock(activeAudioBlockBid)
+                ? () =>
+                    onRequestAudioForBlock(
+                      activeAudioBlockBid,
+                      activeAudioPosition,
+                    )
                 : undefined
             }
             disabled={previewMode}

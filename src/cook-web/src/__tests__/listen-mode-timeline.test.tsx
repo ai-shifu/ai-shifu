@@ -407,6 +407,30 @@ describe('useListenContentData timeline mapping', () => {
     );
   });
 
+  it('keeps multiple audio positions when they share one slide id', () => {
+    const content = makeContent(
+      'block-shared-slide',
+      'Narration A.\nNarration B.',
+      [0, 1],
+    );
+    content.audioSlideIdByPosition = {
+      0: 'slide-shared',
+      1: 'slide-shared',
+    };
+
+    const { result } = renderHook(() => useListenContentData([content]));
+    const audioEntries = pickAudioEntries(
+      result.current.audioAndInteractionList,
+      'block-shared-slide',
+    );
+
+    expect(audioEntries).toHaveLength(2);
+    expect(audioEntries[0].audioPosition).toBe(0);
+    expect(audioEntries[0].audioSlideId).toBe('slide-shared');
+    expect(audioEntries[1].audioPosition).toBe(1);
+    expect(audioEntries[1].audioSlideId).toBe('slide-shared');
+  });
+
   it('renders gfm tables without outer pipes as visual segments', () => {
     const items = [
       makeContent('block-table', 'Name | Score\n--- | ---\nAlice | 95', [0]),

@@ -43,6 +43,7 @@ import {
   type AudioSegment,
 } from '@/c-utils/audio-utils';
 import {
+  normalizeListenAudioPosition,
   normalizeListenRecordAudios,
   toListenInboundAudioEvent,
 } from '@/c-utils/listen-orchestrator';
@@ -161,6 +162,7 @@ export interface UseChatSessionResult {
   toggleAskExpanded: (parentBlockBid: string) => void;
   requestAudioForBlock: (
     generatedBlockBid: string,
+    requestedPosition?: number,
   ) => Promise<AudioCompleteData | null>;
   reGenerateConfirm: {
     open: boolean;
@@ -1492,7 +1494,10 @@ function useChatLogicHook({
   }, []);
 
   const requestAudioForBlock = useCallback(
-    async (generatedBlockBid: string): Promise<AudioCompleteData | null> => {
+    async (
+      generatedBlockBid: string,
+      requestedPosition?: number,
+    ): Promise<AudioCompleteData | null> => {
       if (!generatedBlockBid) {
         return null;
       }
@@ -1520,6 +1525,10 @@ function useChatLogicHook({
         return null;
       }
 
+      const targetPosition = isListenMode
+        ? normalizeListenAudioPosition(requestedPosition)
+        : 0;
+
       setTrackedContentList(prev =>
         prev.map(item => {
           if (item.generated_block_bid !== generatedBlockBid) {
@@ -1529,11 +1538,11 @@ function useChatLogicHook({
           return {
             ...item,
             audioTracksByPosition: isListenMode
-              ? {}
-              : item.audioTracksByPosition,
-            audioSegments: [],
-            audioUrl: undefined,
-            audioDurationMs: undefined,
+              ? item.audioTracksByPosition
+              : {},
+            audioSegments: isListenMode ? item.audioSegments : [],
+            audioUrl: isListenMode ? item.audioUrl : undefined,
+            audioDurationMs: isListenMode ? item.audioDurationMs : undefined,
             isAudioStreaming: true,
           };
         }),
@@ -1542,6 +1551,7 @@ function useChatLogicHook({
       return new Promise((resolve, reject) => {
         let resolved = false;
         let firstComplete: AudioCompleteData | null = null;
+        let targetedComplete: AudioCompleteData | null = null;
 
         const safeResolve = (value: AudioCompleteData | null) => {
           if (resolved) {
@@ -1603,6 +1613,14 @@ function useChatLogicHook({
             if (inboundEvent.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
               const audioComplete =
                 inboundEvent.payload as unknown as AudioCompleteData;
+              if (
+                isListenMode &&
+                inboundEvent.position === targetPosition &&
+                !targetedComplete
+              ) {
+                targetedComplete = audioComplete;
+                safeResolve(audioComplete ?? null);
+              }
               if (!firstComplete) {
                 firstComplete = audioComplete;
               }
@@ -1667,7 +1685,7 @@ function useChatLogicHook({
             }),
           );
           closeTtsStream(generatedBlockBid);
-          safeResolve(firstComplete);
+          safeResolve(targetedComplete ?? firstComplete);
         });
 
         ttsSseRef.current[generatedBlockBid] = source;
