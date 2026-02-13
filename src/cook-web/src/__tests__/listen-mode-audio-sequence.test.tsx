@@ -1632,6 +1632,66 @@ describe('useListenAudioSequence silent visual slides', () => {
     expect(result.current.activeAudioBlockBid).toBe('block-next');
     expect(currentSlide).toBe(1);
   });
+
+  it('keeps pending auto-next when current block has no immediate successor yet', () => {
+    let currentSlide = 0;
+    const deck: any = {
+      sync: jest.fn(),
+      layout: jest.fn(),
+      getSlides: jest.fn(() => Array.from({ length: 1 }, () => ({}))),
+      getIndices: jest.fn(() => ({ h: currentSlide })),
+      slide: jest.fn((page: number) => {
+        currentSlide = page;
+      }),
+    };
+
+    const deckRef = { current: deck };
+    const currentPptPageRef = { current: 0 };
+    const activeBlockBidRef = { current: 'block-1' as string | null };
+    const pendingAutoNextRef = { current: false };
+    const shouldStartSequenceRef = { current: false };
+    const goToBlock = jest.fn(() => false);
+
+    const onlyItem: any = {
+      type: ChatContentItemType.CONTENT,
+      generated_block_bid: 'block-1',
+      content: 'Only block for now',
+      audios: [{ position: 0, audio_url: 'https://example.com/a0.mp3' }],
+      customRenderBar: () => null,
+    };
+
+    const { result } = renderHook(() =>
+      useListenAudioSequence({
+        audioAndInteractionList: [{ ...onlyItem, page: 0, audioPosition: 0 }],
+        deckRef: deckRef as any,
+        currentPptPageRef: currentPptPageRef as any,
+        activeBlockBidRef: activeBlockBidRef as any,
+        pendingAutoNextRef: pendingAutoNextRef as any,
+        shouldStartSequenceRef: shouldStartSequenceRef as any,
+        contentByBid: new Map([['block-1', onlyItem]]),
+        audioContentByBid: new Map([['block-1', onlyItem]]),
+        previewMode: false,
+        shouldRenderEmptyPpt: false,
+        getNextContentBid: () => null,
+        goToBlock,
+        resolveContentBid: (bid: string | null) => bid,
+        isAudioPlaying: false,
+        setIsAudioPlaying: () => undefined,
+      }),
+    );
+
+    act(() => {
+      result.current.startSequenceFromIndex(0);
+    });
+
+    act(() => {
+      result.current.handleAudioEnded();
+    });
+
+    expect(result.current.isAudioSequenceActive).toBe(false);
+    expect(pendingAutoNextRef.current).toBe(true);
+    expect(goToBlock).not.toHaveBeenCalled();
+  });
 });
 
 describe('useListenPpt reset guards', () => {

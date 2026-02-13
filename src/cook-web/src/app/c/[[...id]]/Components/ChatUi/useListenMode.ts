@@ -1813,10 +1813,17 @@ export const useListenAudioSequence = ({
   }, []);
 
   const tryAdvanceToNextBlock = useCallback(() => {
-    const currentBid = resolveContentBid(activeBlockBidRef.current);
+    const currentBid =
+      resolveContentBid(activeBlockBidRef.current) ||
+      resolveContentBid(activeAudioBid);
+    if (!currentBid) {
+      pendingAutoNextRef.current = true;
+      return true;
+    }
     const nextBid = getNextContentBid(currentBid);
     if (!nextBid) {
-      return false;
+      pendingAutoNextRef.current = true;
+      return true;
     }
 
     const moved = goToBlock(nextBid);
@@ -1832,6 +1839,7 @@ export const useListenAudioSequence = ({
     pendingAutoNextRef.current = true;
     return true;
   }, [
+    activeAudioBid,
     activeBlockBidRef,
     getNextContentBid,
     goToBlock,
