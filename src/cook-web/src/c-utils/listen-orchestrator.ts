@@ -134,7 +134,7 @@ export const normalizeListenRecordAudios = ({
   audios,
 }: {
   audioUrl?: string;
-  audios?: ListenRecordAudioLike[] | null;
+  audios?: Array<ListenRecordAudioLike | AudioCompleteData> | null;
 }): NormalizedListenRecordAudios => {
   const normalizedList = (audios || [])
     .map(audio => ({
@@ -154,7 +154,10 @@ export const normalizeListenRecordAudios = ({
   if (!normalizedList.length && audioUrl) {
     normalizedList.push({
       position: 0,
+      slide_id: undefined,
       audio_url: audioUrl,
+      audio_bid: undefined,
+      duration_ms: undefined,
     });
   }
 
@@ -200,3 +203,4 @@ export const normalizeListenRecordAudios = ({
     audioTracksByPosition: tracksByPosition,
   };
 };
+import type { AudioCompleteData } from '@/c-api/studyV2';

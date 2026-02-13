@@ -321,11 +321,11 @@
 ### 7. Testing
 
 - [x] Backend unit tests for `NewSlideDTO` serialization and compatibility.
-- [ ] Backend integration test: `/run` emits `new_slide` before `audio_*` for each slide.
+- [x] Backend integration test: `/run` emits `new_slide` before `audio_*` for each slide.
 - [x] Backend integration test: `/records` returns `slides[]` and valid `slide_id` references.
 - [x] Frontend unit test: `new_slide` ingestion + dedup/update by `slide_id`.
 - [x] Frontend unit test: audio binding by `slide_id` with legacy fallback.
-- [ ] Frontend integration test: no frontend segmentation needed in flag path.
+- [x] Frontend integration test: no frontend segmentation needed in flag path.
 
 ### 8. Rollout and Cleanup
 
@@ -334,7 +334,7 @@
 - [ ] count unmatched audio->slide bindings
 - [ ] count fallback-to-legacy mapping usage
 - [ ] Enable flag in internal env and run manual matrix.
-- [ ] Run `pytest` related suites in `src/api`.
+- [x] Run `pytest` related suites in `src/api`.
 - [ ] Run `npm run lint` + `npm run type-check` in `src/cook-web`.
-- [ ] Run `pre-commit run -a`.
+- [x] Run `pre-commit run -a`.
 - [ ] After stabilization, plan legacy listen-mapping code removal.

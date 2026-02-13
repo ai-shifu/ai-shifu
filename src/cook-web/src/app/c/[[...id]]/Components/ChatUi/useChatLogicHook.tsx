@@ -746,7 +746,8 @@ function useChatLogicHook({
               }
               const targetBlockBid = inboundEvent.generatedBlockBid;
               const normalizedPosition = inboundEvent.position;
-              const audioSegment = inboundEvent.payload as AudioSegmentData;
+              const audioSegment =
+                inboundEvent.payload as unknown as AudioSegmentData;
 
               setTrackedContentList(prevState => {
                 if (!isListenMode) {
@@ -791,7 +792,8 @@ function useChatLogicHook({
               }
               const targetBlockBid = inboundEvent.generatedBlockBid;
               const normalizedPosition = inboundEvent.position;
-              const audioComplete = inboundEvent.payload as AudioCompleteData;
+              const audioComplete =
+                inboundEvent.payload as unknown as AudioCompleteData;
 
               setTrackedContentList(prevState => {
                 if (!isListenMode) {
@@ -1574,7 +1576,8 @@ function useChatLogicHook({
             }
 
             if (inboundEvent.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
-              const audioPayload = inboundEvent.payload as AudioSegmentData;
+              const audioPayload =
+                inboundEvent.payload as unknown as AudioSegmentData;
               setTrackedContentList(prevState =>
                 isListenMode
                   ? bindAudioSlideId(
@@ -1598,7 +1601,8 @@ function useChatLogicHook({
             }
 
             if (inboundEvent.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
-              const audioComplete = inboundEvent.payload as AudioCompleteData;
+              const audioComplete =
+                inboundEvent.payload as unknown as AudioCompleteData;
               if (!firstComplete) {
                 firstComplete = audioComplete;
               }
