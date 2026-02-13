@@ -18,6 +18,7 @@ import { useUserStore } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
 import {
   StudyRecordItem,
+  GeneratedAudioTrackData,
   LikeStatus,
   AudioCompleteData,
   type AudioSegmentData,
@@ -35,6 +36,7 @@ import {
 import {
   upsertAudioComplete,
   upsertAudioSegment,
+  type AudioTrack,
   type AudioSegment,
 } from '@/c-utils/audio-utils';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
@@ -96,6 +98,8 @@ export interface ChatContentItem {
   audioSegments?: AudioSegment[];
   isAudioStreaming?: boolean;
   audioDurationMs?: number;
+  audioTracks?: AudioTrack[];
+  audioPlaybackBid?: string;
 }
 
 interface SSEParams {
@@ -908,6 +912,21 @@ function useChatLogicHook({
         if (item.block_type === BLOCK_TYPE.CONTENT) {
           // flush the previously cached ask entries
           flushBuffer();
+          const rawAudioTracks = item.audio_tracks || [];
+          const orderedAudioTracks = [...rawAudioTracks]
+            .sort((a: GeneratedAudioTrackData, b: GeneratedAudioTrackData) => {
+              if (a.position !== b.position) {
+                return a.position - b.position;
+              }
+              return a.audio_bid.localeCompare(b.audio_bid);
+            })
+            .map(track => ({
+              audioBid: track.audio_bid,
+              audioUrl: track.audio_url,
+              durationMs: track.duration_ms,
+              position: track.position,
+            }));
+
           const normalizedContent = item.content ?? '';
           const contentWithButton =
             mobileStyle && !isListenMode
@@ -926,7 +945,8 @@ function useChatLogicHook({
             isHistory: true,
             type: item.block_type,
             // Include audio URL from history
-            audioUrl: item.audio_url,
+            audioUrl: orderedAudioTracks[0]?.audioUrl || item.audio_url,
+            audioTracks: orderedAudioTracks,
           });
           lastContentId = item.generated_block_bid;
 
@@ -1490,6 +1510,23 @@ function useChatLogicHook({
       const existingItem = contentListRef.current.find(
         item => item.generated_block_bid === generatedBlockBid,
       );
+      if (
+        existingItem?.audioTracks &&
+        existingItem.audioTracks.length > 0 &&
+        !existingItem.isAudioStreaming
+      ) {
+        const firstTrack = [...existingItem.audioTracks].sort(
+          (a, b) => a.position - b.position,
+        )[0];
+        if (firstTrack) {
+          return {
+            audio_url: firstTrack.audioUrl,
+            audio_bid: firstTrack.audioBid,
+            duration_ms: firstTrack.durationMs ?? 0,
+            position: firstTrack.position,
+          };
+        }
+      }
       if (existingItem?.audioUrl && !existingItem.isAudioStreaming) {
         return {
           audio_url: existingItem.audioUrl,

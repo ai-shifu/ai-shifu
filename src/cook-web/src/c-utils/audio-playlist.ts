@@ -1,21 +1,23 @@
 export const normalizeAudioItemList = <
-  T extends { generated_block_bid?: string },
+  T extends { generated_block_bid?: string; audioPlaybackBid?: string },
 >(
   items: T[],
+  getKey: (item: T) => string | undefined = item =>
+    item.audioPlaybackBid || item.generated_block_bid,
 ): T[] => {
   const order: string[] = [];
   const mapping = new Map<string, T>();
   items.forEach(item => {
-    const bid = item.generated_block_bid;
-    if (!bid) {
+    const key = getKey(item);
+    if (!key) {
       return;
     }
-    if (!mapping.has(bid)) {
-      order.push(bid);
+    if (!mapping.has(key)) {
+      order.push(key);
     }
-    mapping.set(bid, item);
+    mapping.set(key, item);
   });
-  return order.map(bid => mapping.get(bid)!).filter(Boolean);
+  return order.map(key => mapping.get(key)!).filter(Boolean);
 };
 
 export const getNextIndex = (currentIndex: number, listLength: number) => {

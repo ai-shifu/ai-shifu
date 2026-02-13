@@ -7,12 +7,21 @@ export interface AudioSegment {
   isFinal: boolean;
 }
 
+export interface AudioTrack {
+  audioBid: string;
+  audioUrl: string;
+  durationMs: number;
+  position: number;
+}
+
 export interface AudioItem {
   generated_block_bid: string;
   audioSegments?: AudioSegment[];
   audioUrl?: string;
   isAudioStreaming?: boolean;
   audioDurationMs?: number;
+  audioTracks?: AudioTrack[];
+  audioPlaybackBid?: string;
 }
 
 type EnsureItem<T> = (items: T[], blockId: string) => T[];
@@ -53,6 +62,21 @@ const toAudioSegment = (segment: AudioSegmentData): AudioSegment => ({
   isFinal: segment.is_final,
 });
 
+const toAudioTrack = (
+  complete: Partial<AudioCompleteData>,
+): AudioTrack | null => {
+  const audioUrl = complete.audio_url;
+  if (!audioUrl) {
+    return null;
+  }
+  return {
+    audioBid: complete.audio_bid ?? '',
+    audioUrl,
+    durationMs: complete.duration_ms ?? 0,
+    position: Number(complete.position ?? 0),
+  };
+};
+
 export const mergeAudioSegment = (
   segments: AudioSegment[],
   incoming: AudioSegment,
@@ -65,6 +89,29 @@ export const mergeAudioSegment = (
   return [...segments, incoming].sort(
     (a, b) => a.segmentIndex - b.segmentIndex,
   );
+};
+
+export const mergeAudioTrack = (
+  tracks: AudioTrack[],
+  incoming: AudioTrack,
+): AudioTrack[] => {
+  const existingIndex = tracks.findIndex(
+    track => track.position === incoming.position,
+  );
+  if (existingIndex < 0) {
+    return [...tracks, incoming].sort((a, b) => a.position - b.position);
+  }
+  const existing = tracks[existingIndex];
+  if (
+    existing.audioBid === incoming.audioBid &&
+    existing.audioUrl === incoming.audioUrl &&
+    existing.durationMs === incoming.durationMs
+  ) {
+    return tracks;
+  }
+  const nextTracks = [...tracks];
+  nextTracks[existingIndex] = incoming;
+  return nextTracks.sort((a, b) => a.position - b.position);
 };
 
 export const upsertAudioSegment = <T extends AudioItem>(
@@ -102,16 +149,27 @@ export const upsertAudioComplete = <T extends AudioItem>(
   ensureItem?: EnsureItem<T>,
 ): T[] => {
   const nextItems = ensureItem ? ensureItem(items, blockId) : items;
+  const nextTrack = toAudioTrack(complete);
 
   return nextItems.map(item => {
     if (item.generated_block_bid !== blockId) {
       return item;
     }
 
+    const existingTracks = item.audioTracks || [];
+    const updatedTracks = nextTrack
+      ? mergeAudioTrack(existingTracks, nextTrack)
+      : existingTracks;
+    const fallbackTrack = updatedTracks[0];
+
     return {
       ...item,
-      audioUrl: complete.audio_url ?? undefined,
-      audioDurationMs: complete.duration_ms,
+      audioUrl: fallbackTrack?.audioUrl ?? complete.audio_url ?? undefined,
+      audioDurationMs:
+        fallbackTrack?.durationMs ??
+        complete.duration_ms ??
+        item.audioDurationMs,
+      audioTracks: updatedTracks,
       isAudioStreaming: false,
     };
   });

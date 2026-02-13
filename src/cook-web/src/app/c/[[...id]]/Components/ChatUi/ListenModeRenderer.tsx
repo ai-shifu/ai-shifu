@@ -144,6 +144,7 @@ const ListenModeRenderer = ({
     audioPlayerRef,
     activeContentItem,
     activeAudioBlockBid,
+    activeAudioPlaybackBid,
     sequenceInteraction,
     isAudioSequenceActive,
     audioSequenceToken,
@@ -329,7 +330,7 @@ const ListenModeRenderer = ({
           <AudioPlayerList
             ref={audioPlayerRef}
             audioList={audioList}
-            sequenceBlockBid={activeAudioBlockBid}
+            sequenceBlockBid={activeAudioPlaybackBid}
             isSequenceActive={isAudioSequenceActive}
             disabled={previewMode}
             onRequestAudio={

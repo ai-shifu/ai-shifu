@@ -70,8 +70,18 @@ const AudioPlayerListBase = (
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
 
+  const getTrackPlaybackBid = useCallback(
+    (track: AudioItem | null | undefined) =>
+      track?.audioPlaybackBid || track?.generated_block_bid || null,
+    [],
+  );
+
   const playlist = useMemo(
-    () => normalizeAudioItemList(audioList),
+    () =>
+      normalizeAudioItemList(
+        audioList,
+        item => item.audioPlaybackBid || item.generated_block_bid,
+      ),
     [audioList],
   );
   const currentTrack = useMemo(
@@ -585,7 +595,7 @@ const AudioPlayerListBase = (
   }, [playlist.length, releaseExclusive, resetSegmentState, setPlayingState]);
 
   useEffect(() => {
-    const nextBid = currentTrack?.generated_block_bid ?? null;
+    const nextBid = getTrackPlaybackBid(currentTrack);
     const isTrackChanged = currentTrackBidRef.current !== nextBid;
     if (!isTrackChanged) {
       return;
@@ -602,7 +612,7 @@ const AudioPlayerListBase = (
       audio.load();
     }
     currentSrcRef.current = null;
-  }, [currentTrack, resetSegmentState]);
+  }, [currentTrack, getTrackPlaybackBid, resetSegmentState]);
 
   useEffect(() => {
     if (!currentTrack || disabled) {
@@ -616,7 +626,7 @@ const AudioPlayerListBase = (
     if (!autoPlay || isPausedRef.current) {
       return;
     }
-    const bid = currentTrack.generated_block_bid ?? null;
+    const bid = getTrackPlaybackBid(currentTrack);
     if (bid && autoPlayedTrackRef.current === bid) {
       return;
     }
@@ -631,6 +641,7 @@ const AudioPlayerListBase = (
     currentTrack?.audioUrl,
     currentTrack?.isAudioStreaming,
     disabled,
+    getTrackPlaybackBid,
     startPlaybackForTrack,
   ]);
 
@@ -639,14 +650,14 @@ const AudioPlayerListBase = (
       return;
     }
     const nextIndex = playlist.findIndex(
-      item => item.generated_block_bid === sequenceBlockBid,
+      item => getTrackPlaybackBid(item) === sequenceBlockBid,
     );
     if (nextIndex < 0 || nextIndex === currentIndexRef.current) {
       return;
     }
     shouldResumeRef.current = isSequenceActive && !isPausedRef.current;
     setCurrentIndex(nextIndex);
-  }, [isSequenceActive, playlist, sequenceBlockBid]);
+  }, [getTrackPlaybackBid, isSequenceActive, playlist, sequenceBlockBid]);
 
   useEffect(() => {
     if (sequenceBlockBid !== null) {
