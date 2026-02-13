@@ -104,6 +104,16 @@ interface SSEParams {
   reload_generated_block_bid?: string;
 }
 
+interface RunSseResponse {
+  type: string;
+  generated_block_bid?: string;
+  content?: any;
+}
+
+interface ListenQueueItem {
+  response: RunSseResponse;
+}
+
 export interface UseChatSessionParams {
   shifuBid: string;
   outlineBid: string;
@@ -198,6 +208,10 @@ function useChatLogicHook({
   const interactionParserRef = useRef(createInteractionParser());
   const sseRef = useRef<any>(null);
   const ttsSseRef = useRef<Record<string, any>>({});
+  const listenEventQueueRef = useRef<any[]>([]);
+  const listenQueueProcessingRef = useRef(false);
+  const listenPendingAudioUnitsRef = useRef<Set<string>>(new Set());
+  const listenInteractionBlockedRef = useRef(false);
   const lastInteractionBlockRef = useRef<ChatContentItem | null>(null);
   const hasScrolledToBottomRef = useRef<boolean>(false);
   const [pendingRegenerate, setPendingRegenerate] = useState<{
@@ -434,6 +448,11 @@ function useChatLogicHook({
       currentContentRef.current = '';
       // setLastInteractionBlock(null);
       lastInteractionBlockRef.current = null;
+      if (isListenMode) {
+        listenEventQueueRef.current = [];
+        listenQueueProcessingRef.current = false;
+        listenPendingAudioUnitsRef.current.clear();
+      }
       if (!isListenMode) {
         setTrackedContentList(prev => {
           const hasLoading = prev.some(
@@ -460,224 +479,311 @@ function useChatLogicHook({
         effectivePreviewMode,
         { ...sseParams, listen: isListenMode },
         async response => {
-          // if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
-          //   if (!isEnd) {
-          //     currentBlockIdRef.current = 'loading';
-          //     setTrackedContentList(prev => {
-          //       const hasLoading = prev.some(
-          //         item => item.generated_block_bid === 'loading',
-          //       );
-          //       if (hasLoading) {
-          //         return prev;
-          //       }
-          //       const placeholderItem: ChatContentItem = {
-          //         generated_block_bid: 'loading',
-          //         content: '',
-          //         customRenderBar: () => <LoadingBar />,
-          //         type: ChatContentItemType.CONTENT,
-          //       };
-          //       return [...prev, placeholderItem];
-          //     });
-          //   }
-          //   return;
-          // }
-          try {
-            const nid = response.generated_block_bid;
-            if (
-              // currentBlockIdRef.current === 'loading' &&
-              response.type === SSE_OUTPUT_TYPE.INTERACTION ||
-              response.type === SSE_OUTPUT_TYPE.CONTENT
-            ) {
+          const ensureAudioContentItem = (
+            items: ChatContentItem[],
+            blockId: string,
+          ): ChatContentItem[] => {
+            if (items.some(item => item.generated_block_bid === blockId)) {
+              return items;
+            }
+            return [
+              ...items,
+              {
+                generated_block_bid: blockId,
+                content: '',
+                defaultButtonText: '',
+                defaultInputText: '',
+                readonly: false,
+                customRenderBar: () => null,
+                type: ChatContentItemType.CONTENT,
+              },
+            ];
+          };
+
+          const buildAudioUnitKey = (
+            blockId: string,
+            position?: number | null,
+          ) => `${blockId}::${Number(position ?? 0)}`;
+
+          const clearPendingAudioByBlock = (blockId: string) => {
+            Array.from(listenPendingAudioUnitsRef.current).forEach(key => {
+              if (key.startsWith(`${blockId}::`)) {
+                listenPendingAudioUnitsRef.current.delete(key);
+              }
+            });
+          };
+
+          const processResponse = (nextResponse: RunSseResponse) => {
+            try {
+              const nid = nextResponse.generated_block_bid;
               if (
-                contentListRef.current?.some(
-                  item => item.generated_block_bid === 'loading',
-                )
+                // currentBlockIdRef.current === 'loading' &&
+                nextResponse.type === SSE_OUTPUT_TYPE.INTERACTION ||
+                nextResponse.type === SSE_OUTPUT_TYPE.CONTENT
               ) {
-                // currentBlockIdRef.current = nid;
-                // close loading
-                setTrackedContentList(pre => {
-                  const newList = pre.filter(
+                if (
+                  contentListRef.current?.some(
+                    item => item.generated_block_bid === 'loading',
+                  )
+                ) {
+                  // currentBlockIdRef.current = nid;
+                  // close loading
+                  setTrackedContentList(pre => {
+                    const newList = pre.filter(
+                      item => item.generated_block_bid !== 'loading',
+                    );
+                    return newList;
+                  });
+                }
+              }
+              const blockId = nid;
+              // const blockId = currentBlockIdRef.current;
+
+              if (
+                blockId &&
+                [SSE_OUTPUT_TYPE.BREAK].includes(nextResponse.type)
+              ) {
+                trackTrailProgress(shifuBid, blockId);
+              }
+
+              if (nextResponse.type === SSE_OUTPUT_TYPE.INTERACTION) {
+                setTrackedContentList((prev: ChatContentItem[]) => {
+                  // Use markdown-flow-ui default rendering for all interactions
+                  const interactionBlock: ChatContentItem = {
+                    generated_block_bid: nid || '',
+                    content: nextResponse.content,
+                    customRenderBar: () => null,
+                    defaultButtonText: '',
+                    defaultInputText: '',
+                    readonly: false,
+                    type: ChatContentItemType.INTERACTION,
+                  };
+                  const lastContent = prev[prev.length - 1];
+                  if (
+                    lastContent &&
+                    lastContent.type === ChatContentItemType.CONTENT
+                  ) {
+                    const likeStatusItem: ChatContentItem = {
+                      parent_block_bid: lastContent.generated_block_bid || '',
+                      generated_block_bid: '',
+                      content: '',
+                      like_status: LIKE_STATUS.NONE,
+                      type: ChatContentItemType.LIKE_STATUS,
+                    };
+                    return [...prev, likeStatusItem, interactionBlock];
+                  } else {
+                    return [...prev, interactionBlock];
+                  }
+                });
+              } else if (nextResponse.type === SSE_OUTPUT_TYPE.CONTENT) {
+                if (isEnd) {
+                  return;
+                }
+
+                const prevText = currentContentRef.current || '';
+                const delta = fixMarkdownStream(
+                  prevText,
+                  nextResponse.content || '',
+                );
+                const nextText = prevText + delta;
+                currentContentRef.current = nextText;
+                const displayText = maskIncompleteMermaidBlock(nextText);
+                if (blockId) {
+                  setTrackedContentList(prevState => {
+                    let hasItem = false;
+                    const updatedList = prevState.map(item => {
+                      if (item.generated_block_bid === blockId) {
+                        hasItem = true;
+                        return {
+                          ...item,
+                          content: displayText,
+                          customRenderBar: () => null,
+                        };
+                      }
+                      return item;
+                    });
+                    if (!hasItem) {
+                      updatedList.push({
+                        generated_block_bid: blockId,
+                        content: displayText,
+                        defaultButtonText: '',
+                        defaultInputText: '',
+                        readonly: false,
+                        customRenderBar: () => null,
+                        type: ChatContentItemType.CONTENT,
+                      });
+                    }
+                    return updatedList;
+                  });
+                }
+              } else if (
+                nextResponse.type === SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE
+              ) {
+                const { status, outline_bid } = nextResponse.content || {};
+                if (nextResponse.content?.has_children) {
+                  // only update current chapter
+                  if (outline_bid && outline_bid === chapterId) {
+                    chapterUpdate?.({
+                      id: outline_bid,
+                      status,
+                      status_value: status,
+                    });
+                    if (status === LESSON_STATUS_VALUE.COMPLETED) {
+                      isEnd = true;
+                    }
+                  }
+                } else {
+                  // only update current lesson
+                  if (outline_bid && outline_bid === lessonId) {
+                    lessonUpdateResp(nextResponse, isEnd);
+                  }
+                }
+              } else if (
+                // nextResponse.type === SSE_OUTPUT_TYPE.BREAK ||
+                nextResponse.type === SSE_OUTPUT_TYPE.TEXT_END
+              ) {
+                setTrackedContentList((prev: ChatContentItem[]) => {
+                  const updatedList = [...prev].filter(
                     item => item.generated_block_bid !== 'loading',
                   );
-                  return newList;
-                });
-              }
-            }
-            const blockId = nid;
-            // const blockId = currentBlockIdRef.current;
-
-            if (blockId && [SSE_OUTPUT_TYPE.BREAK].includes(response.type)) {
-              trackTrailProgress(shifuBid, blockId);
-            }
-
-            if (response.type === SSE_OUTPUT_TYPE.INTERACTION) {
-              setTrackedContentList((prev: ChatContentItem[]) => {
-                // Use markdown-flow-ui default rendering for all interactions
-                const interactionBlock: ChatContentItem = {
-                  generated_block_bid: nid,
-                  content: response.content,
-                  customRenderBar: () => null,
-                  defaultButtonText: '',
-                  defaultInputText: '',
-                  readonly: false,
-                  type: ChatContentItemType.INTERACTION,
-                };
-                const lastContent = prev[prev.length - 1];
-                if (
-                  lastContent &&
-                  lastContent.type === ChatContentItemType.CONTENT
-                ) {
-                  const likeStatusItem: ChatContentItem = {
-                    parent_block_bid: lastContent.generated_block_bid || '',
-                    generated_block_bid: '',
-                    content: '',
-                    like_status: LIKE_STATUS.NONE,
-                    type: ChatContentItemType.LIKE_STATUS,
-                  };
-                  return [...prev, likeStatusItem, interactionBlock];
-                } else {
-                  return [...prev, interactionBlock];
-                }
-              });
-            } else if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
-              if (isEnd) {
-                return;
-              }
-
-              const prevText = currentContentRef.current || '';
-              const delta = fixMarkdownStream(prevText, response.content || '');
-              const nextText = prevText + delta;
-              currentContentRef.current = nextText;
-              const displayText = maskIncompleteMermaidBlock(nextText);
-              if (blockId) {
-                setTrackedContentList(prevState => {
-                  let hasItem = false;
-                  const updatedList = prevState.map(item => {
-                    if (item.generated_block_bid === blockId) {
-                      hasItem = true;
-                      return {
-                        ...item,
-                        content: displayText,
-                        customRenderBar: () => null,
-                      };
+                  // Find the last CONTENT type item and append AskButton to its content
+                  // Set isHistory=true to prevent triggering typewriter effect for AskButton
+                  if (mobileStyle && !isListenMode) {
+                    for (let i = updatedList.length - 1; i >= 0; i--) {
+                      if (
+                        updatedList[i].type === ChatContentItemType.CONTENT &&
+                        !updatedList[i].content?.includes(
+                          `<custom-button-after-content>`,
+                        )
+                      ) {
+                        updatedList[i] = {
+                          ...updatedList[i],
+                          content: appendCustomButtonAfterContent(
+                            updatedList[i].content,
+                            getAskButtonMarkup(),
+                          ),
+                          isHistory: true, // Prevent AskButton from triggering typewriter
+                        };
+                        break;
+                      }
                     }
-                    return item;
-                  });
-                  if (!hasItem) {
+                  }
+
+                  // Add interaction blocks - use captured value instead of ref
+                  const lastItem = updatedList[updatedList.length - 1];
+                  const gid = lastItem?.generated_block_bid || '';
+                  if (
+                    lastItem &&
+                    lastItem.type === ChatContentItemType.CONTENT
+                  ) {
                     updatedList.push({
-                      generated_block_bid: blockId,
-                      content: displayText,
-                      defaultButtonText: '',
-                      defaultInputText: '',
-                      readonly: false,
-                      customRenderBar: () => null,
-                      type: ChatContentItemType.CONTENT,
+                      parent_block_bid: gid,
+                      generated_block_bid: '',
+                      content: '',
+                      like_status: LIKE_STATUS.NONE,
+                      type: ChatContentItemType.LIKE_STATUS,
+                    });
+                    // sseRef.current?.close();
+                    runRef.current?.({
+                      input: '',
+                      input_type: SSE_INPUT_TYPE.NORMAL,
                     });
                   }
                   return updatedList;
                 });
-              }
-            } else if (response.type === SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE) {
-              const { status, outline_bid } = response.content;
-              if (response.content.has_children) {
-                // only update current chapter
-                if (outline_bid && outline_bid === chapterId) {
-                  chapterUpdate?.({
-                    id: outline_bid,
-                    status,
-                    status_value: status,
+              } else if (
+                nextResponse.type === SSE_OUTPUT_TYPE.VARIABLE_UPDATE
+              ) {
+                if (
+                  nextResponse.content?.variable_name === 'sys_user_nickname'
+                ) {
+                  updateUserInfo({
+                    name: nextResponse.content.variable_value,
                   });
-                  if (status === LESSON_STATUS_VALUE.COMPLETED) {
-                    isEnd = true;
+                }
+              } else if (nextResponse.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+                if (!allowTtsStreaming) {
+                  return;
+                }
+                // Handle audio segment during TTS streaming
+                const audioSegment = nextResponse.content as AudioSegmentData;
+                if (blockId) {
+                  listenPendingAudioUnitsRef.current.add(
+                    buildAudioUnitKey(blockId, audioSegment?.position),
+                  );
+                  setTrackedContentList(prevState =>
+                    upsertAudioSegment(
+                      prevState,
+                      blockId,
+                      audioSegment,
+                      ensureAudioContentItem,
+                    ),
+                  );
+                }
+              } else if (nextResponse.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+                if (!allowTtsStreaming) {
+                  return;
+                }
+                // Handle audio completion with OSS URL
+                const audioComplete = nextResponse.content as AudioCompleteData;
+                if (blockId) {
+                  if (audioComplete?.position === undefined) {
+                    clearPendingAudioByBlock(blockId);
+                  } else {
+                    listenPendingAudioUnitsRef.current.delete(
+                      buildAudioUnitKey(blockId, audioComplete.position),
+                    );
                   }
+                  setTrackedContentList(prevState =>
+                    upsertAudioComplete(
+                      prevState,
+                      blockId,
+                      audioComplete,
+                      ensureAudioContentItem,
+                    ),
+                  );
                 }
-              } else {
-                // only update current lesson
-                if (outline_bid && outline_bid === lessonId) {
-                  lessonUpdateResp(response, isEnd);
-                }
               }
-            } else if (
-              // response.type === SSE_OUTPUT_TYPE.BREAK ||
-              response.type === SSE_OUTPUT_TYPE.TEXT_END
-            ) {
-              setTrackedContentList((prev: ChatContentItem[]) => {
-                const updatedList = [...prev].filter(
-                  item => item.generated_block_bid !== 'loading',
-                );
-                // Find the last CONTENT type item and append AskButton to its content
-                // Set isHistory=true to prevent triggering typewriter effect for AskButton
-                if (mobileStyle && !isListenMode) {
-                  for (let i = updatedList.length - 1; i >= 0; i--) {
-                    if (
-                      updatedList[i].type === ChatContentItemType.CONTENT &&
-                      !updatedList[i].content?.includes(
-                        `<custom-button-after-content>`,
-                      )
-                    ) {
-                      updatedList[i] = {
-                        ...updatedList[i],
-                        content: appendCustomButtonAfterContent(
-                          updatedList[i].content,
-                          getAskButtonMarkup(),
-                        ),
-                        isHistory: true, // Prevent AskButton from triggering typewriter
-                      };
-                      break;
-                    }
-                  }
-                }
-
-                // Add interaction blocks - use captured value instead of ref
-                const lastItem = updatedList[updatedList.length - 1];
-                const gid = lastItem?.generated_block_bid || '';
-                if (lastItem && lastItem.type === ChatContentItemType.CONTENT) {
-                  updatedList.push({
-                    parent_block_bid: gid,
-                    generated_block_bid: '',
-                    content: '',
-                    like_status: LIKE_STATUS.NONE,
-                    type: ChatContentItemType.LIKE_STATUS,
-                  });
-                  // sseRef.current?.close();
-                  runRef.current?.({
-                    input: '',
-                    input_type: SSE_INPUT_TYPE.NORMAL,
-                  });
-                }
-                return updatedList;
-              });
-            } else if (response.type === SSE_OUTPUT_TYPE.VARIABLE_UPDATE) {
-              if (response.content.variable_name === 'sys_user_nickname') {
-                updateUserInfo({
-                  name: response.content.variable_value,
-                });
-              }
-            } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
-              if (!allowTtsStreaming) {
-                return;
-              }
-              // Handle audio segment during TTS streaming
-              const audioSegment = response.content as AudioSegmentData;
-              if (blockId) {
-                setTrackedContentList(prevState =>
-                  upsertAudioSegment(prevState, blockId, audioSegment),
-                );
-              }
-            } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
-              if (!allowTtsStreaming) {
-                return;
-              }
-              // Handle audio completion with OSS URL
-              const audioComplete = response.content as AudioCompleteData;
-              if (blockId) {
-                setTrackedContentList(prevState =>
-                  upsertAudioComplete(prevState, blockId, audioComplete),
-                );
-              }
+            } catch (error) {
+              console.warn('SSE handling error:', error);
             }
-          } catch (error) {
-            console.warn('SSE handling error:', error);
+          };
+
+          if (!isListenMode) {
+            processResponse(response as RunSseResponse);
+            return;
+          }
+
+          listenEventQueueRef.current.push({
+            response: response as RunSseResponse,
+          });
+
+          if (listenQueueProcessingRef.current) {
+            return;
+          }
+          listenQueueProcessingRef.current = true;
+          try {
+            while (listenEventQueueRef.current.length > 0) {
+              const audioEventIndex = listenEventQueueRef.current.findIndex(
+                item =>
+                  item?.response?.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT ||
+                  item?.response?.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE,
+              );
+              const nextItem =
+                audioEventIndex >= 0
+                  ? (listenEventQueueRef.current.splice(
+                      audioEventIndex,
+                      1,
+                    )[0] as ListenQueueItem)
+                  : (listenEventQueueRef.current.shift() as ListenQueueItem);
+
+              if (!nextItem?.response) {
+                continue;
+              }
+              processResponse(nextItem.response);
+            }
+          } finally {
+            listenQueueProcessingRef.current = false;
           }
         },
       );
@@ -694,6 +800,11 @@ function useChatLogicHook({
         setTrackedContentList(prev => {
           return prev.filter(item => item.generated_block_bid !== 'loading');
         });
+        if (isListenMode) {
+          listenEventQueueRef.current = [];
+          listenPendingAudioUnitsRef.current.clear();
+          listenQueueProcessingRef.current = false;
+        }
         isStreamingRef.current = false;
       });
       sseRef.current = source;

@@ -10,7 +10,7 @@
 - [x] Refactor `StreamingTTSProcessor` to flush/persist multiple audio units by visual boundaries and emit positioned audio events.
 - [x] Update `get_learn_record`/DTOs to expose ordered audio tracks while keeping `audio_url` fallback compatibility.
 
-- [ ] Add listen-mode run event queue in `useChatLogicHook` for audio-first gating.
+- [x] Add listen-mode run event queue in `useChatLogicHook` for audio-first gating.
 - [ ] Queue visual commits to run only after prior audio completion.
 - [ ] Queue interaction commits to pause progression until user submit.
 - [ ] Integrate positioned audio playback ordering in listen mode using existing audio player modules.
