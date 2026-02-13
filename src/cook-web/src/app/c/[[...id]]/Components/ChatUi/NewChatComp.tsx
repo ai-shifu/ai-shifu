@@ -206,6 +206,7 @@ export const NewChatComponents = ({
 
   const {
     items,
+    listenSlides,
     isLoading,
     onSend,
     onRefresh,
@@ -495,6 +496,7 @@ export const NewChatComponents = ({
           ) : (
             <ListenModeRenderer
               items={listenModeItems}
+              backendSlides={listenSlides}
               mobileStyle={mobileStyle}
               chatRef={chatRef as React.RefObject<HTMLDivElement>}
               containerClassName={containerClassName}

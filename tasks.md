@@ -303,12 +303,12 @@
 
 ### 5. Frontend Ingestion (`useChatLogicHook`)
 
-- [ ] Handle SSE `type === "new_slide"` and upsert by `slide_id`.
-- [ ] Extend local listen timeline state to store ordered slides.
+- [x] Handle SSE `type === "new_slide"` and upsert by `slide_id`.
+- [x] Extend local listen timeline state to store ordered slides.
 - [ ] Update audio event ingestion:
-- [ ] Prefer `slide_id` binding when provided.
-- [ ] Fallback to `(generated_block_bid, position)` when missing.
-- [ ] On refresh (`/records`), hydrate listen slides from `slides[]`.
+- [x] Prefer `slide_id` binding when provided.
+- [x] Fallback to `(generated_block_bid, position)` when missing.
+- [x] On refresh (`/records`), hydrate listen slides from `slides[]`.
 
 ### 6. Frontend Renderer and Sequencer
 

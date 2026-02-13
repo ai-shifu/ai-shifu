@@ -23,6 +23,7 @@ import {
   AudioCompleteData,
   type AvContractData,
   type AudioSegmentData,
+  type ListenSlideData,
   getRunMessage,
   SSE_INPUT_TYPE,
   getLessonStudyRecord,
@@ -116,6 +117,7 @@ export interface ChatContentItem {
       audioBid?: string;
     }
   >;
+  audioSlideIdByPosition?: Record<number, string>;
   avContract?: AvContractData;
 }
 
@@ -148,6 +150,7 @@ export interface UseChatSessionParams {
 
 export interface UseChatSessionResult {
   items: ChatContentItem[];
+  listenSlides: ListenSlideData[];
   isLoading: boolean;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onRefresh: (generatedBlockBid: string) => void;
@@ -204,6 +207,7 @@ function useChatLogicHook({
     );
 
   const [contentList, setContentList] = useState<ChatContentItem[]>([]);
+  const [listenSlides, setListenSlides] = useState<ListenSlideData[]>([]);
   // const [isTypeFinished, setIsTypeFinished] = useState(false);
   const isTypeFinishedRef = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -413,6 +417,50 @@ function useChatLogicHook({
     [],
   );
 
+  const normalizeListenSlides = useCallback((slides: ListenSlideData[]) => {
+    const dedupedById = new Map<string, ListenSlideData>();
+    slides.forEach(slide => {
+      const slideId = slide?.slide_id;
+      if (!slideId) {
+        return;
+      }
+      dedupedById.set(slideId, slide);
+    });
+    return Array.from(dedupedById.values()).sort(
+      (a, b) => a.slide_index - b.slide_index,
+    );
+  }, []);
+
+  const bindAudioSlideId = useCallback(
+    (
+      items: ChatContentItem[],
+      generatedBlockBid: string,
+      position: number,
+      slideId?: string,
+    ) => {
+      if (!slideId) {
+        return items;
+      }
+      return items.map(item => {
+        if (item.generated_block_bid !== generatedBlockBid) {
+          return item;
+        }
+        const current = item.audioSlideIdByPosition || {};
+        if (current[position] === slideId) {
+          return item;
+        }
+        return {
+          ...item,
+          audioSlideIdByPosition: {
+            ...current,
+            [position]: slideId,
+          },
+        };
+      });
+    },
+    [],
+  );
+
   /**
    * Applies stream-driven lesson status updates and triggers follow-up actions.
    */
@@ -529,6 +577,29 @@ function useChatLogicHook({
 
             if (blockId && [SSE_OUTPUT_TYPE.BREAK].includes(response.type)) {
               trackTrailProgress(shifuBid, blockId);
+            }
+
+            if (response.type === SSE_OUTPUT_TYPE.NEW_SLIDE) {
+              if (!isListenMode) {
+                return;
+              }
+              const slidePayload = response.content as ListenSlideData;
+              if (!slidePayload?.slide_id) {
+                return;
+              }
+              const slidePosition = Number(slidePayload.audio_position ?? 0);
+              setListenSlides(prev =>
+                normalizeListenSlides([...prev, slidePayload]),
+              );
+              setTrackedContentList(prevState =>
+                bindAudioSlideId(
+                  prevState,
+                  slidePayload.generated_block_bid,
+                  Number.isFinite(slidePosition) ? slidePosition : 0,
+                  slidePayload.slide_id,
+                ),
+              );
+              return;
             }
 
             if (response.type === SSE_OUTPUT_TYPE.INTERACTION) {
@@ -706,6 +777,12 @@ function useChatLogicHook({
                   normalizedPosition,
                   audioSegment,
                 );
+                nextState = bindAudioSlideId(
+                  nextState,
+                  targetBlockBid,
+                  normalizedPosition,
+                  inboundEvent.slideId,
+                );
                 if (normalizedPosition === 0) {
                   nextState = upsertAudioSegment(
                     nextState,
@@ -743,6 +820,12 @@ function useChatLogicHook({
                   normalizedPosition,
                   audioComplete,
                 );
+                nextState = bindAudioSlideId(
+                  nextState,
+                  targetBlockBid,
+                  normalizedPosition,
+                  inboundEvent.slideId,
+                );
                 if (normalizedPosition === 0) {
                   nextState = upsertAudioComplete(
                     nextState,
@@ -779,7 +862,9 @@ function useChatLogicHook({
       chapterUpdate,
       effectivePreviewMode,
       isListenMode,
+      bindAudioSlideId,
       lessonUpdateResp,
+      normalizeListenSlides,
       outlineBid,
       isTypeFinishedRef,
       setTrackedContentList,
@@ -870,6 +955,10 @@ function useChatLogicHook({
               normalizedRecordAudios.audioTracksByPosition as
                 | NonNullable<ChatContentItem['audioTracksByPosition']>
                 | undefined,
+            audioSlideIdByPosition:
+              normalizedRecordAudios.audioSlideIdByPosition as
+                | NonNullable<ChatContentItem['audioSlideIdByPosition']>
+                | undefined,
           });
           lastContentId = item.generated_block_bid;
 
@@ -940,6 +1029,7 @@ function useChatLogicHook({
     //   previewMode: effectivePreviewMode,
     // });
     setTrackedContentList(() => []);
+    setListenSlides([]);
 
     // setIsTypeFinished(true);
     isTypeFinishedRef.current = true;
@@ -965,6 +1055,9 @@ function useChatLogicHook({
       // });
 
       if (recordResp?.records?.length > 0) {
+        if (isListenMode) {
+          setListenSlides(normalizeListenSlides(recordResp.slides || []));
+        }
         const contentRecords = mapRecordsToContent(recordResp.records);
         setTrackedContentList(contentRecords);
         // setIsTypeFinished(true);
@@ -984,6 +1077,7 @@ function useChatLogicHook({
           });
         }
       } else {
+        setListenSlides([]);
         runRef.current?.({
           input: '',
           input_type: SSE_INPUT_TYPE.NORMAL,
@@ -1004,12 +1098,14 @@ function useChatLogicHook({
   }, [
     chapterId,
     mapRecordsToContent,
+    normalizeListenSlides,
     outlineBid,
     // scrollToBottom,
     setTrackedContentList,
     shifuBid,
     // lessonId,
     effectivePreviewMode,
+    isListenMode,
   ]);
 
   useEffect(() => {
@@ -1495,11 +1591,16 @@ function useChatLogicHook({
               const audioPayload = inboundEvent.payload as AudioSegmentData;
               setTrackedContentList(prevState =>
                 isListenMode
-                  ? upsertAudioSegmentByPosition(
-                      prevState,
+                  ? bindAudioSlideId(
+                      upsertAudioSegmentByPosition(
+                        prevState,
+                        inboundEvent.generatedBlockBid,
+                        inboundEvent.position,
+                        audioPayload,
+                      ),
                       inboundEvent.generatedBlockBid,
                       inboundEvent.position,
-                      audioPayload,
+                      inboundEvent.slideId,
                     )
                   : upsertAudioSegment(
                       prevState,
@@ -1517,11 +1618,16 @@ function useChatLogicHook({
               }
               setTrackedContentList(prevState =>
                 isListenMode
-                  ? upsertAudioCompleteByPosition(
-                      prevState,
+                  ? bindAudioSlideId(
+                      upsertAudioCompleteByPosition(
+                        prevState,
+                        inboundEvent.generatedBlockBid,
+                        inboundEvent.position,
+                        audioComplete,
+                      ),
                       inboundEvent.generatedBlockBid,
                       inboundEvent.position,
-                      audioComplete,
+                      inboundEvent.slideId,
                     )
                   : upsertAudioComplete(
                       prevState,
@@ -1579,6 +1685,7 @@ function useChatLogicHook({
     },
     [
       allowTtsStreaming,
+      bindAudioSlideId,
       closeTtsStream,
       effectivePreviewMode,
       isListenMode,
@@ -1598,6 +1705,7 @@ function useChatLogicHook({
 
   return {
     items,
+    listenSlides,
     isLoading,
     onSend,
     onRefresh,

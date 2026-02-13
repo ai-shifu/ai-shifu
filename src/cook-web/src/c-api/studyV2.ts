@@ -56,6 +56,7 @@ export const SSE_OUTPUT_TYPE = {
   VARIABLE_UPDATE: 'variable_update',
   PROFILE_UPDATE: 'update_user_info', // TODO: update user_info
   // Audio types for TTS
+  NEW_SLIDE: 'new_slide',
   AUDIO_SEGMENT: 'audio_segment',
   AUDIO_COMPLETE: 'audio_complete',
 } as const;
@@ -85,6 +86,7 @@ export interface StudyRecordItem {
 export interface LessonStudyRecords {
   mdflow: string;
   records: StudyRecordItem[];
+  slides?: ListenSlideData[];
 }
 
 export interface GetLessonStudyRecordParams {
@@ -144,6 +146,7 @@ export interface AudioSegmentData {
   duration_ms: number;
   is_final: boolean;
   position?: number;
+  slide_id?: string;
   av_contract?: AvContractData;
 }
 
@@ -152,7 +155,20 @@ export interface AudioCompleteData {
   audio_bid: string;
   duration_ms: number;
   position?: number;
+  slide_id?: string;
   av_contract?: AvContractData;
+}
+
+export interface ListenSlideData {
+  slide_id: string;
+  generated_block_bid: string;
+  slide_index: number;
+  audio_position: number;
+  visual_kind: string;
+  segment_type: string;
+  segment_content: string;
+  source_span: number[];
+  is_placeholder: boolean;
 }
 
 export interface StreamGeneratedBlockAudioParams {

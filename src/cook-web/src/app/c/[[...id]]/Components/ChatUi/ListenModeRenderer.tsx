@@ -9,6 +9,7 @@ import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import './ListenModeRenderer.scss';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
+import type { ListenSlideData } from '@/c-api/studyV2';
 import {
   useListenAudioSequence,
   useListenContentData,
@@ -17,6 +18,7 @@ import {
 
 interface ListenModeRendererProps {
   items: ChatContentItem[];
+  backendSlides?: ListenSlideData[];
   mobileStyle: boolean;
   chatRef: React.RefObject<HTMLDivElement>;
   containerClassName?: string;
@@ -29,6 +31,7 @@ interface ListenModeRendererProps {
 
 const ListenModeRenderer = ({
   items,
+  backendSlides,
   mobileStyle,
   chatRef,
   containerClassName,
@@ -53,8 +56,8 @@ const ListenModeRenderer = ({
         item =>
           item.type === ChatContentItemType.CONTENT ||
           item.type === ChatContentItemType.INTERACTION,
-      ),
-    [items],
+      ) || (backendSlides?.length ?? 0) > 0,
+    [backendSlides, items],
   );
 
   const {
