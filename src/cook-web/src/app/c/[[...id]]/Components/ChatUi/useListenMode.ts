@@ -305,6 +305,8 @@ export type AudioInteractionItem = ChatContentItem & {
   page: number;
   audioPosition?: number;
   audioSlideId?: string;
+  /** Content block with visual slides but no audio to play. */
+  isSilentVisual?: boolean;
 };
 
 export type ListenSlideItem = {
@@ -674,7 +676,24 @@ export const useListenContentData = (
           activeTimelinePage = firstVisualPage;
         }
         if (!hasAnyAudioPayload(contentItem)) {
-          if (effectiveBackendSlides.length > 0) {
+          // Visual-only blocks (SVG, tables, iframes etc. with no audio) should
+          // still be shown during the listen sequence.  Add one "silent visual"
+          // entry per visual slide so the viewer can see each visual element for
+          // a brief auto-advance period.
+          if (firstVisualPage >= 0 && lastVisualPage >= 0) {
+            for (
+              let vPage = firstVisualPage;
+              vPage <= lastVisualPage;
+              vPage++
+            ) {
+              nextAudioAndInteractionList.push({
+                ...contentItem,
+                page: vPage,
+                isSilentVisual: true,
+              });
+            }
+            activeTimelinePage = lastVisualPage;
+          } else if (effectiveBackendSlides.length > 0) {
             const backendPagesForBlock = effectiveBackendSlides
               .filter(
                 slide =>
@@ -689,10 +708,8 @@ export const useListenContentData = (
             if (backendPagesForBlock.length > 0) {
               activeTimelinePage =
                 backendPagesForBlock[backendPagesForBlock.length - 1];
-              return;
             }
-          }
-          if (lastVisualPage >= 0) {
+          } else if (lastVisualPage >= 0) {
             activeTimelinePage = lastVisualPage;
           }
           return;
@@ -1716,6 +1733,43 @@ export const useListenAudioSequence = ({
       sequenceUnitIdRef.current = getItemUnitId(nextItem, index);
       setIsAudioSequenceActive(true);
       setActiveSequencePage(nextItem.page);
+
+      // Silent visual items have slide content but no audio.  Show the slide
+      // for a brief viewing period and then auto-advance to the next item.
+      if (nextItem.isSilentVisual) {
+        console.log(
+          '[listen-debug] resolveIndex: silent visual slide, auto-advancing',
+          { page: nextItem.page, bid: nextItem.generated_block_bid },
+        );
+        const pageReady = syncToSequencePage(nextItem.page);
+        if (!pageReady) {
+          // Slide not rendered yet – retry shortly.
+          audioSequenceTimerRef.current = setTimeout(() => {
+            dispatchSequenceEventRef.current({
+              type: 'RESOLVE_INDEX',
+              index,
+              retryCount: retryCount + 1,
+              reason: 'silent-visual-wait-slide',
+            });
+          }, 120);
+          return;
+        }
+        setSequenceInteraction(null);
+        setActiveAudioBid(null);
+        setSequenceMode('playing');
+        // Auto-advance after a viewing period (5 s per visual slide).
+        const viewMs = 5000;
+        audioSequenceTimerRef.current = setTimeout(() => {
+          const nextIdx = index + 1;
+          const latestList = audioSequenceListRef.current;
+          if (nextIdx >= latestList.length) {
+            endSequence({ tryAdvanceToNextBlock: true });
+            return;
+          }
+          resolveIndex(nextIdx, 0, 'silent-visual-auto-advance');
+        }, viewMs);
+        return;
+      }
 
       if (
         nextItem.type === ChatContentItemType.CONTENT &&
