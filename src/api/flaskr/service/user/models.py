@@ -205,6 +205,11 @@ class AuthCredential(db.Model):
         String(255), nullable=False, default="", comment="Identifier", index=True
     )
     raw_profile = Column(Text, nullable=False, default="", comment="Raw profile")
+    password_hash = Column(
+        String(255),
+        nullable=True,
+        comment="bcrypt 密码哈希",
+    )
     state = Column(
         Integer,
         nullable=False,

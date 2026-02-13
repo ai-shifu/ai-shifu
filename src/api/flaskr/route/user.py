@@ -3,6 +3,16 @@ from functools import wraps
 import threading
 
 from flaskr.service.common.models import raise_param_error
+from flaskr.service.user.password_utils import (
+    hash_password,
+    verify_password,
+    validate_password_strength,
+)
+from flaskr.service.user.repository import (
+    find_credential,
+    load_user_aggregate_by_identifier,
+    list_credentials,
+)
 from flaskr.service.profile.funcs import (
     get_user_profile_labels,
     update_user_profile_with_lable,
@@ -600,6 +610,203 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             db.session.rollback()
             raise
         return make_common_response(auth_result.token)
+
+    # -------- 密码登录相关路由 --------
+
+    @app.route(path_prefix + "/login_password", methods=["POST"])
+    @bypass_token_validation
+    def login_password():
+        """
+        密码登录
+        ---
+        tags:
+            - user
+        """
+        identifier = request.get_json().get("identifier", None)
+        password = request.get_json().get("password", None)
+        if not identifier:
+            raise_param_error("identifier")
+        if not password:
+            raise_param_error("password")
+        from flaskr.service.user.auth.base import VerificationRequest
+
+        provider = get_provider("password")
+        vr = VerificationRequest(identifier=identifier, code=password)
+        auth_result = provider.verify(app, vr)
+        db.session.commit()
+        return make_common_response(auth_result.token)
+
+    @app.route(path_prefix + "/set_password", methods=["POST"])
+    def set_password():
+        """
+        设置密码（已登录用户）
+        ---
+        tags:
+            - user
+        """
+        import json as _json
+        from flaskr.service.user.models import AuthCredential
+        from flaskr.util.uuid import generate_id
+
+        new_password = request.get_json().get("new_password", None)
+        if not new_password:
+            raise_param_error("new_password")
+        is_valid, err_msg = validate_password_strength(new_password)
+        if not is_valid:
+            raise_param_error(err_msg)
+
+        user = request.user
+        user_bid = user.user_id
+        password_hash_value = hash_password(new_password)
+
+        # 查找用户的 phone/email 凭据以获取 identifier
+        creds = list_credentials(user_bid=user_bid)
+        identifier = None
+        for c in creds:
+            if c.provider_name in ("phone", "email") and c.identifier:
+                identifier = c.identifier
+                break
+
+        if not identifier:
+            raise_param_error("identifier")
+
+        # 查找或创建 password 凭据
+        pwd_cred = find_credential(
+            provider_name="password", identifier=identifier, user_bid=user_bid
+        )
+        if pwd_cred:
+            pwd_cred.raw_profile = _json.dumps({"password_hash": password_hash_value})
+        else:
+            pwd_cred = AuthCredential(
+                credential_bid=generate_id(app),
+                user_bid=user_bid,
+                provider_name="password",
+                subject_id=identifier,
+                subject_format="password",
+                identifier=identifier,
+                raw_profile=_json.dumps({"password_hash": password_hash_value}),
+                state=1,
+                deleted=0,
+            )
+            db.session.add(pwd_cred)
+
+        db.session.commit()
+        return make_common_response({"success": True})
+
+    @app.route(path_prefix + "/change_password", methods=["POST"])
+    def change_password():
+        """
+        修改密码（已登录用户）
+        ---
+        tags:
+            - user
+        """
+        import json as _json
+
+        old_password = request.get_json().get("old_password", None)
+        new_password = request.get_json().get("new_password", None)
+        if not old_password:
+            raise_param_error("old_password")
+        if not new_password:
+            raise_param_error("new_password")
+
+        is_valid, err_msg = validate_password_strength(new_password)
+        if not is_valid:
+            raise_param_error(err_msg)
+
+        user = request.user
+        user_bid = user.user_id
+
+        # 查找用户的 password 凭据
+        creds = list_credentials(user_bid=user_bid, provider_name="password")
+        if not creds:
+            raise_param_error("password")
+
+        pwd_cred = creds[0]
+        try:
+            profile_data = (
+                _json.loads(pwd_cred.raw_profile) if pwd_cred.raw_profile else {}
+            )
+        except (_json.JSONDecodeError, TypeError):
+            profile_data = {}
+
+        current_hash = profile_data.get("password_hash", "")
+        if not current_hash or not verify_password(old_password, current_hash):
+            raise_param_error("password")
+
+        pwd_cred.raw_profile = _json.dumps(
+            {"password_hash": hash_password(new_password)}
+        )
+        db.session.commit()
+        return make_common_response({"success": True})
+
+    @app.route(path_prefix + "/reset_password", methods=["POST"])
+    @bypass_token_validation
+    def reset_password():
+        """
+        重置密码（通过验证码）
+        ---
+        tags:
+            - user
+        """
+        import json as _json
+        from flaskr.service.user.models import AuthCredential
+        from flaskr.util.uuid import generate_id
+
+        identifier = request.get_json().get("identifier", None)
+        code = request.get_json().get("code", None)
+        new_password = request.get_json().get("new_password", None)
+        if not identifier:
+            raise_param_error("identifier")
+        if not code:
+            raise_param_error("code")
+        if not new_password:
+            raise_param_error("new_password")
+
+        is_valid, err_msg = validate_password_strength(new_password)
+        if not is_valid:
+            raise_param_error(err_msg)
+
+        # 通过验证码验证身份（根据 identifier 类型选择 phone 或 email provider）
+        from flaskr.service.user.auth.base import VerificationRequest as VR
+
+        reset_provider_name = "email" if "@" in identifier else "phone"
+        reset_provider = get_provider(reset_provider_name)
+        reset_vr = VR(identifier=identifier, code=code)
+        reset_provider.verify(app, reset_vr)
+
+        # 查找用户
+        aggregate = load_user_aggregate_by_identifier(
+            identifier, providers=["phone", "email"]
+        )
+        if not aggregate:
+            raise_param_error("identifier")
+
+        user_bid = aggregate.user_bid
+        password_hash_value = hash_password(new_password)
+
+        # 查找或创建 password 凭据
+        pwd_cred = find_credential(
+            provider_name="password", identifier=identifier, user_bid=user_bid
+        )
+        if pwd_cred:
+            pwd_cred.raw_profile = _json.dumps({"password_hash": password_hash_value})
+        else:
+            pwd_cred = AuthCredential(
+                credential_bid=generate_id(app),
+                user_bid=user_bid,
+                provider_name="password",
+                subject_id=identifier,
+                subject_format="password",
+                identifier=identifier,
+                raw_profile=_json.dumps({"password_hash": password_hash_value}),
+                state=1,
+                deleted=0,
+            )
+            db.session.add(pwd_cred)
+
+        db.session.commit()
+        return make_common_response({"success": True})
 
     # health check
     @app.route("/health", methods=["GET"])
