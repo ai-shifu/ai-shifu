@@ -18,10 +18,14 @@ import { cn } from '@/lib/utils';
 import type { UserInfo } from '@/c-types';
 
 interface PasswordLoginProps {
-  onLoginSuccess: (userInfo: UserInfo) => void;
+  onLoginSuccess: () => void;
+  loginContext: string;
 }
 
-export function PasswordLogin({ onLoginSuccess }: PasswordLoginProps) {
+export function PasswordLogin({
+  onLoginSuccess,
+  loginContext,
+}: PasswordLoginProps) {
   const { toast } = useToast();
   const { login } = useUserStore();
   const { t } = useTranslation();
@@ -99,7 +103,7 @@ export function PasswordLogin({ onLoginSuccess }: PasswordLoginProps) {
       if (response.code === 0 && response.data) {
         toast({ title: t('module.auth.success') });
         await login(response.data.userInfo, response.data.token);
-        onLoginSuccess(response.data.userInfo);
+        onLoginSuccess();
       } else {
         toast({
           title: t('module.auth.failed'),
