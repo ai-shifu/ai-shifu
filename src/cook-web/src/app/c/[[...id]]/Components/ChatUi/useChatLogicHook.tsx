@@ -210,6 +210,7 @@ function useChatLogicHook({
   const ttsSseRef = useRef<Record<string, any>>({});
   const listenEventQueueRef = useRef<any[]>([]);
   const listenQueueProcessingRef = useRef(false);
+  const listenDrainQueueRef = useRef<(() => void) | null>(null);
   const listenPendingAudioUnitsRef = useRef<Set<string>>(new Set());
   const listenInteractionBlockedRef = useRef(false);
   const lastInteractionBlockRef = useRef<ChatContentItem | null>(null);
@@ -451,7 +452,9 @@ function useChatLogicHook({
       if (isListenMode) {
         listenEventQueueRef.current = [];
         listenQueueProcessingRef.current = false;
+        listenDrainQueueRef.current = null;
         listenPendingAudioUnitsRef.current.clear();
+        listenInteractionBlockedRef.current = false;
       }
       if (!isListenMode) {
         setTrackedContentList(prev => {
@@ -575,6 +578,9 @@ function useChatLogicHook({
                     return [...prev, interactionBlock];
                   }
                 });
+                if (isListenMode) {
+                  listenInteractionBlockedRef.current = true;
+                }
               } else if (nextResponse.type === SSE_OUTPUT_TYPE.CONTENT) {
                 if (isEnd) {
                   return;
@@ -758,56 +764,62 @@ function useChatLogicHook({
             response: response as RunSseResponse,
           });
 
-          if (listenQueueProcessingRef.current) {
-            return;
-          }
-          listenQueueProcessingRef.current = true;
-          try {
+          const drainListenQueue = () => {
+            if (listenQueueProcessingRef.current) {
+              return;
+            }
+            listenQueueProcessingRef.current = true;
             const isAudioQueueType = (type?: string) =>
               type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT ||
               type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE;
             const isVisualQueueType = (type?: string) =>
               type === SSE_OUTPUT_TYPE.CONTENT ||
               type === SSE_OUTPUT_TYPE.TEXT_END;
-
-            while (listenEventQueueRef.current.length > 0) {
-              const queue = listenEventQueueRef.current;
-              const hasPendingAudio =
-                listenPendingAudioUnitsRef.current.size > 0;
-              const headType = queue[0]?.response?.type;
-              const shouldGateVisualHead =
-                hasPendingAudio && isVisualQueueType(headType);
-
-              let nextItem: ListenQueueItem | undefined;
-              if (shouldGateVisualHead) {
-                const nextAudioIndex = queue.findIndex(item =>
-                  isAudioQueueType(item?.response?.type),
-                );
-                if (nextAudioIndex < 0) {
+            try {
+              while (listenEventQueueRef.current.length > 0) {
+                if (listenInteractionBlockedRef.current) {
                   break;
                 }
-                nextItem = queue.splice(
-                  nextAudioIndex,
-                  1,
-                )[0] as ListenQueueItem;
-              } else {
-                const audioEventIndex = queue.findIndex(item =>
-                  isAudioQueueType(item?.response?.type),
-                );
-                nextItem =
-                  audioEventIndex >= 0
-                    ? (queue.splice(audioEventIndex, 1)[0] as ListenQueueItem)
-                    : (queue.shift() as ListenQueueItem);
-              }
+                const queue = listenEventQueueRef.current;
+                const hasPendingAudio =
+                  listenPendingAudioUnitsRef.current.size > 0;
+                const headType = queue[0]?.response?.type;
+                const shouldGateVisualHead =
+                  hasPendingAudio && isVisualQueueType(headType);
 
-              if (!nextItem?.response) {
-                continue;
+                let nextItem: ListenQueueItem | undefined;
+                if (shouldGateVisualHead) {
+                  const nextAudioIndex = queue.findIndex(item =>
+                    isAudioQueueType(item?.response?.type),
+                  );
+                  if (nextAudioIndex < 0) {
+                    break;
+                  }
+                  nextItem = queue.splice(
+                    nextAudioIndex,
+                    1,
+                  )[0] as ListenQueueItem;
+                } else {
+                  const audioEventIndex = queue.findIndex(item =>
+                    isAudioQueueType(item?.response?.type),
+                  );
+                  nextItem =
+                    audioEventIndex >= 0
+                      ? (queue.splice(audioEventIndex, 1)[0] as ListenQueueItem)
+                      : (queue.shift() as ListenQueueItem);
+                }
+
+                if (!nextItem?.response) {
+                  continue;
+                }
+                processResponse(nextItem.response);
               }
-              processResponse(nextItem.response);
+            } finally {
+              listenQueueProcessingRef.current = false;
             }
-          } finally {
-            listenQueueProcessingRef.current = false;
-          }
+          };
+          listenDrainQueueRef.current = drainListenQueue;
+          drainListenQueue();
         },
       );
       source.addEventListener('readystatechange', () => {
@@ -827,6 +839,8 @@ function useChatLogicHook({
           listenEventQueueRef.current = [];
           listenPendingAudioUnitsRef.current.clear();
           listenQueueProcessingRef.current = false;
+          listenDrainQueueRef.current = null;
+          listenInteractionBlockedRef.current = false;
         }
         isStreamingRef.current = false;
       });
@@ -983,6 +997,11 @@ function useChatLogicHook({
     //   previewMode: effectivePreviewMode,
     // });
     setTrackedContentList(() => []);
+    listenEventQueueRef.current = [];
+    listenPendingAudioUnitsRef.current.clear();
+    listenQueueProcessingRef.current = false;
+    listenDrainQueueRef.current = null;
+    listenInteractionBlockedRef.current = false;
 
     // setIsTypeFinished(true);
     isTypeFinishedRef.current = true;
@@ -1306,6 +1325,10 @@ function useChatLogicHook({
         setTrackedContentList(newList);
       }
 
+      if (isListenMode) {
+        listenInteractionBlockedRef.current = false;
+      }
+
       // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
       // scrollToBottom();
@@ -1336,9 +1359,13 @@ function useChatLogicHook({
             ? newList[needChangeItemIndex].generated_block_bid
             : undefined,
       });
+      if (isListenMode) {
+        listenDrainQueueRef.current?.();
+      }
     },
     [
       getNextLessonId,
+      isListenMode,
       isTypeFinishedRef,
       lessonId,
       onGoChapter,

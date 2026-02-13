@@ -12,7 +12,7 @@
 
 - [x] Add listen-mode run event queue in `useChatLogicHook` for audio-first gating.
 - [x] Queue visual commits to run only after prior audio completion.
-- [ ] Queue interaction commits to pause progression until user submit.
+- [x] Queue interaction commits to pause progression until user submit.
 - [ ] Integrate positioned audio playback ordering in listen mode using existing audio player modules.
 - [ ] Keep non-listen mode behavior unchanged (no queue gating).
 
