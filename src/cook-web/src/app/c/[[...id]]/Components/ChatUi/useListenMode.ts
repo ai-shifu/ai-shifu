@@ -1197,30 +1197,52 @@ export const useListenPpt = ({
       prevFirstSlideBidRef.current = null;
       return;
     }
+    const canResetToFirst =
+      !isAudioSequenceActive && !isAudioPlaying && !isAudioPlayerBusy();
     if (!prevFirstSlideBidRef.current) {
-      shouldSlideToFirstRef.current = true;
-      onResetSequence?.();
+      if (canResetToFirst) {
+        shouldSlideToFirstRef.current = true;
+        onResetSequence?.();
+      }
     } else if (prevFirstSlideBidRef.current !== firstSlideBid) {
-      shouldSlideToFirstRef.current = true;
-      onResetSequence?.();
+      if (canResetToFirst) {
+        shouldSlideToFirstRef.current = true;
+        onResetSequence?.();
+      }
     }
     prevFirstSlideBidRef.current = firstSlideBid;
-  }, [firstSlideBid, onResetSequence]);
+  }, [
+    firstSlideBid,
+    isAudioPlayerBusy,
+    isAudioPlaying,
+    isAudioSequenceActive,
+    onResetSequence,
+  ]);
 
   useEffect(() => {
     if (!sectionTitle) {
       prevSectionTitleRef.current = null;
       return;
     }
+    const canResetToFirst =
+      !isAudioSequenceActive && !isAudioPlaying && !isAudioPlayerBusy();
     if (
       prevSectionTitleRef.current &&
       prevSectionTitleRef.current !== sectionTitle
     ) {
-      shouldSlideToFirstRef.current = true;
-      onResetSequence?.();
+      if (canResetToFirst) {
+        shouldSlideToFirstRef.current = true;
+        onResetSequence?.();
+      }
     }
     prevSectionTitleRef.current = sectionTitle;
-  }, [sectionTitle, onResetSequence]);
+  }, [
+    isAudioPlayerBusy,
+    isAudioPlaying,
+    isAudioSequenceActive,
+    onResetSequence,
+    sectionTitle,
+  ]);
 
   const syncInteractionForCurrentPage = useCallback(
     (pageIndex?: number) => {

@@ -11,6 +11,7 @@ jest.mock('@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook', () => ({
 
 import {
   useListenAudioSequence,
+  useListenPpt,
   type AudioInteractionItem,
 } from '@/app/c/[[...id]]/Components/ChatUi/useListenMode';
 import { ChatContentItemType } from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
@@ -1630,5 +1631,69 @@ describe('useListenAudioSequence silent visual slides', () => {
 
     expect(result.current.activeAudioBlockBid).toBe('block-next');
     expect(currentSlide).toBe(1);
+  });
+});
+
+describe('useListenPpt reset guards', () => {
+  it('does not reset to first slide while audio sequence is active', () => {
+    const onResetSequence = jest.fn();
+    const chatRef = { current: null } as any;
+    const deckRef = { current: null } as any;
+    const currentPptPageRef = { current: 0 };
+    const activeBlockBidRef = { current: null as string | null };
+    const pendingAutoNextRef = { current: false };
+    const interactionByPage = new Map<number, any[]>();
+
+    const { rerender } = renderHook(
+      ({
+        slideBid,
+        isAudioSequenceActive,
+      }: {
+        slideBid: string;
+        isAudioSequenceActive: boolean;
+      }) =>
+        useListenPpt({
+          chatRef,
+          deckRef,
+          currentPptPageRef,
+          activeBlockBidRef,
+          pendingAutoNextRef,
+          slideItems: [
+            {
+              item: {
+                type: ChatContentItemType.CONTENT,
+                generated_block_bid: slideBid,
+              } as any,
+              segments: [{ type: 'markdown', value: '<svg></svg>' }],
+            },
+          ],
+          interactionByPage,
+          sectionTitle: 'Section A',
+          isLoading: false,
+          isAudioPlaying: false,
+          isAudioSequenceActive,
+          isAudioPlayerBusy: () => false,
+          shouldRenderEmptyPpt: false,
+          onResetSequence,
+          getNextContentBid: () => null,
+          goToBlock: () => false,
+          resolveContentBid: (bid: string | null) => bid,
+        }),
+      {
+        initialProps: {
+          slideBid: 'block-a',
+          isAudioSequenceActive: false,
+        },
+      },
+    );
+
+    expect(onResetSequence).toHaveBeenCalledTimes(1);
+
+    rerender({
+      slideBid: 'block-b',
+      isAudioSequenceActive: true,
+    });
+
+    expect(onResetSequence).toHaveBeenCalledTimes(1);
   });
 });
