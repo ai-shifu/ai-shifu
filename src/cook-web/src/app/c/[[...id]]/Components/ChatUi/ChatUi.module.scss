@@ -167,6 +167,13 @@
     }
   }
 
+  &.mobile.listenMode {
+    overflow: visible;
+    .chatComponents {
+      padding: 0 0 128px 0 !important;
+    }
+  }
+
   .chatComponents {
     width: 100%;
 

@@ -148,6 +148,12 @@
   bottom: 0;
   padding-bottom: 0;
 }
+.ChatUi.mobile.listenMode {
+  overflow: visible;
+}
+.ChatUi.mobile.listenMode .chatComponents {
+  padding: 0 0 128px 0 !important;
+}
 .ChatUi .chatComponents {
   width: 100%;
   height: 100%;

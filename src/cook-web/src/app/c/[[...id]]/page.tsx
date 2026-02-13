@@ -54,12 +54,14 @@ export default function ChatPage() {
   const isUserInitialized = useUserStore(state => state.isInitialized);
   const initialized = isUserInitialized;
 
-  const { wechatCode, previewMode } = useSystemStore(
+  const { wechatCode, previewMode, learningMode } = useSystemStore(
     useShallow(state => ({
       wechatCode: state.wechatCode,
       previewMode: state.previewMode,
+      learningMode: state.learningMode,
     })),
   );
+  const isListenMode = learningMode === 'listen';
 
   useEffect(() => {
     if (!initialized) {
@@ -96,6 +98,20 @@ export default function ChatPage() {
    */
   const { frameLayout, updateFrameLayout } = useUiLayoutStore(state => state);
   const mobileStyle = frameLayout === FRAME_LAYOUT_MOBILE;
+
+  useEffect(() => {
+    const root = document.getElementById('root');
+    const html = document.documentElement;
+    // Sync listen mode to global layout classes.
+    html.classList.toggle('listen-mode', isListenMode);
+    document.body.classList.toggle('listen-mode', isListenMode);
+    root?.classList.toggle('listen-mode', isListenMode);
+    return () => {
+      html.classList.remove('listen-mode');
+      document.body.classList.remove('listen-mode');
+      root?.classList.remove('listen-mode');
+    };
+  }, [isListenMode]);
 
   // check the frame layout
   useEffect(() => {
@@ -419,6 +435,7 @@ export default function ChatPage() {
     <div
       className={clsx(
         styles.newChatPage,
+        isListenMode ? styles.listenMode : '',
         mobileStyle ? 'flex-col' : 'h-screen flex-row',
         'flex',
       )}

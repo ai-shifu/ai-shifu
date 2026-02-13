@@ -19,9 +19,7 @@
 
   &.mobile {
     padding: 0 !important;
-    height: calc(100vh - 76px - 40px - 88px);
-    min-height: calc(100vh - 76px - 40px - 88px);
-    max-height: calc(100vh - 76px - 40px - 88px);
+    height: 100%;
     overflow: hidden;
     overflow-y: hidden !important;
 
