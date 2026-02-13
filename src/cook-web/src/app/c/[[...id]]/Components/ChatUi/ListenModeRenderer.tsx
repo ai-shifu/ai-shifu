@@ -32,6 +32,27 @@ interface ListenModeRendererProps {
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
 }
 
+const hasInteractionResponse = (
+  interaction: ChatContentItem | null | undefined,
+) => {
+  if (!interaction) {
+    return false;
+  }
+  const hasSelectedValues = Array.isArray(interaction.defaultSelectedValues)
+    ? interaction.defaultSelectedValues.some(value => String(value).trim())
+    : false;
+  if (hasSelectedValues) {
+    return true;
+  }
+  if ((interaction.defaultButtonText || '').trim()) {
+    return true;
+  }
+  if ((interaction.defaultInputText || '').trim()) {
+    return true;
+  }
+  return false;
+};
+
 const ListenModeRenderer = ({
   items,
   backendSlides,
@@ -61,8 +82,6 @@ const ListenModeRenderer = ({
     audioAndInteractionList,
     contentByBid,
     audioContentByBid,
-    lastInteractionBid,
-    lastItemIsInteraction,
     firstContentItem,
   } = useListenContentData(items, backendSlides);
   const hasAnyTimelineItem = useMemo(
@@ -399,11 +418,12 @@ const ListenModeRenderer = ({
   const prevControlDisabled =
     isPrevDisabled && typeof prevSequenceIndex !== 'number';
   const nextControlDisabled =
-    isNextDisabled && typeof nextSequenceIndex !== 'number';
+    Boolean(sequenceInteraction) ||
+    (isNextDisabled && typeof nextSequenceIndex !== 'number');
 
   const onNext = useCallback(() => {
     if (sequenceInteraction) {
-      continueAfterInteraction();
+      // Interaction blocks progression until learner submits.
       return;
     }
     if (!isAudioSequenceActive) {
@@ -436,7 +456,6 @@ const ListenModeRenderer = ({
     startSequenceFromPage,
     resolveAudioSequenceIndexByDirection,
     sequenceInteraction,
-    continueAfterInteraction,
     startSequenceFromIndex,
   ]);
 
@@ -466,39 +485,53 @@ const ListenModeRenderer = ({
   const shouldHideFallbackInteraction =
     hasAudioForCurrentPage && !isAudioSequenceActive;
 
-  const visibleSequenceInteraction =
-    sequenceInteraction &&
-    sequenceInteraction.generated_block_bid &&
-    dismissedInteractionBids.has(sequenceInteraction.generated_block_bid)
-      ? null
-      : sequenceInteraction;
-  const visibleCurrentInteraction =
-    currentInteraction &&
-    currentInteraction.generated_block_bid &&
-    dismissedInteractionBids.has(currentInteraction.generated_block_bid)
-      ? null
-      : currentInteraction;
+  const visibleSequenceInteraction = useMemo(() => {
+    if (!sequenceInteraction) {
+      return null;
+    }
+    if (
+      sequenceInteraction.generated_block_bid &&
+      dismissedInteractionBids.has(sequenceInteraction.generated_block_bid)
+    ) {
+      return null;
+    }
+    if (hasInteractionResponse(sequenceInteraction)) {
+      return null;
+    }
+    return sequenceInteraction;
+  }, [dismissedInteractionBids, sequenceInteraction]);
 
-  const activeRenderPage =
-    deckRef.current?.getIndices?.().h ??
-    (activeSequencePage >= 0 ? activeSequencePage : currentPptPageRef.current);
-  const isSequenceInteractionOnActivePage = Boolean(
-    visibleSequenceInteraction &&
-    visibleSequenceInteraction.page === activeRenderPage,
-  );
+  const latestPendingInteraction = useMemo(() => {
+    for (let i = items.length - 1; i >= 0; i -= 1) {
+      const item = items[i];
+      if (item.type !== ChatContentItemType.INTERACTION) {
+        continue;
+      }
+      if (
+        item.generated_block_bid &&
+        dismissedInteractionBids.has(item.generated_block_bid)
+      ) {
+        continue;
+      }
+      if (hasInteractionResponse(item)) {
+        continue;
+      }
+      return item;
+    }
+    return null;
+  }, [dismissedInteractionBids, items]);
 
   const listenPlayerInteraction = isAudioSequenceActive
-    ? isSequenceInteractionOnActivePage
-      ? visibleSequenceInteraction
-      : null
-    : shouldHideFallbackInteraction
-      ? null
-      : visibleCurrentInteraction;
+    ? visibleSequenceInteraction
+    : latestPendingInteraction;
+  const latestPendingInteractionBid =
+    latestPendingInteraction?.generated_block_bid ?? null;
   const isLatestInteractionEditable = Boolean(
-    listenPlayerInteraction?.generated_block_bid &&
-    lastItemIsInteraction &&
-    lastInteractionBid &&
-    listenPlayerInteraction.generated_block_bid === lastInteractionBid,
+    listenPlayerInteraction &&
+    (latestPendingInteractionBid
+      ? listenPlayerInteraction.generated_block_bid ===
+        latestPendingInteractionBid
+      : listenPlayerInteraction === latestPendingInteraction),
   );
   const interactionReadonly = listenPlayerInteraction
     ? !isLatestInteractionEditable
@@ -543,8 +576,6 @@ const ListenModeRenderer = ({
     sequenceInteraction?.generated_block_bid,
     listenPlayerInteraction?.generated_block_bid,
     activeSequencePage,
-    activeRenderPage,
-    isSequenceInteractionOnActivePage,
     hasAudioForCurrentPage,
     shouldHideFallbackInteraction,
   ]);

@@ -351,6 +351,16 @@ describe('useListenAudioSequence silent visual slides', () => {
     expect(result.current.activeAudioBlockBid).toBe(null);
 
     act(() => {
+      result.current.handlePlay();
+    });
+
+    // Play must not bypass interaction blocking.
+    expect(result.current.sequenceInteraction?.generated_block_bid).toBe(
+      'interaction-1',
+    );
+    expect(result.current.activeAudioBlockBid).toBe(null);
+
+    act(() => {
       result.current.continueAfterInteraction();
     });
 
@@ -1633,6 +1643,81 @@ describe('useListenAudioSequence silent visual slides', () => {
     expect(currentSlide).toBe(1);
   });
 
+  it('prefers the active slide block when multiple audio units share a page', () => {
+    let currentSlide = 1;
+    const deck: any = {
+      sync: jest.fn(),
+      layout: jest.fn(),
+      getSlides: jest.fn(() => Array.from({ length: 2 }, () => ({}))),
+      getIndices: jest.fn(() => ({ h: currentSlide })),
+      getCurrentSlide: jest.fn(() => ({
+        getAttribute: (name: string) =>
+          name === 'data-generated-block-bid' ? 'block-next' : null,
+      })),
+      slide: jest.fn((page: number) => {
+        currentSlide = page;
+      }),
+    };
+
+    const deckRef = { current: deck };
+    const currentPptPageRef = { current: 1 };
+    const activeBlockBidRef = { current: 'block-next' as string | null };
+    const pendingAutoNextRef = { current: false };
+    const shouldStartSequenceRef = { current: false };
+
+    const oldItem: any = {
+      type: ChatContentItemType.CONTENT,
+      generated_block_bid: 'block-old',
+      content: 'Old audio',
+      audios: [{ position: 0, audio_url: 'https://example.com/old.mp3' }],
+      customRenderBar: () => null,
+    };
+    const nextItem: any = {
+      type: ChatContentItemType.CONTENT,
+      generated_block_bid: 'block-next',
+      content: 'Next audio',
+      audios: [{ position: 0, audio_url: 'https://example.com/next.mp3' }],
+      customRenderBar: () => null,
+    };
+
+    const { result } = renderHook(() =>
+      useListenAudioSequence({
+        audioAndInteractionList: [
+          { ...oldItem, page: 1, audioPosition: 0 },
+          { ...nextItem, page: 1, audioPosition: 0 },
+        ],
+        deckRef: deckRef as any,
+        currentPptPageRef: currentPptPageRef as any,
+        activeBlockBidRef: activeBlockBidRef as any,
+        pendingAutoNextRef: pendingAutoNextRef as any,
+        shouldStartSequenceRef: shouldStartSequenceRef as any,
+        contentByBid: new Map([
+          ['block-old', oldItem],
+          ['block-next', nextItem],
+        ]),
+        audioContentByBid: new Map([
+          ['block-old', oldItem],
+          ['block-next', nextItem],
+        ]),
+        previewMode: false,
+        shouldRenderEmptyPpt: false,
+        getNextContentBid: () => null,
+        goToBlock: () => false,
+        resolveContentBid: (bid: string | null) => bid,
+        isAudioPlaying: false,
+        setIsAudioPlaying: () => undefined,
+      }),
+    );
+
+    act(() => {
+      result.current.handlePlay();
+    });
+
+    expect(result.current.activeAudioBlockBid).toBe('block-next');
+    expect(result.current.isAudioSequenceActive).toBe(true);
+    expect(currentSlide).toBe(1);
+  });
+
   it('keeps pending auto-next when current block has no immediate successor yet', () => {
     let currentSlide = 0;
     const deck: any = {
@@ -1691,6 +1776,77 @@ describe('useListenAudioSequence silent visual slides', () => {
     expect(result.current.isAudioSequenceActive).toBe(false);
     expect(pendingAutoNextRef.current).toBe(true);
     expect(goToBlock).not.toHaveBeenCalled();
+  });
+
+  it('advances by visible slide when mapped page drifts before audio end', () => {
+    let currentSlide = 0;
+    const deck: any = {
+      sync: jest.fn(),
+      layout: jest.fn(),
+      getSlides: jest.fn(() => Array.from({ length: 2 }, () => ({}))),
+      getIndices: jest.fn(() => ({ h: currentSlide })),
+      slide: jest.fn((page: number) => {
+        currentSlide = page;
+      }),
+    };
+
+    const deckRef = { current: deck };
+    const currentPptPageRef = { current: 0 };
+    const activeBlockBidRef = { current: null as string | null };
+    const pendingAutoNextRef = { current: false };
+    const shouldStartSequenceRef = { current: false };
+
+    const item: any = {
+      type: ChatContentItemType.CONTENT,
+      generated_block_bid: 'block-drift',
+      content: 'Narration',
+      audios: [{ position: 0, audio_url: 'https://example.com/a0.mp3' }],
+      customRenderBar: () => null,
+    };
+
+    const { result, rerender } = renderHook(
+      ({ list }: { list: AudioInteractionItem[] }) =>
+        useListenAudioSequence({
+          audioAndInteractionList: list,
+          deckRef: deckRef as any,
+          currentPptPageRef: currentPptPageRef as any,
+          activeBlockBidRef: activeBlockBidRef as any,
+          pendingAutoNextRef: pendingAutoNextRef as any,
+          shouldStartSequenceRef: shouldStartSequenceRef as any,
+          contentByBid: new Map([['block-drift', item]]),
+          audioContentByBid: new Map([['block-drift', item]]),
+          previewMode: false,
+          shouldRenderEmptyPpt: false,
+          getNextContentBid: () => null,
+          goToBlock: () => false,
+          resolveContentBid: (bid: string | null) => bid,
+          isAudioPlaying: false,
+          setIsAudioPlaying: () => undefined,
+        }),
+      {
+        initialProps: {
+          list: [{ ...item, page: 0, audioPosition: 0 }],
+        },
+      },
+    );
+
+    act(() => {
+      result.current.startSequenceFromIndex(0);
+    });
+    expect(currentSlide).toBe(0);
+
+    // Simulate stream remapping the active unit to a later page while the user
+    // is still viewing page 0.
+    act(() => {
+      rerender({ list: [{ ...item, page: 1, audioPosition: 0 }] });
+    });
+
+    act(() => {
+      result.current.handleAudioEnded();
+    });
+
+    expect(currentSlide).toBe(1);
+    expect(result.current.isAudioSequenceActive).toBe(false);
   });
 });
 
@@ -1754,6 +1910,82 @@ describe('useListenPpt reset guards', () => {
       isAudioSequenceActive: true,
     });
 
+    expect(onResetSequence).toHaveBeenCalledTimes(1);
+  });
+
+  it('requests sequence restart after pending auto-next moves to next block', () => {
+    let currentSlide = 0;
+    const onResetSequence = jest.fn();
+    const chatRef = {
+      current: {
+        querySelectorAll: () => [],
+      },
+    } as any;
+    const deckRef = {
+      current: {
+        sync: jest.fn(),
+        layout: jest.fn(),
+        getSlides: jest.fn(() => Array.from({ length: 2 }, () => ({}))),
+        getIndices: jest.fn(() => ({ h: currentSlide })),
+        getCurrentSlide: jest.fn(() => ({
+          getAttribute: (name: string) =>
+            name === 'data-generated-block-bid' ? 'block-a' : null,
+        })),
+        getTotalSlides: jest.fn(() => 2),
+        isFirstSlide: jest.fn(() => currentSlide === 0),
+        isLastSlide: jest.fn(() => currentSlide === 1),
+        slide: jest.fn((page: number) => {
+          currentSlide = page;
+        }),
+        on: jest.fn(),
+        off: jest.fn(),
+      },
+    } as any;
+    const currentPptPageRef = { current: 0 };
+    const activeBlockBidRef = { current: 'block-a' as string | null };
+    const pendingAutoNextRef = { current: true };
+    const interactionByPage = new Map<number, any[]>();
+    const goToBlock = jest.fn(() => true);
+
+    renderHook(() =>
+      useListenPpt({
+        chatRef,
+        deckRef,
+        currentPptPageRef,
+        activeBlockBidRef,
+        pendingAutoNextRef,
+        slideItems: [
+          {
+            item: {
+              type: ChatContentItemType.CONTENT,
+              generated_block_bid: 'block-a',
+            } as any,
+            segments: [{ type: 'markdown', value: '<svg></svg>' }],
+          },
+          {
+            item: {
+              type: ChatContentItemType.CONTENT,
+              generated_block_bid: 'block-b',
+            } as any,
+            segments: [{ type: 'markdown', value: '<svg></svg>' }],
+          },
+        ],
+        interactionByPage,
+        sectionTitle: 'Section A',
+        isLoading: false,
+        isAudioPlaying: false,
+        isAudioSequenceActive: true,
+        isAudioPlayerBusy: () => false,
+        shouldRenderEmptyPpt: false,
+        onResetSequence,
+        getNextContentBid: () => 'block-b',
+        goToBlock,
+        resolveContentBid: (bid: string | null) => bid,
+      }),
+    );
+
+    expect(goToBlock).toHaveBeenCalledWith('block-b');
+    expect(pendingAutoNextRef.current).toBe(false);
     expect(onResetSequence).toHaveBeenCalledTimes(1);
   });
 });

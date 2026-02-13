@@ -269,6 +269,162 @@ describe('useListenContentData timeline mapping', () => {
     expect(audioEntries[1].audioSlideId).toBeUndefined();
   });
 
+  it('does not render placeholder backend slides as standalone pages', () => {
+    const content = makeContent(
+      'block-backend-mixed',
+      'Narration A. Narration B. Narration C.',
+      [0, 1, 2],
+    );
+    content.audioSlideIdByPosition = {
+      0: 'slide-placeholder',
+      1: 'slide-a',
+      2: 'slide-b',
+    };
+    const backendSlides: ListenSlideData[] = [
+      {
+        slide_id: 'slide-placeholder',
+        generated_block_bid: 'block-backend-mixed',
+        slide_index: 0,
+        audio_position: 0,
+        visual_kind: 'placeholder',
+        segment_type: 'placeholder',
+        segment_content: '',
+        source_span: [0, 0],
+        is_placeholder: true,
+      },
+      {
+        slide_id: 'slide-a',
+        generated_block_bid: 'block-backend-mixed',
+        slide_index: 1,
+        audio_position: 1,
+        visual_kind: 'sandbox',
+        segment_type: 'sandbox',
+        segment_content: '<div>Slide A</div>',
+        source_span: [1, 10],
+        is_placeholder: false,
+      },
+      {
+        slide_id: 'slide-b',
+        generated_block_bid: 'block-backend-mixed',
+        slide_index: 2,
+        audio_position: 2,
+        visual_kind: 'sandbox',
+        segment_type: 'sandbox',
+        segment_content: '<div>Slide B</div>',
+        source_span: [11, 20],
+        is_placeholder: false,
+      },
+    ];
+
+    const { result } = renderHook(() =>
+      useListenContentData([content], backendSlides),
+    );
+    const audioEntries = pickAudioEntries(
+      result.current.audioAndInteractionList,
+      'block-backend-mixed',
+    );
+
+    expect(result.current.slideItems).toHaveLength(2);
+    expect(result.current.slideItems[0].segments[0].value).toContain('Slide A');
+    expect(result.current.slideItems[1].segments[0].value).toContain('Slide B');
+    expect(audioEntries).toHaveLength(3);
+    expect(audioEntries[0].page).toBe(0);
+    expect(audioEntries[0].audioSlideId).toBe('slide-placeholder');
+    expect(audioEntries[1].page).toBe(0);
+    expect(audioEntries[1].audioSlideId).toBe('slide-a');
+    expect(audioEntries[2].page).toBe(1);
+    expect(audioEntries[2].audioSlideId).toBe('slide-b');
+  });
+
+  it('falls back to local parsing when backend slides mix renderable and empty visuals', () => {
+    const content = makeContent(
+      'block-backend-partial',
+      '<svg><text>v1</text></svg>\nNarration A.\n<svg><text>v2</text></svg>\nNarration B.',
+      [0, 1],
+    );
+    const backendSlides: ListenSlideData[] = [
+      {
+        slide_id: 'slide-renderable',
+        generated_block_bid: 'block-backend-partial',
+        slide_index: 0,
+        audio_position: 0,
+        visual_kind: 'sandbox',
+        segment_type: 'sandbox',
+        segment_content: '<div>Renderable</div>',
+        source_span: [0, 10],
+        is_placeholder: false,
+      },
+      {
+        slide_id: 'slide-empty-live',
+        generated_block_bid: 'block-backend-partial',
+        slide_index: 1,
+        audio_position: 1,
+        visual_kind: 'svg',
+        segment_type: 'markdown',
+        segment_content: '',
+        source_span: [11, 20],
+        is_placeholder: false,
+      },
+    ];
+
+    const { result } = renderHook(() =>
+      useListenContentData([content], backendSlides),
+    );
+    const audioEntries = pickAudioEntries(
+      result.current.audioAndInteractionList,
+      'block-backend-partial',
+    );
+
+    expect(result.current.slideItems).toHaveLength(1);
+    expect(result.current.slideItems[0].segments).toHaveLength(2);
+    expect(String(result.current.slideItems[0].segments[0].value)).toContain(
+      '<svg',
+    );
+    expect(String(result.current.slideItems[0].segments[1].value)).toContain(
+      '<svg',
+    );
+    expect(audioEntries).toHaveLength(2);
+    expect(audioEntries[0].audioPosition).toBe(0);
+    expect(audioEntries[1].audioPosition).toBe(1);
+  });
+
+  it('ignores runtime slide-id binding when backend slide rendering is disabled', () => {
+    const content = makeContent(
+      'block-fallback-slideid',
+      '<svg><text>v1</text></svg>\nNarration A.\n<svg><text>v2</text></svg>\nNarration B.',
+      [0, 1],
+    );
+    content.audioSlideIdByPosition = {
+      0: 'runtime-slide-0',
+      1: 'runtime-slide-1',
+    };
+    const backendSlides: ListenSlideData[] = [
+      {
+        slide_id: 'slide-empty-a',
+        generated_block_bid: 'block-fallback-slideid',
+        slide_index: 0,
+        audio_position: 0,
+        visual_kind: 'svg',
+        segment_type: 'markdown',
+        segment_content: '',
+        source_span: [0, 0],
+        is_placeholder: false,
+      },
+    ];
+
+    const { result } = renderHook(() =>
+      useListenContentData([content], backendSlides),
+    );
+    const audioEntries = pickAudioEntries(
+      result.current.audioAndInteractionList,
+      'block-fallback-slideid',
+    );
+
+    expect(audioEntries).toHaveLength(2);
+    expect(audioEntries[0].audioSlideId).toBeUndefined();
+    expect(audioEntries[1].audioSlideId).toBeUndefined();
+  });
+
   it('uses av_contract speakable positions when audio payload is partial', () => {
     const avContract: NonNullable<ChatContentItem['avContract']> = {
       visual_boundaries: [
@@ -381,6 +537,56 @@ describe('useListenContentData timeline mapping', () => {
       'content:block-contract-only',
       'interaction:interaction-after-contract',
     ]);
+  });
+
+  it('maps unresolved audio positions to the latest visual page', () => {
+    const avContract: NonNullable<ChatContentItem['avContract']> = {
+      visual_boundaries: [
+        {
+          kind: 'svg',
+          position: 0,
+          block_bid: 'block-unresolved',
+          source_span: [10, 20],
+        },
+        {
+          kind: 'svg',
+          position: 1,
+          block_bid: 'block-unresolved',
+          source_span: [40, 50],
+        },
+      ],
+      speakable_segments: [
+        {
+          position: 0,
+          text: 'Narration before visuals',
+          after_visual_kind: 'svg',
+          block_bid: 'block-unresolved',
+          source_span: [0, 9],
+        },
+      ],
+    };
+    const items = [
+      makeContent(
+        'block-unresolved',
+        '<svg><text>v1</text></svg>\n<svg><text>v2</text></svg>',
+        [0],
+        avContract,
+      ),
+      makeInteraction('interaction-after-unresolved'),
+    ];
+    const { result } = renderHook(() => useListenContentData(items));
+    const audioEntries = pickAudioEntries(
+      result.current.audioAndInteractionList,
+      'block-unresolved',
+    );
+    const interactionQueue = result.current.interactionByPage.get(1) || [];
+
+    expect(audioEntries).toHaveLength(1);
+    expect(audioEntries[0].page).toBe(1);
+    expect(interactionQueue).toHaveLength(1);
+    expect(interactionQueue[0].generated_block_bid).toBe(
+      'interaction-after-unresolved',
+    );
   });
 
   it('deduplicates queue units by block+position and patches latest payload', () => {

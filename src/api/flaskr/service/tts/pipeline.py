@@ -48,7 +48,7 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 _DEFAULT_SENTENCE_ENDINGS = set(".!?。！？；;")
 
 _AV_SANDBOX_START_PATTERN = re.compile(
-    r"<(script|style|link|iframe|html|head|body|meta|title|base|template|div|section|article|main)[\s>]",
+    r"<(script|style|link|iframe|html|head|body|meta|title|base|template|div|section|article|main)(?:[\s>/]|$)",
     re.IGNORECASE,
 )
 _AV_MARKDOWN_IMAGE_PATTERN = re.compile(

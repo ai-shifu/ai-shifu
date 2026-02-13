@@ -164,7 +164,7 @@ def run_script(
 ) -> Generator[str, None, None]:
     timeout = 5 * 60
     blocking_timeout = 1
-    heartbeat_interval = float(app.config.get("SSE_HEARTBEAT_INTERVAL", 0.1))
+    heartbeat_interval = float(app.config.get("SSE_HEARTBEAT_INTERVAL", 0.5))
     lock_key = (
         app.config.get("REDIS_KEY_PREFIX")
         + ":run_script:"

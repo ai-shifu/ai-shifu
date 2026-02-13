@@ -271,7 +271,7 @@ class StreamingTTSProcessor:
         segment = TTSSegment(index=segment_index, text=text)
 
         logger.info(
-            f"Submitting TTS task {segment_index}: {len(text)} chars, provider={self.tts_provider or '(unset)'}"
+            f"Submitting TTS task {segment_index}: {len(text)} chars, content={text}, provider={self.tts_provider or '(unset)'}"
         )
 
         future = _tts_executor.submit(
@@ -731,6 +731,9 @@ class AVStreamingTTSProcessor:
         self._slides_by_id: Dict[str, NewSlideDTO] = {}
         self._emitted_slide_ids: set[str] = set()
         self._next_slide_index = self.slide_index_offset
+        self._current_segment_has_speakable_text = False
+        self._run_start_slide_emitted = False
+        self._pending_visual_slide: Optional[NewSlideDTO] = None
 
         # When we hit a non-speakable block boundary (e.g. `<svg>`), we may need to
         # wait for its closing marker before resuming segmentation.
@@ -768,11 +771,137 @@ class AVStreamingTTSProcessor:
             av_contract=self._av_contract,
             usage_scene=self.usage_scene,
         )
+        self._current_segment_has_speakable_text = False
         return self._current_processor
+
+    def _process_processor_chunk(
+        self, processor: StreamingTTSProcessor, chunk: str
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if (chunk or "").strip():
+            self._current_segment_has_speakable_text = True
+        yield from self._emit_with_slide_binding(processor.process_chunk(chunk))
 
     @property
     def next_slide_index(self) -> int:
         return int(self._next_slide_index or self.slide_index_offset)
+
+    @property
+    def has_pending_visual_boundary(self) -> bool:
+        return bool(self._skip_mode)
+
+    def _segment_type_for_visual_kind(self, visual_kind: str) -> str:
+        if visual_kind in {"iframe", "sandbox", "html_table"}:
+            return "sandbox"
+        return "markdown"
+
+    def _emit_new_slide_event(
+        self, slide: NewSlideDTO, *, force: bool = False
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        # NEW_SLIDE is a timeline signal only. The frontend renders visuals from
+        # streamed CONTENT chunks, so never include full segment payload here.
+        if (slide.segment_content or "") != "":
+            slide.segment_content = ""
+        if not force and slide.slide_id in self._emitted_slide_ids:
+            return
+        self._emitted_slide_ids.add(slide.slide_id)
+        self.app.logger.info(f"emit new slide: {slide.slide_id}")
+        yield RunMarkdownFlowDTO(
+            outline_bid=self.outline_bid,
+            generated_block_bid=self.generated_block_bid,
+            type=GeneratedType.NEW_SLIDE,
+            content=slide,
+        )
+
+    def emit_run_start_slide(self) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if self._run_start_slide_emitted:
+            return
+        self._run_start_slide_emitted = True
+        # Emit a deterministic initial placeholder slide so the frontend has a
+        # timeline anchor before the first content chunk/audio event arrives.
+        slide = self._build_fallback_slide(self._position_cursor)
+        yield from self._emit_new_slide_event(slide)
+
+    def _emit_visual_slide_for_current_position(
+        self, *, visual_kind: str, segment_content: str
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        position = int(self._position_cursor or 0)
+        _ = segment_content
+        slide = NewSlideDTO(
+            slide_id=uuid.uuid4().hex,
+            generated_block_bid=self.generated_block_bid,
+            slide_index=self._next_slide_index,
+            audio_position=position,
+            visual_kind=visual_kind,
+            segment_type=self._segment_type_for_visual_kind(visual_kind),
+            # Keep NEW_SLIDE payload lightweight; frontend renders from stream content.
+            segment_content="",
+            source_span=[],
+            is_placeholder=False,
+        )
+        self._next_slide_index += 1
+        self._slide_id_by_position[position] = slide.slide_id
+        self._slides_by_id[slide.slide_id] = slide
+        yield from self._emit_new_slide_event(slide)
+
+    def _emit_visual_slide_head_for_current_position(
+        self, *, visual_kind: str
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        position = int(self._position_cursor or 0)
+        existing = self._pending_visual_slide
+        if (
+            existing is not None
+            and int(existing.audio_position or 0) == position
+            and (existing.visual_kind or "") == (visual_kind or "")
+        ):
+            return
+
+        slide = NewSlideDTO(
+            slide_id=uuid.uuid4().hex,
+            generated_block_bid=self.generated_block_bid,
+            slide_index=self._next_slide_index,
+            audio_position=position,
+            visual_kind=visual_kind,
+            segment_type="placeholder",
+            segment_content="",
+            source_span=[],
+            is_placeholder=True,
+        )
+        self._next_slide_index += 1
+        self._slide_id_by_position[position] = slide.slide_id
+        self._slides_by_id[slide.slide_id] = slide
+        self._pending_visual_slide = slide
+        yield from self._emit_new_slide_event(slide)
+
+    def _finalize_pending_visual_slide(
+        self, *, visual_kind: str, segment_content: str
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        position = int(self._position_cursor or 0)
+        pending = self._pending_visual_slide
+        if (
+            pending is None
+            or int(pending.audio_position or 0) != position
+            or (pending.visual_kind or "") != (visual_kind or "")
+        ):
+            yield from self._emit_visual_slide_for_current_position(
+                visual_kind=visual_kind, segment_content=segment_content
+            )
+            return
+
+        completed = NewSlideDTO(
+            slide_id=pending.slide_id,
+            generated_block_bid=pending.generated_block_bid,
+            slide_index=int(pending.slide_index or 0),
+            audio_position=int(pending.audio_position or 0),
+            visual_kind=visual_kind,
+            segment_type=self._segment_type_for_visual_kind(visual_kind),
+            # Keep NEW_SLIDE payload lightweight; frontend renders from stream content.
+            segment_content="",
+            source_span=list(pending.source_span or []),
+            is_placeholder=False,
+        )
+        self._slides_by_id[completed.slide_id] = completed
+        self._pending_visual_slide = None
+        yield from self._emit_new_slide_event(completed, force=True)
 
     def _sync_slide_registry_from_contract(self):
         slides, mapping = build_listen_slides_for_block(
@@ -843,13 +972,7 @@ class AVStreamingTTSProcessor:
             content.slide_id = slide.slide_id
 
         if slide.slide_id not in self._emitted_slide_ids:
-            self._emitted_slide_ids.add(slide.slide_id)
-            yield RunMarkdownFlowDTO(
-                outline_bid=self.outline_bid,
-                generated_block_bid=self.generated_block_bid,
-                type=GeneratedType.NEW_SLIDE,
-                content=slide,
-            )
+            yield from self._emit_new_slide_event(slide)
 
         yield event
 
@@ -871,8 +994,10 @@ class AVStreamingTTSProcessor:
             if event.type == GeneratedType.AUDIO_COMPLETE:
                 did_complete = True
             yield event
+        had_speakable_text = self._current_segment_has_speakable_text
         self._current_processor = None
-        if did_complete:
+        self._current_segment_has_speakable_text = False
+        if did_complete or had_speakable_text:
             self._position_cursor += 1
 
     def _find_skip_end(self, raw: str) -> Optional[int]:
@@ -1074,9 +1199,7 @@ class AVStreamingTTSProcessor:
     def process_chunk(self, chunk: str) -> Generator[RunMarkdownFlowDTO, None, None]:
         if not chunk:
             if self._current_processor is not None:
-                yield from self._emit_with_slide_binding(
-                    self._current_processor.process_chunk("")
-                )
+                yield from self._process_processor_chunk(self._current_processor, "")
             return
 
         self._raw_full_content += chunk
@@ -1094,13 +1217,25 @@ class AVStreamingTTSProcessor:
                 skipped = self._raw_buffer[:skip_end]
                 self._raw_buffer = self._raw_buffer[skip_end:]
                 self._skip_mode = None
+                if skip_kind in {
+                    "fence",
+                    "svg",
+                    "iframe",
+                    "video",
+                    "html_table",
+                    "md_table",
+                    "sandbox",
+                    "md_img",
+                }:
+                    yield from self._finalize_pending_visual_slide(
+                        visual_kind=skip_kind,
+                        segment_content=skipped,
+                    )
                 if skip_kind == "sandbox":
                     injected = _extract_speakable_text_from_sandbox_html(skipped)
                     if injected:
                         processor = self._ensure_processor()
-                        yield from self._emit_with_slide_binding(
-                            processor.process_chunk(injected)
-                        )
+                        yield from self._process_processor_chunk(processor, injected)
                 continue
 
             boundary = self._find_next_boundary(self._raw_buffer)
@@ -1115,9 +1250,7 @@ class AVStreamingTTSProcessor:
                 self._raw_buffer = self._raw_buffer[-tail_len:]
                 if speakable:
                     processor = self._ensure_processor()
-                    yield from self._emit_with_slide_binding(
-                        processor.process_chunk(speakable)
-                    )
+                    yield from self._process_processor_chunk(processor, speakable)
                 continue
 
             kind, start, end, complete = boundary
@@ -1128,12 +1261,30 @@ class AVStreamingTTSProcessor:
 
             if speakable:
                 processor = self._ensure_processor()
-                yield from self._emit_with_slide_binding(
-                    processor.process_chunk(speakable)
-                )
+                yield from self._process_processor_chunk(processor, speakable)
 
             # Boundary encountered: finalize the current speakable segment.
             yield from self._finalize_current(commit=False)
+            if (
+                kind
+                in {
+                    "fence",
+                    "svg",
+                    "iframe",
+                    "video",
+                    "html_table",
+                    "md_table",
+                    "sandbox",
+                    "img",
+                    "md_img",
+                }
+                and complete
+                and boundary_chunk
+            ):
+                yield from self._finalize_pending_visual_slide(
+                    visual_kind=kind,
+                    segment_content=boundary_chunk,
+                )
 
             # Consume the boundary itself.
             self._raw_buffer = remainder
@@ -1151,6 +1302,9 @@ class AVStreamingTTSProcessor:
                 }
                 and not complete
             ):
+                yield from self._emit_visual_slide_head_for_current_position(
+                    visual_kind=kind
+                )
                 self._skip_mode = kind
                 break
             self._raw_buffer = self._raw_buffer[boundary_len:]
@@ -1158,9 +1312,7 @@ class AVStreamingTTSProcessor:
                 injected = _extract_speakable_text_from_sandbox_html(boundary_chunk)
                 if injected:
                     processor = self._ensure_processor()
-                    yield from self._emit_with_slide_binding(
-                        processor.process_chunk(injected)
-                    )
+                    yield from self._process_processor_chunk(processor, injected)
 
     def finalize(
         self, *, commit: bool = True
@@ -1172,9 +1324,7 @@ class AVStreamingTTSProcessor:
 
         if self._raw_buffer:
             processor = self._ensure_processor()
-            yield from self._emit_with_slide_binding(
-                processor.process_chunk(self._raw_buffer)
-            )
+            yield from self._process_processor_chunk(processor, self._raw_buffer)
             self._raw_buffer = ""
 
         yield from self._finalize_current(commit=commit)

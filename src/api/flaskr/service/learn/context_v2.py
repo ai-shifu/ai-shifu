@@ -1475,8 +1475,6 @@ class RunScriptContextV2:
             self.app, outline_item_id, self._preview_mode
         )
 
-        self.app.logger.info(f"outline_item_info: {outline_item_info.mdflow}")
-
         mdflow_context = MdflowContextV2(document=outline_item_info.mdflow)
         block_list = mdflow_context.get_all_blocks()
         self.app.logger.info(
@@ -2099,6 +2097,7 @@ class RunScriptContextV2:
                 generated_block.type = BLOCK_TYPE_MDCONTENT_VALUE
                 generated_content = ""
                 tts_processor = None
+                content_cache = ""
 
                 # Direct synchronous stream processing (markdown-flow 0.2.27+)
                 app.logger.info(f"process_stream: {run_script_info.block_position}")
@@ -2174,10 +2173,93 @@ class RunScriptContextV2:
                                     tts_model=validated.model,
                                     slide_index_offset=self._listen_slide_index_cursor,
                                 )
+                                yield from tts_processor.emit_run_start_slide()
                     except Exception as exc:
                         app.logger.warning(
                             "Initialize streaming TTS failed: %s", exc, exc_info=True
                         )
+
+                def _flush_content_cache(*, keep_tail: int = 0):
+                    nonlocal content_cache
+                    if not content_cache:
+                        return
+                    if keep_tail > 0 and len(content_cache) > keep_tail:
+                        cached = content_cache[:-keep_tail]
+                        content_cache = content_cache[-keep_tail:]
+                    elif keep_tail > 0:
+                        # Keep the whole cache for next chunk to avoid breaking
+                        # partial visual markers like `<svg` / `<div`.
+                        return
+                    else:
+                        cached = content_cache
+                        content_cache = ""
+                    if not cached:
+                        return
+                    yield RunMarkdownFlowDTO(
+                        outline_bid=run_script_info.outline_bid,
+                        generated_block_bid=generated_block.generated_block_bid,
+                        type=GeneratedType.CONTENT,
+                        content=cached,
+                    )
+
+                def _process_stream_chunk(chunk_content: str):
+                    nonlocal generated_content, tts_processor, content_cache
+                    if not chunk_content:
+                        return
+                    generated_content += chunk_content
+                    if not tts_processor:
+                        yield RunMarkdownFlowDTO(
+                            outline_bid=run_script_info.outline_bid,
+                            generated_block_bid=generated_block.generated_block_bid,
+                            type=GeneratedType.CONTENT,
+                            content=chunk_content,
+                        )
+                        return
+
+                    # Cache content until AV validation confirms slide boundaries,
+                    # then emit NEW_SLIDE before the cached content.
+                    content_cache += chunk_content
+                    try:
+                        tts_events = list(tts_processor.process_chunk(chunk_content))
+                    except Exception as exc:
+                        app.logger.warning(
+                            "Streaming TTS failed; disable for this block: %s",
+                            exc,
+                            exc_info=True,
+                        )
+                        tts_processor = None
+                        yield from _flush_content_cache()
+                        return
+
+                    new_slide_events = [
+                        event
+                        for event in tts_events
+                        if event.type == GeneratedType.NEW_SLIDE
+                    ]
+                    other_events = [
+                        event
+                        for event in tts_events
+                        if event.type != GeneratedType.NEW_SLIDE
+                    ]
+
+                    if new_slide_events:
+                        for event in new_slide_events:
+                            yield event
+                    has_pending_visual_boundary = bool(
+                        getattr(tts_processor, "has_pending_visual_boundary", False)
+                    )
+                    # Stream-through policy:
+                    # 1) any NEW_SLIDE -> flush immediately (after NEW_SLIDE),
+                    # 2) boundary pending -> keep streaming immediately,
+                    # 3) otherwise keep only a tiny guard tail to avoid emitting
+                    #    split visual markers (e.g. `<sv`, `<di`) too early.
+                    if bool(new_slide_events) or has_pending_visual_boundary:
+                        yield from _flush_content_cache()
+                    else:
+                        yield from _flush_content_cache(keep_tail=12)
+
+                    for event in other_events:
+                        yield event
 
                 stream_result = mdflow_context.process(
                     block_index=run_script_info.block_position,
@@ -2197,25 +2279,7 @@ class RunScriptContextV2:
                             else str(llm_result)
                         )
                         if chunk_content:
-                            generated_content += chunk_content
-                            yield RunMarkdownFlowDTO(
-                                outline_bid=run_script_info.outline_bid,
-                                generated_block_bid=generated_block.generated_block_bid,
-                                type=GeneratedType.CONTENT,
-                                content=chunk_content,
-                            )
-                            if tts_processor:
-                                try:
-                                    yield from tts_processor.process_chunk(
-                                        chunk_content
-                                    )
-                                except Exception as exc:
-                                    app.logger.warning(
-                                        "Streaming TTS failed; disable for this block: %s",
-                                        exc,
-                                        exc_info=True,
-                                    )
-                                    tts_processor = None
+                            yield from _process_stream_chunk(chunk_content)
                 else:
                     # It's a single LLMResult object (edge case)
                     chunk_content = (
@@ -2224,23 +2288,10 @@ class RunScriptContextV2:
                         else str(stream_result)
                     )
                     if chunk_content:
-                        generated_content += chunk_content
-                        yield RunMarkdownFlowDTO(
-                            outline_bid=run_script_info.outline_bid,
-                            generated_block_bid=generated_block.generated_block_bid,
-                            type=GeneratedType.CONTENT,
-                            content=chunk_content,
-                        )
-                        if tts_processor:
-                            try:
-                                yield from tts_processor.process_chunk(chunk_content)
-                            except Exception as exc:
-                                app.logger.warning(
-                                    "Streaming TTS failed; disable for this block: %s",
-                                    exc,
-                                    exc_info=True,
-                                )
-                                tts_processor = None
+                        yield from _process_stream_chunk(chunk_content)
+
+                if content_cache:
+                    yield from _flush_content_cache()
 
                 if tts_processor:
                     try:
