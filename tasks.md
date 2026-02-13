@@ -323,7 +323,7 @@
 - [x] Backend unit tests for `NewSlideDTO` serialization and compatibility.
 - [ ] Backend integration test: `/run` emits `new_slide` before `audio_*` for each slide.
 - [x] Backend integration test: `/records` returns `slides[]` and valid `slide_id` references.
-- [ ] Frontend unit test: `new_slide` ingestion + dedup/update by `slide_id`.
+- [x] Frontend unit test: `new_slide` ingestion + dedup/update by `slide_id`.
 - [x] Frontend unit test: audio binding by `slide_id` with legacy fallback.
 - [ ] Frontend integration test: no frontend segmentation needed in flag path.
 

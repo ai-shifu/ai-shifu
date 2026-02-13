@@ -46,6 +46,10 @@ import {
   normalizeListenRecordAudios,
   toListenInboundAudioEvent,
 } from '@/c-utils/listen-orchestrator';
+import {
+  normalizeListenSlideList,
+  upsertListenSlide,
+} from '@/c-utils/listen-slide-utils';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import {
   events,
@@ -417,20 +421,6 @@ function useChatLogicHook({
     [],
   );
 
-  const normalizeListenSlides = useCallback((slides: ListenSlideData[]) => {
-    const dedupedById = new Map<string, ListenSlideData>();
-    slides.forEach(slide => {
-      const slideId = slide?.slide_id;
-      if (!slideId) {
-        return;
-      }
-      dedupedById.set(slideId, slide);
-    });
-    return Array.from(dedupedById.values()).sort(
-      (a, b) => a.slide_index - b.slide_index,
-    );
-  }, []);
-
   const bindAudioSlideId = useCallback(
     (
       items: ChatContentItem[],
@@ -588,9 +578,7 @@ function useChatLogicHook({
                 return;
               }
               const slidePosition = Number(slidePayload.audio_position ?? 0);
-              setListenSlides(prev =>
-                normalizeListenSlides([...prev, slidePayload]),
-              );
+              setListenSlides(prev => upsertListenSlide(prev, slidePayload));
               setTrackedContentList(prevState =>
                 bindAudioSlideId(
                   prevState,
@@ -864,7 +852,6 @@ function useChatLogicHook({
       isListenMode,
       bindAudioSlideId,
       lessonUpdateResp,
-      normalizeListenSlides,
       outlineBid,
       isTypeFinishedRef,
       setTrackedContentList,
@@ -1056,7 +1043,7 @@ function useChatLogicHook({
 
       if (recordResp?.records?.length > 0) {
         if (isListenMode) {
-          setListenSlides(normalizeListenSlides(recordResp.slides || []));
+          setListenSlides(normalizeListenSlideList(recordResp.slides || []));
         }
         const contentRecords = mapRecordsToContent(recordResp.records);
         setTrackedContentList(contentRecords);
@@ -1098,7 +1085,6 @@ function useChatLogicHook({
   }, [
     chapterId,
     mapRecordsToContent,
-    normalizeListenSlides,
     outlineBid,
     // scrollToBottom,
     setTrackedContentList,
