@@ -450,7 +450,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             raise_param_error("contact")
 
         existing_auths = AiCourseAuth.query.filter(
-            AiCourseAuth.course_id == shifu_bid
+            AiCourseAuth.course_id == shifu_bid,
+            AiCourseAuth.status == 1,
         ).all()
         existing_user_ids = {
             auth.user_id
@@ -563,10 +564,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         if user_id == owner_id:
             raise_error("server.shifu.noPermission")
 
-        AiCourseAuth.query.filter(
+        auth = AiCourseAuth.query.filter(
             AiCourseAuth.course_id == shifu_bid,
             AiCourseAuth.user_id == user_id,
-        ).delete()
+        ).first()
+        if auth:
+            auth.status = 0
         _clear_shifu_permission_cache(user_id, shifu_bid)
         db.session.commit()
         return make_common_response({"removed": True})
