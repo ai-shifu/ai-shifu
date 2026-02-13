@@ -247,6 +247,7 @@ def _parse_import_activation_mobiles(text: str) -> List[Dict[str, str]]:
         entries.append({"mobile": identifier, "nickname": nickname})
     return entries
 
+
 def _parse_import_activation_emails(text: str) -> List[Dict[str, str]]:
     """Parse email identifiers and optional nicknames from raw text."""
     entries: List[Dict[str, str]] = []
