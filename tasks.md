@@ -14,7 +14,7 @@
 - [x] Queue visual commits to run only after prior audio completion.
 - [x] Queue interaction commits to pause progression until user submit.
 - [x] Integrate positioned audio playback ordering in listen mode using existing audio player modules.
-- [ ] Keep non-listen mode behavior unchanged (no queue gating).
+- [x] Keep non-listen mode behavior unchanged (no queue gating).
 
 - [x] Add backend tests for positioned audio persistence and ordered SSE emission.
 - [x] Add frontend tests for queue gating and interaction pause/resume behavior.
