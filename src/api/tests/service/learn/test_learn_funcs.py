@@ -40,6 +40,7 @@ from flaskr.service.learn.learn_funcs import get_learn_record
 from flaskr.service.learn.context_v2 import RunScriptContextV2, RunScriptInfo, RunType
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.tts.models import LearnGeneratedAudio, AUDIO_STATUS_COMPLETED
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDERRORMESSAGE_VALUE,
@@ -68,6 +69,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         self.ctx.push()
         LearnGeneratedBlock.query.delete()
         LearnProgressRecord.query.delete()
+        LearnGeneratedAudio.query.delete()
         dao.db.session.commit()
 
     def tearDown(self):
@@ -305,6 +307,83 @@ class LearnRecordLoadTests(unittest.TestCase):
         self.assertNotIn(
             student_block.block_content_conf,
             FakeMarkdownFlow.last_context[1]["content"],
+        )
+
+    def test_get_learn_record_returns_ordered_audio_tracks(self):
+        progress = LearnProgressRecord(
+            progress_record_bid="progress-audio",
+            shifu_bid="shifu-audio",
+            outline_item_bid="outline-audio",
+            user_bid="user-audio",
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        dao.db.session.add(progress)
+
+        content_block = LearnGeneratedBlock(
+            generated_block_bid="gen-audio-1",
+            progress_record_bid=progress.progress_record_bid,
+            user_bid=progress.user_bid,
+            block_bid="block-audio-1",
+            outline_item_bid=progress.outline_item_bid,
+            shifu_bid=progress.shifu_bid,
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            generated_content="audio content",
+            block_content_conf="audio content conf",
+            position=0,
+            status=1,
+        )
+        dao.db.session.add(content_block)
+
+        audio_pos_2 = LearnGeneratedAudio(
+            audio_bid="audio-2",
+            generated_block_bid=content_block.generated_block_bid,
+            progress_record_bid=progress.progress_record_bid,
+            user_bid=progress.user_bid,
+            shifu_bid=progress.shifu_bid,
+            oss_url="https://oss/audio-2.mp3",
+            oss_bucket="bucket",
+            oss_object_key="tts-audio/audio-2.mp3",
+            duration_ms=222,
+            file_size=22,
+            status=AUDIO_STATUS_COMPLETED,
+            position=2,
+        )
+        audio_pos_0 = LearnGeneratedAudio(
+            audio_bid="audio-0",
+            generated_block_bid=content_block.generated_block_bid,
+            progress_record_bid=progress.progress_record_bid,
+            user_bid=progress.user_bid,
+            shifu_bid=progress.shifu_bid,
+            oss_url="https://oss/audio-0.mp3",
+            oss_bucket="bucket",
+            oss_object_key="tts-audio/audio-0.mp3",
+            duration_ms=111,
+            file_size=11,
+            status=AUDIO_STATUS_COMPLETED,
+            position=0,
+        )
+        dao.db.session.add_all([audio_pos_2, audio_pos_0])
+        dao.db.session.commit()
+
+        record = get_learn_record(
+            self.app,
+            shifu_bid=progress.shifu_bid,
+            outline_bid=progress.outline_item_bid,
+            user_bid=progress.user_bid,
+            preview_mode=False,
+        )
+
+        self.assertEqual(len(record.records), 1)
+        content_record = record.records[0]
+        self.assertEqual(content_record.block_type, BlockType.CONTENT)
+        self.assertEqual(content_record.audio_url, "https://oss/audio-0.mp3")
+        self.assertEqual(
+            [track.position for track in content_record.audio_tracks], [0, 2]
+        )
+        self.assertEqual(
+            [track.audio_url for track in content_record.audio_tracks],
+            ["https://oss/audio-0.mp3", "https://oss/audio-2.mp3"],
         )
 
 
