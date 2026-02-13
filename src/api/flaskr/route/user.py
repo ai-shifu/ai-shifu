@@ -2,7 +2,8 @@ from flask import Flask, request, make_response, current_app
 from functools import wraps
 import threading
 
-from flaskr.service.common.models import raise_param_error
+from flaskr.service.common.models import raise_param_error, raise_error
+from flaskr.service.user.consts import CREDENTIAL_STATE_VERIFIED
 from flaskr.service.user.password_utils import (
     hash_password,
     verify_password,
@@ -611,13 +612,13 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise
         return make_common_response(auth_result.token)
 
-    # -------- 密码登录相关路由 --------
+    # -------- Password login routes --------
 
     @app.route(path_prefix + "/login_password", methods=["POST"])
     @bypass_token_validation
     def login_password():
         """
-        密码登录
+        Login with password
         ---
         tags:
             - user
@@ -639,12 +640,11 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/set_password", methods=["POST"])
     def set_password():
         """
-        设置密码（已登录用户）
+        Set password for logged-in user (first time only)
         ---
         tags:
             - user
         """
-        import json as _json
         from flaskr.service.user.models import AuthCredential
         from flaskr.util.uuid import generate_id
 
@@ -657,9 +657,8 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         user = request.user
         user_bid = user.user_id
-        password_hash_value = hash_password(new_password)
 
-        # 查找用户的 phone/email 凭据以获取 identifier
+        # Find user's phone/email credential to get identifier
         creds = list_credentials(user_bid=user_bid)
         identifier = None
         for c in creds:
@@ -670,22 +669,28 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         if not identifier:
             raise_param_error("identifier")
 
-        # 查找或创建 password 凭据
+        # Reject if user already has a password credential (use change_password instead)
         pwd_cred = find_credential(
             provider_name="password", identifier=identifier, user_bid=user_bid
         )
+        if pwd_cred and pwd_cred.password_hash:
+            raise_error("USER.PASSWORD_ALREADY_SET")
+
+        subject_format = "email" if "@" in identifier else "phone"
+
         if pwd_cred:
-            pwd_cred.raw_profile = _json.dumps({"password_hash": password_hash_value})
+            pwd_cred.password_hash = hash_password(new_password)
         else:
             pwd_cred = AuthCredential(
                 credential_bid=generate_id(app),
                 user_bid=user_bid,
                 provider_name="password",
                 subject_id=identifier,
-                subject_format="password",
+                subject_format=subject_format,
                 identifier=identifier,
-                raw_profile=_json.dumps({"password_hash": password_hash_value}),
-                state=1,
+                raw_profile="",
+                password_hash=hash_password(new_password),
+                state=CREDENTIAL_STATE_VERIFIED,
                 deleted=0,
             )
             db.session.add(pwd_cred)
@@ -696,13 +701,11 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/change_password", methods=["POST"])
     def change_password():
         """
-        修改密码（已登录用户）
+        Change password for logged-in user (requires old password)
         ---
         tags:
             - user
         """
-        import json as _json
-
         old_password = request.get_json().get("old_password", None)
         new_password = request.get_json().get("new_password", None)
         if not old_password:
@@ -717,26 +720,17 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         user = request.user
         user_bid = user.user_id
 
-        # 查找用户的 password 凭据
+        # Find user's password credential
         creds = list_credentials(user_bid=user_bid, provider_name="password")
         if not creds:
-            raise_param_error("password")
+            raise_error("USER.INVALID_CREDENTIALS")
 
         pwd_cred = creds[0]
-        try:
-            profile_data = (
-                _json.loads(pwd_cred.raw_profile) if pwd_cred.raw_profile else {}
-            )
-        except (_json.JSONDecodeError, TypeError):
-            profile_data = {}
-
-        current_hash = profile_data.get("password_hash", "")
+        current_hash = pwd_cred.password_hash or ""
         if not current_hash or not verify_password(old_password, current_hash):
-            raise_param_error("password")
+            raise_error("USER.INVALID_CREDENTIALS")
 
-        pwd_cred.raw_profile = _json.dumps(
-            {"password_hash": hash_password(new_password)}
-        )
+        pwd_cred.password_hash = hash_password(new_password)
         db.session.commit()
         return make_common_response({"success": True})
 
@@ -744,12 +738,11 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     def reset_password():
         """
-        重置密码（通过验证码）
+        Reset password via verification code
         ---
         tags:
             - user
         """
-        import json as _json
         from flaskr.service.user.models import AuthCredential
         from flaskr.util.uuid import generate_id
 
@@ -767,7 +760,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         if not is_valid:
             raise_param_error(err_msg)
 
-        # 通过验证码验证身份（根据 identifier 类型选择 phone 或 email provider）
+        # Verify identity via verification code (choose phone or email provider)
         from flaskr.service.user.auth.base import VerificationRequest as VR
 
         reset_provider_name = "email" if "@" in identifier else "phone"
@@ -775,7 +768,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         reset_vr = VR(identifier=identifier, code=code)
         reset_provider.verify(app, reset_vr)
 
-        # 查找用户
+        # Find user
         aggregate = load_user_aggregate_by_identifier(
             identifier, providers=["phone", "email"]
         )
@@ -783,24 +776,25 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("identifier")
 
         user_bid = aggregate.user_bid
-        password_hash_value = hash_password(new_password)
+        subject_format = "email" if "@" in identifier else "phone"
 
-        # 查找或创建 password 凭据
+        # Find or create password credential
         pwd_cred = find_credential(
             provider_name="password", identifier=identifier, user_bid=user_bid
         )
         if pwd_cred:
-            pwd_cred.raw_profile = _json.dumps({"password_hash": password_hash_value})
+            pwd_cred.password_hash = hash_password(new_password)
         else:
             pwd_cred = AuthCredential(
                 credential_bid=generate_id(app),
                 user_bid=user_bid,
                 provider_name="password",
                 subject_id=identifier,
-                subject_format="password",
+                subject_format=subject_format,
                 identifier=identifier,
-                raw_profile=_json.dumps({"password_hash": password_hash_value}),
-                state=1,
+                raw_profile="",
+                password_hash=hash_password(new_password),
+                state=CREDENTIAL_STATE_VERIFIED,
                 deleted=0,
             )
             db.session.add(pwd_cred)

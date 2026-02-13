@@ -44,7 +44,7 @@ def upgrade():
                 "password_hash",
                 sa.String(255),
                 nullable=True,
-                comment="bcrypt 密码哈希",
+                comment="bcrypt password hash",
             )
         )
 

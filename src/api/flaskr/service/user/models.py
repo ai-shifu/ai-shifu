@@ -208,7 +208,7 @@ class AuthCredential(db.Model):
     password_hash = Column(
         String(255),
         nullable=True,
-        comment="bcrypt 密码哈希",
+        comment="bcrypt password hash",
     )
     state = Column(
         Integer,

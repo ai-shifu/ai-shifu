@@ -19,7 +19,6 @@ import type { UserInfo } from '@/c-types';
 
 interface PasswordLoginProps {
   onLoginSuccess: (userInfo: UserInfo) => void;
-  loginContext?: string;
 }
 
 export function PasswordLogin({ onLoginSuccess }: PasswordLoginProps) {
@@ -54,6 +53,14 @@ export function PasswordLogin({ onLoginSuccess }: PasswordLoginProps) {
       setPasswordError(t('module.auth.passwordTooShort'));
       return false;
     }
+    if (!/[a-zA-Z]/.test(value)) {
+      setPasswordError(t('module.auth.passwordNeedsLetter'));
+      return false;
+    }
+    if (!/[0-9]/.test(value)) {
+      setPasswordError(t('module.auth.passwordNeedsDigit'));
+      return false;
+    }
     setPasswordError('');
     return true;
   };
@@ -72,12 +79,12 @@ export function PasswordLogin({ onLoginSuccess }: PasswordLoginProps) {
     else setPasswordError('');
   };
 
-  const doLogin = async () => {
+  const doLogin = async (skipTermsCheck?: boolean) => {
     if (!validateIdentifier(identifier) || !validatePassword(password)) {
       return;
     }
 
-    if (!termsAccepted) {
+    if (!skipTermsCheck && !termsAccepted) {
       setShowTermsDialog(true);
       return;
     }
@@ -124,7 +131,7 @@ export function PasswordLogin({ onLoginSuccess }: PasswordLoginProps) {
   const handleTermsConfirm = async () => {
     setTermsAccepted(true);
     setShowTermsDialog(false);
-    await doLogin();
+    await doLogin(true);
   };
 
   const handleTermsCancel = () => {
@@ -215,7 +222,7 @@ export function PasswordLogin({ onLoginSuccess }: PasswordLoginProps) {
 
         <Button
           className='w-full h-8'
-          onClick={doLogin}
+          onClick={() => doLogin()}
           disabled={isLoading || !identifier || !password}
         >
           {isLoading ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
