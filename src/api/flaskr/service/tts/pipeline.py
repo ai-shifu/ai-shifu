@@ -6,6 +6,12 @@ This module provides a top-level, provider-agnostic pipeline that:
 2) splits long text into safe segments,
 3) synthesizes all segments via the unified TTS client,
 4) concatenates audio, uploads to OSS, and returns a playable URL.
+
+Cross-Platform Compatibility Note:
+Visual element boundary detection patterns in this module are mirrored in the
+frontend (src/cook-web/src/c-utils/listen-mode/constants.ts) to ensure consistent
+detection of visual blocks (video, table, iframe, svg, img, fence, sandbox) across
+backend and frontend. When modifying boundary detection logic, update both locations.
 """
 
 from __future__ import annotations

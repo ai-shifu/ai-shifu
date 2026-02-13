@@ -39,7 +39,7 @@ from flaskr.service.tts.models import (
     LearnGeneratedAudio,
     AUDIO_STATUS_COMPLETED,
 )
-from flaskr.service.metering import UsageContext, record_tts_usage
+from flaskr.service.metering import UsageContext
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD
 from flaskr.util.uuid import generate_id
 from flaskr.service.learn.learn_dtos import (
@@ -284,6 +284,50 @@ class StreamingTTSProcessor:
         )
         self._pending_futures.append(future)
 
+    def _submit_remaining_text_in_segments(self, remaining_text: str):
+        """
+        Submit remaining text in segments to avoid burst submission at finalization.
+
+        This ensures the last few segments maintain consistent pacing instead of
+        being synthesized and returned almost simultaneously.
+
+        Args:
+            remaining_text: The remaining text to be synthesized
+        """
+        if not remaining_text or len(remaining_text) < 2:
+            return
+
+        logger.info(
+            f"Submitting remaining text in segments: {len(remaining_text)} chars"
+        )
+
+        # Split remaining text at sentence boundaries, similar to normal flow
+        while remaining_text and len(remaining_text) >= 2:
+            # Determine chunk size (use max_segment_chars as limit)
+            chunk_size = min(len(remaining_text), self.max_segment_chars)
+            chunk = remaining_text[:chunk_size]
+
+            # Try to find sentence boundary within chunk
+            matches = list(SENTENCE_ENDINGS.finditer(chunk))
+            if matches:
+                # Split at last sentence ending in chunk
+                split_pos = matches[-1].end()
+            else:
+                # No sentence boundary found, use full chunk
+                split_pos = chunk_size
+
+            # Extract segment and submit
+            segment_text = remaining_text[:split_pos].strip()
+            if segment_text and len(segment_text) >= 2:
+                self._submit_tts_task(segment_text)
+                logger.info(
+                    f"Submitted finalize segment: {len(segment_text)} chars, "
+                    f"remaining: {len(remaining_text) - split_pos} chars"
+                )
+
+            # Update remaining text
+            remaining_text = remaining_text[split_pos:].strip()
+
     def _synthesize_in_thread(
         self,
         segment: TTSSegment,
@@ -309,32 +353,24 @@ class StreamingTTSProcessor:
                 segment.latency_ms = int((time.monotonic() - segment_start) * 1000)
                 segment.is_ready = True
 
-                segment_length = len(segment.text or "")
-                record_tts_usage(
-                    self.app,
-                    self.usage_context,
+                from flaskr.service.tts.tts_usage_recorder import (
+                    record_tts_segment_usage,
+                )
+
+                record_tts_segment_usage(
+                    app=self.app,
+                    usage_context=self.usage_context,
                     provider=tts_provider or "",
                     model=tts_model or "",
-                    is_stream=True,
-                    input=segment_length,
-                    output=segment_length,
-                    total=segment_length,
+                    segment_text=segment.text or "",
                     word_count=segment.word_count,
                     duration_ms=int(segment.duration_ms or 0),
                     latency_ms=segment.latency_ms,
-                    record_level=1,
+                    voice_settings=self.voice_settings,
+                    audio_settings=self.audio_settings,
+                    is_stream=True,
                     parent_usage_bid=self._usage_parent_bid,
                     segment_index=segment.index,
-                    segment_count=0,
-                    extra={
-                        "voice_id": self.voice_settings.voice_id or "",
-                        "speed": self.voice_settings.speed,
-                        "pitch": self.voice_settings.pitch,
-                        "emotion": self.voice_settings.emotion,
-                        "volume": self.voice_settings.volume,
-                        "format": self.audio_settings.format or "mp3",
-                        "sample_rate": self.audio_settings.sample_rate or 24000,
-                    },
                 )
 
                 with self._lock:
@@ -357,6 +393,7 @@ class StreamingTTSProcessor:
 
     def _yield_ready_segments(self) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Yield segments that are ready in order."""
+        segments_yielded = 0
         while True:
             with self._lock:
                 # Check if next segment is ready
@@ -394,6 +431,12 @@ class StreamingTTSProcessor:
                     ),
                 )
 
+                # Add small delay between yields to prevent burst delivery
+                # This ensures segments are delivered at a steady pace
+                if segments_yielded > 0:
+                    time.sleep(0.1)  # 100ms delay between segment yields
+                segments_yielded += 1
+
     def finalize(
         self, *, commit: bool = True
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -421,15 +464,15 @@ class StreamingTTSProcessor:
             logger.info("TTS finalize: TTS not enabled, returning early")
             return
 
-        # Submit any remaining buffer content
+        # Submit any remaining buffer content in segments to avoid burst
         if self._buffer:
             full_text = preprocess_for_tts(self._buffer)
             if self._processed_text_offset > len(full_text):
                 self._processed_text_offset = len(full_text)
 
             remaining_text = full_text[self._processed_text_offset :].strip()
-            if remaining_text and len(remaining_text) >= 2:
-                self._submit_tts_task(remaining_text)
+            # Use segmented submission to maintain consistent pacing
+            self._submit_remaining_text_in_segments(remaining_text)
             self._buffer = ""
 
         # Wait for all pending TTS tasks to complete
@@ -525,32 +568,24 @@ class StreamingTTSProcessor:
                 db.session.flush()
                 logger.info("TTS finalize: database flush complete")
 
-            record_tts_usage(
-                self.app,
-                self.usage_context,
+            from flaskr.service.tts.tts_usage_recorder import (
+                record_tts_aggregated_usage,
+            )
+
+            record_tts_aggregated_usage(
+                app=self.app,
+                usage_context=self.usage_context,
                 usage_bid=self._usage_parent_bid,
                 provider=self.tts_provider or "",
                 model=self.tts_model or "",
-                is_stream=True,
-                input=len(raw_text or ""),
-                output=len(cleaned_text or ""),
-                total=len(cleaned_text or ""),
-                word_count=self._word_count_total,
-                duration_ms=int(final_duration_ms or 0),
-                latency_ms=0,
-                record_level=0,
-                parent_usage_bid="",
-                segment_index=0,
+                raw_text=raw_text or "",
+                cleaned_text=cleaned_text or "",
+                total_word_count=self._word_count_total,
+                duration_ms=final_duration_ms or 0,
                 segment_count=len(audio_data_list),
-                extra={
-                    "voice_id": self.voice_settings.voice_id or "",
-                    "speed": self.voice_settings.speed,
-                    "pitch": self.voice_settings.pitch,
-                    "emotion": self.voice_settings.emotion,
-                    "volume": self.voice_settings.volume,
-                    "format": self.audio_settings.format or "mp3",
-                    "sample_rate": self.audio_settings.sample_rate or 24000,
-                },
+                voice_settings=self.voice_settings,
+                audio_settings=self.audio_settings,
+                is_stream=True,
             )
 
             # Yield completion
@@ -598,18 +633,18 @@ class StreamingTTSProcessor:
         if not self._enabled:
             return
 
-        # Submit any remaining buffer content.
+        # Submit any remaining buffer content in segments to avoid burst.
         if self._buffer:
             full_text = preprocess_for_tts(self._buffer)
             if self._processed_text_offset > len(full_text):
                 self._processed_text_offset = len(full_text)
 
             remaining_text = full_text[self._processed_text_offset :].strip()
-            if remaining_text and len(remaining_text) >= 2:
-                self._submit_tts_task(remaining_text)
+            # Use segmented submission to maintain consistent pacing
+            self._submit_remaining_text_in_segments(remaining_text)
             self._buffer = ""
 
-        # Wait for all pending TTS tasks to complete.
+        # Wait for all pending TTS tasks to complete
         for future in self._pending_futures:
             try:
                 future.result(timeout=60)
@@ -646,32 +681,24 @@ class StreamingTTSProcessor:
         except Exception:
             cleaned_text = ""
 
-        record_tts_usage(
-            self.app,
-            self.usage_context,
+        from flaskr.service.tts.tts_usage_recorder import (
+            record_tts_aggregated_usage,
+        )
+
+        record_tts_aggregated_usage(
+            app=self.app,
+            usage_context=self.usage_context,
             usage_bid=self._usage_parent_bid,
             provider=self.tts_provider or "",
             model=self.tts_model or "",
-            is_stream=True,
-            input=len(raw_text or ""),
-            output=len(cleaned_text or ""),
-            total=len(cleaned_text or ""),
-            word_count=self._word_count_total,
-            duration_ms=int(total_duration_ms or 0),
-            latency_ms=0,
-            record_level=0,
-            parent_usage_bid="",
-            segment_index=0,
+            raw_text=raw_text or "",
+            cleaned_text=cleaned_text or "",
+            total_word_count=self._word_count_total,
+            duration_ms=total_duration_ms or 0,
             segment_count=len(self._all_audio_data),
-            extra={
-                "voice_id": self.voice_settings.voice_id or "",
-                "speed": self.voice_settings.speed,
-                "pitch": self.voice_settings.pitch,
-                "emotion": self.voice_settings.emotion,
-                "volume": self.voice_settings.volume,
-                "format": self.audio_settings.format or "mp3",
-                "sample_rate": self.audio_settings.sample_rate or 24000,
-            },
+            voice_settings=self.voice_settings,
+            audio_settings=self.audio_settings,
+            is_stream=True,
         )
 
 
@@ -915,8 +942,14 @@ class AVStreamingTTSProcessor:
 
         slide_by_id = {slide.slide_id: slide for slide in slides}
         for position, candidate_slide_id in sorted(mapping.items()):
-            if position in self._slide_id_by_position:
-                continue
+            # Allow replacing placeholder slides with finalized slides from contract
+            existing_slide_id = self._slide_id_by_position.get(position)
+            if existing_slide_id:
+                existing_slide = self._slides_by_id.get(existing_slide_id)
+                # Skip if we already have a finalized slide for this position
+                if existing_slide and not existing_slide.is_placeholder:
+                    continue
+
             slide = slide_by_id.get(candidate_slide_id)
             if slide is None:
                 continue
@@ -1001,57 +1034,10 @@ class AVStreamingTTSProcessor:
             self._position_cursor += 1
 
     def _find_skip_end(self, raw: str) -> Optional[int]:
-        if not raw:
-            return None
-        if self._skip_mode == "fence":
-            close = raw.find("```", 3)
-            if close == -1:
-                return None
-            return close + 3
-        if self._skip_mode == "svg":
-            close = re.search(r"</svg>", raw, flags=re.IGNORECASE)
-            if not close:
-                return None
-            return close.end()
-        if self._skip_mode == "iframe":
-            close = _AV_IFRAME_CLOSE_PATTERN.search(raw)
-            if not close:
-                return None
-            return _extend_fixed_marker_end(raw, close.end())
-        if self._skip_mode == "video":
-            close = _AV_VIDEO_CLOSE_PATTERN.search(raw)
-            if not close:
-                return None
-            return close.end()
-        if self._skip_mode == "html_table":
-            close = _AV_TABLE_CLOSE_PATTERN.search(raw)
-            if not close:
-                return None
-            return close.end()
-        if self._skip_mode == "md_table":
-            fence_ranges = _get_fence_ranges(raw)
-            block = _find_markdown_table_block(raw, fence_ranges)
-            if block is None:
-                return None
-            _start, end, complete = block
-            if not complete:
-                return None
-            return end
-        if self._skip_mode == "sandbox":
-            end, complete = _find_html_block_end_with_complete(raw, 0)
-            return end if complete else None
-        if self._skip_mode == "md_img":
-            start = raw.find("![")
-            if start == -1:
-                return None
-            image_open = raw.find("](", start + 2)
-            if image_open == -1:
-                return None
-            image_close = raw.find(")", image_open + 2)
-            if image_close == -1:
-                return None
-            return image_close + 1
-        return None
+        """Find the end position of the current skip mode visual element."""
+        from flaskr.service.tts.boundary_strategies import find_boundary_end
+
+        return find_boundary_end(self._skip_mode, raw)
 
     def _find_next_boundary(self, raw: str) -> Optional[tuple[str, int, int, bool]]:
         """
@@ -1328,6 +1314,18 @@ class AVStreamingTTSProcessor:
             self._raw_buffer = ""
 
         yield from self._finalize_current(commit=commit)
+
+        # After finalizing all content, re-sync slides from the complete AV contract
+        # and emit finalized versions of any placeholder slides.
+        self._sync_slide_registry_from_contract()
+        for position, slide_id in sorted(self._slide_id_by_position.items()):
+            slide = self._slides_by_id.get(slide_id)
+            if slide is None:
+                continue
+            # Emit finalized slides that were created from contract (is_placeholder=False).
+            # Skip slides that are still placeholders (no contract data for this position).
+            if not slide.is_placeholder and slide_id not in self._emitted_slide_ids:
+                yield from self._emit_new_slide_event(slide)
 
     def finalize_preview(self) -> Generator[RunMarkdownFlowDTO, None, None]:
         if self._skip_mode:

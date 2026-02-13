@@ -6,21 +6,32 @@ import {
 } from 'markdown-flow-ui/renderer';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import type { AudioPlayerHandle } from '@/components/audio/AudioPlayer';
-import { buildListenUnitId } from '@/c-utils/listen-orchestrator';
+import {
+  buildListenUnitId,
+  extractAudioPositions,
+} from '@/c-utils/listen-orchestrator';
 import type { ListenSlideData } from '@/c-api/studyV2';
-
-type HtmlVisualKind = 'video' | 'table' | 'iframe';
-type HtmlSandboxRootTag =
-  | 'iframe'
-  | 'div'
-  | 'section'
-  | 'article'
-  | 'main'
-  | 'template';
+import {
+  type HtmlVisualKind,
+  type HtmlSandboxRootTag,
+  VISUAL_ELEMENT_PATTERNS,
+  CLOSING_PATTERNS,
+  MARKDOWN_TABLE,
+  SANDBOX_ROOT_TAGS,
+  FIXED_MARKER_PATTERN,
+  parseMarkdownTableRow,
+  parseMarkdownTableAlign,
+  isMarkdownTableSeparatorLine,
+  findFirstMarkdownTableBlock,
+  markdownTableToSandboxHtml,
+  findFirstHtmlVisualBlock,
+  findFirstTextVisualBlock,
+  type TextVisualBlock,
+} from '@/c-utils/listen-mode';
 
 const isFixedMarkerText = (raw: string) => {
   const trimmed = (raw || '').trim();
-  return Boolean(trimmed && /^!?=+$/.test(trimmed));
+  return Boolean(trimmed && FIXED_MARKER_PATTERN.test(trimmed));
 };
 
 const isListenModeSpeakableText = (raw: string) => {
@@ -33,244 +44,6 @@ const isListenModeSpeakableText = (raw: string) => {
     return false;
   }
   return true;
-};
-
-const escapeHtml = (raw: string) =>
-  raw
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-
-const parseMarkdownTableRow = (line: string): string[] => {
-  const trimmed = line.trim();
-  const withoutLeading = trimmed.startsWith('|') ? trimmed.slice(1) : trimmed;
-  const withoutEdges = withoutLeading.endsWith('|')
-    ? withoutLeading.slice(0, -1)
-    : withoutLeading;
-  return withoutEdges.split('|').map(cell => cell.trim());
-};
-
-const parseMarkdownTableAlign = (
-  line: string,
-): Array<'left' | 'center' | 'right' | ''> => {
-  const cells = parseMarkdownTableRow(line);
-  return cells.map(cell => {
-    const token = cell.replace(/\s+/g, '');
-    if (!/^:?-{3,}:?$/.test(token)) {
-      return '';
-    }
-    if (token.startsWith(':') && token.endsWith(':')) {
-      return 'center';
-    }
-    if (token.endsWith(':')) {
-      return 'right';
-    }
-    if (token.startsWith(':')) {
-      return 'left';
-    }
-    return '';
-  });
-};
-
-const isMarkdownTableSeparatorLine = (line: string): boolean => {
-  const cells = parseMarkdownTableRow(line);
-  if (cells.length < 2) {
-    return false;
-  }
-  return cells.every(cell => {
-    const token = cell.replace(/\s+/g, '');
-    return /^:?-{3,}:?$/.test(token);
-  });
-};
-
-const findFirstMarkdownTableBlock = (
-  raw: string,
-): { start: number; end: number } | null => {
-  if (!raw) {
-    return null;
-  }
-
-  const lines = raw.split('\n');
-  if (lines.length < 2) {
-    return null;
-  }
-
-  const lineStarts: number[] = [];
-  let cursor = 0;
-  lines.forEach(line => {
-    lineStarts.push(cursor);
-    cursor += line.length + 1;
-  });
-
-  for (let index = 0; index < lines.length - 1; index += 1) {
-    const headerLine = lines[index];
-    const separatorLine = lines[index + 1];
-    if (!headerLine.includes('|') || !separatorLine.includes('|')) {
-      continue;
-    }
-    const headerCells = parseMarkdownTableRow(headerLine);
-    if (headerCells.length < 2) {
-      continue;
-    }
-    if (!isMarkdownTableSeparatorLine(separatorLine)) {
-      continue;
-    }
-
-    let endLine = index + 2;
-    while (endLine < lines.length) {
-      const line = lines[endLine];
-      if (!line.trim()) {
-        break;
-      }
-      if (!line.includes('|')) {
-        break;
-      }
-      endLine += 1;
-    }
-
-    const start = lineStarts[index];
-    const lastLineIndex = Math.max(endLine - 1, index + 1);
-    let end = lineStarts[lastLineIndex] + lines[lastLineIndex].length;
-    if (end < raw.length && raw[end] === '\n') {
-      end += 1;
-    }
-    return { start, end };
-  }
-
-  return null;
-};
-
-const markdownTableToSandboxHtml = (raw: string): string | null => {
-  const lines = (raw || '')
-    .split('\n')
-    .map(line => line.trim())
-    .filter(Boolean);
-  if (lines.length < 2) {
-    return null;
-  }
-
-  const headerLine = lines[0];
-  const separatorLine = lines[1];
-  if (!headerLine.includes('|') || !separatorLine.includes('|')) {
-    return null;
-  }
-
-  const headers = parseMarkdownTableRow(headerLine);
-  const alignments = parseMarkdownTableAlign(separatorLine);
-  if (!headers.length || !alignments.length) {
-    return null;
-  }
-
-  const bodyLines = lines.slice(2).filter(line => line.includes('|'));
-  const headerHtml = headers
-    .map((header, index) => {
-      const align = alignments[index] || '';
-      const alignAttr = align ? ` style="text-align:${align};"` : '';
-      return `<th${alignAttr}>${escapeHtml(header)}</th>`;
-    })
-    .join('');
-
-  const bodyHtml = bodyLines
-    .map(line => {
-      const cells = parseMarkdownTableRow(line);
-      if (!cells.length) {
-        return '';
-      }
-      const cellsHtml = cells
-        .map((cell, index) => {
-          const align = alignments[index] || '';
-          const alignAttr = align ? ` style="text-align:${align};"` : '';
-          return `<td${alignAttr}>${escapeHtml(cell)}</td>`;
-        })
-        .join('');
-      return `<tr>${cellsHtml}</tr>`;
-    })
-    .filter(Boolean)
-    .join('');
-
-  return `<div><table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table></div>`;
-};
-
-const findFirstHtmlVisualBlock = (
-  raw: string,
-): { kind: HtmlVisualKind; start: number; end: number } | null => {
-  if (!raw) {
-    return null;
-  }
-
-  const lower = raw.toLowerCase();
-  const videoStart = lower.indexOf('<video');
-  const tableStart = lower.indexOf('<table');
-  const iframeStart = lower.indexOf('<iframe');
-
-  let kind: HtmlVisualKind | null = null;
-  let start = -1;
-  const candidates: Array<{ kind: HtmlVisualKind; start: number }> = [];
-  if (videoStart !== -1) {
-    candidates.push({ kind: 'video', start: videoStart });
-  }
-  if (tableStart !== -1) {
-    candidates.push({ kind: 'table', start: tableStart });
-  }
-  if (iframeStart !== -1) {
-    candidates.push({ kind: 'iframe', start: iframeStart });
-  }
-  candidates.sort((a, b) => a.start - b.start);
-  const first = candidates[0];
-  if (first) {
-    kind = first.kind;
-    start = first.start;
-  }
-
-  if (!kind || start < 0) {
-    return null;
-  }
-
-  const closeTagName =
-    kind === 'video' ? 'video' : kind === 'table' ? 'table' : 'iframe';
-  const closeIdx = lower.indexOf(`</${closeTagName}`, start);
-  if (closeIdx !== -1) {
-    const closeEnd = raw.indexOf('>', closeIdx);
-    if (closeEnd !== -1) {
-      return { kind, start, end: closeEnd + 1 };
-    }
-  }
-
-  // Best-effort support for self-closing <video ... /> / <iframe ... /> tags.
-  if (kind === 'video' || kind === 'iframe') {
-    const openEnd = raw.indexOf('>', start);
-    if (openEnd !== -1) {
-      const head = raw.slice(start, openEnd + 1);
-      if (/\/\s*>$/.test(head)) {
-        return { kind, start, end: openEnd + 1 };
-      }
-    }
-  }
-
-  return null;
-};
-
-type TextVisualBlock =
-  | { kind: HtmlVisualKind; start: number; end: number }
-  | { kind: 'markdown-table'; start: number; end: number };
-
-const findFirstTextVisualBlock = (raw: string): TextVisualBlock | null => {
-  const htmlBlock = findFirstHtmlVisualBlock(raw);
-  const markdownTableBlock = findFirstMarkdownTableBlock(raw);
-  if (!htmlBlock && !markdownTableBlock) {
-    return null;
-  }
-  if (!htmlBlock) {
-    return { kind: 'markdown-table', ...markdownTableBlock! };
-  }
-  if (!markdownTableBlock) {
-    return htmlBlock;
-  }
-  return markdownTableBlock.start < htmlBlock.start
-    ? { kind: 'markdown-table', ...markdownTableBlock }
-    : htmlBlock;
 };
 
 const splitTextByVisualBlocks = (raw: string): RenderSegment[] => {
@@ -345,9 +118,7 @@ const splitSandboxByRootBoundary = (
   }
 
   const tag = match[1] as HtmlSandboxRootTag;
-  if (
-    !['iframe', 'div', 'section', 'article', 'main', 'template'].includes(tag)
-  ) {
+  if (!SANDBOX_ROOT_TAGS.includes(tag)) {
     return null;
   }
 
@@ -519,27 +290,15 @@ const splitListenModeSegments = (raw: string): RenderSegment[] => {
   return output;
 };
 
-const toRenderSegmentFromBackendSlide = (
-  slide: ListenSlideData,
-): RenderSegment => {
-  if (slide.is_placeholder || slide.segment_type === 'placeholder') {
-    return { type: 'sandbox', value: '<div></div>' };
-  }
-  if (slide.segment_type === 'sandbox') {
-    return { type: 'sandbox', value: slide.segment_content || '<div></div>' };
-  }
-  return { type: 'markdown', value: slide.segment_content || '' };
-};
-
 const isRenderableBackendSlide = (slide: ListenSlideData): boolean => {
   if (slide.is_placeholder || slide.segment_type === 'placeholder') {
     return false;
   }
-  const content =
-    typeof slide.segment_content === 'string'
-      ? slide.segment_content.trim()
-      : '';
-  return content.length > 0;
+  // All finalized slides (is_placeholder=false) are renderable, regardless of segment_content.
+  // Backend intentionally clears segment_content in NEW_SLIDE events (see streaming_tts.py:827-830),
+  // expecting frontend to render from accumulated CONTENT stream chunks.
+  // This ensures every finalized slide gets a page number and can be navigated to.
+  return true;
 };
 
 export type AudioInteractionItem = ChatContentItem & {
@@ -568,34 +327,7 @@ const resolveListenAudioWatchdogMs = (audioDurationMs?: number) => {
   return LISTEN_AUDIO_WATCHDOG_FALLBACK_MS;
 };
 
-const getAvailableAudioPositions = (item: ChatContentItem): number[] => {
-  const contractPositions =
-    item.avContract && item.avContract.speakable_segments
-      ? item.avContract.speakable_segments
-          .map(segment => Number(segment.position ?? 0))
-          .filter(value => !Number.isNaN(value))
-      : [];
-  const persistedPositions =
-    item.audios && item.audios.length > 0
-      ? Array.from(
-          new Set(
-            item.audios
-              .map(audio => Number((audio as any).position ?? 0))
-              .filter(value => !Number.isNaN(value)),
-          ),
-        )
-      : [];
-  const trackPositions =
-    item.audioTracksByPosition &&
-    Object.keys(item.audioTracksByPosition).length > 0
-      ? Object.keys(item.audioTracksByPosition)
-          .map(Number)
-          .filter(value => !Number.isNaN(value))
-      : [];
-  return Array.from(
-    new Set([...contractPositions, ...persistedPositions, ...trackPositions]),
-  ).sort((a, b) => a - b);
-};
+const getAvailableAudioPositions = extractAudioPositions;
 
 const hasAnyAudioPayload = (item: ChatContentItem): boolean => {
   const hasAnySegmentedAudio = Boolean(
@@ -702,31 +434,13 @@ export const useListenContentData = (
           Number.isFinite(Number(slide?.slide_index)),
       )
       .sort((a, b) => Number(a.slide_index) - Number(b.slide_index));
-    const hasRenderableBackendSlides = normalizedBackendSlides.some(
-      isRenderableBackendSlide,
-    );
-    const hasIncompleteBackendVisualSlides = normalizedBackendSlides.some(
-      slide => {
-        if (slide.is_placeholder || slide.segment_type === 'placeholder') {
-          return false;
-        }
-        const content =
-          typeof slide.segment_content === 'string'
-            ? slide.segment_content.trim()
-            : '';
-        return content.length === 0;
-      },
-    );
-    const shouldUseBackendSlides =
-      hasRenderableBackendSlides && !hasIncompleteBackendVisualSlides;
-    const allowRuntimeSlideIdBinding =
-      normalizedBackendSlides.length === 0 || shouldUseBackendSlides;
-    const effectiveBackendSlides = shouldUseBackendSlides
-      ? normalizedBackendSlides
-      : [];
-    const renderableBackendSlides = effectiveBackendSlides.filter(
-      isRenderableBackendSlide,
-    );
+    // Backend sends NEW_SLIDE events as lightweight timeline signals without
+    // segment_content (streaming_tts.py:827-830 clears it intentionally).
+    // Therefore backend slides are used ONLY for position-to-page mapping and
+    // slide-ID binding.  Rendering always uses local parsing of the accumulated
+    // CONTENT stream (nextSlideItems).
+    const effectiveBackendSlides = normalizedBackendSlides;
+    const allowRuntimeSlideIdBinding = true;
     const backendPageByBlockPosition = new Map<string, number>();
     const backendSlideIdByBlockPosition = new Map<string, string>();
     let latestRenderableBackendPage = -1;
@@ -736,8 +450,21 @@ export const useListenContentData = (
       const key = `${blockBid}:${audioPosition}`;
       backendSlideIdByBlockPosition.set(key, slide.slide_id);
       if (isRenderableBackendSlide(slide)) {
-        latestRenderableBackendPage += 1;
-        backendPageByBlockPosition.set(key, latestRenderableBackendPage);
+        // Only visual boundary slides (iframe, svg, table, etc.) get their own
+        // page.  Text-only slides share the page of the nearest visual so that
+        // page numbering aligns with local visual-segment parsing.
+        const isVisualBoundary = Boolean(
+          slide.visual_kind &&
+          slide.visual_kind !== '' &&
+          slide.visual_kind !== 'placeholder',
+        );
+        if (isVisualBoundary) {
+          latestRenderableBackendPage += 1;
+        }
+        backendPageByBlockPosition.set(
+          key,
+          Math.max(latestRenderableBackendPage, 0),
+        );
         return;
       }
       // Non-renderable placeholder slides should not create extra pages.
@@ -746,22 +473,6 @@ export const useListenContentData = (
         backendPageByBlockPosition.set(key, latestRenderableBackendPage);
       }
     });
-    const backendSlideItems: ListenSlideItem[] = renderableBackendSlides.map(
-      slide => {
-        const blockBid = slide.generated_block_bid || '';
-        const contentItem = contentItemByBid.get(blockBid);
-        return {
-          item:
-            contentItem ||
-            ({
-              generated_block_bid: blockBid,
-              type: ChatContentItemType.CONTENT,
-              content: '',
-            } as ChatContentItem),
-          segments: [toRenderSegmentFromBackendSlide(slide)],
-        };
-      },
-    );
     let fallbackPlaceholderItem: ChatContentItem | null = null;
     type SegmentTuple = {
       sourceIndex: number;
@@ -1028,14 +739,16 @@ export const useListenContentData = (
             !(typeof mappedPage === 'number' && mappedPage >= 0) &&
             !(typeof backendPage === 'number' && backendPage >= 0)
           ) {
-            // eslint-disable-next-line no-console
-            console.warn('[listen-timeline] position exists but no slide', {
-              generated_block_bid: contentItem.generated_block_bid,
-              position,
-              mappedPage,
-              backendPage,
-              fallbackPage,
-            });
+            // Fallback to a default page when no slide is mapped.
+            // This is expected during streaming or for audio-only blocks.
+            // Uncomment below to debug slide mapping issues:
+            // console.warn('[listen-timeline] position exists but no slide', {
+            //   generated_block_bid: contentItem.generated_block_bid,
+            //   position,
+            //   mappedPage,
+            //   backendPage,
+            //   fallbackPage,
+            // });
           }
           const timelineItem: AudioInteractionItem = {
             ...contentItem,
@@ -1090,10 +803,9 @@ export const useListenContentData = (
       });
     });
 
-    const finalSlideItems =
-      shouldUseBackendSlides && backendSlideItems.length > 0
-        ? backendSlideItems
-        : nextSlideItems;
+    // Always use locally parsed slides for rendering.  Backend slides only
+    // contribute position mapping (backendPageByBlockPosition) above.
+    const finalSlideItems = nextSlideItems;
 
     return {
       slideItems: finalSlideItems,
@@ -1771,11 +1483,19 @@ export const useListenAudioSequence = ({
 
   const syncToSequencePage = useCallback(
     (page: number) => {
+      console.log('[listen-debug] syncToSequencePage called:', { page });
+
       if (page < 0) {
+        console.log(
+          '[listen-debug] syncToSequencePage: page < 0, returning false',
+        );
         return false;
       }
       const deck = deckRef.current;
       if (!deck) {
+        console.log(
+          '[listen-debug] syncToSequencePage: no deck, returning true',
+        );
         return true;
       }
 
@@ -1786,8 +1506,11 @@ export const useListenAudioSequence = ({
         if (typeof deck.layout === 'function') {
           deck.layout();
         }
-      } catch {
-        // Ignore sync/layout errors, caller handles retry.
+      } catch (e) {
+        console.warn(
+          '[listen-debug] syncToSequencePage: sync/layout error:',
+          e,
+        );
       }
 
       const slidesLength =
@@ -1796,17 +1519,40 @@ export const useListenAudioSequence = ({
           : typeof deck.getTotalSlides === 'function'
             ? deck.getTotalSlides()
             : 0;
+      console.log(
+        '[listen-debug] syncToSequencePage: slidesLength =',
+        slidesLength,
+      );
+
       if (slidesLength <= 0) {
+        console.log(
+          '[listen-debug] syncToSequencePage: slidesLength <= 0, returning true',
+        );
         return true;
       }
       if (page >= slidesLength) {
+        console.log(
+          '[listen-debug] syncToSequencePage: page >= slidesLength, returning false',
+        );
         return false;
       }
 
       const currentIndex = deck.getIndices?.().h ?? 0;
-      if (currentIndex !== page) {
-        deck.slide(page);
-      }
+      console.log('[listen-debug] syncToSequencePage:', {
+        currentIndex,
+        targetPage: page,
+        willSlide: currentIndex !== page,
+      });
+
+      // Always call deck.slide() to ensure Reveal.js re-renders the slide content.
+      // This is critical when multiple audio positions share the same page number
+      // (e.g., during streaming when not all slides have arrived yet).
+      // Calling slide() even when already on the target page forces Reveal.js to
+      // sync DOM and re-render, ensuring the latest content is displayed.
+      console.log(
+        '[listen-debug] syncToSequencePage: calling deck.slide(' + page + ')',
+      );
+      deck.slide(page);
       return true;
     },
     [deckRef],
@@ -1957,6 +1703,15 @@ export const useListenAudioSequence = ({
         return;
       }
 
+      console.log('[listen-debug] resolveIndex called:', {
+        index,
+        reason,
+        retryCount,
+        nextItemPage: nextItem.page,
+        nextItemBid: nextItem.generated_block_bid,
+        nextItemPosition: nextItem.audioPosition,
+      });
+
       sequenceIndexRef.current = index;
       sequenceUnitIdRef.current = getItemUnitId(nextItem, index);
       setIsAudioSequenceActive(true);
@@ -1966,6 +1721,9 @@ export const useListenAudioSequence = ({
         nextItem.type === ChatContentItemType.CONTENT &&
         !hasPlayableAudioForItem(nextItem)
       ) {
+        console.log(
+          '[listen-debug] resolveIndex: no playable audio, entering waiting_audio mode',
+        );
         syncToSequencePage(nextItem.page);
         setSequenceInteraction(null);
         setActiveAudioBid(null);
@@ -1983,8 +1741,20 @@ export const useListenAudioSequence = ({
         return;
       }
 
+      console.log(
+        '[listen-debug] resolveIndex: syncing to page',
+        nextItem.page,
+      );
       const pageReady = syncToSequencePage(nextItem.page);
+      console.log(
+        '[listen-debug] resolveIndex: syncToSequencePage returned',
+        pageReady,
+      );
+
       if (!pageReady) {
+        console.log(
+          '[listen-debug] resolveIndex: page not ready, will retry in 120ms',
+        );
         setSequenceMode('waiting_audio');
         audioSequenceTimerRef.current = setTimeout(() => {
           dispatchSequenceEventRef.current({
@@ -1998,6 +1768,7 @@ export const useListenAudioSequence = ({
       }
 
       if (nextItem.type === ChatContentItemType.INTERACTION) {
+        console.log('[listen-debug] resolveIndex: opening interaction');
         dispatchSequenceEventRef.current({
           type: 'INTERACTION_OPENED',
           item: nextItem,
@@ -2006,6 +1777,13 @@ export const useListenAudioSequence = ({
         return;
       }
 
+      console.log(
+        '[listen-debug] resolveIndex: setting active audio and starting playback',
+        {
+          bid: nextItem.generated_block_bid,
+          position: nextItem.audioPosition ?? 0,
+        },
+      );
       interactionNextIndexRef.current = null;
       setSequenceInteraction(null);
       setActiveAudioBid(nextItem.generated_block_bid);
@@ -2138,17 +1916,24 @@ export const useListenAudioSequence = ({
       }
 
       if (event.type === 'AUDIO_ENDED') {
+        console.log('[listen-debug] AUDIO_ENDED event received');
         if (isSequencePausedRef.current) {
+          console.log(
+            '[listen-debug] Sequence is paused, ignoring AUDIO_ENDED',
+          );
           return;
         }
         const list = audioSequenceListRef.current;
         if (!list.length) {
+          console.log('[listen-debug] List is empty, ending sequence');
           endSequence({ tryAdvanceToNextBlock: true });
           return;
         }
 
         const currentIndex = resolveCurrentSequenceIndex(list);
+        console.log('[listen-debug] Current index:', currentIndex);
         if (currentIndex < 0) {
+          console.log('[listen-debug] Invalid current index, ending sequence');
           endSequence();
           return;
         }
@@ -2169,30 +1954,55 @@ export const useListenAudioSequence = ({
             ? resolveContentBid(nextItem.generated_block_bid)
             : null;
 
+        console.log('[listen-debug] Audio ended state:', {
+          currentIndex,
+          nextIndex,
+          currentPage,
+          deckCurrentPage,
+          nextPage,
+          currentBid,
+          nextBid,
+          hasNextItem: !!nextItem,
+          listLength: list.length,
+        });
+
         if (
           typeof currentPage === 'number' &&
           typeof nextPage === 'number' &&
           nextPage > currentPage + 1
         ) {
+          console.log(
+            '[listen-debug] Skip ahead case: nextPage > currentPage + 1',
+          );
           const targetPage = nextPage;
           const moved = syncToSequencePage(targetPage);
           if (!moved) {
+            console.log(
+              '[listen-debug] Failed to sync to page, retrying in 120ms',
+            );
             clearAudioSequenceTimer();
             audioSequenceTimerRef.current = setTimeout(() => {
               dispatchSequenceEventRef.current({ type: 'AUDIO_ENDED' });
             }, 120);
             return;
           }
+          console.log('[listen-debug] Synced to page, resolving next index');
           resolveIndex(nextIndex, 0, 'audio-ended-skip-ahead');
           return;
         }
 
         if (currentBid && nextBid && currentBid === nextBid) {
+          console.log(
+            '[listen-debug] Same block case: advancing to next position',
+          );
           resolveIndex(nextIndex, 0, 'audio-ended-same-block');
           return;
         }
 
         if (!nextItem) {
+          console.log(
+            '[listen-debug] No next item, checking for remaining slides',
+          );
           const deck = deckRef.current;
           const totalSlides =
             deck && typeof deck.getSlides === 'function'
@@ -2200,26 +2010,42 @@ export const useListenAudioSequence = ({
               : deck && typeof deck.getTotalSlides === 'function'
                 ? deck.getTotalSlides()
                 : 0;
+          console.log(
+            '[listen-debug] Total slides:',
+            totalSlides,
+            'Deck current page:',
+            deckCurrentPage,
+          );
           if (totalSlides > deckCurrentPage + 1) {
             const targetPage = deckCurrentPage + 1;
             const moved = syncToSequencePage(targetPage);
             if (!moved) {
+              console.log(
+                '[listen-debug] Failed to sync to remaining slide, retrying in 120ms',
+              );
               clearAudioSequenceTimer();
               audioSequenceTimerRef.current = setTimeout(() => {
                 dispatchSequenceEventRef.current({ type: 'AUDIO_ENDED' });
               }, 120);
               return;
             }
+            console.log(
+              '[listen-debug] Synced to remaining slide, ending sequence',
+            );
             endSequence();
             return;
           }
         }
 
         if (nextIndex >= list.length) {
+          console.log(
+            '[listen-debug] Next index exceeds list length, ending sequence',
+          );
           endSequence({ tryAdvanceToNextBlock: true });
           return;
         }
 
+        console.log('[listen-debug] Default case: advancing to next item');
         resolveIndex(nextIndex, 0, 'audio-ended-next');
         return;
       }

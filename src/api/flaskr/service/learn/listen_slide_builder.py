@@ -165,12 +165,13 @@ def build_listen_slides_for_block(
             )
         else:
             # Narration before the first visual (or no visual at all).
-            slide_key = "placeholder:pre_visual"
+            # Create a unique text slide for each audio position to ensure proper navigation.
+            slide_key = f"text:{position}"
             slide_id = ensure_slide(
                 key=slide_key,
-                visual_kind="placeholder",
+                visual_kind="",
                 source_span=list(segment["source_span"] or []),
-                is_placeholder=True,
+                is_placeholder=False,
                 audio_position=position,
             )
 

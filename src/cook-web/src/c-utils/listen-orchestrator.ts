@@ -48,6 +48,62 @@ export const buildListenUnitId = ({
   return `other:${generatedBlockBid || fallbackIndex}`;
 };
 
+/**
+ * Extract all available audio positions from a chat content item.
+ * Consolidates positions from avContract, audios, and audioTracksByPosition.
+ *
+ * @param item - The chat content item to extract positions from
+ * @returns Sorted array of unique audio positions
+ *
+ * @example
+ * const positions = extractAudioPositions({
+ *   avContract: { speakable_segments: [{ position: 0 }, { position: 1 }] },
+ *   audios: [{ position: 2 }],
+ *   audioTracksByPosition: { '3': { ... } },
+ * });
+ * // => [0, 1, 2, 3]
+ */
+export const extractAudioPositions = (item: {
+  avContract?: {
+    speakable_segments?: Array<{ position?: unknown }>;
+  } | null;
+  audios?: Array<{ position?: unknown }> | null;
+  audioTracksByPosition?: Record<string, unknown> | null;
+}): number[] => {
+  // Extract positions from AV contract speakable segments
+  const contractPositions = item.avContract?.speakable_segments
+    ? item.avContract.speakable_segments
+        .map(segment => Number(segment.position ?? 0))
+        .filter(value => !Number.isNaN(value))
+    : [];
+
+  // Extract positions from persisted audio array
+  const persistedPositions =
+    item.audios && item.audios.length > 0
+      ? Array.from(
+          new Set(
+            item.audios
+              .map(audio => Number((audio as any).position ?? 0))
+              .filter(value => !Number.isNaN(value)),
+          ),
+        )
+      : [];
+
+  // Extract positions from audio tracks by position map
+  const trackPositions =
+    item.audioTracksByPosition &&
+    Object.keys(item.audioTracksByPosition).length > 0
+      ? Object.keys(item.audioTracksByPosition)
+          .map(Number)
+          .filter(value => !Number.isNaN(value))
+      : [];
+
+  // Combine all positions, deduplicate, and sort
+  return Array.from(
+    new Set([...contractPositions, ...persistedPositions, ...trackPositions]),
+  ).sort((a, b) => a - b);
+};
+
 export type ListenInboundAudioEvent = {
   type: ListenAudioEventType;
   generatedBlockBid: string;
