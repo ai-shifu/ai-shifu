@@ -78,9 +78,6 @@ PAYMENT_STATUS_KEY_MAP = {
 }
 
 IMPORT_ACTIVATION_MOBILE_PATTERN = re.compile(r"(?<!\d)\d{11}(?!\d)")
-IMPORT_ACTIVATION_EMAIL_PATTERN = re.compile(
-    r"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![A-Za-z0-9.-])"
-)
 IMPORT_ACTIVATION_TEXT_PATTERN = re.compile(r"[A-Za-z\u4E00-\u9FFF]")
 IMPORT_ACTIVATION_MAX_TEXT_LENGTH = 10_000
 
