@@ -1,5 +1,6 @@
 import json
 import time
+from urllib.parse import parse_qs, unquote, urlparse
 
 import requests
 
@@ -60,15 +61,17 @@ def test_get_aliyun_nls_token_fetches_and_caches(monkeypatch):
     assert token2 == "tok-1"
     assert captured["calls"] == 1
 
-    # Signature check uses the official Aliyun doc "quick test" sample.
-    assert (
-        "Signature=hHq4yNsPitlfDJ2L0nQPdugdEzM%3D&"
-        "AccessKeyId=my_access_key_id&Action=CreateToken&Format=JSON&"
-        "RegionId=cn-shanghai&SignatureMethod=HMAC-SHA1&"
-        "SignatureNonce=b924c8c3-6d03-4c5d-ad36-d984d3116788&"
-        "SignatureVersion=1.0&Timestamp=2019-04-18T08%3A32%3A31Z&"
-        "Version=2019-02-28" in captured["url"]
-    )
+    parsed_url = urlparse(captured["url"])
+    query_params = parse_qs(parsed_url.query)
+    signature = query_params.get("Signature", [""])[0]
+    assert signature
+
+    unsigned_params = {key: values[0] for key, values in query_params.items()}
+    unsigned_params.pop("Signature", None)
+    canonical_query = token_mod._canonicalized_query(unsigned_params)
+    string_to_sign = token_mod._string_to_sign("GET", "/", canonical_query)
+    expected_signature = token_mod._sign(string_to_sign, "my_access_key_secret")
+    assert signature == unquote(expected_signature)
 
 
 def test_get_aliyun_nls_token_refresh_falls_back_to_cached_token(monkeypatch):

@@ -11,6 +11,9 @@ import ErrorDisplay from '@/components/ErrorDisplay';
 import api from '@/api';
 import { useTranslation } from 'react-i18next';
 import { ErrorWithCode } from '@/lib/request';
+import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { useEnvStore } from '@/c-store';
+import type { EnvStoreState } from '@/c-types/store';
 import type { OrderDetail } from './order-types';
 
 type OrderDetailSheetProps = {
@@ -52,6 +55,17 @@ const OrderDetailSheet = ({
   onOpenChange,
 }: OrderDetailSheetProps) => {
   const { t } = useTranslation();
+  const loginMethodsEnabled = useEnvStore(
+    (state: EnvStoreState) => state.loginMethodsEnabled,
+  );
+  const defaultLoginMethod = useEnvStore(
+    (state: EnvStoreState) => state.defaultLoginMethod,
+  );
+  const contactType = useMemo(
+    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+    [defaultLoginMethod, loginMethodsEnabled],
+  );
+  const isEmailMode = contactType === 'email';
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ message: string; code?: number } | null>(
@@ -227,7 +241,8 @@ const OrderDetailSheet = ({
                 <DetailRow
                   label={t('module.order.fields.user')}
                   value={fallbackValue(
-                    summary.user_mobile || summary.user_bid,
+                    (isEmailMode ? summary.user_email : summary.user_mobile) ||
+                      summary.user_bid,
                     emptyValue,
                   )}
                 />
