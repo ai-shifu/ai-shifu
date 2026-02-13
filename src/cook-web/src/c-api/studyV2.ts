@@ -121,12 +121,14 @@ export interface AudioSegmentData {
   audio_data: string; // Base64 encoded
   duration_ms: number;
   is_final: boolean;
+  position?: number;
 }
 
 export interface AudioCompleteData {
   audio_url: string;
   audio_bid: string;
   duration_ms: number;
+  position?: number;
 }
 
 export interface StreamGeneratedBlockAudioParams {

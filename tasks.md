@@ -6,7 +6,7 @@
 
 - [x] Add DB migration to append `position` to `learn_generated_audios` with index `(generated_block_bid, position)`.
 - [x] Update `LearnGeneratedAudio` model to include `position`.
-- [ ] Extend audio DTOs (`AudioSegmentDTO`, `AudioCompleteDTO`) with optional `position`.
+- [x] Extend audio DTOs (`AudioSegmentDTO`, `AudioCompleteDTO`) with optional `position`.
 - [ ] Refactor `StreamingTTSProcessor` to flush/persist multiple audio units by visual boundaries and emit positioned audio events.
 - [ ] Update `get_learn_record`/DTOs to expose ordered audio tracks while keeping `audio_url` fallback compatibility.
 

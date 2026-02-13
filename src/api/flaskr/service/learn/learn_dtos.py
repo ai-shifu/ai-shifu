@@ -290,6 +290,9 @@ class AudioSegmentDTO(BaseModel):
     is_final: bool = Field(
         default=False, description="Whether this is the last segment"
     )
+    position: Optional[int] = Field(
+        default=None, description="Audio unit position within generated block"
+    )
 
     def __init__(
         self,
@@ -297,21 +300,26 @@ class AudioSegmentDTO(BaseModel):
         audio_data: str,
         duration_ms: int = 0,
         is_final: bool = False,
+        position: Optional[int] = None,
     ):
         super().__init__(
             segment_index=segment_index,
             audio_data=audio_data,
             duration_ms=duration_ms,
             is_final=is_final,
+            position=position,
         )
 
     def __json__(self):
-        return {
+        payload = {
             "segment_index": self.segment_index,
             "audio_data": self.audio_data,
             "duration_ms": self.duration_ms,
             "is_final": self.is_final,
         }
+        if self.position is not None:
+            payload["position"] = self.position
+        return payload
 
 
 @register_schema_to_swagger
@@ -321,25 +329,33 @@ class AudioCompleteDTO(BaseModel):
     audio_url: str = Field(..., description="OSS URL of complete audio")
     audio_bid: str = Field(..., description="Audio business identifier")
     duration_ms: int = Field(..., description="Total audio duration in milliseconds")
+    position: Optional[int] = Field(
+        default=None, description="Audio unit position within generated block"
+    )
 
     def __init__(
         self,
         audio_url: str,
         audio_bid: str,
         duration_ms: int,
+        position: Optional[int] = None,
     ):
         super().__init__(
             audio_url=audio_url,
             audio_bid=audio_bid,
             duration_ms=duration_ms,
+            position=position,
         )
 
     def __json__(self):
-        return {
+        payload = {
             "audio_url": self.audio_url,
             "audio_bid": self.audio_bid,
             "duration_ms": self.duration_ms,
         }
+        if self.position is not None:
+            payload["position"] = self.position
+        return payload
 
 
 @register_schema_to_swagger
