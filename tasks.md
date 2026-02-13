@@ -256,3 +256,85 @@
 - [ ] Run `npm run lint` and `npm run type-check` in `src/cook-web`.
 - [x] Run targeted listen-mode test suites.
 - [ ] Run `pre-commit run -a` before commit.
+
+## 2026-02-13 Listen Mode Slide-ID + `new_slide` Contract (No DB Table)
+
+### 0. Design and Alignment
+
+- [x] Write design doc: `docs/listen-mode-slide-id-newslide-design.md`.
+- [ ] Team review for event contract fields (`new_slide`, `slide_id` on audio events, `/records.slides`).
+- [ ] Decide feature flag name and default (`LISTEN_SLIDE_ID_V1` suggested).
+
+### 1. Backend Contract Types
+
+- [ ] Add `GeneratedType.NEW_SLIDE = "new_slide"` in learn DTO enum.
+- [ ] Add `NewSlideDTO` schema in `learn_dtos.py`.
+- [ ] Extend `AudioSegmentDTO` with optional `slide_id`.
+- [ ] Extend `AudioCompleteDTO` with optional `slide_id`.
+- [ ] Extend `LearnRecordDTO` with optional `slides: list[NewSlideDTO]`.
+- [ ] Keep all existing fields backward-compatible (no removal in this phase).
+
+### 2. Shared Slide Builder (In-Memory)
+
+- [ ] Implement shared helper to build listen slides from:
+- [ ] raw generated content
+- [ ] AV contract (`visual_boundaries`, `speakable_segments`)
+- [ ] generated block bid
+- [ ] Generate `slide_id` with UUID dynamically (response/run scoped only).
+- [ ] Build mapping `audio_position -> slide_id`.
+- [ ] Support placeholder slide for pre-visual narration / text-only content.
+- [ ] Reuse this helper in both `/run` and `/records` paths.
+
+### 3. `/run` SSE Path
+
+- [ ] Add run-local slide registry for current stream.
+- [ ] Emit `new_slide` before first audio event for each slide.
+- [ ] Enrich `audio_segment` with `slide_id`.
+- [ ] Enrich `audio_complete` with `slide_id`.
+- [ ] Add ordering guard to prevent audio before corresponding `new_slide`.
+- [ ] Preserve legacy behavior when flag is off.
+
+### 4. `/records` Path
+
+- [ ] In `get_learn_record`, generate `slides[]` with same shape as `new_slide`.
+- [ ] Ensure global `slide_index` ordering is deterministic in one response.
+- [ ] Keep `records[]` existing semantics unchanged.
+- [ ] Return `slides[]` only when listen-mode feature is enabled (or always if agreed).
+
+### 5. Frontend Ingestion (`useChatLogicHook`)
+
+- [ ] Handle SSE `type === "new_slide"` and upsert by `slide_id`.
+- [ ] Extend local listen timeline state to store ordered slides.
+- [ ] Update audio event ingestion:
+- [ ] Prefer `slide_id` binding when provided.
+- [ ] Fallback to `(generated_block_bid, position)` when missing.
+- [ ] On refresh (`/records`), hydrate listen slides from `slides[]`.
+
+### 6. Frontend Renderer and Sequencer
+
+- [ ] `ListenModeRenderer` render slides from backend-provided `slides[]` (flag path).
+- [ ] Reduce/remove frontend visual re-segmentation dependency in flag path.
+- [ ] `useListenAudioSequence` use `slide_id` as primary content unit identity.
+- [ ] Keep interaction gating behavior unchanged.
+- [ ] Keep legacy path available as fallback when no `slide_id`.
+
+### 7. Testing
+
+- [ ] Backend unit tests for `NewSlideDTO` serialization and compatibility.
+- [ ] Backend integration test: `/run` emits `new_slide` before `audio_*` for each slide.
+- [ ] Backend integration test: `/records` returns `slides[]` and valid `slide_id` references.
+- [ ] Frontend unit test: `new_slide` ingestion + dedup/update by `slide_id`.
+- [ ] Frontend unit test: audio binding by `slide_id` with legacy fallback.
+- [ ] Frontend integration test: no frontend segmentation needed in flag path.
+
+### 8. Rollout and Cleanup
+
+- [ ] Add metrics:
+- [ ] count missing `slide_id` audio events
+- [ ] count unmatched audio->slide bindings
+- [ ] count fallback-to-legacy mapping usage
+- [ ] Enable flag in internal env and run manual matrix.
+- [ ] Run `pytest` related suites in `src/api`.
+- [ ] Run `npm run lint` + `npm run type-check` in `src/cook-web`.
+- [ ] Run `pre-commit run -a`.
+- [ ] After stabilization, plan legacy listen-mapping code removal.
