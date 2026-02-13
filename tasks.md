@@ -283,7 +283,7 @@
 - [x] Generate `slide_id` with UUID dynamically (response/run scoped only).
 - [x] Build mapping `audio_position -> slide_id`.
 - [x] Support placeholder slide for pre-visual narration / text-only content.
-- [ ] Reuse this helper in both `/run` and `/records` paths.
+- [x] Reuse this helper in both `/run` and `/records` paths.
 
 ### 3. `/run` SSE Path
 
@@ -296,10 +296,10 @@
 
 ### 4. `/records` Path
 
-- [ ] In `get_learn_record`, generate `slides[]` with same shape as `new_slide`.
-- [ ] Ensure global `slide_index` ordering is deterministic in one response.
-- [ ] Keep `records[]` existing semantics unchanged.
-- [ ] Return `slides[]` only when listen-mode feature is enabled (or always if agreed).
+- [x] In `get_learn_record`, generate `slides[]` with same shape as `new_slide`.
+- [x] Ensure global `slide_index` ordering is deterministic in one response.
+- [x] Keep `records[]` existing semantics unchanged.
+- [x] Return `slides[]` only when listen-mode feature is enabled (or always if agreed).
 
 ### 5. Frontend Ingestion (`useChatLogicHook`)
 
@@ -322,7 +322,7 @@
 
 - [x] Backend unit tests for `NewSlideDTO` serialization and compatibility.
 - [ ] Backend integration test: `/run` emits `new_slide` before `audio_*` for each slide.
-- [ ] Backend integration test: `/records` returns `slides[]` and valid `slide_id` references.
+- [x] Backend integration test: `/records` returns `slides[]` and valid `slide_id` references.
 - [ ] Frontend unit test: `new_slide` ingestion + dedup/update by `slide_id`.
 - [ ] Frontend unit test: audio binding by `slide_id` with legacy fallback.
 - [ ] Frontend integration test: no frontend segmentation needed in flag path.
