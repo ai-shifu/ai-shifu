@@ -267,11 +267,11 @@
 
 ### 1. Backend Contract Types
 
-- [ ] Add `GeneratedType.NEW_SLIDE = "new_slide"` in learn DTO enum.
-- [ ] Add `NewSlideDTO` schema in `learn_dtos.py`.
-- [ ] Extend `AudioSegmentDTO` with optional `slide_id`.
-- [ ] Extend `AudioCompleteDTO` with optional `slide_id`.
-- [ ] Extend `LearnRecordDTO` with optional `slides: list[NewSlideDTO]`.
+- [x] Add `GeneratedType.NEW_SLIDE = "new_slide"` in learn DTO enum.
+- [x] Add `NewSlideDTO` schema in `learn_dtos.py`.
+- [x] Extend `AudioSegmentDTO` with optional `slide_id`.
+- [x] Extend `AudioCompleteDTO` with optional `slide_id`.
+- [x] Extend `LearnRecordDTO` with optional `slides: list[NewSlideDTO]`.
 - [ ] Keep all existing fields backward-compatible (no removal in this phase).
 
 ### 2. Shared Slide Builder (In-Memory)
@@ -320,7 +320,7 @@
 
 ### 7. Testing
 
-- [ ] Backend unit tests for `NewSlideDTO` serialization and compatibility.
+- [x] Backend unit tests for `NewSlideDTO` serialization and compatibility.
 - [ ] Backend integration test: `/run` emits `new_slide` before `audio_*` for each slide.
 - [ ] Backend integration test: `/records` returns `slides[]` and valid `slide_id` references.
 - [ ] Frontend unit test: `new_slide` ingestion + dedup/update by `slide_id`.
