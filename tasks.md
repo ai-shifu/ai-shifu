@@ -305,18 +305,18 @@
 
 - [x] Handle SSE `type === "new_slide"` and upsert by `slide_id`.
 - [x] Extend local listen timeline state to store ordered slides.
-- [ ] Update audio event ingestion:
+- [x] Update audio event ingestion:
 - [x] Prefer `slide_id` binding when provided.
 - [x] Fallback to `(generated_block_bid, position)` when missing.
 - [x] On refresh (`/records`), hydrate listen slides from `slides[]`.
 
 ### 6. Frontend Renderer and Sequencer
 
-- [ ] `ListenModeRenderer` render slides from backend-provided `slides[]` (flag path).
-- [ ] Reduce/remove frontend visual re-segmentation dependency in flag path.
-- [ ] `useListenAudioSequence` use `slide_id` as primary content unit identity.
-- [ ] Keep interaction gating behavior unchanged.
-- [ ] Keep legacy path available as fallback when no `slide_id`.
+- [x] `ListenModeRenderer` render slides from backend-provided `slides[]` (flag path).
+- [x] Reduce/remove frontend visual re-segmentation dependency in flag path.
+- [x] `useListenAudioSequence` use `slide_id` as primary content unit identity.
+- [x] Keep interaction gating behavior unchanged.
+- [x] Keep legacy path available as fallback when no `slide_id`.
 
 ### 7. Testing
 
@@ -324,7 +324,7 @@
 - [ ] Backend integration test: `/run` emits `new_slide` before `audio_*` for each slide.
 - [x] Backend integration test: `/records` returns `slides[]` and valid `slide_id` references.
 - [ ] Frontend unit test: `new_slide` ingestion + dedup/update by `slide_id`.
-- [ ] Frontend unit test: audio binding by `slide_id` with legacy fallback.
+- [x] Frontend unit test: audio binding by `slide_id` with legacy fallback.
 - [ ] Frontend integration test: no frontend segmentation needed in flag path.
 
 ### 8. Rollout and Cleanup

@@ -18,16 +18,21 @@ export const buildListenUnitId = ({
   type,
   generatedBlockBid,
   position,
+  slideId,
   fallbackIndex,
   resolveContentBid,
 }: {
   type: string;
   generatedBlockBid?: string | null;
   position?: unknown;
+  slideId?: string | null;
   fallbackIndex: number;
   resolveContentBid?: (blockBid: string | null) => string | null;
 }): string => {
   if (type === 'content') {
+    if (slideId) {
+      return `content-slide:${slideId}`;
+    }
     const resolved =
       resolveContentBid?.(generatedBlockBid || null) ?? generatedBlockBid ?? '';
     const stableBid = resolved || `unknown-${fallbackIndex}`;

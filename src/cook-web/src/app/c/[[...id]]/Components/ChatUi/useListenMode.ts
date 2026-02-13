@@ -7,6 +7,7 @@ import {
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import type { AudioPlayerHandle } from '@/components/audio/AudioPlayer';
 import { buildListenUnitId } from '@/c-utils/listen-orchestrator';
+import type { ListenSlideData } from '@/c-api/studyV2';
 
 type HtmlVisualKind = 'video' | 'table' | 'iframe';
 type HtmlSandboxRootTag =
@@ -518,9 +519,22 @@ const splitListenModeSegments = (raw: string): RenderSegment[] => {
   return output;
 };
 
+const toRenderSegmentFromBackendSlide = (
+  slide: ListenSlideData,
+): RenderSegment => {
+  if (slide.is_placeholder || slide.segment_type === 'placeholder') {
+    return { type: 'sandbox', value: '<div></div>' };
+  }
+  if (slide.segment_type === 'sandbox') {
+    return { type: 'sandbox', value: slide.segment_content || '<div></div>' };
+  }
+  return { type: 'markdown', value: slide.segment_content || '' };
+};
+
 export type AudioInteractionItem = ChatContentItem & {
   page: number;
   audioPosition?: number;
+  audioSlideId?: string;
 };
 
 export type ListenSlideItem = {
@@ -603,7 +617,10 @@ const hasAnyAudioPayload = (item: ChatContentItem): boolean => {
   );
 };
 
-export const useListenContentData = (items: ChatContentItem[]) => {
+export const useListenContentData = (
+  items: ChatContentItem[],
+  backendSlides?: ListenSlideData[],
+) => {
   const orderedContentBlockBids = useMemo(() => {
     const seen = new Set<string>();
     const bids: string[] = [];
@@ -667,6 +684,48 @@ export const useListenContentData = (items: ChatContentItem[]) => {
     const nextSlideItems: ListenSlideItem[] = [];
     const nextAudioAndInteractionList: AudioInteractionItem[] = [];
     const audioUnitIndexById = new Map<string, number>();
+    const contentItemByBid = new Map<string, ChatContentItem>();
+    for (const item of items) {
+      if (item.type !== ChatContentItemType.CONTENT) {
+        continue;
+      }
+      if (!item.generated_block_bid || item.generated_block_bid === 'loading') {
+        continue;
+      }
+      contentItemByBid.set(item.generated_block_bid, item);
+    }
+
+    const normalizedBackendSlides = (backendSlides || [])
+      .filter(
+        slide =>
+          Boolean(slide?.slide_id) &&
+          Boolean(slide?.generated_block_bid) &&
+          Number.isFinite(Number(slide?.slide_index)),
+      )
+      .sort((a, b) => Number(a.slide_index) - Number(b.slide_index));
+    const backendPageByBlockPosition = new Map<string, number>();
+    const backendSlideIdByBlockPosition = new Map<string, string>();
+    const backendSlideItems: ListenSlideItem[] = normalizedBackendSlides.map(
+      (slide, page) => {
+        const blockBid = slide.generated_block_bid || '';
+        const audioPosition = Number(slide.audio_position ?? 0);
+        const key = `${blockBid}:${audioPosition}`;
+        backendPageByBlockPosition.set(key, page);
+        backendSlideIdByBlockPosition.set(key, slide.slide_id);
+
+        const contentItem = contentItemByBid.get(blockBid);
+        return {
+          item:
+            contentItem ||
+            ({
+              generated_block_bid: blockBid,
+              type: ChatContentItemType.CONTENT,
+              content: '',
+            } as ChatContentItem),
+          segments: [toRenderSegmentFromBackendSlide(slide)],
+        };
+      },
+    );
     let fallbackPlaceholderItem: ChatContentItem | null = null;
     type SegmentTuple = {
       sourceIndex: number;
@@ -868,6 +927,24 @@ export const useListenContentData = (items: ChatContentItem[]) => {
           activeTimelinePage = firstVisualPage;
         }
         if (!hasAnyAudioPayload(contentItem)) {
+          if (normalizedBackendSlides.length > 0) {
+            const backendPagesForBlock = normalizedBackendSlides
+              .filter(
+                slide =>
+                  slide.generated_block_bid === contentItem.generated_block_bid,
+              )
+              .map(slide =>
+                backendPageByBlockPosition.get(
+                  `${slide.generated_block_bid}:${Number(slide.audio_position ?? 0)}`,
+                ),
+              )
+              .filter((page): page is number => typeof page === 'number');
+            if (backendPagesForBlock.length > 0) {
+              activeTimelinePage =
+                backendPagesForBlock[backendPagesForBlock.length - 1];
+              return;
+            }
+          }
           if (lastVisualPage >= 0) {
             activeTimelinePage = lastVisualPage;
           }
@@ -892,16 +969,30 @@ export const useListenContentData = (items: ChatContentItem[]) => {
 
         positions.forEach(position => {
           const mappedPage = pagesForAudio[position];
+          const backendPage = backendPageByBlockPosition.get(
+            `${contentItem.generated_block_bid}:${position}`,
+          );
           const resolvedPage =
-            typeof mappedPage === 'number' && mappedPage >= 0
-              ? mappedPage
-              : fallbackPage;
-          if (typeof mappedPage !== 'number' || mappedPage < 0) {
+            typeof backendPage === 'number' && backendPage >= 0
+              ? backendPage
+              : typeof mappedPage === 'number' && mappedPage >= 0
+                ? mappedPage
+                : fallbackPage;
+          const audioSlideId =
+            contentItem.audioSlideIdByPosition?.[position] ||
+            backendSlideIdByBlockPosition.get(
+              `${contentItem.generated_block_bid}:${position}`,
+            );
+          if (
+            !(typeof mappedPage === 'number' && mappedPage >= 0) &&
+            !(typeof backendPage === 'number' && backendPage >= 0)
+          ) {
             // eslint-disable-next-line no-console
             console.warn('[listen-timeline] position exists but no slide', {
               generated_block_bid: contentItem.generated_block_bid,
               position,
               mappedPage,
+              backendPage,
               fallbackPage,
             });
           }
@@ -909,11 +1000,13 @@ export const useListenContentData = (items: ChatContentItem[]) => {
             ...contentItem,
             page: resolvedPage,
             audioPosition: hasMultiplePositions ? position : undefined,
+            audioSlideId,
           };
           const unitId = buildListenUnitId({
             type: ChatContentItemType.CONTENT,
             generatedBlockBid: contentItem.generated_block_bid,
             position,
+            slideId: audioSlideId,
             fallbackIndex: sourceIndex,
           });
           const existingIndex = audioUnitIndexById.get(unitId);
@@ -956,13 +1049,16 @@ export const useListenContentData = (items: ChatContentItem[]) => {
       });
     });
 
+    const finalSlideItems =
+      backendSlideItems.length > 0 ? backendSlideItems : nextSlideItems;
+
     return {
-      slideItems: nextSlideItems,
+      slideItems: finalSlideItems,
       interactionByPage: interactionMapping,
       audioAndInteractionList: nextAudioAndInteractionList,
       audioPageByBid,
     };
-  }, [items]);
+  }, [backendSlides, items]);
 
   const contentByBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();
@@ -1561,6 +1657,7 @@ export const useListenAudioSequence = ({
         type: item?.type || 'unknown',
         generatedBlockBid: item?.generated_block_bid,
         position: item?.audioPosition ?? 0,
+        slideId: item?.audioSlideId,
         fallbackIndex: index,
         resolveContentBid,
       }),

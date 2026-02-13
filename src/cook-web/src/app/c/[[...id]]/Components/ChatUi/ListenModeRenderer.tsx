@@ -70,7 +70,7 @@ const ListenModeRenderer = ({
     lastInteractionBid,
     lastItemIsInteraction,
     firstContentItem,
-  } = useListenContentData(items);
+  } = useListenContentData(items, backendSlides);
 
   const resolveContentBid = useCallback((blockBid: string | null) => {
     if (!blockBid) {
@@ -565,7 +565,7 @@ const ListenModeRenderer = ({
         <div className='slides'>
           {!isLoading &&
             slideItems.map(({ item, segments }, idx) => {
-              const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
+              const baseKey = `${item.generated_block_bid || item.type}-${idx}`;
               // console.log('segments', baseKey, segments);
               return (
                 <ContentIframe

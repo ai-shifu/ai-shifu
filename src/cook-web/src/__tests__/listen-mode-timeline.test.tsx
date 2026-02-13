@@ -16,6 +16,7 @@ import {
   ChatContentItemType,
   type ChatContentItem,
 } from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
+import type { ListenSlideData } from '@/c-api/studyV2';
 
 const makeAudio = (position: number) => ({
   position,
@@ -159,6 +160,59 @@ describe('useListenContentData timeline mapping', () => {
     expect(interactionQueue).toHaveLength(2);
     expect(interactionQueue[0].generated_block_bid).toBe('interaction-1');
     expect(interactionQueue[1].generated_block_bid).toBe('interaction-2');
+  });
+
+  it('prefers backend slides for render pages and keeps audio slide ids', () => {
+    const content = makeContent(
+      'block-backend',
+      'Narration A. Narration B.',
+      [0, 1],
+    );
+    content.audioSlideIdByPosition = {
+      0: 'slide-0',
+      1: 'slide-1',
+    };
+    const backendSlides: ListenSlideData[] = [
+      {
+        slide_id: 'slide-0',
+        generated_block_bid: 'block-backend',
+        slide_index: 0,
+        audio_position: 0,
+        visual_kind: 'sandbox',
+        segment_type: 'sandbox',
+        segment_content: '<div>Slide A</div>',
+        source_span: [0, 10],
+        is_placeholder: false,
+      },
+      {
+        slide_id: 'slide-1',
+        generated_block_bid: 'block-backend',
+        slide_index: 1,
+        audio_position: 1,
+        visual_kind: 'sandbox',
+        segment_type: 'sandbox',
+        segment_content: '<div>Slide B</div>',
+        source_span: [11, 20],
+        is_placeholder: false,
+      },
+    ];
+
+    const { result } = renderHook(() =>
+      useListenContentData([content], backendSlides),
+    );
+    const audioEntries = pickAudioEntries(
+      result.current.audioAndInteractionList,
+      'block-backend',
+    );
+
+    expect(result.current.slideItems).toHaveLength(2);
+    expect(result.current.slideItems[0].segments[0].value).toContain('Slide A');
+    expect(result.current.slideItems[1].segments[0].value).toContain('Slide B');
+    expect(audioEntries).toHaveLength(2);
+    expect(audioEntries[0].page).toBe(0);
+    expect(audioEntries[0].audioSlideId).toBe('slide-0');
+    expect(audioEntries[1].page).toBe(1);
+    expect(audioEntries[1].audioSlideId).toBe('slide-1');
   });
 
   it('uses av_contract speakable positions when audio payload is partial', () => {
