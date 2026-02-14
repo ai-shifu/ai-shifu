@@ -28,8 +28,10 @@ from ..service.user.user import (
 )
 from ..service.user.utils import (
     ensure_admin_creator_and_demo_permissions,
+    send_email_code,
     send_sms_code,
 )
+from flaskr.service.user.verification_codes import consume_verification_code
 from ..service.feedback.funs import submit_feedback
 from ..service.user.auth import get_provider
 from ..service.user.auth.base import OAuthCallbackRequest
@@ -302,6 +304,35 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         else:
             client_ip = request.remote_addr
         return make_common_response(send_sms_code(app, mobile, client_ip))
+
+    @app.route(path_prefix + "/send_email_code", methods=["POST"])
+    @bypass_token_validation
+    @optional_token_validation
+    def send_email_code_api():
+        """
+        Send email verification code
+        ---
+        tags:
+           - user
+        """
+        email = request.get_json().get("email", None)
+        language = request.get_json().get("language", None)
+        if not email:
+            raise_param_error("email")
+
+        # Best-effort language override for the email subject.
+        if language:
+            try:
+                set_language(language)
+            except Exception:
+                pass
+
+        if "X-Forwarded-For" in request.headers:
+            client_ip = request.headers["X-Forwarded-For"].split(",")[0].strip()
+        else:
+            client_ip = request.remote_addr
+
+        return make_common_response(send_email_code(app, email, client_ip, language))
 
     @app.route(path_prefix + "/verify_sms_code", methods=["POST"])
     @bypass_token_validation
@@ -627,6 +658,12 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         """
         identifier = request.get_json().get("identifier", None)
         password = request.get_json().get("password", None)
+        language = request.get_json().get("language", None)
+        if language:
+            try:
+                set_language(language)
+            except Exception:
+                pass
         if not identifier:
             raise_param_error("identifier")
         if not password:
@@ -650,7 +687,11 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             - user
         """
 
+        identifier = request.get_json().get("identifier", None)
+        code = request.get_json().get("code", None)
         new_password = request.get_json().get("new_password", None)
+        if not code:
+            raise_param_error("code")
         if not new_password:
             raise_param_error("new_password")
         is_valid, err_msg = validate_password_strength(new_password)
@@ -662,23 +703,42 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         # Find user's phone/email credential to get identifier
         creds = list_credentials(user_bid=user_bid)
-        identifier = None
+        available_identifiers = []
         for c in creds:
             if c.provider_name in ("phone", "email") and c.identifier:
-                identifier = c.identifier
-                break
+                normalized = (
+                    c.identifier.lower() if c.provider_name == "email" else c.identifier
+                )
+                available_identifiers.append(normalized)
 
-        if not identifier:
+        selected_identifier = None
+        if identifier:
+            normalized = (
+                identifier.strip().lower() if "@" in identifier else identifier.strip()
+            )
+            if normalized not in available_identifiers:
+                # Avoid leaking whether another account exists for the identifier.
+                raise_error("server.user.invalidCredentials")
+            selected_identifier = normalized
+        else:
+            selected_identifier = (
+                available_identifiers[0] if available_identifiers else None
+            )
+
+        if not selected_identifier:
             raise_param_error("identifier")
 
         # Reject if user already has a password credential (use change_password instead)
         pwd_cred = find_credential(
-            provider_name="password", identifier=identifier, user_bid=user_bid
+            provider_name="password", identifier=selected_identifier, user_bid=user_bid
         )
         if pwd_cred and pwd_cred.password_hash:
-            raise_error("USER.PASSWORD_ALREADY_SET")
+            raise_error("server.user.passwordAlreadySet")
 
-        subject_format = "email" if "@" in identifier else "phone"
+        # Validate ownership by consuming a verification code for the chosen identifier.
+        consume_verification_code(app, identifier=selected_identifier, code=code)
+
+        subject_format = "email" if "@" in selected_identifier else "phone"
 
         if pwd_cred:
             pwd_cred.password_hash = hash_password(new_password)
@@ -687,9 +747,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 credential_bid=generate_id(app),
                 user_bid=user_bid,
                 provider_name="password",
-                subject_id=identifier,
+                subject_id=selected_identifier,
                 subject_format=subject_format,
-                identifier=identifier,
+                identifier=selected_identifier,
                 raw_profile="",
                 password_hash=hash_password(new_password),
                 state=CREDENTIAL_STATE_VERIFIED,
@@ -725,12 +785,12 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         # Find user's password credential
         creds = list_credentials(user_bid=user_bid, provider_name="password")
         if not creds:
-            raise_error("USER.INVALID_CREDENTIALS")
+            raise_error("server.user.invalidCredentials")
 
         pwd_cred = creds[0]
         current_hash = pwd_cred.password_hash or ""
         if not current_hash or not verify_password(old_password, current_hash):
-            raise_error("USER.INVALID_CREDENTIALS")
+            raise_error("server.user.invalidCredentials")
 
         pwd_cred.password_hash = hash_password(new_password)
         db.session.commit()
@@ -760,27 +820,30 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         if not is_valid:
             raise_error(err_msg)
 
-        # Verify identity via verification code (choose phone or email provider)
-        from flaskr.service.user.auth.base import VerificationRequest as VR
+        raw_identifier = identifier.strip()
+        normalized_identifier = (
+            raw_identifier.lower() if "@" in raw_identifier else raw_identifier
+        )
 
-        reset_provider_name = "email" if "@" in identifier else "phone"
-        reset_provider = get_provider(reset_provider_name)
-        reset_vr = VR(identifier=identifier, code=code)
-        reset_provider.verify(app, reset_vr)
-
-        # Find user
+        # Reset is only allowed for existing users. New users must go through
+        # phone-code / Google login first.
         aggregate = load_user_aggregate_by_identifier(
-            identifier, providers=["phone", "email"]
+            normalized_identifier, providers=["phone", "email"]
         )
         if not aggregate:
-            raise_param_error("identifier")
+            raise_error("server.user.userNotFound")
+
+        # Verify identity via verification code without creating/merging users.
+        consume_verification_code(app, identifier=raw_identifier, code=code)
 
         user_bid = aggregate.user_bid
-        subject_format = "email" if "@" in identifier else "phone"
+        subject_format = "email" if "@" in normalized_identifier else "phone"
 
         # Find or create password credential
         pwd_cred = find_credential(
-            provider_name="password", identifier=identifier, user_bid=user_bid
+            provider_name="password",
+            identifier=normalized_identifier,
+            user_bid=user_bid,
         )
         if pwd_cred:
             pwd_cred.password_hash = hash_password(new_password)
@@ -789,9 +852,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 credential_bid=generate_id(app),
                 user_bid=user_bid,
                 provider_name="password",
-                subject_id=identifier,
+                subject_id=normalized_identifier,
                 subject_format=subject_format,
-                identifier=identifier,
+                identifier=normalized_identifier,
                 raw_profile="",
                 password_hash=hash_password(new_password),
                 state=CREDENTIAL_STATE_VERIFIED,

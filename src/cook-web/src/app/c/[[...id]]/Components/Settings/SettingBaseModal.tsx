@@ -8,12 +8,8 @@ import { calModalWidth } from '@/c-utils/common';
 import { AppContext } from '../AppContext';
 
 import { Button } from '@/components/ui/Button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/Dialog';
+import { Loader2 } from 'lucide-react';
+import { Dialog, DialogContent } from '@/components/ui/Dialog';
 
 export const SettingBaseModal = ({
   open,
@@ -23,6 +19,9 @@ export const SettingBaseModal = ({
   defaultWidth = '100%',
   title,
   header = (t, title) => <div className={styles.header}>{title}</div>,
+  okText,
+  okDisabled = false,
+  okLoading = false,
 }) => {
   const { t } = useTranslation();
 
@@ -58,8 +57,12 @@ export const SettingBaseModal = ({
             <Button
               className={cn('w-full')}
               onClick={onOk}
+              disabled={okDisabled || okLoading}
             >
-              {t('common.core.ok')}
+              {okLoading ? (
+                <Loader2 className='h-4 w-4 animate-spin mr-2' />
+              ) : null}
+              {okText || t('common.core.ok')}
             </Button>
           </div>
         </div>

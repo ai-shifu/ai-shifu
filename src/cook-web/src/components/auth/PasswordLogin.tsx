@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store';
 import apiService from '@/api';
 import { cn } from '@/lib/utils';
+import i18n from '@/i18n';
 
 import type { UserInfo } from '@/c-types';
 
@@ -98,6 +99,7 @@ export function PasswordLogin({
       const response = await apiService.loginPassword({
         identifier: identifier.trim(),
         password,
+        language: i18n.language,
       });
 
       if (response.code === 0 && response.data) {

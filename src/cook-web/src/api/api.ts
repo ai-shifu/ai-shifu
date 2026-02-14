@@ -17,6 +17,7 @@ const api = {
 
   // auth
   sendSmsCode: 'POST /user/send_sms_code',
+  sendEmailCode: 'POST /user/send_email_code',
   requireTmp: 'POST /user/require_tmp',
   verifySmsCode: 'POST /user/verify_sms_code',
   submitFeedback: 'POST /user/submit-feedback',

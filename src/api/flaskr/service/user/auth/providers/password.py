@@ -38,14 +38,14 @@ class PasswordAuthProvider(AuthProvider):
         password = request.code  # reuse code field for password
 
         if not identifier or not password:
-            raise_error("USER.INVALID_CREDENTIALS")
+            raise_error("server.user.invalidCredentials")
 
         # Look up user via phone or email provider credentials
         aggregate = load_user_aggregate_by_identifier(
             identifier, providers=["phone", "email"]
         )
         if not aggregate:
-            raise_error("USER.INVALID_CREDENTIALS")
+            raise_error("server.user.invalidCredentials")
 
         # Find password credential
         credential = find_credential(
@@ -54,12 +54,12 @@ class PasswordAuthProvider(AuthProvider):
             user_bid=aggregate.user_bid,
         )
         if not credential:
-            raise_error("USER.INVALID_CREDENTIALS")
+            raise_error("server.user.invalidCredentials")
 
         # Read password hash from the dedicated column
         password_hash = credential.password_hash or ""
         if not password_hash or not verify_password(password, password_hash):
-            raise_error("USER.INVALID_CREDENTIALS")
+            raise_error("server.user.invalidCredentials")
 
         # Build login token
         user_info = build_user_info_from_aggregate(aggregate)

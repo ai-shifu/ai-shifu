@@ -21,7 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useEnvStore } from '@/c-store/envStore';
 import { getUserProfile } from '@/c-api/user';
-import api from '@/api';
+import SetPasswordModal from './SetPasswordModal';
 
 const fixed_keys = ['sys_user_nickname', 'avatar', 'sex', 'birth'];
 const hidden_keys = ['language'];
@@ -33,6 +33,7 @@ export const UserSettings = ({
   isBasicInfo = false,
 }) => {
   const courseId = useEnvStore(state => state.courseId);
+  const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const { refreshUserInfo } = useUserStore(
     useShallow(state => ({
       refreshUserInfo: state.refreshUserInfo,
@@ -54,6 +55,11 @@ export const UserSettings = ({
   const [birth, setBirth] = useState('');
 
   const [dynFormData, setDynFormData] = useState([]);
+  const [setPasswordModalOpen, setSetPasswordModalOpen] = useState(false);
+
+  const isPasswordEnabled = Array.isArray(loginMethodsEnabled)
+    ? loginMethodsEnabled.includes('password')
+    : false;
 
   const onSaveSettingsClick = useCallback(async () => {
     const data = [];
@@ -251,6 +257,15 @@ export const UserSettings = ({
                 // @ts-expect-error EXPECT
                 maxLength={10}
               />
+              {isPasswordEnabled ? (
+                <SettingSelectElement
+                  title={t('module.settings.password')}
+                  placeholder={t('module.settings.passwordPlaceholder')}
+                  value={t('module.settings.setPassword')}
+                  className={styles.inputUnit}
+                  onClick={() => setSetPasswordModalOpen(true)}
+                />
+              ) : null}
               {dynFormData.map(item => {
                 return (
                   <DynamicSettingItem
@@ -288,6 +303,11 @@ export const UserSettings = ({
         onOk={onSexSettingModalOk}
         onClose={() => setSexSettingModalOpen(false)}
         initialValues={{ sex }}
+      />
+      <SetPasswordModal
+        open={setPasswordModalOpen}
+        onClose={() => setSetPasswordModalOpen(false)}
+        onSuccess={refreshUserInfo}
       />
     </>
   );
