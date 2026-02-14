@@ -676,10 +676,12 @@ export const useListenContentData = (
           activeTimelinePage = firstVisualPage;
         }
         if (!hasAnyAudioPayload(contentItem)) {
-          // Visual-only blocks (SVG, tables, iframes etc. with no audio) should
-          // still be shown during the listen sequence.  Add one "silent visual"
-          // entry per visual slide so the viewer can see each visual element for
-          // a brief auto-advance period.
+          // Show visual segments as silent-visual entries.
+          // Two scenarios reach here:
+          // 1. avContract present with empty speakable_segments → truly no audio
+          // 2. avContract not yet received (still streaming) → provisionally
+          //    silent; when the avContract arrives the list rebuilds via
+          //    LIST_UPDATED and these entries will be replaced by audio entries.
           if (firstVisualPage >= 0 && lastVisualPage >= 0) {
             for (
               let vPage = firstVisualPage;
@@ -1394,6 +1396,14 @@ export const useListenAudioSequence = ({
   const sequenceUnitIdRef = useRef<string | null>(null);
   const resumeAfterUnitIdRef = useRef<string | null>(null);
   const isSequencePausedRef = useRef(false);
+  // When a silent-visual at the tail of the list finishes its display but
+  // the list hasn't grown yet (content still streaming), this ref stores the
+  // next index we want to reach.  The LIST_UPDATED handler checks this and
+  // auto-resumes once the list grows to include that index.
+  const waitingForListGrowthRef = useRef<{
+    nextIdx: number;
+    since: number;
+  } | null>(null);
   const interactionNextIndexRef = useRef<number | null>(null);
   const [activeAudioBid, setActiveAudioBid] = useState<string | null>(null);
   const [activeAudioPosition, setActiveAudioPosition] = useState(0);
@@ -1683,6 +1693,7 @@ export const useListenAudioSequence = ({
       sequenceUnitIdRef.current = null;
       resumeAfterUnitIdRef.current = null;
       interactionNextIndexRef.current = null;
+      waitingForListGrowthRef.current = null;
       setSequenceInteraction(null);
       setActiveAudioBid(null);
       setActiveAudioPosition(0);
@@ -1762,11 +1773,35 @@ export const useListenAudioSequence = ({
         audioSequenceTimerRef.current = setTimeout(() => {
           const nextIdx = index + 1;
           const latestList = audioSequenceListRef.current;
-          if (nextIdx >= latestList.length) {
-            endSequence({ tryAdvanceToNextBlock: true });
+          if (nextIdx < latestList.length) {
+            resolveIndex(nextIdx, 0, 'silent-visual-auto-advance');
             return;
           }
-          resolveIndex(nextIdx, 0, 'silent-visual-auto-advance');
+          // The block's content may still be streaming, so the list may
+          // not yet include subsequent visual pages.  Poll briefly for
+          // the list to grow before ending the sequence.
+          let pollCount = 0;
+          const pollForNextItem = () => {
+            const refreshed = audioSequenceListRef.current;
+            if (nextIdx < refreshed.length) {
+              resolveIndex(nextIdx, 0, 'silent-visual-auto-advance');
+              return;
+            }
+            pollCount++;
+            if (pollCount >= 10) {
+              // Content may still be streaming.  Instead of ending the
+              // sequence, hand off to the LIST_UPDATED handler which will
+              // resume once the list grows to include nextIdx.
+              waitingForListGrowthRef.current = {
+                nextIdx,
+                since: Date.now(),
+              };
+              setSequenceMode('waiting_audio');
+              return;
+            }
+            audioSequenceTimerRef.current = setTimeout(pollForNextItem, 300);
+          };
+          pollForNextItem();
         }, viewMs);
         return;
       }
@@ -2031,16 +2066,12 @@ export const useListenAudioSequence = ({
           const targetPage = nextPage;
           const moved = syncToSequencePage(targetPage);
           if (!moved) {
+            // Page sync failed (e.g. page index exceeds slide count).
+            // Fall through to resolveIndex instead of retrying forever.
             console.log(
-              '[listen-debug] Failed to sync to page, retrying in 120ms',
+              '[listen-debug] Skip ahead sync failed, resolving directly',
             );
-            clearAudioSequenceTimer();
-            audioSequenceTimerRef.current = setTimeout(() => {
-              dispatchSequenceEventRef.current({ type: 'AUDIO_ENDED' });
-            }, 120);
-            return;
           }
-          console.log('[listen-debug] Synced to page, resolving next index');
           resolveIndex(nextIndex, 0, 'audio-ended-skip-ahead');
           return;
         }
@@ -2241,6 +2272,44 @@ export const useListenAudioSequence = ({
           hasPlayableAudioForItem(list[currentIndex])
         ) {
           resolveIndex(currentIndex, 0, 'waiting-audio-ready');
+          return;
+        }
+
+        // After a silent visual at the tail of the list finished its
+        // display, we enter waiting_audio with waitingForListGrowthRef
+        // set.  Check if the list has grown to include the target index.
+        if (
+          sequenceModeRef.current === 'waiting_audio' &&
+          waitingForListGrowthRef.current
+        ) {
+          const { nextIdx, since } = waitingForListGrowthRef.current;
+          if (nextIdx < list.length) {
+            waitingForListGrowthRef.current = null;
+            resolveIndex(nextIdx, 0, 'list-growth-resume');
+            return;
+          }
+          // Timeout after 30 seconds of waiting.
+          if (Date.now() - since > 30_000) {
+            waitingForListGrowthRef.current = null;
+            endSequence({ tryAdvanceToNextBlock: true });
+            return;
+          }
+        }
+
+        // While showing a silent visual (mode=playing, no active audio),
+        // the block may receive audio data via a later SSE chunk.  When
+        // that happens the list rebuilds and the entry at the current
+        // index is no longer isSilentVisual.  Re-resolve so the sequence
+        // transitions from the 5-second silent display to proper audio
+        // playback.
+        if (
+          sequenceModeRef.current === 'playing' &&
+          !activeAudioBid &&
+          currentIndex >= 0 &&
+          list[currentIndex] &&
+          !list[currentIndex].isSilentVisual
+        ) {
+          resolveIndex(currentIndex, 0, 'silent-visual-upgraded');
           return;
         }
 
