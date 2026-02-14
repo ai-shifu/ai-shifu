@@ -23,6 +23,7 @@ type SettingBaseModalProps = {
   okDisabled?: boolean;
   okLoading?: boolean;
   className?: string;
+  closeOnMaskClick?: boolean;
 };
 
 export const SettingBaseModal = ({
@@ -37,6 +38,7 @@ export const SettingBaseModal = ({
   okDisabled = false,
   okLoading = false,
   className,
+  closeOnMaskClick = true,
 }: SettingBaseModalProps) => {
   const { t } = useTranslation();
 
@@ -53,7 +55,14 @@ export const SettingBaseModal = ({
       open={open}
       onOpenChange={handleOpenChange}
     >
-      <DialogContent className={cn(styles.SettingBaseModal, className)}>
+      <DialogContent
+        className={cn(styles.SettingBaseModal, className)}
+        onInteractOutside={event => {
+          if (!closeOnMaskClick) {
+            event.preventDefault();
+          }
+        }}
+      >
         {/* <DialogHeader>
           <DialogTitle>{title || t('common.core.settings')}</DialogTitle>
         </DialogHeader> */}
