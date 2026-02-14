@@ -760,14 +760,6 @@ export const useListenContentData = (
           ) {
             // Fallback to a default page when no slide is mapped.
             // This is expected during streaming or for audio-only blocks.
-            // Uncomment below to debug slide mapping issues:
-            // console.warn('[listen-timeline] position exists but no slide', {
-            //   generated_block_bid: contentItem.generated_block_bid,
-            //   position,
-            //   mappedPage,
-            //   backendPage,
-            //   fallbackPage,
-            // });
           }
           const timelineItem: AudioInteractionItem = {
             ...contentItem,
@@ -1510,19 +1502,11 @@ export const useListenAudioSequence = ({
 
   const syncToSequencePage = useCallback(
     (page: number) => {
-      console.log('[listen-debug] syncToSequencePage called:', { page });
-
       if (page < 0) {
-        console.log(
-          '[listen-debug] syncToSequencePage: page < 0, returning false',
-        );
         return false;
       }
       const deck = deckRef.current;
       if (!deck) {
-        console.log(
-          '[listen-debug] syncToSequencePage: no deck, returning true',
-        );
         return true;
       }
 
@@ -1533,12 +1517,7 @@ export const useListenAudioSequence = ({
         if (typeof deck.layout === 'function') {
           deck.layout();
         }
-      } catch (e) {
-        console.warn(
-          '[listen-debug] syncToSequencePage: sync/layout error:',
-          e,
-        );
-      }
+      } catch (e) {}
 
       const slidesLength =
         typeof deck.getSlides === 'function'
@@ -1546,39 +1525,21 @@ export const useListenAudioSequence = ({
           : typeof deck.getTotalSlides === 'function'
             ? deck.getTotalSlides()
             : 0;
-      console.log(
-        '[listen-debug] syncToSequencePage: slidesLength =',
-        slidesLength,
-      );
 
       if (slidesLength <= 0) {
-        console.log(
-          '[listen-debug] syncToSequencePage: slidesLength <= 0, returning true',
-        );
         return true;
       }
       if (page >= slidesLength) {
-        console.log(
-          '[listen-debug] syncToSequencePage: page >= slidesLength, returning false',
-        );
         return false;
       }
 
       const currentIndex = deck.getIndices?.().h ?? 0;
-      console.log('[listen-debug] syncToSequencePage:', {
-        currentIndex,
-        targetPage: page,
-        willSlide: currentIndex !== page,
-      });
 
       // Always call deck.slide() to ensure Reveal.js re-renders the slide content.
       // This is critical when multiple audio positions share the same page number
       // (e.g., during streaming when not all slides have arrived yet).
       // Calling slide() even when already on the target page forces Reveal.js to
       // sync DOM and re-render, ensuring the latest content is displayed.
-      console.log(
-        '[listen-debug] syncToSequencePage: calling deck.slide(' + page + ')',
-      );
       deck.slide(page);
       return true;
     },
@@ -1731,15 +1692,6 @@ export const useListenAudioSequence = ({
         return;
       }
 
-      console.log('[listen-debug] resolveIndex called:', {
-        index,
-        reason,
-        retryCount,
-        nextItemPage: nextItem.page,
-        nextItemBid: nextItem.generated_block_bid,
-        nextItemPosition: nextItem.audioPosition,
-      });
-
       sequenceIndexRef.current = index;
       sequenceUnitIdRef.current = getItemUnitId(nextItem, index);
       setIsAudioSequenceActive(true);
@@ -1748,10 +1700,6 @@ export const useListenAudioSequence = ({
       // Silent visual items have slide content but no audio.  Show the slide
       // for a brief viewing period and then auto-advance to the next item.
       if (nextItem.isSilentVisual) {
-        console.log(
-          '[listen-debug] resolveIndex: silent visual slide, auto-advancing',
-          { page: nextItem.page, bid: nextItem.generated_block_bid },
-        );
         const pageReady = syncToSequencePage(nextItem.page);
         if (!pageReady) {
           // Slide not rendered yet – retry shortly.
@@ -1810,9 +1758,6 @@ export const useListenAudioSequence = ({
         nextItem.type === ChatContentItemType.CONTENT &&
         !hasPlayableAudioForItem(nextItem)
       ) {
-        console.log(
-          '[listen-debug] resolveIndex: no playable audio, entering waiting_audio mode',
-        );
         syncToSequencePage(nextItem.page);
         setSequenceInteraction(null);
         setActiveAudioBid(null);
@@ -1830,20 +1775,9 @@ export const useListenAudioSequence = ({
         return;
       }
 
-      console.log(
-        '[listen-debug] resolveIndex: syncing to page',
-        nextItem.page,
-      );
       const pageReady = syncToSequencePage(nextItem.page);
-      console.log(
-        '[listen-debug] resolveIndex: syncToSequencePage returned',
-        pageReady,
-      );
 
       if (!pageReady) {
-        console.log(
-          '[listen-debug] resolveIndex: page not ready, will retry in 120ms',
-        );
         setSequenceMode('waiting_audio');
         audioSequenceTimerRef.current = setTimeout(() => {
           dispatchSequenceEventRef.current({
@@ -1857,7 +1791,6 @@ export const useListenAudioSequence = ({
       }
 
       if (nextItem.type === ChatContentItemType.INTERACTION) {
-        console.log('[listen-debug] resolveIndex: opening interaction');
         dispatchSequenceEventRef.current({
           type: 'INTERACTION_OPENED',
           item: nextItem,
@@ -1866,13 +1799,6 @@ export const useListenAudioSequence = ({
         return;
       }
 
-      console.log(
-        '[listen-debug] resolveIndex: setting active audio and starting playback',
-        {
-          bid: nextItem.generated_block_bid,
-          position: nextItem.audioPosition ?? 0,
-        },
-      );
       interactionNextIndexRef.current = null;
       setSequenceInteraction(null);
       setActiveAudioBid(nextItem.generated_block_bid);
@@ -2005,24 +1931,17 @@ export const useListenAudioSequence = ({
       }
 
       if (event.type === 'AUDIO_ENDED') {
-        console.log('[listen-debug] AUDIO_ENDED event received');
         if (isSequencePausedRef.current) {
-          console.log(
-            '[listen-debug] Sequence is paused, ignoring AUDIO_ENDED',
-          );
           return;
         }
         const list = audioSequenceListRef.current;
         if (!list.length) {
-          console.log('[listen-debug] List is empty, ending sequence');
           endSequence({ tryAdvanceToNextBlock: true });
           return;
         }
 
         const currentIndex = resolveCurrentSequenceIndex(list);
-        console.log('[listen-debug] Current index:', currentIndex);
         if (currentIndex < 0) {
-          console.log('[listen-debug] Invalid current index, ending sequence');
           endSequence();
           return;
         }
@@ -2043,51 +1962,27 @@ export const useListenAudioSequence = ({
             ? resolveContentBid(nextItem.generated_block_bid)
             : null;
 
-        console.log('[listen-debug] Audio ended state:', {
-          currentIndex,
-          nextIndex,
-          currentPage,
-          deckCurrentPage,
-          nextPage,
-          currentBid,
-          nextBid,
-          hasNextItem: !!nextItem,
-          listLength: list.length,
-        });
-
         if (
           typeof currentPage === 'number' &&
           typeof nextPage === 'number' &&
           nextPage > currentPage + 1
         ) {
-          console.log(
-            '[listen-debug] Skip ahead case: nextPage > currentPage + 1',
-          );
           const targetPage = nextPage;
           const moved = syncToSequencePage(targetPage);
           if (!moved) {
             // Page sync failed (e.g. page index exceeds slide count).
             // Fall through to resolveIndex instead of retrying forever.
-            console.log(
-              '[listen-debug] Skip ahead sync failed, resolving directly',
-            );
           }
           resolveIndex(nextIndex, 0, 'audio-ended-skip-ahead');
           return;
         }
 
         if (currentBid && nextBid && currentBid === nextBid) {
-          console.log(
-            '[listen-debug] Same block case: advancing to next position',
-          );
           resolveIndex(nextIndex, 0, 'audio-ended-same-block');
           return;
         }
 
         if (!nextItem) {
-          console.log(
-            '[listen-debug] No next item, checking for remaining slides',
-          );
           const deck = deckRef.current;
           const totalSlides =
             deck && typeof deck.getSlides === 'function'
@@ -2095,42 +1990,26 @@ export const useListenAudioSequence = ({
               : deck && typeof deck.getTotalSlides === 'function'
                 ? deck.getTotalSlides()
                 : 0;
-          console.log(
-            '[listen-debug] Total slides:',
-            totalSlides,
-            'Deck current page:',
-            deckCurrentPage,
-          );
           if (totalSlides > deckCurrentPage + 1) {
             const targetPage = deckCurrentPage + 1;
             const moved = syncToSequencePage(targetPage);
             if (!moved) {
-              console.log(
-                '[listen-debug] Failed to sync to remaining slide, retrying in 120ms',
-              );
               clearAudioSequenceTimer();
               audioSequenceTimerRef.current = setTimeout(() => {
                 dispatchSequenceEventRef.current({ type: 'AUDIO_ENDED' });
               }, 120);
               return;
             }
-            console.log(
-              '[listen-debug] Synced to remaining slide, ending sequence',
-            );
             endSequence();
             return;
           }
         }
 
         if (nextIndex >= list.length) {
-          console.log(
-            '[listen-debug] Next index exceeds list length, ending sequence',
-          );
           endSequence({ tryAdvanceToNextBlock: true });
           return;
         }
 
-        console.log('[listen-debug] Default case: advancing to next item');
         resolveIndex(nextIndex, 0, 'audio-ended-next');
         return;
       }
