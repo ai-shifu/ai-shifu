@@ -1967,7 +1967,22 @@ export const useListenAudioSequence = ({
         }
 
         if (nextIndex >= list.length) {
-          endSequence({ tryAdvanceToNextBlock: true });
+          // Content blocks may still be streaming via SSE, so the list can
+          // grow shortly after the current tail item finishes.  Wait briefly
+          // for the next item to appear before ending the sequence.
+          waitingForListGrowthRef.current = {
+            nextIdx: nextIndex,
+            since: Date.now(),
+          };
+          setSequenceMode('waiting_audio');
+          // Fallback: if no LIST_UPDATED events arrive within 10 s, end.
+          clearAudioSequenceTimer();
+          audioSequenceTimerRef.current = setTimeout(() => {
+            if (waitingForListGrowthRef.current) {
+              waitingForListGrowthRef.current = null;
+              endSequence({ tryAdvanceToNextBlock: true });
+            }
+          }, 10_000);
           return;
         }
 

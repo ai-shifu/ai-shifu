@@ -76,7 +76,7 @@ describe('listen slide contract adapters', () => {
     expect(inbound?.slideId).toBeUndefined();
   });
 
-  it('keeps position in slide-based content unit id', () => {
+  it('uses stable bid:position format even when slideId is provided', () => {
     const first = buildListenUnitId({
       type: 'content',
       generatedBlockBid: 'block-1',
@@ -92,8 +92,10 @@ describe('listen slide contract adapters', () => {
       fallbackIndex: 1,
     });
 
-    expect(first).toBe('content-slide:slide-1:0');
-    expect(second).toBe('content-slide:slide-1:1');
+    // slideId is intentionally ignored to keep unit IDs stable across
+    // list rebuilds (slideId arrives asynchronously via avContract).
+    expect(first).toBe('content:block-1:0');
+    expect(second).toBe('content:block-1:1');
     expect(first).not.toBe(second);
   });
 });

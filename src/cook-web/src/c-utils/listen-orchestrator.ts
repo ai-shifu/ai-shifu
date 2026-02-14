@@ -30,10 +30,10 @@ export const buildListenUnitId = ({
   resolveContentBid?: (blockBid: string | null) => string | null;
 }): string => {
   if (type === 'content') {
-    if (slideId) {
-      const stablePosition = normalizeListenAudioPosition(position);
-      return `content-slide:${slideId}:${stablePosition}`;
-    }
+    // Always use bid:position for content items to keep unit IDs stable
+    // across list rebuilds.  slideId arrives asynchronously (via avContract /
+    // backend slides) which would change the ID mid-sequence, causing
+    // resolveCurrentSequenceIndex to return -1 and breaking playback.
     const resolved =
       resolveContentBid?.(generatedBlockBid || null) ?? generatedBlockBid ?? '';
     const stableBid = resolved || `unknown-${fallbackIndex}`;
