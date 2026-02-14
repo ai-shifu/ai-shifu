@@ -1,6 +1,6 @@
 import styles from './SettingBaseModal.module.scss';
 
-import { memo, useContext } from 'react';
+import { memo, useContext, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
@@ -10,6 +10,20 @@ import { AppContext } from '../AppContext';
 import { Button } from '@/components/ui/Button';
 import { Loader2 } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/Dialog';
+
+type SettingBaseModalProps = {
+  open: any;
+  children: ReactNode;
+  onOk: any;
+  onClose: any;
+  defaultWidth?: string;
+  title: any;
+  header?: (t: any, title: any) => ReactNode;
+  okText?: any;
+  okDisabled?: boolean;
+  okLoading?: boolean;
+  className?: string;
+};
 
 export const SettingBaseModal = ({
   open,
@@ -22,7 +36,8 @@ export const SettingBaseModal = ({
   okText,
   okDisabled = false,
   okLoading = false,
-}) => {
+  className,
+}: SettingBaseModalProps) => {
   const { t } = useTranslation();
 
   const { mobileStyle } = useContext(AppContext);
@@ -38,7 +53,7 @@ export const SettingBaseModal = ({
       open={open}
       onOpenChange={handleOpenChange}
     >
-      <DialogContent className={cn(styles.SettingBaseModal)}>
+      <DialogContent className={cn(styles.SettingBaseModal, className)}>
         {/* <DialogHeader>
           <DialogTitle>{title || t('common.core.settings')}</DialogTitle>
         </DialogHeader> */}
