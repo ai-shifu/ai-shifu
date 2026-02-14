@@ -12,21 +12,11 @@ import {
 } from '@/c-utils/listen-orchestrator';
 import type { ListenSlideData } from '@/c-api/studyV2';
 import {
-  type HtmlVisualKind,
   type HtmlSandboxRootTag,
-  VISUAL_ELEMENT_PATTERNS,
-  CLOSING_PATTERNS,
-  MARKDOWN_TABLE,
   SANDBOX_ROOT_TAGS,
   FIXED_MARKER_PATTERN,
-  parseMarkdownTableRow,
-  parseMarkdownTableAlign,
-  isMarkdownTableSeparatorLine,
-  findFirstMarkdownTableBlock,
   markdownTableToSandboxHtml,
-  findFirstHtmlVisualBlock,
   findFirstTextVisualBlock,
-  type TextVisualBlock,
 } from '@/c-utils/listen-mode';
 
 const isFixedMarkerText = (raw: string) => {
@@ -329,8 +319,6 @@ const resolveListenAudioWatchdogMs = (audioDurationMs?: number) => {
   return LISTEN_AUDIO_WATCHDOG_FALLBACK_MS;
 };
 
-const getAvailableAudioPositions = extractAudioPositions;
-
 const hasAnyAudioPayload = (item: ChatContentItem): boolean => {
   const hasAnySegmentedAudio = Boolean(
     (item.audios && item.audios.length > 0) ||
@@ -441,12 +429,10 @@ export const useListenContentData = (
     // Therefore backend slides are used ONLY for position-to-page mapping and
     // slide-ID binding.  Rendering always uses local parsing of the accumulated
     // CONTENT stream (nextSlideItems).
-    const effectiveBackendSlides = normalizedBackendSlides;
-    const allowRuntimeSlideIdBinding = true;
     const backendPageByBlockPosition = new Map<string, number>();
     const backendSlideIdByBlockPosition = new Map<string, string>();
     let latestRenderableBackendPage = -1;
-    effectiveBackendSlides.forEach(slide => {
+    normalizedBackendSlides.forEach(slide => {
       const blockBid = slide.generated_block_bid || '';
       const audioPosition = Number(slide.audio_position ?? 0);
       const key = `${blockBid}:${audioPosition}`;
@@ -695,8 +681,8 @@ export const useListenContentData = (
               });
             }
             activeTimelinePage = lastVisualPage;
-          } else if (effectiveBackendSlides.length > 0) {
-            const backendPagesForBlock = effectiveBackendSlides
+          } else if (normalizedBackendSlides.length > 0) {
+            const backendPagesForBlock = normalizedBackendSlides
               .filter(
                 slide =>
                   slide.generated_block_bid === contentItem.generated_block_bid,
@@ -717,7 +703,7 @@ export const useListenContentData = (
           return;
         }
 
-        const availablePositions = getAvailableAudioPositions(contentItem);
+        const availablePositions = extractAudioPositions(contentItem);
         const hasMultiplePositions =
           availablePositions.length > 1 ||
           availablePositions.some(position => position > 0);
@@ -748,19 +734,10 @@ export const useListenContentData = (
                 ? mappedPage
                 : fallbackPage;
           const audioSlideId =
-            (allowRuntimeSlideIdBinding
-              ? contentItem.audioSlideIdByPosition?.[position]
-              : undefined) ||
+            contentItem.audioSlideIdByPosition?.[position] ||
             backendSlideIdByBlockPosition.get(
               `${contentItem.generated_block_bid}:${position}`,
             );
-          if (
-            !(typeof mappedPage === 'number' && mappedPage >= 0) &&
-            !(typeof backendPage === 'number' && backendPage >= 0)
-          ) {
-            // Fallback to a default page when no slide is mapped.
-            // This is expected during streaming or for audio-only blocks.
-          }
           const timelineItem: AudioInteractionItem = {
             ...contentItem,
             page: resolvedPage,
@@ -814,12 +791,8 @@ export const useListenContentData = (
       });
     });
 
-    // Always use locally parsed slides for rendering.  Backend slides only
-    // contribute position mapping (backendPageByBlockPosition) above.
-    const finalSlideItems = nextSlideItems;
-
     return {
-      slideItems: finalSlideItems,
+      slideItems: nextSlideItems,
       interactionByPage: interactionMapping,
       audioAndInteractionList: nextAudioAndInteractionList,
       audioPageByBid,
@@ -1129,10 +1102,10 @@ export const useListenPpt = ({
   useEffect(() => {
     if (!slideItems.length && deckRef.current) {
       try {
-        console.log('销毁reveal实例 (no content)');
+        console.log('Destroying Reveal instance (no content)');
         deckRef.current?.destroy();
       } catch (e) {
-        console.warn('Reveal.js destroy 調用失敗。');
+        console.warn('Reveal.js destroy failed.');
       } finally {
         deckRef.current = null;
         hasAutoSlidToLatestRef.current = false;
@@ -1150,7 +1123,7 @@ export const useListenPpt = ({
       try {
         deckRef.current?.destroy();
       } catch (e) {
-        console.warn('Reveal.js destroy 調用失敗。');
+        console.warn('Reveal.js destroy failed.');
       } finally {
         deckRef.current = null;
         hasAutoSlidToLatestRef.current = false;
@@ -1215,10 +1188,6 @@ export const useListenPpt = ({
         return;
       }
 
-      const shouldAutoFollowOnAppend =
-        prevSlidesLength > 0 &&
-        nextSlidesLength > prevSlidesLength &&
-        currentIndex >= prevLastIndex;
       if (pendingAutoNextRef.current) {
         const moved = goToNextBlock();
         pendingAutoNextRef.current = !moved;
@@ -1235,15 +1204,7 @@ export const useListenPpt = ({
         return;
       }
 
-      // Queue-style control for listen mode:
-      // never auto-follow newly appended slides here. Visual progression is
-      // driven by sequence mapping (audio end) or explicit user navigation.
-      // This prevents "visual jumps ahead of narration" during streaming.
-      if (shouldAutoFollowOnAppend || !hasAutoSlidToLatestRef.current) {
-        hasAutoSlidToLatestRef.current = true;
-      } else if (currentIndex >= lastIndex) {
-        hasAutoSlidToLatestRef.current = true;
-      }
+      hasAutoSlidToLatestRef.current = true;
       updateNavState();
       prevSlidesLengthRef.current = nextSlidesLength;
     } catch {
