@@ -102,11 +102,6 @@ def handle_input_ask(
     system_prompt = follow_up_info.ask_prompt.replace(
         "{shifu_system_message}", system_prompt if system_prompt else ""
     )
-    # Append language instruction if use_learner_language is enabled
-    use_learner_language = getattr(context._shifu_info, "use_learner_language", 0)
-    if use_learner_language:
-        output_language = get_markdownflow_output_language()
-        system_prompt += f"\n\nIMPORTANT: You MUST respond in {output_language}."
     messages.append({"role": "system", "content": system_prompt})
     # Add historical conversation records to system messages
     for script in history_scripts:
@@ -121,10 +116,16 @@ def handle_input_ask(
 
     # RAG retrieval has been removed from this system
 
+    # Append language instruction to user input if use_learner_language is enabled
+    use_learner_language = getattr(context._shifu_info, "use_learner_language", 0)
+    user_content = input
+    if use_learner_language:
+        output_language = get_markdownflow_output_language()
+        user_content += f"\n\n(IMPORTANT: You MUST respond in {output_language}.)"
     messages.append(
         {
             "role": "user",
-            "content": input,
+            "content": user_content,
         }
     )
     app.logger.info(f"messages: {messages}")
