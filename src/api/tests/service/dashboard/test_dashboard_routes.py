@@ -21,8 +21,9 @@ from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_NORMAL,
 )
 from flaskr.service.shifu.models import (
-    DraftShifu,
+    AiCourseAuth,
     LogPublishedStruct,
+    PublishedShifu,
     PublishedOutlineItem,
     ShifuUserArchive,
 )
@@ -116,7 +117,7 @@ class TestDashboardRoutes:
     ) -> None:
         now = datetime.utcnow()
         db.session.add(
-            DraftShifu(
+            PublishedShifu(
                 shifu_bid=shifu_bid,
                 title=title,
                 description="",
@@ -137,7 +138,28 @@ class TestDashboardRoutes:
             )
         )
 
-    def test_entry_summary_excludes_archived_courses(
+    def _seed_shared_course_auth(
+        self,
+        *,
+        shifu_bid: str,
+        user_id: str = "teacher-1",
+        auth_type: str = '["view"]',
+        status: int = 1,
+    ) -> None:
+        now = datetime.utcnow()
+        db.session.add(
+            AiCourseAuth(
+                course_auth_id=f"auth-{user_id}-{shifu_bid}",
+                course_id=shifu_bid,
+                user_id=user_id,
+                auth_type=auth_type,
+                status=status,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+
+    def test_entry_summary_uses_shared_and_owned_courses(
         self,
         monkeypatch,
         test_client,
@@ -148,7 +170,13 @@ class TestDashboardRoutes:
         now = datetime(2025, 1, 15, 10, 0, 0)
         with app.app_context():
             self._seed_dashboard_course(shifu_bid="course-a", title="Course A")
-            self._seed_dashboard_course(shifu_bid="course-b", title="Course B")
+            self._seed_dashboard_course(
+                shifu_bid="course-b",
+                title="Course B",
+                user_id="another-teacher",
+            )
+            self._seed_shared_course_auth(shifu_bid="course-b")
+            self._seed_shared_course_auth(shifu_bid="course-b")
             db.session.add(
                 ShifuUserArchive(
                     shifu_bid="course-b",
@@ -292,13 +320,16 @@ class TestDashboardRoutes:
 
         assert resp.status_code == 200
         assert payload["code"] == 0
-        assert payload["data"]["summary"]["course_count"] == 1
-        assert payload["data"]["summary"]["learner_count"] == 2
-        assert payload["data"]["summary"]["order_count"] == 2
-        assert payload["data"]["summary"]["generation_count"] == 2
-        assert payload["data"]["total"] == 1
-        assert len(payload["data"]["items"]) == 1
-        assert payload["data"]["items"][0]["shifu_bid"] == "course-a"
+        assert payload["data"]["summary"]["course_count"] == 2
+        assert payload["data"]["summary"]["learner_count"] == 3
+        assert payload["data"]["summary"]["order_count"] == 3
+        assert payload["data"]["summary"]["generation_count"] == 3
+        assert payload["data"]["total"] == 2
+        assert len(payload["data"]["items"]) == 2
+        assert {item["shifu_bid"] for item in payload["data"]["items"]} == {
+            "course-a",
+            "course-b",
+        }
 
     def test_entry_keyword_and_date_range_filters(
         self,
@@ -336,6 +367,17 @@ class TestDashboardRoutes:
                         block_position=0,
                         deleted=0,
                         created_at=in_range,
+                        updated_at=in_range,
+                    ),
+                    LearnProgressRecord(
+                        progress_record_bid="entry-filter-progress-created-out",
+                        shifu_bid="course-alg",
+                        outline_item_bid="outline-3",
+                        user_bid="learner-c",
+                        status=LEARN_STATUS_IN_PROGRESS,
+                        block_position=0,
+                        deleted=0,
+                        created_at=out_of_range,
                         updated_at=in_range,
                     ),
                 ]
@@ -420,8 +462,142 @@ class TestDashboardRoutes:
         assert payload["data"]["summary"]["order_count"] == 1
         assert payload["data"]["summary"]["generation_count"] == 1
         assert payload["data"]["items"][0]["shifu_bid"] == "course-alg"
+        assert payload["data"]["items"][0]["learner_count"] == 1
         assert payload["data"]["items"][0]["order_count"] == 1
         assert payload["data"]["items"][0]["generation_count"] == 1
+
+    def test_entry_course_count_respects_date_filter(
+        self,
+        monkeypatch,
+        test_client,
+        app,
+    ):
+        self._mock_request_user(monkeypatch)
+
+        in_range = datetime(2025, 2, 10, 9, 0, 0)
+        out_of_range = datetime(2024, 11, 20, 9, 0, 0)
+        with app.app_context():
+            self._seed_dashboard_course(shifu_bid="course-a", title="Course A")
+            self._seed_dashboard_course(shifu_bid="course-b", title="Course B")
+
+            db.session.add(
+                Order(
+                    order_bid="entry-date-order-a",
+                    shifu_bid="course-a",
+                    user_bid="learner-a",
+                    deleted=0,
+                    created_at=in_range,
+                    updated_at=in_range,
+                )
+            )
+            db.session.add(
+                Order(
+                    order_bid="entry-date-order-b",
+                    shifu_bid="course-b",
+                    user_bid="learner-b",
+                    deleted=0,
+                    created_at=out_of_range,
+                    updated_at=out_of_range,
+                )
+            )
+            db.session.commit()
+
+        resp = test_client.get(
+            "/api/dashboard/entry"
+            "?start_date=2025-02-01"
+            "&end_date=2025-02-28"
+            "&page_index=1&page_size=20"
+        )
+        payload = resp.get_json(force=True)
+
+        assert resp.status_code == 200
+        assert payload["code"] == 0
+        assert payload["data"]["summary"]["course_count"] == 1
+        assert payload["data"]["total"] == 1
+        assert payload["data"]["items"][0]["shifu_bid"] == "course-a"
+
+    def test_entry_shared_course_auth_requires_view_only_and_status_1(
+        self,
+        monkeypatch,
+        test_client,
+        app,
+    ):
+        self._mock_request_user(monkeypatch)
+
+        with app.app_context():
+            self._seed_dashboard_course(
+                shifu_bid="course-owned",
+                title="Owned Course",
+            )
+            self._seed_dashboard_course(
+                shifu_bid="course-view",
+                title="Shared View",
+                user_id="teacher-2",
+            )
+            self._seed_dashboard_course(
+                shifu_bid="course-edit",
+                title="Shared Edit",
+                user_id="teacher-2",
+            )
+            self._seed_dashboard_course(
+                shifu_bid="course-publish",
+                title="Shared Publish",
+                user_id="teacher-2",
+            )
+            self._seed_dashboard_course(
+                shifu_bid="course-mixed",
+                title="Shared Mixed",
+                user_id="teacher-2",
+            )
+            self._seed_dashboard_course(
+                shifu_bid="course-disabled",
+                title="Shared Disabled",
+                user_id="teacher-2",
+            )
+            self._seed_shared_course_auth(
+                shifu_bid="course-view",
+                auth_type='["view"]',
+                status=1,
+            )
+            self._seed_shared_course_auth(
+                shifu_bid="course-edit",
+                auth_type='["edit"]',
+                status=1,
+            )
+            self._seed_shared_course_auth(
+                shifu_bid="course-publish",
+                auth_type='["publish"]',
+                status=1,
+            )
+            self._seed_shared_course_auth(
+                shifu_bid="course-mixed",
+                auth_type='["view","edit"]',
+                status=1,
+            )
+            self._seed_shared_course_auth(
+                shifu_bid="course-disabled",
+                auth_type='["view"]',
+                status=0,
+            )
+            # Duplicate valid auth rows should still dedupe by course_id.
+            self._seed_shared_course_auth(
+                shifu_bid="course-view",
+                auth_type='["view"]',
+                status=1,
+            )
+            db.session.commit()
+
+        resp = test_client.get("/api/dashboard/entry?page_index=1&page_size=20")
+        payload = resp.get_json(force=True)
+
+        assert resp.status_code == 200
+        assert payload["code"] == 0
+        assert payload["data"]["summary"]["course_count"] == 2
+        assert payload["data"]["total"] == 2
+        assert {item["shifu_bid"] for item in payload["data"]["items"]} == {
+            "course-owned",
+            "course-view",
+        }
 
     def test_outlines_requires_permission(self, monkeypatch, test_client):
         self._mock_request_user(monkeypatch)

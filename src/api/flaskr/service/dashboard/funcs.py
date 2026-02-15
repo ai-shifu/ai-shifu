@@ -6,8 +6,9 @@ load child records via `IN (...)` and merge in Python.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from flask import Flask
 from sqlalchemy import or_
@@ -48,12 +49,15 @@ from flaskr.service.shifu.consts import (
 )
 from flaskr.service.shifu.funcs import shifu_permission_verification
 from flaskr.service.shifu.models import (
-    DraftShifu,
+    AiCourseAuth,
     LogPublishedStruct,
     PublishedOutlineItem,
-    ShifuUserArchive,
+    PublishedShifu,
 )
-from flaskr.service.shifu.permissions import get_user_shifu_bids
+from flaskr.service.shifu.permissions import (
+    _auth_types_to_permissions,
+    _normalize_auth_types,
+)
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,
@@ -93,116 +97,157 @@ def _resolve_optional_datetime_range(
     return start_dt, end_dt_exclusive
 
 
-def _load_dashboard_active_courses(
-    app: Flask,
+@dataclass(frozen=True)
+class _DashboardEntryCourse:
+    shifu_bid: str
+    shifu_name: str
+
+
+@dataclass
+class _DashboardEntryMetrics:
+    learner_total: int = 0
+    learner_count_map: Dict[str, int] = field(default_factory=dict)
+    order_count_map: Dict[str, int] = field(default_factory=dict)
+    generation_count_map: Dict[str, int] = field(default_factory=dict)
+    last_active_map: Dict[str, datetime] = field(default_factory=dict)
+    active_course_bids: Set[str] = field(default_factory=set)
+
+
+def _load_dashboard_entry_courses(
     user_id: str,
     *,
     keyword: Optional[str] = None,
-) -> List[DraftShifu]:
-    visible_shifu_bids = get_user_shifu_bids(app, user_id, permission="view")
-    if not visible_shifu_bids:
+) -> List[_DashboardEntryCourse]:
+    shared_rows = (
+        db.session.query(AiCourseAuth.course_id, AiCourseAuth.auth_type)
+        .filter(
+            AiCourseAuth.user_id == user_id,
+            AiCourseAuth.status == 1,
+        )
+        .all()
+    )
+
+    def _is_view_only_auth_type(raw_auth_type: object) -> bool:
+        auth_types = _normalize_auth_types(raw_auth_type)
+        permissions = _auth_types_to_permissions(auth_types) or {
+            str(item).strip().lower() for item in auth_types if str(item).strip()
+        }
+        return permissions == {"view"}
+
+    shared_bids = {
+        str(course_id).strip()
+        for course_id, auth_type in shared_rows
+        if str(course_id).strip() and _is_view_only_auth_type(auth_type)
+    }
+
+    owned_rows = (
+        db.session.query(PublishedShifu.shifu_bid)
+        .filter(
+            PublishedShifu.created_user_bid == user_id,
+            PublishedShifu.deleted == 0,
+        )
+        .distinct()
+        .all()
+    )
+    owned_bids = {
+        str(row[0]).strip()
+        for row in owned_rows
+        if row and str(row[0]).strip() and str(row[0]).strip() not in shared_bids
+    }
+    all_bids = shared_bids.union(owned_bids)
+    if not all_bids:
         return []
 
     latest_subquery = (
-        db.session.query(db.func.max(DraftShifu.id).label("max_id"))
+        db.session.query(db.func.max(PublishedShifu.id).label("max_id"))
         .filter(
-            DraftShifu.shifu_bid.in_(visible_shifu_bids),
-            DraftShifu.deleted == 0,
+            PublishedShifu.shifu_bid.in_(list(all_bids)),
+            PublishedShifu.deleted == 0,
         )
-        .group_by(DraftShifu.shifu_bid)
+        .group_by(PublishedShifu.shifu_bid)
     ).subquery()
 
-    drafts: List[DraftShifu] = (
-        db.session.query(DraftShifu)
-        .filter(DraftShifu.id.in_(db.session.query(latest_subquery.c.max_id)))
+    published_rows: List[PublishedShifu] = (
+        db.session.query(PublishedShifu)
+        .filter(PublishedShifu.id.in_(db.session.query(latest_subquery.c.max_id)))
         .all()
     )
-    if not drafts:
-        return []
-
-    shifu_bids = [draft.shifu_bid for draft in drafts if draft and draft.shifu_bid]
-    if not shifu_bids:
-        return []
-
-    archived_rows: List[ShifuUserArchive] = ShifuUserArchive.query.filter(
-        ShifuUserArchive.user_bid == user_id,
-        ShifuUserArchive.shifu_bid.in_(shifu_bids),
-        ShifuUserArchive.archived == 1,
-    ).all()
-    archived_bids = {
-        row.shifu_bid for row in archived_rows if row and str(row.shifu_bid).strip()
-    }
+    title_map: Dict[str, str] = {}
+    for row in published_rows:
+        shifu_bid = str(row.shifu_bid or "").strip()
+        if not shifu_bid:
+            continue
+        title_map[shifu_bid] = str(row.title or "").strip()
 
     courses = [
-        draft
-        for draft in drafts
-        if draft
-        and draft.shifu_bid
-        and draft.shifu_bid not in archived_bids
-        and draft.deleted == 0
+        _DashboardEntryCourse(
+            shifu_bid=shifu_bid,
+            shifu_name=title_map.get(shifu_bid) or shifu_bid,
+        )
+        for shifu_bid in all_bids
     ]
-
     normalized_keyword = str(keyword or "").strip().lower()
     if normalized_keyword:
         courses = [
             course
             for course in courses
-            if normalized_keyword in (course.shifu_bid or "").lower()
-            or normalized_keyword in (course.title or "").lower()
+            if normalized_keyword in course.shifu_bid.lower()
+            or normalized_keyword in course.shifu_name.lower()
         ]
-
-    courses.sort(key=lambda item: ((item.title or "").lower(), item.shifu_bid or ""))
+    courses.sort(key=lambda item: (item.shifu_name.lower(), item.shifu_bid))
     return courses
 
 
-def _count_total_learners(shifu_bids: List[str]) -> int:
-    if not shifu_bids:
-        return 0
-    value = (
-        db.session.query(db.func.count(db.distinct(LearnProgressRecord.user_bid)))
-        .filter(
-            LearnProgressRecord.shifu_bid.in_(shifu_bids),
-            LearnProgressRecord.deleted == 0,
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-        )
-        .scalar()
-    )
-    return int(value or 0)
-
-
-def _count_learners_by_course(shifu_bids: List[str]) -> Dict[str, int]:
-    if not shifu_bids:
-        return {}
-    rows = (
-        db.session.query(
-            LearnProgressRecord.shifu_bid.label("shifu_bid"),
-            db.func.count(db.distinct(LearnProgressRecord.user_bid)).label("c"),
-        )
-        .filter(
-            LearnProgressRecord.shifu_bid.in_(shifu_bids),
-            LearnProgressRecord.deleted == 0,
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-        )
-        .group_by(LearnProgressRecord.shifu_bid)
-        .all()
-    )
-    result: Dict[str, int] = {}
-    for shifu_bid, c in rows:
-        if not shifu_bid:
-            continue
-        result[str(shifu_bid)] = int(c or 0)
-    return result
-
-
-def _count_orders_by_course(
+def _collect_dashboard_entry_metrics(
     shifu_bids: List[str],
     *,
     start_dt: Optional[datetime],
     end_dt_exclusive: Optional[datetime],
-) -> Dict[str, int]:
+) -> _DashboardEntryMetrics:
     if not shifu_bids:
-        return {}
-    query = db.session.query(
+        return _DashboardEntryMetrics()
+
+    learner_total_query = db.session.query(
+        db.func.count(db.distinct(LearnProgressRecord.user_bid))
+    ).filter(
+        LearnProgressRecord.shifu_bid.in_(shifu_bids),
+        LearnProgressRecord.deleted == 0,
+        LearnProgressRecord.status != LEARN_STATUS_RESET,
+    )
+    if start_dt is not None:
+        learner_total_query = learner_total_query.filter(
+            LearnProgressRecord.created_at >= start_dt
+        )
+    if end_dt_exclusive is not None:
+        learner_total_query = learner_total_query.filter(
+            LearnProgressRecord.created_at < end_dt_exclusive
+        )
+    learner_total = int(learner_total_query.scalar() or 0)
+
+    learner_by_course_query = db.session.query(
+        LearnProgressRecord.shifu_bid.label("shifu_bid"),
+        db.func.count(db.distinct(LearnProgressRecord.user_bid)).label("c"),
+    ).filter(
+        LearnProgressRecord.shifu_bid.in_(shifu_bids),
+        LearnProgressRecord.deleted == 0,
+        LearnProgressRecord.status != LEARN_STATUS_RESET,
+    )
+    if start_dt is not None:
+        learner_by_course_query = learner_by_course_query.filter(
+            LearnProgressRecord.created_at >= start_dt
+        )
+    if end_dt_exclusive is not None:
+        learner_by_course_query = learner_by_course_query.filter(
+            LearnProgressRecord.created_at < end_dt_exclusive
+        )
+    learner_rows = learner_by_course_query.group_by(LearnProgressRecord.shifu_bid).all()
+    learner_count_map: Dict[str, int] = {}
+    for shifu_bid, c in learner_rows:
+        if not shifu_bid:
+            continue
+        learner_count_map[str(shifu_bid)] = int(c or 0)
+
+    order_query = db.session.query(
         Order.shifu_bid.label("shifu_bid"),
         db.func.count(Order.id).label("c"),
     ).filter(
@@ -210,77 +255,74 @@ def _count_orders_by_course(
         Order.deleted == 0,
     )
     if start_dt is not None:
-        query = query.filter(Order.created_at >= start_dt)
+        order_query = order_query.filter(Order.created_at >= start_dt)
     if end_dt_exclusive is not None:
-        query = query.filter(Order.created_at < end_dt_exclusive)
-
-    rows = query.group_by(Order.shifu_bid).all()
-    result: Dict[str, int] = {}
-    for shifu_bid, c in rows:
+        order_query = order_query.filter(Order.created_at < end_dt_exclusive)
+    order_rows = order_query.group_by(Order.shifu_bid).all()
+    order_count_map: Dict[str, int] = {}
+    for shifu_bid, c in order_rows:
         if not shifu_bid:
             continue
-        result[str(shifu_bid)] = int(c or 0)
-    return result
+        order_count_map[str(shifu_bid)] = int(c or 0)
 
-
-def _count_generations_by_course(
-    shifu_bids: List[str],
-    *,
-    start_dt: Optional[datetime],
-    end_dt_exclusive: Optional[datetime],
-) -> Dict[str, int]:
-    if not shifu_bids:
-        return {}
-    query = db.session.query(
+    generation_query = db.session.query(
         LearnGeneratedBlock.shifu_bid.label("shifu_bid"),
         db.func.count(LearnGeneratedBlock.id).label("c"),
     ).filter(
         LearnGeneratedBlock.shifu_bid.in_(shifu_bids),
         LearnGeneratedBlock.deleted == 0,
-        LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
     )
     if start_dt is not None:
-        query = query.filter(LearnGeneratedBlock.created_at >= start_dt)
+        generation_query = generation_query.filter(
+            LearnGeneratedBlock.created_at >= start_dt
+        )
     if end_dt_exclusive is not None:
-        query = query.filter(LearnGeneratedBlock.created_at < end_dt_exclusive)
-
-    rows = query.group_by(LearnGeneratedBlock.shifu_bid).all()
-    result: Dict[str, int] = {}
-    for shifu_bid, c in rows:
+        generation_query = generation_query.filter(
+            LearnGeneratedBlock.created_at < end_dt_exclusive
+        )
+    generation_rows = generation_query.group_by(LearnGeneratedBlock.shifu_bid).all()
+    generation_count_map: Dict[str, int] = {}
+    for shifu_bid, c in generation_rows:
         if not shifu_bid:
             continue
-        result[str(shifu_bid)] = int(c or 0)
-    return result
+        generation_count_map[str(shifu_bid)] = int(c or 0)
 
-
-def _load_last_active_by_course(
-    shifu_bids: List[str],
-    *,
-    start_dt: Optional[datetime],
-    end_dt_exclusive: Optional[datetime],
-) -> Dict[str, datetime]:
-    if not shifu_bids:
-        return {}
-    query = db.session.query(
+    last_active_query = db.session.query(
         LearnProgressRecord.shifu_bid.label("shifu_bid"),
         db.func.max(LearnProgressRecord.updated_at).label("last_active"),
     ).filter(
         LearnProgressRecord.shifu_bid.in_(shifu_bids),
         LearnProgressRecord.deleted == 0,
-        LearnProgressRecord.status != LEARN_STATUS_RESET,
     )
     if start_dt is not None:
-        query = query.filter(LearnProgressRecord.updated_at >= start_dt)
+        last_active_query = last_active_query.filter(
+            LearnProgressRecord.updated_at >= start_dt
+        )
     if end_dt_exclusive is not None:
-        query = query.filter(LearnProgressRecord.updated_at < end_dt_exclusive)
+        last_active_query = last_active_query.filter(
+            LearnProgressRecord.updated_at < end_dt_exclusive
+        )
 
-    rows = query.group_by(LearnProgressRecord.shifu_bid).all()
-    result: Dict[str, datetime] = {}
-    for shifu_bid, last_active in rows:
+    last_active_rows = last_active_query.group_by(LearnProgressRecord.shifu_bid).all()
+    last_active_map: Dict[str, datetime] = {}
+    for shifu_bid, last_active in last_active_rows:
         if not shifu_bid or not last_active:
             continue
-        result[str(shifu_bid)] = last_active
-    return result
+        last_active_map[str(shifu_bid)] = last_active
+
+    active_course_bids = (
+        set(learner_count_map.keys())
+        .union(order_count_map.keys())
+        .union(generation_count_map.keys())
+    )
+    return _DashboardEntryMetrics(
+        learner_total=learner_total,
+        learner_count_map=learner_count_map,
+        order_count_map=order_count_map,
+        generation_count_map=generation_count_map,
+        last_active_map=last_active_map,
+        active_course_bids=active_course_bids,
+    )
 
 
 def build_dashboard_entry(
@@ -303,7 +345,7 @@ def build_dashboard_entry(
             end_date,
         )
 
-        courses = _load_dashboard_active_courses(app, user_id, keyword=keyword)
+        courses = _load_dashboard_entry_courses(user_id, keyword=keyword)
         total = len(courses)
         if total == 0:
             return DashboardEntryDTO(
@@ -320,24 +362,32 @@ def build_dashboard_entry(
                 items=[],
             )
 
-        shifu_bids = [course.shifu_bid for course in courses if course.shifu_bid]
-        learner_total = _count_total_learners(shifu_bids)
-        learner_count_map = _count_learners_by_course(shifu_bids)
-        order_count_map = _count_orders_by_course(
+        shifu_bids = [course.shifu_bid for course in courses]
+        metrics = _collect_dashboard_entry_metrics(
             shifu_bids,
             start_dt=start_dt,
             end_dt_exclusive=end_dt_exclusive,
         )
-        generation_count_map = _count_generations_by_course(
-            shifu_bids,
-            start_dt=start_dt,
-            end_dt_exclusive=end_dt_exclusive,
-        )
-        last_active_map = _load_last_active_by_course(
-            shifu_bids,
-            start_dt=start_dt,
-            end_dt_exclusive=end_dt_exclusive,
-        )
+        has_date_filter = start_dt is not None or end_dt_exclusive is not None
+        if has_date_filter:
+            courses = [
+                item for item in courses if item.shifu_bid in metrics.active_course_bids
+            ]
+            total = len(courses)
+            if total == 0:
+                return DashboardEntryDTO(
+                    summary=DashboardEntrySummaryDTO(
+                        course_count=0,
+                        learner_count=0,
+                        order_count=0,
+                        generation_count=0,
+                    ),
+                    page=safe_page_index,
+                    page_size=safe_page_size,
+                    page_count=0,
+                    total=0,
+                    items=[],
+                )
 
         page_count = (total + safe_page_size - 1) // safe_page_size
         resolved_page = min(safe_page_index, max(page_count, 1))
@@ -346,15 +396,15 @@ def build_dashboard_entry(
 
         items: List[DashboardEntryCourseItemDTO] = []
         for course in page_courses:
-            shifu_bid = course.shifu_bid or ""
-            last_active = last_active_map.get(shifu_bid)
+            shifu_bid = course.shifu_bid
+            last_active = metrics.last_active_map.get(shifu_bid)
             items.append(
                 DashboardEntryCourseItemDTO(
                     shifu_bid=shifu_bid,
-                    shifu_name=(course.title or shifu_bid),
-                    learner_count=learner_count_map.get(shifu_bid, 0),
-                    order_count=order_count_map.get(shifu_bid, 0),
-                    generation_count=generation_count_map.get(shifu_bid, 0),
+                    shifu_name=course.shifu_name,
+                    learner_count=metrics.learner_count_map.get(shifu_bid, 0),
+                    order_count=metrics.order_count_map.get(shifu_bid, 0),
+                    generation_count=metrics.generation_count_map.get(shifu_bid, 0),
                     last_active_at=last_active.isoformat() if last_active else "",
                 )
             )
@@ -362,9 +412,9 @@ def build_dashboard_entry(
         return DashboardEntryDTO(
             summary=DashboardEntrySummaryDTO(
                 course_count=total,
-                learner_count=learner_total,
-                order_count=sum(order_count_map.values()),
-                generation_count=sum(generation_count_map.values()),
+                learner_count=metrics.learner_total,
+                order_count=sum(metrics.order_count_map.values()),
+                generation_count=sum(metrics.generation_count_map.values()),
             ),
             page=resolved_page,
             page_size=safe_page_size,
