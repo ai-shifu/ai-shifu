@@ -22,12 +22,14 @@ import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store';
 import { shifu } from '@/c-service/Shifu';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
+import { useEnvStore } from '@/c-store/envStore';
+import SetPasswordModal from '../Settings/SetPasswordModal';
 
 import Image from 'next/image';
 import imgPersonal from '@/c-assets/newchat/light/personal.png';
 import imgMultiLanguage from '@/c-assets/newchat/light/multiLanguage.png';
 import imgSignIn from '@/c-assets/newchat/light/signin.png';
-import { Monitor, BookPlus } from 'lucide-react';
+import { Monitor, BookPlus, KeyRound } from 'lucide-react';
 
 import LanguageSelect from '@/components/language-select';
 
@@ -44,15 +46,20 @@ const MainMenuModal = ({
   const { t } = useTranslation();
 
   const htmlRef = useRef(null);
-  const { isLoggedIn, logout, userInfo } = useUserStore(
+  const { isLoggedIn, logout, userInfo, refreshUserInfo } = useUserStore(
     useShallow(state => ({
       logout: state.logout,
       isLoggedIn: state.isLoggedIn,
       userInfo: state.userInfo,
+      refreshUserInfo: state.refreshUserInfo,
     })),
   );
 
   const isCreator = userInfo?.is_creator ?? false;
+  const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
+  const isPasswordEnabled = Array.isArray(loginMethodsEnabled)
+    ? loginMethodsEnabled.includes('password')
+    : false;
 
   const { trackEvent } = useTracking();
 
@@ -75,6 +82,23 @@ const MainMenuModal = ({
     }
 
     onPersonalInfoClick?.();
+  };
+
+  const [setPasswordModalOpen, setSetPasswordModalOpen] = useState(false);
+  const onSetPasswordClick = (evt: React.MouseEvent) => {
+    evt.preventDefault();
+    evt.stopPropagation();
+    trackEvent(EVENT_NAMES.USER_MENU_SET_PASSWORD, {});
+    if (!isLoggedIn) {
+      trackEvent(EVENT_NAMES.POP_LOGIN, { from: 'user_menu_set_password' });
+      shifu.loginTools.openLogin();
+      return;
+    }
+
+    setSetPasswordModalOpen(true);
+    // Close the user menu to avoid layering with the password modal.
+    // @ts-expect-error EXPECT
+    onClose?.(evt);
   };
 
   const onAdminEntryClick = (evt: React.MouseEvent) => {
@@ -181,6 +205,21 @@ const MainMenuModal = ({
                   {t('component.menus.navigationMenus.personalInfo')}
                 </div>
               </div>
+              {isPasswordEnabled ? (
+                <div
+                  className={cn(styles.mainMenuModalRow, 'px-2.5')}
+                  onClick={onSetPasswordClick}
+                  title={t('module.settings.password')}
+                >
+                  <KeyRound
+                    className={styles.rowIcon}
+                    size={16}
+                  />
+                  <div className={styles.rowTitle}>
+                    {t('module.settings.passwordPlaceholder')}
+                  </div>
+                </div>
+              ) : null}
               <div
                 className={cn(styles.mainMenuModalRow, 'px-2.5')}
                 onClick={onAdminEntryClick}
@@ -264,6 +303,11 @@ const MainMenuModal = ({
           )}
         </div>
       </PopupModal>
+      <SetPasswordModal
+        open={setPasswordModalOpen}
+        onClose={() => setSetPasswordModalOpen(false)}
+        onSuccess={refreshUserInfo}
+      />
     </>
   );
 };
