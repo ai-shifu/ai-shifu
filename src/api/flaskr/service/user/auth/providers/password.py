@@ -18,7 +18,7 @@ from flaskr.service.user.auth.factory import (
 )
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
-    find_credential,
+    list_credentials,
     load_user_aggregate_by_identifier,
 )
 from flaskr.service.user.password_utils import verify_password
@@ -47,12 +47,14 @@ class PasswordAuthProvider(AuthProvider):
         if not aggregate:
             raise_error("server.user.invalidCredentials")
 
-        # Find password credential
-        credential = find_credential(
-            provider_name="password",
-            identifier=identifier,
-            user_bid=aggregate.user_bid,
+        # Find password credential – look up by user_bid only.
+        # The password credential's identifier may differ from the login
+        # identifier (e.g. user registered with phone but logs in with
+        # email, or vice-versa), so we must not filter by identifier here.
+        password_creds = list_credentials(
+            user_bid=aggregate.user_bid, provider_name="password"
         )
+        credential = password_creds[0] if password_creds else None
         if not credential:
             raise_error("server.user.invalidCredentials")
 
