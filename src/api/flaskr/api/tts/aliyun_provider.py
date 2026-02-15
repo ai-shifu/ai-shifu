@@ -23,6 +23,10 @@ from flaskr.api.tts.base import (
     ProviderConfig,
     ParamRange,
 )
+from flaskr.api.tts.aliyun_nls_token import (
+    get_aliyun_nls_token,
+    is_aliyun_nls_token_configured,
+)
 
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
@@ -1177,25 +1181,23 @@ class AliyunTTSProvider(BaseTTSProvider):
     def provider_name(self) -> str:
         return "aliyun"
 
-    def _get_credentials(self) -> tuple:
+    def _get_settings(self) -> tuple:
         """
-        Get Aliyun TTS credentials.
+        Get Aliyun TTS settings.
 
         Returns:
-            tuple: (appkey, token, region)
+            tuple: (appkey, region)
         """
         appkey = get_config("ALIYUN_TTS_APPKEY") or ""
-        token = get_config("ALIYUN_TTS_TOKEN") or ""
         region = get_config("ALIYUN_TTS_REGION") or "shanghai"
-        return appkey, token, region
+        return appkey, region
 
     def is_configured(self) -> bool:
         """Check if Aliyun TTS is properly configured."""
-        appkey, token, _region = self._get_credentials()
+        appkey, _region = self._get_settings()
         # Per Aliyun NLS RESTful TTS docs, token is required for authentication.
-        # It can be provided either as the `token` request parameter or as
-        # the `X-NLS-Token` header, but we still need a token value configured.
-        return bool(appkey and token)
+        # We accept either a manually provided token, or auto-fetch via CreateToken.
+        return bool(appkey and is_aliyun_nls_token_configured())
 
     def get_default_voice_settings(self) -> VoiceSettings:
         """Get default voice settings.
@@ -1264,18 +1266,14 @@ class AliyunTTSProvider(BaseTTSProvider):
         if not audio_settings:
             audio_settings = self.get_default_audio_settings()
 
-        # Get credentials
-        appkey, token, region = self._get_credentials()
+        # Get settings
+        appkey, region = self._get_settings()
 
         if not appkey:
             raise ValueError(
                 "Aliyun TTS credentials are not configured. Set ALIYUN_TTS_APPKEY"
             )
-        if not token:
-            raise ValueError(
-                "Aliyun TTS token is not configured. Set ALIYUN_TTS_TOKEN "
-                "(see Aliyun NLS docs: Token authentication is required)."
-            )
+        token = get_aliyun_nls_token()
 
         # Get endpoint URL
         endpoint = ALIYUN_TTS_ENDPOINTS.get(

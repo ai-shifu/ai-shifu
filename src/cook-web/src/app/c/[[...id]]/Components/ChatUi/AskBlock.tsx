@@ -390,7 +390,9 @@ export default function AskBlock({
                 {message.content}
               </div>
             ) : (
-              <div className={cn(styles.assistantMessage)}>
+              <div
+                className={cn(styles.assistantMessage, styles.askIframeWrapper)}
+              >
                 <ContentRender
                   content={message.content}
                   customRenderBar={

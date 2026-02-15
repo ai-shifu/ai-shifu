@@ -11,6 +11,18 @@ html {
   -moz-osx-font-smoothing: auto;
 }
 
+/* Listen mode layout bounds live in global CSS to avoid CSS Modules purity errors */
+html.listen-mode,
+body.listen-mode {
+  height: 100%;
+  min-height: auto;
+}
+
+body.listen-mode #root {
+  height: 100dvh;
+  min-height: auto;
+}
+
 @layer base {
   :root {
     --background: #fefefe;

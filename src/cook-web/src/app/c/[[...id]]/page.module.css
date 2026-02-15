@@ -11,3 +11,11 @@
   top: 0;
   z-index: 10;
 }
+.newChatPage.listenMode {
+  height: 100%;
+  min-height: auto;
+}
+.newChatPage.listenMode .chatMobileHeader {
+  position: static;
+  top: auto;
+}

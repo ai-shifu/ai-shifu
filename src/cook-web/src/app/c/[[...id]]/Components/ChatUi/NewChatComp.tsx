@@ -1,5 +1,5 @@
 import styles from './ChatComponents.module.scss';
-import { ChevronsDown } from 'lucide-react';
+import { ChevronsDown, Loader2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import {
   useContext,
@@ -29,6 +29,7 @@ import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
 import ListenModeRenderer from './ListenModeRenderer';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import { stripCustomButtonAfterContent } from './chatUiUtils';
 import {
   Dialog,
   DialogContent,
@@ -231,6 +232,28 @@ export const NewChatComponents = ({
     showOutputInProgressToast,
     onPayModalOpen,
   });
+
+  const listenModeItems = useMemo(() => {
+    if (!isListenModeActive || !mobileStyle) {
+      return items;
+    }
+    let hasChanges = false;
+    const nextItems = items.map(item => {
+      if (item.type !== ChatContentItemType.CONTENT) {
+        return item;
+      }
+      const sanitizedContent = stripCustomButtonAfterContent(item.content);
+      if (sanitizedContent === item.content) {
+        return item;
+      }
+      hasChanges = true;
+      return {
+        ...item,
+        content: sanitizedContent ?? '',
+      };
+    });
+    return hasChanges ? nextItems : items;
+  }, [isListenModeActive, items, mobileStyle]);
 
   const itemByGeneratedBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();
@@ -455,6 +478,9 @@ export const NewChatComponents = ({
     </button>
   );
 
+  // useEffect(() => {
+  //   console.log('isLoading', isLoading);
+  // }, [isLoading]);
   return (
     <div
       className={containerClassName}
@@ -462,17 +488,22 @@ export const NewChatComponents = ({
     >
       {isListenMode ? (
         isListenModeAvailable ? (
-          <ListenModeRenderer
-            items={items}
-            mobileStyle={mobileStyle}
-            chatRef={chatRef as React.RefObject<HTMLDivElement>}
-            containerClassName={containerClassName}
-            isLoading={isLoading}
-            sectionTitle={lessonTitle}
-            previewMode={previewMode}
-            onRequestAudioForBlock={requestAudioForBlock}
-            onSend={memoizedOnSend}
-          />
+          isLoading ? (
+            <div className='w-full h-full flex items-center justify-center'>
+              <Loader2 className='animate-spin size-6 text-primary' />
+            </div>
+          ) : (
+            <ListenModeRenderer
+              items={listenModeItems}
+              mobileStyle={mobileStyle}
+              chatRef={chatRef as React.RefObject<HTMLDivElement>}
+              isLoading={isLoading}
+              sectionTitle={lessonTitle}
+              previewMode={previewMode}
+              onRequestAudioForBlock={requestAudioForBlock}
+              onSend={memoizedOnSend}
+            />
+          )
         ) : (
           <div
             className={cn(
