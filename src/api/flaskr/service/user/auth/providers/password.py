@@ -18,6 +18,7 @@ from flaskr.service.user.auth.factory import (
 )
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
+    get_password_hash,
     list_credentials,
     load_user_aggregate_by_identifier,
 )
@@ -58,8 +59,8 @@ class PasswordAuthProvider(AuthProvider):
         if not credential:
             raise_error("server.user.invalidCredentials")
 
-        # Read password hash from the dedicated column
-        password_hash = credential.password_hash or ""
+        # Read password hash from raw_profile
+        password_hash = get_password_hash(credential)
         if not password_hash or not verify_password(password, password_hash):
             raise_error("server.user.invalidCredentials")
 

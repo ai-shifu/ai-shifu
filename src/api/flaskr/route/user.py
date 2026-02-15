@@ -13,6 +13,8 @@ from flaskr.service.user.models import AuthCredential
 from flaskr.util.uuid import generate_id
 from flaskr.service.user.repository import (
     find_credential,
+    get_password_hash,
+    set_password_hash,
     load_user_aggregate_by_identifier,
     list_credentials,
 )
@@ -732,7 +734,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         pwd_cred = find_credential(
             provider_name="password", identifier=selected_identifier, user_bid=user_bid
         )
-        if pwd_cred and pwd_cred.password_hash:
+        if pwd_cred and get_password_hash(pwd_cred):
             raise_error("server.user.passwordAlreadySet")
 
         # Validate ownership by consuming a verification code for the chosen identifier.
@@ -741,7 +743,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         subject_format = "email" if "@" in selected_identifier else "phone"
 
         if pwd_cred:
-            pwd_cred.password_hash = hash_password(new_password)
+            set_password_hash(pwd_cred, hash_password(new_password))
         else:
             pwd_cred = AuthCredential(
                 credential_bid=generate_id(app),
@@ -751,11 +753,11 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 subject_format=subject_format,
                 identifier=selected_identifier,
                 raw_profile="",
-                password_hash=hash_password(new_password),
                 state=CREDENTIAL_STATE_VERIFIED,
                 deleted=0,
             )
             db.session.add(pwd_cred)
+            set_password_hash(pwd_cred, hash_password(new_password))
 
         db.session.commit()
         return make_common_response({"success": True})
@@ -788,11 +790,11 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise_error("server.user.invalidCredentials")
 
         pwd_cred = creds[0]
-        current_hash = pwd_cred.password_hash or ""
+        current_hash = get_password_hash(pwd_cred)
         if not current_hash or not verify_password(old_password, current_hash):
             raise_error("server.user.invalidCredentials")
 
-        pwd_cred.password_hash = hash_password(new_password)
+        set_password_hash(pwd_cred, hash_password(new_password))
         db.session.commit()
         return make_common_response({"success": True})
 
@@ -846,7 +848,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             user_bid=user_bid,
         )
         if pwd_cred:
-            pwd_cred.password_hash = hash_password(new_password)
+            set_password_hash(pwd_cred, hash_password(new_password))
         else:
             pwd_cred = AuthCredential(
                 credential_bid=generate_id(app),
@@ -856,11 +858,11 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 subject_format=subject_format,
                 identifier=normalized_identifier,
                 raw_profile="",
-                password_hash=hash_password(new_password),
                 state=CREDENTIAL_STATE_VERIFIED,
                 deleted=0,
             )
             db.session.add(pwd_cred)
+            set_password_hash(pwd_cred, hash_password(new_password))
 
         db.session.commit()
         return make_common_response({"success": True})
