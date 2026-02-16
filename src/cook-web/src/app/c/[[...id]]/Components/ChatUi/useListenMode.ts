@@ -18,6 +18,13 @@ import {
   markdownTableToSandboxHtml,
   findFirstTextVisualBlock,
 } from '@/c-utils/listen-mode';
+import { useQueueManager } from '@/c-utils/listen-mode/use-queue-manager';
+import type {
+  QueueEvent,
+  VisualQueueItem,
+  AudioQueueItem,
+  InteractionQueueItem,
+} from '@/c-utils/listen-mode/queue-manager';
 
 const isFixedMarkerText = (raw: string) => {
   const trimmed = (raw || '').trim();
@@ -1310,54 +1317,10 @@ export const useListenAudioSequence = ({
   isAudioPlaying,
   setIsAudioPlaying,
 }: UseListenAudioSequenceParams) => {
-  type ListenSequenceMode =
-    | 'idle'
-    | 'waiting_audio'
-    | 'playing'
-    | 'interaction_blocked'
-    | 'paused';
-
-  type ListenSequenceEvent =
-    | { type: 'START_FROM_INDEX'; index: number }
-    | { type: 'START_FROM_PAGE'; page: number }
-    | {
-        type: 'RESOLVE_INDEX';
-        index: number;
-        retryCount?: number;
-        reason: string;
-      }
-    | { type: 'AUDIO_ENDED' }
-    | { type: 'AUDIO_ERROR' }
-    | {
-        type: 'INTERACTION_OPENED';
-        item: AudioInteractionItem;
-        nextIndex: number | null;
-      }
-    | { type: 'INTERACTION_RESOLVED'; interactionBid?: string }
-    | { type: 'PLAY' }
-    | { type: 'PAUSE'; traceId?: string }
-    | { type: 'RESET' }
-    | { type: 'LIST_UPDATED' };
-
+  // ---------------------------------------------------------------------------
+  // React state — preserved from original, same external interface
+  // ---------------------------------------------------------------------------
   const audioPlayerRef = useRef<AudioPlayerHandle | null>(null);
-  const audioSequenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const audioSequenceListRef = useRef<AudioInteractionItem[]>([]);
-  const sequenceModeRef = useRef<ListenSequenceMode>('idle');
-  const sequenceIndexRef = useRef(-1);
-  const sequenceUnitIdRef = useRef<string | null>(null);
-  const resumeAfterUnitIdRef = useRef<string | null>(null);
-  const isSequencePausedRef = useRef(false);
-  // When a silent-visual at the tail of the list finishes its display but
-  // the list hasn't grown yet (content still streaming), this ref stores the
-  // next index we want to reach.  The LIST_UPDATED handler checks this and
-  // auto-resumes once the list grows to include that index.
-  const waitingForListGrowthRef = useRef<{
-    nextIdx: number;
-    since: number;
-  } | null>(null);
-  const interactionNextIndexRef = useRef<number | null>(null);
   const [activeAudioBid, setActiveAudioBid] = useState<string | null>(null);
   const [activeAudioPosition, setActiveAudioPosition] = useState(0);
   const [activeSequencePage, setActiveSequencePage] = useState(-1);
@@ -1367,22 +1330,21 @@ export const useListenAudioSequence = ({
   const [audioSequenceToken, setAudioSequenceToken] = useState(0);
   const audioSequenceTokenRef = useRef(0);
   const hasObservedPlaybackRef = useRef(false);
-  const dispatchSequenceEventRef = useRef<(event: ListenSequenceEvent) => void>(
-    () => undefined,
+  const isSequencePausedRef = useRef(false);
+  const silentVisualTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
   );
+  // Track the last synced list length to detect new items for queue sync
+  const lastSyncedListRef = useRef<AudioInteractionItem[]>([]);
+  // Track synced audio state per item to avoid duplicate upsertAudio calls.
+  // Key: "bid:position", value: { count: segments synced, finalized: true if is_final sent } or 'url'
+  const syncedAudioStateRef = useRef<
+    Map<string, { count: number; finalized: boolean } | 'url'>
+  >(new Map());
 
-  const setSequenceMode = useCallback((mode: ListenSequenceMode) => {
-    sequenceModeRef.current = mode;
-    setIsAudioSequenceActive(mode !== 'idle');
-  }, []);
-
-  const clearAudioSequenceTimer = useCallback(() => {
-    if (audioSequenceTimerRef.current) {
-      clearTimeout(audioSequenceTimerRef.current);
-      audioSequenceTimerRef.current = null;
-    }
-  }, []);
-
+  // ---------------------------------------------------------------------------
+  // Helpers preserved from original
+  // ---------------------------------------------------------------------------
   const hasPlayableAudioForItem = useCallback((item: AudioInteractionItem) => {
     if (item.type !== ChatContentItemType.CONTENT) {
       return true;
@@ -1408,59 +1370,6 @@ export const useListenAudioSequence = ({
     return hasUrl || hasSegments || isStreaming;
   }, []);
 
-  const getItemUnitId = useCallback(
-    (item: AudioInteractionItem | undefined, index: number) =>
-      buildListenUnitId({
-        type: item?.type || 'unknown',
-        generatedBlockBid: item?.generated_block_bid,
-        position: item?.audioPosition ?? 0,
-        slideId: item?.audioSlideId,
-        fallbackIndex: index,
-        resolveContentBid,
-      }),
-    [resolveContentBid],
-  );
-
-  const resolveCurrentSequenceIndex = useCallback(
-    (list: AudioInteractionItem[]) => {
-      const unitId = sequenceUnitIdRef.current;
-      if (!unitId) {
-        return sequenceIndexRef.current;
-      }
-      const nextIndex = list.findIndex((item, index) => {
-        return getItemUnitId(item, index) === unitId;
-      });
-      if (nextIndex >= 0) {
-        sequenceIndexRef.current = nextIndex;
-        return nextIndex;
-      }
-
-      // Fallback recovery: when unit id no longer matches after stream patches,
-      // attempt to recover by active audio identity.
-      if (activeAudioBid) {
-        const resolvedActiveBid =
-          resolveContentBid(activeAudioBid) || activeAudioBid;
-        const recoveredIndex = list.findIndex(
-          item =>
-            item.type === ChatContentItemType.CONTENT &&
-            (resolveContentBid(item.generated_block_bid) ||
-              item.generated_block_bid) === resolvedActiveBid &&
-            (item.audioPosition ?? 0) === activeAudioPosition,
-        );
-        if (recoveredIndex >= 0) {
-          sequenceIndexRef.current = recoveredIndex;
-          sequenceUnitIdRef.current = getItemUnitId(
-            list[recoveredIndex],
-            recoveredIndex,
-          );
-          return recoveredIndex;
-        }
-      }
-      return -1;
-    },
-    [activeAudioBid, activeAudioPosition, getItemUnitId, resolveContentBid],
-  );
-
   const syncToSequencePage = useCallback(
     (page: number) => {
       if (page < 0) {
@@ -1478,7 +1387,9 @@ export const useListenAudioSequence = ({
         if (typeof deck.layout === 'function') {
           deck.layout();
         }
-      } catch (e) {}
+      } catch (_e) {
+        // ignore
+      }
 
       const slidesLength =
         typeof deck.getSlides === 'function'
@@ -1494,25 +1405,91 @@ export const useListenAudioSequence = ({
         return false;
       }
 
-      const currentIndex = deck.getIndices?.().h ?? 0;
-
-      // Always call deck.slide() to ensure Reveal.js re-renders the slide content.
-      // This is critical when multiple audio positions share the same page number
-      // (e.g., during streaming when not all slides have arrived yet).
-      // Calling slide() even when already on the target page forces Reveal.js to
-      // sync DOM and re-render, ensuring the latest content is displayed.
-      deck.slide(page);
+      try {
+        deck.slide(page);
+      } catch (_e) {
+        // Reveal.js may throw if controls are not yet initialized
+        return false;
+      }
       return true;
     },
     [deckRef],
   );
 
+  const tryAdvanceToNextBlock = useCallback(() => {
+    const currentBid =
+      resolveContentBid(activeBlockBidRef.current) ||
+      resolveContentBid(activeAudioBid);
+    if (!currentBid) {
+      pendingAutoNextRef.current = true;
+      return true;
+    }
+    if (resolveContentBid(activeBlockBidRef.current) !== currentBid) {
+      activeBlockBidRef.current = currentBid;
+    }
+    const nextBid = getNextContentBid(currentBid);
+    if (!nextBid) {
+      pendingAutoNextRef.current = true;
+      return true;
+    }
+
+    const moved = goToBlock(nextBid);
+    if (moved) {
+      return true;
+    }
+
+    if (shouldRenderEmptyPpt) {
+      activeBlockBidRef.current = `empty-ppt-${nextBid}`;
+      return true;
+    }
+
+    pendingAutoNextRef.current = true;
+    return true;
+  }, [
+    activeAudioBid,
+    activeBlockBidRef,
+    getNextContentBid,
+    goToBlock,
+    pendingAutoNextRef,
+    resolveContentBid,
+    shouldRenderEmptyPpt,
+  ]);
+
+  const endSequence = useCallback(
+    (options?: { tryAdvanceToNextBlock?: boolean }) => {
+      if (silentVisualTimerRef.current) {
+        clearTimeout(silentVisualTimerRef.current);
+        silentVisualTimerRef.current = null;
+      }
+      setSequenceInteraction(null);
+      setActiveAudioBid(null);
+      setActiveAudioPosition(0);
+      setActiveSequencePage(-1);
+      setIsAudioSequenceActive(false);
+      isSequencePausedRef.current = false;
+      if (options?.tryAdvanceToNextBlock) {
+        tryAdvanceToNextBlock();
+      }
+    },
+    [tryAdvanceToNextBlock],
+  );
+
+  const isAudioPlayerBusy = useCallback(() => {
+    const state = audioPlayerRef.current?.getPlaybackState?.();
+    if (!state) {
+      return false;
+    }
+    return Boolean(
+      state.isPlaying || state.isLoading || state.isWaitingForSegment,
+    );
+  }, []);
+
   const resolveSequenceStartIndex = useCallback(
     (page: number) => {
-      const list = audioSequenceListRef.current;
-      if (!list.length) {
+      if (!audioAndInteractionList.length) {
         return -1;
       }
+      const list = audioAndInteractionList;
 
       const currentSlide =
         (deckRef.current?.getCurrentSlide?.() as
@@ -1566,666 +1543,308 @@ export const useListenAudioSequence = ({
       }
       return list.findIndex(item => item.page > page);
     },
-    [activeAudioBid, activeBlockBidRef, deckRef, resolveContentBid],
-  );
-
-  const tryAdvanceToNextBlock = useCallback(() => {
-    const currentBid =
-      resolveContentBid(activeBlockBidRef.current) ||
-      resolveContentBid(activeAudioBid);
-    if (!currentBid) {
-      pendingAutoNextRef.current = true;
-      return true;
-    }
-    if (resolveContentBid(activeBlockBidRef.current) !== currentBid) {
-      activeBlockBidRef.current = currentBid;
-    }
-    const nextBid = getNextContentBid(currentBid);
-    if (!nextBid) {
-      pendingAutoNextRef.current = true;
-      return true;
-    }
-
-    const moved = goToBlock(nextBid);
-    if (moved) {
-      return true;
-    }
-
-    if (shouldRenderEmptyPpt) {
-      activeBlockBidRef.current = `empty-ppt-${nextBid}`;
-      return true;
-    }
-
-    pendingAutoNextRef.current = true;
-    return true;
-  }, [
-    activeAudioBid,
-    activeBlockBidRef,
-    getNextContentBid,
-    goToBlock,
-    pendingAutoNextRef,
-    resolveContentBid,
-    shouldRenderEmptyPpt,
-  ]);
-
-  const endSequence = useCallback(
-    (options?: { tryAdvanceToNextBlock?: boolean }) => {
-      clearAudioSequenceTimer();
-      sequenceIndexRef.current = -1;
-      sequenceUnitIdRef.current = null;
-      resumeAfterUnitIdRef.current = null;
-      interactionNextIndexRef.current = null;
-      waitingForListGrowthRef.current = null;
-      setSequenceInteraction(null);
-      setActiveAudioBid(null);
-      setActiveAudioPosition(0);
-      setActiveSequencePage(-1);
-      setSequenceMode('idle');
-      if (options?.tryAdvanceToNextBlock) {
-        tryAdvanceToNextBlock();
-      }
-    },
-    [clearAudioSequenceTimer, setSequenceMode, tryAdvanceToNextBlock],
-  );
-
-  const isAudioPlayerBusy = useCallback(() => {
-    const state = audioPlayerRef.current?.getPlaybackState?.();
-    if (!state) {
-      return false;
-    }
-    return Boolean(
-      state.isPlaying || state.isLoading || state.isWaitingForSegment,
-    );
-  }, []);
-
-  const resolveIndex = useCallback(
-    (index: number, retryCount = 0, reason = 'resolve-index') => {
-      if (isSequencePausedRef.current && !reason.startsWith('start')) {
-        return;
-      }
-
-      clearAudioSequenceTimer();
-      const list = audioSequenceListRef.current;
-      const nextItem = list[index];
-
-      if (!nextItem) {
-        endSequence();
-        return;
-      }
-
-      sequenceIndexRef.current = index;
-      sequenceUnitIdRef.current = getItemUnitId(nextItem, index);
-      setIsAudioSequenceActive(true);
-      setActiveSequencePage(nextItem.page);
-
-      // Silent visual items have slide content but no audio.  Show the slide
-      // for a brief viewing period and then auto-advance to the next item.
-      if (nextItem.isSilentVisual) {
-        const pageReady = syncToSequencePage(nextItem.page);
-        if (!pageReady) {
-          // Slide not rendered yet – retry shortly.
-          audioSequenceTimerRef.current = setTimeout(() => {
-            dispatchSequenceEventRef.current({
-              type: 'RESOLVE_INDEX',
-              index,
-              retryCount: retryCount + 1,
-              reason: 'silent-visual-wait-slide',
-            });
-          }, 120);
-          return;
-        }
-        setSequenceInteraction(null);
-        setActiveAudioBid(null);
-        setSequenceMode('playing');
-        // Auto-advance after a viewing period (5 s per visual slide).
-        const viewMs = 5000;
-        audioSequenceTimerRef.current = setTimeout(() => {
-          const nextIdx = index + 1;
-          const latestList = audioSequenceListRef.current;
-          if (nextIdx < latestList.length) {
-            resolveIndex(nextIdx, 0, 'silent-visual-auto-advance');
-            return;
-          }
-          // The block's content may still be streaming, so the list may
-          // not yet include subsequent visual pages.  Poll briefly for
-          // the list to grow before ending the sequence.
-          let pollCount = 0;
-          const pollForNextItem = () => {
-            const refreshed = audioSequenceListRef.current;
-            if (nextIdx < refreshed.length) {
-              resolveIndex(nextIdx, 0, 'silent-visual-auto-advance');
-              return;
-            }
-            pollCount++;
-            if (pollCount >= 10) {
-              // Content may still be streaming.  Instead of ending the
-              // sequence, hand off to the LIST_UPDATED handler which will
-              // resume once the list grows to include nextIdx.
-              waitingForListGrowthRef.current = {
-                nextIdx,
-                since: Date.now(),
-              };
-              setSequenceMode('waiting_audio');
-              return;
-            }
-            audioSequenceTimerRef.current = setTimeout(pollForNextItem, 300);
-          };
-          pollForNextItem();
-        }, viewMs);
-        return;
-      }
-
-      if (
-        nextItem.type === ChatContentItemType.CONTENT &&
-        !hasPlayableAudioForItem(nextItem)
-      ) {
-        syncToSequencePage(nextItem.page);
-        setSequenceInteraction(null);
-        setActiveAudioBid(null);
-        setActiveAudioPosition(nextItem.audioPosition ?? 0);
-        setSequenceMode('waiting_audio');
-        const waitMs = retryCount < 80 ? 120 : 500;
-        audioSequenceTimerRef.current = setTimeout(() => {
-          dispatchSequenceEventRef.current({
-            type: 'RESOLVE_INDEX',
-            index,
-            retryCount: retryCount + 1,
-            reason: 'wait-audio',
-          });
-        }, waitMs);
-        return;
-      }
-
-      const pageReady = syncToSequencePage(nextItem.page);
-
-      if (!pageReady) {
-        setSequenceMode('waiting_audio');
-        audioSequenceTimerRef.current = setTimeout(() => {
-          dispatchSequenceEventRef.current({
-            type: 'RESOLVE_INDEX',
-            index,
-            retryCount: retryCount + 1,
-            reason: 'wait-slide',
-          });
-        }, 120);
-        return;
-      }
-
-      if (nextItem.type === ChatContentItemType.INTERACTION) {
-        dispatchSequenceEventRef.current({
-          type: 'INTERACTION_OPENED',
-          item: nextItem,
-          nextIndex: index >= list.length - 1 ? null : index + 1,
-        });
-        return;
-      }
-
-      interactionNextIndexRef.current = null;
-      setSequenceInteraction(null);
-      setActiveAudioBid(nextItem.generated_block_bid);
-      setActiveAudioPosition(nextItem.audioPosition ?? 0);
-      setAudioSequenceToken(prev => prev + 1);
-      setSequenceMode('playing');
-    },
-    [
-      clearAudioSequenceTimer,
-      endSequence,
-      getItemUnitId,
-      hasPlayableAudioForItem,
-      setSequenceMode,
-      syncToSequencePage,
-    ],
-  );
-
-  const dispatchSequenceEvent = useCallback(
-    (event: ListenSequenceEvent) => {
-      if (event.type === 'RESET') {
-        isSequencePausedRef.current = false;
-        clearAudioSequenceTimer();
-        audioPlayerRef.current?.pause({
-          traceId: 'sequence-reset',
-          keepAutoPlay: true,
-        });
-        endSequence();
-        return;
-      }
-
-      if (event.type === 'START_FROM_INDEX') {
-        const listLength = audioSequenceListRef.current.length;
-        if (!listLength) {
-          return;
-        }
-        const maxIndex = Math.max(listLength - 1, 0);
-        const nextIndex = Math.min(Math.max(event.index, 0), maxIndex);
-        isSequencePausedRef.current = false;
-        clearAudioSequenceTimer();
-        audioPlayerRef.current?.pause({
-          traceId: 'sequence-start',
-          keepAutoPlay: true,
-        });
-        endSequence();
-        resolveIndex(nextIndex, 0, 'start-from-index');
-        return;
-      }
-
-      if (event.type === 'START_FROM_PAGE') {
-        const startIndex = resolveSequenceStartIndex(event.page);
-        if (startIndex < 0) {
-          return;
-        }
-        dispatchSequenceEventRef.current({
-          type: 'START_FROM_INDEX',
-          index: startIndex,
-        });
-        return;
-      }
-
-      if (event.type === 'RESOLVE_INDEX') {
-        resolveIndex(event.index, event.retryCount ?? 0, event.reason);
-        return;
-      }
-
-      if (event.type === 'AUDIO_ERROR') {
-        clearAudioSequenceTimer();
-        isSequencePausedRef.current = true;
-        setSequenceMode('paused');
-        setIsAudioPlaying(false);
-        return;
-      }
-
-      if (event.type === 'INTERACTION_OPENED') {
-        setSequenceMode('interaction_blocked');
-        setSequenceInteraction(event.item);
-        setActiveAudioBid(null);
-        setActiveSequencePage(event.item.page);
-        interactionNextIndexRef.current = event.nextIndex;
-        return;
-      }
-
-      if (event.type === 'INTERACTION_RESOLVED') {
-        if (previewMode) {
-          return;
-        }
-        if (
-          event.interactionBid &&
-          sequenceInteraction?.generated_block_bid &&
-          sequenceInteraction.generated_block_bid !== event.interactionBid
-        ) {
-          return;
-        }
-        clearAudioSequenceTimer();
-        isSequencePausedRef.current = false;
-        setSequenceInteraction(null);
-        // Do not rely on the stored numeric index here: the list can shift while
-        // the interaction is open (streaming patches, history merge, etc.).
-        // Instead, locate the current interaction unit id in the latest list and
-        // advance relative to it.
-        interactionNextIndexRef.current = null;
-
-        const list = audioSequenceListRef.current;
-        if (!list.length) {
-          endSequence({ tryAdvanceToNextBlock: true });
-          return;
-        }
-
-        const currentIndex = resolveCurrentSequenceIndex(list);
-        if (currentIndex < 0) {
-          endSequence();
-          return;
-        }
-
-        const computedNextIndex = currentIndex + 1;
-        if (computedNextIndex >= list.length) {
-          // When the interaction is the last known unit, the next content might
-          // still be streaming. Keep the sequence alive and resume once the list
-          // grows to include the next unit.
-          resumeAfterUnitIdRef.current = sequenceUnitIdRef.current;
-          setActiveAudioBid(null);
-          setActiveAudioPosition(0);
-          setSequenceMode('waiting_audio');
-          return;
-        }
-
-        resumeAfterUnitIdRef.current = null;
-        resolveIndex(computedNextIndex, 0, 'interaction-resolved');
-        return;
-      }
-
-      if (event.type === 'AUDIO_ENDED') {
-        if (isSequencePausedRef.current) {
-          return;
-        }
-        const list = audioSequenceListRef.current;
-        if (!list.length) {
-          endSequence({ tryAdvanceToNextBlock: true });
-          return;
-        }
-
-        const currentIndex = resolveCurrentSequenceIndex(list);
-        if (currentIndex < 0) {
-          endSequence();
-          return;
-        }
-
-        const nextIndex = currentIndex + 1;
-        const currentItem = list[currentIndex];
-        const nextItem = list[nextIndex];
-        const currentPage = currentItem?.page ?? currentPptPageRef.current;
-        const deckCurrentPage =
-          deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
-        const nextPage = nextItem?.page ?? null;
-        const currentBid =
-          currentItem?.type === ChatContentItemType.CONTENT
-            ? resolveContentBid(currentItem.generated_block_bid)
-            : null;
-        const nextBid =
-          nextItem?.type === ChatContentItemType.CONTENT
-            ? resolveContentBid(nextItem.generated_block_bid)
-            : null;
-
-        if (
-          typeof currentPage === 'number' &&
-          typeof nextPage === 'number' &&
-          nextPage > currentPage + 1
-        ) {
-          const targetPage = nextPage;
-          const moved = syncToSequencePage(targetPage);
-          if (!moved) {
-            // Page sync failed (e.g. page index exceeds slide count).
-            // Fall through to resolveIndex instead of retrying forever.
-          }
-          resolveIndex(nextIndex, 0, 'audio-ended-skip-ahead');
-          return;
-        }
-
-        if (currentBid && nextBid && currentBid === nextBid) {
-          resolveIndex(nextIndex, 0, 'audio-ended-same-block');
-          return;
-        }
-
-        if (!nextItem) {
-          const deck = deckRef.current;
-          const totalSlides =
-            deck && typeof deck.getSlides === 'function'
-              ? deck.getSlides().length
-              : deck && typeof deck.getTotalSlides === 'function'
-                ? deck.getTotalSlides()
-                : 0;
-          if (totalSlides > deckCurrentPage + 1) {
-            const targetPage = deckCurrentPage + 1;
-            const moved = syncToSequencePage(targetPage);
-            if (!moved) {
-              clearAudioSequenceTimer();
-              audioSequenceTimerRef.current = setTimeout(() => {
-                dispatchSequenceEventRef.current({ type: 'AUDIO_ENDED' });
-              }, 120);
-              return;
-            }
-            endSequence();
-            return;
-          }
-        }
-
-        if (nextIndex >= list.length) {
-          // Content blocks may still be streaming via SSE, so the list can
-          // grow shortly after the current tail item finishes.  Wait briefly
-          // for the next item to appear before ending the sequence.
-          waitingForListGrowthRef.current = {
-            nextIdx: nextIndex,
-            since: Date.now(),
-          };
-          setSequenceMode('waiting_audio');
-          // Fallback: if no LIST_UPDATED events arrive within 10 s, end.
-          clearAudioSequenceTimer();
-          audioSequenceTimerRef.current = setTimeout(() => {
-            if (waitingForListGrowthRef.current) {
-              waitingForListGrowthRef.current = null;
-              endSequence({ tryAdvanceToNextBlock: true });
-            }
-          }, 10_000);
-          return;
-        }
-
-        resolveIndex(nextIndex, 0, 'audio-ended-next');
-        return;
-      }
-
-      if (event.type === 'PLAY') {
-        if (previewMode) {
-          return;
-        }
-        isSequencePausedRef.current = false;
-        if (sequenceInteraction) {
-          // Keep sequence blocked until learner explicitly submits interaction.
-          setSequenceMode('interaction_blocked');
-          return;
-        }
-        if (!activeAudioBid && audioSequenceListRef.current.length) {
-          const list = audioSequenceListRef.current;
-          const resumeUnitId = resumeAfterUnitIdRef.current;
-          if (resumeUnitId) {
-            const resumeIndex = list.findIndex((item, index) => {
-              return getItemUnitId(item, index) === resumeUnitId;
-            });
-            if (resumeIndex >= 0) {
-              const targetIndex = resumeIndex + 1;
-              if (targetIndex < list.length) {
-                resumeAfterUnitIdRef.current = null;
-                resolveIndex(targetIndex, 0, 'play-resume-after-interaction');
-                return;
-              }
-              // Still waiting for the next unit; do not restart from current page.
-              setSequenceMode('waiting_audio');
-              return;
-            }
-            // Anchor unit disappeared; fall back to the last known numeric index,
-            // which typically points at the next unit after removals.
-            const fallbackIndex = Math.max(
-              0,
-              Math.min(sequenceIndexRef.current, list.length - 1),
-            );
-            if (list[fallbackIndex]) {
-              resumeAfterUnitIdRef.current = null;
-              resolveIndex(
-                fallbackIndex,
-                0,
-                'play-resume-after-interaction-missing-anchor',
-              );
-              return;
-            }
-            resumeAfterUnitIdRef.current = null;
-          }
-          const currentPage =
-            deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
-          dispatchSequenceEventRef.current({
-            type: 'START_FROM_PAGE',
-            page: currentPage,
-          });
-          return;
-        }
-        audioPlayerRef.current?.play();
-        return;
-      }
-
-      if (event.type === 'PAUSE') {
-        if (previewMode) {
-          return;
-        }
-        isSequencePausedRef.current = true;
-        clearAudioSequenceTimer();
-        setSequenceMode('paused');
-        audioPlayerRef.current?.pause({ traceId: event.traceId });
-        return;
-      }
-
-      if (event.type === 'LIST_UPDATED') {
-        if (previewMode) {
-          return;
-        }
-        if (isSequencePausedRef.current) {
-          return;
-        }
-
-        const list = audioSequenceListRef.current;
-        if (!list.length) {
-          return;
-        }
-
-        const resumeUnitId = resumeAfterUnitIdRef.current;
-        if (resumeUnitId) {
-          const resumeIndex = list.findIndex((item, index) => {
-            return getItemUnitId(item, index) === resumeUnitId;
-          });
-          if (resumeIndex >= 0) {
-            const targetIndex = resumeIndex + 1;
-            if (targetIndex < list.length) {
-              resumeAfterUnitIdRef.current = null;
-              resolveIndex(targetIndex, 0, 'resume-after-interaction');
-              return;
-            }
-            setSequenceMode('waiting_audio');
-            return;
-          }
-          const fallbackIndex = Math.max(
-            0,
-            Math.min(sequenceIndexRef.current, list.length - 1),
-          );
-          if (list[fallbackIndex]) {
-            resumeAfterUnitIdRef.current = null;
-            resolveIndex(
-              fallbackIndex,
-              0,
-              'resume-after-interaction-missing-anchor',
-            );
-            return;
-          }
-          resumeAfterUnitIdRef.current = null;
-        }
-        const currentIndex = resolveCurrentSequenceIndex(list);
-
-        if (
-          sequenceModeRef.current !== 'idle' &&
-          sequenceUnitIdRef.current &&
-          currentIndex < 0
-        ) {
-          const fallbackIndex = Math.max(
-            0,
-            Math.min(sequenceIndexRef.current, list.length - 1),
-          );
-          if (list[fallbackIndex]) {
-            resolveIndex(fallbackIndex, 0, 'recover-missing-unit');
-            return;
-          }
-          endSequence();
-          return;
-        }
-
-        if (
-          sequenceModeRef.current === 'waiting_audio' &&
-          currentIndex >= 0 &&
-          list[currentIndex] &&
-          hasPlayableAudioForItem(list[currentIndex])
-        ) {
-          resolveIndex(currentIndex, 0, 'waiting-audio-ready');
-          return;
-        }
-
-        // After a silent visual at the tail of the list finished its
-        // display, we enter waiting_audio with waitingForListGrowthRef
-        // set.  Check if the list has grown to include the target index.
-        if (
-          sequenceModeRef.current === 'waiting_audio' &&
-          waitingForListGrowthRef.current
-        ) {
-          const { nextIdx, since } = waitingForListGrowthRef.current;
-          if (nextIdx < list.length) {
-            waitingForListGrowthRef.current = null;
-            resolveIndex(nextIdx, 0, 'list-growth-resume');
-            return;
-          }
-          // Timeout after 30 seconds of waiting.
-          if (Date.now() - since > 30_000) {
-            waitingForListGrowthRef.current = null;
-            endSequence({ tryAdvanceToNextBlock: true });
-            return;
-          }
-        }
-
-        // While showing a silent visual (mode=playing, no active audio),
-        // the block may receive audio data via a later SSE chunk.  When
-        // that happens the list rebuilds and the entry at the current
-        // index is no longer isSilentVisual.  Re-resolve so the sequence
-        // transitions from the 5-second silent display to proper audio
-        // playback.
-        if (
-          sequenceModeRef.current === 'playing' &&
-          !activeAudioBid &&
-          currentIndex >= 0 &&
-          list[currentIndex] &&
-          !list[currentIndex].isSilentVisual
-        ) {
-          resolveIndex(currentIndex, 0, 'silent-visual-upgraded');
-          return;
-        }
-
-        if (
-          sequenceModeRef.current === 'interaction_blocked' &&
-          sequenceInteraction
-        ) {
-          // Interaction explicitly gates progression. New list updates must not
-          // auto-resolve or auto-advance until submit/skip/autocontinue event.
-          return;
-        }
-
-        // Intentionally do not auto-start from idle on arbitrary list updates.
-        // Startup should be driven by explicit start/play events or the
-        // shouldStartSequenceRef bootstrap flow to avoid replay loops.
-      }
-    },
     [
       activeAudioBid,
-      clearAudioSequenceTimer,
-      currentPptPageRef,
+      activeBlockBidRef,
+      audioAndInteractionList,
       deckRef,
-      endSequence,
-      getItemUnitId,
-      hasPlayableAudioForItem,
-      previewMode,
       resolveContentBid,
-      resolveCurrentSequenceIndex,
-      resolveIndex,
-      resolveSequenceStartIndex,
-      sequenceInteraction,
-      setIsAudioPlaying,
-      setSequenceMode,
-      syncToSequencePage,
     ],
   );
 
-  dispatchSequenceEventRef.current = dispatchSequenceEvent;
+  // ---------------------------------------------------------------------------
+  // Queue Manager — event-driven approach
+  // ---------------------------------------------------------------------------
+  // Stable refs for queue event handlers to avoid re-subscription cycles
+  const endSequenceRef = useRef(endSequence);
+  endSequenceRef.current = endSequence;
+  const syncToSequencePageRef = useRef(syncToSequencePage);
+  syncToSequencePageRef.current = syncToSequencePage;
 
+  // Queue event handler refs — defined once, stable identity
+  const onVisualShowHandler = useCallback((event: QueueEvent) => {
+    const item = event.item as VisualQueueItem;
+    console.log(
+      `[Queue→Seq] visual:show bid=${item.generatedBlockBid} page=${item.page}`,
+    );
+    setActiveSequencePage(item.page);
+    setIsAudioSequenceActive(true);
+
+    const pageReady = syncToSequencePageRef.current(item.page);
+    if (!pageReady) {
+      console.warn(`[Queue→Seq] Slide page ${item.page} not ready for visual`);
+    }
+
+    if (!item.hasTextAfterVisual) {
+      // Silent visual — auto-advance after 5s viewing period
+      setSequenceInteraction(null);
+      setActiveAudioBid(null);
+
+      if (silentVisualTimerRef.current) {
+        clearTimeout(silentVisualTimerRef.current);
+      }
+      // queueActions.advance will be called via the ref below
+      silentVisualTimerRef.current = setTimeout(() => {
+        silentVisualTimerRef.current = null;
+        queueActionsRef.current?.advance();
+      }, 5000);
+    }
+  }, []);
+
+  const onAudioPlayHandler = useCallback((event: QueueEvent) => {
+    const item = event.item as AudioQueueItem;
+    console.log(
+      `[Queue→Seq] audio:play bid=${item.generatedBlockBid} pos=${item.audioPosition}`,
+    );
+    setActiveAudioBid(item.generatedBlockBid);
+    setActiveAudioPosition(item.audioPosition);
+    setActiveSequencePage(item.page);
+    setAudioSequenceToken(prev => prev + 1);
+    setIsAudioSequenceActive(true);
+  }, []);
+
+  const onInteractionShowHandler = useCallback((event: QueueEvent) => {
+    const item = event.item as InteractionQueueItem;
+    console.log(`[Queue→Seq] interaction:show bid=${item.generatedBlockBid}`);
+    setSequenceInteraction({
+      ...item.contentItem,
+      page: item.page,
+    });
+    setActiveAudioBid(null);
+    setActiveSequencePage(item.page);
+    setIsAudioSequenceActive(true);
+  }, []);
+
+  const onQueueCompletedHandler = useCallback((_event: QueueEvent) => {
+    console.log('[Queue→Seq] queue:completed');
+    endSequenceRef.current({ tryAdvanceToNextBlock: true });
+  }, []);
+
+  const onQueueErrorHandler = useCallback((event: QueueEvent) => {
+    console.warn(`[Queue→Seq] queue:error reason=${event.reason}`, event.item);
+  }, []);
+
+  const queueActions = useQueueManager({
+    enabled: true,
+    audioWaitTimeout: 15000,
+    onVisualShow: onVisualShowHandler,
+    onAudioPlay: onAudioPlayHandler,
+    onInteractionShow: onInteractionShowHandler,
+    onQueueCompleted: onQueueCompletedHandler,
+    onQueueError: onQueueErrorHandler,
+  });
+
+  // Ref to break circular dependency: silent visual timer → queueActions.advance
+  const queueActionsRef = useRef(queueActions);
+  queueActionsRef.current = queueActions;
+
+  // ---------------------------------------------------------------------------
+  // syncListToQueue — sync audioAndInteractionList into the queue
+  // ---------------------------------------------------------------------------
+  const syncListToQueue = useCallback(
+    (list: AudioInteractionItem[]) => {
+      list.forEach((item, index) => {
+        const bid = item.generated_block_bid;
+        if (!bid || bid === 'loading') {
+          return;
+        }
+        const position = item.audioPosition ?? 0;
+
+        if (item.type === ChatContentItemType.INTERACTION) {
+          queueActions.enqueueInteraction({
+            generatedBlockBid: bid,
+            page: item.page,
+            contentItem: item,
+            nextIndex: index < list.length - 1 ? index + 1 : null,
+          });
+          return;
+        }
+
+        // CONTENT item
+        if (item.isSilentVisual) {
+          // Silent visual — no audio expected
+          queueActions.enqueueVisual({
+            generatedBlockBid: bid,
+            position,
+            page: item.page,
+            hasTextAfterVisual: false,
+          });
+          return;
+        }
+
+        // Content with audio
+        const hasAudio = hasPlayableAudioForItem(item);
+        queueActions.enqueueVisual({
+          generatedBlockBid: bid,
+          position,
+          page: item.page,
+          hasTextAfterVisual: true,
+        });
+
+        if (hasAudio) {
+          // Build audio segment data from the content item
+          const track = item.audioTracksByPosition?.[position];
+          const persisted = (item.audios || [])
+            .filter(audio => Number(audio.position ?? 0) === position)
+            .pop();
+          const legacyForZero = position === 0;
+          const audioUrl =
+            track?.audioUrl ||
+            persisted?.audio_url ||
+            (legacyForZero ? item.audioUrl : undefined);
+          const segments =
+            track?.audioSegments ??
+            (legacyForZero ? item.audioSegments : undefined);
+          const isStreaming = Boolean(
+            track?.isAudioStreaming || (legacyForZero && item.isAudioStreaming),
+          );
+
+          const audioKey = `${bid}:${position}`;
+          const prevState = syncedAudioStateRef.current.get(audioKey);
+
+          if (audioUrl) {
+            // Only upsert URL if not already sent
+            if (prevState !== 'url') {
+              queueActions.upsertAudio(bid, position, {
+                audio_url: audioUrl,
+                is_final: !isStreaming,
+              });
+              syncedAudioStateRef.current.set(audioKey, 'url');
+            }
+          } else if (segments && segments.length > 0) {
+            // Only send NEW segments (skip already-synced ones)
+            const prev =
+              prevState !== 'url' && prevState
+                ? prevState
+                : { count: 0, finalized: false };
+            const newSegments = segments.length > prev.count;
+            const nowFinalized = !isStreaming;
+
+            if (newSegments) {
+              for (let i = prev.count; i < segments.length; i++) {
+                const seg = segments[i];
+                queueActions.upsertAudio(bid, position, {
+                  audio_segment:
+                    typeof seg === 'string'
+                      ? seg
+                      : (seg as any).audioData || (seg as any).audio_segment,
+                  is_final: nowFinalized && i === segments.length - 1,
+                });
+              }
+              syncedAudioStateRef.current.set(audioKey, {
+                count: segments.length,
+                finalized: nowFinalized,
+              });
+            } else if (nowFinalized && !prev.finalized && segments.length > 0) {
+              // Segments unchanged but streaming just completed — send final marker
+              const lastSeg = segments[segments.length - 1];
+              queueActions.upsertAudio(bid, position, {
+                audio_segment:
+                  typeof lastSeg === 'string'
+                    ? lastSeg
+                    : (lastSeg as any).audioData ||
+                      (lastSeg as any).audio_segment,
+                is_final: true,
+              });
+              syncedAudioStateRef.current.set(audioKey, {
+                count: segments.length,
+                finalized: true,
+              });
+            }
+          } else if (isStreaming && prevState === undefined) {
+            // Streaming but no segments yet; upsert a placeholder (only once)
+            queueActions.upsertAudio(bid, position, {
+              is_final: false,
+            });
+            syncedAudioStateRef.current.set(audioKey, {
+              count: 0,
+              finalized: false,
+            });
+          }
+        }
+      });
+
+      // Check for isSilentVisual flips: items that were previously silent
+      // but now have audio
+      const prevList = lastSyncedListRef.current;
+      if (prevList.length > 0) {
+        list.forEach(item => {
+          const bid = item.generated_block_bid;
+          if (!bid || bid === 'loading') {
+            return;
+          }
+          if (item.type !== ChatContentItemType.CONTENT) {
+            return;
+          }
+          const position = item.audioPosition ?? 0;
+          const prevItem = prevList.find(
+            prev =>
+              prev.generated_block_bid === bid &&
+              (prev.audioPosition ?? 0) === position,
+          );
+          if (prevItem?.isSilentVisual && !item.isSilentVisual) {
+            // Was silent, now has audio — update queue expectation
+            queueActions.updateVisualExpectation(bid, position, true);
+            // Also upsert audio data if available
+            if (hasPlayableAudioForItem(item)) {
+              const track = item.audioTracksByPosition?.[position];
+              const persisted = (item.audios || [])
+                .filter(audio => Number(audio.position ?? 0) === position)
+                .pop();
+              const legacyForZero = position === 0;
+              const audioUrl =
+                track?.audioUrl ||
+                persisted?.audio_url ||
+                (legacyForZero ? item.audioUrl : undefined);
+              if (audioUrl) {
+                const flipKey = `${bid}:${position}`;
+                if (syncedAudioStateRef.current.get(flipKey) !== 'url') {
+                  queueActions.upsertAudio(bid, position, {
+                    audio_url: audioUrl,
+                    is_final: true,
+                  });
+                  syncedAudioStateRef.current.set(flipKey, 'url');
+                }
+              }
+            }
+          }
+        });
+      }
+
+      lastSyncedListRef.current = list;
+    },
+    [hasPlayableAudioForItem, queueActions],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Effects — sync list to queue, bootstrap, and cleanup
+  // ---------------------------------------------------------------------------
+
+  // Sync audioAndInteractionList → queue whenever it changes
+  useEffect(() => {
+    syncListToQueue(audioAndInteractionList);
+  }, [audioAndInteractionList, syncListToQueue]);
+
+  // Keep audioSequenceTokenRef in sync
   useEffect(() => {
     audioSequenceTokenRef.current = audioSequenceToken;
   }, [audioSequenceToken]);
 
-  useEffect(() => {
-    audioSequenceListRef.current = audioAndInteractionList;
-    dispatchSequenceEventRef.current({ type: 'LIST_UPDATED' });
-  }, [audioAndInteractionList]);
-
-  useEffect(() => {
-    return () => {
-      clearAudioSequenceTimer();
-    };
-  }, [clearAudioSequenceTimer]);
-
+  // Reset when list empties
   useEffect(() => {
     if (audioAndInteractionList.length) {
       return;
     }
-    dispatchSequenceEventRef.current({ type: 'RESET' });
-  }, [audioAndInteractionList.length]);
+    audioPlayerRef.current?.pause({
+      traceId: 'sequence-reset',
+      keepAutoPlay: true,
+    });
+    queueActions.reset();
+    syncedAudioStateRef.current.clear();
+    endSequence();
+  }, [audioAndInteractionList.length, endSequence, queueActions]);
 
+  // Bootstrap: start sequence when shouldStartSequenceRef is set
   useEffect(() => {
     if (!shouldStartSequenceRef.current) {
       return;
@@ -2245,18 +1864,32 @@ export const useListenAudioSequence = ({
     }
 
     shouldStartSequenceRef.current = false;
-    dispatchSequenceEventRef.current({
-      type: 'START_FROM_INDEX',
-      index: startIndex,
-    });
+    // Sync list to queue first to ensure all items are enqueued
+    syncListToQueue(audioAndInteractionList);
+    queueActions.startFromIndex(startIndex);
   }, [
     audioAndInteractionList,
     currentPptPageRef,
     deckRef,
+    queueActions,
     resolveSequenceStartIndex,
     shouldStartSequenceRef,
+    syncListToQueue,
   ]);
 
+  // Cleanup silent visual timer on unmount
+  useEffect(() => {
+    return () => {
+      if (silentVisualTimerRef.current) {
+        clearTimeout(silentVisualTimerRef.current);
+        silentVisualTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Derived values — same as original
+  // ---------------------------------------------------------------------------
   const activeAudioBlockBid = useMemo(() => {
     if (!activeAudioBid) {
       return null;
@@ -2318,43 +1951,135 @@ export const useListenAudioSequence = ({
     [activeAudioDurationMs],
   );
 
-  const handleAudioEnded = useCallback((token?: number) => {
-    if (typeof token === 'number' && token !== audioSequenceTokenRef.current) {
-      return;
-    }
-    dispatchSequenceEventRef.current({ type: 'AUDIO_ENDED' });
-  }, []);
+  // ---------------------------------------------------------------------------
+  // Event handlers — adapted to use queue actions
+  // ---------------------------------------------------------------------------
+  const handleAudioEnded = useCallback(
+    (token?: number) => {
+      if (
+        typeof token === 'number' &&
+        token !== audioSequenceTokenRef.current
+      ) {
+        return;
+      }
+      queueActions.advance();
+    },
+    [queueActions],
+  );
 
-  const handleAudioError = useCallback((token?: number) => {
-    if (typeof token === 'number' && token !== audioSequenceTokenRef.current) {
-      return;
-    }
-    dispatchSequenceEventRef.current({ type: 'AUDIO_ERROR' });
-  }, []);
+  const handleAudioError = useCallback(
+    (token?: number) => {
+      if (
+        typeof token === 'number' &&
+        token !== audioSequenceTokenRef.current
+      ) {
+        return;
+      }
+      isSequencePausedRef.current = true;
+      queueActions.pause();
+      setIsAudioPlaying(false);
+    },
+    [queueActions, setIsAudioPlaying],
+  );
 
   const handlePlay = useCallback(() => {
-    dispatchSequenceEventRef.current({ type: 'PLAY' });
-  }, []);
+    if (previewMode) {
+      return;
+    }
+    isSequencePausedRef.current = false;
 
-  const handlePause = useCallback((traceId?: string) => {
-    dispatchSequenceEventRef.current({ type: 'PAUSE', traceId });
-  }, []);
+    if (sequenceInteraction) {
+      // Keep sequence blocked until learner explicitly submits interaction.
+      return;
+    }
+
+    if (!activeAudioBid && audioAndInteractionList.length) {
+      // No active audio — start/resume the queue
+      const currentPage =
+        deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
+      const startIndex = resolveSequenceStartIndex(currentPage);
+      if (startIndex >= 0) {
+        syncListToQueue(audioAndInteractionList);
+        queueActions.startFromIndex(startIndex);
+      } else {
+        queueActions.resume();
+      }
+      return;
+    }
+
+    // Audio is active — resume player
+    queueActions.resume();
+    audioPlayerRef.current?.play();
+  }, [
+    activeAudioBid,
+    audioAndInteractionList,
+    currentPptPageRef,
+    deckRef,
+    previewMode,
+    queueActions,
+    resolveSequenceStartIndex,
+    sequenceInteraction,
+    syncListToQueue,
+  ]);
+
+  const handlePause = useCallback(
+    (traceId?: string) => {
+      if (previewMode) {
+        return;
+      }
+      isSequencePausedRef.current = true;
+      if (silentVisualTimerRef.current) {
+        clearTimeout(silentVisualTimerRef.current);
+        silentVisualTimerRef.current = null;
+      }
+      queueActions.pause();
+      audioPlayerRef.current?.pause({ traceId });
+    },
+    [previewMode, queueActions],
+  );
 
   const continueAfterInteraction = useCallback(() => {
-    dispatchSequenceEventRef.current({
-      type: 'INTERACTION_RESOLVED',
-      interactionBid: sequenceInteraction?.generated_block_bid,
-    });
-  }, [sequenceInteraction?.generated_block_bid]);
+    if (previewMode) {
+      return;
+    }
+    isSequencePausedRef.current = false;
+    setSequenceInteraction(null);
+    queueActions.advance();
+  }, [previewMode, queueActions]);
 
-  const startSequenceFromIndex = useCallback((index: number) => {
-    dispatchSequenceEventRef.current({ type: 'START_FROM_INDEX', index });
-  }, []);
+  const startSequenceFromIndex = useCallback(
+    (index: number) => {
+      isSequencePausedRef.current = false;
+      audioPlayerRef.current?.pause({
+        traceId: 'sequence-start',
+        keepAutoPlay: true,
+      });
+      if (silentVisualTimerRef.current) {
+        clearTimeout(silentVisualTimerRef.current);
+        silentVisualTimerRef.current = null;
+      }
+      queueActions.reset();
+      syncedAudioStateRef.current.clear();
+      syncListToQueue(audioAndInteractionList);
+      queueActions.startFromIndex(index);
+    },
+    [audioAndInteractionList, queueActions, syncListToQueue],
+  );
 
-  const startSequenceFromPage = useCallback((page: number) => {
-    dispatchSequenceEventRef.current({ type: 'START_FROM_PAGE', page });
-  }, []);
+  const startSequenceFromPage = useCallback(
+    (page: number) => {
+      const startIndex = resolveSequenceStartIndex(page);
+      if (startIndex < 0) {
+        return;
+      }
+      startSequenceFromIndex(startIndex);
+    },
+    [resolveSequenceStartIndex, startSequenceFromIndex],
+  );
 
+  // ---------------------------------------------------------------------------
+  // Audio watchdog — same as original
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     hasObservedPlaybackRef.current = false;
     setIsAudioPlaying(false);
@@ -2398,8 +2123,6 @@ export const useListenAudioSequence = ({
         hasObservedPlaybackRef.current = true;
         return;
       }
-      // Do not force-advance on watchdog timeout. If playback never starts,
-      // move to paused/error state and keep current unit/page for manual recovery.
       handleAudioErrorRef.current();
     }, audioWatchdogTimeoutMs);
     return () => clearTimeout(timer);
@@ -2411,6 +2134,9 @@ export const useListenAudioSequence = ({
     audioWatchdogTimeoutMs,
   ]);
 
+  // ---------------------------------------------------------------------------
+  // Return — identical interface to original
+  // ---------------------------------------------------------------------------
   return {
     audioPlayerRef,
     activeContentItem,
