@@ -5,7 +5,7 @@
     "emailSendTooFrequent": "Emails sent too frequently",
     "emailVerificationSubject": "AI-Shifu: Your Verification Code",
     "googleOAuthStateInvalid": "Google login has expired or is invalid, please try again.",
-    "invalidCredentials": "Invalid credentials",
+    "invalidCredentials": "Incorrect password",
     "ipBanned": "Requests from this IP are temporarily blocked",
     "languageNotFound": "Language Not Found",
     "login": "Login",

@@ -112,7 +112,7 @@ export function PasswordLogin({
           description:
             response.message ||
             response.msg ||
-            t('module.auth.credentialError'),
+            t('server.user.invalidCredentials'),
           variant: 'destructive',
         });
       }
