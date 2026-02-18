@@ -9,7 +9,7 @@ from werkzeug.datastructures import FileStorage
 from .import_user import import_user
 from .unified_migration_task import UnifiedMigrationTask, MigrationConfig
 from ..service.shifu.shifu_import_export_funcs import export_shifu, import_shifu
-from .update_shifu_demo import update_demo_shifu
+from .update_shifu_demo import update_demo_shifu, backfill_course_view_permissions
 
 
 def setup_migration_logging():
@@ -395,3 +395,33 @@ def enable_commands(app: Flask):
         """Update demo shifu"""
         app.logger.info("Updating demo shifu...")
         update_demo_shifu(app)
+
+    @console.command(name="backfill_course_view_permissions")
+    @click.option("--course-id", "course_id", required=True, help="Target course/shifu BID")
+    @click.option(
+        "--only-creators/--all-users",
+        default=False,
+        help="Backfill only creator users (default: all active users)",
+    )
+    @click.option(
+        "--dry-run/--apply",
+        default=True,
+        help="Dry run by default; pass --apply to persist changes",
+    )
+    def backfill_course_view_permissions_command(course_id, only_creators, dry_run):
+        """Backfill course view permission records for users."""
+        total, inserted, updated = backfill_course_view_permissions(
+            app,
+            shifu_bid=course_id,
+            only_creators=only_creators,
+            dry_run=dry_run,
+        )
+        click.echo(
+            click.style(
+                (
+                    f"mode={'dry-run' if dry_run else 'apply'} "
+                    f"target_users={total} inserted={inserted} updated={updated}"
+                ),
+                fg="green" if not dry_run else "yellow",
+            )
+        )

@@ -13,6 +13,7 @@ from flaskr.service.shifu.shifu_publish_funcs import publish_shifu_draft
 
 import json
 from pathlib import Path
+from typing import Tuple
 
 
 def _calculate_hash(content: bytes) -> str:
@@ -125,6 +126,99 @@ def _ensure_creator_permissions(app: Flask, shifu_bid: str):
             auth.auth_type = json.dumps(["view"])
             auth.status = 1
         db.session.commit()
+
+
+def _normalize_auth_type_values(raw_value: object) -> set[str]:
+    """Normalize stored auth_type payload to a string set."""
+    if raw_value is None:
+        return set()
+    if isinstance(raw_value, (list, tuple, set)):
+        return {str(item).strip() for item in raw_value if str(item).strip()}
+    if isinstance(raw_value, str):
+        text = raw_value.strip()
+        if not text:
+            return set()
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            return {text}
+        if isinstance(parsed, (list, tuple, set)):
+            return {str(item).strip() for item in parsed if str(item).strip()}
+        if isinstance(parsed, str) and parsed.strip():
+            return {parsed.strip()}
+    return set()
+
+
+def _has_view_permission(auth_values: set[str]) -> bool:
+    """Check whether normalized auth values contain view-equivalent permission."""
+    lowered = {value.lower() for value in auth_values}
+    return any(value in {"view", "read", "readonly", "1", "2", "edit", "write"} for value in lowered)
+
+
+def backfill_course_view_permissions(
+    app: Flask,
+    shifu_bid: str,
+    only_creators: bool = False,
+    dry_run: bool = True,
+) -> Tuple[int, int, int]:
+    """
+    Backfill `view` permission for a course.
+
+    Returns tuple: (target_user_count, inserted_count, updated_count)
+    """
+    if not shifu_bid:
+        raise ValueError("shifu_bid is required")
+
+    with app.app_context():
+        query = UserInfo.query.filter(UserInfo.deleted == 0)
+        if only_creators:
+            query = query.filter(UserInfo.is_creator == 1)
+        users = query.all()
+
+        inserted = 0
+        updated = 0
+
+        for user in users:
+            auth = AiCourseAuth.query.filter(
+                AiCourseAuth.user_id == user.user_bid,
+                AiCourseAuth.course_id == shifu_bid,
+            ).first()
+
+            if not auth:
+                inserted += 1
+                if dry_run:
+                    continue
+                db.session.add(
+                    AiCourseAuth(
+                        course_auth_id=generate_id(app),
+                        user_id=user.user_bid,
+                        course_id=shifu_bid,
+                        auth_type=json.dumps(["view"]),
+                        status=1,
+                    )
+                )
+                continue
+
+            auth_values = _normalize_auth_type_values(auth.auth_type)
+            has_view = _has_view_permission(auth_values)
+            needs_update = auth.status != 1 or not has_view
+            if not needs_update:
+                continue
+
+            updated += 1
+            if dry_run:
+                continue
+
+            if not has_view:
+                # Keep existing auth values while ensuring view is present.
+                auth_values.add("view")
+            auth.auth_type = json.dumps(sorted(auth_values))
+            auth.status = 1
+
+        if not dry_run:
+            db.session.commit()
+
+        return len(users), inserted, updated
 
 
 def update_demo_shifu(app: Flask):
