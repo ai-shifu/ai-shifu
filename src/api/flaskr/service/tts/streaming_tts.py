@@ -7,7 +7,6 @@ This module provides real-time TTS synthesis during content streaming.
 - TTS synthesis runs in background threads to avoid blocking content streaming
 """
 
-import re
 import base64
 import logging
 import uuid
@@ -50,18 +49,23 @@ from flaskr.service.learn.learn_dtos import (
     NewSlideDTO,
 )
 from flaskr.service.learn.listen_slide_builder import build_listen_slides_for_block
+from flaskr.service.tts.patterns import (
+    AV_IFRAME_CLOSE,
+    AV_IFRAME_OPEN,
+    AV_IMG_TAG,
+    AV_MD_IMAGE,
+    AV_MD_IMAGE_START,
+    AV_SANDBOX_START,
+    AV_SVG_CLOSE,
+    AV_SVG_OPEN,
+    AV_TABLE_CLOSE,
+    AV_TABLE_OPEN,
+    AV_VIDEO_CLOSE,
+    AV_VIDEO_OPEN,
+    SENTENCE_ENDINGS,
+)
 from flaskr.service.tts.pipeline import (
     build_av_segmentation_contract,
-    _AV_IMG_TAG_PATTERN,
-    _AV_MARKDOWN_IMAGE_PATTERN,
-    _AV_SANDBOX_START_PATTERN,
-    _AV_SVG_OPEN_PATTERN,
-    _AV_IFRAME_OPEN_PATTERN,
-    _AV_IFRAME_CLOSE_PATTERN,
-    _AV_TABLE_OPEN_PATTERN,
-    _AV_TABLE_CLOSE_PATTERN,
-    _AV_VIDEO_OPEN_PATTERN,
-    _AV_VIDEO_CLOSE_PATTERN,
     _find_first_match_outside_fence,
     _find_html_block_end_with_complete,
     _extract_speakable_text_from_sandbox_html,
@@ -73,10 +77,6 @@ from flaskr.service.tts.pipeline import (
 
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
-
-# Sentence ending patterns
-SENTENCE_ENDINGS = re.compile(r"[.!?。！？；;]")
-_AV_MARKDOWN_IMAGE_START_PATTERN = re.compile(r"!\[")
 
 # Global thread pool for TTS synthesis
 _tts_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="tts_")
@@ -1060,12 +1060,10 @@ class AVStreamingTTSProcessor:
             else:
                 candidates.append(("fence", fence_start, fence_close + 3, True))
 
-        svg_match = _find_first_match_outside_fence(
-            raw, _AV_SVG_OPEN_PATTERN, fence_ranges
-        )
+        svg_match = _find_first_match_outside_fence(raw, AV_SVG_OPEN, fence_ranges)
         if svg_match is not None:
             svg_start = svg_match.start()
-            svg_close = re.search(r"</svg>", raw[svg_start:], flags=re.IGNORECASE)
+            svg_close = AV_SVG_CLOSE.search(raw[svg_start:])
             if svg_close:
                 candidates.append(
                     (
@@ -1079,23 +1077,21 @@ class AVStreamingTTSProcessor:
                 candidates.append(("svg", svg_start, len(raw), False))
 
         iframe_match = _find_first_match_outside_fence(
-            raw, _AV_IFRAME_OPEN_PATTERN, fence_ranges
+            raw, AV_IFRAME_OPEN, fence_ranges
         )
         if iframe_match is not None:
             iframe_start = _rewind_fixed_marker_start(raw, iframe_match.start())
-            iframe_close = _AV_IFRAME_CLOSE_PATTERN.search(raw, iframe_start)
+            iframe_close = AV_IFRAME_CLOSE.search(raw, iframe_start)
             if iframe_close:
                 iframe_end = _extend_fixed_marker_end(raw, iframe_close.end())
                 candidates.append(("iframe", iframe_start, iframe_end, True))
             else:
                 candidates.append(("iframe", iframe_start, len(raw), False))
 
-        video_match = _find_first_match_outside_fence(
-            raw, _AV_VIDEO_OPEN_PATTERN, fence_ranges
-        )
+        video_match = _find_first_match_outside_fence(raw, AV_VIDEO_OPEN, fence_ranges)
         if video_match is not None:
             video_start = video_match.start()
-            video_close = _AV_VIDEO_CLOSE_PATTERN.search(raw[video_start:])
+            video_close = AV_VIDEO_CLOSE.search(raw[video_start:])
             if video_close:
                 candidates.append(
                     (
@@ -1108,12 +1104,10 @@ class AVStreamingTTSProcessor:
             else:
                 candidates.append(("video", video_start, len(raw), False))
 
-        table_match = _find_first_match_outside_fence(
-            raw, _AV_TABLE_OPEN_PATTERN, fence_ranges
-        )
+        table_match = _find_first_match_outside_fence(raw, AV_TABLE_OPEN, fence_ranges)
         if table_match is not None:
             table_start = table_match.start()
-            table_close = _AV_TABLE_CLOSE_PATTERN.search(raw[table_start:])
+            table_close = AV_TABLE_CLOSE.search(raw[table_start:])
             if table_close:
                 candidates.append(
                     (
@@ -1126,15 +1120,11 @@ class AVStreamingTTSProcessor:
             else:
                 candidates.append(("html_table", table_start, len(raw), False))
 
-        img_match = _find_first_match_outside_fence(
-            raw, _AV_IMG_TAG_PATTERN, fence_ranges
-        )
+        img_match = _find_first_match_outside_fence(raw, AV_IMG_TAG, fence_ranges)
         if img_match is not None:
             candidates.append(("img", img_match.start(), img_match.end(), True))
 
-        md_img_match = _find_first_match_outside_fence(
-            raw, _AV_MARKDOWN_IMAGE_PATTERN, fence_ranges
-        )
+        md_img_match = _find_first_match_outside_fence(raw, AV_MD_IMAGE, fence_ranges)
         if md_img_match is not None:
             candidates.append(
                 ("md_img", md_img_match.start(), md_img_match.end(), True)
@@ -1143,7 +1133,7 @@ class AVStreamingTTSProcessor:
             # Guard against split markdown image tokens in streaming chunks:
             # treat `![...` without a closing `)` as an incomplete visual boundary.
             md_img_start = _find_first_match_outside_fence(
-                raw, _AV_MARKDOWN_IMAGE_START_PATTERN, fence_ranges
+                raw, AV_MD_IMAGE_START, fence_ranges
             )
             if md_img_start is not None:
                 start = md_img_start.start()
@@ -1161,7 +1151,7 @@ class AVStreamingTTSProcessor:
             candidates.append(("md_table", start, end, complete))
 
         sandbox_match = _find_first_match_outside_fence(
-            raw, _AV_SANDBOX_START_PATTERN, fence_ranges
+            raw, AV_SANDBOX_START, fence_ranges
         )
         if sandbox_match is not None:
             sandbox_start = sandbox_match.start()

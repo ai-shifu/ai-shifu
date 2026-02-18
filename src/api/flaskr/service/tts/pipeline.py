@@ -45,6 +45,23 @@ from flaskr.service.tts.audio_utils import (
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.common.log import AppLoggerProxy
 from flaskr.service.metering import UsageContext, record_tts_usage
+from flaskr.service.tts.patterns import (
+    AV_CLOSING_BOUNDARY,
+    AV_IFRAME_CLOSE,
+    AV_IFRAME_OPEN,
+    AV_IMG_TAG,
+    AV_MD_IMAGE,
+    AV_MD_TABLE_ROW,
+    AV_SANDBOX_START,
+    AV_SVG_CLOSE,
+    AV_SVG_OPEN,
+    AV_TABLE_CLOSE,
+    AV_TABLE_OPEN,
+    AV_VIDEO_CLOSE,
+    AV_VIDEO_OPEN,
+    FIXED_MARKER_TAIL,
+    TAG_NAME_EXTRACT,
+)
 from flaskr.util.uuid import generate_id
 
 
@@ -53,30 +70,7 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 
 _DEFAULT_SENTENCE_ENDINGS = set(".!?。！？；;")
 
-_AV_SANDBOX_START_PATTERN = re.compile(
-    r"<(script|style|link|iframe|html|head|body|meta|title|base|template|div|section|article|main)(?:[\s>/]|$)",
-    re.IGNORECASE,
-)
-_AV_MARKDOWN_IMAGE_PATTERN = re.compile(
-    r"!\[[^\]]*\]\([^\)\n]*\)",
-    re.IGNORECASE,
-)
-_AV_IMG_TAG_PATTERN = re.compile(r"<img\b[^>]*?>", re.IGNORECASE)
-_AV_SVG_OPEN_PATTERN = re.compile(r"<svg\b", re.IGNORECASE)
-_AV_SVG_CLOSE_PATTERN = re.compile(r"</svg>", re.IGNORECASE)
-_AV_IFRAME_OPEN_PATTERN = re.compile(r"<iframe\b", re.IGNORECASE)
-_AV_IFRAME_CLOSE_PATTERN = re.compile(r"</iframe>", re.IGNORECASE)
-_AV_VIDEO_OPEN_PATTERN = re.compile(r"<video\b", re.IGNORECASE)
-_AV_VIDEO_CLOSE_PATTERN = re.compile(r"</video>", re.IGNORECASE)
-_AV_TABLE_OPEN_PATTERN = re.compile(r"<table\b", re.IGNORECASE)
-_AV_TABLE_CLOSE_PATTERN = re.compile(r"</table>", re.IGNORECASE)
-_AV_CLOSING_BOUNDARY_PATTERN = re.compile(
-    r"</[a-z][^>]*>\s*\n(?=[^\s<])", re.IGNORECASE
-)
-_AV_MARKDOWN_TABLE_ROW_PATTERN = re.compile(r"^\s*\|.+\|\s*$", re.MULTILINE)
-
 _AV_SPEAKABLE_SANDBOX_ROOT_TAGS = {"div", "section", "article", "main", "template"}
-_AV_SPEAKABLE_SANDBOX_HINT_PATTERN = re.compile(r"<(p|li|h[1-6])\b", re.IGNORECASE)
 
 
 def _get_fence_ranges(raw: str) -> list[tuple[int, int]]:
@@ -156,7 +150,7 @@ def _find_html_block_end_with_complete(raw: str, start_index: int) -> tuple[int,
 
     # 1) Primary heuristic: match a closing-tag boundary that is followed by
     # non-tag, non-whitespace text (mirrors markdown-flow-ui).
-    for match in _AV_CLOSING_BOUNDARY_PATTERN.finditer(raw):
+    for match in AV_CLOSING_BOUNDARY.finditer(raw):
         if match.start() <= start_index:
             continue
         return (match.end(), True)
@@ -168,7 +162,7 @@ def _find_html_block_end_with_complete(raw: str, start_index: int) -> tuple[int,
     if not head.startswith("<"):
         return (len(raw), False)
 
-    tag_match = re.match(r"<([a-z0-9-]+)\b", head, flags=re.IGNORECASE)
+    tag_match = TAG_NAME_EXTRACT.match(head)
     if not tag_match:
         return (len(raw), False)
 
@@ -231,7 +225,7 @@ def _extract_speakable_text_from_sandbox_html(raw: str) -> str:
 
 
 def _find_svg_block_end(raw: str, start_index: int) -> int:
-    close = _AV_SVG_CLOSE_PATTERN.search(raw, start_index)
+    close = AV_SVG_CLOSE.search(raw, start_index)
     if not close:
         return len(raw)
     return close.end()
@@ -274,27 +268,27 @@ def _extend_fixed_marker_end(raw: str, end_index: int) -> int:
     if not tail:
         return end_index
 
-    if re.fullmatch(r"[\s!=]*", tail) and ("=" in tail or "!" in tail):
+    if FIXED_MARKER_TAIL.match(tail) and ("=" in tail or "!" in tail):
         return len(raw) if nl == -1 else nl + 1
     return end_index
 
 
 def _find_iframe_block_end(raw: str, start_index: int) -> int:
-    close = _AV_IFRAME_CLOSE_PATTERN.search(raw, start_index)
+    close = AV_IFRAME_CLOSE.search(raw, start_index)
     if not close:
         return len(raw)
     return _extend_fixed_marker_end(raw, close.end())
 
 
 def _find_video_block_end(raw: str, start_index: int) -> int:
-    close = _AV_VIDEO_CLOSE_PATTERN.search(raw, start_index)
+    close = AV_VIDEO_CLOSE.search(raw, start_index)
     if not close:
         return len(raw)
     return close.end()
 
 
 def _find_table_block_end(raw: str, start_index: int) -> int:
-    close = _AV_TABLE_CLOSE_PATTERN.search(raw, start_index)
+    close = AV_TABLE_CLOSE.search(raw, start_index)
     if not close:
         return len(raw)
     return close.end()
@@ -311,7 +305,7 @@ def _find_markdown_table_block(
     if not raw:
         return None
 
-    for match in _AV_MARKDOWN_TABLE_ROW_PATTERN.finditer(raw):
+    for match in AV_MD_TABLE_ROW.finditer(raw):
         if _is_index_in_ranges(match.start(), fence_ranges):
             continue
 
@@ -387,14 +381,12 @@ def build_av_segmentation_contract(raw: str, block_bid: str = "") -> dict:
             start, end = fence_ranges[0]
             candidates.append(("fence", start, end))
 
-        svg_start = _find_first_index_outside_fence(
-            text, _AV_SVG_OPEN_PATTERN, fence_ranges
-        )
+        svg_start = _find_first_index_outside_fence(text, AV_SVG_OPEN, fence_ranges)
         if svg_start != -1:
             candidates.append(("svg", svg_start, _find_svg_block_end(text, svg_start)))
 
         iframe_match = _find_first_match_outside_fence(
-            text, _AV_IFRAME_OPEN_PATTERN, fence_ranges
+            text, AV_IFRAME_OPEN, fence_ranges
         )
         if iframe_match is not None:
             iframe_start = _rewind_fixed_marker_start(text, iframe_match.start())
@@ -402,33 +394,25 @@ def build_av_segmentation_contract(raw: str, block_bid: str = "") -> dict:
                 ("iframe", iframe_start, _find_iframe_block_end(text, iframe_start))
             )
 
-        video_match = _find_first_match_outside_fence(
-            text, _AV_VIDEO_OPEN_PATTERN, fence_ranges
-        )
+        video_match = _find_first_match_outside_fence(text, AV_VIDEO_OPEN, fence_ranges)
         if video_match is not None:
             video_start = video_match.start()
             candidates.append(
                 ("video", video_start, _find_video_block_end(text, video_start))
             )
 
-        table_match = _find_first_match_outside_fence(
-            text, _AV_TABLE_OPEN_PATTERN, fence_ranges
-        )
+        table_match = _find_first_match_outside_fence(text, AV_TABLE_OPEN, fence_ranges)
         if table_match is not None:
             table_start = table_match.start()
             candidates.append(
                 ("html_table", table_start, _find_table_block_end(text, table_start))
             )
 
-        img_match = _find_first_match_outside_fence(
-            text, _AV_IMG_TAG_PATTERN, fence_ranges
-        )
+        img_match = _find_first_match_outside_fence(text, AV_IMG_TAG, fence_ranges)
         if img_match is not None:
             candidates.append(("img", img_match.start(), img_match.end()))
 
-        md_img_match = _find_first_match_outside_fence(
-            text, _AV_MARKDOWN_IMAGE_PATTERN, fence_ranges
-        )
+        md_img_match = _find_first_match_outside_fence(text, AV_MD_IMAGE, fence_ranges)
         if md_img_match is not None:
             candidates.append(("md_img", md_img_match.start(), md_img_match.end()))
 
@@ -438,7 +422,7 @@ def build_av_segmentation_contract(raw: str, block_bid: str = "") -> dict:
             candidates.append(("md_table", start, end))
 
         sandbox_match = _find_first_match_outside_fence(
-            text, _AV_SANDBOX_START_PATTERN, fence_ranges
+            text, AV_SANDBOX_START, fence_ranges
         )
         if sandbox_match is not None:
             sandbox_start = sandbox_match.start()

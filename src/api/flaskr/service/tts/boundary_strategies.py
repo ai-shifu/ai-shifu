@@ -11,34 +11,21 @@ src/cook-web/src/c-utils/listen-mode/visual-boundary-detector.ts
 
 from __future__ import annotations
 
-import re
 from abc import ABC, abstractmethod
 from typing import Optional
 
+from flaskr.service.tts.patterns import (
+    AV_IFRAME_CLOSE,
+    AV_SVG_CLOSE,
+    AV_TABLE_CLOSE,
+    AV_VIDEO_CLOSE,
+)
 from flaskr.service.tts.pipeline import (
+    _extend_fixed_marker_end,
     _find_html_block_end_with_complete,
     _find_markdown_table_block,
     _get_fence_ranges,
 )
-
-
-# Compiled patterns for HTML visual elements
-_AV_IFRAME_CLOSE_PATTERN = re.compile(r"</iframe>", re.IGNORECASE)
-_AV_VIDEO_CLOSE_PATTERN = re.compile(r"</video>", re.IGNORECASE)
-_AV_TABLE_CLOSE_PATTERN = re.compile(r"</table>", re.IGNORECASE)
-
-
-def _extend_fixed_marker_end(raw: str, pos: int) -> int:
-    """
-    Extend position to include trailing fixed markers on the same line.
-    For example, `</div> ===` should include the `===` marker.
-    """
-    nl = raw.find("\n", pos)
-    line_end = len(raw) if nl == -1 else nl
-    tail = raw[pos:line_end]
-    if re.match(r"^[\s!=]*$", tail):
-        return nl + 1 if nl != -1 else len(raw)
-    return pos
 
 
 class BoundaryStrategy(ABC):
@@ -77,7 +64,7 @@ class SvgBoundaryStrategy(BoundaryStrategy):
     def find_end(self, raw: str) -> Optional[int]:
         if not raw:
             return None
-        close = re.search(r"</svg>", raw, flags=re.IGNORECASE)
+        close = AV_SVG_CLOSE.search(raw)
         if not close:
             return None
         return close.end()
@@ -89,7 +76,7 @@ class IframeBoundaryStrategy(BoundaryStrategy):
     def find_end(self, raw: str) -> Optional[int]:
         if not raw:
             return None
-        close = _AV_IFRAME_CLOSE_PATTERN.search(raw)
+        close = AV_IFRAME_CLOSE.search(raw)
         if not close:
             return None
         return _extend_fixed_marker_end(raw, close.end())
@@ -101,7 +88,7 @@ class VideoBoundaryStrategy(BoundaryStrategy):
     def find_end(self, raw: str) -> Optional[int]:
         if not raw:
             return None
-        close = _AV_VIDEO_CLOSE_PATTERN.search(raw)
+        close = AV_VIDEO_CLOSE.search(raw)
         if not close:
             return None
         return close.end()
@@ -113,7 +100,7 @@ class HtmlTableBoundaryStrategy(BoundaryStrategy):
     def find_end(self, raw: str) -> Optional[int]:
         if not raw:
             return None
-        close = _AV_TABLE_CLOSE_PATTERN.search(raw)
+        close = AV_TABLE_CLOSE.search(raw)
         if not close:
             return None
         return close.end()
