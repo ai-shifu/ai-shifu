@@ -8,6 +8,7 @@ from flaskr.dao import db
 from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.util import generate_id
 from flaskr.service.config.funcs import add_config, get_config, update_config
+from flaskr.common.cache_provider import cache as redis
 from flaskr.service.shifu.shifu_import_export_funcs import import_shifu
 from flaskr.service.shifu.shifu_publish_funcs import publish_shifu_draft
 
@@ -101,31 +102,52 @@ def _process_demo_shifu(
 
 def _ensure_creator_permissions(app: Flask, shifu_bid: str):
     """
-    Ensure all creator users have permissions for the given shifu.
+    Ensure all creator users have at least active `view` permission for the given shifu.
+
+    Existing auth types are preserved and augmented with `view`.
 
     Args:
         app: Flask application instance
         shifu_bid: Shifu business identifier
     """
     users = UserInfo.query.filter(UserInfo.is_creator == 1).all()
-    for user in users:
-        auth = AiCourseAuth.query.filter(
-            AiCourseAuth.user_id == user.user_bid,
+    user_bids = [user.user_bid for user in users]
+    existing_auths = (
+        AiCourseAuth.query.filter(
             AiCourseAuth.course_id == shifu_bid,
-        ).first()
+            AiCourseAuth.user_id.in_(user_bids),
+        ).all()
+        if user_bids
+        else []
+    )
+    auth_map = {auth.user_id: auth for auth in existing_auths}
+
+    changed_user_ids: set[str] = set()
+
+    for user in users:
+        auth = auth_map.get(user.user_bid)
         if not auth:
-            auth = AiCourseAuth(
-                course_auth_id=generate_id(app),
-                user_id=user.user_bid,
-                course_id=shifu_bid,
-                auth_type=json.dumps(["view"]),
-                status=1,
+            db.session.add(
+                AiCourseAuth(
+                    course_auth_id=generate_id(app),
+                    user_id=user.user_bid,
+                    course_id=shifu_bid,
+                    auth_type=json.dumps(["view"]),
+                    status=1,
+                )
             )
-            db.session.add(auth)
-        else:
-            auth.auth_type = json.dumps(["view"])
-            auth.status = 1
-        db.session.commit()
+            changed_user_ids.add(user.user_bid)
+            continue
+
+        auth_values = _normalize_auth_type_values(auth.auth_type)
+        if "view" not in {v.lower() for v in auth_values}:
+            auth_values.add("view")
+        auth.auth_type = json.dumps(sorted(auth_values))
+        auth.status = 1
+        changed_user_ids.add(user.user_bid)
+
+    db.session.commit()
+    _invalidate_permission_cache(app, shifu_bid, changed_user_ids)
 
 
 def _normalize_auth_type_values(raw_value: object) -> set[str]:
@@ -150,9 +172,21 @@ def _normalize_auth_type_values(raw_value: object) -> set[str]:
 
 
 def _has_view_permission(auth_values: set[str]) -> bool:
-    """Check whether normalized auth values contain view-equivalent permission."""
+    """Check whether normalized auth values already contain explicit `view`."""
     lowered = {value.lower() for value in auth_values}
-    return any(value in {"view", "read", "readonly", "1", "2", "edit", "write"} for value in lowered)
+    return "view" in lowered
+
+
+def _invalidate_permission_cache(app: Flask, shifu_bid: str, user_ids: set[str]) -> None:
+    """Invalidate shifu permission cache entries for affected users."""
+    if not user_ids:
+        return
+    with app.app_context():
+        prefix = get_config("REDIS_KEY_PREFIX")
+        if not prefix:
+            return
+        for user_id in user_ids:
+            redis.delete(f"{prefix}shifu_permission:{user_id}:{shifu_bid}")
 
 
 def backfill_course_view_permissions(
@@ -174,15 +208,24 @@ def backfill_course_view_permissions(
         if only_creators:
             query = query.filter(UserInfo.is_creator == 1)
         users = query.all()
+        user_bids = [user.user_bid for user in users]
+
+        existing_auths = (
+            AiCourseAuth.query.filter(
+                AiCourseAuth.course_id == shifu_bid,
+                AiCourseAuth.user_id.in_(user_bids),
+            ).all()
+            if user_bids
+            else []
+        )
+        auth_map = {auth.user_id: auth for auth in existing_auths}
 
         inserted = 0
         updated = 0
+        changed_user_ids: set[str] = set()
 
         for user in users:
-            auth = AiCourseAuth.query.filter(
-                AiCourseAuth.user_id == user.user_bid,
-                AiCourseAuth.course_id == shifu_bid,
-            ).first()
+            auth = auth_map.get(user.user_bid)
 
             if not auth:
                 inserted += 1
@@ -197,6 +240,7 @@ def backfill_course_view_permissions(
                         status=1,
                     )
                 )
+                changed_user_ids.add(user.user_bid)
                 continue
 
             auth_values = _normalize_auth_type_values(auth.auth_type)
@@ -214,9 +258,11 @@ def backfill_course_view_permissions(
                 auth_values.add("view")
             auth.auth_type = json.dumps(sorted(auth_values))
             auth.status = 1
+            changed_user_ids.add(user.user_bid)
 
         if not dry_run:
             db.session.commit()
+            _invalidate_permission_cache(app, shifu_bid, changed_user_ids)
 
         return len(users), inserted, updated
 

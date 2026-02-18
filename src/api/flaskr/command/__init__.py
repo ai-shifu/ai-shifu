@@ -410,18 +410,21 @@ def enable_commands(app: Flask):
     )
     def backfill_course_view_permissions_command(course_id, only_creators, dry_run):
         """Backfill course view permission records for users."""
-        total, inserted, updated = backfill_course_view_permissions(
-            app,
-            shifu_bid=course_id,
-            only_creators=only_creators,
-            dry_run=dry_run,
-        )
-        click.echo(
-            click.style(
-                (
-                    f"mode={'dry-run' if dry_run else 'apply'} "
-                    f"target_users={total} inserted={inserted} updated={updated}"
-                ),
-                fg="green" if not dry_run else "yellow",
+        try:
+            total, inserted, updated = backfill_course_view_permissions(
+                app,
+                shifu_bid=course_id,
+                only_creators=only_creators,
+                dry_run=dry_run,
             )
-        )
+            click.echo(
+                click.style(
+                    (
+                        f"mode={'dry-run' if dry_run else 'apply'} "
+                        f"target_users={total} inserted={inserted} updated={updated}"
+                    ),
+                    fg="green" if not dry_run else "yellow",
+                )
+            )
+        except Exception as e:
+            raise click.ClickException(f"Backfill failed: {e}")
