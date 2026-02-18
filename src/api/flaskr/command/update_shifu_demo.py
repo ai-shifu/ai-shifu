@@ -177,7 +177,9 @@ def _has_view_permission(auth_values: set[str]) -> bool:
     return "view" in lowered
 
 
-def _invalidate_permission_cache(app: Flask, shifu_bid: str, user_ids: set[str]) -> None:
+def _invalidate_permission_cache(
+    app: Flask, shifu_bid: str, user_ids: set[str]
+) -> None:
     """Invalidate shifu permission cache entries for affected users."""
     if not user_ids:
         return

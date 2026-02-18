@@ -397,7 +397,9 @@ def enable_commands(app: Flask):
         update_demo_shifu(app)
 
     @console.command(name="backfill_course_view_permissions")
-    @click.option("--course-id", "course_id", required=True, help="Target course/shifu BID")
+    @click.option(
+        "--course-id", "course_id", required=True, help="Target course/shifu BID"
+    )
     @click.option(
         "--only-creators/--all-users",
         default=False,
