@@ -2074,11 +2074,6 @@ export const useListenAudioSequence = ({
     }
   }, [isAudioPlayerBusy, isAudioPlaying]);
 
-  const handleAudioEndedRef = useRef(handleAudioEnded);
-  handleAudioEndedRef.current = handleAudioEnded;
-  const handleAudioErrorRef = useRef(handleAudioError);
-  handleAudioErrorRef.current = handleAudioError;
-
   useEffect(() => {
     if (
       !isAudioSequenceActive ||

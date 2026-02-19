@@ -23,7 +23,6 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Optional, Sequence
 
 from flask import Flask
@@ -210,18 +209,6 @@ def _find_html_block_end_with_complete(raw: str, start_index: int) -> tuple[int,
             depth += 1
 
         cursor = match.end()
-
-
-def _extract_speakable_text_from_sandbox_html(raw: str) -> str:
-    """
-    Extract speakable text from a sandbox HTML block.
-
-    By default, sandbox blocks are treated as visual boundaries (not spoken).
-
-    Listen Mode requirement: sandbox HTML content must never be narrated, even
-    if it contains textual tags like <p>/<li>/<h*>.
-    """
-    return ""
 
 
 def _find_svg_block_end(raw: str, start_index: int) -> int:
@@ -865,75 +852,3 @@ def synthesize_long_text_to_oss(
         audio_url=audio_url,
         elapsed_seconds=elapsed,
     )
-
-
-def write_html_report(
-    results: Sequence[SynthesizeToOssResult],
-    *,
-    output_path: str,
-    title: str = "TTS Test Report",
-) -> str:
-    """
-    Write an HTML report that contains embeddable <audio> players.
-
-    Returns:
-        The absolute output path as a string.
-    """
-    rows = []
-    for item in results:
-        rows.append(
-            "<tr>"
-            f"<td>{html.escape(item.provider)}</td>"
-            f"<td>{html.escape(item.model)}</td>"
-            f"<td>{html.escape(item.voice_id)}</td>"
-            f"<td>{html.escape(item.language)}</td>"
-            f"<td>{item.segment_count}</td>"
-            f"<td>{item.duration_ms}</td>"
-            f"<td>{item.elapsed_seconds:.3f}</td>"
-            f"<td>{item.to_html_audio()}</td>"
-            "</tr>"
-        )
-
-    html_body = f"""<!doctype html>
-<html lang=\"en\">
-  <head>
-    <meta charset=\"utf-8\" />
-    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
-    <title>{html.escape(title)}</title>
-    <style>
-      body {{ font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 24px; }}
-      table {{ border-collapse: collapse; width: 100%; }}
-      th, td {{ border: 1px solid #e5e7eb; padding: 8px; vertical-align: top; }}
-      th {{ background: #f9fafb; text-align: left; }}
-      audio {{ width: 260px; }}
-      .muted {{ color: #6b7280; font-size: 12px; }}
-    </style>
-  </head>
-  <body>
-    <h1>{html.escape(title)}</h1>
-    <p class=\"muted\">Rows: {len(results)}</p>
-    <table>
-      <thead>
-        <tr>
-          <th>Provider</th>
-          <th>Model</th>
-          <th>Voice</th>
-          <th>Language</th>
-          <th>Segments</th>
-          <th>Audio Duration (ms)</th>
-          <th>Synthesis Time (s)</th>
-          <th>Preview</th>
-        </tr>
-      </thead>
-      <tbody>
-        {"".join(rows)}
-      </tbody>
-    </table>
-  </body>
-</html>
-"""
-
-    out = Path(output_path)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(html_body, encoding="utf-8")
-    return str(out.resolve())

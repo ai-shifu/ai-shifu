@@ -9,6 +9,7 @@ This module provides real-time TTS synthesis during content streaming.
 
 import base64
 import logging
+import traceback
 import uuid
 import threading
 import time
@@ -68,7 +69,6 @@ from flaskr.service.tts.pipeline import (
     build_av_segmentation_contract,
     _find_first_match_outside_fence,
     _find_html_block_end_with_complete,
-    _extract_speakable_text_from_sandbox_html,
     _get_fence_ranges,
     _find_markdown_table_block,
     _rewind_fixed_marker_start,
@@ -270,8 +270,8 @@ class StreamingTTSProcessor:
 
         segment = TTSSegment(index=segment_index, text=text)
 
-        logger.info(
-            f"Submitting TTS task {segment_index}: {len(text)} chars, content={text}, provider={self.tts_provider or '(unset)'}"
+        logger.debug(
+            f"Submitting TTS task {segment_index}: {len(text)} chars, provider={self.tts_provider or '(unset)'}"
         )
 
         future = _tts_executor.submit(
@@ -297,7 +297,7 @@ class StreamingTTSProcessor:
         if not remaining_text or len(remaining_text) < 2:
             return
 
-        logger.info(
+        logger.debug(
             f"Submitting remaining text in segments: {len(remaining_text)} chars"
         )
 
@@ -320,7 +320,7 @@ class StreamingTTSProcessor:
             segment_text = remaining_text[:split_pos].strip()
             if segment_text and len(segment_text) >= 2:
                 self._submit_tts_task(segment_text)
-                logger.info(
+                logger.debug(
                     f"Submitted finalize segment: {len(segment_text)} chars, "
                     f"remaining: {len(remaining_text) - split_pos} chars"
                 )
@@ -376,7 +376,7 @@ class StreamingTTSProcessor:
                 with self._lock:
                     self._word_count_total += segment.word_count
 
-                logger.info(
+                logger.debug(
                     f"TTS segment {segment.index} synthesized: "
                     f"text_len={len(segment.text)}, duration={segment.duration_ms}ms"
                 )
@@ -408,7 +408,7 @@ class StreamingTTSProcessor:
                     self._all_audio_data.append(
                         (segment.index, segment.audio_data, segment.duration_ms)
                     )
-                    logger.info(
+                    logger.debug(
                         f"TTS stored segment {segment.index} for concatenation, "
                         f"total stored: {len(self._all_audio_data)}"
                     )
@@ -453,7 +453,7 @@ class StreamingTTSProcessor:
             cleaned_text = ""
             cleaned_text_length = 0
 
-        logger.info(
+        logger.debug(
             f"TTS finalize called: enabled={self._enabled}, "
             f"buffer_len={len(self._buffer)}, "
             f"segment_index={self._segment_index}, "
@@ -461,7 +461,7 @@ class StreamingTTSProcessor:
             f"all_audio_data={len(self._all_audio_data)}"
         )
         if not self._enabled:
-            logger.info("TTS finalize: TTS not enabled, returning early")
+            logger.debug("TTS finalize: TTS not enabled, returning early")
             return
 
         # Submit any remaining buffer content in segments to avoid burst
@@ -488,9 +488,8 @@ class StreamingTTSProcessor:
         # Use stored audio data from all yielded segments
         with self._lock:
             all_segments = list(self._all_audio_data)
-            logger.info(
-                f"TTS finalize: _all_audio_data has {len(self._all_audio_data)} segments, "
-                f"copying to all_segments"
+            logger.debug(
+                f"TTS finalize: _all_audio_data has {len(self._all_audio_data)} segments"
             )
 
         if not all_segments:
@@ -507,35 +506,35 @@ class StreamingTTSProcessor:
         audio_data_list = [s[1] for s in all_segments]
         total_duration_ms = sum(s[2] for s in all_segments)
 
-        logger.info(
+        logger.debug(
             f"Concatenating {len(audio_data_list)} audio segments, "
             f"total duration: {total_duration_ms}ms"
         )
 
         try:
             # Concatenate all segments
-            logger.info(
+            logger.debug(
                 f"TTS finalize: audio_processing_available={is_audio_processing_available()}"
             )
             final_audio = concat_audio_best_effort(audio_data_list)
 
             final_duration_ms = get_audio_duration_ms(final_audio)
             file_size = len(final_audio)
-            logger.info(
+            logger.debug(
                 f"TTS finalize: final_audio_size={file_size}, duration={final_duration_ms}ms"
             )
 
             # Upload to OSS
             from flaskr.service.tts.tts_handler import upload_audio_to_oss
 
-            logger.info(f"TTS finalize: uploading to OSS, audio_bid={self._audio_bid}")
+            logger.debug(f"TTS finalize: uploading to OSS, audio_bid={self._audio_bid}")
             oss_url, bucket_name = upload_audio_to_oss(
                 self.app, final_audio, self._audio_bid
             )
-            logger.info(f"TTS finalize: OSS upload complete, url={oss_url}")
+            logger.debug(f"TTS finalize: OSS upload complete, url={oss_url}")
 
             # Save to database - use existing context if available
-            logger.info("TTS finalize: saving to database")
+            logger.debug("TTS finalize: saving to database")
             audio_record = LearnGeneratedAudio(
                 audio_bid=self._audio_bid,
                 generated_block_bid=self.generated_block_bid,
@@ -563,10 +562,10 @@ class StreamingTTSProcessor:
             db.session.add(audio_record)
             if commit:
                 db.session.commit()
-                logger.info("TTS finalize: database commit complete")
+                logger.debug("TTS finalize: database commit complete")
             else:
                 db.session.flush()
-                logger.info("TTS finalize: database flush complete")
+                logger.debug("TTS finalize: database flush complete")
 
             from flaskr.service.tts.tts_usage_recorder import (
                 record_tts_aggregated_usage,
@@ -589,7 +588,7 @@ class StreamingTTSProcessor:
             )
 
             # Yield completion
-            logger.info("TTS finalize: yielding AUDIO_COMPLETE")
+            logger.debug("TTS finalize: yielding AUDIO_COMPLETE")
             yield RunMarkdownFlowDTO(
                 outline_bid=self.outline_bid,
                 generated_block_bid=self.generated_block_bid,
@@ -603,15 +602,13 @@ class StreamingTTSProcessor:
                 ),
             )
 
-            logger.info(
+            logger.debug(
                 f"TTS complete: audio_bid={self._audio_bid}, "
                 f"segments={len(audio_data_list)}, "
                 f"duration={final_duration_ms}ms"
             )
 
         except Exception as e:
-            import traceback
-
             logger.error(f"Failed to finalize TTS: {e}\n{traceback.format_exc()}")
 
     def finalize_preview(self) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -622,7 +619,7 @@ class StreamingTTSProcessor:
         playback, so we skip OSS upload and database writes to avoid polluting
         learning records.
         """
-        logger.info(
+        logger.debug(
             f"TTS preview finalize called: enabled={self._enabled}, "
             f"buffer_len={len(self._buffer)}, "
             f"segment_index={self._segment_index}, "
@@ -831,7 +828,7 @@ class AVStreamingTTSProcessor:
         if not force and slide.slide_id in self._emitted_slide_ids:
             return
         self._emitted_slide_ids.add(slide.slide_id)
-        self.app.logger.info(f"emit new slide: {slide.slide_id}")
+        self.app.logger.debug(f"emit new slide: {slide.slide_id}")
         yield RunMarkdownFlowDTO(
             outline_bid=self.outline_bid,
             generated_block_bid=self.generated_block_bid,
@@ -1207,11 +1204,6 @@ class AVStreamingTTSProcessor:
                         visual_kind=skip_kind,
                         segment_content=skipped,
                     )
-                if skip_kind == "sandbox":
-                    injected = _extract_speakable_text_from_sandbox_html(skipped)
-                    if injected:
-                        processor = self._ensure_processor()
-                        yield from self._process_processor_chunk(processor, injected)
                 continue
 
             boundary = self._find_next_boundary(self._raw_buffer)
@@ -1284,11 +1276,6 @@ class AVStreamingTTSProcessor:
                 self._skip_mode = kind
                 break
             self._raw_buffer = self._raw_buffer[boundary_len:]
-            if kind == "sandbox" and boundary_chunk:
-                injected = _extract_speakable_text_from_sandbox_html(boundary_chunk)
-                if injected:
-                    processor = self._ensure_processor()
-                    yield from self._process_processor_chunk(processor, injected)
 
     def finalize(
         self, *, commit: bool = True
