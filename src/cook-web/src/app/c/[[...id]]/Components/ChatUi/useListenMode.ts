@@ -1331,9 +1331,6 @@ export const useListenAudioSequence = ({
   const audioSequenceTokenRef = useRef(0);
   const hasObservedPlaybackRef = useRef(false);
   const isSequencePausedRef = useRef(false);
-  const silentVisualTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
   // Track the last synced list length to detect new items for queue sync
   const lastSyncedListRef = useRef<AudioInteractionItem[]>([]);
   // Track synced audio state per item to avoid duplicate upsertAudio calls.
@@ -1457,10 +1454,6 @@ export const useListenAudioSequence = ({
 
   const endSequence = useCallback(
     (options?: { tryAdvanceToNextBlock?: boolean }) => {
-      if (silentVisualTimerRef.current) {
-        clearTimeout(silentVisualTimerRef.current);
-        silentVisualTimerRef.current = null;
-      }
       setSequenceInteraction(null);
       setActiveAudioBid(null);
       setActiveAudioPosition(0);
@@ -1576,18 +1569,9 @@ export const useListenAudioSequence = ({
     }
 
     if (!item.hasTextAfterVisual) {
-      // Silent visual — auto-advance after 5s viewing period
+      // Silent visual — queue manager handles auto-advance internally
       setSequenceInteraction(null);
       setActiveAudioBid(null);
-
-      if (silentVisualTimerRef.current) {
-        clearTimeout(silentVisualTimerRef.current);
-      }
-      // queueActions.advance will be called via the ref below
-      silentVisualTimerRef.current = setTimeout(() => {
-        silentVisualTimerRef.current = null;
-        queueActionsRef.current?.advance();
-      }, 5000);
     }
   }, []);
 
@@ -1830,6 +1814,23 @@ export const useListenAudioSequence = ({
     audioSequenceTokenRef.current = audioSequenceToken;
   }, [audioSequenceToken]);
 
+  // Explicit play fallback: if AudioPlayer doesn't auto-play, trigger play() manually
+  useEffect(() => {
+    if (!activeAudioBid || isSequencePausedRef.current) {
+      return;
+    }
+    // Give AudioPlayer time to mount and autoPlay
+    const timer = setTimeout(() => {
+      if (isSequencePausedRef.current) return;
+      const state = audioPlayerRef.current?.getPlaybackState?.();
+      if (state && !state.isPlaying && !state.isLoading && !state.isPaused) {
+        console.log('[Queue→Seq] Explicit play fallback triggered');
+        audioPlayerRef.current?.play();
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [audioSequenceToken, activeAudioBid]);
+
   // Reset when list empties
   useEffect(() => {
     if (audioAndInteractionList.length) {
@@ -1876,16 +1877,6 @@ export const useListenAudioSequence = ({
     shouldStartSequenceRef,
     syncListToQueue,
   ]);
-
-  // Cleanup silent visual timer on unmount
-  useEffect(() => {
-    return () => {
-      if (silentVisualTimerRef.current) {
-        clearTimeout(silentVisualTimerRef.current);
-        silentVisualTimerRef.current = null;
-      }
-    };
-  }, []);
 
   // ---------------------------------------------------------------------------
   // Derived values — same as original
@@ -2028,10 +2019,6 @@ export const useListenAudioSequence = ({
         return;
       }
       isSequencePausedRef.current = true;
-      if (silentVisualTimerRef.current) {
-        clearTimeout(silentVisualTimerRef.current);
-        silentVisualTimerRef.current = null;
-      }
       queueActions.pause();
       audioPlayerRef.current?.pause({ traceId });
     },
@@ -2054,10 +2041,6 @@ export const useListenAudioSequence = ({
         traceId: 'sequence-start',
         keepAutoPlay: true,
       });
-      if (silentVisualTimerRef.current) {
-        clearTimeout(silentVisualTimerRef.current);
-        silentVisualTimerRef.current = null;
-      }
       queueActions.reset();
       syncedAudioStateRef.current.clear();
       syncListToQueue(audioAndInteractionList);
@@ -2123,7 +2106,11 @@ export const useListenAudioSequence = ({
         hasObservedPlaybackRef.current = true;
         return;
       }
-      handleAudioErrorRef.current();
+      // Auto-advance past failed audio instead of pausing the queue
+      console.warn(
+        '[Queue→Seq] Audio watchdog: no playback observed, auto-advancing',
+      );
+      queueActionsRef.current?.advance();
     }, audioWatchdogTimeoutMs);
     return () => clearTimeout(timer);
   }, [
