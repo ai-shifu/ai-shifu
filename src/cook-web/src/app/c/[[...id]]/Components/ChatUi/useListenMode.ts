@@ -729,6 +729,7 @@ export const useListenContentData = (
           (activeTimelinePage >= 0 ? activeTimelinePage : null) ??
           0;
 
+        const coveredPages = new Set<number>();
         positions.forEach(position => {
           const mappedPage = pagesForAudio[position];
           const backendPage = backendPageByBlockPosition.get(
@@ -740,6 +741,7 @@ export const useListenContentData = (
               : typeof mappedPage === 'number' && mappedPage >= 0
                 ? mappedPage
                 : fallbackPage;
+          coveredPages.add(resolvedPage);
           const audioSlideId =
             contentItem.audioSlideIdByPosition?.[position] ||
             backendSlideIdByBlockPosition.get(
@@ -769,6 +771,22 @@ export const useListenContentData = (
           }
           activeTimelinePage = resolvedPage;
         });
+
+        // Enqueue visual pages that have no associated audio as silent visuals.
+        // This covers visual boundaries (e.g. tables, images) at the end of a
+        // block where the backend produced no speakable segment after them.
+        if (firstVisualPage >= 0 && lastVisualPage >= 0) {
+          for (let vPage = firstVisualPage; vPage <= lastVisualPage; vPage++) {
+            if (!coveredPages.has(vPage)) {
+              nextAudioAndInteractionList.push({
+                ...contentItem,
+                page: vPage,
+                isSilentVisual: true,
+              });
+              activeTimelinePage = vPage;
+            }
+          }
+        }
 
         pagesForAudio.forEach((mappedPage, mappedPosition) => {
           if (mappedPage < 0) {
@@ -1432,6 +1450,9 @@ export const useListenAudioSequence = ({
 
     const moved = goToBlock(nextBid);
     if (moved) {
+      // Signal the bootstrap effect to auto-start the queue once new content
+      // for the next block streams in and audioAndInteractionList rebuilds.
+      shouldStartSequenceRef.current = true;
       return true;
     }
 
@@ -1831,18 +1852,24 @@ export const useListenAudioSequence = ({
     return () => clearTimeout(timer);
   }, [audioSequenceToken, activeAudioBid]);
 
-  // Reset when list empties
+  // Reset when list empties — debounced to avoid resetting during transient
+  // block transitions where audioAndInteractionList is momentarily empty.
   useEffect(() => {
     if (audioAndInteractionList.length) {
       return;
     }
-    audioPlayerRef.current?.pause({
-      traceId: 'sequence-reset',
-      keepAutoPlay: true,
-    });
-    queueActions.reset();
-    syncedAudioStateRef.current.clear();
-    endSequence();
+    const timer = setTimeout(() => {
+      // Re-check: audioAndInteractionList is captured by closure at effect time,
+      // so if still empty after debounce, proceed with reset.
+      audioPlayerRef.current?.pause({
+        traceId: 'sequence-reset',
+        keepAutoPlay: true,
+      });
+      queueActions.reset();
+      syncedAudioStateRef.current.clear();
+      endSequence();
+    }, 300);
+    return () => clearTimeout(timer);
   }, [audioAndInteractionList.length, endSequence, queueActions]);
 
   // Bootstrap: start sequence when shouldStartSequenceRef is set
@@ -1892,10 +1919,10 @@ export const useListenAudioSequence = ({
     if (!activeAudioBlockBid) {
       return undefined;
     }
-    return (
+    const item =
       contentByBid.get(activeAudioBlockBid) ??
-      audioContentByBid.get(activeAudioBlockBid)
-    );
+      audioContentByBid.get(activeAudioBlockBid);
+    return item;
   }, [activeAudioBlockBid, audioContentByBid, contentByBid]);
 
   const activeAudioDurationMs = useMemo(() => {
@@ -1966,9 +1993,11 @@ export const useListenAudioSequence = ({
       ) {
         return;
       }
-      isSequencePausedRef.current = true;
-      queueActions.pause();
+      // Auto-advance past failed audio instead of pausing the queue.
+      // This prevents a single audio error from stalling the entire sequence.
+      console.warn('[Queue→Seq] Audio error, auto-advancing past failed audio');
       setIsAudioPlaying(false);
+      queueActions.advance();
     },
     [queueActions, setIsAudioPlaying],
   );
@@ -1977,6 +2006,11 @@ export const useListenAudioSequence = ({
     if (previewMode) {
       return;
     }
+
+    // Pre-warm audio systems during user gesture to bypass browser autoplay policy.
+    // This must happen synchronously inside the click handler.
+    audioPlayerRef.current?.warmup?.();
+
     isSequencePausedRef.current = false;
 
     if (sequenceInteraction) {
@@ -2114,6 +2148,45 @@ export const useListenAudioSequence = ({
     isAudioPlaying,
     isAudioPlayerBusy,
     audioWatchdogTimeoutMs,
+  ]);
+
+  // ---------------------------------------------------------------------------
+  // Stuck-audio watchdog — auto-advance when audio starts but never ends.
+  // The previous watchdog handles "never started"; this handles "started but
+  // onEnded never fires" (e.g. network stall, GC, or browser quirk).
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (
+      !isAudioSequenceActive ||
+      !isAudioPlaying ||
+      isSequencePausedRef.current
+    ) {
+      return;
+    }
+    // Generous timeout: 2x known duration (min 10s) or 30s fallback.
+    const knownMs = activeAudioDurationMs;
+    const maxMs = knownMs ? Math.max(knownMs * 2, knownMs + 10000) : 30000;
+    const timer = setTimeout(() => {
+      if (isSequencePausedRef.current) {
+        return;
+      }
+      // Double-check the player is still genuinely playing
+      const state = audioPlayerRef.current?.getPlaybackState?.();
+      if (state && !state.isPlaying) {
+        return;
+      }
+      console.warn(
+        `[Queue→Seq] Stuck-audio watchdog: audio playing for ${maxMs}ms without ending, auto-advancing`,
+      );
+      setIsAudioPlaying(false);
+      queueActionsRef.current?.advance();
+    }, maxMs);
+    return () => clearTimeout(timer);
+  }, [
+    isAudioSequenceActive,
+    isAudioPlaying,
+    activeAudioDurationMs,
+    setIsAudioPlaying,
   ]);
 
   // ---------------------------------------------------------------------------

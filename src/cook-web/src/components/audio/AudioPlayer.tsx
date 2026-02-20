@@ -59,6 +59,9 @@ export interface AudioPlayerHandle {
   togglePlay: () => void;
   play: () => void;
   pause: (options?: { traceId?: string; keepAutoPlay?: boolean }) => void;
+  /** Pre-warm audio systems to bypass browser autoplay policy.
+   *  Must be called synchronously inside a user gesture handler. */
+  warmup?: () => void;
   getPlaybackState?: () => {
     isPlaying: boolean;
     isLoading: boolean;
@@ -128,7 +131,6 @@ function AudioPlayerBase(
   const segmentOffsetRef = useRef(0);
   const segmentStartTimeRef = useRef(0);
   const segmentDurationRef = useRef(0);
-  const playerIdRef = useRef(Math.random().toString(36).slice(2, 8));
 
   const effectiveAudioUrl = audioUrl || localAudioUrl;
 
@@ -383,8 +385,55 @@ function AudioPlayerBase(
           isPlayingRef.current = true;
           onPlayStateChangeRef.current?.(true);
         })
-        .catch(err => {
+        .catch(async err => {
           if (!isSessionActive(sessionId)) return;
+
+          // Handle browser autoplay policy: fall back to Web Audio API
+          if (
+            err instanceof DOMException &&
+            err.name === 'NotAllowedError' &&
+            url
+          ) {
+            console.warn(
+              'Autoplay blocked, falling back to Web Audio API for URL playback',
+            );
+            try {
+              if (!audioContextRef.current) {
+                audioContextRef.current = createAudioContext();
+              }
+              await resumeAudioContext(audioContextRef.current);
+              if (!isSessionActive(sessionId)) return;
+              const response = await fetch(url);
+              const arrayBuffer = await response.arrayBuffer();
+              if (!isSessionActive(sessionId)) return;
+              const audioBuffer =
+                await audioContextRef.current.decodeAudioData(arrayBuffer);
+              if (!isSessionActive(sessionId)) return;
+              setIsLoading(false);
+              setIsPlaying(true);
+              isPlayingRef.current = true;
+              onPlayStateChangeRef.current?.(true);
+              playAudioBuffer(
+                audioContextRef.current,
+                audioBuffer,
+                () => {
+                  if (!isSessionActive(sessionId)) return;
+                  setIsPlaying(false);
+                  isPlayingRef.current = false;
+                  setIsLoading(false);
+                  onPlayStateChangeRef.current?.(false);
+                  onEndedRef.current?.();
+                  releaseExclusive();
+                },
+                seekTarget,
+              );
+              return;
+            } catch (fallbackErr) {
+              if (!isSessionActive(sessionId)) return;
+              console.error('Web Audio API fallback also failed:', fallbackErr);
+            }
+          }
+
           console.error('Failed to play audio:', err);
           setIsPlaying(false);
           isPlayingRef.current = false;
@@ -778,6 +827,18 @@ function AudioPlayerBase(
       pause: (options?: { traceId?: string; keepAutoPlay?: boolean }) => {
         pausePlayback(options);
       },
+      warmup: () => {
+        // Pre-warm AudioContext so it's in 'running' state for later playback.
+        // Must be called inside a user gesture handler (click/tap).
+        if (!audioContextRef.current) {
+          audioContextRef.current = createAudioContext();
+        }
+        audioContextRef.current.resume().catch(() => {});
+        // Pre-create and unlock the HTML Audio element
+        if (!audioRef.current) {
+          audioRef.current = new Audio();
+        }
+      },
       getPlaybackState: () => ({
         isPlaying: isPlayingRef.current,
         isLoading: isLoadingRef.current,
@@ -842,12 +903,6 @@ function AudioPlayerBase(
     }
     prevAutoPlayRef.current = autoPlay;
 
-    // Auto-play when:
-    // 1. autoPlay is true
-    // 2. Not currently playing
-    // 3. Not disabled
-    // 4. Haven't auto-played for this content yet
-    // 5. Has audio content or is streaming
     if (
       autoPlay &&
       !isPlaying &&

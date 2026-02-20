@@ -218,7 +218,7 @@ const ListenModeRenderer = ({
       audio => (audio.position ?? 0) === activeAudioPosition,
     );
     const persisted = persistedMatches[persistedMatches.length - 1];
-    return {
+    const result = {
       audioUrl:
         track?.audioUrl ??
         persisted?.audio_url ??
@@ -232,6 +232,7 @@ const ListenModeRenderer = ({
           ? Boolean(activeContentItem.isAudioStreaming)
           : false),
     };
+    return result;
   }, [activeAudioPosition, activeContentItem]);
 
   const latestAudioSequenceTokenRef = useRef(audioSequenceToken);
