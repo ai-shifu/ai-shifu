@@ -1,3 +1,5 @@
+import type { AudioCompleteData } from '@/c-api/studyV2';
+
 export const LISTEN_AUDIO_EVENT_TYPES = {
   AUDIO_SEGMENT: 'audio_segment',
   AUDIO_COMPLETE: 'audio_complete',
@@ -18,7 +20,7 @@ export const buildListenUnitId = ({
   type,
   generatedBlockBid,
   position,
-  slideId,
+  slideId: _slideId,
   fallbackIndex,
   resolveContentBid,
 }: {
@@ -29,6 +31,7 @@ export const buildListenUnitId = ({
   fallbackIndex: number;
   resolveContentBid?: (blockBid: string | null) => string | null;
 }): string => {
+  void _slideId;
   if (type === 'content') {
     // Always use bid:position for content items to keep unit IDs stable
     // across list rebuilds.  slideId arrives asynchronously (via avContract /
@@ -260,4 +263,3 @@ export const normalizeListenRecordAudios = ({
     audioTracksByPosition: tracksByPosition,
   };
 };
-import type { AudioCompleteData } from '@/c-api/studyV2';

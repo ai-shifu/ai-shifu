@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   ListenQueueManager,
   buildQueueItemId,
@@ -23,7 +23,6 @@ interface QueueManagerActions {
     generatedBlockBid: string;
     position?: number;
     page: number;
-    visualKind?: string;
     hasTextAfterVisual: boolean;
   }) => void;
 
@@ -37,7 +36,6 @@ interface QueueManagerActions {
     generatedBlockBid: string;
     page: number;
     contentItem: ChatContentItem;
-    nextIndex: number | null;
   }) => void;
 
   start: () => void;
@@ -50,6 +48,12 @@ interface QueueManagerActions {
     bid: string,
     position: number,
     hasTextAfterVisual: boolean,
+  ) => void;
+  remapPages: (
+    mapper: (
+      page: number,
+      item: ReturnType<ListenQueueManager['getQueueSnapshot']>[number],
+    ) => number,
   ) => void;
 
   getQueueSnapshot: () => ReturnType<ListenQueueManager['getQueueSnapshot']>;
@@ -172,11 +176,9 @@ export function useQueueManager(
       });
 
       queueManagerRef.current.enqueueVisual({
-        type: 'visual',
         generatedBlockBid: params.generatedBlockBid,
         position: params.position ?? 0,
         page: params.page,
-        visualKind: params.visualKind,
         hasTextAfterVisual: params.hasTextAfterVisual,
         expectedAudioId,
       });
@@ -202,11 +204,9 @@ export function useQueueManager(
       }
 
       queueManagerRef.current.enqueueInteraction({
-        type: 'interaction',
         generatedBlockBid: params.generatedBlockBid,
         page: params.page,
         contentItem: params.contentItem,
-        nextIndex: params.nextIndex,
       });
     },
     [enabled],
@@ -274,6 +274,16 @@ export function useQueueManager(
     [enabled],
   );
 
+  const remapPages = useCallback(
+    (mapper: Parameters<QueueManagerActions['remapPages']>[0]) => {
+      if (!enabled || !queueManagerRef.current) {
+        return;
+      }
+      queueManagerRef.current.remapPages(mapper);
+    },
+    [enabled],
+  );
+
   const getQueueSnapshot = useCallback(() => {
     if (!enabled || !queueManagerRef.current) {
       return [];
@@ -302,20 +312,40 @@ export function useQueueManager(
     return queueManagerRef.current.getQueueLength();
   }, [enabled]);
 
-  return {
-    enqueueVisual,
-    upsertAudio,
-    enqueueInteraction,
-    start,
-    pause,
-    resume,
-    reset,
-    advance,
-    startFromIndex,
-    updateVisualExpectation,
-    getQueueSnapshot,
-    getCurrentItem,
-    getCurrentIndex,
-    getQueueLength,
-  };
+  return useMemo(
+    () => ({
+      enqueueVisual,
+      upsertAudio,
+      enqueueInteraction,
+      start,
+      pause,
+      resume,
+      reset,
+      advance,
+      startFromIndex,
+      updateVisualExpectation,
+      remapPages,
+      getQueueSnapshot,
+      getCurrentItem,
+      getCurrentIndex,
+      getQueueLength,
+    }),
+    [
+      enqueueVisual,
+      upsertAudio,
+      enqueueInteraction,
+      start,
+      pause,
+      resume,
+      reset,
+      advance,
+      startFromIndex,
+      updateVisualExpectation,
+      remapPages,
+      getQueueSnapshot,
+      getCurrentItem,
+      getCurrentIndex,
+      getQueueLength,
+    ],
+  );
 }

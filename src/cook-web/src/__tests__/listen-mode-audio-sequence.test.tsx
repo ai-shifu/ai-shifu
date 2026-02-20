@@ -1862,6 +1862,153 @@ describe('useListenAudioSequence silent visual slides', () => {
     expect(currentSlide).toBe(1);
     expect(result.current.isAudioSequenceActive).toBe(false);
   });
+
+  it('starts from anchored new content instead of stale active block', () => {
+    jest.useFakeTimers();
+    try {
+      let currentSlide = 0;
+      const deck: any = {
+        sync: jest.fn(),
+        layout: jest.fn(),
+        getSlides: jest.fn(() => Array.from({ length: 4 }, () => ({}))),
+        getIndices: jest.fn(() => ({ h: currentSlide })),
+        getCurrentSlide: jest.fn(() => ({
+          getAttribute: (name: string) =>
+            name === 'data-generated-block-bid' ? 'block-old' : null,
+        })),
+        slide: jest.fn((page: number) => {
+          currentSlide = page;
+        }),
+      };
+
+      const deckRef = { current: deck };
+      const currentPptPageRef = { current: 0 };
+      const activeBlockBidRef = { current: 'block-old' as string | null };
+      const pendingAutoNextRef = { current: false };
+      const shouldStartSequenceRef = { current: true };
+      const sequenceStartAnchorIndexRef = { current: 1 };
+
+      const oldItem: any = {
+        type: ChatContentItemType.CONTENT,
+        generated_block_bid: 'block-old',
+        content: 'Old block',
+        audios: [{ position: 0, audio_url: 'https://example.com/old.mp3' }],
+        customRenderBar: () => null,
+      };
+      const newItem: any = {
+        type: ChatContentItemType.CONTENT,
+        generated_block_bid: 'block-new',
+        content: 'New block',
+        audios: [{ position: 0, audio_url: 'https://example.com/new.mp3' }],
+        customRenderBar: () => null,
+      };
+
+      const { result } = renderHook(() =>
+        useListenAudioSequence({
+          audioAndInteractionList: [
+            { ...oldItem, page: 0, audioPosition: 0 },
+            { ...newItem, page: 1, audioPosition: 0 },
+          ],
+          deckRef: deckRef as any,
+          currentPptPageRef: currentPptPageRef as any,
+          activeBlockBidRef: activeBlockBidRef as any,
+          pendingAutoNextRef: pendingAutoNextRef as any,
+          shouldStartSequenceRef: shouldStartSequenceRef as any,
+          sequenceStartAnchorIndexRef: sequenceStartAnchorIndexRef as any,
+          contentByBid: new Map([
+            ['block-old', oldItem],
+            ['block-new', newItem],
+          ]),
+          audioContentByBid: new Map([
+            ['block-old', oldItem],
+            ['block-new', newItem],
+          ]),
+          previewMode: false,
+          shouldRenderEmptyPpt: false,
+          getNextContentBid: () => null,
+          goToBlock: () => false,
+          resolveContentBid: (bid: string | null) => bid,
+          isAudioPlaying: false,
+          setIsAudioPlaying: () => undefined,
+        }),
+      );
+
+      act(() => {
+        jest.advanceTimersByTime(1);
+      });
+
+      expect(deck.slide).toHaveBeenCalledWith(1);
+      expect(result.current.activeAudioBlockBid).toBe('block-new');
+      expect(sequenceStartAnchorIndexRef.current).toBe(null);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('falls back to rebuilt list head when anchor index is out of range', () => {
+    jest.useFakeTimers();
+    try {
+      let currentSlide = 0;
+      const deck: any = {
+        sync: jest.fn(),
+        layout: jest.fn(),
+        getSlides: jest.fn(() => Array.from({ length: 2 }, () => ({}))),
+        getIndices: jest.fn(() => ({ h: currentSlide })),
+        getCurrentSlide: jest.fn(() => ({
+          getAttribute: () => null,
+        })),
+        slide: jest.fn((page: number) => {
+          currentSlide = page;
+        }),
+      };
+
+      const deckRef = { current: deck };
+      const currentPptPageRef = { current: 0 };
+      const activeBlockBidRef = { current: null as string | null };
+      const pendingAutoNextRef = { current: false };
+      const shouldStartSequenceRef = { current: true };
+      const sequenceStartAnchorIndexRef = { current: 99 };
+
+      const newItem: any = {
+        type: ChatContentItemType.CONTENT,
+        generated_block_bid: 'block-rebuilt',
+        content: 'Rebuilt list item',
+        audios: [{ position: 0, audio_url: 'https://example.com/new.mp3' }],
+        customRenderBar: () => null,
+      };
+
+      const { result } = renderHook(() =>
+        useListenAudioSequence({
+          audioAndInteractionList: [{ ...newItem, page: 0, audioPosition: 0 }],
+          deckRef: deckRef as any,
+          currentPptPageRef: currentPptPageRef as any,
+          activeBlockBidRef: activeBlockBidRef as any,
+          pendingAutoNextRef: pendingAutoNextRef as any,
+          shouldStartSequenceRef: shouldStartSequenceRef as any,
+          sequenceStartAnchorIndexRef: sequenceStartAnchorIndexRef as any,
+          contentByBid: new Map([['block-rebuilt', newItem]]),
+          audioContentByBid: new Map([['block-rebuilt', newItem]]),
+          previewMode: false,
+          shouldRenderEmptyPpt: false,
+          getNextContentBid: () => null,
+          goToBlock: () => false,
+          resolveContentBid: (bid: string | null) => bid,
+          isAudioPlaying: false,
+          setIsAudioPlaying: () => undefined,
+        }),
+      );
+
+      act(() => {
+        jest.advanceTimersByTime(1);
+      });
+
+      expect(deck.slide).toHaveBeenCalledWith(0);
+      expect(result.current.activeAudioBlockBid).toBe('block-rebuilt');
+      expect(sequenceStartAnchorIndexRef.current).toBe(null);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });
 
 describe('useListenPpt reset guards', () => {
@@ -1872,7 +2019,6 @@ describe('useListenPpt reset guards', () => {
     const currentPptPageRef = { current: 0 };
     const activeBlockBidRef = { current: null as string | null };
     const pendingAutoNextRef = { current: false };
-    const interactionByPage = new Map<number, any[]>();
 
     const { rerender } = renderHook(
       ({
@@ -1897,7 +2043,6 @@ describe('useListenPpt reset guards', () => {
               segments: [{ type: 'markdown', value: '<svg></svg>' }],
             },
           ],
-          interactionByPage,
           sectionTitle: 'Section A',
           isLoading: false,
           isAudioPlaying: false,
@@ -1958,7 +2103,6 @@ describe('useListenPpt reset guards', () => {
     const currentPptPageRef = { current: 0 };
     const activeBlockBidRef = { current: 'block-a' as string | null };
     const pendingAutoNextRef = { current: true };
-    const interactionByPage = new Map<number, any[]>();
     const goToBlock = jest.fn(() => true);
 
     renderHook(() =>
@@ -1984,7 +2128,6 @@ describe('useListenPpt reset guards', () => {
             segments: [{ type: 'markdown', value: '<svg></svg>' }],
           },
         ],
-        interactionByPage,
         sectionTitle: 'Section A',
         isLoading: false,
         isAudioPlaying: false,

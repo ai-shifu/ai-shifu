@@ -81,6 +81,10 @@
     section.present {
       display: flex !important;
     }
+
+    section.listen-runtime-pruned-slide {
+      display: none !important;
+    }
   }
 }
 

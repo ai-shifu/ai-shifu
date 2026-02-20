@@ -6,5 +6,7 @@
  */
 
 export * from './constants';
+export * from './audio-track-resolver';
 export * from './markdown-table-parser';
+export * from './segment-pipeline';
 export * from './visual-boundary-detector';

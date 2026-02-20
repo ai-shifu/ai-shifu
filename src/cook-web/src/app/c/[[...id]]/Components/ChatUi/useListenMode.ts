@@ -1,291 +1,43 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Reveal, { Options } from 'reveal.js';
-import {
-  splitContentSegments,
-  type RenderSegment,
-} from 'markdown-flow-ui/renderer';
+import { type RenderSegment } from 'markdown-flow-ui/renderer';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
-import type { AudioPlayerHandle } from '@/components/audio/AudioPlayer';
+import {
+  warmupSharedAudioPlayback,
+  type AudioPlayerHandle,
+} from '@/components/audio/AudioPlayer';
+import type { AudioSegment } from '@/c-utils/audio-utils';
 import {
   buildListenUnitId,
   extractAudioPositions,
 } from '@/c-utils/listen-orchestrator';
+import {
+  buildListenUnitId as buildDomainListenUnitId,
+  reduceListenRuntime,
+  type ListenRuntimeEvent,
+  type ListenRuntimeState,
+  useListenOrchestrator,
+} from '@/c-utils/listen-domain';
 import type { ListenSlideData } from '@/c-api/studyV2';
 import {
-  type HtmlSandboxRootTag,
-  SANDBOX_ROOT_TAGS,
-  FIXED_MARKER_PATTERN,
-  markdownTableToSandboxHtml,
-  findFirstTextVisualBlock,
+  hasAnyAudioPayload,
+  isListenModeSpeakableText,
+  resolveListenAudioTrack,
+  splitListenModeSegments,
 } from '@/c-utils/listen-mode';
 import { useQueueManager } from '@/c-utils/listen-mode/use-queue-manager';
-import type {
-  QueueEvent,
-  VisualQueueItem,
-  AudioQueueItem,
-  InteractionQueueItem,
+import {
+  buildQueueItemId,
+  type QueueEvent,
+  type VisualQueueItem,
+  type AudioQueueItem,
+  type InteractionQueueItem,
 } from '@/c-utils/listen-mode/queue-manager';
 
-const isFixedMarkerText = (raw: string) => {
-  const trimmed = (raw || '').trim();
-  return Boolean(trimmed && FIXED_MARKER_PATTERN.test(trimmed));
-};
-
-const isListenModeSpeakableText = (raw: string) => {
-  const trimmed = (raw || '').trim();
-  if (trimmed.length < 2) {
-    return false;
-  }
-  // Avoid synthesizing MarkdownFlow fixed marker delimiters such as `===`/`!===`.
-  if (isFixedMarkerText(trimmed)) {
-    return false;
-  }
-  return true;
-};
-
-const splitTextByVisualBlocks = (raw: string): RenderSegment[] => {
-  if (!raw || !raw.trim()) {
-    return [];
-  }
-
-  const block = findFirstTextVisualBlock(raw);
-  if (!block) {
-    return [{ type: 'text', value: raw }];
-  }
-
-  const before = raw.slice(0, block.start);
-  const matched = raw.slice(block.start, block.end);
-  const after = raw.slice(block.end);
-
-  const output: RenderSegment[] = [];
-  if (before.trim()) {
-    output.push({ type: 'text', value: before });
-  }
-  if (block.kind === 'markdown-table') {
-    const markdownTableSandbox = markdownTableToSandboxHtml(matched);
-    if (markdownTableSandbox) {
-      output.push({
-        type: 'sandbox',
-        value: markdownTableSandbox,
-      });
-    } else {
-      output.push({
-        type: 'markdown',
-        value: matched,
-      });
-    }
-  } else {
-    if (block.kind === 'iframe') {
-      output.push({
-        type: 'sandbox',
-        value: matched,
-      });
-    } else if (block.kind === 'table') {
-      // In blackboard mode, IframeSandbox only mounts content extracted from
-      // sandbox-root HTML blocks. Wrap bare <table> so it renders in sandbox.
-      output.push({
-        type: 'sandbox',
-        value: `<div>${matched}</div>`,
-      });
-    } else {
-      output.push({
-        type: 'markdown',
-        value: matched,
-      });
-    }
-  }
-  if (after.trim()) {
-    output.push(...splitTextByVisualBlocks(after));
-  }
-  return output;
-};
-
-const splitSandboxByRootBoundary = (
-  raw: string,
-): { head: string; rest: string } | null => {
-  if (!raw || !raw.trim()) {
-    return null;
-  }
-
-  const trimmed = raw.trimStart();
-  const lower = trimmed.toLowerCase();
-  const match = lower.match(/^<([a-z0-9-]+)/);
-  if (!match) {
-    return null;
-  }
-
-  const tag = match[1] as HtmlSandboxRootTag;
-  if (!SANDBOX_ROOT_TAGS.includes(tag)) {
-    return null;
-  }
-
-  const closeTag = `</${tag}>`;
-  const closeIdx =
-    tag === 'iframe' ? lower.indexOf(closeTag) : lower.lastIndexOf(closeTag);
-  if (closeIdx === -1) {
-    return null;
-  }
-
-  let end = closeIdx + closeTag.length;
-  // Keep trailing fixed markers on the same line (e.g. `</div> ===`).
-  const nl = trimmed.indexOf('\n', end);
-  const lineEnd = nl === -1 ? trimmed.length : nl;
-  const tail = trimmed.slice(end, lineEnd);
-  if (/^[\s!=]*$/.test(tail)) {
-    end = nl === -1 ? trimmed.length : nl + 1;
-  }
-
-  if (end <= 0 || end >= trimmed.length) {
-    return null;
-  }
-
-  const rest = trimmed.slice(end);
-  if (!rest.trim()) {
-    return null;
-  }
-
-  return { head: trimmed.slice(0, end), rest };
-};
-
-const mergeHtmlTableSegments = (segments: RenderSegment[]): RenderSegment[] => {
-  if (!segments.length) {
-    return segments;
-  }
-
-  const output: RenderSegment[] = [];
-
-  for (let index = 0; index < segments.length; index += 1) {
-    const segment = segments[index];
-    const raw = typeof segment.value === 'string' ? segment.value : '';
-    if (!raw) {
-      output.push(segment);
-      continue;
-    }
-    const lower = raw.toLowerCase();
-    const tableStart = lower.indexOf('<table');
-    if (tableStart === -1) {
-      output.push(segment);
-      continue;
-    }
-
-    // If the closing tag is already present, keep the segment intact.
-    // `splitTextByVisualBlocks()` will handle turning it into a visual sandbox segment.
-    if (lower.indexOf('</table', tableStart) !== -1) {
-      output.push(segment);
-      continue;
-    }
-
-    // Merge forward to reconstruct tables that were split by other HTML/markdown
-    // detectors (e.g. <img> inside <table>), otherwise the table ends up as
-    // non-visual `text` and gets dropped from slides.
-    let merged = raw;
-    let mergedLower = lower;
-    let foundClose = false;
-    let nextIndex = index;
-
-    for (let scan = index + 1; scan < segments.length; scan += 1) {
-      const next = segments[scan];
-      const nextValue = typeof next.value === 'string' ? next.value : '';
-      const nextLower = nextValue.toLowerCase();
-      merged += nextValue;
-      mergedLower += nextLower;
-      if (mergedLower.includes('</table')) {
-        foundClose = true;
-        nextIndex = scan;
-        break;
-      }
-    }
-
-    if (!foundClose) {
-      output.push(segment);
-      continue;
-    }
-
-    output.push({ ...segment, value: merged });
-    index = nextIndex;
-  }
-
-  return output;
-};
-
-const splitListenModeSegments = (raw: string): RenderSegment[] => {
-  const baseSegments = mergeHtmlTableSegments(
-    splitContentSegments(raw || '', true),
-  );
-  if (!baseSegments.length) {
-    return baseSegments;
-  }
-
-  const output: RenderSegment[] = [];
-  baseSegments.forEach((segment, index) => {
-    if (segment.type !== 'text') {
-      if (segment.type === 'sandbox') {
-        const sandboxRaw =
-          typeof segment.value === 'string' ? segment.value : '';
-        const sandboxTrimmed = sandboxRaw.trimStart();
-        if (
-          /^\s*<table\b/i.test(sandboxTrimmed) &&
-          /<\/table\b/i.test(sandboxTrimmed)
-        ) {
-          output.push({
-            type: 'sandbox',
-            value: `<div>${sandboxTrimmed}</div>`,
-          });
-          return;
-        }
-
-        const split = splitSandboxByRootBoundary(segment.value || '');
-        if (split) {
-          output.push({ type: 'sandbox', value: split.head });
-          output.push(...splitListenModeSegments(split.rest));
-          return;
-        }
-      }
-      if (segment.type === 'markdown') {
-        const markdownRaw =
-          typeof segment.value === 'string' ? segment.value : '';
-        const markdownTableSandbox = markdownTableToSandboxHtml(markdownRaw);
-        if (markdownTableSandbox) {
-          output.push({
-            type: 'sandbox',
-            value: markdownTableSandbox,
-          });
-          return;
-        }
-
-        // splitContentSegments() can return raw HTML blocks (including <table>)
-        // as markdown segments. In blackboard mode, we need to wrap <table>
-        // with a sandbox-root container so it renders.
-        if (
-          !/^\s*```/.test(markdownRaw) &&
-          !/^\s*~~~/.test(markdownRaw) &&
-          (/<table\b/i.test(markdownRaw) ||
-            /<iframe\b/i.test(markdownRaw) ||
-            /<video\b/i.test(markdownRaw))
-        ) {
-          output.push(...splitTextByVisualBlocks(markdownRaw));
-          return;
-        }
-      }
-      output.push(segment);
-      return;
-    }
-
-    // Drop fixed marker-only segments that would otherwise become speakable.
-    const next = baseSegments[index + 1];
-    if (
-      isFixedMarkerText(segment.value) &&
-      next &&
-      (next.type === 'sandbox' || next.type === 'markdown')
-    ) {
-      return;
-    }
-
-    output.push(...splitTextByVisualBlocks(segment.value));
-  });
-
-  return output;
-};
+const ENABLE_LISTEN_ORCHESTRATOR_V2 =
+  process.env.NEXT_PUBLIC_LISTEN_ORCHESTRATOR_V2 === '1';
+const ENABLE_LISTEN_RUNTIME_LOG =
+  process.env.NEXT_PUBLIC_LISTEN_RUNTIME_LOG === '1';
 
 const isRenderableBackendSlide = (slide: ListenSlideData): boolean => {
   if (slide.is_placeholder || slide.segment_type === 'placeholder') {
@@ -295,6 +47,188 @@ const isRenderableBackendSlide = (slide: ListenSlideData): boolean => {
   // Backend intentionally clears segment_content in NEW_SLIDE events (see streaming_tts.py:827-830),
   // expecting frontend to render from accumulated CONTENT stream chunks.
   // This ensures every finalized slide gets a page number and can be navigated to.
+  return true;
+};
+
+const EMPTY_SANDBOX_WRAPPER_PATTERN =
+  /^<div(?:\s+[^>]*)?>\s*(?:<br\s*\/?>|&nbsp;|\s)*<\/div>$/i;
+const FIXED_MARKER_PATTERN = /^!?=+$/;
+const EMPTY_SVG_PATTERN = /^<svg\b[^>]*>\s*(?:<!--[\s\S]*?-->\s*)*<\/svg>$/i;
+const EMPTY_WRAPPED_SVG_PATTERN =
+  /^<div(?:\s+[^>]*)?>\s*<svg\b[^>]*>\s*(?:<!--[\s\S]*?-->\s*)*<\/svg>\s*<\/div>$/i;
+const MALFORMED_EMPTY_SVG_PATTERN = /<svg<|<\/svg<>/i;
+const VISUAL_HTML_TAG_PATTERN = /<(svg|table|iframe|img|video)\b/i;
+const MARKDOWN_IMAGE_PATTERN = /!\[[^\]]*]\([^)]+\)/;
+const MERMAID_CODE_FENCE_PATTERN = /```[\t ]*mermaid\b/i;
+const RUNTIME_EMPTY_SVG_CONTAINER_SELECTOR = '.content-render-svg';
+const RUNTIME_VISUAL_CONTENT_SELECTOR = 'svg,table,img,video,canvas,.mermaid';
+const RUNTIME_PRUNED_SLIDE_CLASS = 'listen-runtime-pruned-slide';
+const RUNTIME_PRUNED_SLIDE_ATTR = 'data-runtime-pruned';
+
+const isRenderableVisualSegment = (segment: RenderSegment): boolean => {
+  if (segment.type !== 'markdown' && segment.type !== 'sandbox') {
+    return false;
+  }
+
+  const raw = typeof segment.value === 'string' ? segment.value.trim() : '';
+  if (!raw) {
+    return false;
+  }
+  if (FIXED_MARKER_PATTERN.test(raw)) {
+    return false;
+  }
+  if (EMPTY_SANDBOX_WRAPPER_PATTERN.test(raw)) {
+    return false;
+  }
+  if (EMPTY_SVG_PATTERN.test(raw) || EMPTY_WRAPPED_SVG_PATTERN.test(raw)) {
+    return false;
+  }
+  if (MALFORMED_EMPTY_SVG_PATTERN.test(raw)) {
+    return false;
+  }
+  if (VISUAL_HTML_TAG_PATTERN.test(raw)) {
+    return true;
+  }
+
+  if (segment.type === 'markdown') {
+    return (
+      MARKDOWN_IMAGE_PATTERN.test(raw) || MERMAID_CODE_FENCE_PATTERN.test(raw)
+    );
+  }
+
+  const textContent = raw
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/gi, '')
+    .trim();
+  return textContent.length > 0;
+};
+
+const isRuntimePrunableVisualSlide = (slide: unknown): boolean => {
+  if (
+    !slide ||
+    typeof (slide as { querySelector?: unknown }).querySelector !== 'function'
+  ) {
+    return false;
+  }
+  const querySelector = (selector: string): Element | null =>
+    (
+      slide as {
+        querySelector: (candidateSelector: string) => Element | null;
+      }
+    ).querySelector(selector);
+  const hasEmptySvgContainer = Boolean(
+    querySelector(RUNTIME_EMPTY_SVG_CONTAINER_SELECTOR),
+  );
+  if (!hasEmptySvgContainer) {
+    return false;
+  }
+
+  if (querySelector(RUNTIME_VISUAL_CONTENT_SELECTOR)) {
+    return false;
+  }
+  const textContent = (
+    (slide as { textContent?: string | null }).textContent || ''
+  )
+    .replace(/\u00a0/g, ' ')
+    .trim();
+  if (textContent.length > 0) {
+    return false;
+  }
+  return hasEmptySvgContainer;
+};
+
+const applyRuntimePrunedSlideState = (
+  slide: unknown,
+  shouldPrune: boolean,
+): void => {
+  if (typeof HTMLElement === 'undefined' || !(slide instanceof HTMLElement)) {
+    return;
+  }
+
+  if (shouldPrune) {
+    slide.classList.add(RUNTIME_PRUNED_SLIDE_CLASS);
+    slide.setAttribute(RUNTIME_PRUNED_SLIDE_ATTR, '1');
+    slide.setAttribute('aria-hidden', 'true');
+    return;
+  }
+
+  slide.classList.remove(RUNTIME_PRUNED_SLIDE_CLASS);
+  slide.removeAttribute(RUNTIME_PRUNED_SLIDE_ATTR);
+  slide.removeAttribute('aria-hidden');
+};
+
+const buildRuntimePageRemap = (slides: unknown[]): Map<number, number> => {
+  const remap = new Map<number, number>();
+  if (!slides.length) {
+    return remap;
+  }
+
+  const prunableByPage = slides.map(isRuntimePrunableVisualSlide);
+  slides.forEach((slide, page) => {
+    applyRuntimePrunedSlideState(slide, prunableByPage[page]);
+  });
+
+  const playablePages: number[] = [];
+  prunableByPage.forEach((shouldPrune, page) => {
+    if (!shouldPrune) {
+      playablePages.push(page);
+    }
+  });
+
+  if (!playablePages.length) {
+    slides.forEach((_, page) => {
+      remap.set(page, page);
+    });
+    return remap;
+  }
+
+  slides.forEach((_, page) => {
+    if (!prunableByPage[page]) {
+      remap.set(page, page);
+      return;
+    }
+
+    let nextPlayablePage = -1;
+    for (let i = 0; i < playablePages.length; i += 1) {
+      if (playablePages[i] > page) {
+        nextPlayablePage = playablePages[i];
+        break;
+      }
+    }
+
+    if (nextPlayablePage >= 0) {
+      remap.set(page, nextPlayablePage);
+      return;
+    }
+
+    let previousPlayablePage = -1;
+    for (let i = playablePages.length - 1; i >= 0; i -= 1) {
+      if (playablePages[i] < page) {
+        previousPlayablePage = playablePages[i];
+        break;
+      }
+    }
+    remap.set(
+      page,
+      previousPlayablePage >= 0 ? previousPlayablePage : playablePages[0],
+    );
+  });
+
+  return remap;
+};
+
+const arePageRemapMapsEqual = (
+  currentMap: Map<number, number>,
+  nextMap: Map<number, number>,
+): boolean => {
+  if (currentMap.size !== nextMap.size) {
+    return false;
+  }
+  for (const [page, mappedPage] of nextMap.entries()) {
+    if (currentMap.get(page) !== mappedPage) {
+      return false;
+    }
+  }
   return true;
 };
 
@@ -313,36 +247,18 @@ export type ListenSlideItem = {
 
 const LISTEN_AUDIO_WATCHDOG_MIN_MS = 8000;
 const LISTEN_AUDIO_WATCHDOG_FALLBACK_MS = 20000;
-const LISTEN_AUDIO_WATCHDOG_DURATION_MARGIN_MS = 4000;
+const LISTEN_AUDIO_WATCHDOG_DURATION_MULTIPLIER = 2;
+const LISTEN_PENDING_GROWTH_WAIT_MS = 10000;
 
 const resolveListenAudioWatchdogMs = (audioDurationMs?: number) => {
   const duration = Number(audioDurationMs);
   if (Number.isFinite(duration) && duration > 0) {
     return Math.max(
       LISTEN_AUDIO_WATCHDOG_MIN_MS,
-      Math.floor(duration) + LISTEN_AUDIO_WATCHDOG_DURATION_MARGIN_MS,
+      Math.floor(duration * LISTEN_AUDIO_WATCHDOG_DURATION_MULTIPLIER),
     );
   }
   return LISTEN_AUDIO_WATCHDOG_FALLBACK_MS;
-};
-
-const hasAnyAudioPayload = (item: ChatContentItem): boolean => {
-  const hasAnySegmentedAudio = Boolean(
-    (item.audios && item.audios.length > 0) ||
-    (item.audioTracksByPosition &&
-      Object.keys(item.audioTracksByPosition).length > 0),
-  );
-  const hasContractAudioPositions = Boolean(
-    item.avContract?.speakable_segments &&
-    item.avContract.speakable_segments.length > 0,
-  );
-  return Boolean(
-    item.audioUrl ||
-    (item.audioSegments && item.audioSegments.length > 0) ||
-    item.isAudioStreaming ||
-    hasAnySegmentedAudio ||
-    hasContractAudioPositions,
-  );
 };
 
 export const useListenContentData = (
@@ -369,460 +285,416 @@ export const useListenContentData = (
     return bids;
   }, [items]);
 
-  const { lastInteractionBid, lastItemIsInteraction } = useMemo(() => {
-    let latestInteractionBid: string | null = null;
-    for (let i = items.length - 1; i >= 0; i -= 1) {
-      if (items[i].type === ChatContentItemType.INTERACTION) {
-        latestInteractionBid = items[i].generated_block_bid;
-        break;
-      }
-    }
-    const lastItem = items[items.length - 1];
-    return {
-      lastInteractionBid: latestInteractionBid,
-      lastItemIsInteraction: lastItem?.type === ChatContentItemType.INTERACTION,
-    };
-  }, [items]);
+  const { slideItems, interactionByPage, audioAndInteractionList } =
+    useMemo(() => {
+      let pageCursor = 0;
+      let latestVisualPage = -1;
+      const interactionMapping = new Map<number, ChatContentItem[]>();
+      const nextSlideItems: ListenSlideItem[] = [];
+      const nextAudioAndInteractionList: AudioInteractionItem[] = [];
+      const audioUnitIndexById = new Map<string, number>();
 
-  const ttsReadyBlockBids = useMemo(() => {
-    const ready = new Set<string>();
-    for (const item of items) {
-      if (item.type !== ChatContentItemType.LIKE_STATUS) {
-        continue;
-      }
-      const parentBid = item.parent_block_bid;
-      if (!parentBid) {
-        continue;
-      }
-      ready.add(parentBid);
-    }
-    return ready;
-  }, [items]);
-
-  const {
-    slideItems,
-    interactionByPage,
-    audioAndInteractionList,
-    audioPageByBid,
-  } = useMemo(() => {
-    let pageCursor = 0;
-    let latestVisualPage = -1;
-    const interactionMapping = new Map<number, ChatContentItem[]>();
-    const audioPageByBid = new Map<string, number[]>();
-    const nextSlideItems: ListenSlideItem[] = [];
-    const nextAudioAndInteractionList: AudioInteractionItem[] = [];
-    const audioUnitIndexById = new Map<string, number>();
-    const contentItemByBid = new Map<string, ChatContentItem>();
-    for (const item of items) {
-      if (item.type !== ChatContentItemType.CONTENT) {
-        continue;
-      }
-      if (!item.generated_block_bid || item.generated_block_bid === 'loading') {
-        continue;
-      }
-      contentItemByBid.set(item.generated_block_bid, item);
-    }
-
-    const normalizedBackendSlides = (backendSlides || [])
-      .filter(
-        slide =>
-          Boolean(slide?.slide_id) &&
-          Boolean(slide?.generated_block_bid) &&
-          Number.isFinite(Number(slide?.slide_index)),
-      )
-      .sort((a, b) => Number(a.slide_index) - Number(b.slide_index));
-    // Backend sends NEW_SLIDE events as lightweight timeline signals without
-    // segment_content (streaming_tts.py:827-830 clears it intentionally).
-    // Therefore backend slides are used ONLY for position-to-page mapping and
-    // slide-ID binding.  Rendering always uses local parsing of the accumulated
-    // CONTENT stream (nextSlideItems).
-    const backendPageByBlockPosition = new Map<string, number>();
-    const backendSlideIdByBlockPosition = new Map<string, string>();
-    let latestRenderableBackendPage = -1;
-    normalizedBackendSlides.forEach(slide => {
-      const blockBid = slide.generated_block_bid || '';
-      const audioPosition = Number(slide.audio_position ?? 0);
-      const key = `${blockBid}:${audioPosition}`;
-      backendSlideIdByBlockPosition.set(key, slide.slide_id);
-      if (isRenderableBackendSlide(slide)) {
-        // Only visual boundary slides (iframe, svg, table, etc.) get their own
-        // page.  Text-only slides share the page of the nearest visual so that
-        // page numbering aligns with local visual-segment parsing.
-        const isVisualBoundary = Boolean(
-          slide.visual_kind &&
-          slide.visual_kind !== '' &&
-          slide.visual_kind !== 'placeholder',
-        );
-        if (isVisualBoundary) {
-          latestRenderableBackendPage += 1;
-        }
-        backendPageByBlockPosition.set(
-          key,
-          Math.max(latestRenderableBackendPage, 0),
-        );
-        return;
-      }
-      // Non-renderable placeholder slides should not create extra pages.
-      // Anchor their audio positions to the latest renderable page when possible.
-      if (latestRenderableBackendPage >= 0) {
-        backendPageByBlockPosition.set(key, latestRenderableBackendPage);
-      }
-    });
-    let fallbackPlaceholderItem: ChatContentItem | null = null;
-    type SegmentTuple = {
-      sourceIndex: number;
-      item: ChatContentItem;
-      segments: RenderSegment[];
-      visualSegments: RenderSegment[];
-      firstVisualPage: number;
-      lastVisualPage: number;
-      pagesForAudio: number[];
-    };
-    const contentSegments: SegmentTuple[] = [];
-
-    items.forEach((item, sourceIndex) => {
-      if (item.type !== ChatContentItemType.CONTENT) {
-        return;
-      }
-
-      const segments = item.content
-        ? splitListenModeSegments(item.content || '')
-        : [];
-      const previousVisualPageBeforeBlock = latestVisualPage;
-      const visualSegments = segments.filter(
-        segment => segment.type === 'markdown' || segment.type === 'sandbox',
-      );
-      if (!fallbackPlaceholderItem && visualSegments.length === 0) {
-        const hasSpeakableText = segments.some(segment => {
-          if (segment.type !== 'text') {
-            return false;
+      const normalizedBackendSlides = (backendSlides || [])
+        .filter(
+          slide =>
+            Boolean(slide?.slide_id) &&
+            Boolean(slide?.generated_block_bid) &&
+            Number.isFinite(Number(slide?.slide_index)),
+        )
+        .sort((a, b) => Number(a.slide_index) - Number(b.slide_index));
+      // Backend sends NEW_SLIDE events as lightweight timeline signals without
+      // segment_content (streaming_tts.py:827-830 clears it intentionally).
+      // Therefore backend slides are used ONLY for position-to-page mapping and
+      // slide-ID binding.  Rendering always uses local parsing of the accumulated
+      // CONTENT stream (nextSlideItems).
+      const backendPageByBlockPosition = new Map<string, number>();
+      const backendSlideIdByBlockPosition = new Map<string, string>();
+      let latestRenderableBackendPage = -1;
+      normalizedBackendSlides.forEach(slide => {
+        const blockBid = slide.generated_block_bid || '';
+        const audioPosition = Number(slide.audio_position ?? 0);
+        const key = `${blockBid}:${audioPosition}`;
+        backendSlideIdByBlockPosition.set(key, slide.slide_id);
+        if (isRenderableBackendSlide(slide)) {
+          // Only visual boundary slides (iframe, svg, table, etc.) get their own
+          // page.  Text-only slides share the page of the nearest visual so that
+          // page numbering aligns with local visual-segment parsing.
+          const isVisualBoundary = Boolean(
+            slide.visual_kind &&
+            slide.visual_kind !== '' &&
+            slide.visual_kind !== 'placeholder',
+          );
+          if (isVisualBoundary) {
+            latestRenderableBackendPage += 1;
           }
-          const raw = typeof segment.value === 'string' ? segment.value : '';
-          return isListenModeSpeakableText(raw);
-        });
-        if (hasSpeakableText) {
-          fallbackPlaceholderItem = item;
-        }
-      }
-      const visualPageBySegmentIndex = new Map<number, number>();
-      let localVisualOffset = 0;
-      segments.forEach((segment, segmentIndex) => {
-        if (segment.type !== 'markdown' && segment.type !== 'sandbox') {
+          backendPageByBlockPosition.set(
+            key,
+            Math.max(latestRenderableBackendPage, 0),
+          );
           return;
         }
-        visualPageBySegmentIndex.set(
-          segmentIndex,
-          pageCursor + localVisualOffset,
-        );
-        localVisualOffset += 1;
+        // Non-renderable placeholder slides should not create extra pages.
+        // Anchor their audio positions to the latest renderable page when possible.
+        if (latestRenderableBackendPage >= 0) {
+          backendPageByBlockPosition.set(key, latestRenderableBackendPage);
+        }
       });
+      let fallbackPlaceholderItem: ChatContentItem | null = null;
+      type SegmentTuple = {
+        sourceIndex: number;
+        item: ChatContentItem;
+        segments: RenderSegment[];
+        visualSegments: RenderSegment[];
+        firstVisualPage: number;
+        lastVisualPage: number;
+        pagesForAudio: number[];
+      };
+      const contentSegments: SegmentTuple[] = [];
 
-      const firstVisualPage = visualSegments.length > 0 ? pageCursor : -1;
-      const lastVisualPage =
-        visualSegments.length > 0
-          ? pageCursor + visualSegments.length - 1
-          : latestVisualPage;
-      if (visualSegments.length > 0) {
-        nextSlideItems.push({
-          item,
-          segments: visualSegments,
-        });
-      }
+      items.forEach((item, sourceIndex) => {
+        if (item.type !== ChatContentItemType.CONTENT) {
+          return;
+        }
 
-      const pagesForAudioLocal: number[] = [];
-      let windowHasSpeakableText = false;
-      segments.forEach((segment, segmentIndex) => {
-        if (segment.type === 'text') {
-          const raw = typeof segment.value === 'string' ? segment.value : '';
-          if (isListenModeSpeakableText(raw)) {
-            windowHasSpeakableText = true;
+        const segments = item.content
+          ? splitListenModeSegments(item.content || '')
+          : [];
+        const previousVisualPageBeforeBlock = latestVisualPage;
+        const visualSegments = segments.filter(isRenderableVisualSegment);
+        if (!fallbackPlaceholderItem && visualSegments.length === 0) {
+          const hasSpeakableText = segments.some(segment => {
+            if (segment.type !== 'text') {
+              return false;
+            }
+            const raw = typeof segment.value === 'string' ? segment.value : '';
+            return isListenModeSpeakableText(raw);
+          });
+          if (hasSpeakableText) {
+            fallbackPlaceholderItem = item;
           }
-          return;
         }
-        if (segment.type !== 'markdown' && segment.type !== 'sandbox') {
-          return;
+        const visualPageBySegmentIndex = new Map<number, number>();
+        let localVisualOffset = 0;
+        segments.forEach((segment, segmentIndex) => {
+          if (!isRenderableVisualSegment(segment)) {
+            return;
+          }
+          visualPageBySegmentIndex.set(
+            segmentIndex,
+            pageCursor + localVisualOffset,
+          );
+          localVisualOffset += 1;
+        });
+
+        const firstVisualPage = visualSegments.length > 0 ? pageCursor : -1;
+        const lastVisualPage =
+          visualSegments.length > 0
+            ? pageCursor + visualSegments.length - 1
+            : latestVisualPage;
+        if (visualSegments.length > 0) {
+          nextSlideItems.push({
+            item,
+            segments: visualSegments,
+          });
         }
+
+        const pagesForAudioLocal: number[] = [];
+        let windowHasSpeakableText = false;
+        segments.forEach((segment, segmentIndex) => {
+          if (segment.type === 'text') {
+            const raw = typeof segment.value === 'string' ? segment.value : '';
+            if (isListenModeSpeakableText(raw)) {
+              windowHasSpeakableText = true;
+            }
+            return;
+          }
+          if (!isRenderableVisualSegment(segment)) {
+            return;
+          }
+          if (windowHasSpeakableText) {
+            pagesForAudioLocal.push(latestVisualPage);
+            windowHasSpeakableText = false;
+          }
+          const pageForVisual = visualPageBySegmentIndex.get(segmentIndex);
+          if (typeof pageForVisual === 'number') {
+            latestVisualPage = pageForVisual;
+          }
+        });
         if (windowHasSpeakableText) {
           pagesForAudioLocal.push(latestVisualPage);
-          windowHasSpeakableText = false;
         }
-        const pageForVisual = visualPageBySegmentIndex.get(segmentIndex);
-        if (typeof pageForVisual === 'number') {
-          latestVisualPage = pageForVisual;
-        }
-      });
-      if (windowHasSpeakableText) {
-        pagesForAudioLocal.push(latestVisualPage);
-      }
 
-      let pagesForAudio = pagesForAudioLocal;
-      const contractSpeakable = item.avContract?.speakable_segments || [];
-      const contractBoundaries = item.avContract?.visual_boundaries || [];
-      if (contractSpeakable.length > 0) {
-        const normalizedBoundaries = contractBoundaries
-          .map(boundary => {
-            const position = Number((boundary as any).position ?? -1);
-            const sourceSpan = Array.isArray((boundary as any).source_span)
-              ? ((boundary as any).source_span as number[])
+        let pagesForAudio = pagesForAudioLocal;
+        const contractSpeakable = item.avContract?.speakable_segments || [];
+        const contractBoundaries = item.avContract?.visual_boundaries || [];
+        if (contractSpeakable.length > 0) {
+          const normalizedBoundaries = contractBoundaries
+            .map(boundary => {
+              const position = Number((boundary as any).position ?? -1);
+              const sourceSpan = Array.isArray((boundary as any).source_span)
+                ? ((boundary as any).source_span as number[])
+                : [];
+              const end = Number(sourceSpan[1] ?? -1);
+              if (Number.isNaN(position) || Number.isNaN(end)) {
+                return null;
+              }
+              return { position, end };
+            })
+            .filter(
+              (boundary): boundary is { position: number; end: number } =>
+                boundary !== null,
+            )
+            .sort((a, b) => a.position - b.position);
+          const contractPages: number[] = [];
+          contractSpeakable.forEach(segment => {
+            const position = Number((segment as any).position ?? -1);
+            const sourceSpan = Array.isArray((segment as any).source_span)
+              ? ((segment as any).source_span as number[])
               : [];
-            const end = Number(sourceSpan[1] ?? -1);
-            if (Number.isNaN(position) || Number.isNaN(end)) {
-              return null;
+            const sourceStart = Number(sourceSpan[0] ?? -1);
+            if (Number.isNaN(position) || position < 0) {
+              return;
             }
-            return { position, end };
-          })
-          .filter(
-            (boundary): boundary is { position: number; end: number } =>
-              boundary !== null,
-          )
-          .sort((a, b) => a.position - b.position);
-        const contractPages: number[] = [];
-        contractSpeakable.forEach(segment => {
-          const position = Number((segment as any).position ?? -1);
-          const sourceSpan = Array.isArray((segment as any).source_span)
-            ? ((segment as any).source_span as number[])
-            : [];
-          const sourceStart = Number(sourceSpan[0] ?? -1);
-          if (Number.isNaN(position) || position < 0) {
-            return;
+            const precedingBoundary =
+              !Number.isNaN(sourceStart) && sourceStart >= 0
+                ? normalizedBoundaries
+                    .filter(boundary => boundary.end <= sourceStart)
+                    .sort((a, b) => a.end - b.end)
+                    .pop()
+                : undefined;
+            if (!precedingBoundary) {
+              contractPages[position] = previousVisualPageBeforeBlock;
+              return;
+            }
+            if (
+              precedingBoundary.position >= visualSegments.length ||
+              firstVisualPage < 0
+            ) {
+              // eslint-disable-next-line no-console
+              console.warn('[listen-timeline] boundary/slide mismatch', {
+                generated_block_bid: item.generated_block_bid,
+                boundaryPosition: precedingBoundary.position,
+                visualSlides: visualSegments.length,
+                firstVisualPage,
+              });
+              contractPages[position] = previousVisualPageBeforeBlock;
+              return;
+            }
+            contractPages[position] =
+              firstVisualPage + precedingBoundary.position;
+          });
+          if (contractPages.some(page => typeof page === 'number')) {
+            pagesForAudio = contractPages;
           }
-          const precedingBoundary =
-            !Number.isNaN(sourceStart) && sourceStart >= 0
-              ? normalizedBoundaries
-                  .filter(boundary => boundary.end <= sourceStart)
-                  .sort((a, b) => a.end - b.end)
-                  .pop()
-              : undefined;
-          if (!precedingBoundary) {
-            contractPages[position] = previousVisualPageBeforeBlock;
-            return;
-          }
-          if (
-            precedingBoundary.position >= visualSegments.length ||
-            firstVisualPage < 0
-          ) {
-            // eslint-disable-next-line no-console
-            console.warn('[listen-timeline] boundary/slide mismatch', {
-              generated_block_bid: item.generated_block_bid,
-              boundaryPosition: precedingBoundary.position,
-              visualSlides: visualSegments.length,
-              firstVisualPage,
-            });
-            contractPages[position] = previousVisualPageBeforeBlock;
-            return;
-          }
-          contractPages[position] =
-            firstVisualPage + precedingBoundary.position;
-        });
-        if (contractPages.some(page => typeof page === 'number')) {
-          pagesForAudio = contractPages;
         }
-      }
 
-      const blockBid = item.generated_block_bid;
-      if (blockBid && blockBid !== 'loading') {
-        audioPageByBid.set(blockBid, pagesForAudio);
-      }
-
-      contentSegments.push({
-        sourceIndex,
-        item,
-        segments,
-        visualSegments,
-        firstVisualPage,
-        lastVisualPage,
-        pagesForAudio,
-      });
-
-      pageCursor += visualSegments.length;
-    });
-
-    // Keep at least one renderable listen slide when a chapter contains only
-    // plain text (no markdown/sandbox visual segments).
-    if (!nextSlideItems.length && fallbackPlaceholderItem) {
-      nextSlideItems.push({
-        item: fallbackPlaceholderItem,
-        segments: [{ type: 'sandbox', value: '<div></div>' }],
-      });
-    }
-
-    const contentBySourceIndex = new Map<number, SegmentTuple>();
-    contentSegments.forEach(contentSegment => {
-      contentBySourceIndex.set(contentSegment.sourceIndex, contentSegment);
-    });
-
-    let activeTimelinePage = -1;
-    items.forEach((item, sourceIndex) => {
-      if (item.type === ChatContentItemType.CONTENT) {
-        const contentSegment = contentBySourceIndex.get(sourceIndex);
-        if (!contentSegment) {
-          return;
-        }
-        const {
-          item: contentItem,
-          pagesForAudio,
+        contentSegments.push({
+          sourceIndex,
+          item,
+          segments,
+          visualSegments,
           firstVisualPage,
           lastVisualPage,
-        } = contentSegment;
+          pagesForAudio,
+        });
 
-        if (firstVisualPage >= 0) {
-          activeTimelinePage = firstVisualPage;
-        }
-        if (!hasAnyAudioPayload(contentItem)) {
-          // Show visual segments as silent-visual entries.
-          // Two scenarios reach here:
-          // 1. avContract present with empty speakable_segments → truly no audio
-          // 2. avContract not yet received (still streaming) → provisionally
-          //    silent; when the avContract arrives the list rebuilds via
-          //    LIST_UPDATED and these entries will be replaced by audio entries.
+        pageCursor += visualSegments.length;
+      });
+
+      // Keep at least one renderable listen slide when a chapter contains only
+      // plain text (no markdown/sandbox visual segments).
+      if (!nextSlideItems.length && fallbackPlaceholderItem) {
+        nextSlideItems.push({
+          item: fallbackPlaceholderItem,
+          segments: [{ type: 'sandbox', value: '<div></div>' }],
+        });
+      }
+
+      const contentBySourceIndex = new Map<number, SegmentTuple>();
+      contentSegments.forEach(contentSegment => {
+        contentBySourceIndex.set(contentSegment.sourceIndex, contentSegment);
+      });
+
+      let activeTimelinePage = -1;
+      items.forEach((item, sourceIndex) => {
+        if (item.type === ChatContentItemType.CONTENT) {
+          const contentSegment = contentBySourceIndex.get(sourceIndex);
+          if (!contentSegment) {
+            return;
+          }
+          const {
+            item: contentItem,
+            pagesForAudio,
+            firstVisualPage,
+            lastVisualPage,
+          } = contentSegment;
+
+          if (firstVisualPage >= 0) {
+            activeTimelinePage = firstVisualPage;
+          }
+          if (!hasAnyAudioPayload(contentItem)) {
+            // Show visual segments as silent-visual entries.
+            // Two scenarios reach here:
+            // 1. avContract present with empty speakable_segments → truly no audio
+            // 2. avContract not yet received (still streaming) → provisionally
+            //    silent; when the avContract arrives the list rebuilds via
+            //    LIST_UPDATED and these entries will be replaced by audio entries.
+            if (firstVisualPage >= 0 && lastVisualPage >= 0) {
+              for (
+                let vPage = firstVisualPage;
+                vPage <= lastVisualPage;
+                vPage++
+              ) {
+                nextAudioAndInteractionList.push({
+                  ...contentItem,
+                  page: vPage,
+                  isSilentVisual: true,
+                });
+              }
+              activeTimelinePage = lastVisualPage;
+            } else if (normalizedBackendSlides.length > 0) {
+              const backendPagesForBlock = normalizedBackendSlides
+                .filter(
+                  slide =>
+                    slide.generated_block_bid ===
+                    contentItem.generated_block_bid,
+                )
+                .map(slide =>
+                  backendPageByBlockPosition.get(
+                    `${slide.generated_block_bid}:${Number(slide.audio_position ?? 0)}`,
+                  ),
+                )
+                .filter((page): page is number => typeof page === 'number');
+              if (backendPagesForBlock.length > 0) {
+                activeTimelinePage =
+                  backendPagesForBlock[backendPagesForBlock.length - 1];
+              }
+            } else if (lastVisualPage >= 0) {
+              activeTimelinePage = lastVisualPage;
+            }
+            return;
+          }
+
+          const availablePositions = extractAudioPositions(contentItem);
+          const hasMultiplePositions =
+            availablePositions.length > 1 ||
+            availablePositions.some(position => position > 0);
+          const positions = hasMultiplePositions
+            ? availablePositions.length
+              ? availablePositions
+              : [0]
+            : [0];
+
+          const fallbackPage =
+            // When a position cannot be mapped to a concrete slide, anchor it to
+            // the latest visual page of the current block so downstream
+            // interactions stay on the page the learner most recently sees.
+            (lastVisualPage >= 0 ? lastVisualPage : null) ??
+            (firstVisualPage >= 0 ? firstVisualPage : null) ??
+            (activeTimelinePage >= 0 ? activeTimelinePage : null) ??
+            0;
+
+          const coveredPages = new Set<number>();
+          positions.forEach(position => {
+            const mappedPage = pagesForAudio[position];
+            const backendPage = backendPageByBlockPosition.get(
+              `${contentItem.generated_block_bid}:${position}`,
+            );
+            const resolvedPage =
+              typeof backendPage === 'number' && backendPage >= 0
+                ? backendPage
+                : typeof mappedPage === 'number' && mappedPage >= 0
+                  ? mappedPage
+                  : fallbackPage;
+            coveredPages.add(resolvedPage);
+            const audioSlideId =
+              contentItem.audioSlideIdByPosition?.[position] ||
+              backendSlideIdByBlockPosition.get(
+                `${contentItem.generated_block_bid}:${position}`,
+              );
+            const timelineItem: AudioInteractionItem = {
+              ...contentItem,
+              page: resolvedPage,
+              audioPosition: hasMultiplePositions ? position : undefined,
+              audioSlideId,
+            };
+            const unitId = buildListenUnitId({
+              type: ChatContentItemType.CONTENT,
+              generatedBlockBid: contentItem.generated_block_bid,
+              position,
+              slideId: audioSlideId,
+              fallbackIndex: sourceIndex,
+            });
+            const existingIndex = audioUnitIndexById.get(unitId);
+            if (existingIndex !== undefined) {
+              // Late-arriving audio/metadata updates for the same unit should patch
+              // the existing queue slot rather than append a duplicate.
+              nextAudioAndInteractionList[existingIndex] = timelineItem;
+            } else {
+              audioUnitIndexById.set(
+                unitId,
+                nextAudioAndInteractionList.length,
+              );
+              nextAudioAndInteractionList.push(timelineItem);
+            }
+            activeTimelinePage = resolvedPage;
+          });
+
+          // Enqueue visual pages that have no associated audio as silent visuals.
+          // This covers visual boundaries (e.g. tables, images) at the end of a
+          // block where the backend produced no speakable segment after them.
           if (firstVisualPage >= 0 && lastVisualPage >= 0) {
             for (
               let vPage = firstVisualPage;
               vPage <= lastVisualPage;
               vPage++
             ) {
-              nextAudioAndInteractionList.push({
-                ...contentItem,
-                page: vPage,
-                isSilentVisual: true,
+              if (!coveredPages.has(vPage)) {
+                nextAudioAndInteractionList.push({
+                  ...contentItem,
+                  page: vPage,
+                  isSilentVisual: true,
+                });
+                activeTimelinePage = vPage;
+              }
+            }
+          }
+
+          pagesForAudio.forEach((mappedPage, mappedPosition) => {
+            if (mappedPage < 0) {
+              return;
+            }
+            if (!positions.includes(mappedPosition)) {
+              // eslint-disable-next-line no-console
+              console.warn('[listen-timeline] slide exists but no position', {
+                generated_block_bid: contentItem.generated_block_bid,
+                position: mappedPosition,
+                mappedPage,
               });
             }
-            activeTimelinePage = lastVisualPage;
-          } else if (normalizedBackendSlides.length > 0) {
-            const backendPagesForBlock = normalizedBackendSlides
-              .filter(
-                slide =>
-                  slide.generated_block_bid === contentItem.generated_block_bid,
-              )
-              .map(slide =>
-                backendPageByBlockPosition.get(
-                  `${slide.generated_block_bid}:${Number(slide.audio_position ?? 0)}`,
-                ),
-              )
-              .filter((page): page is number => typeof page === 'number');
-            if (backendPagesForBlock.length > 0) {
-              activeTimelinePage =
-                backendPagesForBlock[backendPagesForBlock.length - 1];
-            }
-          } else if (lastVisualPage >= 0) {
-            activeTimelinePage = lastVisualPage;
-          }
+          });
           return;
         }
 
-        const availablePositions = extractAudioPositions(contentItem);
-        const hasMultiplePositions =
-          availablePositions.length > 1 ||
-          availablePositions.some(position => position > 0);
-        const positions = hasMultiplePositions
-          ? availablePositions.length
-            ? availablePositions
-            : [0]
-          : [0];
-
-        const fallbackPage =
-          // When a position cannot be mapped to a concrete slide, anchor it to
-          // the latest visual page of the current block so downstream
-          // interactions stay on the page the learner most recently sees.
-          (lastVisualPage >= 0 ? lastVisualPage : null) ??
-          (firstVisualPage >= 0 ? firstVisualPage : null) ??
-          (activeTimelinePage >= 0 ? activeTimelinePage : null) ??
-          0;
-
-        const coveredPages = new Set<number>();
-        positions.forEach(position => {
-          const mappedPage = pagesForAudio[position];
-          const backendPage = backendPageByBlockPosition.get(
-            `${contentItem.generated_block_bid}:${position}`,
-          );
-          const resolvedPage =
-            typeof backendPage === 'number' && backendPage >= 0
-              ? backendPage
-              : typeof mappedPage === 'number' && mappedPage >= 0
-                ? mappedPage
-                : fallbackPage;
-          coveredPages.add(resolvedPage);
-          const audioSlideId =
-            contentItem.audioSlideIdByPosition?.[position] ||
-            backendSlideIdByBlockPosition.get(
-              `${contentItem.generated_block_bid}:${position}`,
-            );
-          const timelineItem: AudioInteractionItem = {
-            ...contentItem,
-            page: resolvedPage,
-            audioPosition: hasMultiplePositions ? position : undefined,
-            audioSlideId,
-          };
-          const unitId = buildListenUnitId({
-            type: ChatContentItemType.CONTENT,
-            generatedBlockBid: contentItem.generated_block_bid,
-            position,
-            slideId: audioSlideId,
-            fallbackIndex: sourceIndex,
-          });
-          const existingIndex = audioUnitIndexById.get(unitId);
-          if (existingIndex !== undefined) {
-            // Late-arriving audio/metadata updates for the same unit should patch
-            // the existing queue slot rather than append a duplicate.
-            nextAudioAndInteractionList[existingIndex] = timelineItem;
-          } else {
-            audioUnitIndexById.set(unitId, nextAudioAndInteractionList.length);
-            nextAudioAndInteractionList.push(timelineItem);
-          }
-          activeTimelinePage = resolvedPage;
-        });
-
-        // Enqueue visual pages that have no associated audio as silent visuals.
-        // This covers visual boundaries (e.g. tables, images) at the end of a
-        // block where the backend produced no speakable segment after them.
-        if (firstVisualPage >= 0 && lastVisualPage >= 0) {
-          for (let vPage = firstVisualPage; vPage <= lastVisualPage; vPage++) {
-            if (!coveredPages.has(vPage)) {
-              nextAudioAndInteractionList.push({
-                ...contentItem,
-                page: vPage,
-                isSilentVisual: true,
-              });
-              activeTimelinePage = vPage;
-            }
-          }
+        if (item.type !== ChatContentItemType.INTERACTION) {
+          return;
         }
-
-        pagesForAudio.forEach((mappedPage, mappedPosition) => {
-          if (mappedPage < 0) {
-            return;
-          }
-          if (!positions.includes(mappedPosition)) {
-            // eslint-disable-next-line no-console
-            console.warn('[listen-timeline] slide exists but no position', {
-              generated_block_bid: contentItem.generated_block_bid,
-              position: mappedPosition,
-              mappedPage,
-            });
-          }
+        const interactionPage =
+          activeTimelinePage >= 0 ? activeTimelinePage : 0;
+        const queue = interactionMapping.get(interactionPage) || [];
+        interactionMapping.set(interactionPage, [...queue, item]);
+        nextAudioAndInteractionList.push({
+          ...item,
+          page: interactionPage,
         });
-        return;
-      }
-
-      if (item.type !== ChatContentItemType.INTERACTION) {
-        return;
-      }
-      const interactionPage = activeTimelinePage >= 0 ? activeTimelinePage : 0;
-      const queue = interactionMapping.get(interactionPage) || [];
-      interactionMapping.set(interactionPage, [...queue, item]);
-      nextAudioAndInteractionList.push({
-        ...item,
-        page: interactionPage,
       });
-    });
 
-    return {
-      slideItems: nextSlideItems,
-      interactionByPage: interactionMapping,
-      audioAndInteractionList: nextAudioAndInteractionList,
-      audioPageByBid,
-    };
-  }, [backendSlides, items]);
+      return {
+        slideItems: nextSlideItems,
+        interactionByPage: interactionMapping,
+        audioAndInteractionList: nextAudioAndInteractionList,
+      };
+    }, [backendSlides, items]);
 
   const contentByBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();
@@ -873,12 +745,8 @@ export const useListenContentData = (
     slideItems,
     interactionByPage,
     audioAndInteractionList,
-    audioPageByBid,
     contentByBid,
     audioContentByBid,
-    ttsReadyBlockBids,
-    lastInteractionBid,
-    lastItemIsInteraction,
     firstContentItem,
   };
 };
@@ -890,7 +758,6 @@ interface UseListenPptParams {
   activeBlockBidRef: React.MutableRefObject<string | null>;
   pendingAutoNextRef: React.MutableRefObject<boolean>;
   slideItems: ListenSlideItem[];
-  interactionByPage: Map<number, ChatContentItem[]>;
   sectionTitle?: string;
   isLoading: boolean;
   isAudioPlaying: boolean;
@@ -910,7 +777,6 @@ export const useListenPpt = ({
   activeBlockBidRef,
   pendingAutoNextRef,
   slideItems,
-  interactionByPage,
   sectionTitle,
   isLoading,
   isAudioPlaying,
@@ -922,13 +788,9 @@ export const useListenPpt = ({
   goToBlock,
   resolveContentBid,
 }: UseListenPptParams) => {
-  const prevSlidesLengthRef = useRef(0);
   const shouldSlideToFirstRef = useRef(false);
-  const hasAutoSlidToLatestRef = useRef(false);
   const prevFirstSlideBidRef = useRef<string | null>(null);
   const prevSectionTitleRef = useRef<string | null>(null);
-  const [currentInteraction, setCurrentInteraction] =
-    useState<ChatContentItem | null>(null);
   const [isPrevDisabled, setIsPrevDisabled] = useState(true);
   const [isNextDisabled, setIsNextDisabled] = useState(true);
 
@@ -989,14 +851,55 @@ export const useListenPpt = ({
     sectionTitle,
   ]);
 
-  const syncInteractionForCurrentPage = useCallback(
-    (pageIndex?: number) => {
-      const targetPage =
-        typeof pageIndex === 'number' ? pageIndex : currentPptPageRef.current;
-      const queue = interactionByPage.get(targetPage) || [];
-      setCurrentInteraction(queue[queue.length - 1] ?? null);
+  const getDeckSlides = useCallback((): unknown[] => {
+    const deck = deckRef.current;
+    if (!deck || typeof deck.getSlides !== 'function') {
+      return [];
+    }
+    const slides = deck.getSlides();
+    return Array.isArray(slides)
+      ? (slides as unknown[])
+      : Array.from(slides as unknown as ArrayLike<unknown>);
+  }, [deckRef]);
+
+  const resolveNonPrunablePage = useCallback(
+    (page: number, direction: 'forward' | 'backward') => {
+      const slides = getDeckSlides();
+      if (!slides.length) {
+        return page;
+      }
+      if (page < 0 || page >= slides.length) {
+        return page;
+      }
+      if (!isRuntimePrunableVisualSlide(slides[page])) {
+        return page;
+      }
+
+      const primaryStep = direction === 'forward' ? 1 : -1;
+      for (
+        let cursor = page + primaryStep;
+        cursor >= 0 && cursor < slides.length;
+        cursor += primaryStep
+      ) {
+        if (!isRuntimePrunableVisualSlide(slides[cursor])) {
+          return cursor;
+        }
+      }
+
+      const fallbackStep = primaryStep * -1;
+      for (
+        let cursor = page + fallbackStep;
+        cursor >= 0 && cursor < slides.length;
+        cursor += fallbackStep
+      ) {
+        if (!isRuntimePrunableVisualSlide(slides[cursor])) {
+          return cursor;
+        }
+      }
+
+      return page;
     },
-    [interactionByPage, currentPptPageRef],
+    [getDeckSlides],
   );
 
   const syncPptPageFromDeck = useCallback(() => {
@@ -1004,17 +907,21 @@ export const useListenPpt = ({
     if (!deck) {
       return;
     }
-    const nextIndex = deck.getIndices()?.h ?? 0;
+    const rawIndex = deck.getIndices()?.h ?? 0;
+    const nextIndex = resolveNonPrunablePage(rawIndex, 'forward');
+    if (nextIndex !== rawIndex) {
+      try {
+        deck.slide(nextIndex);
+      } catch {
+        // ignore reveal transition errors while pruning runtime-empty pages
+      }
+      return;
+    }
     if (currentPptPageRef.current === nextIndex) {
       return;
     }
     currentPptPageRef.current = nextIndex;
-    syncInteractionForCurrentPage(nextIndex);
-  }, [currentPptPageRef, deckRef, syncInteractionForCurrentPage]);
-
-  useEffect(() => {
-    syncInteractionForCurrentPage();
-  }, [syncInteractionForCurrentPage]);
+  }, [currentPptPageRef, deckRef, resolveNonPrunablePage]);
 
   const getBlockBidFromSlide = useCallback((slide: HTMLElement | null) => {
     if (!slide) {
@@ -1071,7 +978,11 @@ export const useListenPpt = ({
     if (!nextBid) {
       return false;
     }
-    return goToBlock(nextBid);
+    const moved = goToBlock(nextBid);
+    if (moved) {
+      activeBlockBidRef.current = nextBid;
+    }
+    return moved;
   }, [activeBlockBidRef, getNextContentBid, goToBlock, resolveContentBid]);
 
   useEffect(() => {
@@ -1127,13 +1038,11 @@ export const useListenPpt = ({
   useEffect(() => {
     if (!slideItems.length && deckRef.current) {
       try {
-        console.log('Destroying Reveal instance (no content)');
         deckRef.current?.destroy();
-      } catch (e) {
-        console.warn('Reveal.js destroy failed.');
+      } catch {
+        // ignore reveal destroy failure
       } finally {
         deckRef.current = null;
-        hasAutoSlidToLatestRef.current = false;
         setIsPrevDisabled(true);
         setIsNextDisabled(true);
       }
@@ -1147,12 +1056,10 @@ export const useListenPpt = ({
       }
       try {
         deckRef.current?.destroy();
-      } catch (e) {
-        console.warn('Reveal.js destroy failed.');
+      } catch {
+        // ignore reveal destroy failure
       } finally {
         deckRef.current = null;
-        hasAutoSlidToLatestRef.current = false;
-        prevSlidesLengthRef.current = 0;
       }
     };
   }, [deckRef]);
@@ -1197,19 +1104,14 @@ export const useListenPpt = ({
     try {
       deckRef.current.sync();
       deckRef.current.layout();
-      const indices = deckRef.current.getIndices?.();
-      const prevSlidesLength = prevSlidesLengthRef.current;
-      const nextSlidesLength = slides.length;
-      const lastIndex = Math.max(nextSlidesLength - 1, 0);
-      const currentIndex = indices?.h ?? 0;
-      const prevLastIndex = Math.max(prevSlidesLength - 1, 0);
+      // Keep nav state in sync with newly appended slides even while
+      // sequence playback is active.
+      updateNavState();
 
       if (shouldSlideToFirstRef.current) {
         deckRef.current.slide(0);
         shouldSlideToFirstRef.current = false;
-        hasAutoSlidToLatestRef.current = true;
         updateNavState();
-        prevSlidesLengthRef.current = nextSlidesLength;
         return;
       }
 
@@ -1225,13 +1127,8 @@ export const useListenPpt = ({
       // should be controlled by the sequence mapping only. Auto-following newly
       // appended slides here causes premature visual jumps.
       if (isAudioSequenceActive || isAudioPlaying || isAudioPlayerBusy()) {
-        prevSlidesLengthRef.current = nextSlidesLength;
         return;
       }
-
-      hasAutoSlidToLatestRef.current = true;
-      updateNavState();
-      prevSlidesLengthRef.current = nextSlidesLength;
     } catch {
       // Ignore reveal sync errors
     }
@@ -1242,13 +1139,11 @@ export const useListenPpt = ({
     isAudioPlayerBusy,
     isLoading,
     goToNextBlock,
-    goToBlock,
     chatRef,
     updateNavState,
     deckRef,
     pendingAutoNextRef,
     onResetSequence,
-    resolveContentBid,
   ]);
 
   const goPrev = useCallback(() => {
@@ -1257,17 +1152,25 @@ export const useListenPpt = ({
       return null;
     }
     shouldSlideToFirstRef.current = false;
-    hasAutoSlidToLatestRef.current = true;
     deck.prev();
-    currentPptPageRef.current = deck.getIndices().h;
-    syncInteractionForCurrentPage(currentPptPageRef.current);
+    let nextPage = deck.getIndices().h;
+    const resolvedPage = resolveNonPrunablePage(nextPage, 'backward');
+    if (resolvedPage !== nextPage) {
+      try {
+        deck.slide(resolvedPage);
+      } catch {
+        return null;
+      }
+      nextPage = resolvedPage;
+    }
+    currentPptPageRef.current = nextPage;
     updateNavState();
-    return currentPptPageRef.current;
+    return nextPage;
   }, [
     deckRef,
     isPrevDisabled,
     currentPptPageRef,
-    syncInteractionForCurrentPage,
+    resolveNonPrunablePage,
     updateNavState,
   ]);
 
@@ -1277,22 +1180,29 @@ export const useListenPpt = ({
       return null;
     }
     shouldSlideToFirstRef.current = false;
-    hasAutoSlidToLatestRef.current = true;
     deck.next();
-    currentPptPageRef.current = deck.getIndices().h;
-    syncInteractionForCurrentPage(currentPptPageRef.current);
+    let nextPage = deck.getIndices().h;
+    const resolvedPage = resolveNonPrunablePage(nextPage, 'forward');
+    if (resolvedPage !== nextPage) {
+      try {
+        deck.slide(resolvedPage);
+      } catch {
+        return null;
+      }
+      nextPage = resolvedPage;
+    }
+    currentPptPageRef.current = nextPage;
     updateNavState();
-    return currentPptPageRef.current;
+    return nextPage;
   }, [
     deckRef,
     isNextDisabled,
     currentPptPageRef,
-    syncInteractionForCurrentPage,
+    resolveNonPrunablePage,
     updateNavState,
   ]);
 
   return {
-    currentInteraction,
     isPrevDisabled,
     isNextDisabled,
     goPrev,
@@ -1307,6 +1217,7 @@ interface UseListenAudioSequenceParams {
   activeBlockBidRef: React.MutableRefObject<string | null>;
   pendingAutoNextRef: React.MutableRefObject<boolean>;
   shouldStartSequenceRef: React.MutableRefObject<boolean>;
+  sequenceStartAnchorIndexRef?: React.MutableRefObject<number | null>;
   contentByBid: Map<string, ChatContentItem>;
   audioContentByBid: Map<string, ChatContentItem>;
   previewMode: boolean;
@@ -1325,6 +1236,7 @@ export const useListenAudioSequence = ({
   activeBlockBidRef,
   pendingAutoNextRef,
   shouldStartSequenceRef,
+  sequenceStartAnchorIndexRef,
   contentByBid,
   audioContentByBid,
   previewMode,
@@ -1339,14 +1251,23 @@ export const useListenAudioSequence = ({
   // React state — preserved from original, same external interface
   // ---------------------------------------------------------------------------
   const audioPlayerRef = useRef<AudioPlayerHandle | null>(null);
+  const internalStartAnchorIndexRef = useRef<number | null>(null);
+  const effectiveStartAnchorIndexRef =
+    sequenceStartAnchorIndexRef || internalStartAnchorIndexRef;
   const [activeAudioBid, setActiveAudioBid] = useState<string | null>(null);
   const [activeAudioPosition, setActiveAudioPosition] = useState(0);
+  const [activeQueueAudioId, setActiveQueueAudioId] = useState<string | null>(
+    null,
+  );
   const [activeSequencePage, setActiveSequencePage] = useState(-1);
   const [sequenceInteraction, setSequenceInteraction] =
     useState<AudioInteractionItem | null>(null);
   const [isAudioSequenceActive, setIsAudioSequenceActive] = useState(false);
   const [audioSequenceToken, setAudioSequenceToken] = useState(0);
   const audioSequenceTokenRef = useRef(0);
+  const setIsAudioPlayingRef = useRef(setIsAudioPlaying);
+  setIsAudioPlayingRef.current = setIsAudioPlaying;
+  const bootstrapDrivenCycleRef = useRef(false);
   const hasObservedPlaybackRef = useRef(false);
   const isSequencePausedRef = useRef(false);
   // Track the last synced list length to detect new items for queue sync
@@ -1356,38 +1277,182 @@ export const useListenAudioSequence = ({
   const syncedAudioStateRef = useRef<
     Map<string, { count: number; finalized: boolean } | 'url'>
   >(new Map());
+  const pendingQueueGrowthAnchorRef = useRef<number | null>(null);
+  const pendingGrowthWaitTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const lastAdvanceCauseRef = useRef<
+    'audio-ended' | 'interaction-resolved' | 'other'
+  >('other');
+  const activeQueueUnitRef = useRef<{ bid: string | null; position: number }>({
+    bid: null,
+    position: 0,
+  });
+  useEffect(() => {
+    activeQueueUnitRef.current = {
+      bid: activeAudioBid,
+      position: activeAudioPosition,
+    };
+  }, [activeAudioBid, activeAudioPosition]);
+
+  // Listen runtime orchestrator (v2). All runtime events are first queued into
+  // one local event queue, then flushed in-order to the reducer.
+  const {
+    dispatchEvents: dispatchShadowOrchestratorEvents,
+    consumeCommands: consumeShadowOrchestratorCommands,
+    state: shadowOrchestratorState,
+  } = useListenOrchestrator();
+  const isRuntimeOrchestratorEnabled = ENABLE_LISTEN_ORCHESTRATOR_V2;
+  const runtimeEventQueueRef = useRef<ListenRuntimeEvent[]>([]);
+  const [runtimeEventQueueVersion, setRuntimeEventQueueVersion] = useState(0);
+  const runtimeStateRef = useRef<ListenRuntimeState>(shadowOrchestratorState);
+  runtimeStateRef.current = shadowOrchestratorState;
+  const runtimePageRemapRef = useRef<Map<number, number>>(new Map());
+  const [runtimePageRemapVersion, setRuntimePageRemapVersion] = useState(0);
+
+  const enqueueRuntimeEvents = useCallback(
+    (events: ListenRuntimeEvent[]) => {
+      if (!isRuntimeOrchestratorEnabled || !events.length) {
+        return;
+      }
+      runtimeEventQueueRef.current.push(...events);
+      setRuntimeEventQueueVersion(prev => prev + 1);
+    },
+    [isRuntimeOrchestratorEnabled],
+  );
+
+  const pushShadowEvent = useCallback(
+    (event: ListenRuntimeEvent) => {
+      enqueueRuntimeEvents([event]);
+    },
+    [enqueueRuntimeEvents],
+  );
+
+  const pushShadowEvents = useCallback(
+    (events: ListenRuntimeEvent[]) => {
+      enqueueRuntimeEvents(events);
+    },
+    [enqueueRuntimeEvents],
+  );
+
+  useEffect(() => {
+    if (!isRuntimeOrchestratorEnabled) {
+      return;
+    }
+    if (!runtimeEventQueueRef.current.length) {
+      return;
+    }
+
+    const events = runtimeEventQueueRef.current.splice(
+      0,
+      runtimeEventQueueRef.current.length,
+    );
+    if (ENABLE_LISTEN_RUNTIME_LOG) {
+      let projectedState = runtimeStateRef.current;
+      events.forEach(event => {
+        const nextState = reduceListenRuntime(projectedState, event);
+        // eslint-disable-next-line no-console
+        console.info('[listen-runtime:event]', {
+          event: event.type,
+          unitId:
+            (event as { unitId?: string }).unitId ??
+            (event as { blockBid?: string }).blockBid ??
+            null,
+          fromState: projectedState.mode,
+          toState: nextState.mode,
+          fromActiveUnit: projectedState.activeUnitId,
+          toActiveUnit: nextState.activeUnitId,
+          pendingCommands: nextState.pendingCommands.length,
+        });
+        projectedState = nextState;
+      });
+    }
+    dispatchShadowOrchestratorEvents(events);
+  }, [
+    dispatchShadowOrchestratorEvents,
+    isRuntimeOrchestratorEnabled,
+    runtimeEventQueueVersion,
+  ]);
 
   // ---------------------------------------------------------------------------
   // Helpers preserved from original
   // ---------------------------------------------------------------------------
-  const hasPlayableAudioForItem = useCallback((item: AudioInteractionItem) => {
-    if (item.type !== ChatContentItemType.CONTENT) {
-      return true;
+  const hasPlayableResolvedTrack = useCallback(
+    (resolvedTrack: ReturnType<typeof resolveListenAudioTrack>) => {
+      const hasUrl = Boolean(resolvedTrack.audioUrl);
+      const hasSegments = Boolean(
+        resolvedTrack.audioSegments && resolvedTrack.audioSegments.length > 0,
+      );
+      return hasUrl || hasSegments || resolvedTrack.isAudioStreaming;
+    },
+    [],
+  );
+
+  const resolveRuntimeSequencePage = useCallback((page: number) => {
+    if (!Number.isFinite(page) || page < 0) {
+      return page;
     }
-    const position = item.audioPosition ?? 0;
-    const track = item.audioTracksByPosition?.[position];
-    const persisted = (item.audios || [])
-      .filter(audio => Number(audio.position ?? 0) === position)
-      .pop();
-    const legacyForZero = position === 0;
-    const hasUrl = Boolean(
-      track?.audioUrl ||
-      persisted?.audio_url ||
-      (legacyForZero && item.audioUrl),
-    );
-    const hasSegments = Boolean(
-      (track?.audioSegments && track.audioSegments.length > 0) ||
-      (legacyForZero && item.audioSegments && item.audioSegments.length > 0),
-    );
-    const isStreaming = Boolean(
-      track?.isAudioStreaming || (legacyForZero && item.isAudioStreaming),
-    );
-    return hasUrl || hasSegments || isStreaming;
+    const mappedPage = runtimePageRemapRef.current.get(page);
+    if (typeof mappedPage === 'number' && mappedPage >= 0) {
+      return mappedPage;
+    }
+    return page;
   }, []);
+
+  const collectDeckSlides = useCallback((): unknown[] => {
+    const deck = deckRef.current;
+    if (!deck || typeof deck.getSlides !== 'function') {
+      return [];
+    }
+    const slides = deck.getSlides();
+    if (!slides) {
+      return [];
+    }
+    return Array.isArray(slides)
+      ? (slides as HTMLElement[])
+      : Array.from(slides as unknown as ArrayLike<HTMLElement>);
+  }, [deckRef]);
+
+  const refreshRuntimePageRemap = useCallback(() => {
+    const slides = collectDeckSlides();
+    const nextMap = buildRuntimePageRemap(slides);
+    if (arePageRemapMapsEqual(runtimePageRemapRef.current, nextMap)) {
+      return false;
+    }
+    runtimePageRemapRef.current = nextMap;
+    setRuntimePageRemapVersion(version => version + 1);
+    return true;
+  }, [collectDeckSlides]);
+
+  const resolveRuntimeBlockBid = useCallback(
+    (rawBid: string | null | undefined) => {
+      if (!rawBid || rawBid === 'loading') {
+        return null;
+      }
+      return resolveContentBid(rawBid) || rawBid;
+    },
+    [resolveContentBid],
+  );
+
+  const buildShadowUnitIdFromBid = useCallback(
+    (rawBid: string | null | undefined, position?: number) => {
+      const blockBid = resolveRuntimeBlockBid(rawBid);
+      if (!blockBid) {
+        return null;
+      }
+      return buildDomainListenUnitId(blockBid, position ?? 0);
+    },
+    [resolveRuntimeBlockBid],
+  );
 
   const syncToSequencePage = useCallback(
     (page: number) => {
       if (page < 0) {
+        return false;
+      }
+      refreshRuntimePageRemap();
+      const resolvedPage = resolveRuntimeSequencePage(page);
+      if (resolvedPage < 0) {
         return false;
       }
       const deck = deckRef.current;
@@ -1402,7 +1467,7 @@ export const useListenAudioSequence = ({
         if (typeof deck.layout === 'function') {
           deck.layout();
         }
-      } catch (_e) {
+      } catch {
         // ignore
       }
 
@@ -1416,20 +1481,27 @@ export const useListenAudioSequence = ({
       if (slidesLength <= 0) {
         return true;
       }
-      if (page >= slidesLength) {
+      if (resolvedPage >= slidesLength) {
         return false;
       }
 
       try {
-        deck.slide(page);
-      } catch (_e) {
+        deck.slide(resolvedPage);
+      } catch {
         // Reveal.js may throw if controls are not yet initialized
         return false;
       }
       return true;
     },
-    [deckRef],
+    [deckRef, refreshRuntimePageRemap, resolveRuntimeSequencePage],
   );
+
+  const clearPendingGrowthWaitTimer = useCallback(() => {
+    if (pendingGrowthWaitTimerRef.current) {
+      clearTimeout(pendingGrowthWaitTimerRef.current);
+      pendingGrowthWaitTimerRef.current = null;
+    }
+  }, []);
 
   const tryAdvanceToNextBlock = useCallback(() => {
     const currentBid =
@@ -1450,6 +1522,9 @@ export const useListenAudioSequence = ({
 
     const moved = goToBlock(nextBid);
     if (moved) {
+      // Hint upcoming sequence resolution to the target block immediately.
+      // Reveal's slidechanged callback can lag behind this call.
+      activeBlockBidRef.current = nextBid;
       // Signal the bootstrap effect to auto-start the queue once new content
       // for the next block streams in and audioAndInteractionList rebuilds.
       shouldStartSequenceRef.current = true;
@@ -1470,6 +1545,7 @@ export const useListenAudioSequence = ({
     goToBlock,
     pendingAutoNextRef,
     resolveContentBid,
+    shouldStartSequenceRef,
     shouldRenderEmptyPpt,
   ]);
 
@@ -1478,14 +1554,16 @@ export const useListenAudioSequence = ({
       setSequenceInteraction(null);
       setActiveAudioBid(null);
       setActiveAudioPosition(0);
+      setActiveQueueAudioId(null);
       setActiveSequencePage(-1);
       setIsAudioSequenceActive(false);
+      setIsAudioPlaying(false);
       isSequencePausedRef.current = false;
       if (options?.tryAdvanceToNextBlock) {
         tryAdvanceToNextBlock();
       }
     },
-    [tryAdvanceToNextBlock],
+    [setIsAudioPlaying, tryAdvanceToNextBlock],
   );
 
   const isAudioPlayerBusy = useCallback(() => {
@@ -1503,7 +1581,15 @@ export const useListenAudioSequence = ({
       if (!audioAndInteractionList.length) {
         return -1;
       }
+      refreshRuntimePageRemap();
+      const targetPage = resolveRuntimeSequencePage(page);
       const list = audioAndInteractionList;
+      const isContentItem = (item: AudioInteractionItem) =>
+        item.type === ChatContentItemType.CONTENT;
+      const isAudibleContentItem = (item: AudioInteractionItem) =>
+        isContentItem(item) && !item.isSilentVisual;
+      const getItemPage = (item: AudioInteractionItem) =>
+        resolveRuntimeSequencePage(item.page);
 
       const currentSlide =
         (deckRef.current?.getCurrentSlide?.() as
@@ -1519,50 +1605,153 @@ export const useListenAudioSequence = ({
         resolveContentBid(activeAudioBid);
 
       if (preferredBid) {
-        const preferredSamePageIndex = list.findIndex(
+        const hasPreferredContent = list.some(
           item =>
             item.type === ChatContentItemType.CONTENT &&
-            item.page === page &&
+            resolveContentBid(item.generated_block_bid) === preferredBid,
+        );
+        if (!hasPreferredContent) {
+          // The target block has not streamed into the list yet.
+          // Avoid falling back to stale items from the previous block.
+          return -1;
+        }
+
+        const preferredSamePageIndex = list.findIndex(
+          item =>
+            isAudibleContentItem(item) &&
+            getItemPage(item) === targetPage &&
             resolveContentBid(item.generated_block_bid) === preferredBid,
         );
         if (preferredSamePageIndex >= 0) {
           return preferredSamePageIndex;
         }
+        const preferredSamePageAnyContentIndex = list.findIndex(
+          item =>
+            isContentItem(item) &&
+            getItemPage(item) === targetPage &&
+            resolveContentBid(item.generated_block_bid) === preferredBid,
+        );
+        if (preferredSamePageAnyContentIndex >= 0) {
+          return preferredSamePageAnyContentIndex;
+        }
         const preferredAheadIndex = list.findIndex(
           item =>
-            item.type === ChatContentItemType.CONTENT &&
-            item.page >= page &&
+            isAudibleContentItem(item) &&
+            getItemPage(item) >= targetPage &&
             resolveContentBid(item.generated_block_bid) === preferredBid,
         );
         if (preferredAheadIndex >= 0) {
           return preferredAheadIndex;
         }
+        const preferredAheadAnyContentIndex = list.findIndex(
+          item =>
+            isContentItem(item) &&
+            getItemPage(item) >= targetPage &&
+            resolveContentBid(item.generated_block_bid) === preferredBid,
+        );
+        if (preferredAheadAnyContentIndex >= 0) {
+          return preferredAheadAnyContentIndex;
+        }
       }
 
       for (let i = list.length - 1; i >= 0; i -= 1) {
         const item = list[i];
-        if (item.page === page && item.type === ChatContentItemType.CONTENT) {
+        if (getItemPage(item) === targetPage && isAudibleContentItem(item)) {
+          return i;
+        }
+      }
+      for (let i = list.length - 1; i >= 0; i -= 1) {
+        const item = list[i];
+        if (getItemPage(item) === targetPage && isContentItem(item)) {
           return i;
         }
       }
       const nextAudioIndex = list.findIndex(
-        item => item.page > page && item.type === ChatContentItemType.CONTENT,
+        item => getItemPage(item) > targetPage && isAudibleContentItem(item),
       );
       if (nextAudioIndex >= 0) {
         return nextAudioIndex;
       }
-      const pageIndex = list.findIndex(item => item.page === page);
+      const nextContentIndex = list.findIndex(
+        item => getItemPage(item) > targetPage && isContentItem(item),
+      );
+      if (nextContentIndex >= 0) {
+        return nextContentIndex;
+      }
+      const pageIndex = list.findIndex(
+        item => getItemPage(item) === targetPage,
+      );
       if (pageIndex >= 0) {
         return pageIndex;
       }
-      return list.findIndex(item => item.page > page);
+      return list.findIndex(item => getItemPage(item) > targetPage);
     },
     [
       activeAudioBid,
       activeBlockBidRef,
       audioAndInteractionList,
       deckRef,
+      refreshRuntimePageRemap,
       resolveContentBid,
+      resolveRuntimeSequencePage,
+    ],
+  );
+
+  const resolveAnchoredSequenceStartIndex = useCallback(
+    (anchorIndex: number) => {
+      if (!audioAndInteractionList.length) {
+        return -1;
+      }
+      const list = audioAndInteractionList;
+      const normalizedAnchor = Math.max(0, anchorIndex);
+      // The timeline list may be rebuilt after reset/interaction submit.
+      // If the anchor points beyond the rebuilt list, fall back to scanning
+      // from the beginning instead of getting stuck forever at -1.
+      const startCursor =
+        normalizedAnchor >= list.length ? 0 : normalizedAnchor;
+      for (let i = startCursor; i < list.length; i += 1) {
+        const item = list[i];
+        if (
+          item.type === ChatContentItemType.CONTENT &&
+          !item.isSilentVisual &&
+          item.generated_block_bid &&
+          item.generated_block_bid !== 'loading'
+        ) {
+          return i;
+        }
+      }
+      for (let i = startCursor; i < list.length; i += 1) {
+        const item = list[i];
+        if (
+          item.type === ChatContentItemType.CONTENT &&
+          item.generated_block_bid &&
+          item.generated_block_bid !== 'loading'
+        ) {
+          return i;
+        }
+      }
+      return -1;
+    },
+    [audioAndInteractionList],
+  );
+
+  const resolvePlaybackStartIndex = useCallback(
+    (page: number) => {
+      const anchorIndex = effectiveStartAnchorIndexRef.current;
+      if (typeof anchorIndex === 'number' && anchorIndex >= 0) {
+        const anchoredIndex = resolveAnchoredSequenceStartIndex(anchorIndex);
+        if (anchoredIndex >= 0) {
+          effectiveStartAnchorIndexRef.current = null;
+          return anchoredIndex;
+        }
+        return -1;
+      }
+      return resolveSequenceStartIndex(page);
+    },
+    [
+      effectiveStartAnchorIndexRef,
+      resolveAnchoredSequenceStartIndex,
+      resolveSequenceStartIndex,
     ],
   );
 
@@ -1574,59 +1763,189 @@ export const useListenAudioSequence = ({
   endSequenceRef.current = endSequence;
   const syncToSequencePageRef = useRef(syncToSequencePage);
   syncToSequencePageRef.current = syncToSequencePage;
+  const pushShadowEventRef = useRef(pushShadowEvent);
+  pushShadowEventRef.current = pushShadowEvent;
+  const pushShadowEventsRef = useRef(pushShadowEvents);
+  pushShadowEventsRef.current = pushShadowEvents;
+  const resolveRuntimeBlockBidRef = useRef(resolveRuntimeBlockBid);
+  resolveRuntimeBlockBidRef.current = resolveRuntimeBlockBid;
+  const buildShadowUnitIdFromBidRef = useRef(buildShadowUnitIdFromBid);
+  buildShadowUnitIdFromBidRef.current = buildShadowUnitIdFromBid;
 
   // Queue event handler refs — defined once, stable identity
   const onVisualShowHandler = useCallback((event: QueueEvent) => {
     const item = event.item as VisualQueueItem;
-    console.log(
-      `[Queue→Seq] visual:show bid=${item.generatedBlockBid} page=${item.page}`,
-    );
     setActiveSequencePage(item.page);
     setIsAudioSequenceActive(true);
+    setActiveAudioBid(null);
+    setActiveQueueAudioId(null);
 
-    const pageReady = syncToSequencePageRef.current(item.page);
-    if (!pageReady) {
-      console.warn(`[Queue→Seq] Slide page ${item.page} not ready for visual`);
+    syncToSequencePageRef.current(item.page);
+    const visualUnitId = buildShadowUnitIdFromBidRef.current(
+      item.generatedBlockBid,
+      item.position,
+    );
+    if (visualUnitId) {
+      const resolvedBid =
+        resolveRuntimeBlockBidRef.current(item.generatedBlockBid) ||
+        item.generatedBlockBid;
+      pushShadowEventsRef.current([
+        {
+          type: 'REGISTER_UNIT',
+          unitId: visualUnitId,
+          blockBid: resolvedBid,
+          position: item.position ?? 0,
+          page: item.page,
+          hasAudio: item.hasTextAfterVisual,
+        },
+        {
+          type: 'UNIT_VISUAL_READY',
+          unitId: visualUnitId,
+        },
+      ]);
     }
 
     if (!item.hasTextAfterVisual) {
       // Silent visual — queue manager handles auto-advance internally
       setSequenceInteraction(null);
-      setActiveAudioBid(null);
     }
   }, []);
 
-  const onAudioPlayHandler = useCallback((event: QueueEvent) => {
-    const item = event.item as AudioQueueItem;
-    console.log(
-      `[Queue→Seq] audio:play bid=${item.generatedBlockBid} pos=${item.audioPosition}`,
-    );
-    setActiveAudioBid(item.generatedBlockBid);
-    setActiveAudioPosition(item.audioPosition);
-    setActiveSequencePage(item.page);
-    setAudioSequenceToken(prev => prev + 1);
-    setIsAudioSequenceActive(true);
-  }, []);
+  const onAudioPlayHandler = useCallback(
+    (event: QueueEvent) => {
+      const item = event.item as AudioQueueItem;
+      // Reset playback markers for the upcoming audio unit before the player
+      // emits the next play-state callback.
+      hasObservedPlaybackRef.current = false;
+      pendingAutoNextRef.current = false;
+      setIsAudioPlayingRef.current(false);
+      setActiveAudioBid(item.generatedBlockBid);
+      setActiveAudioPosition(item.audioPosition);
+      setActiveQueueAudioId(item.id);
+      setActiveSequencePage(item.page);
+      setAudioSequenceToken(prev => prev + 1);
+      setIsAudioSequenceActive(true);
+      syncToSequencePageRef.current(item.page);
+      const audioUnitId = buildShadowUnitIdFromBidRef.current(
+        item.generatedBlockBid,
+        item.audioPosition,
+      );
+      if (audioUnitId) {
+        const resolvedBid =
+          resolveRuntimeBlockBidRef.current(item.generatedBlockBid) ||
+          item.generatedBlockBid;
+        pushShadowEventsRef.current([
+          {
+            type: 'REGISTER_UNIT',
+            unitId: audioUnitId,
+            blockBid: resolvedBid,
+            position: item.audioPosition ?? 0,
+            page: item.page,
+            hasAudio: true,
+          },
+          {
+            type: 'UNIT_AUDIO_READY',
+            unitId: audioUnitId,
+          },
+          {
+            type: 'UNIT_AUDIO_STARTED',
+            unitId: audioUnitId,
+          },
+        ]);
+      }
+    },
+    [pendingAutoNextRef],
+  );
 
   const onInteractionShowHandler = useCallback((event: QueueEvent) => {
     const item = event.item as InteractionQueueItem;
-    console.log(`[Queue→Seq] interaction:show bid=${item.generatedBlockBid}`);
     setSequenceInteraction({
       ...item.contentItem,
       page: item.page,
     });
     setActiveAudioBid(null);
+    setActiveQueueAudioId(null);
     setActiveSequencePage(item.page);
     setIsAudioSequenceActive(true);
+    pushShadowEventRef.current({
+      type: 'INTERACTION_OPENED',
+      blockBid: item.generatedBlockBid,
+      page: item.page,
+    });
   }, []);
 
-  const onQueueCompletedHandler = useCallback((_event: QueueEvent) => {
-    console.log('[Queue→Seq] queue:completed');
+  const onQueueCompletedHandler = useCallback(() => {
+    const listLengthBeforeCompletion = audioAndInteractionList.length;
+    const hadChapterAnchorBeforeCompletion = Boolean(
+      resolveContentBid(activeBlockBidRef.current),
+    );
     endSequenceRef.current({ tryAdvanceToNextBlock: true });
-  }, []);
+
+    const shouldWaitForGrowth =
+      pendingAutoNextRef.current &&
+      (hadChapterAnchorBeforeCompletion ||
+        lastAdvanceCauseRef.current === 'interaction-resolved');
+
+    if (shouldWaitForGrowth) {
+      // Keep sequence in a short waiting state for late-arriving units.
+      // This avoids hard-stopping immediately when SSE is still streaming.
+      effectiveStartAnchorIndexRef.current = listLengthBeforeCompletion;
+      pendingQueueGrowthAnchorRef.current = listLengthBeforeCompletion;
+      shouldStartSequenceRef.current = true;
+      setIsAudioSequenceActive(true);
+      clearPendingGrowthWaitTimer();
+      pendingGrowthWaitTimerRef.current = setTimeout(() => {
+        if (pendingAutoNextRef.current) {
+          setIsAudioSequenceActive(false);
+        }
+      }, LISTEN_PENDING_GROWTH_WAIT_MS);
+      lastAdvanceCauseRef.current = 'other';
+      return;
+    }
+
+    pendingAutoNextRef.current = false;
+    pendingQueueGrowthAnchorRef.current = null;
+    shouldStartSequenceRef.current = false;
+    clearPendingGrowthWaitTimer();
+    lastAdvanceCauseRef.current = 'other';
+    bootstrapDrivenCycleRef.current = false;
+  }, [
+    activeBlockBidRef,
+    audioAndInteractionList.length,
+    bootstrapDrivenCycleRef,
+    clearPendingGrowthWaitTimer,
+    effectiveStartAnchorIndexRef,
+    lastAdvanceCauseRef,
+    pendingQueueGrowthAnchorRef,
+    pendingAutoNextRef,
+    pendingGrowthWaitTimerRef,
+    resolveContentBid,
+    setIsAudioSequenceActive,
+    shouldStartSequenceRef,
+  ]);
 
   const onQueueErrorHandler = useCallback((event: QueueEvent) => {
-    console.warn(`[Queue→Seq] queue:error reason=${event.reason}`, event.item);
+    const queueItem = event.item;
+    if (queueItem.type !== 'audio' && queueItem.type !== 'visual') {
+      return;
+    }
+
+    const position =
+      queueItem.type === 'audio'
+        ? queueItem.audioPosition
+        : (queueItem.position ?? 0);
+    const unitId = buildShadowUnitIdFromBidRef.current(
+      queueItem.generatedBlockBid,
+      position,
+    );
+    if (!unitId) {
+      return;
+    }
+    pushShadowEventRef.current({
+      type: 'UNIT_AUDIO_ERROR',
+      unitId,
+      reason: event.reason || `queue_${queueItem.type}_error`,
+    });
   }, []);
 
   const queueActions = useQueueManager({
@@ -1643,192 +1962,546 @@ export const useListenAudioSequence = ({
   const queueActionsRef = useRef(queueActions);
   queueActionsRef.current = queueActions;
 
+  useEffect(() => {
+    queueActions.remapPages(page => resolveRuntimeSequencePage(page));
+  }, [queueActions, resolveRuntimeSequencePage, runtimePageRemapVersion]);
+
+  useEffect(() => {
+    const deck = deckRef.current;
+    if (!deck) {
+      return;
+    }
+    const currentPage = deck.getIndices?.().h ?? -1;
+    if (currentPage < 0) {
+      return;
+    }
+    const mappedPage = resolveRuntimeSequencePage(currentPage);
+    if (
+      !Number.isFinite(mappedPage) ||
+      mappedPage < 0 ||
+      mappedPage === currentPage
+    ) {
+      return;
+    }
+    try {
+      deck.slide(mappedPage);
+      currentPptPageRef.current = mappedPage;
+    } catch {
+      // ignore reveal transition errors while jumping pruned pages
+    }
+  }, [
+    currentPptPageRef,
+    deckRef,
+    resolveRuntimeSequencePage,
+    runtimePageRemapVersion,
+  ]);
+
+  const toQueueAudioSegmentValue = useCallback((segment: unknown) => {
+    if (typeof segment === 'string') {
+      return segment;
+    }
+    return (segment as any).audioData || (segment as any).audio_segment;
+  }, []);
+
+  const upsertQueueAudioUrlIfNeeded = useCallback(
+    (bid: string, position: number, audioUrl?: string, isFinal = true) => {
+      if (!audioUrl) {
+        return;
+      }
+      const audioKey = `${bid}:${position}`;
+      if (syncedAudioStateRef.current.get(audioKey) === 'url') {
+        return;
+      }
+      queueActions.upsertAudio(bid, position, {
+        audio_url: audioUrl,
+        is_final: isFinal,
+      });
+      syncedAudioStateRef.current.set(audioKey, 'url');
+    },
+    [queueActions],
+  );
+
+  const syncQueueAudioTrack = useCallback(
+    (
+      bid: string,
+      position: number,
+      resolvedTrack: ReturnType<typeof resolveListenAudioTrack>,
+    ) => {
+      const {
+        audioUrl,
+        audioSegments: segments,
+        isAudioStreaming,
+      } = resolvedTrack;
+      const audioKey = `${bid}:${position}`;
+      const prevState = syncedAudioStateRef.current.get(audioKey);
+
+      if (audioUrl) {
+        // URL source supersedes segmented updates.
+        upsertQueueAudioUrlIfNeeded(bid, position, audioUrl, !isAudioStreaming);
+        return;
+      }
+
+      if (segments && segments.length > 0) {
+        // Only send NEW segments (skip already-synced ones)
+        const prev =
+          prevState !== 'url' && prevState
+            ? prevState
+            : { count: 0, finalized: false };
+        const newSegments = segments.length > prev.count;
+        const nowFinalized = !isAudioStreaming;
+
+        if (newSegments) {
+          for (let i = prev.count; i < segments.length; i++) {
+            queueActions.upsertAudio(bid, position, {
+              audio_segment: toQueueAudioSegmentValue(segments[i]),
+              is_final: nowFinalized && i === segments.length - 1,
+            });
+          }
+          syncedAudioStateRef.current.set(audioKey, {
+            count: segments.length,
+            finalized: nowFinalized,
+          });
+          return;
+        }
+
+        if (nowFinalized && !prev.finalized && segments.length > 0) {
+          // Segments unchanged but streaming just completed — send final marker
+          queueActions.upsertAudio(bid, position, {
+            audio_segment: toQueueAudioSegmentValue(
+              segments[segments.length - 1],
+            ),
+            is_final: true,
+          });
+          syncedAudioStateRef.current.set(audioKey, {
+            count: segments.length,
+            finalized: true,
+          });
+        }
+        return;
+      }
+
+      if (isAudioStreaming && prevState === undefined) {
+        // Streaming but no segments yet; upsert a placeholder (only once)
+        queueActions.upsertAudio(bid, position, {
+          is_final: false,
+        });
+        syncedAudioStateRef.current.set(audioKey, {
+          count: 0,
+          finalized: false,
+        });
+      }
+    },
+    [queueActions, toQueueAudioSegmentValue, upsertQueueAudioUrlIfNeeded],
+  );
+
   // ---------------------------------------------------------------------------
   // syncListToQueue — sync audioAndInteractionList into the queue
   // ---------------------------------------------------------------------------
   const syncListToQueue = useCallback(
     (list: AudioInteractionItem[]) => {
-      list.forEach((item, index) => {
+      refreshRuntimePageRemap();
+      const existingQueueIds = new Set(
+        queueActions.getQueueSnapshot().map(queueItem => queueItem.id),
+      );
+      const prevContentByKey = new Map<string, AudioInteractionItem>();
+      lastSyncedListRef.current.forEach(prevItem => {
+        const prevBid = prevItem.generated_block_bid;
+        if (
+          !prevBid ||
+          prevBid === 'loading' ||
+          prevItem.type !== ChatContentItemType.CONTENT
+        ) {
+          return;
+        }
+        const prevPosition = prevItem.audioPosition ?? 0;
+        prevContentByKey.set(`${prevBid}:${prevPosition}`, prevItem);
+      });
+
+      list.forEach(item => {
         const bid = item.generated_block_bid;
         if (!bid || bid === 'loading') {
           return;
         }
         const position = item.audioPosition ?? 0;
+        const mappedPage = resolveRuntimeSequencePage(item.page);
 
         if (item.type === ChatContentItemType.INTERACTION) {
-          queueActions.enqueueInteraction({
-            generatedBlockBid: bid,
-            page: item.page,
-            contentItem: item,
-            nextIndex: index < list.length - 1 ? index + 1 : null,
+          const interactionId = buildQueueItemId({
+            type: 'interaction',
+            bid,
           });
+          if (!existingQueueIds.has(interactionId)) {
+            queueActions.enqueueInteraction({
+              generatedBlockBid: bid,
+              page: mappedPage,
+              contentItem: item,
+            });
+            existingQueueIds.add(interactionId);
+          }
           return;
         }
+
+        const visualId = buildQueueItemId({
+          type: 'visual',
+          bid,
+          position,
+        });
+        const contentKey = `${bid}:${position}`;
+        const prevContent = prevContentByKey.get(contentKey);
 
         // CONTENT item
         if (item.isSilentVisual) {
           // Silent visual — no audio expected
-          queueActions.enqueueVisual({
-            generatedBlockBid: bid,
-            position,
-            page: item.page,
-            hasTextAfterVisual: false,
-          });
+          if (!existingQueueIds.has(visualId)) {
+            queueActions.enqueueVisual({
+              generatedBlockBid: bid,
+              position,
+              page: mappedPage,
+              hasTextAfterVisual: false,
+            });
+            existingQueueIds.add(visualId);
+          }
           return;
         }
 
         // Content with audio
-        const hasAudio = hasPlayableAudioForItem(item);
-        queueActions.enqueueVisual({
-          generatedBlockBid: bid,
-          position,
-          page: item.page,
-          hasTextAfterVisual: true,
-        });
+        if (!existingQueueIds.has(visualId)) {
+          queueActions.enqueueVisual({
+            generatedBlockBid: bid,
+            position,
+            page: mappedPage,
+            hasTextAfterVisual: true,
+          });
+          existingQueueIds.add(visualId);
+        }
 
+        // Was silent, now has audio — update queue expectation for existing visual.
+        if (prevContent?.isSilentVisual && !item.isSilentVisual) {
+          queueActions.updateVisualExpectation(bid, position, true);
+        }
+
+        const resolvedTrack = resolveListenAudioTrack(item, position);
+        const hasAudio = hasPlayableResolvedTrack(resolvedTrack);
         if (hasAudio) {
-          // Build audio segment data from the content item
-          const track = item.audioTracksByPosition?.[position];
-          const persisted = (item.audios || [])
-            .filter(audio => Number(audio.position ?? 0) === position)
-            .pop();
-          const legacyForZero = position === 0;
-          const audioUrl =
-            track?.audioUrl ||
-            persisted?.audio_url ||
-            (legacyForZero ? item.audioUrl : undefined);
-          const segments =
-            track?.audioSegments ??
-            (legacyForZero ? item.audioSegments : undefined);
-          const isStreaming = Boolean(
-            track?.isAudioStreaming || (legacyForZero && item.isAudioStreaming),
-          );
-
-          const audioKey = `${bid}:${position}`;
-          const prevState = syncedAudioStateRef.current.get(audioKey);
-
-          if (audioUrl) {
-            // Only upsert URL if not already sent
-            if (prevState !== 'url') {
-              queueActions.upsertAudio(bid, position, {
-                audio_url: audioUrl,
-                is_final: !isStreaming,
-              });
-              syncedAudioStateRef.current.set(audioKey, 'url');
-            }
-          } else if (segments && segments.length > 0) {
-            // Only send NEW segments (skip already-synced ones)
-            const prev =
-              prevState !== 'url' && prevState
-                ? prevState
-                : { count: 0, finalized: false };
-            const newSegments = segments.length > prev.count;
-            const nowFinalized = !isStreaming;
-
-            if (newSegments) {
-              for (let i = prev.count; i < segments.length; i++) {
-                const seg = segments[i];
-                queueActions.upsertAudio(bid, position, {
-                  audio_segment:
-                    typeof seg === 'string'
-                      ? seg
-                      : (seg as any).audioData || (seg as any).audio_segment,
-                  is_final: nowFinalized && i === segments.length - 1,
-                });
-              }
-              syncedAudioStateRef.current.set(audioKey, {
-                count: segments.length,
-                finalized: nowFinalized,
-              });
-            } else if (nowFinalized && !prev.finalized && segments.length > 0) {
-              // Segments unchanged but streaming just completed — send final marker
-              const lastSeg = segments[segments.length - 1];
-              queueActions.upsertAudio(bid, position, {
-                audio_segment:
-                  typeof lastSeg === 'string'
-                    ? lastSeg
-                    : (lastSeg as any).audioData ||
-                      (lastSeg as any).audio_segment,
-                is_final: true,
-              });
-              syncedAudioStateRef.current.set(audioKey, {
-                count: segments.length,
-                finalized: true,
-              });
-            }
-          } else if (isStreaming && prevState === undefined) {
-            // Streaming but no segments yet; upsert a placeholder (only once)
-            queueActions.upsertAudio(bid, position, {
-              is_final: false,
-            });
-            syncedAudioStateRef.current.set(audioKey, {
-              count: 0,
-              finalized: false,
-            });
-          }
+          syncQueueAudioTrack(bid, position, resolvedTrack);
         }
       });
 
-      // Check for isSilentVisual flips: items that were previously silent
-      // but now have audio
-      const prevList = lastSyncedListRef.current;
-      if (prevList.length > 0) {
-        list.forEach(item => {
-          const bid = item.generated_block_bid;
-          if (!bid || bid === 'loading') {
-            return;
-          }
-          if (item.type !== ChatContentItemType.CONTENT) {
-            return;
-          }
-          const position = item.audioPosition ?? 0;
-          const prevItem = prevList.find(
-            prev =>
-              prev.generated_block_bid === bid &&
-              (prev.audioPosition ?? 0) === position,
-          );
-          if (prevItem?.isSilentVisual && !item.isSilentVisual) {
-            // Was silent, now has audio — update queue expectation
-            queueActions.updateVisualExpectation(bid, position, true);
-            // Also upsert audio data if available
-            if (hasPlayableAudioForItem(item)) {
-              const track = item.audioTracksByPosition?.[position];
-              const persisted = (item.audios || [])
-                .filter(audio => Number(audio.position ?? 0) === position)
-                .pop();
-              const legacyForZero = position === 0;
-              const audioUrl =
-                track?.audioUrl ||
-                persisted?.audio_url ||
-                (legacyForZero ? item.audioUrl : undefined);
-              if (audioUrl) {
-                const flipKey = `${bid}:${position}`;
-                if (syncedAudioStateRef.current.get(flipKey) !== 'url') {
-                  queueActions.upsertAudio(bid, position, {
-                    audio_url: audioUrl,
-                    is_final: true,
-                  });
-                  syncedAudioStateRef.current.set(flipKey, 'url');
-                }
-              }
-            }
-          }
-        });
-      }
-
       lastSyncedListRef.current = list;
     },
-    [hasPlayableAudioForItem, queueActions],
+    [
+      hasPlayableResolvedTrack,
+      queueActions,
+      refreshRuntimePageRemap,
+      resolveRuntimeSequencePage,
+      syncQueueAudioTrack,
+    ],
+  );
+
+  const resolveQueueStartIndexFromListIndex = useCallback(
+    (
+      listIndex: number,
+      list: AudioInteractionItem[] = audioAndInteractionList,
+    ) => {
+      if (listIndex < 0 || listIndex >= list.length) {
+        return -1;
+      }
+      const target = list[listIndex];
+      const bid = target.generated_block_bid;
+      if (!bid || bid === 'loading') {
+        return -1;
+      }
+
+      const queueSnapshot = queueActions.getQueueSnapshot();
+      const queueIds =
+        target.type === ChatContentItemType.INTERACTION
+          ? [buildQueueItemId({ type: 'interaction', bid })]
+          : [
+              buildQueueItemId({
+                type: 'audio',
+                bid,
+                position: target.audioPosition ?? 0,
+              }),
+              buildQueueItemId({
+                type: 'visual',
+                bid,
+                position: target.audioPosition ?? 0,
+              }),
+            ];
+
+      for (const queueId of queueIds) {
+        const idx = queueSnapshot.findIndex(item => item.id === queueId);
+        if (idx >= 0) {
+          return idx;
+        }
+      }
+
+      // Fallback for partially-synced queue snapshots.
+      return queueSnapshot.findIndex(item => item.generatedBlockBid === bid);
+    },
+    [audioAndInteractionList, queueActions],
+  );
+
+  const resolvePendingResumeQueueIndex = useCallback(() => {
+    const queueSnapshot = queueActions.getQueueSnapshot();
+    const startIndex = Math.max(queueActions.getCurrentIndex(), 0);
+    for (let index = startIndex; index < queueSnapshot.length; index += 1) {
+      const item = queueSnapshot[index];
+      if (
+        item.status === 'completed' ||
+        item.status === 'timeout' ||
+        item.status === 'error'
+      ) {
+        continue;
+      }
+      return index;
+    }
+    return -1;
+  }, [queueActions]);
+
+  const startQueueFromListIndex = useCallback(
+    (listIndex: number, options?: { resyncOnMiss?: boolean }) => {
+      let queueIndex = resolveQueueStartIndexFromListIndex(listIndex);
+      if (queueIndex >= 0) {
+        queueActions.startFromIndex(queueIndex);
+        return true;
+      }
+
+      if (options?.resyncOnMiss) {
+        syncListToQueue(audioAndInteractionList);
+        queueIndex = resolveQueueStartIndexFromListIndex(
+          listIndex,
+          audioAndInteractionList,
+        );
+        if (queueIndex >= 0) {
+          queueActions.startFromIndex(queueIndex);
+          return true;
+        }
+      }
+
+      return false;
+    },
+    [
+      audioAndInteractionList,
+      queueActions,
+      resolveQueueStartIndexFromListIndex,
+      syncListToQueue,
+    ],
   );
 
   // ---------------------------------------------------------------------------
   // Effects — sync list to queue, bootstrap, and cleanup
   // ---------------------------------------------------------------------------
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    let cancelled = false;
+    let rafA: number | null = null;
+    let rafB: number | null = null;
+    const timerA = window.setTimeout(() => {
+      if (!cancelled) {
+        refreshRuntimePageRemap();
+      }
+    }, 120);
+    const timerB = window.setTimeout(() => {
+      if (!cancelled) {
+        refreshRuntimePageRemap();
+      }
+    }, 400);
+
+    rafA = window.requestAnimationFrame(() => {
+      if (cancelled) {
+        return;
+      }
+      refreshRuntimePageRemap();
+      rafB = window.requestAnimationFrame(() => {
+        if (!cancelled) {
+          refreshRuntimePageRemap();
+        }
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timerA);
+      window.clearTimeout(timerB);
+      if (rafA !== null) {
+        window.cancelAnimationFrame(rafA);
+      }
+      if (rafB !== null) {
+        window.cancelAnimationFrame(rafB);
+      }
+    };
+  }, [audioAndInteractionList, refreshRuntimePageRemap]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const deck = deckRef.current;
+    if (!deck) {
+      return;
+    }
+
+    let rafId: number | null = null;
+    const trackedIframes = new Set<HTMLIFrameElement>();
+
+    const scheduleRefresh = () => {
+      if (rafId !== null) {
+        return;
+      }
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        refreshRuntimePageRemap();
+      });
+    };
+
+    const bindIframeLoadListeners = () => {
+      const slides = collectDeckSlides();
+      slides.forEach(slide => {
+        if (
+          typeof HTMLElement === 'undefined' ||
+          !(slide instanceof HTMLElement)
+        ) {
+          return;
+        }
+        const iframeNodes = slide.querySelectorAll('iframe');
+        iframeNodes.forEach(node => {
+          const iframe = node as HTMLIFrameElement;
+          if (trackedIframes.has(iframe)) {
+            return;
+          }
+          trackedIframes.add(iframe);
+          iframe.addEventListener('load', scheduleRefresh);
+        });
+      });
+    };
+
+    bindIframeLoadListeners();
+    scheduleRefresh();
+
+    const slidesRoot =
+      (typeof (deck as { getSlidesElement?: unknown }).getSlidesElement ===
+      'function'
+        ? (
+            deck as unknown as {
+              getSlidesElement: () => Element | null;
+            }
+          ).getSlidesElement()
+        : null) ||
+      (typeof (deck as { getRevealElement?: unknown }).getRevealElement ===
+      'function'
+        ? (
+            deck as unknown as {
+              getRevealElement: () => Element | null;
+            }
+          ).getRevealElement()
+        : null);
+
+    const observer =
+      typeof MutationObserver === 'undefined' || !slidesRoot
+        ? null
+        : new MutationObserver(() => {
+            bindIframeLoadListeners();
+            scheduleRefresh();
+          });
+    if (observer && slidesRoot) {
+      observer.observe(slidesRoot, {
+        childList: true,
+        subtree: true,
+      });
+    }
+
+    return () => {
+      if (observer) {
+        observer.disconnect();
+      }
+      trackedIframes.forEach(iframe => {
+        iframe.removeEventListener('load', scheduleRefresh);
+      });
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [
+    audioAndInteractionList.length,
+    collectDeckSlides,
+    deckRef,
+    refreshRuntimePageRemap,
+  ]);
+
   // Sync audioAndInteractionList → queue whenever it changes
   useEffect(() => {
     syncListToQueue(audioAndInteractionList);
   }, [audioAndInteractionList, syncListToQueue]);
+
+  // Runtime mirror: project timeline units into orchestrator state.
+  useEffect(() => {
+    if (!isRuntimeOrchestratorEnabled) {
+      return;
+    }
+
+    const registerByUnitId = new Map<string, ListenRuntimeEvent>();
+    for (const item of audioAndInteractionList) {
+      if (item.type !== ChatContentItemType.CONTENT) {
+        continue;
+      }
+      const position = item.audioPosition ?? 0;
+      const blockBid = resolveRuntimeBlockBid(item.generated_block_bid);
+      if (!blockBid) {
+        continue;
+      }
+      const unitId = buildDomainListenUnitId(blockBid, position);
+      registerByUnitId.set(unitId, {
+        type: 'REGISTER_UNIT',
+        unitId,
+        blockBid,
+        position,
+        page: resolveRuntimeSequencePage(item.page),
+        hasAudio: !item.isSilentVisual,
+      });
+    }
+
+    pushShadowEvents(Array.from(registerByUnitId.values()));
+  }, [
+    audioAndInteractionList,
+    isRuntimeOrchestratorEnabled,
+    pushShadowEvents,
+    resolveRuntimeBlockBid,
+    resolveRuntimeSequencePage,
+  ]);
+
+  // Consume commands immediately for now to avoid unbounded queue growth while
+  // queue-manager remains the playback executor.
+  useEffect(() => {
+    if (!isRuntimeOrchestratorEnabled) {
+      return;
+    }
+    if (!shadowOrchestratorState.pendingCommands.length) {
+      return;
+    }
+    if (ENABLE_LISTEN_RUNTIME_LOG) {
+      // eslint-disable-next-line no-console
+      console.info(
+        '[listen-runtime:commands]',
+        shadowOrchestratorState.pendingCommands.map(command => ({
+          id: command.id,
+          type: command.type,
+          unitId: (command as { unitId?: string }).unitId ?? null,
+          page: (command as { page?: number }).page ?? null,
+        })),
+      );
+    }
+    consumeShadowOrchestratorCommands();
+  }, [
+    consumeShadowOrchestratorCommands,
+    isRuntimeOrchestratorEnabled,
+    shadowOrchestratorState.pendingCommands,
+  ]);
 
   // Keep audioSequenceTokenRef in sync
   useEffect(() => {
@@ -1845,12 +2518,16 @@ export const useListenAudioSequence = ({
       if (isSequencePausedRef.current) return;
       const state = audioPlayerRef.current?.getPlaybackState?.();
       if (state && !state.isPlaying && !state.isLoading && !state.isPaused) {
-        console.log('[Queue→Seq] Explicit play fallback triggered');
         audioPlayerRef.current?.play();
       }
     }, 500);
     return () => clearTimeout(timer);
   }, [audioSequenceToken, activeAudioBid]);
+
+  const audioAndInteractionLengthRef = useRef(audioAndInteractionList.length);
+  useEffect(() => {
+    audioAndInteractionLengthRef.current = audioAndInteractionList.length;
+  }, [audioAndInteractionList.length]);
 
   // Reset when list empties — debounced to avoid resetting during transient
   // block transitions where audioAndInteractionList is momentarily empty.
@@ -1859,18 +2536,44 @@ export const useListenAudioSequence = ({
       return;
     }
     const timer = setTimeout(() => {
-      // Re-check: audioAndInteractionList is captured by closure at effect time,
-      // so if still empty after debounce, proceed with reset.
+      // Skip reset if new items already arrived during debounce.
+      if (audioAndInteractionLengthRef.current > 0) {
+        return;
+      }
+      // Skip reset while auto-navigation is waiting for the next block stream.
+      if (shouldStartSequenceRef.current || pendingAutoNextRef.current) {
+        return;
+      }
       audioPlayerRef.current?.pause({
         traceId: 'sequence-reset',
         keepAutoPlay: true,
       });
       queueActions.reset();
       syncedAudioStateRef.current.clear();
+      pendingAutoNextRef.current = false;
+      lastAdvanceCauseRef.current = 'other';
+      effectiveStartAnchorIndexRef.current = null;
+      pendingQueueGrowthAnchorRef.current = null;
+      clearPendingGrowthWaitTimer();
+      bootstrapDrivenCycleRef.current = false;
+      pushShadowEvent({
+        type: 'RESET',
+      });
       endSequence();
-    }, 300);
+    }, 800);
     return () => clearTimeout(timer);
-  }, [audioAndInteractionList.length, endSequence, queueActions]);
+  }, [
+    audioAndInteractionList.length,
+    endSequence,
+    bootstrapDrivenCycleRef,
+    clearPendingGrowthWaitTimer,
+    effectiveStartAnchorIndexRef,
+    pendingQueueGrowthAnchorRef,
+    pendingAutoNextRef,
+    pushShadowEvent,
+    queueActions,
+    shouldStartSequenceRef,
+  ]);
 
   // Bootstrap: start sequence when shouldStartSequenceRef is set
   useEffect(() => {
@@ -1884,25 +2587,43 @@ export const useListenAudioSequence = ({
       return;
     }
 
-    const currentPage =
-      deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
-    const startIndex = resolveSequenceStartIndex(currentPage);
-    if (startIndex < 0) {
+    const pendingResumeIndex = resolvePendingResumeQueueIndex();
+    if (pendingQueueGrowthAnchorRef.current !== null) {
+      if (pendingResumeIndex < 0) {
+        return;
+      }
+      queueActions.startFromIndex(pendingResumeIndex);
+      pendingQueueGrowthAnchorRef.current = null;
+      clearPendingGrowthWaitTimer();
+      shouldStartSequenceRef.current = false;
+      bootstrapDrivenCycleRef.current = true;
       return;
     }
 
+    const currentPage =
+      deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
+    const startIndex = resolvePlaybackStartIndex(currentPage);
+    if (startIndex < 0) {
+      return;
+    }
+    const started = startQueueFromListIndex(startIndex, { resyncOnMiss: true });
+    if (!started) {
+      return;
+    }
     shouldStartSequenceRef.current = false;
-    // Sync list to queue first to ensure all items are enqueued
-    syncListToQueue(audioAndInteractionList);
-    queueActions.startFromIndex(startIndex);
+    bootstrapDrivenCycleRef.current = true;
   }, [
     audioAndInteractionList,
+    bootstrapDrivenCycleRef,
+    clearPendingGrowthWaitTimer,
     currentPptPageRef,
     deckRef,
+    pendingQueueGrowthAnchorRef,
     queueActions,
-    resolveSequenceStartIndex,
+    resolvePendingResumeQueueIndex,
+    resolvePlaybackStartIndex,
+    startQueueFromListIndex,
     shouldStartSequenceRef,
-    syncListToQueue,
   ]);
 
   // ---------------------------------------------------------------------------
@@ -1919,34 +2640,158 @@ export const useListenAudioSequence = ({
     if (!activeAudioBlockBid) {
       return undefined;
     }
-    const item =
-      contentByBid.get(activeAudioBlockBid) ??
-      audioContentByBid.get(activeAudioBlockBid);
-    return item;
-  }, [activeAudioBlockBid, audioContentByBid, contentByBid]);
+    const targetPosition = activeAudioPosition ?? 0;
+    const resolvedFromTimeline = audioAndInteractionList.find(item => {
+      if (item.type !== ChatContentItemType.CONTENT) {
+        return false;
+      }
+      if (item.isSilentVisual) {
+        return false;
+      }
+      return (
+        resolveContentBid(item.generated_block_bid) === activeAudioBlockBid &&
+        (item.audioPosition ?? 0) === targetPosition
+      );
+    });
+    if (resolvedFromTimeline) {
+      return resolvedFromTimeline;
+    }
+
+    const fallbackSameBidFromTimeline = audioAndInteractionList.find(item => {
+      if (item.type !== ChatContentItemType.CONTENT) {
+        return false;
+      }
+      if (item.isSilentVisual) {
+        return false;
+      }
+      return (
+        resolveContentBid(item.generated_block_bid) === activeAudioBlockBid
+      );
+    });
+    if (fallbackSameBidFromTimeline) {
+      return fallbackSameBidFromTimeline;
+    }
+
+    return (
+      audioContentByBid.get(activeAudioBlockBid) ??
+      contentByBid.get(activeAudioBlockBid)
+    );
+  }, [
+    activeAudioBlockBid,
+    activeAudioPosition,
+    audioAndInteractionList,
+    audioContentByBid,
+    contentByBid,
+    resolveContentBid,
+  ]);
+
+  const activeAudioTrack = useMemo(() => {
+    if (!activeAudioBid) {
+      return null;
+    }
+
+    const queueSnapshot = queueActions.getQueueSnapshot();
+    const expectedAudioId =
+      activeQueueAudioId ||
+      buildQueueItemId({
+        type: 'audio',
+        bid: activeAudioBid,
+        position: activeAudioPosition,
+      });
+
+    let queueAudioItem = queueSnapshot.find(
+      item => item.id === expectedAudioId && item.type === 'audio',
+    ) as AudioQueueItem | undefined;
+
+    if (!queueAudioItem) {
+      queueAudioItem = queueSnapshot.find(
+        item =>
+          item.type === 'audio' &&
+          item.generatedBlockBid === activeAudioBid &&
+          item.audioPosition === activeAudioPosition,
+      ) as AudioQueueItem | undefined;
+    }
+
+    const queueSegments =
+      queueAudioItem?.segments
+        .map((segment, index) => {
+          if (!segment.audio_segment) {
+            return null;
+          }
+          return {
+            segmentIndex: index,
+            audioData: segment.audio_segment,
+            durationMs: 0,
+            isFinal: Boolean(segment.is_final),
+          } satisfies AudioSegment;
+        })
+        .filter((segment): segment is AudioSegment => Boolean(segment)) ?? [];
+
+    const queueTrack = queueAudioItem
+      ? {
+          audioUrl: queueAudioItem.audioUrl,
+          streamingSegments: queueSegments,
+          isStreaming: queueAudioItem.isStreaming,
+          durationMs: queueAudioItem.durationMs,
+        }
+      : null;
+
+    const queueHasPlayablePayload =
+      Boolean(queueTrack?.audioUrl) || queueSegments.length > 0;
+    if (queueTrack && queueHasPlayablePayload) {
+      return queueTrack;
+    }
+
+    if (!activeContentItem) {
+      return queueTrack;
+    }
+
+    const fallbackTrack = resolveListenAudioTrack(
+      activeContentItem,
+      activeAudioPosition,
+    );
+    const normalizedFallbackTrack = {
+      audioUrl: fallbackTrack.audioUrl,
+      streamingSegments: fallbackTrack.audioSegments ?? [],
+      isStreaming: fallbackTrack.isAudioStreaming,
+      durationMs: fallbackTrack.audioDurationMs,
+    };
+    if (hasPlayableResolvedTrack(fallbackTrack)) {
+      return normalizedFallbackTrack;
+    }
+
+    return queueTrack ?? normalizedFallbackTrack;
+  }, [
+    activeQueueAudioId,
+    activeAudioBid,
+    activeAudioPosition,
+    activeContentItem,
+    hasPlayableResolvedTrack,
+    queueActions,
+  ]);
 
   const activeAudioDurationMs = useMemo(() => {
+    if (Number.isFinite(activeAudioTrack?.durationMs)) {
+      const duration = Number(activeAudioTrack?.durationMs);
+      if (duration > 0) {
+        return duration;
+      }
+    }
+
     if (!activeContentItem) {
       return undefined;
     }
 
-    const track =
-      activeContentItem.audioTracksByPosition?.[activeAudioPosition];
-    const persisted = (activeContentItem.audios || [])
-      .filter(audio => Number(audio.position ?? 0) === activeAudioPosition)
-      .pop();
-    const fallbackDuration =
-      activeAudioPosition === 0 ? activeContentItem.audioDurationMs : undefined;
-
-    const explicitDuration =
-      track?.audioDurationMs ?? persisted?.duration_ms ?? fallbackDuration;
+    const resolvedTrack = resolveListenAudioTrack(
+      activeContentItem,
+      activeAudioPosition,
+    );
+    const explicitDuration = resolvedTrack.audioDurationMs;
     if (Number.isFinite(explicitDuration) && (explicitDuration || 0) > 0) {
       return explicitDuration;
     }
 
-    const segments =
-      track?.audioSegments ??
-      (activeAudioPosition === 0 ? activeContentItem.audioSegments : undefined);
+    const segments = resolvedTrack.audioSegments;
     if (!segments || !segments.length) {
       return undefined;
     }
@@ -1962,12 +2807,34 @@ export const useListenAudioSequence = ({
       return sumDuration;
     }
     return undefined;
-  }, [activeAudioPosition, activeContentItem]);
+  }, [activeAudioPosition, activeAudioTrack?.durationMs, activeContentItem]);
 
   const audioWatchdogTimeoutMs = useMemo(
     () => resolveListenAudioWatchdogMs(activeAudioDurationMs),
     [activeAudioDurationMs],
   );
+
+  const resolveMappedPageForActiveUnit = useCallback(() => {
+    const { bid, position } = activeQueueUnitRef.current;
+    if (!bid) {
+      return null;
+    }
+    const resolvedBid = resolveContentBid(bid) || bid;
+    for (let i = audioAndInteractionList.length - 1; i >= 0; i -= 1) {
+      const item = audioAndInteractionList[i];
+      if (item.type !== ChatContentItemType.CONTENT) {
+        continue;
+      }
+      if (resolveContentBid(item.generated_block_bid) !== resolvedBid) {
+        continue;
+      }
+      if ((item.audioPosition ?? 0) !== (position ?? 0)) {
+        continue;
+      }
+      return resolveRuntimeSequencePage(item.page);
+    }
+    return null;
+  }, [audioAndInteractionList, resolveContentBid, resolveRuntimeSequencePage]);
 
   // ---------------------------------------------------------------------------
   // Event handlers — adapted to use queue actions
@@ -1980,9 +2847,64 @@ export const useListenAudioSequence = ({
       ) {
         return;
       }
+      if (isSequencePausedRef.current) {
+        return;
+      }
+      const { bid, position } = activeQueueUnitRef.current;
+      const endedUnitId = buildShadowUnitIdFromBid(bid, position);
+      if (endedUnitId) {
+        pushShadowEvent({
+          type: 'UNIT_AUDIO_ENDED',
+          unitId: endedUnitId,
+        });
+      }
+      lastAdvanceCauseRef.current = 'audio-ended';
+
+      const mappedPage = resolveMappedPageForActiveUnit();
+      if (typeof mappedPage === 'number' && mappedPage >= 0) {
+        syncToSequencePage(mappedPage);
+      }
+
+      const queueSnapshot = queueActions.getQueueSnapshot();
+      const currentQueueIndex = queueActions.getCurrentIndex();
+      const hasFutureUnits = queueSnapshot
+        .slice(currentQueueIndex + 1)
+        .some(
+          queueItem =>
+            queueItem.status !== 'completed' &&
+            queueItem.status !== 'timeout' &&
+            queueItem.status !== 'error',
+        );
+      if (!hasFutureUnits) {
+        const deck = deckRef.current;
+        const currentPage = deck?.getIndices?.().h ?? currentPptPageRef.current;
+        const totalSlides =
+          typeof deck?.getSlides === 'function'
+            ? deck.getSlides().length
+            : typeof deck?.getTotalSlides === 'function'
+              ? deck.getTotalSlides()
+              : 0;
+        if (
+          totalSlides > 0 &&
+          currentPage >= 0 &&
+          currentPage < totalSlides - 1 &&
+          (typeof mappedPage !== 'number' || mappedPage <= currentPage)
+        ) {
+          syncToSequencePage(currentPage + 1);
+        }
+      }
+
       queueActions.advance();
     },
-    [queueActions],
+    [
+      buildShadowUnitIdFromBid,
+      currentPptPageRef,
+      deckRef,
+      pushShadowEvent,
+      queueActions,
+      resolveMappedPageForActiveUnit,
+      syncToSequencePage,
+    ],
   );
 
   const handleAudioError = useCallback(
@@ -1993,22 +2915,40 @@ export const useListenAudioSequence = ({
       ) {
         return;
       }
-      // Auto-advance past failed audio instead of pausing the queue.
-      // This prevents a single audio error from stalling the entire sequence.
-      console.warn('[Queue→Seq] Audio error, auto-advancing past failed audio');
+      // Keep runtime consistent with sequence expectations: audio errors pause
+      // progression and require an explicit user resume/next action.
+      const { bid, position } = activeQueueUnitRef.current;
+      const erroredUnitId = buildShadowUnitIdFromBid(bid, position);
+      if (erroredUnitId) {
+        pushShadowEvent({
+          type: 'UNIT_AUDIO_ERROR',
+          unitId: erroredUnitId,
+          reason: 'audio_error',
+        });
+      }
+      isSequencePausedRef.current = true;
       setIsAudioPlaying(false);
-      queueActions.advance();
+      queueActions.pause();
     },
-    [queueActions, setIsAudioPlaying],
+    [
+      buildShadowUnitIdFromBid,
+      pushShadowEvent,
+      queueActions,
+      setIsAudioPlaying,
+    ],
   );
 
   const handlePlay = useCallback(() => {
     if (previewMode) {
       return;
     }
+    pushShadowEvent({
+      type: 'USER_PLAY',
+    });
 
     // Pre-warm audio systems during user gesture to bypass browser autoplay policy.
     // This must happen synchronously inside the click handler.
+    warmupSharedAudioPlayback?.();
     audioPlayerRef.current?.warmup?.();
 
     isSequencePausedRef.current = false;
@@ -2019,14 +2959,31 @@ export const useListenAudioSequence = ({
     }
 
     if (!activeAudioBid && audioAndInteractionList.length) {
+      if (pendingAutoNextRef.current) {
+        // The sequence is waiting for the next block to stream in.
+        // Avoid replaying the current block while auto-next is pending.
+        const pendingResumeIndex = resolvePendingResumeQueueIndex();
+        if (pendingResumeIndex >= 0) {
+          pendingQueueGrowthAnchorRef.current = null;
+          clearPendingGrowthWaitTimer();
+          queueActions.startFromIndex(pendingResumeIndex);
+          shouldStartSequenceRef.current = false;
+          setIsAudioSequenceActive(true);
+          return;
+        }
+        queueActions.resume();
+        return;
+      }
       // No active audio — start/resume the queue
       const currentPage =
         deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
-      const startIndex = resolveSequenceStartIndex(currentPage);
-      if (startIndex >= 0) {
-        syncListToQueue(audioAndInteractionList);
-        queueActions.startFromIndex(startIndex);
-      } else {
+      const startIndex = resolvePlaybackStartIndex(currentPage);
+      if (startIndex < 0) {
+        queueActions.resume();
+        return;
+      }
+      bootstrapDrivenCycleRef.current = false;
+      if (!startQueueFromListIndex(startIndex, { resyncOnMiss: true })) {
         queueActions.resume();
       }
       return;
@@ -2038,13 +2995,21 @@ export const useListenAudioSequence = ({
   }, [
     activeAudioBid,
     audioAndInteractionList,
+    bootstrapDrivenCycleRef,
+    clearPendingGrowthWaitTimer,
     currentPptPageRef,
     deckRef,
+    pendingAutoNextRef,
+    pendingQueueGrowthAnchorRef,
     previewMode,
+    pushShadowEvent,
     queueActions,
-    resolveSequenceStartIndex,
+    resolvePendingResumeQueueIndex,
+    resolvePlaybackStartIndex,
+    setIsAudioSequenceActive,
     sequenceInteraction,
-    syncListToQueue,
+    startQueueFromListIndex,
+    shouldStartSequenceRef,
   ]);
 
   const handlePause = useCallback(
@@ -2052,21 +3017,49 @@ export const useListenAudioSequence = ({
       if (previewMode) {
         return;
       }
+      pushShadowEvent({
+        type: 'USER_PAUSE',
+      });
       isSequencePausedRef.current = true;
       queueActions.pause();
       audioPlayerRef.current?.pause({ traceId });
     },
-    [previewMode, queueActions],
+    [previewMode, pushShadowEvent, queueActions],
   );
+
+  const handleUserPrev = useCallback(() => {
+    if (previewMode) {
+      return;
+    }
+    pushShadowEvent({
+      type: 'USER_PREV',
+    });
+  }, [previewMode, pushShadowEvent]);
+
+  const handleUserNext = useCallback(() => {
+    if (previewMode) {
+      return;
+    }
+    pushShadowEvent({
+      type: 'USER_NEXT',
+    });
+  }, [previewMode, pushShadowEvent]);
 
   const continueAfterInteraction = useCallback(() => {
     if (previewMode) {
       return;
     }
+    if (sequenceInteraction?.generated_block_bid) {
+      pushShadowEvent({
+        type: 'INTERACTION_RESOLVED',
+        blockBid: sequenceInteraction.generated_block_bid,
+      });
+    }
     isSequencePausedRef.current = false;
+    lastAdvanceCauseRef.current = 'interaction-resolved';
     setSequenceInteraction(null);
     queueActions.advance();
-  }, [previewMode, queueActions]);
+  }, [previewMode, pushShadowEvent, queueActions, sequenceInteraction]);
 
   const startSequenceFromIndex = useCallback(
     (index: number) => {
@@ -2077,31 +3070,39 @@ export const useListenAudioSequence = ({
       });
       queueActions.reset();
       syncedAudioStateRef.current.clear();
+      effectiveStartAnchorIndexRef.current = null;
+      pendingQueueGrowthAnchorRef.current = null;
+      clearPendingGrowthWaitTimer();
+      bootstrapDrivenCycleRef.current = false;
       syncListToQueue(audioAndInteractionList);
-      queueActions.startFromIndex(index);
+      startQueueFromListIndex(index);
     },
-    [audioAndInteractionList, queueActions, syncListToQueue],
+    [
+      audioAndInteractionList,
+      bootstrapDrivenCycleRef,
+      clearPendingGrowthWaitTimer,
+      effectiveStartAnchorIndexRef,
+      pendingQueueGrowthAnchorRef,
+      queueActions,
+      startQueueFromListIndex,
+      syncListToQueue,
+    ],
   );
 
   const startSequenceFromPage = useCallback(
     (page: number) => {
-      const startIndex = resolveSequenceStartIndex(page);
+      const startIndex = resolvePlaybackStartIndex(page);
       if (startIndex < 0) {
         return;
       }
       startSequenceFromIndex(startIndex);
     },
-    [resolveSequenceStartIndex, startSequenceFromIndex],
+    [resolvePlaybackStartIndex, startSequenceFromIndex],
   );
 
   // ---------------------------------------------------------------------------
   // Audio watchdog — same as original
   // ---------------------------------------------------------------------------
-  useEffect(() => {
-    hasObservedPlaybackRef.current = false;
-    setIsAudioPlaying(false);
-  }, [audioSequenceToken, setIsAudioPlaying]);
-
   useEffect(() => {
     if (isAudioPlaying || isAudioPlayerBusy()) {
       hasObservedPlaybackRef.current = true;
@@ -2136,9 +3137,6 @@ export const useListenAudioSequence = ({
         return;
       }
       // Auto-advance past failed audio instead of pausing the queue
-      console.warn(
-        '[Queue→Seq] Audio watchdog: no playback observed, auto-advancing',
-      );
       queueActionsRef.current?.advance();
     }, audioWatchdogTimeoutMs);
     return () => clearTimeout(timer);
@@ -2175,9 +3173,6 @@ export const useListenAudioSequence = ({
       if (state && !state.isPlaying) {
         return;
       }
-      console.warn(
-        `[Queue→Seq] Stuck-audio watchdog: audio playing for ${maxMs}ms without ending, auto-advancing`,
-      );
       setIsAudioPlaying(false);
       queueActionsRef.current?.advance();
     }, maxMs);
@@ -2189,12 +3184,20 @@ export const useListenAudioSequence = ({
     setIsAudioPlaying,
   ]);
 
+  useEffect(
+    () => () => {
+      clearPendingGrowthWaitTimer();
+    },
+    [clearPendingGrowthWaitTimer],
+  );
+
   // ---------------------------------------------------------------------------
   // Return — identical interface to original
   // ---------------------------------------------------------------------------
   return {
     audioPlayerRef,
     activeContentItem,
+    activeAudioTrack,
     activeAudioBlockBid,
     activeAudioPosition,
     activeSequencePage,
@@ -2206,6 +3209,8 @@ export const useListenAudioSequence = ({
     handleAudioError,
     handlePlay,
     handlePause,
+    handleUserPrev,
+    handleUserNext,
     continueAfterInteraction,
     startSequenceFromIndex,
     startSequenceFromPage,

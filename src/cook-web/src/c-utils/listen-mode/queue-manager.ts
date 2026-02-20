@@ -1,6 +1,26 @@
 import { normalizeListenAudioPosition } from '@/c-utils/listen-orchestrator';
 import type { ChatContentItem } from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
 
+const ENABLE_LISTEN_QUEUE_LOG =
+  process.env.NEXT_PUBLIC_LISTEN_QUEUE_LOG === '1' ||
+  process.env.NEXT_PUBLIC_LISTEN_RUNTIME_LOG === '1';
+
+const queueLog = (...args: unknown[]) => {
+  if (!ENABLE_LISTEN_QUEUE_LOG) {
+    return;
+  }
+  // eslint-disable-next-line no-console
+  console.log(...args);
+};
+
+const queueWarn = (...args: unknown[]) => {
+  if (!ENABLE_LISTEN_QUEUE_LOG) {
+    return;
+  }
+  // eslint-disable-next-line no-console
+  console.warn(...args);
+};
+
 // Queue item types
 export type QueueItemType = 'visual' | 'audio' | 'interaction';
 
@@ -28,10 +48,8 @@ export interface BaseQueueItem {
 // Visual queue item (represents a slide/visual element)
 export interface VisualQueueItem extends BaseQueueItem {
   type: 'visual';
-  visualKind?: string; // 'svg', 'table', 'video', etc.
   hasTextAfterVisual: boolean; // If true, audio is guaranteed (must wait)
   expectedAudioId: string; // ID of expected audio item
-  waitingStartedAt?: number; // Timestamp when started waiting for audio
 }
 
 // Audio segment data from SSE
@@ -55,7 +73,6 @@ export interface AudioQueueItem extends BaseQueueItem {
 export interface InteractionQueueItem extends BaseQueueItem {
   type: 'interaction';
   contentItem: ChatContentItem; // Original interaction data
-  nextIndex: number | null; // Index to resume after interaction
 }
 
 export type QueueItem = VisualQueueItem | AudioQueueItem | InteractionQueueItem;
@@ -82,7 +99,7 @@ export type QueueEventListener = (event: QueueEvent) => void;
 export interface ListenQueueManagerConfig {
   audioWaitTimeout: number; // Default 15000ms
   silentVisualDuration: number; // Default 5000ms — auto-advance delay for silent visuals
-  sessionIdRef: React.MutableRefObject<number>;
+  sessionIdRef: { current: number };
 }
 
 /**
@@ -114,11 +131,12 @@ export function buildQueueItemId(params: {
 export class ListenQueueManager {
   private queue: QueueItem[] = [];
   private currentIndex: number = -1;
-  private sessionIdRef: React.MutableRefObject<number>;
+  private sessionIdRef: { current: number };
   private processingTimer: NodeJS.Timeout | null = null;
   private audioWaitTimeout: number;
   private silentVisualDuration: number;
   private isProcessing: boolean = false;
+  private pendingProcess: boolean = false;
   private isPaused: boolean = false;
   private hasCompleted: boolean = false;
   private listeners: Map<QueueEventType, Set<QueueEventListener>> = new Map();
@@ -162,7 +180,9 @@ export class ListenQueueManager {
    * Enqueue a visual item (slide/visual element)
    */
   enqueueVisual(
-    item: Omit<VisualQueueItem, 'id' | 'status' | 'enqueuedAt'>,
+    item: Omit<VisualQueueItem, 'id' | 'status' | 'enqueuedAt' | 'type'> & {
+      type?: 'visual';
+    },
   ): void {
     const id = buildQueueItemId({
       type: 'visual',
@@ -173,7 +193,7 @@ export class ListenQueueManager {
     // Check for duplicate
     const existing = this.queue.find(i => i.id === id);
     if (existing) {
-      console.warn(`[Queue] Visual ${id} already enqueued, skipping`);
+      queueWarn(`[Queue] Visual ${id} already enqueued, skipping`);
       return;
     }
 
@@ -191,41 +211,21 @@ export class ListenQueueManager {
     };
 
     this.queue.push(queueItem);
-    console.log(`[Queue] Enqueued visual: ${id}, page: ${item.page}`);
+    queueLog(`[Queue] Enqueued visual: ${id}, page: ${item.page}`);
 
     // Note: Don't auto-trigger processing here. Use start() to begin processing.
-  }
-
-  /**
-   * Enqueue an audio item
-   * Note: Audio usually arrives via upsertAudio, not this method
-   */
-  enqueueAudio(
-    item: Omit<AudioQueueItem, 'id' | 'status' | 'enqueuedAt'>,
-  ): void {
-    const id = buildQueueItemId({
-      type: 'audio',
-      bid: item.generatedBlockBid,
-      position: item.position,
-    });
-
-    const queueItem: AudioQueueItem = {
-      ...item,
-      id,
-      type: 'audio',
-      status: 'ready',
-      enqueuedAt: Date.now(),
-    };
-
-    this.queue.push(queueItem);
-    console.log(`[Queue] Enqueued audio: ${id}`);
   }
 
   /**
    * Enqueue an interaction item
    */
   enqueueInteraction(
-    item: Omit<InteractionQueueItem, 'id' | 'status' | 'enqueuedAt'>,
+    item: Omit<
+      InteractionQueueItem,
+      'id' | 'status' | 'enqueuedAt' | 'type'
+    > & {
+      type?: 'interaction';
+    },
   ): void {
     const id = buildQueueItemId({
       type: 'interaction',
@@ -235,7 +235,7 @@ export class ListenQueueManager {
     // Check for duplicate
     const existing = this.queue.find(i => i.id === id);
     if (existing) {
-      console.warn(`[Queue] Interaction ${id} already enqueued, skipping`);
+      queueWarn(`[Queue] Interaction ${id} already enqueued, skipping`);
       return;
     }
 
@@ -253,7 +253,7 @@ export class ListenQueueManager {
     };
 
     this.queue.push(queueItem);
-    console.log(`[Queue] Enqueued interaction: ${id}`);
+    queueLog(`[Queue] Enqueued interaction: ${id}`);
   }
 
   /**
@@ -287,7 +287,7 @@ export class ListenQueueManager {
       if (existing.status === 'pending' || existing.status === 'waiting') {
         existing.status = 'ready';
       }
-      console.log(
+      queueLog(
         `[Queue] Updated audio: ${audioId}, segments: ${existing.segments.length}, final: ${!existing.isStreaming}`,
       );
 
@@ -299,9 +299,7 @@ export class ListenQueueManager {
         this.currentIndex === existingAudioIdx
       ) {
         this.clearTimers();
-        setTimeout(() => {
-          this.processQueue();
-        }, 0);
+        this.processQueue();
       }
     } else {
       // Audio arrived - find corresponding visual or insert at correct position
@@ -346,7 +344,7 @@ export class ListenQueueManager {
 
         // Insert audio right after its visual
         this.queue.splice(insertIdx, 0, audioItem);
-        console.log(
+        queueLog(
           `[Queue] Inserted audio after visual: ${audioId} at index ${insertIdx}`,
         );
 
@@ -360,10 +358,8 @@ export class ListenQueueManager {
           // the index was NOT adjusted above (visualIdx < insertIdx), so we
           // advance past the completed visual to the newly inserted audio.
           if (!this.isPaused && this.currentIndex === visualIdx) {
-            setTimeout(() => {
-              this.currentIndex++;
-              this.processQueue();
-            }, 0);
+            this.currentIndex++;
+            this.processQueue();
           }
         }
       } else {
@@ -371,7 +367,7 @@ export class ListenQueueManager {
         // Enqueue and mark pending (will be processed when visual arrives)
         audioItem.status = 'pending';
         this.queue.push(audioItem);
-        console.log(`[Queue] Audio arrived early: ${audioId}, marked pending`);
+        queueLog(`[Queue] Audio arrived early: ${audioId}, marked pending`);
       }
     }
   }
@@ -384,7 +380,7 @@ export class ListenQueueManager {
    * Start queue processing
    */
   start(): void {
-    console.log('[Queue] Starting queue processing');
+    queueLog('[Queue] Starting queue processing');
     this.isPaused = false;
     this.hasCompleted = false;
     this.processQueue();
@@ -394,7 +390,7 @@ export class ListenQueueManager {
    * Pause queue processing
    */
   pause(): void {
-    console.log('[Queue] Pausing queue processing');
+    queueLog('[Queue] Pausing queue processing');
     this.isPaused = true;
     this.clearTimers();
   }
@@ -403,7 +399,7 @@ export class ListenQueueManager {
    * Resume queue processing
    */
   resume(): void {
-    console.log('[Queue] Resuming queue processing');
+    queueLog('[Queue] Resuming queue processing');
     this.isPaused = false;
     this.processQueue();
   }
@@ -412,10 +408,11 @@ export class ListenQueueManager {
    * Reset queue (clear all items and state)
    */
   reset(): void {
-    console.log('[Queue] Resetting queue');
+    queueLog('[Queue] Resetting queue');
     this.queue = [];
     this.currentIndex = -1;
     this.isProcessing = false;
+    this.pendingProcess = false;
     this.isPaused = false;
     this.hasCompleted = false;
     this.clearTimers();
@@ -436,7 +433,7 @@ export class ListenQueueManager {
    * Called when current item completes (audio ends, interaction resolves, etc.)
    */
   advance(): void {
-    console.log(`[Queue] Advancing from index ${this.currentIndex}`);
+    queueLog(`[Queue] Advancing from index ${this.currentIndex}`);
 
     if (this.currentIndex >= 0 && this.currentIndex < this.queue.length) {
       const current = this.queue[this.currentIndex];
@@ -482,16 +479,37 @@ export class ListenQueueManager {
   }
 
   /**
+   * Remap queue item pages in-place.
+   * Used when runtime rendering prunes empty visual slides and playback should
+   * target the nearest effective page instead of stale pre-render indices.
+   */
+  remapPages(mapper: (page: number, item: QueueItem) => number): void {
+    this.queue = this.queue.map(item => {
+      const nextPage = mapper(item.page, item);
+      if (!Number.isFinite(nextPage) || nextPage < 0) {
+        return item;
+      }
+      if (nextPage === item.page) {
+        return item;
+      }
+      return {
+        ...item,
+        page: nextPage,
+      };
+    });
+  }
+
+  /**
    * Start processing from a specific index (used for prev/next navigation)
    */
   startFromIndex(index: number): void {
     const clampedIndex = Math.max(0, Math.min(index, this.queue.length - 1));
     if (this.queue.length === 0) {
-      console.warn('[Queue] Cannot startFromIndex on empty queue');
+      queueWarn('[Queue] Cannot startFromIndex on empty queue');
       return;
     }
 
-    console.log(`[Queue] Starting from index ${clampedIndex}`);
+    queueLog(`[Queue] Starting from index ${clampedIndex}`);
     this.currentIndex = clampedIndex;
     this.isPaused = false;
     this.hasCompleted = false;
@@ -537,7 +555,7 @@ export class ListenQueueManager {
       return;
     }
 
-    console.log(
+    queueLog(
       `[Queue] Updating visual expectation: ${visualId}, hasTextAfterVisual: ${hasTextAfterVisual}`,
     );
     visual.hasTextAfterVisual = hasTextAfterVisual;
@@ -560,7 +578,11 @@ export class ListenQueueManager {
    * Process queue - FIFO sequential processing
    */
   private processQueue(): void {
-    if (this.isPaused || this.isProcessing) {
+    if (this.isPaused) {
+      return;
+    }
+    if (this.isProcessing) {
+      this.pendingProcess = true;
       return;
     }
 
@@ -572,7 +594,7 @@ export class ListenQueueManager {
     // Check if queue is completed
     if (this.currentIndex >= this.queue.length) {
       if (this.queue.length > 0 && !this.hasCompleted) {
-        console.log('[Queue] Queue completed');
+        queueLog('[Queue] Queue completed');
         this.hasCompleted = true;
         this.emit({
           type: 'queue:completed',
@@ -609,6 +631,10 @@ export class ListenQueueManager {
       }
     } finally {
       this.isProcessing = false;
+      if (this.pendingProcess && !this.isPaused) {
+        this.pendingProcess = false;
+        this.processQueue();
+      }
     }
   }
 
@@ -616,7 +642,7 @@ export class ListenQueueManager {
    * Handle visual item
    */
   private handleVisualItem(item: VisualQueueItem): void {
-    console.log(
+    queueLog(
       `[Queue] Processing visual: ${item.id}, hasTextAfter: ${item.hasTextAfterVisual}`,
     );
 
@@ -641,16 +667,13 @@ export class ListenQueueManager {
         });
         // Mark as completed and auto-advance to audio
         item.status = 'completed';
-        setTimeout(() => {
-          if (!this.isPaused) {
-            this.currentIndex++;
-            this.processQueue();
-          }
-        }, 0);
+        if (!this.isPaused) {
+          this.currentIndex++;
+          this.processQueue();
+        }
       } else {
         // Wait for audio
         item.status = 'waiting';
-        item.waitingStartedAt = Date.now();
         this.emit({
           type: 'visual:show',
           item,
@@ -680,7 +703,7 @@ export class ListenQueueManager {
    * Handle audio item
    */
   private handleAudioItem(item: AudioQueueItem): void {
-    console.log(`[Queue] Processing audio: ${item.id}, status: ${item.status}`);
+    queueLog(`[Queue] Processing audio: ${item.id}, status: ${item.status}`);
 
     // Guard: if already playing (e.g., after resume), don't re-emit
     if (item.status === 'playing') {
@@ -701,7 +724,7 @@ export class ListenQueueManager {
     // Audio not ready (e.g., arrived early as 'pending' before its visual).
     // Start a wait timeout: if the audio doesn't become ready within the
     // timeout period, skip it to prevent the queue from freezing.
-    console.warn(
+    queueWarn(
       `[Queue] Audio ${item.id} not ready (${item.status}), waiting...`,
     );
     item.status = 'waiting';
@@ -718,7 +741,7 @@ export class ListenQueueManager {
         return;
       }
       // Audio still not ready, skip it
-      console.warn(`[Queue] Audio ${item.id} wait timeout, skipping`);
+      queueWarn(`[Queue] Audio ${item.id} wait timeout, skipping`);
       item.status = 'timeout';
       this.emit({
         type: 'queue:error',
@@ -734,7 +757,7 @@ export class ListenQueueManager {
    * Handle interaction item
    */
   private handleInteractionItem(item: InteractionQueueItem): void {
-    console.log(`[Queue] Processing interaction: ${item.id}`);
+    queueLog(`[Queue] Processing interaction: ${item.id}`);
 
     item.status = 'playing';
     this.emit({
@@ -751,7 +774,7 @@ export class ListenQueueManager {
   private startAudioWaitTimeout(item: VisualQueueItem): void {
     this.clearTimers();
     this.processingTimer = setTimeout(() => {
-      console.warn(
+      queueWarn(
         `[Queue] Audio wait timeout for visual ${item.id} after ${this.audioWaitTimeout}ms`,
       );
       item.status = 'timeout';

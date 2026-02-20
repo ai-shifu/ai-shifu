@@ -8,7 +8,6 @@ import {
   useMemo,
 } from 'react';
 import React from 'react';
-import { useLatest, useMountedState } from 'react-use';
 import {
   fixMarkdownStream,
   maskIncompleteMermaidBlock,
@@ -43,6 +42,7 @@ import {
   type AudioSegment,
 } from '@/c-utils/audio-utils';
 import {
+  type ListenInboundAudioEvent,
   normalizeListenAudioPosition,
   normalizeListenRecordAudios,
   toListenInboundAudioEvent,
@@ -183,7 +183,6 @@ function useChatLogicHook({
   previewMode,
   isListenMode = false,
   trackEvent,
-  chatBoxBottomRef,
   trackTrailProgress,
   lessonUpdate,
   chapterUpdate,
@@ -194,7 +193,7 @@ function useChatLogicHook({
   showOutputInProgressToast,
   onPayModalOpen,
 }: UseChatSessionParams): UseChatSessionResult {
-  const { t, i18n, ready } = useTranslation();
+  const { t } = useTranslation();
   const { mobileStyle } = useContext(AppContext);
 
   const { updateUserInfo } = useUserStore(
@@ -203,14 +202,12 @@ function useChatLogicHook({
     })),
   );
   const isStreamingRef = useRef(false);
-  const { updateResetedChapterId, updateResetedLessonId, resetedLessonId } =
-    useCourseStore(
-      useShallow(state => ({
-        resetedLessonId: state.resetedLessonId,
-        updateResetedChapterId: state.updateResetedChapterId,
-        updateResetedLessonId: state.updateResetedLessonId,
-      })),
-    );
+  const { updateResetedLessonId, resetedLessonId } = useCourseStore(
+    useShallow(state => ({
+      resetedLessonId: state.resetedLessonId,
+      updateResetedLessonId: state.updateResetedLessonId,
+    })),
+  );
 
   const [contentList, setContentList] = useState<ChatContentItem[]>([]);
   const [listenSlides, setListenSlides] = useState<ListenSlideData[]>([]);
@@ -224,13 +221,12 @@ function useChatLogicHook({
 
   const contentListRef = useRef<ChatContentItem[]>([]);
   const currentContentRef = useRef<string>('');
-  const currentBlockIdRef = useRef<string | null>(null);
   const runRef = useRef<((params: SSEParams) => void) | null>(null);
   const interactionParserRef = useRef(createInteractionParser());
   const sseRef = useRef<any>(null);
   const ttsSseRef = useRef<Record<string, any>>({});
   const lastInteractionBlockRef = useRef<ChatContentItem | null>(null);
-  const hasScrolledToBottomRef = useRef<boolean>(false);
+  const hasScrolledToBottomRef = useRef(false);
   const [pendingRegenerate, setPendingRegenerate] = useState<{
     content: OnSendContentParams;
     blockBid: string;
@@ -254,8 +250,7 @@ function useChatLogicHook({
         return interactionParserRef.current.parseToRemarkFormat(
           content,
         ) as InteractionParseResult;
-      } catch (error) {
-        console.warn('Failed to parse interaction block', error);
+      } catch {
         return null;
       }
     },
@@ -361,47 +356,6 @@ function useChatLogicHook({
     [normalizeButtonValue, parseInteractionBlock, splitPresetValues],
   );
 
-  // Use react-use hooks for safer state management
-  const isMounted = useMountedState();
-  const chatBoxBottomRefLatest = useLatest(chatBoxBottomRef);
-
-  /**
-   * Auto scroll to bottom when history records are loaded and rendered
-   * Only scroll once, don't interfere with user scrolling
-   */
-  // useEffect(() => {
-  //   // Only scroll once after initial load
-  //   if (hasScrolledToBottomRef.current) {
-  //     return;
-  //   }
-
-  //   // Wait for: 1) loading complete, 2) has content, 3) chapter loaded
-  //   if (!isLoading && contentList.length > 0 && loadedChapterId) {
-  //     // Simple one-time scroll after a reasonable delay
-  //     const timer = setTimeout(() => {
-  //       if (!isMounted()) return;
-
-  //       const bottomEl = chatBoxBottomRefLatest.current?.current;
-  //       if (bottomEl) {
-  //         // Use instant scroll to avoid blocking user interaction
-  //         bottomEl.scrollIntoView({
-  //           behavior: 'auto',
-  //           block: 'end',
-  //         });
-  //         hasScrolledToBottomRef.current = true;
-  //       }
-  //     }, 300);
-
-  //     return () => clearTimeout(timer);
-  //   }
-  // }, [
-  //   isLoading,
-  //   contentList.length,
-  //   loadedChapterId,
-  //   isMounted,
-  //   chatBoxBottomRefLatest,
-  // ]);
-
   /**
    * Keeps the React state and mutable ref of the content list in sync.
    */
@@ -451,6 +405,76 @@ function useChatLogicHook({
       });
     },
     [],
+  );
+
+  const applyInboundAudioSegmentUpdate = useCallback(
+    (
+      prevState: ChatContentItem[],
+      inboundEvent: ListenInboundAudioEvent,
+      audioSegment: AudioSegmentData,
+    ) => {
+      const targetBlockBid = inboundEvent.generatedBlockBid;
+      const normalizedPosition = inboundEvent.position;
+      if (!isListenMode) {
+        return upsertAudioSegment(prevState, targetBlockBid, audioSegment);
+      }
+
+      // Listen mode may emit multiple audio tracks per block (by position).
+      // Keep legacy position=0 fields for backward compatibility.
+      let nextState = upsertAudioSegmentByPosition(
+        prevState,
+        targetBlockBid,
+        normalizedPosition,
+        audioSegment,
+      );
+      nextState = bindAudioSlideId(
+        nextState,
+        targetBlockBid,
+        normalizedPosition,
+        inboundEvent.slideId,
+      );
+      if (normalizedPosition === 0) {
+        nextState = upsertAudioSegment(nextState, targetBlockBid, audioSegment);
+      }
+      return nextState;
+    },
+    [bindAudioSlideId, isListenMode],
+  );
+
+  const applyInboundAudioCompleteUpdate = useCallback(
+    (
+      prevState: ChatContentItem[],
+      inboundEvent: ListenInboundAudioEvent,
+      audioComplete: AudioCompleteData,
+    ) => {
+      const targetBlockBid = inboundEvent.generatedBlockBid;
+      const normalizedPosition = inboundEvent.position;
+      if (!isListenMode) {
+        return upsertAudioComplete(prevState, targetBlockBid, audioComplete);
+      }
+
+      let nextState = upsertAudioCompleteByPosition(
+        prevState,
+        targetBlockBid,
+        normalizedPosition,
+        audioComplete,
+      );
+      nextState = bindAudioSlideId(
+        nextState,
+        targetBlockBid,
+        normalizedPosition,
+        inboundEvent.slideId,
+      );
+      if (normalizedPosition === 0) {
+        nextState = upsertAudioComplete(
+          nextState,
+          targetBlockBid,
+          audioComplete,
+        );
+      }
+      return nextState;
+    },
+    [bindAudioSlideId, isListenMode],
   );
 
   /**
@@ -746,42 +770,15 @@ function useChatLogicHook({
               if (!inboundEvent) {
                 return;
               }
-              const targetBlockBid = inboundEvent.generatedBlockBid;
-              const normalizedPosition = inboundEvent.position;
               const audioSegment =
                 inboundEvent.payload as unknown as AudioSegmentData;
 
               setTrackedContentList(prevState => {
-                if (!isListenMode) {
-                  return upsertAudioSegment(
-                    prevState,
-                    targetBlockBid,
-                    audioSegment,
-                  );
-                }
-
-                // Listen mode may emit multiple audio tracks per block (by position).
-                // Keep legacy position=0 fields for backward compatibility.
-                let nextState = upsertAudioSegmentByPosition(
+                return applyInboundAudioSegmentUpdate(
                   prevState,
-                  targetBlockBid,
-                  normalizedPosition,
+                  inboundEvent,
                   audioSegment,
                 );
-                nextState = bindAudioSlideId(
-                  nextState,
-                  targetBlockBid,
-                  normalizedPosition,
-                  inboundEvent.slideId,
-                );
-                if (normalizedPosition === 0) {
-                  nextState = upsertAudioSegment(
-                    nextState,
-                    targetBlockBid,
-                    audioSegment,
-                  );
-                }
-                return nextState;
               });
             } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
               if (!allowTtsStreaming) {
@@ -792,44 +789,19 @@ function useChatLogicHook({
               if (!inboundEvent) {
                 return;
               }
-              const targetBlockBid = inboundEvent.generatedBlockBid;
-              const normalizedPosition = inboundEvent.position;
               const audioComplete =
                 inboundEvent.payload as unknown as AudioCompleteData;
 
               setTrackedContentList(prevState => {
-                if (!isListenMode) {
-                  return upsertAudioComplete(
-                    prevState,
-                    targetBlockBid,
-                    audioComplete,
-                  );
-                }
-
-                let nextState = upsertAudioCompleteByPosition(
+                return applyInboundAudioCompleteUpdate(
                   prevState,
-                  targetBlockBid,
-                  normalizedPosition,
+                  inboundEvent,
                   audioComplete,
                 );
-                nextState = bindAudioSlideId(
-                  nextState,
-                  targetBlockBid,
-                  normalizedPosition,
-                  inboundEvent.slideId,
-                );
-                if (normalizedPosition === 0) {
-                  nextState = upsertAudioComplete(
-                    nextState,
-                    targetBlockBid,
-                    audioComplete,
-                  );
-                }
-                return nextState;
               });
             }
-          } catch (error) {
-            console.warn('SSE handling error:', error);
+          } catch {
+            // ignore malformed transient SSE payloads
           }
         },
       );
@@ -851,10 +823,14 @@ function useChatLogicHook({
       sseRef.current = source;
     },
     [
+      applyInboundAudioCompleteUpdate,
+      applyInboundAudioSegmentUpdate,
       chapterUpdate,
+      chapterId,
       effectivePreviewMode,
       isListenMode,
       bindAudioSlideId,
+      getAskButtonMarkup,
       lessonUpdateResp,
       outlineBid,
       isTypeFinishedRef,
@@ -1006,7 +982,12 @@ function useChatLogicHook({
       flushBuffer();
       return result;
     },
-    [mobileStyle, t],
+    [
+      getAskButtonMarkup,
+      getInteractionDefaultValues,
+      isListenMode,
+      mobileStyle,
+    ],
   );
 
   /**
@@ -1080,8 +1061,8 @@ function useChatLogicHook({
           });
         }
       }
-    } catch (error) {
-      console.warn('refreshData error:', error);
+    } catch {
+      // refresh failure is handled by fallback flow
     } finally {
       setIsLoading(false);
       // console.log('listen-refresh-end', { lessonId, outlineBid });
@@ -1096,6 +1077,7 @@ function useChatLogicHook({
     // lessonId,
     effectivePreviewMode,
     isListenMode,
+    trackEvent,
   ]);
 
   useEffect(() => {
@@ -1589,23 +1571,11 @@ function useChatLogicHook({
               const audioPayload =
                 inboundEvent.payload as unknown as AudioSegmentData;
               setTrackedContentList(prevState =>
-                isListenMode
-                  ? bindAudioSlideId(
-                      upsertAudioSegmentByPosition(
-                        prevState,
-                        inboundEvent.generatedBlockBid,
-                        inboundEvent.position,
-                        audioPayload,
-                      ),
-                      inboundEvent.generatedBlockBid,
-                      inboundEvent.position,
-                      inboundEvent.slideId,
-                    )
-                  : upsertAudioSegment(
-                      prevState,
-                      inboundEvent.generatedBlockBid,
-                      audioPayload,
-                    ),
+                applyInboundAudioSegmentUpdate(
+                  prevState,
+                  inboundEvent,
+                  audioPayload,
+                ),
               );
               return;
             }
@@ -1625,23 +1595,11 @@ function useChatLogicHook({
                 firstComplete = audioComplete;
               }
               setTrackedContentList(prevState =>
-                isListenMode
-                  ? bindAudioSlideId(
-                      upsertAudioCompleteByPosition(
-                        prevState,
-                        inboundEvent.generatedBlockBid,
-                        inboundEvent.position,
-                        audioComplete,
-                      ),
-                      inboundEvent.generatedBlockBid,
-                      inboundEvent.position,
-                      inboundEvent.slideId,
-                    )
-                  : upsertAudioComplete(
-                      prevState,
-                      inboundEvent.generatedBlockBid,
-                      audioComplete,
-                    ),
+                applyInboundAudioCompleteUpdate(
+                  prevState,
+                  inboundEvent,
+                  audioComplete,
+                ),
               );
               if (!isListenMode) {
                 closeTtsStream(generatedBlockBid);
@@ -1692,8 +1650,9 @@ function useChatLogicHook({
       });
     },
     [
+      applyInboundAudioCompleteUpdate,
+      applyInboundAudioSegmentUpdate,
       allowTtsStreaming,
-      bindAudioSlideId,
       closeTtsStream,
       effectivePreviewMode,
       isListenMode,

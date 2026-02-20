@@ -81,6 +81,51 @@ export const shouldPreferOssUrl = ({
   segmentCount: number;
 }) => Boolean(audioUrl) && !isStreaming && segmentCount <= 0;
 
+let sharedListenAudioContext: AudioContext | null = null;
+
+const getSharedListenAudioContext = (): AudioContext => {
+  if (sharedListenAudioContext?.state === 'closed') {
+    sharedListenAudioContext = null;
+  }
+  if (!sharedListenAudioContext) {
+    sharedListenAudioContext = createAudioContext();
+  }
+  return sharedListenAudioContext;
+};
+
+const isSharedListenAudioContext = (audioContext: AudioContext | null) =>
+  Boolean(audioContext && audioContext === sharedListenAudioContext);
+
+const releaseListenAudioContext = (
+  audioContext: AudioContext | null,
+  options?: { preserveShared?: boolean },
+) => {
+  if (!audioContext) {
+    return;
+  }
+  if (isSharedListenAudioContext(audioContext) && options?.preserveShared) {
+    audioContext.suspend().catch(() => {});
+    return;
+  }
+  audioContext.suspend().catch(() => {});
+  audioContext.close().catch(() => {});
+  if (isSharedListenAudioContext(audioContext)) {
+    sharedListenAudioContext = null;
+  }
+};
+
+export const warmupSharedAudioPlayback = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    const audioContext = getSharedListenAudioContext();
+    resumeAudioContext(audioContext).catch(() => {});
+  } catch {
+    // Ignore warmup errors and let normal playback fallback paths handle them.
+  }
+};
+
 /**
  * Audio player component for TTS playback.
  *
@@ -230,6 +275,18 @@ function AudioPlayerBase(
     }
   }, [stopAllSourceNodes]);
 
+  const releaseCurrentAudioContext = useCallback(
+    (options?: { preserveShared?: boolean }) => {
+      const audioContext = audioContextRef.current;
+      if (!audioContext) {
+        return;
+      }
+      releaseListenAudioContext(audioContext, options);
+      audioContextRef.current = null;
+    },
+    [],
+  );
+
   const stopPlayback = useCallback(() => {
     playSessionRef.current += 1;
     pendingStreamRef.current = false;
@@ -290,18 +347,16 @@ function AudioPlayerBase(
         segmentOffsetRef.current = nextOffset;
         pausedAtRef.current = playedSecondsRef.current;
         stopAllSourceNodes();
-        audioContext.suspend().catch(() => {});
-        audioContext.close().catch(() => {});
-        audioContextRef.current = null;
+        releaseCurrentAudioContext({
+          preserveShared: true,
+        });
         isPlayingSegmentRef.current = false;
       } else {
         pausedAtRef.current = playedSecondsRef.current;
         stopAllSourceNodes();
-        if (audioContextRef.current) {
-          audioContextRef.current.suspend().catch(() => {});
-          audioContextRef.current.close().catch(() => {});
-          audioContextRef.current = null;
-        }
+        releaseCurrentAudioContext({
+          preserveShared: true,
+        });
       }
 
       if (wasHtmlPlaying && htmlAudio) {
@@ -314,7 +369,12 @@ function AudioPlayerBase(
 
       releaseExclusive();
     },
-    [releaseExclusive, requestExclusive, stopAllSourceNodes],
+    [
+      releaseCurrentAudioContext,
+      releaseExclusive,
+      requestExclusive,
+      stopAllSourceNodes,
+    ],
   );
 
   // Play audio from OSS URL
@@ -399,7 +459,7 @@ function AudioPlayerBase(
             );
             try {
               if (!audioContextRef.current) {
-                audioContextRef.current = createAudioContext();
+                audioContextRef.current = getSharedListenAudioContext();
               }
               await resumeAudioContext(audioContextRef.current);
               if (!isSessionActive(sessionId)) return;
@@ -507,7 +567,7 @@ function AudioPlayerBase(
 
         // Initialize AudioContext if needed
         if (!audioContextRef.current) {
-          audioContextRef.current = createAudioContext();
+          audioContextRef.current = getSharedListenAudioContext();
         }
 
         const audioContext = audioContextRef.current;
@@ -830,10 +890,14 @@ function AudioPlayerBase(
       warmup: () => {
         // Pre-warm AudioContext so it's in 'running' state for later playback.
         // Must be called inside a user gesture handler (click/tap).
+        warmupSharedAudioPlayback();
         if (!audioContextRef.current) {
-          audioContextRef.current = createAudioContext();
+          try {
+            audioContextRef.current = getSharedListenAudioContext();
+          } catch {
+            audioContextRef.current = null;
+          }
         }
-        audioContextRef.current.resume().catch(() => {});
         // Pre-create and unlock the HTML Audio element
         if (!audioRef.current) {
           audioRef.current = new Audio();
@@ -861,11 +925,11 @@ function AudioPlayerBase(
       pendingStreamRef.current = false;
       cleanupAudio();
       releaseExclusive();
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
+      releaseCurrentAudioContext({
+        preserveShared: true,
+      });
     };
-  }, [cleanupAudio, releaseExclusive]);
+  }, [cleanupAudio, releaseCurrentAudioContext, releaseExclusive]);
 
   // Auto-play when enabled and audio is available
   // Track previous autoPlay value to detect changes
