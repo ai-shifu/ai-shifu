@@ -23,6 +23,10 @@ from flaskr.service.shifu.consts import (
 )
 from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO, GeneratedType
 from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.learn.langfuse_naming import (
+    build_langfuse_generation_name,
+    build_langfuse_span_name,
+)
 from flaskr.service.metering import UsageContext
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
@@ -64,6 +68,8 @@ def handle_input_ask(
     )
 
     app.logger.info("follow_up_info:{}".format(follow_up_info.__json__()))
+    chapter_title = outline_item_info.title
+    ask_scene = "lesson_preview_ask" if is_preview else "lesson_ask"
 
     raw_ask_max_history_len = app.config.get("ASK_MAX_HISTORY_LEN", 10)
     try:
@@ -158,7 +164,10 @@ def handle_input_ask(
     db.session.add(log_script)
 
     # Create trace span
-    span = trace.span(name="user_follow_up", input=input)
+    span = trace.span(
+        name=build_langfuse_span_name(chapter_title, ask_scene, "user_follow_up"),
+        input=input,
+    )
 
     # Check if user input needs special processing (such as sensitive word filtering, etc.)
     res = check_text_with_llm_response(
@@ -177,6 +186,8 @@ def handle_input_ask(
         attend_id=attend_id,
         fmt_prompt=follow_up_info.ask_prompt,
         usage_context=usage_context,
+        chapter_title=chapter_title,
+        scene=ask_scene,
     )
     has_content = False
     for i in res:
@@ -207,6 +218,11 @@ def handle_input_ask(
         return
 
     # Call LLM to generate response
+    generation_name = build_langfuse_generation_name(
+        chapter_title,
+        ask_scene,
+        "user_follow_ask",
+    )
     resp = chat_llm(
         app,
         user_info.user_id,
@@ -217,10 +233,7 @@ def handle_input_ask(
         temperature=follow_up_info.model_args[
             "temperature"
         ],  # Use configured temperature parameter
-        generation_name="user_follow_ask_"  # Generation task name
-        + str(outline_item_info.bid)
-        + "_"
-        + str(outline_item_info.position),
+        generation_name=generation_name,
         messages=messages,  # Pass complete conversation history
         usage_context=usage_context,
         usage_scene=usage_scene,
