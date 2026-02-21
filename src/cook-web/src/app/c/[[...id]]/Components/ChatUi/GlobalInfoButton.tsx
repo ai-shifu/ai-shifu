@@ -33,7 +33,6 @@ import {
   MailIcon,
   MessageSquareWarningIcon,
   SquareArrowOutUpRightIcon,
-  KeyboardIcon,
 } from 'lucide-react';
 
 import beianIcon from '@/c-assets/newchat/light/beian.png';

@@ -23,8 +23,6 @@ import LoadingBar from './LoadingBar';
 import styles from './AskBlock.module.scss';
 import { toast } from '@/hooks/useToast';
 import { AppContext } from '../AppContext';
-import Image from 'next/image';
-import ShifuIcon from '@/c-assets/newchat/light/icon_shifu.svg';
 import { BLOCK_TYPE } from '@/c-api/studyV2';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { useCourseStore } from '@/c-store/useCourseStore';
