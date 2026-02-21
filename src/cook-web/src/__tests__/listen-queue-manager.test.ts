@@ -56,6 +56,16 @@ describe('buildQueueItemId', () => {
 describe('ListenQueueManager', () => {
   let manager: ListenQueueManager;
   let sessionIdRef: React.MutableRefObject<number>;
+  const start = () => manager.startFromIndex(0);
+  const getQueueLength = () => manager.getQueueSnapshot().length;
+  const getCurrentItem = () => {
+    const currentIndex = manager.getCurrentIndex();
+    const snapshot = manager.getQueueSnapshot();
+    if (currentIndex < 0 || currentIndex >= snapshot.length) {
+      return null;
+    }
+    return snapshot[currentIndex];
+  };
 
   beforeEach(() => {
     sessionIdRef = { current: 1 };
@@ -83,7 +93,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      expect(manager.getQueueLength()).toBe(1);
+      expect(getQueueLength()).toBe(1);
       const snapshot = manager.getQueueSnapshot();
       expect(snapshot[0].id).toBe('visual:block-1:0');
       expect(snapshot[0].status).toBe('pending');
@@ -102,7 +112,7 @@ describe('ListenQueueManager', () => {
       manager.enqueueVisual(visualData);
       manager.enqueueVisual(visualData);
 
-      expect(manager.getQueueLength()).toBe(1);
+      expect(getQueueLength()).toBe(1);
     });
 
     it('should enqueue multiple different visuals', () => {
@@ -124,7 +134,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-2:0',
       });
 
-      expect(manager.getQueueLength()).toBe(2);
+      expect(getQueueLength()).toBe(2);
     });
   });
 
@@ -142,7 +152,7 @@ describe('ListenQueueManager', () => {
         contentItem: mockContentItem,
       });
 
-      expect(manager.getQueueLength()).toBe(1);
+      expect(getQueueLength()).toBe(1);
       const snapshot = manager.getQueueSnapshot();
       expect(snapshot[0].id).toBe('interaction:block-int');
     });
@@ -160,7 +170,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      expect(manager.getQueueLength()).toBe(1);
+      expect(getQueueLength()).toBe(1);
 
       // Audio arrives
       const audioData: AudioSegmentData = {
@@ -170,7 +180,7 @@ describe('ListenQueueManager', () => {
       manager.upsertAudio('block-1', 0, audioData);
 
       // Should have visual + audio
-      expect(manager.getQueueLength()).toBe(2);
+      expect(getQueueLength()).toBe(2);
       const snapshot = manager.getQueueSnapshot();
       expect(snapshot[0].id).toBe('visual:block-1:0');
       expect(snapshot[1].id).toBe('audio:block-1:0');
@@ -186,7 +196,7 @@ describe('ListenQueueManager', () => {
       manager.upsertAudio('block-1', 0, audioData);
 
       // Audio should be enqueued as pending
-      expect(manager.getQueueLength()).toBe(1);
+      expect(getQueueLength()).toBe(1);
       const snapshot = manager.getQueueSnapshot();
       expect(snapshot[0].id).toBe('audio:block-1:0');
       expect(snapshot[0].status).toBe('pending');
@@ -212,7 +222,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-b:0',
       });
 
-      expect(manager.getQueueLength()).toBe(2);
+      expect(getQueueLength()).toBe(2);
 
       // Audio for A arrives (after B was enqueued)
       const audioDataA: AudioSegmentData = {
@@ -222,7 +232,7 @@ describe('ListenQueueManager', () => {
       manager.upsertAudio('block-a', 0, audioDataA);
 
       // Should insert audio after visual A
-      expect(manager.getQueueLength()).toBe(3);
+      expect(getQueueLength()).toBe(3);
       const snapshot = manager.getQueueSnapshot();
       expect(snapshot[0].id).toBe('visual:block-a:0');
       expect(snapshot[1].id).toBe('audio:block-a:0'); // Inserted here
@@ -237,7 +247,7 @@ describe('ListenQueueManager', () => {
       };
       manager.upsertAudio('block-1', 0, segment1);
 
-      expect(manager.getQueueLength()).toBe(1);
+      expect(getQueueLength()).toBe(1);
       let snapshot = manager.getQueueSnapshot();
       expect((snapshot[0] as AudioQueueItem).segments).toHaveLength(1);
       expect((snapshot[0] as AudioQueueItem).isStreaming).toBe(true);
@@ -249,7 +259,7 @@ describe('ListenQueueManager', () => {
       };
       manager.upsertAudio('block-1', 0, segment2);
 
-      expect(manager.getQueueLength()).toBe(1); // Still 1 item
+      expect(getQueueLength()).toBe(1); // Still 1 item
       snapshot = manager.getQueueSnapshot();
       expect((snapshot[0] as AudioQueueItem).segments).toHaveLength(2);
 
@@ -288,10 +298,10 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-b:0',
       });
 
-      manager.start();
+      start();
       manager.advance(); // Now at V:b (index 1)
 
-      const currentBefore = manager.getCurrentItem();
+      const currentBefore = getCurrentItem();
       expect(currentBefore?.id).toBe('visual:block-b:0');
 
       // Insert audio after V:a (at index 1, which is <= currentIndex)
@@ -302,9 +312,9 @@ describe('ListenQueueManager', () => {
 
       // Queue is now: [V:a, A:a, V:b]
       // currentIndex should have been adjusted from 1 to 2
-      const currentAfter = manager.getCurrentItem();
+      const currentAfter = getCurrentItem();
       expect(currentAfter?.id).toBe('visual:block-b:0');
-      expect(manager.getQueueLength()).toBe(3);
+      expect(getQueueLength()).toBe(3);
     });
   });
 
@@ -344,7 +354,7 @@ describe('ListenQueueManager', () => {
       });
 
       // Start processing
-      manager.start();
+      start();
 
       // Should emit visual:show for first item
       expect(events).toHaveLength(1);
@@ -367,7 +377,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      manager.start();
+      start();
 
       // Should show visual in waiting mode
       expect(events).toHaveLength(1);
@@ -418,7 +428,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      manager.start();
+      start();
 
       // Should show visual in waiting mode
       expect(events).toHaveLength(1);
@@ -451,7 +461,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      manager.start();
+      start();
 
       // Advance time by 10 seconds (before timeout)
       jest.advanceTimersByTime(10000);
@@ -485,10 +495,10 @@ describe('ListenQueueManager', () => {
       const snapshot = manager.getQueueSnapshot();
       expect(snapshot[0].status).toBe('pending');
 
-      manager.start();
+      start();
 
       // Audio should enter 'waiting' state since it's not ready
-      const current = manager.getCurrentItem() as AudioQueueItem;
+      const current = getCurrentItem() as AudioQueueItem;
       expect(current.status).toBe('waiting');
 
       // Advance time past timeout
@@ -515,7 +525,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      manager.start();
+      start();
       expect(events).toHaveLength(1);
 
       // Pause
@@ -548,7 +558,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      manager.start();
+      start();
       manager.pause();
 
       expect(events).toHaveLength(1);
@@ -590,15 +600,15 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      manager.start();
+      start();
 
-      expect(manager.getQueueLength()).toBe(1);
-      expect(manager.getCurrentItem()).toBeTruthy();
+      expect(getQueueLength()).toBe(1);
+      expect(getCurrentItem()).toBeTruthy();
 
       manager.reset();
 
-      expect(manager.getQueueLength()).toBe(0);
-      expect(manager.getCurrentItem()).toBeNull();
+      expect(getQueueLength()).toBe(0);
+      expect(getCurrentItem()).toBeNull();
     });
 
     it('should preserve listeners after reset', () => {
@@ -615,7 +625,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      manager.start();
+      start();
       expect(events).toHaveLength(1);
 
       // Reset
@@ -631,7 +641,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-2:0',
       });
 
-      manager.start();
+      start();
       expect(events).toHaveLength(2);
       expect(events[1].item.id).toBe('visual:block-2:0');
     });
@@ -649,7 +659,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      manager.start();
+      start();
       expect(events).toHaveLength(1);
 
       // Destroy (clears listeners)
@@ -671,7 +681,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-2:0',
       });
 
-      manager.start();
+      start();
       // Old listener should NOT fire (was on the old manager instance)
       expect(events).toHaveLength(1);
     });
@@ -700,7 +710,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-2:0',
       });
 
-      manager.start();
+      start();
 
       const snapshot1 = manager.getQueueSnapshot();
       expect(snapshot1[0].status).toBe('playing');
@@ -726,7 +736,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      manager.start();
+      start();
       manager.advance(); // Complete first item
 
       const completedEvents = events.filter(e => e.type === 'queue:completed');
@@ -746,7 +756,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      manager.start();
+      start();
       manager.advance(); // Complete first item -> triggers completed
       manager.advance(); // Extra advance
       manager.advance(); // Extra advance
@@ -767,7 +777,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      manager.start();
+      start();
       manager.advance(); // Complete -> triggers completed
 
       expect(events).toHaveLength(1);
@@ -803,7 +813,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      manager.start();
+      start();
 
       expect(events[0].sessionId).toBe(42);
     });
@@ -818,13 +828,13 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      expect(manager.getQueueLength()).toBe(1);
+      expect(getQueueLength()).toBe(1);
 
       // Simulate session change
       sessionIdRef.current = 2;
       manager.reset();
 
-      expect(manager.getQueueLength()).toBe(0);
+      expect(getQueueLength()).toBe(0);
 
       // Enqueue new items for new session
       manager.enqueueVisual({
@@ -836,7 +846,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-2:0',
       });
 
-      expect(manager.getQueueLength()).toBe(1);
+      expect(getQueueLength()).toBe(1);
       const snapshot = manager.getQueueSnapshot();
       expect(snapshot[0].id).toBe('visual:block-2:0');
     });
@@ -856,7 +866,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      manager.start();
+      start();
 
       expect(visualShowListener).toHaveBeenCalledTimes(1);
       expect(visualShowListener).toHaveBeenCalledWith(
@@ -880,7 +890,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      manager.start();
+      start();
       expect(listener).toHaveBeenCalledTimes(1);
 
       manager.off('visual:show', listener);
@@ -895,7 +905,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-2:0',
       });
 
-      manager.start();
+      start();
       expect(listener).toHaveBeenCalledTimes(1); // Still 1, not called again
     });
   });
@@ -924,7 +934,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-2:0',
       });
 
-      manager.start();
+      start();
       expect(manager.getCurrentIndex()).toBe(0);
 
       manager.advance();
@@ -1046,7 +1056,7 @@ describe('ListenQueueManager', () => {
       });
 
       // Start normally
-      manager.start();
+      start();
       manager.advance(); // Complete first, move to second
       expect(events).toHaveLength(2);
 
@@ -1104,7 +1114,7 @@ describe('ListenQueueManager', () => {
     it('should do nothing for non-existent visual', () => {
       // Should not throw
       manager.updateVisualExpectation('nonexistent', 0, true);
-      expect(manager.getQueueLength()).toBe(0);
+      expect(getQueueLength()).toBe(0);
     });
   });
 
@@ -1174,7 +1184,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      manager.start();
+      start();
       manager.advance(); // Complete -> triggers queue:completed
 
       const completedEvents = events.filter(e => e.type === 'queue:completed');
@@ -1220,7 +1230,7 @@ describe('ListenQueueManager', () => {
         expectedAudioId: 'audio:block-1:0',
       });
 
-      manager.start();
+      start();
       manager.advance(); // Complete visual -> triggers queue:completed
 
       expect(events.filter(e => e.type === 'queue:completed')).toHaveLength(1);
@@ -1266,7 +1276,7 @@ describe('ListenQueueManager', () => {
         is_final: true,
       });
 
-      manager.start();
+      start();
 
       // visual:show should have been emitted with status 'playing' (cloned)
       expect(events.length).toBeGreaterThanOrEqual(1);

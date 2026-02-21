@@ -376,16 +376,6 @@ export class ListenQueueManager {
   // ============================================================================
 
   /**
-   * Start queue processing
-   */
-  start(): void {
-    queueLog('[Queue] Starting queue processing');
-    this.isPaused = false;
-    this.hasCompleted = false;
-    this.processQueue();
-  }
-
-  /**
    * Pause queue processing
    */
   pause(): void {
@@ -458,19 +448,8 @@ export class ListenQueueManager {
   // State Queries
   // ============================================================================
 
-  getCurrentItem(): QueueItem | null {
-    if (this.currentIndex >= 0 && this.currentIndex < this.queue.length) {
-      return this.queue[this.currentIndex];
-    }
-    return null;
-  }
-
   getCurrentIndex(): number {
     return this.currentIndex;
-  }
-
-  getQueueLength(): number {
-    return this.queue.length;
   }
 
   getQueueSnapshot(): QueueItem[] {
