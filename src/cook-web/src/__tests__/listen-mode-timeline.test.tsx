@@ -162,7 +162,7 @@ describe('useListenContentData timeline mapping', () => {
     expect(interactionQueue[1].generated_block_bid).toBe('interaction-2');
   });
 
-  it('prefers backend slides for render pages and keeps audio slide ids', () => {
+  it('uses backend slides for page mapping and keeps audio slide ids', () => {
     const content = makeContent(
       'block-backend',
       'Narration A. Narration B.',
@@ -205,9 +205,13 @@ describe('useListenContentData timeline mapping', () => {
       'block-backend',
     );
 
-    expect(result.current.slideItems).toHaveLength(2);
-    expect(result.current.slideItems[0].segments[0].value).toContain('Slide A');
-    expect(result.current.slideItems[1].segments[0].value).toContain('Slide B');
+    // Rendering is based on local parsed content. Backend slides only provide
+    // timeline/page binding and slide-id metadata.
+    expect(result.current.slideItems).toHaveLength(1);
+    expect(result.current.slideItems[0].segments[0].type).toBe('sandbox');
+    expect(String(result.current.slideItems[0].segments[0].value)).toContain(
+      '<div',
+    );
     expect(audioEntries).toHaveLength(2);
     expect(audioEntries[0].page).toBe(0);
     expect(audioEntries[0].audioSlideId).toBe('slide-0');
@@ -262,11 +266,17 @@ describe('useListenContentData timeline mapping', () => {
     expect(String(result.current.slideItems[0].segments[1].value)).toContain(
       '<svg',
     );
-    expect(audioEntries).toHaveLength(2);
+    expect(audioEntries).toHaveLength(3);
+    expect(audioEntries[0].isSilentVisual).toBeUndefined();
     expect(audioEntries[0].page).toBe(0);
-    expect(audioEntries[0].audioSlideId).toBeUndefined();
-    expect(audioEntries[1].page).toBe(1);
-    expect(audioEntries[1].audioSlideId).toBeUndefined();
+    expect(audioEntries[0].audioSlideId).toBe('slide-placeholder');
+    expect(audioEntries[1].isSilentVisual).toBeUndefined();
+    expect(audioEntries[1].page).toBe(0);
+    expect(audioEntries[1].audioSlideId).toBe('slide-empty');
+    expect(audioEntries[2].isSilentVisual).toBe(true);
+    expect(audioEntries[2].page).toBe(1);
+    expect(audioEntries[2].audioPosition).toBeUndefined();
+    expect(audioEntries[2].audioSlideId).toBeUndefined();
   });
 
   it('does not render placeholder backend slides as standalone pages', () => {
@@ -324,9 +334,11 @@ describe('useListenContentData timeline mapping', () => {
       'block-backend-mixed',
     );
 
-    expect(result.current.slideItems).toHaveLength(2);
-    expect(result.current.slideItems[0].segments[0].value).toContain('Slide A');
-    expect(result.current.slideItems[1].segments[0].value).toContain('Slide B');
+    expect(result.current.slideItems).toHaveLength(1);
+    expect(result.current.slideItems[0].segments[0].type).toBe('sandbox');
+    expect(String(result.current.slideItems[0].segments[0].value)).toContain(
+      '<div',
+    );
     expect(audioEntries).toHaveLength(3);
     expect(audioEntries[0].page).toBe(0);
     expect(audioEntries[0].audioSlideId).toBe('slide-placeholder');
@@ -388,7 +400,7 @@ describe('useListenContentData timeline mapping', () => {
     expect(audioEntries[1].audioPosition).toBe(1);
   });
 
-  it('ignores runtime slide-id binding when backend slide rendering is disabled', () => {
+  it('keeps runtime slide-id binding when backend slide rendering is disabled', () => {
     const content = makeContent(
       'block-fallback-slideid',
       '<svg><text>v1</text></svg>\nNarration A.\n<svg><text>v2</text></svg>\nNarration B.',
@@ -421,8 +433,8 @@ describe('useListenContentData timeline mapping', () => {
     );
 
     expect(audioEntries).toHaveLength(2);
-    expect(audioEntries[0].audioSlideId).toBeUndefined();
-    expect(audioEntries[1].audioSlideId).toBeUndefined();
+    expect(audioEntries[0].audioSlideId).toBe('runtime-slide-0');
+    expect(audioEntries[1].audioSlideId).toBe('runtime-slide-1');
   });
 
   it('uses av_contract speakable positions when audio payload is partial', () => {
@@ -579,12 +591,19 @@ describe('useListenContentData timeline mapping', () => {
       result.current.audioAndInteractionList,
       'block-unresolved',
     );
-    const interactionQueue = result.current.interactionByPage.get(1) || [];
+    const interactionEntries = Array.from(
+      result.current.interactionByPage.values(),
+    ).flat();
 
-    expect(audioEntries).toHaveLength(1);
-    expect(audioEntries[0].page).toBe(1);
-    expect(interactionQueue).toHaveLength(1);
-    expect(interactionQueue[0].generated_block_bid).toBe(
+    expect(audioEntries).toHaveLength(2);
+    const audibleEntry = audioEntries.find(item => !item.isSilentVisual);
+    const silentEntry = audioEntries.find(item => item.isSilentVisual);
+    expect(audibleEntry).toBeTruthy();
+    expect(audibleEntry?.page).toBe(1);
+    expect(silentEntry).toBeTruthy();
+    expect(silentEntry?.page).toBe(0);
+    expect(interactionEntries).toHaveLength(1);
+    expect(interactionEntries[0].generated_block_bid).toBe(
       'interaction-after-unresolved',
     );
   });
