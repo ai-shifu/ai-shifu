@@ -2209,7 +2209,8 @@ export const useListenAudioSequence = ({
     const timer = setTimeout(() => {
       if (isSequencePausedRef.current) return;
       const state = audioPlayerRef.current?.getPlaybackState?.();
-      if (state && !state.isPlaying && !state.isLoading && !state.isPaused) {
+      const shouldManualPlay = !state || (!state.isPlaying && !state.isLoading);
+      if (shouldManualPlay) {
         audioPlayerRef.current?.play();
       }
     }, 500);

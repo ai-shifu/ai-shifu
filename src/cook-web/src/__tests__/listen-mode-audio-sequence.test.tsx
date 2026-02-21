@@ -2009,6 +2009,89 @@ describe('useListenAudioSequence silent visual slides', () => {
       jest.useRealTimers();
     }
   });
+
+  it('triggers manual play fallback when player is paused-but-idle', () => {
+    jest.useFakeTimers();
+    try {
+      const deck: any = {
+        sync: jest.fn(),
+        layout: jest.fn(),
+        getSlides: jest.fn(() => Array.from({ length: 2 }, () => ({}))),
+        getIndices: jest.fn(() => ({ h: 0 })),
+        slide: jest.fn(),
+      };
+
+      const deckRef = { current: deck };
+      const currentPptPageRef = { current: 0 };
+      const activeBlockBidRef = { current: null as string | null };
+      const pendingAutoNextRef = { current: false };
+      const shouldStartSequenceRef = { current: false };
+
+      const contentItem: any = {
+        type: ChatContentItemType.CONTENT,
+        generated_block_bid: 'block-autoplay-fallback',
+        content: 'Autoplay fallback',
+        audios: [{ position: 0, audio_url: 'https://example.com/a.mp3' }],
+        customRenderBar: () => null,
+      };
+
+      const playMock = jest.fn();
+      const { result } = renderHook(() =>
+        useListenAudioSequence({
+          audioAndInteractionList: [
+            { ...contentItem, page: 0, audioPosition: 0 },
+          ],
+          deckRef: deckRef as any,
+          currentPptPageRef: currentPptPageRef as any,
+          activeBlockBidRef: activeBlockBidRef as any,
+          pendingAutoNextRef: pendingAutoNextRef as any,
+          shouldStartSequenceRef: shouldStartSequenceRef as any,
+          contentByBid: new Map([
+            [contentItem.generated_block_bid, contentItem],
+          ]),
+          audioContentByBid: new Map([
+            [contentItem.generated_block_bid, contentItem],
+          ]),
+          previewMode: false,
+          shouldRenderEmptyPpt: false,
+          getNextContentBid: () => null,
+          goToBlock: () => true,
+          resolveContentBid: (bid: string | null) => bid,
+          isAudioPlaying: false,
+          setIsAudioPlaying: () => undefined,
+        }),
+      );
+
+      act(() => {
+        result.current.audioPlayerRef.current = {
+          togglePlay: jest.fn(),
+          play: playMock,
+          pause: jest.fn(),
+          getPlaybackState: () => ({
+            isPlaying: false,
+            isLoading: false,
+            isWaitingForSegment: false,
+            hasAudio: true,
+            // Some players report paused=true before explicit resume.
+            // Fallback should still call play().
+            isPaused: true,
+          }),
+        };
+      });
+
+      act(() => {
+        result.current.startSequenceFromIndex(0);
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(600);
+      });
+
+      expect(playMock).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });
 
 describe('useListenPpt reset guards', () => {
