@@ -2105,6 +2105,37 @@ export const useListenAudioSequence = ({
     ],
   );
 
+  const startFromPendingResumeIndex = useCallback(
+    (
+      pendingResumeIndex: number,
+      options?: {
+        clearGrowthAnchor?: boolean;
+        markSequenceActive?: boolean;
+      },
+    ) => {
+      if (pendingResumeIndex < 0) {
+        return false;
+      }
+      if (options?.clearGrowthAnchor) {
+        pendingQueueGrowthAnchorRef.current = null;
+        clearPendingGrowthWaitTimer();
+      }
+      queueActions.startFromIndex(pendingResumeIndex);
+      shouldStartSequenceRef.current = false;
+      if (options?.markSequenceActive) {
+        setIsAudioSequenceActive(true);
+      }
+      return true;
+    },
+    [
+      clearPendingGrowthWaitTimer,
+      pendingQueueGrowthAnchorRef,
+      queueActions,
+      setIsAudioSequenceActive,
+      shouldStartSequenceRef,
+    ],
+  );
+
   // ---------------------------------------------------------------------------
   // Effects — sync list to queue, bootstrap, and cleanup
   // ---------------------------------------------------------------------------
@@ -2336,13 +2367,13 @@ export const useListenAudioSequence = ({
 
     const pendingResumeIndex = resolvePendingResumeQueueIndex();
     if (pendingQueueGrowthAnchorRef.current !== null) {
-      if (pendingResumeIndex < 0) {
+      if (
+        startFromPendingResumeIndex(pendingResumeIndex, {
+          clearGrowthAnchor: true,
+        })
+      ) {
         return;
       }
-      queueActions.startFromIndex(pendingResumeIndex);
-      pendingQueueGrowthAnchorRef.current = null;
-      clearPendingGrowthWaitTimer();
-      shouldStartSequenceRef.current = false;
       return;
     }
 
@@ -2353,9 +2384,8 @@ export const useListenAudioSequence = ({
       const hasStartAnchor =
         typeof effectiveStartAnchorIndexRef.current === 'number' &&
         effectiveStartAnchorIndexRef.current >= 0;
-      if (hasStartAnchor && pendingResumeIndex >= 0) {
-        queueActions.startFromIndex(pendingResumeIndex);
-        shouldStartSequenceRef.current = false;
+      if (hasStartAnchor) {
+        startFromPendingResumeIndex(pendingResumeIndex);
       }
       return;
     }
@@ -2374,6 +2404,7 @@ export const useListenAudioSequence = ({
     queueActions,
     resolvePendingResumeQueueIndex,
     resolvePlaybackStartIndex,
+    startFromPendingResumeIndex,
     startQueueFromListIndex,
     shouldStartSequenceRef,
   ]);
@@ -2701,12 +2732,12 @@ export const useListenAudioSequence = ({
       if (pendingAutoNextRef.current) {
         // The sequence is waiting for the next block to stream in.
         // Avoid replaying the current block while auto-next is pending.
-        if (pendingResumeIndex >= 0) {
-          pendingQueueGrowthAnchorRef.current = null;
-          clearPendingGrowthWaitTimer();
-          queueActions.startFromIndex(pendingResumeIndex);
-          shouldStartSequenceRef.current = false;
-          setIsAudioSequenceActive(true);
+        if (
+          startFromPendingResumeIndex(pendingResumeIndex, {
+            clearGrowthAnchor: true,
+            markSequenceActive: true,
+          })
+        ) {
           return;
         }
         queueActions.resume();
@@ -2717,24 +2748,24 @@ export const useListenAudioSequence = ({
         deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
       const startIndex = resolvePlaybackStartIndex(currentPage);
       if (startIndex < 0) {
-        if (pendingResumeIndex >= 0) {
-          pendingQueueGrowthAnchorRef.current = null;
-          clearPendingGrowthWaitTimer();
-          queueActions.startFromIndex(pendingResumeIndex);
-          shouldStartSequenceRef.current = false;
-          setIsAudioSequenceActive(true);
+        if (
+          startFromPendingResumeIndex(pendingResumeIndex, {
+            clearGrowthAnchor: true,
+            markSequenceActive: true,
+          })
+        ) {
           return;
         }
         queueActions.resume();
         return;
       }
       if (!startQueueFromListIndex(startIndex, { resyncOnMiss: true })) {
-        if (pendingResumeIndex >= 0) {
-          pendingQueueGrowthAnchorRef.current = null;
-          clearPendingGrowthWaitTimer();
-          queueActions.startFromIndex(pendingResumeIndex);
-          shouldStartSequenceRef.current = false;
-          setIsAudioSequenceActive(true);
+        if (
+          startFromPendingResumeIndex(pendingResumeIndex, {
+            clearGrowthAnchor: true,
+            markSequenceActive: true,
+          })
+        ) {
           return;
         }
         queueActions.resume();
@@ -2748,19 +2779,16 @@ export const useListenAudioSequence = ({
   }, [
     activeAudioBid,
     audioAndInteractionList,
-    clearPendingGrowthWaitTimer,
     currentPptPageRef,
     deckRef,
     pendingAutoNextRef,
-    pendingQueueGrowthAnchorRef,
     previewMode,
     queueActions,
     resolvePendingResumeQueueIndex,
     resolvePlaybackStartIndex,
-    setIsAudioSequenceActive,
     sequenceInteraction,
+    startFromPendingResumeIndex,
     startQueueFromListIndex,
-    shouldStartSequenceRef,
   ]);
 
   const handlePause = useCallback(
