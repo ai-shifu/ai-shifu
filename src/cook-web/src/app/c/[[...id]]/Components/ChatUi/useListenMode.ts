@@ -2489,21 +2489,21 @@ export const useListenAudioSequence = ({
       return queueTrack;
     }
 
-    const fallbackTrack = resolveListenAudioTrack(
+    const resolvedContentTrack = resolveListenAudioTrack(
       activeContentItem,
       activeAudioPosition,
     );
-    const normalizedFallbackTrack = {
-      audioUrl: fallbackTrack.audioUrl,
-      streamingSegments: fallbackTrack.audioSegments ?? [],
-      isStreaming: fallbackTrack.isAudioStreaming,
-      durationMs: fallbackTrack.audioDurationMs,
+    const normalizedResolvedContentTrack = {
+      audioUrl: resolvedContentTrack.audioUrl,
+      streamingSegments: resolvedContentTrack.audioSegments ?? [],
+      isStreaming: resolvedContentTrack.isAudioStreaming,
+      durationMs: resolvedContentTrack.audioDurationMs,
     };
-    if (hasPlayableResolvedTrack(fallbackTrack)) {
-      return normalizedFallbackTrack;
+    if (hasPlayableResolvedTrack(resolvedContentTrack)) {
+      return normalizedResolvedContentTrack;
     }
 
-    return queueTrack ?? normalizedFallbackTrack;
+    return queueTrack ?? normalizedResolvedContentTrack;
   }, [
     activeQueueAudioId,
     activeAudioBid,
@@ -2513,6 +2513,13 @@ export const useListenAudioSequence = ({
     queueActions,
   ]);
 
+  const resolvedActiveContentTrack = useMemo(() => {
+    if (!activeContentItem) {
+      return null;
+    }
+    return resolveListenAudioTrack(activeContentItem, activeAudioPosition);
+  }, [activeAudioPosition, activeContentItem]);
+
   const activeAudioDurationMs = useMemo(() => {
     if (Number.isFinite(activeAudioTrack?.durationMs)) {
       const duration = Number(activeAudioTrack?.durationMs);
@@ -2521,20 +2528,16 @@ export const useListenAudioSequence = ({
       }
     }
 
-    if (!activeContentItem) {
+    if (!resolvedActiveContentTrack) {
       return undefined;
     }
 
-    const resolvedTrack = resolveListenAudioTrack(
-      activeContentItem,
-      activeAudioPosition,
-    );
-    const explicitDuration = resolvedTrack.audioDurationMs;
+    const explicitDuration = resolvedActiveContentTrack.audioDurationMs;
     if (Number.isFinite(explicitDuration) && (explicitDuration || 0) > 0) {
       return explicitDuration;
     }
 
-    const segments = resolvedTrack.audioSegments;
+    const segments = resolvedActiveContentTrack.audioSegments;
     if (!segments || !segments.length) {
       return undefined;
     }
@@ -2550,7 +2553,7 @@ export const useListenAudioSequence = ({
       return sumDuration;
     }
     return undefined;
-  }, [activeAudioPosition, activeAudioTrack?.durationMs, activeContentItem]);
+  }, [activeAudioTrack?.durationMs, resolvedActiveContentTrack]);
 
   const audioWatchdogTimeoutMs = useMemo(
     () => resolveListenAudioWatchdogMs(activeAudioDurationMs),
