@@ -359,416 +359,402 @@ export const useListenContentData = (
     return bids;
   }, [items]);
 
-  const { slideItems, interactionByPage, audioAndInteractionList } =
-    useMemo(() => {
-      let pageCursor = 0;
-      let latestVisualPage = -1;
-      const interactionMapping = new Map<number, ChatContentItem[]>();
-      const nextSlideItems: ListenSlideItem[] = [];
-      const nextAudioAndInteractionList: AudioInteractionItem[] = [];
-      const audioUnitIndexById = new Map<string, number>();
+  const { slideItems, audioAndInteractionList } = useMemo(() => {
+    let pageCursor = 0;
+    let latestVisualPage = -1;
+    const nextSlideItems: ListenSlideItem[] = [];
+    const nextAudioAndInteractionList: AudioInteractionItem[] = [];
+    const audioUnitIndexById = new Map<string, number>();
 
-      const normalizedBackendSlides = (backendSlides || [])
-        .filter(
-          slide =>
-            Boolean(slide?.slide_id) &&
-            Boolean(slide?.generated_block_bid) &&
-            Number.isFinite(Number(slide?.slide_index)),
-        )
-        .sort((a, b) => Number(a.slide_index) - Number(b.slide_index));
-      // Backend sends NEW_SLIDE events as lightweight timeline signals without
-      // segment_content (streaming_tts.py:827-830 clears it intentionally).
-      // Therefore backend slides are used ONLY for position-to-page mapping and
-      // slide-ID binding.  Rendering always uses local parsing of the accumulated
-      // CONTENT stream (nextSlideItems).
-      const backendPageByBlockPosition = new Map<string, number>();
-      const backendSlideIdByBlockPosition = new Map<string, string>();
-      let latestRenderableBackendPage = -1;
-      normalizedBackendSlides.forEach(slide => {
-        const blockBid = slide.generated_block_bid || '';
-        const audioPosition = Number(slide.audio_position ?? 0);
-        const key = `${blockBid}:${audioPosition}`;
-        backendSlideIdByBlockPosition.set(key, slide.slide_id);
-        if (isRenderableBackendSlide(slide)) {
-          // Only visual boundary slides (iframe, svg, table, etc.) get their own
-          // page.  Text-only slides share the page of the nearest visual so that
-          // page numbering aligns with local visual-segment parsing.
-          const isVisualBoundary = Boolean(
-            slide.visual_kind &&
-            slide.visual_kind !== '' &&
-            slide.visual_kind !== 'placeholder',
-          );
-          if (isVisualBoundary) {
-            latestRenderableBackendPage += 1;
+    const normalizedBackendSlides = (backendSlides || [])
+      .filter(
+        slide =>
+          Boolean(slide?.slide_id) &&
+          Boolean(slide?.generated_block_bid) &&
+          Number.isFinite(Number(slide?.slide_index)),
+      )
+      .sort((a, b) => Number(a.slide_index) - Number(b.slide_index));
+    // Backend sends NEW_SLIDE events as lightweight timeline signals without
+    // segment_content (streaming_tts.py:827-830 clears it intentionally).
+    // Therefore backend slides are used ONLY for position-to-page mapping and
+    // slide-ID binding.  Rendering always uses local parsing of the accumulated
+    // CONTENT stream (nextSlideItems).
+    const backendPageByBlockPosition = new Map<string, number>();
+    const backendSlideIdByBlockPosition = new Map<string, string>();
+    let latestRenderableBackendPage = -1;
+    normalizedBackendSlides.forEach(slide => {
+      const blockBid = slide.generated_block_bid || '';
+      const audioPosition = Number(slide.audio_position ?? 0);
+      const key = `${blockBid}:${audioPosition}`;
+      backendSlideIdByBlockPosition.set(key, slide.slide_id);
+      if (isRenderableBackendSlide(slide)) {
+        // Only visual boundary slides (iframe, svg, table, etc.) get their own
+        // page.  Text-only slides share the page of the nearest visual so that
+        // page numbering aligns with local visual-segment parsing.
+        const isVisualBoundary = Boolean(
+          slide.visual_kind &&
+          slide.visual_kind !== '' &&
+          slide.visual_kind !== 'placeholder',
+        );
+        if (isVisualBoundary) {
+          latestRenderableBackendPage += 1;
+        }
+        backendPageByBlockPosition.set(
+          key,
+          Math.max(latestRenderableBackendPage, 0),
+        );
+        return;
+      }
+      // Non-renderable placeholder slides should not create extra pages.
+      // Anchor their audio positions to the latest renderable page when possible.
+      if (latestRenderableBackendPage >= 0) {
+        backendPageByBlockPosition.set(key, latestRenderableBackendPage);
+      }
+    });
+    let fallbackPlaceholderItem: ChatContentItem | null = null;
+    type SegmentTuple = {
+      sourceIndex: number;
+      item: ChatContentItem;
+      segments: RenderSegment[];
+      visualSegments: RenderSegment[];
+      firstVisualPage: number;
+      lastVisualPage: number;
+      pagesForAudio: number[];
+    };
+    const contentSegments: SegmentTuple[] = [];
+
+    items.forEach((item, sourceIndex) => {
+      if (item.type !== ChatContentItemType.CONTENT) {
+        return;
+      }
+
+      const segments = item.content
+        ? splitListenModeSegments(item.content || '')
+        : [];
+      const previousVisualPageBeforeBlock = latestVisualPage;
+      const visualSegments = segments.filter(isRenderableVisualSegment);
+      if (!fallbackPlaceholderItem && visualSegments.length === 0) {
+        const hasSpeakableText = segments.some(segment => {
+          if (segment.type !== 'text') {
+            return false;
           }
-          backendPageByBlockPosition.set(
-            key,
-            Math.max(latestRenderableBackendPage, 0),
-          );
+          const raw = typeof segment.value === 'string' ? segment.value : '';
+          return isListenModeSpeakableText(raw);
+        });
+        if (hasSpeakableText) {
+          fallbackPlaceholderItem = item;
+        }
+      }
+      const visualPageBySegmentIndex = new Map<number, number>();
+      let localVisualOffset = 0;
+      segments.forEach((segment, segmentIndex) => {
+        if (!isRenderableVisualSegment(segment)) {
           return;
         }
-        // Non-renderable placeholder slides should not create extra pages.
-        // Anchor their audio positions to the latest renderable page when possible.
-        if (latestRenderableBackendPage >= 0) {
-          backendPageByBlockPosition.set(key, latestRenderableBackendPage);
-        }
-      });
-      let fallbackPlaceholderItem: ChatContentItem | null = null;
-      type SegmentTuple = {
-        sourceIndex: number;
-        item: ChatContentItem;
-        segments: RenderSegment[];
-        visualSegments: RenderSegment[];
-        firstVisualPage: number;
-        lastVisualPage: number;
-        pagesForAudio: number[];
-      };
-      const contentSegments: SegmentTuple[] = [];
-
-      items.forEach((item, sourceIndex) => {
-        if (item.type !== ChatContentItemType.CONTENT) {
-          return;
-        }
-
-        const segments = item.content
-          ? splitListenModeSegments(item.content || '')
-          : [];
-        const previousVisualPageBeforeBlock = latestVisualPage;
-        const visualSegments = segments.filter(isRenderableVisualSegment);
-        if (!fallbackPlaceholderItem && visualSegments.length === 0) {
-          const hasSpeakableText = segments.some(segment => {
-            if (segment.type !== 'text') {
-              return false;
-            }
-            const raw = typeof segment.value === 'string' ? segment.value : '';
-            return isListenModeSpeakableText(raw);
-          });
-          if (hasSpeakableText) {
-            fallbackPlaceholderItem = item;
-          }
-        }
-        const visualPageBySegmentIndex = new Map<number, number>();
-        let localVisualOffset = 0;
-        segments.forEach((segment, segmentIndex) => {
-          if (!isRenderableVisualSegment(segment)) {
-            return;
-          }
-          visualPageBySegmentIndex.set(
-            segmentIndex,
-            pageCursor + localVisualOffset,
-          );
-          localVisualOffset += 1;
-        });
-
-        const firstVisualPage = visualSegments.length > 0 ? pageCursor : -1;
-        const lastVisualPage =
-          visualSegments.length > 0
-            ? pageCursor + visualSegments.length - 1
-            : latestVisualPage;
-        if (visualSegments.length > 0) {
-          nextSlideItems.push({
-            item,
-            segments: visualSegments,
-          });
-        }
-
-        const pagesForAudioLocal: number[] = [];
-        let windowHasSpeakableText = false;
-        segments.forEach((segment, segmentIndex) => {
-          if (segment.type === 'text') {
-            const raw = typeof segment.value === 'string' ? segment.value : '';
-            if (isListenModeSpeakableText(raw)) {
-              windowHasSpeakableText = true;
-            }
-            return;
-          }
-          if (!isRenderableVisualSegment(segment)) {
-            return;
-          }
-          if (windowHasSpeakableText) {
-            pagesForAudioLocal.push(latestVisualPage);
-            windowHasSpeakableText = false;
-          }
-          const pageForVisual = visualPageBySegmentIndex.get(segmentIndex);
-          if (typeof pageForVisual === 'number') {
-            latestVisualPage = pageForVisual;
-          }
-        });
-        if (windowHasSpeakableText) {
-          pagesForAudioLocal.push(latestVisualPage);
-        }
-
-        let pagesForAudio = pagesForAudioLocal;
-        const contractSpeakable = item.avContract?.speakable_segments || [];
-        const contractBoundaries = item.avContract?.visual_boundaries || [];
-        if (contractSpeakable.length > 0) {
-          const normalizedBoundaries = contractBoundaries
-            .map(boundary => {
-              const position = Number((boundary as any).position ?? -1);
-              const sourceSpan = Array.isArray((boundary as any).source_span)
-                ? ((boundary as any).source_span as number[])
-                : [];
-              const end = Number(sourceSpan[1] ?? -1);
-              if (Number.isNaN(position) || Number.isNaN(end)) {
-                return null;
-              }
-              return { position, end };
-            })
-            .filter(
-              (boundary): boundary is { position: number; end: number } =>
-                boundary !== null,
-            )
-            .sort((a, b) => a.position - b.position);
-          const contractPages: number[] = [];
-          contractSpeakable.forEach(segment => {
-            const position = Number((segment as any).position ?? -1);
-            const sourceSpan = Array.isArray((segment as any).source_span)
-              ? ((segment as any).source_span as number[])
-              : [];
-            const sourceStart = Number(sourceSpan[0] ?? -1);
-            if (Number.isNaN(position) || position < 0) {
-              return;
-            }
-            const precedingBoundary =
-              !Number.isNaN(sourceStart) && sourceStart >= 0
-                ? normalizedBoundaries
-                    .filter(boundary => boundary.end <= sourceStart)
-                    .sort((a, b) => a.end - b.end)
-                    .pop()
-                : undefined;
-            if (!precedingBoundary) {
-              contractPages[position] = previousVisualPageBeforeBlock;
-              return;
-            }
-            if (
-              precedingBoundary.position >= visualSegments.length ||
-              firstVisualPage < 0
-            ) {
-              // eslint-disable-next-line no-console
-              console.warn('[listen-timeline] boundary/slide mismatch', {
-                generated_block_bid: item.generated_block_bid,
-                boundaryPosition: precedingBoundary.position,
-                visualSlides: visualSegments.length,
-                firstVisualPage,
-              });
-              contractPages[position] = previousVisualPageBeforeBlock;
-              return;
-            }
-            contractPages[position] =
-              firstVisualPage + precedingBoundary.position;
-          });
-          if (contractPages.some(page => typeof page === 'number')) {
-            pagesForAudio = contractPages;
-          }
-        }
-
-        contentSegments.push({
-          sourceIndex,
-          item,
-          segments,
-          visualSegments,
-          firstVisualPage,
-          lastVisualPage,
-          pagesForAudio,
-        });
-
-        pageCursor += visualSegments.length;
+        visualPageBySegmentIndex.set(
+          segmentIndex,
+          pageCursor + localVisualOffset,
+        );
+        localVisualOffset += 1;
       });
 
-      // Keep at least one renderable listen slide when a chapter contains only
-      // plain text (no markdown/sandbox visual segments).
-      if (!nextSlideItems.length && fallbackPlaceholderItem) {
+      const firstVisualPage = visualSegments.length > 0 ? pageCursor : -1;
+      const lastVisualPage =
+        visualSegments.length > 0
+          ? pageCursor + visualSegments.length - 1
+          : latestVisualPage;
+      if (visualSegments.length > 0) {
         nextSlideItems.push({
-          item: fallbackPlaceholderItem,
-          segments: [{ type: 'sandbox', value: '<div></div>' }],
+          item,
+          segments: visualSegments,
         });
       }
 
-      const contentBySourceIndex = new Map<number, SegmentTuple>();
-      contentSegments.forEach(contentSegment => {
-        contentBySourceIndex.set(contentSegment.sourceIndex, contentSegment);
+      const pagesForAudioLocal: number[] = [];
+      let windowHasSpeakableText = false;
+      segments.forEach((segment, segmentIndex) => {
+        if (segment.type === 'text') {
+          const raw = typeof segment.value === 'string' ? segment.value : '';
+          if (isListenModeSpeakableText(raw)) {
+            windowHasSpeakableText = true;
+          }
+          return;
+        }
+        if (!isRenderableVisualSegment(segment)) {
+          return;
+        }
+        if (windowHasSpeakableText) {
+          pagesForAudioLocal.push(latestVisualPage);
+          windowHasSpeakableText = false;
+        }
+        const pageForVisual = visualPageBySegmentIndex.get(segmentIndex);
+        if (typeof pageForVisual === 'number') {
+          latestVisualPage = pageForVisual;
+        }
+      });
+      if (windowHasSpeakableText) {
+        pagesForAudioLocal.push(latestVisualPage);
+      }
+
+      let pagesForAudio = pagesForAudioLocal;
+      const contractSpeakable = item.avContract?.speakable_segments || [];
+      const contractBoundaries = item.avContract?.visual_boundaries || [];
+      if (contractSpeakable.length > 0) {
+        const normalizedBoundaries = contractBoundaries
+          .map(boundary => {
+            const position = Number((boundary as any).position ?? -1);
+            const sourceSpan = Array.isArray((boundary as any).source_span)
+              ? ((boundary as any).source_span as number[])
+              : [];
+            const end = Number(sourceSpan[1] ?? -1);
+            if (Number.isNaN(position) || Number.isNaN(end)) {
+              return null;
+            }
+            return { position, end };
+          })
+          .filter(
+            (boundary): boundary is { position: number; end: number } =>
+              boundary !== null,
+          )
+          .sort((a, b) => a.position - b.position);
+        const contractPages: number[] = [];
+        contractSpeakable.forEach(segment => {
+          const position = Number((segment as any).position ?? -1);
+          const sourceSpan = Array.isArray((segment as any).source_span)
+            ? ((segment as any).source_span as number[])
+            : [];
+          const sourceStart = Number(sourceSpan[0] ?? -1);
+          if (Number.isNaN(position) || position < 0) {
+            return;
+          }
+          const precedingBoundary =
+            !Number.isNaN(sourceStart) && sourceStart >= 0
+              ? normalizedBoundaries
+                  .filter(boundary => boundary.end <= sourceStart)
+                  .sort((a, b) => a.end - b.end)
+                  .pop()
+              : undefined;
+          if (!precedingBoundary) {
+            contractPages[position] = previousVisualPageBeforeBlock;
+            return;
+          }
+          if (
+            precedingBoundary.position >= visualSegments.length ||
+            firstVisualPage < 0
+          ) {
+            // eslint-disable-next-line no-console
+            console.warn('[listen-timeline] boundary/slide mismatch', {
+              generated_block_bid: item.generated_block_bid,
+              boundaryPosition: precedingBoundary.position,
+              visualSlides: visualSegments.length,
+              firstVisualPage,
+            });
+            contractPages[position] = previousVisualPageBeforeBlock;
+            return;
+          }
+          contractPages[position] =
+            firstVisualPage + precedingBoundary.position;
+        });
+        if (contractPages.some(page => typeof page === 'number')) {
+          pagesForAudio = contractPages;
+        }
+      }
+
+      contentSegments.push({
+        sourceIndex,
+        item,
+        segments,
+        visualSegments,
+        firstVisualPage,
+        lastVisualPage,
+        pagesForAudio,
       });
 
-      let activeTimelinePage = -1;
-      items.forEach((item, sourceIndex) => {
-        if (item.type === ChatContentItemType.CONTENT) {
-          const contentSegment = contentBySourceIndex.get(sourceIndex);
-          if (!contentSegment) {
-            return;
-          }
-          const {
-            item: contentItem,
-            pagesForAudio,
-            firstVisualPage,
-            lastVisualPage,
-          } = contentSegment;
+      pageCursor += visualSegments.length;
+    });
 
-          if (firstVisualPage >= 0) {
-            activeTimelinePage = firstVisualPage;
-          }
-          if (!hasAnyAudioPayload(contentItem)) {
-            // Show visual segments as silent-visual entries.
-            // Two scenarios reach here:
-            // 1. avContract present with empty speakable_segments → truly no audio
-            // 2. avContract not yet received (still streaming) → provisionally
-            //    silent; when the avContract arrives the list rebuilds via
-            //    LIST_UPDATED and these entries will be replaced by audio entries.
-            if (firstVisualPage >= 0 && lastVisualPage >= 0) {
-              for (
-                let vPage = firstVisualPage;
-                vPage <= lastVisualPage;
-                vPage++
-              ) {
-                nextAudioAndInteractionList.push({
-                  ...contentItem,
-                  page: vPage,
-                  isSilentVisual: true,
-                });
-              }
-              activeTimelinePage = lastVisualPage;
-            } else if (normalizedBackendSlides.length > 0) {
-              const backendPagesForBlock = normalizedBackendSlides
-                .filter(
-                  slide =>
-                    slide.generated_block_bid ===
-                    contentItem.generated_block_bid,
-                )
-                .map(slide =>
-                  backendPageByBlockPosition.get(
-                    `${slide.generated_block_bid}:${Number(slide.audio_position ?? 0)}`,
-                  ),
-                )
-                .filter((page): page is number => typeof page === 'number');
-              if (backendPagesForBlock.length > 0) {
-                activeTimelinePage =
-                  backendPagesForBlock[backendPagesForBlock.length - 1];
-              }
-            } else if (lastVisualPage >= 0) {
-              activeTimelinePage = lastVisualPage;
-            }
-            return;
-          }
+    // Keep at least one renderable listen slide when a chapter contains only
+    // plain text (no markdown/sandbox visual segments).
+    if (!nextSlideItems.length && fallbackPlaceholderItem) {
+      nextSlideItems.push({
+        item: fallbackPlaceholderItem,
+        segments: [{ type: 'sandbox', value: '<div></div>' }],
+      });
+    }
 
-          const availablePositions = extractAudioPositions(contentItem);
-          const hasMultiplePositions =
-            availablePositions.length > 1 ||
-            availablePositions.some(position => position > 0);
-          const positions = hasMultiplePositions
-            ? availablePositions.length
-              ? availablePositions
-              : [0]
-            : [0];
+    const contentBySourceIndex = new Map<number, SegmentTuple>();
+    contentSegments.forEach(contentSegment => {
+      contentBySourceIndex.set(contentSegment.sourceIndex, contentSegment);
+    });
 
-          const fallbackPage =
-            // When a position cannot be mapped to a concrete slide, anchor it to
-            // the latest visual page of the current block so downstream
-            // interactions stay on the page the learner most recently sees.
-            (lastVisualPage >= 0 ? lastVisualPage : null) ??
-            (firstVisualPage >= 0 ? firstVisualPage : null) ??
-            (activeTimelinePage >= 0 ? activeTimelinePage : null) ??
-            0;
+    let activeTimelinePage = -1;
+    items.forEach((item, sourceIndex) => {
+      if (item.type === ChatContentItemType.CONTENT) {
+        const contentSegment = contentBySourceIndex.get(sourceIndex);
+        if (!contentSegment) {
+          return;
+        }
+        const {
+          item: contentItem,
+          pagesForAudio,
+          firstVisualPage,
+          lastVisualPage,
+        } = contentSegment;
 
-          const coveredPages = new Set<number>();
-          positions.forEach(position => {
-            const mappedPage = pagesForAudio[position];
-            const backendPage = backendPageByBlockPosition.get(
-              `${contentItem.generated_block_bid}:${position}`,
-            );
-            const resolvedPage =
-              typeof backendPage === 'number' && backendPage >= 0
-                ? backendPage
-                : typeof mappedPage === 'number' && mappedPage >= 0
-                  ? mappedPage
-                  : fallbackPage;
-            coveredPages.add(resolvedPage);
-            const audioSlideId =
-              contentItem.audioSlideIdByPosition?.[position] ||
-              backendSlideIdByBlockPosition.get(
-                `${contentItem.generated_block_bid}:${position}`,
-              );
-            const timelineItem: AudioInteractionItem = {
-              ...contentItem,
-              page: resolvedPage,
-              audioPosition: hasMultiplePositions ? position : undefined,
-              audioSlideId,
-            };
-            const unitId = buildListenUnitId({
-              type: ChatContentItemType.CONTENT,
-              generatedBlockBid: contentItem.generated_block_bid,
-              position,
-              slideId: audioSlideId,
-              fallbackIndex: sourceIndex,
-            });
-            const existingIndex = audioUnitIndexById.get(unitId);
-            if (existingIndex !== undefined) {
-              // Late-arriving audio/metadata updates for the same unit should patch
-              // the existing queue slot rather than append a duplicate.
-              nextAudioAndInteractionList[existingIndex] = timelineItem;
-            } else {
-              audioUnitIndexById.set(
-                unitId,
-                nextAudioAndInteractionList.length,
-              );
-              nextAudioAndInteractionList.push(timelineItem);
-            }
-            activeTimelinePage = resolvedPage;
-          });
-
-          // Enqueue visual pages that have no associated audio as silent visuals.
-          // This covers visual boundaries (e.g. tables, images) at the end of a
-          // block where the backend produced no speakable segment after them.
+        if (firstVisualPage >= 0) {
+          activeTimelinePage = firstVisualPage;
+        }
+        if (!hasAnyAudioPayload(contentItem)) {
+          // Show visual segments as silent-visual entries.
+          // Two scenarios reach here:
+          // 1. avContract present with empty speakable_segments → truly no audio
+          // 2. avContract not yet received (still streaming) → provisionally
+          //    silent; when the avContract arrives the list rebuilds via
+          //    LIST_UPDATED and these entries will be replaced by audio entries.
           if (firstVisualPage >= 0 && lastVisualPage >= 0) {
             for (
               let vPage = firstVisualPage;
               vPage <= lastVisualPage;
               vPage++
             ) {
-              if (!coveredPages.has(vPage)) {
-                nextAudioAndInteractionList.push({
-                  ...contentItem,
-                  page: vPage,
-                  isSilentVisual: true,
-                });
-                activeTimelinePage = vPage;
-              }
-            }
-          }
-
-          pagesForAudio.forEach((mappedPage, mappedPosition) => {
-            if (mappedPage < 0) {
-              return;
-            }
-            if (!positions.includes(mappedPosition)) {
-              // eslint-disable-next-line no-console
-              console.warn('[listen-timeline] slide exists but no position', {
-                generated_block_bid: contentItem.generated_block_bid,
-                position: mappedPosition,
-                mappedPage,
+              nextAudioAndInteractionList.push({
+                ...contentItem,
+                page: vPage,
+                isSilentVisual: true,
               });
             }
+            activeTimelinePage = lastVisualPage;
+          } else if (normalizedBackendSlides.length > 0) {
+            const backendPagesForBlock = normalizedBackendSlides
+              .filter(
+                slide =>
+                  slide.generated_block_bid === contentItem.generated_block_bid,
+              )
+              .map(slide =>
+                backendPageByBlockPosition.get(
+                  `${slide.generated_block_bid}:${Number(slide.audio_position ?? 0)}`,
+                ),
+              )
+              .filter((page): page is number => typeof page === 'number');
+            if (backendPagesForBlock.length > 0) {
+              activeTimelinePage =
+                backendPagesForBlock[backendPagesForBlock.length - 1];
+            }
+          } else if (lastVisualPage >= 0) {
+            activeTimelinePage = lastVisualPage;
+          }
+          return;
+        }
+
+        const availablePositions = extractAudioPositions(contentItem);
+        const hasMultiplePositions =
+          availablePositions.length > 1 ||
+          availablePositions.some(position => position > 0);
+        const positions = hasMultiplePositions
+          ? availablePositions.length
+            ? availablePositions
+            : [0]
+          : [0];
+
+        const fallbackPage =
+          // When a position cannot be mapped to a concrete slide, anchor it to
+          // the latest visual page of the current block so downstream
+          // interactions stay on the page the learner most recently sees.
+          (lastVisualPage >= 0 ? lastVisualPage : null) ??
+          (firstVisualPage >= 0 ? firstVisualPage : null) ??
+          (activeTimelinePage >= 0 ? activeTimelinePage : null) ??
+          0;
+
+        const coveredPages = new Set<number>();
+        positions.forEach(position => {
+          const mappedPage = pagesForAudio[position];
+          const backendPage = backendPageByBlockPosition.get(
+            `${contentItem.generated_block_bid}:${position}`,
+          );
+          const resolvedPage =
+            typeof backendPage === 'number' && backendPage >= 0
+              ? backendPage
+              : typeof mappedPage === 'number' && mappedPage >= 0
+                ? mappedPage
+                : fallbackPage;
+          coveredPages.add(resolvedPage);
+          const audioSlideId =
+            contentItem.audioSlideIdByPosition?.[position] ||
+            backendSlideIdByBlockPosition.get(
+              `${contentItem.generated_block_bid}:${position}`,
+            );
+          const timelineItem: AudioInteractionItem = {
+            ...contentItem,
+            page: resolvedPage,
+            audioPosition: hasMultiplePositions ? position : undefined,
+            audioSlideId,
+          };
+          const unitId = buildListenUnitId({
+            type: ChatContentItemType.CONTENT,
+            generatedBlockBid: contentItem.generated_block_bid,
+            position,
+            slideId: audioSlideId,
+            fallbackIndex: sourceIndex,
           });
-          return;
-        }
-
-        if (item.type !== ChatContentItemType.INTERACTION) {
-          return;
-        }
-        const interactionPage =
-          activeTimelinePage >= 0 ? activeTimelinePage : 0;
-        const queue = interactionMapping.get(interactionPage) || [];
-        interactionMapping.set(interactionPage, [...queue, item]);
-        nextAudioAndInteractionList.push({
-          ...item,
-          page: interactionPage,
+          const existingIndex = audioUnitIndexById.get(unitId);
+          if (existingIndex !== undefined) {
+            // Late-arriving audio/metadata updates for the same unit should patch
+            // the existing queue slot rather than append a duplicate.
+            nextAudioAndInteractionList[existingIndex] = timelineItem;
+          } else {
+            audioUnitIndexById.set(unitId, nextAudioAndInteractionList.length);
+            nextAudioAndInteractionList.push(timelineItem);
+          }
+          activeTimelinePage = resolvedPage;
         });
-      });
 
-      return {
-        slideItems: nextSlideItems,
-        interactionByPage: interactionMapping,
-        audioAndInteractionList: nextAudioAndInteractionList,
-      };
-    }, [backendSlides, items]);
+        // Enqueue visual pages that have no associated audio as silent visuals.
+        // This covers visual boundaries (e.g. tables, images) at the end of a
+        // block where the backend produced no speakable segment after them.
+        if (firstVisualPage >= 0 && lastVisualPage >= 0) {
+          for (let vPage = firstVisualPage; vPage <= lastVisualPage; vPage++) {
+            if (!coveredPages.has(vPage)) {
+              nextAudioAndInteractionList.push({
+                ...contentItem,
+                page: vPage,
+                isSilentVisual: true,
+              });
+              activeTimelinePage = vPage;
+            }
+          }
+        }
+
+        pagesForAudio.forEach((mappedPage, mappedPosition) => {
+          if (mappedPage < 0) {
+            return;
+          }
+          if (!positions.includes(mappedPosition)) {
+            // eslint-disable-next-line no-console
+            console.warn('[listen-timeline] slide exists but no position', {
+              generated_block_bid: contentItem.generated_block_bid,
+              position: mappedPosition,
+              mappedPage,
+            });
+          }
+        });
+        return;
+      }
+
+      if (item.type !== ChatContentItemType.INTERACTION) {
+        return;
+      }
+      const interactionPage = activeTimelinePage >= 0 ? activeTimelinePage : 0;
+      nextAudioAndInteractionList.push({
+        ...item,
+        page: interactionPage,
+      });
+    });
+
+    return {
+      slideItems: nextSlideItems,
+      audioAndInteractionList: nextAudioAndInteractionList,
+    };
+  }, [backendSlides, items]);
 
   const contentByBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();
@@ -817,7 +803,6 @@ export const useListenContentData = (
   return {
     orderedContentBlockBids,
     slideItems,
-    interactionByPage,
     audioAndInteractionList,
     contentByBid,
     audioContentByBid,

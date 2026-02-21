@@ -4,6 +4,7 @@ import { fireEvent, render } from '@testing-library/react';
 const goNextMock = jest.fn(() => 2);
 const startSequenceFromPageMock = jest.fn();
 const startSequenceFromIndexMock = jest.fn();
+const NEXT_BUTTON_LABEL = 'next';
 const sequenceState: { isAudioSequenceActive: boolean } = {
   isAudioSequenceActive: true,
 };
@@ -24,7 +25,7 @@ jest.mock('@/app/c/[[...id]]/Components/ChatUi/ListenPlayer', () => {
         data-testid='listen-next'
         onClick={props.onNext}
       >
-        next
+        {NEXT_BUTTON_LABEL}
       </button>
     );
   };
@@ -46,7 +47,6 @@ jest.mock('@/app/c/[[...id]]/Components/ChatUi/useListenMode', () => ({
   useListenContentData: () => ({
     orderedContentBlockBids: [],
     slideItems: [],
-    interactionByPage: new Map(),
     audioAndInteractionList: [
       {
         type: 'content',

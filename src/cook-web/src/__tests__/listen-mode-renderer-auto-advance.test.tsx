@@ -35,7 +35,6 @@ jest.mock('@/app/c/[[...id]]/Components/ChatUi/useListenMode', () => ({
   useListenContentData: () => ({
     orderedContentBlockBids: [],
     slideItems: [],
-    interactionByPage: new Map(),
     audioAndInteractionList: [],
     contentByBid: new Map(),
     audioContentByBid: new Map(),

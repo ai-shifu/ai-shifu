@@ -155,7 +155,9 @@ describe('useListenContentData timeline mapping', () => {
       makeInteraction('interaction-2', '?[Two//two]'),
     ];
     const { result } = renderHook(() => useListenContentData(items));
-    const interactionQueue = result.current.interactionByPage.get(0) || [];
+    const interactionQueue = result.current.audioAndInteractionList.filter(
+      item => item.type === ChatContentItemType.INTERACTION && item.page === 0,
+    );
 
     expect(interactionQueue).toHaveLength(2);
     expect(interactionQueue[0].generated_block_bid).toBe('interaction-1');
@@ -591,9 +593,9 @@ describe('useListenContentData timeline mapping', () => {
       result.current.audioAndInteractionList,
       'block-unresolved',
     );
-    const interactionEntries = Array.from(
-      result.current.interactionByPage.values(),
-    ).flat();
+    const interactionEntries = result.current.audioAndInteractionList.filter(
+      item => item.type === ChatContentItemType.INTERACTION,
+    );
 
     expect(audioEntries).toHaveLength(2);
     const audibleEntry = audioEntries.find(item => !item.isSilentVisual);
