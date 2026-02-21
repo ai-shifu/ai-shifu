@@ -50,8 +50,79 @@ const MARKDOWN_IMAGE_PATTERN = /!\[[^\]]*]\([^)]+\)/;
 const MERMAID_CODE_FENCE_PATTERN = /```[\t ]*mermaid\b/i;
 const RUNTIME_EMPTY_SVG_CONTAINER_SELECTOR = '.content-render-svg';
 const RUNTIME_VISUAL_CONTENT_SELECTOR = 'svg,table,img,video,canvas,.mermaid';
+const RUNTIME_SANDBOX_IFRAME_SELECTOR =
+  '.content-render-iframe-sandbox > iframe';
+const RUNTIME_SANDBOX_CONTAINER_SELECTOR = '.sandbox-container';
+const RUNTIME_SANDBOX_VISUAL_CONTENT_SELECTOR =
+  'svg,table,img,video,canvas,.mermaid,iframe[src],iframe[srcdoc],iframe[data-url],iframe[data-tag],object,embed';
 const RUNTIME_PRUNED_SLIDE_CLASS = 'listen-runtime-pruned-slide';
 const RUNTIME_PRUNED_SLIDE_ATTR = 'data-runtime-pruned';
+
+const normalizeRuntimeTextContent = (
+  value: string | null | undefined,
+): string =>
+  (value || '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const isRuntimePrunableSandboxIframe = (
+  iframe: HTMLIFrameElement,
+): boolean | null => {
+  const iframeDocument = iframe.contentDocument;
+  if (!iframeDocument) {
+    return null;
+  }
+
+  const sandboxContainer = iframeDocument.querySelector(
+    RUNTIME_SANDBOX_CONTAINER_SELECTOR,
+  );
+  if (
+    typeof HTMLElement === 'undefined' ||
+    !(sandboxContainer instanceof HTMLElement)
+  ) {
+    return null;
+  }
+
+  if (sandboxContainer.querySelector(RUNTIME_SANDBOX_VISUAL_CONTENT_SELECTOR)) {
+    return false;
+  }
+
+  if (normalizeRuntimeTextContent(sandboxContainer.textContent).length > 0) {
+    return false;
+  }
+
+  const hasRenderableElement = Array.from(sandboxContainer.childNodes).some(
+    node => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return normalizeRuntimeTextContent(node.textContent).length > 0;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        return false;
+      }
+      if (!(node instanceof HTMLElement)) {
+        return false;
+      }
+      if (node.tagName.toLowerCase() === 'br') {
+        return false;
+      }
+      if (node instanceof HTMLIFrameElement) {
+        return Boolean(
+          node.getAttribute('src') ||
+          node.getAttribute('srcdoc') ||
+          node.getAttribute('data-url') ||
+          node.getAttribute('data-tag'),
+        );
+      }
+      return (
+        normalizeRuntimeTextContent(node.textContent).length > 0 ||
+        node.childElementCount > 0
+      );
+    },
+  );
+
+  return !hasRenderableElement;
+};
 
 const isRenderableVisualSegment = (segment: RenderSegment): boolean => {
   if (segment.type !== 'markdown' && segment.type !== 'sandbox') {
@@ -94,31 +165,46 @@ const isRenderableVisualSegment = (segment: RenderSegment): boolean => {
 const isRuntimePrunableVisualSlide = (slide: unknown): boolean => {
   if (
     !slide ||
-    typeof (slide as { querySelector?: unknown }).querySelector !== 'function'
+    typeof HTMLElement === 'undefined' ||
+    !(slide instanceof HTMLElement)
   ) {
     return false;
   }
-  const querySelector = (selector: string): Element | null =>
-    (
-      slide as {
-        querySelector: (candidateSelector: string) => Element | null;
+
+  const sandboxIframes = Array.from(
+    slide.querySelectorAll(RUNTIME_SANDBOX_IFRAME_SELECTOR),
+  );
+  if (sandboxIframes.length > 0) {
+    let inspectedSandboxIframe = 0;
+    for (const node of sandboxIframes) {
+      if (!(node instanceof HTMLIFrameElement)) {
+        continue;
       }
-    ).querySelector(selector);
+      const isPrunableSandbox = isRuntimePrunableSandboxIframe(node);
+      if (isPrunableSandbox === null) {
+        continue;
+      }
+      inspectedSandboxIframe += 1;
+      if (!isPrunableSandbox) {
+        return false;
+      }
+    }
+    if (inspectedSandboxIframe > 0) {
+      return true;
+    }
+  }
+
   const hasEmptySvgContainer = Boolean(
-    querySelector(RUNTIME_EMPTY_SVG_CONTAINER_SELECTOR),
+    slide.querySelector(RUNTIME_EMPTY_SVG_CONTAINER_SELECTOR),
   );
   if (!hasEmptySvgContainer) {
     return false;
   }
 
-  if (querySelector(RUNTIME_VISUAL_CONTENT_SELECTOR)) {
+  if (slide.querySelector(RUNTIME_VISUAL_CONTENT_SELECTOR)) {
     return false;
   }
-  const textContent = (
-    (slide as { textContent?: string | null }).textContent || ''
-  )
-    .replace(/\u00a0/g, ' ')
-    .trim();
+  const textContent = normalizeRuntimeTextContent(slide.textContent);
   if (textContent.length > 0) {
     return false;
   }

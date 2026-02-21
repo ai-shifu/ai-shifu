@@ -25,6 +25,21 @@ const extractFirstSvg = (raw: string) => {
   return match[0];
 };
 
+const parseStableSvgFromHtml = (raw: string): string | null => {
+  if (!raw || typeof window === 'undefined' || !window.DOMParser) {
+    return null;
+  }
+  try {
+    const parser = new window.DOMParser();
+    const doc = parser.parseFromString(raw, 'text/html');
+    doc.querySelectorAll('script').forEach(node => node.remove());
+    const svgEl = doc.querySelector('svg');
+    return svgEl ? svgEl.outerHTML : null;
+  } catch {
+    return null;
+  }
+};
+
 const StableSvgSlide = ({ raw }: { raw: string }) => {
   const svgCandidate = useMemo(() => extractFirstSvg(raw) ?? raw, [raw]);
   const [stableSvgHtml, setStableSvgHtml] = useState('');
@@ -37,21 +52,11 @@ const StableSvgSlide = ({ raw }: { raw: string }) => {
       return;
     }
 
-    // Parse with the HTML parser to be tolerant to partial SVG (streaming).
+    // Parse with DOMParser to tolerate streaming/partial SVG safely.
     // If parsing fails, keep the last stable SVG to avoid flicker/blank flashes.
-    try {
-      const template = window.document.createElement('template');
-      template.innerHTML = svgCandidate;
-      template.content
-        .querySelectorAll('script')
-        .forEach(node => node.remove());
-      const svgEl = template.content.querySelector('svg');
-      if (!svgEl) {
-        return;
-      }
-      setStableSvgHtml(svgEl.outerHTML);
-    } catch {
-      // Keep last stable SVG
+    const nextStableSvg = parseStableSvgFromHtml(svgCandidate);
+    if (nextStableSvg) {
+      setStableSvgHtml(nextStableSvg);
     }
   }, [svgCandidate]);
 
