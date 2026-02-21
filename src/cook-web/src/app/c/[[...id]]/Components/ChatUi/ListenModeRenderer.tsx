@@ -310,32 +310,34 @@ const ListenModeRenderer = ({
     });
   }, [items]);
 
-  const audioList = useMemo(
-    () =>
-      audioAndInteractionList.flatMap(item =>
-        item.type === ChatContentItemType.CONTENT ? [item] : [],
-      ),
-    [audioAndInteractionList],
-  );
+  const { audioContentSequence, pagesWithAudio, hasAudioTimeline } =
+    useMemo(() => {
+      const sequence: Array<{
+        item: ChatContentItem & { page: number; audioPosition?: number };
+        index: number;
+      }> = [];
+      const pages = new Set<number>();
 
-  const audioContentSequence = useMemo(
-    () =>
-      audioAndInteractionList.flatMap((item, index) =>
-        item.type === ChatContentItemType.CONTENT ? [{ item, index }] : [],
-      ),
-    [audioAndInteractionList],
-  );
+      audioAndInteractionList.forEach((item, index) => {
+        if (item.type !== ChatContentItemType.CONTENT) {
+          return;
+        }
+        sequence.push({
+          item: item as ChatContentItem & {
+            page: number;
+            audioPosition?: number;
+          },
+          index,
+        });
+        pages.add(item.page);
+      });
 
-  const pagesWithAudio = useMemo(() => {
-    const pages = new Set<number>();
-    audioAndInteractionList.forEach(item => {
-      if (item.type !== ChatContentItemType.CONTENT) {
-        return;
-      }
-      pages.add(item.page);
-    });
-    return pages;
-  }, [audioAndInteractionList]);
+      return {
+        audioContentSequence: sequence,
+        pagesWithAudio: pages,
+        hasAudioTimeline: sequence.length > 0,
+      };
+    }, [audioAndInteractionList]);
 
   const resolveAudioSequenceIndexByDirection = useCallback(
     (page: number, direction: -1 | 1) => {
@@ -616,7 +618,7 @@ const ListenModeRenderer = ({
           ) : null}
         </div>
       </div>
-      {audioList.length ? (
+      {hasAudioTimeline ? (
         <div className={cn('listen-audio-controls', 'hidden')}>
           <AudioPlayer
             ref={audioPlayerRef}

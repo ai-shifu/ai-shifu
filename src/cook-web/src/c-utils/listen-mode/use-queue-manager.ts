@@ -80,19 +80,20 @@ export function useQueueManager(
   const sessionIdRef = useRef(1);
   const queueManagerRef = useRef<ListenQueueManager | null>(null);
 
-  // Initialize queue manager (only once)
+  // Initialize queue manager and ensure timers/listeners are cleaned on unmount.
   useEffect(() => {
-    if (!queueManagerRef.current) {
-      queueManagerRef.current = new ListenQueueManager({
-        audioWaitTimeout,
-        silentVisualDuration,
-        sessionIdRef,
-      });
-    }
+    const manager = new ListenQueueManager({
+      audioWaitTimeout,
+      silentVisualDuration,
+      sessionIdRef,
+    });
+    queueManagerRef.current = manager;
 
     return () => {
-      // Note: Do not reset the queue here. Reset should only be called explicitly
-      // (e.g., when user clicks reset button or sequence ends).
+      manager.destroy();
+      if (queueManagerRef.current === manager) {
+        queueManagerRef.current = null;
+      }
     };
   }, [audioWaitTimeout, silentVisualDuration]);
 
@@ -145,6 +146,8 @@ export function useQueueManager(
     onInteractionShow,
     onQueueCompleted,
     onQueueError,
+    audioWaitTimeout,
+    silentVisualDuration,
   ]);
 
   // Increment session ID helper

@@ -13,6 +13,7 @@ import {
 } from '@/c-utils/listen-orchestrator';
 import type { ListenSlideData } from '@/c-api/studyV2';
 import {
+  FIXED_MARKER_PATTERN,
   hasAnyAudioPayload,
   isListenModeSpeakableText,
   resolveListenAudioTrack,
@@ -40,7 +41,6 @@ const isRenderableBackendSlide = (slide: ListenSlideData): boolean => {
 
 const EMPTY_SANDBOX_WRAPPER_PATTERN =
   /^<div(?:\s+[^>]*)?>\s*(?:<br\s*\/?>|&nbsp;|\s)*<\/div>$/i;
-const FIXED_MARKER_PATTERN = /^!?=+$/;
 const EMPTY_SVG_PATTERN = /^<svg\b[^>]*>\s*(?:<!--[\s\S]*?-->\s*)*<\/svg>$/i;
 const EMPTY_WRAPPED_SVG_PATTERN =
   /^<div(?:\s+[^>]*)?>\s*<svg\b[^>]*>\s*(?:<!--[\s\S]*?-->\s*)*<\/svg>\s*<\/div>$/i;
