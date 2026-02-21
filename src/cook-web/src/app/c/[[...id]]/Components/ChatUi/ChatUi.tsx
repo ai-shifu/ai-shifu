@@ -32,6 +32,9 @@ export const ChatUi = ({
   isNavOpen = false,
 }) => {
   const { t } = useTranslation();
+  const listenModeLabel = t('module.chat.listenModeLabel', 'Listen');
+  const readModeLabel = t('module.chat.readModeLabel', 'Read');
+  const poweredBySeparator = t('module.chat.poweredBySeparator', '|');
   const { frameLayout } = useUiLayoutStore(state => state);
   const {
     previewMode,
@@ -78,7 +81,7 @@ export const ChatUi = ({
                     size={16}
                     strokeWidth={2}
                   />
-                  <span>{t('module.chat.listenModeLabel')}</span>
+                  <span>{listenModeLabel}</span>
                 </button>
                 <button
                   type='button'
@@ -92,7 +95,7 @@ export const ChatUi = ({
                     size={16}
                     strokeWidth={2}
                   />
-                  <span>{t('module.chat.readModeLabel')}</span>
+                  <span>{readModeLabel}</span>
                 </button>
               </div>
             ) : null}
@@ -136,9 +139,7 @@ export const ChatUi = ({
           <span className={styles.footerText}>
             {t('module.chat.aiGenerated')}
           </span>
-          <span className={styles.separator}>
-            {t('module.chat.poweredBySeparator')}
-          </span>
+          <span className={styles.separator}>{poweredBySeparator}</span>
           <span className={styles.footerText}>
             <MarkdownFlowLink
               prefix={t('module.chat.poweredByPrefix')}
