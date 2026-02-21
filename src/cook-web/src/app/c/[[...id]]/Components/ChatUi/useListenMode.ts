@@ -195,6 +195,12 @@ const isRuntimePrunableVisualSlide = (slide: unknown): boolean => {
     }
   }
 
+  // Some renderer edge-cases may emit an empty <section> with no iframe/text.
+  // Treat these as runtime-prunable blank pages to keep reveal navigation stable.
+  if (slide.childElementCount === 0) {
+    return normalizeRuntimeTextContent(slide.textContent).length === 0;
+  }
+
   const hasEmptySvgContainer = Boolean(
     slide.querySelector(RUNTIME_EMPTY_SVG_CONTAINER_SELECTOR),
   );
@@ -251,7 +257,10 @@ const buildRuntimePageRemap = (slides: unknown[]): Map<number, number> => {
   });
 
   if (!playablePages.length) {
-    slides.forEach((_, page) => {
+    // Keep at least one visible slide when runtime content is still streaming.
+    // Otherwise Reveal can get stuck showing a fully pruned deck.
+    slides.forEach((slide, page) => {
+      applyRuntimePrunedSlideState(slide, false);
       remap.set(page, page);
     });
     return remap;
