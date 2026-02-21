@@ -13,6 +13,22 @@ import { useSystemStore } from '@/c-store/useSystemStore';
 import { useUiLayoutStore } from '@/c-store';
 import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
 
+interface ChatUiProps {
+  chapterId: string;
+  lessonId: string;
+  lessonUpdate?: (params: Record<string, any>) => void;
+  onGoChapter?: (params?: Record<string, any>) => void;
+  onPurchased?: () => void;
+  lessonTitle?: string;
+  showUserSettings?: boolean;
+  userSettingBasicInfo?: boolean;
+  onUserSettingsClose?: () => void;
+  chapterUpdate?: (params: Record<string, any>) => void;
+  updateSelectedLesson: (lessonId: string, forceExpand?: boolean) => void;
+  getNextLessonId: (lessonId?: string | null) => string | null;
+  isNavOpen?: boolean;
+}
+
 /**
  * Overall canvas for the chat area
  */
@@ -30,7 +46,7 @@ export const ChatUi = ({
   updateSelectedLesson,
   getNextLessonId,
   isNavOpen = false,
-}) => {
+}: ChatUiProps) => {
   const { t } = useTranslation();
   const listenModeLabel = t('module.chat.listenModeLabel', 'Listen');
   const readModeLabel = t('module.chat.readModeLabel', 'Read');

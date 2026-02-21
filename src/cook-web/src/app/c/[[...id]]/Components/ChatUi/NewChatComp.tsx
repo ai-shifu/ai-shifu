@@ -40,6 +40,20 @@ import {
 } from '@/components/ui/Dialog';
 import { useSystemStore } from '@/c-store/useSystemStore';
 
+interface NewChatComponentsProps {
+  className?: string;
+  lessonUpdate?: (params: Record<string, any>) => void;
+  onGoChapter?: (params?: Record<string, any>) => void;
+  chapterId: string;
+  lessonId: string;
+  lessonTitle?: string;
+  onPurchased?: () => void;
+  chapterUpdate?: (params: Record<string, any>) => void;
+  updateSelectedLesson: (lessonId: string, forceExpand?: boolean) => void;
+  getNextLessonId: (lessonId?: string | null) => string | null;
+  previewMode?: boolean;
+}
+
 export const NewChatComponents = ({
   className,
   lessonUpdate,
@@ -52,7 +66,7 @@ export const NewChatComponents = ({
   updateSelectedLesson,
   getNextLessonId,
   previewMode = false,
-}) => {
+}: NewChatComponentsProps) => {
   const { trackEvent, trackTrailProgress } = useTracking();
   const { t } = useTranslation();
   const confirmButtonText = t('module.renderUi.core.confirm');
