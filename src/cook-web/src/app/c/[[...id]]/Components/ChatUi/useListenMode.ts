@@ -1286,7 +1286,6 @@ export const useListenAudioSequence = ({
   const audioSequenceTokenRef = useRef(0);
   const setIsAudioPlayingRef = useRef(setIsAudioPlaying);
   setIsAudioPlayingRef.current = setIsAudioPlaying;
-  const bootstrapDrivenCycleRef = useRef(false);
   const hasObservedPlaybackRef = useRef(false);
   const isSequencePausedRef = useRef(false);
   // Track the last synced list length to detect new items for queue sync
@@ -1752,11 +1751,9 @@ export const useListenAudioSequence = ({
     shouldStartSequenceRef.current = false;
     clearPendingGrowthWaitTimer();
     lastAdvanceCauseRef.current = 'other';
-    bootstrapDrivenCycleRef.current = false;
   }, [
     activeBlockBidRef,
     audioAndInteractionList.length,
-    bootstrapDrivenCycleRef,
     clearPendingGrowthWaitTimer,
     effectiveStartAnchorIndexRef,
     lastAdvanceCauseRef,
@@ -2310,14 +2307,12 @@ export const useListenAudioSequence = ({
       effectiveStartAnchorIndexRef.current = null;
       pendingQueueGrowthAnchorRef.current = null;
       clearPendingGrowthWaitTimer();
-      bootstrapDrivenCycleRef.current = false;
       endSequence();
     }, 800);
     return () => clearTimeout(timer);
   }, [
     audioAndInteractionList.length,
     endSequence,
-    bootstrapDrivenCycleRef,
     clearPendingGrowthWaitTimer,
     effectiveStartAnchorIndexRef,
     pendingQueueGrowthAnchorRef,
@@ -2347,7 +2342,6 @@ export const useListenAudioSequence = ({
       pendingQueueGrowthAnchorRef.current = null;
       clearPendingGrowthWaitTimer();
       shouldStartSequenceRef.current = false;
-      bootstrapDrivenCycleRef.current = true;
       return;
     }
 
@@ -2362,10 +2356,8 @@ export const useListenAudioSequence = ({
       return;
     }
     shouldStartSequenceRef.current = false;
-    bootstrapDrivenCycleRef.current = true;
   }, [
     audioAndInteractionList,
-    bootstrapDrivenCycleRef,
     clearPendingGrowthWaitTimer,
     currentPptPageRef,
     deckRef,
@@ -2711,7 +2703,6 @@ export const useListenAudioSequence = ({
         queueActions.resume();
         return;
       }
-      bootstrapDrivenCycleRef.current = false;
       if (!startQueueFromListIndex(startIndex, { resyncOnMiss: true })) {
         queueActions.resume();
       }
@@ -2724,7 +2715,6 @@ export const useListenAudioSequence = ({
   }, [
     activeAudioBid,
     audioAndInteractionList,
-    bootstrapDrivenCycleRef,
     clearPendingGrowthWaitTimer,
     currentPptPageRef,
     deckRef,
@@ -2752,18 +2742,6 @@ export const useListenAudioSequence = ({
     [previewMode, queueActions],
   );
 
-  const handleUserPrev = useCallback(() => {
-    if (previewMode) {
-      return;
-    }
-  }, [previewMode]);
-
-  const handleUserNext = useCallback(() => {
-    if (previewMode) {
-      return;
-    }
-  }, [previewMode]);
-
   const continueAfterInteraction = useCallback(() => {
     if (previewMode) {
       return;
@@ -2786,13 +2764,11 @@ export const useListenAudioSequence = ({
       effectiveStartAnchorIndexRef.current = null;
       pendingQueueGrowthAnchorRef.current = null;
       clearPendingGrowthWaitTimer();
-      bootstrapDrivenCycleRef.current = false;
       syncListToQueue(audioAndInteractionList);
       startQueueFromListIndex(index);
     },
     [
       audioAndInteractionList,
-      bootstrapDrivenCycleRef,
       clearPendingGrowthWaitTimer,
       effectiveStartAnchorIndexRef,
       pendingQueueGrowthAnchorRef,
@@ -2920,8 +2896,6 @@ export const useListenAudioSequence = ({
     handleAudioError,
     handlePlay,
     handlePause,
-    handleUserPrev,
-    handleUserNext,
     continueAfterInteraction,
     startSequenceFromIndex,
     startSequenceFromPage,

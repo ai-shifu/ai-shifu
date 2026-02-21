@@ -212,8 +212,6 @@ const ListenModeRenderer = ({
     handleAudioError,
     handlePlay,
     handlePause,
-    handleUserPrev,
-    handleUserNext,
     continueAfterInteraction,
     startSequenceFromIndex,
     startSequenceFromPage,
@@ -377,7 +375,6 @@ const ListenModeRenderer = ({
   );
 
   const onPrev = useCallback(() => {
-    handleUserPrev?.();
     if (!isAudioSequenceActive) {
       const prevPage = goPrev();
       if (
@@ -417,7 +414,6 @@ const ListenModeRenderer = ({
     startSequenceFromPage,
     resolveAudioSequenceIndexByDirection,
     startSequenceFromIndex,
-    handleUserPrev,
   ]);
 
   const currentSequencePage =
@@ -437,7 +433,6 @@ const ListenModeRenderer = ({
     (isNextDisabled && typeof nextSequenceIndex !== 'number');
 
   const onNext = useCallback(() => {
-    handleUserNext?.();
     if (sequenceInteraction) {
       // Interaction blocks progression until learner submits.
       return;
@@ -482,7 +477,6 @@ const ListenModeRenderer = ({
     resolveAudioSequenceIndexByDirection,
     sequenceInteraction,
     startSequenceFromIndex,
-    handleUserNext,
   ]);
 
   const visibleSequenceInteraction = useMemo(() => {
