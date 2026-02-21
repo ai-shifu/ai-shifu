@@ -67,10 +67,8 @@ jest.mock('@/app/c/[[...id]]/Components/ChatUi/useListenMode', () => ({
   }),
   useListenAudioSequence: () => ({
     audioPlayerRef: { current: null },
-    activeContentItem: undefined,
     activeAudioBlockBid: null,
     activeAudioPosition: 0,
-    activeSequencePage: -1,
     sequenceInteraction: null,
     isAudioSequenceActive: sequenceState.isAudioSequenceActive,
     isAudioPlayerBusy: () => false,

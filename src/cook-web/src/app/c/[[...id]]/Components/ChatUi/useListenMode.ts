@@ -77,22 +77,23 @@ const isRuntimePrunableSandboxIframe = (
   const sandboxContainer = iframeDocument.querySelector(
     RUNTIME_SANDBOX_CONTAINER_SELECTOR,
   );
-  if (
-    typeof HTMLElement === 'undefined' ||
-    !(sandboxContainer instanceof HTMLElement)
-  ) {
+  // NOTE:
+  // sandboxContainer lives in iframeDocument (different JS realm).
+  // Cross-realm `instanceof HTMLElement` checks fail, so rely on nodeType/tagName.
+  if (!sandboxContainer || sandboxContainer.nodeType !== Node.ELEMENT_NODE) {
     return null;
   }
+  const sandboxElement = sandboxContainer as Element;
 
-  if (sandboxContainer.querySelector(RUNTIME_SANDBOX_VISUAL_CONTENT_SELECTOR)) {
+  if (sandboxElement.querySelector(RUNTIME_SANDBOX_VISUAL_CONTENT_SELECTOR)) {
     return false;
   }
 
-  if (normalizeRuntimeTextContent(sandboxContainer.textContent).length > 0) {
+  if (normalizeRuntimeTextContent(sandboxElement.textContent).length > 0) {
     return false;
   }
 
-  const hasRenderableElement = Array.from(sandboxContainer.childNodes).some(
+  const hasRenderableElement = Array.from(sandboxElement.childNodes).some(
     node => {
       if (node.nodeType === Node.TEXT_NODE) {
         return normalizeRuntimeTextContent(node.textContent).length > 0;
@@ -100,23 +101,22 @@ const isRuntimePrunableSandboxIframe = (
       if (node.nodeType !== Node.ELEMENT_NODE) {
         return false;
       }
-      if (!(node instanceof HTMLElement)) {
+      const elementNode = node as Element;
+      const tagName = elementNode.tagName.toLowerCase();
+      if (tagName === 'br') {
         return false;
       }
-      if (node.tagName.toLowerCase() === 'br') {
-        return false;
-      }
-      if (node instanceof HTMLIFrameElement) {
+      if (tagName === 'iframe') {
         return Boolean(
-          node.getAttribute('src') ||
-          node.getAttribute('srcdoc') ||
-          node.getAttribute('data-url') ||
-          node.getAttribute('data-tag'),
+          elementNode.getAttribute('src') ||
+          elementNode.getAttribute('srcdoc') ||
+          elementNode.getAttribute('data-url') ||
+          elementNode.getAttribute('data-tag'),
         );
       }
       return (
-        normalizeRuntimeTextContent(node.textContent).length > 0 ||
-        node.childElementCount > 0
+        normalizeRuntimeTextContent(elementNode.textContent).length > 0 ||
+        elementNode.childElementCount > 0
       );
     },
   );
@@ -415,8 +415,6 @@ export const useListenContentData = (
     type SegmentTuple = {
       sourceIndex: number;
       item: ChatContentItem;
-      segments: RenderSegment[];
-      visualSegments: RenderSegment[];
       firstVisualPage: number;
       lastVisualPage: number;
       pagesForAudio: number[];
@@ -563,8 +561,6 @@ export const useListenContentData = (
       contentSegments.push({
         sourceIndex,
         item,
-        segments,
-        visualSegments,
         firstVisualPage,
         lastVisualPage,
         pagesForAudio,
@@ -1283,7 +1279,6 @@ export const useListenAudioSequence = ({
   const [activeQueueAudioId, setActiveQueueAudioId] = useState<string | null>(
     null,
   );
-  const [activeSequencePage, setActiveSequencePage] = useState(-1);
   const [sequenceInteraction, setSequenceInteraction] =
     useState<AudioInteractionItem | null>(null);
   const [isAudioSequenceActive, setIsAudioSequenceActive] = useState(false);
@@ -1471,7 +1466,6 @@ export const useListenAudioSequence = ({
       setActiveAudioBid(null);
       setActiveAudioPosition(0);
       setActiveQueueAudioId(null);
-      setActiveSequencePage(-1);
       setIsAudioSequenceActive(false);
       setIsAudioPlaying(false);
       isSequencePausedRef.current = false;
@@ -1683,7 +1677,6 @@ export const useListenAudioSequence = ({
   // Queue event handler refs — defined once, stable identity
   const onVisualShowHandler = useCallback((event: QueueEvent) => {
     const item = event.item as VisualQueueItem;
-    setActiveSequencePage(item.page);
     setIsAudioSequenceActive(true);
     setActiveAudioBid(null);
     setActiveQueueAudioId(null);
@@ -1707,7 +1700,6 @@ export const useListenAudioSequence = ({
       setActiveAudioBid(item.generatedBlockBid);
       setActiveAudioPosition(item.audioPosition);
       setActiveQueueAudioId(item.id);
-      setActiveSequencePage(item.page);
       setAudioSequenceToken(prev => prev + 1);
       setIsAudioSequenceActive(true);
       syncToSequencePageRef.current(item.page);
@@ -1723,7 +1715,6 @@ export const useListenAudioSequence = ({
     });
     setActiveAudioBid(null);
     setActiveQueueAudioId(null);
-    setActiveSequencePage(item.page);
     setIsAudioSequenceActive(true);
   }, []);
 
@@ -2918,11 +2909,9 @@ export const useListenAudioSequence = ({
   // ---------------------------------------------------------------------------
   return {
     audioPlayerRef,
-    activeContentItem,
     activeAudioTrack,
     activeAudioBlockBid,
     activeAudioPosition,
-    activeSequencePage,
     sequenceInteraction,
     isAudioSequenceActive,
     isAudioPlayerBusy,
