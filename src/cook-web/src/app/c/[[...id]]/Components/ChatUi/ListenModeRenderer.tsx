@@ -603,9 +603,7 @@ const ListenModeRenderer = ({
               return (
                 <ContentIframe
                   key={baseKey}
-                  // item={item}
                   segments={segments}
-                  mobileStyle={mobileStyle}
                   blockBid={item.generated_block_bid}
                 />
               );
