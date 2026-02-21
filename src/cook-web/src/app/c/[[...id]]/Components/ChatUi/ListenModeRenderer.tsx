@@ -18,6 +18,7 @@ import {
   useListenContentData,
   useListenPpt,
 } from './useListenMode';
+import { hasInteractionResponse } from './chatUiUtils';
 
 interface ListenModeRendererProps {
   items: ChatContentItem[];
@@ -34,27 +35,6 @@ interface ListenModeRendererProps {
   ) => Promise<any>;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
 }
-
-const hasInteractionResponse = (
-  interaction: ChatContentItem | null | undefined,
-) => {
-  if (!interaction) {
-    return false;
-  }
-  const hasSelectedValues = Array.isArray(interaction.defaultSelectedValues)
-    ? interaction.defaultSelectedValues.some(value => String(value).trim())
-    : false;
-  if (hasSelectedValues) {
-    return true;
-  }
-  if ((interaction.defaultButtonText || '').trim()) {
-    return true;
-  }
-  if ((interaction.defaultInputText || '').trim()) {
-    return true;
-  }
-  return false;
-};
 
 const ListenModeRenderer = ({
   items,

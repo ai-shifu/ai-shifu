@@ -37,3 +37,30 @@ export const stripCustomButtonAfterContent = (
   // Remove ask button markup from listen mode content.
   return content.replace(CUSTOM_BUTTON_AFTER_CONTENT_REGEX, '').trimEnd();
 };
+
+type InteractionResponseLike = {
+  defaultSelectedValues?: unknown[] | null;
+  defaultButtonText?: string | null;
+  defaultInputText?: string | null;
+};
+
+export const hasInteractionResponse = (
+  interaction?: InteractionResponseLike | null,
+): boolean => {
+  if (!interaction) {
+    return false;
+  }
+  const hasSelectedValues = Array.isArray(interaction.defaultSelectedValues)
+    ? interaction.defaultSelectedValues.some(value => String(value).trim())
+    : false;
+  if (hasSelectedValues) {
+    return true;
+  }
+  if ((interaction.defaultButtonText || '').trim()) {
+    return true;
+  }
+  if ((interaction.defaultInputText || '').trim()) {
+    return true;
+  }
+  return false;
+};

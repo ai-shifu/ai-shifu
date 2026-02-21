@@ -27,6 +27,7 @@ import {
   type AudioQueueItem,
   type InteractionQueueItem,
 } from '@/c-utils/listen-mode/queue-manager';
+import { hasInteractionResponse } from './chatUiUtils';
 
 const isRenderableBackendSlide = (slide: ListenSlideData): boolean => {
   if (slide.is_placeholder || slide.segment_type === 'placeholder') {
@@ -333,25 +334,6 @@ const resolveListenAudioWatchdogMs = (audioDurationMs?: number) => {
     );
   }
   return LISTEN_AUDIO_WATCHDOG_FALLBACK_MS;
-};
-
-const hasInteractionResponse = (interaction?: AudioInteractionItem | null) => {
-  if (!interaction) {
-    return false;
-  }
-  const hasSelectedValues = Array.isArray(interaction.defaultSelectedValues)
-    ? interaction.defaultSelectedValues.some(value => String(value).trim())
-    : false;
-  if (hasSelectedValues) {
-    return true;
-  }
-  if ((interaction.defaultButtonText || '').trim()) {
-    return true;
-  }
-  if ((interaction.defaultInputText || '').trim()) {
-    return true;
-  }
-  return false;
 };
 
 export const useListenContentData = (
