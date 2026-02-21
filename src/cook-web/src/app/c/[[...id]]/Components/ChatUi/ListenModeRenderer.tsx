@@ -217,6 +217,8 @@ const ListenModeRenderer = ({
     continueAfterInteraction,
     startSequenceFromIndex,
     startSequenceFromPage,
+    resolveRuntimeSequencePage,
+    refreshRuntimePageRemap,
   } = useListenAudioSequence({
     audioAndInteractionList,
     deckRef,
@@ -282,6 +284,8 @@ const ListenModeRenderer = ({
     getNextContentBid,
     goToBlock,
     resolveContentBid,
+    resolveRuntimeSequencePage,
+    refreshRuntimePageRemap,
   });
 
   useEffect(() => {

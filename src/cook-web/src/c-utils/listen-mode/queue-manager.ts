@@ -2,8 +2,7 @@ import { normalizeListenAudioPosition } from '@/c-utils/listen-orchestrator';
 import type { ChatContentItem } from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
 
 const ENABLE_LISTEN_QUEUE_LOG =
-  process.env.NEXT_PUBLIC_LISTEN_QUEUE_LOG === '1' ||
-  process.env.NEXT_PUBLIC_LISTEN_RUNTIME_LOG === '1';
+  process.env.NEXT_PUBLIC_LISTEN_QUEUE_LOG === '1';
 
 const queueLog = (...args: unknown[]) => {
   if (!ENABLE_LISTEN_QUEUE_LOG) {

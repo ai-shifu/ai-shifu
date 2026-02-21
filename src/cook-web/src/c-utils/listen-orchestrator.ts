@@ -5,7 +5,7 @@ export const LISTEN_AUDIO_EVENT_TYPES = {
   AUDIO_COMPLETE: 'audio_complete',
 } as const;
 
-export type ListenAudioEventType =
+type ListenAudioEventType =
   (typeof LISTEN_AUDIO_EVENT_TYPES)[keyof typeof LISTEN_AUDIO_EVENT_TYPES];
 
 export const normalizeListenAudioPosition = (raw: unknown): number => {
@@ -115,7 +115,7 @@ export type ListenInboundAudioEvent = {
   payload: Record<string, unknown>;
 };
 
-export type ListenRecordAudioLike = {
+type ListenRecordAudioLike = {
   position?: number;
   slide_id?: string;
   audio_url?: string;
@@ -124,7 +124,7 @@ export type ListenRecordAudioLike = {
   [key: string]: unknown;
 };
 
-export type NormalizedListenRecordAudio = {
+type NormalizedListenRecordAudio = {
   position: number;
   slide_id?: string;
   audio_url?: string;
@@ -132,7 +132,7 @@ export type NormalizedListenRecordAudio = {
   duration_ms?: number;
 };
 
-export type NormalizedListenRecordAudios = {
+type NormalizedListenRecordAudios = {
   audios?: NormalizedListenRecordAudio[];
   audioSlideIdByPosition?: Record<number, string>;
   audioTracksByPosition?: Record<
