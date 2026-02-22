@@ -68,4 +68,30 @@ describe('listen-mode html table segmentation', () => {
     expect(String(firstSegment.value)).toContain('<table');
     expect(String(firstSegment.value)).toContain('<div>');
   });
+
+  it('extracts markdown pipe tables from markdown segments with surrounding text', () => {
+    const items = [
+      makeContent(
+        'block-markdown-pipe-table',
+        [
+          'Before table narrative.',
+          '',
+          '| 历史时期 | 主要特点 |',
+          '| --- | --- |',
+          '| 古代 | 祭祀与祈福 |',
+          '',
+          'After table narrative.',
+        ].join('\n'),
+      ),
+    ];
+    const { result } = renderHook(() => useListenContentData(items));
+
+    expect(result.current.slideItems).toHaveLength(1);
+    const firstSegment = result.current.slideItems[0].segments[0];
+    expect(firstSegment.type).toBe('sandbox');
+    expect(String(firstSegment.value)).toContain('<table>');
+    expect(String(firstSegment.value)).toContain('历史时期');
+    expect(String(firstSegment.value)).not.toContain('Before table narrative.');
+    expect(String(firstSegment.value)).not.toContain('After table narrative.');
+  });
 });

@@ -48,9 +48,13 @@ export const ChatUi = ({
   isNavOpen = false,
 }: ChatUiProps) => {
   const { t } = useTranslation();
-  const listenModeLabel = t('module.chat.listenModeLabel', 'Listen');
-  const readModeLabel = t('module.chat.readModeLabel', 'Read');
-  const poweredBySeparator = t('module.chat.poweredBySeparator', '|');
+  const listenModeLabel = t('module.chat.listenModeLabel', {
+    defaultValue: 'Listen',
+  });
+  const readModeLabel = t('module.chat.readModeLabel', {
+    defaultValue: 'Read',
+  });
+  const poweredBySeparator = '|';
   const { frameLayout } = useUiLayoutStore(state => state);
   const {
     previewMode,

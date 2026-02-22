@@ -50,7 +50,8 @@ const VISUAL_HTML_TAG_PATTERN = /<(svg|table|iframe|img|video)\b/i;
 const MARKDOWN_IMAGE_PATTERN = /!\[[^\]]*]\([^)]+\)/;
 const MERMAID_CODE_FENCE_PATTERN = /```[\t ]*mermaid\b/i;
 const RUNTIME_EMPTY_SVG_CONTAINER_SELECTOR = '.content-render-svg';
-const RUNTIME_VISUAL_CONTENT_SELECTOR = 'svg,table,img,video,canvas,.mermaid';
+const RUNTIME_VISUAL_CONTENT_SELECTOR =
+  'svg,table,img,video,canvas,.mermaid,iframe[src],iframe[srcdoc],iframe[data-url],iframe[data-tag],object,embed';
 const RUNTIME_SANDBOX_IFRAME_SELECTOR =
   '.content-render-iframe-sandbox > iframe';
 const RUNTIME_SANDBOX_CONTAINER_SELECTOR = '.sandbox-container';
@@ -67,12 +68,58 @@ const normalizeRuntimeTextContent = (
     .replace(/\s+/g, ' ')
     .trim();
 
+const isRuntimePrunableElementTree = (root: Element): boolean => {
+  if (root.querySelector(RUNTIME_SANDBOX_VISUAL_CONTENT_SELECTOR)) {
+    return false;
+  }
+
+  if (normalizeRuntimeTextContent(root.textContent).length > 0) {
+    return false;
+  }
+
+  const hasRenderableElement = Array.from(root.childNodes).some(node => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return normalizeRuntimeTextContent(node.textContent).length > 0;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return false;
+    }
+    const elementNode = node as Element;
+    const tagName = elementNode.tagName.toLowerCase();
+    if (tagName === 'br') {
+      return false;
+    }
+    if (tagName === 'iframe') {
+      return Boolean(
+        elementNode.getAttribute('src') ||
+        elementNode.getAttribute('srcdoc') ||
+        elementNode.getAttribute('data-url') ||
+        elementNode.getAttribute('data-tag'),
+      );
+    }
+    return (
+      normalizeRuntimeTextContent(elementNode.textContent).length > 0 ||
+      elementNode.childElementCount > 0
+    );
+  });
+
+  return !hasRenderableElement;
+};
+
 const isRuntimePrunableSandboxIframe = (
   iframe: HTMLIFrameElement,
 ): boolean | null => {
   const iframeDocument = iframe.contentDocument;
   if (!iframeDocument) {
-    return null;
+    const hasSourceHint = Boolean(
+      iframe.getAttribute('src') ||
+      iframe.getAttribute('srcdoc') ||
+      iframe.getAttribute('data-url') ||
+      iframe.getAttribute('data-tag'),
+    );
+    // src-less sandbox iframes without a document are typically transient empty
+    // placeholders and should not reserve a visual page.
+    return hasSourceHint ? null : true;
   }
 
   const sandboxContainer = iframeDocument.querySelector(
@@ -81,48 +128,17 @@ const isRuntimePrunableSandboxIframe = (
   // NOTE:
   // sandboxContainer lives in iframeDocument (different JS realm).
   // Cross-realm `instanceof HTMLElement` checks fail, so rely on nodeType/tagName.
-  if (!sandboxContainer || sandboxContainer.nodeType !== Node.ELEMENT_NODE) {
-    return null;
-  }
-  const sandboxElement = sandboxContainer as Element;
-
-  if (sandboxElement.querySelector(RUNTIME_SANDBOX_VISUAL_CONTENT_SELECTOR)) {
-    return false;
+  if (sandboxContainer && sandboxContainer.nodeType === Node.ELEMENT_NODE) {
+    return isRuntimePrunableElementTree(sandboxContainer as Element);
   }
 
-  if (normalizeRuntimeTextContent(sandboxElement.textContent).length > 0) {
-    return false;
+  // Some renderer variants mount directly into body without sandbox-container.
+  // If the iframe document exists but has no renderable content, prune it.
+  const iframeBody = iframeDocument.body;
+  if (!iframeBody || iframeBody.nodeType !== Node.ELEMENT_NODE) {
+    return true;
   }
-
-  const hasRenderableElement = Array.from(sandboxElement.childNodes).some(
-    node => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        return normalizeRuntimeTextContent(node.textContent).length > 0;
-      }
-      if (node.nodeType !== Node.ELEMENT_NODE) {
-        return false;
-      }
-      const elementNode = node as Element;
-      const tagName = elementNode.tagName.toLowerCase();
-      if (tagName === 'br') {
-        return false;
-      }
-      if (tagName === 'iframe') {
-        return Boolean(
-          elementNode.getAttribute('src') ||
-          elementNode.getAttribute('srcdoc') ||
-          elementNode.getAttribute('data-url') ||
-          elementNode.getAttribute('data-tag'),
-        );
-      }
-      return (
-        normalizeRuntimeTextContent(elementNode.textContent).length > 0 ||
-        elementNode.childElementCount > 0
-      );
-    },
-  );
-
-  return !hasRenderableElement;
+  return isRuntimePrunableElementTree(iframeBody as Element);
 };
 
 const isRenderableVisualSegment = (segment: RenderSegment): boolean => {
@@ -211,11 +227,11 @@ const isRuntimePrunableVisualSlide = (slide: unknown): boolean => {
   if (slide.querySelector(RUNTIME_VISUAL_CONTENT_SELECTOR)) {
     return false;
   }
-  const textContent = normalizeRuntimeTextContent(slide.textContent);
-  if (textContent.length > 0) {
-    return false;
+
+  if (!hasEmptySvgContainer) {
+    return isRuntimePrunableElementTree(slide);
   }
-  return hasEmptySvgContainer;
+  return true;
 };
 
 const applyRuntimePrunedSlideState = (

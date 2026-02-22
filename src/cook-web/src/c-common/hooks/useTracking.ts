@@ -43,6 +43,13 @@ export const useTracking = () => {
   const trackTrailProgress = useCallback(
     async (courseId: string, scriptId: string) => {
       try {
+        // generated-contents endpoint requires auth; skip guest traffic to avoid
+        // auth-error side effects during runtime playback.
+        const token = useUserStore.getState().getToken?.();
+        if (!token) {
+          return;
+        }
+
         const { data: scriptInfo } = await getScriptInfo(courseId, scriptId);
 
         // Check whether this script is part of a trial lesson

@@ -269,18 +269,19 @@ export const splitListenModeSegments = (raw: string): RenderSegment[] => {
           return;
         }
 
-        // splitContentSegments() can return raw HTML blocks (including <table>)
-        // as markdown segments. In blackboard mode, we need to wrap <table>
-        // with a sandbox-root container so it renders.
-        if (
-          !/^\s*```/.test(markdownRaw) &&
-          !/^\s*~~~/.test(markdownRaw) &&
-          (/<table\b/i.test(markdownRaw) ||
-            /<iframe\b/i.test(markdownRaw) ||
-            /<video\b/i.test(markdownRaw))
-        ) {
-          output.push(...splitTextByVisualBlocks(markdownRaw));
-          return;
+        // splitContentSegments() may return an entire markdown block as a
+        // single segment. If that block contains an embedded visual boundary
+        // (markdown table, iframe, html table/video, etc.), split it so the
+        // visual can get its own listen slide.
+        if (!/^\s*```/.test(markdownRaw) && !/^\s*~~~/.test(markdownRaw)) {
+          const splitSegments = splitTextByVisualBlocks(markdownRaw);
+          const hasSplitVisual = splitSegments.some(
+            candidate => candidate.type !== 'text',
+          );
+          if (hasSplitVisual) {
+            output.push(...splitSegments);
+            return;
+          }
         }
       }
       output.push(segment);
