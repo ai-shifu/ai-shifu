@@ -1087,12 +1087,6 @@ function useChatLogicHook({
    * Loads the persisted lesson records and primes the chat stream.
    */
   const refreshData = useCallback(async () => {
-    // console.log('listen-refresh-start', {
-    //   lessonId,
-    //   outlineBid,
-    //   isListenMode,
-    //   previewMode: effectivePreviewMode,
-    // });
     setTrackedContentList(() => []);
     setListenSlides([]);
 
@@ -1109,15 +1103,6 @@ function useChatLogicHook({
         outline_bid: outlineBid,
         preview_mode: effectivePreviewMode,
       });
-
-      // console.log('listen-refresh-records', {
-      //   lessonId,
-      //   outlineBid,
-      //   recordCount: recordResp?.records?.length ?? 0,
-      //   lastBlockType:
-      //     recordResp?.records?.[recordResp.records.length - 1]?.block_type ??
-      //     null,
-      // });
 
       if (recordResp?.records?.length > 0) {
         if (isListenMode) {
@@ -1158,7 +1143,6 @@ function useChatLogicHook({
       // refresh failure is handled by fallback flow
     } finally {
       setIsLoading(false);
-      // console.log('listen-refresh-end', { lessonId, outlineBid });
     }
   }, [
     chapterId,
@@ -1190,10 +1174,6 @@ function useChatLogicHook({
         if (!curr) {
           return;
         }
-        // console.log('listen-reset-triggered', {
-        //   lessonId,
-        //   resetedLessonId: curr,
-        // });
         setIsLoading(true);
         if (curr === lessonId) {
           sseRef.current?.close();

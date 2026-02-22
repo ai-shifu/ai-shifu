@@ -493,9 +493,6 @@ export const NewChatComponents = ({
     </button>
   );
 
-  // useEffect(() => {
-  //   console.log('isLoading', isLoading);
-  // }, [isLoading]);
   return (
     <div
       className={containerClassName}
