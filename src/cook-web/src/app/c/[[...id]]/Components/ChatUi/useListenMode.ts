@@ -427,7 +427,6 @@ export const useListenContentData = (
         backendPageByBlockPosition.set(key, latestRenderableBackendPage);
       }
     });
-    let fallbackPlaceholderItem: ChatContentItem | null = null;
     type SegmentTuple = {
       sourceIndex: number;
       item: ChatContentItem;
@@ -447,18 +446,6 @@ export const useListenContentData = (
         : [];
       const previousVisualPageBeforeBlock = latestVisualPage;
       const visualSegments = segments.filter(isRenderableVisualSegment);
-      if (!fallbackPlaceholderItem && visualSegments.length === 0) {
-        const hasSpeakableText = segments.some(segment => {
-          if (segment.type !== 'text') {
-            return false;
-          }
-          const raw = typeof segment.value === 'string' ? segment.value : '';
-          return isListenModeSpeakableText(raw);
-        });
-        if (hasSpeakableText) {
-          fallbackPlaceholderItem = item;
-        }
-      }
       const visualPageBySegmentIndex = new Map<number, number>();
       let localVisualOffset = 0;
       segments.forEach((segment, segmentIndex) => {
@@ -584,15 +571,6 @@ export const useListenContentData = (
 
       pageCursor += visualSegments.length;
     });
-
-    // Keep at least one renderable listen slide when a chapter contains only
-    // plain text (no markdown/sandbox visual segments).
-    if (!nextSlideItems.length && fallbackPlaceholderItem) {
-      nextSlideItems.push({
-        item: fallbackPlaceholderItem,
-        segments: [{ type: 'sandbox', value: '<div></div>' }],
-      });
-    }
 
     const contentBySourceIndex = new Map<number, SegmentTuple>();
     contentSegments.forEach(contentSegment => {

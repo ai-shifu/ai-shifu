@@ -35,6 +35,29 @@ const makeContent = (
 });
 
 describe('useListenContentData empty sandbox filtering', () => {
+  it('does not create placeholder visual slides for text-only audio content', () => {
+    const items = [
+      makeContent(
+        'block-text-only',
+        '春节是中国最重要的传统节日，标志着农历新年的开始。',
+        [0],
+      ),
+    ];
+
+    const { result } = renderHook(() => useListenContentData(items));
+    const slides = result.current.slideItems;
+    const audioEntries = result.current.audioAndInteractionList.filter(
+      item =>
+        item.type === ChatContentItemType.CONTENT &&
+        item.generated_block_bid === 'block-text-only',
+    );
+
+    expect(slides).toHaveLength(0);
+    expect(audioEntries).toHaveLength(1);
+    expect(audioEntries[0].page).toBe(0);
+    expect(audioEntries[0].isSilentVisual).toBeUndefined();
+  });
+
   it('ignores empty sandbox placeholders before table visuals', () => {
     const items = [
       makeContent(

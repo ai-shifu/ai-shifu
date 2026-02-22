@@ -207,13 +207,9 @@ describe('useListenContentData timeline mapping', () => {
       'block-backend',
     );
 
-    // Rendering is based on local parsed content. Backend slides only provide
-    // timeline/page binding and slide-id metadata.
-    expect(result.current.slideItems).toHaveLength(1);
-    expect(result.current.slideItems[0].segments[0].type).toBe('sandbox');
-    expect(String(result.current.slideItems[0].segments[0].value)).toContain(
-      '<div',
-    );
+    // Rendering is based on local parsed visuals only. For text-only content
+    // no fallback visual slide should be created.
+    expect(result.current.slideItems).toHaveLength(0);
     expect(audioEntries).toHaveLength(2);
     expect(audioEntries[0].page).toBe(0);
     expect(audioEntries[0].audioSlideId).toBe('slide-0');
@@ -336,11 +332,7 @@ describe('useListenContentData timeline mapping', () => {
       'block-backend-mixed',
     );
 
-    expect(result.current.slideItems).toHaveLength(1);
-    expect(result.current.slideItems[0].segments[0].type).toBe('sandbox');
-    expect(String(result.current.slideItems[0].segments[0].value)).toContain(
-      '<div',
-    );
+    expect(result.current.slideItems).toHaveLength(0);
     expect(audioEntries).toHaveLength(3);
     expect(audioEntries[0].page).toBe(0);
     expect(audioEntries[0].audioSlideId).toBe('slide-placeholder');
@@ -670,16 +662,13 @@ describe('useListenContentData timeline mapping', () => {
     expect(String(firstSegment.value)).toContain('<table>');
   });
 
-  it('renders text-only content as blank fallback slide', () => {
+  it('does not render text-only content as placeholder visual slide', () => {
     const items = [
       makeContent('block-text', '# Title\n\nOnly text content.', [0]),
     ];
     const { result } = renderHook(() => useListenContentData(items));
 
-    expect(result.current.slideItems).toHaveLength(1);
-    const firstSegment = result.current.slideItems[0].segments[0];
-    expect(firstSegment.type).toBe('sandbox');
-    expect(String(firstSegment.value)).toContain('<div');
+    expect(result.current.slideItems).toHaveLength(0);
     const audioEntries = pickAudioEntries(
       result.current.audioAndInteractionList,
       'block-text',

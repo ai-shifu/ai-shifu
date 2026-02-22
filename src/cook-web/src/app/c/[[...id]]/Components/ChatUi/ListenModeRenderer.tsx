@@ -68,12 +68,6 @@ const ListenModeRenderer = ({
     audioContentByBid,
     firstContentItem,
   } = useListenContentData(items, backendSlides);
-  const hasAnyTimelineItem = useMemo(
-    () =>
-      slideItems.length > 0 ||
-      items.some(item => item.type === ChatContentItemType.INTERACTION),
-    [items, slideItems],
-  );
 
   const resolveContentBid = useCallback((blockBid: string | null) => {
     if (!blockBid) {
@@ -150,8 +144,8 @@ const ListenModeRenderer = ({
     if (isLoading) {
       return false;
     }
-    return !hasAnyTimelineItem;
-  }, [hasAnyTimelineItem, isLoading]);
+    return slideItems.length === 0;
+  }, [isLoading, slideItems.length]);
 
   const handleResetSequence = useCallback(() => {
     sequenceStartAnchorIndexRef.current = null;
