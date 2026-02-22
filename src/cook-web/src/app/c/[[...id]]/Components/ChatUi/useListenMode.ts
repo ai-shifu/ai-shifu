@@ -49,11 +49,8 @@ const MALFORMED_EMPTY_SVG_PATTERN = /<svg<|<\/svg<>/i;
 const VISUAL_HTML_TAG_PATTERN = /<(svg|table|iframe|img|video)\b/i;
 const MARKDOWN_IMAGE_PATTERN = /!\[[^\]]*]\([^)]+\)/;
 const MERMAID_CODE_FENCE_PATTERN = /```[\t ]*mermaid\b/i;
-const RUNTIME_EMPTY_SVG_CONTAINER_SELECTOR = '.content-render-svg';
 const RUNTIME_VISUAL_CONTENT_SELECTOR =
   'svg,table,img,video,canvas,.mermaid,iframe[src],iframe[srcdoc],iframe[data-url],iframe[data-tag],object,embed';
-const RUNTIME_SANDBOX_IFRAME_SELECTOR =
-  '.content-render-iframe-sandbox > iframe';
 const RUNTIME_SANDBOX_CONTAINER_SELECTOR = '.sandbox-container';
 const RUNTIME_SANDBOX_VISUAL_CONTENT_SELECTOR =
   'svg,table,img,video,canvas,.mermaid,iframe[src],iframe[srcdoc],iframe[data-url],iframe[data-tag],object,embed';
@@ -97,10 +94,15 @@ const isRuntimePrunableElementTree = (root: Element): boolean => {
         elementNode.getAttribute('data-tag'),
       );
     }
-    return (
-      normalizeRuntimeTextContent(elementNode.textContent).length > 0 ||
-      elementNode.childElementCount > 0
-    );
+    if (normalizeRuntimeTextContent(elementNode.textContent).length > 0) {
+      return true;
+    }
+    if (elementNode.childElementCount === 0) {
+      return false;
+    }
+    // Recurse for wrapper-only trees (for example <div><div></div></div>)
+    // so empty nested containers do not count as renderable visuals.
+    return !isRuntimePrunableElementTree(elementNode);
   });
 
   return !hasRenderableElement;
@@ -188,12 +190,10 @@ const isRuntimePrunableVisualSlide = (slide: unknown): boolean => {
     return false;
   }
 
-  const sandboxIframes = Array.from(
-    slide.querySelectorAll(RUNTIME_SANDBOX_IFRAME_SELECTOR),
-  );
-  if (sandboxIframes.length > 0) {
-    let inspectedSandboxIframe = 0;
-    for (const node of sandboxIframes) {
+  const slideIframes = Array.from(slide.querySelectorAll('iframe'));
+  if (slideIframes.length > 0) {
+    let hasPrunableIframe = false;
+    for (const node of slideIframes) {
       if (!(node instanceof HTMLIFrameElement)) {
         continue;
       }
@@ -201,12 +201,12 @@ const isRuntimePrunableVisualSlide = (slide: unknown): boolean => {
       if (isPrunableSandbox === null) {
         continue;
       }
-      inspectedSandboxIframe += 1;
       if (!isPrunableSandbox) {
         return false;
       }
+      hasPrunableIframe = true;
     }
-    if (inspectedSandboxIframe > 0) {
+    if (hasPrunableIframe && isRuntimePrunableElementTree(slide)) {
       return true;
     }
   }
@@ -217,21 +217,11 @@ const isRuntimePrunableVisualSlide = (slide: unknown): boolean => {
     return normalizeRuntimeTextContent(slide.textContent).length === 0;
   }
 
-  const hasEmptySvgContainer = Boolean(
-    slide.querySelector(RUNTIME_EMPTY_SVG_CONTAINER_SELECTOR),
-  );
-  if (!hasEmptySvgContainer) {
-    return false;
-  }
-
   if (slide.querySelector(RUNTIME_VISUAL_CONTENT_SELECTOR)) {
     return false;
   }
 
-  if (!hasEmptySvgContainer) {
-    return isRuntimePrunableElementTree(slide);
-  }
-  return true;
+  return isRuntimePrunableElementTree(slide);
 };
 
 const applyRuntimePrunedSlideState = (

@@ -2019,6 +2019,84 @@ describe('useListenAudioSequence silent visual slides', () => {
     expect(result.current.resolveRuntimeSequencePage(0)).toBe(1);
   });
 
+  it('prunes sandbox iframe slides with nested empty wrappers in sandbox container', () => {
+    const emptySlide = document.createElement('section');
+    const emptyIframe = document.createElement('iframe');
+    emptySlide.appendChild(emptyIframe);
+
+    const emptyDoc = document.implementation.createHTMLDocument(
+      'nested-empty-wrapper',
+    );
+    emptyDoc.body.innerHTML =
+      '<div id="root"><div class="sandbox-wrapper"><div class="sandbox-container"><div></div></div></div></div>';
+    Object.defineProperty(emptyIframe, 'contentDocument', {
+      configurable: true,
+      value: emptyDoc,
+    });
+
+    const visualSlide = document.createElement('section');
+    const visualContainer = document.createElement('div');
+    visualContainer.className = 'content-render-svg';
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    svg.appendChild(rect);
+    visualContainer.appendChild(svg);
+    visualSlide.appendChild(visualContainer);
+
+    const deck: any = {
+      sync: jest.fn(),
+      layout: jest.fn(),
+      getSlides: jest.fn(() => [emptySlide, visualSlide]),
+      getIndices: jest.fn(() => ({ h: 0 })),
+      slide: jest.fn(),
+    };
+
+    const deckRef = { current: deck };
+    const currentPptPageRef = { current: 0 };
+    const activeBlockBidRef = { current: null as string | null };
+    const pendingAutoNextRef = { current: false };
+    const shouldStartSequenceRef = { current: false };
+
+    const item: any = {
+      type: ChatContentItemType.CONTENT,
+      generated_block_bid: 'block-empty-iframe-nested-wrapper',
+      content: 'Narration',
+      audios: [{ position: 0, audio_url: 'https://example.com/a0.mp3' }],
+      customRenderBar: () => null,
+    };
+
+    const { result } = renderHook(() =>
+      useListenAudioSequence({
+        audioAndInteractionList: [{ ...item, page: 0, audioPosition: 0 }],
+        deckRef: deckRef as any,
+        currentPptPageRef: currentPptPageRef as any,
+        activeBlockBidRef: activeBlockBidRef as any,
+        pendingAutoNextRef: pendingAutoNextRef as any,
+        shouldStartSequenceRef: shouldStartSequenceRef as any,
+        contentByBid: new Map([['block-empty-iframe-nested-wrapper', item]]),
+        audioContentByBid: new Map([
+          ['block-empty-iframe-nested-wrapper', item],
+        ]),
+        previewMode: false,
+        shouldRenderEmptyPpt: false,
+        getNextContentBid: () => null,
+        goToBlock: () => false,
+        resolveContentBid: (bid: string | null) => bid,
+        isAudioPlaying: false,
+        setIsAudioPlaying: () => undefined,
+      }),
+    );
+
+    act(() => {
+      result.current.refreshRuntimePageRemap();
+    });
+
+    expect(emptySlide.classList.contains('listen-runtime-pruned-slide')).toBe(
+      true,
+    );
+    expect(result.current.resolveRuntimeSequencePage(0)).toBe(1);
+  });
+
   it('prunes sandbox iframe placeholders without document and without source hints', () => {
     const emptySlide = document.createElement('section');
     const emptyWrapper = document.createElement('div');
