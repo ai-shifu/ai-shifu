@@ -244,7 +244,10 @@ const applyRuntimePrunedSlideState = (
   slide.removeAttribute('aria-hidden');
 };
 
-const buildRuntimePageRemap = (slides: unknown[]): Map<number, number> => {
+const buildRuntimePageRemap = (
+  slides: unknown[],
+  preferredPage?: number,
+): Map<number, number> => {
   const remap = new Map<number, number>();
   if (!slides.length) {
     return remap;
@@ -263,11 +266,18 @@ const buildRuntimePageRemap = (slides: unknown[]): Map<number, number> => {
   });
 
   if (!playablePages.length) {
-    // Keep at least one visible slide when runtime content is still streaming.
-    // Otherwise Reveal can get stuck showing a fully pruned deck.
+    // Keep exactly one fallback slide visible when runtime content is still
+    // streaming; otherwise Reveal can get stuck showing a fully pruned deck.
+    const fallbackPage =
+      Number.isFinite(preferredPage) &&
+      typeof preferredPage === 'number' &&
+      preferredPage >= 0 &&
+      preferredPage < slides.length
+        ? preferredPage
+        : 0;
     slides.forEach((slide, page) => {
-      applyRuntimePrunedSlideState(slide, false);
-      remap.set(page, page);
+      applyRuntimePrunedSlideState(slide, page !== fallbackPage);
+      remap.set(page, fallbackPage);
     });
     return remap;
   }
@@ -1340,14 +1350,15 @@ export const useListenAudioSequence = ({
 
   const refreshRuntimePageRemap = useCallback(() => {
     const slides = collectDeckSlides();
-    const nextMap = buildRuntimePageRemap(slides);
+    const currentDeckPage = deckRef.current?.getIndices?.().h;
+    const nextMap = buildRuntimePageRemap(slides, currentDeckPage);
     if (arePageRemapMapsEqual(runtimePageRemapRef.current, nextMap)) {
       return false;
     }
     runtimePageRemapRef.current = nextMap;
     setRuntimePageRemapVersion(version => version + 1);
     return true;
-  }, [collectDeckSlides]);
+  }, [collectDeckSlides, deckRef]);
 
   const syncToSequencePage = useCallback(
     (page: number) => {

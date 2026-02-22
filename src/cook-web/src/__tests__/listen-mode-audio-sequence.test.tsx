@@ -2364,6 +2364,67 @@ describe('useListenAudioSequence silent visual slides', () => {
     expect(emptySlide.getAttribute('data-runtime-pruned')).toBeNull();
   });
 
+  it('keeps only the current fallback slide visible when all runtime slides are empty', () => {
+    const emptySlideA = document.createElement('section');
+    const emptySlideB = document.createElement('section');
+
+    const deck: any = {
+      sync: jest.fn(),
+      layout: jest.fn(),
+      getSlides: jest.fn(() => [emptySlideA, emptySlideB]),
+      getIndices: jest.fn(() => ({ h: 1 })),
+      slide: jest.fn(),
+    };
+
+    const deckRef = { current: deck };
+    const currentPptPageRef = { current: 1 };
+    const activeBlockBidRef = { current: null as string | null };
+    const pendingAutoNextRef = { current: false };
+    const shouldStartSequenceRef = { current: false };
+
+    const item: any = {
+      type: ChatContentItemType.CONTENT,
+      generated_block_bid: 'block-all-empty',
+      content: 'Narration',
+      audios: [{ position: 0, audio_url: 'https://example.com/a0.mp3' }],
+      customRenderBar: () => null,
+    };
+
+    const { result } = renderHook(() =>
+      useListenAudioSequence({
+        audioAndInteractionList: [{ ...item, page: 0, audioPosition: 0 }],
+        deckRef: deckRef as any,
+        currentPptPageRef: currentPptPageRef as any,
+        activeBlockBidRef: activeBlockBidRef as any,
+        pendingAutoNextRef: pendingAutoNextRef as any,
+        shouldStartSequenceRef: shouldStartSequenceRef as any,
+        contentByBid: new Map([['block-all-empty', item]]),
+        audioContentByBid: new Map([['block-all-empty', item]]),
+        previewMode: false,
+        shouldRenderEmptyPpt: false,
+        getNextContentBid: () => null,
+        goToBlock: () => false,
+        resolveContentBid: (bid: string | null) => bid,
+        isAudioPlaying: false,
+        setIsAudioPlaying: () => undefined,
+      }),
+    );
+
+    act(() => {
+      result.current.refreshRuntimePageRemap();
+    });
+
+    expect(emptySlideA.classList.contains('listen-runtime-pruned-slide')).toBe(
+      true,
+    );
+    expect(emptySlideA.getAttribute('data-runtime-pruned')).toBe('1');
+    expect(emptySlideB.classList.contains('listen-runtime-pruned-slide')).toBe(
+      false,
+    );
+    expect(result.current.resolveRuntimeSequencePage(0)).toBe(1);
+    expect(result.current.resolveRuntimeSequencePage(1)).toBe(1);
+  });
+
   it('starts from anchored new content instead of stale active block', () => {
     jest.useFakeTimers();
     try {
