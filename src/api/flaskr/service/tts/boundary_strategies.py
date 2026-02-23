@@ -11,7 +11,6 @@ src/cook-web/src/c-utils/listen-mode/visual-boundary-detector.ts
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from typing import Optional
 
 from flaskr.service.tts.patterns import (
@@ -28,24 +27,16 @@ from flaskr.service.tts.pipeline import (
 )
 
 
-class BoundaryStrategy(ABC):
-    """Abstract base class for boundary detection strategies."""
-
-    @abstractmethod
-    def find_end(self, raw: str) -> Optional[int]:
-        """
-        Find the end position of the visual element in raw text.
-
-        Args:
-            raw: The raw text starting with the visual element
-
-        Returns:
-            End position (exclusive) if found and complete, None otherwise
-        """
-        pass
+def _find_close_end(raw: str, close_pattern) -> Optional[int]:
+    if not raw:
+        return None
+    close = close_pattern.search(raw)
+    if not close:
+        return None
+    return close.end()
 
 
-class FenceBoundaryStrategy(BoundaryStrategy):
+class FenceBoundaryStrategy:
     """Strategy for fenced code blocks (```)."""
 
     def find_end(self, raw: str) -> Optional[int]:
@@ -58,55 +49,38 @@ class FenceBoundaryStrategy(BoundaryStrategy):
         return close + 3
 
 
-class SvgBoundaryStrategy(BoundaryStrategy):
+class SvgBoundaryStrategy:
     """Strategy for SVG elements (<svg>...</svg>)."""
 
     def find_end(self, raw: str) -> Optional[int]:
-        if not raw:
-            return None
-        close = AV_SVG_CLOSE.search(raw)
-        if not close:
-            return None
-        return close.end()
+        return _find_close_end(raw, AV_SVG_CLOSE)
 
 
-class IframeBoundaryStrategy(BoundaryStrategy):
+class IframeBoundaryStrategy:
     """Strategy for iframe elements (<iframe>...</iframe>)."""
 
     def find_end(self, raw: str) -> Optional[int]:
-        if not raw:
+        end = _find_close_end(raw, AV_IFRAME_CLOSE)
+        if end is None:
             return None
-        close = AV_IFRAME_CLOSE.search(raw)
-        if not close:
-            return None
-        return _extend_fixed_marker_end(raw, close.end())
+        return _extend_fixed_marker_end(raw, end)
 
 
-class VideoBoundaryStrategy(BoundaryStrategy):
+class VideoBoundaryStrategy:
     """Strategy for video elements (<video>...</video>)."""
 
     def find_end(self, raw: str) -> Optional[int]:
-        if not raw:
-            return None
-        close = AV_VIDEO_CLOSE.search(raw)
-        if not close:
-            return None
-        return close.end()
+        return _find_close_end(raw, AV_VIDEO_CLOSE)
 
 
-class HtmlTableBoundaryStrategy(BoundaryStrategy):
+class HtmlTableBoundaryStrategy:
     """Strategy for HTML table elements (<table>...</table>)."""
 
     def find_end(self, raw: str) -> Optional[int]:
-        if not raw:
-            return None
-        close = AV_TABLE_CLOSE.search(raw)
-        if not close:
-            return None
-        return close.end()
+        return _find_close_end(raw, AV_TABLE_CLOSE)
 
 
-class MarkdownTableBoundaryStrategy(BoundaryStrategy):
+class MarkdownTableBoundaryStrategy:
     """Strategy for markdown tables (| A | B |\n| --- | --- |)."""
 
     def find_end(self, raw: str) -> Optional[int]:
@@ -122,7 +96,7 @@ class MarkdownTableBoundaryStrategy(BoundaryStrategy):
         return end
 
 
-class SandboxBoundaryStrategy(BoundaryStrategy):
+class SandboxBoundaryStrategy:
     """Strategy for HTML sandbox blocks (div, section, article, etc.)."""
 
     def find_end(self, raw: str) -> Optional[int]:
@@ -132,7 +106,7 @@ class SandboxBoundaryStrategy(BoundaryStrategy):
         return end if complete else None
 
 
-class MarkdownImageBoundaryStrategy(BoundaryStrategy):
+class MarkdownImageBoundaryStrategy:
     """Strategy for markdown images (![alt](url))."""
 
     def find_end(self, raw: str) -> Optional[int]:
@@ -151,7 +125,7 @@ class MarkdownImageBoundaryStrategy(BoundaryStrategy):
 
 
 # Registry of boundary strategies
-BOUNDARY_STRATEGIES: dict[str, BoundaryStrategy] = {
+BOUNDARY_STRATEGIES = {
     "fence": FenceBoundaryStrategy(),
     "svg": SvgBoundaryStrategy(),
     "iframe": IframeBoundaryStrategy(),

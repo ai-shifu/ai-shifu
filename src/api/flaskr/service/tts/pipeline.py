@@ -50,6 +50,7 @@ from flaskr.service.tts.patterns import (
     AV_IFRAME_OPEN,
     AV_IMG_TAG,
     AV_MD_IMAGE,
+    AV_MD_IMAGE_START,
     AV_MD_TABLE_ROW,
     AV_SANDBOX_START,
     AV_SVG_CLOSE,
@@ -114,23 +115,6 @@ def _find_first_match_outside_fence(
             return match
         match = pattern.search(raw, match.end())
     return None
-
-
-def _find_first_index_outside_fence(
-    raw: str, pattern: re.Pattern[str], fence_ranges: list[tuple[int, int]]
-) -> int:
-    match = _find_first_match_outside_fence(raw, pattern, fence_ranges)
-    return -1 if match is None else match.start()
-
-
-def _find_html_block_end(raw: str, start_index: int) -> int:
-    """
-    Best-effort end boundary for a sandbox HTML block.
-
-    Mirrors the heuristic used by the frontend `splitContentSegments` utility:
-    end at the first closing-tag boundary after `start_index`.
-    """
-    return _find_html_block_end_with_complete(raw, start_index)[0]
 
 
 def _find_html_block_end_with_complete(raw: str, start_index: int) -> tuple[int, bool]:
@@ -320,6 +304,135 @@ def _find_markdown_table_block(
     return None
 
 
+def _append_open_close_boundary_candidate(
+    *,
+    candidates: list[tuple[str, int, int, bool]],
+    raw: str,
+    fence_ranges: list[tuple[int, int]],
+    kind: str,
+    open_pattern: re.Pattern[str],
+    close_pattern: re.Pattern[str],
+    rewind_start: bool = False,
+    extend_end: bool = False,
+):
+    match = _find_first_match_outside_fence(raw, open_pattern, fence_ranges)
+    if match is None:
+        return
+
+    start = match.start()
+    if rewind_start:
+        start = _rewind_fixed_marker_start(raw, start)
+
+    close = close_pattern.search(raw, start)
+    if close is None:
+        candidates.append((kind, start, len(raw), False))
+        return
+
+    end = close.end()
+    if extend_end:
+        end = _extend_fixed_marker_end(raw, end)
+    candidates.append((kind, start, end, True))
+
+
+def _find_next_av_boundary(
+    raw: str,
+    *,
+    include_partial_md_image: bool = False,
+) -> tuple[str, int, int, bool] | None:
+    """
+    Return the earliest AV boundary candidate from `raw`.
+
+    Returns:
+        (kind, start, end, complete), where `end` is exclusive.
+    """
+    if not raw:
+        return None
+
+    fence_ranges = _get_fence_ranges(raw)
+    candidates: list[tuple[str, int, int, bool]] = []
+
+    fence_start = raw.find("```")
+    if fence_start != -1:
+        fence_close = raw.find("```", fence_start + 3)
+        if fence_close == -1:
+            candidates.append(("fence", fence_start, len(raw), False))
+        else:
+            candidates.append(("fence", fence_start, fence_close + 3, True))
+
+    _append_open_close_boundary_candidate(
+        candidates=candidates,
+        raw=raw,
+        fence_ranges=fence_ranges,
+        kind="svg",
+        open_pattern=AV_SVG_OPEN,
+        close_pattern=AV_SVG_CLOSE,
+    )
+    _append_open_close_boundary_candidate(
+        candidates=candidates,
+        raw=raw,
+        fence_ranges=fence_ranges,
+        kind="iframe",
+        open_pattern=AV_IFRAME_OPEN,
+        close_pattern=AV_IFRAME_CLOSE,
+        rewind_start=True,
+        extend_end=True,
+    )
+    _append_open_close_boundary_candidate(
+        candidates=candidates,
+        raw=raw,
+        fence_ranges=fence_ranges,
+        kind="video",
+        open_pattern=AV_VIDEO_OPEN,
+        close_pattern=AV_VIDEO_CLOSE,
+    )
+    _append_open_close_boundary_candidate(
+        candidates=candidates,
+        raw=raw,
+        fence_ranges=fence_ranges,
+        kind="html_table",
+        open_pattern=AV_TABLE_OPEN,
+        close_pattern=AV_TABLE_CLOSE,
+    )
+
+    img_match = _find_first_match_outside_fence(raw, AV_IMG_TAG, fence_ranges)
+    if img_match is not None:
+        candidates.append(("img", img_match.start(), img_match.end(), True))
+
+    md_img_match = _find_first_match_outside_fence(raw, AV_MD_IMAGE, fence_ranges)
+    if md_img_match is not None:
+        candidates.append(("md_img", md_img_match.start(), md_img_match.end(), True))
+    elif include_partial_md_image:
+        md_img_start = _find_first_match_outside_fence(
+            raw, AV_MD_IMAGE_START, fence_ranges
+        )
+        if md_img_start is not None:
+            start = md_img_start.start()
+            image_open = raw.find("](", start + 2)
+            if image_open == -1:
+                candidates.append(("md_img", start, len(raw), False))
+            else:
+                image_close = raw.find(")", image_open + 2)
+                if image_close == -1:
+                    candidates.append(("md_img", start, len(raw), False))
+
+    md_table = _find_markdown_table_block(raw, fence_ranges)
+    if md_table is not None:
+        start, end, complete = md_table
+        candidates.append(("md_table", start, end, complete))
+
+    sandbox_match = _find_first_match_outside_fence(raw, AV_SANDBOX_START, fence_ranges)
+    if sandbox_match is not None:
+        sandbox_start = sandbox_match.start()
+        sandbox_end, sandbox_complete = _find_html_block_end_with_complete(
+            raw, sandbox_start
+        )
+        candidates.append(("sandbox", sandbox_start, sandbox_end, sandbox_complete))
+
+    if not candidates:
+        return None
+    return min(candidates, key=lambda item: item[1])
+
+
 def build_av_segmentation_contract(raw: str, block_bid: str = "") -> dict:
     """
     Build a shared AV segmentation contract used by backend and frontend.
@@ -361,64 +474,8 @@ def build_av_segmentation_contract(raw: str, block_bid: str = "") -> dict:
         if not text or not text.strip():
             return
 
-        fence_ranges = _get_fence_ranges(text)
-        candidates: list[tuple[str, int, int]] = []
-
-        if fence_ranges:
-            start, end = fence_ranges[0]
-            candidates.append(("fence", start, end))
-
-        svg_start = _find_first_index_outside_fence(text, AV_SVG_OPEN, fence_ranges)
-        if svg_start != -1:
-            candidates.append(("svg", svg_start, _find_svg_block_end(text, svg_start)))
-
-        iframe_match = _find_first_match_outside_fence(
-            text, AV_IFRAME_OPEN, fence_ranges
-        )
-        if iframe_match is not None:
-            iframe_start = _rewind_fixed_marker_start(text, iframe_match.start())
-            candidates.append(
-                ("iframe", iframe_start, _find_iframe_block_end(text, iframe_start))
-            )
-
-        video_match = _find_first_match_outside_fence(text, AV_VIDEO_OPEN, fence_ranges)
-        if video_match is not None:
-            video_start = video_match.start()
-            candidates.append(
-                ("video", video_start, _find_video_block_end(text, video_start))
-            )
-
-        table_match = _find_first_match_outside_fence(text, AV_TABLE_OPEN, fence_ranges)
-        if table_match is not None:
-            table_start = table_match.start()
-            candidates.append(
-                ("html_table", table_start, _find_table_block_end(text, table_start))
-            )
-
-        img_match = _find_first_match_outside_fence(text, AV_IMG_TAG, fence_ranges)
-        if img_match is not None:
-            candidates.append(("img", img_match.start(), img_match.end()))
-
-        md_img_match = _find_first_match_outside_fence(text, AV_MD_IMAGE, fence_ranges)
-        if md_img_match is not None:
-            candidates.append(("md_img", md_img_match.start(), md_img_match.end()))
-
-        md_table = _find_markdown_table_block(text, fence_ranges)
-        if md_table is not None:
-            start, end, _complete = md_table
-            candidates.append(("md_table", start, end))
-
-        sandbox_match = _find_first_match_outside_fence(
-            text, AV_SANDBOX_START, fence_ranges
-        )
-        if sandbox_match is not None:
-            sandbox_start = sandbox_match.start()
-            sandbox_end, _complete = _find_html_block_end_with_complete(
-                text, sandbox_start
-            )
-            candidates.append(("sandbox", sandbox_start, sandbox_end))
-
-        if not candidates:
+        boundary = _find_next_av_boundary(text)
+        if boundary is None:
             _append_speakable(
                 text=text,
                 start_offset=base_offset,
@@ -427,7 +484,7 @@ def build_av_segmentation_contract(raw: str, block_bid: str = "") -> dict:
             )
             return
 
-        kind, start, end = min(candidates, key=lambda item: item[1])
+        kind, start, end, _complete = boundary
         if end <= start:
             _append_speakable(
                 text=text,

@@ -56,9 +56,6 @@ def test_av_streaming_tts_processor_emits_av_contract_in_events(app, monkeypatch
                 ),
             )
 
-        def finalize_preview(self):
-            yield from self.finalize(commit=False)
-
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.StreamingTTSProcessor",
         _FakeStreamingTTSProcessor,
@@ -110,10 +107,6 @@ def test_av_streaming_tts_processor_skips_chunked_markdown_image(app, monkeypatc
 
         def finalize(self, commit=True):
             _ = commit
-            return
-            yield
-
-        def finalize_preview(self):
             return
             yield
 
@@ -201,9 +194,6 @@ def test_av_streaming_tts_processor_emits_new_slide_before_audio(app, monkeypatc
                 ),
             )
 
-        def finalize_preview(self):
-            yield from self.finalize(commit=False)
-
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.StreamingTTSProcessor",
         _FakeStreamingTTSProcessor,
@@ -290,9 +280,6 @@ def test_av_streaming_tts_processor_advances_position_when_segment_has_no_audio(
                 ),
             )
 
-        def finalize_preview(self):
-            yield from self.finalize(commit=False)
-
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.StreamingTTSProcessor",
         _LenGateStreamingTTSProcessor,
@@ -346,10 +333,6 @@ def test_av_streaming_tts_processor_emits_run_start_slide_once(app, monkeypatch)
             return
             yield
 
-        def finalize_preview(self):
-            return
-            yield
-
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.StreamingTTSProcessor",
         _NoopStreamingTTSProcessor,
@@ -395,10 +378,6 @@ def test_av_streaming_tts_processor_emits_visual_slide_on_boundary_without_audio
 
         def finalize(self, commit=True):
             _ = commit
-            return
-            yield
-
-        def finalize_preview(self):
             return
             yield
 
@@ -449,10 +428,6 @@ def test_av_streaming_tts_processor_emits_head_then_full_slide_for_incomplete_bo
 
         def finalize(self, commit=True):
             _ = commit
-            return
-            yield
-
-        def finalize_preview(self):
             return
             yield
 
@@ -509,10 +484,6 @@ def test_av_streaming_tts_processor_detects_truncated_sandbox_start(app, monkeyp
 
         def finalize(self, commit=True):
             _ = commit
-            return
-            yield
-
-        def finalize_preview(self):
             return
             yield
 
@@ -590,10 +561,6 @@ def test_av_streaming_tts_processor_never_emits_full_segment_content_in_new_slid
 
         def finalize(self, commit=True):
             _ = commit
-            return
-            yield
-
-        def finalize_preview(self):
             return
             yield
 

@@ -2220,7 +2220,13 @@ class RunScriptContextV2:
                     # then emit NEW_SLIDE before the cached content.
                     content_cache += chunk_content
                     try:
-                        tts_events = list(tts_processor.process_chunk(chunk_content))
+                        new_slide_events = []
+                        other_events = []
+                        for event in tts_processor.process_chunk(chunk_content):
+                            if event.type == GeneratedType.NEW_SLIDE:
+                                new_slide_events.append(event)
+                            else:
+                                other_events.append(event)
                     except Exception as exc:
                         app.logger.warning(
                             "Streaming TTS failed; disable for this block: %s",
@@ -2231,20 +2237,8 @@ class RunScriptContextV2:
                         yield from _flush_content_cache()
                         return
 
-                    new_slide_events = [
-                        event
-                        for event in tts_events
-                        if event.type == GeneratedType.NEW_SLIDE
-                    ]
-                    other_events = [
-                        event
-                        for event in tts_events
-                        if event.type != GeneratedType.NEW_SLIDE
-                    ]
-
                     if new_slide_events:
-                        for event in new_slide_events:
-                            yield event
+                        yield from new_slide_events
                     has_pending_visual_boundary = bool(
                         getattr(tts_processor, "has_pending_visual_boundary", False)
                     )
@@ -2253,13 +2247,12 @@ class RunScriptContextV2:
                     # 2) boundary pending -> keep streaming immediately,
                     # 3) otherwise keep only a tiny guard tail to avoid emitting
                     #    split visual markers (e.g. `<sv`, `<di`) too early.
-                    if bool(new_slide_events) or has_pending_visual_boundary:
+                    if new_slide_events or has_pending_visual_boundary:
                         yield from _flush_content_cache()
                     else:
                         yield from _flush_content_cache(keep_tail=12)
 
-                    for event in other_events:
-                        yield event
+                    yield from other_events
 
                 stream_result = mdflow_context.process(
                     block_index=run_script_info.block_position,

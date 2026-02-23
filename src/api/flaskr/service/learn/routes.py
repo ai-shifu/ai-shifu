@@ -46,6 +46,39 @@ def _normalize_user_input(value):
     return {"user_input": [str(value)]}
 
 
+def _to_sse_data_line(message) -> str:
+    payload = message.__json__() if hasattr(message, "__json__") else message
+    return "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
+
+
+def _stream_sse_response(
+    app: Flask,
+    *,
+    message_iter_factory,
+    close_log: str,
+    error_log: str,
+    error_event_factory=None,
+) -> Response:
+    def event_stream():
+        try:
+            for message in message_iter_factory():
+                yield _to_sse_data_line(message)
+        except GeneratorExit:
+            app.logger.info(close_log)
+            raise
+        except Exception as exc:
+            app.logger.error(error_log, exc_info=True)
+            if error_event_factory is None:
+                raise
+            yield _to_sse_data_line(error_event_factory(exc))
+
+    return Response(
+        stream_with_context(event_stream()),
+        headers={"Cache-Control": "no-cache"},
+        mimetype="text/event-stream",
+    )
+
+
 @inject
 def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     """
@@ -332,45 +365,22 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             preview_request.block_index,
         )
 
-        def event_stream():
-            try:
-                for message in preview_service.stream_preview(
-                    preview_request=preview_request,
-                    shifu_bid=shifu_bid,
-                    outline_bid=outline_bid,
-                    user_bid=user_bid,
-                    session_id=session_id,
-                ):
-                    payload = (
-                        message.__json__() if hasattr(message, "__json__") else message
-                    )
-                    yield (
-                        "data: "
-                        + json.dumps(payload, ensure_ascii=False)
-                        + "\n\n".encode("utf-8").decode("utf-8")
-                    )
-            except GeneratorExit:
-                app.logger.info("client closed preview stream early")
-                raise
-            except Exception as exc:
-                app.logger.error("preview outline block failed", exc_info=True)
-                yield (
-                    "data: "
-                    + json.dumps(
-                        PreviewSSEMessage(
-                            generated_block_bid=generate_id(app),
-                            type=PreviewSSEMessageType.ERROR,
-                            data=str(exc),
-                        ).__json__(),
-                        ensure_ascii=False,
-                    )
-                    + "\n\n".encode("utf-8").decode("utf-8")
-                )
-
-        return Response(
-            stream_with_context(event_stream()),
-            headers={"Cache-Control": "no-cache"},
-            mimetype="text/event-stream",
+        return _stream_sse_response(
+            app,
+            message_iter_factory=lambda: preview_service.stream_preview(
+                preview_request=preview_request,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                user_bid=user_bid,
+                session_id=session_id,
+            ),
+            close_log="client closed preview stream early",
+            error_log="preview outline block failed",
+            error_event_factory=lambda exc: PreviewSSEMessage(
+                generated_block_bid=generate_id(app),
+                type=PreviewSSEMessageType.ERROR,
+                data=str(exc),
+            ),
         )
 
     @app.route(
@@ -625,37 +635,18 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         listen = request.args.get("listen", "False")
         listen = listen.lower() == "true"
 
-        def event_stream():
-            try:
-                for message in stream_generated_block_audio(
-                    app,
-                    shifu_bid=shifu_bid,
-                    generated_block_bid=generated_block_bid,
-                    user_bid=user_bid,
-                    preview_mode=preview_mode,
-                    listen=listen,
-                ):
-                    payload = (
-                        message.__json__() if hasattr(message, "__json__") else message
-                    )
-                    yield (
-                        "data: "
-                        + json.dumps(payload, ensure_ascii=False)
-                        + "\n\n".encode("utf-8").decode("utf-8")
-                    )
-            except GeneratorExit:
-                app.logger.info("client closed tts stream early")
-                raise
-            except Exception:
-                app.logger.error(
-                    "synthesize generated block audio failed", exc_info=True
-                )
-                raise
-
-        return Response(
-            stream_with_context(event_stream()),
-            headers={"Cache-Control": "no-cache"},
-            mimetype="text/event-stream",
+        return _stream_sse_response(
+            app,
+            message_iter_factory=lambda: stream_generated_block_audio(
+                app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=preview_mode,
+                listen=listen,
+            ),
+            close_log="client closed tts stream early",
+            error_log="synthesize generated block audio failed",
         )
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/tts/preview", methods=["POST"])
@@ -699,34 +690,17 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         preview_mode = request.args.get("preview_mode", "False")
         preview_mode = preview_mode.lower() == "true"
 
-        def event_stream():
-            try:
-                for message in stream_preview_tts_audio(
-                    app,
-                    shifu_bid=shifu_bid,
-                    user_bid=user_bid,
-                    text=text,
-                    preview_mode=preview_mode,
-                ):
-                    payload = (
-                        message.__json__() if hasattr(message, "__json__") else message
-                    )
-                    yield (
-                        "data: "
-                        + json.dumps(payload, ensure_ascii=False)
-                        + "\n\n".encode("utf-8").decode("utf-8")
-                    )
-            except GeneratorExit:
-                app.logger.info("client closed preview tts stream early")
-                raise
-            except Exception:
-                app.logger.error("preview tts stream failed", exc_info=True)
-                raise
-
-        return Response(
-            stream_with_context(event_stream()),
-            headers={"Cache-Control": "no-cache"},
-            mimetype="text/event-stream",
+        return _stream_sse_response(
+            app,
+            message_iter_factory=lambda: stream_preview_tts_audio(
+                app,
+                shifu_bid=shifu_bid,
+                user_bid=user_bid,
+                text=text,
+                preview_mode=preview_mode,
+            ),
+            close_log="client closed preview tts stream early",
+            error_log="preview tts stream failed",
         )
 
     return app
