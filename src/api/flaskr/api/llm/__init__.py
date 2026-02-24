@@ -440,6 +440,13 @@ def _reload_silicon_params(model_id: str, temperature: float) -> Dict[str, Any]:
     }
 
 
+def _reload_qwen_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    return {
+        "temperature": temperature,
+        "extra_body": {"enable_thinking": False},
+    }
+
+
 LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
     ProviderConfig(
         key="openai",
@@ -461,6 +468,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         extra_models=["deepseek-r1", "deepseek-v3"],
         config_hint="QWEN_API_KEY,QWEN_API_URL",
         custom_llm_provider="openai",
+        reload_params=_reload_qwen_params,
     ),
     ProviderConfig(
         key="ernie_v2",

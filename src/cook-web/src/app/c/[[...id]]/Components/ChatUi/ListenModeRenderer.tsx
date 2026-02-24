@@ -19,7 +19,6 @@ interface ListenModeRendererProps {
   items: ChatContentItem[];
   mobileStyle: boolean;
   chatRef: React.RefObject<HTMLDivElement>;
-  containerClassName?: string;
   isLoading?: boolean;
   sectionTitle?: string;
   previewMode?: boolean;
@@ -31,7 +30,6 @@ const ListenModeRenderer = ({
   items,
   mobileStyle,
   chatRef,
-  containerClassName,
   isLoading = false,
   sectionTitle,
   previewMode = false,
@@ -282,11 +280,7 @@ const ListenModeRenderer = ({
 
   return (
     <div
-      className={cn(
-        containerClassName,
-        'listen-reveal-wrapper',
-        mobileStyle ? 'mobile' : '',
-      )}
+      className={cn('listen-reveal-wrapper', mobileStyle ? 'mobile' : '')}
       style={{ background: '#F7F9FF', position: 'relative' }}
     >
       <div

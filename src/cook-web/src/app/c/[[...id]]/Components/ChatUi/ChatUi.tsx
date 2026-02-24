@@ -55,12 +55,14 @@ export const ChatUi = ({
   const hideMobileFooter = frameLayout === FRAME_LAYOUT_MOBILE && isNavOpen;
   const showHeader = frameLayout !== FRAME_LAYOUT_MOBILE;
   const showModeToggle = showLearningModeToggle;
+  const isListenMode = learningMode === 'listen';
 
   return (
     <div
       className={cn(
         styles.ChatUi,
         frameLayout === FRAME_LAYOUT_MOBILE ? styles.mobile : '',
+        isListenMode ? styles.listenMode : '',
         hideMobileFooter ? styles.hideMobileFooter : '',
       )}
     >
