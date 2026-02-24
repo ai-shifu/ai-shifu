@@ -40,8 +40,6 @@ export const LogoWithText = ({ direction, size = 64 }) => {
     return Math.round(size * (imgLogoRow.width / imgLogoRow.height));
   }, [size, wideLogoSrc]);
 
-  const containerWidth = isRow ? wideWidth : size;
-
   return (
     <div
       style={{
@@ -57,7 +55,6 @@ export const LogoWithText = ({ direction, size = 64 }) => {
       >
         <div
           style={{
-            // width: containerWidth,
             height: size,
             position: 'relative',
           }}

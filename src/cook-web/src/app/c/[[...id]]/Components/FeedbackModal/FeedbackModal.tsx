@@ -60,7 +60,7 @@ export const FeedbackModal = ({ open, onClose }) => {
         });
         form.reset();
         onClose();
-      } catch (error) {
+      } catch {
         toast({
           title: t('module.feedback.feedbackError') || 'Submission failed',
           variant: 'destructive',

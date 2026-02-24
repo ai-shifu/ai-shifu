@@ -17,7 +17,6 @@ import {
 export const CourseCatalog = ({
   id = 0,
   name = '',
-  status,
   lessons = [],
   collapse = false,
   selectedLessonId = '',

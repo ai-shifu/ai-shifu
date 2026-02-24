@@ -53,12 +53,18 @@ const StableSvgSlide = ({ raw }: { raw: string }) => {
     }
   }, [svgCandidate]);
 
+  const resolvedSvg = stableSvgHtml || svgCandidate || '';
+  // Render pure SVG through sandbox mode with a stable HTML root wrapper.
+  // markdown mode may keep an empty `.content-render-svg` shell for some SVGs
+  // (especially style-heavy charts), which then gets pruned as blank slides.
+  const sandboxHtml = resolvedSvg ? `<div>${resolvedSvg}</div>` : '';
+
   return (
     <IframeSandbox
-      type='markdown'
+      type='sandbox'
       mode='blackboard'
       hideFullScreen
-      content={stableSvgHtml || svgCandidate || ''}
+      content={sandboxHtml}
     />
   );
 };
@@ -75,8 +81,7 @@ const ContentIframe = memo(
           const segmentValue =
             typeof segment.value === 'string' ? segment.value : '';
 
-          const isSvgSegment =
-            segment.type === 'markdown' && /^\s*<svg\b/i.test(segmentValue);
+          const isSvgSegment = /^\s*<svg\b/i.test(segmentValue);
 
           const iframeNode = isSvgSegment ? (
             <StableSvgSlide

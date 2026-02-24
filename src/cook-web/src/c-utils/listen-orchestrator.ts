@@ -1,4 +1,4 @@
-import type { AudioCompleteData } from '@/c-api/studyV2';
+import type { AudioCompleteData, AvContractData } from '@/c-api/studyV2';
 
 export const LISTEN_AUDIO_EVENT_TYPES = {
   AUDIO_SEGMENT: 'audio_segment',
@@ -20,18 +20,15 @@ export const buildListenUnitId = ({
   type,
   generatedBlockBid,
   position,
-  slideId: _slideId,
   fallbackIndex,
   resolveContentBid,
 }: {
   type: string;
   generatedBlockBid?: string | null;
   position?: unknown;
-  slideId?: string | null;
   fallbackIndex: number;
   resolveContentBid?: (blockBid: string | null) => string | null;
 }): string => {
-  void _slideId;
   if (type === 'content') {
     // Always use bid:position for content items to keep unit IDs stable
     // across list rebuilds.  slideId arrives asynchronously (via avContract /
@@ -67,9 +64,7 @@ export const buildListenUnitId = ({
  * // => [0, 1, 2, 3]
  */
 export const extractAudioPositions = (item: {
-  avContract?: {
-    speakable_segments?: Array<{ position?: unknown }>;
-  } | null;
+  avContract?: Pick<AvContractData, 'speakable_segments'> | null;
   audios?: Array<{ position?: unknown }> | null;
   audioTracksByPosition?: Record<string, unknown> | null;
 }): number[] => {
@@ -86,7 +81,7 @@ export const extractAudioPositions = (item: {
       ? Array.from(
           new Set(
             item.audios
-              .map(audio => Number((audio as any).position ?? 0))
+              .map(audio => Number(audio.position ?? 0))
               .filter(value => !Number.isNaN(value)),
           ),
         )
@@ -105,6 +100,71 @@ export const extractAudioPositions = (item: {
   return Array.from(
     new Set([...contractPositions, ...persistedPositions, ...trackPositions]),
   ).sort((a, b) => a - b);
+};
+
+export const mapContractSpeakablePages = ({
+  avContract,
+  previousVisualPageBeforeBlock,
+  firstVisualPage,
+  visualSegmentCount,
+}: {
+  avContract?: AvContractData | null;
+  previousVisualPageBeforeBlock: number;
+  firstVisualPage: number;
+  visualSegmentCount: number;
+}): number[] | null => {
+  const speakableSegments = avContract?.speakable_segments || [];
+  if (speakableSegments.length === 0) {
+    return null;
+  }
+
+  const boundariesByEnd = (avContract?.visual_boundaries || [])
+    .map(boundary => {
+      const position = Number(boundary.position ?? -1);
+      const sourceSpan = Array.isArray(boundary.source_span)
+        ? boundary.source_span
+        : [];
+      const end = Number(sourceSpan[1] ?? -1);
+      if (Number.isNaN(position) || Number.isNaN(end)) {
+        return null;
+      }
+      return { position, end };
+    })
+    .filter(
+      (boundary): boundary is { position: number; end: number } =>
+        boundary !== null,
+    )
+    .sort((a, b) => a.end - b.end);
+
+  const contractPages: number[] = [];
+  speakableSegments.forEach(segment => {
+    const position = Number(segment.position ?? -1);
+    if (Number.isNaN(position) || position < 0) {
+      return;
+    }
+
+    const sourceSpan = Array.isArray(segment.source_span)
+      ? segment.source_span
+      : [];
+    const sourceStart = Number(sourceSpan[0] ?? -1);
+    const precedingBoundary =
+      !Number.isNaN(sourceStart) && sourceStart >= 0
+        ? boundariesByEnd.filter(boundary => boundary.end <= sourceStart).pop()
+        : undefined;
+    if (
+      !precedingBoundary ||
+      precedingBoundary.position >= visualSegmentCount ||
+      firstVisualPage < 0
+    ) {
+      contractPages[position] = previousVisualPageBeforeBlock;
+      return;
+    }
+    contractPages[position] = firstVisualPage + precedingBoundary.position;
+  });
+
+  return contractPages.some(page => typeof page === 'number')
+    ? contractPages
+    : null;
 };
 
 export type ListenInboundAudioEvent = {
@@ -147,7 +207,7 @@ type NormalizedListenRecordAudios = {
 };
 
 export const toListenInboundAudioEvent = (
-  response: any,
+  response: Record<string, unknown> | null | undefined,
   fallbackGeneratedBlockBid?: string,
 ): ListenInboundAudioEvent | null => {
   if (!response) {

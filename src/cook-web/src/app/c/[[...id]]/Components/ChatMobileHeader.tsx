@@ -3,17 +3,10 @@ import styles from './ChatMobileHeader.module.scss';
 import { memo } from 'react';
 import { cn } from '@/lib/utils';
 
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from '@/components/ui/Popover';
+import { Popover } from '@/components/ui/Popover';
 import IconButton from './IconButton/IconButton';
 import moeIcon from './IconButton/icon16-more2x.png';
 import closeIcon from './IconButton/close-2x.png';
-
-import { Button } from '@/components/ui/Button';
-import { MoreHorizontal as MoreIcon, X as CloseIcon } from 'lucide-react';
 
 import MobileHeaderIconPopover from './MobileHeaderIconPopover';
 import LogoWithText from '@/c-components/logo/LogoWithText';
@@ -35,8 +28,6 @@ export const ChatMobileHeader = ({
   const hasPopoverContentControl = shifu.hasControl(
     shifu.ControlTypes.MOBILE_HEADER_ICON_POPOVER,
   );
-
-  const popoverVisible = iconPopoverOpen && hasPopoverContentControl;
 
   return (
     <div className={cn(styles.ChatMobileHeader, className)}>

@@ -23,7 +23,6 @@ import {
   PAY_CHANNEL_WECHAT_JSAPI,
   PAY_CHANNEL_ZHIFUBAO,
   PAY_CHANNEL_STRIPE,
-  ORDER_STATUS,
 } from './constans';
 import MainButtonM from '@/c-components/m/MainButtonM';
 import StripeCardForm from './StripeCardForm';
@@ -106,7 +105,6 @@ export const PayModalM = ({
     priceItems,
     couponCode: appliedCouponCode,
     paymentInfo,
-    isLoading,
     initLoading: hookInitLoading,
     isCompleted,
     initializeOrder,
@@ -195,7 +193,7 @@ export const PayModalM = ({
       return PAY_CHANNEL_STRIPE;
     }
     return pingxxDefaultChannel;
-  }, [pingxxChannelEnabled, isStripeAvailable, pingxxDefaultChannel]);
+  }, [pingxxChannelEnabled, isStripeAvailable]);
 
   useEffect(() => {
     const isCurrentSupported =

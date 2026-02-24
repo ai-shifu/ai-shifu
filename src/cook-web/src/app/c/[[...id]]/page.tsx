@@ -40,8 +40,6 @@ import ChatMobileHeader from './Components/ChatMobileHeader';
 import PayModalM from './Components/Pay/PayModalM';
 import PayModal from './Components/Pay/PayModal';
 
-// import LoginModal from './Components/Login/LoginModal';
-
 // the main page of course learning
 export default function ChatPage() {
   const { t, i18n } = useTranslation();
@@ -84,12 +82,10 @@ export default function ChatPage() {
   }, [initialized, isLoggedIn, wechatCode]);
 
   // NOTE: User-related features should be organized into one module
-  function gotoLogin() {
+  const gotoLogin = useCallback(() => {
     const redirectPath = buildLoginRedirectPath(window.location.href);
     window.location.href = `/login?redirect=${encodeURIComponent(redirectPath)}`;
-  }
-  // NOTE: Probably don't need this.
-  // const [loginModalOpen, setLoginModalOpen] = useState(false);
+  }, []);
 
   /**
    * UI layout part
@@ -133,13 +129,11 @@ export default function ChatPage() {
   const { updateCourseId } = useEnvStore.getState();
 
   useEffect(() => {
-    const updateCourse = async () => {
-      if (courseId) {
-        await updateCourseId(courseId);
-      }
-    };
-    updateCourse();
-  }, [courseId]);
+    if (!courseId) {
+      return;
+    }
+    void updateCourseId(courseId);
+  }, [courseId, updateCourseId]);
 
   const {
     tree,
@@ -228,31 +222,42 @@ export default function ChatPage() {
     return '';
   }, [resolvedLessonId, tree]);
 
-  const onLessonSelect = ({ id }) => {
-    const chapter = getChapterByLesson(id);
-    if (!chapter) {
-      return;
-    }
-    updateLessonId(id);
-    if (chapter.id !== chapterId) {
-      updateChapterId(chapter.id);
-    }
-    if (lessonId === id) {
-      return;
-    }
-    events.dispatchEvent(
-      new CustomEvent(EVENT_NAMES.GO_TO_NAVIGATION_NODE, {
-        detail: {
-          chapterId: chapter.id,
-          lessonId: id,
-        },
-      }),
-    );
+  const onLessonSelect = useCallback(
+    ({ id }) => {
+      const chapter = getChapterByLesson(id);
+      if (!chapter) {
+        return;
+      }
+      updateLessonId(id);
+      if (chapter.id !== chapterId) {
+        updateChapterId(chapter.id);
+      }
+      if (lessonId === id) {
+        return;
+      }
+      events.dispatchEvent(
+        new CustomEvent(EVENT_NAMES.GO_TO_NAVIGATION_NODE, {
+          detail: {
+            chapterId: chapter.id,
+            lessonId: id,
+          },
+        }),
+      );
 
-    if (mobileStyle) {
-      onNavClose();
-    }
-  };
+      if (mobileStyle) {
+        onNavClose();
+      }
+    },
+    [
+      chapterId,
+      getChapterByLesson,
+      lessonId,
+      mobileStyle,
+      onNavClose,
+      updateChapterId,
+      updateLessonId,
+    ],
+  );
 
   const onLessonUpdate = useCallback(
     val => {
@@ -261,13 +266,23 @@ export default function ChatPage() {
     [updateLesson],
   );
 
-  const onGoChapter = async id => {
-    // updateChapterId(id);
-    updateLessonId(id);
-  };
+  const onGoChapter = useCallback(
+    async (params?: Record<string, any>) => {
+      const id = params?.lesson_id || params?.id;
+      if (!id) {
+        return;
+      }
+      updateLessonId(id);
+    },
+    [updateLessonId],
+  );
 
   const onChapterUpdate = useCallback(
-    ({ id, status, status_value }) => {
+    (params: Record<string, any>) => {
+      const { id, status, status_value } = params || {};
+      if (!id) {
+        return;
+      }
       updateChapterStatus(id, { status, status_value });
     },
     [updateChapterStatus],
@@ -295,42 +310,30 @@ export default function ChatPage() {
    * Pay part
    */
 
-  const {
-    payModalOpen,
-    payModalState,
-    openPayModal,
-    closePayModal,
-    setPayModalResult,
-  } = useCourseStore(
-    useShallow(state => ({
-      payModalOpen: state.payModalOpen,
-      payModalState: state.payModalState,
-      openPayModal: state.openPayModal,
-      closePayModal: state.closePayModal,
-      setPayModalResult: state.setPayModalResult,
-    })),
-  );
+  const { payModalOpen, payModalState, closePayModal, setPayModalResult } =
+    useCourseStore(
+      useShallow(state => ({
+        payModalOpen: state.payModalOpen,
+        payModalState: state.payModalState,
+        closePayModal: state.closePayModal,
+        setPayModalResult: state.setPayModalResult,
+      })),
+    );
 
   const onPurchased = useCallback(() => {
     reloadTree();
   }, [reloadTree]);
 
-  const _onPayModalCancel = useCallback(
-    (_?: unknown) => {
-      closePayModal();
-      setPayModalResult('cancel');
-    },
-    [closePayModal, setPayModalResult],
-  );
+  const _onPayModalCancel = useCallback(() => {
+    closePayModal();
+    setPayModalResult('cancel');
+  }, [closePayModal, setPayModalResult]);
 
-  const _onPayModalOk = useCallback(
-    (_?: unknown) => {
-      closePayModal();
-      setPayModalResult('ok');
-      onPurchased();
-    },
-    [closePayModal, onPurchased, setPayModalResult],
-  );
+  const _onPayModalOk = useCallback(() => {
+    closePayModal();
+    setPayModalResult('ok');
+    onPurchased();
+  }, [closePayModal, onPurchased, setPayModalResult]);
 
   /**
    * Misc part
@@ -338,15 +341,6 @@ export default function ChatPage() {
 
   const [userSettingBasicInfo, setUserSettingBasicInfo] = useState(false);
   const [showUserSettings, setShowUserSettings] = useState(false);
-  // const [loginOkHandlerData, setLoginOkHandlerData] = useState(null);
-
-  const onGoToSettingBasic = useCallback(() => {
-    setUserSettingBasicInfo(true);
-    setShowUserSettings(true);
-    if (mobileStyle) {
-      onNavClose();
-    }
-  }, [mobileStyle, onNavClose]);
 
   const onGoToSettingPersonal = useCallback(() => {
     setUserSettingBasicInfo(false);
@@ -356,39 +350,13 @@ export default function ChatPage() {
     }
   }, [mobileStyle, onNavClose]);
 
-  // const onLoginModalClose = useCallback(async () => {
-  //   setLoginModalOpen(false);
-  //   setLoginOkHandlerData(null);
-  //   await loadData();
-  //   shifu.loginTools.emitLoginModalCancel();
-  // }, [loadData]);
-
-  // const onLoginModalOk = useCallback(async () => {
-  //   reloadTree();
-  //   shifu.loginTools.emitLoginModalOk();
-  //   if (loginOkHandlerData) {
-  //     if (loginOkHandlerData.type === 'pay') {
-  //       shifu.payTools.openPay({
-  //         ...loginOkHandlerData.payload,
-  //       });
-  //     }
-
-  //     setLoginOkHandlerData(null);
-  //   }
-  // }, [loginOkHandlerData, reloadTree]);
-
-  // const onFeedbackClick = useCallback(() => {
-  //   onFeedbackModalOpen();
-  // }, [onFeedbackModalOpen]);
-
   // listen global event
   useEffect(() => {
     const resetChapterEventHandler = async e => {
       await reloadTree(e.detail.chapter_id, e.detail.lesson_id);
-      onGoChapter(e.detail.lesson_id);
+      onGoChapter({ lesson_id: e.detail.lesson_id });
     };
     const eventHandler = () => {
-      // setLoginModalOpen(true);
       gotoLogin();
     };
 
@@ -455,7 +423,6 @@ export default function ChatPage() {
             courseName={courseName}
             courseAvatar={courseAvatar}
             onLoginClick={() => {
-              // setLoginModalOpen(true)
               gotoLogin();
             }}
             lessonTree={tree}
@@ -463,14 +430,13 @@ export default function ChatPage() {
             onChapterCollapse={id => toggleCollapse({ id })}
             onLessonSelect={onLessonSelect}
             onTryLessonSelect={onTryLessonSelect}
-            onBasicInfoClick={onGoToSettingBasic}
             onPersonalInfoClick={onGoToSettingPersonal}
           />
         ) : null}
 
         {initialized ? (
           <ChatUi
-            lessonId={lessonId}
+            lessonId={lessonId || ''}
             chapterId={chapterId}
             lessonTitle={currentLessonTitle}
             lessonUpdate={onLessonUpdate}
@@ -485,17 +451,6 @@ export default function ChatPage() {
             isNavOpen={navOpen}
           />
         ) : null}
-
-        {/* It looks like it's no longer needed. */}
-        {/* {loginModalOpen ? (
-          <LoginModal
-            onLogin={onLoginModalOk}
-            open={loginModalOpen}
-            onClose={onLoginModalClose}
-            destroyOnClose={true}
-            onFeedbackClick={onFeedbackClick}
-          />
-        ) : null} */}
 
         {payModalOpen && mobileStyle ? (
           <PayModalM

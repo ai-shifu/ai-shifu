@@ -6,8 +6,6 @@ import {
   Outline,
   Block,
   ProfileItem,
-  AIBlockProperties,
-  SolidContentBlockProperties,
   SaveBlockListResult,
   ApiResponse,
   ReorderOutlineItemDto,
@@ -169,16 +167,7 @@ export const ShifuProvider = ({
   const [blockProperties, setBlockProperties] = useState<{
     [x: string]: BlockDTO;
   }>({});
-  const [blockContentProperties, setBlockContentProperties] = useState<{
-    [x: string]: any;
-  }>({});
   const [blockTypes, setBlockTypes] = useState<{
-    [x: string]: BlockType;
-  }>({});
-  const [blockUITypes, setBlockUITypes] = useState<{
-    [x: string]: BlockType;
-  }>({});
-  const [blockContentTypes, setBlockContentTypes] = useState<{
     [x: string]: BlockType;
   }>({});
   const [blockContentState, setBlockContentState] = useState<{
@@ -243,9 +232,6 @@ export const ShifuProvider = ({
       await saveMdflow(payload);
     }, 3000),
   );
-
-  // Ensure UI types and content types are fetched only in the client environment
-  // const UITypes = useUITypes()
 
   const loadShifu = async (
     shifuId: string,
@@ -415,7 +401,6 @@ export const ShifuProvider = ({
     if (nextNode) {
       internalSetCurrentNode(nextNode);
       if (nextNode.bid) {
-        // await loadBlocks(nextNode.bid, currentShifu?.bid || '');
         await loadMdflow(nextNode.bid, currentShifu?.bid || '');
       } else {
         setBlocks([]);
@@ -459,14 +444,6 @@ export const ShifuProvider = ({
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const loadProfileItemDefinations = async (shifuId: string) => {
-    const list = await api.getProfileItemDefinitions({
-      parent_id: shifuId,
-      type: 'all',
-    });
-    setProfileItemDefinations(list);
   };
 
   const remapOutlineTree = (items: any): Outline[] => {
@@ -515,7 +492,7 @@ export const ShifuProvider = ({
       }
       lastPersistedMdflowRef.current[outlineId] = mdflow || '';
       if (currentOutlineRef.current === outlineId) {
-        await parseMdflow(mdflow, shifuId, outlineId);
+        await refreshProfileVariables(shifuId);
       }
     } catch (error) {
       if (isLatest()) {
@@ -551,13 +528,11 @@ export const ShifuProvider = ({
             depth: 1,
           });
           await loadMdflow(firstLesson.bid, shifuId);
-          // await loadBlocks(firstLesson.bid, shifuId);
         }
       }
       setChapters(list);
       buildOutlineTree(list);
       await refreshVariableUsage(shifuId);
-      // loadProfileItemDefinations(shifuId);
     } catch (error) {
       console.error(error);
       setError('Failed to load chapters');
@@ -583,37 +558,6 @@ export const ShifuProvider = ({
     }, {});
     setBlockProperties(properties);
   };
-
-  const updateBlockProperties = useCallback(
-    async (bid: string, properties: any) => {
-      setBlocks(prevBlocks =>
-        prevBlocks.map(block =>
-          block.bid === bid
-            ? {
-                ...block,
-                type: properties.type,
-                properties: properties.properties,
-                variable_bids: properties.variable_bids || [],
-                resource_bids: properties.resource_bids || [],
-              }
-            : block,
-        ),
-      );
-
-      setBlockTypes(prev => ({
-        ...prev,
-        [bid]: properties.type,
-      }));
-      setBlockProperties(prev => {
-        const newState = {
-          ...prev,
-          [bid]: properties,
-        };
-        return newState;
-      });
-    },
-    [],
-  );
 
   const loadBlocks = async (outlineId: string, shifuId: string) => {
     try {
@@ -849,10 +793,6 @@ export const ShifuProvider = ({
       debouncedAutoSaveRef.current(payload);
     }
     debouncedAutoSaveRef.current.flush();
-  };
-
-  const cancelAutoSaveBlocks = () => {
-    debouncedAutoSaveRef.current.cancel();
   };
 
   const addSiblingOutline = async (
@@ -1169,67 +1109,6 @@ export const ShifuProvider = ({
     });
   };
 
-  const setBlockContentPropertiesById = (
-    id: string,
-    properties: AIBlockProperties | SolidContentBlockProperties,
-    reset: boolean = false,
-  ) => {
-    if (reset) {
-      setBlockContentProperties({
-        ...blockContentProperties,
-        [id]: properties,
-      });
-      return;
-    }
-    setBlockContentProperties({
-      ...blockContentProperties,
-      [id]: {
-        ...properties,
-      },
-    });
-  };
-
-  const setBlockContentTypesById = (id: string, type: BlockType) => {
-    setBlockTypes({
-      ...blockTypes,
-      [id]: type,
-    });
-  };
-
-  const setBlockUIPropertiesById = (
-    id: string,
-    properties: any,
-    reset: boolean = false,
-  ) => {
-    if (reset) {
-      setBlockProperties({
-        ...blockProperties,
-        [id]: properties,
-      });
-      return;
-    }
-    setBlockProperties({
-      ...blockProperties,
-      [id]: {
-        ...blockProperties[id],
-        ...properties,
-      },
-    });
-    if (blockProperties[id].type !== properties.type) {
-      setBlockTypes({
-        ...blockTypes,
-        [id]: properties.type,
-      });
-    }
-  };
-
-  const setBlockUITypesById = (id: string, type: BlockType) => {
-    setBlockTypes({
-      ...blockTypes,
-      [id]: type,
-    });
-  };
-
   const setBlockContentStateById = (id: string, state: 'edit' | 'preview') => {
     setBlockContentState({
       ...blockContentState,
@@ -1453,11 +1332,7 @@ export const ShifuProvider = ({
     }
   }, []);
 
-  const parseMdflow = async (
-    value: string,
-    shifuId: string,
-    outlineId: string,
-  ) => {
+  const refreshProfileVariables = async (shifuId: string) => {
     setIsLoading(true);
     try {
       await refreshProfileDefinitions(shifuId);
@@ -1648,7 +1523,6 @@ export const ShifuProvider = ({
         // Only unhide keys that became used to keep manual hides stable.
         await applyUpdate(keysToUnhide, false);
         if (appliedList) {
-          const existingCache = profileDefinitionCacheRef.current[shifuId];
           applyProfileDefinitionList(appliedList, shifuId);
           const updatedCache = profileDefinitionCacheRef.current[shifuId];
           if (updatedCache) {
@@ -1840,7 +1714,6 @@ export const ShifuProvider = ({
     focusValue,
     cataData,
     blocks,
-    blockContentProperties,
     blockTypes,
     blockContentState,
     blockErrors,
@@ -1848,8 +1721,6 @@ export const ShifuProvider = ({
     profileItemDefinations,
     models,
     blockProperties,
-    blockUITypes,
-    blockContentTypes,
     mdflow,
     variables,
     hiddenVariables,
@@ -1873,17 +1744,11 @@ export const ShifuProvider = ({
       createSiblingUnit,
       createOutline,
       loadBlocks,
-      updateBlockProperties,
-      setBlockContentPropertiesById,
-      setBlockContentTypesById,
-      setBlockUIPropertiesById,
-      setBlockUITypesById,
       updateChapterOrder,
       setBlockContentStateById,
       setBlocks,
       saveBlocks,
       autoSaveBlocks,
-      saveCurrentBlocks,
       removeBlock,
       setCurrentNode: internalSetCurrentNode,
       loadModels,
@@ -1892,7 +1757,6 @@ export const ShifuProvider = ({
       reorderOutlineTree,
       loadMdflow,
       saveMdflow,
-      parseMdflow,
       previewParse,
       hideUnusedVariables,
       restoreHiddenVariables,
@@ -1929,7 +1793,6 @@ export const ShifuProvider = ({
       getCurrentMdflow,
       hasUnsavedMdflow,
       flushAutoSaveBlocks,
-      cancelAutoSaveBlocks,
       insertPlaceholderChapter,
       insertPlaceholderLesson,
       removePlaceholderOutline,

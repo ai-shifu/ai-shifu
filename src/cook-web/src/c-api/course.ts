@@ -21,7 +21,7 @@ export const getCourseInfo = async (courseId: string, previewMode: boolean) => {
       };
       return data;
     })
-    .catch(err => {
+    .catch(() => {
       return null;
     });
 };

@@ -15,11 +15,7 @@ import { Button } from '@/components/ui/Button';
 
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import CouponCodeModal from './CouponCodeModal';
-import {
-  ORDER_STATUS,
-  PAY_CHANNEL_STRIPE,
-  PAY_CHANNEL_WECHAT,
-} from './constans';
+import { PAY_CHANNEL_STRIPE, PAY_CHANNEL_WECHAT } from './constans';
 import type { StripePaymentPayload } from '@/c-api/order';
 
 import PayModalFooter from './PayModalFooter';

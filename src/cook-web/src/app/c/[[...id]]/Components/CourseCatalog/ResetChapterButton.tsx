@@ -42,23 +42,6 @@ export const ResetChapterButton = ({
   const onButtonClick = useCallback(
     async e => {
       setShowConfirm(true);
-      // Modal.confirm({
-      //   title: t('module.lesson.reset.confirmTitle'),
-      //   content: t('module.lesson.reset.confirmContent'),
-      //   onOk: async () => {
-      //     await resetChapter(chapterId);
-      //     updateLessonId(lessonId);
-      //     shifu.resetTools.resetChapter({
-      //       chapter_id: chapterId,
-      //       chapter_name: chapterName,
-      //     });
-      //     trackEvent(EVENT_NAMES.RESET_CHAPTER_CONFIRM, {
-      //       chapter_id: chapterId,
-      //       chapter_name: chapterName,
-      //     });
-      //     onConfirm?.();
-      //   },
-      // });
       trackEvent(EVENT_NAMES.RESET_CHAPTER, {
         chapter_id: chapterId,
         chapter_name: chapterName,
@@ -67,7 +50,6 @@ export const ResetChapterButton = ({
       onClick?.(e);
     },
     [chapterId, chapterName, onClick, trackEvent],
-    // [chapterId, chapterName, onClick, onConfirm, resetChapter, t, trackEvent, lessonId, updateLessonId]
   );
 
   async function handleConfirm() {

@@ -198,6 +198,7 @@ const ListenModeRenderer = ({
     activeBlockBidRef,
     pendingAutoNextRef,
     shouldStartSequenceRef,
+    enableInitialAutoStart: true,
     sequenceStartAnchorIndexRef,
     contentByBid,
     audioContentByBid,
@@ -223,20 +224,6 @@ const ListenModeRenderer = ({
       setIsAudioPlaying(nextIsPlaying);
     },
     [],
-  );
-
-  const handleAudioEndedWithToken = useCallback(
-    (token: number) => {
-      handleAudioEnded(token);
-    },
-    [handleAudioEnded],
-  );
-
-  const handleAudioErrorWithToken = useCallback(
-    (token: number) => {
-      handleAudioError(token);
-    },
-    [handleAudioError],
   );
 
   const { isPrevDisabled, isNextDisabled, goPrev, goNext } = useListenPpt({
@@ -535,9 +522,17 @@ const ListenModeRenderer = ({
       }
       if (!sequenceInteraction) {
         // Learner answered an out-of-sequence prompt (e.g. initial entry
-        // question). Start sequence automatically when the next content arrives.
-        sequenceStartAnchorIndexRef.current = audioAndInteractionList.length;
+        // question). If timeline items already exist, resume immediately from
+        // current playback context instead of waiting for list growth.
+        sequenceStartAnchorIndexRef.current =
+          audioAndInteractionList.length > 0
+            ? null
+            : audioAndInteractionList.length;
         shouldStartSequenceRef.current = true;
+        // Also try to resume immediately for already-loaded timeline items.
+        // Some lessons keep pending interactions outside sequence state; without
+        // this kick, playback can remain paused until a manual Play click.
+        handlePlay();
       }
       if (sequenceInteraction) {
         continueAfterInteraction();
@@ -549,6 +544,7 @@ const ListenModeRenderer = ({
       onSend,
       sequenceInteraction,
       continueAfterInteraction,
+      handlePlay,
     ],
   );
 
@@ -615,8 +611,8 @@ const ListenModeRenderer = ({
             onPlayStateChange={nextIsPlaying =>
               handleAudioPlayStateChange(audioSequenceToken, nextIsPlaying)
             }
-            onEnded={() => handleAudioEndedWithToken(audioSequenceToken)}
-            onError={() => handleAudioErrorWithToken(audioSequenceToken)}
+            onEnded={() => handleAudioEnded(audioSequenceToken)}
+            onError={() => handleAudioError(audioSequenceToken)}
             className='hidden'
           />
         </div>

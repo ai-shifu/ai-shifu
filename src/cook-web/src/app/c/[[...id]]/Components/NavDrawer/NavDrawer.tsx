@@ -20,10 +20,8 @@ import CourseCatalogList from '../CourseCatalog/CourseCatalogList';
 
 import FeedbackModal from '../FeedbackModal/FeedbackModal';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
-import { getBoolEnv } from '@/c-utils/envUtils';
 import { useEnvStore } from '@/c-store/envStore';
 import {
-  FRAME_LAYOUT_PAD,
   FRAME_LAYOUT_PAD_INTENSIVE,
   FRAME_LAYOUT_MOBILE,
 } from '@/c-constants/uiConstants';
@@ -58,16 +56,12 @@ const calcNavWidth = frameLayout => {
   if (frameLayout === FRAME_LAYOUT_PAD_INTENSIVE) {
     return NAV_DRAWER_MAX_WIDTH;
   }
-  // if (frameLayout === FRAME_LAYOUT_PAD) {
-  //   return '25%';
-  // }
   return NAV_DRAWER_MAX_WIDTH;
 };
 
 const COLLAPSE_WIDTH = NAV_DRAWER_COLLAPSE_WIDTH;
 
 const NavDrawer = ({
-  // showType = NAV_SHOW_TYPE_NORMAL,
   courseName = '',
   courseAvatar = '',
   onLoginClick = () => {},
@@ -76,7 +70,6 @@ const NavDrawer = ({
   onChapterCollapse,
   onLessonSelect,
   onTryLessonSelect,
-  onBasicInfoClick,
   onPersonalInfoClick,
 }) => {
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
@@ -92,7 +85,6 @@ const NavDrawer = ({
   const alwaysShowLessonTree = useEnvStore(state => state.alwaysShowLessonTree);
 
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
-  // const alwaysShowLessonTree = getBoolEnv('alwaysShowLessonTree');
   const footerRef = useRef(null);
   const bodyRef = useRef(null);
 
@@ -202,7 +194,6 @@ const NavDrawer = ({
           onClose={mainModalCloseHandler}
           className={popupWindowClassname()}
           mobileStyle={frameLayout === FRAME_LAYOUT_MOBILE}
-          onBasicInfoClick={onBasicInfoClick}
           onPersonalInfoClick={onPersonalInfoClick}
         />
         <FeedbackModal

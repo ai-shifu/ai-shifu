@@ -1024,7 +1024,7 @@ class RunScriptContextV2:
         user_info: UserAggregate,
         is_paid: bool,
         preview_mode: bool,
-        listen: bool = True,
+        listen: bool = False,
     ):
         self._last_position = -1
         self.app = app

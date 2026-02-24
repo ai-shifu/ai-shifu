@@ -180,6 +180,16 @@ export interface StreamGeneratedBlockAudioParams {
   onError?: (error: unknown) => void;
 }
 
+const AUTH_ERROR_CODES = new Set([1001, 1004, 1005]);
+
+const isAuthError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const code = (error as { code?: number }).code;
+  return typeof code === 'number' && AUTH_ERROR_CODES.has(code);
+};
+
 export const getRunMessage = (
   shifu_bid: string,
   outline_bid: string,
@@ -309,16 +319,25 @@ export const getLessonStudyRecord = async ({
   outline_bid,
   preview_mode = false,
 }: GetLessonStudyRecordParams): Promise<LessonStudyRecords> => {
-  return request
-    .get(
-      `/api/learn/shifu/${shifu_bid}/records/${outline_bid}?preview_mode=${preview_mode}`,
-    )
-    .catch(error => {
-      // when error, return empty records, go run api
-      return {
-        records: [],
-      };
-    });
+  const url = `/api/learn/shifu/${shifu_bid}/records/${outline_bid}?preview_mode=${preview_mode}`;
+
+  try {
+    return await request.get(url);
+  } catch (error) {
+    // Auth recovery (guest token refresh) happens in request layer.
+    // Retry once to avoid falsely treating existing records as empty.
+    if (isAuthError(error)) {
+      try {
+        return await request.get(url);
+      } catch {
+        // Fall through to empty fallback.
+      }
+    }
+    // when error, return empty records, go run api
+    return {
+      records: [],
+    };
+  }
 };
 
 /**

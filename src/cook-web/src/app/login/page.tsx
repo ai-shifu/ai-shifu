@@ -107,7 +107,6 @@ export default function AuthPage() {
 
   const searchParams = useSearchParams();
   const isInitialized = useUserStore(state => state.isInitialized);
-  const isLoggedIn = useUserStore(state => state.isLoggedIn);
 
   const resolveRedirectPath = useCallback(() => {
     const fallback = '/admin';
@@ -241,17 +240,6 @@ export default function AuthPage() {
     document.title = t('module.auth.title');
   }, [language, ready, t]);
 
-  // useEffect(() => {
-  //   if (!isInitialized || !isLoggedIn) {
-  //     return;
-  //   }
-
-  // const target = resolveRedirectPath();
-  // if (window.location.pathname !== target) {
-  //   router.replace(target);
-  // }
-  // }, [isInitialized, isLoggedIn, resolveRedirectPath, router]);
-
   const [googleTermsAccepted, setGoogleTermsAccepted] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showTermsDialog, setShowTermsDialog] = useState(false);
@@ -272,7 +260,7 @@ export default function AuthPage() {
         redirectPath: resolveRedirectPath(),
         language: language ?? undefined,
       });
-    } catch (error) {
+    } catch {
       setIsGoogleLoading(false);
     }
   }, [language, resolveRedirectPath, startGoogleLogin]);

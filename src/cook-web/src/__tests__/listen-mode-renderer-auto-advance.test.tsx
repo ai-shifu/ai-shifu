@@ -1,8 +1,10 @@
 import React from 'react';
-import { render, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 const continueAfterInteractionMock = jest.fn();
+const handlePlayMock = jest.fn();
 const sequenceInteractionState: { current: any } = { current: null };
+const isAudioSequenceActiveState: { current: boolean } = { current: true };
 
 jest.mock('@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook', () => ({
   ChatContentItemType: {
@@ -14,8 +16,15 @@ jest.mock('@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook', () => ({
 }));
 
 jest.mock('@/app/c/[[...id]]/Components/ChatUi/ListenPlayer', () => {
-  return function MockListenPlayer() {
-    return <div data-testid='listen-player' />;
+  return function MockListenPlayer(props: any) {
+    return (
+      <button
+        data-testid='listen-player-send'
+        onClick={() => props.onSend?.({} as any, 'interaction-pending')}
+      >
+        send
+      </button>
+    );
   };
 });
 
@@ -51,12 +60,12 @@ jest.mock('@/app/c/[[...id]]/Components/ChatUi/useListenMode', () => ({
     activeAudioBlockBid: null,
     activeAudioPosition: 0,
     sequenceInteraction: sequenceInteractionState.current,
-    isAudioSequenceActive: true,
+    isAudioSequenceActive: isAudioSequenceActiveState.current,
     isAudioPlayerBusy: () => false,
     audioSequenceToken: 0,
     handleAudioEnded: () => undefined,
     handleAudioError: () => undefined,
-    handlePlay: () => undefined,
+    handlePlay: handlePlayMock,
     handlePause: () => undefined,
     continueAfterInteraction: continueAfterInteractionMock,
     startSequenceFromIndex: () => undefined,
@@ -69,7 +78,9 @@ import ListenModeRenderer from '@/app/c/[[...id]]/Components/ChatUi/ListenModeRe
 describe('ListenModeRenderer interaction auto-advance', () => {
   beforeEach(() => {
     continueAfterInteractionMock.mockClear();
+    handlePlayMock.mockClear();
     sequenceInteractionState.current = null;
+    isAudioSequenceActiveState.current = true;
   });
 
   it('auto-continues when sequence interaction already has response', async () => {
@@ -114,5 +125,35 @@ describe('ListenModeRenderer interaction auto-advance', () => {
     await waitFor(() => {
       expect(continueAfterInteractionMock).not.toHaveBeenCalled();
     });
+  });
+
+  it('resumes playback when submitting a pending non-sequence interaction', async () => {
+    isAudioSequenceActiveState.current = false;
+
+    render(
+      <ListenModeRenderer
+        items={
+          [
+            {
+              type: 'interaction',
+              generated_block_bid: 'interaction-pending',
+              defaultSelectedValues: [],
+              defaultButtonText: '',
+              defaultInputText: '',
+              customRenderBar: () => null,
+            },
+          ] as any
+        }
+        mobileStyle={false}
+        chatRef={{ current: null }}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('listen-player-send'));
+
+    await waitFor(() => {
+      expect(handlePlayMock).toHaveBeenCalledTimes(1);
+    });
+    expect(continueAfterInteractionMock).not.toHaveBeenCalled();
   });
 });

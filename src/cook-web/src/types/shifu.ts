@@ -95,9 +95,6 @@ export interface ShifuState {
   blockTypes: { [x: string]: BlockType };
   blocks: Block[];
   // blockUIProperties: { [x: string]: any };
-  blockUITypes: { [x: string]: string };
-  blockContentProperties: { [x: string]: any };
-  blockContentTypes: { [x: string]: string };
   blockContentState: { [x: string]: 'edit' | 'preview' };
   blockProperties: { [x: string]: any };
   blockErrors: { [x: string]: string | null };
@@ -158,18 +155,6 @@ export interface ShifuActions {
   createOutline: (outline: Outline) => Promise<void>;
   createSiblingUnit: (chapter: Outline) => Promise<void>;
   loadBlocks: (outlineId: string, shifuId: string) => void;
-  setBlockContentPropertiesById: (
-    id: string,
-    properties: AIBlockProperties | SolidContentBlockProperties,
-    reset?: boolean,
-  ) => void;
-  setBlockContentTypesById: (id: string, type: BlockType) => void;
-  setBlockUIPropertiesById: (
-    id: string,
-    properties: any,
-    reset?: boolean,
-  ) => void;
-  setBlockUITypesById: (id: string, type: BlockType) => void;
   updateChapterOrder: (
     move_chapter_id: string,
     move_to_parent_id?: string,
@@ -182,31 +167,17 @@ export interface ShifuActions {
     payload?: SaveMdflowPayload,
   ) => Promise<ApiResponse<SaveBlockListResult> | null>;
   flushAutoSaveBlocks: (payload?: SaveMdflowPayload) => void;
-  cancelAutoSaveBlocks: () => void;
-  saveCurrentBlocks: (
-    outline: string,
-    blocks: Block[],
-    blockTypes: Record<string, any>,
-    blockProperties: Record<string, any>,
-    shifuId: string,
-  ) => Promise<ApiResponse<SaveBlockListResult> | null>;
   removeBlock: (id: string, shifuId: string) => Promise<void>;
   setCurrentNode: (node: Outline) => void;
   loadModels: () => Promise<void>;
   setBlockError: (blockId: string, error: string | null) => void;
   clearBlockErrors: () => void;
   reorderOutlineTree: (outlines: ReorderOutlineItemDto[]) => Promise<void>;
-  updateBlockProperties: (bid: string, properties: any) => Promise<void>;
   loadMdflow: (outlineId: string, shifuId: string) => Promise<void>;
   saveMdflow: (payload?: SaveMdflowPayload) => Promise<void>;
   setCurrentMdflow: (value: string) => void;
   getCurrentMdflow: () => string;
   hasUnsavedMdflow: (outlineId?: string, value?: string) => boolean;
-  parseMdflow: (
-    value: string,
-    shifuId: string,
-    outlineId: string,
-  ) => Promise<void>;
   previewParse: (
     value: string,
     shifuId: string,
@@ -245,19 +216,6 @@ export interface ShifuActions {
 
 export interface ShifuContextType extends ShifuState {
   actions: ShifuActions;
-}
-
-export interface AIBlockProperties {
-  prompt: string;
-  profiles?: string[];
-  model?: string;
-  temperature?: string;
-  other_conf?: string;
-}
-
-export interface SolidContentBlockProperties {
-  content: string;
-  profiles?: string[];
 }
 
 export interface LabelDTO {

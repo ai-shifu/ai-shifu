@@ -1,5 +1,5 @@
 // Course catalog
-import { memo, useCallback, useState, useEffect, useContext } from 'react';
+import { memo, useState, useEffect } from 'react';
 import styles from './CourseCatalogList.module.scss';
 import TrialNodeBottomArea from './TrialNodeBottomArea';
 import CourseCatalog from './CourseCatalog';
@@ -16,7 +16,6 @@ export const CourseCatalogList = ({
   onLessonSelect,
   onTryLessonSelect,
   selectedLessonId = '',
-  bannerInfo = null,
 }) => {
   const [trialNodePosition, setTrialNodePosition] = useState(
     TRAIL_NODE_POSITION.NORMAL,

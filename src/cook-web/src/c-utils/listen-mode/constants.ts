@@ -62,16 +62,6 @@ export const MARKDOWN_TABLE = {
    * Minimum number of cells required for a valid table row.
    */
   MIN_CELL_COUNT: 2,
-
-  /**
-   * Alignment tokens for table columns.
-   */
-  ALIGNMENTS: {
-    LEFT: 'left',
-    CENTER: 'center',
-    RIGHT: 'right',
-    NONE: '',
-  } as const,
 } as const;
 
 /**

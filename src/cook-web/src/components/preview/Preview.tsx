@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/button';
-import { Loader2, MonitorPlay, PlayIcon } from 'lucide-react';
+import { MonitorPlay } from 'lucide-react';
 import { useShifu } from '@/store';
 import api from '@/api';
 import { useTranslation } from 'react-i18next';

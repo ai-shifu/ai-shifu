@@ -2,13 +2,10 @@ import styles from './NavHeader.module.scss';
 
 import clsx from 'clsx';
 import { memo, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
-import Image from 'next/image';
 
 import LogoWithText from '@/c-components/logo/LogoWithText';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 
-import imgExpand from '@/c-assets/newchat/light/icon16-expand.png';
 import { PanelLeft } from 'lucide-react';
 
 export const NavHeader = ({
@@ -20,8 +17,6 @@ export const NavHeader = ({
   onClose = () => {},
   mobileStyle = false,
 }) => {
-  const { t } = useTranslation();
-
   const { trackEvent } = useTracking();
   const onLogoAreaClick = useCallback(() => {
     trackEvent(EVENT_NAMES.NAV_TOP_LOGO, {});

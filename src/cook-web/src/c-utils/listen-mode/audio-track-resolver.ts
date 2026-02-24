@@ -1,3 +1,5 @@
+import type { AvContractData } from '@/c-api/studyV2';
+
 type PersistedAudioTrack = {
   position?: number;
   audio_url?: string;
@@ -6,26 +8,24 @@ type PersistedAudioTrack = {
 
 type StreamingAudioTrack = {
   audioUrl?: string;
-  audioSegments?: Array<any>;
+  audioSegments?: Array<unknown>;
   isAudioStreaming?: boolean;
   audioDurationMs?: number;
 };
 
 export type ListenAudioTrackSource = {
   audioUrl?: string;
-  audioSegments?: Array<any>;
+  audioSegments?: Array<unknown>;
   isAudioStreaming?: boolean;
   audioDurationMs?: number;
   audios?: Array<PersistedAudioTrack>;
   audioTracksByPosition?: Record<number, StreamingAudioTrack>;
-  avContract?: {
-    speakable_segments?: Array<any>;
-  } | null;
+  avContract?: Pick<AvContractData, 'speakable_segments'> | null;
 };
 
 export type ResolvedListenAudioTrack = {
   audioUrl?: string;
-  audioSegments?: Array<any>;
+  audioSegments?: Array<unknown>;
   isAudioStreaming: boolean;
   audioDurationMs?: number;
 };

@@ -7,18 +7,16 @@ import {
   type AudioPlayerHandle,
 } from '@/components/audio/AudioPlayer';
 import type { AudioSegment } from '@/c-utils/audio-utils';
-import {
-  buildListenUnitId,
-  extractAudioPositions,
-} from '@/c-utils/listen-orchestrator';
 import type { ListenSlideData } from '@/c-api/studyV2';
 import {
   FIXED_MARKER_PATTERN,
-  hasAnyAudioPayload,
-  isListenModeSpeakableText,
   resolveListenAudioTrack,
-  splitListenModeSegments,
 } from '@/c-utils/listen-mode';
+import {
+  buildListenTimeline,
+  type AudioInteractionItem,
+  type ListenSlideItem,
+} from '@/c-utils/listen-parse/timeline-mapper';
 import { useQueueManager } from '@/c-utils/listen-mode/use-queue-manager';
 import {
   buildQueueItemId,
@@ -29,16 +27,7 @@ import {
 } from '@/c-utils/listen-mode/queue-manager';
 import { hasInteractionResponse } from './chatUiUtils';
 
-const isRenderableBackendSlide = (slide: ListenSlideData): boolean => {
-  if (slide.is_placeholder || slide.segment_type === 'placeholder') {
-    return false;
-  }
-  // All finalized slides (is_placeholder=false) are renderable, regardless of segment_content.
-  // Backend intentionally clears segment_content in NEW_SLIDE events (see streaming_tts.py:827-830),
-  // expecting frontend to render from accumulated CONTENT stream chunks.
-  // This ensures every finalized slide gets a page number and can be navigated to.
-  return true;
-};
+export type { AudioInteractionItem, ListenSlideItem };
 
 const EMPTY_SANDBOX_WRAPPER_PATTERN =
   /^<div(?:\s+[^>]*)?>\s*(?:<br\s*\/?>|&nbsp;|\s)*<\/div>$/i;
@@ -52,8 +41,6 @@ const MERMAID_CODE_FENCE_PATTERN = /```[\t ]*mermaid\b/i;
 const RUNTIME_VISUAL_CONTENT_SELECTOR =
   'svg,table,img,video,canvas,.mermaid,iframe[src],iframe[srcdoc],iframe[data-url],iframe[data-tag],object,embed';
 const RUNTIME_SANDBOX_CONTAINER_SELECTOR = '.sandbox-container';
-const RUNTIME_SANDBOX_VISUAL_CONTENT_SELECTOR =
-  'svg,table,img,video,canvas,.mermaid,iframe[src],iframe[srcdoc],iframe[data-url],iframe[data-tag],object,embed';
 const RUNTIME_PRUNED_SLIDE_CLASS = 'listen-runtime-pruned-slide';
 const RUNTIME_PRUNED_SLIDE_ATTR = 'data-runtime-pruned';
 
@@ -66,7 +53,7 @@ const normalizeRuntimeTextContent = (
     .trim();
 
 const isRuntimePrunableElementTree = (root: Element): boolean => {
-  if (root.querySelector(RUNTIME_SANDBOX_VISUAL_CONTENT_SELECTOR)) {
+  if (root.querySelector(RUNTIME_VISUAL_CONTENT_SELECTOR)) {
     return false;
   }
 
@@ -332,23 +319,11 @@ const arePageRemapMapsEqual = (
   return true;
 };
 
-export type AudioInteractionItem = ChatContentItem & {
-  page: number;
-  audioPosition?: number;
-  audioSlideId?: string;
-  /** Content block with visual slides but no audio to play. */
-  isSilentVisual?: boolean;
-};
-
-export type ListenSlideItem = {
-  item: ChatContentItem;
-  segments: RenderSegment[];
-};
-
 const LISTEN_AUDIO_WATCHDOG_MIN_MS = 8000;
 const LISTEN_AUDIO_WATCHDOG_FALLBACK_MS = 20000;
 const LISTEN_AUDIO_WATCHDOG_DURATION_MULTIPLIER = 2;
 const LISTEN_PENDING_GROWTH_WAIT_MS = 10000;
+const LISTEN_PENDING_AUTO_NEXT_GRACE_MS = 90000;
 
 const resolveListenAudioWatchdogMs = (audioDurationMs?: number) => {
   const duration = Number(audioDurationMs);
@@ -385,376 +360,15 @@ export const useListenContentData = (
     return bids;
   }, [items]);
 
-  const { slideItems, audioAndInteractionList } = useMemo(() => {
-    let pageCursor = 0;
-    let latestVisualPage = -1;
-    const nextSlideItems: ListenSlideItem[] = [];
-    const nextAudioAndInteractionList: AudioInteractionItem[] = [];
-    const audioUnitIndexById = new Map<string, number>();
-
-    const normalizedBackendSlides = (backendSlides || [])
-      .filter(
-        slide =>
-          Boolean(slide?.slide_id) &&
-          Boolean(slide?.generated_block_bid) &&
-          Number.isFinite(Number(slide?.slide_index)),
-      )
-      .sort((a, b) => Number(a.slide_index) - Number(b.slide_index));
-    // Backend sends NEW_SLIDE events as lightweight timeline signals without
-    // segment_content (streaming_tts.py:827-830 clears it intentionally).
-    // Therefore backend slides are used ONLY for position-to-page mapping and
-    // slide-ID binding.  Rendering always uses local parsing of the accumulated
-    // CONTENT stream (nextSlideItems).
-    const backendPageByBlockPosition = new Map<string, number>();
-    const backendSlideIdByBlockPosition = new Map<string, string>();
-    let latestRenderableBackendPage = -1;
-    normalizedBackendSlides.forEach(slide => {
-      const blockBid = slide.generated_block_bid || '';
-      const audioPosition = Number(slide.audio_position ?? 0);
-      const key = `${blockBid}:${audioPosition}`;
-      backendSlideIdByBlockPosition.set(key, slide.slide_id);
-      if (isRenderableBackendSlide(slide)) {
-        // Only visual boundary slides (iframe, svg, table, etc.) get their own
-        // page.  Text-only slides share the page of the nearest visual so that
-        // page numbering aligns with local visual-segment parsing.
-        const isVisualBoundary = Boolean(
-          slide.visual_kind &&
-          slide.visual_kind !== '' &&
-          slide.visual_kind !== 'placeholder',
-        );
-        if (isVisualBoundary) {
-          latestRenderableBackendPage += 1;
-        }
-        backendPageByBlockPosition.set(
-          key,
-          Math.max(latestRenderableBackendPage, 0),
-        );
-        return;
-      }
-      // Non-renderable placeholder slides should not create extra pages.
-      // Anchor their audio positions to the latest renderable page when possible.
-      if (latestRenderableBackendPage >= 0) {
-        backendPageByBlockPosition.set(key, latestRenderableBackendPage);
-      }
-    });
-    type SegmentTuple = {
-      sourceIndex: number;
-      item: ChatContentItem;
-      firstVisualPage: number;
-      lastVisualPage: number;
-      pagesForAudio: number[];
-    };
-    const contentSegments: SegmentTuple[] = [];
-
-    items.forEach((item, sourceIndex) => {
-      if (item.type !== ChatContentItemType.CONTENT) {
-        return;
-      }
-
-      const segments = item.content
-        ? splitListenModeSegments(item.content || '')
-        : [];
-      const previousVisualPageBeforeBlock = latestVisualPage;
-      const visualSegments = segments.filter(isRenderableVisualSegment);
-      const visualPageBySegmentIndex = new Map<number, number>();
-      let localVisualOffset = 0;
-      segments.forEach((segment, segmentIndex) => {
-        if (!isRenderableVisualSegment(segment)) {
-          return;
-        }
-        visualPageBySegmentIndex.set(
-          segmentIndex,
-          pageCursor + localVisualOffset,
-        );
-        localVisualOffset += 1;
-      });
-
-      const firstVisualPage = visualSegments.length > 0 ? pageCursor : -1;
-      const lastVisualPage =
-        visualSegments.length > 0
-          ? pageCursor + visualSegments.length - 1
-          : latestVisualPage;
-      if (visualSegments.length > 0) {
-        nextSlideItems.push({
-          item,
-          segments: visualSegments,
-        });
-      }
-
-      const pagesForAudioLocal: number[] = [];
-      let windowHasSpeakableText = false;
-      segments.forEach((segment, segmentIndex) => {
-        if (segment.type === 'text') {
-          const raw = typeof segment.value === 'string' ? segment.value : '';
-          if (isListenModeSpeakableText(raw)) {
-            windowHasSpeakableText = true;
-          }
-          return;
-        }
-        if (!isRenderableVisualSegment(segment)) {
-          return;
-        }
-        if (windowHasSpeakableText) {
-          pagesForAudioLocal.push(latestVisualPage);
-          windowHasSpeakableText = false;
-        }
-        const pageForVisual = visualPageBySegmentIndex.get(segmentIndex);
-        if (typeof pageForVisual === 'number') {
-          latestVisualPage = pageForVisual;
-        }
-      });
-      if (windowHasSpeakableText) {
-        pagesForAudioLocal.push(latestVisualPage);
-      }
-
-      let pagesForAudio = pagesForAudioLocal;
-      const contractSpeakable = item.avContract?.speakable_segments || [];
-      const contractBoundaries = item.avContract?.visual_boundaries || [];
-      if (contractSpeakable.length > 0) {
-        const normalizedBoundaries = contractBoundaries
-          .map(boundary => {
-            const position = Number((boundary as any).position ?? -1);
-            const sourceSpan = Array.isArray((boundary as any).source_span)
-              ? ((boundary as any).source_span as number[])
-              : [];
-            const end = Number(sourceSpan[1] ?? -1);
-            if (Number.isNaN(position) || Number.isNaN(end)) {
-              return null;
-            }
-            return { position, end };
-          })
-          .filter(
-            (boundary): boundary is { position: number; end: number } =>
-              boundary !== null,
-          )
-          .sort((a, b) => a.position - b.position);
-        const contractPages: number[] = [];
-        contractSpeakable.forEach(segment => {
-          const position = Number((segment as any).position ?? -1);
-          const sourceSpan = Array.isArray((segment as any).source_span)
-            ? ((segment as any).source_span as number[])
-            : [];
-          const sourceStart = Number(sourceSpan[0] ?? -1);
-          if (Number.isNaN(position) || position < 0) {
-            return;
-          }
-          const precedingBoundary =
-            !Number.isNaN(sourceStart) && sourceStart >= 0
-              ? normalizedBoundaries
-                  .filter(boundary => boundary.end <= sourceStart)
-                  .sort((a, b) => a.end - b.end)
-                  .pop()
-              : undefined;
-          if (!precedingBoundary) {
-            contractPages[position] = previousVisualPageBeforeBlock;
-            return;
-          }
-          if (
-            precedingBoundary.position >= visualSegments.length ||
-            firstVisualPage < 0
-          ) {
-            // eslint-disable-next-line no-console
-            console.warn('[listen-timeline] boundary/slide mismatch', {
-              generated_block_bid: item.generated_block_bid,
-              boundaryPosition: precedingBoundary.position,
-              visualSlides: visualSegments.length,
-              firstVisualPage,
-            });
-            contractPages[position] = previousVisualPageBeforeBlock;
-            return;
-          }
-          contractPages[position] =
-            firstVisualPage + precedingBoundary.position;
-        });
-        if (contractPages.some(page => typeof page === 'number')) {
-          pagesForAudio = contractPages;
-        }
-      }
-
-      contentSegments.push({
-        sourceIndex,
-        item,
-        firstVisualPage,
-        lastVisualPage,
-        pagesForAudio,
-      });
-
-      pageCursor += visualSegments.length;
-    });
-
-    const contentBySourceIndex = new Map<number, SegmentTuple>();
-    contentSegments.forEach(contentSegment => {
-      contentBySourceIndex.set(contentSegment.sourceIndex, contentSegment);
-    });
-
-    let activeTimelinePage = -1;
-    items.forEach((item, sourceIndex) => {
-      if (item.type === ChatContentItemType.CONTENT) {
-        const contentSegment = contentBySourceIndex.get(sourceIndex);
-        if (!contentSegment) {
-          return;
-        }
-        const {
-          item: contentItem,
-          pagesForAudio,
-          firstVisualPage,
-          lastVisualPage,
-        } = contentSegment;
-
-        if (firstVisualPage >= 0) {
-          activeTimelinePage = firstVisualPage;
-        }
-        if (!hasAnyAudioPayload(contentItem)) {
-          // Show visual segments as silent-visual entries.
-          // Two scenarios reach here:
-          // 1. avContract present with empty speakable_segments → truly no audio
-          // 2. avContract not yet received (still streaming) → provisionally
-          //    silent; when the avContract arrives the list rebuilds via
-          //    LIST_UPDATED and these entries will be replaced by audio entries.
-          if (firstVisualPage >= 0 && lastVisualPage >= 0) {
-            for (
-              let vPage = firstVisualPage;
-              vPage <= lastVisualPage;
-              vPage++
-            ) {
-              nextAudioAndInteractionList.push({
-                ...contentItem,
-                page: vPage,
-                isSilentVisual: true,
-              });
-            }
-            activeTimelinePage = lastVisualPage;
-          } else if (normalizedBackendSlides.length > 0) {
-            const backendPagesForBlock = normalizedBackendSlides
-              .filter(
-                slide =>
-                  slide.generated_block_bid === contentItem.generated_block_bid,
-              )
-              .map(slide =>
-                backendPageByBlockPosition.get(
-                  `${slide.generated_block_bid}:${Number(slide.audio_position ?? 0)}`,
-                ),
-              )
-              .filter((page): page is number => typeof page === 'number');
-            if (backendPagesForBlock.length > 0) {
-              activeTimelinePage =
-                backendPagesForBlock[backendPagesForBlock.length - 1];
-            }
-          } else if (lastVisualPage >= 0) {
-            activeTimelinePage = lastVisualPage;
-          }
-          return;
-        }
-
-        const availablePositions = extractAudioPositions(contentItem);
-        const hasMultiplePositions =
-          availablePositions.length > 1 ||
-          availablePositions.some(position => position > 0);
-        const positions = hasMultiplePositions
-          ? availablePositions.length
-            ? availablePositions
-            : [0]
-          : [0];
-
-        const fallbackPage =
-          // When a position cannot be mapped to a concrete slide, anchor it to
-          // the latest visual page of the current block so downstream
-          // interactions stay on the page the learner most recently sees.
-          (lastVisualPage >= 0 ? lastVisualPage : null) ??
-          (firstVisualPage >= 0 ? firstVisualPage : null) ??
-          (activeTimelinePage >= 0 ? activeTimelinePage : null) ??
-          0;
-
-        const coveredPages = new Set<number>();
-        positions.forEach(position => {
-          const mappedPage = pagesForAudio[position];
-          const backendPage = backendPageByBlockPosition.get(
-            `${contentItem.generated_block_bid}:${position}`,
-          );
-          const resolvedPage =
-            typeof backendPage === 'number' && backendPage >= 0
-              ? backendPage
-              : typeof mappedPage === 'number' && mappedPage >= 0
-                ? mappedPage
-                : fallbackPage;
-          coveredPages.add(resolvedPage);
-          const audioSlideId =
-            contentItem.audioSlideIdByPosition?.[position] ||
-            backendSlideIdByBlockPosition.get(
-              `${contentItem.generated_block_bid}:${position}`,
-            );
-          const timelineItem: AudioInteractionItem = {
-            ...contentItem,
-            page: resolvedPage,
-            audioPosition: hasMultiplePositions ? position : undefined,
-            audioSlideId,
-          };
-          const unitId = buildListenUnitId({
-            type: ChatContentItemType.CONTENT,
-            generatedBlockBid: contentItem.generated_block_bid,
-            position,
-            slideId: audioSlideId,
-            fallbackIndex: sourceIndex,
-          });
-          const existingIndex = audioUnitIndexById.get(unitId);
-          if (existingIndex !== undefined) {
-            // Late-arriving audio/metadata updates for the same unit should patch
-            // the existing queue slot rather than append a duplicate.
-            nextAudioAndInteractionList[existingIndex] = timelineItem;
-          } else {
-            audioUnitIndexById.set(unitId, nextAudioAndInteractionList.length);
-            nextAudioAndInteractionList.push(timelineItem);
-          }
-          activeTimelinePage = resolvedPage;
-        });
-
-        // Enqueue visual pages that have no associated audio as silent visuals.
-        // This covers visual boundaries (e.g. tables, images) at the end of a
-        // block where the backend produced no speakable segment after them.
-        if (firstVisualPage >= 0 && lastVisualPage >= 0) {
-          for (let vPage = firstVisualPage; vPage <= lastVisualPage; vPage++) {
-            if (!coveredPages.has(vPage)) {
-              nextAudioAndInteractionList.push({
-                ...contentItem,
-                page: vPage,
-                isSilentVisual: true,
-              });
-              activeTimelinePage = vPage;
-            }
-          }
-        }
-
-        pagesForAudio.forEach((mappedPage, mappedPosition) => {
-          if (mappedPage < 0) {
-            return;
-          }
-          if (!positions.includes(mappedPosition)) {
-            // eslint-disable-next-line no-console
-            console.warn('[listen-timeline] slide exists but no position', {
-              generated_block_bid: contentItem.generated_block_bid,
-              position: mappedPosition,
-              mappedPage,
-            });
-          }
-        });
-        return;
-      }
-
-      if (item.type !== ChatContentItemType.INTERACTION) {
-        return;
-      }
-      const interactionPage = activeTimelinePage >= 0 ? activeTimelinePage : 0;
-      nextAudioAndInteractionList.push({
-        ...item,
-        page: interactionPage,
-      });
-    });
-
-    return {
-      slideItems: nextSlideItems,
-      audioAndInteractionList: nextAudioAndInteractionList,
-    };
-  }, [backendSlides, items]);
+  const { slideItems, audioAndInteractionList } = useMemo(
+    () =>
+      buildListenTimeline({
+        items,
+        backendSlides,
+        isRenderableVisualSegment,
+      }),
+    [backendSlides, items],
+  );
 
   const contentByBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();
@@ -823,12 +437,12 @@ interface UseListenPptParams {
   isAudioSequenceActive: boolean;
   isAudioPlayerBusy: () => boolean;
   shouldRenderEmptyPpt: boolean;
-  onResetSequence?: () => void;
+  onResetSequence: () => void;
   getNextContentBid: (currentBid: string | null) => string | null;
   goToBlock: (blockBid: string) => boolean;
   resolveContentBid: (blockBid: string | null) => string | null;
   resolveRuntimeSequencePage: (page: number) => number;
-  refreshRuntimePageRemap: () => boolean;
+  refreshRuntimePageRemap: () => void;
 }
 
 export const useListenPpt = ({
@@ -872,12 +486,12 @@ export const useListenPpt = ({
     if (!prevFirstSlideBidRef.current) {
       if (canResetToFirst) {
         shouldSlideToFirstRef.current = true;
-        onResetSequence?.();
+        onResetSequence();
       }
     } else if (prevFirstSlideBidRef.current !== firstSlideBid) {
       if (canResetToFirst) {
         shouldSlideToFirstRef.current = true;
-        onResetSequence?.();
+        onResetSequence();
       }
     }
     prevFirstSlideBidRef.current = firstSlideBid;
@@ -902,7 +516,7 @@ export const useListenPpt = ({
     ) {
       if (canResetToFirst) {
         shouldSlideToFirstRef.current = true;
-        onResetSequence?.();
+        onResetSequence();
       }
     }
     prevSectionTitleRef.current = sectionTitle;
@@ -1094,18 +708,18 @@ export const useListenPpt = ({
       return;
     }
 
-    const handleSlideChanged = () => {
+    const handleSlideChanged: EventListener = () => {
       syncActiveBlockFromDeck();
       syncPptPageFromDeck();
       updateNavState();
     };
 
-    deck.on('slidechanged', handleSlideChanged as unknown as EventListener);
-    deck.on('ready', handleSlideChanged as unknown as EventListener);
+    deck.on('slidechanged', handleSlideChanged);
+    deck.on('ready', handleSlideChanged);
 
     return () => {
-      deck.off('slidechanged', handleSlideChanged as unknown as EventListener);
-      deck.off('ready', handleSlideChanged as unknown as EventListener);
+      deck.off('slidechanged', handleSlideChanged);
+      deck.off('ready', handleSlideChanged);
     };
   }, [deckRef, syncActiveBlockFromDeck, syncPptPageFromDeck, updateNavState]);
 
@@ -1143,7 +757,7 @@ export const useListenPpt = ({
         const moved = goToNextBlock();
         pendingAutoNextRef.current = !moved;
         if (moved) {
-          onResetSequence?.();
+          onResetSequence();
         }
       }
 
@@ -1241,6 +855,7 @@ interface UseListenAudioSequenceParams {
   activeBlockBidRef: React.MutableRefObject<string | null>;
   pendingAutoNextRef: React.MutableRefObject<boolean>;
   shouldStartSequenceRef: React.MutableRefObject<boolean>;
+  enableInitialAutoStart?: boolean;
   sequenceStartAnchorIndexRef?: React.MutableRefObject<number | null>;
   contentByBid: Map<string, ChatContentItem>;
   audioContentByBid: Map<string, ChatContentItem>;
@@ -1260,6 +875,7 @@ export const useListenAudioSequence = ({
   activeBlockBidRef,
   pendingAutoNextRef,
   shouldStartSequenceRef,
+  enableInitialAutoStart = false,
   sequenceStartAnchorIndexRef,
   contentByBid,
   audioContentByBid,
@@ -1288,8 +904,7 @@ export const useListenAudioSequence = ({
   const [isAudioSequenceActive, setIsAudioSequenceActive] = useState(false);
   const [audioSequenceToken, setAudioSequenceToken] = useState(0);
   const audioSequenceTokenRef = useRef(0);
-  const setIsAudioPlayingRef = useRef(setIsAudioPlaying);
-  setIsAudioPlayingRef.current = setIsAudioPlaying;
+  audioSequenceTokenRef.current = audioSequenceToken;
   const hasObservedPlaybackRef = useRef(false);
   const isSequencePausedRef = useRef(false);
   // Track the last synced list length to detect new items for queue sync
@@ -1303,6 +918,7 @@ export const useListenAudioSequence = ({
   const pendingGrowthWaitTimerRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
+  const hasInitialAutoStartAttemptedRef = useRef(false);
   const lastAdvanceCauseRef = useRef<
     'audio-ended' | 'interaction-resolved' | 'other'
   >('other');
@@ -1345,7 +961,7 @@ export const useListenAudioSequence = ({
     }
     return Array.isArray(slides)
       ? (slides as HTMLElement[])
-      : Array.from(slides as unknown as ArrayLike<HTMLElement>);
+      : Array.from(slides as ArrayLike<HTMLElement>);
   }, [deckRef]);
 
   const refreshRuntimePageRemap = useCallback(() => {
@@ -1353,26 +969,25 @@ export const useListenAudioSequence = ({
     const currentDeckPage = deckRef.current?.getIndices?.().h;
     const nextMap = buildRuntimePageRemap(slides, currentDeckPage);
     if (arePageRemapMapsEqual(runtimePageRemapRef.current, nextMap)) {
-      return false;
+      return;
     }
     runtimePageRemapRef.current = nextMap;
     setRuntimePageRemapVersion(version => version + 1);
-    return true;
   }, [collectDeckSlides, deckRef]);
 
   const syncToSequencePage = useCallback(
     (page: number) => {
       if (page < 0) {
-        return false;
+        return;
       }
       refreshRuntimePageRemap();
       const resolvedPage = resolveRuntimeSequencePage(page);
       if (resolvedPage < 0) {
-        return false;
+        return;
       }
       const deck = deckRef.current;
       if (!deck) {
-        return true;
+        return;
       }
 
       try {
@@ -1394,19 +1009,18 @@ export const useListenAudioSequence = ({
             : 0;
 
       if (slidesLength <= 0) {
-        return true;
+        return;
       }
       if (resolvedPage >= slidesLength) {
-        return false;
+        return;
       }
 
       try {
         deck.slide(resolvedPage);
       } catch {
         // Reveal.js may throw if controls are not yet initialized
-        return false;
+        return;
       }
-      return true;
     },
     [deckRef, refreshRuntimePageRemap, resolveRuntimeSequencePage],
   );
@@ -1424,7 +1038,7 @@ export const useListenAudioSequence = ({
       resolveContentBid(activeAudioBid);
     if (!currentBid) {
       pendingAutoNextRef.current = true;
-      return true;
+      return;
     }
     if (resolveContentBid(activeBlockBidRef.current) !== currentBid) {
       activeBlockBidRef.current = currentBid;
@@ -1432,7 +1046,7 @@ export const useListenAudioSequence = ({
     const nextBid = getNextContentBid(currentBid);
     if (!nextBid) {
       pendingAutoNextRef.current = true;
-      return true;
+      return;
     }
 
     const moved = goToBlock(nextBid);
@@ -1443,16 +1057,15 @@ export const useListenAudioSequence = ({
       // Signal the bootstrap effect to auto-start the queue once new content
       // for the next block streams in and audioAndInteractionList rebuilds.
       shouldStartSequenceRef.current = true;
-      return true;
+      return;
     }
 
     if (shouldRenderEmptyPpt) {
       activeBlockBidRef.current = `empty-ppt-${nextBid}`;
-      return true;
+      return;
     }
 
     pendingAutoNextRef.current = true;
-    return true;
   }, [
     activeAudioBid,
     activeBlockBidRef,
@@ -1525,46 +1138,48 @@ export const useListenAudioSequence = ({
             resolveContentBid(item.generated_block_bid) === preferredBid,
         );
         if (!hasPreferredContent) {
-          // The target block has not streamed into the list yet.
-          // Avoid falling back to stale items from the previous block.
-          return -1;
-        }
-
-        const preferredSamePageIndex = list.findIndex(
-          item =>
-            isAudibleContentItem(item) &&
-            getItemPage(item) === targetPage &&
-            resolveContentBid(item.generated_block_bid) === preferredBid,
-        );
-        if (preferredSamePageIndex >= 0) {
-          return preferredSamePageIndex;
-        }
-        const preferredSamePageAnyContentIndex = list.findIndex(
-          item =>
-            isContentItem(item) &&
-            getItemPage(item) === targetPage &&
-            resolveContentBid(item.generated_block_bid) === preferredBid,
-        );
-        if (preferredSamePageAnyContentIndex >= 0) {
-          return preferredSamePageAnyContentIndex;
-        }
-        const preferredAheadIndex = list.findIndex(
-          item =>
-            isAudibleContentItem(item) &&
-            getItemPage(item) >= targetPage &&
-            resolveContentBid(item.generated_block_bid) === preferredBid,
-        );
-        if (preferredAheadIndex >= 0) {
-          return preferredAheadIndex;
-        }
-        const preferredAheadAnyContentIndex = list.findIndex(
-          item =>
-            isContentItem(item) &&
-            getItemPage(item) >= targetPage &&
-            resolveContentBid(item.generated_block_bid) === preferredBid,
-        );
-        if (preferredAheadAnyContentIndex >= 0) {
-          return preferredAheadAnyContentIndex;
+          // Pending auto-next means the target block is expected but not yet in
+          // the timeline. Keep waiting instead of replaying stale entries.
+          if (pendingAutoNextRef.current) {
+            return -1;
+          }
+        } else {
+          const preferredSamePageIndex = list.findIndex(
+            item =>
+              isAudibleContentItem(item) &&
+              getItemPage(item) === targetPage &&
+              resolveContentBid(item.generated_block_bid) === preferredBid,
+          );
+          if (preferredSamePageIndex >= 0) {
+            return preferredSamePageIndex;
+          }
+          const preferredSamePageAnyContentIndex = list.findIndex(
+            item =>
+              isContentItem(item) &&
+              getItemPage(item) === targetPage &&
+              resolveContentBid(item.generated_block_bid) === preferredBid,
+          );
+          if (preferredSamePageAnyContentIndex >= 0) {
+            return preferredSamePageAnyContentIndex;
+          }
+          const preferredAheadIndex = list.findIndex(
+            item =>
+              isAudibleContentItem(item) &&
+              getItemPage(item) >= targetPage &&
+              resolveContentBid(item.generated_block_bid) === preferredBid,
+          );
+          if (preferredAheadIndex >= 0) {
+            return preferredAheadIndex;
+          }
+          const preferredAheadAnyContentIndex = list.findIndex(
+            item =>
+              isContentItem(item) &&
+              getItemPage(item) >= targetPage &&
+              resolveContentBid(item.generated_block_bid) === preferredBid,
+          );
+          if (preferredAheadAnyContentIndex >= 0) {
+            return preferredAheadAnyContentIndex;
+          }
         }
       }
 
@@ -1608,6 +1223,7 @@ export const useListenAudioSequence = ({
       refreshRuntimePageRemap,
       resolveContentBid,
       resolveRuntimeSequencePage,
+      pendingAutoNextRef,
     ],
   );
 
@@ -1672,7 +1288,7 @@ export const useListenAudioSequence = ({
   // ---------------------------------------------------------------------------
   // Queue Manager — event-driven approach
   // ---------------------------------------------------------------------------
-  // Stable refs for queue event handlers to avoid re-subscription cycles
+  // Stable refs for queue event handlers to avoid re-subscription windows.
   const endSequenceRef = useRef(endSequence);
   endSequenceRef.current = endSequence;
   const syncToSequencePageRef = useRef(syncToSequencePage);
@@ -1700,7 +1316,7 @@ export const useListenAudioSequence = ({
       // emits the next play-state callback.
       hasObservedPlaybackRef.current = false;
       pendingAutoNextRef.current = false;
-      setIsAudioPlayingRef.current(false);
+      setIsAudioPlaying(false);
       setActiveAudioBid(item.generatedBlockBid);
       setActiveAudioPosition(item.audioPosition);
       setActiveQueueAudioId(item.id);
@@ -1708,7 +1324,7 @@ export const useListenAudioSequence = ({
       setIsAudioSequenceActive(true);
       syncToSequencePageRef.current(item.page);
     },
-    [pendingAutoNextRef],
+    [pendingAutoNextRef, setIsAudioPlaying],
   );
 
   const onInteractionShowHandler = useCallback((event: QueueEvent) => {
@@ -1723,7 +1339,7 @@ export const useListenAudioSequence = ({
   }, []);
 
   const onQueueCompletedHandler = useCallback(() => {
-    const listLengthBeforeCompletion = audioAndInteractionList.length;
+    const listLengthBeforeCompletion = audioAndInteractionLengthRef.current;
     const hadChapterAnchorBeforeCompletion = Boolean(
       resolveContentBid(activeBlockBidRef.current),
     );
@@ -1751,6 +1367,20 @@ export const useListenAudioSequence = ({
       return;
     }
 
+    if (pendingAutoNextRef.current) {
+      // Keep a short grace window for late-arriving next-block units even when
+      // we are not in explicit growth-wait mode. This allows useListenPpt's
+      // pendingAutoNext handoff to jump once the next block appears.
+      pendingQueueGrowthAnchorRef.current = null;
+      shouldStartSequenceRef.current = false;
+      clearPendingGrowthWaitTimer();
+      pendingGrowthWaitTimerRef.current = setTimeout(() => {
+        pendingAutoNextRef.current = false;
+      }, LISTEN_PENDING_AUTO_NEXT_GRACE_MS);
+      lastAdvanceCauseRef.current = 'other';
+      return;
+    }
+
     pendingAutoNextRef.current = false;
     pendingQueueGrowthAnchorRef.current = null;
     shouldStartSequenceRef.current = false;
@@ -1758,29 +1388,19 @@ export const useListenAudioSequence = ({
     lastAdvanceCauseRef.current = 'other';
   }, [
     activeBlockBidRef,
-    audioAndInteractionList.length,
     clearPendingGrowthWaitTimer,
     effectiveStartAnchorIndexRef,
-    lastAdvanceCauseRef,
-    pendingQueueGrowthAnchorRef,
     pendingAutoNextRef,
-    pendingGrowthWaitTimerRef,
     resolveContentBid,
-    setIsAudioSequenceActive,
     shouldStartSequenceRef,
   ]);
 
   const queueActions = useQueueManager({
-    audioWaitTimeout: 15000,
     onVisualShow: onVisualShowHandler,
     onAudioPlay: onAudioPlayHandler,
     onInteractionShow: onInteractionShowHandler,
     onQueueCompleted: onQueueCompletedHandler,
   });
-
-  // Ref to break circular dependency: silent visual timer → queueActions.advance
-  const queueActionsRef = useRef(queueActions);
-  queueActionsRef.current = queueActions;
 
   useEffect(() => {
     queueActions.remapPages(page => resolveRuntimeSequencePage(page));
@@ -1816,15 +1436,38 @@ export const useListenAudioSequence = ({
     runtimePageRemapVersion,
   ]);
 
-  const toQueueAudioSegmentValue = useCallback((segment: unknown) => {
-    if (typeof segment === 'string') {
-      return segment;
-    }
-    return (segment as any).audioData || (segment as any).audio_segment;
-  }, []);
+  const toQueueAudioSegmentValue = useCallback(
+    (segment: string | { audioData?: string; audio_segment?: string }) => {
+      if (typeof segment === 'string') {
+        return segment;
+      }
+      return segment.audioData || segment.audio_segment;
+    },
+    [],
+  );
+
+  const toQueueAudioDurationMs = useCallback(
+    (segment: string | { durationMs?: number; duration_ms?: number }) => {
+      if (typeof segment === 'string') {
+        return undefined;
+      }
+      const value = Number(segment.durationMs ?? segment.duration_ms ?? 0);
+      if (!Number.isFinite(value) || value <= 0) {
+        return undefined;
+      }
+      return Math.floor(value);
+    },
+    [],
+  );
 
   const upsertQueueAudioUrlIfNeeded = useCallback(
-    (bid: string, position: number, audioUrl?: string, isFinal = true) => {
+    (
+      bid: string,
+      position: number,
+      audioUrl?: string,
+      isFinal = true,
+      durationMs?: number,
+    ) => {
       if (!audioUrl) {
         return;
       }
@@ -1835,6 +1478,10 @@ export const useListenAudioSequence = ({
       queueActions.upsertAudio(bid, position, {
         audio_url: audioUrl,
         is_final: isFinal,
+        duration_ms:
+          Number.isFinite(durationMs) && (durationMs || 0) > 0
+            ? Number(durationMs)
+            : undefined,
       });
       syncedAudioStateRef.current.set(audioKey, 'url');
     },
@@ -1851,13 +1498,20 @@ export const useListenAudioSequence = ({
         audioUrl,
         audioSegments: segments,
         isAudioStreaming,
+        audioDurationMs,
       } = resolvedTrack;
       const audioKey = `${bid}:${position}`;
       const prevState = syncedAudioStateRef.current.get(audioKey);
 
       if (audioUrl) {
         // URL source supersedes segmented updates.
-        upsertQueueAudioUrlIfNeeded(bid, position, audioUrl, !isAudioStreaming);
+        upsertQueueAudioUrlIfNeeded(
+          bid,
+          position,
+          audioUrl,
+          !isAudioStreaming,
+          audioDurationMs,
+        );
         return;
       }
 
@@ -1875,6 +1529,7 @@ export const useListenAudioSequence = ({
             queueActions.upsertAudio(bid, position, {
               audio_segment: toQueueAudioSegmentValue(segments[i]),
               is_final: nowFinalized && i === segments.length - 1,
+              duration_ms: toQueueAudioDurationMs(segments[i]),
             });
           }
           syncedAudioStateRef.current.set(audioKey, {
@@ -1891,6 +1546,7 @@ export const useListenAudioSequence = ({
               segments[segments.length - 1],
             ),
             is_final: true,
+            duration_ms: toQueueAudioDurationMs(segments[segments.length - 1]),
           });
           syncedAudioStateRef.current.set(audioKey, {
             count: segments.length,
@@ -1911,7 +1567,12 @@ export const useListenAudioSequence = ({
         });
       }
     },
-    [queueActions, toQueueAudioSegmentValue, upsertQueueAudioUrlIfNeeded],
+    [
+      queueActions,
+      toQueueAudioDurationMs,
+      toQueueAudioSegmentValue,
+      upsertQueueAudioUrlIfNeeded,
+    ],
   );
 
   // ---------------------------------------------------------------------------
@@ -2067,11 +1728,7 @@ export const useListenAudioSequence = ({
     const startIndex = Math.max(queueActions.getCurrentIndex(), 0);
     for (let index = startIndex; index < queueSnapshot.length; index += 1) {
       const item = queueSnapshot[index];
-      if (
-        item.status === 'completed' ||
-        item.status === 'timeout' ||
-        item.status === 'error'
-      ) {
+      if (item.status === 'completed' || item.status === 'timeout') {
         continue;
       }
       return index;
@@ -2084,6 +1741,7 @@ export const useListenAudioSequence = ({
       let queueIndex = resolveQueueStartIndexFromListIndex(listIndex);
       if (queueIndex >= 0) {
         queueActions.startFromIndex(queueIndex);
+        hasInitialAutoStartAttemptedRef.current = true;
         return true;
       }
 
@@ -2095,6 +1753,7 @@ export const useListenAudioSequence = ({
         );
         if (queueIndex >= 0) {
           queueActions.startFromIndex(queueIndex);
+          hasInitialAutoStartAttemptedRef.current = true;
           return true;
         }
       }
@@ -2125,19 +1784,14 @@ export const useListenAudioSequence = ({
         clearPendingGrowthWaitTimer();
       }
       queueActions.startFromIndex(pendingResumeIndex);
+      hasInitialAutoStartAttemptedRef.current = true;
       shouldStartSequenceRef.current = false;
       if (options?.markSequenceActive) {
         setIsAudioSequenceActive(true);
       }
       return true;
     },
-    [
-      clearPendingGrowthWaitTimer,
-      pendingQueueGrowthAnchorRef,
-      queueActions,
-      setIsAudioSequenceActive,
-      shouldStartSequenceRef,
-    ],
+    [clearPendingGrowthWaitTimer, queueActions, shouldStartSequenceRef],
   );
 
   // ---------------------------------------------------------------------------
@@ -2235,22 +1889,16 @@ export const useListenAudioSequence = ({
     bindIframeLoadListeners();
     scheduleRefresh();
 
+    const deckWithElements = deck as {
+      getSlidesElement?: () => Element | null;
+      getRevealElement?: () => Element | null;
+    };
     const slidesRoot =
-      (typeof (deck as { getSlidesElement?: unknown }).getSlidesElement ===
-      'function'
-        ? (
-            deck as unknown as {
-              getSlidesElement: () => Element | null;
-            }
-          ).getSlidesElement()
+      (typeof deckWithElements.getSlidesElement === 'function'
+        ? deckWithElements.getSlidesElement()
         : null) ||
-      (typeof (deck as { getRevealElement?: unknown }).getRevealElement ===
-      'function'
-        ? (
-            deck as unknown as {
-              getRevealElement: () => Element | null;
-            }
-          ).getRevealElement()
+      (typeof deckWithElements.getRevealElement === 'function'
+        ? deckWithElements.getRevealElement()
         : null);
 
     const observer =
@@ -2290,10 +1938,52 @@ export const useListenAudioSequence = ({
     syncListToQueue(audioAndInteractionList);
   }, [audioAndInteractionList, syncListToQueue]);
 
-  // Keep audioSequenceTokenRef in sync
+  // When the queue had already started once and new units arrive later
+  // (common for long multi-position streaming blocks), auto-resume so playback
+  // continues without requiring another manual Play.
   useEffect(() => {
-    audioSequenceTokenRef.current = audioSequenceToken;
-  }, [audioSequenceToken]);
+    if (previewMode) {
+      return;
+    }
+    if (isSequencePausedRef.current) {
+      return;
+    }
+    if (!hasInitialAutoStartAttemptedRef.current) {
+      return;
+    }
+    if (!audioAndInteractionList.length) {
+      return;
+    }
+    if (activeAudioBid || sequenceInteraction) {
+      return;
+    }
+
+    const queueSnapshot = queueActions.getQueueSnapshot();
+    if (!queueSnapshot.length) {
+      return;
+    }
+    const currentQueueIndex = queueActions.getCurrentIndex();
+    const scanStartIndex = currentQueueIndex < 0 ? 0 : currentQueueIndex;
+    const hasActionableQueueUnit = queueSnapshot
+      .slice(scanStartIndex)
+      .some(
+        queueItem =>
+          queueItem.status !== 'completed' && queueItem.status !== 'timeout',
+      );
+    if (!hasActionableQueueUnit) {
+      return;
+    }
+
+    setIsAudioSequenceActive(true);
+    queueActions.resume();
+  }, [
+    activeAudioBid,
+    audioAndInteractionList,
+    previewMode,
+    queueActions,
+    sequenceInteraction,
+    setIsAudioSequenceActive,
+  ]);
 
   // Explicit play fallback: if AudioPlayer doesn't auto-play, trigger play() manually
   useEffect(() => {
@@ -2313,9 +2003,92 @@ export const useListenAudioSequence = ({
   }, [audioSequenceToken, activeAudioBid]);
 
   const audioAndInteractionLengthRef = useRef(audioAndInteractionList.length);
+  audioAndInteractionLengthRef.current = audioAndInteractionList.length;
+
   useEffect(() => {
-    audioAndInteractionLengthRef.current = audioAndInteractionList.length;
-  }, [audioAndInteractionList.length]);
+    if (!enableInitialAutoStart || previewMode) {
+      return;
+    }
+    if (!audioAndInteractionList.length) {
+      hasInitialAutoStartAttemptedRef.current = false;
+      return;
+    }
+    if (hasInitialAutoStartAttemptedRef.current) {
+      return;
+    }
+    if (isSequencePausedRef.current) {
+      return;
+    }
+    if (isAudioSequenceActive || activeAudioBid) {
+      return;
+    }
+    let cancelled = false;
+    let attemptCount = 0;
+    const maxAttempts = 60;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const tryInitialAutoStart = () => {
+      if (cancelled || hasInitialAutoStartAttemptedRef.current) {
+        return;
+      }
+      if (
+        isSequencePausedRef.current ||
+        isAudioSequenceActive ||
+        activeAudioBid
+      ) {
+        return;
+      }
+      const currentPage =
+        deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
+      const startIndex = resolvePlaybackStartIndex(currentPage);
+      if (startIndex < 0) {
+        return;
+      }
+      const started = startQueueFromListIndex(startIndex, {
+        resyncOnMiss: true,
+      });
+      if (!started) {
+        return;
+      }
+      shouldStartSequenceRef.current = false;
+      hasInitialAutoStartAttemptedRef.current = true;
+    };
+
+    const scheduleRetry = () => {
+      if (cancelled || hasInitialAutoStartAttemptedRef.current) {
+        return;
+      }
+      if (attemptCount >= maxAttempts) {
+        return;
+      }
+      attemptCount += 1;
+      tryInitialAutoStart();
+      if (hasInitialAutoStartAttemptedRef.current) {
+        return;
+      }
+      retryTimer = setTimeout(scheduleRetry, 150);
+    };
+
+    scheduleRetry();
+
+    return () => {
+      cancelled = true;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
+    };
+  }, [
+    audioAndInteractionList,
+    activeAudioBid,
+    currentPptPageRef,
+    deckRef,
+    enableInitialAutoStart,
+    isAudioSequenceActive,
+    previewMode,
+    resolvePlaybackStartIndex,
+    startQueueFromListIndex,
+    shouldStartSequenceRef,
+  ]);
 
   // Reset when list empties — debounced to avoid resetting during transient
   // block transitions where audioAndInteractionList is momentarily empty.
@@ -2351,7 +2124,6 @@ export const useListenAudioSequence = ({
     endSequence,
     clearPendingGrowthWaitTimer,
     effectiveStartAnchorIndexRef,
-    pendingQueueGrowthAnchorRef,
     pendingAutoNextRef,
     queueActions,
     shouldStartSequenceRef,
@@ -2400,12 +2172,9 @@ export const useListenAudioSequence = ({
     shouldStartSequenceRef.current = false;
   }, [
     audioAndInteractionList,
-    clearPendingGrowthWaitTimer,
     currentPptPageRef,
     deckRef,
     effectiveStartAnchorIndexRef,
-    pendingQueueGrowthAnchorRef,
-    queueActions,
     resolvePendingResumeQueueIndex,
     resolvePlaybackStartIndex,
     startFromPendingResumeIndex,
@@ -2508,7 +2277,11 @@ export const useListenAudioSequence = ({
           return {
             segmentIndex: index,
             audioData: segment.audio_segment,
-            durationMs: 0,
+            durationMs:
+              Number.isFinite(segment.duration_ms) &&
+              Number(segment.duration_ms) > 0
+                ? Number(segment.duration_ms)
+                : 0,
             isFinal: Boolean(segment.is_final),
           } satisfies AudioSegment;
         })
@@ -2658,9 +2431,7 @@ export const useListenAudioSequence = ({
         .slice(currentQueueIndex + 1)
         .some(
           queueItem =>
-            queueItem.status !== 'completed' &&
-            queueItem.status !== 'timeout' &&
-            queueItem.status !== 'error',
+            queueItem.status !== 'completed' && queueItem.status !== 'timeout',
         );
       if (!hasFutureUnits) {
         const deck = deckRef.current;
@@ -2700,11 +2471,9 @@ export const useListenAudioSequence = ({
       ) {
         return;
       }
-      // Keep runtime consistent with sequence expectations: audio errors pause
-      // progression and require an explicit user resume/next action.
-      isSequencePausedRef.current = true;
+      // Skip failed audio units so listen mode keeps progressing automatically.
       setIsAudioPlaying(false);
-      queueActions.pause();
+      queueActions.advance();
     },
     [queueActions, setIsAudioPlaying],
   );
@@ -2836,7 +2605,6 @@ export const useListenAudioSequence = ({
       audioAndInteractionList,
       clearPendingGrowthWaitTimer,
       effectiveStartAnchorIndexRef,
-      pendingQueueGrowthAnchorRef,
       queueActions,
       startQueueFromListIndex,
       syncListToQueue,
@@ -2891,7 +2659,7 @@ export const useListenAudioSequence = ({
         return;
       }
       // Auto-advance past failed audio instead of pausing the queue
-      queueActionsRef.current?.advance();
+      queueActions.advance();
     }, audioWatchdogTimeoutMs);
     return () => clearTimeout(timer);
   }, [
@@ -2900,6 +2668,7 @@ export const useListenAudioSequence = ({
     isAudioPlaying,
     isAudioPlayerBusy,
     audioWatchdogTimeoutMs,
+    queueActions,
   ]);
 
   // ---------------------------------------------------------------------------
@@ -2928,13 +2697,14 @@ export const useListenAudioSequence = ({
         return;
       }
       setIsAudioPlaying(false);
-      queueActionsRef.current?.advance();
+      queueActions.advance();
     }, maxMs);
     return () => clearTimeout(timer);
   }, [
     isAudioSequenceActive,
     isAudioPlaying,
     activeAudioDurationMs,
+    queueActions,
     setIsAudioPlaying,
   ]);
 

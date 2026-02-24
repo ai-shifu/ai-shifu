@@ -81,7 +81,6 @@ export default function ChatLayout({
     }
   }, [browserLanguage, updateLanguage, envDataInitialized, userInfo]);
 
-  // const [loading, setLoading] = useState<boolean>(true);
   const params = parseUrlParams() as Record<string, string>;
   const currChannel = params.channel || '';
   const isPreviewMode = params.preview
@@ -205,7 +204,7 @@ export default function ChatLayout({
           } else {
             window.location.href = '/404';
           }
-        } catch (error) {
+        } catch {
           window.location.href = '/404';
         }
       }

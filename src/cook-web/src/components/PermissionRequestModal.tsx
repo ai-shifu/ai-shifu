@@ -72,7 +72,7 @@ export const PermissionRequestModal = ({
         });
         form.reset();
         onClose();
-      } catch (error) {
+      } catch {
         toast({
           title: t('module.permission.permission.requestError'),
           variant: 'destructive',

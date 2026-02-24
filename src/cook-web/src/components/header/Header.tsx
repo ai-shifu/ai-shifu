@@ -1,19 +1,13 @@
 'use client';
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 import { useShifu } from '@/store';
 import Loading from '../loading';
 import { useAlert } from '@/components/ui/UseAlert';
 import api from '@/api';
-import {
-  ChevronLeft,
-  CircleAlert,
-  CircleCheck,
-  TrendingUp,
-} from 'lucide-react';
+import { ChevronLeft, CircleAlert, CircleCheck } from 'lucide-react';
 import Preivew from '@/components/preview';
 import ShifuSetting from '@/components/shifu-setting';
 import { useTranslation } from 'react-i18next';
@@ -23,7 +17,6 @@ import { useTracking } from '@/c-common/hooks/useTracking';
 const Header = () => {
   const { t } = useTranslation();
   const alert = useAlert();
-  const router = useRouter();
   const [publishing, setPublishing] = useState(false);
   const { trackEvent } = useTracking();
   const { isSaving, lastSaveTime, currentShifu, error, actions } = useShifu();

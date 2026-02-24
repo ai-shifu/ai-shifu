@@ -17,7 +17,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
 import type { UserInfo } from '@/c-types';
-import { tokenTool } from '@/c-service/storeUtil';
 interface PhoneLoginProps {
   onLoginSuccess: (userInfo: UserInfo) => void;
   loginContext?: string;

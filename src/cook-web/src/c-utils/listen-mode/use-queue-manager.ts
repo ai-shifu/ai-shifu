@@ -8,13 +8,10 @@ import {
 import type { ChatContentItem } from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
 
 interface UseQueueManagerParams {
-  audioWaitTimeout?: number;
-  silentVisualDuration?: number;
-  onVisualShow?: (event: QueueEvent) => void;
-  onAudioPlay?: (event: QueueEvent) => void;
-  onInteractionShow?: (event: QueueEvent) => void;
-  onQueueCompleted?: (event: QueueEvent) => void;
-  onQueueError?: (event: QueueEvent) => void;
+  onVisualShow: (event: QueueEvent) => void;
+  onAudioPlay: (event: QueueEvent) => void;
+  onInteractionShow: (event: QueueEvent) => void;
+  onQueueCompleted: (event: QueueEvent) => void;
 }
 
 interface QueueManagerActions {
@@ -47,12 +44,7 @@ interface QueueManagerActions {
     position: number,
     hasTextAfterVisual: boolean,
   ) => void;
-  remapPages: (
-    mapper: (
-      page: number,
-      item: ReturnType<ListenQueueManager['getQueueSnapshot']>[number],
-    ) => number,
-  ) => void;
+  remapPages: (mapper: (page: number) => number) => void;
 
   getQueueSnapshot: () => ReturnType<ListenQueueManager['getQueueSnapshot']>;
   getCurrentIndex: () => number;
@@ -67,15 +59,8 @@ interface QueueManagerActions {
 export function useQueueManager(
   params: UseQueueManagerParams,
 ): QueueManagerActions {
-  const {
-    audioWaitTimeout = 15000,
-    silentVisualDuration = 5000,
-    onVisualShow,
-    onAudioPlay,
-    onInteractionShow,
-    onQueueCompleted,
-    onQueueError,
-  } = params;
+  const { onVisualShow, onAudioPlay, onInteractionShow, onQueueCompleted } =
+    params;
 
   const sessionIdRef = useRef(1);
   const queueManagerRef = useRef<ListenQueueManager | null>(null);
@@ -83,8 +68,8 @@ export function useQueueManager(
   // Initialize queue manager and ensure timers/listeners are cleaned on unmount.
   useEffect(() => {
     const manager = new ListenQueueManager({
-      audioWaitTimeout,
-      silentVisualDuration,
+      audioWaitTimeout: 15000,
+      silentVisualDuration: 5000,
       sessionIdRef,
     });
     queueManagerRef.current = manager;
@@ -95,7 +80,7 @@ export function useQueueManager(
         queueManagerRef.current = null;
       }
     };
-  }, [audioWaitTimeout, silentVisualDuration]);
+  }, []);
 
   // Subscribe to events (re-subscribe when handlers change)
   useEffect(() => {
@@ -105,55 +90,18 @@ export function useQueueManager(
 
     const manager = queueManagerRef.current;
 
-    // Subscribe to events
-    if (onVisualShow) {
-      manager.on('visual:show', onVisualShow);
-    }
-    if (onAudioPlay) {
-      manager.on('audio:play', onAudioPlay);
-    }
-    if (onInteractionShow) {
-      manager.on('interaction:show', onInteractionShow);
-    }
-    if (onQueueCompleted) {
-      manager.on('queue:completed', onQueueCompleted);
-    }
-    if (onQueueError) {
-      manager.on('queue:error', onQueueError);
-    }
+    manager.on('visual:show', onVisualShow);
+    manager.on('audio:play', onAudioPlay);
+    manager.on('interaction:show', onInteractionShow);
+    manager.on('queue:completed', onQueueCompleted);
 
     return () => {
-      // Unsubscribe when handlers change
-      if (onVisualShow) {
-        manager.off('visual:show', onVisualShow);
-      }
-      if (onAudioPlay) {
-        manager.off('audio:play', onAudioPlay);
-      }
-      if (onInteractionShow) {
-        manager.off('interaction:show', onInteractionShow);
-      }
-      if (onQueueCompleted) {
-        manager.off('queue:completed', onQueueCompleted);
-      }
-      if (onQueueError) {
-        manager.off('queue:error', onQueueError);
-      }
+      manager.off('visual:show', onVisualShow);
+      manager.off('audio:play', onAudioPlay);
+      manager.off('interaction:show', onInteractionShow);
+      manager.off('queue:completed', onQueueCompleted);
     };
-  }, [
-    onVisualShow,
-    onAudioPlay,
-    onInteractionShow,
-    onQueueCompleted,
-    onQueueError,
-    audioWaitTimeout,
-    silentVisualDuration,
-  ]);
-
-  // Increment session ID helper
-  const incrementSession = useCallback(() => {
-    sessionIdRef.current += 1;
-  }, []);
+  }, [onVisualShow, onAudioPlay, onInteractionShow, onQueueCompleted]);
 
   // Queue actions
   const enqueueVisual = useCallback(
@@ -223,9 +171,9 @@ export function useQueueManager(
     if (!queueManagerRef.current) {
       return;
     }
-    incrementSession();
+    sessionIdRef.current += 1;
     queueManagerRef.current.reset();
-  }, [incrementSession]);
+  }, []);
 
   const advance = useCallback(() => {
     if (!queueManagerRef.current) {
@@ -234,16 +182,13 @@ export function useQueueManager(
     queueManagerRef.current.advance();
   }, []);
 
-  const startFromIndex = useCallback(
-    (index: number) => {
-      if (!queueManagerRef.current) {
-        return;
-      }
-      incrementSession();
-      queueManagerRef.current.startFromIndex(index);
-    },
-    [incrementSession],
-  );
+  const startFromIndex = useCallback((index: number) => {
+    if (!queueManagerRef.current) {
+      return;
+    }
+    sessionIdRef.current += 1;
+    queueManagerRef.current.startFromIndex(index);
+  }, []);
 
   const updateVisualExpectation = useCallback(
     (bid: string, position: number, hasTextAfterVisual: boolean) => {

@@ -6,8 +6,6 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Button } from '@/components/ui/Button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/Sheet';
 import { DocumentIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
 import Image, { type StaticImageData } from 'next/image';
 import Link from 'next/link';
@@ -180,20 +178,9 @@ const MainInterface = ({
     onClose: closeDesktopMenu,
   } = useDisclosure();
 
-  const mobileFooterRef = useRef<any>(null);
-  const {
-    open: mobileMenuOpen,
-    onToggle: toggleMobileMenu,
-    onClose: closeMobileMenu,
-  } = useDisclosure();
-
   const onDesktopFooterClick = useCallback(() => {
     toggleDesktopMenu();
   }, [toggleDesktopMenu]);
-
-  const onMobileFooterClick = useCallback(() => {
-    toggleMobileMenu();
-  }, [toggleMobileMenu]);
 
   const handleDesktopMenuClose = useCallback(
     (e?: Event | React.MouseEvent) => {
@@ -203,16 +190,6 @@ const MainInterface = ({
       closeDesktopMenu();
     },
     [closeDesktopMenu],
-  );
-
-  const handleMobileMenuClose = useCallback(
-    (e?: Event | React.MouseEvent) => {
-      if (mobileFooterRef.current?.containElement?.(e?.target)) {
-        return;
-      }
-      closeMobileMenu();
-    },
-    [closeMobileMenu],
   );
 
   const menuItems: MenuItem[] = [

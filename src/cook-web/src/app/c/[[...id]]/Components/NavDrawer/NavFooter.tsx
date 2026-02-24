@@ -5,7 +5,6 @@ import { memo, forwardRef, useImperativeHandle, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store';
 
-import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
 
 export const NavFooter = forwardRef(
@@ -15,7 +14,6 @@ export const NavFooter = forwardRef(
 
     const userInfo = useUserStore(state => state.userInfo);
     const isLoggedIn = useUserStore(state => state.isLoggedIn);
-    const avatar = userInfo?.avatar || 'https://github.com/shadcn.png';
     const htmlRef = useRef(null);
 
     const containElement = elem => {

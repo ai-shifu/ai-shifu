@@ -7,7 +7,6 @@ import {
   initOrder,
   queryOrder,
   type PayUrlRequest,
-  type PayUrlResponse,
   type PaymentChannel,
 } from '@/c-api/order';
 import { ORDER_STATUS } from '../constans';

@@ -97,9 +97,6 @@ export const NewChatComponents = ({
   });
 
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
-  // const { scrollToBottom } = useAutoScroll(chatRef as any, {
-  //   threshold: 120,
-  // });
 
   const [showScrollDown, setShowScrollDown] = useState(false);
   const listenTtsToastShownRef = useRef(false);
@@ -157,7 +154,12 @@ export const NewChatComponents = ({
       payModalResult: state.payModalResult,
     })),
   );
-  const learningMode = useSystemStore(state => state.learningMode);
+  const { learningMode, updateLearningMode } = useSystemStore(
+    useShallow(state => ({
+      learningMode: state.learningMode,
+      updateLearningMode: state.updateLearningMode,
+    })),
+  );
   const isListenMode = learningMode === 'listen';
   const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
   const isListenModeAvailable = courseTtsEnabled !== false;
@@ -211,12 +213,12 @@ export const NewChatComponents = ({
       listenTtsToastShownRef.current = false;
       return;
     }
-    if (listenTtsToastShownRef.current) {
-      return;
+    if (!listenTtsToastShownRef.current) {
+      fail(t('module.chat.listenModeTtsDisabled'));
+      listenTtsToastShownRef.current = true;
     }
-    fail(t('module.chat.listenModeTtsDisabled'));
-    listenTtsToastShownRef.current = true;
-  }, [isListenMode, isListenModeAvailable, t]);
+    updateLearningMode('read');
+  }, [isListenMode, isListenModeAvailable, t, updateLearningMode]);
 
   const {
     items,
@@ -498,34 +500,23 @@ export const NewChatComponents = ({
       className={containerClassName}
       style={{ position: 'relative', overflow: 'hidden', padding: 0 }}
     >
-      {isListenMode ? (
-        isListenModeAvailable ? (
-          isLoading ? (
-            <div className='w-full h-full flex items-center justify-center'>
-              <Loader2 className='animate-spin size-6 text-primary' />
-            </div>
-          ) : (
-            <ListenModeRenderer
-              items={listenModeItems}
-              backendSlides={listenSlides}
-              mobileStyle={mobileStyle}
-              chatRef={chatRef as React.RefObject<HTMLDivElement>}
-              containerClassName={containerClassName}
-              isLoading={isLoading}
-              sectionTitle={lessonTitle}
-              previewMode={previewMode}
-              onRequestAudioForBlock={requestAudioForBlock}
-              onSend={memoizedOnSend}
-            />
-          )
+      {isListenModeActive ? (
+        isLoading ? (
+          <div className='w-full h-full flex items-center justify-center'>
+            <Loader2 className='animate-spin size-6 text-primary' />
+          </div>
         ) : (
-          <div
-            className={cn(
-              containerClassName,
-              'listen-reveal-wrapper',
-              mobileStyle ? 'mobile' : '',
-              'bg-[var(--color-4)]',
-            )}
+          <ListenModeRenderer
+            items={listenModeItems}
+            backendSlides={listenSlides}
+            mobileStyle={mobileStyle}
+            chatRef={chatRef as React.RefObject<HTMLDivElement>}
+            containerClassName={containerClassName}
+            isLoading={isLoading}
+            sectionTitle={lessonTitle}
+            previewMode={previewMode}
+            onRequestAudioForBlock={requestAudioForBlock}
+            onSend={memoizedOnSend}
           />
         )
       ) : (
@@ -678,7 +669,7 @@ export const NewChatComponents = ({
           </div>
         </div>
       )}
-      {!isListenMode &&
+      {!isListenModeActive &&
         (mobileStyle && portalTarget
           ? createPortal(scrollButton, portalTarget)
           : scrollButton)}

@@ -32,7 +32,6 @@ export const useLessonTree = () => {
   }, [tree]);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const { trackEvent } = useTracking();
-  const { updateCourseId } = useEnvStore.getState();
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const previewMode = useSystemStore(state => state.previewMode);
   const { openPayModal } = useCourseStore(
@@ -131,11 +130,6 @@ export const useLessonTree = () => {
       return null;
     }
 
-    // new api without course_id
-    // if (treeData.course_id !== useEnvStore.getState().courseId) {
-    //   await updateCourseId(treeData.course_id);
-    // }
-
     const catalogs = (treeData.outline_items || []).map(l => {
       const lessons = l.children.map(c => {
         return {
@@ -168,7 +162,7 @@ export const useLessonTree = () => {
     };
 
     return newTree;
-  }, [previewMode, updateCourseId]);
+  }, [previewMode]);
 
   const setSelectedState = useCallback((tree, chapterId, lessonId) => {
     const chapter = tree.catalogs.find(v => v.id === chapterId);

@@ -37,7 +37,6 @@ const MainMenuModal = ({
   style = {},
   mobileStyle = false,
   className = '',
-  onBasicInfoClick,
   onPersonalInfoClick,
   isAdmin = false,
 }) => {
@@ -55,16 +54,6 @@ const MainMenuModal = ({
   const isCreator = userInfo?.is_creator ?? false;
 
   const { trackEvent } = useTracking();
-
-  const onUserInfoClick = () => {
-    trackEvent(EVENT_NAMES.USER_MENU_BASIC_INFO, {});
-    if (!isLoggedIn) {
-      trackEvent(EVENT_NAMES.POP_LOGIN, { from: 'user_menu' });
-      shifu.loginTools.openLogin();
-      return;
-    }
-    onBasicInfoClick?.();
-  };
 
   const _onPersonalInfoClick = () => {
     trackEvent(EVENT_NAMES.USER_MENU_PERSONALIZED, {});

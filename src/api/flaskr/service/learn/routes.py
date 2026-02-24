@@ -199,7 +199,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     listen:
                         type: boolean
                         required: false
-                        description: Whether to enable streaming TTS during learning (default: true)
+                        description: Whether to enable streaming TTS during learning (default: false)
                     reload_generated_block_bid:
                         type: string
                         required: false
@@ -220,11 +220,11 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         input = payload.get("input", None)
         input_type = payload.get("input_type", None)
         reload_generated_block_bid = payload.get("reload_generated_block_bid", None)
-        listen_raw = payload.get("listen", True)
+        listen_raw = payload.get("listen", False)
         if isinstance(listen_raw, str):
             listen = listen_raw.strip().lower() == "true"
         elif listen_raw is None:
-            listen = True
+            listen = False
         else:
             listen = bool(listen_raw)
         preview_mode = request.args.get("preview_mode", "False")

@@ -4,10 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   Copy,
   Check,
-  SlidersVertical,
   Plus,
   Minus,
-  CircleHelp,
   Settings,
   Volume2,
   Loader2,
@@ -28,7 +26,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetFooter,
   SheetTrigger,
 } from '@/components/ui/Sheet';
 import { Input } from '@/components/ui/Input';
@@ -108,7 +105,6 @@ const MIN_SHIFU_PRICE = 0.5;
 const TEMPERATURE_MIN = 0;
 const TEMPERATURE_MAX = 2;
 const TEMPERATURE_STEP = 0.1;
-const FLOAT_EPSILON = 1e-6;
 type CopyingState = {
   previewUrl: boolean;
   url: boolean;
@@ -564,14 +560,6 @@ export default function ShifuSettingDialog({
     },
   });
   const isDirty = form.formState.isDirty;
-  const temperatureValue = parseFloat(form.watch('temperature') || '0');
-  const safeTemperature = Number.isFinite(temperatureValue)
-    ? temperatureValue
-    : TEMPERATURE_MIN;
-  const isTempAtMin = safeTemperature <= TEMPERATURE_MIN + FLOAT_EPSILON;
-  const isTempAtMax = safeTemperature >= TEMPERATURE_MAX - FLOAT_EPSILON;
-
-  const [formSnapshot, setFormSnapshot] = useState(form.getValues());
 
   useEffect(() => {
     return () => {
@@ -920,13 +908,6 @@ export default function ShifuSettingDialog({
     }
     init();
   }, [shifuId, open]);
-
-  useEffect(() => {
-    const subscription = form.watch((value: any) => {
-      setFormSnapshot(value);
-    });
-    return () => subscription.unsubscribe();
-  }, [form]);
 
   const submitForm = useCallback(
     async (needClose = true, saveType: 'auto' | 'manual' = 'manual') => {
@@ -1326,7 +1307,9 @@ export default function ShifuSettingDialog({
                               type='button'
                               variant='outline'
                               size='icon'
-                              onClick={() => adjustTemperature(-0.1)}
+                              onClick={() =>
+                                adjustTemperature(-TEMPERATURE_STEP)
+                              }
                               className='h-9 w-9'
                             >
                               <Minus className='h-4 w-4' />
@@ -1335,7 +1318,9 @@ export default function ShifuSettingDialog({
                               type='button'
                               variant='outline'
                               size='icon'
-                              onClick={() => adjustTemperature(0.1)}
+                              onClick={() =>
+                                adjustTemperature(TEMPERATURE_STEP)
+                              }
                               className='h-9 w-9'
                             >
                               <Plus className='h-4 w-4' />
@@ -1357,13 +1342,6 @@ export default function ShifuSettingDialog({
                         <FormLabel className='text-sm font-medium text-foreground'>
                           {t('module.shifuSetting.shifuPrompt')}
                         </FormLabel>
-                        {/* <a
-                        href='https://markdownflow.ai/docs/zh/specification/how-it-works/#2'
-                        target='_blank'
-                        rel='noopener noreferrer'
-                      >
-                        <CircleHelp className='h-4 w-4 text-muted-foreground' />
-                      </a> */}
                       </div>
                       <p className='text-xs text-muted-foreground'>
                         {t('module.shifuSetting.shifuPromptHint')}
@@ -1380,9 +1358,6 @@ export default function ShifuSettingDialog({
                           maxRows={30}
                         />
                       </FormControl>
-                      {/* <div className='text-xs text-muted-foreground text-right'>
-                      {field.value?.length ?? 0}/10000
-                    </div> */}
                       <FormMessage />
                     </FormItem>
                   )}
