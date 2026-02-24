@@ -91,6 +91,10 @@ from flaskr.service.metering.consts import (
 from flaskr.service.learn.learn_dtos import VariableUpdateDTO
 from flaskr.service.learn.check_text import check_text_with_llm_response
 from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.learn.langfuse_naming import (
+    build_langfuse_generation_name,
+    build_langfuse_trace_name,
+)
 from flaskr.service.learn.utils_v2 import init_generated_block
 from flaskr.service.learn.exceptions import PaidException
 from flaskr.i18n import _, get_current_language, set_language
@@ -161,6 +165,16 @@ class RUNLLMProvider(LLMProvider):
         actual_temperature = (
             temperature if temperature is not None else self.llm_settings.temperature
         )
+        metadata = self.trace_args.get("metadata") or {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+        chapter_title = metadata.get("chapter_title", "")
+        scene = metadata.get("scene", "lesson_runtime")
+        generation_name = build_langfuse_generation_name(
+            chapter_title,
+            scene,
+            "run_llm",
+        )
 
         res = chat_llm(
             self.app,
@@ -169,7 +183,7 @@ class RUNLLMProvider(LLMProvider):
             messages=messages,
             model=actual_model,
             stream=False,
-            generation_name="run_llm",
+            generation_name=generation_name,
             temperature=actual_temperature,
             usage_context=self.usage_context,
             usage_scene=self.usage_scene,
@@ -201,6 +215,16 @@ class RUNLLMProvider(LLMProvider):
         actual_temperature = (
             temperature if temperature is not None else self.llm_settings.temperature
         )
+        metadata = self.trace_args.get("metadata") or {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+        chapter_title = metadata.get("chapter_title", "")
+        scene = metadata.get("scene", "lesson_runtime")
+        generation_name = build_langfuse_generation_name(
+            chapter_title,
+            scene,
+            "run_llm",
+        )
 
         # Check if there's a system message
         self.app.logger.info("stream invoke_llm begin")
@@ -211,7 +235,7 @@ class RUNLLMProvider(LLMProvider):
             model=actual_model,
             messages=messages,
             stream=True,
-            generation_name="run_llm",
+            generation_name=generation_name,
             temperature=actual_temperature,
             usage_context=self.usage_context,
             usage_scene=self.usage_scene,
@@ -484,13 +508,17 @@ class RunScriptPreviewContextV2:
         if not document:
             raise ValueError("Markdown-Flow content is empty")
 
+        chapter_title = getattr(outline, "title", "") or outline_bid
+        trace_scene = "lesson_preview"
         trace_args = {
             "user_id": user_bid,
-            "name": "preview_outline_block",
+            "name": build_langfuse_trace_name(chapter_title, trace_scene),
             "metadata": {
                 "shifu_bid": shifu_bid,
                 "outline_bid": outline_bid,
                 "session_id": session_id,
+                "scene": trace_scene,
+                "chapter_title": chapter_title,
             },
         }
         trace = langfuse.trace(**trace_args)
@@ -1060,9 +1088,18 @@ class RunScriptContextV2:
                     self._q.put(child)
         self._current_attend = None
         self._trace_args = {}
+        chapter_title = self._outline_item_info.title
+        trace_scene = "lesson_preview_runtime" if preview_mode else "lesson_runtime"
         self._trace_args["user_id"] = user_info.user_id
         self._trace_args["input"] = ""
-        self._trace_args["name"] = self._outline_item_info.title
+        self._trace_args["name"] = build_langfuse_trace_name(chapter_title, trace_scene)
+        self._trace_args["metadata"] = {
+            "scene": trace_scene,
+            "chapter_title": chapter_title,
+            "outline_item_bid": self._outline_item_info.bid,
+            "shifu_bid": self._outline_item_info.shifu_bid,
+            "preview_mode": int(bool(preview_mode)),
+        }
         self._trace = langfuse.trace(**self._trace_args)
         self._trace_args["output"] = ""
         context_local.current_context = self
@@ -1811,6 +1848,14 @@ class RunScriptContextV2:
             )
             generated_block.status = 1
             db.session.flush()
+            trace_metadata = self._trace_args.get("metadata") or {}
+            if not isinstance(trace_metadata, dict):
+                trace_metadata = {}
+            chapter_title = trace_metadata.get(
+                "chapter_title",
+                self._outline_item_info.title,
+            )
+            trace_scene = trace_metadata.get("scene", "lesson_runtime")
             res = check_text_with_llm_response(
                 app,
                 user_info=self._user_info,
@@ -1824,6 +1869,8 @@ class RunScriptContextV2:
                 attend_id=self._current_attend.progress_record_bid,
                 fmt_prompt="",
                 usage_context=usage_context,
+                chapter_title=chapter_title,
+                scene=f"{trace_scene}_interaction",
             )
             # Check if the generator yields any content (not None)
             has_content = False

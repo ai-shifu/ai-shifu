@@ -19,6 +19,7 @@ import {
 } from '../types/shifu';
 import api from '@/api';
 import { debounce } from 'lodash';
+import { normalizeShifuDetail } from '@/lib/shifu-normalize';
 import {
   createContext,
   ReactElement,
@@ -263,7 +264,7 @@ export const ShifuProvider = ({
       const shifu = await api.getShifuDetail({
         shifu_bid: shifuId,
       });
-      setCurrentShifu(shifu);
+      setCurrentShifu(normalizeShifuDetail(shifu) as Shifu | null);
     } catch (error) {
       console.error(error);
       setError('Failed to load shifu');
@@ -537,7 +538,7 @@ export const ShifuProvider = ({
         api.getShifuDetail({ shifu_bid: shifuId }),
         api.getShifuOutlineTree({ shifu_bid: shifuId }),
       ]);
-      setCurrentShifu(shifuInfo);
+      setCurrentShifu(normalizeShifuDetail(shifuInfo) as Shifu | null);
       const list = remapOutlineTree(chaptersData);
       if (list.length > 0) {
         // Find the first lesson to select by default

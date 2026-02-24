@@ -290,7 +290,9 @@ def shifu_permission_verification(
         else:
             # Collaborators need to verify specific permissions
             auth = AiCourseAuth.query.filter(
-                AiCourseAuth.course_id == shifu_id, AiCourseAuth.user_id == user_id
+                AiCourseAuth.course_id == shifu_id,
+                AiCourseAuth.user_id == user_id,
+                AiCourseAuth.status == 1,
             ).first()
             if auth:
                 try:

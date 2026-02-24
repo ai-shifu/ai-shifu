@@ -38,6 +38,9 @@ const api = {
   previewShifu: 'POST /shifu/shifus/{shifu_bid}/preview',
   archiveShifu: 'POST /shifu/shifus/{shifu_bid}/archive',
   unarchiveShifu: 'POST /shifu/shifus/{shifu_bid}/unarchive',
+  listShifuPermissions: 'GET /shifu/shifus/{shifu_bid}/permissions',
+  grantShifuPermissions: 'POST /shifu/shifus/{shifu_bid}/permissions/grant',
+  removeShifuPermission: 'POST /shifu/shifus/{shifu_bid}/permissions/remove',
   previewOutlineBlock: 'POST /learn/shifu/{shifu_bid}/preview/{outline_bid}',
   // shifu api end
 
