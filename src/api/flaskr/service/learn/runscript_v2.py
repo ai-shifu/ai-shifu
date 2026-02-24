@@ -45,7 +45,7 @@ def run_script_inner(
     input: str | dict = None,
     input_type: str = None,
     reload_generated_block_bid: str = None,
-    listen: bool = True,
+    listen: bool = False,
     preview_mode: bool = False,
     stop_event: threading.Event | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -158,13 +158,13 @@ def run_script(
     input: str | dict = None,
     input_type: str = None,
     reload_generated_block_bid: str = None,
-    listen: bool = True,
+    listen: bool = False,
     preview_mode: bool = False,
     shifu_context_snapshot: Optional[dict[str, Any]] = None,
 ) -> Generator[str, None, None]:
     timeout = 5 * 60
     blocking_timeout = 1
-    heartbeat_interval = float(app.config.get("SSE_HEARTBEAT_INTERVAL", 0.1))
+    heartbeat_interval = float(app.config.get("SSE_HEARTBEAT_INTERVAL", 0.5))
     lock_key = (
         app.config.get("REDIS_KEY_PREFIX")
         + ":run_script:"

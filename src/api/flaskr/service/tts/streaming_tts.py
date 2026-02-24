@@ -7,19 +7,18 @@ This module provides real-time TTS synthesis during content streaming.
 - TTS synthesis runs in background threads to avoid blocking content streaming
 """
 
-import re
 import base64
 import logging
+import traceback
 import uuid
 import threading
 import time
-from typing import Generator, Optional, List, Dict
+from typing import Any, Generator, Optional, List, Dict
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, Future
 
 from flask import Flask
 
-from flaskr.dao import db
 from flaskr.api.tts import (
     synthesize_text,
     is_tts_configured,
@@ -35,11 +34,11 @@ from flaskr.service.tts.audio_utils import (
     is_audio_processing_available,
 )
 from flaskr.common.log import AppLoggerProxy
-from flaskr.service.tts.models import (
-    LearnGeneratedAudio,
-    AUDIO_STATUS_COMPLETED,
+from flaskr.service.tts.audio_record_utils import (
+    build_completed_audio_record,
+    save_audio_record,
 )
-from flaskr.service.metering import UsageContext, record_tts_usage
+from flaskr.service.metering import UsageContext
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD
 from flaskr.util.uuid import generate_id
 from flaskr.service.learn.learn_dtos import (
@@ -47,16 +46,50 @@ from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     AudioSegmentDTO,
     AudioCompleteDTO,
+    NewSlideDTO,
+)
+from flaskr.service.learn.listen_slide_builder import build_listen_slides_for_block
+from flaskr.service.tts.boundary_strategies import find_boundary_end
+from flaskr.service.tts.patterns import (
+    SENTENCE_ENDINGS,
+)
+from flaskr.service.tts.pipeline import (
+    build_av_segmentation_contract,
+    _find_next_av_boundary,
 )
 
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
-# Sentence ending patterns
-SENTENCE_ENDINGS = re.compile(r"[.!?。！？；;]")
-
 # Global thread pool for TTS synthesis
 _tts_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="tts_")
+
+_VISUAL_SLIDE_KINDS = frozenset(
+    {
+        "fence",
+        "svg",
+        "iframe",
+        "video",
+        "html_table",
+        "md_table",
+        "sandbox",
+        "img",
+        "md_img",
+    }
+)
+_VISUAL_SKIP_KINDS = frozenset(
+    {
+        "fence",
+        "svg",
+        "iframe",
+        "video",
+        "html_table",
+        "md_table",
+        "sandbox",
+        "md_img",
+    }
+)
+_SANDBOX_VISUAL_KINDS = frozenset({"iframe", "sandbox", "html_table"})
 
 
 @dataclass
@@ -88,6 +121,7 @@ class StreamingTTSProcessor:
         progress_record_bid: str,
         user_bid: str,
         shifu_bid: str,
+        position: int = 0,
         voice_id: str = "",
         speed: float = 1.0,
         pitch: int = 0,
@@ -95,6 +129,7 @@ class StreamingTTSProcessor:
         max_segment_chars: int = 300,
         tts_provider: str = "",
         tts_model: str = "",
+        av_contract: Optional[Dict[str, Any]] = None,
         usage_scene: int = BILL_USAGE_SCENE_PROD,
     ):
         self.app = app
@@ -103,9 +138,11 @@ class StreamingTTSProcessor:
         self.progress_record_bid = progress_record_bid
         self.user_bid = user_bid
         self.shifu_bid = shifu_bid
+        self.position = int(position or 0)
         self.max_segment_chars = max_segment_chars
         self.tts_provider = tts_provider
         self.tts_model = tts_model
+        self.av_contract = av_contract
 
         # Audio settings - use provider-specific defaults
         self.voice_settings = get_default_voice_settings(tts_provider)
@@ -243,7 +280,7 @@ class StreamingTTSProcessor:
 
         segment = TTSSegment(index=segment_index, text=text)
 
-        logger.info(
+        logger.debug(
             f"Submitting TTS task {segment_index}: {len(text)} chars, provider={self.tts_provider or '(unset)'}"
         )
 
@@ -256,6 +293,50 @@ class StreamingTTSProcessor:
             self.tts_model,
         )
         self._pending_futures.append(future)
+
+    def _submit_remaining_text_in_segments(self, remaining_text: str):
+        """
+        Submit remaining text in segments to avoid burst submission at finalization.
+
+        This ensures the last few segments maintain consistent pacing instead of
+        being synthesized and returned almost simultaneously.
+
+        Args:
+            remaining_text: The remaining text to be synthesized
+        """
+        if not remaining_text or len(remaining_text) < 2:
+            return
+
+        logger.debug(
+            f"Submitting remaining text in segments: {len(remaining_text)} chars"
+        )
+
+        # Split remaining text at sentence boundaries, similar to normal flow
+        while remaining_text and len(remaining_text) >= 2:
+            # Determine chunk size (use max_segment_chars as limit)
+            chunk_size = min(len(remaining_text), self.max_segment_chars)
+            chunk = remaining_text[:chunk_size]
+
+            # Try to find sentence boundary within chunk
+            matches = list(SENTENCE_ENDINGS.finditer(chunk))
+            if matches:
+                # Split at last sentence ending in chunk
+                split_pos = matches[-1].end()
+            else:
+                # No sentence boundary found, use full chunk
+                split_pos = chunk_size
+
+            # Extract segment and submit
+            segment_text = remaining_text[:split_pos].strip()
+            if segment_text and len(segment_text) >= 2:
+                self._submit_tts_task(segment_text)
+                logger.debug(
+                    f"Submitted finalize segment: {len(segment_text)} chars, "
+                    f"remaining: {len(remaining_text) - split_pos} chars"
+                )
+
+            # Update remaining text
+            remaining_text = remaining_text[split_pos:].strip()
 
     def _synthesize_in_thread(
         self,
@@ -282,38 +363,30 @@ class StreamingTTSProcessor:
                 segment.latency_ms = int((time.monotonic() - segment_start) * 1000)
                 segment.is_ready = True
 
-                segment_length = len(segment.text or "")
-                record_tts_usage(
-                    self.app,
-                    self.usage_context,
+                from flaskr.service.tts.tts_usage_recorder import (
+                    record_tts_segment_usage,
+                )
+
+                record_tts_segment_usage(
+                    app=self.app,
+                    usage_context=self.usage_context,
                     provider=tts_provider or "",
                     model=tts_model or "",
-                    is_stream=True,
-                    input=segment_length,
-                    output=segment_length,
-                    total=segment_length,
+                    segment_text=segment.text or "",
                     word_count=segment.word_count,
                     duration_ms=int(segment.duration_ms or 0),
                     latency_ms=segment.latency_ms,
-                    record_level=1,
+                    voice_settings=self.voice_settings,
+                    audio_settings=self.audio_settings,
+                    is_stream=True,
                     parent_usage_bid=self._usage_parent_bid,
                     segment_index=segment.index,
-                    segment_count=0,
-                    extra={
-                        "voice_id": self.voice_settings.voice_id or "",
-                        "speed": self.voice_settings.speed,
-                        "pitch": self.voice_settings.pitch,
-                        "emotion": self.voice_settings.emotion,
-                        "volume": self.voice_settings.volume,
-                        "format": self.audio_settings.format or "mp3",
-                        "sample_rate": self.audio_settings.sample_rate or 24000,
-                    },
                 )
 
                 with self._lock:
                     self._word_count_total += segment.word_count
 
-                logger.info(
+                logger.debug(
                     f"TTS segment {segment.index} synthesized: "
                     f"text_len={len(segment.text)}, duration={segment.duration_ms}ms"
                 )
@@ -330,6 +403,7 @@ class StreamingTTSProcessor:
 
     def _yield_ready_segments(self) -> Generator[RunMarkdownFlowDTO, None, None]:
         """Yield segments that are ready in order."""
+        segments_yielded = 0
         while True:
             with self._lock:
                 # Check if next segment is ready
@@ -344,7 +418,7 @@ class StreamingTTSProcessor:
                     self._all_audio_data.append(
                         (segment.index, segment.audio_data, segment.duration_ms)
                     )
-                    logger.info(
+                    logger.debug(
                         f"TTS stored segment {segment.index} for concatenation, "
                         f"total stored: {len(self._all_audio_data)}"
                     )
@@ -362,8 +436,16 @@ class StreamingTTSProcessor:
                         audio_data=base64_audio,
                         duration_ms=segment.duration_ms,
                         is_final=False,
+                        position=self.position,
+                        av_contract=self.av_contract,
                     ),
                 )
+
+                # Add small delay between yields to prevent burst delivery
+                # This ensures segments are delivered at a steady pace
+                if segments_yielded > 0:
+                    time.sleep(0.1)  # 100ms delay between segment yields
+                segments_yielded += 1
 
     def finalize(
         self, *, commit: bool = True
@@ -381,7 +463,7 @@ class StreamingTTSProcessor:
             cleaned_text = ""
             cleaned_text_length = 0
 
-        logger.info(
+        logger.debug(
             f"TTS finalize called: enabled={self._enabled}, "
             f"buffer_len={len(self._buffer)}, "
             f"segment_index={self._segment_index}, "
@@ -389,18 +471,18 @@ class StreamingTTSProcessor:
             f"all_audio_data={len(self._all_audio_data)}"
         )
         if not self._enabled:
-            logger.info("TTS finalize: TTS not enabled, returning early")
+            logger.debug("TTS finalize: TTS not enabled, returning early")
             return
 
-        # Submit any remaining buffer content
+        # Submit any remaining buffer content in segments to avoid burst
         if self._buffer:
             full_text = preprocess_for_tts(self._buffer)
             if self._processed_text_offset > len(full_text):
                 self._processed_text_offset = len(full_text)
 
             remaining_text = full_text[self._processed_text_offset :].strip()
-            if remaining_text and len(remaining_text) >= 2:
-                self._submit_tts_task(remaining_text)
+            # Use segmented submission to maintain consistent pacing
+            self._submit_remaining_text_in_segments(remaining_text)
             self._buffer = ""
 
         # Wait for all pending TTS tasks to complete
@@ -416,9 +498,8 @@ class StreamingTTSProcessor:
         # Use stored audio data from all yielded segments
         with self._lock:
             all_segments = list(self._all_audio_data)
-            logger.info(
-                f"TTS finalize: _all_audio_data has {len(self._all_audio_data)} segments, "
-                f"copying to all_segments"
+            logger.debug(
+                f"TTS finalize: _all_audio_data has {len(self._all_audio_data)} segments"
             )
 
         if not all_segments:
@@ -435,38 +516,38 @@ class StreamingTTSProcessor:
         audio_data_list = [s[1] for s in all_segments]
         total_duration_ms = sum(s[2] for s in all_segments)
 
-        logger.info(
+        logger.debug(
             f"Concatenating {len(audio_data_list)} audio segments, "
             f"total duration: {total_duration_ms}ms"
         )
 
         try:
             # Concatenate all segments
-            logger.info(
+            logger.debug(
                 f"TTS finalize: audio_processing_available={is_audio_processing_available()}"
             )
             final_audio = concat_audio_best_effort(audio_data_list)
 
             final_duration_ms = get_audio_duration_ms(final_audio)
             file_size = len(final_audio)
-            logger.info(
+            logger.debug(
                 f"TTS finalize: final_audio_size={file_size}, duration={final_duration_ms}ms"
             )
 
             # Upload to OSS
             from flaskr.service.tts.tts_handler import upload_audio_to_oss
 
-            logger.info(f"TTS finalize: uploading to OSS, audio_bid={self._audio_bid}")
+            logger.debug(f"TTS finalize: uploading to OSS, audio_bid={self._audio_bid}")
             oss_url, bucket_name = upload_audio_to_oss(
                 self.app, final_audio, self._audio_bid
             )
-            logger.info(f"TTS finalize: OSS upload complete, url={oss_url}")
+            logger.debug(f"TTS finalize: OSS upload complete, url={oss_url}")
 
-            # Save to database - use existing context if available
-            logger.info("TTS finalize: saving to database")
-            audio_record = LearnGeneratedAudio(
+            logger.debug("TTS finalize: saving to database")
+            audio_record = build_completed_audio_record(
                 audio_bid=self._audio_bid,
                 generated_block_bid=self.generated_block_bid,
+                position=self.position,
                 progress_record_bid=self.progress_record_bid,
                 user_bid=self.user_bid,
                 shifu_bid=self.shifu_bid,
@@ -475,56 +556,41 @@ class StreamingTTSProcessor:
                 oss_object_key=f"tts-audio/{self._audio_bid}.mp3",
                 duration_ms=final_duration_ms,
                 file_size=file_size,
-                voice_id=self.voice_settings.voice_id,
-                voice_settings={
-                    "speed": self.voice_settings.speed,
-                    "pitch": self.voice_settings.pitch,
-                    "emotion": self.voice_settings.emotion,
-                    "volume": self.voice_settings.volume,
-                },
-                model=self.tts_model or "",
+                audio_format=self.audio_settings.format or "mp3",
+                sample_rate=self.audio_settings.sample_rate or 24000,
+                voice_settings=self.voice_settings,
+                tts_model=self.tts_model or "",
                 text_length=cleaned_text_length,
                 segment_count=len(audio_data_list),
-                status=AUDIO_STATUS_COMPLETED,
             )
-            db.session.add(audio_record)
+            save_audio_record(audio_record, commit=commit)
             if commit:
-                db.session.commit()
-                logger.info("TTS finalize: database commit complete")
+                logger.debug("TTS finalize: database commit complete")
             else:
-                db.session.flush()
-                logger.info("TTS finalize: database flush complete")
+                logger.debug("TTS finalize: database flush complete")
 
-            record_tts_usage(
-                self.app,
-                self.usage_context,
+            from flaskr.service.tts.tts_usage_recorder import (
+                record_tts_aggregated_usage,
+            )
+
+            record_tts_aggregated_usage(
+                app=self.app,
+                usage_context=self.usage_context,
                 usage_bid=self._usage_parent_bid,
                 provider=self.tts_provider or "",
                 model=self.tts_model or "",
-                is_stream=True,
-                input=len(raw_text or ""),
-                output=len(cleaned_text or ""),
-                total=len(cleaned_text or ""),
-                word_count=self._word_count_total,
-                duration_ms=int(final_duration_ms or 0),
-                latency_ms=0,
-                record_level=0,
-                parent_usage_bid="",
-                segment_index=0,
+                raw_text=raw_text or "",
+                cleaned_text=cleaned_text or "",
+                total_word_count=self._word_count_total,
+                duration_ms=final_duration_ms or 0,
                 segment_count=len(audio_data_list),
-                extra={
-                    "voice_id": self.voice_settings.voice_id or "",
-                    "speed": self.voice_settings.speed,
-                    "pitch": self.voice_settings.pitch,
-                    "emotion": self.voice_settings.emotion,
-                    "volume": self.voice_settings.volume,
-                    "format": self.audio_settings.format or "mp3",
-                    "sample_rate": self.audio_settings.sample_rate or 24000,
-                },
+                voice_settings=self.voice_settings,
+                audio_settings=self.audio_settings,
+                is_stream=True,
             )
 
             # Yield completion
-            logger.info("TTS finalize: yielding AUDIO_COMPLETE")
+            logger.debug("TTS finalize: yielding AUDIO_COMPLETE")
             yield RunMarkdownFlowDTO(
                 outline_bid=self.outline_bid,
                 generated_block_bid=self.generated_block_bid,
@@ -533,109 +599,460 @@ class StreamingTTSProcessor:
                     audio_url=oss_url,
                     audio_bid=self._audio_bid,
                     duration_ms=final_duration_ms,
+                    position=self.position,
+                    av_contract=self.av_contract,
                 ),
             )
 
-            logger.info(
+            logger.debug(
                 f"TTS complete: audio_bid={self._audio_bid}, "
                 f"segments={len(audio_data_list)}, "
                 f"duration={final_duration_ms}ms"
             )
 
         except Exception as e:
-            import traceback
-
             logger.error(f"Failed to finalize TTS: {e}\n{traceback.format_exc()}")
 
-    def finalize_preview(self) -> Generator[RunMarkdownFlowDTO, None, None]:
-        """
-        Finalize TTS processing for preview/debug flows without uploading or persisting.
 
-        The editor preview (learning simulation) only needs streamable segments for
-        playback, so we skip OSS upload and database writes to avoid polluting
-        learning records.
-        """
-        logger.info(
-            f"TTS preview finalize called: enabled={self._enabled}, "
-            f"buffer_len={len(self._buffer)}, "
-            f"segment_index={self._segment_index}, "
-            f"pending_futures={len(self._pending_futures)}, "
-            f"all_audio_data={len(self._all_audio_data)}"
+class AVStreamingTTSProcessor:
+    """
+    Streaming TTS processor that segments audio by AV boundaries (e.g. SVG, fences).
+
+    Each speakable segment (text gap between visual elements) is synthesized as a
+    separate audio track, identified by `position` (0-based) within the same
+    generated block.
+
+    This processor is intended to be used for Listen Mode RUN SSE so the frontend
+    can sync audio playback with visuals without making additional on-demand TTS calls.
+    """
+
+    def __init__(
+        self,
+        *,
+        app: Flask,
+        generated_block_bid: str,
+        outline_bid: str,
+        progress_record_bid: str,
+        user_bid: str,
+        shifu_bid: str,
+        voice_id: str = "",
+        speed: float = 1.0,
+        pitch: int = 0,
+        emotion: str = "",
+        max_segment_chars: int = 300,
+        tts_provider: str = "",
+        tts_model: str = "",
+        usage_scene: int = BILL_USAGE_SCENE_PROD,
+        slide_index_offset: int = 0,
+    ):
+        self.app = app
+        self.generated_block_bid = generated_block_bid
+        self.outline_bid = outline_bid
+        self.progress_record_bid = progress_record_bid
+        self.user_bid = user_bid
+        self.shifu_bid = shifu_bid
+        self.voice_id = voice_id
+        self.speed = speed
+        self.pitch = pitch
+        self.emotion = emotion
+        self.max_segment_chars = max_segment_chars
+        self.tts_provider = tts_provider
+        self.tts_model = tts_model
+        self.usage_scene = usage_scene
+        self.slide_index_offset = int(slide_index_offset or 0)
+
+        self._position_cursor = 0
+        self._current_processor: Optional[StreamingTTSProcessor] = None
+        self._raw_buffer = ""
+        self._raw_full_content = ""
+        self._av_contract: Optional[Dict[str, Any]] = None
+        self._slide_id_by_position: Dict[int, str] = {}
+        self._slides_by_id: Dict[str, NewSlideDTO] = {}
+        self._emitted_slide_ids: set[str] = set()
+        self._audio_bound_positions: set[int] = set()
+        self._next_slide_index = self.slide_index_offset
+        self._current_segment_has_speakable_text = False
+        self._run_start_slide_emitted = False
+        self._pending_visual_slide: Optional[NewSlideDTO] = None
+
+        # When we hit a non-speakable block boundary (e.g. `<svg>`), we may need to
+        # wait for its closing marker before resuming segmentation.
+        self._skip_mode: Optional[str] = (
+            None
+            # 'fence' | 'svg' | 'iframe' | 'video' | 'html_table' | 'md_table' | 'sandbox' | 'md_img'
         )
-        raw_text = self._buffer
-        if not self._enabled:
+
+    def _update_av_contract(self):
+        try:
+            self._av_contract = build_av_segmentation_contract(
+                self._raw_full_content, self.generated_block_bid
+            )
+        except Exception:
+            self._av_contract = None
+
+    def _ensure_processor(self) -> StreamingTTSProcessor:
+        if self._current_processor is not None:
+            return self._current_processor
+        self._current_processor = StreamingTTSProcessor(
+            app=self.app,
+            generated_block_bid=self.generated_block_bid,
+            outline_bid=self.outline_bid,
+            progress_record_bid=self.progress_record_bid,
+            user_bid=self.user_bid,
+            shifu_bid=self.shifu_bid,
+            position=self._position_cursor,
+            voice_id=self.voice_id,
+            speed=self.speed,
+            pitch=self.pitch,
+            emotion=self.emotion,
+            max_segment_chars=self.max_segment_chars,
+            tts_provider=self.tts_provider,
+            tts_model=self.tts_model,
+            av_contract=self._av_contract,
+            usage_scene=self.usage_scene,
+        )
+        self._current_segment_has_speakable_text = False
+        return self._current_processor
+
+    def _process_processor_chunk(
+        self, processor: StreamingTTSProcessor, chunk: str
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if (chunk or "").strip():
+            self._current_segment_has_speakable_text = True
+        yield from self._emit_with_slide_binding(processor.process_chunk(chunk))
+
+    @property
+    def next_slide_index(self) -> int:
+        return int(self._next_slide_index or self.slide_index_offset)
+
+    @property
+    def has_pending_visual_boundary(self) -> bool:
+        return bool(self._skip_mode)
+
+    def _segment_type_for_visual_kind(self, visual_kind: str) -> str:
+        if visual_kind in _SANDBOX_VISUAL_KINDS:
+            return "sandbox"
+        return "markdown"
+
+    def _create_slide(
+        self,
+        *,
+        position: int,
+        visual_kind: str,
+        segment_type: str,
+        is_placeholder: bool,
+        slide_id: str | None = None,
+        slide_index: int | None = None,
+        source_span: list[int] | None = None,
+    ) -> NewSlideDTO:
+        return NewSlideDTO(
+            slide_id=slide_id or uuid.uuid4().hex,
+            generated_block_bid=self.generated_block_bid,
+            slide_index=(
+                int(slide_index)
+                if slide_index is not None
+                else int(self._next_slide_index or 0)
+            ),
+            audio_position=int(position or 0),
+            visual_kind=visual_kind,
+            segment_type=segment_type,
+            # Keep NEW_SLIDE payload lightweight; frontend renders from stream content.
+            segment_content="",
+            source_span=list(source_span or []),
+            is_placeholder=bool(is_placeholder),
+        )
+
+    def _register_slide(self, slide: NewSlideDTO):
+        position = int(slide.audio_position or 0)
+        self._slide_id_by_position[position] = slide.slide_id
+        self._slides_by_id[slide.slide_id] = slide
+        self._next_slide_index = max(
+            self._next_slide_index,
+            int(slide.slide_index or 0) + 1,
+        )
+
+    def _emit_new_slide_event(
+        self, slide: NewSlideDTO, *, force: bool = False
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        # NEW_SLIDE is a timeline signal only. The frontend renders visuals from
+        # streamed CONTENT chunks, so never include full segment payload here.
+        if (slide.segment_content or "") != "":
+            slide.segment_content = ""
+        if not force and slide.slide_id in self._emitted_slide_ids:
             return
-
-        # Submit any remaining buffer content.
-        if self._buffer:
-            full_text = preprocess_for_tts(self._buffer)
-            if self._processed_text_offset > len(full_text):
-                self._processed_text_offset = len(full_text)
-
-            remaining_text = full_text[self._processed_text_offset :].strip()
-            if remaining_text and len(remaining_text) >= 2:
-                self._submit_tts_task(remaining_text)
-            self._buffer = ""
-
-        # Wait for all pending TTS tasks to complete.
-        for future in self._pending_futures:
-            try:
-                future.result(timeout=60)
-            except Exception as e:
-                logger.error(f"TTS preview future failed: {e}")
-
-        # Yield any remaining segments.
-        yield from self._yield_ready_segments()
-
-        with self._lock:
-            total_duration_ms = sum(seg[2] for seg in self._all_audio_data)
-            has_audio = bool(self._all_audio_data)
-
-        if not has_audio:
-            return
-
-        # Yield completion marker (no OSS URL in preview mode).
+        self._emitted_slide_ids.add(slide.slide_id)
+        self.app.logger.debug(f"emit new slide: {slide.slide_id}")
         yield RunMarkdownFlowDTO(
             outline_bid=self.outline_bid,
             generated_block_bid=self.generated_block_bid,
-            type=GeneratedType.AUDIO_COMPLETE,
-            content=AudioCompleteDTO(
-                audio_url="",
-                audio_bid=self._audio_bid,
-                duration_ms=total_duration_ms,
-            ),
+            type=GeneratedType.NEW_SLIDE,
+            content=slide,
         )
 
-        cleaned_text = ""
-        try:
-            cleaned_text = preprocess_for_tts(raw_text or "")
-        except Exception:
-            cleaned_text = ""
+    def emit_run_start_slide(self) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if self._run_start_slide_emitted:
+            return
+        self._run_start_slide_emitted = True
+        # Emit a deterministic initial placeholder slide so the frontend has a
+        # timeline anchor before the first content chunk/audio event arrives.
+        slide = self._build_fallback_slide(self._position_cursor)
+        yield from self._emit_new_slide_event(slide)
 
-        record_tts_usage(
-            self.app,
-            self.usage_context,
-            usage_bid=self._usage_parent_bid,
-            provider=self.tts_provider or "",
-            model=self.tts_model or "",
-            is_stream=True,
-            input=len(raw_text or ""),
-            output=len(cleaned_text or ""),
-            total=len(cleaned_text or ""),
-            word_count=self._word_count_total,
-            duration_ms=int(total_duration_ms or 0),
-            latency_ms=0,
-            record_level=0,
-            parent_usage_bid="",
-            segment_index=0,
-            segment_count=len(self._all_audio_data),
-            extra={
-                "voice_id": self.voice_settings.voice_id or "",
-                "speed": self.voice_settings.speed,
-                "pitch": self.voice_settings.pitch,
-                "emotion": self.voice_settings.emotion,
-                "volume": self.voice_settings.volume,
-                "format": self.audio_settings.format or "mp3",
-                "sample_rate": self.audio_settings.sample_rate or 24000,
-            },
+    def _emit_visual_slide_for_current_position(
+        self, *, visual_kind: str
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        position = int(self._position_cursor or 0)
+        slide = self._create_slide(
+            position=position,
+            visual_kind=visual_kind,
+            segment_type=self._segment_type_for_visual_kind(visual_kind),
+            is_placeholder=False,
         )
+        self._register_slide(slide)
+        yield from self._emit_new_slide_event(slide)
+
+    def _emit_visual_slide_head_for_current_position(
+        self, *, visual_kind: str
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        position = int(self._position_cursor or 0)
+        existing = self._pending_visual_slide
+        if (
+            existing is not None
+            and int(existing.audio_position or 0) == position
+            and (existing.visual_kind or "") == (visual_kind or "")
+        ):
+            return
+
+        slide = self._create_slide(
+            position=position,
+            visual_kind=visual_kind,
+            segment_type="placeholder",
+            is_placeholder=True,
+        )
+        self._register_slide(slide)
+        self._pending_visual_slide = slide
+        yield from self._emit_new_slide_event(slide)
+
+    def _finalize_pending_visual_slide(
+        self, *, visual_kind: str
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        position = int(self._position_cursor or 0)
+        pending = self._pending_visual_slide
+        if (
+            pending is None
+            or int(pending.audio_position or 0) != position
+            or (pending.visual_kind or "") != (visual_kind or "")
+        ):
+            yield from self._emit_visual_slide_for_current_position(
+                visual_kind=visual_kind
+            )
+            return
+
+        completed = self._create_slide(
+            position=int(pending.audio_position or 0),
+            slide_id=pending.slide_id,
+            slide_index=int(pending.slide_index or 0),
+            source_span=list(pending.source_span or []),
+            is_placeholder=False,
+            visual_kind=visual_kind,
+            segment_type=self._segment_type_for_visual_kind(visual_kind),
+        )
+        self._slides_by_id[completed.slide_id] = completed
+        self._pending_visual_slide = None
+        yield from self._emit_new_slide_event(completed, force=True)
+
+    def _sync_slide_registry_from_contract(self):
+        slides, mapping = build_listen_slides_for_block(
+            raw_content=self._raw_full_content,
+            generated_block_bid=self.generated_block_bid,
+            av_contract=self._av_contract,
+            slide_index_offset=self.slide_index_offset,
+        )
+        if not slides or not mapping:
+            return
+
+        slide_by_id = {slide.slide_id: slide for slide in slides}
+        for position, candidate_slide_id in sorted(mapping.items()):
+            # Allow replacing placeholder slides with finalized slides from contract
+            existing_slide_id = self._slide_id_by_position.get(position)
+            if existing_slide_id:
+                existing_slide = self._slides_by_id.get(existing_slide_id)
+                # Skip if we already have a finalized slide for this position
+                if existing_slide and not existing_slide.is_placeholder:
+                    continue
+
+            slide = slide_by_id.get(candidate_slide_id)
+            if slide is None:
+                continue
+            self._slide_id_by_position[position] = candidate_slide_id
+            self._slides_by_id[candidate_slide_id] = slide
+            self._next_slide_index = max(
+                self._next_slide_index, int(slide.slide_index or 0) + 1
+            )
+
+    def _build_fallback_slide(self, position: int) -> NewSlideDTO:
+        slide = self._create_slide(
+            position=position,
+            visual_kind="placeholder",
+            segment_type="placeholder",
+            is_placeholder=True,
+        )
+        self._register_slide(slide)
+        return slide
+
+    def _ensure_slide_for_position(self, position: int) -> NewSlideDTO:
+        self._sync_slide_registry_from_contract()
+
+        existing_slide_id = self._slide_id_by_position.get(position)
+        if existing_slide_id:
+            existing_slide = self._slides_by_id.get(existing_slide_id)
+            if existing_slide is not None:
+                return existing_slide
+
+        return self._build_fallback_slide(position)
+
+    def _bind_slide_for_audio_event(
+        self, event: RunMarkdownFlowDTO
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if event.type not in {
+            GeneratedType.AUDIO_SEGMENT,
+            GeneratedType.AUDIO_COMPLETE,
+        }:
+            yield event
+            return
+
+        content = event.content
+        position = int(getattr(content, "position", 0) or 0)
+        self._audio_bound_positions.add(position)
+        slide = self._ensure_slide_for_position(position)
+
+        if hasattr(content, "slide_id"):
+            content.slide_id = slide.slide_id
+
+        if slide.slide_id not in self._emitted_slide_ids:
+            yield from self._emit_new_slide_event(slide)
+
+        yield event
+
+    def _emit_with_slide_binding(
+        self, events: Generator[RunMarkdownFlowDTO, None, None]
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        for event in events:
+            yield from self._bind_slide_for_audio_event(event)
+
+    def _finalize_current(
+        self, *, commit: bool
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if self._current_processor is None:
+            return
+        did_complete = False
+        for event in self._emit_with_slide_binding(
+            self._current_processor.finalize(commit=commit)
+        ):
+            if event.type == GeneratedType.AUDIO_COMPLETE:
+                did_complete = True
+            yield event
+        had_speakable_text = self._current_segment_has_speakable_text
+        self._current_processor = None
+        self._current_segment_has_speakable_text = False
+        if did_complete or had_speakable_text:
+            self._position_cursor += 1
+
+    def _find_next_boundary(self, raw: str) -> Optional[tuple[str, int, int, bool]]:
+        return _find_next_av_boundary(raw, include_partial_md_image=True)
+
+    def process_chunk(self, chunk: str) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if not chunk:
+            if self._current_processor is not None:
+                yield from self._process_processor_chunk(self._current_processor, "")
+            return
+
+        self._raw_full_content += chunk
+        self._update_av_contract()
+        if self._current_processor is not None:
+            self._current_processor.av_contract = self._av_contract
+        self._raw_buffer += chunk
+
+        while self._raw_buffer:
+            if self._skip_mode:
+                skip_kind = self._skip_mode
+                skip_end = find_boundary_end(skip_kind, self._raw_buffer)
+                if skip_end is None:
+                    break
+                self._raw_buffer = self._raw_buffer[skip_end:]
+                self._skip_mode = None
+                if skip_kind in _VISUAL_SKIP_KINDS:
+                    yield from self._finalize_pending_visual_slide(
+                        visual_kind=skip_kind,
+                    )
+                continue
+
+            boundary = self._find_next_boundary(self._raw_buffer)
+            if boundary is None:
+                # Keep a small tail so we don't lose boundary markers split across chunks,
+                # e.g. `<di` + `v ...>` or partial fences/backticks.
+                tail_len = 32
+                if len(self._raw_buffer) <= tail_len:
+                    break
+
+                speakable = self._raw_buffer[:-tail_len]
+                self._raw_buffer = self._raw_buffer[-tail_len:]
+                if speakable:
+                    processor = self._ensure_processor()
+                    yield from self._process_processor_chunk(processor, speakable)
+                continue
+
+            kind, start, end, complete = boundary
+            speakable = self._raw_buffer[:start]
+            remainder = self._raw_buffer[start:]
+            boundary_len = max(end - start, 0)
+
+            if speakable:
+                processor = self._ensure_processor()
+                yield from self._process_processor_chunk(processor, speakable)
+
+            # Boundary encountered: finalize the current speakable segment.
+            yield from self._finalize_current(commit=False)
+            if kind in _VISUAL_SLIDE_KINDS and complete and boundary_len > 0:
+                yield from self._finalize_pending_visual_slide(
+                    visual_kind=kind,
+                )
+
+            # Consume the boundary itself.
+            self._raw_buffer = remainder
+            if kind in _VISUAL_SKIP_KINDS and not complete:
+                yield from self._emit_visual_slide_head_for_current_position(
+                    visual_kind=kind
+                )
+                self._skip_mode = kind
+                break
+            self._raw_buffer = self._raw_buffer[boundary_len:]
+
+    def finalize(
+        self, *, commit: bool = True
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        # Ignore any trailing non-speakable content if we are mid-boundary.
+        if self._skip_mode:
+            self._raw_buffer = ""
+            self._skip_mode = None
+
+        if self._raw_buffer:
+            processor = self._ensure_processor()
+            yield from self._process_processor_chunk(processor, self._raw_buffer)
+            self._raw_buffer = ""
+
+        yield from self._finalize_current(commit=commit)
+
+        # After finalizing all content, re-sync slides from the complete AV contract
+        # and emit finalized versions of any placeholder slides.
+        self._sync_slide_registry_from_contract()
+        for position, slide_id in sorted(self._slide_id_by_position.items()):
+            slide = self._slides_by_id.get(slide_id)
+            if slide is None:
+                continue
+            if position not in self._audio_bound_positions:
+                continue
+            # Emit finalized slides that were created from contract (is_placeholder=False).
+            # Skip slides that are still placeholders (no contract data for this position).
+            if not slide.is_placeholder and slide_id not in self._emitted_slide_ids:
+                yield from self._emit_new_slide_event(slide)

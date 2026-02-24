@@ -4,45 +4,31 @@ TTS Service Layer.
 This module provides text preprocessing for TTS synthesis.
 """
 
-import re
 import logging
 import html
 
 # Import models to ensure they are registered with SQLAlchemy
 from .models import LearnGeneratedAudio  # noqa: F401
 from flaskr.common.log import AppLoggerProxy
+from flaskr.service.tts.patterns import (
+    ANY_HTML_TAG,
+    BOLD_ITALIC,
+    CODE_BLOCK,
+    DATA_URI,
+    HEADER,
+    IMAGE_MD,
+    LINK,
+    LIST_MARKER,
+    MERMAID_BLOCK,
+    MULTI_NEWLINE,
+    MULTI_SPACE,
+    SVG_BLOCK,
+    SVG_TEXT_TAGS,
+    XML_BLOCK,
+)
 
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
-
-# Pattern to match code blocks (both fenced and inline)
-CODE_BLOCK_PATTERN = re.compile(r"```[\s\S]*?```|`[^`]+`")
-
-# Pattern to match markdown headers
-HEADER_PATTERN = re.compile(r"^#+\s+", re.MULTILINE)
-
-# Pattern to match markdown links [text](url)
-LINK_PATTERN = re.compile(r"\[([^\]]+)\]\([^)]+\)")
-
-# Pattern to match markdown images ![alt](url)
-IMAGE_PATTERN = re.compile(r"!\[[^\]]*\]\([^)]+\)")
-
-# Pattern to match markdown bold/italic
-BOLD_ITALIC_PATTERN = re.compile(r"\*{1,3}([^*]+)\*{1,3}|_{1,3}([^_]+)_{1,3}")
-
-# Pattern to match markdown lists
-LIST_PATTERN = re.compile(r"^[\s]*[-*+]\s+|^[\s]*\d+\.\s+", re.MULTILINE)
-
-# Pattern to match mermaid blocks
-MERMAID_PATTERN = re.compile(r"```mermaid[\s\S]*?```")
-
-# Pattern to match SVG blocks
-SVG_PATTERN = re.compile(r"<svg[\s\S]*?</svg>", re.IGNORECASE)
-
-# Pattern to match any XML/HTML block elements with content
-XML_BLOCK_PATTERN = re.compile(
-    r"<(svg|math|script|style)[^>]*>[\s\S]*?</\1>", re.IGNORECASE
-)
 
 _FENCE = "```"
 
@@ -131,6 +117,31 @@ def _strip_incomplete_angle_bracket_tag(text: str) -> tuple[str, bool]:
     return text[:last_lt], True
 
 
+def _strip_incomplete_markdown_image(text: str) -> tuple[str, bool]:
+    """
+    Strip an incomplete markdown image token from the end of the buffer.
+
+    Streaming chunks may split `![alt](url)` across messages. If the trailing
+    image token is incomplete, we should not let any part of it reach TTS.
+    """
+    if not text:
+        return text, False
+
+    last_start = text.rfind("![")
+    if last_start == -1:
+        return text, False
+
+    image_open = text.find("](", last_start + 2)
+    if image_open == -1:
+        return text[:last_start], True
+
+    image_close = text.find(")", image_open + 2)
+    if image_close == -1:
+        return text[:last_start], True
+
+    return text, False
+
+
 def _strip_incomplete_blocks(text: str) -> tuple[str, bool]:
     """
     Strip known incomplete blocks from the end of the buffer.
@@ -150,6 +161,10 @@ def _strip_incomplete_blocks(text: str) -> tuple[str, bool]:
 
     # Strip incomplete generic HTML/XML tags (e.g. '<p' at buffer tail).
     text, removed = _strip_incomplete_angle_bracket_tag(text)
+    had_incomplete = had_incomplete or removed
+
+    # Strip trailing incomplete markdown image tokens (e.g. `![alt](https://...`).
+    text, removed = _strip_incomplete_markdown_image(text)
     had_incomplete = had_incomplete or removed
 
     return text, had_incomplete
@@ -188,6 +203,15 @@ def has_incomplete_block(text: str) -> bool:
     if "```mermaid" in text.lower() and code_block_count % 2 == 1:
         return True
 
+    # Check for incomplete markdown image token `![alt](url`
+    image_start = text.rfind("![")
+    if image_start != -1:
+        image_open = text.find("](", image_start + 2)
+        if image_open == -1:
+            return True
+        if text.find(")", image_open + 2) == -1:
+            return True
+
     return False
 
 
@@ -225,42 +249,48 @@ def preprocess_for_tts(text: str) -> str:
     text, _ = _strip_incomplete_blocks(text)
 
     # IMPORTANT: Remove code blocks FIRST (they may contain SVG, mermaid, etc.)
-    text = CODE_BLOCK_PATTERN.sub("", text)
+    text = CODE_BLOCK.sub("", text)
 
     # Remove mermaid diagrams (in case they're not in code blocks)
-    text = MERMAID_PATTERN.sub("", text)
+    text = MERMAID_BLOCK.sub("", text)
 
     # Remove SVG blocks - handle multiline and nested content
-    text = SVG_PATTERN.sub("", text)
+    text = SVG_BLOCK.sub("", text)
 
     # Remove other XML block elements (math, script, style)
-    text = XML_BLOCK_PATTERN.sub("", text)
+    text = XML_BLOCK.sub("", text)
+
+    # Remove stray SVG text-related elements that can leak when the model emits
+    # malformed/incomplete SVG (e.g. we might end up with a `<text>` fragment
+    # without the surrounding `<svg>` block in streaming).
+    for pat in SVG_TEXT_TAGS:
+        text = pat.sub("", text)
 
     # Remove any remaining angle bracket content that looks like tags
     # This catches malformed or partial SVG/HTML
-    text = re.sub(r"<[^>]*>", "", text)
+    text = ANY_HTML_TAG.sub("", text)
 
     # Remove markdown headers (keep the text)
-    text = HEADER_PATTERN.sub("", text)
+    text = HEADER.sub("", text)
 
     # Remove images completely
-    text = IMAGE_PATTERN.sub("", text)
+    text = IMAGE_MD.sub("", text)
 
     # Keep link text but remove URL
-    text = LINK_PATTERN.sub(r"\1", text)
+    text = LINK.sub(r"\1", text)
 
     # Remove bold/italic markers but keep text
-    text = BOLD_ITALIC_PATTERN.sub(r"\1\2", text)
+    text = BOLD_ITALIC.sub(r"\1\2", text)
 
     # Remove list markers
-    text = LIST_PATTERN.sub("", text)
+    text = LIST_MARKER.sub("", text)
 
     # Remove data URIs (base64 encoded content)
-    text = re.sub(r"data:[a-zA-Z0-9/+;=,]+", "", text)
+    text = DATA_URI.sub("", text)
 
     # Normalize whitespace
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    text = re.sub(r"[ \t]+", " ", text)
+    text = MULTI_NEWLINE.sub("\n\n", text)
+    text = MULTI_SPACE.sub(" ", text)
 
     # Remove leading/trailing whitespace from each line
     lines = [line.strip() for line in text.split("\n")]
