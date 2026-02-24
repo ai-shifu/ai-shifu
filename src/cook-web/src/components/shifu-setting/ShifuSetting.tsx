@@ -840,25 +840,27 @@ export default function ShifuSettingDialog({
   const [ttsConfig, setTtsConfig] = useState<{
     providers: TTSProviderConfig[];
   } | null>(null);
+  const normalizeTtsProviders = useCallback(
+    (providers?: TTSProviderConfig[] | null): TTSProviderConfig[] =>
+      (providers ?? []).map(provider => ({
+        ...provider,
+        name: (provider.name || '').toLowerCase(),
+      })),
+    [],
+  );
 
   // Fetch TTS config from backend
   useEffect(() => {
     const fetchTtsConfig = async () => {
       try {
         const config = await api.ttsConfig({});
-        const providers = Array.isArray(config?.providers)
-          ? config.providers.map(provider => ({
-              ...provider,
-              name: (provider.name || '').toLowerCase(),
-            }))
-          : [];
-        setTtsConfig({ providers });
+        setTtsConfig({ providers: normalizeTtsProviders(config?.providers) });
       } catch (error) {
         console.error('Failed to fetch TTS config:', error);
       }
     };
     fetchTtsConfig();
-  }, []);
+  }, [normalizeTtsProviders]);
 
   const resolvedProvider = (() => {
     const provider = (ttsProvider || '').trim();
