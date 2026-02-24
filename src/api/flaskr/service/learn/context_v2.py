@@ -2153,8 +2153,8 @@ class RunScriptContextV2:
                 if self._should_stream_tts():
                     try:
                         from flaskr.common.config import get_config
-                        from flaskr.service.tts.streaming_tts import (
-                            StreamingTTSProcessor,
+                        from flaskr.service.tts.visual_aware_tts import (
+                            VisualAwareTTSOrchestrator,
                         )
                         from flaskr.service.tts.validation import (
                             validate_tts_settings_strict,
@@ -2204,7 +2204,7 @@ class RunScriptContextV2:
                                 max_segment_chars = get_config("TTS_MAX_SEGMENT_CHARS")
                                 if not max_segment_chars:
                                     max_segment_chars = 300
-                                tts_processor = StreamingTTSProcessor(
+                                tts_processor = VisualAwareTTSOrchestrator(
                                     app=app,
                                     generated_block_bid=generated_block.generated_block_bid,
                                     outline_bid=run_script_info.outline_bid,

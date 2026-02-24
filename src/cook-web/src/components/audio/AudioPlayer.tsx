@@ -57,6 +57,8 @@ export interface AudioPlayerHandle {
   togglePlay: () => void;
   play: () => void;
   pause: (options?: { traceId?: string; keepAutoPlay?: boolean }) => void;
+  /** Play a specific URL directly (used for positional audio in listen mode) */
+  playUrl?: (url: string) => void;
 }
 
 /**

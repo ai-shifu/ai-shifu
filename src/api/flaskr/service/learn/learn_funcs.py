@@ -1,6 +1,7 @@
 from markdown_flow import (
     InteractionParser,
 )
+from collections import defaultdict
 from flask import Flask, request
 import base64
 import time
@@ -356,14 +357,33 @@ def get_learn_record(
             .all()
         )
 
-        # Get audio URLs for generated blocks
+        # Get audio URLs for generated blocks (ordered by position for
+        # visual-aware audio splitting support)
         generated_block_bids = [b.generated_block_bid for b in generated_blocks]
-        audio_records = LearnGeneratedAudio.query.filter(
-            LearnGeneratedAudio.generated_block_bid.in_(generated_block_bids),
-            LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
-            LearnGeneratedAudio.deleted == 0,
-        ).all()
-        audio_url_map = {a.generated_block_bid: a.oss_url for a in audio_records}
+        audio_records = (
+            LearnGeneratedAudio.query.filter(
+                LearnGeneratedAudio.generated_block_bid.in_(generated_block_bids),
+                LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
+                LearnGeneratedAudio.deleted == 0,
+            )
+            .order_by(LearnGeneratedAudio.position.asc())
+            .all()
+        )
+        # Build per-block list of audio dicts (position-ordered)
+        audio_records_map: dict[str, list[dict]] = defaultdict(list)
+        for a in audio_records:
+            audio_records_map[a.generated_block_bid].append(
+                {
+                    "audio_url": a.oss_url,
+                    "audio_bid": a.audio_bid,
+                    "duration_ms": a.duration_ms or 0,
+                    "position": a.position,
+                }
+            )
+        # Backward-compatible single-URL map (first positional audio)
+        audio_url_map = {
+            bid: recs[0]["audio_url"] for bid, recs in audio_records_map.items() if recs
+        }
 
         records: list[GeneratedBlockDTO] = []
         interaction = ""
@@ -407,15 +427,17 @@ def get_learn_record(
                 # INTERACTION and other types use block_content_conf
                 content = generated_block.block_content_conf
 
+            block_bid = generated_block.generated_block_bid
             record = GeneratedBlockDTO(
-                generated_block.generated_block_bid,
+                block_bid,
                 content,
                 LIKE_STATUS_MAP.get(generated_block.liked, LikeStatus.NONE),
                 block_type,
                 generated_block.generated_content
                 if block_type == BlockType.INTERACTION
                 else "",
-                audio_url=audio_url_map.get(generated_block.generated_block_bid),
+                audio_url=audio_url_map.get(block_bid),
+                audio_records=audio_records_map.get(block_bid) or None,
             )
             records.append(record)
         if len(records) > 0:
@@ -698,7 +720,7 @@ def stream_generated_block_audio(
         if not generated_block:
             raise_error("server.learn.generatedBlockNotFound")
 
-        existing_audio = (
+        existing_audios = (
             LearnGeneratedAudio.query.filter(
                 LearnGeneratedAudio.generated_block_bid == generated_block_bid,
                 LearnGeneratedAudio.user_bid == user_bid,
@@ -706,20 +728,23 @@ def stream_generated_block_audio(
                 LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
                 LearnGeneratedAudio.deleted == 0,
             )
-            .order_by(LearnGeneratedAudio.id.desc())
-            .first()
+            .order_by(LearnGeneratedAudio.position.asc())
+            .all()
         )
-        if existing_audio and existing_audio.oss_url:
-            yield RunMarkdownFlowDTO(
-                outline_bid=generated_block.outline_item_bid or "",
-                generated_block_bid=generated_block_bid,
-                type=GeneratedType.AUDIO_COMPLETE,
-                content=AudioCompleteDTO(
-                    audio_url=existing_audio.oss_url,
-                    audio_bid=existing_audio.audio_bid,
-                    duration_ms=existing_audio.duration_ms or 0,
-                ),
-            )
+        if existing_audios:
+            for audio in existing_audios:
+                if audio.oss_url:
+                    yield RunMarkdownFlowDTO(
+                        outline_bid=generated_block.outline_item_bid or "",
+                        generated_block_bid=generated_block_bid,
+                        type=GeneratedType.AUDIO_COMPLETE,
+                        content=AudioCompleteDTO(
+                            audio_url=audio.oss_url,
+                            audio_bid=audio.audio_bid,
+                            duration_ms=audio.duration_ms or 0,
+                            position=audio.position,
+                        ),
+                    )
             return
 
         provider, tts_model, voice_settings, audio_settings = (
@@ -1064,7 +1089,7 @@ def synthesize_generated_block_audio(
         if not generated_block:
             raise_error("server.learn.generatedBlockNotFound")
 
-        existing_audio = (
+        existing_audios = (
             LearnGeneratedAudio.query.filter(
                 LearnGeneratedAudio.generated_block_bid == generated_block_bid,
                 LearnGeneratedAudio.user_bid == user_bid,
@@ -1072,15 +1097,28 @@ def synthesize_generated_block_audio(
                 LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
                 LearnGeneratedAudio.deleted == 0,
             )
-            .order_by(LearnGeneratedAudio.id.desc())
-            .first()
+            .order_by(LearnGeneratedAudio.position.asc())
+            .all()
         )
-        if existing_audio and existing_audio.oss_url:
-            return {
-                "audio_url": existing_audio.oss_url,
-                "audio_bid": existing_audio.audio_bid,
-                "duration_ms": existing_audio.duration_ms,
+        if existing_audios:
+            first = existing_audios[0]
+            result = {
+                "audio_url": first.oss_url,
+                "audio_bid": first.audio_bid,
+                "duration_ms": first.duration_ms or 0,
             }
+            if len(existing_audios) > 1:
+                result["audio_records"] = [
+                    {
+                        "audio_url": a.oss_url,
+                        "audio_bid": a.audio_bid,
+                        "duration_ms": a.duration_ms or 0,
+                        "position": a.position,
+                    }
+                    for a in existing_audios
+                    if a.oss_url
+                ]
+            return result
 
         provider, tts_model, voice_settings, audio_settings = (
             _resolve_shifu_tts_settings(

@@ -6,10 +6,44 @@ import {
 } from 'markdown-flow-ui/renderer';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import type { AudioPlayerHandle } from '@/components/audio/AudioPlayer';
+import type { VisualMarkerData } from '@/c-api/studyV2';
+import type { AudioRecord } from '@/c-utils/audio-utils';
 
 export type AudioInteractionItem = ChatContentItem & {
   page: number;
 };
+
+/**
+ * A sub-queue item for positional audio within a single block.
+ * Used when a block has multiple audio records interleaved with visual markers.
+ */
+type SubQueueItem =
+  | { type: 'audio'; position: number; audioRecord: AudioRecord }
+  | { type: 'visual'; position: number; marker: VisualMarkerData };
+
+/**
+ * Build a sub-queue of interleaved audio/visual items sorted by position.
+ * Returns null if the block has no positional splitting (single audio).
+ */
+function buildSubQueue(item: ChatContentItem): SubQueueItem[] | null {
+  const records = item.audioRecords;
+  const markers = item.visualMarkers;
+  if (!records || records.length <= 1) {
+    return null;
+  }
+
+  const queue: SubQueueItem[] = [];
+  for (const rec of records) {
+    queue.push({ type: 'audio', position: rec.position, audioRecord: rec });
+  }
+  if (markers) {
+    for (const m of markers) {
+      queue.push({ type: 'visual', position: m.position, marker: m });
+    }
+  }
+  queue.sort((a, b) => a.position - b.position);
+  return queue;
+}
 
 export type ListenSlideItem = {
   item: ChatContentItem;
@@ -73,6 +107,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
         const interactionPage = fallbackPage;
         const hasAudio = Boolean(
           item.audioUrl ||
+          (item.audioRecords && item.audioRecords.length > 0) ||
           (item.audioSegments && item.audioSegments.length > 0) ||
           item.isAudioStreaming,
         );
@@ -659,6 +694,10 @@ export const useListenAudioSequence = ({
   const [audioSequenceToken, setAudioSequenceToken] = useState(0);
   const isSequencePausedRef = useRef(false);
 
+  // Sub-queue tracking for positional audio within a single block
+  const subQueueRef = useRef<SubQueueItem[] | null>(null);
+  const subQueueIndexRef = useRef(-1);
+
   const lastPlayedAudioBidRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -718,6 +757,33 @@ export const useListenAudioSequence = ({
     return nextIndex;
   }, []);
 
+  /**
+   * Advance through a sub-queue starting from subIndex.
+   * Skips visual markers (with a brief delay) and stops at the next audio item.
+   * Returns true if an audio item was found and playback was initiated.
+   */
+  const advanceSubQueue = useCallback((subIndex: number): boolean => {
+    const queue = subQueueRef.current;
+    if (!queue) {
+      return false;
+    }
+    for (let i = subIndex; i < queue.length; i += 1) {
+      const subItem = queue[i];
+      subQueueIndexRef.current = i;
+      if (subItem.type === 'visual') {
+        // Visual marker: just a brief pause (slide content is already visible)
+        continue;
+      }
+      // Audio item: play the specific positional audio URL
+      if (subItem.type === 'audio' && subItem.audioRecord.audioUrl) {
+        audioPlayerRef.current?.playUrl?.(subItem.audioRecord.audioUrl);
+        return true;
+      }
+    }
+    // No more audio items in sub-queue
+    return false;
+  }, []);
+
   const playAudioSequenceFromIndex = useCallback(
     (index: number) => {
       // Prevent redundant calls for the same index if already active
@@ -725,27 +791,23 @@ export const useListenAudioSequence = ({
         return;
       }
       if (isSequencePausedRef.current) {
-        // console.log('listen-sequence-skip-play-paused', { index });
         return;
       }
 
       clearAudioSequenceTimer();
+      // Reset sub-queue when moving to a new main item
+      subQueueRef.current = null;
+      subQueueIndexRef.current = -1;
+
       const list = audioSequenceListRef.current;
       const nextItem = list[index];
 
       if (!nextItem) {
-        // console.log('listen-sequence-end', { index, listLength: list.length });
         setSequenceInteraction(null);
         setActiveAudioBid(null);
         setIsAudioSequenceActive(false);
         return;
       }
-      // console.log('listen-sequence-play', {
-      //   index,
-      //   page: nextItem.page,
-      //   type: nextItem.type,
-      //   blockBid: nextItem.generated_block_bid ?? null,
-      // });
       syncToSequencePage(nextItem.page);
       audioSequenceIndexRef.current = index;
       setIsAudioSequenceActive(true);
@@ -764,11 +826,30 @@ export const useListenAudioSequence = ({
         }, 2000);
         return;
       }
+
+      // Check for positional audio (visual-aware splitting)
+      const queue = buildSubQueue(nextItem);
+      if (queue && queue.length > 1) {
+        subQueueRef.current = queue;
+        subQueueIndexRef.current = 0;
+        setSequenceInteraction(null);
+        setActiveAudioBid(nextItem.generated_block_bid);
+        setAudioSequenceToken(prev => prev + 1);
+        // Start playing the first audio in the sub-queue
+        advanceSubQueue(0);
+        return;
+      }
+
       setSequenceInteraction(null);
       setActiveAudioBid(nextItem.generated_block_bid);
       setAudioSequenceToken(prev => prev + 1);
     },
-    [clearAudioSequenceTimer, syncToSequencePage, isAudioSequenceActive],
+    [
+      clearAudioSequenceTimer,
+      syncToSequencePage,
+      isAudioSequenceActive,
+      advanceSubQueue,
+    ],
   );
 
   useEffect(() => {
@@ -866,10 +947,11 @@ export const useListenAudioSequence = ({
       keepAutoPlay: true,
     });
     audioSequenceIndexRef.current = -1;
+    subQueueRef.current = null;
+    subQueueIndexRef.current = -1;
     setSequenceInteraction(null);
     setActiveAudioBid(null);
     setIsAudioSequenceActive(false);
-    // console.log('listen-sequence-reset');
   }, [clearAudioSequenceTimer]);
 
   const startSequenceFromIndex = useCallback(
@@ -1052,29 +1134,35 @@ export const useListenAudioSequence = ({
 
   const handleAudioEnded = useCallback(() => {
     if (isSequencePausedRef.current) {
-      // console.log('listen-sequence-ended-skip-paused');
       return;
     }
+
+    // Check if we are in a sub-queue (positional audio within a block)
+    if (subQueueRef.current && subQueueIndexRef.current >= 0) {
+      const nextSubIndex = subQueueIndexRef.current + 1;
+      if (advanceSubQueue(nextSubIndex)) {
+        // More audio in the sub-queue — continue playing
+        return;
+      }
+      // Sub-queue exhausted — clear and fall through to main sequence
+      subQueueRef.current = null;
+      subQueueIndexRef.current = -1;
+    }
+
     const list = audioSequenceListRef.current;
     if (list.length) {
       const nextIndex = audioSequenceIndexRef.current + 1;
       if (nextIndex >= list.length) {
-        // console.log('listen-sequence-ended-last', {
-        //   nextIndex,
-        //   listLength: list.length,
-        // });
         setActiveAudioBid(null);
         setIsAudioSequenceActive(false);
         tryAdvanceToNextBlock();
         return;
       }
-      // console.log('listen-sequence-ended-next', { nextIndex });
       playAudioSequenceFromIndex(nextIndex);
       return;
     }
-    // console.log('listen-sequence-ended-empty-list');
     tryAdvanceToNextBlock();
-  }, [playAudioSequenceFromIndex, tryAdvanceToNextBlock]);
+  }, [advanceSubQueue, playAudioSequenceFromIndex, tryAdvanceToNextBlock]);
 
   const logAudioAction = useCallback(
     (action: 'play' | 'pause') => {

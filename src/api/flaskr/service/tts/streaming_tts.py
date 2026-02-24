@@ -96,6 +96,7 @@ class StreamingTTSProcessor:
         tts_provider: str = "",
         tts_model: str = "",
         usage_scene: int = BILL_USAGE_SCENE_PROD,
+        position: int = 0,
     ):
         self.app = app
         self.generated_block_bid = generated_block_bid
@@ -106,6 +107,7 @@ class StreamingTTSProcessor:
         self.max_segment_chars = max_segment_chars
         self.tts_provider = tts_provider
         self.tts_model = tts_model
+        self._position = position
 
         # Audio settings - use provider-specific defaults
         self.voice_settings = get_default_voice_settings(tts_provider)
@@ -362,6 +364,7 @@ class StreamingTTSProcessor:
                         audio_data=base64_audio,
                         duration_ms=segment.duration_ms,
                         is_final=False,
+                        position=self._position,
                     ),
                 )
 
@@ -485,6 +488,7 @@ class StreamingTTSProcessor:
                 model=self.tts_model or "",
                 text_length=cleaned_text_length,
                 segment_count=len(audio_data_list),
+                position=self._position,
                 status=AUDIO_STATUS_COMPLETED,
             )
             db.session.add(audio_record)
@@ -533,6 +537,7 @@ class StreamingTTSProcessor:
                     audio_url=oss_url,
                     audio_bid=self._audio_bid,
                     duration_ms=final_duration_ms,
+                    position=self._position,
                 ),
             )
 
@@ -603,6 +608,7 @@ class StreamingTTSProcessor:
                 audio_url="",
                 audio_bid=self._audio_bid,
                 duration_ms=total_duration_ms,
+                position=self._position,
             ),
         )
 

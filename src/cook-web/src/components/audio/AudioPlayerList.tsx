@@ -551,8 +551,11 @@ const AudioPlayerListBase = (
       pause: (options?: { traceId?: string; keepAutoPlay?: boolean }) => {
         pausePlayback(options);
       },
+      playUrl: (url: string) => {
+        startUrlPlayback(url, 0);
+      },
     }),
-    [pausePlayback, playCurrentTrack],
+    [pausePlayback, playCurrentTrack, startUrlPlayback],
   );
 
   useEffect(() => {

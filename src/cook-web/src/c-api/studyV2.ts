@@ -58,6 +58,8 @@ export const SSE_OUTPUT_TYPE = {
   // Audio types for TTS
   AUDIO_SEGMENT: 'audio_segment',
   AUDIO_COMPLETE: 'audio_complete',
+  // Visual marker for audio-visual sync
+  VISUAL_MARKER: 'visual_marker',
 } as const;
 export type SSE_OUTPUT_TYPE =
   (typeof SSE_OUTPUT_TYPE)[keyof typeof SSE_OUTPUT_TYPE];
@@ -78,6 +80,7 @@ export interface StudyRecordItem {
   user_input?: string;
   isHistory?: boolean;
   audio_url?: string;
+  audio_records?: AudioRecordData[];
 }
 
 export interface LessonStudyRecords {
@@ -121,12 +124,29 @@ export interface AudioSegmentData {
   audio_data: string; // Base64 encoded
   duration_ms: number;
   is_final: boolean;
+  position?: number; // Positional index within block (for visual-aware splitting)
 }
 
 export interface AudioCompleteData {
   audio_url: string;
   audio_bid: string;
   duration_ms: number;
+  position?: number; // Positional index within block (for visual-aware splitting)
+}
+
+// Audio record with position (used in history reload)
+export interface AudioRecordData {
+  audio_url: string;
+  audio_bid: string;
+  duration_ms: number;
+  position: number;
+}
+
+// Visual marker for audio-visual sync
+export interface VisualMarkerData {
+  position: number;
+  visual_type: string; // svg, mermaid, code, image, table, iframe, html, math
+  content: string; // Raw visual content for frontend rendering
 }
 
 export interface StreamGeneratedBlockAudioParams {

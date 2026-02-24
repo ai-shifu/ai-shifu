@@ -1,10 +1,23 @@
-import type { AudioCompleteData, AudioSegmentData } from '@/c-api/studyV2';
+import type {
+  AudioCompleteData,
+  AudioRecordData,
+  AudioSegmentData,
+} from '@/c-api/studyV2';
 
 export interface AudioSegment {
   segmentIndex: number;
   audioData: string; // Base64 encoded
   durationMs: number;
   isFinal: boolean;
+  position?: number; // Positional index within block
+}
+
+// Completed audio record with position
+export interface AudioRecord {
+  position: number;
+  audioUrl: string;
+  audioBid: string;
+  durationMs: number;
 }
 
 export interface AudioItem {
@@ -13,6 +26,7 @@ export interface AudioItem {
   audioUrl?: string;
   isAudioStreaming?: boolean;
   audioDurationMs?: number;
+  audioRecords?: AudioRecord[]; // Positional audio records (ordered by position)
 }
 
 type EnsureItem<T> = (items: T[], blockId: string) => T[];
@@ -51,6 +65,14 @@ const toAudioSegment = (segment: AudioSegmentData): AudioSegment => ({
   audioData: segment.audio_data,
   durationMs: segment.duration_ms,
   isFinal: segment.is_final,
+  position: segment.position,
+});
+
+export const toAudioRecord = (data: AudioRecordData): AudioRecord => ({
+  position: data.position,
+  audioUrl: data.audio_url,
+  audioBid: data.audio_bid,
+  durationMs: data.duration_ms,
 });
 
 export const mergeAudioSegment = (
@@ -108,11 +130,28 @@ export const upsertAudioComplete = <T extends AudioItem>(
       return item;
     }
 
+    const position = complete.position ?? 0;
+    const newRecord: AudioRecord = {
+      position,
+      audioUrl: complete.audio_url ?? '',
+      audioBid: (complete as AudioCompleteData).audio_bid ?? '',
+      durationMs: complete.duration_ms ?? 0,
+    };
+
+    // Accumulate positional audio records (deduplicate by position)
+    const existing = item.audioRecords ?? [];
+    const alreadyExists = existing.some(r => r.position === position);
+    const audioRecords = alreadyExists
+      ? existing.map(r => (r.position === position ? newRecord : r))
+      : [...existing, newRecord].sort((a, b) => a.position - b.position);
+
     return {
       ...item,
-      audioUrl: complete.audio_url ?? undefined,
+      // Backward compatible: first audio URL
+      audioUrl: audioRecords[0]?.audioUrl ?? complete.audio_url ?? undefined,
       audioDurationMs: complete.duration_ms,
       isAudioStreaming: false,
+      audioRecords,
     };
   });
 };

@@ -50,6 +50,7 @@ enum PREVIEW_SSE_OUTPUT_TYPE {
   ERROR = 'error',
   AUDIO_SEGMENT = 'audio_segment',
   AUDIO_COMPLETE = 'audio_complete',
+  VISUAL_MARKER = 'visual_marker',
 }
 
 const buildVariablesSnapshot = (
@@ -544,6 +545,9 @@ export function usePreviewChat() {
               ),
             );
           }
+        } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.VISUAL_MARKER) {
+          // Visual markers are stored but not actively used in preview mode
+          // They are consumed by listen mode event queue (Phase 6)
         }
       } catch (err) {
         console.warn('preview SSE handling error:', err);

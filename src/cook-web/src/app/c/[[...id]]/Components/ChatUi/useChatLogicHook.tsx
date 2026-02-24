@@ -21,6 +21,7 @@ import {
   LikeStatus,
   AudioCompleteData,
   type AudioSegmentData,
+  type VisualMarkerData,
   getRunMessage,
   SSE_INPUT_TYPE,
   getLessonStudyRecord,
@@ -36,6 +37,7 @@ import {
   upsertAudioComplete,
   upsertAudioSegment,
   type AudioSegment,
+  type AudioRecord,
 } from '@/c-utils/audio-utils';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import {
@@ -96,6 +98,9 @@ export interface ChatContentItem {
   audioSegments?: AudioSegment[];
   isAudioStreaming?: boolean;
   audioDurationMs?: number;
+  audioRecords?: AudioRecord[]; // Positional audio records (ordered by position)
+  // Visual markers for audio-visual sync
+  visualMarkers?: VisualMarkerData[];
 }
 
 interface SSEParams {
@@ -673,6 +678,31 @@ function useChatLogicHook({
               if (blockId) {
                 setTrackedContentList(prevState =>
                   upsertAudioComplete(prevState, blockId, audioComplete),
+                );
+              }
+            } else if (response.type === SSE_OUTPUT_TYPE.VISUAL_MARKER) {
+              // Handle visual marker for audio-visual sync
+              const marker = response.content as VisualMarkerData;
+              if (blockId) {
+                setTrackedContentList(prevState =>
+                  prevState.map(item => {
+                    if (item.generated_block_bid !== blockId) {
+                      return item;
+                    }
+                    const existing = item.visualMarkers ?? [];
+                    const alreadyExists = existing.some(
+                      m => m.position === marker.position,
+                    );
+                    if (alreadyExists) {
+                      return item;
+                    }
+                    return {
+                      ...item,
+                      visualMarkers: [...existing, marker].sort(
+                        (a, b) => a.position - b.position,
+                      ),
+                    };
+                  }),
                 );
               }
             }
