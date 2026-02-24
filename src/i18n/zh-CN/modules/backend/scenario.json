@@ -1,6 +1,4 @@
 {
   "__namespace__": "server.scenario",
-  "__flat__": {
-    "notFound": "场景不存在"
-  }
+  "__flat__": {}
 }

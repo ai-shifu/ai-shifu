@@ -1,8 +1,7 @@
 from flaskr.common.swagger import register_schema_to_swagger
 import json
 from flaskr.service.common.aidtos import AIDto
-from .models import ProfileItem
-from typing import List
+from typing import Any, List
 
 
 @register_schema_to_swagger
@@ -183,10 +182,10 @@ class SelectProfileDto:
 
 
 class ProfileOptionListDto:
-    info: ProfileItem
+    info: Any
     list: List[ProfileValueDto]
 
-    def __init__(self, info: ProfileItem, list: List[ProfileValueDto]):
+    def __init__(self, info: Any, list: List[ProfileValueDto]):
         self.info = info
         self.list = list
 
