@@ -696,9 +696,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("code")
         if not new_password:
             raise_param_error("new_password")
-        is_valid, err_msg = validate_password_strength(new_password)
-        if not is_valid:
-            raise_error(err_msg)
+        validate_password_strength(new_password)
 
         user = request.user
         user_bid = user.user_id
@@ -777,9 +775,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         if not new_password:
             raise_param_error("new_password")
 
-        is_valid, err_msg = validate_password_strength(new_password)
-        if not is_valid:
-            raise_error(err_msg)
+        validate_password_strength(new_password)
 
         user = request.user
         user_bid = user.user_id
@@ -818,9 +814,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         if not new_password:
             raise_param_error("new_password")
 
-        is_valid, err_msg = validate_password_strength(new_password)
-        if not is_valid:
-            raise_error(err_msg)
+        validate_password_strength(new_password)
 
         raw_identifier = identifier.strip()
         normalized_identifier = (

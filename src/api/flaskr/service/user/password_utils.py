@@ -6,6 +6,8 @@ import re
 
 import bcrypt
 
+from flaskr.service.common.models import raise_error
+
 
 def hash_password(plain_text: str) -> str:
     """Hash a plaintext password using bcrypt with cost factor 12."""
@@ -22,21 +24,18 @@ def verify_password(plain_text: str, hashed: str) -> bool:
         return False
 
 
-def validate_password_strength(password: str) -> tuple[bool, str]:
+def validate_password_strength(password: str) -> None:
     """
-    Validate password strength.
+    Validate password strength, raising an error on failure.
 
     Rules:
     - Minimum 8 characters
     - Must contain at least one letter
     - Must contain at least one digit
-
-    Returns (is_valid, error_message).
     """
     if len(password) < 8:
-        return False, "Password must be at least 8 characters"
+        raise_error("server.user.passwordTooShort")
     if not re.search(r"[a-zA-Z]", password):
-        return False, "Password must contain at least one letter"
+        raise_error("server.user.passwordNeedsLetter")
     if not re.search(r"[0-9]", password):
-        return False, "Password must contain at least one digit"
-    return True, ""
+        raise_error("server.user.passwordNeedsDigit")

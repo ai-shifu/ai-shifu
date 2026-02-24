@@ -54,18 +54,8 @@ export function PasswordLogin({
       setPasswordError(t('module.auth.passwordEmpty'));
       return false;
     }
-    if (value.length < 8) {
-      setPasswordError(t('module.auth.passwordTooShort'));
-      return false;
-    }
-    if (!/[a-zA-Z]/.test(value)) {
-      setPasswordError(t('module.auth.passwordNeedsLetter'));
-      return false;
-    }
-    if (!/[0-9]/.test(value)) {
-      setPasswordError(t('module.auth.passwordNeedsDigit'));
-      return false;
-    }
+    // Login form only checks non-empty; password strength is enforced
+    // by set_password / change_password / reset_password endpoints.
     setPasswordError('');
     return true;
   };
@@ -205,6 +195,7 @@ export function PasswordLogin({
               className='absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground'
               onClick={() => setShowPassword(!showPassword)}
               tabIndex={-1}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? (
                 <EyeOff className='h-4 w-4' />
