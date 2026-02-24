@@ -21,7 +21,6 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useEnvStore } from '@/c-store/envStore';
 import { getUserProfile } from '@/c-api/user';
-import api from '@/api';
 
 const fixed_keys = ['sys_user_nickname', 'avatar', 'sex', 'birth'];
 const hidden_keys = ['language'];
