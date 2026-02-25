@@ -195,12 +195,15 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
         with (
             patch(
                 "flaskr.service.learn.context_v2.get_allowed_models",
-                return_value=["ark/deepseek-v3-2"],
+                return_value=["volcengine/deepseek-v3-2"],
             ),
             patch(
                 "flaskr.service.learn.context_v2.get_current_models",
                 return_value=[
-                    {"model": "ark/deepseek-v3-2", "display_name": "DeepSeek V3.2"}
+                    {
+                        "model": "volcengine/deepseek-v3-2",
+                        "display_name": "DeepSeek V3.2",
+                    }
                 ],
             ),
         ):
@@ -210,7 +213,7 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
                 shifu,
             )
 
-        self.assertEqual(model, "ark/deepseek-v3-2")
+        self.assertEqual(model, "volcengine/deepseek-v3-2")
         self.assertEqual(temperature, 0.3)
 
 

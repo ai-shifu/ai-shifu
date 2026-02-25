@@ -30,7 +30,7 @@ Source design: `docs/litellm-upgrade-standards-alignment-design.md`
 - [x] Update `src/api/scripts/generate_mdflow_context_results.py` to new keys/model conventions with legacy fallback.
 - [ ] Update LLM unit tests (`src/api/tests/test_llm.py`, `src/api/tests/test_openai.py`) if affected by canonical model naming.
 - [x] Update configuration integration tests (`src/api/tests/common/test_config_integration.py`) for new key set and fallbacks.
-- [ ] Update learning flow tests that assert old prefixes (for example `ark/*`) to canonical prefixes.
+- [x] Update learning flow tests that assert old prefixes (for example `ark/*`) to canonical prefixes.
 
 ## Phase 4 - Verification and Quality Gate
 
