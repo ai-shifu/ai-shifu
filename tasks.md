@@ -34,10 +34,10 @@ Source design: `docs/litellm-upgrade-standards-alignment-design.md`
 
 ## Phase 4 - Verification and Quality Gate
 
-- [ ] Run targeted backend tests for llm/config/learn modules.
-- [ ] Run `pre-commit run -a`.
-- [ ] Confirm no regression in model selection, default model resolution, and allowlist filtering.
-- [ ] Document rollout notes for deployment env migration (legacy -> standard keys).
+- [x] Run targeted backend tests for llm/config/learn modules.
+- [x] Run `pre-commit run -a`.
+- [x] Confirm no regression in model selection, default model resolution, and allowlist filtering.
+- [x] Document rollout notes for deployment env migration (legacy -> standard keys).
 
 ---
 
