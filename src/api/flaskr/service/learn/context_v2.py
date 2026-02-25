@@ -269,6 +269,8 @@ class MdflowContextV2:
             interaction_prompt=interaction_prompt,
             interaction_error_prompt=interaction_error_prompt,
         )
+        # Enable visual mode by default
+        self._mdflow.set_visual_mode(True)
         # Only set output language if use_learner_language is enabled
         if use_learner_language:
             self._mdflow = self._mdflow.set_output_language(
