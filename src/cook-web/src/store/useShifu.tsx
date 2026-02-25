@@ -1729,8 +1729,15 @@ export const ShifuProvider = ({
       outlineId: outline_bid || null,
     };
     try {
-      const resolvedBaseRevision =
+      let resolvedBaseRevision =
         payload?.base_revision ?? baseRevision ?? undefined;
+      if (resolvedBaseRevision === undefined && shifu_bid) {
+        const meta = await loadDraftMeta(shifu_bid);
+        if (meta && typeof meta.revision === 'number') {
+          resolvedBaseRevision = meta.revision;
+          setBaseRevision(meta.revision);
+        }
+      }
       const requestPayload: SaveMdflowPayload = {
         shifu_bid,
         outline_bid,
@@ -1738,6 +1745,8 @@ export const ShifuProvider = ({
       };
       if (typeof resolvedBaseRevision === 'number') {
         requestPayload.base_revision = resolvedBaseRevision;
+      } else {
+        return false;
       }
       if (autosavePaused || hasDraftConflict) {
         return false;

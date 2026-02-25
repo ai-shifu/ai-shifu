@@ -1234,8 +1234,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     type: string
                                     description: mdflow content
         """
-        user_id = request.user.user_id
-        return make_common_response(get_shifu_mdflow(app, user_id, outline_bid))
+        return make_common_response(get_shifu_mdflow(app, shifu_bid, outline_bid))
 
     @app.route(
         path_prefix + "/shifus/<shifu_bid>/draft-meta",
@@ -1315,8 +1314,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     type: string
                                     description: message
                                 data:
-                                    type: string
-                                    description: mdflow
+                                    type: object
+                                    description: save mdflow result
+                                    properties:
+                                        new_revision:
+                                            type: integer
+                                            description: latest draft revision
         """
         user_id = request.user.user_id
         payload = request.get_json() or {}

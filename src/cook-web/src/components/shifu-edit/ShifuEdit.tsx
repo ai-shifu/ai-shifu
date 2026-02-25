@@ -172,6 +172,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [profile]);
   const actionsRef = useRef(actions);
   const baseRevisionRef = useRef<number | null>(null);
+  const draftMetaFetchAttemptedRef = useRef(false);
   const conflictStateRef = useRef({
     hasDraftConflict: false,
     autosavePaused: false,
@@ -387,12 +388,21 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   useEffect(() => {
     if (!hasDraftConflict) {
+      draftMetaFetchAttemptedRef.current = false;
       return;
+    }
+    if (latestDraftMeta) {
+      draftMetaFetchAttemptedRef.current = false;
     }
     if (!isDraftConflictDialogOpen) {
       setIsDraftConflictDialogOpen(true);
     }
-    if (!latestDraftMeta && currentShifu?.bid) {
+    if (
+      !latestDraftMeta &&
+      currentShifu?.bid &&
+      !draftMetaFetchAttemptedRef.current
+    ) {
+      draftMetaFetchAttemptedRef.current = true;
       void actionsRef.current.loadDraftMeta(currentShifu.bid);
     }
   }, [
