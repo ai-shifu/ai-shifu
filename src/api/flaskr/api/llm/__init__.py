@@ -213,7 +213,11 @@ def _register_provider_models(
         if display in seen:
             continue
         seen.add(display)
-        MODEL_ALIAS_MAP[display] = (config.key, actual_model or model_name)
+        resolved_model = actual_model or model_name
+        MODEL_ALIAS_MAP[display] = (config.key, resolved_model)
+        for legacy_alias in _build_legacy_aliases_for_display_model(display):
+            if legacy_alias and legacy_alias not in MODEL_ALIAS_MAP:
+                MODEL_ALIAS_MAP[legacy_alias] = (config.key, resolved_model)
         if actual_model and actual_model not in MODEL_ALIAS_MAP:
             MODEL_ALIAS_MAP[actual_model] = (config.key, actual_model)
         display_models.append(display)
@@ -416,6 +420,26 @@ LEGACY_MODEL_PREFIXES: Tuple[Tuple[str, str], ...] = (
     ("glm/", ZAI_PREFIX),
     ("ark/", VOLCENGINE_PREFIX),
 )
+CANONICAL_TO_LEGACY_PREFIXES: Tuple[Tuple[str, str], ...] = tuple(
+    (canonical, legacy) for legacy, canonical in LEGACY_MODEL_PREFIXES
+)
+
+
+def _build_legacy_aliases_for_display_model(display_model: str) -> List[str]:
+    aliases: List[str] = []
+    for canonical_prefix, legacy_prefix in CANONICAL_TO_LEGACY_PREFIXES:
+        if display_model.startswith(canonical_prefix):
+            aliases.append(legacy_prefix + display_model[len(canonical_prefix) :])
+            break
+    if display_model.startswith(DEEPSEEK_PREFIX):
+        bare_model = display_model[len(DEEPSEEK_PREFIX) :]
+        if bare_model:
+            aliases.append(bare_model)
+    if display_model.startswith(GEMINI_PREFIX):
+        bare_model = display_model[len(GEMINI_PREFIX) :]
+        if bare_model:
+            aliases.append(bare_model)
+    return aliases
 
 
 def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:

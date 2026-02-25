@@ -21,7 +21,7 @@ Source design: `docs/litellm-upgrade-standards-alignment-design.md`
 
 - [x] Refactor `src/api/flaskr/api/llm/__init__.py` provider configs to LiteLLM-standard provider naming.
 - [x] Introduce canonical model normalization (`qwen/* -> dashscope/*`, `glm/* -> zai/*`, `ark/* -> volcengine/*`, etc.).
-- [ ] Update provider resolution and alias map so both canonical and legacy model IDs resolve correctly.
+- [x] Update provider resolution and alias map so both canonical and legacy model IDs resolve correctly.
 - [ ] Ensure `/api/llm/model-list` returns canonical LiteLLM-style model IDs.
 - [ ] Keep transitional warnings for legacy model IDs and legacy env keys.
 
