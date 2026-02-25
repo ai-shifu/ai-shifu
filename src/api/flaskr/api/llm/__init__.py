@@ -56,6 +56,8 @@ class ProviderConfig:
     key: str
     api_key_env: str
     base_url_env: str | None = None
+    legacy_api_key_envs: Tuple[str, ...] = ()
+    legacy_base_url_envs: Tuple[str, ...] = ()
     default_base_url: str | None = None
     prefix: str = ""
     fetch_models: bool = True
@@ -219,7 +221,14 @@ def _register_provider_models(
 
 
 def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
-    api_key = get_config(config.api_key_env)
+    api_key = None
+    for api_key_env in (config.api_key_env, *config.legacy_api_key_envs):
+        candidate = get_config(api_key_env)
+        if isinstance(candidate, str):
+            candidate = candidate.strip()
+        if candidate:
+            api_key = candidate
+            break
     if not api_key:
         _log_warning(f"{config.api_key_env} not configured")
         return ProviderState(
@@ -231,8 +240,16 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
             config.reload_params,
         )
     base_url = None
-    if config.base_url_env:
-        base_url = get_config(config.base_url_env)
+    for base_url_env in (
+        *(tuple([config.base_url_env]) if config.base_url_env else tuple()),
+        *config.legacy_base_url_envs,
+    ):
+        candidate = get_config(base_url_env)
+        if isinstance(candidate, str):
+            candidate = candidate.strip()
+        if candidate:
+            base_url = candidate
+            break
     if not base_url:
         base_url = config.default_base_url
     if config.key == "gemini" and base_url:
@@ -461,12 +478,14 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
     ),
     ProviderConfig(
         key="qwen",
-        api_key_env="QWEN_API_KEY",
-        base_url_env="QWEN_API_URL",
+        api_key_env="DASHSCOPE_API_KEY",
+        base_url_env="DASHSCOPE_API_BASE",
+        legacy_api_key_envs=("QWEN_API_KEY",),
+        legacy_base_url_envs=("QWEN_API_URL",),
         default_base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
         prefix=QWEN_PREFIX,
         extra_models=["deepseek-r1", "deepseek-v3"],
-        config_hint="QWEN_API_KEY,QWEN_API_URL",
+        config_hint="DASHSCOPE_API_KEY,DASHSCOPE_API_BASE",
         custom_llm_provider="openai",
         reload_params=_reload_qwen_params,
     ),
@@ -481,10 +500,11 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
     ProviderConfig(
         key="deepseek",
         api_key_env="DEEPSEEK_API_KEY",
-        base_url_env="DEEPSEEK_API_URL",
+        base_url_env="DEEPSEEK_API_BASE",
+        legacy_base_url_envs=("DEEPSEEK_API_URL",),
         default_base_url="https://api.deepseek.com",
         extra_models=DEEPSEEK_EXTRA_MODELS,
-        config_hint="DEEPSEEK_API_KEY,DEEPSEEK_API_URL",
+        config_hint="DEEPSEEK_API_KEY,DEEPSEEK_API_BASE",
         custom_llm_provider="openai",
     ),
     ProviderConfig(
@@ -502,10 +522,12 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
     ),
     ProviderConfig(
         key="glm",
-        api_key_env="BIGMODEL_API_KEY",
-        default_base_url="https://open.bigmodel.cn/api/paas/v4",
+        api_key_env="ZAI_API_KEY",
+        base_url_env="ZAI_API_BASE",
+        legacy_api_key_envs=("BIGMODEL_API_KEY", "GLM_API_KEY"),
+        default_base_url="https://api.z.ai/api/paas/v4",
         prefix=GLM_PREFIX,
-        config_hint="BIGMODEL_API_KEY",
+        config_hint="ZAI_API_KEY,ZAI_API_BASE",
         custom_llm_provider="openai",
     ),
     ProviderConfig(
@@ -519,10 +541,12 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
     ),
     ProviderConfig(
         key="ark",
-        api_key_env="ARK_API_KEY",
+        api_key_env="VOLCENGINE_API_KEY",
+        base_url_env="VOLCENGINE_API_BASE",
+        legacy_api_key_envs=("ARK_API_KEY",),
         default_base_url="https://ark.cn-beijing.volces.com/api/v3",
         prefix="ark/",
-        config_hint="ARK_API_KEY",
+        config_hint="VOLCENGINE_API_KEY,VOLCENGINE_API_BASE",
         custom_llm_provider="openai",
         reload_params=_reload_ark_params,
     ),
