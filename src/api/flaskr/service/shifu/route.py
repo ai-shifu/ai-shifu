@@ -56,7 +56,7 @@ from .funcs import (
 )
 from flaskr.route.common import make_common_response, bypass_token_validation, fmt
 from flaskr.framework.plugin.inject import inject
-from flaskr.service.common.models import raise_param_error, raise_error
+from flaskr.service.common.models import raise_param_error, raise_error, ERROR_CODE
 from .consts import UNIT_TYPE_GUEST
 from functools import wraps
 from enum import Enum
@@ -1330,19 +1330,25 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 base_revision = int(base_revision)
             except (TypeError, ValueError):
                 raise_param_error("base_revision")
-            latest_revision = get_shifu_draft_revision(app, shifu_bid)
+            latest_meta = get_shifu_draft_meta(app, shifu_bid)
+            latest_revision = (
+                latest_meta.get("revision")
+                if isinstance(latest_meta, dict)
+                else get_shifu_draft_revision(app, shifu_bid)
+            )
+            if latest_revision is None:
+                latest_revision = get_shifu_draft_revision(app, shifu_bid)
             if base_revision != latest_revision:
-                latest_meta = get_shifu_draft_meta(app, shifu_bid)
-                response = json.dumps(
+                body = json.dumps(
                     {
-                        "code": 4007,
+                        "code": ERROR_CODE["server.shifu.draftConflict"],
                         "message": _("server.shifu.draftConflict"),
                         "data": {"meta": latest_meta},
                     },
                     default=fmt,
                     ensure_ascii=False,
                 )
-                return response
+                return Response(body, status=200, mimetype="application/json")
         content = payload.get("data")
         return make_common_response(
             save_shifu_mdflow(app, user_id, shifu_bid, outline_bid, content)

@@ -538,20 +538,26 @@ export const ShifuProvider = ({
     }
   };
 
-  const loadDraftMeta = useCallback(async (shifuId: string) => {
-    if (!shifuId) {
-      setLatestDraftMeta(null);
-      return null;
-    }
-    try {
-      const meta = await api.getShifuDraftMeta({ shifu_bid: shifuId });
-      setLatestDraftMeta(meta as DraftMeta);
-      return meta as DraftMeta;
-    } catch (error) {
-      console.error('Failed to load draft meta', error);
-      return null;
-    }
-  }, []);
+  const loadDraftMeta = useCallback(
+    async (shifuId: string) => {
+      if (!shifuId) {
+        setLatestDraftMeta(null);
+        return null;
+      }
+      try {
+        const meta = await api.getShifuDraftMeta({ shifu_bid: shifuId });
+        if (currentShifu?.bid && currentShifu.bid !== shifuId) {
+          return meta as DraftMeta;
+        }
+        setLatestDraftMeta(meta as DraftMeta);
+        return meta as DraftMeta;
+      } catch (error) {
+        console.error('Failed to load draft meta', error);
+        return null;
+      }
+    },
+    [currentShifu?.bid],
+  );
 
   const loadChapters = async (shifuId: string) => {
     try {

@@ -267,7 +267,11 @@ const ScriptEditor = ({ id }: { id: string }) => {
     setIsDraftConflictDialogOpen(false);
 
     const fetchDraftMeta = async () => {
-      const meta = await actionsRef.current.loadDraftMeta(currentShifu.bid);
+      const targetBid = currentShifu.bid;
+      const meta = await actionsRef.current.loadDraftMeta(targetBid);
+      if (currentShifuBidRef.current !== targetBid) {
+        return;
+      }
       if (meta) {
         actionsRef.current.setBaseRevision(meta.revision);
       }
