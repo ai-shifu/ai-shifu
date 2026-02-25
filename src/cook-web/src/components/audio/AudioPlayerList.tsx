@@ -31,6 +31,13 @@ export interface AudioPlayerListProps {
   sequenceBlockBid?: string | null;
 }
 
+const logAudioDebug = (event: string, payload?: Record<string, any>) => {
+  if (process.env.NODE_ENV === 'production') {
+    return;
+  }
+  console.log(`[listen-audio-debug] ${event}`, payload ?? {});
+};
+
 const AudioPlayerListBase = (
   {
     audioList,
@@ -293,6 +300,10 @@ const AudioPlayerListBase = (
     (options?: { resume?: boolean }) => {
       const track = currentTrackRef.current;
       if (!track || disabled) {
+        logAudioDebug('audio-player-start-skip', {
+          reason: track ? 'disabled' : 'no-track',
+          disabled,
+        });
         return false;
       }
       const url = resolveTrackUrl(track);
@@ -301,13 +312,34 @@ const AudioPlayerListBase = (
           options?.resume && audioRef.current
             ? audioRef.current.currentTime
             : 0;
+        logAudioDebug('audio-player-start-url', {
+          bid: track.generated_block_bid,
+          resume: Boolean(options?.resume),
+          startAtSeconds,
+          hasUrl: Boolean(url),
+        });
         return startUrlPlayback(url, startAtSeconds);
       }
       if (shouldUseSegments(track)) {
         const index = options?.resume ? currentSegmentIndexRef.current : 0;
         const offset = options?.resume ? segmentOffsetRef.current : 0;
+        logAudioDebug('audio-player-start-segment', {
+          bid: track.generated_block_bid,
+          resume: Boolean(options?.resume),
+          segmentIndex: index,
+          segmentOffset: offset,
+          segments: segmentsRef.current.length,
+          isAudioStreaming: Boolean(track.isAudioStreaming),
+        });
         return startSegmentPlayback(index, offset);
       }
+      logAudioDebug('audio-player-start-miss-source', {
+        bid: track.generated_block_bid,
+        hasTrackUrl: Boolean(track.audioUrl),
+        localUrl: Boolean(url),
+        segments: segmentsRef.current.length,
+        isAudioStreaming: Boolean(track.isAudioStreaming),
+      });
       return false;
     },
     [
@@ -330,17 +362,31 @@ const AudioPlayerListBase = (
       if (!track) {
         return;
       }
+      logAudioDebug('audio-player-play-current', {
+        bid: track.generated_block_bid,
+        resume: Boolean(options?.resume),
+      });
       if (startPlaybackForTrack(options)) {
         return;
       }
       if (!onRequestAudio || !track.generated_block_bid) {
+        logAudioDebug('audio-player-request-skip', {
+          bid: track.generated_block_bid ?? null,
+          hasOnRequestAudio: Boolean(onRequestAudio),
+        });
         return;
       }
       const requestBid = track.generated_block_bid;
       if (pendingRequestRef.current.has(requestBid)) {
+        logAudioDebug('audio-player-request-skip-pending', {
+          bid: requestBid,
+        });
         return;
       }
       pendingRequestRef.current.add(requestBid);
+      logAudioDebug('audio-player-request-start', {
+        bid: requestBid,
+      });
       isUsingSegmentsRef.current = true;
       isSegmentsPlaybackRef.current = true;
       isWaitingForSegmentRef.current = true;
@@ -351,9 +397,18 @@ const AudioPlayerListBase = (
       onRequestAudio()
         .then(result => {
           if (currentTrackRef.current?.generated_block_bid !== requestBid) {
+            logAudioDebug('audio-player-request-stale-result', {
+              bid: requestBid,
+              currentBid: currentTrackRef.current?.generated_block_bid ?? null,
+            });
             return;
           }
           const url = result?.audio_url || result?.audioUrl;
+          logAudioDebug('audio-player-request-success', {
+            bid: requestBid,
+            hasUrl: Boolean(url),
+            isAudioStreaming: Boolean(currentTrackRef.current?.isAudioStreaming),
+          });
           if (url) {
             localAudioUrlMapRef.current.set(requestBid, url);
             if (!currentTrackRef.current?.isAudioStreaming) {
@@ -365,6 +420,9 @@ const AudioPlayerListBase = (
           if (currentTrackRef.current?.generated_block_bid !== requestBid) {
             return;
           }
+          logAudioDebug('audio-player-request-error', {
+            bid: requestBid,
+          });
           setPlayingState(false);
           isWaitingForSegmentRef.current = false;
           isSegmentsPlaybackRef.current = false;
@@ -372,6 +430,9 @@ const AudioPlayerListBase = (
         })
         .finally(() => {
           pendingRequestRef.current.delete(requestBid);
+          logAudioDebug('audio-player-request-finished', {
+            bid: requestBid,
+          });
         });
     },
     [
@@ -501,12 +562,19 @@ const AudioPlayerListBase = (
   }, [releaseExclusive, setPlayingState]);
 
   const handleAudioEnded = useCallback(() => {
+    logAudioDebug('audio-player-ended', {
+      bid: currentTrackRef.current?.generated_block_bid ?? null,
+      usingSegments: isUsingSegmentsRef.current,
+      waitingForSegment: isWaitingForSegmentRef.current,
+      sequenceBlockBid,
+      isSequenceActive,
+    });
     if (isUsingSegmentsRef.current) {
       handleSegmentEnded();
       return;
     }
     finishTrack();
-  }, [finishTrack, handleSegmentEnded]);
+  }, [finishTrack, handleSegmentEnded, isSequenceActive, sequenceBlockBid]);
 
   const handleAudioError = useCallback(() => {
     isWaitingForSegmentRef.current = false;
@@ -590,6 +658,12 @@ const AudioPlayerListBase = (
     if (!isTrackChanged) {
       return;
     }
+    logAudioDebug('audio-player-track-changed', {
+      fromBid: currentTrackBidRef.current,
+      toBid: nextBid,
+      sequenceBlockBid,
+      currentIndex: currentIndexRef.current,
+    });
     currentTrackBidRef.current = nextBid;
     isUsingSegmentsRef.current = false;
     isSegmentsPlaybackRef.current = false;
@@ -602,10 +676,17 @@ const AudioPlayerListBase = (
       audio.load();
     }
     currentSrcRef.current = null;
-  }, [currentTrack, resetSegmentState]);
+  }, [currentTrack, resetSegmentState, sequenceBlockBid]);
 
   useEffect(() => {
     if (!currentTrack || disabled) {
+      return;
+    }
+    if (sequenceBlockBid === null) {
+      logAudioDebug('audio-player-autoplay-skip-no-sequence-bid', {
+        bid: currentTrack.generated_block_bid ?? null,
+        isSequenceActive,
+      });
       return;
     }
     if (shouldResumeRef.current) {
@@ -618,11 +699,26 @@ const AudioPlayerListBase = (
     }
     const bid = currentTrack.generated_block_bid ?? null;
     if (bid && autoPlayedTrackRef.current === bid) {
+      logAudioDebug('audio-player-autoplay-skip-duplicated', {
+        bid,
+      });
       return;
     }
+    logAudioDebug('audio-player-autoplay-attempt', {
+      bid,
+      sequenceBlockBid,
+      isSequenceActive,
+      isPaused: isPausedRef.current,
+      isStreaming: Boolean(currentTrack.isAudioStreaming),
+      segments: currentSegments.length,
+      hasUrl: Boolean(currentTrack.audioUrl),
+    });
     const started = startPlaybackForTrack();
     if (started && bid) {
       autoPlayedTrackRef.current = bid;
+      logAudioDebug('audio-player-autoplay-started', {
+        bid,
+      });
     }
   }, [
     autoPlay,
@@ -631,6 +727,8 @@ const AudioPlayerListBase = (
     currentTrack?.audioUrl,
     currentTrack?.isAudioStreaming,
     disabled,
+    isSequenceActive,
+    sequenceBlockBid,
     startPlaybackForTrack,
   ]);
 
@@ -644,6 +742,12 @@ const AudioPlayerListBase = (
     if (nextIndex < 0 || nextIndex === currentIndexRef.current) {
       return;
     }
+    logAudioDebug('audio-player-sequence-switch-track', {
+      sequenceBlockBid,
+      fromIndex: currentIndexRef.current,
+      toIndex: nextIndex,
+      isSequenceActive,
+    });
     shouldResumeRef.current = isSequenceActive && !isPausedRef.current;
     setCurrentIndex(nextIndex);
   }, [isSequenceActive, playlist, sequenceBlockBid]);
@@ -655,6 +759,10 @@ const AudioPlayerListBase = (
     if (!isSequenceActive) {
       return;
     }
+    logAudioDebug('audio-player-sequence-stop-with-null-bid', {
+      isPlaying: isPlayingRef.current,
+      isWaitingForSegment: isWaitingForSegmentRef.current,
+    });
     shouldResumeRef.current = false;
     if (isPlayingRef.current || isWaitingForSegmentRef.current) {
       pausePlayback();

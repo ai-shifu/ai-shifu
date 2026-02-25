@@ -21,6 +21,7 @@ import {
   LikeStatus,
   AudioCompleteData,
   type AudioSegmentData,
+  type ListenSlideData,
   getRunMessage,
   SSE_INPUT_TYPE,
   getLessonStudyRecord,
@@ -36,6 +37,7 @@ import {
   upsertAudioComplete,
   upsertAudioSegment,
   type AudioSegment,
+  type AudioTrack,
 } from '@/c-utils/audio-utils';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import {
@@ -94,8 +96,11 @@ export interface ChatContentItem {
   // Audio properties for TTS
   audioUrl?: string;
   audioSegments?: AudioSegment[];
+  audioTracks?: AudioTrack[];
   isAudioStreaming?: boolean;
   audioDurationMs?: number;
+  listenSlides?: ListenSlideData[];
+  sourceGeneratedBlockBid?: string;
 }
 
 interface SSEParams {
@@ -198,6 +203,7 @@ function useChatLogicHook({
   const interactionParserRef = useRef(createInteractionParser());
   const sseRef = useRef<any>(null);
   const ttsSseRef = useRef<Record<string, any>>({});
+  const pendingSlidesRef = useRef<Record<string, ListenSlideData[]>>({});
   const lastInteractionBlockRef = useRef<ChatContentItem | null>(null);
   const hasScrolledToBottomRef = useRef<boolean>(false);
   const [pendingRegenerate, setPendingRegenerate] = useState<{
@@ -208,6 +214,16 @@ function useChatLogicHook({
 
   const effectivePreviewMode = previewMode ?? false;
   const allowTtsStreaming = !effectivePreviewMode;
+  const isAudioDebugEnabled = process.env.NODE_ENV !== 'production';
+  const logAudioDebug = useCallback(
+    (event: string, payload?: Record<string, any>) => {
+      if (!isAudioDebugEnabled) {
+        return;
+      }
+      console.log(`[listen-audio-debug] ${event}`, payload ?? {});
+    },
+    [isAudioDebugEnabled],
+  );
   const getAskButtonMarkup = useCallback(
     () =>
       `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
@@ -392,6 +408,90 @@ function useChatLogicHook({
     [],
   );
 
+  const sortSlidesByTimeline = useCallback((slides: ListenSlideData[] = []) => {
+    return [...slides].sort(
+      (a, b) =>
+        Number(a.slide_index ?? 0) - Number(b.slide_index ?? 0) ||
+        Number(a.audio_position ?? 0) - Number(b.audio_position ?? 0),
+    );
+  }, []);
+
+  const upsertListenSlide = useCallback(
+    (slides: ListenSlideData[] = [], incoming: ListenSlideData) => {
+      const nextSlides = [...slides];
+      const hitIndex = nextSlides.findIndex(
+        slide => slide.slide_id === incoming.slide_id,
+      );
+      if (hitIndex >= 0) {
+        nextSlides[hitIndex] = {
+          ...nextSlides[hitIndex],
+          ...incoming,
+        };
+      } else {
+        nextSlides.push(incoming);
+      }
+      return sortSlidesByTimeline(nextSlides);
+    },
+    [sortSlidesByTimeline],
+  );
+
+  const normalizeHistoryAudioTracks = useCallback(
+    (record: StudyRecordItem): AudioTrack[] => {
+      const audios = Array.isArray(record.audios) ? record.audios : [];
+      if (!audios.length) {
+        if (!record.audio_url) {
+          return [];
+        }
+        return [
+          {
+            position: 0,
+            audioUrl: record.audio_url,
+            durationMs: 0,
+            isAudioStreaming: false,
+          },
+        ];
+      }
+
+      return [...audios]
+        .sort((a, b) => Number(a.position ?? 0) - Number(b.position ?? 0))
+        .map(audio => ({
+          position: Number(audio.position ?? 0),
+          slideId: audio.slide_id,
+          audioUrl: audio.audio_url,
+          durationMs: Number(audio.duration_ms ?? 0),
+          isAudioStreaming: false,
+          avContract: audio.av_contract ?? null,
+        }));
+    },
+    [],
+  );
+
+  const ensureContentItem = useCallback(
+    (items: ChatContentItem[], blockId: string): ChatContentItem[] => {
+      if (!blockId || blockId === 'loading') {
+        return items;
+      }
+      const hit = items.some(item => item.generated_block_bid === blockId);
+      if (hit) {
+        return items;
+      }
+      return [
+        ...items,
+        {
+          generated_block_bid: blockId,
+          content: '',
+          defaultButtonText: '',
+          defaultInputText: '',
+          readonly: false,
+          customRenderBar: () => null,
+          type: ChatContentItemType.CONTENT,
+          listenSlides: pendingSlidesRef.current[blockId],
+        },
+      ];
+    },
+    [],
+  );
+
   /**
    * Applies stream-driven lesson status updates and triggers follow-up actions.
    */
@@ -559,6 +659,10 @@ function useChatLogicHook({
                         ...item,
                         content: displayText,
                         customRenderBar: () => null,
+                        listenSlides:
+                          item.listenSlides ??
+                          pendingSlidesRef.current[blockId] ??
+                          item.listenSlides,
                       };
                     }
                     return item;
@@ -572,10 +676,14 @@ function useChatLogicHook({
                       readonly: false,
                       customRenderBar: () => null,
                       type: ChatContentItemType.CONTENT,
+                      listenSlides: pendingSlidesRef.current[blockId],
                     });
                   }
                   return updatedList;
                 });
+                if (pendingSlidesRef.current[blockId]) {
+                  delete pendingSlidesRef.current[blockId];
+                }
               }
             } else if (response.type === SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE) {
               const { status, outline_bid } = response.content;
@@ -653,15 +761,58 @@ function useChatLogicHook({
                   name: response.content.variable_value,
                 });
               }
+            } else if (response.type === SSE_OUTPUT_TYPE.NEW_SLIDE) {
+              const incomingSlide = response.content as ListenSlideData;
+              const slideBlockBid =
+                incomingSlide?.generated_block_bid || blockId || '';
+              if (!slideBlockBid || !incomingSlide?.slide_id) {
+                return;
+              }
+
+              setTrackedContentList(prevState => {
+                const hasContentBlock = prevState.some(
+                  item => item.generated_block_bid === slideBlockBid,
+                );
+                if (!hasContentBlock) {
+                  const pending = pendingSlidesRef.current[slideBlockBid] ?? [];
+                  pendingSlidesRef.current[slideBlockBid] = upsertListenSlide(
+                    pending,
+                    incomingSlide,
+                  );
+                  return prevState;
+                }
+
+                return prevState.map(item => {
+                  if (item.generated_block_bid !== slideBlockBid) {
+                    return item;
+                  }
+                  return {
+                    ...item,
+                    listenSlides: upsertListenSlide(
+                      item.listenSlides ?? [],
+                      incomingSlide,
+                    ),
+                  };
+                });
+              });
             } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
               if (!allowTtsStreaming) {
                 return;
               }
               // Handle audio segment during TTS streaming
               const audioSegment = response.content as AudioSegmentData;
+              logAudioDebug('chat-sse-audio-segment', {
+                blockId,
+                segmentIndex: audioSegment?.segment_index,
+                position: audioSegment?.position ?? 0,
+                isFinal: audioSegment?.is_final ?? false,
+                durationMs: audioSegment?.duration_ms ?? 0,
+              });
               if (blockId) {
                 setTrackedContentList(prevState =>
-                  upsertAudioSegment(prevState, blockId, audioSegment),
+                  upsertAudioSegment(prevState, blockId, audioSegment, items =>
+                    ensureContentItem(items, blockId),
+                  ),
                 );
               }
             } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
@@ -670,9 +821,20 @@ function useChatLogicHook({
               }
               // Handle audio completion with OSS URL
               const audioComplete = response.content as AudioCompleteData;
+              logAudioDebug('chat-sse-audio-complete', {
+                blockId,
+                position: audioComplete?.position ?? 0,
+                hasAudioUrl: Boolean(audioComplete?.audio_url),
+                durationMs: audioComplete?.duration_ms ?? 0,
+              });
               if (blockId) {
                 setTrackedContentList(prevState =>
-                  upsertAudioComplete(prevState, blockId, audioComplete),
+                  upsertAudioComplete(
+                    prevState,
+                    blockId,
+                    audioComplete,
+                    items => ensureContentItem(items, blockId),
+                  ),
                 );
               }
             }
@@ -711,6 +873,10 @@ function useChatLogicHook({
       mobileStyle,
       trackTrailProgress,
       allowTtsStreaming,
+      ensureContentItem,
+      getAskButtonMarkup,
+      logAudioDebug,
+      upsertListenSlide,
       updateUserInfo,
     ],
   );
@@ -729,10 +895,25 @@ function useChatLogicHook({
    * Transforms persisted study records into chat-friendly content items.
    */
   const mapRecordsToContent = useCallback(
-    (records: StudyRecordItem[]) => {
+    (records: StudyRecordItem[], slides: ListenSlideData[] = []) => {
       const result: ChatContentItem[] = [];
       let buffer: StudyRecordItem[] = []; // cache consecutive ask entries
       let lastContentId: string | null = null;
+      const slidesByBlock = new Map<string, ListenSlideData[]>();
+
+      slides.forEach(slide => {
+        const blockId = slide.generated_block_bid || '';
+        if (!blockId) {
+          return;
+        }
+        const current = slidesByBlock.get(blockId) ?? [];
+        current.push(slide);
+        slidesByBlock.set(blockId, current);
+      });
+
+      slidesByBlock.forEach((blockSlides, blockId) => {
+        slidesByBlock.set(blockId, sortSlidesByTimeline(blockSlides));
+      });
 
       const flushBuffer = () => {
         if (buffer.length > 0) {
@@ -760,6 +941,9 @@ function useChatLogicHook({
         if (item.block_type === BLOCK_TYPE.CONTENT) {
           // flush the previously cached ask entries
           flushBuffer();
+          const historyTracks = normalizeHistoryAudioTracks(item);
+          const singleTrack =
+            historyTracks.length === 1 ? historyTracks[0] : null;
           const normalizedContent = item.content ?? '';
           const contentWithButton =
             mobileStyle && !isListenMode
@@ -778,7 +962,10 @@ function useChatLogicHook({
             isHistory: true,
             type: item.block_type,
             // Include audio URL from history
-            audioUrl: item.audio_url,
+            audioUrl: singleTrack?.audioUrl ?? item.audio_url,
+            audioDurationMs: singleTrack?.durationMs,
+            audioTracks: historyTracks,
+            listenSlides: slidesByBlock.get(item.generated_block_bid),
           });
           lastContentId = item.generated_block_bid;
 
@@ -835,7 +1022,14 @@ function useChatLogicHook({
       flushBuffer();
       return result;
     },
-    [mobileStyle, t],
+    [
+      getAskButtonMarkup,
+      isListenMode,
+      mobileStyle,
+      normalizeHistoryAudioTracks,
+      sortSlidesByTimeline,
+      t,
+    ],
   );
 
   /**
@@ -849,6 +1043,7 @@ function useChatLogicHook({
     //   previewMode: effectivePreviewMode,
     // });
     setTrackedContentList(() => []);
+    pendingSlidesRef.current = {};
 
     // setIsTypeFinished(true);
     isTypeFinishedRef.current = true;
@@ -874,7 +1069,10 @@ function useChatLogicHook({
       // });
 
       if (recordResp?.records?.length > 0) {
-        const contentRecords = mapRecordsToContent(recordResp.records);
+        const contentRecords = mapRecordsToContent(
+          recordResp.records,
+          recordResp.slides ?? [],
+        );
         setTrackedContentList(contentRecords);
         // setIsTypeFinished(true);
         isTypeFinishedRef.current = true;
@@ -1312,9 +1510,12 @@ function useChatLogicHook({
     if (!source) {
       return;
     }
+    logAudioDebug('tts-request-stream-close', {
+      blockId,
+    });
     source.close();
     delete ttsSseRef.current[blockId];
-  }, []);
+  }, [logAudioDebug]);
 
   const requestAudioForBlock = useCallback(
     async (generatedBlockBid: string): Promise<AudioCompleteData | null> => {
@@ -1323,6 +1524,9 @@ function useChatLogicHook({
       }
 
       if (!allowTtsStreaming) {
+        logAudioDebug('tts-request-skip-disabled', {
+          generatedBlockBid,
+        });
         return null;
       }
 
@@ -1330,6 +1534,12 @@ function useChatLogicHook({
         item => item.generated_block_bid === generatedBlockBid,
       );
       if (existingItem?.audioUrl && !existingItem.isAudioStreaming) {
+        logAudioDebug('tts-request-hit-cache', {
+          generatedBlockBid,
+          hasAudioUrl: Boolean(existingItem?.audioUrl),
+          isAudioStreaming: Boolean(existingItem?.isAudioStreaming),
+          audioTracks: existingItem?.audioTracks?.length ?? 0,
+        });
         return {
           audio_url: existingItem.audioUrl,
           audio_bid: '',
@@ -1338,8 +1548,18 @@ function useChatLogicHook({
       }
 
       if (ttsSseRef.current[generatedBlockBid]) {
+        logAudioDebug('tts-request-skip-existing-stream', {
+          generatedBlockBid,
+        });
         return null;
       }
+      const requestTraceId = `${generatedBlockBid}:${Date.now()}`;
+      logAudioDebug('tts-request-start', {
+        requestTraceId,
+        generatedBlockBid,
+        isListenMode,
+        previewMode: effectivePreviewMode,
+      });
 
       setTrackedContentList(prev =>
         prev.map(item => {
@@ -1350,6 +1570,7 @@ function useChatLogicHook({
           return {
             ...item,
             audioSegments: [],
+            audioTracks: [],
             audioUrl: undefined,
             audioDurationMs: undefined,
             isAudioStreaming: true,
@@ -1358,13 +1579,26 @@ function useChatLogicHook({
       );
 
       return new Promise((resolve, reject) => {
+        let finalizeTimer: ReturnType<typeof setTimeout> | null = null;
+        let latestComplete: AudioCompleteData | null = null;
         const source = streamGeneratedBlockAudio({
           shifu_bid: shifuBid,
           generated_block_bid: generatedBlockBid,
           preview_mode: effectivePreviewMode,
+          listen: isListenMode,
           onMessage: response => {
             if (response?.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
               const audioPayload = response.content ?? response.data;
+              logAudioDebug('tts-request-segment', {
+                requestTraceId,
+                generatedBlockBid,
+                segmentIndex:
+                  audioPayload?.segment_index ?? audioPayload?.segmentIndex ?? -1,
+                position: audioPayload?.position ?? 0,
+                isFinal: audioPayload?.is_final ?? audioPayload?.isFinal ?? false,
+                durationMs:
+                  audioPayload?.duration_ms ?? audioPayload?.durationMs ?? 0,
+              });
               setTrackedContentList(prevState =>
                 upsertAudioSegment(
                   prevState,
@@ -1378,6 +1612,14 @@ function useChatLogicHook({
             if (response?.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
               const audioPayload = response.content ?? response.data;
               const audioComplete = audioPayload as AudioCompleteData;
+              latestComplete = audioComplete ?? latestComplete;
+              logAudioDebug('tts-request-complete', {
+                requestTraceId,
+                generatedBlockBid,
+                position: audioComplete?.position ?? 0,
+                hasAudioUrl: Boolean(audioComplete?.audio_url),
+                durationMs: audioComplete?.duration_ms ?? 0,
+              });
               setTrackedContentList(prevState =>
                 upsertAudioComplete(
                   prevState,
@@ -1385,11 +1627,37 @@ function useChatLogicHook({
                   audioComplete,
                 ),
               );
-              closeTtsStream(generatedBlockBid);
-              resolve(audioComplete ?? null);
+              if (finalizeTimer) {
+                clearTimeout(finalizeTimer);
+              }
+              const delayMs = isListenMode ? 500 : 0;
+              logAudioDebug('tts-request-finalize-scheduled', {
+                requestTraceId,
+                generatedBlockBid,
+                delayMs,
+              });
+              finalizeTimer = setTimeout(
+                () => {
+                  logAudioDebug('tts-request-finalize-run', {
+                    requestTraceId,
+                    generatedBlockBid,
+                    hasComplete: Boolean(latestComplete),
+                  });
+                  closeTtsStream(generatedBlockBid);
+                  resolve(latestComplete ?? null);
+                },
+                delayMs,
+              );
             }
           },
           onError: () => {
+            if (finalizeTimer) {
+              clearTimeout(finalizeTimer);
+            }
+            logAudioDebug('tts-request-error', {
+              requestTraceId,
+              generatedBlockBid,
+            });
             setTrackedContentList(prev =>
               prev.map(item => {
                 if (item.generated_block_bid !== generatedBlockBid) {
@@ -1407,12 +1675,18 @@ function useChatLogicHook({
         });
 
         ttsSseRef.current[generatedBlockBid] = source;
+        logAudioDebug('tts-request-stream-opened', {
+          requestTraceId,
+          generatedBlockBid,
+        });
       });
     },
     [
       allowTtsStreaming,
       closeTtsStream,
       effectivePreviewMode,
+      isListenMode,
+      logAudioDebug,
       setTrackedContentList,
       shifuBid,
     ],

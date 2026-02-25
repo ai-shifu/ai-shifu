@@ -10,6 +10,7 @@ import './ListenModeRenderer.scss';
 import { AudioPlayerList } from '@/components/audio/AudioPlayerList';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import {
+  resolveListenAudioSourceBid,
   useListenAudioSequence,
   useListenContentData,
   useListenPpt,
@@ -41,6 +42,7 @@ const ListenModeRenderer = ({
   const activeBlockBidRef = useRef<string | null>(null);
   const pendingAutoNextRef = useRef(false);
   const shouldStartSequenceRef = useRef(false);
+  const [sequenceStartSignal, setSequenceStartSignal] = useState(0);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
 
   const {
@@ -60,11 +62,15 @@ const ListenModeRenderer = ({
     if (!blockBid) {
       return null;
     }
-    const emptyPrefix = 'empty-ppt-';
-    if (!blockBid.startsWith(emptyPrefix)) {
-      return blockBid;
+    const sourceBid = resolveListenAudioSourceBid(blockBid);
+    if (!sourceBid) {
+      return null;
     }
-    const resolved = blockBid.slice(emptyPrefix.length);
+    const emptyPrefix = 'empty-ppt-';
+    if (!sourceBid.startsWith(emptyPrefix)) {
+      return sourceBid;
+    }
+    const resolved = sourceBid.slice(emptyPrefix.length);
     return resolved || null;
   }, []);
 
@@ -136,11 +142,13 @@ const ListenModeRenderer = ({
 
   const handleResetSequence = useCallback(() => {
     shouldStartSequenceRef.current = true;
+    setSequenceStartSignal(prev => prev + 1);
   }, []);
 
   const {
     audioPlayerRef,
     activeContentItem,
+    activeSequenceBlockBid,
     activeAudioBlockBid,
     sequenceInteraction,
     isAudioSequenceActive,
@@ -156,6 +164,7 @@ const ListenModeRenderer = ({
     activeBlockBidRef,
     pendingAutoNextRef,
     shouldStartSequenceRef,
+    sequenceStartSignal,
     contentByBid,
     audioContentByBid,
     ttsReadyBlockBids,
@@ -323,7 +332,7 @@ const ListenModeRenderer = ({
           <AudioPlayerList
             ref={audioPlayerRef}
             audioList={audioList}
-            sequenceBlockBid={activeAudioBlockBid}
+            sequenceBlockBid={activeSequenceBlockBid}
             isSequenceActive={isAudioSequenceActive}
             disabled={previewMode}
             onRequestAudio={

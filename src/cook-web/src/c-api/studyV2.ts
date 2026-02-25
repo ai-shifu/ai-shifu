@@ -58,6 +58,7 @@ export const SSE_OUTPUT_TYPE = {
   // Audio types for TTS
   AUDIO_SEGMENT: 'audio_segment',
   AUDIO_COMPLETE: 'audio_complete',
+  NEW_SLIDE: 'new_slide',
 } as const;
 export type SSE_OUTPUT_TYPE =
   (typeof SSE_OUTPUT_TYPE)[keyof typeof SSE_OUTPUT_TYPE];
@@ -78,11 +79,14 @@ export interface StudyRecordItem {
   user_input?: string;
   isHistory?: boolean;
   audio_url?: string;
+  audios?: AudioCompleteData[];
+  av_contract?: Record<string, any> | null;
 }
 
 export interface LessonStudyRecords {
   mdflow: string;
   records: StudyRecordItem[];
+  slides?: ListenSlideData[];
 }
 
 export interface GetLessonStudyRecordParams {
@@ -121,18 +125,37 @@ export interface AudioSegmentData {
   audio_data: string; // Base64 encoded
   duration_ms: number;
   is_final: boolean;
+  position?: number;
+  slide_id?: string;
+  av_contract?: Record<string, any> | null;
 }
 
 export interface AudioCompleteData {
   audio_url: string;
   audio_bid: string;
   duration_ms: number;
+  position?: number;
+  slide_id?: string;
+  av_contract?: Record<string, any> | null;
+}
+
+export interface ListenSlideData {
+  slide_id: string;
+  generated_block_bid: string;
+  slide_index: number;
+  audio_position: number;
+  visual_kind: string;
+  segment_type: string;
+  segment_content: string;
+  source_span: number[];
+  is_placeholder: boolean;
 }
 
 export interface StreamGeneratedBlockAudioParams {
   shifu_bid: string;
   generated_block_bid: string;
   preview_mode?: boolean;
+  listen?: boolean;
   onMessage: (data: any) => void;
   onError?: (error: unknown) => void;
 }
@@ -244,11 +267,12 @@ export const streamGeneratedBlockAudio = ({
   shifu_bid,
   generated_block_bid,
   preview_mode = false,
+  listen = false,
   onMessage,
   onError,
 }: StreamGeneratedBlockAudioParams) => {
   const baseURL = getResolvedBaseURL();
-  const url = `${baseURL}/api/learn/shifu/${shifu_bid}/generated-blocks/${generated_block_bid}/tts?preview_mode=${preview_mode}`;
+  const url = `${baseURL}/api/learn/shifu/${shifu_bid}/generated-blocks/${generated_block_bid}/tts?preview_mode=${preview_mode}&listen=${listen}`;
   return createSseSource(url, {}, onMessage, onError);
 };
 
