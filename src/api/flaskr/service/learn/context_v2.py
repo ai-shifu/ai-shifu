@@ -261,6 +261,7 @@ class MdflowContextV2:
         interaction_prompt: Optional[str] = None,
         interaction_error_prompt: Optional[str] = None,
         use_learner_language: bool = False,
+        visual_mode: bool = True,
     ):
         self._mdflow = MarkdownFlow(
             document=document,
@@ -269,8 +270,7 @@ class MdflowContextV2:
             interaction_prompt=interaction_prompt,
             interaction_error_prompt=interaction_error_prompt,
         )
-        # Enable visual mode by default
-        self._mdflow.set_visual_mode(True)
+        self._mdflow.set_visual_mode(visual_mode)
         # Only set output language if use_learner_language is enabled
         if use_learner_language:
             self._mdflow = self._mdflow.set_output_language(
@@ -1659,6 +1659,7 @@ class RunScriptContextV2:
                 usage_scene,
             ),
             use_learner_language=self._shifu_info.use_learner_language,
+            visual_mode=self._listen,
         )
         block_list = mdflow_context.get_all_blocks()
         user_profile = get_user_profiles(
