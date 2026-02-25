@@ -23,7 +23,7 @@ Source design: `docs/litellm-upgrade-standards-alignment-design.md`
 - [x] Introduce canonical model normalization (`qwen/* -> dashscope/*`, `glm/* -> zai/*`, `ark/* -> volcengine/*`, etc.).
 - [x] Update provider resolution and alias map so both canonical and legacy model IDs resolve correctly.
 - [x] Ensure `/api/llm/model-list` returns canonical LiteLLM-style model IDs.
-- [ ] Keep transitional warnings for legacy model IDs and legacy env keys.
+- [x] Keep transitional warnings for legacy model IDs and legacy env keys.
 
 ## Phase 3 - Script and Test Alignment
 

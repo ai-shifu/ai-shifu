@@ -88,6 +88,7 @@ class ProviderState:
 
 MODEL_ALIAS_MAP: Dict[str, Tuple[str, str]] = {}
 PROVIDER_STATES: Dict[str, ProviderState] = {}
+_LEGACY_MODEL_WARNING_CACHE: set[Tuple[str, str]] = set()
 
 
 def _log(level: str, message: str) -> None:
@@ -226,12 +227,14 @@ def _register_provider_models(
 
 def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
     api_key = None
+    api_key_source = None
     for api_key_env in (config.api_key_env, *config.legacy_api_key_envs):
         candidate = get_config(api_key_env)
         if isinstance(candidate, str):
             candidate = candidate.strip()
         if candidate:
             api_key = candidate
+            api_key_source = api_key_env
             break
     if not api_key:
         _log_warning(f"{config.api_key_env} not configured")
@@ -243,7 +246,13 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
             config.wildcard_prefixes,
             config.reload_params,
         )
+    if api_key_source and api_key_source != config.api_key_env:
+        _log_warning(
+            f"{config.key} provider is using legacy env key {api_key_source}; "
+            f"please migrate to {config.api_key_env}"
+        )
     base_url = None
+    base_url_source = None
     for base_url_env in (
         *(tuple([config.base_url_env]) if config.base_url_env else tuple()),
         *config.legacy_base_url_envs,
@@ -253,7 +262,17 @@ def _init_litellm_provider(config: ProviderConfig) -> ProviderState:
             candidate = candidate.strip()
         if candidate:
             base_url = candidate
+            base_url_source = base_url_env
             break
+    if (
+        config.base_url_env
+        and base_url_source
+        and base_url_source != config.base_url_env
+    ):
+        _log_warning(
+            f"{config.key} provider is using legacy env key {base_url_source}; "
+            f"please migrate to {config.base_url_env}"
+        )
     if not base_url:
         base_url = config.default_base_url
     if config.key == "gemini" and base_url:
@@ -360,13 +379,37 @@ def _normalize_requested_model(model: str) -> str:
         return normalized
     for legacy_prefix, canonical_prefix in LEGACY_MODEL_PREFIXES:
         if normalized.startswith(legacy_prefix):
-            return canonical_prefix + normalized[len(legacy_prefix) :]
+            canonical_model = canonical_prefix + normalized[len(legacy_prefix) :]
+            warning_key = (normalized, canonical_model)
+            if warning_key not in _LEGACY_MODEL_WARNING_CACHE:
+                _LEGACY_MODEL_WARNING_CACHE.add(warning_key)
+                _log_warning(
+                    f"Legacy model id {normalized} is deprecated; "
+                    f"use {canonical_model} instead"
+                )
+            return canonical_model
     if "/" in normalized:
         return normalized
     if normalized.startswith("deepseek"):
-        return f"{DEEPSEEK_PREFIX}{normalized}"
+        canonical_model = f"{DEEPSEEK_PREFIX}{normalized}"
+        warning_key = (normalized, canonical_model)
+        if warning_key not in _LEGACY_MODEL_WARNING_CACHE:
+            _LEGACY_MODEL_WARNING_CACHE.add(warning_key)
+            _log_warning(
+                f"Legacy model id {normalized} is deprecated; "
+                f"use {canonical_model} instead"
+            )
+        return canonical_model
     if normalized.startswith("gemini-"):
-        return f"{GEMINI_PREFIX}{normalized}"
+        canonical_model = f"{GEMINI_PREFIX}{normalized}"
+        warning_key = (normalized, canonical_model)
+        if warning_key not in _LEGACY_MODEL_WARNING_CACHE:
+            _LEGACY_MODEL_WARNING_CACHE.add(warning_key)
+            _log_warning(
+                f"Legacy model id {normalized} is deprecated; "
+                f"use {canonical_model} instead"
+            )
+        return canonical_model
     return normalized
 
 
