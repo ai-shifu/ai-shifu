@@ -1019,13 +1019,30 @@ def _build_model_options(
     app: Flask, available_models: list[str]
 ) -> list[dict[str, str]]:
     allowed, display_names = _resolve_allowed_model_config()
+    display_names_enabled = bool(allowed) and len(display_names) == len(allowed)
+    if display_names and not display_names_enabled:
+        _log_warning(
+            "LLM_ALLOWED_MODEL_DISPLAY_NAMES ignored: length must match "
+            "LLM_ALLOWED_MODELS"
+        )
 
-    if not allowed:
+    normalized_allowed: list[str] = []
+    normalized_display_map: dict[str, str] = {}
+    for index, model in enumerate(allowed):
+        normalized_model = _normalize_requested_model(model)
+        if not normalized_model:
+            continue
+        if normalized_model not in normalized_allowed:
+            normalized_allowed.append(normalized_model)
+        if display_names_enabled and normalized_model not in normalized_display_map:
+            normalized_display_map[normalized_model] = display_names[index]
+
+    if not normalized_allowed:
         return [{"model": model, "display_name": model} for model in available_models]
 
     available_set = set(available_models)
     filtered_models: list[str] = []
-    for model in allowed:
+    for model in normalized_allowed:
         if model in available_set and model not in filtered_models:
             filtered_models.append(model)
 
@@ -1035,20 +1052,10 @@ def _build_model_options(
         )
         return []
 
-    display_names_enabled = allowed and len(display_names) == len(allowed)
-    if display_names and not display_names_enabled:
-        _log_warning(
-            "LLM_ALLOWED_MODEL_DISPLAY_NAMES ignored: length must match "
-            "LLM_ALLOWED_MODELS"
-        )
-    display_map: dict[str, str] = (
-        dict(zip(allowed, display_names)) if display_names_enabled else {}
-    )
-
     return [
         {
             "model": model,
-            "display_name": display_map.get(model, model),
+            "display_name": normalized_display_map.get(model, model),
         }
         for model in filtered_models
     ]
