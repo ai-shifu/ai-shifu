@@ -149,11 +149,14 @@ class TestConfigurationValidation:
         llm_keys = [
             "OPENAI_API_KEY",
             "ERNIE_API_KEY",
+            "VOLCENGINE_API_KEY",
             "ARK_API_KEY",
             "SILICON_API_KEY",
+            "ZAI_API_KEY",
             "GLM_API_KEY",
             "GEMINI_API_KEY",
             "DEEPSEEK_API_KEY",
+            "DASHSCOPE_API_KEY",
             "QWEN_API_KEY",
             "BIGMODEL_API_KEY",
         ]
