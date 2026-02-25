@@ -69,11 +69,7 @@ class TestEnhancedConfigValidation:
         )
         # If it's about missing required, check for specific variables
         if "Missing required environment variables" in error_msg:
-            assert (
-                "SQLALCHEMY_DATABASE_URI" in error_msg
-                or "SECRET_KEY" in error_msg
-                or "UNIVERSAL_VERIFICATION_CODE" in error_msg
-            )
+            assert "SQLALCHEMY_DATABASE_URI" in error_msg or "SECRET_KEY" in error_msg
 
     def test_validate_missing_llm_key(self, monkeypatch):
         """Test validation fails when no LLM API key is configured."""
@@ -215,7 +211,6 @@ class TestEnhancedConfigDebugPrint:
         """Test printing all configuration values."""
         for key, value in DOCKER_ENV_CONFIG.items():
             monkeypatch.setenv(key, value)
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
 
         config = EnhancedConfig(FULL_TEST_ENV_VARS)
 
@@ -241,7 +236,6 @@ class TestEnhancedConfigDebugPrint:
         monkeypatch.setenv(
             "SQLALCHEMY_DATABASE_URI", "mysql://test:test@localhost/test"
         )
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
 
         config = EnhancedConfig(FULL_TEST_ENV_VARS)
 
