@@ -1,80 +1,95 @@
 # LiteLLM Responses API Migration
 
 This repository routes all server-side LLM traffic through LiteLLM. The backend
-LLM call path has been migrated from Chat Completions (`litellm.completion`) to
-the LiteLLM Responses API (`litellm.responses`) so we can use a single, future
-proof interface while keeping multi-provider support.
+LLM path has been migrated from Chat Completions (`litellm.completion`) to the
+LiteLLM Responses API (`litellm.responses`) so we can keep one interface while
+retaining multi-provider support.
 
 Chinese translation: `docs/litellm-responses-api_ZH-CN.md`
 
+## Update Snapshot (2026-02-25)
+
+- Re-checked the latest LiteLLM release and provider docs.
+- Refreshed provider `/responses` support status using official documentation.
+- Synced this doc with current code in `src/api/flaskr/api/llm/__init__.py`.
+
+## LiteLLM Version Status (As Of 2026-02-25)
+
+- Latest LiteLLM on PyPI: `1.81.15` (released `2026-02-24`).
+- Current repo pin: `litellm==1.80.11` in `src/api/requirements.txt`.
+- This document update does **not** change dependency versions.
+
 ## Terminology
 
-- Native `/responses`: the upstream provider implements an OpenAI-compatible
-  `POST /responses` endpoint (for example OpenAI `.../v1/responses`).
-- Adapted `/responses`: the upstream provider does **not** implement
-  `/responses` but does implement OpenAI-compatible Chat Completions. In this
-  case we still call `litellm.responses(...)`, but pass
-  `custom_llm_provider="custom_openai"` so LiteLLM transforms the request to
-  `/chat/completions` upstream.
+- Native `/responses`: the upstream provider documents/supports an OpenAI-style
+  `POST /responses` endpoint.
+- Adapted `/responses`: the upstream provider exposes chat-completions style
+  endpoints, and we still call `litellm.responses(...)` by using
+  `custom_llm_provider="custom_openai"` so LiteLLM adapts upstream calls.
 
 ## Implementation In This Repo
 
 - Backend wrapper: `src/api/flaskr/api/llm/__init__.py`
-- LiteLLM `responses()` uses `input` (not Chat Completions `messages`) and
-  `max_output_tokens` (not `max_tokens`).
-- `stream_options` (Chat Completions) is not supported on Responses API. Usage
-  is collected from stream events instead.
-- Streaming requests call `litellm.responses(stream=True, input=[...])`.
-- JSON mode uses Responses-style schema:
+- Uses `litellm.responses(...)` with:
+  - `input` (instead of Chat Completions `messages`)
+  - `max_output_tokens` (instead of `max_tokens`)
+- Streaming parser handles Responses events (`response.output_text.delta`,
+  `response.completed`, `response.failed`, etc.).
+- JSON mode uses Responses schema:
   - `text={"format": {"type": "json_object"}}`
-- Streaming parser handles LiteLLM Responses stream events (event types like
-  `response.output_text.delta`, `response.completed`, `response.failed`).
+- Qwen special handling:
+  - If `QWEN_API_URL` contains
+    `/api/v2/apps/protocols/compatible-mode/v1`, we switch to native mode
+    (`custom_llm_provider="openai"`).
+  - Otherwise Qwen remains adapted mode (`custom_openai`) to avoid `/responses`
+    404s on classic compatible endpoints.
 
-## Provider Support Matrix (As Of 2026-02-09)
+## Provider Support Matrix (Checked On 2026-02-25)
 
-This table describes **upstream** support (based on vendor docs) and what we do
-in this repository.
+This table describes **official upstream docs** and the default behavior in this
+repository.
 
 | Provider Key | Official Native `/responses` | Repo Default | Notes |
 |---|---:|---|---|
-| `openai` | Yes | Native | OpenAI `.../v1/responses`. |
-| `ark` (Volcengine Ark) | Yes | Native | Ark documents `.../api/v3/responses` and OpenAI SDK `client.responses.create`. |
-| `qwen` (Alibaba Cloud Model Studio) | Partial | Adapted by default; native on specific base URL | Model Studio documents Responses API on the **apps compatible-mode** base URL (see below). The classic `.../compatible-mode/v1` endpoint is commonly used for chat-completions compatibility; we keep the adapted mode by default to avoid `/responses` 404s. |
-| `ernie_v2` (Baidu Qianfan) | Not explicitly documented | Native | Baidu documents OpenAI SDK compatibility on `https://qianfan.baidubce.com/v2`. In `ai-shifu-api-dev`, the `/responses` endpoint works for some models; we treat this provider as native `/responses`. |
-| `deepseek` | Not found | Adapted | Official docs show `/chat/completions`; no `/responses` doc found. |
-| `silicon` (SiliconFlow) | Not found | Adapted | Docs show OpenAI SDK + `chat.completions`; no `/responses` doc found. |
-| `glm` (Zhipu BigModel) | Unverified | Adapted | No official `/responses` doc confirmed in this investigation. |
-| `gemini` | N/A (provider-specific) | LiteLLM Gemini provider | Uses LiteLLM `custom_llm_provider="gemini"` rather than OpenAI-compatible HTTP `/responses`. |
+| `openai` | Yes | Native | Official `POST /v1/responses`. |
+| `ark` (Volcengine Ark) | Yes | Native | Ark has a dedicated Responses API section and `client.responses.create` examples. |
+| `qwen` (Alibaba Cloud Model Studio) | Partial | Adapted by default; native on specific base URL | Responses API is documented for the Singapore `dashscope-intl` compatible-mode apps base URL. |
+| `ernie_v2` (Baidu Qianfan) | Not explicitly documented | Native | Official docs clearly document OpenAI compatibility at `https://qianfan.baidubce.com/v2` (main examples are chat-completions style). |
+| `deepseek` | Not found | Adapted | Official docs expose `/chat/completions`; no official `/responses` page found. |
+| `silicon` (SiliconFlow) | Not found | Adapted | Official OpenAI-compatible docs show `client.chat.completions.create(...)`. |
+| `glm` (Zhipu BigModel) | Not found | Adapted | Official OpenAI-compatible docs show base URL `https://open.bigmodel.cn/api/paas/v4/` with chat-completions examples. |
+| `gemini` | No OpenAI-native `/responses` documented | LiteLLM Gemini provider | Gemini primary API is `generateContent`; OpenAI compatibility page currently documents `/chat/completions`. Repo uses LiteLLM `custom_llm_provider="gemini"`. |
 
-### Qwen Native `/responses` (Model Studio)
+### Notes For Qwen Native `/responses`
 
-Alibaba Cloud Model Studio documents OpenAI-compatible Responses API with base
-URL:
+Model Studio currently documents:
 
 ```text
-https://dashscope-intl.aliyuncs.com/api/v2/apps/protocols/compatible-mode/v1
+base_url: https://dashscope-intl.aliyuncs.com/api/v2/apps/protocols/compatible-mode/v1
+endpoint: POST .../responses
 ```
 
-It also documents that only some models are supported (example: `qwen3-max`,
-`qwen3-max-2026-01-23`) and that this is available in the Singapore region.
-In practice this usually means you need an API key that is valid for the
-`dashscope-intl` endpoint; a mainland China key may not authenticate there.
+Documented constraints include:
 
-Repository behavior:
+- Singapore region only.
+- Only specific models are listed (for example `qwen3-max`,
+  `qwen3-max-2026-01-23`).
+- Some OpenAI Responses parameters are not supported.
 
-- If `QWEN_API_URL` contains `/api/v2/apps/protocols/compatible-mode/v1`, the
-  backend automatically switches Qwen to native `/responses` by setting
-  `custom_llm_provider="openai"`.
-- Otherwise, Qwen stays in adapted mode (`custom_openai`) so `litellm.responses`
-  continues to work against chat-completions-only compatible endpoints.
+### Notes For Ark / Qianfan
 
-## Smoke Test: All Providers via `litellm.responses`
+- Ark docs now include explicit Responses API sections and migration docs.
+- Baidu Qianfan docs in this check do not explicitly publish `/responses`;
+  therefore `ernie_v2` is still a "native in repo strategy + env validation"
+  decision, not a strict vendor-doc guarantee.
+
+## Smoke Test: Verify With Your Current Credentials
 
 Script:
 
 - `src/api/scripts/test_litellm_responses_providers.py`
 
-Example (inside `ai-shifu-api-dev` container):
+Example:
 
 ```bash
 docker exec -e PYTHONUNBUFFERED=1 -w /app ai-shifu-api-dev \
@@ -86,38 +101,30 @@ docker exec -e PYTHONUNBUFFERED=1 -w /app ai-shifu-api-dev \
 
 Expected output:
 
-- Prints one line per tested (provider, model) with `[PASS]` / `[FAIL]`
-- Exits non-zero if any provider fails
+- One line per tested `(provider, model)` with `[PASS]` or `[FAIL]`.
+- Exit code is non-zero if any provider fails.
 
-### `ai-shifu-api-dev` Native `/responses` Check (2026-02-09)
+## References (Official Docs)
 
-Using the container's current credentials and base URLs, native `/responses`
-worked for:
-
-- `openai`
-- `ark`
-- `ernie_v2` (at least for `deepseek-v3` in this environment)
-
-Native `/responses` did **not** work for the following provider endpoints as
-configured:
-
-- `qwen` on `https://dashscope.aliyuncs.com/compatible-mode/v1` (404 on `/responses`)
-- `deepseek` on `https://api.deepseek.com` (404 on `/responses`)
-- `silicon` on `https://api.siliconflow.cn/v1` (404 on `/responses`)
-
-## References
-
-- LiteLLM Responses API: https://docs.litellm.com.cn/docs/response_api
-- Volcengine Ark Responses API docs:
+- LiteLLM
+  - https://pypi.org/project/litellm/
+  - https://docs.litellm.ai/docs/response_api
+- OpenAI
+  - https://platform.openai.com/docs/api-reference/responses
+- Volcengine Ark
+  - https://www.volcengine.com/docs/82379/1569618
   - https://www.volcengine.com/docs/82379/1585128
-  - https://www.volcengine.com/docs/82379/1298459
-- Alibaba Cloud Model Studio Responses API:
-  - https://www.alibabacloud.com/help/en/model-studio/developer-reference/response-api/
-- DeepSeek API docs (Chat Completions):
-  - https://api-docs.deepseek.com/
-- SiliconFlow docs (Chat Completions via OpenAI SDK):
-  - https://docs.siliconflow.cn/en/userguide/capabilities/text-generation
-- Baidu Qianfan community example (OpenAI SDK Chat Completions):
-  - https://qianfan.cloud.baidu.com/qianfandev/topic/685606
-- Baidu (Wenxin Workshop) OpenAI SDK compatibility:
+  - https://www.volcengine.com/docs/82379/1099522
+- Alibaba Cloud Model Studio (Qwen)
+  - https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-responses
+- Baidu Qianfan / Wenxin Workshop
   - https://ai.baidu.com/ai-doc/WENXINWORKSHOP/2m3fihw8s
+- DeepSeek
+  - https://api-docs.deepseek.com/
+- SiliconFlow
+  - https://docs.siliconflow.cn/en/userguide/capabilities/text-generation
+- Zhipu BigModel (GLM)
+  - https://docs.bigmodel.cn/cn/guide/develop/openai/introduction
+- Google Gemini
+  - https://ai.google.dev/docs/gemini_api_overview/
+  - https://ai.google.dev/gemini-api/docs/openai
