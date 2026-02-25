@@ -438,7 +438,13 @@ def get_learn_record(
                 build_av_segmentation_contract(
                     content or "", generated_block.generated_block_bid
                 )
-                if block_type == BlockType.CONTENT and (content or "").strip()
+                if block_type
+                in {
+                    BlockType.CONTENT,
+                    BlockType.ASK,
+                    BlockType.ANSWER,
+                }
+                and (content or "").strip()
                 else None
             )
 
