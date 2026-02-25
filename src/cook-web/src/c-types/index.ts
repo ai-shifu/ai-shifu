@@ -15,6 +15,7 @@ export interface ApiResponse<T = any> {
 export interface UserInfo {
   token?: string;
   user_id?: string;
+  user_bid?: string;
   username?: string;
   avatar?: string;
   phone?: string;

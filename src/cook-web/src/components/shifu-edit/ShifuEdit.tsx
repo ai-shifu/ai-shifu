@@ -168,11 +168,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const baseURL = useEnvStore((state: EnvStoreState) => state.baseURL);
   const currentUserId = useMemo(() => {
     if (!profile) return '';
-    return (
-      (profile as { user_id?: string; user_bid?: string }).user_id ||
-      (profile as { user_id?: string; user_bid?: string }).user_bid ||
-      ''
-    );
+    return profile.user_id || profile.user_bid || '';
   }, [profile]);
   const actionsRef = useRef(actions);
   const baseRevisionRef = useRef<number | null>(null);

@@ -1331,7 +1331,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 latest_meta = get_shifu_draft_meta(app, shifu_bid)
                 response = json.dumps(
                     {
-                        "code": 40901,
+                        "code": 4007,
                         "message": _("server.shifu.draftConflict"),
                         "data": {"meta": latest_meta},
                     },

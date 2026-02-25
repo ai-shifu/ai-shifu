@@ -45,7 +45,7 @@
   "server.shifu.lessonNotFoundInCourse": 4004,
   "server.shifu.shifuPriceTooLow": 4005,
   "server.shifu.ttsNotEnabled": 4006,
-  "server.shifu.draftConflict": 40901,
+  "server.shifu.draftConflict": 4007,
   "server.pay.payChannelNotSupport": 5001,
 
   "server.file.fileUploadError": 6001,

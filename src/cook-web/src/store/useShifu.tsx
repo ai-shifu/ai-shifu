@@ -1733,6 +1733,9 @@ export const ShifuProvider = ({
       if (typeof resolvedBaseRevision === 'number') {
         requestPayload.base_revision = resolvedBaseRevision;
       }
+      if (autosavePaused || hasDraftConflict) {
+        return false;
+      }
       const result = await api.saveMdflow(requestPayload);
       const newRevision =
         result && typeof result.new_revision === 'number'
@@ -1748,7 +1751,7 @@ export const ShifuProvider = ({
       setLastSaveTime(new Date());
       return true;
     } catch (error) {
-      if (error instanceof ErrorWithCode && error.code === 40901) {
+      if (error instanceof ErrorWithCode && error.code === 4007) {
         setHasDraftConflict(true);
         setAutosavePausedState(true);
         debouncedAutoSaveRef.current.cancel();
