@@ -32,6 +32,7 @@ import {
   useState,
   useCallback,
   useRef,
+  useEffect,
 } from 'react';
 import { LEARNING_PERMISSION } from '@/c-api/studyV2';
 import {
@@ -42,6 +43,7 @@ import {
   StoredVariablesByScope,
 } from '@/components/lesson-preview/variableStorage';
 import { useTracking } from '@/c-common/hooks/useTracking';
+import { useUserStore } from './useUserStore';
 
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
 const PROFILE_CACHE_TTL = 5000; // 5s
@@ -161,6 +163,8 @@ export const ShifuProvider = ({
   children: ReactNode;
 }): ReactElement => {
   const { trackEvent } = useTracking();
+  const currentUser = useUserStore(state => state.userInfo);
+  const currentUserId = currentUser?.user_id || currentUser?.user_bid || '';
   const [currentShifu, setCurrentShifu] = useState<Shifu | null>(null);
   const [chapters, setChapters] = useState<Outline[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -218,6 +222,7 @@ export const ShifuProvider = ({
     outlineId: null,
   });
   const draftMetaFailureAtRef = useRef<number | null>(null);
+  const currentShifuBidRef = useRef<string | null>(null);
   const mdflowRequestRef = useRef<{ id: number; outlineId: string | null }>({
     id: 0,
     outlineId: null,
@@ -238,6 +243,9 @@ export const ShifuProvider = ({
     Record<string, string>[]
   >([]);
   const currentOutlineRef = useRef<string | null>(null);
+  useEffect(() => {
+    currentShifuBidRef.current = currentShifu?.bid ?? null;
+  }, [currentShifu?.bid]);
 
   const internalSetCurrentNode = (node: Outline | null) => {
     setCurrentNode(node);
@@ -459,6 +467,7 @@ export const ShifuProvider = ({
       removeOutlineFromTree(outline);
       cleanupCatalogData(outline);
       await deleteOutlineAPI(outline);
+      await refreshDraftMetaAfterWrite(currentShifu?.bid || '');
 
       if (isCurrentNodeDeleted) {
         await handleCursorPositioning(nextNode);
@@ -549,7 +558,7 @@ export const ShifuProvider = ({
       }
       try {
         const meta = await api.getShifuDraftMeta({ shifu_bid: shifuId });
-        if (currentShifu?.bid && currentShifu.bid !== shifuId) {
+        if (currentShifuBidRef.current && currentShifuBidRef.current !== shifuId) {
           return meta as DraftMeta;
         }
         setLatestDraftMeta(meta as DraftMeta);
@@ -559,7 +568,29 @@ export const ShifuProvider = ({
         return null;
       }
     },
-    [currentShifu?.bid],
+    [],
+  );
+
+  const refreshDraftMetaAfterWrite = useCallback(
+    async (shifuId?: string) => {
+      if (!shifuId) {
+        return;
+      }
+      const meta = await loadDraftMeta(shifuId);
+      if (!meta || typeof meta.revision !== 'number') {
+        return;
+      }
+      const updatedUser = meta.updated_user?.user_bid || '';
+      if (!updatedUser || !currentUserId || updatedUser === currentUserId) {
+        setBaseRevision(meta.revision);
+        return;
+      }
+      setLatestDraftMeta(meta);
+      setHasDraftConflict(true);
+      setAutosavePausedState(true);
+      debouncedAutoSaveRef.current.cancel();
+    },
+    [currentUserId, loadDraftMeta],
   );
 
   const loadChapters = async (shifuId: string) => {
@@ -686,12 +717,13 @@ export const ShifuProvider = ({
           outline_bid: currentNode!.bid,
           blocks: list,
         });
+        await refreshDraftMetaAfterWrite(shifu_id);
       } catch (error) {
         console.error(error);
         setError('Failed to save blocks');
       }
     },
-    [blocks, isLoading, blockTypes, currentNode],
+    [blocks, isLoading, blockTypes, currentNode, refreshDraftMetaAfterWrite],
   );
 
   const addSubOutline = async (
@@ -749,6 +781,7 @@ export const ShifuProvider = ({
         outline_name: newOutline.name,
         parent_bid: parentId,
       });
+      await refreshDraftMetaAfterWrite(shifuBid);
       setLastSaveTime(new Date());
     } catch (error) {
       console.error(error);
@@ -801,6 +834,7 @@ export const ShifuProvider = ({
         outline_name: newOutline.name,
         parent_bid: '',
       });
+      await refreshDraftMetaAfterWrite(shifuBid);
       setLastSaveTime(new Date());
     } catch (error) {
       console.error(error);
@@ -858,6 +892,7 @@ export const ShifuProvider = ({
           clearBlockErrors();
         }
 
+        await refreshDraftMetaAfterWrite(shifu_id);
         return result;
       } catch (error: any) {
         setError(error.message);
@@ -867,7 +902,7 @@ export const ShifuProvider = ({
         setLastSaveTime(new Date());
       }
     },
-    [],
+    [refreshDraftMetaAfterWrite],
   );
 
   const autoSaveBlocks = (
@@ -955,6 +990,7 @@ export const ShifuProvider = ({
         outline_name: newOutline.name,
         parent_bid: parentId,
       });
+      await refreshDraftMetaAfterWrite(shifuBid);
       setLastSaveTime(new Date());
     } catch (error) {
       console.error(error);
@@ -996,6 +1032,7 @@ export const ShifuProvider = ({
           outline_name: newChapter.name,
           parent_bid: data.parent_bid || '',
         });
+        await refreshDraftMetaAfterWrite(currentShifu?.bid || '');
         setFocusId('');
         setLastSaveTime(new Date());
       } else {
@@ -1016,6 +1053,7 @@ export const ShifuProvider = ({
           position: '',
           children: currentChapter?.children || [],
         });
+        await refreshDraftMetaAfterWrite(currentShifu?.bid || '');
         setFocusId('');
         setLastSaveTime(new Date());
       }
@@ -1076,6 +1114,7 @@ export const ShifuProvider = ({
           outline_name: newUnit.name,
           parent_bid: data.parent_bid || '',
         });
+        await refreshDraftMetaAfterWrite(currentShifu?.bid || '');
         setFocusId('');
         setLastSaveTime(new Date());
       } else {
@@ -1092,6 +1131,7 @@ export const ShifuProvider = ({
           name: data.name,
           position: data.position,
         });
+        await refreshDraftMetaAfterWrite(currentShifu?.bid || '');
         setFocusId('');
         setLastSaveTime(new Date());
       }
@@ -1140,6 +1180,7 @@ export const ShifuProvider = ({
         position: '',
         children: [],
       });
+      await refreshDraftMetaAfterWrite(currentShifu?.bid || '');
     } catch (error) {
       console.error(error);
       setError('Failed to create chapter');
@@ -1290,6 +1331,7 @@ export const ShifuProvider = ({
         chapter_ids,
         shifu_id: currentShifu?.bid,
       });
+      await refreshDraftMetaAfterWrite(currentShifu?.bid || '');
       setLastSaveTime(new Date());
     } catch (error) {
       console.error(error);
@@ -1363,6 +1405,7 @@ export const ShifuProvider = ({
       shifu_bid: currentShifu?.bid || '',
       outlines,
     });
+    await refreshDraftMetaAfterWrite(currentShifu?.bid || '');
   };
 
   const applyProfileDefinitionList = (
@@ -1788,6 +1831,9 @@ export const ShifuProvider = ({
         setHasDraftConflict(true);
         setAutosavePausedState(true);
         debouncedAutoSaveRef.current.cancel();
+        if (shifu_bid) {
+          void loadDraftMeta(shifu_bid);
+        }
         return false;
       }
       throw error;

@@ -721,6 +721,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                     tts_emotion:
                         type: string
                         description: TTS emotion setting
+                    touch_revision:
+                        type: boolean
+                        description: force bump draft revision
         responses:
             200:
                 description: save shifu detail success
@@ -761,6 +764,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         use_learner_language = json_data.get("use_learner_language", False)
         if isinstance(use_learner_language, str):
             use_learner_language = use_learner_language.lower() == "true"
+        touch_revision = json_data.get("touch_revision", False)
+        if isinstance(touch_revision, str):
+            touch_revision = touch_revision.lower() == "true"
         base_url = _get_request_base_url()
         return make_common_response(
             save_shifu_draft_info(
@@ -784,7 +790,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 tts_pitch=tts_pitch,
                 tts_emotion=tts_emotion,
                 use_learner_language=use_learner_language,
-                touch_revision=True,
+                touch_revision=bool(touch_revision),
             )
         )
 

@@ -1164,6 +1164,7 @@ export default function ShifuSettingDialog({
       try {
         const providerForSubmit =
           resolvedProvider || ttsConfig?.providers?.[0]?.name || '';
+        const shouldTouchRevision = saveType === 'manual' && isDirty;
 
         if (ttsEnabled && !providerForSubmit) {
           if (!ttsProviderToastShownRef.current && saveType === 'manual') {
@@ -1197,6 +1198,7 @@ export default function ShifuSettingDialog({
           tts_emotion: ttsEmotion,
           // Language Output Configuration
           use_learner_language: useLearnerLanguage,
+          touch_revision: shouldTouchRevision,
         };
         await api.saveShifuDetail({
           ...payload,
@@ -1242,6 +1244,7 @@ export default function ShifuSettingDialog({
       useLearnerLanguage,
       actions,
       currentUserId,
+      isDirty,
       toast,
       t,
     ],

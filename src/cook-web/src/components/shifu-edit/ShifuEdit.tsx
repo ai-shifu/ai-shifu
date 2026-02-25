@@ -342,6 +342,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
       return;
     }
     const meta = await actionsRef.current.loadDraftMeta(shifuBid);
+    if (currentShifuBidRef.current !== shifuBid) {
+      return;
+    }
     if (!meta) {
       return;
     }
