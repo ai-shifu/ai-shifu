@@ -24,7 +24,9 @@ def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
     with app.app_context():
         outline_item = (
             DraftOutlineItem.query.filter(
-                DraftOutlineItem.outline_item_bid == outline_bid
+                DraftOutlineItem.outline_item_bid == outline_bid,
+                DraftOutlineItem.shifu_bid == shifu_bid,
+                DraftOutlineItem.deleted == 0,
             )
             .order_by(DraftOutlineItem.id.desc())
             .first()
@@ -43,7 +45,9 @@ def save_shifu_mdflow(
     with app.app_context():
         outline_item: DraftOutlineItem = (
             DraftOutlineItem.query.filter(
-                DraftOutlineItem.outline_item_bid == outline_bid
+                DraftOutlineItem.outline_item_bid == outline_bid,
+                DraftOutlineItem.shifu_bid == shifu_bid,
+                DraftOutlineItem.deleted == 0,
             )
             .order_by(DraftOutlineItem.id.desc())
             .first()
@@ -103,7 +107,9 @@ def parse_shifu_mdflow(
     with app.app_context():
         outline_item = (
             DraftOutlineItem.query.filter(
-                DraftOutlineItem.outline_item_bid == outline_bid
+                DraftOutlineItem.outline_item_bid == outline_bid,
+                DraftOutlineItem.shifu_bid == shifu_bid,
+                DraftOutlineItem.deleted == 0,
             )
             .order_by(DraftOutlineItem.id.desc())
             .first()
