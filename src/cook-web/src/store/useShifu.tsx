@@ -22,6 +22,8 @@ import api from '@/api';
 import { debounce } from 'lodash';
 import { normalizeShifuDetail } from '@/lib/shifu-normalize';
 import { ErrorWithCode } from '@/lib/request';
+import i18n from '@/i18n';
+import { toast } from '@/hooks/useToast';
 import {
   createContext,
   ReactElement,
@@ -215,6 +217,7 @@ export const ShifuProvider = ({
     inflight: false,
     outlineId: null,
   });
+  const draftMetaFailureAtRef = useRef<number | null>(null);
   const mdflowRequestRef = useRef<{ id: number; outlineId: string | null }>({
     id: 0,
     outlineId: null,
@@ -1732,10 +1735,25 @@ export const ShifuProvider = ({
       let resolvedBaseRevision =
         payload?.base_revision ?? baseRevision ?? undefined;
       if (resolvedBaseRevision === undefined && shifu_bid) {
+        const now = Date.now();
+        if (
+          draftMetaFailureAtRef.current &&
+          now - draftMetaFailureAtRef.current < 10000
+        ) {
+          return false;
+        }
         const meta = await loadDraftMeta(shifu_bid);
         if (meta && typeof meta.revision === 'number') {
           resolvedBaseRevision = meta.revision;
           setBaseRevision(meta.revision);
+          draftMetaFailureAtRef.current = null;
+        } else {
+          draftMetaFailureAtRef.current = now;
+          toast({
+            title: i18n.t('common.core.networkError'),
+            variant: 'destructive',
+          });
+          return false;
         }
       }
       const requestPayload: SaveMdflowPayload = {

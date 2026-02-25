@@ -353,9 +353,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     const currentUser = currentUserIdRef.current;
     if (
       meta.revision > baseValue &&
-      updatedUser &&
-      currentUser &&
-      updatedUser !== currentUser
+      (!updatedUser || !currentUser || updatedUser !== currentUser)
     ) {
       markDraftConflict(meta);
     }
