@@ -37,6 +37,7 @@ const ListenModeRenderer = ({
   onRequestAudioForBlock,
   onSend,
 }: ListenModeRendererProps) => {
+  const isAudioDebugEnabled = process.env.NODE_ENV !== 'production';
   const deckRef = useRef<Reveal.Api | null>(null);
   const currentPptPageRef = useRef<number>(0);
   const activeBlockBidRef = useRef<string | null>(null);
@@ -205,6 +206,49 @@ const ListenModeRenderer = ({
     [audioAndInteractionList],
   );
 
+  const rendererAudioListDebug = useMemo(
+    () =>
+      audioList.map((item, index) => ({
+        index,
+        page: item.page,
+        generatedBlockBid: item.generated_block_bid ?? null,
+        sourceGeneratedBlockBid: item.sourceGeneratedBlockBid ?? null,
+        sequenceKind: item.sequenceKind,
+        audioPosition: item.audioPosition ?? null,
+        listenSlideId: item.listenSlideId ?? null,
+        hasAudioUrl: Boolean(item.audioUrl),
+        isAudioStreaming: Boolean(item.isAudioStreaming),
+        audioSegments: item.audioSegments?.length ?? 0,
+        audioTracks: item.audioTracks?.length ?? 0,
+      })),
+    [audioList],
+  );
+
+  const rendererSlideListDebug = useMemo(() => {
+    let pageCursor = 0;
+    const slideList: Array<Record<string, any>> = [];
+
+    slideItems.forEach((slideItem, slideIndex) => {
+      slideItem.segments.forEach((segment, segmentIndex) => {
+        const page = pageCursor + segmentIndex;
+        const interaction = interactionByPage.get(page);
+        slideList.push({
+          page,
+          slideIndex,
+          segmentIndex,
+          segmentType: segment.type,
+          blockBid: slideItem.item.generated_block_bid ?? null,
+          interactionBid: interaction?.generated_block_bid ?? null,
+          interactionType: interaction?.type ?? null,
+          interactionParentBid: interaction?.parent_block_bid ?? null,
+        });
+      });
+      pageCursor += slideItem.segments.length;
+    });
+
+    return slideList;
+  }, [interactionByPage, slideItems]);
+
   const onPrev = useCallback(() => {
     const nextPage = goPrev();
     if (typeof nextPage === 'number') {
@@ -263,6 +307,32 @@ const ListenModeRenderer = ({
   const interactionReadonly = listenPlayerInteraction
     ? !isLatestInteractionEditable
     : true;
+
+  useEffect(() => {
+    if (!isAudioDebugEnabled) {
+      return;
+    }
+    console.log('[listen-audio-debug] listen-renderer-current-audio-list', {
+      total: rendererAudioListDebug.length,
+      list: rendererAudioListDebug,
+      activeSequenceBlockBid,
+      activeAudioBlockBid,
+      isAudioSequenceActive,
+      audioSequenceToken,
+    });
+    console.log('[listen-audio-debug] listen-renderer-current-slide-list', {
+      total: rendererSlideListDebug.length,
+      list: rendererSlideListDebug,
+    });
+  }, [
+    activeAudioBlockBid,
+    activeSequenceBlockBid,
+    audioSequenceToken,
+    isAudioDebugEnabled,
+    isAudioSequenceActive,
+    rendererAudioListDebug,
+    rendererSlideListDebug,
+  ]);
 
   useEffect(() => {
     // console.log('listen-render-state', {

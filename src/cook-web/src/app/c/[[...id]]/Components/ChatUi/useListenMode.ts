@@ -53,6 +53,18 @@ const sortSegmentsByIndex = (segments: AudioSegment[] = []) =>
     (a, b) => Number(a.segmentIndex ?? 0) - Number(b.segmentIndex ?? 0),
   );
 
+const dedupeAudioSegments = (segments: AudioSegment[] = []) => {
+  const mapping = new Map<string, AudioSegment>();
+  segments.forEach(segment => {
+    const position = Number(segment.position ?? 0);
+    const segmentIndex = Number(segment.segmentIndex ?? 0);
+    const dedupeKey = `${position}:${segmentIndex}`;
+    // Keep the latest segment payload for the same position/index pair.
+    mapping.set(dedupeKey, segment);
+  });
+  return sortSegmentsByIndex(Array.from(mapping.values()));
+};
+
 const normalizeAudioTracks = (item: ChatContentItem): AudioTrack[] => {
   const trackByPosition = new Map<number, AudioTrack>();
 
@@ -61,7 +73,7 @@ const normalizeAudioTracks = (item: ChatContentItem): AudioTrack[] => {
     trackByPosition.set(position, {
       ...track,
       position,
-      audioSegments: sortSegmentsByIndex(track.audioSegments ?? []),
+      audioSegments: dedupeAudioSegments(track.audioSegments ?? []),
     });
   });
 
@@ -72,7 +84,7 @@ const normalizeAudioTracks = (item: ChatContentItem): AudioTrack[] => {
       isAudioStreaming: Boolean(item.isAudioStreaming),
       audioSegments: [],
     };
-    current.audioSegments = sortSegmentsByIndex([
+    current.audioSegments = dedupeAudioSegments([
       ...(current.audioSegments ?? []),
       segment,
     ]);
@@ -94,7 +106,7 @@ const normalizeAudioTracks = (item: ChatContentItem): AudioTrack[] => {
         audioUrl: item.audioUrl,
         durationMs: item.audioDurationMs,
         isAudioStreaming: Boolean(item.isAudioStreaming),
-        audioSegments: sortSegmentsByIndex(item.audioSegments ?? []),
+        audioSegments: dedupeAudioSegments(item.audioSegments ?? []),
       });
     }
   }
@@ -204,6 +216,8 @@ const buildSlidePageMapping = (
 };
 
 export const useListenContentData = (items: ChatContentItem[]) => {
+  const isAudioDebugEnabled = process.env.NODE_ENV !== 'production';
+
   const orderedContentBlockBids = useMemo(() => {
     const seen = new Set<string>();
     const bids: string[] = [];
@@ -376,6 +390,116 @@ export const useListenContentData = (items: ChatContentItem[]) => {
     }
     return null;
   }, [items]);
+
+  const audioSequenceDebugList = useMemo(
+    () =>
+      audioAndInteractionList.map((entry, index) => ({
+        index,
+        page: entry.page,
+        type: entry.type,
+        sequenceKind: entry.sequenceKind,
+        generatedBlockBid: entry.generated_block_bid ?? null,
+        sourceGeneratedBlockBid: entry.sourceGeneratedBlockBid ?? null,
+        audioPosition: entry.audioPosition ?? null,
+        listenSlideId: entry.listenSlideId ?? null,
+        hasAudioUrl: Boolean(entry.audioUrl),
+        isAudioStreaming: Boolean(entry.isAudioStreaming),
+        audioSegments: entry.audioSegments?.length ?? 0,
+        audioTracks: entry.audioTracks?.length ?? 0,
+      })),
+    [audioAndInteractionList],
+  );
+
+  const audioOnlyDebugList = useMemo(
+    () =>
+      audioAndInteractionList
+        .filter(item => item.type === ChatContentItemType.CONTENT)
+        .map((entry, index) => ({
+          index,
+          page: entry.page,
+          generatedBlockBid: entry.generated_block_bid ?? null,
+          sourceGeneratedBlockBid: entry.sourceGeneratedBlockBid ?? null,
+          audioPosition: entry.audioPosition ?? null,
+          listenSlideId: entry.listenSlideId ?? null,
+          hasAudioUrl: Boolean(entry.audioUrl),
+          isAudioStreaming: Boolean(entry.isAudioStreaming),
+          audioSegments: entry.audioSegments?.length ?? 0,
+          audioTracks: entry.audioTracks?.length ?? 0,
+        })),
+    [audioAndInteractionList],
+  );
+
+  const interactionPageDebugList = useMemo(
+    () =>
+      [...interactionByPage.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([page, interaction]) => ({
+          page,
+          generatedBlockBid: interaction.generated_block_bid ?? null,
+          parentBlockBid: interaction.parent_block_bid ?? null,
+          type: interaction.type,
+          hasContent: Boolean(interaction.content),
+          isHistory: Boolean(interaction.isHistory),
+        })),
+    [interactionByPage],
+  );
+
+  const slideListWithInteractionDebugList = useMemo(() => {
+    let pageCursor = 0;
+    const pageList: Array<Record<string, any>> = [];
+
+    slideItems.forEach((slideItem, slideIndex) => {
+      slideItem.segments.forEach((segment, segmentIndex) => {
+        const page = pageCursor + segmentIndex;
+        const interaction = interactionByPage.get(page);
+        pageList.push({
+          page,
+          slideIndex,
+          segmentIndex,
+          segmentType: segment.type,
+          blockBid: slideItem.item.generated_block_bid ?? null,
+          interactionBid: interaction?.generated_block_bid ?? null,
+          interactionType: interaction?.type ?? null,
+          interactionParentBid: interaction?.parent_block_bid ?? null,
+        });
+      });
+      pageCursor += slideItem.segments.length;
+    });
+
+    return pageList;
+  }, [interactionByPage, slideItems]);
+
+  useEffect(() => {
+    if (!isAudioDebugEnabled) {
+      return;
+    }
+
+    console.log('[listen-audio-debug] listen-content-audio-sequence-list', {
+      total: audioSequenceDebugList.length,
+      audioCount: audioOnlyDebugList.length,
+      interactionCount: interactionPageDebugList.length,
+      list: audioSequenceDebugList,
+    });
+
+    console.log('[listen-audio-debug] listen-content-audio-only-list', {
+      total: audioOnlyDebugList.length,
+      list: audioOnlyDebugList,
+    });
+
+    console.log('[listen-audio-debug] listen-content-slide-list', {
+      slideItems: slideItems.length,
+      totalPages: slideListWithInteractionDebugList.length,
+      list: slideListWithInteractionDebugList,
+      interactionList: interactionPageDebugList,
+    });
+  }, [
+    audioOnlyDebugList,
+    audioSequenceDebugList,
+    interactionPageDebugList,
+    isAudioDebugEnabled,
+    slideItems.length,
+    slideListWithInteractionDebugList,
+  ]);
 
   return {
     orderedContentBlockBids,
