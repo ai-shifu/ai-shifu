@@ -34,9 +34,9 @@ import {
   streamGeneratedBlockAudio,
 } from '@/c-api/studyV2';
 import {
+  getAudioTrackByPosition,
   upsertAudioComplete,
   upsertAudioSegment,
-  type AudioSegment,
   type AudioTrack,
 } from '@/c-utils/audio-utils';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
@@ -95,7 +95,6 @@ export interface ChatContentItem {
   variables?: PreviewVariablesMap;
   // Audio properties for TTS
   audioUrl?: string;
-  audioSegments?: AudioSegment[];
   audioTracks?: AudioTrack[];
   isAudioStreaming?: boolean;
   audioDurationMs?: number;
@@ -1533,17 +1532,20 @@ function useChatLogicHook({
       const existingItem = contentListRef.current.find(
         item => item.generated_block_bid === generatedBlockBid,
       );
-      if (existingItem?.audioUrl && !existingItem.isAudioStreaming) {
+      const cachedTrack = getAudioTrackByPosition(
+        existingItem?.audioTracks ?? [],
+      );
+      if (cachedTrack?.audioUrl && !cachedTrack.isAudioStreaming) {
         logAudioDebug('tts-request-hit-cache', {
           generatedBlockBid,
-          hasAudioUrl: Boolean(existingItem?.audioUrl),
-          isAudioStreaming: Boolean(existingItem?.isAudioStreaming),
+          hasAudioUrl: Boolean(cachedTrack?.audioUrl),
+          isAudioStreaming: Boolean(cachedTrack?.isAudioStreaming),
           audioTracks: existingItem?.audioTracks?.length ?? 0,
         });
         return {
-          audio_url: existingItem.audioUrl,
+          audio_url: cachedTrack.audioUrl,
           audio_bid: '',
-          duration_ms: existingItem.audioDurationMs ?? 0,
+          duration_ms: cachedTrack.durationMs ?? 0,
         };
       }
 
@@ -1569,7 +1571,6 @@ function useChatLogicHook({
 
           return {
             ...item,
-            audioSegments: [],
             audioTracks: [],
             audioUrl: undefined,
             audioDurationMs: undefined,

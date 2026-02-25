@@ -30,6 +30,15 @@ export interface AudioItem {
 }
 
 type EnsureItem<T> = (items: T[], blockId: string) => T[];
+type SegmentKeyParams = {
+  segmentIndex: number;
+  position?: number | null;
+};
+
+const DEFAULT_AUDIO_POSITION = 0;
+
+const normalizeAudioPosition = (position?: number | null) =>
+  Number(position ?? DEFAULT_AUDIO_POSITION);
 
 const logAudioUtilsDebug = (event: string, payload?: Record<string, any>) => {
   if (process.env.NODE_ENV === 'production') {
@@ -37,6 +46,54 @@ const logAudioUtilsDebug = (event: string, payload?: Record<string, any>) => {
   }
   console.log(`[listen-audio-debug] ${event}`, payload ?? {});
 };
+
+export const sortAudioTracksByPosition = <T extends { position?: number }>(
+  tracks: T[] = [],
+) =>
+  [...tracks].sort(
+    (a, b) => normalizeAudioPosition(a.position) - normalizeAudioPosition(b.position),
+  );
+
+export const sortAudioSegmentsByIndex = <T extends { segmentIndex: number }>(
+  segments: T[] = [],
+) => [...segments].sort((a, b) => a.segmentIndex - b.segmentIndex);
+
+export const getAudioTrackByPosition = <T extends { position?: number }>(
+  tracks: T[] = [],
+  position: number = DEFAULT_AUDIO_POSITION,
+): T | null => {
+  if (!tracks.length) {
+    return null;
+  }
+  const normalizedPosition = normalizeAudioPosition(position);
+  const orderedTracks = sortAudioTracksByPosition(tracks);
+  return (
+    orderedTracks.find(
+      track => normalizeAudioPosition(track.position) === normalizedPosition,
+    ) ?? orderedTracks[0]
+  );
+};
+
+export const hasAudioContentInTrack = (
+  track?: Pick<AudioTrack, 'audioUrl' | 'isAudioStreaming' | 'audioSegments'> | null,
+) =>
+  Boolean(
+    track?.audioUrl ||
+      track?.isAudioStreaming ||
+      (track?.audioSegments && track.audioSegments.length > 0),
+  );
+
+export const hasAudioContentInTracks = (
+  tracks: Array<
+    Pick<AudioTrack, 'audioUrl' | 'isAudioStreaming' | 'audioSegments'>
+  > = [],
+) => tracks.some(track => hasAudioContentInTrack(track));
+
+export const buildAudioSegmentUniqueKey = (
+  blockId: string,
+  params: SegmentKeyParams,
+) =>
+  `${blockId}:${normalizeAudioPosition(params.position)}:${params.segmentIndex}`;
 
 export interface AudioSegmentPayload {
   segment_index?: number;
@@ -80,71 +137,152 @@ const toAudioSegment = (segment: AudioSegmentData): AudioSegment => ({
   audioData: segment.audio_data,
   durationMs: segment.duration_ms,
   isFinal: segment.is_final,
-  position: segment.position,
+  position: normalizeAudioPosition(segment.position),
   slideId: segment.slide_id,
   avContract: segment.av_contract ?? null,
 });
 
-export const mergeAudioSegment = (
+export const mergeAudioSegmentByUniqueKey = (
+  blockId: string,
   segments: AudioSegment[],
   incoming: AudioSegment,
 ): AudioSegment[] => {
+  const incomingKey = buildAudioSegmentUniqueKey(blockId, incoming);
   const isDuplicated = segments.some(
-    segment =>
-      segment.segmentIndex === incoming.segmentIndex &&
-      (segment.position ?? 0) === (incoming.position ?? 0),
+    segment => buildAudioSegmentUniqueKey(blockId, segment) === incomingKey,
   );
   if (isDuplicated) {
     logAudioUtilsDebug('audio-utils-segment-deduped', {
+      blockId,
+      dedupeKey: incomingKey,
       segmentIndex: incoming.segmentIndex,
-      position: incoming.position ?? 0,
+      position: normalizeAudioPosition(incoming.position),
       existingSegments: segments.length,
     });
     return segments;
   }
-  return [...segments, incoming].sort(
-    (a, b) =>
-      (a.position ?? 0) - (b.position ?? 0) || a.segmentIndex - b.segmentIndex,
-  );
+  return sortAudioSegmentsByIndex([...segments, incoming]);
 };
 
 const upsertAudioTrackSegment = (
+  blockId: string,
   tracks: AudioTrack[],
   incoming: AudioSegment,
 ): AudioTrack[] => {
-  const nextTracks = [...tracks];
-  const position = incoming.position ?? 0;
-  const targetIndex = nextTracks.findIndex(
-    track => (track.position ?? 0) === position,
+  const position = normalizeAudioPosition(incoming.position);
+  const targetIndex = tracks.findIndex(
+    track => normalizeAudioPosition(track.position) === position,
   );
-  const currentTrack: AudioTrack =
-    targetIndex >= 0
-      ? { ...nextTracks[targetIndex] }
-      : {
-          position,
-          audioSegments: [],
-          isAudioStreaming: true,
-        };
-
-  currentTrack.audioSegments = mergeAudioSegment(
-    currentTrack.audioSegments ?? [],
+  const existingTrack = targetIndex >= 0 ? tracks[targetIndex] : undefined;
+  const existingSegments = existingTrack?.audioSegments ?? [];
+  const nextSegments = mergeAudioSegmentByUniqueKey(
+    blockId,
+    existingSegments,
     incoming,
   );
+  const nextStreaming = !incoming.isFinal;
+
+  const hasNoChanges =
+    existingTrack &&
+    nextSegments === existingSegments &&
+    existingTrack.isAudioStreaming === nextStreaming &&
+    (!incoming.slideId || existingTrack.slideId === incoming.slideId) &&
+    (!incoming.avContract || existingTrack.avContract === incoming.avContract);
+  if (hasNoChanges) {
+    return tracks;
+  }
+
+  const nextTrack: AudioTrack = existingTrack
+    ? { ...existingTrack }
+    : {
+        position,
+        audioSegments: [],
+        isAudioStreaming: true,
+      };
+
+  nextTrack.position = position;
+  nextTrack.audioSegments = nextSegments;
+  nextTrack.isAudioStreaming = nextStreaming;
   if (incoming.slideId) {
-    currentTrack.slideId = incoming.slideId;
+    nextTrack.slideId = incoming.slideId;
   }
   if (incoming.avContract) {
-    currentTrack.avContract = incoming.avContract;
+    nextTrack.avContract = incoming.avContract;
   }
-  currentTrack.isAudioStreaming = !incoming.isFinal;
 
   if (targetIndex >= 0) {
-    nextTracks[targetIndex] = currentTrack;
-  } else {
-    nextTracks.push(currentTrack);
+    const nextTracks = [...tracks];
+    nextTracks[targetIndex] = nextTrack;
+    return sortAudioTracksByPosition(nextTracks);
+  }
+  return sortAudioTracksByPosition([...tracks, nextTrack]);
+};
+
+const normalizeTrackForUpsert = (
+  complete: Partial<AudioCompleteData>,
+): {
+  position: number;
+  slideId?: string;
+  avContract?: Record<string, any> | null;
+} => {
+  const parsedPosition =
+    complete.position === undefined || complete.position === null
+      ? NaN
+      : Number(complete.position);
+  return {
+    position: Number.isFinite(parsedPosition)
+      ? parsedPosition
+      : DEFAULT_AUDIO_POSITION,
+    slideId: complete.slide_id ?? undefined,
+    avContract: complete.av_contract ?? null,
+  };
+};
+
+const upsertAudioTrackComplete = (
+  tracks: AudioTrack[],
+  complete: Partial<AudioCompleteData>,
+): AudioTrack[] => {
+  const { position, slideId, avContract } = normalizeTrackForUpsert(complete);
+  const targetIndex = tracks.findIndex(
+    track => normalizeAudioPosition(track.position) === position,
+  );
+  const existingTrack = targetIndex >= 0 ? tracks[targetIndex] : undefined;
+  const hasNoChanges =
+    existingTrack &&
+    existingTrack.audioUrl === (complete.audio_url ?? existingTrack.audioUrl) &&
+    existingTrack.durationMs ===
+      (complete.duration_ms ?? existingTrack.durationMs) &&
+    existingTrack.isAudioStreaming === false &&
+    (!slideId || existingTrack.slideId === slideId) &&
+    (!avContract || existingTrack.avContract === avContract);
+  if (hasNoChanges) {
+    return tracks;
   }
 
-  return nextTracks.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  const nextTrack: AudioTrack = existingTrack
+    ? { ...existingTrack }
+    : {
+        position,
+        audioSegments: [],
+        isAudioStreaming: false,
+      };
+  nextTrack.position = position;
+  nextTrack.audioUrl = complete.audio_url ?? nextTrack.audioUrl;
+  nextTrack.durationMs = complete.duration_ms ?? nextTrack.durationMs;
+  nextTrack.isAudioStreaming = false;
+  if (slideId) {
+    nextTrack.slideId = slideId;
+  }
+  if (avContract) {
+    nextTrack.avContract = avContract;
+  }
+
+  if (targetIndex >= 0) {
+    const nextTracks = [...tracks];
+    nextTracks[targetIndex] = nextTrack;
+    return sortAudioTracksByPosition(nextTracks);
+  }
+  return sortAudioTracksByPosition([...tracks, nextTrack]);
 };
 
 export const upsertAudioSegment = <T extends AudioItem>(
@@ -161,28 +299,22 @@ export const upsertAudioSegment = <T extends AudioItem>(
       return item;
     }
 
-    const existingSegments = item.audioSegments || [];
-    const updatedSegments = mergeAudioSegment(existingSegments, mappedSegment);
+    const existingTracks = item.audioTracks ?? [];
     const updatedTracks = upsertAudioTrackSegment(
-      item.audioTracks ?? [],
+      blockId,
+      existingTracks,
       mappedSegment,
     );
     const hasStreamingTrack = updatedTracks.some(
       track => track.isAudioStreaming,
     );
 
-    const hasNoChanges =
-      updatedSegments === existingSegments &&
-      updatedTracks.length === (item.audioTracks ?? []).length &&
-      updatedTracks.every(
-        (track, index) => track === (item.audioTracks ?? [])[index],
-      );
+    const hasNoChanges = updatedTracks === existingTracks;
     logAudioUtilsDebug('audio-utils-upsert-segment', {
       blockId,
       segmentIndex: mappedSegment.segmentIndex,
-      position: mappedSegment.position ?? 0,
-      existingSegments: existingSegments.length,
-      mergedSegments: updatedSegments.length,
+      dedupeKey: buildAudioSegmentUniqueKey(blockId, mappedSegment),
+      position: normalizeAudioPosition(mappedSegment.position),
       existingTracks: item.audioTracks?.length ?? 0,
       mergedTracks: updatedTracks.length,
       hasNoChanges,
@@ -194,7 +326,6 @@ export const upsertAudioSegment = <T extends AudioItem>(
 
     return {
       ...item,
-      audioSegments: updatedSegments,
       audioTracks: updatedTracks,
       isAudioStreaming: hasStreamingTrack || !mappedSegment.isFinal,
     };
@@ -208,71 +339,42 @@ export const upsertAudioComplete = <T extends AudioItem>(
   ensureItem?: EnsureItem<T>,
 ): T[] => {
   const nextItems = ensureItem ? ensureItem(items, blockId) : items;
-  const position =
-    complete.position === undefined || complete.position === null
-      ? null
-      : Number(complete.position);
 
   return nextItems.map(item => {
     if (item.generated_block_bid !== blockId) {
       return item;
     }
 
-    if (position !== null && Number.isFinite(position)) {
-      const nextTracks = [...(item.audioTracks ?? [])];
-      const targetIndex = nextTracks.findIndex(
-        track => (track.position ?? 0) === position,
-      );
-      const currentTrack: AudioTrack =
-        targetIndex >= 0
-          ? { ...nextTracks[targetIndex] }
-          : {
-              position,
-              audioSegments: [],
-              isAudioStreaming: false,
-            };
-
-      currentTrack.audioUrl = complete.audio_url ?? currentTrack.audioUrl;
-      currentTrack.durationMs = complete.duration_ms ?? currentTrack.durationMs;
-      currentTrack.isAudioStreaming = false;
-      if (complete.slide_id) {
-        currentTrack.slideId = complete.slide_id;
-      }
-      if (complete.av_contract) {
-        currentTrack.avContract = complete.av_contract;
-      }
-
-      if (targetIndex >= 0) {
-        nextTracks[targetIndex] = currentTrack;
-      } else {
-        nextTracks.push(currentTrack);
-      }
-      nextTracks.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-      logAudioUtilsDebug('audio-utils-upsert-complete', {
-        blockId,
-        position,
-        trackIndex: targetIndex,
-        hasAudioUrl: Boolean(currentTrack.audioUrl),
-        durationMs: currentTrack.durationMs ?? 0,
-        trackCount: nextTracks.length,
-      });
-
-      const singleTrack = nextTracks.length === 1 ? nextTracks[0] : null;
-
-      return {
-        ...item,
-        audioTracks: nextTracks,
-        audioUrl: singleTrack?.audioUrl,
-        audioDurationMs: singleTrack?.durationMs,
-        isAudioStreaming: nextTracks.some(track => track.isAudioStreaming),
-      };
+    const existingTracks = item.audioTracks ?? [];
+    const nextTracks = upsertAudioTrackComplete(existingTracks, complete);
+    const { position } = normalizeTrackForUpsert(complete);
+    const targetTrack =
+      getAudioTrackByPosition(nextTracks, position) ??
+      getAudioTrackByPosition(nextTracks);
+    const nextIsAudioStreaming = nextTracks.some(track => track.isAudioStreaming);
+    const hasNoChanges =
+      nextTracks === existingTracks &&
+      item.audioUrl === targetTrack?.audioUrl &&
+      item.audioDurationMs === targetTrack?.durationMs &&
+      Boolean(item.isAudioStreaming) === Boolean(nextIsAudioStreaming);
+    logAudioUtilsDebug('audio-utils-upsert-complete', {
+      blockId,
+      position,
+      hasAudioUrl: Boolean(targetTrack?.audioUrl),
+      durationMs: targetTrack?.durationMs ?? 0,
+      trackCount: nextTracks.length,
+      hasNoChanges,
+    });
+    if (hasNoChanges) {
+      return item;
     }
 
     return {
       ...item,
-      audioUrl: complete.audio_url ?? undefined,
-      audioDurationMs: complete.duration_ms,
-      isAudioStreaming: false,
+      audioTracks: nextTracks,
+      audioUrl: targetTrack?.audioUrl,
+      audioDurationMs: targetTrack?.durationMs,
+      isAudioStreaming: nextIsAudioStreaming,
     };
   });
 };

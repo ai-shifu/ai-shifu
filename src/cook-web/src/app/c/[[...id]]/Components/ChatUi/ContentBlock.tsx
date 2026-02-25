@@ -6,6 +6,10 @@ import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { cn } from '@/lib/utils';
 import type { ChatContentItem } from './useChatLogicHook';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import {
+  getAudioTrackByPosition,
+  hasAudioContentInTrack,
+} from '@/c-utils/audio-utils';
 
 interface ContentBlockProps {
   item: ChatContentItem;
@@ -64,11 +68,8 @@ const ContentBlock = memo(
       [onSend, blockBid],
     );
 
-    const hasAudioContent = Boolean(
-      item.isAudioStreaming ||
-      (item.audioSegments && item.audioSegments.length > 0) ||
-      item.audioUrl,
-    );
+    const primaryTrack = getAudioTrackByPosition(item.audioTracks ?? []);
+    const hasAudioContent = Boolean(hasAudioContentInTrack(primaryTrack));
     const shouldShowAudioAction = Boolean(showAudioAction);
 
     return (
@@ -93,9 +94,9 @@ const ContentBlock = memo(
         {mobileStyle && hasAudioContent && shouldShowAudioAction ? (
           <div className='mt-2 flex justify-end'>
             <AudioPlayer
-              audioUrl={item.audioUrl}
-              streamingSegments={item.audioSegments}
-              isStreaming={Boolean(item.isAudioStreaming)}
+              audioUrl={primaryTrack?.audioUrl}
+              streamingSegments={primaryTrack?.audioSegments}
+              isStreaming={Boolean(primaryTrack?.isAudioStreaming)}
               autoPlay={autoPlayAudio}
               onPlayStateChange={
                 onAudioPlayStateChange
@@ -111,6 +112,12 @@ const ContentBlock = memo(
     );
   },
   (prevProps, nextProps) => {
+    const prevPrimaryTrack = getAudioTrackByPosition(
+      prevProps.item.audioTracks ?? [],
+    );
+    const nextPrimaryTrack = getAudioTrackByPosition(
+      nextProps.item.audioTracks ?? [],
+    );
     // Only re-render when content, layout, or i18n-driven button texts actually change
     return (
       prevProps.item.defaultButtonText === nextProps.item.defaultButtonText &&
@@ -130,11 +137,11 @@ const ContentBlock = memo(
       Boolean(prevProps.showAudioAction) ===
         Boolean(nextProps.showAudioAction) &&
       // Audio state (mobile only rendering)
-      (prevProps.item.audioUrl ?? '') === (nextProps.item.audioUrl ?? '') &&
-      Boolean(prevProps.item.isAudioStreaming) ===
-        Boolean(nextProps.item.isAudioStreaming) &&
-      (prevProps.item.audioSegments?.length ?? 0) ===
-        (nextProps.item.audioSegments?.length ?? 0)
+      (prevPrimaryTrack?.audioUrl ?? '') === (nextPrimaryTrack?.audioUrl ?? '') &&
+      Boolean(prevPrimaryTrack?.isAudioStreaming) ===
+        Boolean(nextPrimaryTrack?.isAudioStreaming) &&
+      (prevPrimaryTrack?.audioSegments?.length ?? 0) ===
+        (nextPrimaryTrack?.audioSegments?.length ?? 0)
     );
   },
 );

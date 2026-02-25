@@ -16,7 +16,11 @@ import {
   fixMarkdownStream,
   maskIncompleteMermaidBlock,
 } from '@/c-utils/markdownUtils';
-import { upsertAudioComplete, upsertAudioSegment } from '@/c-utils/audio-utils';
+import {
+  getAudioTrackByPosition,
+  upsertAudioComplete,
+  upsertAudioSegment,
+} from '@/c-utils/audio-utils';
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import { useShifu, useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
@@ -994,11 +998,14 @@ export function usePreviewChat() {
       const existingItem = contentListRef.current.find(
         item => item.generated_block_bid === blockId,
       );
-      if (existingItem?.audioUrl && !existingItem.isAudioStreaming) {
+      const cachedTrack = getAudioTrackByPosition(
+        existingItem?.audioTracks ?? [],
+      );
+      if (cachedTrack?.audioUrl && !cachedTrack.isAudioStreaming) {
         return {
-          audio_url: existingItem.audioUrl,
+          audio_url: cachedTrack.audioUrl,
           audio_bid: '',
-          duration_ms: existingItem.audioDurationMs ?? 0,
+          duration_ms: cachedTrack.durationMs ?? 0,
         };
       }
 
@@ -1014,7 +1021,7 @@ export function usePreviewChat() {
             }
             return {
               ...item,
-              audioSegments: [],
+              audioTracks: [],
               audioUrl: undefined,
               audioDurationMs: undefined,
               isAudioStreaming: true,
@@ -1022,7 +1029,7 @@ export function usePreviewChat() {
           }),
           blockId,
           {
-            audioSegments: [],
+            audioTracks: [],
             audioUrl: undefined,
             audioDurationMs: undefined,
             isAudioStreaming: true,
