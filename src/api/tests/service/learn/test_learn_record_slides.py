@@ -94,7 +94,8 @@ def test_get_learn_record_includes_slides_and_audio_slide_ids(app):
     assert result.slides is not None
     assert len(result.slides) == 2
     assert [slide.slide_index for slide in result.slides] == [0, 1]
-    assert result.slides[0].is_placeholder is True
+    assert result.slides[0].segment_type == "markdown"
+    assert result.slides[0].segment_content.startswith("Before")
     assert result.slides[1].visual_kind == "svg"
 
     assert len(result.records) == 1
