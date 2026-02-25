@@ -325,6 +325,7 @@ def save_shifu_draft_info(
     tts_pitch: int = 0,
     tts_emotion: str = "",
     use_learner_language: bool = False,
+    touch_revision: bool = False,
 ):
     """
     Save shifu draft info
@@ -349,6 +350,7 @@ def save_shifu_draft_info(
         tts_pitch: TTS pitch adjustment
         tts_emotion: TTS emotion setting
         use_learner_language: Whether to use learner's language for AI output
+        touch_revision: Whether to bump draft revision even if data unchanged
     Returns:
         ShifuDetailDto: Shifu detail dto
     """
@@ -383,6 +385,7 @@ def save_shifu_draft_info(
             raise_error_with_args(
                 "server.shifu.shifuPriceTooLow", min_shifu_price=min_shifu_price
             )
+        touched_revision = False
         if not shifu_draft:
             shifu_draft: DraftShifu = DraftShifu(
                 shifu_bid=shifu_id,
@@ -410,6 +413,7 @@ def save_shifu_draft_info(
             db.session.flush()
             save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
             db.session.commit()
+            touched_revision = True
         else:
             new_shifu_draft: DraftShifu = shifu_draft.clone()
             new_shifu_draft.title = shifu_name
@@ -443,6 +447,10 @@ def save_shifu_draft_info(
                 save_shifu_history(app, user_id, shifu_id, new_shifu_draft.id)
                 db.session.commit()
                 shifu_draft = new_shifu_draft
+                touched_revision = True
+        if touch_revision and not touched_revision and shifu_draft:
+            save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
+            db.session.commit()
         has_edit_permission = shifu_permission_verification(
             app, user_id, shifu_id, "edit"
         )

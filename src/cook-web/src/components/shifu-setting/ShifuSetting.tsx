@@ -180,7 +180,10 @@ export default function ShifuSettingDialog({
   const { t } = useTranslation();
   const { currentShifu, models, actions } = useShifu();
   const currentUser = useUserStore(state => state.userInfo);
-  const currentUserId = currentUser?.user_id || '';
+  const currentUserId = useMemo(
+    () => currentUser?.user_id || currentUser?.user_bid || '',
+    [currentUser],
+  );
   const { toast } = useToast();
   const defaultLlmModel = useEnvStore(state => state.defaultLlmModel);
   const currencySymbol = useEnvStore(state => state.currencySymbol);
@@ -1198,6 +1201,13 @@ export default function ShifuSettingDialog({
         await api.saveShifuDetail({
           ...payload,
         });
+        const meta = await actions.loadDraftMeta(shifuId);
+        if (meta && typeof meta.revision === 'number') {
+          const updatedUser = meta.updated_user?.user_bid || '';
+          if (!updatedUser || updatedUser === currentUserId) {
+            actions.setBaseRevision(meta.revision);
+          }
+        }
         trackEvent('creator_shifu_setting_save', {
           ...payload,
           save_type: saveType,
@@ -1230,6 +1240,8 @@ export default function ShifuSettingDialog({
       pitchValue,
       ttsEmotion,
       useLearnerLanguage,
+      actions,
+      currentUserId,
       toast,
       t,
     ],

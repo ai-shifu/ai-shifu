@@ -784,6 +784,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 tts_pitch=tts_pitch,
                 tts_emotion=tts_emotion,
                 use_learner_language=use_learner_language,
+                touch_revision=True,
             )
         )
 
