@@ -201,7 +201,9 @@ export const ShifuProvider = ({
   const [unusedVariables, setUnusedVariables] = useState<string[]>([]);
   const [hideUnusedMode, setHideUnusedMode] = useState(false);
   const [baseRevision, setBaseRevision] = useState<number | null>(null);
-  const [latestDraftMeta, setLatestDraftMeta] = useState<DraftMeta | null>(null);
+  const [latestDraftMeta, setLatestDraftMeta] = useState<DraftMeta | null>(
+    null,
+  );
   const [hasDraftConflict, setHasDraftConflict] = useState(false);
   const [autosavePaused, setAutosavePausedState] = useState(false);
   const currentMdflow = useRef<string>('');
@@ -536,23 +538,20 @@ export const ShifuProvider = ({
     }
   };
 
-  const loadDraftMeta = useCallback(
-    async (shifuId: string) => {
-      if (!shifuId) {
-        setLatestDraftMeta(null);
-        return null;
-      }
-      try {
-        const meta = await api.getShifuDraftMeta({ shifu_bid: shifuId });
-        setLatestDraftMeta(meta as DraftMeta);
-        return meta as DraftMeta;
-      } catch (error) {
-        console.error('Failed to load draft meta', error);
-        return null;
-      }
-    },
-    [],
-  );
+  const loadDraftMeta = useCallback(async (shifuId: string) => {
+    if (!shifuId) {
+      setLatestDraftMeta(null);
+      return null;
+    }
+    try {
+      const meta = await api.getShifuDraftMeta({ shifu_bid: shifuId });
+      setLatestDraftMeta(meta as DraftMeta);
+      return meta as DraftMeta;
+    } catch (error) {
+      console.error('Failed to load draft meta', error);
+      return null;
+    }
+  }, []);
 
   const loadChapters = async (shifuId: string) => {
     try {

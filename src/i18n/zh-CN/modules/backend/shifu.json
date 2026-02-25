@@ -3,6 +3,7 @@
   "__flat__": {
     "defaultChapterName": "未命名章",
     "defaultLessonName": "未命名节",
+    "draftConflict": "课程已被他人修改，请刷新后再保存",
     "importFileInvalid": "导入文件无效",
     "noPermission": "没有权限",
     "outlineDeleted": "大纲已被删除",
@@ -18,7 +19,6 @@
     "shifuNotFound": "课程不存在",
     "shifuPriceTooLow": "课程价格不能低于{min_shifu_price}元",
     "shifuStructNotFound": "课程结构不存在",
-    "draftConflict": "课程已被他人修改，请刷新后再保存",
     "ttsNotEnabled": "语音合成未开启",
     "unitNameTooLong": "单元名称过长",
     "unitNotFound": "单元不存在"

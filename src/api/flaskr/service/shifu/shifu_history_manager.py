@@ -125,7 +125,9 @@ def get_shifu_draft_meta(app: Flask, shifu_bid: str) -> dict:
             return {"revision": 0, "updated_at": None, "updated_user": None}
 
         user = (
-            UserInfo.query.filter_by(user_bid=latest.updated_user_bid, deleted=0).first()
+            UserInfo.query.filter_by(
+                user_bid=latest.updated_user_bid, deleted=0
+            ).first()
             if latest.updated_user_bid
             else None
         )

@@ -36,7 +36,9 @@ const DraftConflictDialog = ({
     >
       <DialogContent className='sm:max-w-md'>
         <DialogHeader>
-          <DialogTitle>{t('module.shifuSetting.draftConflictTitle')}</DialogTitle>
+          <DialogTitle>
+            {t('module.shifuSetting.draftConflictTitle')}
+          </DialogTitle>
         </DialogHeader>
         <div className='text-sm text-gray-600'>
           {t('module.shifuSetting.draftConflictDescription', {

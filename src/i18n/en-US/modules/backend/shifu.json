@@ -3,6 +3,7 @@
   "__flat__": {
     "defaultChapterName": "Untitled Chapter",
     "defaultLessonName": "Untitled Lesson",
+    "draftConflict": "Course has been updated by someone else. Please refresh and try again.",
     "importFileInvalid": "Import file is invalid",
     "noPermission": "No permission",
     "outlineDeleted": "Outline has been deleted",
@@ -18,7 +19,6 @@
     "shifuNotFound": "Course not found",
     "shifuPriceTooLow": "Course price is too low (min {min_shifu_price})",
     "shifuStructNotFound": "Course structure not found",
-    "draftConflict": "Course has been updated by someone else. Please refresh and try again.",
     "ttsNotEnabled": "Text-to-Speech is not enabled",
     "unitNameTooLong": "Unit name is too long",
     "unitNotFound": "Unit not found"
