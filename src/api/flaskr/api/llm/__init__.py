@@ -477,7 +477,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         reload_params=_reload_openai_params,
     ),
     ProviderConfig(
-        key="qwen",
+        key="dashscope",
         api_key_env="DASHSCOPE_API_KEY",
         base_url_env="DASHSCOPE_API_BASE",
         legacy_api_key_envs=("QWEN_API_KEY",),
@@ -521,7 +521,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         reload_params=_reload_gemini_params,
     ),
     ProviderConfig(
-        key="glm",
+        key="zai",
         api_key_env="ZAI_API_KEY",
         base_url_env="ZAI_API_BASE",
         legacy_api_key_envs=("BIGMODEL_API_KEY", "GLM_API_KEY"),
@@ -540,7 +540,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         reload_params=_reload_silicon_params,
     ),
     ProviderConfig(
-        key="ark",
+        key="volcengine",
         api_key_env="VOLCENGINE_API_KEY",
         base_url_env="VOLCENGINE_API_BASE",
         legacy_api_key_envs=("ARK_API_KEY",),

@@ -19,7 +19,7 @@ Source design: `docs/litellm-upgrade-standards-alignment-design.md`
 
 ## Phase 2 - LiteLLM Invocation and Model Canonicalization
 
-- [ ] Refactor `src/api/flaskr/api/llm/__init__.py` provider configs to LiteLLM-standard provider naming.
+- [x] Refactor `src/api/flaskr/api/llm/__init__.py` provider configs to LiteLLM-standard provider naming.
 - [ ] Introduce canonical model normalization (`qwen/* -> dashscope/*`, `glm/* -> zai/*`, `ark/* -> volcengine/*`, etc.).
 - [ ] Update provider resolution and alias map so both canonical and legacy model IDs resolve correctly.
 - [ ] Ensure `/api/llm/model-list` returns canonical LiteLLM-style model IDs.
