@@ -350,6 +350,22 @@ def _resolve_provider_for_model(model: str) -> Tuple[Optional[str], str]:
     return None, model
 
 
+def _normalize_requested_model(model: str) -> str:
+    normalized = (model or "").strip()
+    if not normalized:
+        return normalized
+    for legacy_prefix, canonical_prefix in LEGACY_MODEL_PREFIXES:
+        if normalized.startswith(legacy_prefix):
+            return canonical_prefix + normalized[len(legacy_prefix) :]
+    if "/" in normalized:
+        return normalized
+    if normalized.startswith("deepseek"):
+        return f"{DEEPSEEK_PREFIX}{normalized}"
+    if normalized.startswith("gemini-"):
+        return f"{GEMINI_PREFIX}{normalized}"
+    return normalized
+
+
 def _load_gemini_models(
     config: ProviderConfig, params: Dict[str, str], base_url: Optional[str]
 ) -> List[Union[str, Tuple[str, str]]]:
@@ -387,12 +403,19 @@ def _load_gemini_models(
     return models
 
 
-QWEN_PREFIX = "qwen/"
+DASHSCOPE_PREFIX = "dashscope/"
 ERNIE_V2_PREFIX = "ernie/"
-GLM_PREFIX = "glm/"
+ZAI_PREFIX = "zai/"
 SILICON_PREFIX = "silicon/"
-GEMINI_PREFIX = ""
+GEMINI_PREFIX = "gemini/"
+DEEPSEEK_PREFIX = "deepseek/"
+VOLCENGINE_PREFIX = "volcengine/"
 DEEPSEEK_EXTRA_MODELS = ["deepseek-chat"]
+LEGACY_MODEL_PREFIXES: Tuple[Tuple[str, str], ...] = (
+    ("qwen/", DASHSCOPE_PREFIX),
+    ("glm/", ZAI_PREFIX),
+    ("ark/", VOLCENGINE_PREFIX),
+)
 
 
 def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
@@ -422,6 +445,8 @@ def _reload_openai_params(model_id: str, temperature: float) -> Dict[str, Any]:
 
 
 def _reload_gemini_params(model_id: str, temperature: float) -> Dict[str, Any]:
+    if model_id.startswith(GEMINI_PREFIX):
+        model_id = model_id[len(GEMINI_PREFIX) :]
     if model_id.startswith("gemini-2.5-pro"):
         return {
             "reasoning_effort": "low",
@@ -483,7 +508,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         legacy_api_key_envs=("QWEN_API_KEY",),
         legacy_base_url_envs=("QWEN_API_URL",),
         default_base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-        prefix=QWEN_PREFIX,
+        prefix=DASHSCOPE_PREFIX,
         extra_models=["deepseek-r1", "deepseek-v3"],
         config_hint="DASHSCOPE_API_KEY,DASHSCOPE_API_BASE",
         custom_llm_provider="openai",
@@ -503,6 +528,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         base_url_env="DEEPSEEK_API_BASE",
         legacy_base_url_envs=("DEEPSEEK_API_URL",),
         default_base_url="https://api.deepseek.com",
+        prefix=DEEPSEEK_PREFIX,
         extra_models=DEEPSEEK_EXTRA_MODELS,
         config_hint="DEEPSEEK_API_KEY,DEEPSEEK_API_BASE",
         custom_llm_provider="openai",
@@ -514,7 +540,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         default_base_url=None,
         prefix=GEMINI_PREFIX,
         fetch_models=False,
-        wildcard_prefixes=("gemini-",),
+        wildcard_prefixes=(GEMINI_PREFIX, "gemini-"),
         config_hint="GEMINI_API_KEY,GEMINI_API_URL",
         custom_llm_provider="gemini",
         model_loader=_load_gemini_models,
@@ -526,7 +552,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         base_url_env="ZAI_API_BASE",
         legacy_api_key_envs=("BIGMODEL_API_KEY", "GLM_API_KEY"),
         default_base_url="https://api.z.ai/api/paas/v4",
-        prefix=GLM_PREFIX,
+        prefix=ZAI_PREFIX,
         config_hint="ZAI_API_KEY,ZAI_API_BASE",
         custom_llm_provider="openai",
     ),
@@ -545,7 +571,7 @@ LITELLM_PROVIDER_CONFIGS: List[ProviderConfig] = [
         base_url_env="VOLCENGINE_API_BASE",
         legacy_api_key_envs=("ARK_API_KEY",),
         default_base_url="https://ark.cn-beijing.volces.com/api/v3",
-        prefix="ark/",
+        prefix=VOLCENGINE_PREFIX,
         config_hint="VOLCENGINE_API_KEY,VOLCENGINE_API_BASE",
         custom_llm_provider="openai",
         reload_params=_reload_ark_params,
@@ -589,8 +615,9 @@ class LLMStreamResponse:
 
 
 def get_litellm_params_and_model(model: str):
-    requested_model = model
-    provider_key, invoke_model = _resolve_provider_for_model(model)
+    requested_model = (model or "").strip()
+    normalized_model = _normalize_requested_model(requested_model)
+    provider_key, invoke_model = _resolve_provider_for_model(normalized_model)
     if provider_key:
         state = PROVIDER_STATES.get(provider_key)
         params = state.params if state else None
@@ -604,7 +631,7 @@ def get_litellm_params_and_model(model: str):
                 ),
             )
         return params, invoke_model, reload_params
-    return None, model, None
+    return None, normalized_model, None
 
 
 def invoke_llm(
@@ -649,7 +676,9 @@ def invoke_llm(
     params, invoke_model, reload_params = get_litellm_params_and_model(model)
     start_completion_time = None
     if params:
-        provider_key, _normalized = _resolve_provider_for_model(model)
+        provider_key, _normalized = _resolve_provider_for_model(
+            _normalize_requested_model(model)
+        )
         provider_name = provider_key or ""
         messages = []
         if system:
@@ -827,7 +856,9 @@ def chat_llm(
     start_completion_time = None
     params, invoke_model, reload_params = get_litellm_params_and_model(model)
     if params:
-        provider_key, _normalized = _resolve_provider_for_model(model)
+        provider_key, _normalized = _resolve_provider_for_model(
+            _normalize_requested_model(model)
+        )
         provider_name = provider_key or ""
         if reload_params:
             kwargs.update(reload_params(model, float(kwargs.get("temperature", 0.3))))
