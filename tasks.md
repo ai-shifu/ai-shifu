@@ -14,7 +14,7 @@ Source design: `docs/litellm-upgrade-standards-alignment-design.md`
 - [x] Upgrade `litellm` in `src/api/requirements.txt` to latest stable (`1.81.11`).
 - [x] Add LiteLLM-standard env keys in `src/api/flaskr/common/config.py` (`DASHSCOPE_*`, `ZAI_*`, `VOLCENGINE_*`, `DEEPSEEK_API_BASE`).
 - [x] Add backward-compatible fallback resolution from legacy keys (`QWEN_*`, `BIGMODEL_API_KEY`, `GLM_API_KEY`, `ARK_API_KEY`, `DEEPSEEK_API_URL`).
-- [ ] Update config validation rules for "at least one LLM key configured" to include new standard keys.
+- [x] Update config validation rules for "at least one LLM key configured" to include new standard keys.
 - [ ] Regenerate env examples with `python scripts/generate_env_examples.py`.
 
 ## Phase 2 - LiteLLM Invocation and Model Canonicalization
