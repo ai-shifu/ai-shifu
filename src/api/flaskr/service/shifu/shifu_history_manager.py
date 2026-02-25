@@ -42,8 +42,10 @@ from pydantic import BaseModel
 from .models import LogDraftStruct
 from flaskr.dao import db
 from flaskr.util import generate_id
+from flaskr.service.user.models import UserInfo
 import queue
 from datetime import datetime
+import re
 
 T = TypeVar("T", bound="HistoryItem")
 
@@ -89,6 +91,58 @@ class HistoryInfo(BaseModel):
 
     bid: str
     id: int
+
+
+PHONE_PATTERN = re.compile(r"^\d{11}$")
+
+
+def _mask_phone_identifier(identifier: str) -> str:
+    """Mask phone identifiers to avoid exposing full numbers."""
+    normalized = str(identifier or "").strip()
+    if not normalized or not PHONE_PATTERN.fullmatch(normalized):
+        return ""
+    return f"{normalized[:3]}****{normalized[-4:]}"
+
+
+def _get_latest_draft_log(shifu_bid: str):
+    return (
+        LogDraftStruct.query.filter_by(shifu_bid=shifu_bid, deleted=0)
+        .order_by(LogDraftStruct.id.desc())
+        .first()
+    )
+
+
+def get_shifu_draft_revision(app: Flask, shifu_bid: str) -> int:
+    with app.app_context():
+        latest = _get_latest_draft_log(shifu_bid)
+        return latest.id if latest else 0
+
+
+def get_shifu_draft_meta(app: Flask, shifu_bid: str) -> dict:
+    with app.app_context():
+        latest = _get_latest_draft_log(shifu_bid)
+        if not latest:
+            return {"revision": 0, "updated_at": None, "updated_user": None}
+
+        user = (
+            UserInfo.query.filter_by(user_bid=latest.updated_user_bid, deleted=0).first()
+            if latest.updated_user_bid
+            else None
+        )
+        masked_phone = _mask_phone_identifier(user.user_identify) if user else ""
+        updated_user = (
+            {
+                "user_bid": latest.updated_user_bid,
+                "phone": masked_phone,
+            }
+            if latest.updated_user_bid
+            else None
+        )
+        return {
+            "revision": latest.id,
+            "updated_at": latest.updated_at,
+            "updated_user": updated_user,
+        }
 
 
 def get_shifu_history(app, shifu_bid: str) -> HistoryItem:

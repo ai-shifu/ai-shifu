@@ -54,7 +54,7 @@ from .funcs import (
     get_video_info,
     shifu_permission_verification,
 )
-from flaskr.route.common import make_common_response, bypass_token_validation
+from flaskr.route.common import make_common_response, bypass_token_validation, fmt
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error, raise_error
 from .consts import UNIT_TYPE_GUEST
@@ -103,6 +103,10 @@ from flaskr.service.shifu.shifu_mdflow_funcs import (
     get_shifu_mdflow,
     save_shifu_mdflow,
     parse_shifu_mdflow,
+)
+from flaskr.service.shifu.shifu_history_manager import (
+    get_shifu_draft_meta,
+    get_shifu_draft_revision,
 )
 from flaskr.service.shifu.permissions import (
     _auth_types_to_permissions,
@@ -1234,6 +1238,40 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         return make_common_response(get_shifu_mdflow(app, user_id, outline_bid))
 
     @app.route(
+        path_prefix + "/shifus/<shifu_bid>/draft-meta",
+        methods=["GET"],
+    )
+    @ShifuTokenValidation(ShifuPermission.VIEW)
+    def get_draft_meta_api(shifu_bid: str):
+        """
+        get draft meta
+        ---
+        tags:
+            - shifu
+        parameters:
+            - name: shifu_bid
+              type: string
+              required: true
+        responses:
+            200:
+                description: get draft meta success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    description: draft meta
+        """
+        return make_common_response(get_shifu_draft_meta(app, shifu_bid))
+
+    @app.route(
         path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow",
         methods=["POST"],
     )
@@ -1260,6 +1298,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                     data:
                         type: string
                         description: mdflow
+                    base_revision:
+                        type: integer
+                        description: base draft revision for conflict detection
         responses:
             200:
                 description: save mdflow success
@@ -1278,7 +1319,27 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     description: mdflow
         """
         user_id = request.user.user_id
-        content = request.get_json().get("data")
+        payload = request.get_json() or {}
+        base_revision = payload.get("base_revision")
+        if base_revision is not None:
+            try:
+                base_revision = int(base_revision)
+            except (TypeError, ValueError):
+                raise_param_error("base_revision")
+            latest_revision = get_shifu_draft_revision(app, shifu_bid)
+            if base_revision != latest_revision:
+                latest_meta = get_shifu_draft_meta(app, shifu_bid)
+                response = json.dumps(
+                    {
+                        "code": 40901,
+                        "message": _("server.shifu.draftConflict"),
+                        "data": {"meta": latest_meta},
+                    },
+                    default=fmt,
+                    ensure_ascii=False,
+                )
+                return response
+        content = payload.get("data")
         return make_common_response(
             save_shifu_mdflow(app, user_id, shifu_bid, outline_bid, content)
         )

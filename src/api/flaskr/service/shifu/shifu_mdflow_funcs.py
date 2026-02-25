@@ -6,7 +6,10 @@ from flaskr.service.common import raise_error
 from flaskr.dao import db
 from flaskr.service.shifu.dtos import MdflowDTOParseResult
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
-from flaskr.service.shifu.shifu_history_manager import save_outline_history
+from flaskr.service.shifu.shifu_history_manager import (
+    save_outline_history,
+    get_shifu_draft_revision,
+)
 from flaskr.service.profile.profile_manage import (
     get_profile_item_definition_list,
     add_profile_item_quick,
@@ -33,7 +36,7 @@ def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
 
 def save_shifu_mdflow(
     app: Flask, user_id: str, shifu_bid: str, outline_bid: str, content: str
-) -> str:
+) -> dict:
     """
     Save shifu mdflow
     """
@@ -87,6 +90,8 @@ def save_shifu_mdflow(
                 len(blocks),
             )
             db.session.commit()
+
+        return {"new_revision": get_shifu_draft_revision(app, shifu_bid)}
 
 
 def parse_shifu_mdflow(

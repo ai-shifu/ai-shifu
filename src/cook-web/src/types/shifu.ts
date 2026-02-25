@@ -83,6 +83,17 @@ export interface ProfileItemDefinition {
   value: string;
 }
 
+export interface DraftMetaUser {
+  user_bid: string;
+  phone?: string;
+}
+
+export interface DraftMeta {
+  revision: number;
+  updated_at?: string | null;
+  updated_user?: DraftMetaUser | null;
+}
+
 export interface ShifuState {
   currentShifu: Shifu | null;
   chapters: Outline[];
@@ -111,6 +122,10 @@ export interface ShifuState {
   systemVariables: Record<string, string>[];
   unusedVariables: string[];
   hideUnusedMode: boolean;
+  baseRevision: number | null;
+  latestDraftMeta: DraftMeta | null;
+  hasDraftConflict: boolean;
+  autosavePaused: boolean;
 }
 
 export interface ApiResponse<T> {
@@ -134,6 +149,7 @@ export interface SaveMdflowPayload {
   shifu_bid?: string;
   outline_bid?: string;
   data?: string;
+  base_revision?: number;
 }
 
 export interface ShifuActions {
@@ -199,7 +215,12 @@ export interface ShifuActions {
   reorderOutlineTree: (outlines: ReorderOutlineItemDto[]) => Promise<void>;
   updateBlockProperties: (bid: string, properties: any) => Promise<void>;
   loadMdflow: (outlineId: string, shifuId: string) => Promise<void>;
-  saveMdflow: (payload?: SaveMdflowPayload) => Promise<void>;
+  saveMdflow: (payload?: SaveMdflowPayload) => Promise<boolean>;
+  loadDraftMeta: (shifuId: string) => Promise<DraftMeta | null>;
+  setBaseRevision: (revision: number | null) => void;
+  setLatestDraftMeta: (meta: DraftMeta | null) => void;
+  setDraftConflict: (conflict: boolean) => void;
+  setAutosavePaused: (paused: boolean) => void;
   setCurrentMdflow: (value: string) => void;
   getCurrentMdflow: () => string;
   hasUnsavedMdflow: (outlineId?: string, value?: string) => boolean;

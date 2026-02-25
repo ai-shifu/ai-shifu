@@ -42,7 +42,8 @@ import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
 import { Rnd } from 'react-rnd';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
-import { LessonCreationSettings } from '@/types/shifu';
+import { LessonCreationSettings, DraftMeta } from '@/types/shifu';
+import DraftConflictDialog from './DraftConflictDialog';
 
 const OUTLINE_DEFAULT_WIDTH = 256;
 const OUTLINE_COLLAPSED_WIDTH = 60;
@@ -84,6 +85,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [isPreviewPreparing, setIsPreviewPreparing] = useState(false);
   const [addChapterDialogOpen, setAddChapterDialogOpen] = useState(false);
   const [isMdfConvertDialogOpen, setIsMdfConvertDialogOpen] = useState(false);
+  const [isDraftConflictDialogOpen, setIsDraftConflictDialogOpen] =
+    useState(false);
   const [recentVariables, setRecentVariables] = useState<string[]>([]);
   const seenVariableNamesRef = useRef<Set<string>>(new Set());
   const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async preview is pending
@@ -99,6 +102,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
     hideUnusedMode,
     currentShifu,
     currentNode,
+    baseRevision,
+    latestDraftMeta,
+    hasDraftConflict,
+    autosavePaused,
   } = useShifu();
 
   const {
@@ -159,6 +166,41 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const token = useUserStore(state => state.getToken());
   const baseURL = useEnvStore((state: EnvStoreState) => state.baseURL);
+  const currentUserId = useMemo(() => {
+    if (!profile) return '';
+    return (profile as { user_id?: string; user_bid?: string }).user_id ||
+      (profile as { user_id?: string; user_bid?: string }).user_bid ||
+      '';
+  }, [profile]);
+  const actionsRef = useRef(actions);
+  const baseRevisionRef = useRef<number | null>(null);
+  const conflictStateRef = useRef({
+    hasDraftConflict: false,
+    autosavePaused: false,
+  });
+  const currentUserIdRef = useRef<string | null>(null);
+  const currentShifuBidRef = useRef<string | null>(null);
+  const initializedShifuRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    actionsRef.current = actions;
+  }, [actions]);
+
+  useEffect(() => {
+    baseRevisionRef.current = baseRevision;
+  }, [baseRevision]);
+
+  useEffect(() => {
+    conflictStateRef.current = { hasDraftConflict, autosavePaused };
+  }, [hasDraftConflict, autosavePaused]);
+
+  useEffect(() => {
+    currentUserIdRef.current = currentUserId || null;
+  }, [currentUserId]);
+
+  useEffect(() => {
+    currentShifuBidRef.current = currentShifu?.bid ?? null;
+  }, [currentShifu?.bid]);
 
   useEffect(() => {
     return () => {
@@ -211,6 +253,30 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
   }, [id, isGuest, isInitialized]);
 
+  useEffect(() => {
+    if (!currentShifu?.bid) {
+      return;
+    }
+    if (initializedShifuRef.current === currentShifu.bid) {
+      return;
+    }
+    initializedShifuRef.current = currentShifu.bid;
+    actionsRef.current.setDraftConflict(false);
+    actionsRef.current.setAutosavePaused(false);
+    actionsRef.current.setLatestDraftMeta(null);
+    actionsRef.current.setBaseRevision(null);
+    actionsRef.current.cancelAutoSaveBlocks();
+    setIsDraftConflictDialogOpen(false);
+
+    const fetchDraftMeta = async () => {
+      const meta = await actionsRef.current.loadDraftMeta(currentShifu.bid);
+      if (meta) {
+        actionsRef.current.setBaseRevision(meta.revision);
+      }
+    };
+    void fetchDraftMeta();
+  }, [currentShifu?.bid]);
+
   const handleTogglePreviewPanel = () => {
     setIsPreviewPanelOpen(prev => !prev);
   };
@@ -245,6 +311,95 @@ const ScriptEditor = ({ id }: { id: string }) => {
     [actions, currentShifu?.bid],
   );
 
+  const markDraftConflict = useCallback((meta?: DraftMeta | null) => {
+    if (
+      conflictStateRef.current.hasDraftConflict ||
+      conflictStateRef.current.autosavePaused
+    ) {
+      return;
+    }
+    if (meta) {
+      actionsRef.current.setLatestDraftMeta(meta);
+    }
+    actionsRef.current.setDraftConflict(true);
+    actionsRef.current.setAutosavePaused(true);
+    actionsRef.current.cancelAutoSaveBlocks();
+    setIsDraftConflictDialogOpen(true);
+  }, []);
+
+  const checkDraftMeta = useCallback(async () => {
+    const shifuBid = currentShifuBidRef.current;
+    if (!shifuBid) {
+      return;
+    }
+    if (
+      conflictStateRef.current.hasDraftConflict ||
+      conflictStateRef.current.autosavePaused
+    ) {
+      return;
+    }
+    const meta = await actionsRef.current.loadDraftMeta(shifuBid);
+    if (!meta) {
+      return;
+    }
+    const baseValue = baseRevisionRef.current;
+    if (baseValue === null) {
+      return;
+    }
+    const updatedUser = meta.updated_user?.user_bid;
+    const currentUser = currentUserIdRef.current;
+    if (
+      meta.revision > baseValue &&
+      updatedUser &&
+      currentUser &&
+      updatedUser !== currentUser
+    ) {
+      markDraftConflict(meta);
+    }
+  }, [markDraftConflict]);
+
+  useEffect(() => {
+    if (!currentShifu?.bid) {
+      return;
+    }
+    const handleFocus = () => {
+      void checkDraftMeta();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void checkDraftMeta();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    const intervalId = window.setInterval(() => {
+      void checkDraftMeta();
+    }, 45000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.clearInterval(intervalId);
+    };
+  }, [checkDraftMeta, currentShifu?.bid]);
+
+  useEffect(() => {
+    if (!hasDraftConflict) {
+      return;
+    }
+    if (!isDraftConflictDialogOpen) {
+      setIsDraftConflictDialogOpen(true);
+    }
+    if (!latestDraftMeta && currentShifu?.bid) {
+      void actionsRef.current.loadDraftMeta(currentShifu.bid);
+    }
+  }, [
+    currentShifu?.bid,
+    hasDraftConflict,
+    isDraftConflictDialogOpen,
+    latestDraftMeta,
+  ]);
+
   useEffect(() => {
     currentNodeBidRef.current = currentNode?.bid ?? null;
   }, [currentNode?.bid]);
@@ -260,6 +415,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const handlePreview = async () => {
     if (!canPreview || !currentShifu?.bid || !currentNode?.bid) {
+      return;
+    }
+    if (hasDraftConflict || autosavePaused) {
+      if (!isDraftConflictDialogOpen) {
+        setIsDraftConflictDialogOpen(true);
+      }
       return;
     }
     const targetOutline = currentNode.bid;
@@ -281,11 +442,14 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
     try {
       if (!currentShifu?.readonly) {
-        await actions.saveMdflow({
+        const saved = await actions.saveMdflow({
           shifu_bid: targetShifu,
           outline_bid: targetOutline,
           data: targetMdflow,
         });
+        if (!saved) {
+          return;
+        }
         if (outlineChanged()) {
           return;
         }
@@ -456,6 +620,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);
+    if (autosavePaused || hasDraftConflict) {
+      return;
+    }
     // Pass snapshot so autosave persists pre-switch content + chapter id
     actions.autoSaveBlocks({
       shifu_bid: currentShifu?.bid || '',
@@ -479,6 +646,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const handleApplyMdfContent = useCallback(
     (contentPrompt: string) => {
       actions.setCurrentMdflow(contentPrompt);
+      if (autosavePaused || hasDraftConflict) {
+        return;
+      }
       actions.autoSaveBlocks({
         shifu_bid: currentShifu?.bid || '',
         outline_bid: currentNode?.bid || '',
@@ -819,6 +989,19 @@ const ScriptEditor = ({ id }: { id: string }) => {
           open={isMdfConvertDialogOpen}
           onOpenChange={setIsMdfConvertDialogOpen}
           onApplyContent={handleApplyMdfContent}
+        />
+        <DraftConflictDialog
+          open={isDraftConflictDialogOpen}
+          phone={latestDraftMeta?.updated_user?.phone}
+          onRefresh={() => {
+            window.location.reload();
+          }}
+          onCancel={() => {
+            setIsDraftConflictDialogOpen(false);
+            actions.setAutosavePaused(true);
+            actions.setDraftConflict(true);
+            actions.cancelAutoSaveBlocks();
+          }}
         />
       </div>
     </div>

@@ -26,7 +26,15 @@ const Header = () => {
   const router = useRouter();
   const [publishing, setPublishing] = useState(false);
   const { trackEvent } = useTracking();
-  const { isSaving, lastSaveTime, currentShifu, error, actions } = useShifu();
+  const {
+    isSaving,
+    lastSaveTime,
+    currentShifu,
+    error,
+    actions,
+    hasDraftConflict,
+    autosavePaused,
+  } = useShifu();
   // Only allow publish when backend grants explicit publish permission.
   const canPublish =
     Boolean(currentShifu?.bid) && currentShifu?.canPublish === true;
@@ -39,13 +47,19 @@ const Header = () => {
     if (!canPublish || publishing || !currentShifu?.bid) {
       return;
     }
+    if (hasDraftConflict || autosavePaused) {
+      return;
+    }
     trackEvent('creator_publish_click', {
       shifu_bid: currentShifu?.bid || '',
     });
     // TODO: publish
     // actions.publishScenario();
     // await actions.saveBlocks(currentShifu?.bid || '');
-    await actions.saveMdflow();
+    const saved = await actions.saveMdflow();
+    if (!saved) {
+      return;
+    }
     alert.showAlert({
       confirmText: t('component.header.confirm'),
       cancelText: t('component.header.cancel'),

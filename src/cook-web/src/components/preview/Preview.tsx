@@ -8,7 +8,8 @@ import { useTracking } from '@/c-common/hooks/useTracking';
 
 const PreviewSettingsModal = () => {
   const { t } = useTranslation();
-  const { currentShifu, actions } = useShifu();
+  const { currentShifu, actions, hasDraftConflict, autosavePaused } =
+    useShifu();
   const { trackEvent } = useTracking();
   const [loading, setLoading] = useState(false);
 
@@ -16,11 +17,17 @@ const PreviewSettingsModal = () => {
     if (loading) {
       return;
     }
+    if (hasDraftConflict || autosavePaused) {
+      return;
+    }
 
     try {
       setLoading(true);
       if (!currentShifu?.readonly) {
-        await actions.saveMdflow();
+        const saved = await actions.saveMdflow();
+        if (!saved) {
+          return;
+        }
       }
       trackEvent('creator_shifu_preview_click', {
         shifu_bid: currentShifu?.bid || '',
