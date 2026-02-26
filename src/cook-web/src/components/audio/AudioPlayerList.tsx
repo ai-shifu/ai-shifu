@@ -32,9 +32,9 @@ export interface AudioPlayerListProps {
 }
 
 const logAudioDebug = (event: string, payload?: Record<string, any>) => {
-  if (process.env.NODE_ENV === 'production') {
+  // if (process.env.NODE_ENV === 'production') {
     return;
-  }
+  // }
   console.log(`[listen-audio-debug] ${event}`, payload ?? {});
 };
 
@@ -74,8 +74,27 @@ const AudioPlayerListBase = (
   const currentSegmentIndexRef = useRef(0);
   const segmentOffsetRef = useRef(0);
   const playedSecondsRef = useRef(0);
+  const playerDebugIdRef = useRef(`list-${Math.random().toString(36).slice(2, 8)}`);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  const logAudioInterrupt = useCallback(
+    (event: string, payload?: Record<string, unknown>) => {
+      if (process.env.NODE_ENV === 'production') {
+        return;
+      }
+      console.log(`[音频中断排查][AudioPlayerList] ${event}`, {
+        playerId: playerDebugIdRef.current,
+        currentTrackBid: currentTrackRef.current?.generated_block_bid ?? null,
+        sequenceBlockBid,
+        isSequenceActive,
+        isPlaying: isPlayingRef.current,
+        ...payload,
+      });
+    },
+    [isSequenceActive, sequenceBlockBid],
+  );
+  const logAudioInterruptRef = useRef(logAudioInterrupt);
 
   const playlist = useMemo(
     () => normalizeAudioItemList(audioList),
@@ -113,6 +132,10 @@ const AudioPlayerListBase = (
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
+
+  useEffect(() => {
+    logAudioInterruptRef.current = logAudioInterrupt;
+  }, [logAudioInterrupt]);
 
   const setPlayingState = useCallback((next: boolean) => {
     setIsPlaying(next);
@@ -195,6 +218,29 @@ const AudioPlayerListBase = (
     }
   }, []);
 
+  const stopByExclusivePreempt = useCallback(
+    (payload?: Record<string, unknown>) => {
+      const audio = audioRef.current;
+      logAudioInterrupt('被其他音频实例抢占，执行强制停止当前播放', {
+        reason: 'exclusive-preempt',
+        ...payload,
+      });
+      shouldResumeRef.current = false;
+      // Keep auto-play enabled for upcoming sequence items.
+      // Only stop current playback state and clear resumable flags.
+      isPausedRef.current = false;
+      if (isUsingSegmentsRef.current && audio) {
+        segmentOffsetRef.current = Math.max(0, audio.currentTime || 0);
+      }
+      isSegmentsPlaybackRef.current = false;
+      isWaitingForSegmentRef.current = false;
+      setPlayingState(false);
+      audio?.pause();
+      releaseExclusive();
+    },
+    [logAudioInterrupt, releaseExclusive, setPlayingState],
+  );
+
   const startUrlPlayback = useCallback(
     (url: string, startAtSeconds: number = 0) => {
       const audio = audioRef.current;
@@ -212,7 +258,10 @@ const AudioPlayerListBase = (
       }
       applySeek(startAtSeconds);
       requestExclusive(() => {
-        audio.pause();
+        stopByExclusivePreempt({
+          from: 'startUrlPlayback',
+          url,
+        });
       });
       const playPromise = audio.play();
       if (playPromise && typeof playPromise.then === 'function') {
@@ -227,7 +276,14 @@ const AudioPlayerListBase = (
       }
       return true;
     },
-    [applySeek, disabled, releaseExclusive, requestExclusive, setPlayingState],
+    [
+      applySeek,
+      disabled,
+      releaseExclusive,
+      requestExclusive,
+      setPlayingState,
+      stopByExclusivePreempt,
+    ],
   );
 
   const startSegmentPlayback = useCallback(
@@ -248,7 +304,10 @@ const AudioPlayerListBase = (
           currentSegmentIndexRef.current = index;
           segmentOffsetRef.current = Math.max(0, startOffsetSeconds);
           requestExclusive(() => {
-            audio.pause();
+            stopByExclusivePreempt({
+              from: 'startSegmentPlayback-waiting',
+              segmentIndex: index,
+            });
           });
           if (!isPlayingRef.current) {
             setPlayingState(true);
@@ -271,7 +330,10 @@ const AudioPlayerListBase = (
       }
       applySeek(segmentOffsetRef.current);
       requestExclusive(() => {
-        audio.pause();
+        stopByExclusivePreempt({
+          from: 'startSegmentPlayback-playing',
+          segmentIndex: index,
+        });
       });
       const playPromise = audio.play();
       if (playPromise && typeof playPromise.then === 'function') {
@@ -293,6 +355,7 @@ const AudioPlayerListBase = (
       releaseExclusive,
       requestExclusive,
       setPlayingState,
+      stopByExclusivePreempt,
     ],
   );
 
@@ -392,7 +455,10 @@ const AudioPlayerListBase = (
       isWaitingForSegmentRef.current = true;
       setPlayingState(true);
       requestExclusive(() => {
-        audioRef.current?.pause();
+        stopByExclusivePreempt({
+          from: 'playCurrentTrack-requestAudio',
+          requestBid,
+        });
       });
       onRequestAudio()
         .then(result => {
@@ -443,6 +509,7 @@ const AudioPlayerListBase = (
       setPlayingState,
       startPlaybackForTrack,
       startUrlPlayback,
+      stopByExclusivePreempt,
     ],
   );
 
@@ -452,6 +519,12 @@ const AudioPlayerListBase = (
       if (!audio) {
         return;
       }
+      logAudioInterrupt('调用 pausePlayback，准备暂停当前音频', {
+        traceId: options?.traceId ?? null,
+        keepAutoPlay: Boolean(options?.keepAutoPlay),
+        isUsingSegments: isUsingSegmentsRef.current,
+        isWaitingForSegment: isWaitingForSegmentRef.current,
+      });
       isPausedRef.current = !options?.keepAutoPlay;
       shouldResumeRef.current = false;
       if (isUsingSegmentsRef.current) {
@@ -461,7 +534,7 @@ const AudioPlayerListBase = (
       }
       audio.pause();
     },
-    [],
+    [logAudioInterrupt],
   );
 
   const finishTrack = useCallback(() => {
@@ -544,14 +617,21 @@ const AudioPlayerListBase = (
     }
     setPlayingState(true);
     requestExclusive(() => {
-      audioRef.current?.pause();
+      stopByExclusivePreempt({
+        from: 'handleAudioPlay',
+      });
     });
-  }, [disabled, requestExclusive, setPlayingState]);
+  }, [disabled, requestExclusive, setPlayingState, stopByExclusivePreempt]);
 
   const handleAudioPause = useCallback(() => {
     if (isUsingSegmentsRef.current && isWaitingForSegmentRef.current) {
       return;
     }
+    logAudioInterrupt('收到 audio onPause 事件', {
+      isUsingSegments: isUsingSegmentsRef.current,
+      isWaitingForSegment: isWaitingForSegmentRef.current,
+      currentTime: audioRef.current?.currentTime ?? 0,
+    });
     if (isUsingSegmentsRef.current) {
       const audio = audioRef.current;
       segmentOffsetRef.current = Math.max(0, audio?.currentTime ?? 0);
@@ -559,7 +639,7 @@ const AudioPlayerListBase = (
     }
     setPlayingState(false);
     releaseExclusive();
-  }, [releaseExclusive, setPlayingState]);
+  }, [logAudioInterrupt, releaseExclusive, setPlayingState]);
 
   const handleAudioEnded = useCallback(() => {
     logAudioDebug('audio-player-ended', {
@@ -577,11 +657,14 @@ const AudioPlayerListBase = (
   }, [finishTrack, handleSegmentEnded, isSequenceActive, sequenceBlockBid]);
 
   const handleAudioError = useCallback(() => {
+    logAudioInterrupt('收到 audio onError 事件，停止当前播放', {
+      currentSrc: currentSrcRef.current,
+    });
     isWaitingForSegmentRef.current = false;
     isSegmentsPlaybackRef.current = false;
     setPlayingState(false);
     releaseExclusive();
-  }, [releaseExclusive, setPlayingState]);
+  }, [logAudioInterrupt, releaseExclusive, setPlayingState]);
 
   const handleLoadedMetadata = useCallback(() => {
     const audio = audioRef.current;
@@ -599,6 +682,9 @@ const AudioPlayerListBase = (
     ref,
     () => ({
       togglePlay: () => {
+        logAudioInterrupt('收到外部 togglePlay 调用', {
+          isPlaying: isPlayingRef.current,
+        });
         if (isPlayingRef.current) {
           pausePlayback();
           return;
@@ -609,6 +695,9 @@ const AudioPlayerListBase = (
         playCurrentTrack({ resume: canResume });
       },
       play: () => {
+        logAudioInterrupt('收到外部 play 调用', {
+          isPlaying: isPlayingRef.current,
+        });
         if (!isPlayingRef.current) {
           const canResume = Boolean(
             audioRef.current?.src && audioRef.current?.paused,
@@ -617,10 +706,14 @@ const AudioPlayerListBase = (
         }
       },
       pause: (options?: { traceId?: string; keepAutoPlay?: boolean }) => {
+        logAudioInterrupt('收到外部 pause 调用', {
+          traceId: options?.traceId ?? null,
+          keepAutoPlay: Boolean(options?.keepAutoPlay),
+        });
         pausePlayback(options);
       },
     }),
-    [pausePlayback, playCurrentTrack],
+    [logAudioInterrupt, pausePlayback, playCurrentTrack],
   );
 
   useEffect(() => {
@@ -637,6 +730,9 @@ const AudioPlayerListBase = (
     if (playlist.length) {
       return;
     }
+    logAudioInterrupt('播放列表变为空，执行强制 pause + 清理 src', {
+      playlistLength: playlist.length,
+    });
     const audio = audioRef.current;
     if (audio) {
       audio.pause();
@@ -650,7 +746,13 @@ const AudioPlayerListBase = (
     resetSegmentState();
     setPlayingState(false);
     releaseExclusive();
-  }, [playlist.length, releaseExclusive, resetSegmentState, setPlayingState]);
+  }, [
+    logAudioInterrupt,
+    playlist.length,
+    releaseExclusive,
+    resetSegmentState,
+    setPlayingState,
+  ]);
 
   useEffect(() => {
     const nextBid = currentTrack?.generated_block_bid ?? null;
@@ -664,6 +766,11 @@ const AudioPlayerListBase = (
       sequenceBlockBid,
       currentIndex: currentIndexRef.current,
     });
+    logAudioInterrupt('当前轨道发生切换，执行 pause 并重置 src', {
+      fromBid: currentTrackBidRef.current,
+      toBid: nextBid,
+      fromIndex: currentIndexRef.current,
+    });
     currentTrackBidRef.current = nextBid;
     isUsingSegmentsRef.current = false;
     isSegmentsPlaybackRef.current = false;
@@ -676,7 +783,7 @@ const AudioPlayerListBase = (
       audio.load();
     }
     currentSrcRef.current = null;
-  }, [currentTrack, resetSegmentState, sequenceBlockBid]);
+  }, [currentTrack, logAudioInterrupt, resetSegmentState, sequenceBlockBid]);
 
   useEffect(() => {
     if (!currentTrack || disabled) {
@@ -764,9 +871,17 @@ const AudioPlayerListBase = (
       isPlaying: isPlayingRef.current,
       isWaitingForSegment: isWaitingForSegmentRef.current,
     });
+    logAudioInterrupt('sequenceBlockBid 变为 null，序列要求暂停当前音频', {
+      isWaitingForSegment: isWaitingForSegmentRef.current,
+    });
     shouldResumeRef.current = false;
     if (isPlayingRef.current || isWaitingForSegmentRef.current) {
-      pausePlayback();
+      // This pause is sequence-driven, not user-driven. Keep auto-play available
+      // so the next sequence item can start automatically.
+      pausePlayback({
+        traceId: 'sequence-null-bid',
+        keepAutoPlay: true,
+      });
     }
   }, [isSequenceActive, pausePlayback, sequenceBlockBid]);
 
@@ -783,6 +898,18 @@ const AudioPlayerListBase = (
     }
     if (track && !track.isAudioStreaming) {
       const url = resolveTrackUrl(track);
+      const hasFinalSegment = segments.some(segment => Boolean(segment?.isFinal));
+      if (isSequenceActive && hasFinalSegment) {
+        logAudioInterrupt('序列模式检测到 final segment，跳过 URL 补播兜底，直接结束当前轨道', {
+          segmentCount: segments.length,
+          hasUrl: Boolean(url),
+          startAtSeconds:
+            playedSecondsRef.current + segmentOffsetRef.current,
+          trackDurationMs: track.audioDurationMs ?? 0,
+        });
+        finishTrack();
+        return;
+      }
       if (url) {
         const startAtSeconds =
           playedSecondsRef.current + segmentOffsetRef.current;
@@ -795,6 +922,8 @@ const AudioPlayerListBase = (
   }, [
     currentSegments.length,
     currentTrack?.isAudioStreaming,
+    isSequenceActive,
+    logAudioInterrupt,
     finishTrack,
     resolveTrackUrl,
     resetSegmentState,
@@ -804,6 +933,9 @@ const AudioPlayerListBase = (
 
   useEffect(() => {
     return () => {
+      logAudioInterruptRef.current('AudioPlayerList 组件卸载，释放排他权限', {
+        currentSrc: currentSrcRef.current,
+      });
       releaseExclusive();
     };
   }, [releaseExclusive]);

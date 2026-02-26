@@ -201,6 +201,7 @@ function useChatLogicHook({
   const runRef = useRef<((params: SSEParams) => void) | null>(null);
   const interactionParserRef = useRef(createInteractionParser());
   const sseRef = useRef<any>(null);
+  const sseRunSerialRef = useRef(0);
   const ttsSseRef = useRef<Record<string, any>>({});
   const pendingSlidesRef = useRef<Record<string, ListenSlideData[]>>({});
   const lastInteractionBlockRef = useRef<ChatContentItem | null>(null);
@@ -216,9 +217,9 @@ function useChatLogicHook({
   const isAudioDebugEnabled = process.env.NODE_ENV !== 'production';
   const logAudioDebug = useCallback(
     (event: string, payload?: Record<string, any>) => {
-      if (!isAudioDebugEnabled) {
+      // if (!isAudioDebugEnabled) {
         return;
-      }
+      // }
       console.log(`[listen-audio-debug] ${event}`, payload ?? {});
     },
     [isAudioDebugEnabled],
@@ -526,6 +527,35 @@ function useChatLogicHook({
    */
   const run = useCallback(
     (sseParams: SSEParams) => {
+      const runSerial = sseRunSerialRef.current + 1;
+      sseRunSerialRef.current = runSerial;
+      console.log('[音频中断排查][SSE] 准备启动新流 run()', {
+        lessonId,
+        outlineBid,
+        runSerial,
+        isListenMode,
+        inputType: sseParams?.input_type ?? null,
+        hasExistingSse: Boolean(sseRef.current),
+      });
+      if (sseRef.current) {
+        console.log('[音频中断排查][SSE] 启动新流时检测到已有 sseRef.current', {
+          lessonId,
+          outlineBid,
+          runSerial,
+        });
+        try {
+          console.log('[音频中断排查][SSE] 启动新流前主动关闭旧流（避免双流并发）', {
+            lessonId,
+            outlineBid,
+            runSerial,
+          });
+          sseRef.current?.close();
+        } catch (error) {
+          console.warn('[音频中断排查][SSE] 关闭旧流异常', error);
+        } finally {
+          sseRef.current = null;
+        }
+      }
       // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
       isInitHistoryRef.current = false;
@@ -559,6 +589,19 @@ function useChatLogicHook({
         effectivePreviewMode,
         { ...sseParams, listen: isListenMode },
         async response => {
+          if (
+            sseRef.current !== source ||
+            runSerial !== sseRunSerialRef.current
+          ) {
+            console.log('[音频中断排查][SSE] 忽略旧流消息（避免串流干扰）', {
+              lessonId,
+              outlineBid,
+              runSerial,
+              responseType: response?.type ?? null,
+              generatedBlockBid: response?.generated_block_bid ?? null,
+            });
+            return;
+          }
           // if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
           //   if (!isEnd) {
           //     currentBlockIdRef.current = 'loading';
@@ -747,6 +790,12 @@ function useChatLogicHook({
                     type: ChatContentItemType.LIKE_STATUS,
                   });
                   // sseRef.current?.close();
+                  console.log('[音频中断排查][SSE] TEXT_END 后触发下一段 runRef.current', {
+                    lessonId,
+                    outlineBid,
+                    fromType: 'TEXT_END',
+                    lastContentBid: gid,
+                  });
                   runRef.current?.({
                     input: '',
                     input_type: SSE_INPUT_TYPE.NORMAL,
@@ -842,22 +891,58 @@ function useChatLogicHook({
           }
         },
       );
+      sseRef.current = source;
+      console.log('[音频中断排查][SSE] sseRef.current 指向新流实例', {
+        lessonId,
+        outlineBid,
+        runSerial,
+      });
       source.addEventListener('readystatechange', () => {
         // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
+        const isActiveSource =
+          sseRef.current === source && runSerial === sseRunSerialRef.current;
         if (source.readyState === 1) {
-          isStreamingRef.current = true;
+          console.log('[音频中断排查][SSE] 流状态 OPEN', {
+            lessonId,
+            outlineBid,
+            runSerial,
+            isActiveSource,
+          });
+          if (isActiveSource) {
+            isStreamingRef.current = true;
+          }
         }
         if (source.readyState === 2) {
-          isStreamingRef.current = false;
+          console.log('[音频中断排查][SSE] 流状态 CLOSED', {
+            lessonId,
+            outlineBid,
+            runSerial,
+            isActiveSource,
+          });
+          if (isActiveSource) {
+            isStreamingRef.current = false;
+            sseRef.current = null;
+          }
         }
       });
       source.addEventListener('error', () => {
+        const isActiveSource =
+          sseRef.current === source && runSerial === sseRunSerialRef.current;
+        console.log('[音频中断排查][SSE] 流发生 error 事件', {
+          lessonId,
+          outlineBid,
+          runSerial,
+          isActiveSource,
+        });
+        if (!isActiveSource) {
+          return;
+        }
         setTrackedContentList(prev => {
           return prev.filter(item => item.generated_block_bid !== 'loading');
         });
         isStreamingRef.current = false;
+        sseRef.current = null;
       });
-      sseRef.current = source;
     },
     [
       chapterUpdate,
@@ -882,6 +967,7 @@ function useChatLogicHook({
 
   useEffect(() => {
     return () => {
+      console.log('[音频中断排查][SSE] useChatLogicHook 卸载，关闭当前 sseRef.current');
       sseRef.current?.close();
     };
   }, []);
@@ -1084,12 +1170,20 @@ function useChatLogicHook({
           recordResp.records[recordResp.records.length - 1].block_type ===
             BLOCK_TYPE.ERROR
         ) {
+          console.log('[音频中断排查][SSE] refreshData 命中历史末尾内容，触发 runRef.current', {
+            outlineBid,
+            reason: 'history-tail-content-or-error',
+          });
           runRef.current?.({
             input: '',
             input_type: SSE_INPUT_TYPE.NORMAL,
           });
         }
       } else {
+        console.log('[音频中断排查][SSE] refreshData 无历史记录，触发 runRef.current', {
+          outlineBid,
+          reason: 'empty-history',
+        });
         runRef.current?.({
           input: '',
           input_type: SSE_INPUT_TYPE.NORMAL,
@@ -1141,6 +1235,10 @@ function useChatLogicHook({
         // });
         setIsLoading(true);
         if (curr === lessonId) {
+          console.log('[音频中断排查][SSE] resetedLesson 命中当前课时，先关闭旧流再 refresh', {
+            lessonId,
+            resetedLessonId: curr,
+          });
           sseRef.current?.close();
           await refreshData();
           // updateResetedChapterId(null);
@@ -1180,6 +1278,10 @@ function useChatLogicHook({
   }, [chapterId, refreshData]);
 
   useEffect(() => {
+    console.log('[音频中断排查][SSE] lessonId/resetedLessonId 变化，先关闭旧流', {
+      lessonId,
+      resetedLessonId,
+    });
     sseRef.current?.close();
     if (!lessonId || resetedLessonId === lessonId) {
       return;
@@ -1398,6 +1500,12 @@ function useChatLogicHook({
           isReGenerate && needChangeItemIndex !== -1
             ? newList[needChangeItemIndex].generated_block_bid
             : undefined,
+      });
+      console.log('[音频中断排查][SSE] onSend 触发 runRef.current', {
+        lessonId,
+        blockBid,
+        isReGenerate,
+        needChangeItemIndex,
       });
     },
     [

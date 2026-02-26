@@ -174,6 +174,7 @@ const ListenModeRenderer = ({
     getNextContentBid,
     goToBlock,
     resolveContentBid,
+    isAudioPlaying,
     setIsAudioPlaying,
   });
 

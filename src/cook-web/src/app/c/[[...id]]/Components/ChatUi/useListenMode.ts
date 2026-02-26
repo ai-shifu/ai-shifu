@@ -222,7 +222,6 @@ export const useListenContentData = (items: ChatContentItem[]) => {
           item.type === ChatContentItemType.CONTENT && !!item.content
             ? splitContentSegments(item.content || '', true)
             : [];
-          console.log('segments', item.content, segments);
         const slideSegments = segments.filter(
           segment => segment.type === 'markdown' || segment.type === 'sandbox',
         );
@@ -823,6 +822,7 @@ interface UseListenAudioSequenceParams {
   getNextContentBid: (currentBid: string | null) => string | null;
   goToBlock: (blockBid: string) => boolean;
   resolveContentBid: (blockBid: string | null) => string | null;
+  isAudioPlaying: boolean;
   setIsAudioPlaying: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
@@ -843,15 +843,25 @@ export const useListenAudioSequence = ({
   getNextContentBid,
   goToBlock,
   resolveContentBid,
+  isAudioPlaying,
   setIsAudioPlaying,
 }: UseListenAudioSequenceParams) => {
   const isAudioDebugEnabled = process.env.NODE_ENV !== 'production';
   const logAudioDebug = useCallback(
     (event: string, payload?: Record<string, any>) => {
+      // if (!isAudioDebugEnabled) {
+        return;
+      // }
+      console.log(`[listen-audio-debug] ${event}`, payload ?? {});
+    },
+    [isAudioDebugEnabled],
+  );
+  const logAudioInterrupt = useCallback(
+    (event: string, payload?: Record<string, any>) => {
       if (!isAudioDebugEnabled) {
         return;
       }
-      console.log(`[listen-audio-debug] ${event}`, payload ?? {});
+      console.log(`[音频中断排查][ListenSequence] ${event}`, payload ?? {});
     },
     [isAudioDebugEnabled],
   );
@@ -869,8 +879,23 @@ export const useListenAudioSequence = ({
   const [isAudioSequenceActive, setIsAudioSequenceActive] = useState(false);
   const [audioSequenceToken, setAudioSequenceToken] = useState(0);
   const isSequencePausedRef = useRef(false);
+  const isAudioSequenceActiveRef = useRef(false);
+  const activeAudioBidRef = useRef<string | null>(null);
+  const isAudioPlayingRef = useRef(isAudioPlaying);
 
   const lastPlayedAudioBidRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    isAudioSequenceActiveRef.current = isAudioSequenceActive;
+  }, [isAudioSequenceActive]);
+
+  useEffect(() => {
+    activeAudioBidRef.current = activeAudioBid;
+  }, [activeAudioBid]);
+
+  useEffect(() => {
+    isAudioPlayingRef.current = Boolean(isAudioPlaying);
+  }, [isAudioPlaying]);
 
   useEffect(() => {
     audioSequenceListRef.current = audioAndInteractionList;
@@ -932,15 +957,26 @@ export const useListenAudioSequence = ({
   const playAudioSequenceFromIndex = useCallback(
     (index: number) => {
       // Prevent redundant calls for the same index if already active
-      if (audioSequenceIndexRef.current === index && isAudioSequenceActive) {
+      if (
+        audioSequenceIndexRef.current === index &&
+        isAudioSequenceActiveRef.current
+      ) {
         logAudioDebug('listen-sequence-play-skip-same-index', {
           index,
           activeIndex: audioSequenceIndexRef.current,
-          isAudioSequenceActive,
+          isAudioSequenceActive: isAudioSequenceActiveRef.current,
+        });
+        logAudioInterrupt('跳过重复播放同一序号', {
+          index,
+          activeIndex: audioSequenceIndexRef.current,
+          isAudioSequenceActive: isAudioSequenceActiveRef.current,
         });
         return;
       }
       if (isSequencePausedRef.current) {
+        logAudioInterrupt('当前序列处于暂停态，忽略播放请求', {
+          targetIndex: index,
+        });
         // console.log('listen-sequence-skip-play-paused', { index });
         return;
       }
@@ -954,10 +990,16 @@ export const useListenAudioSequence = ({
           index,
           listLength: list.length,
         });
+        logAudioInterrupt('序列已到末尾，清空 activeAudioBid', {
+          index,
+          listLength: list.length,
+        });
         // console.log('listen-sequence-end', { index, listLength: list.length });
         setSequenceInteraction(null);
         setActiveAudioBid(null);
+        activeAudioBidRef.current = null;
         setIsAudioSequenceActive(false);
+        isAudioSequenceActiveRef.current = false;
         return;
       }
       logAudioDebug('listen-sequence-play-item', {
@@ -977,16 +1019,34 @@ export const useListenAudioSequence = ({
       syncToSequencePage(nextItem.page);
       audioSequenceIndexRef.current = index;
       setIsAudioSequenceActive(true);
+      isAudioSequenceActiveRef.current = true;
+      logAudioInterrupt('切换到新的序列项，可能触发当前音频切换', {
+        index,
+        sequenceKind: nextItem.sequenceKind,
+        blockBid: nextItem.generated_block_bid ?? null,
+        page: nextItem.page,
+      });
       if (nextItem.generated_block_bid) {
         lastPlayedAudioBidRef.current = nextItem.generated_block_bid;
       }
 
       if (nextItem.type === ChatContentItemType.INTERACTION) {
+        logAudioInterrupt('进入交互项，主动清空 activeAudioBid（可能导致当前音频暂停）', {
+          index,
+          interactionBid: nextItem.generated_block_bid ?? null,
+          previousActiveAudioBid: activeAudioBidRef.current,
+          isAudioPlaying: isAudioPlayingRef.current,
+        });
         setSequenceInteraction(nextItem);
         setActiveAudioBid(null);
+        activeAudioBidRef.current = null;
         if (index >= list.length - 1) {
           return;
         }
+        logAudioInterrupt('当前项为交互项，2秒后自动推进下一项', {
+          currentIndex: index,
+          nextIndex: index + 1,
+        });
         audioSequenceTimerRef.current = setTimeout(() => {
           playAudioSequenceFromIndex(index + 1);
         }, 2000);
@@ -994,11 +1054,16 @@ export const useListenAudioSequence = ({
       }
       setSequenceInteraction(null);
       setActiveAudioBid(nextItem.generated_block_bid);
+      activeAudioBidRef.current = nextItem.generated_block_bid;
+      logAudioInterrupt('设置 activeAudioBid，AudioPlayerList 将切换到该音频', {
+        index,
+        activeAudioBid: nextItem.generated_block_bid ?? null,
+      });
       setAudioSequenceToken(prev => prev + 1);
     },
     [
       clearAudioSequenceTimer,
-      isAudioSequenceActive,
+      logAudioInterrupt,
       logAudioDebug,
       syncToSequencePage,
     ],
@@ -1023,10 +1088,13 @@ export const useListenAudioSequence = ({
       // });
       return;
     }
+    const isSequenceActive = isAudioSequenceActiveRef.current;
+    const hasActiveAudioBid = Boolean(activeAudioBidRef.current);
+    const isAudioPlayingNow = isAudioPlayingRef.current;
     const currentIndex = audioSequenceIndexRef.current;
 
     if (
-      isAudioSequenceActive &&
+      isSequenceActive &&
       sequenceInteraction &&
       currentIndex >= 0 &&
       prevLength > 0 &&
@@ -1034,6 +1102,12 @@ export const useListenAudioSequence = ({
       nextLength > prevLength
     ) {
       // Continue after the last interaction when new audio arrives.
+      logAudioInterrupt('列表增长触发：交互项后自动继续播放下一项', {
+        prevLength,
+        nextLength,
+        currentIndex,
+        nextIndex: currentIndex + 1,
+      });
       playAudioSequenceFromIndex(currentIndex + 1);
       return;
     }
@@ -1062,27 +1136,93 @@ export const useListenAudioSequence = ({
 
           if (resumeIndex >= 0) {
             // Resume playback from the last known block to maintain continuity
+            logAudioInterrupt('列表从空恢复，按上次播放位置恢复', {
+              resumeIndex,
+              lastBid,
+              currentPage,
+            });
             playAudioSequenceFromIndex(resumeIndex);
           } else {
             const startIndex = resolveSequenceStartIndex(currentPage);
             if (startIndex >= 0) {
+              logAudioInterrupt('列表从空恢复，从当前页起始项启动播放', {
+                startIndex,
+                currentPage,
+              });
               playAudioSequenceFromIndex(startIndex);
             }
           }
         } else {
           // Appending new item
+          // Guard against interruption: only block when audio is actively playing.
+          // If sequence is idle at tail, allow continuing with appended item.
+          const currentSequenceItem =
+            currentIndex >= 0 ? audioAndInteractionList[currentIndex] : null;
+          const isSwitchingToDifferentItem = currentIndex !== newItemIndex;
+          const isIdleAtTail =
+            isSequenceActive &&
+            !isAudioPlayingNow &&
+            currentIndex >= 0 &&
+            currentIndex === prevLength - 1 &&
+            newItemIndex === nextLength - 1;
+          const shouldBlockAutoSwitch =
+            isAudioPlayingNow && isSwitchingToDifferentItem;
+
           if (
-            !isAudioSequenceActive ||
-            audioSequenceIndexRef.current === newItemIndex
+            shouldBlockAutoSwitch
           ) {
+            logAudioInterrupt('列表追加触发自动播放被拦截（避免中断当前音频）', {
+              prevLength,
+              nextLength,
+              currentIndex,
+              newItemIndex,
+              isAudioPlaying: isAudioPlayingNow,
+              hasActiveAudioBid,
+              isSequenceActive,
+              currentSequenceKind:
+                currentSequenceItem?.sequenceKind ?? null,
+              currentSequenceBid:
+                currentSequenceItem?.generated_block_bid ?? null,
+            });
+            return;
+          }
+          if (
+            !isSequenceActive ||
+            audioSequenceIndexRef.current === newItemIndex ||
+            isIdleAtTail
+          ) {
+            logAudioInterrupt('列表追加触发自动播放新项（重点排查点）', {
+              prevLength,
+              nextLength,
+              currentIndex,
+              newItemIndex,
+              isAudioSequenceActive: isSequenceActive,
+              isAudioPlaying: isAudioPlayingNow,
+              hasActiveAudioBid,
+              isIdleAtTail,
+              currentPage,
+              newItemPage: newItem?.page ?? null,
+              newItemBid: newItem?.generated_block_bid ?? null,
+            });
             playAudioSequenceFromIndex(newItemIndex);
+          } else {
+            logAudioInterrupt('列表追加但当前序列活跃，未触发自动播放', {
+              prevLength,
+              nextLength,
+              currentIndex,
+              newItemIndex,
+              isAudioSequenceActive: isSequenceActive,
+              isAudioPlaying: isAudioPlayingNow,
+              hasActiveAudioBid,
+              isIdleAtTail,
+            });
           }
         }
       }
     }
   }, [
     audioAndInteractionList,
-    isAudioSequenceActive,
+    logAudioInterrupt,
     playAudioSequenceFromIndex,
     previewMode,
     sequenceInteraction,
@@ -1092,6 +1232,11 @@ export const useListenAudioSequence = ({
   ]);
 
   const resetSequenceState = useCallback(() => {
+    logAudioInterrupt('调用 resetSequenceState，将主动 pause 当前音频', {
+      reason: 'sequence-reset',
+      currentIndex: audioSequenceIndexRef.current,
+      activeAudioBid,
+    });
     isSequencePausedRef.current = false;
     clearAudioSequenceTimer();
     audioPlayerRef.current?.pause({
@@ -1101,9 +1246,11 @@ export const useListenAudioSequence = ({
     audioSequenceIndexRef.current = -1;
     setSequenceInteraction(null);
     setActiveAudioBid(null);
+    activeAudioBidRef.current = null;
     setIsAudioSequenceActive(false);
+    isAudioSequenceActiveRef.current = false;
     // console.log('listen-sequence-reset');
-  }, [clearAudioSequenceTimer]);
+  }, [activeAudioBid, clearAudioSequenceTimer, logAudioInterrupt]);
 
   const startSequenceFromIndex = useCallback(
     (index: number) => {
@@ -1114,11 +1261,16 @@ export const useListenAudioSequence = ({
       }
       const maxIndex = Math.max(listLength - 1, 0);
       const nextIndex = Math.min(Math.max(index, 0), maxIndex);
+      logAudioInterrupt('调用 startSequenceFromIndex，准备重置并跳到指定项', {
+        requestIndex: index,
+        nextIndex,
+        listLength,
+      });
       resetSequenceState();
       // console.log('listen-sequence-start-index', { index, nextIndex });
       playAudioSequenceFromIndex(nextIndex);
     },
-    [playAudioSequenceFromIndex, resetSequenceState],
+    [logAudioInterrupt, playAudioSequenceFromIndex, resetSequenceState],
   );
 
   const startSequenceFromPage = useCallback(
@@ -1129,9 +1281,13 @@ export const useListenAudioSequence = ({
         return;
       }
       // console.log('listen-sequence-start-page', { page, startIndex });
+      logAudioInterrupt('调用 startSequenceFromPage，准备切换页面序列', {
+        page,
+        startIndex,
+      });
       startSequenceFromIndex(startIndex);
     },
-    [resolveSequenceStartIndex, startSequenceFromIndex],
+    [logAudioInterrupt, resolveSequenceStartIndex, startSequenceFromIndex],
   );
 
   useEffect(() => {
@@ -1144,12 +1300,17 @@ export const useListenAudioSequence = ({
     if (audioAndInteractionList.length) {
       return;
     }
+    logAudioInterrupt('audioAndInteractionList 变空，重置序列状态', {
+      reason: 'empty-audio-list',
+    });
     clearAudioSequenceTimer();
     audioSequenceIndexRef.current = -1;
     setActiveAudioBid(null);
+    activeAudioBidRef.current = null;
     setSequenceInteraction(null);
     setIsAudioSequenceActive(false);
-  }, [audioAndInteractionList.length, clearAudioSequenceTimer]);
+    isAudioSequenceActiveRef.current = false;
+  }, [audioAndInteractionList.length, clearAudioSequenceTimer, logAudioInterrupt]);
 
   useEffect(() => {
     if (!shouldStartSequenceRef.current) {
@@ -1179,6 +1340,10 @@ export const useListenAudioSequence = ({
         //   resumeIndex,
         //   blockBid: lastPlayedAudioBidRef.current,
         // });
+        logAudioInterrupt('onResetSequence 后按上次播放位置恢复', {
+          resumeIndex,
+          lastPlayedAudioBid: lastPlayedAudioBidRef.current,
+        });
         playAudioSequenceFromIndex(resumeIndex);
         return;
       }
@@ -1186,9 +1351,14 @@ export const useListenAudioSequence = ({
 
     // Otherwise, truly start from the beginning
     // console.log('listen-sequence-auto-start');
+    logAudioInterrupt('onResetSequence 后从头开始播放序列', {
+      startIndex: 0,
+      listLength: audioAndInteractionList.length,
+    });
     playAudioSequenceFromIndex(0);
   }, [
     audioAndInteractionList,
+    logAudioInterrupt,
     sequenceStartSignal,
     logAudioDebug,
     playAudioSequenceFromIndex,
@@ -1331,17 +1501,30 @@ export const useListenAudioSequence = ({
         //   listLength: list.length,
         // });
         setActiveAudioBid(null);
+        activeAudioBidRef.current = null;
         setIsAudioSequenceActive(false);
+        isAudioSequenceActiveRef.current = false;
+        logAudioInterrupt('当前音频结束且已是最后一项，尝试推进到下一个 block', {
+          nextIndex,
+          listLength: list.length,
+        });
         tryAdvanceToNextBlock();
         return;
       }
       // console.log('listen-sequence-ended-next', { nextIndex });
+      logAudioInterrupt('当前音频结束，推进到序列下一项', {
+        currentIndex: audioSequenceIndexRef.current,
+        nextIndex,
+      });
       playAudioSequenceFromIndex(nextIndex);
       return;
     }
     // console.log('listen-sequence-ended-empty-list');
+    logAudioInterrupt('当前音频结束但序列为空，尝试推进到下一个 block', {
+      reason: 'empty-sequence-on-ended',
+    });
     tryAdvanceToNextBlock();
-  }, [playAudioSequenceFromIndex, tryAdvanceToNextBlock]);
+  }, [logAudioInterrupt, playAudioSequenceFromIndex, tryAdvanceToNextBlock]);
 
   const logAudioAction = useCallback(
     (action: 'play' | 'pause') => {
@@ -1368,6 +1551,11 @@ export const useListenAudioSequence = ({
     if (previewMode) {
       return;
     }
+    logAudioInterrupt('用户或系统触发播放动作 handlePlay', {
+      activeAudioBid,
+      currentIndex: audioSequenceIndexRef.current,
+      listLength: audioSequenceListRef.current.length,
+    });
     isSequencePausedRef.current = false;
     // console.log('listen-sequence-handle-play', {
     //   activeAudioBid,
@@ -1392,6 +1580,7 @@ export const useListenAudioSequence = ({
     previewMode,
     activeAudioBid,
     isAudioSequenceActive,
+    logAudioInterrupt,
     logAudioAction,
     startSequenceFromPage,
     deckRef,
@@ -1403,6 +1592,11 @@ export const useListenAudioSequence = ({
       if (previewMode) {
         return;
       }
+      logAudioInterrupt('用户或系统触发暂停动作 handlePause', {
+        traceId: traceId ?? null,
+        activeAudioBid,
+        currentIndex: audioSequenceIndexRef.current,
+      });
       // console.log('listen-mode-handle-pause', {
       //   traceId,
       //   activeAudioBid,
@@ -1430,14 +1624,18 @@ export const useListenAudioSequence = ({
       activeContentItem?.audioUrl,
       activeContentItem?.content,
       isAudioSequenceActive,
+      logAudioInterrupt,
       logAudioAction,
       clearAudioSequenceTimer,
     ],
   );
 
   useEffect(() => {
+    logAudioInterrupt('activeAudioBid 变化，重置 isAudioPlaying=false', {
+      activeAudioBid,
+    });
     setIsAudioPlaying(false);
-  }, [activeAudioBid, setIsAudioPlaying]);
+  }, [activeAudioBid, logAudioInterrupt, setIsAudioPlaying]);
 
   return {
     audioPlayerRef,
