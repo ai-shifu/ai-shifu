@@ -552,15 +552,18 @@ export const ShifuProvider = ({
     }
   };
 
-  const buildDraftMetaFromDetail = useCallback((detail: any): DraftMeta | null => {
-    if (!detail || typeof detail.draft_revision !== 'number') {
-      return null;
-    }
-    return {
-      revision: detail.draft_revision,
-      updated_user: detail.draft_updated_user ?? null,
-    };
-  }, []);
+  const buildDraftMetaFromDetail = useCallback(
+    (detail: any): DraftMeta | null => {
+      if (!detail || typeof detail.draft_revision !== 'number') {
+        return null;
+      }
+      return {
+        revision: detail.draft_revision,
+        updated_user: detail.draft_updated_user ?? null,
+      };
+    },
+    [],
+  );
 
   const applyDraftMeta = useCallback(
     (
@@ -648,7 +651,10 @@ export const ShifuProvider = ({
       }
       try {
         const detail = await api.getShifuDetail({ shifu_bid: shifuId });
-        if (currentShifuBidRef.current && currentShifuBidRef.current !== shifuId) {
+        if (
+          currentShifuBidRef.current &&
+          currentShifuBidRef.current !== shifuId
+        ) {
           return null;
         }
         const meta = buildDraftMetaFromDetail(detail);
