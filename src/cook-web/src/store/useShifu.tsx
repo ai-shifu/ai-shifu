@@ -589,10 +589,10 @@ export const ShifuProvider = ({
         updatedUser !== currentUserId &&
         meta.revision > (baseRevision ?? 0)
       ) {
-          setHasDraftConflict(true);
-          setAutosavePausedState(true);
-          debouncedAutoSaveRef.current.cancel();
-          return;
+        setHasDraftConflict(true);
+        setAutosavePausedState(true);
+        debouncedAutoSaveRef.current.cancel();
+        return;
       }
       setBaseRevision(meta.revision);
     },
