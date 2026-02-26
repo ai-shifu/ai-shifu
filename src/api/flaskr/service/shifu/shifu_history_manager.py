@@ -37,13 +37,15 @@ format:
 """
 
 from flask import Flask
-from typing import Generic, TypeVar, List
+from typing import Generic, TypeVar, List, Optional
 from pydantic import BaseModel
 from .models import LogDraftStruct
 from flaskr.dao import db
 from flaskr.util import generate_id
+from flaskr.service.user.repository import load_user_aggregate
 import queue
 from datetime import datetime
+import re
 
 T = TypeVar("T", bound="HistoryItem")
 
@@ -112,6 +114,78 @@ def get_shifu_history(app, shifu_bid: str) -> HistoryItem:
             init_history = HistoryItem(bid=shifu_bid, id=0, type="shifu", children=[])
             return init_history
         return HistoryItem.from_json(shifu_history.struct)
+
+
+def _mask_phone(phone: str) -> str:
+    if not phone:
+        return ""
+    normalized = re.sub(r"\s+", "", phone)
+    if len(normalized) == 11 and normalized.isdigit():
+        return f"{normalized[:3]}****{normalized[-4:]}"
+    if len(normalized) <= 4:
+        return f"{normalized[0]}***" if normalized else ""
+    return f"{normalized[:2]}****{normalized[-2:]}"
+
+
+def _mask_email(email: str) -> str:
+    normalized = (email or "").strip().lower()
+    if "@" not in normalized:
+        return ""
+    local, domain = normalized.split("@", 1)
+    if not local:
+        masked_local = "***"
+    elif len(local) == 1:
+        masked_local = f"{local}***"
+    else:
+        masked_local = f"{local[0]}***{local[-1]}"
+    return f"{masked_local}@{domain}"
+
+
+def _build_updated_user(app: Flask, user_bid: str) -> Optional[dict]:
+    if not user_bid:
+        return None
+    aggregate = load_user_aggregate(app, user_bid)
+    if not aggregate:
+        return {"user_bid": user_bid, "phone": ""}
+    masked = ""
+    if aggregate.mobile:
+        masked = _mask_phone(aggregate.mobile)
+    elif aggregate.email:
+        masked = _mask_email(aggregate.email)
+    return {"user_bid": user_bid, "phone": masked}
+
+
+def get_shifu_draft_meta(app: Flask, shifu_bid: str) -> dict:
+    with app.app_context():
+        shifu_history = (
+            LogDraftStruct.query.filter_by(
+                shifu_bid=shifu_bid,
+                deleted=0,
+            )
+            .order_by(LogDraftStruct.id.desc())
+            .first()
+        )
+        if not shifu_history:
+            return {"revision": 0, "updated_at": None, "updated_user": None}
+        user_bid = shifu_history.updated_user_bid or shifu_history.created_user_bid
+        return {
+            "revision": shifu_history.id,
+            "updated_at": shifu_history.updated_at or shifu_history.created_at,
+            "updated_user": _build_updated_user(app, user_bid),
+        }
+
+
+def get_shifu_draft_revision(app: Flask, shifu_bid: str) -> int:
+    with app.app_context():
+        latest = (
+            LogDraftStruct.query.filter_by(
+                shifu_bid=shifu_bid,
+                deleted=0,
+            )
+            .order_by(LogDraftStruct.id.desc())
+            .first()
+        )
+        return int(latest.id) if latest else 0
 
 
 def __save_shifu_history(
