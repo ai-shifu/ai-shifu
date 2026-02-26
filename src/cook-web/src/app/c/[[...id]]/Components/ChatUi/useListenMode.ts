@@ -24,6 +24,7 @@ export type AudioInteractionItem = ChatContentItem & {
   sequenceKind: 'audio' | 'interaction';
   audioPosition?: number;
   listenSlideId?: string;
+  audioSegments?: AudioSegment[];
 };
 
 export type ListenSlideItem = {
