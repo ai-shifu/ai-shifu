@@ -3,6 +3,7 @@
   "__flat__": {
     "defaultChapterName": "Untitled Chapter",
     "defaultLessonName": "Untitled Lesson",
+    "draftConflict": "This course was updated by another user. Please refresh and try again.",
     "importFileInvalid": "Import file is invalid",
     "noPermission": "No permission",
     "outlineDeleted": "Outline has been deleted",
