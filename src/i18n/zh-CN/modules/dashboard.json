@@ -1,7 +1,11 @@
 {
   "__namespace__": "module.dashboard",
+  "actions": {
+    "back": "返回"
+  },
   "chart": {
-    "followUpsTrend": "追问趋势",
+    "followUpsByChapter": "追问章节分布",
+    "followUpsTrend": "追问数量时间分布",
     "progressDistribution": "进度分布",
     "topOutlinesByFollowUps": "追问最多的课时"
   },
@@ -14,7 +18,7 @@
       "outlinePlaceholder": "按课时筛选",
       "question": "问题",
       "title": "追问",
-      "totalCount": "共 {{count}}"
+      "totalCount": "共 {count}"
     },
     "personalization": {
       "empty": "暂无信息",
@@ -53,8 +57,13 @@
       "search": "查询",
       "searchPlaceholder": "搜索课程名称 / 课程ID",
       "title": "课程列表",
-      "totalCount": "共 {{count}}"
+      "totalCount": "共 {count}"
     }
+  },
+  "export": {
+    "button": "数据导出",
+    "error": "数据导出失败，请稍后重试",
+    "loading": "导出中..."
   },
   "filters": {
     "dateRange": "时间范围",
@@ -79,14 +88,14 @@
   "table": {
     "empty": "暂无学员",
     "followUps": "追问",
-    "keywordPlaceholder": "搜索 user_bid / 手机号 / 昵称",
+    "keywordPlaceholder": "搜索 用户ID / 手机号 / 昵称",
     "lastActive": "最近学习",
     "progress": "进度",
     "reset": "重置",
     "search": "查询",
     "sort": "排序",
     "title": "学员",
-    "totalCount": "共 {{count}}",
+    "totalCount": "共 {count}",
     "user": "学员"
   },
   "title": "数据看板"

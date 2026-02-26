@@ -8,7 +8,7 @@ import React, {
   useState,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import api from '@/api';
 import { useUserStore } from '@/store';
 import { Button } from '@/components/ui/Button';
@@ -27,13 +27,13 @@ import {
   PopoverTrigger,
 } from '@/components/ui/Popover';
 import { Calendar } from '@/components/ui/Calendar';
-import { CalendarIcon } from 'lucide-react';
+import { ArrowLeft, CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ErrorWithCode } from '@/lib/request';
 import type { DashboardOverview } from '@/types/dashboard';
 import EChart from '@/components/charts/EChart';
 import ChartCard from '@/components/charts/ChartCard';
-import { buildBarOption, buildLineOption } from '@/lib/charts/options';
+import { buildBarOption } from '@/lib/charts/options';
 import {
   Table,
   TableBody,
@@ -45,6 +45,7 @@ import {
 } from '@/components/ui/Table';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
+import { toast } from '@/hooks/useToast';
 import {
   Pagination,
   PaginationContent,
@@ -73,6 +74,13 @@ const parseDateValue = (value: string): Date | undefined => {
   return parsed;
 };
 
+const buildRequestId = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID().replace(/-/g, '');
+  }
+  return `${Date.now()}${Math.random().toString(36).slice(2, 10)}`;
+};
+
 type DateRangeFilterProps = {
   startValue: string;
   endValue: string;
@@ -95,18 +103,26 @@ const DateRangeFilter = ({
     }),
     [startValue, endValue],
   );
+  const [draftRange, setDraftRange] = useState<{
+    from?: Date;
+    to?: Date;
+  }>(selectedRange);
+
+  useEffect(() => {
+    setDraftRange(selectedRange);
+  }, [selectedRange]);
 
   const label = useMemo(() => {
-    if (selectedRange.from && selectedRange.to) {
-      return `${formatDateValue(selectedRange.from)} ~ ${formatDateValue(
-        selectedRange.to,
+    if (draftRange.from && draftRange.to) {
+      return `${formatDateValue(draftRange.from)} ~ ${formatDateValue(
+        draftRange.to,
       )}`;
     }
-    if (selectedRange.from) {
-      return formatDateValue(selectedRange.from);
+    if (draftRange.from) {
+      return formatDateValue(draftRange.from);
     }
     return placeholder;
-  }, [placeholder, selectedRange]);
+  }, [draftRange.from, draftRange.to, placeholder]);
 
   return (
     <Popover>
@@ -120,7 +136,7 @@ const DateRangeFilter = ({
           <span
             className={cn(
               'flex-1 truncate text-left',
-              startValue ? 'text-foreground' : 'text-muted-foreground',
+              draftRange.from ? 'text-foreground' : 'text-muted-foreground',
             )}
           >
             {label}
@@ -135,13 +151,24 @@ const DateRangeFilter = ({
         <Calendar
           mode='range'
           numberOfMonths={2}
-          selected={selectedRange}
-          onSelect={range =>
-            onChange({
-              start: range?.from ? formatDateValue(range.from) : '',
-              end: range?.to ? formatDateValue(range.to) : '',
-            })
-          }
+          selected={draftRange}
+          onSelect={range => {
+            const nextRange = {
+              from: range?.from,
+              to: range?.to,
+            };
+            setDraftRange(nextRange);
+            if (!nextRange.from) {
+              onChange({ start: '', end: '' });
+              return;
+            }
+            if (nextRange.from && nextRange.to) {
+              onChange({
+                start: formatDateValue(nextRange.from),
+                end: formatDateValue(nextRange.to),
+              });
+            }
+          }}
           className='p-3 md:p-4 [--cell-size:2.4rem]'
         />
         <div className='flex items-center justify-end gap-2 border-t border-border px-3 py-2'>
@@ -149,7 +176,10 @@ const DateRangeFilter = ({
             size='sm'
             variant='ghost'
             type='button'
-            onClick={() => onChange({ start: '', end: '' })}
+            onClick={() => {
+              setDraftRange({ from: undefined, to: undefined });
+              onChange({ start: '', end: '' });
+            }}
           >
             {resetLabel}
           </Button>
@@ -165,8 +195,11 @@ export default function AdminDashboardPage() {
   const { t } = useTranslation();
   const params = useParams<{ shifu_bid?: string | string[] }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
+  const urlStartDate = searchParams.get('start_date') || '';
+  const urlEndDate = searchParams.get('end_date') || '';
 
   const shifuBid = useMemo(() => {
     const value = params?.shifu_bid;
@@ -175,8 +208,17 @@ export default function AdminDashboardPage() {
     }
     return value || '';
   }, [params]);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(
+    () => urlStartDate,
+  );
+  const [endDate, setEndDate] = useState(
+    () => urlEndDate,
+  );
+
+  useEffect(() => {
+    setStartDate(previous => (previous === urlStartDate ? previous : urlStartDate));
+    setEndDate(previous => (previous === urlEndDate ? previous : urlEndDate));
+  }, [urlEndDate, urlStartDate]);
 
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(false);
@@ -191,6 +233,8 @@ export default function AdminDashboardPage() {
   const [learnerTotal, setLearnerTotal] = useState(0);
   const [learnersLoading, setLearnersLoading] = useState(false);
   const [learnersError, setLearnersError] = useState<ErrorState | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
 
   const lastFetchedOverviewRef = useRef<{
     shifuBid: string;
@@ -348,14 +392,6 @@ export default function AdminDashboardPage() {
     fetchLearners(1, { keyword: '', sort: defaultSort });
   }, [fetchLearners, isInitialized, isGuest, shifuBid]);
 
-  const completionRateText = useMemo(() => {
-    if (!overview) {
-      return '-';
-    }
-    const percent = Math.round((overview.kpis.completion_rate || 0) * 100);
-    return `${percent}%`;
-  }, [overview]);
-
   const progressDistributionOption = useMemo(() => {
     const categories =
       overview?.progress_distribution?.map(item => item.label) ?? [];
@@ -365,9 +401,24 @@ export default function AdminDashboardPage() {
   }, [overview]);
 
   const followUpTrendOption = useMemo(() => {
-    const x = overview?.follow_up_trend?.map(item => item.label) ?? [];
-    const y = overview?.follow_up_trend?.map(item => item.value) ?? [];
-    return buildLineOption({ x, y });
+    const categories = overview?.follow_up_trend?.map(item => item.label) ?? [];
+    const values = overview?.follow_up_trend?.map(item => item.value) ?? [];
+    const option = buildBarOption({ categories, values });
+    const xAxis = (option as any).xAxis ?? {};
+    const axisLabel = xAxis.axisLabel ?? {};
+    const interval =
+      categories.length > 8 ? Math.ceil(categories.length / 8) - 1 : 0;
+    (option as any).xAxis = {
+      ...xAxis,
+      axisLabel: {
+        ...axisLabel,
+        interval,
+        rotate: categories.length > 12 ? 30 : 0,
+        formatter: (value: string) =>
+          value && value.length >= 10 ? value.slice(5) : value,
+      },
+    };
+    return option;
   }, [overview]);
 
   const topOutlinesOption = useMemo(() => {
@@ -375,6 +426,28 @@ export default function AdminDashboardPage() {
       overview?.top_outlines_by_follow_ups?.map(item => item.title) ?? [];
     const values =
       overview?.top_outlines_by_follow_ups?.map(item => item.ask_count) ?? [];
+    const option = buildBarOption({ categories, values });
+
+    const xAxis = (option as any).xAxis ?? {};
+    const axisLabel = xAxis.axisLabel ?? {};
+    (option as any).xAxis = {
+      ...xAxis,
+      axisLabel: {
+        ...axisLabel,
+        rotate: categories.length > 5 ? 30 : 0,
+        formatter: (value: string) =>
+          value && value.length > 12 ? `${value.slice(0, 12)}...` : value,
+      },
+    };
+
+    return option;
+  }, [overview]);
+
+  const chapterDistributionOption = useMemo(() => {
+    const categories =
+      overview?.follow_up_chapter_distribution?.map(item => item.label) ?? [];
+    const values =
+      overview?.follow_up_chapter_distribution?.map(item => item.value) ?? [];
     const option = buildBarOption({ categories, values });
 
     const xAxis = (option as any).xAxis ?? {};
@@ -403,6 +476,80 @@ export default function AdminDashboardPage() {
     return parsed.toLocaleString();
   }, []);
 
+  const handleExport = useCallback(async () => {
+    if (!shifuBid || exporting) {
+      return;
+    }
+    setExporting(true);
+    try {
+      const query = new URLSearchParams();
+      if (startDate) {
+        query.set('start_date', startDate);
+      }
+      if (endDate) {
+        query.set('end_date', endDate);
+      }
+
+      const token = useUserStore.getState().getToken() || '';
+      const headers: Record<string, string> = {
+        'X-Request-ID': buildRequestId(),
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+        headers.Token = token;
+      }
+
+      const queryString = query.toString();
+      const endpoint = `/api/dashboard/shifus/${encodeURIComponent(shifuBid)}/export`;
+      const url = queryString ? `${endpoint}?${queryString}` : endpoint;
+      const response = await fetch(url, { method: 'GET', headers });
+      const contentType = response.headers.get('Content-Type') || '';
+      if (contentType.includes('application/json')) {
+        const payload = await response.json();
+        const message =
+          payload && typeof payload.message === 'string'
+            ? payload.message
+            : t('module.dashboard.export.error');
+        throw new Error(message);
+      }
+      if (!response.ok) {
+        throw new Error(t('module.dashboard.export.error'));
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('Content-Disposition') || '';
+      let filename = `${shifuBid}-dashboard-export.xlsx`;
+      const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+      if (utf8Match && utf8Match[1]) {
+        filename = decodeURIComponent(utf8Match[1]);
+      } else {
+        const filenameMatch = contentDisposition.match(/filename=\"?([^\";]+)\"?/i);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      const objectUrl = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      window.URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      toast({
+        title:
+          error instanceof Error
+            ? error.message
+            : t('module.dashboard.export.error'),
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
+    }
+  }, [endDate, exporting, shifuBid, startDate, t]);
+
   const handleLearnerPageChange = (nextPage: number) => {
     if (
       nextPage < 1 ||
@@ -413,6 +560,14 @@ export default function AdminDashboardPage() {
     }
     fetchLearners(nextPage, { keyword: learnerKeyword, sort: learnerSort });
   };
+
+  const handleBackToEntry = useCallback(() => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push('/admin/dashboard');
+  }, [router]);
 
   const buildLearnerDetailHref = useCallback(
     (userBid: string) => {
@@ -450,14 +605,25 @@ export default function AdminDashboardPage() {
     <div className='h-full p-0'>
       <div className='h-full overflow-hidden flex flex-col'>
         <div className='flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-5'>
-          <h1 className='text-2xl font-semibold text-gray-900 break-all'>
-            {t('module.dashboard.title')}
-            {shifuBid ? (
-              <span className='ml-2 text-sm font-normal text-muted-foreground'>
-                {shifuBid}
-              </span>
-            ) : null}
-          </h1>
+          <div className='flex items-center gap-3'>
+            <Button
+              size='sm'
+              variant='outline'
+              type='button'
+              onClick={handleBackToEntry}
+            >
+              <ArrowLeft className='mr-1 h-4 w-4' />
+              {t('module.dashboard.actions.back')}
+            </Button>
+            <h1 className='text-2xl font-semibold text-gray-900 break-all'>
+              {t('module.dashboard.title')}
+              {overview?.shifu_name ? (
+                <span className='ml-2 text-sm font-normal text-muted-foreground'>
+                  {overview.shifu_name}
+                </span>
+              ) : null}
+            </h1>
+          </div>
           <div className='flex flex-col gap-3 md:flex-row md:items-center md:justify-end'>
             <div className='flex items-center gap-2'>
               <span className='text-sm text-muted-foreground whitespace-nowrap'>
@@ -478,6 +644,17 @@ export default function AdminDashboardPage() {
                 />
               </div>
             </div>
+            <Button
+              size='sm'
+              variant='outline'
+              type='button'
+              onClick={handleExport}
+              disabled={exporting || !shifuBid}
+            >
+              {exporting
+                ? t('module.dashboard.export.loading')
+                : t('module.dashboard.export.button')}
+            </Button>
           </div>
         </div>
 
@@ -494,7 +671,7 @@ export default function AdminDashboardPage() {
                 <Card>
                   <CardContent className='p-4'>
                     <div className='text-sm text-muted-foreground'>
-                      {t('module.dashboard.kpi.learners')}
+                      {t('module.dashboard.entry.kpi.learners')}
                     </div>
                     <div className='mt-2 text-2xl font-semibold text-foreground'>
                       {overviewLoading
@@ -507,10 +684,10 @@ export default function AdminDashboardPage() {
                 <Card>
                   <CardContent className='p-4'>
                     <div className='text-sm text-muted-foreground'>
-                      {t('module.dashboard.kpi.completionRate')}
+                      {t('module.dashboard.entry.kpi.orders')}
                     </div>
                     <div className='mt-2 text-2xl font-semibold text-foreground'>
-                      {overviewLoading ? '-' : completionRateText}
+                      {overviewLoading ? '-' : (overview?.kpis.order_count ?? '-')}
                     </div>
                   </CardContent>
                 </Card>
@@ -518,12 +695,12 @@ export default function AdminDashboardPage() {
                 <Card>
                   <CardContent className='p-4'>
                     <div className='text-sm text-muted-foreground'>
-                      {t('module.dashboard.kpi.followUps')}
+                      {t('module.dashboard.entry.kpi.generations')}
                     </div>
                     <div className='mt-2 text-2xl font-semibold text-foreground'>
                       {overviewLoading
                         ? '-'
-                        : (overview?.kpis.follow_up_ask_total ?? '-')}
+                        : (overview?.kpis.generation_count ?? '-')}
                     </div>
                   </CardContent>
                 </Card>
@@ -531,12 +708,12 @@ export default function AdminDashboardPage() {
                 <Card>
                   <CardContent className='p-4'>
                     <div className='text-sm text-muted-foreground'>
-                      {t('module.dashboard.kpi.requiredOutlines')}
+                      {t('module.dashboard.entry.table.lastActive')}
                     </div>
                     <div className='mt-2 text-2xl font-semibold text-foreground'>
                       {overviewLoading
                         ? '-'
-                        : (overview?.kpis.required_outline_total ?? '-')}
+                        : formatLastActive(overview?.kpis.last_active_at || '')}
                     </div>
                   </CardContent>
                 </Card>
@@ -577,6 +754,18 @@ export default function AdminDashboardPage() {
                   <div className='h-[320px]'>
                     <EChart
                       option={topOutlinesOption}
+                      loading={overviewLoading}
+                      style={{ height: '100%' }}
+                    />
+                  </div>
+                </ChartCard>
+
+                <ChartCard
+                  title={t('module.dashboard.chart.followUpsByChapter')}
+                >
+                  <div className='h-[320px]'>
+                    <EChart
+                      option={chapterDistributionOption}
                       loading={overviewLoading}
                       style={{ height: '100%' }}
                     />
@@ -739,7 +928,7 @@ export default function AdminDashboardPage() {
                                     {item.mobile || item.user_bid}
                                   </div>
                                   <div className='text-xs text-muted-foreground'>
-                                    {item.nickname || item.user_bid}
+                                    {item.nickname || defaultUserName}
                                   </div>
                                 </TableCell>
                                 <TableCell className='whitespace-nowrap'>

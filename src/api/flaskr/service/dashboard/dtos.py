@@ -173,6 +173,13 @@ class DashboardOverviewKpiDTO(BaseModel):
     """Overview KPI payload."""
 
     learner_count: int = Field(..., description="Learner count", required=False)
+    order_count: int = Field(default=0, description="Order count", required=False)
+    generation_count: int = Field(
+        default=0, description="Generation count", required=False
+    )
+    last_active_at: str = Field(
+        default="", description="Latest active timestamp (ISO)", required=False
+    )
     completion_count: int = Field(
         ..., description="Completed learner count", required=False
     )
@@ -189,6 +196,9 @@ class DashboardOverviewKpiDTO(BaseModel):
     def __json__(self) -> Dict[str, Any]:
         return {
             "learner_count": int(self.learner_count),
+            "order_count": int(self.order_count),
+            "generation_count": int(self.generation_count),
+            "last_active_at": self.last_active_at,
             "completion_count": int(self.completion_count),
             "completion_rate": float(self.completion_rate),
             "required_outline_total": int(self.required_outline_total),
@@ -200,6 +210,9 @@ class DashboardOverviewKpiDTO(BaseModel):
 class DashboardOverviewDTO(BaseModel):
     """Dashboard overview response payload."""
 
+    shifu_name: str = Field(
+        default="", description="Course display name", required=False
+    )
     kpis: DashboardOverviewKpiDTO = Field(
         ..., description="KPI summary", required=False
     )
@@ -210,7 +223,7 @@ class DashboardOverviewDTO(BaseModel):
     )
     follow_up_trend: List[DashboardSeriesPointDTO] = Field(
         default_factory=list,
-        description="Follow-up asks trend",
+        description="Follow-up count distribution by time",
         required=False,
     )
     top_outlines_by_follow_ups: List[DashboardTopOutlineDTO] = Field(
@@ -223,6 +236,11 @@ class DashboardOverviewDTO(BaseModel):
         description="Top learners by follow-up asks",
         required=False,
     )
+    follow_up_chapter_distribution: List[DashboardSeriesPointDTO] = Field(
+        default_factory=list,
+        description="Follow-up asks distribution by chapter",
+        required=False,
+    )
     start_date: str = Field(
         default="", description="Start date (YYYY-MM-DD)", required=False
     )
@@ -232,6 +250,7 @@ class DashboardOverviewDTO(BaseModel):
 
     def __json__(self) -> Dict[str, Any]:
         return {
+            "shifu_name": self.shifu_name,
             "kpis": self.kpis.__json__(),
             "progress_distribution": [
                 item.__json__() for item in self.progress_distribution
@@ -242,6 +261,9 @@ class DashboardOverviewDTO(BaseModel):
             ],
             "top_learners_by_follow_ups": [
                 item.__json__() for item in self.top_learners_by_follow_ups
+            ],
+            "follow_up_chapter_distribution": [
+                item.__json__() for item in self.follow_up_chapter_distribution
             ],
             "start_date": self.start_date,
             "end_date": self.end_date,

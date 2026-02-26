@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from flask import Flask, request
+from io import BytesIO
+
+from flask import Flask, request, send_file
 
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response
 from flaskr.service.dashboard.funcs import (
+    build_dashboard_detail_export_workbook,
     build_dashboard_entry,
     build_dashboard_learner_detail,
     build_dashboard_overview,
@@ -94,7 +97,13 @@ def register_dashboard_routes(app: Flask, path_prefix: str = "/api/dashboard") -
         user_id = request.user.user_id
         require_shifu_view_permission(app, user_id, shifu_bid)
         return make_common_response(
-            build_dashboard_learner_detail(app, shifu_bid, user_bid)
+            build_dashboard_learner_detail(
+                app,
+                shifu_bid,
+                user_bid,
+                start_date=request.args.get("start_date"),
+                end_date=request.args.get("end_date"),
+            )
         )
 
     @app.route(
@@ -123,6 +132,24 @@ def register_dashboard_routes(app: Flask, path_prefix: str = "/api/dashboard") -
                 page_index=page_index,
                 page_size=page_size,
             )
+        )
+
+    @app.route(path_prefix + "/shifus/<shifu_bid>/export", methods=["GET"])
+    def dashboard_export_api(shifu_bid: str):
+        user_id = request.user.user_id
+        require_shifu_view_permission(app, user_id, shifu_bid)
+
+        file_bytes = build_dashboard_detail_export_workbook(
+            app,
+            shifu_bid,
+            start_date=request.args.get("start_date"),
+            end_date=request.args.get("end_date"),
+        )
+        return send_file(
+            BytesIO(file_bytes),
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            as_attachment=True,
+            download_name=f"{shifu_bid}-dashboard-export.xlsx",
         )
 
     return None

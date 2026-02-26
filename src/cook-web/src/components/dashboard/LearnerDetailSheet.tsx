@@ -107,6 +107,7 @@ export default function LearnerDetailSheet({
   onOpenChange,
 }: LearnerDetailSheetProps) {
   const { t } = useTranslation();
+  const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
   const isActive =
     mode === 'page' ? Boolean(shifuBid && userBid) : Boolean(open);
   const [activeTab, setActiveTab] = useState<
@@ -149,10 +150,19 @@ export default function LearnerDetailSheet({
     setDetailLoading(true);
     setDetailError(null);
     try {
-      const result = (await api.getDashboardLearnerDetail({
+      const params: Record<string, string> = {
         shifu_bid: shifuBid,
         user_bid: userBid,
-      })) as DashboardLearnerDetail;
+      };
+      if (startDate) {
+        params.start_date = startDate;
+      }
+      if (endDate) {
+        params.end_date = endDate;
+      }
+      const result = (await api.getDashboardLearnerDetail(
+        params,
+      )) as DashboardLearnerDetail;
       setDetail(result);
     } catch (err) {
       setDetail(null);
@@ -166,7 +176,7 @@ export default function LearnerDetailSheet({
     } finally {
       setDetailLoading(false);
     }
-  }, [isActive, shifuBid, t, userBid]);
+  }, [endDate, isActive, shifuBid, startDate, t, userBid]);
 
   const fetchFollowups = useCallback(
     async (targetPage: number) => {
@@ -183,18 +193,24 @@ export default function LearnerDetailSheet({
       setFollowupsLoading(true);
       setFollowupsError(null);
       try {
-        const response = (await api.getDashboardLearnerFollowups({
+        const params: Record<string, string | number> = {
           shifu_bid: shifuBid,
           user_bid: userBid,
-          outline_item_bid:
-            followupsOutlineBid === FOLLOWUPS_OUTLINE_ALL_VALUE
-              ? undefined
-              : followupsOutlineBid,
-          start_time: startDate || undefined,
-          end_time: endDate || undefined,
           page_index: targetPage,
           page_size: 20,
-        })) as DashboardPage<DashboardFollowUpItem>;
+        };
+        if (followupsOutlineBid !== FOLLOWUPS_OUTLINE_ALL_VALUE) {
+          params.outline_item_bid = followupsOutlineBid;
+        }
+        if (startDate) {
+          params.start_time = startDate;
+        }
+        if (endDate) {
+          params.end_time = endDate;
+        }
+        const response = (await api.getDashboardLearnerFollowups(
+          params,
+        )) as DashboardPage<DashboardFollowUpItem>;
 
         setFollowups(response.items || []);
         setFollowupsPageIndex(response.page || targetPage);
@@ -277,9 +293,10 @@ export default function LearnerDetailSheet({
       return t('module.dashboard.detail.title');
     }
     const primary = detail.mobile || detail.user_bid;
-    const secondary = detail.nickname ? ` (${detail.nickname})` : '';
+    const displayName = detail.nickname || defaultUserName;
+    const secondary = displayName ? ` (${displayName})` : '';
     return `${primary}${secondary}`;
-  }, [detail, t]);
+  }, [defaultUserName, detail, t]);
 
   const content = detailLoading ? (
     <div className='flex h-40 items-center justify-center'>
@@ -405,7 +422,7 @@ export default function LearnerDetailSheet({
                 type='button'
                 onClick={() => fetchFollowups(1)}
               >
-                {t('common.core.retry')}
+                {t('module.dashboard.table.search')}
               </Button>
             </div>
           </div>
