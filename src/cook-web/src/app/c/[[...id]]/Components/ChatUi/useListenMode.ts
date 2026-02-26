@@ -221,6 +221,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
           item.type === ChatContentItemType.CONTENT && !!item.content
             ? splitContentSegments(item.content || '', true)
             : [];
+          console.log('segments', item.content, segments);
         const slideSegments = segments.filter(
           segment => segment.type === 'markdown' || segment.type === 'sandbox',
         );
