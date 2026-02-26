@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import ListenPlayer from './ListenPlayer';
 import { cn } from '@/lib/utils';
 import type Reveal from 'reveal.js';
@@ -152,7 +152,6 @@ const ListenModeRenderer = ({
     activeAudioBlockBid,
     sequenceInteraction,
     isAudioSequenceActive,
-    audioSequenceToken,
     handleAudioEnded,
     handlePlay,
     handlePause,
@@ -177,25 +176,24 @@ const ListenModeRenderer = ({
     setIsAudioPlaying,
   });
 
-  const { currentInteraction, isPrevDisabled, isNextDisabled, goPrev, goNext } =
-    useListenPpt({
-      chatRef,
-      deckRef,
-      currentPptPageRef,
-      activeBlockBidRef,
-      pendingAutoNextRef,
-      slideItems,
-      interactionByPage,
-      sectionTitle,
-      isLoading,
-      isAudioPlaying,
-      activeContentItem,
-      shouldRenderEmptyPpt,
-      onResetSequence: handleResetSequence,
-      getNextContentBid,
-      goToBlock,
-      resolveContentBid,
-    });
+  const { isPrevDisabled, isNextDisabled, goPrev, goNext } = useListenPpt({
+    chatRef,
+    deckRef,
+    currentPptPageRef,
+    activeBlockBidRef,
+    pendingAutoNextRef,
+    slideItems,
+    interactionByPage,
+    sectionTitle,
+    isLoading,
+    isAudioPlaying,
+    activeContentItem,
+    shouldRenderEmptyPpt,
+    onResetSequence: handleResetSequence,
+    getNextContentBid,
+    goToBlock,
+    resolveContentBid,
+  });
 
   const audioList = useMemo(
     () =>
@@ -221,39 +219,7 @@ const ListenModeRenderer = ({
     }
   }, [goNext, startSequenceFromPage]);
 
-  const currentInteractionPage = useMemo(() => {
-    if (!currentInteraction) {
-      return -1;
-    }
-    for (const [page, item] of interactionByPage.entries()) {
-      if (item === currentInteraction) {
-        return page;
-      }
-    }
-    return -1;
-  }, [currentInteraction, interactionByPage]);
-
-  const hasAudioForCurrentPage = useMemo(() => {
-    if (currentInteractionPage === -1) {
-      return false;
-    }
-    return audioAndInteractionList.some(
-      item =>
-        item.page === currentInteractionPage &&
-        item.type === ChatContentItemType.CONTENT,
-    );
-  }, [currentInteractionPage, audioAndInteractionList]);
-
-  const shouldHideFallbackInteraction =
-    hasAudioForCurrentPage &&
-    audioSequenceToken === 0 &&
-    !isAudioSequenceActive;
-
-  const listenPlayerInteraction = isAudioSequenceActive
-    ? sequenceInteraction
-    : shouldHideFallbackInteraction
-      ? null
-      : currentInteraction;
+  const listenPlayerInteraction = sequenceInteraction;
   const isLatestInteractionEditable = Boolean(
     listenPlayerInteraction?.generated_block_bid &&
     lastItemIsInteraction &&
@@ -263,29 +229,6 @@ const ListenModeRenderer = ({
   const interactionReadonly = listenPlayerInteraction
     ? !isLatestInteractionEditable
     : true;
-
-  useEffect(() => {
-    // console.log('listen-render-state', {
-    //   isLoading,
-    //   audioSequenceToken,
-    //   isAudioSequenceActive,
-    //   currentInteractionBid: currentInteraction?.generated_block_bid ?? null,
-    //   sequenceInteractionBid: sequenceInteraction?.generated_block_bid ?? null,
-    //   listenInteractionBid:
-    //     listenPlayerInteraction?.generated_block_bid ?? null,
-    //   hasAudioForCurrentPage,
-    //   shouldHideFallbackInteraction,
-    // });
-  }, [
-    isLoading,
-    audioSequenceToken,
-    isAudioSequenceActive,
-    currentInteraction?.generated_block_bid,
-    sequenceInteraction?.generated_block_bid,
-    listenPlayerInteraction?.generated_block_bid,
-    hasAudioForCurrentPage,
-    shouldHideFallbackInteraction,
-  ]);
 
   return (
     <div
