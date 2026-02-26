@@ -44,6 +44,7 @@ const ListenModeRenderer = ({
   const shouldStartSequenceRef = useRef(false);
   const [sequenceStartSignal, setSequenceStartSignal] = useState(0);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [isSlideNavigationLocked, setIsSlideNavigationLocked] = useState(false);
 
   const {
     orderedContentBlockBids,
@@ -187,6 +188,7 @@ const ListenModeRenderer = ({
     sectionTitle,
     isLoading,
     isAudioPlaying,
+    isSlideNavigationLocked,
     activeContentItem,
     shouldRenderEmptyPpt,
     onResetSequence: handleResetSequence,
@@ -218,6 +220,19 @@ const ListenModeRenderer = ({
       startSequenceFromPage(nextPage);
     }
   }, [goNext, startSequenceFromPage]);
+
+  const onPlay = useCallback(() => {
+    setIsSlideNavigationLocked(false);
+    handlePlay();
+  }, [handlePlay]);
+
+  const onPause = useCallback(
+    (traceId: string) => {
+      setIsSlideNavigationLocked(true);
+      handlePause(traceId);
+    },
+    [handlePause],
+  );
 
   const listenPlayerInteraction = sequenceInteraction;
   const isLatestInteractionEditable = Boolean(
@@ -292,8 +307,8 @@ const ListenModeRenderer = ({
       ) : null}
       <ListenPlayer
         onPrev={onPrev}
-        onPlay={handlePlay}
-        onPause={handlePause}
+        onPlay={onPlay}
+        onPause={onPause}
         onNext={onNext}
         prevDisabled={prevControlDisabled}
         nextDisabled={nextControlDisabled}

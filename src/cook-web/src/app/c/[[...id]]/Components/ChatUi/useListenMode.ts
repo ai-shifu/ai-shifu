@@ -374,6 +374,7 @@ interface UseListenPptParams {
   sectionTitle?: string;
   isLoading: boolean;
   isAudioPlaying: boolean;
+  isSlideNavigationLocked: boolean;
   activeContentItem?: ChatContentItem;
   shouldRenderEmptyPpt: boolean;
   onResetSequence?: () => void;
@@ -393,6 +394,7 @@ export const useListenPpt = ({
   sectionTitle,
   isLoading,
   isAudioPlaying,
+  isSlideNavigationLocked,
   activeContentItem,
   shouldRenderEmptyPpt,
   onResetSequence,
@@ -668,6 +670,11 @@ export const useListenPpt = ({
         return;
       }
 
+      if (isSlideNavigationLocked) {
+        prevSlidesLengthRef.current = nextSlidesLength;
+        return;
+      }
+
       const shouldAutoFollowOnAppend =
         prevSlidesLength > 0 &&
         nextSlidesLength > prevSlidesLength &&
@@ -728,6 +735,7 @@ export const useListenPpt = ({
   }, [
     slideItems,
     isAudioPlaying,
+    isSlideNavigationLocked,
     isLoading,
     goToNextBlock,
     goToBlock,
