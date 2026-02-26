@@ -70,12 +70,6 @@
     "dateRangePlaceholder": "Select date range",
     "reset": "Reset"
   },
-  "kpi": {
-    "completionRate": "Completion Rate",
-    "followUps": "Follow-ups",
-    "learners": "Learners",
-    "requiredOutlines": "Required Lessons"
-  },
   "pagination": {
     "next": "Next",
     "prev": "Previous"

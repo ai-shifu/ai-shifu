@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
+import type { DateRange } from 'react-day-picker';
 import api from '@/api';
 import { useUserStore } from '@/store';
 import { ErrorWithCode } from '@/lib/request';
@@ -77,17 +78,14 @@ const DateRangeFilter = ({
   resetLabel,
   onChange,
 }: DateRangeFilterProps) => {
-  const selectedRange = useMemo(
+  const selectedRange = useMemo<DateRange>(
     () => ({
       from: parseDateValue(startValue),
       to: parseDateValue(endValue),
     }),
     [startValue, endValue],
   );
-  const [draftRange, setDraftRange] = useState<{
-    from?: Date;
-    to?: Date;
-  }>(selectedRange);
+  const [draftRange, setDraftRange] = useState<DateRange>(selectedRange);
 
   useEffect(() => {
     setDraftRange(selectedRange);
