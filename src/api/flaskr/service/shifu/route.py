@@ -1256,13 +1256,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               schema:
                 type: object
                 properties:
+                    base_revision:
+                        type: integer
+                        description: client's known draft revision for conflict detection
                     data:
-                        type: object
-                        description: save mdflow result
-                        properties:
-                            new_revision:
-                                type: integer
-                                description: latest draft revision
+                        type: string
+                        description: mdflow content to save
         responses:
             200:
                 description: save mdflow success
@@ -1277,8 +1276,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     type: string
                                     description: message
                                 data:
-                                    type: string
-                                    description: mdflow
+                                    type: object
+                                    description: save mdflow result
+                                    properties:
+                                        new_revision:
+                                            type: integer
+                                            description: latest draft revision
         """
         user_id = request.user.user_id
         payload = request.get_json() or {}
@@ -1289,6 +1292,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             except (TypeError, ValueError):
                 raise_param_error("base_revision")
         content = payload.get("data")
+        if content is None or not isinstance(content, str):
+            raise_param_error("data")
         result = save_shifu_mdflow(
             app, user_id, shifu_bid, outline_bid, content, base_revision
         )

@@ -234,6 +234,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
     actionsRef.current.setDraftConflict(false);
     actionsRef.current.setAutosavePaused(false);
     actionsRef.current.cancelAutoSaveBlocks();
+    actionsRef.current.setBaseRevision(null);
+    actionsRef.current.setLatestDraftMeta(null);
     setIsDraftConflictDialogOpen(false);
   }, [currentShifu?.bid]);
 
@@ -875,12 +877,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
           phone={latestDraftMeta?.updated_user?.phone}
           onRefresh={() => {
             window.location.reload();
-          }}
-          onCancel={() => {
-            setIsDraftConflictDialogOpen(false);
-            actions.setAutosavePaused(true);
-            actions.setDraftConflict(true);
-            actions.cancelAutoSaveBlocks();
           }}
         />
       </div>

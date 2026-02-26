@@ -7,6 +7,12 @@
     "modeText": "Easy",
     "title": "Teaching Prompts"
   },
+  "draftConflict": {
+    "description": "This course was updated by another user. Please refresh to get the latest content.",
+    "descriptionWithPhone": "This course was updated by {phone}. Please refresh to get the latest content.",
+    "refresh": "Refresh page",
+    "title": "Course content updated"
+  },
   "newChapter": "Add Chapter",
   "previewArea": {
     "action": "Debug",

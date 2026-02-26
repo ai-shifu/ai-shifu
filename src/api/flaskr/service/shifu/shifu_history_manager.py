@@ -144,7 +144,7 @@ def _mask_email(email: str) -> str:
 def _build_updated_user(app: Flask, user_bid: str) -> Optional[dict]:
     if not user_bid:
         return None
-    aggregate = load_user_aggregate(app, user_bid)
+    aggregate = load_user_aggregate(user_bid)
     if not aggregate:
         return {"user_bid": user_bid, "phone": ""}
     masked = ""

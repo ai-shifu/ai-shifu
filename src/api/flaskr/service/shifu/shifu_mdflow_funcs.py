@@ -66,6 +66,7 @@ def save_shifu_mdflow(
                 latest_meta.get("revision") if isinstance(latest_meta, dict) else 0
             )
             if base_revision != latest_revision:
+                db.session.rollback()
                 return {"conflict": True, "meta": latest_meta}
         outline_item: DraftOutlineItem = (
             DraftOutlineItem.query.filter(

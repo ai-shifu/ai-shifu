@@ -122,6 +122,10 @@ export interface ShifuState {
   systemVariables: Record<string, string>[];
   unusedVariables: string[];
   hideUnusedMode: boolean;
+  baseRevision: number | null;
+  latestDraftMeta: DraftMeta | null;
+  hasDraftConflict: boolean;
+  autosavePaused: boolean;
 }
 
 export interface ApiResponse<T> {
@@ -145,6 +149,7 @@ export interface SaveMdflowPayload {
   shifu_bid?: string;
   outline_bid?: string;
   data?: string;
+  base_revision?: number;
 }
 
 export interface ShifuActions {

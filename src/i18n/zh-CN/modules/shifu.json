@@ -7,6 +7,12 @@
     "modeText": "友好",
     "title": "授课提示词"
   },
+  "draftConflict": {
+    "description": "课程已被他人修改，请刷新页面获取最新记录",
+    "descriptionWithPhone": "课程已被 {phone} 修改，请刷新页面获取最新记录",
+    "refresh": "刷新页面",
+    "title": "课程内容已更新"
+  },
   "newChapter": "添加章",
   "previewArea": {
     "action": "调试",

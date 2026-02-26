@@ -88,7 +88,10 @@ def return_shifu_draft_dto(
     stored_provider = getattr(shifu_draft, "tts_provider", "") or ""
     resolved_meta = draft_meta if isinstance(draft_meta, dict) else {}
     draft_revision = resolved_meta.get("revision")
-    draft_revision = int(draft_revision) if isinstance(draft_revision, int) else 0
+    try:
+        draft_revision = int(draft_revision) if draft_revision is not None else 0
+    except (TypeError, ValueError):
+        draft_revision = 0
     draft_updated_user = resolved_meta.get("updated_user")
 
     return ShifuDetailDto(

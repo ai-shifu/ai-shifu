@@ -45,6 +45,8 @@ import {
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { useUserStore } from './useUserStore';
 
+const DRAFT_CONFLICT_ERROR_CODE = 4007;
+
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
 const PROFILE_CACHE_TTL = 5000; // 5s
 const HIDDEN_STORAGE_PREFIX = 'hidden_profile_variables';
@@ -578,65 +580,44 @@ export const ShifuProvider = ({
         return;
       }
       const updatedUser = meta.updated_user?.user_bid || '';
-      const hasCurrentUser = Boolean(currentUserId);
-      if (!hasCurrentUser && updatedUser) {
-        return;
-      }
       const hasBaseRevision = typeof baseRevision === 'number';
-      const isRemoteUpdate =
+      if (
+        options?.detectConflict &&
         hasBaseRevision &&
         updatedUser &&
-        hasCurrentUser &&
-        updatedUser !== currentUserId;
-      if (options?.detectConflict) {
-        if (isRemoteUpdate && meta.revision > (baseRevision ?? 0)) {
+        currentUserId &&
+        updatedUser !== currentUserId &&
+        meta.revision > (baseRevision ?? 0)
+      ) {
           setHasDraftConflict(true);
           setAutosavePausedState(true);
           debouncedAutoSaveRef.current.cancel();
           return;
-        }
-        if (!updatedUser || !currentUserId || updatedUser === currentUserId) {
-          setBaseRevision(meta.revision);
-        }
-        return;
       }
-      if (isRemoteUpdate) {
-        return;
-      }
-      if (!updatedUser || !currentUserId || updatedUser === currentUserId) {
-        setBaseRevision(meta.revision);
-      }
+      setBaseRevision(meta.revision);
     },
     [baseRevision, currentUserId],
   );
 
   useEffect(() => {
-    if (!currentUserId) {
-      return;
-    }
     if (!latestDraftMeta || typeof latestDraftMeta.revision !== 'number') {
       return;
     }
     const updatedUser = latestDraftMeta.updated_user?.user_bid || '';
-    if (updatedUser && updatedUser !== currentUserId) {
-      if (
-        typeof baseRevision === 'number' &&
-        latestDraftMeta.revision > baseRevision
-      ) {
-        setHasDraftConflict(true);
-        setAutosavePausedState(true);
-        debouncedAutoSaveRef.current.cancel();
-      }
+    if (
+      currentUserId &&
+      updatedUser &&
+      updatedUser !== currentUserId &&
+      typeof baseRevision === 'number' &&
+      latestDraftMeta.revision > baseRevision
+    ) {
+      setHasDraftConflict(true);
+      setAutosavePausedState(true);
+      debouncedAutoSaveRef.current.cancel();
       return;
     }
-    if (
-      !updatedUser ||
-      updatedUser === currentUserId ||
-      typeof baseRevision !== 'number'
-    ) {
-      if (baseRevision !== latestDraftMeta.revision) {
-        setBaseRevision(latestDraftMeta.revision);
-      }
+    if (baseRevision !== latestDraftMeta.revision) {
+      setBaseRevision(latestDraftMeta.revision);
     }
   }, [baseRevision, currentUserId, latestDraftMeta]);
 
@@ -1871,10 +1852,6 @@ export const ShifuProvider = ({
         const meta = await refreshDraftMetaFromDetail(shifu_bid, {
           detectConflict: true,
         });
-        const updatedUser = meta?.updated_user?.user_bid || '';
-        if (updatedUser && currentUserId && updatedUser !== currentUserId) {
-          return false;
-        }
         if (meta && typeof meta.revision === 'number') {
           resolvedBaseRevision = meta.revision;
         } else {
@@ -1913,7 +1890,10 @@ export const ShifuProvider = ({
       setLastSaveTime(new Date());
       return true;
     } catch (error) {
-      if (error instanceof ErrorWithCode && error.code === 4007) {
+      if (
+        error instanceof ErrorWithCode &&
+        error.code === DRAFT_CONFLICT_ERROR_CODE
+      ) {
         setHasDraftConflict(true);
         setAutosavePausedState(true);
         debouncedAutoSaveRef.current.cancel();
