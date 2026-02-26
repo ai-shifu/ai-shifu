@@ -424,13 +424,19 @@ export const useListenPpt = ({
     }
     if (!prevFirstSlideBidRef.current) {
       shouldSlideToFirstRef.current = true;
-      onResetSequence?.();
+      // Avoid resetting sequence while audio is actively playing.
+      if (!isAudioPlaying) {
+        onResetSequence?.();
+      }
     } else if (prevFirstSlideBidRef.current !== firstSlideBid) {
       shouldSlideToFirstRef.current = true;
-      onResetSequence?.();
+      // Avoid interrupting the current playing sequence on stream append.
+      if (!isAudioPlaying) {
+        onResetSequence?.();
+      }
     }
     prevFirstSlideBidRef.current = firstSlideBid;
-  }, [firstSlideBid, onResetSequence]);
+  }, [firstSlideBid, isAudioPlaying, onResetSequence]);
 
   useLayoutEffect(() => {
     if (!sectionTitle) {
@@ -442,10 +448,13 @@ export const useListenPpt = ({
       prevSectionTitleRef.current !== sectionTitle
     ) {
       shouldSlideToFirstRef.current = true;
-      onResetSequence?.();
+      // Keep current audio session stable when section title updates mid-playback.
+      if (!isAudioPlaying) {
+        onResetSequence?.();
+      }
     }
     prevSectionTitleRef.current = sectionTitle;
-  }, [sectionTitle, onResetSequence]);
+  }, [sectionTitle, isAudioPlaying, onResetSequence]);
 
   const syncInteractionForCurrentPage = useCallback(
     (pageIndex?: number) => {

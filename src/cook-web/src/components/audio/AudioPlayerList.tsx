@@ -691,7 +691,8 @@ const AudioPlayerListBase = (
     }
     if (shouldResumeRef.current) {
       shouldResumeRef.current = false;
-      startPlaybackForTrack();
+      // Resume from the paused progress instead of restarting from zero.
+      startPlaybackForTrack({ resume: true });
       return;
     }
     if (!autoPlay || isPausedRef.current) {
