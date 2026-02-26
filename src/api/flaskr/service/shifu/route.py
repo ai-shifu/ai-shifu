@@ -1230,8 +1230,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     type: string
                                     description: mdflow
         """
-        user_id = request.user.user_id
-        return make_common_response(get_shifu_mdflow(app, user_id, outline_bid))
+        return make_common_response(get_shifu_mdflow(app, shifu_bid, outline_bid))
 
     @app.route(
         path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow",
@@ -1258,8 +1257,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 type: object
                 properties:
                     data:
-                        type: string
-                        description: mdflow
+                        type: object
+                        description: save mdflow result
+                        properties:
+                            new_revision:
+                                type: integer
+                                description: latest draft revision
         responses:
             200:
                 description: save mdflow success
@@ -1278,10 +1281,29 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     description: mdflow
         """
         user_id = request.user.user_id
-        content = request.get_json().get("data")
-        return make_common_response(
-            save_shifu_mdflow(app, user_id, shifu_bid, outline_bid, content)
+        payload = request.get_json() or {}
+        base_revision = payload.get("base_revision")
+        if base_revision is not None:
+            try:
+                base_revision = int(base_revision)
+            except (TypeError, ValueError):
+                raise_param_error("base_revision")
+        content = payload.get("data")
+        result = save_shifu_mdflow(
+            app, user_id, shifu_bid, outline_bid, content, base_revision
         )
+        if isinstance(result, dict) and result.get("conflict"):
+            body = json.dumps(
+                {
+                    "code": ERROR_CODE["server.shifu.draftConflict"],
+                    "message": _("server.shifu.draftConflict"),
+                    "data": {"meta": result.get("meta")},
+                },
+                default=fmt,
+                ensure_ascii=False,
+            )
+            return Response(body, status=200, mimetype="application/json")
+        return make_common_response(result)
 
     @app.route(
         path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow/parse",

@@ -27,6 +27,8 @@ export interface Shifu {
   created_user_bid?: string;
   can_manage_archive?: boolean;
   canPublish?: boolean;
+  draft_revision?: number;
+  draft_updated_user?: DraftMetaUser | null;
 }
 
 export interface Outline {
@@ -83,6 +85,15 @@ export interface ProfileItemDefinition {
   value: string;
 }
 
+export interface DraftMetaUser {
+  user_bid: string;
+  phone?: string;
+}
+
+export interface DraftMeta {
+  revision: number;
+  updated_user?: DraftMetaUser | null;
+}
 export interface ShifuState {
   currentShifu: Shifu | null;
   chapters: Outline[];
@@ -199,7 +210,11 @@ export interface ShifuActions {
   reorderOutlineTree: (outlines: ReorderOutlineItemDto[]) => Promise<void>;
   updateBlockProperties: (bid: string, properties: any) => Promise<void>;
   loadMdflow: (outlineId: string, shifuId: string) => Promise<void>;
-  saveMdflow: (payload?: SaveMdflowPayload) => Promise<void>;
+  saveMdflow: (payload?: SaveMdflowPayload) => Promise<boolean>;
+  setBaseRevision: (revision: number | null) => void;
+  setLatestDraftMeta: (meta: DraftMeta | null) => void;
+  setDraftConflict: (conflict: boolean) => void;
+  setAutosavePaused: (paused: boolean) => void;
   setCurrentMdflow: (value: string) => void;
   getCurrentMdflow: () => string;
   hasUnsavedMdflow: (outlineId?: string, value?: string) => boolean;

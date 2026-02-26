@@ -43,6 +43,7 @@ import { Rnd } from 'react-rnd';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
 import { LessonCreationSettings } from '@/types/shifu';
+import DraftConflictDialog from './DraftConflictDialog';
 
 const OUTLINE_DEFAULT_WIDTH = 256;
 const OUTLINE_COLLAPSED_WIDTH = 60;
@@ -84,6 +85,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [isPreviewPreparing, setIsPreviewPreparing] = useState(false);
   const [addChapterDialogOpen, setAddChapterDialogOpen] = useState(false);
   const [isMdfConvertDialogOpen, setIsMdfConvertDialogOpen] = useState(false);
+  const [isDraftConflictDialogOpen, setIsDraftConflictDialogOpen] =
+    useState(false);
   const [recentVariables, setRecentVariables] = useState<string[]>([]);
   const seenVariableNamesRef = useRef<Set<string>>(new Set());
   const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async preview is pending
@@ -99,6 +102,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
     hideUnusedMode,
     currentShifu,
     currentNode,
+    latestDraftMeta,
+    hasDraftConflict,
+    autosavePaused,
   } = useShifu();
 
   const {
@@ -159,6 +165,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const token = useUserStore(state => state.getToken());
   const baseURL = useEnvStore((state: EnvStoreState) => state.baseURL);
+  const actionsRef = useRef(actions);
+  const initializedShifuRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    actionsRef.current = actions;
+  }, [actions]);
 
   useEffect(() => {
     return () => {
@@ -211,6 +223,20 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
   }, [id, isGuest, isInitialized]);
 
+  useEffect(() => {
+    if (!currentShifu?.bid) {
+      return;
+    }
+    if (initializedShifuRef.current === currentShifu.bid) {
+      return;
+    }
+    initializedShifuRef.current = currentShifu.bid;
+    actionsRef.current.setDraftConflict(false);
+    actionsRef.current.setAutosavePaused(false);
+    actionsRef.current.cancelAutoSaveBlocks();
+    setIsDraftConflictDialogOpen(false);
+  }, [currentShifu?.bid]);
+
   const handleTogglePreviewPanel = () => {
     setIsPreviewPanelOpen(prev => !prev);
   };
@@ -246,6 +272,15 @@ const ScriptEditor = ({ id }: { id: string }) => {
   );
 
   useEffect(() => {
+    if (!hasDraftConflict) {
+      return;
+    }
+    if (!isDraftConflictDialogOpen) {
+      setIsDraftConflictDialogOpen(true);
+    }
+  }, [hasDraftConflict, isDraftConflictDialogOpen]);
+
+  useEffect(() => {
     currentNodeBidRef.current = currentNode?.bid ?? null;
   }, [currentNode?.bid]);
 
@@ -260,6 +295,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const handlePreview = async () => {
     if (!canPreview || !currentShifu?.bid || !currentNode?.bid) {
+      return;
+    }
+    if (hasDraftConflict || autosavePaused) {
+      if (!isDraftConflictDialogOpen) {
+        setIsDraftConflictDialogOpen(true);
+      }
       return;
     }
     const targetOutline = currentNode.bid;
@@ -281,11 +322,14 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
     try {
       if (!currentShifu?.readonly) {
-        await actions.saveMdflow({
+        const saved = await actions.saveMdflow({
           shifu_bid: targetShifu,
           outline_bid: targetOutline,
           data: targetMdflow,
         });
+        if (!saved) {
+          return;
+        }
         if (outlineChanged()) {
           return;
         }
@@ -456,6 +500,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);
+    if (autosavePaused || hasDraftConflict) {
+      return;
+    }
     // Pass snapshot so autosave persists pre-switch content + chapter id
     actions.autoSaveBlocks({
       shifu_bid: currentShifu?.bid || '',
@@ -479,6 +526,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const handleApplyMdfContent = useCallback(
     (contentPrompt: string) => {
       actions.setCurrentMdflow(contentPrompt);
+      if (autosavePaused || hasDraftConflict) {
+        return;
+      }
       actions.autoSaveBlocks({
         shifu_bid: currentShifu?.bid || '',
         outline_bid: currentNode?.bid || '',
@@ -819,6 +869,19 @@ const ScriptEditor = ({ id }: { id: string }) => {
           open={isMdfConvertDialogOpen}
           onOpenChange={setIsMdfConvertDialogOpen}
           onApplyContent={handleApplyMdfContent}
+        />
+        <DraftConflictDialog
+          open={isDraftConflictDialogOpen}
+          phone={latestDraftMeta?.updated_user?.phone}
+          onRefresh={() => {
+            window.location.reload();
+          }}
+          onCancel={() => {
+            setIsDraftConflictDialogOpen(false);
+            actions.setAutosavePaused(true);
+            actions.setDraftConflict(true);
+            actions.cancelAutoSaveBlocks();
+          }}
         />
       </div>
     </div>

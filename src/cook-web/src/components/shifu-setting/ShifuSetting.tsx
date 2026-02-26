@@ -1203,9 +1203,20 @@ export default function ShifuSettingDialog({
           // Language Output Configuration
           use_learner_language: useLearnerLanguage,
         };
-        await api.saveShifuDetail({
+        const savedDetail = await api.saveShifuDetail({
           ...payload,
         });
+        if (
+          savedDetail &&
+          typeof savedDetail.draft_revision === 'number' &&
+          !currentShifu?.readonly
+        ) {
+          actions.setBaseRevision(savedDetail.draft_revision);
+          actions.setLatestDraftMeta({
+            revision: savedDetail.draft_revision,
+            updated_user: savedDetail.draft_updated_user ?? null,
+          });
+        }
         trackEvent('creator_shifu_setting_save', {
           ...payload,
           save_type: saveType,
@@ -1238,6 +1249,7 @@ export default function ShifuSettingDialog({
       pitchValue,
       ttsEmotion,
       useLearnerLanguage,
+      actions,
       toast,
       t,
     ],
