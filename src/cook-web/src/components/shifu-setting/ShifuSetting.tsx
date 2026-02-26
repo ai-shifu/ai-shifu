@@ -1164,7 +1164,6 @@ export default function ShifuSettingDialog({
       try {
         const providerForSubmit =
           resolvedProvider || ttsConfig?.providers?.[0]?.name || '';
-        const shouldTouchRevision = saveType === 'manual' && isDirty;
 
         if (ttsEnabled && !providerForSubmit) {
           if (!ttsProviderToastShownRef.current && saveType === 'manual') {
@@ -1198,17 +1197,20 @@ export default function ShifuSettingDialog({
           tts_emotion: ttsEmotion,
           // Language Output Configuration
           use_learner_language: useLearnerLanguage,
-          touch_revision: shouldTouchRevision,
         };
-        await api.saveShifuDetail({
+        const savedDetail = await api.saveShifuDetail({
           ...payload,
         });
-        const meta = await actions.loadDraftMeta(shifuId);
-        if (meta && typeof meta.revision === 'number') {
-          const updatedUser = meta.updated_user?.user_bid || '';
-          if (!updatedUser || updatedUser === currentUserId) {
-            actions.setBaseRevision(meta.revision);
-          }
+        if (
+          savedDetail &&
+          typeof savedDetail.draft_revision === 'number' &&
+          !currentShifu?.readonly
+        ) {
+          actions.setBaseRevision(savedDetail.draft_revision);
+          actions.setLatestDraftMeta({
+            revision: savedDetail.draft_revision,
+            updated_user: savedDetail.draft_updated_user ?? null,
+          });
         }
         trackEvent('creator_shifu_setting_save', {
           ...payload,
@@ -1243,8 +1245,6 @@ export default function ShifuSettingDialog({
       ttsEmotion,
       useLearnerLanguage,
       actions,
-      currentUserId,
-      isDirty,
       toast,
       t,
     ],

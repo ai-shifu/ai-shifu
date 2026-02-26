@@ -221,7 +221,6 @@ export const ShifuProvider = ({
     inflight: false,
     outlineId: null,
   });
-  const draftMetaFailureAtRef = useRef<number | null>(null);
   const currentShifuBidRef = useRef<string | null>(null);
   const mdflowRequestRef = useRef<{ id: number; outlineId: string | null }>({
     id: 0,
@@ -282,6 +281,9 @@ export const ShifuProvider = ({
       setError(null);
       const shifu = await api.getShifuDetail({
         shifu_bid: shifuId,
+      });
+      applyDraftMeta(buildDraftMetaFromDetail(shifu), {
+        detectConflict: false,
       });
       setCurrentShifu(normalizeShifuDetail(shifu) as Shifu | null);
     } catch (error) {
@@ -550,47 +552,126 @@ export const ShifuProvider = ({
     }
   };
 
-  const loadDraftMeta = useCallback(async (shifuId: string) => {
-    if (!shifuId) {
-      setLatestDraftMeta(null);
+  const buildDraftMetaFromDetail = useCallback((detail: any): DraftMeta | null => {
+    if (!detail || typeof detail.draft_revision !== 'number') {
       return null;
     }
-    try {
-      const meta = await api.getShifuDraftMeta({ shifu_bid: shifuId });
-      if (
-        currentShifuBidRef.current &&
-        currentShifuBidRef.current !== shifuId
-      ) {
-        return meta as DraftMeta;
-      }
-      setLatestDraftMeta(meta as DraftMeta);
-      return meta as DraftMeta;
-    } catch (error) {
-      console.error('Failed to load draft meta', error);
-      return null;
-    }
+    return {
+      revision: detail.draft_revision,
+      updated_user: detail.draft_updated_user ?? null,
+    };
   }, []);
+
+  const applyDraftMeta = useCallback(
+    (
+      meta: DraftMeta | null,
+      options?: { detectConflict?: boolean; updateBaseRevision?: boolean },
+    ) => {
+      if (!meta || typeof meta.revision !== 'number') {
+        return;
+      }
+      setLatestDraftMeta(meta);
+      if (options?.updateBaseRevision === false) {
+        return;
+      }
+      const updatedUser = meta.updated_user?.user_bid || '';
+      const hasCurrentUser = Boolean(currentUserId);
+      if (!hasCurrentUser && updatedUser) {
+        return;
+      }
+      const hasBaseRevision = typeof baseRevision === 'number';
+      const isRemoteUpdate =
+        hasBaseRevision &&
+        updatedUser &&
+        hasCurrentUser &&
+        updatedUser !== currentUserId;
+      if (options?.detectConflict) {
+        if (isRemoteUpdate && meta.revision > (baseRevision ?? 0)) {
+          setHasDraftConflict(true);
+          setAutosavePausedState(true);
+          debouncedAutoSaveRef.current.cancel();
+          return;
+        }
+        if (!updatedUser || !currentUserId || updatedUser === currentUserId) {
+          setBaseRevision(meta.revision);
+        }
+        return;
+      }
+      if (isRemoteUpdate) {
+        return;
+      }
+      if (!updatedUser || !currentUserId || updatedUser === currentUserId) {
+        setBaseRevision(meta.revision);
+      }
+    },
+    [baseRevision, currentUserId],
+  );
+
+  useEffect(() => {
+    if (!currentUserId) {
+      return;
+    }
+    if (!latestDraftMeta || typeof latestDraftMeta.revision !== 'number') {
+      return;
+    }
+    const updatedUser = latestDraftMeta.updated_user?.user_bid || '';
+    if (updatedUser && updatedUser !== currentUserId) {
+      if (
+        typeof baseRevision === 'number' &&
+        latestDraftMeta.revision > baseRevision
+      ) {
+        setHasDraftConflict(true);
+        setAutosavePausedState(true);
+        debouncedAutoSaveRef.current.cancel();
+      }
+      return;
+    }
+    if (
+      !updatedUser ||
+      updatedUser === currentUserId ||
+      typeof baseRevision !== 'number'
+    ) {
+      if (baseRevision !== latestDraftMeta.revision) {
+        setBaseRevision(latestDraftMeta.revision);
+      }
+    }
+  }, [baseRevision, currentUserId, latestDraftMeta]);
+
+  const refreshDraftMetaFromDetail = useCallback(
+    async (
+      shifuId: string,
+      options?: { detectConflict?: boolean; updateBaseRevision?: boolean },
+    ) => {
+      if (!shifuId) {
+        setLatestDraftMeta(null);
+        return null;
+      }
+      try {
+        const detail = await api.getShifuDetail({ shifu_bid: shifuId });
+        if (currentShifuBidRef.current && currentShifuBidRef.current !== shifuId) {
+          return null;
+        }
+        const meta = buildDraftMetaFromDetail(detail);
+        if (meta) {
+          applyDraftMeta(meta, options);
+        }
+        return meta;
+      } catch (error) {
+        console.error('Failed to load shifu detail for draft meta', error);
+        return null;
+      }
+    },
+    [applyDraftMeta, buildDraftMetaFromDetail],
+  );
 
   const refreshDraftMetaAfterWrite = useCallback(
     async (shifuId?: string) => {
       if (!shifuId) {
         return;
       }
-      const meta = await loadDraftMeta(shifuId);
-      if (!meta || typeof meta.revision !== 'number') {
-        return;
-      }
-      const updatedUser = meta.updated_user?.user_bid || '';
-      if (!updatedUser || !currentUserId || updatedUser === currentUserId) {
-        setBaseRevision(meta.revision);
-        return;
-      }
-      setLatestDraftMeta(meta);
-      setHasDraftConflict(true);
-      setAutosavePausedState(true);
-      debouncedAutoSaveRef.current.cancel();
+      await refreshDraftMetaFromDetail(shifuId, { detectConflict: true });
     },
-    [currentUserId, loadDraftMeta],
+    [refreshDraftMetaFromDetail],
   );
 
   const loadChapters = async (shifuId: string) => {
@@ -601,6 +682,9 @@ export const ShifuProvider = ({
         api.getShifuDetail({ shifu_bid: shifuId }),
         api.getShifuOutlineTree({ shifu_bid: shifuId }),
       ]);
+      applyDraftMeta(buildDraftMetaFromDetail(shifuInfo), {
+        detectConflict: false,
+      });
       setCurrentShifu(normalizeShifuDetail(shifuInfo) as Shifu | null);
       const list = remapOutlineTree(chaptersData);
       if (list.length > 0) {
@@ -1778,20 +1862,16 @@ export const ShifuProvider = ({
       let resolvedBaseRevision =
         payload?.base_revision ?? baseRevision ?? undefined;
       if (resolvedBaseRevision === undefined && shifu_bid) {
-        const now = Date.now();
-        if (
-          draftMetaFailureAtRef.current &&
-          now - draftMetaFailureAtRef.current < 10000
-        ) {
+        const meta = await refreshDraftMetaFromDetail(shifu_bid, {
+          detectConflict: true,
+        });
+        const updatedUser = meta?.updated_user?.user_bid || '';
+        if (updatedUser && currentUserId && updatedUser !== currentUserId) {
           return false;
         }
-        const meta = await loadDraftMeta(shifu_bid);
         if (meta && typeof meta.revision === 'number') {
           resolvedBaseRevision = meta.revision;
-          setBaseRevision(meta.revision);
-          draftMetaFailureAtRef.current = null;
         } else {
-          draftMetaFailureAtRef.current = now;
           toast({
             title: i18n.t('common.core.networkError'),
             variant: 'destructive',
@@ -1832,7 +1912,9 @@ export const ShifuProvider = ({
         setAutosavePausedState(true);
         debouncedAutoSaveRef.current.cancel();
         if (shifu_bid) {
-          void loadDraftMeta(shifu_bid);
+          void refreshDraftMetaFromDetail(shifu_bid, {
+            updateBaseRevision: false,
+          });
         }
         return false;
       }
@@ -2033,7 +2115,6 @@ export const ShifuProvider = ({
       reorderOutlineTree,
       loadMdflow,
       saveMdflow,
-      loadDraftMeta,
       setBaseRevision,
       setLatestDraftMeta,
       setDraftConflict: setHasDraftConflict,
