@@ -60,6 +60,9 @@ export type DashboardTopLearner = {
 
 export type DashboardOverviewKpis = {
   learner_count: number;
+  order_count: number;
+  generation_count: number;
+  last_active_at: string;
   completion_count: number;
   completion_rate: number;
   required_outline_total: number;
@@ -67,11 +70,13 @@ export type DashboardOverviewKpis = {
 };
 
 export type DashboardOverview = {
+  shifu_name: string;
   kpis: DashboardOverviewKpis;
   progress_distribution: DashboardSeriesPoint[];
   follow_up_trend: DashboardSeriesPoint[];
   top_outlines_by_follow_ups: DashboardTopOutline[];
   top_learners_by_follow_ups: DashboardTopLearner[];
+  follow_up_chapter_distribution: DashboardSeriesPoint[];
   start_date: string;
   end_date: string;
 };

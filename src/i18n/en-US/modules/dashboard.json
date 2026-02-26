@@ -1,7 +1,11 @@
 {
   "__namespace__": "module.dashboard",
+  "actions": {
+    "back": "Back"
+  },
   "chart": {
-    "followUpsTrend": "Follow-ups Trend",
+    "followUpsByChapter": "Follow-ups by Chapter",
+    "followUpsTrend": "Follow-up Count by Time",
     "progressDistribution": "Progress Distribution",
     "topOutlinesByFollowUps": "Top Outlines by Follow-ups"
   },
@@ -14,7 +18,7 @@
       "outlinePlaceholder": "Filter by outline",
       "question": "Question",
       "title": "Follow-ups",
-      "totalCount": "Total: {{count}}"
+      "totalCount": "Total: {count}"
     },
     "personalization": {
       "empty": "No variables",
@@ -53,8 +57,13 @@
       "search": "Search",
       "searchPlaceholder": "Search by course name / course id",
       "title": "Course List",
-      "totalCount": "Total: {{count}}"
+      "totalCount": "Total: {count}"
     }
+  },
+  "export": {
+    "button": "Export Data",
+    "error": "Data export failed. Please try again later.",
+    "loading": "Exporting..."
   },
   "filters": {
     "dateRange": "Date Range",
@@ -79,14 +88,14 @@
   "table": {
     "empty": "No learners",
     "followUps": "Follow-ups",
-    "keywordPlaceholder": "Search by user id / mobile / nickname",
+    "keywordPlaceholder": "Search by user ID / mobile / nickname",
     "lastActive": "Last active",
     "progress": "Progress",
     "reset": "Reset",
     "search": "Search",
     "sort": "Sort",
     "title": "Learners",
-    "totalCount": "Total: {{count}}",
+    "totalCount": "Total: {count}",
     "user": "Learner"
   },
   "title": "Dashboard"

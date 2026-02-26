@@ -84,18 +84,26 @@ const DateRangeFilter = ({
     }),
     [startValue, endValue],
   );
+  const [draftRange, setDraftRange] = useState<{
+    from?: Date;
+    to?: Date;
+  }>(selectedRange);
+
+  useEffect(() => {
+    setDraftRange(selectedRange);
+  }, [selectedRange]);
 
   const label = useMemo(() => {
-    if (selectedRange.from && selectedRange.to) {
-      return `${formatDateValue(selectedRange.from)} ~ ${formatDateValue(
-        selectedRange.to,
+    if (draftRange.from && draftRange.to) {
+      return `${formatDateValue(draftRange.from)} ~ ${formatDateValue(
+        draftRange.to,
       )}`;
     }
-    if (selectedRange.from) {
-      return formatDateValue(selectedRange.from);
+    if (draftRange.from) {
+      return formatDateValue(draftRange.from);
     }
     return placeholder;
-  }, [placeholder, selectedRange]);
+  }, [draftRange.from, draftRange.to, placeholder]);
 
   return (
     <Popover>
@@ -109,7 +117,7 @@ const DateRangeFilter = ({
           <span
             className={cn(
               'flex-1 truncate text-left',
-              startValue ? 'text-foreground' : 'text-muted-foreground',
+              draftRange.from ? 'text-foreground' : 'text-muted-foreground',
             )}
           >
             {label}
@@ -124,13 +132,24 @@ const DateRangeFilter = ({
         <Calendar
           mode='range'
           numberOfMonths={2}
-          selected={selectedRange}
-          onSelect={range =>
-            onChange({
-              start: range?.from ? formatDateValue(range.from) : '',
-              end: range?.to ? formatDateValue(range.to) : '',
-            })
-          }
+          selected={draftRange}
+          onSelect={range => {
+            const nextRange = {
+              from: range?.from,
+              to: range?.to,
+            };
+            setDraftRange(nextRange);
+            if (!nextRange.from) {
+              onChange({ start: '', end: '' });
+              return;
+            }
+            if (nextRange.from && nextRange.to) {
+              onChange({
+                start: formatDateValue(nextRange.from),
+                end: formatDateValue(nextRange.to),
+              });
+            }
+          }}
           className='p-3 md:p-4 [--cell-size:2.4rem]'
         />
         <div className='flex items-center justify-end gap-2 border-t border-border px-3 py-2'>
@@ -138,7 +157,10 @@ const DateRangeFilter = ({
             size='sm'
             variant='ghost'
             type='button'
-            onClick={() => onChange({ start: '', end: '' })}
+            onClick={() => {
+              setDraftRange({ from: undefined, to: undefined });
+              onChange({ start: '', end: '' });
+            }}
           >
             {resetLabel}
           </Button>
@@ -274,6 +296,22 @@ export default function AdminDashboardEntryPage() {
       });
     },
     [endDate, fetchEntry, keyword, pageCount, pageIndex, startDate],
+  );
+
+  const buildCourseDetailHref = useCallback(
+    (shifuBid: string) => {
+      const query = new URLSearchParams();
+      if (startDate) {
+        query.set('start_date', startDate);
+      }
+      if (endDate) {
+        query.set('end_date', endDate);
+      }
+      const queryText = query.toString();
+      const basePath = `/admin/dashboard/shifu/${shifuBid}`;
+      return queryText ? `${basePath}?${queryText}` : basePath;
+    },
+    [endDate, startDate],
   );
 
   if (!isInitialized || isGuest) {
@@ -442,9 +480,7 @@ export default function AdminDashboardEntryPage() {
                           key={item.shifu_bid}
                           className='cursor-pointer'
                           onClick={() =>
-                            router.push(
-                              `/admin/dashboard/shifu/${item.shifu_bid}`,
-                            )
+                            router.push(buildCourseDetailHref(item.shifu_bid))
                           }
                         >
                           <TableCell className='whitespace-nowrap'>

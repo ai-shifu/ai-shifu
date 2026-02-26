@@ -8,14 +8,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
+from io import BytesIO
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from flask import Flask
+from openpyxl import Workbook
 from sqlalchemy import or_
 
 from flaskr.dao import db
 from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.config.funcs import get_config as get_dynamic_config
 from flaskr.service.dashboard.dtos import (
     DashboardEntryCourseItemDTO,
     DashboardEntryDTO,
@@ -61,9 +64,20 @@ from flaskr.service.shifu.permissions import (
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
     BLOCK_TYPE_MDASK_VALUE,
 )
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+
+# Built-in demo course IDs observed in legacy environments.
+_LEGACY_DEMO_SHIFU_BIDS: Set[str] = {
+    "e867343eaab44488ad792ec54d8b82b5",  # AI 师傅教学引导
+    "b5d7844387e940ed9480a6f945a6db6a",  # AI-Shifu Creation Guide
+}
+_BUILTIN_DEMO_TITLES: Set[str] = {
+    "AI 师傅教学引导",
+    "AI-Shifu Creation Guide",
+}
 
 
 def dashboard_healthcheck(app: Flask) -> bool:
@@ -113,6 +127,41 @@ class _DashboardEntryMetrics:
     active_course_bids: Set[str] = field(default_factory=set)
 
 
+@dataclass(frozen=True)
+class _DashboardDetailExportRow:
+    student_id: str
+    chapter: str
+    lesson: str
+    dialog_item_content: str
+    entered_at: str
+    student_input: str
+
+
+def _load_demo_shifu_bids() -> Set[str]:
+    demo_bids: Set[str] = set(_LEGACY_DEMO_SHIFU_BIDS)
+    for key in ("DEMO_SHIFU_BID", "DEMO_EN_SHIFU_BID"):
+        bid = str(get_dynamic_config(key, "") or "").strip()
+        if bid:
+            demo_bids.add(bid)
+    return demo_bids
+
+
+def _load_latest_shifu_name(shifu_bid: str) -> str:
+    if not shifu_bid:
+        return ""
+    row: PublishedShifu | None = (
+        PublishedShifu.query.filter(
+            PublishedShifu.shifu_bid == shifu_bid,
+            PublishedShifu.deleted == 0,
+        )
+        .order_by(PublishedShifu.id.desc())
+        .first()
+    )
+    if not row:
+        return ""
+    return str(row.title or "").strip()
+
+
 def _load_dashboard_entry_courses(
     user_id: str,
     *,
@@ -155,6 +204,7 @@ def _load_dashboard_entry_courses(
         if row and str(row[0]).strip() and str(row[0]).strip() not in shared_bids
     }
     all_bids = shared_bids.union(owned_bids)
+    all_bids = all_bids.difference(_load_demo_shifu_bids())
     if not all_bids:
         return []
 
@@ -172,19 +222,29 @@ def _load_dashboard_entry_courses(
         .filter(PublishedShifu.id.in_(db.session.query(latest_subquery.c.max_id)))
         .all()
     )
+    demo_bids = _load_demo_shifu_bids()
     title_map: Dict[str, str] = {}
     for row in published_rows:
         shifu_bid = str(row.shifu_bid or "").strip()
         if not shifu_bid:
             continue
-        title_map[shifu_bid] = str(row.title or "").strip()
+        title = str(row.title or "").strip()
+        created_user_bid = str(row.created_user_bid or "").strip()
+        is_builtin_demo = shifu_bid in demo_bids or (
+            created_user_bid == "system" and title in _BUILTIN_DEMO_TITLES
+        )
+        if is_builtin_demo:
+            continue
+        title_map[shifu_bid] = title
 
+    available_bids = set(title_map.keys())
     courses = [
         _DashboardEntryCourse(
             shifu_bid=shifu_bid,
-            shifu_name=title_map.get(shifu_bid) or shifu_bid,
+            shifu_name=title_map.get(shifu_bid, ""),
         )
         for shifu_bid in all_bids
+        if shifu_bid in available_bids
     ]
     normalized_keyword = str(keyword or "").strip().lower()
     if normalized_keyword:
@@ -597,31 +657,41 @@ def _required_outline_bids(
         allowed_types.add(UNIT_TYPE_VALUE_TRIAL)
     if include_guest:
         allowed_types.add(UNIT_TYPE_VALUE_GUEST)
+    parent_bids = {
+        str(item.parent_bid or "").strip()
+        for item in outlines
+        if str(item.parent_bid or "").strip()
+    }
     return [
         item.outline_item_bid
         for item in outlines
-        if not item.hidden and int(item.type) in allowed_types
+        if item.outline_item_bid
+        and item.outline_item_bid not in parent_bids
+        and not item.hidden
+        and int(item.type) in allowed_types
     ]
 
 
 def _count_follow_ups_by_day(
     shifu_bid: str,
     *,
-    start_dt: datetime,
-    end_dt_exclusive: datetime,
+    start_dt: Optional[datetime],
+    end_dt_exclusive: Optional[datetime],
 ) -> Dict[str, int]:
+    query = db.session.query(
+        db.func.date(LearnGeneratedBlock.created_at).label("d"),
+        db.func.count(LearnGeneratedBlock.id).label("c"),
+    ).filter(
+        LearnGeneratedBlock.shifu_bid == shifu_bid,
+        LearnGeneratedBlock.deleted == 0,
+        LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
+    )
+    if start_dt is not None:
+        query = query.filter(LearnGeneratedBlock.created_at >= start_dt)
+    if end_dt_exclusive is not None:
+        query = query.filter(LearnGeneratedBlock.created_at < end_dt_exclusive)
     rows = (
-        db.session.query(
-            db.func.date(LearnGeneratedBlock.created_at).label("d"),
-            db.func.count(LearnGeneratedBlock.id).label("c"),
-        )
-        .filter(
-            LearnGeneratedBlock.shifu_bid == shifu_bid,
-            LearnGeneratedBlock.deleted == 0,
-            LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
-            LearnGeneratedBlock.created_at >= start_dt,
-            LearnGeneratedBlock.created_at < end_dt_exclusive,
-        )
+        query
         .group_by(db.func.date(LearnGeneratedBlock.created_at))
         .order_by(db.func.date(LearnGeneratedBlock.created_at).asc())
         .all()
@@ -634,70 +704,142 @@ def _count_follow_ups_by_day(
     return result
 
 
+def _count_follow_ups_by_outline(
+    shifu_bid: str,
+    *,
+    start_dt: Optional[datetime],
+    end_dt_exclusive: Optional[datetime],
+) -> Dict[str, int]:
+    query = db.session.query(
+        LearnGeneratedBlock.outline_item_bid.label("outline_bid"),
+        db.func.count(LearnGeneratedBlock.id).label("c"),
+    ).filter(
+        LearnGeneratedBlock.shifu_bid == shifu_bid,
+        LearnGeneratedBlock.deleted == 0,
+        LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
+    )
+    if start_dt is not None:
+        query = query.filter(LearnGeneratedBlock.created_at >= start_dt)
+    if end_dt_exclusive is not None:
+        query = query.filter(LearnGeneratedBlock.created_at < end_dt_exclusive)
+    rows = query.group_by(LearnGeneratedBlock.outline_item_bid).all()
+    result: Dict[str, int] = {}
+    for outline_bid, c in rows:
+        bid = str(outline_bid or "").strip()
+        if not bid:
+            continue
+        result[bid] = int(c or 0)
+    return result
+
+
+def _build_follow_up_chapter_distribution(
+    outlines: List[DashboardOutlineDTO],
+    *,
+    follow_up_by_outline: Dict[str, int],
+) -> List[DashboardSeriesPointDTO]:
+    if not outlines or not follow_up_by_outline:
+        return []
+
+    parent_map: Dict[str, str] = {}
+    title_map: Dict[str, str] = {}
+    for item in outlines:
+        outline_bid = str(item.outline_item_bid or "").strip()
+        if not outline_bid:
+            continue
+        parent_map[outline_bid] = str(item.parent_bid or "").strip()
+        title_map[outline_bid] = str(item.title or "").strip()
+
+    def resolve_chapter_bid(outline_bid: str) -> str:
+        current = outline_bid
+        visited: Set[str] = set()
+        while current and current not in visited:
+            visited.add(current)
+            parent_bid = parent_map.get(current, "")
+            if not parent_bid:
+                return current
+            current = parent_bid
+        return outline_bid
+
+    chapter_count_map: Dict[str, int] = {}
+    for outline_bid, count in follow_up_by_outline.items():
+        chapter_bid = resolve_chapter_bid(outline_bid)
+        if not chapter_bid:
+            continue
+        chapter_count_map[chapter_bid] = chapter_count_map.get(chapter_bid, 0) + int(
+            count or 0
+        )
+
+    sorted_rows = sorted(
+        chapter_count_map.items(),
+        key=lambda item: (-item[1], title_map.get(item[0], item[0])),
+    )
+    return [
+        DashboardSeriesPointDTO(
+            label=title_map.get(chapter_bid, chapter_bid),
+            value=count,
+        )
+        for chapter_bid, count in sorted_rows
+    ]
+
+
 def _count_follow_ups_total(
     shifu_bid: str,
     *,
-    start_dt: datetime,
-    end_dt_exclusive: datetime,
+    start_dt: Optional[datetime],
+    end_dt_exclusive: Optional[datetime],
 ) -> int:
-    return int(
-        LearnGeneratedBlock.query.filter(
-            LearnGeneratedBlock.shifu_bid == shifu_bid,
-            LearnGeneratedBlock.deleted == 0,
-            LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
-            LearnGeneratedBlock.created_at >= start_dt,
-            LearnGeneratedBlock.created_at < end_dt_exclusive,
-        ).count()
+    query = LearnGeneratedBlock.query.filter(
+        LearnGeneratedBlock.shifu_bid == shifu_bid,
+        LearnGeneratedBlock.deleted == 0,
+        LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
     )
+    if start_dt is not None:
+        query = query.filter(LearnGeneratedBlock.created_at >= start_dt)
+    if end_dt_exclusive is not None:
+        query = query.filter(LearnGeneratedBlock.created_at < end_dt_exclusive)
+    return int(query.count())
 
 
 def _top_outlines_by_follow_ups(
     shifu_bid: str,
     *,
-    start_dt: datetime,
-    end_dt_exclusive: datetime,
+    start_dt: Optional[datetime],
+    end_dt_exclusive: Optional[datetime],
     limit: int = 10,
 ) -> List[Tuple[str, int]]:
-    rows = (
-        db.session.query(
-            LearnGeneratedBlock.outline_item_bid.label("outline_bid"),
-            db.func.count(LearnGeneratedBlock.id).label("c"),
-        )
-        .filter(
-            LearnGeneratedBlock.shifu_bid == shifu_bid,
-            LearnGeneratedBlock.deleted == 0,
-            LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
-            LearnGeneratedBlock.created_at >= start_dt,
-            LearnGeneratedBlock.created_at < end_dt_exclusive,
-        )
-        .group_by(LearnGeneratedBlock.outline_item_bid)
-        .order_by(db.func.count(LearnGeneratedBlock.id).desc())
-        .limit(limit)
-        .all()
+    outline_count_map = _count_follow_ups_by_outline(
+        shifu_bid,
+        start_dt=start_dt,
+        end_dt_exclusive=end_dt_exclusive,
     )
-    return [(str(outline_bid or ""), int(c or 0)) for outline_bid, c in rows]
+    sorted_rows = sorted(
+        outline_count_map.items(),
+        key=lambda item: (-item[1], item[0]),
+    )
+    return [(outline_bid, count) for outline_bid, count in sorted_rows[:limit]]
 
 
 def _top_learners_by_follow_ups(
     shifu_bid: str,
     *,
-    start_dt: datetime,
-    end_dt_exclusive: datetime,
+    start_dt: Optional[datetime],
+    end_dt_exclusive: Optional[datetime],
     limit: int = 10,
 ) -> List[Tuple[str, int]]:
+    query = db.session.query(
+        LearnGeneratedBlock.user_bid.label("user_bid"),
+        db.func.count(LearnGeneratedBlock.id).label("c"),
+    ).filter(
+        LearnGeneratedBlock.shifu_bid == shifu_bid,
+        LearnGeneratedBlock.deleted == 0,
+        LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
+    )
+    if start_dt is not None:
+        query = query.filter(LearnGeneratedBlock.created_at >= start_dt)
+    if end_dt_exclusive is not None:
+        query = query.filter(LearnGeneratedBlock.created_at < end_dt_exclusive)
     rows = (
-        db.session.query(
-            LearnGeneratedBlock.user_bid.label("user_bid"),
-            db.func.count(LearnGeneratedBlock.id).label("c"),
-        )
-        .filter(
-            LearnGeneratedBlock.shifu_bid == shifu_bid,
-            LearnGeneratedBlock.deleted == 0,
-            LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
-            LearnGeneratedBlock.created_at >= start_dt,
-            LearnGeneratedBlock.created_at < end_dt_exclusive,
-        )
-        .group_by(LearnGeneratedBlock.user_bid)
+        query.group_by(LearnGeneratedBlock.user_bid)
         .order_by(db.func.count(LearnGeneratedBlock.id).desc())
         .limit(limit)
         .all()
@@ -761,12 +903,23 @@ def build_dashboard_overview(
     with app.app_context():
         parsed_start = _parse_iso_date(start_date)
         parsed_end = _parse_iso_date(end_date)
-        resolved_start, resolved_end = _resolve_date_range(parsed_start, parsed_end)
-
-        start_dt = datetime.combine(resolved_start, datetime.min.time())
-        end_dt_exclusive = datetime.combine(
-            resolved_end + timedelta(days=1), datetime.min.time()
+        if parsed_start is None and parsed_end is None:
+            resolved_start: Optional[date] = None
+            resolved_end: Optional[date] = None
+            start_dt: Optional[datetime] = None
+            end_dt_exclusive: Optional[datetime] = None
+        else:
+            resolved_start, resolved_end = _resolve_date_range(parsed_start, parsed_end)
+            start_dt = datetime.combine(resolved_start, datetime.min.time())
+            end_dt_exclusive = datetime.combine(
+                resolved_end + timedelta(days=1), datetime.min.time()
+            )
+        entry_metrics = _collect_dashboard_entry_metrics(
+            [shifu_bid],
+            start_dt=start_dt,
+            end_dt_exclusive=end_dt_exclusive,
         )
+        shifu_name = _load_latest_shifu_name(shifu_bid)
 
         published_outlines = load_published_outlines(app, shifu_bid)
         outline_title_map = {
@@ -780,7 +933,7 @@ def build_dashboard_overview(
         required_total = len(required_bids)
 
         learner_bids = _load_learner_bids(shifu_bid)
-        learner_count = len(learner_bids)
+        progress_learner_count = len(learner_bids)
 
         completed_by_user: Dict[str, int] = {}
         if required_bids and learner_bids:
@@ -835,7 +988,9 @@ def build_dashboard_overview(
                     distribution["100%"] += 1
 
         completion_rate = (
-            0.0 if learner_count == 0 else completion_count / learner_count
+            0.0
+            if progress_learner_count == 0
+            else completion_count / progress_learner_count
         )
         follow_up_total = _count_follow_ups_total(
             shifu_bid, start_dt=start_dt, end_dt_exclusive=end_dt_exclusive
@@ -844,10 +999,28 @@ def build_dashboard_overview(
         trend_map = _count_follow_ups_by_day(
             shifu_bid, start_dt=start_dt, end_dt_exclusive=end_dt_exclusive
         )
-        trend_points = [
-            DashboardSeriesPointDTO(label=str(d), value=int(trend_map.get(str(d), 0)))
-            for d in _iter_days(resolved_start, resolved_end)
-        ]
+        if resolved_start is not None and resolved_end is not None:
+            trend_points = [
+                DashboardSeriesPointDTO(
+                    label=str(d), value=int(trend_map.get(str(d), 0))
+                )
+                for d in _iter_days(resolved_start, resolved_end)
+            ]
+        else:
+            trend_points = [
+                DashboardSeriesPointDTO(label=label, value=trend_map[label])
+                for label in sorted(trend_map.keys())
+            ]
+
+        follow_up_by_outline = _count_follow_ups_by_outline(
+            shifu_bid,
+            start_dt=start_dt,
+            end_dt_exclusive=end_dt_exclusive,
+        )
+        chapter_distribution = _build_follow_up_chapter_distribution(
+            published_outlines,
+            follow_up_by_outline=follow_up_by_outline,
+        )
 
         top_outlines_raw = _top_outlines_by_follow_ups(
             shifu_bid, start_dt=start_dt, end_dt_exclusive=end_dt_exclusive
@@ -877,10 +1050,15 @@ def build_dashboard_overview(
             for user_bid, count in top_learners_raw
             if user_bid
         ]
+        last_active_dt = entry_metrics.last_active_map.get(shifu_bid)
 
         return DashboardOverviewDTO(
+            shifu_name=shifu_name,
             kpis=DashboardOverviewKpiDTO(
-                learner_count=learner_count,
+                learner_count=entry_metrics.learner_total,
+                order_count=entry_metrics.order_count_map.get(shifu_bid, 0),
+                generation_count=entry_metrics.generation_count_map.get(shifu_bid, 0),
+                last_active_at=last_active_dt.isoformat() if last_active_dt else "",
                 completion_count=completion_count,
                 completion_rate=float(completion_rate),
                 required_outline_total=required_total,
@@ -893,8 +1071,9 @@ def build_dashboard_overview(
             follow_up_trend=trend_points,
             top_outlines_by_follow_ups=top_outlines,
             top_learners_by_follow_ups=top_learners,
-            start_date=str(resolved_start),
-            end_date=str(resolved_end),
+            follow_up_chapter_distribution=chapter_distribution,
+            start_date=str(resolved_start) if resolved_start is not None else "",
+            end_date=str(resolved_end) if resolved_end is not None else "",
         )
 
 
@@ -1106,10 +1285,20 @@ def build_dashboard_learner_detail(
     app: Flask,
     shifu_bid: str,
     user_bid: str,
+    *,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
 ) -> DashboardLearnerDetailDTO:
     with app.app_context():
+        start_dt, end_dt_exclusive = _resolve_optional_datetime_range(
+            start_date, end_date
+        )
         published_outlines = load_published_outlines(app, shifu_bid)
-        outline_bids = [item.outline_item_bid for item in published_outlines]
+        outline_bids = _required_outline_bids(
+            published_outlines,
+            include_trial=True,
+            include_guest=True,
+        )
         outline_title_map = {
             item.outline_item_bid: item.title for item in published_outlines
         }
@@ -1128,7 +1317,15 @@ def build_dashboard_learner_detail(
             }
 
         outline_progress: List[DashboardLearnerOutlineProgressDTO] = []
-        for outline in published_outlines:
+        outline_map = {
+            item.outline_item_bid: item
+            for item in published_outlines
+            if item.outline_item_bid in set(outline_bids)
+        }
+        for outline_bid in outline_bids:
+            outline = outline_map.get(outline_bid)
+            if not outline:
+                continue
             row = progress_map.get(outline.outline_item_bid)
             status = LEARN_STATUS_NOT_STARTED
             block_position = 0
@@ -1174,7 +1371,17 @@ def build_dashboard_learner_detail(
                 LearnGeneratedBlock.deleted == 0,
                 LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
             )
-            .group_by(LearnGeneratedBlock.outline_item_bid)
+        )
+        if start_dt is not None:
+            follow_up_rows = follow_up_rows.filter(
+                LearnGeneratedBlock.created_at >= start_dt
+            )
+        if end_dt_exclusive is not None:
+            follow_up_rows = follow_up_rows.filter(
+                LearnGeneratedBlock.created_at < end_dt_exclusive
+            )
+        follow_up_rows = (
+            follow_up_rows.group_by(LearnGeneratedBlock.outline_item_bid)
             .order_by(db.func.count(LearnGeneratedBlock.id).desc())
             .all()
         )
@@ -1264,15 +1471,6 @@ def list_dashboard_followups(
         end_dt = _parse_datetime_value(end_time, is_end=True)
         if start_dt and end_dt and start_dt > end_dt:
             raise_param_error("start_time must be <= end_time")
-
-        if start_dt is None and end_dt is None:
-            resolved_start, resolved_end = _resolve_date_range(
-                None, None, default_days=30
-            )
-            start_dt = datetime.combine(resolved_start, datetime.min.time())
-            end_dt = datetime.combine(
-                resolved_end, datetime.max.time().replace(microsecond=0)
-            )
 
         published_outlines = load_published_outlines(app, shifu_bid)
         outline_title_map = {
@@ -1378,3 +1576,193 @@ def list_dashboard_followups(
             )
 
         return PageNationDTO(safe_page_index, safe_page_size, total, items)
+
+
+def _build_outline_maps_for_export(
+    outlines: List[DashboardOutlineDTO],
+) -> Tuple[Dict[str, str], Dict[str, str]]:
+    outline_title_map: Dict[str, str] = {}
+    outline_parent_map: Dict[str, str] = {}
+    for item in outlines:
+        outline_bid = str(item.outline_item_bid or "").strip()
+        if not outline_bid:
+            continue
+        outline_title_map[outline_bid] = str(item.title or "").strip()
+        outline_parent_map[outline_bid] = str(item.parent_bid or "").strip()
+
+    def resolve_chapter_bid(outline_bid: str) -> str:
+        current = outline_bid
+        visited: Set[str] = set()
+        while current and current not in visited:
+            visited.add(current)
+            parent_bid = outline_parent_map.get(current, "")
+            if not parent_bid:
+                return current
+            current = parent_bid
+        return outline_bid
+
+    outline_to_chapter_map: Dict[str, str] = {}
+    for outline_bid in outline_title_map.keys():
+        outline_to_chapter_map[outline_bid] = resolve_chapter_bid(outline_bid)
+    return outline_title_map, outline_to_chapter_map
+
+
+def _format_excel_datetime(dt: Optional[datetime]) -> str:
+    if not dt:
+        return ""
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _load_dashboard_detail_export_rows(
+    app: Flask,
+    shifu_bid: str,
+    *,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> List[_DashboardDetailExportRow]:
+    with app.app_context():
+        parsed_start = _parse_iso_date(start_date)
+        parsed_end = _parse_iso_date(end_date)
+        resolved_start, resolved_end = _resolve_date_range(parsed_start, parsed_end)
+        start_dt = datetime.combine(resolved_start, datetime.min.time())
+        end_dt_exclusive = datetime.combine(
+            resolved_end + timedelta(days=1),
+            datetime.min.time(),
+        )
+
+        published_outlines = load_published_outlines(app, shifu_bid)
+        (
+            outline_title_map,
+            outline_to_chapter_map,
+        ) = _build_outline_maps_for_export(published_outlines)
+
+        generated_rows: List[LearnGeneratedBlock] = (
+            LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.shifu_bid == shifu_bid,
+                LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.type.in_(
+                    [BLOCK_TYPE_MDINTERACTION_VALUE, BLOCK_TYPE_MDASK_VALUE]
+                ),
+                LearnGeneratedBlock.created_at >= start_dt,
+                LearnGeneratedBlock.created_at < end_dt_exclusive,
+            )
+            .order_by(LearnGeneratedBlock.created_at.asc(), LearnGeneratedBlock.id.asc())
+            .all()
+        )
+        if not generated_rows:
+            return []
+
+        progress_record_bids = sorted(
+            {
+                str(row.progress_record_bid).strip()
+                for row in generated_rows
+                if row and str(row.progress_record_bid).strip()
+            }
+        )
+        progress_created_at_map: Dict[str, datetime] = {}
+        if progress_record_bids:
+            progress_rows: List[LearnProgressRecord] = (
+                LearnProgressRecord.query.filter(
+                    LearnProgressRecord.progress_record_bid.in_(progress_record_bids),
+                    LearnProgressRecord.deleted == 0,
+                )
+                .order_by(LearnProgressRecord.id.desc())
+                .all()
+            )
+            for progress in progress_rows:
+                progress_bid = str(progress.progress_record_bid or "").strip()
+                if not progress_bid or progress_bid in progress_created_at_map:
+                    continue
+                if progress.created_at:
+                    progress_created_at_map[progress_bid] = progress.created_at
+
+        positions = sorted({int(row.position or 0) for row in generated_rows})
+        interaction_content_map: Dict[Tuple[str, int], str] = {}
+        if progress_record_bids and positions:
+            interaction_rows: List[LearnGeneratedBlock] = (
+                LearnGeneratedBlock.query.filter(
+                    LearnGeneratedBlock.shifu_bid == shifu_bid,
+                    LearnGeneratedBlock.deleted == 0,
+                    LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
+                    LearnGeneratedBlock.progress_record_bid.in_(progress_record_bids),
+                    LearnGeneratedBlock.position.in_(positions),
+                )
+                .order_by(
+                    LearnGeneratedBlock.created_at.desc(), LearnGeneratedBlock.id.desc()
+                )
+                .all()
+            )
+            for interaction in interaction_rows:
+                progress_bid = str(interaction.progress_record_bid or "").strip()
+                if not progress_bid:
+                    continue
+                key = (progress_bid, int(interaction.position or 0))
+                if key in interaction_content_map:
+                    continue
+                interaction_content_map[key] = interaction.block_content_conf or ""
+
+        rows: List[_DashboardDetailExportRow] = []
+        for row in generated_rows:
+            outline_bid = str(row.outline_item_bid or "").strip()
+            chapter_bid = outline_to_chapter_map.get(outline_bid, outline_bid)
+            progress_bid = str(row.progress_record_bid or "").strip()
+            position = int(row.position or 0)
+
+            dialog_item_content = row.block_content_conf or ""
+            if int(row.type or 0) == BLOCK_TYPE_MDASK_VALUE:
+                dialog_item_content = (
+                    interaction_content_map.get((progress_bid, position))
+                    or dialog_item_content
+                )
+
+            rows.append(
+                _DashboardDetailExportRow(
+                    student_id=str(row.user_bid or "").strip(),
+                    chapter=outline_title_map.get(chapter_bid, chapter_bid),
+                    lesson=outline_title_map.get(outline_bid, outline_bid),
+                    dialog_item_content=dialog_item_content,
+                    entered_at=_format_excel_datetime(
+                        progress_created_at_map.get(progress_bid)
+                    ),
+                    student_input=row.generated_content or "",
+                )
+            )
+        return rows
+
+
+def build_dashboard_detail_export_workbook(
+    app: Flask,
+    shifu_bid: str,
+    *,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> bytes:
+    rows = _load_dashboard_detail_export_rows(
+        app,
+        shifu_bid,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "data"
+    worksheet.append(
+        ["学生ID", "章节", "课时", "对话项内容", "进入时间", "学生输入内容"]
+    )
+    for row in rows:
+        worksheet.append(
+            [
+                row.student_id,
+                row.chapter,
+                row.lesson,
+                row.dialog_item_content,
+                row.entered_at,
+                row.student_input,
+            ]
+        )
+
+    output = BytesIO()
+    workbook.save(output)
+    workbook.close()
+    return output.getvalue()
