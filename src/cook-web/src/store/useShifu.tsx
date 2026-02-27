@@ -582,6 +582,9 @@ export const ShifuProvider = ({
       }
       const updatedUser = meta.updated_user?.user_bid || '';
       if (!updatedUser || !currentUserId || updatedUser === currentUserId) {
+        if (hasDraftConflict) {
+          return;
+        }
         setBaseRevision(meta.revision);
         return;
       }
@@ -590,7 +593,7 @@ export const ShifuProvider = ({
       setAutosavePausedState(true);
       debouncedAutoSaveRef.current.cancel();
     },
-    [currentUserId, loadDraftMeta],
+    [currentUserId, hasDraftConflict, loadDraftMeta],
   );
 
   const loadChapters = async (shifuId: string) => {
