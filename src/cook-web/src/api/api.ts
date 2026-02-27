@@ -17,12 +17,17 @@ const api = {
 
   // auth
   sendSmsCode: 'POST /user/send_sms_code',
+  sendEmailCode: 'POST /user/send_email_code',
   requireTmp: 'POST /user/require_tmp',
   verifySmsCode: 'POST /user/verify_sms_code',
   submitFeedback: 'POST /user/submit-feedback',
   googleOauthStart: 'GET /user/oauth/google',
   googleOauthCallback: 'GET /user/oauth/google/callback',
   ensureAdminCreator: 'POST /user/ensure_admin_creator',
+  loginPassword: 'POST /user/login_password',
+  setPassword: 'POST /user/set_password',
+  changePassword: 'POST /user/change_password',
+  resetPassword: 'POST /user/reset_password',
 
   // shifu api start
   getShifuList: 'GET /shifu/shifus',

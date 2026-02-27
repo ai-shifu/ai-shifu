@@ -843,19 +843,27 @@ export default function ShifuSettingDialog({
   const [ttsConfig, setTtsConfig] = useState<{
     providers: TTSProviderConfig[];
   } | null>(null);
+  const normalizeTtsProviders = useCallback(
+    (providers?: TTSProviderConfig[] | null): TTSProviderConfig[] =>
+      (providers ?? []).map(provider => ({
+        ...provider,
+        name: (provider.name || '').toLowerCase(),
+      })),
+    [],
+  );
 
   // Fetch TTS config from backend
   useEffect(() => {
     const fetchTtsConfig = async () => {
       try {
         const config = await api.ttsConfig({});
-        setTtsConfig(config);
+        setTtsConfig({ providers: normalizeTtsProviders(config?.providers) });
       } catch (error) {
         console.error('Failed to fetch TTS config:', error);
       }
     };
     fetchTtsConfig();
-  }, []);
+  }, [normalizeTtsProviders]);
 
   const resolvedProvider = (() => {
     const provider = (ttsProvider || '').trim();
@@ -1273,7 +1281,7 @@ export default function ShifuSettingDialog({
       setUploadedImageUrl(result.avatar || '');
       // Set TTS Configuration
       setTtsEnabled(result.tts_enabled || false);
-      setTtsProvider(result.tts_provider || '');
+      setTtsProvider((result.tts_provider || '').toLowerCase());
       setTtsModel(result.tts_model || '');
       setTtsVoiceId(result.tts_voice_id || '');
       setTtsSpeed(result.tts_speed ?? 1.0);

@@ -125,3 +125,4 @@ markdown-flow==0.2.44
  markdown-flow==0.2.44
 # --extra-index-url https://test.pypi.org/simple/
 # markdown-flow==0.2.39a1
+bcrypt==4.2.1
