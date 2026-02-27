@@ -142,7 +142,7 @@ body.listen-mode #root {
   }
 }
 
-.content-render-iframe-sandbox{
+.content-render-iframe-sandbox {
   strong {
     color: var(--primary);
   }
@@ -169,6 +169,8 @@ body.listen-mode #root {
   }
 }
 
-.reveal img, .reveal video, .reveal iframe{
+.reveal img,
+.reveal video,
+.reveal iframe {
   max-width: 100% !important;
 }

@@ -74,7 +74,9 @@ const AudioPlayerListBase = (
   const currentSegmentIndexRef = useRef(0);
   const segmentOffsetRef = useRef(0);
   const playedSecondsRef = useRef(0);
-  const playerDebugIdRef = useRef(`list-${Math.random().toString(36).slice(2, 8)}`);
+  const playerDebugIdRef = useRef(
+    `list-${Math.random().toString(36).slice(2, 8)}`,
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -473,7 +475,9 @@ const AudioPlayerListBase = (
           logAudioDebug('audio-player-request-success', {
             bid: requestBid,
             hasUrl: Boolean(url),
-            isAudioStreaming: Boolean(currentTrackRef.current?.isAudioStreaming),
+            isAudioStreaming: Boolean(
+              currentTrackRef.current?.isAudioStreaming,
+            ),
           });
           if (url) {
             localAudioUrlMapRef.current.set(requestBid, url);
@@ -915,15 +919,19 @@ const AudioPlayerListBase = (
     }
     if (track && !track.isAudioStreaming) {
       const url = resolveTrackUrl(track);
-      const hasFinalSegment = segments.some(segment => Boolean(segment?.isFinal));
+      const hasFinalSegment = segments.some(segment =>
+        Boolean(segment?.isFinal),
+      );
       if (isSequenceActive && hasFinalSegment) {
-        logAudioInterrupt('序列模式检测到 final segment，跳过 URL 补播兜底，直接结束当前轨道', {
-          segmentCount: segments.length,
-          hasUrl: Boolean(url),
-          startAtSeconds:
-            playedSecondsRef.current + segmentOffsetRef.current,
-          trackDurationMs: track.audioDurationMs ?? 0,
-        });
+        logAudioInterrupt(
+          '序列模式检测到 final segment，跳过 URL 补播兜底，直接结束当前轨道',
+          {
+            segmentCount: segments.length,
+            hasUrl: Boolean(url),
+            startAtSeconds: playedSecondsRef.current + segmentOffsetRef.current,
+            trackDurationMs: track.audioDurationMs ?? 0,
+          },
+        );
         finishTrack();
         return;
       }

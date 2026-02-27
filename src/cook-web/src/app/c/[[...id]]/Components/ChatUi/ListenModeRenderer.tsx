@@ -168,19 +168,14 @@ const ListenModeRenderer = ({
     [firstContentItem],
   );
 
-  const allowAutoPlayback = useMemo(
-    () => {
-      if (lessonStatus !== LESSON_STATUS_VALUE.PREPARE_LEARNING) {
-        return true;
-      }
-      return (
-        hasUserStartedPlayback ||
-        hasPageInteraction ||
-        hasBrowserUserActivation()
-      );
-    },
-    [hasPageInteraction, hasUserStartedPlayback, lessonStatus],
-  );
+  const allowAutoPlayback = useMemo(() => {
+    if (lessonStatus !== LESSON_STATUS_VALUE.PREPARE_LEARNING) {
+      return true;
+    }
+    return (
+      hasUserStartedPlayback || hasPageInteraction || hasBrowserUserActivation()
+    );
+  }, [hasPageInteraction, hasUserStartedPlayback, lessonStatus]);
 
   useEffect(() => {
     if (hasPageInteraction) {

@@ -332,8 +332,8 @@ export const NewChatComponents = ({
   const mobileInteractionPrimaryTrack = useMemo(
     () =>
       getAudioTrackByPosition(
-        itemByGeneratedBid.get(mobileInteraction.generatedBlockBid)?.audioTracks ??
-          [],
+        itemByGeneratedBid.get(mobileInteraction.generatedBlockBid)
+          ?.audioTracks ?? [],
       ),
     [itemByGeneratedBid, mobileInteraction.generatedBlockBid],
   );
@@ -576,9 +576,8 @@ export const NewChatComponents = ({
                   );
                   const canRequestAudio =
                     !previewMode && Boolean(parentBlockBid);
-                  const hasAudioForBlock = hasAudioContentInTrack(
-                    parentPrimaryTrack,
-                  );
+                  const hasAudioForBlock =
+                    hasAudioContentInTrack(parentPrimaryTrack);
                   const shouldAutoPlay =
                     autoPlayTargetBlockBid === parentBlockBid;
                   return mobileStyle ? null : (
@@ -602,8 +601,12 @@ export const NewChatComponents = ({
                           (canRequestAudio || hasAudioForBlock) ? (
                             <AudioPlayer
                               audioUrl={parentPrimaryTrack?.audioUrl}
-                              streamingSegments={parentPrimaryTrack?.audioSegments}
-                              isStreaming={Boolean(parentPrimaryTrack?.isAudioStreaming)}
+                              streamingSegments={
+                                parentPrimaryTrack?.audioSegments
+                              }
+                              isStreaming={Boolean(
+                                parentPrimaryTrack?.isAudioStreaming,
+                              )}
                               alwaysVisible={canRequestAudio}
                               onRequestAudio={
                                 canRequestAudio

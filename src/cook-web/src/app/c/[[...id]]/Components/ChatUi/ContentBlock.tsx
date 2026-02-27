@@ -137,7 +137,8 @@ const ContentBlock = memo(
       Boolean(prevProps.showAudioAction) ===
         Boolean(nextProps.showAudioAction) &&
       // Audio state (mobile only rendering)
-      (prevPrimaryTrack?.audioUrl ?? '') === (nextPrimaryTrack?.audioUrl ?? '') &&
+      (prevPrimaryTrack?.audioUrl ?? '') ===
+        (nextPrimaryTrack?.audioUrl ?? '') &&
       Boolean(prevPrimaryTrack?.isAudioStreaming) ===
         Boolean(nextPrimaryTrack?.isAudioStreaming) &&
       (prevPrimaryTrack?.audioSegments?.length ?? 0) ===

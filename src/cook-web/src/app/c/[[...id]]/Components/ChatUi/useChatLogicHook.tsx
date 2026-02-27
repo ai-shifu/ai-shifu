@@ -218,7 +218,7 @@ function useChatLogicHook({
   const logAudioDebug = useCallback(
     (event: string, payload?: Record<string, any>) => {
       // if (!isAudioDebugEnabled) {
-        return;
+      return;
       // }
       console.log(`[listen-audio-debug] ${event}`, payload ?? {});
     },
@@ -544,11 +544,14 @@ function useChatLogicHook({
           runSerial,
         });
         try {
-          console.log('[音频中断排查][SSE] 启动新流前主动关闭旧流（避免双流并发）', {
-            lessonId,
-            outlineBid,
-            runSerial,
-          });
+          console.log(
+            '[音频中断排查][SSE] 启动新流前主动关闭旧流（避免双流并发）',
+            {
+              lessonId,
+              outlineBid,
+              runSerial,
+            },
+          );
           sseRef.current?.close();
         } catch (error) {
           console.warn('[音频中断排查][SSE] 关闭旧流异常', error);
@@ -790,12 +793,15 @@ function useChatLogicHook({
                     type: ChatContentItemType.LIKE_STATUS,
                   });
                   // sseRef.current?.close();
-                  console.log('[音频中断排查][SSE] TEXT_END 后触发下一段 runRef.current', {
-                    lessonId,
-                    outlineBid,
-                    fromType: 'TEXT_END',
-                    lastContentBid: gid,
-                  });
+                  console.log(
+                    '[音频中断排查][SSE] TEXT_END 后触发下一段 runRef.current',
+                    {
+                      lessonId,
+                      outlineBid,
+                      fromType: 'TEXT_END',
+                      lastContentBid: gid,
+                    },
+                  );
                   runRef.current?.({
                     input: '',
                     input_type: SSE_INPUT_TYPE.NORMAL,
@@ -967,7 +973,9 @@ function useChatLogicHook({
 
   useEffect(() => {
     return () => {
-      console.log('[音频中断排查][SSE] useChatLogicHook 卸载，关闭当前 sseRef.current');
+      console.log(
+        '[音频中断排查][SSE] useChatLogicHook 卸载，关闭当前 sseRef.current',
+      );
       sseRef.current?.close();
     };
   }, []);
@@ -1170,20 +1178,26 @@ function useChatLogicHook({
           recordResp.records[recordResp.records.length - 1].block_type ===
             BLOCK_TYPE.ERROR
         ) {
-          console.log('[音频中断排查][SSE] refreshData 命中历史末尾内容，触发 runRef.current', {
-            outlineBid,
-            reason: 'history-tail-content-or-error',
-          });
+          console.log(
+            '[音频中断排查][SSE] refreshData 命中历史末尾内容，触发 runRef.current',
+            {
+              outlineBid,
+              reason: 'history-tail-content-or-error',
+            },
+          );
           runRef.current?.({
             input: '',
             input_type: SSE_INPUT_TYPE.NORMAL,
           });
         }
       } else {
-        console.log('[音频中断排查][SSE] refreshData 无历史记录，触发 runRef.current', {
-          outlineBid,
-          reason: 'empty-history',
-        });
+        console.log(
+          '[音频中断排查][SSE] refreshData 无历史记录，触发 runRef.current',
+          {
+            outlineBid,
+            reason: 'empty-history',
+          },
+        );
         runRef.current?.({
           input: '',
           input_type: SSE_INPUT_TYPE.NORMAL,
@@ -1235,10 +1249,13 @@ function useChatLogicHook({
         // });
         setIsLoading(true);
         if (curr === lessonId) {
-          console.log('[音频中断排查][SSE] resetedLesson 命中当前课时，先关闭旧流再 refresh', {
-            lessonId,
-            resetedLessonId: curr,
-          });
+          console.log(
+            '[音频中断排查][SSE] resetedLesson 命中当前课时，先关闭旧流再 refresh',
+            {
+              lessonId,
+              resetedLessonId: curr,
+            },
+          );
           sseRef.current?.close();
           await refreshData();
           // updateResetedChapterId(null);
@@ -1278,10 +1295,13 @@ function useChatLogicHook({
   }, [chapterId, refreshData]);
 
   useEffect(() => {
-    console.log('[音频中断排查][SSE] lessonId/resetedLessonId 变化，先关闭旧流', {
-      lessonId,
-      resetedLessonId,
-    });
+    console.log(
+      '[音频中断排查][SSE] lessonId/resetedLessonId 变化，先关闭旧流',
+      {
+        lessonId,
+        resetedLessonId,
+      },
+    );
     sseRef.current?.close();
     if (!lessonId || resetedLessonId === lessonId) {
       return;
@@ -1612,17 +1632,20 @@ function useChatLogicHook({
     [contentList, nullRenderBar],
   );
 
-  const closeTtsStream = useCallback((blockId: string) => {
-    const source = ttsSseRef.current[blockId];
-    if (!source) {
-      return;
-    }
-    logAudioDebug('tts-request-stream-close', {
-      blockId,
-    });
-    source.close();
-    delete ttsSseRef.current[blockId];
-  }, [logAudioDebug]);
+  const closeTtsStream = useCallback(
+    (blockId: string) => {
+      const source = ttsSseRef.current[blockId];
+      if (!source) {
+        return;
+      }
+      logAudioDebug('tts-request-stream-close', {
+        blockId,
+      });
+      source.close();
+      delete ttsSseRef.current[blockId];
+    },
+    [logAudioDebug],
+  );
 
   const requestAudioForBlock = useCallback(
     async (generatedBlockBid: string): Promise<AudioCompleteData | null> => {
@@ -1702,9 +1725,12 @@ function useChatLogicHook({
                 requestTraceId,
                 generatedBlockBid,
                 segmentIndex:
-                  audioPayload?.segment_index ?? audioPayload?.segmentIndex ?? -1,
+                  audioPayload?.segment_index ??
+                  audioPayload?.segmentIndex ??
+                  -1,
                 position: audioPayload?.position ?? 0,
-                isFinal: audioPayload?.is_final ?? audioPayload?.isFinal ?? false,
+                isFinal:
+                  audioPayload?.is_final ?? audioPayload?.isFinal ?? false,
                 durationMs:
                   audioPayload?.duration_ms ?? audioPayload?.durationMs ?? 0,
               });
@@ -1745,18 +1771,15 @@ function useChatLogicHook({
                 generatedBlockBid,
                 delayMs,
               });
-              finalizeTimer = setTimeout(
-                () => {
-                  logAudioDebug('tts-request-finalize-run', {
-                    requestTraceId,
-                    generatedBlockBid,
-                    hasComplete: Boolean(latestComplete),
-                  });
-                  closeTtsStream(generatedBlockBid);
-                  resolve(latestComplete ?? null);
-                },
-                delayMs,
-              );
+              finalizeTimer = setTimeout(() => {
+                logAudioDebug('tts-request-finalize-run', {
+                  requestTraceId,
+                  generatedBlockBid,
+                  hasComplete: Boolean(latestComplete),
+                });
+                closeTtsStream(generatedBlockBid);
+                resolve(latestComplete ?? null);
+              }, delayMs);
             }
           },
           onError: () => {

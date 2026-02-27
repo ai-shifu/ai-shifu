@@ -51,7 +51,8 @@ export const sortAudioTracksByPosition = <T extends { position?: number }>(
   tracks: T[] = [],
 ) =>
   [...tracks].sort(
-    (a, b) => normalizeAudioPosition(a.position) - normalizeAudioPosition(b.position),
+    (a, b) =>
+      normalizeAudioPosition(a.position) - normalizeAudioPosition(b.position),
   );
 
 export const sortAudioSegmentsByIndex = <T extends { segmentIndex: number }>(
@@ -75,12 +76,15 @@ export const getAudioTrackByPosition = <T extends { position?: number }>(
 };
 
 export const hasAudioContentInTrack = (
-  track?: Pick<AudioTrack, 'audioUrl' | 'isAudioStreaming' | 'audioSegments'> | null,
+  track?: Pick<
+    AudioTrack,
+    'audioUrl' | 'isAudioStreaming' | 'audioSegments'
+  > | null,
 ) =>
   Boolean(
     track?.audioUrl ||
-      track?.isAudioStreaming ||
-      (track?.audioSegments && track.audioSegments.length > 0),
+    track?.isAudioStreaming ||
+    (track?.audioSegments && track.audioSegments.length > 0),
   );
 
 export const hasAudioContentInTracks = (
@@ -351,7 +355,9 @@ export const upsertAudioComplete = <T extends AudioItem>(
     const targetTrack =
       getAudioTrackByPosition(nextTracks, position) ??
       getAudioTrackByPosition(nextTracks);
-    const nextIsAudioStreaming = nextTracks.some(track => track.isAudioStreaming);
+    const nextIsAudioStreaming = nextTracks.some(
+      track => track.isAudioStreaming,
+    );
     const hasNoChanges =
       nextTracks === existingTracks &&
       item.audioUrl === targetTrack?.audioUrl &&
