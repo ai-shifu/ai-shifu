@@ -200,7 +200,9 @@ export const ShifuProvider = ({
   const [unusedVariables, setUnusedVariables] = useState<string[]>([]);
   const [hideUnusedMode, setHideUnusedMode] = useState(false);
   const [baseRevision, setBaseRevision] = useState<number | null>(null);
-  const [latestDraftMeta, setLatestDraftMeta] = useState<DraftMeta | null>(null);
+  const [latestDraftMeta, setLatestDraftMeta] = useState<DraftMeta | null>(
+    null,
+  );
   const [hasDraftConflict, setHasDraftConflict] = useState(false);
   const [autosavePaused, setAutosavePaused] = useState(false);
   const currentMdflow = useRef<string>('');

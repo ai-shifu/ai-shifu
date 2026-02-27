@@ -172,6 +172,7 @@ def get_shifu_draft_meta(app: Flask, shifu_bid: str) -> dict:
             "updated_user": updated_user,
         }
 
+
 def get_shifu_history(app, shifu_bid: str) -> HistoryItem:
     """
     Get shifu history
