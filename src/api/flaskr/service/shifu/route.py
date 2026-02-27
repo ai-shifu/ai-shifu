@@ -104,6 +104,10 @@ from flaskr.service.shifu.shifu_mdflow_funcs import (
     save_shifu_mdflow,
     parse_shifu_mdflow,
 )
+from flaskr.service.shifu.shifu_history_manager import (
+    get_shifu_draft_meta,
+    get_shifu_draft_revision,
+)
 from flaskr.service.shifu.permissions import (
     _auth_types_to_permissions,
     _normalize_auth_types,
@@ -717,6 +721,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                     tts_emotion:
                         type: string
                         description: TTS emotion setting
+                    touch_revision:
+                        type: boolean
+                        description: force bump draft revision
         responses:
             200:
                 description: save shifu detail success
@@ -757,6 +764,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         use_learner_language = json_data.get("use_learner_language", False)
         if isinstance(use_learner_language, str):
             use_learner_language = use_learner_language.lower() == "true"
+        touch_revision = json_data.get("touch_revision", False)
+        if isinstance(touch_revision, str):
+            touch_revision = touch_revision.lower() == "true"
         base_url = _get_request_base_url()
         return make_common_response(
             save_shifu_draft_info(
@@ -780,6 +790,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 tts_pitch=tts_pitch,
                 tts_emotion=tts_emotion,
                 use_learner_language=use_learner_language,
+                touch_revision=bool(touch_revision),
             )
         )
 
@@ -1233,6 +1244,40 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         return make_common_response(get_shifu_mdflow(app, shifu_bid, outline_bid))
 
     @app.route(
+        path_prefix + "/shifus/<shifu_bid>/draft-meta",
+        methods=["GET"],
+    )
+    @ShifuTokenValidation(ShifuPermission.VIEW)
+    def get_draft_meta_api(shifu_bid: str):
+        """
+        get draft meta
+        ---
+        tags:
+            - shifu
+        parameters:
+            - name: shifu_bid
+              type: string
+              required: true
+        responses:
+            200:
+                description: get draft meta success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    description: draft meta
+        """
+        return make_common_response(get_shifu_draft_meta(app, shifu_bid))
+
+    @app.route(
         path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow",
         methods=["POST"],
     )
@@ -1291,22 +1336,29 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 base_revision = int(base_revision)
             except (TypeError, ValueError):
                 raise_param_error("base_revision")
-        content = payload.get("data")
-        result = save_shifu_mdflow(
-            app, user_id, shifu_bid, outline_bid, content, base_revision
-        )
-        if isinstance(result, dict) and result.get("conflict"):
-            body = json.dumps(
-                {
-                    "code": ERROR_CODE["server.shifu.draftConflict"],
-                    "message": _("server.shifu.draftConflict"),
-                    "data": {"meta": result.get("meta")},
-                },
-                default=fmt,
-                ensure_ascii=False,
+            latest_meta = get_shifu_draft_meta(app, shifu_bid)
+            latest_revision = (
+                latest_meta.get("revision")
+                if isinstance(latest_meta, dict)
+                else get_shifu_draft_revision(app, shifu_bid)
             )
-            return Response(body, status=200, mimetype="application/json")
-        return make_common_response(result)
+            if latest_revision is None:
+                latest_revision = get_shifu_draft_revision(app, shifu_bid)
+            if base_revision != latest_revision:
+                body = json.dumps(
+                    {
+                        "code": ERROR_CODE["server.shifu.draftConflict"],
+                        "message": _("server.shifu.draftConflict"),
+                        "data": {"meta": latest_meta},
+                    },
+                    default=fmt,
+                    ensure_ascii=False,
+                )
+                return Response(body, status=200, mimetype="application/json")
+        content = payload.get("data")
+        return make_common_response(
+            save_shifu_mdflow(app, user_id, shifu_bid, outline_bid, content)
+        )
 
     @app.route(
         path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow/parse",

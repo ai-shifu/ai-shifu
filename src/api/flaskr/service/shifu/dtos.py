@@ -92,12 +92,6 @@ class ShifuDetailDto(BaseModel):
     created_user_bid: str = Field(
         "", description="owner user business id", required=False
     )
-    draft_revision: int = Field(
-        0, description="draft revision for conflict detection", required=False
-    )
-    draft_updated_user: dict | None = Field(
-        None, description="latest draft updated user", required=False
-    )
     # TTS Configuration
     tts_enabled: bool = Field(False, description="TTS enabled", required=False)
     tts_provider: str = Field(
@@ -140,8 +134,6 @@ class ShifuDetailDto(BaseModel):
         can_manage_archive: bool = False,
         can_publish: bool = False,
         created_user_bid: str = "",
-        draft_revision: int = 0,
-        draft_updated_user: dict | None = None,
         tts_enabled: bool = False,
         tts_provider: str = "",
         tts_model: str = "",
@@ -168,8 +160,6 @@ class ShifuDetailDto(BaseModel):
             can_manage_archive=can_manage_archive,
             can_publish=can_publish,
             created_user_bid=created_user_bid or "",
-            draft_revision=draft_revision,
-            draft_updated_user=draft_updated_user,
             tts_enabled=tts_enabled,
             tts_provider=tts_provider,
             tts_model=tts_model,
@@ -198,8 +188,6 @@ class ShifuDetailDto(BaseModel):
             "can_manage_archive": self.can_manage_archive,
             "can_publish": self.can_publish,
             "created_user_bid": self.created_user_bid,
-            "draft_revision": self.draft_revision,
-            "draft_updated_user": self.draft_updated_user,
             "tts_enabled": self.tts_enabled,
             "tts_provider": self.tts_provider,
             "tts_model": self.tts_model,

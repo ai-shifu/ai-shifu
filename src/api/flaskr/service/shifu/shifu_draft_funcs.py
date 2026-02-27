@@ -31,7 +31,7 @@ from .utils import (
 )
 from .models import DraftShifu, FavoriteScenario, ShifuUserArchive, PublishedShifu
 from .permissions import get_user_shifu_permissions
-from .shifu_history_manager import get_shifu_draft_meta, save_shifu_history
+from .shifu_history_manager import save_shifu_history
 from ..common.dtos import PageNationDTO
 from ...service.config import get_config
 from .funcs import shifu_permission_verification
@@ -63,7 +63,6 @@ def return_shifu_draft_dto(
     shifu_draft: DraftShifu,
     base_url: str,
     readonly: bool,
-    draft_meta: Optional[dict] = None,
     archived_override: Optional[bool] = None,
     can_manage_archive: bool = False,
     can_publish: bool = False,
@@ -86,10 +85,6 @@ def return_shifu_draft_dto(
     )
 
     stored_provider = getattr(shifu_draft, "tts_provider", "") or ""
-    resolved_meta = draft_meta if isinstance(draft_meta, dict) else {}
-    draft_revision = resolved_meta.get("revision")
-    draft_revision = int(draft_revision) if isinstance(draft_revision, int) else 0
-    draft_updated_user = resolved_meta.get("updated_user")
 
     return ShifuDetailDto(
         shifu_id=shifu_draft.shifu_bid,
@@ -110,8 +105,6 @@ def return_shifu_draft_dto(
         can_manage_archive=can_manage_archive,
         can_publish=can_publish,
         created_user_bid=shifu_draft.created_user_bid or "",
-        draft_revision=draft_revision,
-        draft_updated_user=draft_updated_user,
         tts_enabled=bool(shifu_draft.tts_enabled),
         tts_provider=stored_provider,
         tts_model=getattr(shifu_draft, "tts_model", "") or "",
@@ -301,12 +294,10 @@ def get_shifu_draft_info(
         readonly = not (has_edit_permission or has_publish_permission)
         archive_map = _get_user_archive_map(app, user_id, [shifu_id])
         archived_override = archive_map.get(shifu_id)
-        draft_meta = get_shifu_draft_meta(app, shifu_id)
         return return_shifu_draft_dto(
             shifu_draft,
             base_url,
             readonly,
-            draft_meta,
             archived_override,
             can_manage_archive=has_view_permission,
             can_publish=has_publish_permission,
@@ -334,6 +325,7 @@ def save_shifu_draft_info(
     tts_pitch: int = 0,
     tts_emotion: str = "",
     use_learner_language: bool = False,
+    touch_revision: bool = False,
 ):
     """
     Save shifu draft info
@@ -358,6 +350,7 @@ def save_shifu_draft_info(
         tts_pitch: TTS pitch adjustment
         tts_emotion: TTS emotion setting
         use_learner_language: Whether to use learner's language for AI output
+        touch_revision: Whether to bump draft revision even if data unchanged
     Returns:
         ShifuDetailDto: Shifu detail dto
     """
@@ -392,6 +385,7 @@ def save_shifu_draft_info(
             raise_error_with_args(
                 "server.shifu.shifuPriceTooLow", min_shifu_price=min_shifu_price
             )
+        touched_revision = False
         if not shifu_draft:
             shifu_draft: DraftShifu = DraftShifu(
                 shifu_bid=shifu_id,
@@ -419,6 +413,7 @@ def save_shifu_draft_info(
             db.session.flush()
             save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
             db.session.commit()
+            touched_revision = True
         else:
             new_shifu_draft: DraftShifu = shifu_draft.clone()
             new_shifu_draft.title = shifu_name
@@ -452,6 +447,10 @@ def save_shifu_draft_info(
                 save_shifu_history(app, user_id, shifu_id, new_shifu_draft.id)
                 db.session.commit()
                 shifu_draft = new_shifu_draft
+                touched_revision = True
+        if touch_revision and not touched_revision and shifu_draft:
+            save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
+            db.session.commit()
         has_edit_permission = shifu_permission_verification(
             app, user_id, shifu_id, "edit"
         )
@@ -464,12 +463,10 @@ def save_shifu_draft_info(
         readonly = not (has_edit_permission or has_publish_permission)
         archive_map = _get_user_archive_map(app, user_id, [shifu_id])
         archived_override = archive_map.get(shifu_id)
-        draft_meta = get_shifu_draft_meta(app, shifu_id)
         return return_shifu_draft_dto(
             shifu_draft,
             base_url,
             readonly,
-            draft_meta,
             archived_override,
             can_manage_archive=has_view_permission,
             can_publish=has_publish_permission,
@@ -785,12 +782,10 @@ def save_shifu_draft_detail(
             readonly = not (has_edit_permission or has_publish_permission)
             archive_map = _get_user_archive_map(app, user_id, [shifu_id])
             archived_override = archive_map.get(shifu_id)
-            draft_meta = get_shifu_draft_meta(app, shifu_id)
             return return_shifu_draft_dto(
                 new_shifu,
                 base_url,
                 readonly,
-                draft_meta,
                 archived_override,
                 can_manage_archive=has_view_permission,
                 can_publish=has_publish_permission,

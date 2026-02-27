@@ -1,15 +1,13 @@
 from markdown_flow import MarkdownFlow
-from flask import Flask, has_app_context
-from contextlib import nullcontext
+from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
-from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
+from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.service.common import raise_error
 from flaskr.dao import db
 from flaskr.service.shifu.dtos import MdflowDTOParseResult
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from flaskr.service.shifu.shifu_history_manager import (
     save_outline_history,
-    get_shifu_draft_meta,
     get_shifu_draft_revision,
 )
 from flaskr.service.profile.profile_manage import (
@@ -39,36 +37,12 @@ def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
 
 
 def save_shifu_mdflow(
-    app: Flask,
-    user_id: str,
-    shifu_bid: str,
-    outline_bid: str,
-    content: str,
-    base_revision: int | None = None,
+    app: Flask, user_id: str, shifu_bid: str, outline_bid: str, content: str
 ) -> dict:
     """
     Save shifu mdflow
     """
-    ctx = nullcontext() if has_app_context() else app.app_context()
-    with ctx:
-        draft_shifu = (
-            DraftShifu.query.filter(
-                DraftShifu.shifu_bid == shifu_bid,
-                DraftShifu.deleted == 0,
-            )
-            .order_by(DraftShifu.id.desc())
-            .with_for_update()
-            .first()
-        )
-        if not draft_shifu:
-            raise_error("server.shifu.shifuNotFound")
-        if base_revision is not None:
-            latest_meta = get_shifu_draft_meta(app, shifu_bid)
-            latest_revision = (
-                latest_meta.get("revision") if isinstance(latest_meta, dict) else 0
-            )
-            if base_revision != latest_revision:
-                return {"conflict": True, "meta": latest_meta}
+    with app.app_context():
         outline_item: DraftOutlineItem = (
             DraftOutlineItem.query.filter(
                 DraftOutlineItem.outline_item_bid == outline_bid,

@@ -27,8 +27,6 @@ export interface Shifu {
   created_user_bid?: string;
   can_manage_archive?: boolean;
   canPublish?: boolean;
-  draft_revision?: number;
-  draft_updated_user?: DraftMetaUser | null;
 }
 
 export interface Outline {
@@ -92,6 +90,7 @@ export interface DraftMetaUser {
 
 export interface DraftMeta {
   revision: number;
+  updated_at?: string | null;
   updated_user?: DraftMetaUser | null;
 }
 
@@ -217,6 +216,7 @@ export interface ShifuActions {
   updateBlockProperties: (bid: string, properties: any) => Promise<void>;
   loadMdflow: (outlineId: string, shifuId: string) => Promise<void>;
   saveMdflow: (payload?: SaveMdflowPayload) => Promise<boolean>;
+  loadDraftMeta: (shifuId: string) => Promise<DraftMeta | null>;
   setBaseRevision: (revision: number | null) => void;
   setLatestDraftMeta: (meta: DraftMeta | null) => void;
   setDraftConflict: (conflict: boolean) => void;
