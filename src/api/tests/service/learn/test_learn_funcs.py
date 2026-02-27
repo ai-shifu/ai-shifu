@@ -541,6 +541,121 @@ class LearnRecordLoadTests(unittest.TestCase):
         self.assertEqual(ctx._run_type, RunType.INPUT)
         self.assertTrue(ctx._can_continue)
 
+    def test_run_inner_does_not_realign_on_empty_auto_input(self):
+        """Empty auto-run input should not be treated as a real interaction submit."""
+        progress = LearnProgressRecord(
+            progress_record_bid="progress-empty-input",
+            shifu_bid="shifu-empty-input",
+            outline_item_bid="outline-empty-input",
+            user_bid="user-empty-input",
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        dao.db.session.add(progress)
+        pending_interaction = LearnGeneratedBlock(
+            generated_block_bid="pending-interaction-empty",
+            progress_record_bid=progress.progress_record_bid,
+            user_bid=progress.user_bid,
+            block_bid="pending-block-empty",
+            outline_item_bid=progress.outline_item_bid,
+            shifu_bid=progress.shifu_bid,
+            type=BLOCK_TYPE_MDINTERACTION_VALUE,
+            generated_content="",
+            block_content_conf="?[%{{v}} A|B]",
+            position=1,
+            status=1,
+        )
+        dao.db.session.add(pending_interaction)
+        dao.db.session.commit()
+
+        ctx = RunScriptContextV2.__new__(RunScriptContextV2)
+        ctx.app = self.app
+        ctx._trace_args = {}
+        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._outline_item_info = types.SimpleNamespace(
+            bid=progress.outline_item_bid,
+            shifu_bid=progress.shifu_bid,
+            position=0,
+        )
+        ctx._shifu_info = types.SimpleNamespace(use_learner_language=False)
+        ctx._user_info = types.SimpleNamespace(user_id=progress.user_bid, mobile="")
+        ctx._preview_mode = False
+        ctx._struct = None
+        ctx._is_paid = True
+        ctx._run_type = RunType.INPUT
+        ctx._can_continue = True
+        ctx._input_type = "normal"
+        ctx._input = {"input": [""]}
+        ctx._last_position = -1
+        ctx._current_attend = progress
+        ctx._get_current_attend = types.MethodType(
+            lambda self, outline_bid: progress, ctx
+        )
+        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx.get_llm_settings = types.MethodType(
+            lambda self, outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
+        )
+        ctx.get_system_prompt = types.MethodType(lambda self, outline_bid: None, ctx)
+        ctx._get_run_script_info = types.MethodType(
+            lambda self, attend, is_ask=False: RunScriptInfo(
+                attend=attend,
+                outline_bid=attend.outline_item_bid,
+                block_position=0,
+                mdflow="doc",
+            ),
+            ctx,
+        )
+
+        class DummyBlock:
+            def __init__(self, block_type, content, index):
+                self.block_type = block_type
+                self.content = content
+                self.index = index
+
+        class FakeMarkdownFlow:
+            process_called = False
+
+            def __init__(self, *args, **kwargs):
+                self.blocks = [
+                    DummyBlock(BlockType.CONTENT, "===fixed output===", 0),
+                    DummyBlock(BlockType.INTERACTION, "?[%{{v}} A|B]", 1),
+                ]
+
+            def set_output_language(self, *_args, **_kwargs):
+                return self
+
+            def get_all_blocks(self):
+                return self.blocks
+
+            def get_block(self, block_index):
+                return self.blocks[block_index]
+
+            def process(
+                self, block_index, mode, variables=None, context=None, user_input=None
+            ):
+                FakeMarkdownFlow.process_called = True
+                return types.SimpleNamespace(content="should-not-be-called")
+
+        with (
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow
+            ),
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.get_user_profiles", return_value={}
+            ),
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.get_profile_item_definition_list",
+                return_value=[],
+            ),
+        ):
+            events = list(ctx.run_inner(self.app))
+
+        self.assertEqual(events, [])
+        self.assertFalse(FakeMarkdownFlow.process_called)
+        self.assertEqual(progress.block_position, 0)
+        self.assertEqual(ctx._run_type, RunType.OUTPUT)
+        self.assertTrue(ctx._can_continue)
+
 
 if __name__ == "__main__":
     unittest.main()

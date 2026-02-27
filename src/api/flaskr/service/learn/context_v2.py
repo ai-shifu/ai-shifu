@@ -1475,6 +1475,28 @@ class RunScriptContextV2:
             temperature=float(self.app.config.get("DEFAULT_LLM_TEMPERATURE")),
         )
 
+    def _has_effective_input(self) -> bool:
+        input_value = self._input
+        if input_value is None:
+            return False
+        if isinstance(input_value, dict):
+            for raw in input_value.values():
+                values = raw if isinstance(raw, list) else [raw]
+                for value in values:
+                    if value is None:
+                        continue
+                    if str(value).strip():
+                        return True
+            return False
+        if isinstance(input_value, list):
+            for value in input_value:
+                if value is None:
+                    continue
+                if str(value).strip():
+                    return True
+            return False
+        return bool(str(input_value).strip())
+
     def set_input(self, input: str | dict, input_type: str):
         """
         Set user input.
@@ -1684,9 +1706,10 @@ class RunScriptContextV2:
         block = block_list[run_script_info.block_position]
         app.logger.info(f"block: {block}")
         app.logger.info(f"self._run_type: {self._run_type}")
+        has_effective_input = self._has_effective_input()
         if self._run_type == RunType.INPUT:
             if block.block_type != BlockType.INTERACTION:
-                if self._input:
+                if has_effective_input:
                     pending_interaction_block: LearnGeneratedBlock | None = (
                         LearnGeneratedBlock.query.filter(
                             LearnGeneratedBlock.progress_record_bid
@@ -2181,7 +2204,7 @@ class RunScriptContextV2:
             else:
                 # Guard against replaying the same fixed-output block right after
                 # processing an interaction input in the same request.
-                if self._input:
+                if has_effective_input:
                     existing_content_block: LearnGeneratedBlock | None = (
                         LearnGeneratedBlock.query.filter(
                             LearnGeneratedBlock.progress_record_bid
