@@ -1686,6 +1686,44 @@ class RunScriptContextV2:
         app.logger.info(f"self._run_type: {self._run_type}")
         if self._run_type == RunType.INPUT:
             if block.block_type != BlockType.INTERACTION:
+                if self._input:
+                    pending_interaction_block: LearnGeneratedBlock | None = (
+                        LearnGeneratedBlock.query.filter(
+                            LearnGeneratedBlock.progress_record_bid
+                            == run_script_info.attend.progress_record_bid,
+                            LearnGeneratedBlock.outline_item_bid
+                            == run_script_info.outline_bid,
+                            LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                            LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
+                            LearnGeneratedBlock.status == 1,
+                            LearnGeneratedBlock.deleted == 0,
+                            LearnGeneratedBlock.position
+                            >= run_script_info.block_position,
+                            LearnGeneratedBlock.generated_content == "",
+                        )
+                        .order_by(
+                            LearnGeneratedBlock.position.asc(),
+                            LearnGeneratedBlock.id.asc(),
+                        )
+                        .first()
+                    )
+                    if pending_interaction_block:
+                        app.logger.warning(
+                            "Input received on non-interaction block. Realign index to pending interaction: progress=%s outline=%s from=%s to=%s generated_block=%s",
+                            run_script_info.attend.progress_record_bid,
+                            run_script_info.outline_bid,
+                            run_script_info.block_position,
+                            pending_interaction_block.position,
+                            pending_interaction_block.generated_block_bid,
+                        )
+                        self._current_attend.block_position = (
+                            pending_interaction_block.position
+                        )
+                        self._current_attend.status = LEARN_STATUS_IN_PROGRESS
+                        self._run_type = RunType.INPUT
+                        self._can_continue = True
+                        db.session.flush()
+                        return
                 self._can_continue = True
                 self._run_type = RunType.OUTPUT
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
@@ -1923,7 +1961,7 @@ class RunScriptContextV2:
                 self._can_continue = True
                 self._run_type = RunType.OUTPUT
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                self._current_attend.block_position += 1
+                self._current_attend.block_position = run_script_info.block_position + 1
                 db.session.flush()
                 return
             validate_result = mdflow_context.process(
@@ -1968,7 +2006,7 @@ class RunScriptContextV2:
                         ),
                     )
                 self._can_continue = True
-                self._current_attend.block_position += 1
+                self._current_attend.block_position = run_script_info.block_position + 1
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                 self._run_type = RunType.OUTPUT
                 self.app.logger.warning(
