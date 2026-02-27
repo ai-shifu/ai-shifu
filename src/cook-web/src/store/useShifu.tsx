@@ -1723,6 +1723,7 @@ export const ShifuProvider = ({
       inflight: true,
       outlineId: outline_bid || null,
     };
+    let keepLock = false;
     try {
       const result = await api.saveMdflow({
         shifu_bid,
@@ -1747,11 +1748,14 @@ export const ShifuProvider = ({
         setHasDraftConflict(true);
         setAutosavePaused(true);
         debouncedAutoSaveRef.current.cancel();
+        keepLock = true;
         return;
       }
       throw error;
     } finally {
-      saveMdflowLockRef.current = { inflight: false, outlineId: null };
+      if (!keepLock) {
+        saveMdflowLockRef.current = { inflight: false, outlineId: null };
+      }
     }
   };
 

@@ -337,7 +337,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
       markDraftConflict(meta);
       return;
     }
-    if (!updatedUser || updatedUser === currentUser) {
+    if (
+      (!updatedUser || updatedUser === currentUser) &&
+      !conflictStateRef.current.autosavePaused
+    ) {
       actionsRef.current.setBaseRevision(meta.revision);
     }
   }, [markDraftConflict]);

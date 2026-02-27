@@ -6,6 +6,8 @@ from flaskr.service.common import raise_error
 from flaskr.dao import db
 from flaskr.service.shifu.dtos import MdflowDTOParseResult
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
+from typing import TypedDict
+
 from flaskr.service.shifu.shifu_history_manager import (
     save_outline_history,
     get_shifu_draft_meta,
@@ -36,6 +38,19 @@ def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
         return outline_item.content
 
 
+class DraftConflictResult(TypedDict):
+    conflict: bool
+    meta: dict
+
+
+class DraftSaveResult(TypedDict):
+    conflict: bool
+    new_revision: int
+
+
+DraftSaveResponse = DraftConflictResult | DraftSaveResult
+
+
 def save_shifu_mdflow(
     app: Flask,
     user_id: str,
@@ -43,22 +58,20 @@ def save_shifu_mdflow(
     outline_bid: str,
     content: str,
     base_revision: int | None = None,
-) -> dict:
+) -> DraftSaveResponse:
     """
     Save shifu mdflow
     """
     with app.app_context():
-        latest_log = get_shifu_draft_log(
-            app, shifu_bid, for_update=base_revision is not None
-        )
+        lock_latest = isinstance(base_revision, int)
+        latest_log = get_shifu_draft_log(app, shifu_bid, for_update=lock_latest)
         latest_revision = int(latest_log.id) if latest_log else 0
         updated_user_bid = latest_log.updated_user_bid if latest_log else ""
         if (
             isinstance(base_revision, int)
             and base_revision >= 0
             and latest_revision > base_revision
-            and updated_user_bid
-            and updated_user_bid != user_id
+            and (not updated_user_bid or updated_user_bid != user_id)
         ):
             return {"conflict": True, "meta": get_shifu_draft_meta(app, shifu_bid)}
 
