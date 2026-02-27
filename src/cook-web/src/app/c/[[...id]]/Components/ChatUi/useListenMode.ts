@@ -861,9 +861,9 @@ export const useListenAudioSequence = ({
   const isAudioDebugEnabled = process.env.NODE_ENV !== 'production';
   const logAudioDebug = useCallback(
     (event: string, payload?: Record<string, any>) => {
-      if (!isAudioDebugEnabled) {
+      // if (!isAudioDebugEnabled) {
         return;
-      }
+      // }
       console.log(`[listen-audio-debug] ${event}`, payload ?? {});
     },
     [isAudioDebugEnabled],
