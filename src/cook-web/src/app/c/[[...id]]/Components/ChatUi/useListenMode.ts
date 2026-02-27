@@ -862,7 +862,7 @@ export const useListenAudioSequence = ({
   const logAudioDebug = useCallback(
     (event: string, payload?: Record<string, any>) => {
       // if (!isAudioDebugEnabled) {
-        return;
+      return;
       // }
       console.log(`[listen-audio-debug] ${event}`, payload ?? {});
     },

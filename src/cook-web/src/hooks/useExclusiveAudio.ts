@@ -18,7 +18,7 @@ const logExclusiveAudioDebug = (
   payload?: Record<string, unknown>,
 ) => {
   // if (process.env.NODE_ENV === 'production') {
-    return;
+  return;
   // }
   console.log(`[音频中断排查][排他音频] ${event}`, payload ?? {});
 };

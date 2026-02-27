@@ -42,7 +42,7 @@ const normalizeAudioPosition = (position?: number | null) =>
 
 const logAudioUtilsDebug = (event: string, payload?: Record<string, any>) => {
   // if (process.env.NODE_ENV === 'production') {
-    return;
+  return;
   // }
   console.log(`[listen-audio-debug] ${event}`, payload ?? {});
 };

@@ -33,7 +33,7 @@ export interface AudioPlayerListProps {
 
 const logAudioDebug = (event: string, payload?: Record<string, any>) => {
   // if (process.env.NODE_ENV === 'production') {
-    return;
+  return;
   // }
   console.log(`[listen-audio-debug] ${event}`, payload ?? {});
 };
@@ -83,7 +83,7 @@ const AudioPlayerListBase = (
   const logAudioInterrupt = useCallback(
     (event: string, payload?: Record<string, unknown>) => {
       // if (process.env.NODE_ENV === 'production') {
-        return;
+      return;
       // }
       console.log(`[音频中断排查][AudioPlayerList] ${event}`, {
         playerId: playerDebugIdRef.current,
