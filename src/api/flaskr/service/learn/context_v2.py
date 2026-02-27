@@ -2141,6 +2141,39 @@ class RunScriptContextV2:
                 db.session.add(generated_block)
                 db.session.flush()
             else:
+                # Guard against replaying the same fixed-output block right after
+                # processing an interaction input in the same request.
+                if self._input:
+                    existing_content_block: LearnGeneratedBlock | None = (
+                        LearnGeneratedBlock.query.filter(
+                            LearnGeneratedBlock.progress_record_bid
+                            == run_script_info.attend.progress_record_bid,
+                            LearnGeneratedBlock.outline_item_bid
+                            == run_script_info.outline_bid,
+                            LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                            LearnGeneratedBlock.type == BLOCK_TYPE_MDCONTENT_VALUE,
+                            LearnGeneratedBlock.position
+                            == run_script_info.block_position,
+                            LearnGeneratedBlock.status == 1,
+                            LearnGeneratedBlock.deleted == 0,
+                        )
+                        .order_by(LearnGeneratedBlock.id.desc())
+                        .first()
+                    )
+                    if existing_content_block:
+                        app.logger.warning(
+                            "Skip duplicated fixed output block: progress=%s outline=%s position=%s generated_block=%s",
+                            run_script_info.attend.progress_record_bid,
+                            run_script_info.outline_bid,
+                            run_script_info.block_position,
+                            existing_content_block.generated_block_bid,
+                        )
+                        self._can_continue = True
+                        self._run_type = RunType.OUTPUT
+                        self._current_attend.status = LEARN_STATUS_IN_PROGRESS
+                        self._current_attend.block_position += 1
+                        db.session.flush()
+                        return
                 generated_block.type = BLOCK_TYPE_MDCONTENT_VALUE
                 generated_content = ""
                 tts_processor = None

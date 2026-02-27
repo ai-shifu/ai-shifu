@@ -307,6 +307,125 @@ class LearnRecordLoadTests(unittest.TestCase):
             FakeMarkdownFlow.last_context[1]["content"],
         )
 
+    def test_run_inner_skips_duplicate_fixed_output_after_interaction_input(self):
+        """Avoid replaying an already generated fixed output after interaction submit."""
+        progress = LearnProgressRecord(
+            progress_record_bid="progress-skip-dup",
+            shifu_bid="shifu-skip-dup",
+            outline_item_bid="outline-skip-dup",
+            user_bid="user-skip-dup",
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        dao.db.session.add(progress)
+        existing_content_block = LearnGeneratedBlock(
+            generated_block_bid="dup-content-1",
+            progress_record_bid=progress.progress_record_bid,
+            user_bid=progress.user_bid,
+            block_bid="dup-block-1",
+            outline_item_bid=progress.outline_item_bid,
+            shifu_bid=progress.shifu_bid,
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            generated_content="fixed output already sent",
+            block_content_conf="===fixed output===",
+            position=0,
+            status=1,
+        )
+        dao.db.session.add(existing_content_block)
+        dao.db.session.commit()
+
+        ctx = RunScriptContextV2.__new__(RunScriptContextV2)
+        ctx.app = self.app
+        ctx._trace_args = {}
+        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._outline_item_info = types.SimpleNamespace(
+            bid=progress.outline_item_bid,
+            shifu_bid=progress.shifu_bid,
+            position=0,
+        )
+        ctx._shifu_info = types.SimpleNamespace(use_learner_language=False)
+        ctx._user_info = types.SimpleNamespace(user_id=progress.user_bid, mobile="")
+        ctx._preview_mode = False
+        ctx._struct = None
+        ctx._is_paid = True
+        ctx._run_type = RunType.OUTPUT
+        ctx._can_continue = True
+        ctx._input_type = "normal"
+        ctx._input = {"answer": ["A"]}
+        ctx._last_position = -1
+        ctx._current_attend = progress
+        ctx._get_current_attend = types.MethodType(
+            lambda self, outline_bid: progress, ctx
+        )
+        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx.get_llm_settings = types.MethodType(
+            lambda self, outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
+        )
+        ctx.get_system_prompt = types.MethodType(lambda self, outline_bid: None, ctx)
+        ctx._get_run_script_info = types.MethodType(
+            lambda self, attend, is_ask=False: RunScriptInfo(
+                attend=attend,
+                outline_bid=attend.outline_item_bid,
+                block_position=0,
+                mdflow="doc",
+            ),
+            ctx,
+        )
+
+        class DummyBlock:
+            def __init__(self, block_type, content, index):
+                self.block_type = block_type
+                self.content = content
+                self.index = index
+
+        class FakeMarkdownFlow:
+            process_called = False
+
+            def __init__(self, *args, **kwargs):
+                self.blocks = [DummyBlock(BlockType.CONTENT, "===fixed output===", 0)]
+
+            def set_output_language(self, *_args, **_kwargs):
+                return self
+
+            def get_all_blocks(self):
+                return self.blocks
+
+            def get_block(self, block_index):
+                return self.blocks[block_index]
+
+            def process(
+                self, block_index, mode, variables=None, context=None, user_input=None
+            ):
+                FakeMarkdownFlow.process_called = True
+                return types.SimpleNamespace(content="should-not-be-emitted")
+
+        with (
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow
+            ),
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.get_user_profiles", return_value={}
+            ),
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.get_profile_item_definition_list",
+                return_value=[],
+            ),
+        ):
+            events = list(ctx.run_inner(self.app))
+
+        self.assertEqual(events, [])
+        self.assertFalse(FakeMarkdownFlow.process_called)
+        self.assertEqual(progress.block_position, 1)
+        self.assertTrue(ctx._can_continue)
+        self.assertEqual(
+            LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.progress_record_bid == progress.progress_record_bid,
+                LearnGeneratedBlock.type == BLOCK_TYPE_MDCONTENT_VALUE,
+                LearnGeneratedBlock.status == 1,
+            ).count(),
+            1,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
