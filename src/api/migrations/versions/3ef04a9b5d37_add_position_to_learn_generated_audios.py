@@ -1,7 +1,7 @@
 """add position to learn_generated_audios
 
 Revision ID: 3ef04a9b5d37
-Revises: 6b956399315e
+Revises: 8f4c1a2b7d9e
 Create Date: 2026-02-09 00:00:00.000000
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "3ef04a9b5d37"
-down_revision = "6b956399315e"
+down_revision = "8f4c1a2b7d9e"
 branch_labels = None
 depends_on = None
 

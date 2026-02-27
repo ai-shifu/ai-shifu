@@ -1475,6 +1475,28 @@ class RunScriptContextV2:
             temperature=float(self.app.config.get("DEFAULT_LLM_TEMPERATURE")),
         )
 
+    def _has_effective_input(self) -> bool:
+        input_value = self._input
+        if input_value is None:
+            return False
+        if isinstance(input_value, dict):
+            for raw in input_value.values():
+                values = raw if isinstance(raw, list) else [raw]
+                for value in values:
+                    if value is None:
+                        continue
+                    if str(value).strip():
+                        return True
+            return False
+        if isinstance(input_value, list):
+            for value in input_value:
+                if value is None:
+                    continue
+                if str(value).strip():
+                    return True
+            return False
+        return bool(str(input_value).strip())
+
     def set_input(self, input: str | dict, input_type: str):
         """
         Set user input.
@@ -1684,8 +1706,47 @@ class RunScriptContextV2:
         block = block_list[run_script_info.block_position]
         app.logger.info(f"block: {block}")
         app.logger.info(f"self._run_type: {self._run_type}")
+        has_effective_input = self._has_effective_input()
         if self._run_type == RunType.INPUT:
             if block.block_type != BlockType.INTERACTION:
+                if has_effective_input:
+                    pending_interaction_block: LearnGeneratedBlock | None = (
+                        LearnGeneratedBlock.query.filter(
+                            LearnGeneratedBlock.progress_record_bid
+                            == run_script_info.attend.progress_record_bid,
+                            LearnGeneratedBlock.outline_item_bid
+                            == run_script_info.outline_bid,
+                            LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                            LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
+                            LearnGeneratedBlock.status == 1,
+                            LearnGeneratedBlock.deleted == 0,
+                            LearnGeneratedBlock.position
+                            >= run_script_info.block_position,
+                            LearnGeneratedBlock.generated_content == "",
+                        )
+                        .order_by(
+                            LearnGeneratedBlock.position.asc(),
+                            LearnGeneratedBlock.id.asc(),
+                        )
+                        .first()
+                    )
+                    if pending_interaction_block:
+                        app.logger.warning(
+                            "Input received on non-interaction block. Realign index to pending interaction: progress=%s outline=%s from=%s to=%s generated_block=%s",
+                            run_script_info.attend.progress_record_bid,
+                            run_script_info.outline_bid,
+                            run_script_info.block_position,
+                            pending_interaction_block.position,
+                            pending_interaction_block.generated_block_bid,
+                        )
+                        self._current_attend.block_position = (
+                            pending_interaction_block.position
+                        )
+                        self._current_attend.status = LEARN_STATUS_IN_PROGRESS
+                        self._run_type = RunType.INPUT
+                        self._can_continue = True
+                        db.session.flush()
+                        return
                 self._can_continue = True
                 self._run_type = RunType.OUTPUT
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
@@ -1923,7 +1984,7 @@ class RunScriptContextV2:
                 self._can_continue = True
                 self._run_type = RunType.OUTPUT
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                self._current_attend.block_position += 1
+                self._current_attend.block_position = run_script_info.block_position + 1
                 db.session.flush()
                 return
             validate_result = mdflow_context.process(
@@ -1968,7 +2029,7 @@ class RunScriptContextV2:
                         ),
                     )
                 self._can_continue = True
-                self._current_attend.block_position += 1
+                self._current_attend.block_position = run_script_info.block_position + 1
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                 self._run_type = RunType.OUTPUT
                 self.app.logger.warning(
@@ -2141,6 +2202,39 @@ class RunScriptContextV2:
                 db.session.add(generated_block)
                 db.session.flush()
             else:
+                # Guard against replaying the same fixed-output block right after
+                # processing an interaction input in the same request.
+                if has_effective_input:
+                    existing_content_block: LearnGeneratedBlock | None = (
+                        LearnGeneratedBlock.query.filter(
+                            LearnGeneratedBlock.progress_record_bid
+                            == run_script_info.attend.progress_record_bid,
+                            LearnGeneratedBlock.outline_item_bid
+                            == run_script_info.outline_bid,
+                            LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                            LearnGeneratedBlock.type == BLOCK_TYPE_MDCONTENT_VALUE,
+                            LearnGeneratedBlock.position
+                            == run_script_info.block_position,
+                            LearnGeneratedBlock.status == 1,
+                            LearnGeneratedBlock.deleted == 0,
+                        )
+                        .order_by(LearnGeneratedBlock.id.desc())
+                        .first()
+                    )
+                    if existing_content_block:
+                        app.logger.warning(
+                            "Skip duplicated fixed output block: progress=%s outline=%s position=%s generated_block=%s",
+                            run_script_info.attend.progress_record_bid,
+                            run_script_info.outline_bid,
+                            run_script_info.block_position,
+                            existing_content_block.generated_block_bid,
+                        )
+                        self._can_continue = True
+                        self._run_type = RunType.OUTPUT
+                        self._current_attend.status = LEARN_STATUS_IN_PROGRESS
+                        self._current_attend.block_position += 1
+                        db.session.flush()
+                        return
                 generated_block.type = BLOCK_TYPE_MDCONTENT_VALUE
                 generated_content = ""
                 tts_processor = None

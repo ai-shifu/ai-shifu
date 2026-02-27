@@ -20,9 +20,10 @@ def test_build_listen_slides_with_visual_boundary_and_pre_visual_text():
     second_slide = slides[1]
 
     assert first_slide.slide_index == 5
-    assert first_slide.is_placeholder is True
-    assert first_slide.visual_kind == "placeholder"
-    assert first_slide.segment_type == "placeholder"
+    assert first_slide.is_placeholder is False
+    assert first_slide.visual_kind == ""
+    assert first_slide.segment_type == "markdown"
+    assert first_slide.segment_content.startswith("Before intro")
 
     assert second_slide.slide_index == 6
     assert second_slide.is_placeholder is False
@@ -48,8 +49,10 @@ def test_build_listen_slides_for_text_only_content_uses_placeholder():
 
     assert len(slides) == 1
     assert mapping == {0: slides[0].slide_id}
-    assert slides[0].is_placeholder is True
-    assert slides[0].segment_content == ""
+    assert slides[0].is_placeholder is False
+    assert slides[0].visual_kind == ""
+    assert slides[0].segment_type == "markdown"
+    assert slides[0].segment_content == raw
     assert slides[0].source_span == [0, len(raw)]
 
 
