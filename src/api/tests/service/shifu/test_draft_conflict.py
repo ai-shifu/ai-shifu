@@ -8,7 +8,9 @@ from flaskr.service.common.models import ERROR_CODE
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, LogDraftStruct
 
 
-def _seed_shifu_with_outline(app, shifu_bid: str, outline_bid: str, user_id: str) -> int:
+def _seed_shifu_with_outline(
+    app, shifu_bid: str, outline_bid: str, user_id: str
+) -> int:
     with app.app_context():
         DraftOutlineItem.query.filter_by(outline_item_bid=outline_bid).delete()
         DraftShifu.query.filter_by(shifu_bid=shifu_bid).delete()
@@ -67,9 +69,7 @@ def _mock_user(monkeypatch, user_id: str):
 
 @pytest.mark.usefixtures("app")
 class TestDraftConflict:
-    def test_save_mdflow_conflict_returns_meta(
-        self, monkeypatch, test_client, app
-    ):
+    def test_save_mdflow_conflict_returns_meta(self, monkeypatch, test_client, app):
         shifu_bid = "draft-conflict-1"
         outline_bid = "outline-conflict-1"
         user_id = "user-1"
@@ -100,9 +100,7 @@ class TestDraftConflict:
         assert payload["code"] == ERROR_CODE["server.shifu.draftConflict"]
         assert payload["data"]["meta"]["revision"] == revision
 
-    def test_save_mdflow_with_latest_revision(
-        self, monkeypatch, test_client, app
-    ):
+    def test_save_mdflow_with_latest_revision(self, monkeypatch, test_client, app):
         shifu_bid = "draft-conflict-2"
         outline_bid = "outline-conflict-2"
         user_id = "user-2"
