@@ -1354,7 +1354,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 default=fmt,
                 ensure_ascii=False,
             )
-            return body
+            return Response(body, status=200, mimetype="application/json")
         return make_common_response({"new_revision": result.get("new_revision")})
 
     @app.route(

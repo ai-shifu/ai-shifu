@@ -327,6 +327,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
     const updatedUser = meta.updated_user?.user_bid || '';
     const currentUser = currentUserIdRef.current || '';
+    // Only trigger conflict when another user updated the draft.
     if (
       meta.revision > baseRev &&
       updatedUser &&

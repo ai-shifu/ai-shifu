@@ -37,7 +37,7 @@ format:
 """
 
 from flask import Flask
-from typing import Generic, TypeVar, List
+from typing import Generic, TypeVar, List, Optional
 from pydantic import BaseModel
 from .models import LogDraftStruct
 from flaskr.dao import db
@@ -93,17 +93,16 @@ class HistoryInfo(BaseModel):
     id: int
 
 
-def _get_latest_draft_log(shifu_bid: str):
-    return (
-        LogDraftStruct.query.filter_by(
-            shifu_bid=shifu_bid,
-        )
-        .order_by(LogDraftStruct.id.desc())
-        .first()
-    )
+def _get_latest_draft_log(shifu_bid: str, for_update: bool = False):
+    query = LogDraftStruct.query.filter_by(
+        shifu_bid=shifu_bid,
+    ).order_by(LogDraftStruct.id.desc())
+    if for_update:
+        query = query.with_for_update()
+    return query.first()
 
 
-def _mask_phone_identifier(identifier: str) -> str:
+def _mask_phone_identifier(identifier: Optional[str]) -> str:
     if not identifier:
         return ""
     digits = re.sub(r"\D", "", identifier)
@@ -114,7 +113,7 @@ def _mask_phone_identifier(identifier: str) -> str:
     return digits or ""
 
 
-def _mask_email_identifier(identifier: str) -> str:
+def _mask_email_identifier(identifier: Optional[str]) -> str:
     if not identifier:
         return ""
     local, _, domain = identifier.partition("@")
@@ -129,7 +128,7 @@ def _mask_email_identifier(identifier: str) -> str:
     return f"{masked_local}@{domain}"
 
 
-def _mask_contact_identifier(identifier: str) -> str:
+def _mask_contact_identifier(identifier: Optional[str]) -> str:
     if not identifier:
         return ""
     if "@" in identifier:
@@ -171,6 +170,11 @@ def get_shifu_draft_meta(app: Flask, shifu_bid: str) -> dict:
             "updated_at": latest.updated_at,
             "updated_user": updated_user,
         }
+
+
+def get_shifu_draft_log(app: Flask, shifu_bid: str, for_update: bool = False):
+    with app.app_context():
+        return _get_latest_draft_log(shifu_bid, for_update=for_update)
 
 
 def get_shifu_history(app, shifu_bid: str) -> HistoryItem:
@@ -221,6 +225,7 @@ def __save_shifu_history(
     )
     db.session.add(shifu_history)
     db.session.flush()
+    return shifu_history
 
 
 def save_shifu_history(app: Flask, user_id: str, shifu_bid: str, id: int):
@@ -433,7 +438,8 @@ def save_outline_history(
             break
         for child in item.children:
             q.put(child)
-    __save_shifu_history(app, user_id, shifu_bid, history)
+    log = __save_shifu_history(app, user_id, shifu_bid, history)
+    return int(log.id) if log else 0
 
 
 def delete_outline_history(app: Flask, user_id: str, shifu_bid: str, outline_bid: str):

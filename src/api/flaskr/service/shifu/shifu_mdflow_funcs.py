@@ -10,6 +10,7 @@ from flaskr.service.shifu.shifu_history_manager import (
     save_outline_history,
     get_shifu_draft_meta,
     get_shifu_draft_revision,
+    get_shifu_draft_log,
 )
 from flaskr.service.profile.profile_manage import (
     get_profile_item_definition_list,
@@ -47,12 +48,11 @@ def save_shifu_mdflow(
     Save shifu mdflow
     """
     with app.app_context():
-        latest_meta = get_shifu_draft_meta(app, shifu_bid)
-        latest_revision = int(latest_meta.get("revision") or 0)
-        updated_user = latest_meta.get("updated_user")
-        updated_user_bid = (
-            updated_user.get("user_bid") if isinstance(updated_user, dict) else ""
+        latest_log = get_shifu_draft_log(
+            app, shifu_bid, for_update=base_revision is not None
         )
+        latest_revision = int(latest_log.id) if latest_log else 0
+        updated_user_bid = latest_log.updated_user_bid if latest_log else ""
         if (
             isinstance(base_revision, int)
             and base_revision >= 0
@@ -60,7 +60,7 @@ def save_shifu_mdflow(
             and updated_user_bid
             and updated_user_bid != user_id
         ):
-            return {"conflict": True, "meta": latest_meta}
+            return {"conflict": True, "meta": get_shifu_draft_meta(app, shifu_bid)}
 
         outline_item: DraftOutlineItem = (
             DraftOutlineItem.query.filter(
@@ -77,6 +77,7 @@ def save_shifu_mdflow(
 
         # risk check
         # save to database
+        new_revision = None
         if not outline_item.content == new_outline.content:
             check_text_with_risk_control(
                 app, outline_item.outline_item_bid, user_id, content
@@ -102,7 +103,7 @@ def save_shifu_mdflow(
                     add_profile_item_quick(
                         app, outline_item.shifu_bid, variable, user_id
                     )
-            save_outline_history(
+            new_revision = save_outline_history(
                 app,
                 user_id,
                 outline_item.shifu_bid,
@@ -113,7 +114,9 @@ def save_shifu_mdflow(
             db.session.commit()
         return {
             "conflict": False,
-            "new_revision": get_shifu_draft_revision(app, shifu_bid),
+            "new_revision": new_revision
+            if new_revision is not None
+            else get_shifu_draft_revision(app, shifu_bid),
         }
 
 
