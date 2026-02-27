@@ -33,7 +33,6 @@ const api = {
   getShifuList: 'GET /shifu/shifus',
   createShifu: 'PUT /shifu/shifus',
   getShifuDetail: 'GET /shifu/shifus/{shifu_bid}/detail',
-  getShifuDraftMeta: 'GET /shifu/shifus/{shifu_bid}/draft-meta',
   saveShifuDetail: 'POST /shifu/shifus/{shifu_bid}/detail',
   publishShifu: 'POST /shifu/shifus/{shifu_bid}/publish',
   previewShifu: 'POST /shifu/shifus/{shifu_bid}/preview',
