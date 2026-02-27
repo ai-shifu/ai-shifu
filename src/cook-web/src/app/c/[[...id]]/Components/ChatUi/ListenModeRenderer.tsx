@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ListenPlayer from './ListenPlayer';
 import { cn } from '@/lib/utils';
 import type Reveal from 'reveal.js';
@@ -9,6 +9,7 @@ import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import './ListenModeRenderer.scss';
 import { AudioPlayerList } from '@/components/audio/AudioPlayerList';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
+import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import {
   resolveListenAudioSourceBid,
   useListenAudioSequence,
@@ -22,6 +23,8 @@ interface ListenModeRendererProps {
   chatRef: React.RefObject<HTMLDivElement>;
   isLoading?: boolean;
   sectionTitle?: string;
+  lessonId?: string;
+  lessonStatus?: string;
   previewMode?: boolean;
   onRequestAudioForBlock?: (generatedBlockBid: string) => Promise<any>;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
@@ -33,6 +36,8 @@ const ListenModeRenderer = ({
   chatRef,
   isLoading = false,
   sectionTitle,
+  lessonId,
+  lessonStatus,
   previewMode = false,
   onRequestAudioForBlock,
   onSend,
@@ -45,6 +50,11 @@ const ListenModeRenderer = ({
   const [sequenceStartSignal, setSequenceStartSignal] = useState(0);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [isSlideNavigationLocked, setIsSlideNavigationLocked] = useState(false);
+  const [hasUserStartedPlayback, setHasUserStartedPlayback] = useState(false);
+  const [isEntryPrepareLesson, setIsEntryPrepareLesson] = useState(
+    lessonStatus === LESSON_STATUS_VALUE.PREPARE_LEARNING,
+  );
+  const previousLessonIdRef = useRef<string | undefined>(lessonId);
 
   const {
     orderedContentBlockBids,
@@ -134,6 +144,23 @@ const ListenModeRenderer = ({
     [firstContentItem],
   );
 
+  const allowAutoPlayback = useMemo(
+    () => !isEntryPrepareLesson || hasUserStartedPlayback,
+    [hasUserStartedPlayback, isEntryPrepareLesson],
+  );
+
+  useEffect(() => {
+    if (previousLessonIdRef.current === lessonId) {
+      return;
+    }
+    previousLessonIdRef.current = lessonId;
+    setIsEntryPrepareLesson(
+      lessonStatus === LESSON_STATUS_VALUE.PREPARE_LEARNING,
+    );
+    setHasUserStartedPlayback(false);
+    setIsSlideNavigationLocked(false);
+  }, [lessonId, lessonStatus]);
+
   const shouldRenderEmptyPpt = useMemo(() => {
     if (isLoading) {
       return false;
@@ -174,6 +201,7 @@ const ListenModeRenderer = ({
     getNextContentBid,
     goToBlock,
     resolveContentBid,
+    allowAutoPlayback,
     isAudioPlaying,
     setIsAudioPlaying,
   });
@@ -190,6 +218,7 @@ const ListenModeRenderer = ({
     isLoading,
     isAudioPlaying,
     isSlideNavigationLocked,
+    allowAutoPlayback,
     activeContentItem,
     shouldRenderEmptyPpt,
     onResetSequence: handleResetSequence,
@@ -223,6 +252,7 @@ const ListenModeRenderer = ({
   }, [goNext, startSequenceFromPage]);
 
   const onPlay = useCallback(() => {
+    setHasUserStartedPlayback(true);
     setIsSlideNavigationLocked(false);
     handlePlay();
   }, [handlePlay]);

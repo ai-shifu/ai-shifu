@@ -51,6 +51,7 @@ export const NewChatComponents = ({
   chapterId,
   lessonId,
   lessonTitle = '',
+  lessonStatus = '',
   onPurchased,
   chapterUpdate,
   updateSelectedLesson,
@@ -508,6 +509,8 @@ export const NewChatComponents = ({
               chatRef={chatRef as React.RefObject<HTMLDivElement>}
               isLoading={isLoading}
               sectionTitle={lessonTitle}
+              lessonId={lessonId}
+              lessonStatus={lessonStatus}
               previewMode={previewMode}
               onRequestAudioForBlock={requestAudioForBlock}
               onSend={memoizedOnSend}

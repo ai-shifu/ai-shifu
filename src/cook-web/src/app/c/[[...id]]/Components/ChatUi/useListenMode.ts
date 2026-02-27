@@ -374,6 +374,7 @@ interface UseListenPptParams {
   isLoading: boolean;
   isAudioPlaying: boolean;
   isSlideNavigationLocked: boolean;
+  allowAutoPlayback: boolean;
   activeContentItem?: ChatContentItem;
   shouldRenderEmptyPpt: boolean;
   onResetSequence?: () => void;
@@ -394,6 +395,7 @@ export const useListenPpt = ({
   isLoading,
   isAudioPlaying,
   isSlideNavigationLocked,
+  allowAutoPlayback,
   activeContentItem,
   shouldRenderEmptyPpt,
   onResetSequence,
@@ -424,18 +426,18 @@ export const useListenPpt = ({
     if (!prevFirstSlideBidRef.current) {
       shouldSlideToFirstRef.current = true;
       // Avoid resetting sequence while audio is actively playing.
-      if (!isAudioPlaying) {
+      if (allowAutoPlayback && !isAudioPlaying) {
         onResetSequence?.();
       }
     } else if (prevFirstSlideBidRef.current !== firstSlideBid) {
       shouldSlideToFirstRef.current = true;
       // Avoid interrupting the current playing sequence on stream append.
-      if (!isAudioPlaying) {
+      if (allowAutoPlayback && !isAudioPlaying) {
         onResetSequence?.();
       }
     }
     prevFirstSlideBidRef.current = firstSlideBid;
-  }, [firstSlideBid, isAudioPlaying, onResetSequence]);
+  }, [allowAutoPlayback, firstSlideBid, isAudioPlaying, onResetSequence]);
 
   useLayoutEffect(() => {
     if (!sectionTitle) {
@@ -448,12 +450,12 @@ export const useListenPpt = ({
     ) {
       shouldSlideToFirstRef.current = true;
       // Keep current audio session stable when section title updates mid-playback.
-      if (!isAudioPlaying) {
+      if (allowAutoPlayback && !isAudioPlaying) {
         onResetSequence?.();
       }
     }
     prevSectionTitleRef.current = sectionTitle;
-  }, [sectionTitle, isAudioPlaying, onResetSequence]);
+  }, [allowAutoPlayback, sectionTitle, isAudioPlaying, onResetSequence]);
 
   const syncInteractionForCurrentPage = useCallback(
     (pageIndex?: number) => {
@@ -683,6 +685,13 @@ export const useListenPpt = ({
         return;
       }
 
+      if (!allowAutoPlayback) {
+        shouldSlideToFirstRef.current = false;
+        prevSlidesLengthRef.current = nextSlidesLength;
+        updateNavState();
+        return;
+      }
+
       const shouldAutoFollowOnAppend =
         prevSlidesLength > 0 &&
         nextSlidesLength > prevSlidesLength &&
@@ -744,6 +753,7 @@ export const useListenPpt = ({
     slideItems,
     isAudioPlaying,
     isSlideNavigationLocked,
+    allowAutoPlayback,
     isLoading,
     goToNextBlock,
     goToBlock,
@@ -822,6 +832,7 @@ interface UseListenAudioSequenceParams {
   getNextContentBid: (currentBid: string | null) => string | null;
   goToBlock: (blockBid: string) => boolean;
   resolveContentBid: (blockBid: string | null) => string | null;
+  allowAutoPlayback: boolean;
   isAudioPlaying: boolean;
   setIsAudioPlaying: React.Dispatch<React.SetStateAction<boolean>>;
 }
@@ -843,6 +854,7 @@ export const useListenAudioSequence = ({
   getNextContentBid,
   goToBlock,
   resolveContentBid,
+  allowAutoPlayback,
   isAudioPlaying,
   setIsAudioPlaying,
 }: UseListenAudioSequenceParams) => {
@@ -1082,6 +1094,9 @@ export const useListenAudioSequence = ({
     if (previewMode || !nextLength) {
       return;
     }
+    if (!allowAutoPlayback) {
+      return;
+    }
     if (isSequencePausedRef.current) {
       // console.log('listen-sequence-skip-length-change-paused', {
       //   nextLength,
@@ -1256,6 +1271,7 @@ export const useListenAudioSequence = ({
     logAudioInterrupt,
     playAudioSequenceFromIndex,
     previewMode,
+    allowAutoPlayback,
     sequenceInteraction,
     deckRef,
     currentPptPageRef,
@@ -1345,6 +1361,9 @@ export const useListenAudioSequence = ({
   }, [audioAndInteractionList.length, clearAudioSequenceTimer, logAudioInterrupt]);
 
   useEffect(() => {
+    if (!allowAutoPlayback) {
+      return;
+    }
     if (!shouldStartSequenceRef.current) {
       return;
     }
@@ -1395,6 +1414,7 @@ export const useListenAudioSequence = ({
     logAudioDebug,
     playAudioSequenceFromIndex,
     shouldStartSequenceRef,
+    allowAutoPlayback,
   ]);
 
   const activeSequenceBlockBid = useMemo(() => {

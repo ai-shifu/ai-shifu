@@ -24,6 +24,7 @@ export const ChatUi = ({
   onGoChapter,
   onPurchased,
   lessonTitle = '',
+  lessonStatus = '',
   showUserSettings = true,
   userSettingBasicInfo = false,
   onUserSettingsClose = () => {},
@@ -112,6 +113,7 @@ export const ChatUi = ({
           lessonUpdate={lessonUpdate}
           onGoChapter={onGoChapter}
           lessonTitle={lessonTitle}
+          lessonStatus={lessonStatus}
           className={cn(
             styles.chatComponents,
             showUserSettings ? styles.chatComponentsHidden : '',
