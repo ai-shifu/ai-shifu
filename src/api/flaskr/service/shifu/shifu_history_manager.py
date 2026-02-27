@@ -96,6 +96,7 @@ class HistoryInfo(BaseModel):
 def _get_latest_draft_log(shifu_bid: str, for_update: bool = False):
     query = LogDraftStruct.query.filter_by(
         shifu_bid=shifu_bid,
+        deleted=0,
     ).order_by(LogDraftStruct.id.desc())
     if for_update:
         query = query.with_for_update()
