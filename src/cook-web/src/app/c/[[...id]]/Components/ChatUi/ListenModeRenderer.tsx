@@ -17,6 +17,31 @@ import {
   useListenPpt,
 } from './useListenMode';
 
+type UserActivationLike = {
+  hasBeenActive?: boolean;
+  isActive?: boolean;
+};
+
+const hasBrowserUserActivation = () => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  const navigatorActivation = (
+    navigator as Navigator & { userActivation?: UserActivationLike }
+  ).userActivation;
+  if (navigatorActivation) {
+    return Boolean(
+      navigatorActivation.hasBeenActive || navigatorActivation.isActive,
+    );
+  }
+  const documentActivation = (
+    document as Document & { userActivation?: UserActivationLike }
+  ).userActivation;
+  return Boolean(
+    documentActivation?.hasBeenActive || documentActivation?.isActive,
+  );
+};
+
 interface ListenModeRendererProps {
   items: ChatContentItem[];
   mobileStyle: boolean;
@@ -51,10 +76,9 @@ const ListenModeRenderer = ({
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [isSlideNavigationLocked, setIsSlideNavigationLocked] = useState(false);
   const [hasUserStartedPlayback, setHasUserStartedPlayback] = useState(false);
-  const [isEntryPrepareLesson, setIsEntryPrepareLesson] = useState(
-    lessonStatus === LESSON_STATUS_VALUE.PREPARE_LEARNING,
+  const [hasPageInteraction, setHasPageInteraction] = useState(() =>
+    hasBrowserUserActivation(),
   );
-  const previousLessonIdRef = useRef<string | undefined>(lessonId);
 
   const {
     orderedContentBlockBids,
@@ -145,21 +169,57 @@ const ListenModeRenderer = ({
   );
 
   const allowAutoPlayback = useMemo(
-    () => !isEntryPrepareLesson || hasUserStartedPlayback,
-    [hasUserStartedPlayback, isEntryPrepareLesson],
+    () => {
+      if (lessonStatus !== LESSON_STATUS_VALUE.PREPARE_LEARNING) {
+        return true;
+      }
+      return (
+        hasUserStartedPlayback ||
+        hasPageInteraction ||
+        hasBrowserUserActivation()
+      );
+    },
+    [hasPageInteraction, hasUserStartedPlayback, lessonStatus],
   );
 
   useEffect(() => {
-    if (previousLessonIdRef.current === lessonId) {
+    if (hasPageInteraction) {
       return;
     }
-    previousLessonIdRef.current = lessonId;
-    setIsEntryPrepareLesson(
-      lessonStatus === LESSON_STATUS_VALUE.PREPARE_LEARNING,
-    );
+    // Capture any trusted user gesture to unlock autoplay on restricted browsers.
+    const markPageInteracted = () => {
+      setHasPageInteraction(true);
+    };
+    const syncBrowserActivation = () => {
+      if (hasBrowserUserActivation()) {
+        setHasPageInteraction(true);
+      }
+    };
+
+    syncBrowserActivation();
+    window.addEventListener('pointerdown', markPageInteracted, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener('touchstart', markPageInteracted, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener('keydown', markPageInteracted, true);
+    document.addEventListener('visibilitychange', syncBrowserActivation);
+
+    return () => {
+      window.removeEventListener('pointerdown', markPageInteracted, true);
+      window.removeEventListener('touchstart', markPageInteracted, true);
+      window.removeEventListener('keydown', markPageInteracted, true);
+      document.removeEventListener('visibilitychange', syncBrowserActivation);
+    };
+  }, [hasPageInteraction]);
+
+  useEffect(() => {
     setHasUserStartedPlayback(false);
     setIsSlideNavigationLocked(false);
-  }, [lessonId, lessonStatus]);
+  }, [lessonId]);
 
   const shouldRenderEmptyPpt = useMemo(() => {
     if (isLoading) {
@@ -253,6 +313,7 @@ const ListenModeRenderer = ({
 
   const onPlay = useCallback(() => {
     setHasUserStartedPlayback(true);
+    setHasPageInteraction(true);
     setIsSlideNavigationLocked(false);
     handlePlay();
   }, [handlePlay]);
