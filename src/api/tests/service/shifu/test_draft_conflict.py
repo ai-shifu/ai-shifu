@@ -41,7 +41,7 @@ def _seed_shifu_with_outline(app, shifu_bid: str, outline_bid: str, user_id: str
         dao.db.session.commit()
 
         log = LogDraftStruct(
-            struct_bid="struct-1",
+            struct_bid=f"struct-{shifu_bid}",
             shifu_bid=shifu_bid,
             struct="{}",
             created_user_bid=user_id,
