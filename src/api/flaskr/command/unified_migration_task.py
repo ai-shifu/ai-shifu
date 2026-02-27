@@ -126,6 +126,19 @@ class UnifiedMigrationTask:
                 "key_field": "log_id",
                 "target_key": "generated_block_bid",
             },
+            # Order tables (Order related tables)
+            "ai_course_buy_record": {
+                "target": "order_orders",
+                "mapping": self._map_buy_record_to_order,
+                "key_field": "record_id",
+                "target_key": "order_bid",
+            },
+            "pingxx_order": {
+                "target": "order_pingxx_orders",
+                "mapping": self._map_pingxx_order,
+                "key_field": "order_id",
+                "target_key": "pingxx_order_bid",
+            },
             # Coupon tables (Coupon related tables)
             "discount": {
                 "target": "promo_coupons",
@@ -581,13 +594,28 @@ class UnifiedMigrationTask:
     ) -> bool:
         """Verify specific field mappings for a record"""
         try:
-            if source_table == "discount":
+            if source_table == "ai_course_buy_record":
+                return (
+                    abs(float(target_record.payable_price) - float(source_record.price))
+                    < 0.01
+                    and abs(
+                        float(target_record.paid_price)
+                        - float(source_record.paid_value)
+                    )
+                    < 0.01
+                )
+            elif source_table == "discount":
                 return (
                     target_record.code == source_record.discount_code
                     and abs(
                         float(target_record.value) - float(source_record.discount_value)
                     )
                     < 0.01
+                )
+            elif source_table == "pingxx_order":
+                return (
+                    target_record.transaction_no == source_record.pingxx_transaction_no
+                    and target_record.amount == source_record.amount
                 )
             elif source_table in [
                 "ai_course_lesson_attendscript",
@@ -640,6 +668,51 @@ class UnifiedMigrationTask:
             "status": getattr(record, "status", 1),
             "created_at": getattr(record, "created", None),
             "updated_at": getattr(record, "updated", None),
+        }
+
+    def _map_buy_record_to_order(self, record) -> Dict:
+        """Map ai_course_buy_record to order_orders"""
+        return {
+            "order_bid": getattr(record, "record_id", ""),
+            "shifu_bid": getattr(record, "course_id", ""),
+            "user_bid": getattr(record, "user_id", ""),
+            "payable_price": getattr(record, "price", 0),
+            "paid_price": getattr(record, "paid_value", 0),
+            "status": getattr(record, "status", 0),
+            "deleted": 0,
+            "created_at": getattr(record, "created", None),
+            "updated_at": getattr(record, "updated", None),
+        }
+
+    def _map_pingxx_order(self, record) -> Dict:
+        """Map pingxx_order to order_pingxx_orders"""
+        return {
+            "pingxx_order_bid": record.order_id,
+            "user_bid": record.user_id,
+            "shifu_bid": record.course_id,
+            "order_bid": record.record_id,
+            "transaction_no": record.pingxx_transaction_no,
+            "app_id": record.pingxx_app_id,
+            "channel": record.channel,
+            "amount": record.amount,
+            "currency": record.currency,
+            "subject": record.subject,
+            "body": record.body,
+            "client_ip": record.client_ip,
+            "extra": record.extra,
+            "status": record.status,
+            "charge_id": record.charge_id,
+            "paid_at": record.paid_at,
+            "refunded_at": record.refunded_at,
+            "closed_at": record.closed_at,
+            "failed_at": record.failed_at,
+            "refund_id": record.refund_id,
+            "failure_code": record.failure_code,
+            "failure_msg": record.failure_msg,
+            "charge_object": record.charge_object,
+            "deleted": 0,
+            "created_at": record.created,
+            "updated_at": record.updated,
         }
 
     def _map_discount_to_coupon(self, record) -> Dict:

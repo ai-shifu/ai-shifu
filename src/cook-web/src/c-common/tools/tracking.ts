@@ -16,7 +16,6 @@ export const EVENT_NAMES = {
   USER_MENU: 'user_menu',
   USER_MENU_BASIC_INFO: 'user_menu_basic_info',
   USER_MENU_PERSONALIZED: 'user_menu_personalized',
-  USER_MENU_SET_PASSWORD: 'user_menu_set_password',
 };
 
 type UmamiUserInfo = {

@@ -42,6 +42,7 @@
     "module.shifuSetting",
     "module.social",
     "module.user",
+    "server.active",
     "server.api",
     "server.banner",
     "server.check",

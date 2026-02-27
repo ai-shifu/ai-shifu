@@ -1,4 +1,6 @@
 {
   "__namespace__": "server.scenario",
-  "__flat__": {}
+  "__flat__": {
+    "notFound": "Scenario not found"
+  }
 }

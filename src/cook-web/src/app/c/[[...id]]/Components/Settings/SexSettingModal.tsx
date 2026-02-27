@@ -72,6 +72,7 @@ export const SexSettingModal = ({
 
   return (
     <SettingBaseModal
+      // @ts-expect-error EXPECT
       className={styles.SexSettingModal}
       open={open}
       onClose={onClose}

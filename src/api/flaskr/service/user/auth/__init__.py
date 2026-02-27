@@ -36,5 +36,5 @@ def register_builtin_providers() -> None:
     """Ensure built-in providers are loaded and registered."""
     from importlib import import_module
 
-    for module_name in ("phone", "email", "google", "password"):
+    for module_name in ("phone", "email", "google"):
         import_module(f"{__name__}.providers.{module_name}")

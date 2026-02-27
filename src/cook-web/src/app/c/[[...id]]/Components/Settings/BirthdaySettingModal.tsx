@@ -61,6 +61,7 @@ export const BirthdaySettingModal = ({
 
   return (
     <SettingBaseModal
+      // @ts-expect-error EXPECT
       className={styles.BirthdaySettingModal}
       open={open}
       onClose={onClose}

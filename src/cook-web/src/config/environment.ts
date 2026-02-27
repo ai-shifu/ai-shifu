@@ -274,16 +274,6 @@ function getDebugErudaEnabled(): boolean {
  * Gets enabled login methods
  */
 function getLoginMethodsEnabled(): string[] {
-  const envValue =
-    getRuntimeEnv('LOGIN_METHODS_ENABLED') ||
-    process.env.NEXT_PUBLIC_LOGIN_METHODS_ENABLED;
-  if (envValue) {
-    const methods = envValue
-      .split(',')
-      .map(m => m.trim())
-      .filter(Boolean);
-    if (methods.length > 0) return methods;
-  }
   return ['phone'];
 }
 

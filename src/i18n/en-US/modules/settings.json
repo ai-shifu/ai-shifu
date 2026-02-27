@@ -3,10 +3,6 @@
   "basicInfo": "Basic Info",
   "birth": "Birthday",
   "birthPlaceholder": "Please select birthday",
-  "codeSent": "Verification code sent",
-  "confirmPassword": "Confirm Password",
-  "confirmPasswordEmpty": "Please confirm your password",
-  "confirmPasswordPlaceholder": "Re-enter password",
   "dialogTitle": {
     "selectBirthday": "Select Birthday",
     "selectGender": "Select Gender"
@@ -14,22 +10,9 @@
   "gender": "Gender",
   "genderPlaceholder": "Please select gender",
   "home": "Home",
-  "newPassword": "New Password",
   "nickname": "Nickname",
   "nicknamePersonal": "Nickname (also as personal info)",
   "nicknamePlaceholder": "Please enter nickname",
-  "noContactMethod": "Please bind a phone number or email first",
-  "password": "Password",
-  "passwordMismatch": "Passwords do not match",
-  "passwordPlaceholder": "Set password",
-  "passwordSetSuccess": "Password updated",
   "personalInfo": "Personal Settings",
-  "save": "Save",
-  "sendCode": "Send code",
-  "setPassword": "Set Password",
-  "verificationCode": "Verification Code",
-  "verificationCodePlaceholder": "Enter code",
-  "verificationCodeRequired": "Please enter the verification code",
-  "verifyByEmail": "Email code",
-  "verifyByPhone": "Phone code"
+  "save": "Save"
 }

@@ -1,6 +1,6 @@
 import styles from './SettingBaseModal.module.scss';
 
-import { memo, useContext, type ReactNode } from 'react';
+import { memo, useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
@@ -8,23 +8,12 @@ import { calModalWidth } from '@/c-utils/common';
 import { AppContext } from '../AppContext';
 
 import { Button } from '@/components/ui/Button';
-import { Loader2 } from 'lucide-react';
-import { Dialog, DialogContent } from '@/components/ui/Dialog';
-
-type SettingBaseModalProps = {
-  open: any;
-  children: ReactNode;
-  onOk: any;
-  onClose: any;
-  defaultWidth?: string;
-  title: any;
-  header?: (t: any, title: any) => ReactNode;
-  okText?: any;
-  okDisabled?: boolean;
-  okLoading?: boolean;
-  className?: string;
-  closeOnMaskClick?: boolean;
-};
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
 
 export const SettingBaseModal = ({
   open,
@@ -34,12 +23,7 @@ export const SettingBaseModal = ({
   defaultWidth = '100%',
   title,
   header = (t, title) => <div className={styles.header}>{title}</div>,
-  okText,
-  okDisabled = false,
-  okLoading = false,
-  className,
-  closeOnMaskClick = true,
-}: SettingBaseModalProps) => {
+}) => {
   const { t } = useTranslation();
 
   const { mobileStyle } = useContext(AppContext);
@@ -55,14 +39,7 @@ export const SettingBaseModal = ({
       open={open}
       onOpenChange={handleOpenChange}
     >
-      <DialogContent
-        className={cn(styles.SettingBaseModal, className)}
-        onInteractOutside={event => {
-          if (!closeOnMaskClick) {
-            event.preventDefault();
-          }
-        }}
-      >
+      <DialogContent className={cn(styles.SettingBaseModal)}>
         {/* <DialogHeader>
           <DialogTitle>{title || t('common.core.settings')}</DialogTitle>
         </DialogHeader> */}
@@ -81,12 +58,8 @@ export const SettingBaseModal = ({
             <Button
               className={cn('w-full')}
               onClick={onOk}
-              disabled={okDisabled || okLoading}
             >
-              {okLoading ? (
-                <Loader2 className='h-4 w-4 animate-spin mr-2' />
-              ) : null}
-              {okText || t('common.core.ok')}
+              {t('common.core.ok')}
             </Button>
           </div>
         </div>

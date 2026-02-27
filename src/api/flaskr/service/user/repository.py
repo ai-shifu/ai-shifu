@@ -640,31 +640,6 @@ def deserialize_raw_profile(record: AuthCredential) -> Dict[str, Optional[str]]:
         return {}
 
 
-def get_password_hash(credential: AuthCredential) -> str:
-    """Read password_hash from raw_profile JSON (top-level key, never in metadata)."""
-    if not credential.raw_profile:
-        return ""
-    try:
-        payload = json.loads(credential.raw_profile)
-        return payload.get("password_hash", "") if isinstance(payload, dict) else ""
-    except json.JSONDecodeError:
-        return ""
-
-
-def set_password_hash(credential: AuthCredential, password_hash: str) -> None:
-    """Write password_hash into raw_profile JSON, preserving other fields."""
-    payload: Dict[str, Any] = {}
-    if credential.raw_profile:
-        try:
-            payload = json.loads(credential.raw_profile)
-            if not isinstance(payload, dict):
-                payload = {}
-        except json.JSONDecodeError:
-            payload = {}
-    payload["password_hash"] = password_hash
-    credential.raw_profile = json.dumps(payload, ensure_ascii=False)
-
-
 def upsert_credential(
     app: Flask,
     *,

@@ -1,7 +1,6 @@
-from sqlalchemy import Column, DateTime, SmallInteger, String, Text
+from sqlalchemy import Column, String, Integer, TIMESTAMP, Text, SmallInteger, DateTime
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
-
 from ...dao import db
 
 
@@ -40,6 +39,188 @@ PROFILE_TYPE_VLUES = {
 
 CONST_PROFILE_SCOPE_USER = "user"
 CONST_PROFILE_SCOPE_SYSTEM = "system"
+
+
+# table to save user profile
+class UserProfile(db.Model):
+    __tablename__ = "user_profile"
+    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    user_id = Column(
+        String(36), nullable=False, default="", comment="User UUID", index=True
+    )
+    profile_id = Column(
+        String(36), nullable=False, comment="Profile ID", index=True, default=""
+    )
+    profile_key = Column(
+        String(255), nullable=False, default="", comment="Profile key", index=True
+    )
+    profile_value = Column(Text, nullable=False, comment="Profile value")
+    profile_type = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="profile type: 2900=input_unconf, 2901=input_text, 2902=input_number, 2903=input_select, 2904=input_sex, 2905=input_date",
+    )
+    created = Column(
+        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+    )
+    updated = Column(
+        TIMESTAMP,
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        comment="Update time",
+    )
+    status = Column(
+        Integer, nullable=False, default=1, comment="0 for deleted, 1 for active"
+    )
+
+
+# table to save profile item / definations
+class ProfileItem(db.Model):
+    __tablename__ = "profile_item"
+    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    profile_id = Column(String(36), nullable=False, comment="Profile ID", unique=True)
+    parent_id = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Parent ID: now is shifu_bid",
+        index=True,
+    )
+    profile_index = Column(Integer, nullable=False, default=0, comment="Profile index")
+    profile_key = Column(
+        String(255), nullable=False, default="", comment="Profile key", index=True
+    )
+    profile_type = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="profile type: 2900=input_unconf, 2901=input_text, 2902=input_number, 2903=input_select, 2904=input_sex, 2905=input_date",
+    )
+    profile_value_type = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="profile value type: 3001=all, 3002=specific",
+    )
+    profile_show_type = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="profile show type: 3001=all, 3002=user, 3003=course, 3004=hidden",
+    )
+    profile_remark = Column(Text, nullable=False, comment="Profile remark")
+    profile_prompt_type = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="profile prompt type: 3101=profile, 3102=item",
+    )
+    profile_raw_prompt = Column(
+        Text, nullable=False, default="", comment="Profile raw prompt"
+    )
+    profile_prompt = Column(Text, nullable=False, default="", comment="Profile prompt")
+    profile_prompt_model = Column(
+        Text, nullable=False, default="", comment="Profile prompt model"
+    )
+    profile_prompt_model_args = Column(
+        Text, nullable=False, default="", comment="Profile prompt model args"
+    )
+    profile_color_setting = Column(
+        String(255), nullable=False, default="", comment="Profile color"
+    )
+    profile_script_id = Column(
+        String(36), nullable=False, default="", comment="Profile script id", index=True
+    )
+    is_hidden = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Hidden flag: 0=visible, 1=hidden (custom variables only)",
+        index=True,
+    )
+    created = Column(
+        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+    )
+    updated = Column(
+        TIMESTAMP,
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        comment="Update time",
+    )
+    status = Column(
+        Integer, nullable=False, default=0, comment="0 for deleted, 1 for active"
+    )
+    created_by = Column(String(36), nullable=False, default="", comment="Created by")
+    updated_by = Column(String(36), nullable=False, default="", comment="Updated by")
+
+
+# table to save profile item value
+# only for option type
+
+
+class ProfileItemValue(db.Model):
+    __tablename__ = "profile_item_value"
+    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    profile_id = Column(String(36), nullable=False, comment="Profile ID", index=True)
+    profile_item_id = Column(
+        String(36), nullable=False, comment="Profile item ID", index=True
+    )
+    profile_value = Column(Text, nullable=False, comment="Profile value")
+    profile_value_index = Column(
+        Integer, nullable=False, default=0, comment="Profile value index"
+    )
+    created = Column(
+        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+    )
+    updated = Column(
+        TIMESTAMP,
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        comment="Update time",
+    )
+    status = Column(
+        Integer, nullable=False, default=0, comment="0 for deleted, 1 for active"
+    )
+    created_by = Column(String(36), nullable=False, default="", comment="Created by")
+    updated_by = Column(String(36), nullable=False, default="", comment="Updated by")
+
+
+# table to save profile item i18n
+
+
+class ProfileItemI18n(db.Model):
+    __tablename__ = "profile_item_i18n"
+    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    parent_id = Column(
+        String(36), nullable=False, default="", comment="parent_id", index=True
+    )
+    conf_type = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="profile conf type: 3101=profile, 3102=item",
+    )
+    language = Column(String(255), nullable=False, comment="Language", index=True)
+    profile_item_remark = Column(Text, nullable=False, comment="Profile item remark")
+    created = Column(
+        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+    )
+    updated = Column(
+        TIMESTAMP,
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        comment="Update time",
+    )
+    status = Column(
+        Integer, nullable=False, default=0, comment="0 for deleted, 1 for active"
+    )
+    created_by = Column(String(36), nullable=False, default="", comment="Created by")
+    updated_by = Column(String(36), nullable=False, default="", comment="Updated by")
 
 
 class Variable(db.Model):
