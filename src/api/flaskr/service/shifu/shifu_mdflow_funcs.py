@@ -49,10 +49,9 @@ def save_shifu_mdflow(
     with app.app_context():
         latest_meta = get_shifu_draft_meta(app, shifu_bid)
         latest_revision = int(latest_meta.get("revision") or 0)
+        updated_user = latest_meta.get("updated_user")
         updated_user_bid = (
-            latest_meta.get("updated_user", {}).get("user_bid")
-            if isinstance(latest_meta.get("updated_user"), dict)
-            else ""
+            updated_user.get("user_bid") if isinstance(updated_user, dict) else ""
         )
         if (
             isinstance(base_revision, int)

@@ -1337,9 +1337,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         json_data = request.get_json() or {}
         content = json_data.get("data")
         base_revision = json_data.get("base_revision")
-        if isinstance(base_revision, str) and base_revision.isdigit():
-            base_revision = int(base_revision)
-        if not isinstance(base_revision, int):
+        try:
+            base_revision = int(base_revision) if base_revision is not None else None
+        except (TypeError, ValueError):
             base_revision = None
         result = save_shifu_mdflow(
             app, user_id, shifu_bid, outline_bid, content, base_revision
