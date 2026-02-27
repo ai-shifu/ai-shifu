@@ -131,7 +131,8 @@ def get_shifu_draft_meta(app: Flask, shifu_bid: str) -> dict:
             if latest.updated_user_bid
             else None
         )
-        masked_phone = _mask_phone_identifier(user.user_identify) if user else ""
+        identifier = user.user_identify if user else ""
+        masked_phone = _mask_phone_identifier(identifier) if identifier else ""
         updated_user = (
             {
                 "user_bid": latest.updated_user_bid,

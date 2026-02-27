@@ -267,10 +267,11 @@ const ScriptEditor = ({ id }: { id: string }) => {
     actionsRef.current.cancelAutoSaveBlocks();
     setIsDraftConflictDialogOpen(false);
 
+    let isActive = true;
     const fetchDraftMeta = async () => {
       const targetBid = currentShifu.bid;
       const meta = await actionsRef.current.loadDraftMeta(targetBid);
-      if (currentShifuBidRef.current !== targetBid) {
+      if (!isActive || currentShifuBidRef.current !== targetBid) {
         return;
       }
       if (meta) {
@@ -278,6 +279,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
       }
     };
     void fetchDraftMeta();
+    return () => {
+      isActive = false;
+    };
   }, [currentShifu?.bid]);
 
   const handleTogglePreviewPanel = () => {

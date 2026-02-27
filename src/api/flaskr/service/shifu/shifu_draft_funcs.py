@@ -448,8 +448,8 @@ def save_shifu_draft_info(
                 db.session.commit()
                 shifu_draft = new_shifu_draft
                 touched_revision = True
-        # Only bump draft history when explicitly requested and no update occurred above.
-        if touch_revision and not touched_revision and shifu_draft:
+        # Ensure a draft history entry exists even when no update occurred above.
+        if shifu_draft and not touched_revision:
             save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
             db.session.commit()
         has_edit_permission = shifu_permission_verification(

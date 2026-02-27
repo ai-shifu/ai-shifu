@@ -5,7 +5,7 @@
   "archiveConfirm": "Archiving moves this course to \"Archived\". You can restore it later; editing and learning remain available while archived.",
   "archiveSuccess": "Course archived",
   "archiveTitle": "Archive course?",
-  "draftConflictDescription": "Another user ({phone}) has modified this course. Refresh to get the latest content.",
+  "draftConflictDescription": "Another user {phone} has modified this course. Refresh to get the latest content.",
   "draftConflictRefresh": "Refresh",
   "draftConflictTitle": "Course updated",
   "draftConflictUnknownUser": "another user",

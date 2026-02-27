@@ -81,13 +81,6 @@ class TestDraftConflict:
             lambda *_args, **_kwargs: True,
             raising=False,
         )
-        monkeypatch.setattr(
-            "flaskr.service.shifu.shifu_history_manager.load_user_aggregate",
-            lambda _user_id: SimpleNamespace(
-                user_bid=_user_id, mobile="13800000000", email=""
-            ),
-            raising=False,
-        )
 
         resp = test_client.post(
             f"/api/shifu/shifus/{shifu_bid}/outlines/{outline_bid}/mdflow",
@@ -110,13 +103,6 @@ class TestDraftConflict:
         monkeypatch.setattr(
             "flaskr.service.shifu.route.shifu_permission_verification",
             lambda *_args, **_kwargs: True,
-            raising=False,
-        )
-        monkeypatch.setattr(
-            "flaskr.service.shifu.shifu_history_manager.load_user_aggregate",
-            lambda _user_id: SimpleNamespace(
-                user_bid=_user_id, mobile="13800000000", email=""
-            ),
             raising=False,
         )
 

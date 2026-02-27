@@ -178,7 +178,8 @@ export default function ShifuSettingDialog({
 }) {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
-  const { currentShifu, models, actions } = useShifu();
+  const { currentShifu, models, actions, baseRevision, hasDraftConflict } =
+    useShifu();
   const currentUser = useUserStore(state => state.userInfo);
   const currentUserId = useMemo(
     () => currentUser?.user_id || currentUser?.user_bid || '',
@@ -1204,10 +1205,20 @@ export default function ShifuSettingDialog({
           ...payload,
         });
         const meta = await actions.loadDraftMeta(shifuId);
-        if (meta && typeof meta.revision === 'number') {
+        if (!meta || typeof meta.revision !== 'number') {
+          console.warn('Failed to refresh draft meta after setting save', {
+            shifuId,
+          });
+        } else {
           const updatedUser = meta.updated_user?.user_bid || '';
+          actions.setLatestDraftMeta(meta);
           if (!updatedUser || updatedUser === currentUserId) {
-            actions.setBaseRevision(meta.revision);
+            if (!hasDraftConflict) {
+              actions.setBaseRevision(meta.revision);
+            }
+          } else if (meta.revision > (baseRevision ?? 0)) {
+            actions.setDraftConflict(true);
+            actions.setAutosavePaused(true);
           }
         }
         trackEvent('creator_shifu_setting_save', {
@@ -1245,6 +1256,8 @@ export default function ShifuSettingDialog({
       actions,
       currentUserId,
       isDirty,
+      baseRevision,
+      hasDraftConflict,
       toast,
       t,
     ],

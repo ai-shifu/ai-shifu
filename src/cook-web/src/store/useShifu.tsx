@@ -578,6 +578,7 @@ export const ShifuProvider = ({
       }
       const meta = await loadDraftMeta(shifuId);
       if (!meta || typeof meta.revision !== 'number') {
+        console.warn('Failed to refresh draft meta after write', { shifuId });
         return;
       }
       const updatedUser = meta.updated_user?.user_bid || '';
