@@ -32,9 +32,9 @@ export interface AudioPlayerListProps {
 }
 
 const logAudioDebug = (event: string, payload?: Record<string, any>) => {
-  // if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV === 'production') {
     return;
-  // }
+  }
   console.log(`[listen-audio-debug] ${event}`, payload ?? {});
 };
 
@@ -538,6 +538,12 @@ const AudioPlayerListBase = (
   );
 
   const finishTrack = useCallback(() => {
+    logAudioInterrupt('finish-track-enter', {
+      currentIndex: currentIndexRef.current,
+      playlistLength: playlist.length,
+      isSequenceActive,
+      trackBid: currentTrackRef.current?.generated_block_bid ?? null,
+    });
     resetSegmentState();
     isUsingSegmentsRef.current = false;
     isSegmentsPlaybackRef.current = false;
@@ -561,6 +567,7 @@ const AudioPlayerListBase = (
     setCurrentIndex(nextIndex);
   }, [
     isSequenceActive,
+    logAudioInterrupt,
     playlist.length,
     releaseExclusive,
     resetSegmentState,
@@ -587,6 +594,12 @@ const AudioPlayerListBase = (
       return;
     }
     if (track?.isAudioStreaming) {
+      logAudioInterrupt('segment-ended-enter-waiting-mode', {
+        segmentIndex: index,
+        nextSegmentIndex: nextIndex,
+        loadedSegments: segments.length,
+        trackBid: track.generated_block_bid ?? null,
+      });
       currentSegmentIndexRef.current = nextIndex;
       isSegmentsPlaybackRef.current = true;
       isWaitingForSegmentRef.current = true;
@@ -605,6 +618,7 @@ const AudioPlayerListBase = (
     finishTrack();
   }, [
     finishTrack,
+    logAudioInterrupt,
     resolveTrackUrl,
     resetSegmentState,
     startSegmentPlayback,
@@ -789,27 +803,30 @@ const AudioPlayerListBase = (
     if (!currentTrack || disabled) {
       return;
     }
+    const bid = currentTrack.generated_block_bid ?? null;
     if (sequenceBlockBid === null) {
-      logAudioDebug('audio-player-autoplay-skip-no-sequence-bid', {
-        bid: currentTrack.generated_block_bid ?? null,
-        isSequenceActive,
-      });
+      // High-frequency skip branch; keep silent to reduce noisy debug output.
+      return;
+    }
+    if (isSequenceActive && bid !== sequenceBlockBid) {
+      // Wait until sequence index switches to the exact target track.
       return;
     }
     if (shouldResumeRef.current) {
       shouldResumeRef.current = false;
       // Resume from the paused progress instead of restarting from zero.
-      startPlaybackForTrack({ resume: true });
+      const resumed = startPlaybackForTrack({ resume: true });
+      if (resumed && bid) {
+        // Mark as auto-played to prevent duplicate autoplay restart at 0s.
+        autoPlayedTrackRef.current = bid;
+      }
       return;
     }
     if (!autoPlay || isPausedRef.current) {
       return;
     }
-    const bid = currentTrack.generated_block_bid ?? null;
     if (bid && autoPlayedTrackRef.current === bid) {
-      logAudioDebug('audio-player-autoplay-skip-duplicated', {
-        bid,
-      });
+      // High-frequency skip branch; keep silent to reduce noisy debug output.
       return;
     }
     logAudioDebug('audio-player-autoplay-attempt', {

@@ -222,7 +222,6 @@ export const useListenContentData = (items: ChatContentItem[]) => {
           item.type === ChatContentItemType.CONTENT && !!item.content
             ? splitContentSegments(item.content || '', true)
             : [];
-            console.log('segments', item.content, segments)
         const slideSegments = segments.filter(
           segment => segment.type === 'markdown' || segment.type === 'sandbox',
         );
@@ -850,9 +849,9 @@ export const useListenAudioSequence = ({
   const isAudioDebugEnabled = process.env.NODE_ENV !== 'production';
   const logAudioDebug = useCallback(
     (event: string, payload?: Record<string, any>) => {
-      // if (!isAudioDebugEnabled) {
+      if (!isAudioDebugEnabled) {
         return;
-      // }
+      }
       console.log(`[listen-audio-debug] ${event}`, payload ?? {});
     },
     [isAudioDebugEnabled],
@@ -1119,6 +1118,20 @@ export const useListenAudioSequence = ({
       const newItem = audioAndInteractionList[newItemIndex];
       const currentPage =
         deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
+      const newItemSourceBid = resolveContentBid(
+        newItem?.generated_block_bid ?? null,
+      );
+      const lastPlayedSourceBid = resolveContentBid(
+        lastPlayedAudioBidRef.current,
+      );
+      const shouldResumeLateAudioFromSameBlock =
+        !isSequenceActive &&
+        !isAudioPlayingNow &&
+        Boolean(
+          newItemSourceBid &&
+            lastPlayedSourceBid &&
+            newItemSourceBid === lastPlayedSourceBid,
+        );
 
       if (newItem?.page === currentPage) {
         // If it's the first item ever (prevLength === 0), or if we are appending to the current page sequence
@@ -1219,6 +1232,23 @@ export const useListenAudioSequence = ({
             });
           }
         }
+      } else if (shouldResumeLateAudioFromSameBlock) {
+        logAudioInterrupt('列表追加命中同 block 迟到音频兜底，忽略 page 不一致并自动续播', {
+          prevLength,
+          nextLength,
+          currentIndex,
+          newItemIndex,
+          currentPage,
+          newItemPage: newItem?.page ?? null,
+          newItemBid: newItem?.generated_block_bid ?? null,
+          newItemSourceBid,
+          lastPlayedSourceBid,
+          isAudioSequenceActive: isSequenceActive,
+          isAudioPlaying: isAudioPlayingNow,
+        });
+        playAudioSequenceFromIndex(newItemIndex);
+      } else {
+        // Keep silent for this high-frequency non-action branch.
       }
     }
   }, [
@@ -1229,6 +1259,7 @@ export const useListenAudioSequence = ({
     sequenceInteraction,
     deckRef,
     currentPptPageRef,
+    resolveContentBid,
     resolveSequenceStartIndex,
   ]);
 
@@ -1411,12 +1442,20 @@ export const useListenAudioSequence = ({
     const currentBid = resolveContentBid(activeBlockBidRef.current);
     const nextBid = getNextContentBid(currentBid);
     if (!nextBid) {
+      logAudioInterrupt('sequence-advance-next-bid-missing', {
+        currentBid,
+        activeBlockBid: activeBlockBidRef.current,
+      });
       // console.log('listen-sequence-advance-miss', { currentBid });
       return false;
     }
 
     const moved = goToBlock(nextBid);
     if (moved) {
+      logAudioInterrupt('sequence-advance-go-to-next-block-success', {
+        currentBid,
+        nextBid,
+      });
       // console.log('listen-sequence-advance-success', {
       //   currentBid,
       //   nextBid,
@@ -1426,17 +1465,28 @@ export const useListenAudioSequence = ({
 
     if (shouldRenderEmptyPpt) {
       activeBlockBidRef.current = `empty-ppt-${nextBid}`;
+      logAudioInterrupt('sequence-advance-empty-ppt-fallback', {
+        currentBid,
+        nextBid,
+        activeBlockBid: activeBlockBidRef.current,
+      });
       // console.log('listen-sequence-advance-empty-ppt', { nextBid });
       return true;
     }
 
     pendingAutoNextRef.current = true;
+    logAudioInterrupt('sequence-advance-defer-until-next-render', {
+      currentBid,
+      nextBid,
+      pendingAutoNext: pendingAutoNextRef.current,
+    });
     // console.log('listen-sequence-advance-pending', { nextBid });
     return true;
   }, [
     activeBlockBidRef,
     getNextContentBid,
     goToBlock,
+    logAudioInterrupt,
     pendingAutoNextRef,
     resolveContentBid,
     shouldRenderEmptyPpt,
@@ -1489,6 +1539,14 @@ export const useListenAudioSequence = ({
   ]);
 
   const handleAudioEnded = useCallback(() => {
+    logAudioInterrupt('sequence-handle-audio-ended-enter', {
+      isPaused: isSequencePausedRef.current,
+      listLength: audioSequenceListRef.current.length,
+      currentIndex: audioSequenceIndexRef.current,
+      activeAudioBid: activeAudioBidRef.current,
+      activeBlockBid: activeBlockBidRef.current,
+      currentPptPage: currentPptPageRef.current,
+    });
     if (isSequencePausedRef.current) {
       // console.log('listen-sequence-ended-skip-paused');
       return;
@@ -1509,7 +1567,12 @@ export const useListenAudioSequence = ({
           nextIndex,
           listLength: list.length,
         });
-        tryAdvanceToNextBlock();
+        const advanced = tryAdvanceToNextBlock();
+        logAudioInterrupt('sequence-handle-audio-ended-tail-advance-result', {
+          nextIndex,
+          listLength: list.length,
+          advanced,
+        });
         return;
       }
       // console.log('listen-sequence-ended-next', { nextIndex });
@@ -1524,7 +1587,10 @@ export const useListenAudioSequence = ({
     logAudioInterrupt('当前音频结束但序列为空，尝试推进到下一个 block', {
       reason: 'empty-sequence-on-ended',
     });
-    tryAdvanceToNextBlock();
+    const advanced = tryAdvanceToNextBlock();
+    logAudioInterrupt('sequence-handle-audio-ended-empty-advance-result', {
+      advanced,
+    });
   }, [logAudioInterrupt, playAudioSequenceFromIndex, tryAdvanceToNextBlock]);
 
   const logAudioAction = useCallback(

@@ -41,10 +41,10 @@ const normalizeAudioPosition = (position?: number | null) =>
   Number(position ?? DEFAULT_AUDIO_POSITION);
 
 const logAudioUtilsDebug = (event: string, payload?: Record<string, any>) => {
-  // if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV === 'production') {
     return;
-  // }
-  // console.log(`[listen-audio-debug] ${event}`, payload ?? {});
+  }
+  console.log(`[listen-audio-debug] ${event}`, payload ?? {});
 };
 
 export const sortAudioTracksByPosition = <T extends { position?: number }>(

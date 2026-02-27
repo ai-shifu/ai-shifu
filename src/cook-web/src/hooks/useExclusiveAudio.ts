@@ -45,10 +45,7 @@ export function useExclusiveAudio(): ExclusiveAudioControls {
         to: debugKeyRef.current,
       });
     } else if (activeAudioId === instanceIdRef.current) {
-      logExclusiveAudioDebug('同一实例重复请求排他权限', {
-        owner: debugKeyRef.current,
-        caller: getExclusiveAudioCaller(),
-      });
+      // Skip repeated self-ownership logs to avoid console flooding in listen mode.
     } else {
       logExclusiveAudioDebug('当前无活跃音频，设置排他权限', {
         owner: debugKeyRef.current,
