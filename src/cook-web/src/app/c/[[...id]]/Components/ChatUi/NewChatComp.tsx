@@ -29,6 +29,10 @@ import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
 import ListenModeRenderer from './ListenModeRenderer';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import {
+  getAudioTrackByPosition,
+  hasAudioContentInTrack,
+} from '@/c-utils/audio-utils';
 import { stripCustomButtonAfterContent } from './chatUiUtils';
 import {
   Dialog,
@@ -47,6 +51,7 @@ export const NewChatComponents = ({
   chapterId,
   lessonId,
   lessonTitle = '',
+  lessonStatus = '',
   onPurchased,
   chapterUpdate,
   updateSelectedLesson,
@@ -314,12 +319,8 @@ export const NewChatComponents = ({
       if (playedBlocksRef.current.has(blockBid)) {
         continue;
       }
-      const hasAudioContent = Boolean(
-        item.isAudioStreaming ||
-        (item.audioSegments && item.audioSegments.length > 0),
-      );
-      const hasOssAudio = Boolean(item.audioUrl);
-      if (!hasAudioContent && !hasOssAudio) {
+      const primaryTrack = getAudioTrackByPosition(item.audioTracks ?? []);
+      if (!hasAudioContentInTrack(primaryTrack)) {
         continue;
       }
       return blockBid;
@@ -327,6 +328,15 @@ export const NewChatComponents = ({
 
     return null;
   }, [autoPlayAudio, currentPlayingBlockBid, items, previewMode]);
+
+  const mobileInteractionPrimaryTrack = useMemo(
+    () =>
+      getAudioTrackByPosition(
+        itemByGeneratedBid.get(mobileInteraction.generatedBlockBid)
+          ?.audioTracks ?? [],
+      ),
+    [itemByGeneratedBid, mobileInteraction.generatedBlockBid],
+  );
 
   // Memoize onSend to prevent new function references
   const memoizedOnSend = useCallback(onSend, [onSend]);
@@ -499,6 +509,8 @@ export const NewChatComponents = ({
               chatRef={chatRef as React.RefObject<HTMLDivElement>}
               isLoading={isLoading}
               sectionTitle={lessonTitle}
+              lessonId={lessonId}
+              lessonStatus={lessonStatus}
               previewMode={previewMode}
               onRequestAudioForBlock={requestAudioForBlock}
               onSend={memoizedOnSend}
@@ -559,14 +571,13 @@ export const NewChatComponents = ({
                   const parentContentItem = parentBlockBid
                     ? itemByGeneratedBid.get(parentBlockBid)
                     : undefined;
+                  const parentPrimaryTrack = getAudioTrackByPosition(
+                    parentContentItem?.audioTracks ?? [],
+                  );
                   const canRequestAudio =
                     !previewMode && Boolean(parentBlockBid);
-                  const hasAudioForBlock = Boolean(
-                    parentContentItem?.audioUrl ||
-                    parentContentItem?.isAudioStreaming ||
-                    (parentContentItem?.audioSegments &&
-                      parentContentItem.audioSegments.length > 0),
-                  );
+                  const hasAudioForBlock =
+                    hasAudioContentInTrack(parentPrimaryTrack);
                   const shouldAutoPlay =
                     autoPlayTargetBlockBid === parentBlockBid;
                   return mobileStyle ? null : (
@@ -589,12 +600,12 @@ export const NewChatComponents = ({
                           shouldShowAudioAction &&
                           (canRequestAudio || hasAudioForBlock) ? (
                             <AudioPlayer
-                              audioUrl={parentContentItem?.audioUrl}
+                              audioUrl={parentPrimaryTrack?.audioUrl}
                               streamingSegments={
-                                parentContentItem?.audioSegments
+                                parentPrimaryTrack?.audioSegments
                               }
                               isStreaming={Boolean(
-                                parentContentItem?.isAudioStreaming,
+                                parentPrimaryTrack?.isAudioStreaming,
                               )}
                               alwaysVisible={canRequestAudio}
                               onRequestAudio={
@@ -682,18 +693,9 @@ export const NewChatComponents = ({
           generated_block_bid={mobileInteraction.generatedBlockBid}
           like_status={mobileInteraction.likeStatus}
           onRefresh={onRefresh}
-          audioUrl={
-            itemByGeneratedBid.get(mobileInteraction.generatedBlockBid)
-              ?.audioUrl
-          }
-          streamingSegments={
-            itemByGeneratedBid.get(mobileInteraction.generatedBlockBid)
-              ?.audioSegments
-          }
-          isStreaming={Boolean(
-            itemByGeneratedBid.get(mobileInteraction.generatedBlockBid)
-              ?.isAudioStreaming,
-          )}
+          audioUrl={mobileInteractionPrimaryTrack?.audioUrl}
+          streamingSegments={mobileInteractionPrimaryTrack?.audioSegments}
+          isStreaming={Boolean(mobileInteractionPrimaryTrack?.isAudioStreaming)}
           onRequestAudio={
             !previewMode && mobileInteraction.generatedBlockBid
               ? () => requestAudioForBlock(mobileInteraction.generatedBlockBid)

@@ -244,6 +244,21 @@ export default function ChatPage() {
     return '';
   }, [resolvedLessonId, tree]);
 
+  const currentLessonStatus = useMemo(() => {
+    if (!tree || !resolvedLessonId) {
+      return '';
+    }
+    for (const catalog of tree.catalogs || []) {
+      const lesson = (catalog.lessons || []).find(
+        entry => entry.id === resolvedLessonId,
+      );
+      if (lesson) {
+        return lesson.status_value || lesson.status || '';
+      }
+    }
+    return '';
+  }, [resolvedLessonId, tree]);
+
   const onLessonSelect = ({ id }) => {
     const chapter = getChapterByLesson(id);
     if (!chapter) {
@@ -490,6 +505,7 @@ export default function ChatPage() {
             lessonId={lessonId}
             chapterId={chapterId}
             lessonTitle={currentLessonTitle}
+            lessonStatus={currentLessonStatus}
             lessonUpdate={onLessonUpdate}
             onGoChapter={onGoChapter}
             onPurchased={onPurchased}
