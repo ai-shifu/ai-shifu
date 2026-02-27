@@ -1,0 +1,102 @@
+{
+  "__namespace__": "module.dashboard",
+  "actions": {
+    "back": "Back"
+  },
+  "chart": {
+    "followUpsByChapter": "Follow-ups by Chapter",
+    "followUpsTrend": "Follow-up Count by Time",
+    "progressDistribution": "Progress Distribution",
+    "topOutlinesByFollowUps": "Top Outlines by Follow-ups"
+  },
+  "detail": {
+    "followUps": {
+      "answer": "Answer",
+      "askedAt": "Asked at",
+      "empty": "No follow-ups",
+      "outline": "Outline",
+      "outlinePlaceholder": "Filter by outline",
+      "question": "Question",
+      "title": "Follow-ups",
+      "totalCount": "Total: {count}"
+    },
+    "personalization": {
+      "empty": "No variables",
+      "key": "Key",
+      "value": "Value"
+    },
+    "progress": {
+      "empty": "No outlines",
+      "outline": "Outline",
+      "status": "Status",
+      "updatedAt": "Updated at"
+    },
+    "subtitle": "Learner Detail",
+    "tabs": {
+      "followUps": "Follow-ups",
+      "personalization": "Personalization",
+      "progress": "Progress"
+    },
+    "title": "Learner Detail"
+  },
+  "entry": {
+    "kpi": {
+      "courses": "Courses",
+      "generations": "Generations",
+      "learners": "Learners",
+      "orders": "Orders"
+    },
+    "table": {
+      "course": "Course",
+      "empty": "No courses",
+      "generations": "Generations",
+      "lastActive": "Last active",
+      "learners": "Learners",
+      "orders": "Orders",
+      "reset": "Reset",
+      "search": "Search",
+      "searchPlaceholder": "Search by course name / course id",
+      "title": "Course List",
+      "totalCount": "Total: {count}"
+    }
+  },
+  "export": {
+    "button": "Export Data",
+    "error": "Data export failed. Please try again later.",
+    "loading": "Exporting..."
+  },
+  "filters": {
+    "dateRange": "Date Range",
+    "dateRangePlaceholder": "Select date range",
+    "reset": "Reset"
+  },
+  "kpi": {
+    "completionRate": "Completion Rate",
+    "followUps": "Follow-ups",
+    "learners": "Learners",
+    "requiredOutlines": "Required Lessons"
+  },
+  "pagination": {
+    "next": "Next",
+    "prev": "Previous"
+  },
+  "sort": {
+    "followUps": "Follow-ups",
+    "lastActive": "Last active",
+    "progress": "Progress"
+  },
+  "table": {
+    "empty": "No learners",
+    "followUps": "Follow-ups",
+    "keywordPlaceholder": "Search by user ID / mobile / nickname",
+    "lastActive": "Last active",
+    "progress": "Progress",
+    "reset": "Reset",
+    "search": "Search",
+    "sort": "Sort",
+    "title": "Learners",
+    "totalCount": "Total: {count}",
+    "user": "Learner"
+  },
+  "title": "Dashboard"
+}
