@@ -6,7 +6,11 @@ from flaskr.service.common import raise_error
 from flaskr.dao import db
 from flaskr.service.shifu.dtos import MdflowDTOParseResult
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
-from flaskr.service.shifu.shifu_history_manager import save_outline_history
+from flaskr.service.shifu.shifu_history_manager import (
+    save_outline_history,
+    get_shifu_draft_meta,
+    get_shifu_draft_revision,
+)
 from flaskr.service.profile.profile_manage import (
     get_profile_item_definition_list,
     add_profile_item_quick,
@@ -32,12 +36,33 @@ def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
 
 
 def save_shifu_mdflow(
-    app: Flask, user_id: str, shifu_bid: str, outline_bid: str, content: str
-) -> str:
+    app: Flask,
+    user_id: str,
+    shifu_bid: str,
+    outline_bid: str,
+    content: str,
+    base_revision: int | None = None,
+) -> dict:
     """
     Save shifu mdflow
     """
     with app.app_context():
+        latest_meta = get_shifu_draft_meta(app, shifu_bid)
+        latest_revision = int(latest_meta.get("revision") or 0)
+        updated_user_bid = (
+            latest_meta.get("updated_user", {}).get("user_bid")
+            if isinstance(latest_meta.get("updated_user"), dict)
+            else ""
+        )
+        if (
+            isinstance(base_revision, int)
+            and base_revision >= 0
+            and latest_revision > base_revision
+            and updated_user_bid
+            and updated_user_bid != user_id
+        ):
+            return {"conflict": True, "meta": latest_meta}
+
         outline_item: DraftOutlineItem = (
             DraftOutlineItem.query.filter(
                 DraftOutlineItem.outline_item_bid == outline_bid
@@ -87,6 +112,10 @@ def save_shifu_mdflow(
                 len(blocks),
             )
             db.session.commit()
+        return {
+            "conflict": False,
+            "new_revision": get_shifu_draft_revision(app, shifu_bid),
+        }
 
 
 def parse_shifu_mdflow(

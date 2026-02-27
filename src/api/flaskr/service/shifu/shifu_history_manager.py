@@ -44,6 +44,8 @@ from flaskr.dao import db
 from flaskr.util import generate_id
 import queue
 from datetime import datetime
+import re
+from flaskr.service.user.models import UserInfo
 
 T = TypeVar("T", bound="HistoryItem")
 
@@ -90,6 +92,85 @@ class HistoryInfo(BaseModel):
     bid: str
     id: int
 
+
+def _get_latest_draft_log(shifu_bid: str):
+    return (
+        LogDraftStruct.query.filter_by(
+            shifu_bid=shifu_bid,
+        )
+        .order_by(LogDraftStruct.id.desc())
+        .first()
+    )
+
+
+def _mask_phone_identifier(identifier: str) -> str:
+    if not identifier:
+        return ""
+    digits = re.sub(r"\D", "", identifier)
+    if len(digits) >= 7:
+        return f"{digits[:3]}****{digits[-4:]}"
+    if len(digits) >= 2:
+        return f"{digits[:1]}****{digits[-1:]}"
+    return digits or ""
+
+
+def _mask_email_identifier(identifier: str) -> str:
+    if not identifier:
+        return ""
+    local, _, domain = identifier.partition("@")
+    if not domain:
+        return _mask_phone_identifier(identifier)
+    if not local:
+        return f"***@{domain}"
+    if len(local) <= 1:
+        masked_local = f"{local[:1]}***"
+    else:
+        masked_local = f"{local[:2]}***"
+    return f"{masked_local}@{domain}"
+
+
+def _mask_contact_identifier(identifier: str) -> str:
+    if not identifier:
+        return ""
+    if "@" in identifier:
+        return _mask_email_identifier(identifier)
+    return _mask_phone_identifier(identifier)
+
+
+def get_shifu_draft_revision(app: Flask, shifu_bid: str) -> int:
+    with app.app_context():
+        latest = _get_latest_draft_log(shifu_bid)
+        return int(latest.id) if latest else 0
+
+
+def get_shifu_draft_meta(app: Flask, shifu_bid: str) -> dict:
+    with app.app_context():
+        latest = _get_latest_draft_log(shifu_bid)
+        if not latest:
+            return {"revision": 0, "updated_at": None, "updated_user": None}
+
+        user = (
+            UserInfo.query.filter_by(
+                user_bid=latest.updated_user_bid, deleted=0
+            ).first()
+            if latest.updated_user_bid
+            else None
+        )
+        identifier = user.user_identify if user else ""
+        masked_identifier = _mask_contact_identifier(identifier) if identifier else ""
+        updated_user = (
+            {
+                "user_bid": latest.updated_user_bid,
+                "phone": masked_identifier,
+            }
+            if latest.updated_user_bid
+            else None
+        )
+        return {
+            "revision": int(latest.id),
+            "updated_at": latest.updated_at,
+            "updated_user": updated_user,
+        }
 
 def get_shifu_history(app, shifu_bid: str) -> HistoryItem:
     """
