@@ -2,8 +2,8 @@
 Streaming TTS Processor with async synthesis.
 
 This module provides real-time TTS synthesis during content streaming.
-- First sentence is synthesized immediately for instant feedback
-- Subsequent text is batched at ~300 chars at sentence boundaries
+- Text is synthesized sentence-by-sentence as soon as sentence boundaries appear
+- Trailing text without sentence endings is synthesized during finalize()
 - TTS synthesis runs in background threads to avoid blocking content streaming
 """
 
@@ -159,7 +159,6 @@ class StreamingTTSProcessor:
         # State
         self._buffer = ""
         self._processed_text_offset = 0
-        self._first_sentence_done = False
         self._segment_index = 0
         self._audio_bid = str(uuid.uuid4()).replace("-", "")
         self._usage_parent_bid = generate_id(app)
@@ -212,7 +211,7 @@ class StreamingTTSProcessor:
         yield from self._yield_ready_segments()
 
     def _try_submit_tts_task(self):
-        """Check if we have enough content to submit a TTS task."""
+        """Submit all complete sentences currently available in the stream buffer."""
         if not self._buffer:
             return
 
@@ -238,39 +237,22 @@ class StreamingTTSProcessor:
         if len(remaining_text) < 2:
             return
 
-        text_to_synthesize: Optional[str] = None
-        consume_len = 0
+        # Only consume text up to the last complete sentence ending in the
+        # currently processable stream window.
+        sentence_matches = list(SENTENCE_ENDINGS.finditer(remaining_text))
+        if not sentence_matches:
+            return
 
-        if not self._first_sentence_done:
-            # Look for first sentence ending
-            match = SENTENCE_ENDINGS.search(remaining_text)
-            if match:
-                consume_len = match.end()
-                candidate = remaining_text[:consume_len]
-                text_to_synthesize = candidate.strip()
-                if text_to_synthesize and len(text_to_synthesize) >= 2:
-                    self._first_sentence_done = True
-        else:
-            # After first sentence, batch at ~300 chars at sentence boundaries
-            if len(remaining_text) >= self.max_segment_chars:
-                chunk = remaining_text[: self.max_segment_chars]
-                matches = list(SENTENCE_ENDINGS.finditer(chunk))
+        consume_len = sentence_matches[-1].end()
+        if consume_len <= 0:
+            return
 
-                if matches:
-                    consume_len = matches[-1].end()
-                else:
-                    # No sentence boundary, find word/char boundary
-                    consume_len = len(chunk)
-
-                candidate = remaining_text[:consume_len]
-                text_to_synthesize = candidate.strip()
-
-        if consume_len:
-            self._processed_text_offset += consume_len
-
-        # Submit TTS task to background thread.
-        if text_to_synthesize:
-            self._submit_tts_task(text_to_synthesize)
+        self._processed_text_offset += consume_len
+        completed_sentences_text = remaining_text[:consume_len]
+        self._submit_remaining_text_in_segments(
+            completed_sentences_text,
+            include_trailing_fragment=False,
+        )
 
     def _submit_tts_task(self, text: str):
         """Submit a TTS synthesis task to the background thread pool."""
@@ -294,15 +276,22 @@ class StreamingTTSProcessor:
         )
         self._pending_futures.append(future)
 
-    def _submit_remaining_text_in_segments(self, remaining_text: str):
+    def _submit_remaining_text_in_segments(
+        self,
+        remaining_text: str,
+        *,
+        include_trailing_fragment: bool = True,
+    ):
         """
-        Submit remaining text in segments to avoid burst submission at finalization.
+        Submit text sentence-by-sentence.
 
-        This ensures the last few segments maintain consistent pacing instead of
-        being synthesized and returned almost simultaneously.
+        When ``include_trailing_fragment`` is True, any trailing text without
+        sentence-ending punctuation is submitted as one final segment.
 
         Args:
-            remaining_text: The remaining text to be synthesized
+            remaining_text: The text to be synthesized
+            include_trailing_fragment: Whether to submit trailing text that does
+                not end with sentence punctuation.
         """
         if not remaining_text or len(remaining_text) < 2:
             return
@@ -311,32 +300,25 @@ class StreamingTTSProcessor:
             f"Submitting remaining text in segments: {len(remaining_text)} chars"
         )
 
-        # Split remaining text at sentence boundaries, similar to normal flow
-        while remaining_text and len(remaining_text) >= 2:
-            # Determine chunk size (use max_segment_chars as limit)
-            chunk_size = min(len(remaining_text), self.max_segment_chars)
-            chunk = remaining_text[:chunk_size]
-
-            # Try to find sentence boundary within chunk
-            matches = list(SENTENCE_ENDINGS.finditer(chunk))
-            if matches:
-                # Split at last sentence ending in chunk
-                split_pos = matches[-1].end()
-            else:
-                # No sentence boundary found, use full chunk
-                split_pos = chunk_size
-
-            # Extract segment and submit
-            segment_text = remaining_text[:split_pos].strip()
+        cursor = 0
+        for match in SENTENCE_ENDINGS.finditer(remaining_text):
+            split_pos = match.end()
+            segment_text = remaining_text[cursor:split_pos].strip()
             if segment_text and len(segment_text) >= 2:
                 self._submit_tts_task(segment_text)
                 logger.debug(
                     f"Submitted finalize segment: {len(segment_text)} chars, "
                     f"remaining: {len(remaining_text) - split_pos} chars"
                 )
+            cursor = split_pos
 
-            # Update remaining text
-            remaining_text = remaining_text[split_pos:].strip()
+        if include_trailing_fragment:
+            tail_text = remaining_text[cursor:].strip()
+            if tail_text and len(tail_text) >= 2:
+                self._submit_tts_task(tail_text)
+                logger.debug(
+                    f"Submitted finalize trailing fragment: {len(tail_text)} chars"
+                )
 
     def _synthesize_in_thread(
         self,
