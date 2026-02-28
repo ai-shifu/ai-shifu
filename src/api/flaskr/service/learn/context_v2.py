@@ -2021,6 +2021,9 @@ class RunScriptContextV2:
                     self._outline_item_info.shifu_bid,
                     profile_to_save,
                 )
+                # Commit profile changes before sending VARIABLE_UPDATE events,
+                # so frontend updates always reflect persisted data.
+                db.session.commit()
                 for profile in profile_to_save:
                     yield RunMarkdownFlowDTO(
                         outline_bid=run_script_info.outline_bid,
