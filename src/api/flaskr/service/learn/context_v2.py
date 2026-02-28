@@ -91,6 +91,10 @@ from flaskr.service.metering.consts import (
 from flaskr.service.learn.learn_dtos import VariableUpdateDTO
 from flaskr.service.learn.check_text import check_text_with_llm_response
 from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.learn.langfuse_naming import (
+    build_langfuse_generation_name,
+    build_langfuse_trace_name,
+)
 from flaskr.service.learn.utils_v2 import init_generated_block
 from flaskr.service.learn.exceptions import PaidException
 from flaskr.i18n import _, get_current_language, set_language
@@ -161,6 +165,16 @@ class RUNLLMProvider(LLMProvider):
         actual_temperature = (
             temperature if temperature is not None else self.llm_settings.temperature
         )
+        metadata = self.trace_args.get("metadata") or {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+        chapter_title = metadata.get("chapter_title", "")
+        scene = metadata.get("scene", "lesson_runtime")
+        generation_name = build_langfuse_generation_name(
+            chapter_title,
+            scene,
+            "run_llm",
+        )
 
         res = chat_llm(
             self.app,
@@ -169,7 +183,7 @@ class RUNLLMProvider(LLMProvider):
             messages=messages,
             model=actual_model,
             stream=False,
-            generation_name="run_llm",
+            generation_name=generation_name,
             temperature=actual_temperature,
             usage_context=self.usage_context,
             usage_scene=self.usage_scene,
@@ -201,6 +215,16 @@ class RUNLLMProvider(LLMProvider):
         actual_temperature = (
             temperature if temperature is not None else self.llm_settings.temperature
         )
+        metadata = self.trace_args.get("metadata") or {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+        chapter_title = metadata.get("chapter_title", "")
+        scene = metadata.get("scene", "lesson_runtime")
+        generation_name = build_langfuse_generation_name(
+            chapter_title,
+            scene,
+            "run_llm",
+        )
 
         # Check if there's a system message
         self.app.logger.info("stream invoke_llm begin")
@@ -211,7 +235,7 @@ class RUNLLMProvider(LLMProvider):
             model=actual_model,
             messages=messages,
             stream=True,
-            generation_name="run_llm",
+            generation_name=generation_name,
             temperature=actual_temperature,
             usage_context=self.usage_context,
             usage_scene=self.usage_scene,
@@ -484,13 +508,17 @@ class RunScriptPreviewContextV2:
         if not document:
             raise ValueError("Markdown-Flow content is empty")
 
+        chapter_title = getattr(outline, "title", "") or outline_bid
+        trace_scene = "lesson_preview"
         trace_args = {
             "user_id": user_bid,
-            "name": "preview_outline_block",
+            "name": build_langfuse_trace_name(chapter_title, trace_scene),
             "metadata": {
                 "shifu_bid": shifu_bid,
                 "outline_bid": outline_bid,
                 "session_id": session_id,
+                "scene": trace_scene,
+                "chapter_title": chapter_title,
             },
         }
         trace = langfuse.trace(**trace_args)
@@ -1024,7 +1052,7 @@ class RunScriptContextV2:
         user_info: UserAggregate,
         is_paid: bool,
         preview_mode: bool,
-        listen: bool = True,
+        listen: bool = False,
     ):
         self._last_position = -1
         self.app = app
@@ -1040,6 +1068,7 @@ class RunScriptContextV2:
         self.current_outline_item = None
         self._run_type = RunType.INPUT
         self._can_continue = True
+        self._listen_slide_index_cursor = 0
 
         if preview_mode:
             self._outline_model = DraftOutlineItem
@@ -1060,9 +1089,18 @@ class RunScriptContextV2:
                     self._q.put(child)
         self._current_attend = None
         self._trace_args = {}
+        chapter_title = self._outline_item_info.title
+        trace_scene = "lesson_preview_runtime" if preview_mode else "lesson_runtime"
         self._trace_args["user_id"] = user_info.user_id
         self._trace_args["input"] = ""
-        self._trace_args["name"] = self._outline_item_info.title
+        self._trace_args["name"] = build_langfuse_trace_name(chapter_title, trace_scene)
+        self._trace_args["metadata"] = {
+            "scene": trace_scene,
+            "chapter_title": chapter_title,
+            "outline_item_bid": self._outline_item_info.bid,
+            "shifu_bid": self._outline_item_info.shifu_bid,
+            "preview_mode": int(bool(preview_mode)),
+        }
         self._trace = langfuse.trace(**self._trace_args)
         self._trace_args["output"] = ""
         context_local.current_context = self
@@ -1437,6 +1475,28 @@ class RunScriptContextV2:
             temperature=float(self.app.config.get("DEFAULT_LLM_TEMPERATURE")),
         )
 
+    def _has_effective_input(self) -> bool:
+        input_value = self._input
+        if input_value is None:
+            return False
+        if isinstance(input_value, dict):
+            for raw in input_value.values():
+                values = raw if isinstance(raw, list) else [raw]
+                for value in values:
+                    if value is None:
+                        continue
+                    if str(value).strip():
+                        return True
+            return False
+        if isinstance(input_value, list):
+            for value in input_value:
+                if value is None:
+                    continue
+                if str(value).strip():
+                    return True
+            return False
+        return bool(str(input_value).strip())
+
     def set_input(self, input: str | dict, input_type: str):
         """
         Set user input.
@@ -1473,8 +1533,6 @@ class RunScriptContextV2:
         outline_item_info: OutlineItemDtoWithMdflow = get_outline_item_dto_with_mdflow(
             self.app, outline_item_id, self._preview_mode
         )
-
-        self.app.logger.info(f"outline_item_info: {outline_item_info.mdflow}")
 
         mdflow_context = MdflowContextV2(document=outline_item_info.mdflow)
         block_list = mdflow_context.get_all_blocks()
@@ -1648,8 +1706,47 @@ class RunScriptContextV2:
         block = block_list[run_script_info.block_position]
         app.logger.info(f"block: {block}")
         app.logger.info(f"self._run_type: {self._run_type}")
+        has_effective_input = self._has_effective_input()
         if self._run_type == RunType.INPUT:
             if block.block_type != BlockType.INTERACTION:
+                if has_effective_input:
+                    pending_interaction_block: LearnGeneratedBlock | None = (
+                        LearnGeneratedBlock.query.filter(
+                            LearnGeneratedBlock.progress_record_bid
+                            == run_script_info.attend.progress_record_bid,
+                            LearnGeneratedBlock.outline_item_bid
+                            == run_script_info.outline_bid,
+                            LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                            LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
+                            LearnGeneratedBlock.status == 1,
+                            LearnGeneratedBlock.deleted == 0,
+                            LearnGeneratedBlock.position
+                            >= run_script_info.block_position,
+                            LearnGeneratedBlock.generated_content == "",
+                        )
+                        .order_by(
+                            LearnGeneratedBlock.position.asc(),
+                            LearnGeneratedBlock.id.asc(),
+                        )
+                        .first()
+                    )
+                    if pending_interaction_block:
+                        app.logger.warning(
+                            "Input received on non-interaction block. Realign index to pending interaction: progress=%s outline=%s from=%s to=%s generated_block=%s",
+                            run_script_info.attend.progress_record_bid,
+                            run_script_info.outline_bid,
+                            run_script_info.block_position,
+                            pending_interaction_block.position,
+                            pending_interaction_block.generated_block_bid,
+                        )
+                        self._current_attend.block_position = (
+                            pending_interaction_block.position
+                        )
+                        self._current_attend.status = LEARN_STATUS_IN_PROGRESS
+                        self._run_type = RunType.INPUT
+                        self._can_continue = True
+                        db.session.flush()
+                        return
                 self._can_continue = True
                 self._run_type = RunType.OUTPUT
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
@@ -1811,6 +1908,14 @@ class RunScriptContextV2:
             )
             generated_block.status = 1
             db.session.flush()
+            trace_metadata = self._trace_args.get("metadata") or {}
+            if not isinstance(trace_metadata, dict):
+                trace_metadata = {}
+            chapter_title = trace_metadata.get(
+                "chapter_title",
+                self._outline_item_info.title,
+            )
+            trace_scene = trace_metadata.get("scene", "lesson_runtime")
             res = check_text_with_llm_response(
                 app,
                 user_info=self._user_info,
@@ -1824,6 +1929,8 @@ class RunScriptContextV2:
                 attend_id=self._current_attend.progress_record_bid,
                 fmt_prompt="",
                 usage_context=usage_context,
+                chapter_title=chapter_title,
+                scene=f"{trace_scene}_interaction",
             )
             # Check if the generator yields any content (not None)
             has_content = False
@@ -1877,7 +1984,7 @@ class RunScriptContextV2:
                 self._can_continue = True
                 self._run_type = RunType.OUTPUT
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                self._current_attend.block_position += 1
+                self._current_attend.block_position = run_script_info.block_position + 1
                 db.session.flush()
                 return
             validate_result = mdflow_context.process(
@@ -1922,7 +2029,7 @@ class RunScriptContextV2:
                         ),
                     )
                 self._can_continue = True
-                self._current_attend.block_position += 1
+                self._current_attend.block_position = run_script_info.block_position + 1
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                 self._run_type = RunType.OUTPUT
                 self.app.logger.warning(
@@ -2095,9 +2202,43 @@ class RunScriptContextV2:
                 db.session.add(generated_block)
                 db.session.flush()
             else:
+                # Guard against replaying the same fixed-output block right after
+                # processing an interaction input in the same request.
+                if has_effective_input:
+                    existing_content_block: LearnGeneratedBlock | None = (
+                        LearnGeneratedBlock.query.filter(
+                            LearnGeneratedBlock.progress_record_bid
+                            == run_script_info.attend.progress_record_bid,
+                            LearnGeneratedBlock.outline_item_bid
+                            == run_script_info.outline_bid,
+                            LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                            LearnGeneratedBlock.type == BLOCK_TYPE_MDCONTENT_VALUE,
+                            LearnGeneratedBlock.position
+                            == run_script_info.block_position,
+                            LearnGeneratedBlock.status == 1,
+                            LearnGeneratedBlock.deleted == 0,
+                        )
+                        .order_by(LearnGeneratedBlock.id.desc())
+                        .first()
+                    )
+                    if existing_content_block:
+                        app.logger.warning(
+                            "Skip duplicated fixed output block: progress=%s outline=%s position=%s generated_block=%s",
+                            run_script_info.attend.progress_record_bid,
+                            run_script_info.outline_bid,
+                            run_script_info.block_position,
+                            existing_content_block.generated_block_bid,
+                        )
+                        self._can_continue = True
+                        self._run_type = RunType.OUTPUT
+                        self._current_attend.status = LEARN_STATUS_IN_PROGRESS
+                        self._current_attend.block_position += 1
+                        db.session.flush()
+                        return
                 generated_block.type = BLOCK_TYPE_MDCONTENT_VALUE
                 generated_content = ""
                 tts_processor = None
+                content_cache = ""
 
                 # Direct synchronous stream processing (markdown-flow 0.2.27+)
                 app.logger.info(f"process_stream: {run_script_info.block_position}")
@@ -2107,7 +2248,7 @@ class RunScriptContextV2:
                     try:
                         from flaskr.common.config import get_config
                         from flaskr.service.tts.streaming_tts import (
-                            StreamingTTSProcessor,
+                            AVStreamingTTSProcessor,
                         )
                         from flaskr.service.tts.validation import (
                             validate_tts_settings_strict,
@@ -2157,7 +2298,7 @@ class RunScriptContextV2:
                                 max_segment_chars = get_config("TTS_MAX_SEGMENT_CHARS")
                                 if not max_segment_chars:
                                     max_segment_chars = 300
-                                tts_processor = StreamingTTSProcessor(
+                                tts_processor = AVStreamingTTSProcessor(
                                     app=app,
                                     generated_block_bid=generated_block.generated_block_bid,
                                     outline_bid=run_script_info.outline_bid,
@@ -2171,11 +2312,88 @@ class RunScriptContextV2:
                                     max_segment_chars=int(max_segment_chars),
                                     tts_provider=validated.provider,
                                     tts_model=validated.model,
+                                    slide_index_offset=self._listen_slide_index_cursor,
                                 )
+                                yield from tts_processor.emit_run_start_slide()
                     except Exception as exc:
                         app.logger.warning(
                             "Initialize streaming TTS failed: %s", exc, exc_info=True
                         )
+
+                def _flush_content_cache(*, keep_tail: int = 0):
+                    nonlocal content_cache
+                    if not content_cache:
+                        return
+                    if keep_tail > 0 and len(content_cache) > keep_tail:
+                        cached = content_cache[:-keep_tail]
+                        content_cache = content_cache[-keep_tail:]
+                    elif keep_tail > 0:
+                        # Keep the whole cache for next chunk to avoid breaking
+                        # partial visual markers like `<svg` / `<div`.
+                        return
+                    else:
+                        cached = content_cache
+                        content_cache = ""
+                    if not cached:
+                        return
+                    yield RunMarkdownFlowDTO(
+                        outline_bid=run_script_info.outline_bid,
+                        generated_block_bid=generated_block.generated_block_bid,
+                        type=GeneratedType.CONTENT,
+                        content=cached,
+                    )
+
+                def _process_stream_chunk(chunk_content: str):
+                    nonlocal generated_content, tts_processor, content_cache
+                    if not chunk_content:
+                        return
+                    generated_content += chunk_content
+                    if not tts_processor:
+                        yield RunMarkdownFlowDTO(
+                            outline_bid=run_script_info.outline_bid,
+                            generated_block_bid=generated_block.generated_block_bid,
+                            type=GeneratedType.CONTENT,
+                            content=chunk_content,
+                        )
+                        return
+
+                    # Cache content until AV validation confirms slide boundaries,
+                    # then emit NEW_SLIDE before the cached content.
+                    content_cache += chunk_content
+                    try:
+                        new_slide_events = []
+                        other_events = []
+                        for event in tts_processor.process_chunk(chunk_content):
+                            if event.type == GeneratedType.NEW_SLIDE:
+                                new_slide_events.append(event)
+                            else:
+                                other_events.append(event)
+                    except Exception as exc:
+                        app.logger.warning(
+                            "Streaming TTS failed; disable for this block: %s",
+                            exc,
+                            exc_info=True,
+                        )
+                        tts_processor = None
+                        yield from _flush_content_cache()
+                        return
+
+                    if new_slide_events:
+                        yield from new_slide_events
+                    has_pending_visual_boundary = bool(
+                        getattr(tts_processor, "has_pending_visual_boundary", False)
+                    )
+                    # Stream-through policy:
+                    # 1) any NEW_SLIDE -> flush immediately (after NEW_SLIDE),
+                    # 2) boundary pending -> keep streaming immediately,
+                    # 3) otherwise keep only a tiny guard tail to avoid emitting
+                    #    split visual markers (e.g. `<sv`, `<di`) too early.
+                    if new_slide_events or has_pending_visual_boundary:
+                        yield from _flush_content_cache()
+                    else:
+                        yield from _flush_content_cache(keep_tail=12)
+
+                    yield from other_events
 
                 stream_result = mdflow_context.process(
                     block_index=run_script_info.block_position,
@@ -2195,25 +2413,7 @@ class RunScriptContextV2:
                             else str(llm_result)
                         )
                         if chunk_content:
-                            generated_content += chunk_content
-                            yield RunMarkdownFlowDTO(
-                                outline_bid=run_script_info.outline_bid,
-                                generated_block_bid=generated_block.generated_block_bid,
-                                type=GeneratedType.CONTENT,
-                                content=chunk_content,
-                            )
-                            if tts_processor:
-                                try:
-                                    yield from tts_processor.process_chunk(
-                                        chunk_content
-                                    )
-                                except Exception as exc:
-                                    app.logger.warning(
-                                        "Streaming TTS failed; disable for this block: %s",
-                                        exc,
-                                        exc_info=True,
-                                    )
-                                    tts_processor = None
+                            yield from _process_stream_chunk(chunk_content)
                 else:
                     # It's a single LLMResult object (edge case)
                     chunk_content = (
@@ -2222,27 +2422,18 @@ class RunScriptContextV2:
                         else str(stream_result)
                     )
                     if chunk_content:
-                        generated_content += chunk_content
-                        yield RunMarkdownFlowDTO(
-                            outline_bid=run_script_info.outline_bid,
-                            generated_block_bid=generated_block.generated_block_bid,
-                            type=GeneratedType.CONTENT,
-                            content=chunk_content,
-                        )
-                        if tts_processor:
-                            try:
-                                yield from tts_processor.process_chunk(chunk_content)
-                            except Exception as exc:
-                                app.logger.warning(
-                                    "Streaming TTS failed; disable for this block: %s",
-                                    exc,
-                                    exc_info=True,
-                                )
-                                tts_processor = None
+                        yield from _process_stream_chunk(chunk_content)
+
+                if content_cache:
+                    yield from _flush_content_cache()
 
                 if tts_processor:
                     try:
                         yield from tts_processor.finalize(commit=False)
+                        self._listen_slide_index_cursor = max(
+                            self._listen_slide_index_cursor,
+                            int(getattr(tts_processor, "next_slide_index", 0) or 0),
+                        )
                     except Exception as exc:
                         app.logger.warning(
                             "Finalize streaming TTS failed: %s", exc, exc_info=True

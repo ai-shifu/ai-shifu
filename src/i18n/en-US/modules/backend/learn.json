@@ -3,6 +3,7 @@
   "__flat__": {
     "generatedBlockNotFound": "Generated block not found",
     "invalidAction": "Invalid action",
-    "nextChapterButton": "Next"
+    "nextChapterButton": "Next",
+    "outputInProgress": "Content is still generating. Please wait before retrying."
   }
 }

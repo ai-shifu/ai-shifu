@@ -14,6 +14,7 @@ import {
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import type { AudioCompleteData } from '@/c-api/studyV2';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import { getAudioTrackByPosition } from '@/c-utils/audio-utils';
 import VariableList from './VariableList';
 import { type PreviewVariablesMap } from './variableStorage';
 import styles from './LessonPreview.module.scss';
@@ -218,6 +219,9 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                 const parentContentItem = parentBlockBid
                   ? itemByGeneratedBid.get(parentBlockBid)
                   : undefined;
+                const parentPrimaryTrack = getAudioTrackByPosition(
+                  parentContentItem?.audioTracks ?? [],
+                );
                 return (
                   <div
                     key={`${idx}-like`}
@@ -234,10 +238,10 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                       disableInteractionButtons
                       extraActions={
                         <AudioPlayer
-                          audioUrl={parentContentItem?.audioUrl}
-                          streamingSegments={parentContentItem?.audioSegments}
+                          audioUrl={parentPrimaryTrack?.audioUrl}
+                          streamingSegments={parentPrimaryTrack?.audioSegments}
                           isStreaming={Boolean(
-                            parentContentItem?.isAudioStreaming,
+                            parentPrimaryTrack?.isAudioStreaming,
                           )}
                           alwaysVisible={true}
                           onRequestAudio={

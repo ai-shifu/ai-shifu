@@ -26,6 +26,7 @@ export interface Shifu {
   archived?: boolean;
   created_user_bid?: string;
   can_manage_archive?: boolean;
+  canPublish?: boolean;
 }
 
 export interface Outline {

@@ -31,6 +31,13 @@ export interface AudioPlayerListProps {
   sequenceBlockBid?: string | null;
 }
 
+const logAudioDebug = (event: string, payload?: Record<string, any>) => {
+  // if (process.env.NODE_ENV === 'production') {
+  return;
+  // }
+  console.log(`[listen-audio-debug] ${event}`, payload ?? {});
+};
+
 const AudioPlayerListBase = (
   {
     audioList,
@@ -67,8 +74,29 @@ const AudioPlayerListBase = (
   const currentSegmentIndexRef = useRef(0);
   const segmentOffsetRef = useRef(0);
   const playedSecondsRef = useRef(0);
+  const playerDebugIdRef = useRef(
+    `list-${Math.random().toString(36).slice(2, 8)}`,
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  const logAudioInterrupt = useCallback(
+    (event: string, payload?: Record<string, unknown>) => {
+      // if (process.env.NODE_ENV === 'production') {
+      return;
+      // }
+      console.log(`[音频中断排查][AudioPlayerList] ${event}`, {
+        playerId: playerDebugIdRef.current,
+        currentTrackBid: currentTrackRef.current?.generated_block_bid ?? null,
+        sequenceBlockBid,
+        isSequenceActive,
+        isPlaying: isPlayingRef.current,
+        ...payload,
+      });
+    },
+    [isSequenceActive, sequenceBlockBid],
+  );
+  const logAudioInterruptRef = useRef(logAudioInterrupt);
 
   const playlist = useMemo(
     () => normalizeAudioItemList(audioList),
@@ -106,6 +134,10 @@ const AudioPlayerListBase = (
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
+
+  useEffect(() => {
+    logAudioInterruptRef.current = logAudioInterrupt;
+  }, [logAudioInterrupt]);
 
   const setPlayingState = useCallback((next: boolean) => {
     setIsPlaying(next);
@@ -188,6 +220,29 @@ const AudioPlayerListBase = (
     }
   }, []);
 
+  const stopByExclusivePreempt = useCallback(
+    (payload?: Record<string, unknown>) => {
+      const audio = audioRef.current;
+      logAudioInterrupt('被其他音频实例抢占，执行强制停止当前播放', {
+        reason: 'exclusive-preempt',
+        ...payload,
+      });
+      shouldResumeRef.current = false;
+      // Keep auto-play enabled for upcoming sequence items.
+      // Only stop current playback state and clear resumable flags.
+      isPausedRef.current = false;
+      if (isUsingSegmentsRef.current && audio) {
+        segmentOffsetRef.current = Math.max(0, audio.currentTime || 0);
+      }
+      isSegmentsPlaybackRef.current = false;
+      isWaitingForSegmentRef.current = false;
+      setPlayingState(false);
+      audio?.pause();
+      releaseExclusive();
+    },
+    [logAudioInterrupt, releaseExclusive, setPlayingState],
+  );
+
   const startUrlPlayback = useCallback(
     (url: string, startAtSeconds: number = 0) => {
       const audio = audioRef.current;
@@ -205,7 +260,10 @@ const AudioPlayerListBase = (
       }
       applySeek(startAtSeconds);
       requestExclusive(() => {
-        audio.pause();
+        stopByExclusivePreempt({
+          from: 'startUrlPlayback',
+          url,
+        });
       });
       const playPromise = audio.play();
       if (playPromise && typeof playPromise.then === 'function') {
@@ -220,7 +278,14 @@ const AudioPlayerListBase = (
       }
       return true;
     },
-    [applySeek, disabled, releaseExclusive, requestExclusive, setPlayingState],
+    [
+      applySeek,
+      disabled,
+      releaseExclusive,
+      requestExclusive,
+      setPlayingState,
+      stopByExclusivePreempt,
+    ],
   );
 
   const startSegmentPlayback = useCallback(
@@ -241,7 +306,10 @@ const AudioPlayerListBase = (
           currentSegmentIndexRef.current = index;
           segmentOffsetRef.current = Math.max(0, startOffsetSeconds);
           requestExclusive(() => {
-            audio.pause();
+            stopByExclusivePreempt({
+              from: 'startSegmentPlayback-waiting',
+              segmentIndex: index,
+            });
           });
           if (!isPlayingRef.current) {
             setPlayingState(true);
@@ -264,7 +332,10 @@ const AudioPlayerListBase = (
       }
       applySeek(segmentOffsetRef.current);
       requestExclusive(() => {
-        audio.pause();
+        stopByExclusivePreempt({
+          from: 'startSegmentPlayback-playing',
+          segmentIndex: index,
+        });
       });
       const playPromise = audio.play();
       if (playPromise && typeof playPromise.then === 'function') {
@@ -286,6 +357,7 @@ const AudioPlayerListBase = (
       releaseExclusive,
       requestExclusive,
       setPlayingState,
+      stopByExclusivePreempt,
     ],
   );
 
@@ -293,6 +365,10 @@ const AudioPlayerListBase = (
     (options?: { resume?: boolean }) => {
       const track = currentTrackRef.current;
       if (!track || disabled) {
+        logAudioDebug('audio-player-start-skip', {
+          reason: track ? 'disabled' : 'no-track',
+          disabled,
+        });
         return false;
       }
       const url = resolveTrackUrl(track);
@@ -301,13 +377,34 @@ const AudioPlayerListBase = (
           options?.resume && audioRef.current
             ? audioRef.current.currentTime
             : 0;
+        logAudioDebug('audio-player-start-url', {
+          bid: track.generated_block_bid,
+          resume: Boolean(options?.resume),
+          startAtSeconds,
+          hasUrl: Boolean(url),
+        });
         return startUrlPlayback(url, startAtSeconds);
       }
       if (shouldUseSegments(track)) {
         const index = options?.resume ? currentSegmentIndexRef.current : 0;
         const offset = options?.resume ? segmentOffsetRef.current : 0;
+        logAudioDebug('audio-player-start-segment', {
+          bid: track.generated_block_bid,
+          resume: Boolean(options?.resume),
+          segmentIndex: index,
+          segmentOffset: offset,
+          segments: segmentsRef.current.length,
+          isAudioStreaming: Boolean(track.isAudioStreaming),
+        });
         return startSegmentPlayback(index, offset);
       }
+      logAudioDebug('audio-player-start-miss-source', {
+        bid: track.generated_block_bid,
+        hasTrackUrl: Boolean(track.audioUrl),
+        localUrl: Boolean(url),
+        segments: segmentsRef.current.length,
+        isAudioStreaming: Boolean(track.isAudioStreaming),
+      });
       return false;
     },
     [
@@ -330,30 +427,58 @@ const AudioPlayerListBase = (
       if (!track) {
         return;
       }
+      logAudioDebug('audio-player-play-current', {
+        bid: track.generated_block_bid,
+        resume: Boolean(options?.resume),
+      });
       if (startPlaybackForTrack(options)) {
         return;
       }
       if (!onRequestAudio || !track.generated_block_bid) {
+        logAudioDebug('audio-player-request-skip', {
+          bid: track.generated_block_bid ?? null,
+          hasOnRequestAudio: Boolean(onRequestAudio),
+        });
         return;
       }
       const requestBid = track.generated_block_bid;
       if (pendingRequestRef.current.has(requestBid)) {
+        logAudioDebug('audio-player-request-skip-pending', {
+          bid: requestBid,
+        });
         return;
       }
       pendingRequestRef.current.add(requestBid);
+      logAudioDebug('audio-player-request-start', {
+        bid: requestBid,
+      });
       isUsingSegmentsRef.current = true;
       isSegmentsPlaybackRef.current = true;
       isWaitingForSegmentRef.current = true;
       setPlayingState(true);
       requestExclusive(() => {
-        audioRef.current?.pause();
+        stopByExclusivePreempt({
+          from: 'playCurrentTrack-requestAudio',
+          requestBid,
+        });
       });
       onRequestAudio()
         .then(result => {
           if (currentTrackRef.current?.generated_block_bid !== requestBid) {
+            logAudioDebug('audio-player-request-stale-result', {
+              bid: requestBid,
+              currentBid: currentTrackRef.current?.generated_block_bid ?? null,
+            });
             return;
           }
           const url = result?.audio_url || result?.audioUrl;
+          logAudioDebug('audio-player-request-success', {
+            bid: requestBid,
+            hasUrl: Boolean(url),
+            isAudioStreaming: Boolean(
+              currentTrackRef.current?.isAudioStreaming,
+            ),
+          });
           if (url) {
             localAudioUrlMapRef.current.set(requestBid, url);
             if (!currentTrackRef.current?.isAudioStreaming) {
@@ -365,6 +490,9 @@ const AudioPlayerListBase = (
           if (currentTrackRef.current?.generated_block_bid !== requestBid) {
             return;
           }
+          logAudioDebug('audio-player-request-error', {
+            bid: requestBid,
+          });
           setPlayingState(false);
           isWaitingForSegmentRef.current = false;
           isSegmentsPlaybackRef.current = false;
@@ -372,6 +500,9 @@ const AudioPlayerListBase = (
         })
         .finally(() => {
           pendingRequestRef.current.delete(requestBid);
+          logAudioDebug('audio-player-request-finished', {
+            bid: requestBid,
+          });
         });
     },
     [
@@ -382,6 +513,7 @@ const AudioPlayerListBase = (
       setPlayingState,
       startPlaybackForTrack,
       startUrlPlayback,
+      stopByExclusivePreempt,
     ],
   );
 
@@ -391,6 +523,12 @@ const AudioPlayerListBase = (
       if (!audio) {
         return;
       }
+      logAudioInterrupt('调用 pausePlayback，准备暂停当前音频', {
+        traceId: options?.traceId ?? null,
+        keepAutoPlay: Boolean(options?.keepAutoPlay),
+        isUsingSegments: isUsingSegmentsRef.current,
+        isWaitingForSegment: isWaitingForSegmentRef.current,
+      });
       isPausedRef.current = !options?.keepAutoPlay;
       shouldResumeRef.current = false;
       if (isUsingSegmentsRef.current) {
@@ -400,10 +538,16 @@ const AudioPlayerListBase = (
       }
       audio.pause();
     },
-    [],
+    [logAudioInterrupt],
   );
 
   const finishTrack = useCallback(() => {
+    logAudioInterrupt('finish-track-enter', {
+      currentIndex: currentIndexRef.current,
+      playlistLength: playlist.length,
+      isSequenceActive,
+      trackBid: currentTrackRef.current?.generated_block_bid ?? null,
+    });
     resetSegmentState();
     isUsingSegmentsRef.current = false;
     isSegmentsPlaybackRef.current = false;
@@ -427,6 +571,7 @@ const AudioPlayerListBase = (
     setCurrentIndex(nextIndex);
   }, [
     isSequenceActive,
+    logAudioInterrupt,
     playlist.length,
     releaseExclusive,
     resetSegmentState,
@@ -453,6 +598,12 @@ const AudioPlayerListBase = (
       return;
     }
     if (track?.isAudioStreaming) {
+      logAudioInterrupt('segment-ended-enter-waiting-mode', {
+        segmentIndex: index,
+        nextSegmentIndex: nextIndex,
+        loadedSegments: segments.length,
+        trackBid: track.generated_block_bid ?? null,
+      });
       currentSegmentIndexRef.current = nextIndex;
       isSegmentsPlaybackRef.current = true;
       isWaitingForSegmentRef.current = true;
@@ -471,6 +622,7 @@ const AudioPlayerListBase = (
     finishTrack();
   }, [
     finishTrack,
+    logAudioInterrupt,
     resolveTrackUrl,
     resetSegmentState,
     startSegmentPlayback,
@@ -483,14 +635,21 @@ const AudioPlayerListBase = (
     }
     setPlayingState(true);
     requestExclusive(() => {
-      audioRef.current?.pause();
+      stopByExclusivePreempt({
+        from: 'handleAudioPlay',
+      });
     });
-  }, [disabled, requestExclusive, setPlayingState]);
+  }, [disabled, requestExclusive, setPlayingState, stopByExclusivePreempt]);
 
   const handleAudioPause = useCallback(() => {
     if (isUsingSegmentsRef.current && isWaitingForSegmentRef.current) {
       return;
     }
+    logAudioInterrupt('收到 audio onPause 事件', {
+      isUsingSegments: isUsingSegmentsRef.current,
+      isWaitingForSegment: isWaitingForSegmentRef.current,
+      currentTime: audioRef.current?.currentTime ?? 0,
+    });
     if (isUsingSegmentsRef.current) {
       const audio = audioRef.current;
       segmentOffsetRef.current = Math.max(0, audio?.currentTime ?? 0);
@@ -498,22 +657,32 @@ const AudioPlayerListBase = (
     }
     setPlayingState(false);
     releaseExclusive();
-  }, [releaseExclusive, setPlayingState]);
+  }, [logAudioInterrupt, releaseExclusive, setPlayingState]);
 
   const handleAudioEnded = useCallback(() => {
+    logAudioDebug('audio-player-ended', {
+      bid: currentTrackRef.current?.generated_block_bid ?? null,
+      usingSegments: isUsingSegmentsRef.current,
+      waitingForSegment: isWaitingForSegmentRef.current,
+      sequenceBlockBid,
+      isSequenceActive,
+    });
     if (isUsingSegmentsRef.current) {
       handleSegmentEnded();
       return;
     }
     finishTrack();
-  }, [finishTrack, handleSegmentEnded]);
+  }, [finishTrack, handleSegmentEnded, isSequenceActive, sequenceBlockBid]);
 
   const handleAudioError = useCallback(() => {
+    logAudioInterrupt('收到 audio onError 事件，停止当前播放', {
+      currentSrc: currentSrcRef.current,
+    });
     isWaitingForSegmentRef.current = false;
     isSegmentsPlaybackRef.current = false;
     setPlayingState(false);
     releaseExclusive();
-  }, [releaseExclusive, setPlayingState]);
+  }, [logAudioInterrupt, releaseExclusive, setPlayingState]);
 
   const handleLoadedMetadata = useCallback(() => {
     const audio = audioRef.current;
@@ -531,6 +700,9 @@ const AudioPlayerListBase = (
     ref,
     () => ({
       togglePlay: () => {
+        logAudioInterrupt('收到外部 togglePlay 调用', {
+          isPlaying: isPlayingRef.current,
+        });
         if (isPlayingRef.current) {
           pausePlayback();
           return;
@@ -541,6 +713,9 @@ const AudioPlayerListBase = (
         playCurrentTrack({ resume: canResume });
       },
       play: () => {
+        logAudioInterrupt('收到外部 play 调用', {
+          isPlaying: isPlayingRef.current,
+        });
         if (!isPlayingRef.current) {
           const canResume = Boolean(
             audioRef.current?.src && audioRef.current?.paused,
@@ -549,10 +724,14 @@ const AudioPlayerListBase = (
         }
       },
       pause: (options?: { traceId?: string; keepAutoPlay?: boolean }) => {
+        logAudioInterrupt('收到外部 pause 调用', {
+          traceId: options?.traceId ?? null,
+          keepAutoPlay: Boolean(options?.keepAutoPlay),
+        });
         pausePlayback(options);
       },
     }),
-    [pausePlayback, playCurrentTrack],
+    [logAudioInterrupt, pausePlayback, playCurrentTrack],
   );
 
   useEffect(() => {
@@ -569,6 +748,9 @@ const AudioPlayerListBase = (
     if (playlist.length) {
       return;
     }
+    logAudioInterrupt('播放列表变为空，执行强制 pause + 清理 src', {
+      playlistLength: playlist.length,
+    });
     const audio = audioRef.current;
     if (audio) {
       audio.pause();
@@ -582,7 +764,13 @@ const AudioPlayerListBase = (
     resetSegmentState();
     setPlayingState(false);
     releaseExclusive();
-  }, [playlist.length, releaseExclusive, resetSegmentState, setPlayingState]);
+  }, [
+    logAudioInterrupt,
+    playlist.length,
+    releaseExclusive,
+    resetSegmentState,
+    setPlayingState,
+  ]);
 
   useEffect(() => {
     const nextBid = currentTrack?.generated_block_bid ?? null;
@@ -590,6 +778,17 @@ const AudioPlayerListBase = (
     if (!isTrackChanged) {
       return;
     }
+    logAudioDebug('audio-player-track-changed', {
+      fromBid: currentTrackBidRef.current,
+      toBid: nextBid,
+      sequenceBlockBid,
+      currentIndex: currentIndexRef.current,
+    });
+    logAudioInterrupt('当前轨道发生切换，执行 pause 并重置 src', {
+      fromBid: currentTrackBidRef.current,
+      toBid: nextBid,
+      fromIndex: currentIndexRef.current,
+    });
     currentTrackBidRef.current = nextBid;
     isUsingSegmentsRef.current = false;
     isSegmentsPlaybackRef.current = false;
@@ -602,27 +801,53 @@ const AudioPlayerListBase = (
       audio.load();
     }
     currentSrcRef.current = null;
-  }, [currentTrack, resetSegmentState]);
+  }, [currentTrack, logAudioInterrupt, resetSegmentState, sequenceBlockBid]);
 
   useEffect(() => {
     if (!currentTrack || disabled) {
       return;
     }
+    const bid = currentTrack.generated_block_bid ?? null;
+    if (sequenceBlockBid === null) {
+      // High-frequency skip branch; keep silent to reduce noisy debug output.
+      return;
+    }
+    if (isSequenceActive && bid !== sequenceBlockBid) {
+      // Wait until sequence index switches to the exact target track.
+      return;
+    }
     if (shouldResumeRef.current) {
       shouldResumeRef.current = false;
-      startPlaybackForTrack();
+      // Resume from the paused progress instead of restarting from zero.
+      const resumed = startPlaybackForTrack({ resume: true });
+      if (resumed && bid) {
+        // Mark as auto-played to prevent duplicate autoplay restart at 0s.
+        autoPlayedTrackRef.current = bid;
+      }
       return;
     }
     if (!autoPlay || isPausedRef.current) {
       return;
     }
-    const bid = currentTrack.generated_block_bid ?? null;
     if (bid && autoPlayedTrackRef.current === bid) {
+      // High-frequency skip branch; keep silent to reduce noisy debug output.
       return;
     }
+    logAudioDebug('audio-player-autoplay-attempt', {
+      bid,
+      sequenceBlockBid,
+      isSequenceActive,
+      isPaused: isPausedRef.current,
+      isStreaming: Boolean(currentTrack.isAudioStreaming),
+      segments: currentSegments.length,
+      hasUrl: Boolean(currentTrack.audioUrl),
+    });
     const started = startPlaybackForTrack();
     if (started && bid) {
       autoPlayedTrackRef.current = bid;
+      logAudioDebug('audio-player-autoplay-started', {
+        bid,
+      });
     }
   }, [
     autoPlay,
@@ -631,6 +856,8 @@ const AudioPlayerListBase = (
     currentTrack?.audioUrl,
     currentTrack?.isAudioStreaming,
     disabled,
+    isSequenceActive,
+    sequenceBlockBid,
     startPlaybackForTrack,
   ]);
 
@@ -644,6 +871,12 @@ const AudioPlayerListBase = (
     if (nextIndex < 0 || nextIndex === currentIndexRef.current) {
       return;
     }
+    logAudioDebug('audio-player-sequence-switch-track', {
+      sequenceBlockBid,
+      fromIndex: currentIndexRef.current,
+      toIndex: nextIndex,
+      isSequenceActive,
+    });
     shouldResumeRef.current = isSequenceActive && !isPausedRef.current;
     setCurrentIndex(nextIndex);
   }, [isSequenceActive, playlist, sequenceBlockBid]);
@@ -655,9 +888,21 @@ const AudioPlayerListBase = (
     if (!isSequenceActive) {
       return;
     }
+    logAudioDebug('audio-player-sequence-stop-with-null-bid', {
+      isPlaying: isPlayingRef.current,
+      isWaitingForSegment: isWaitingForSegmentRef.current,
+    });
+    logAudioInterrupt('sequenceBlockBid 变为 null，序列要求暂停当前音频', {
+      isWaitingForSegment: isWaitingForSegmentRef.current,
+    });
     shouldResumeRef.current = false;
     if (isPlayingRef.current || isWaitingForSegmentRef.current) {
-      pausePlayback();
+      // This pause is sequence-driven, not user-driven. Keep auto-play available
+      // so the next sequence item can start automatically.
+      pausePlayback({
+        traceId: 'sequence-null-bid',
+        keepAutoPlay: true,
+      });
     }
   }, [isSequenceActive, pausePlayback, sequenceBlockBid]);
 
@@ -674,6 +919,22 @@ const AudioPlayerListBase = (
     }
     if (track && !track.isAudioStreaming) {
       const url = resolveTrackUrl(track);
+      const hasFinalSegment = segments.some(segment =>
+        Boolean(segment?.isFinal),
+      );
+      if (isSequenceActive && hasFinalSegment) {
+        logAudioInterrupt(
+          '序列模式检测到 final segment，跳过 URL 补播兜底，直接结束当前轨道',
+          {
+            segmentCount: segments.length,
+            hasUrl: Boolean(url),
+            startAtSeconds: playedSecondsRef.current + segmentOffsetRef.current,
+            trackDurationMs: track.audioDurationMs ?? 0,
+          },
+        );
+        finishTrack();
+        return;
+      }
       if (url) {
         const startAtSeconds =
           playedSecondsRef.current + segmentOffsetRef.current;
@@ -686,6 +947,8 @@ const AudioPlayerListBase = (
   }, [
     currentSegments.length,
     currentTrack?.isAudioStreaming,
+    isSequenceActive,
+    logAudioInterrupt,
     finishTrack,
     resolveTrackUrl,
     resetSegmentState,
@@ -695,6 +958,9 @@ const AudioPlayerListBase = (
 
   useEffect(() => {
     return () => {
+      logAudioInterruptRef.current('AudioPlayerList 组件卸载，释放排他权限', {
+        currentSrc: currentSrcRef.current,
+      });
       releaseExclusive();
     };
   }, [releaseExclusive]);

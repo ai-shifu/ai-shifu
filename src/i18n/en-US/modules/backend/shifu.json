@@ -10,6 +10,7 @@
     "outlineNameTooLong": "Outline name is too long",
     "outlineNotFound": "Outline not found",
     "parentOutlineNotFound": "Parent outline not found",
+    "permissionContactLimit": "Shared permissions exceed the limit ({count})",
     "shifuDescriptionTooLong": "Course description is too long (max 500 characters)",
     "shifuNameAlreadyExists": "Course name already exists",
     "shifuNameRequired": "Course name is required",

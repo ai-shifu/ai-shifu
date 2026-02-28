@@ -34,9 +34,9 @@ import tempfile
 import base64
 import json
 import uuid
+import re
 from dataclasses import replace
 from pathlib import Path
-from urllib.parse import urlsplit
 
 from flask import (
     Flask,
@@ -62,6 +62,21 @@ from functools import wraps
 from enum import Enum
 from flaskr.service.shifu.shifu_import_export_funcs import export_shifu
 from flaskr.common.shifu_context import with_shifu_context
+from flaskr.common.cache_provider import cache as redis
+from flaskr.common.config import get_config
+from flaskr.dao import db
+from flaskr.service.shifu.models import AiCourseAuth
+from flaskr.service.shifu.utils import get_shifu_creator_bid
+from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
+from flaskr.service.user.repository import (
+    ensure_user_for_identifier,
+    load_user_aggregate,
+    load_user_aggregate_by_identifier,
+    set_user_state,
+    upsert_credential,
+)
+from flaskr.i18n import _
+from flaskr.util.uuid import generate_id
 
 
 from flaskr.service.shifu.shifu_draft_funcs import (
@@ -89,12 +104,22 @@ from flaskr.service.shifu.shifu_mdflow_funcs import (
     save_shifu_mdflow,
     parse_shifu_mdflow,
 )
+from flaskr.service.shifu.permissions import (
+    _auth_types_to_permissions,
+    _normalize_auth_types,
+)
 
 
 class ShifuPermission(Enum):
     VIEW = "view"
     EDIT = "edit"
     PUBLISH = "publish"
+
+
+MAX_SHARED_COURSE_USERS = 10
+MAX_CONTACT_LENGTH = 320
+PHONE_PATTERN = re.compile(r"^\d{11}$")
+EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 
 
 class ShifuTokenValidation:
@@ -161,16 +186,12 @@ class ShifuTokenValidation:
 
 def _get_request_base_url() -> str:
     """
-    Determine the base URL based on the incoming request headers.
+    Determine the base URL for frontend links.
     """
-    origin = request.headers.get("Origin")
-    if origin:
-        return origin.rstrip("/")
-    referer = request.headers.get("Referer")
-    if referer:
-        parsed_referer = urlsplit(referer)
-        if parsed_referer.scheme and parsed_referer.netloc:
-            return f"{parsed_referer.scheme}://{parsed_referer.netloc}"
+    server_name = current_app.config.get("SERVER_NAME")
+    if server_name:
+        scheme = "https" if request.is_secure else "http"
+        return f"{scheme}://{server_name}".rstrip("/")
     return request.url_root.rstrip("/")
 
 
@@ -180,6 +201,82 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     Register shifu routes
     """
     app.logger.info(f"register shifu routes {path_prefix}")
+
+    def _get_login_methods_enabled() -> set[str]:
+        """Resolve enabled login methods from configuration."""
+        raw = get_config("LOGIN_METHODS_ENABLED", "phone")
+        if isinstance(raw, (list, tuple, set)):
+            items = raw
+        else:
+            items = str(raw).split(",")
+        methods = {str(item).strip().lower() for item in items if str(item).strip()}
+        if "google" in methods:
+            methods.add("email")
+        return methods
+
+    def _normalize_contact_type(raw_type: str) -> str:
+        """Normalize the incoming contact type value."""
+        return (raw_type or "").strip().lower()
+
+    def _normalize_contacts(raw_contacts: object) -> list[str]:
+        """Split and normalize contact identifiers from request payloads."""
+        if isinstance(raw_contacts, str):
+            items = re.split(r"[,\uFF0C\n]", raw_contacts)
+        elif isinstance(raw_contacts, (list, tuple, set)):
+            items = list(raw_contacts)
+        else:
+            items = []
+        normalized = []
+        for item in items:
+            if item is None:
+                continue
+            trimmed = str(item).strip()
+            if trimmed:
+                normalized.append(trimmed)
+        return normalized
+
+    def _validate_contacts(contact_type: str, contacts: list[str]) -> list[str]:
+        """Validate and deduplicate contact identifiers."""
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for contact in contacts:
+            if not contact or len(contact) > MAX_CONTACT_LENGTH:
+                raise_param_error("contact")
+            candidate = contact.lower() if contact_type == "email" else contact
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            if contact_type == "phone":
+                if not PHONE_PATTERN.match(contact):
+                    raise_param_error("mobile")
+            elif contact_type == "email":
+                if not EMAIL_PATTERN.match(candidate):
+                    raise_param_error("email")
+            normalized.append(candidate)
+        return normalized
+
+    def _require_shifu_owner(shifu_bid: str) -> str:
+        """Ensure the current user is the shifu owner and a creator."""
+        user_id = request.user.user_id
+        if not getattr(request.user, "is_creator", False):
+            raise_error("server.shifu.noPermission")
+        creator_bid = get_shifu_creator_bid(app, shifu_bid)
+        if not creator_bid:
+            raise_error("server.shifu.shifuNotFound")
+        if creator_bid != user_id:
+            raise_error("server.shifu.noPermission")
+        return user_id
+
+    def _clear_shifu_permission_cache(user_id: str, shifu_bid: str) -> None:
+        """Remove cached permission entries for a given user/shifu pair."""
+        # Clear both legacy and current redis prefixes to avoid stale permissions.
+        prefixes = {
+            app.config.get("CACHE_KEY_PREFIX", "") or "",
+            get_config("REDIS_KEY_PREFIX") or "",
+        }
+        for prefix in prefixes:
+            cache_key = f"{prefix}shifu_permission:{user_id}:{shifu_bid}"
+            redis.delete(cache_key)
 
     @app.route(path_prefix + "/shifus", methods=["GET"])
     @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
@@ -256,6 +353,215 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         user_id = request.user.user_id
         unarchive_shifu(app, user_id, shifu_id)
         return make_common_response({"archived": False})
+
+    @app.route(path_prefix + "/shifus/<shifu_bid>/permissions", methods=["GET"])
+    @ShifuTokenValidation(ShifuPermission.VIEW)
+    def list_shifu_permissions_api(shifu_bid: str):
+        """List shared permissions for a shifu."""
+        owner_id = _require_shifu_owner(shifu_bid)
+        contact_type = _normalize_contact_type(request.args.get("contact_type", ""))
+        allowed_methods = _get_login_methods_enabled()
+        if contact_type and contact_type not in {"phone", "email"}:
+            raise_param_error("contact_type")
+        if contact_type and allowed_methods and contact_type not in allowed_methods:
+            raise_param_error("contact_type")
+        if not contact_type:
+            contact_type = "email" if "email" in allowed_methods else "phone"
+
+        items = []
+        auths = AiCourseAuth.query.filter(
+            AiCourseAuth.course_id == shifu_bid,
+            AiCourseAuth.status == 1,
+        ).all()
+        for auth in auths:
+            if not auth.user_id or auth.user_id == owner_id:
+                continue
+            aggregate = load_user_aggregate(auth.user_id)
+            if not aggregate:
+                continue
+            auth_types = _normalize_auth_types(auth.auth_type)
+            permissions = _auth_types_to_permissions(auth_types) or auth_types
+            if "publish" in permissions:
+                permission = "publish"
+            elif "edit" in permissions:
+                permission = "edit"
+            elif "view" in permissions:
+                permission = "view"
+            else:
+                continue
+
+            if contact_type == "email":
+                identifier = aggregate.email or ""
+            elif contact_type == "phone":
+                identifier = aggregate.mobile or ""
+            else:
+                identifier = aggregate.email or aggregate.mobile or ""
+            if not identifier:
+                continue
+
+            items.append(
+                {
+                    "user_id": aggregate.user_bid,
+                    "identifier": identifier or "",
+                    "nickname": aggregate.nickname or "",
+                    "permission": permission,
+                }
+            )
+        return make_common_response({"items": items})
+
+    @app.route(
+        path_prefix + "/shifus/<shifu_bid>/permissions/grant",
+        methods=["POST"],
+    )
+    @ShifuTokenValidation(ShifuPermission.VIEW)
+    def grant_shifu_permissions_api(shifu_bid: str):
+        """Grant shared permissions for a shifu."""
+        owner_id = _require_shifu_owner(shifu_bid)
+        payload = request.get_json() or {}
+        contact_type = _normalize_contact_type(payload.get("contact_type", ""))
+        raw_contacts = payload.get("contacts", [])
+        permission = _normalize_contact_type(payload.get("permission", ""))
+
+        allowed_methods = _get_login_methods_enabled()
+        if contact_type not in {"phone", "email"}:
+            raise_param_error("contact_type")
+        if allowed_methods and contact_type not in allowed_methods:
+            raise_param_error("contact_type")
+        if permission not in {"view", "edit", "publish"}:
+            raise_param_error("permission")
+
+        contacts = _normalize_contacts(raw_contacts)
+        if not contacts:
+            raise_param_error("contact")
+
+        contacts = _validate_contacts(contact_type, contacts)
+        if not contacts:
+            raise_param_error("contact")
+
+        existing_auths = AiCourseAuth.query.filter(
+            AiCourseAuth.course_id == shifu_bid,
+            AiCourseAuth.status == 1,
+        ).all()
+        existing_user_ids = {
+            auth.user_id
+            for auth in existing_auths
+            if auth.user_id and auth.user_id != owner_id
+        }
+
+        user_id_by_contact: dict[str, str] = {}
+        aggregate_by_contact: dict[str, object] = {}
+        new_contact_count = 0
+        for contact in contacts:
+            aggregate = load_user_aggregate_by_identifier(
+                contact, providers=[contact_type]
+            )
+            if aggregate:
+                if aggregate.user_bid == owner_id:
+                    continue
+                user_id_by_contact[contact] = aggregate.user_bid
+                aggregate_by_contact[contact] = aggregate
+            else:
+                new_contact_count += 1
+
+        new_existing_user_ids = {
+            user_id
+            for user_id in user_id_by_contact.values()
+            if user_id not in existing_user_ids and user_id != owner_id
+        }
+
+        if (
+            len(existing_user_ids) + len(new_existing_user_ids) + new_contact_count
+            > MAX_SHARED_COURSE_USERS
+        ):
+            raise_param_error(
+                _("server.shifu.permissionContactLimit").format(
+                    count=MAX_SHARED_COURSE_USERS
+                )
+            )
+
+        auth_types = ["view"]
+        if permission == "edit":
+            auth_types = ["edit"]
+        elif permission == "publish":
+            # Publish grants both edit and publish permissions.
+            auth_types = ["edit", "publish"]
+
+        for contact in contacts:
+            aggregate = aggregate_by_contact.get(contact)
+            if aggregate is None:
+                aggregate, _created = ensure_user_for_identifier(
+                    app,
+                    provider=contact_type,
+                    identifier=contact,
+                    defaults={"state": USER_STATE_REGISTERED},
+                )
+            else:
+                if aggregate.state == USER_STATE_UNREGISTERED:
+                    set_user_state(aggregate.user_bid, USER_STATE_REGISTERED)
+            if not aggregate or aggregate.user_bid == owner_id:
+                continue
+
+            normalized_contact = contact
+            if contact_type == "email":
+                normalized_contact = contact.lower()
+
+            upsert_credential(
+                app,
+                user_bid=aggregate.user_bid,
+                provider_name=contact_type,
+                subject_id=normalized_contact,
+                subject_format=contact_type,
+                identifier=normalized_contact,
+                metadata={},
+                verified=True,
+            )
+
+            auth = AiCourseAuth.query.filter(
+                AiCourseAuth.course_id == shifu_bid,
+                AiCourseAuth.user_id == aggregate.user_bid,
+            ).first()
+            if auth:
+                auth.auth_type = json.dumps(auth_types)
+                auth.status = 1
+            else:
+                db.session.add(
+                    AiCourseAuth(
+                        course_auth_id=generate_id(app),
+                        user_id=aggregate.user_bid,
+                        course_id=shifu_bid,
+                        auth_type=json.dumps(auth_types),
+                        status=1,
+                    )
+                )
+            _clear_shifu_permission_cache(aggregate.user_bid, shifu_bid)
+
+        db.session.commit()
+        return make_common_response({"count": len(contacts)})
+
+    @app.route(
+        path_prefix + "/shifus/<shifu_bid>/permissions/remove",
+        methods=["POST"],
+    )
+    @ShifuTokenValidation(ShifuPermission.VIEW)
+    def remove_shifu_permissions_api(shifu_bid: str):
+        """Remove a shared permission from a shifu."""
+        owner_id = _require_shifu_owner(shifu_bid)
+        payload = request.get_json() or {}
+        user_id = str(payload.get("user_id", "")).strip()
+        if not user_id:
+            raise_param_error("user_id")
+        if user_id == owner_id:
+            raise_error("server.shifu.noPermission")
+
+        auth = AiCourseAuth.query.filter(
+            AiCourseAuth.course_id == shifu_bid,
+            AiCourseAuth.user_id == user_id,
+        ).first()
+        if auth:
+            auth.status = 0
+        _clear_shifu_permission_cache(user_id, shifu_bid)
+        db.session.commit()
+        return make_common_response({"removed": True})
 
     @app.route(path_prefix + "/shifus", methods=["PUT"])
     @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)

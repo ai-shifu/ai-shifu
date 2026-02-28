@@ -17,12 +17,17 @@ const api = {
 
   // auth
   sendSmsCode: 'POST /user/send_sms_code',
+  sendEmailCode: 'POST /user/send_email_code',
   requireTmp: 'POST /user/require_tmp',
   verifySmsCode: 'POST /user/verify_sms_code',
   submitFeedback: 'POST /user/submit-feedback',
   googleOauthStart: 'GET /user/oauth/google',
   googleOauthCallback: 'GET /user/oauth/google/callback',
   ensureAdminCreator: 'POST /user/ensure_admin_creator',
+  loginPassword: 'POST /user/login_password',
+  setPassword: 'POST /user/set_password',
+  changePassword: 'POST /user/change_password',
+  resetPassword: 'POST /user/reset_password',
 
   // shifu api start
   getShifuList: 'GET /shifu/shifus',
@@ -33,6 +38,9 @@ const api = {
   previewShifu: 'POST /shifu/shifus/{shifu_bid}/preview',
   archiveShifu: 'POST /shifu/shifus/{shifu_bid}/archive',
   unarchiveShifu: 'POST /shifu/shifus/{shifu_bid}/unarchive',
+  listShifuPermissions: 'GET /shifu/shifus/{shifu_bid}/permissions',
+  grantShifuPermissions: 'POST /shifu/shifus/{shifu_bid}/permissions/grant',
+  removeShifuPermission: 'POST /shifu/shifus/{shifu_bid}/permissions/remove',
   previewOutlineBlock: 'POST /learn/shifu/{shifu_bid}/preview/{outline_bid}',
   // shifu api end
 
