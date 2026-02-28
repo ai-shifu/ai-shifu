@@ -28,7 +28,7 @@ import { normalizeShifuDetail } from '@/lib/shifu-normalize';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import {
   type AudioSegment,
-  mergeAudioSegment,
+  mergeAudioSegmentByUniqueKey,
   normalizeAudioSegmentPayload,
 } from '@/c-utils/audio-utils';
 import {
@@ -1344,7 +1344,8 @@ export default function ShifuSettingDialog({
             return;
           }
 
-          const updatedSegments = mergeAudioSegment(
+          const updatedSegments = mergeAudioSegmentByUniqueKey(
+            'tts-preview',
             ttsPreviewSegmentsRef.current,
             mappedSegment,
           );

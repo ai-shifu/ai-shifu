@@ -2,6 +2,7 @@ import traceback
 import threading
 import queue
 import contextlib
+import time
 from typing import Any, Generator, Optional
 from flask import Flask
 
@@ -45,7 +46,7 @@ def run_script_inner(
     input: str | dict = None,
     input_type: str = None,
     reload_generated_block_bid: str = None,
-    listen: bool = True,
+    listen: bool = False,
     preview_mode: bool = False,
     stop_event: threading.Event | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -158,13 +159,15 @@ def run_script(
     input: str | dict = None,
     input_type: str = None,
     reload_generated_block_bid: str = None,
-    listen: bool = True,
+    listen: bool = False,
     preview_mode: bool = False,
     shifu_context_snapshot: Optional[dict[str, Any]] = None,
 ) -> Generator[str, None, None]:
     timeout = 5 * 60
     blocking_timeout = 1
-    heartbeat_interval = float(app.config.get("SSE_HEARTBEAT_INTERVAL", 0.1))
+    lock_retry_count = 5
+    lock_retry_sleep_seconds = 0.2
+    heartbeat_interval = float(app.config.get("SSE_HEARTBEAT_INTERVAL", 0.5))
     lock_key = (
         app.config.get("REDIS_KEY_PREFIX")
         + ":run_script:"
@@ -175,7 +178,22 @@ def run_script(
     lock = cache_provider.lock(
         lock_key, timeout=timeout, blocking_timeout=blocking_timeout
     )
-    if lock.acquire(blocking=True):
+    acquired = False
+    for attempt in range(lock_retry_count + 1):
+        if lock.acquire(blocking=True):
+            acquired = True
+            break
+        if attempt < lock_retry_count:
+            app.logger.info(
+                "run_script lock busy, retrying: user_bid=%s outline_bid=%s attempt=%s/%s",
+                user_bid,
+                outline_bid,
+                attempt + 1,
+                lock_retry_count + 1,
+            )
+            time.sleep(lock_retry_sleep_seconds)
+
+    if acquired:
         stop_event = threading.Event()
         output_queue: queue.Queue[tuple[str, object]] = queue.Queue()
         # Capture logging context from the request thread so logs in the producer thread keep the same identifiers
@@ -386,7 +404,53 @@ def run_script(
             + "\n\n".encode("utf-8").decode("utf-8")
         )
     else:
-        app.logger.warning("lockfail")
+        app.logger.warning(
+            "run_script lock acquisition failed: user_bid=%s outline_bid=%s",
+            user_bid,
+            outline_bid,
+        )
+        yield (
+            "data: "
+            + json.dumps(
+                RunMarkdownFlowDTO(
+                    outline_bid=outline_bid,
+                    generated_block_bid="",
+                    type=GeneratedType.CONTENT,
+                    content=str(_("server.learn.outputInProgress")),
+                ),
+                default=fmt,
+                ensure_ascii=False,
+            )
+            + "\n\n".encode("utf-8").decode("utf-8")
+        )
+        yield (
+            "data: "
+            + json.dumps(
+                RunMarkdownFlowDTO(
+                    outline_bid=outline_bid,
+                    generated_block_bid="",
+                    type=GeneratedType.BREAK,
+                    content="",
+                ),
+                default=fmt,
+                ensure_ascii=False,
+            )
+            + "\n\n".encode("utf-8").decode("utf-8")
+        )
+        yield (
+            "data: "
+            + json.dumps(
+                RunMarkdownFlowDTO(
+                    outline_bid=outline_bid,
+                    generated_block_bid="",
+                    type=GeneratedType.DONE,
+                    content="",
+                ),
+                default=fmt,
+                ensure_ascii=False,
+            )
+            + "\n\n".encode("utf-8").decode("utf-8")
+        )
 
 
 def get_run_status(
