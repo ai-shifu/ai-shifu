@@ -691,8 +691,7 @@ def _count_follow_ups_by_day(
     if end_dt_exclusive is not None:
         query = query.filter(LearnGeneratedBlock.created_at < end_dt_exclusive)
     rows = (
-        query
-        .group_by(db.func.date(LearnGeneratedBlock.created_at))
+        query.group_by(db.func.date(LearnGeneratedBlock.created_at))
         .order_by(db.func.date(LearnGeneratedBlock.created_at).asc())
         .all()
     )
@@ -1360,17 +1359,14 @@ def build_dashboard_learner_detail(
             for key, value in sorted(variables_dict.items(), key=lambda item: item[0])
         ]
 
-        follow_up_rows = (
-            db.session.query(
-                LearnGeneratedBlock.outline_item_bid.label("outline_bid"),
-                db.func.count(LearnGeneratedBlock.id).label("c"),
-            )
-            .filter(
-                LearnGeneratedBlock.shifu_bid == shifu_bid,
-                LearnGeneratedBlock.user_bid == user_bid,
-                LearnGeneratedBlock.deleted == 0,
-                LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
-            )
+        follow_up_rows = db.session.query(
+            LearnGeneratedBlock.outline_item_bid.label("outline_bid"),
+            db.func.count(LearnGeneratedBlock.id).label("c"),
+        ).filter(
+            LearnGeneratedBlock.shifu_bid == shifu_bid,
+            LearnGeneratedBlock.user_bid == user_bid,
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
         )
         if start_dt is not None:
             follow_up_rows = follow_up_rows.filter(
@@ -1646,7 +1642,9 @@ def _load_dashboard_detail_export_rows(
                 LearnGeneratedBlock.created_at >= start_dt,
                 LearnGeneratedBlock.created_at < end_dt_exclusive,
             )
-            .order_by(LearnGeneratedBlock.created_at.asc(), LearnGeneratedBlock.id.asc())
+            .order_by(
+                LearnGeneratedBlock.created_at.asc(), LearnGeneratedBlock.id.asc()
+            )
             .all()
         )
         if not generated_rows:

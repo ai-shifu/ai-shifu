@@ -978,7 +978,9 @@ class TestDashboardRoutes:
         in_range = datetime(2025, 2, 10, 9, 0, 0)
         out_of_range = datetime(2024, 12, 10, 9, 0, 0)
         with app.app_context():
-            self._seed_dashboard_course(shifu_bid="course-consistent", title="Consistent")
+            self._seed_dashboard_course(
+                shifu_bid="course-consistent", title="Consistent"
+            )
             self._seed_published_struct(
                 shifu_bid="course-consistent",
                 outlines=[_OutlineSeed(bid="lesson-1", title="Lesson 1")],
@@ -1057,7 +1059,9 @@ class TestDashboardRoutes:
             db.session.commit()
 
         query = "start_date=2025-02-01&end_date=2025-02-28"
-        entry_resp = test_client.get(f"/api/dashboard/entry?{query}&page_index=1&page_size=20")
+        entry_resp = test_client.get(
+            f"/api/dashboard/entry?{query}&page_index=1&page_size=20"
+        )
         entry_payload = entry_resp.get_json(force=True)
         overview_resp = test_client.get(
             f"/api/dashboard/shifus/course-consistent/overview?{query}"
@@ -1186,9 +1190,9 @@ class TestDashboardRoutes:
         detail_payload = detail_resp.get_json(force=True)
         assert detail_resp.status_code == 200
         assert detail_payload["code"] == 0
-        assert [item["outline_item_bid"] for item in detail_payload["data"]["outlines"]] == [
-            "lesson-1"
-        ]
+        assert [
+            item["outline_item_bid"] for item in detail_payload["data"]["outlines"]
+        ] == ["lesson-1"]
 
     def test_learners_pagination(self, monkeypatch, test_client, app):
         self._mock_request_user(monkeypatch)
@@ -1458,7 +1462,9 @@ class TestDashboardRoutes:
         assert resp.status_code == 200
         assert payload["code"] != 0
 
-    def test_dashboard_export_returns_expected_excel(self, monkeypatch, test_client, app):
+    def test_dashboard_export_returns_expected_excel(
+        self, monkeypatch, test_client, app
+    ):
         self._mock_request_user(monkeypatch)
         self._allow_permission(monkeypatch, allowed=True)
 

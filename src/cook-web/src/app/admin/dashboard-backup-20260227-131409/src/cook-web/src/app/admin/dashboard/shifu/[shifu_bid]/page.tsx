@@ -76,7 +76,10 @@ const parseDateValue = (value: string): Date | undefined => {
 };
 
 const buildRequestId = (): string => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
     return crypto.randomUUID().replace(/-/g, '');
   }
   return `${Date.now()}${Math.random().toString(36).slice(2, 10)}`;
@@ -206,15 +209,13 @@ export default function AdminDashboardPage() {
     }
     return value || '';
   }, [params]);
-  const [startDate, setStartDate] = useState(
-    () => urlStartDate,
-  );
-  const [endDate, setEndDate] = useState(
-    () => urlEndDate,
-  );
+  const [startDate, setStartDate] = useState(() => urlStartDate);
+  const [endDate, setEndDate] = useState(() => urlEndDate);
 
   useEffect(() => {
-    setStartDate(previous => (previous === urlStartDate ? previous : urlStartDate));
+    setStartDate(previous =>
+      previous === urlStartDate ? previous : urlStartDate,
+    );
     setEndDate(previous => (previous === urlEndDate ? previous : urlEndDate));
   }, [urlEndDate, urlStartDate]);
 
@@ -515,13 +516,16 @@ export default function AdminDashboardPage() {
       }
 
       const blob = await response.blob();
-      const contentDisposition = response.headers.get('Content-Disposition') || '';
+      const contentDisposition =
+        response.headers.get('Content-Disposition') || '';
       let filename = `${shifuBid}-dashboard-export.xlsx`;
       const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
       if (utf8Match && utf8Match[1]) {
         filename = decodeURIComponent(utf8Match[1]);
       } else {
-        const filenameMatch = contentDisposition.match(/filename=\"?([^\";]+)\"?/i);
+        const filenameMatch = contentDisposition.match(
+          /filename=\"?([^\";]+)\"?/i,
+        );
         if (filenameMatch && filenameMatch[1]) {
           filename = filenameMatch[1];
         }
@@ -685,7 +689,9 @@ export default function AdminDashboardPage() {
                       {t('module.dashboard.entry.kpi.orders')}
                     </div>
                     <div className='mt-2 text-2xl font-semibold text-foreground'>
-                      {overviewLoading ? '-' : (overview?.kpis.order_count ?? '-')}
+                      {overviewLoading
+                        ? '-'
+                        : (overview?.kpis.order_count ?? '-')}
                     </div>
                   </CardContent>
                 </Card>
