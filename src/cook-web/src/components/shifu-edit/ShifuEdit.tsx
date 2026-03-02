@@ -204,6 +204,19 @@ const ScriptEditor = ({ id }: { id: string }) => {
     currentShifuBidRef.current = currentShifu?.bid ?? null;
   }, [currentShifu?.bid]);
 
+  const shouldSkipConflictCheck =
+    !currentShifu?.bid || Boolean(currentShifu?.readonly);
+
+  const resetDraftConflictState = useCallback(() => {
+    conflictDialogDismissedRef.current = false;
+    actionsRef.current.setDraftConflict(false);
+    actionsRef.current.setAutosavePaused(false);
+    actionsRef.current.setLatestDraftMeta(null);
+    actionsRef.current.setBaseRevision(null);
+    actionsRef.current.cancelAutoSaveBlocks();
+    setIsDraftConflictDialogOpen(false);
+  }, []);
+
   useEffect(() => {
     return () => {
       stopPreview();
@@ -256,20 +269,20 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [id, isGuest, isInitialized]);
 
   useEffect(() => {
-    if (!currentShifu?.bid || currentShifu?.readonly) {
+    if (!currentShifu?.bid) {
       return;
     }
     if (initializedShifuRef.current === currentShifu.bid) {
+      if (shouldSkipConflictCheck) {
+        resetDraftConflictState();
+      }
       return;
     }
     initializedShifuRef.current = currentShifu.bid;
-    conflictDialogDismissedRef.current = false;
-    actionsRef.current.setDraftConflict(false);
-    actionsRef.current.setAutosavePaused(false);
-    actionsRef.current.setLatestDraftMeta(null);
-    actionsRef.current.setBaseRevision(null);
-    actionsRef.current.cancelAutoSaveBlocks();
-    setIsDraftConflictDialogOpen(false);
+    resetDraftConflictState();
+    if (shouldSkipConflictCheck) {
+      return;
+    }
 
     let isActive = true;
     const targetBid = currentShifu.bid;
@@ -286,7 +299,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     return () => {
       isActive = false;
     };
-  }, [currentShifu?.bid, currentShifu?.readonly]);
+  }, [currentShifu?.bid, resetDraftConflictState, shouldSkipConflictCheck]);
 
   const markDraftConflict = useCallback((meta?: DraftMeta | null) => {
     if (
@@ -307,7 +320,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const detectDraftConflict = useCallback(async () => {
     const shifuId = currentShifuBidRef.current;
-    if (!shifuId || currentShifu?.readonly) {
+    if (!shifuId || shouldSkipConflictCheck) {
       return;
     }
     if (
@@ -343,10 +356,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
     ) {
       actionsRef.current.setBaseRevision(meta.revision);
     }
-  }, [currentShifu?.readonly, markDraftConflict]);
+  }, [markDraftConflict, shouldSkipConflictCheck]);
 
   useEffect(() => {
-    if (!currentShifu?.bid || currentShifu?.readonly) {
+    if (shouldSkipConflictCheck) {
       return;
     }
     let isActive = true;
@@ -376,7 +389,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
       document.removeEventListener('visibilitychange', handleVisibility);
       window.clearInterval(timer);
     };
-  }, [currentShifu?.bid, currentShifu?.readonly, detectDraftConflict]);
+  }, [detectDraftConflict, shouldSkipConflictCheck]);
 
   useEffect(() => {
     if (hasDraftConflict && !conflictDialogDismissedRef.current) {
