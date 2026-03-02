@@ -684,9 +684,9 @@ class TestDashboardRoutes:
         self._mock_request_user(monkeypatch)
         monkeypatch.setattr(
             "flaskr.service.dashboard.funcs.get_dynamic_config",
-            lambda key, default=None: "course-demo"
-            if key == "DEMO_SHIFU_BID"
-            else default,
+            lambda key, default=None: (
+                "course-demo" if key == "DEMO_SHIFU_BID" else default
+            ),
             raising=False,
         )
 
