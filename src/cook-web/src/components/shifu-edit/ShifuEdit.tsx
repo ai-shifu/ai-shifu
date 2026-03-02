@@ -256,7 +256,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [id, isGuest, isInitialized]);
 
   useEffect(() => {
-    if (!currentShifu?.bid) {
+    if (!currentShifu?.bid || currentShifu?.readonly) {
       return;
     }
     if (initializedShifuRef.current === currentShifu.bid) {
@@ -286,7 +286,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     return () => {
       isActive = false;
     };
-  }, [currentShifu?.bid]);
+  }, [currentShifu?.bid, currentShifu?.readonly]);
 
   const markDraftConflict = useCallback((meta?: DraftMeta | null) => {
     if (
@@ -307,7 +307,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const detectDraftConflict = useCallback(async () => {
     const shifuId = currentShifuBidRef.current;
-    if (!shifuId) {
+    if (!shifuId || currentShifu?.readonly) {
       return;
     }
     if (
@@ -343,10 +343,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
     ) {
       actionsRef.current.setBaseRevision(meta.revision);
     }
-  }, [markDraftConflict]);
+  }, [currentShifu?.readonly, markDraftConflict]);
 
   useEffect(() => {
-    if (!currentShifu?.bid) {
+    if (!currentShifu?.bid || currentShifu?.readonly) {
       return;
     }
     let isActive = true;
@@ -376,7 +376,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
       document.removeEventListener('visibilitychange', handleVisibility);
       window.clearInterval(timer);
     };
-  }, [currentShifu?.bid, detectDraftConflict]);
+  }, [currentShifu?.bid, currentShifu?.readonly, detectDraftConflict]);
 
   useEffect(() => {
     if (hasDraftConflict && !conflictDialogDismissedRef.current) {
