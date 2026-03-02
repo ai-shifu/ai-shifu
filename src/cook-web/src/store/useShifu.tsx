@@ -16,6 +16,10 @@ import {
   ModelOption,
   SaveMdflowPayload,
   LessonCreationSettings,
+  DraftMeta,
+  MdflowHistoryItem,
+  MdflowHistoryListResult,
+  MdflowHistoryRestoreResult,
 } from '../types/shifu';
 import api from '@/api';
 import { debounce } from 'lodash';
@@ -198,6 +202,12 @@ export const ShifuProvider = ({
   const [hiddenVariables, setHiddenVariables] = useState<string[]>([]);
   const [unusedVariables, setUnusedVariables] = useState<string[]>([]);
   const [hideUnusedMode, setHideUnusedMode] = useState(false);
+  const [baseRevision, setBaseRevision] = useState<number | null>(null);
+  const [latestDraftMeta, setLatestDraftMeta] = useState<DraftMeta | null>(
+    null,
+  );
+  const [hasDraftConflict, setHasDraftConflict] = useState(false);
+  const [autosavePaused, setAutosavePaused] = useState(false);
   const currentMdflow = useRef<string>('');
   const lastPersistedMdflowRef = useRef<Record<string, string>>({});
   const saveMdflowLockRef = useRef<{
@@ -530,6 +540,82 @@ export const ShifuProvider = ({
     }
   };
 
+  const loadDraftMeta = useCallback(async (shifuId: string) => {
+    if (!shifuId) {
+      setLatestDraftMeta(null);
+      return null;
+    }
+    try {
+      const meta = await api.getShifuDraftMeta({ shifu_bid: shifuId });
+      setLatestDraftMeta(meta as DraftMeta);
+      return meta as DraftMeta;
+    } catch (error) {
+      console.error('Failed to load draft meta', error);
+      return null;
+    }
+  }, []);
+
+  const loadMdflowHistory = useCallback(
+    async (shifuId: string, outlineId: string, limit = 100) => {
+      if (!shifuId || !outlineId) {
+        return [] as MdflowHistoryItem[];
+      }
+      try {
+        const result = (await api.getMdflowHistory({
+          shifu_bid: shifuId,
+          outline_bid: outlineId,
+          limit,
+        })) as MdflowHistoryListResult;
+        return result?.items || [];
+      } catch (error) {
+        console.error('Failed to load mdflow history', error);
+        return [] as MdflowHistoryItem[];
+      }
+    },
+    [],
+  );
+
+  const restoreMdflowHistory = useCallback(
+    async (
+      shifuId: string,
+      outlineId: string,
+      versionId: number,
+      revision?: number | null,
+    ) => {
+      if (!shifuId || !outlineId || versionId == null) {
+        return null;
+      }
+      // Prevent pending debounced saves from overwriting restored content.
+      debouncedAutoSaveRef.current.cancel();
+      try {
+        const resolvedBaseRevision = revision ?? baseRevision ?? undefined;
+        const result = (await api.restoreMdflowHistory({
+          shifu_bid: shifuId,
+          outline_bid: outlineId,
+          version_id: versionId,
+          base_revision: resolvedBaseRevision,
+        })) as MdflowHistoryRestoreResult;
+        if (typeof result?.new_revision === 'number') {
+          setBaseRevision(result.new_revision);
+        }
+        return result;
+      } catch (error: any) {
+        if (error?.code === 4007) {
+          const meta = await loadDraftMeta(shifuId);
+          if (meta) {
+            setLatestDraftMeta(meta);
+          }
+          setHasDraftConflict(true);
+          setAutosavePaused(true);
+          return null;
+        }
+        console.error('Failed to restore mdflow history', error);
+        throw error;
+      }
+    },
+    [baseRevision, loadDraftMeta],
+  );
+
   const loadChapters = async (shifuId: string) => {
     try {
       setIsLoading(true);
@@ -841,11 +927,17 @@ export const ShifuProvider = ({
   const autoSaveBlocks = (
     payload?: SaveMdflowPayload,
   ): Promise<ApiResponse<SaveBlockListResult> | null> => {
+    if (autosavePaused || hasDraftConflict) {
+      return Promise.resolve(null);
+    }
     debouncedAutoSaveRef.current(payload);
     return Promise.resolve(null);
   };
 
   const flushAutoSaveBlocks = (payload?: SaveMdflowPayload) => {
+    if (autosavePaused || hasDraftConflict) {
+      return;
+    }
     if (payload) {
       debouncedAutoSaveRef.current(payload);
     }
@@ -1673,9 +1765,14 @@ export const ShifuProvider = ({
   );
 
   const saveMdflow = async (payload?: SaveMdflowPayload) => {
+    if (autosavePaused || hasDraftConflict) {
+      return;
+    }
     const shifu_bid = payload?.shifu_bid ?? currentShifu?.bid ?? '';
     const outline_bid = payload?.outline_bid ?? (currentNode?.bid || '');
     const data = payload?.data ?? currentMdflow.current;
+    const resolvedBaseRevision =
+      payload?.base_revision ?? baseRevision ?? undefined;
     if (saveMdflowLockRef.current.inflight) {
       if (outline_bid && saveMdflowLockRef.current.outlineId !== outline_bid) {
         // When another outline save is in-flight, skip cross-outline saves
@@ -1690,19 +1787,39 @@ export const ShifuProvider = ({
       inflight: true,
       outlineId: outline_bid || null,
     };
+    let keepLock = false;
     try {
-      await api.saveMdflow({
+      const result = await api.saveMdflow({
         shifu_bid,
         outline_bid,
         data,
+        base_revision: resolvedBaseRevision,
       });
+      if (result && typeof result.new_revision === 'number') {
+        setBaseRevision(result.new_revision);
+      }
       if (outline_bid) {
         mdflowCacheRef.current[outline_bid] = data || '';
         lastPersistedMdflowRef.current[outline_bid] = data || '';
       }
       setLastSaveTime(new Date());
+    } catch (error: any) {
+      if (error?.code === 4007) {
+        const meta = await loadDraftMeta(shifu_bid);
+        if (meta) {
+          setLatestDraftMeta(meta);
+        }
+        setHasDraftConflict(true);
+        setAutosavePaused(true);
+        debouncedAutoSaveRef.current.cancel();
+        keepLock = true;
+        return;
+      }
+      throw error;
     } finally {
-      saveMdflowLockRef.current = { inflight: false, outlineId: null };
+      if (!keepLock) {
+        saveMdflowLockRef.current = { inflight: false, outlineId: null };
+      }
     }
   };
 
@@ -1857,6 +1974,10 @@ export const ShifuProvider = ({
     systemVariables,
     unusedVariables,
     hideUnusedMode,
+    baseRevision,
+    latestDraftMeta,
+    hasDraftConflict,
+    autosavePaused,
     actions: {
       setFocusId,
       addChapter,
@@ -1893,6 +2014,13 @@ export const ShifuProvider = ({
       reorderOutlineTree,
       loadMdflow,
       saveMdflow,
+      loadDraftMeta,
+      loadMdflowHistory,
+      restoreMdflowHistory,
+      setBaseRevision,
+      setLatestDraftMeta,
+      setDraftConflict: setHasDraftConflict,
+      setAutosavePaused,
       parseMdflow,
       previewParse,
       hideUnusedVariables,

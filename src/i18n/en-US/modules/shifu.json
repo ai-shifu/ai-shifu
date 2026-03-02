@@ -7,6 +7,14 @@
     "modeText": "Easy",
     "title": "Teaching Prompts"
   },
+  "history": {
+    "empty": "No history yet",
+    "loading": "Loading...",
+    "restore": "Restore This Version",
+    "restoring": "Restoring...",
+    "title": "History",
+    "unknownUser": "Unknown user"
+  },
   "newChapter": "Add Chapter",
   "previewArea": {
     "action": "Debug",

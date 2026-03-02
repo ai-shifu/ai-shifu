@@ -16,13 +16,13 @@ repos:
     -   id: requirements-txt-fixer
         exclude: ^src/api/requirements\.txt$
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.13
+    rev: v0.15.2
     hooks:
     -   id: ruff-check
         args: [ --fix ]
     -   id: ruff-format
 -   repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.12.0  # use latest stable version
+    rev: v4.13.8  # use latest stable version
     hooks:
     -   id: commitizen
         stages: [commit-msg]

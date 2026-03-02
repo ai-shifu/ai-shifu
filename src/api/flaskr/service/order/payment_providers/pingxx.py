@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from typing import Dict, Any
 
 from flask import Flask
@@ -69,6 +70,34 @@ class PingxxProvider(PaymentProvider):
         """Public wrapper for configuring the pingpp client."""
         return self._ensure_client(app)
 
+    _NON_BMP_RE = re.compile(r"[\uD800-\uDFFF\U00010000-\U0010FFFF]")
+
+    @classmethod
+    def _sanitize_str(cls, text: str) -> str:
+        """Strip characters outside the Unicode BMP.
+
+        Some WeChat payment APIs (via Ping++) reject non-BMP Unicode
+        code points (above U+FFFF) and UTF-16 surrogates (U+D800-DFFF)
+        with: '请求内容传入了非UTF8参数'.  This covers emoji and rare
+        CJK Extension B+ ideographs which are extremely unlikely in
+        payment descriptions.
+        """
+        if not text:
+            return text
+        return cls._NON_BMP_RE.sub("", text).strip()
+
+    def _sanitize_extra(self, extra: Dict[str, Any]) -> Dict[str, Any]:
+        """Recursively sanitize string values in charge extra dict."""
+        sanitized: Dict[str, Any] = {}
+        for k, v in extra.items():
+            if isinstance(v, str):
+                sanitized[k] = self._sanitize_str(v)
+            elif isinstance(v, dict):
+                sanitized[k] = self._sanitize_extra(v)
+            else:
+                sanitized[k] = v
+        return sanitized
+
     def create_payment(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
@@ -84,9 +113,9 @@ class PingxxProvider(PaymentProvider):
             amount=request.amount,
             client_ip=request.client_ip,
             currency=request.currency,
-            subject=request.subject,
-            body=request.body,
-            extra=charge_extra,
+            subject=self._sanitize_str(request.subject) or request.order_bid,
+            body=self._sanitize_str(request.body) or request.order_bid,
+            extra=self._sanitize_extra(charge_extra),
         )
 
         return PaymentCreationResult(
