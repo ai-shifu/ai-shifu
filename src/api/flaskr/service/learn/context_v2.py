@@ -588,6 +588,7 @@ class RunScriptPreviewContextV2:
                 interaction_prompt=preview_request.interaction_prompt,
                 interaction_error_prompt=preview_request.interaction_error_prompt,
                 use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
+                visual_mode=bool(preview_request.visual_mode),
             )
 
             block_index = preview_request.block_index

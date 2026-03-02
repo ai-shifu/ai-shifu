@@ -320,6 +320,10 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                         type: number
                         required: false
                         description: override LLM temperature (0.0-2.0)
+                    visual_mode:
+                        type: boolean
+                        required: false
+                        description: Whether to enable MarkdownFlow visual mode for preview (default: false)
         responses:
             200:
                 description: stream preview block success
@@ -333,6 +337,13 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         normalized_user_input = payload.get("user_input")
         if normalized_user_input is None and "input" in payload:
             normalized_user_input = _normalize_user_input(payload.get("input"))
+        visual_mode_raw = payload.get("visual_mode", False)
+        if isinstance(visual_mode_raw, str):
+            visual_mode = visual_mode_raw.strip().lower() == "true"
+        elif visual_mode_raw is None:
+            visual_mode = False
+        else:
+            visual_mode = bool(visual_mode_raw)
         block_index = payload.get("block_index")
         if block_index is None:
             block_index = payload.get("blockIndex")
@@ -347,6 +358,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             "interaction_error_prompt": payload.get("interaction_error_prompt"),
             "model": payload.get("model"),
             "temperature": payload.get("temperature"),
+            "visual_mode": visual_mode,
         }
         try:
             preview_request = PlaygroundPreviewRequest(**preview_payload)
@@ -358,11 +370,12 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             request.headers.get("Session-Id") or f"preview-{uuid.uuid4().hex[:8]}"
         )
         app.logger.info(
-            "preview outline block, shifu_bid: %s, outline_bid: %s, user_bid: %s, block_index: %s",
+            "preview outline block, shifu_bid: %s, outline_bid: %s, user_bid: %s, block_index: %s, visual_mode: %s",
             shifu_bid,
             outline_bid,
             user_bid,
             preview_request.block_index,
+            visual_mode,
         )
 
         return _stream_sse_response(
