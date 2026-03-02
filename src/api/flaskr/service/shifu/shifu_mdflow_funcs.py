@@ -84,7 +84,7 @@ def _cleanup_outline_history_versions(
         return
 
     latest_id = int(latest_version.id)
-    cutoff_time = datetime.now() - timedelta(days=max(1, keep_days))
+    cutoff_time = datetime.utcnow() - timedelta(days=max(1, keep_days))
     to_mark_deleted_ids: set[int] = set()
 
     # Trim by age.
