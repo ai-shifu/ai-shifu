@@ -70,11 +70,28 @@ jobs:
           else
             PUSH_IMAGES="$DEFAULT_PUSH"
           fi
+          HAS_DOCKERHUB_TARGET=false
+          HAS_ALIYUN_TARGET=false
+          if [ -n "${DOCKERHUB_USER:-}" ] && [ -n "${DOCKERHUB_TOKEN:-}" ]; then
+            HAS_DOCKERHUB_TARGET=true
+          fi
+          if [ -n "${ALIYUN_DOCKER_USERNAME:-}" ] && [ -n "${ALIYUN_DOCKER_PASSWORD:-}" ]; then
+            HAS_ALIYUN_TARGET=true
+          fi
+          HAS_PUSH_TARGET=false
+          if [ "$HAS_DOCKERHUB_TARGET" = "true" ] || [ "$HAS_ALIYUN_TARGET" = "true" ]; then
+            HAS_PUSH_TARGET=true
+          fi
+          if [ "$PUSH_IMAGES" = "true" ] && [ "$HAS_PUSH_TARGET" != "true" ]; then
+            echo "⚠️ PUSH_LATEST_IMAGES=true but no registry credentials are configured; switching to build-only mode."
+            PUSH_IMAGES=false
+          fi
+          echo "HAS_PUSH_TARGET=$HAS_PUSH_TARGET" >> $GITHUB_ENV
           echo "PUSH_IMAGES=$PUSH_IMAGES" >> $GITHUB_ENV
           if [ "$PUSH_IMAGES" = "true" ]; then
             echo "🛳️ Images will be pushed to registries"
           else
-            echo "🧪 Dry run: images will be loaded locally only"
+            echo "🧪 Build-only mode: image push is disabled"
           fi
 
       - name: Login to Docker Hub
@@ -97,8 +114,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ${{ env.DOCKERHUB_USER && format('{0}/{1}', env.DOCKERHUB_USER, env[matrix.image_name_env]) || '' }}
-            ${{ env.ALIYUN_DOCKER_USERNAME && format('{0}/ai-shifu/{1}', env.ALIYUN_DOCKER_REGISTRY, env[matrix.image_name_env]) || '' }}
+            ${{ env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN && format('{0}/{1}', env.DOCKERHUB_USER, env[matrix.image_name_env]) || '' }}
+            ${{ env.ALIYUN_DOCKER_USERNAME && env.ALIYUN_DOCKER_PASSWORD && format('{0}/ai-shifu/{1}', env.ALIYUN_DOCKER_REGISTRY, env[matrix.image_name_env]) || '' }}
           tags: |
             type=raw,value=${{ env.GIT_SHA }}
             type=raw,value=latest
@@ -118,9 +135,9 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
-          push: ${{ env.PUSH_IMAGES == 'true' }}
-          load: ${{ env.PUSH_IMAGES != 'true' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          push: ${{ env.PUSH_IMAGES == 'true' && env.HAS_PUSH_TARGET == 'true' }}
+          load: false
+          tags: ${{ env.HAS_PUSH_TARGET == 'true' && steps.meta.outputs.tags || '' }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha
