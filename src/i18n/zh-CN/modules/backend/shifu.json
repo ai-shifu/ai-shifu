@@ -3,6 +3,7 @@
   "__flat__": {
     "defaultChapterName": "未命名章",
     "defaultLessonName": "未命名节",
+    "draftConflict": "课程内容已被其他用户更新",
     "importFileInvalid": "导入文件无效",
     "noPermission": "没有权限",
     "outlineDeleted": "大纲已被删除",
