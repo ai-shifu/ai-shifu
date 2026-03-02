@@ -48,14 +48,6 @@ const DraftConflictDialog = ({
         <DialogFooter>
           <Button
             type='button'
-            variant='outline'
-            onClick={onCancel}
-            className='min-w-[120px]'
-          >
-            {t('module.shifuSetting.draftConflictCancel')}
-          </Button>
-          <Button
-            type='button'
             onClick={onRefresh}
             className='min-w-[120px]'
           >
