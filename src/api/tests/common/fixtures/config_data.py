@@ -38,13 +38,6 @@ MINIMAL_ENV_VARS = {
         secret=True,
         group="auth",
     ),
-    "UNIVERSAL_VERIFICATION_CODE": EnvVar(
-        name="UNIVERSAL_VERIFICATION_CODE",
-        required=True,
-        description="Universal verification code",
-        secret=True,
-        group="auth",
-    ),
     "OPENAI_API_KEY": EnvVar(
         name="OPENAI_API_KEY",
         default="",
@@ -68,13 +61,6 @@ FULL_TEST_ENV_VARS = {
         name="SECRET_KEY",
         required=True,
         description="Secret key for JWT",
-        secret=True,
-        group="auth",
-    ),
-    "UNIVERSAL_VERIFICATION_CODE": EnvVar(
-        name="UNIVERSAL_VERIFICATION_CODE",
-        required=True,
-        description="Universal verification code",
         secret=True,
         group="auth",
     ),
@@ -165,7 +151,6 @@ INVALID_CONFIGS = [
 DOCKER_ENV_CONFIG = {
     "SQLALCHEMY_DATABASE_URI": "mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4",
     "SECRET_KEY": "docker-secret-key-123456",
-    "UNIVERSAL_VERIFICATION_CODE": "docker-123456",
     "REDIS_HOST": "ai-shifu-redis",
     "REDIS_PORT": "6379",
     "OPENAI_API_KEY": "sk-docker-test-key",
@@ -177,7 +162,6 @@ DOCKER_ENV_CONFIG = {
 PRODUCTION_ENV_CONFIG = {
     "SQLALCHEMY_DATABASE_URI": "mysql://prod_user:prod_pass@prod-db:3306/prod_db?charset=utf8mb4",
     "SECRET_KEY": "production-secret-key-very-long-and-secure",
-    "UNIVERSAL_VERIFICATION_CODE": "prod-verification-code",
     "REDIS_HOST": "redis.production.internal",
     "REDIS_PORT": "6379",
     "OPENAI_API_KEY": "sk-prod-real-key",
@@ -196,7 +180,6 @@ MISSING_REQUIRED_ENV = {
 INVALID_VALUES_ENV = {
     "SQLALCHEMY_DATABASE_URI": "mysql://test:test@localhost:3306/test",
     "SECRET_KEY": "test-key",
-    "UNIVERSAL_VERIFICATION_CODE": "test-code",
     "REDIS_PORT": "99999",  # Invalid port number
     "DEFAULT_LLM_TEMPERATURE": "5.0",  # Out of range
     "SWAGGER_ENABLED": "maybe",  # Invalid boolean
@@ -206,7 +189,6 @@ INVALID_VALUES_ENV = {
 NO_LLM_ENV = {
     "SQLALCHEMY_DATABASE_URI": "mysql://test:test@localhost:3306/test",
     "SECRET_KEY": "test-key",
-    "UNIVERSAL_VERIFICATION_CODE": "test-code",
     "REDIS_HOST": "localhost",
     "REDIS_PORT": "6379",
     # No LLM API keys provided
