@@ -12,7 +12,6 @@ from flaskr.service.shifu.shifu_history_manager import (
     save_outline_history,
     get_shifu_draft_meta,
     get_shifu_draft_revision,
-    get_shifu_draft_log,
 )
 from flaskr.service.profile.profile_manage import (
     get_profile_item_definition_list,
@@ -63,27 +62,31 @@ def save_shifu_mdflow(
     Save shifu mdflow
     """
     with app.app_context():
-        lock_latest = isinstance(base_revision, int)
-        latest_log = get_shifu_draft_log(app, shifu_bid, for_update=lock_latest)
-        latest_revision = int(latest_log.id) if latest_log else 0
-        updated_user_bid = latest_log.updated_user_bid if latest_log else ""
-        if (
-            isinstance(base_revision, int)
-            and base_revision >= 0
-            and latest_revision > base_revision
-            and (not updated_user_bid or updated_user_bid != user_id)
-        ):
-            return {"conflict": True, "meta": get_shifu_draft_meta(app, shifu_bid)}
-
-        outline_item: DraftOutlineItem = (
-            DraftOutlineItem.query.filter(
-                DraftOutlineItem.outline_item_bid == outline_bid
-            )
-            .order_by(DraftOutlineItem.id.desc())
-            .first()
-        )
+        lock_latest = isinstance(base_revision, int) and base_revision >= 0
+        outline_query = DraftOutlineItem.query.filter(
+            DraftOutlineItem.outline_item_bid == outline_bid
+        ).order_by(DraftOutlineItem.id.desc())
+        if lock_latest:
+            outline_query = outline_query.with_for_update()
+        outline_item: DraftOutlineItem = outline_query.first()
         if not outline_item:
             raise_error("server.shifu.outlineItemNotFound")
+        if outline_item.deleted == 1:
+            return {
+                "conflict": True,
+                "meta": get_shifu_draft_meta(app, shifu_bid, outline_bid),
+            }
+
+        if lock_latest:
+            latest_meta = get_shifu_draft_meta(app, shifu_bid, outline_bid)
+            latest_revision = int(latest_meta.get("revision", 0) or 0)
+            updated_user_bid = (latest_meta.get("updated_user") or {}).get(
+                "user_bid"
+            ) or ""
+            if latest_revision > base_revision and (
+                not updated_user_bid or updated_user_bid != user_id
+            ):
+                return {"conflict": True, "meta": latest_meta}
         # create new version
         new_outline: DraftOutlineItem = outline_item.clone()
         new_outline.content = content
@@ -116,7 +119,7 @@ def save_shifu_mdflow(
                     add_profile_item_quick(
                         app, outline_item.shifu_bid, variable, user_id
                     )
-            new_revision = save_outline_history(
+            save_outline_history(
                 app,
                 user_id,
                 outline_item.shifu_bid,
@@ -124,12 +127,13 @@ def save_shifu_mdflow(
                 new_outline.id,
                 len(blocks),
             )
+            new_revision = int(new_outline.id)
             db.session.commit()
         return {
             "conflict": False,
             "new_revision": new_revision
             if new_revision is not None
-            else get_shifu_draft_revision(app, shifu_bid),
+            else get_shifu_draft_revision(app, shifu_bid, outline_bid),
         }
 
 

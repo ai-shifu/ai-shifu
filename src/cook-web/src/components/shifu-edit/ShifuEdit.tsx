@@ -280,15 +280,27 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
     initializedShifuRef.current = currentShifu.bid;
     resetDraftConflictState();
+  }, [currentShifu?.bid, resetDraftConflictState, shouldSkipConflictCheck]);
+
+  useEffect(() => {
     if (shouldSkipConflictCheck) {
       return;
     }
+    const shifuBid = currentShifu?.bid;
+    const outlineBid = currentNode?.bid;
+    if (!shifuBid || !outlineBid) {
+      return;
+    }
 
+    resetDraftConflictState();
     let isActive = true;
-    const targetBid = currentShifu.bid;
     const fetchDraftMeta = async () => {
-      const meta = await actionsRef.current.loadDraftMeta(targetBid);
-      if (!isActive || currentShifuBidRef.current !== targetBid) {
+      const meta = await actionsRef.current.loadDraftMeta(shifuBid, outlineBid);
+      if (
+        !isActive ||
+        currentShifuBidRef.current !== shifuBid ||
+        currentNodeBidRef.current !== outlineBid
+      ) {
         return;
       }
       if (meta && typeof meta.revision === 'number') {
@@ -299,7 +311,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
     return () => {
       isActive = false;
     };
-  }, [currentShifu?.bid, resetDraftConflictState, shouldSkipConflictCheck]);
+  }, [
+    currentNode?.bid,
+    currentShifu?.bid,
+    resetDraftConflictState,
+    shouldSkipConflictCheck,
+  ]);
 
   const markDraftConflict = useCallback((meta?: DraftMeta | null) => {
     if (
@@ -320,7 +337,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const detectDraftConflict = useCallback(async () => {
     const shifuId = currentShifuBidRef.current;
-    if (!shifuId || shouldSkipConflictCheck) {
+    const outlineBid = currentNodeBidRef.current;
+    if (!shifuId || !outlineBid || shouldSkipConflictCheck) {
       return;
     }
     if (
@@ -329,7 +347,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
     ) {
       return;
     }
-    const meta = await actionsRef.current.loadDraftMeta(shifuId);
+    const meta = await actionsRef.current.loadDraftMeta(shifuId, outlineBid);
+    if (currentNodeBidRef.current !== outlineBid) {
+      return;
+    }
     if (!meta || typeof meta.revision !== 'number') {
       return;
     }
