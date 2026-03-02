@@ -261,7 +261,7 @@ class MdflowContextV2:
         interaction_prompt: Optional[str] = None,
         interaction_error_prompt: Optional[str] = None,
         use_learner_language: bool = False,
-        visual_mode: bool = True,
+        visual_mode: bool = False,
     ):
         self._mdflow = MarkdownFlow(
             document=document,
