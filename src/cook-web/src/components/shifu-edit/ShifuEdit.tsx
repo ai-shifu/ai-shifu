@@ -7,7 +7,14 @@ import React, {
   useRef,
 } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Columns2, ListCollapse, Loader2, Plus, Sparkles } from 'lucide-react';
+import {
+  Columns2,
+  History,
+  ListCollapse,
+  Loader2,
+  Plus,
+  Sparkles,
+} from 'lucide-react';
 import { useShifu } from '@/store';
 import { useUserStore } from '@/store';
 import OutlineTree from '@/components/outline-tree';
@@ -18,6 +25,12 @@ import Header from '../header';
 import { UploadProps, EditMode } from 'markdown-flow-ui/editor';
 import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/Sheet';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import './shifuEdit.scss';
 import Loading from '../loading';
@@ -42,7 +55,11 @@ import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
 import { Rnd } from 'react-rnd';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
-import { DraftMeta, LessonCreationSettings } from '@/types/shifu';
+import {
+  DraftMeta,
+  LessonCreationSettings,
+  MdflowHistoryItem,
+} from '@/types/shifu';
 import DraftConflictDialog from './DraftConflictDialog';
 
 const OUTLINE_DEFAULT_WIDTH = 256;
@@ -87,6 +104,13 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [isMdfConvertDialogOpen, setIsMdfConvertDialogOpen] = useState(false);
   const [isDraftConflictDialogOpen, setIsDraftConflictDialogOpen] =
     useState(false);
+  const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(false);
+  const [historyItems, setHistoryItems] = useState<MdflowHistoryItem[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [isHistoryRestoring, setIsHistoryRestoring] = useState(false);
+  const [selectedHistoryVersionId, setSelectedHistoryVersionId] = useState<
+    number | null
+  >(null);
   const [recentVariables, setRecentVariables] = useState<string[]>([]);
   const seenVariableNamesRef = useRef<Set<string>>(new Set());
   const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async preview is pending
@@ -550,6 +574,73 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
   };
 
+  const formatHistoryDateTime = (value?: string | null) => {
+    if (!value) {
+      return '--';
+    }
+    const date = new Date(value);
+    const pad = (num: number) => String(num).padStart(2, '0');
+    return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  };
+
+  const loadCurrentMdflowHistory = useCallback(async () => {
+    if (!currentShifu?.bid || !currentNode?.bid) {
+      setHistoryItems([]);
+      setSelectedHistoryVersionId(null);
+      return;
+    }
+    setIsHistoryLoading(true);
+    try {
+      const list = await actions.loadMdflowHistory(
+        currentShifu.bid,
+        currentNode.bid,
+      );
+      setHistoryItems(list);
+      setSelectedHistoryVersionId(list.length ? list[0].version_id : null);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  }, [actions, currentNode?.bid, currentShifu?.bid]);
+
+  const handleRestoreMdflowHistory = useCallback(async () => {
+    if (
+      !currentShifu?.bid ||
+      !currentNode?.bid ||
+      !selectedHistoryVersionId ||
+      isHistoryRestoring
+    ) {
+      return;
+    }
+    setIsHistoryRestoring(true);
+    try {
+      await actions.restoreMdflowHistory(
+        currentShifu.bid,
+        currentNode.bid,
+        selectedHistoryVersionId,
+      );
+      await actions.loadMdflow(currentNode.bid, currentShifu.bid);
+      await loadCurrentMdflowHistory();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsHistoryRestoring(false);
+    }
+  }, [
+    actions,
+    currentNode?.bid,
+    currentShifu?.bid,
+    isHistoryRestoring,
+    loadCurrentMdflowHistory,
+    selectedHistoryVersionId,
+  ]);
+
+  useEffect(() => {
+    if (!isHistoryPanelOpen) {
+      return;
+    }
+    void loadCurrentMdflowHistory();
+  }, [isHistoryPanelOpen, loadCurrentMdflowHistory]);
+
   const mdflowVariableNames = useMemo(
     () => extractVariableNames(mdflow),
     [mdflow],
@@ -889,7 +980,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                         />
                       </p>
                     </div>
-                    <div className='ml-auto flex flex-nowrap items-center gap-2 relative shrink-0'>
+                    <div className='ml-auto mr-2 flex flex-nowrap items-center gap-2 relative shrink-0'>
                       <Tabs
                         value={editMode}
                         onValueChange={value => setEditMode(value as EditMode)}
@@ -909,6 +1000,17 @@ const ScriptEditor = ({ id }: { id: string }) => {
                           ))}
                         </TabsList>
                       </Tabs>
+                      <Button
+                        type='button'
+                        variant='ghost'
+                        size='icon'
+                        className='h-8 w-8 rounded-full text-[rgba(0,0,0,0.65)] hover:bg-muted/50 hover:text-foreground shrink-0'
+                        onClick={() => setIsHistoryPanelOpen(true)}
+                        aria-label={t('module.shifu.history.title')}
+                        title={t('module.shifu.history.title')}
+                      >
+                        <History className='h-4 w-4' />
+                      </Button>
                       <Button
                         type='button'
                         size='sm'
@@ -1023,6 +1125,80 @@ const ScriptEditor = ({ id }: { id: string }) => {
           onRefresh={handleDraftConflictRefresh}
           onCancel={handleDraftConflictCancel}
         />
+        <Sheet
+          open={isHistoryPanelOpen}
+          onOpenChange={setIsHistoryPanelOpen}
+        >
+          <SheetContent
+            side='right'
+            className='w-full sm:w-[420px] md:w-[480px] h-full flex flex-col p-0 font-sans'
+          >
+            <SheetHeader className='px-6 pt-[19px] pb-4'>
+              <SheetTitle className='text-lg font-medium'>
+                {t('module.shifu.history.title')}
+              </SheetTitle>
+            </SheetHeader>
+            <div className='h-px w-full bg-border' />
+            <div className='flex-1 overflow-y-auto px-4 py-4'>
+              {isHistoryLoading ? (
+                <div className='py-8 text-center text-sm text-muted-foreground'>
+                  {t('module.shifu.history.loading')}
+                </div>
+              ) : !historyItems.length ? (
+                <div className='py-8 text-center text-sm text-muted-foreground'>
+                  {t('module.shifu.history.empty')}
+                </div>
+              ) : (
+                <div className='divide-y divide-[#E5E5E5]'>
+                  {historyItems.map(item => {
+                    const selected =
+                      selectedHistoryVersionId === item.version_id;
+                    const timeLabel = formatHistoryDateTime(item.updated_at);
+                    const userName =
+                      item.updated_user_name ||
+                      item.updated_user_bid ||
+                      t('module.shifu.history.unknownUser');
+                    return (
+                      <button
+                        key={item.version_id}
+                        type='button'
+                        className={cn(
+                          'w-full h-[72px] px-2 text-left flex items-center transition-colors',
+                          selected ? 'bg-[#F5F5F5]' : 'hover:bg-muted/30',
+                        )}
+                        onClick={() =>
+                          setSelectedHistoryVersionId(item.version_id)
+                        }
+                      >
+                        <div className='w-full font-sans text-base font-normal text-foreground leading-5 flex items-center'>
+                          <span>{timeLabel}</span>
+                          <span className='ml-4'>{userName}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className='h-[68px] border-t border-[#E5E5E5] px-4 flex items-center justify-end'>
+              <Button
+                type='button'
+                className='h-9 px-4 rounded-[10px] bg-[#171717] text-white text-sm font-medium hover:bg-[#262626]'
+                disabled={
+                  currentShifu?.readonly ||
+                  isHistoryLoading ||
+                  isHistoryRestoring ||
+                  !selectedHistoryVersionId
+                }
+                onClick={handleRestoreMdflowHistory}
+              >
+                {isHistoryRestoring
+                  ? t('module.shifu.history.restoring')
+                  : t('module.shifu.history.restore')}
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   );

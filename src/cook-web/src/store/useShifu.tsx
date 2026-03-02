@@ -17,6 +17,9 @@ import {
   SaveMdflowPayload,
   LessonCreationSettings,
   DraftMeta,
+  MdflowHistoryItem,
+  MdflowHistoryListResult,
+  MdflowHistoryRestoreResult,
 } from '../types/shifu';
 import api from '@/api';
 import { debounce } from 'lodash';
@@ -551,6 +554,49 @@ export const ShifuProvider = ({
       return null;
     }
   }, []);
+
+  const loadMdflowHistory = useCallback(
+    async (shifuId: string, outlineId: string, limit = 100) => {
+      if (!shifuId || !outlineId) {
+        return [] as MdflowHistoryItem[];
+      }
+      try {
+        const result = (await api.getMdflowHistory({
+          shifu_bid: shifuId,
+          outline_bid: outlineId,
+          limit,
+        })) as MdflowHistoryListResult;
+        return result?.items || [];
+      } catch (error) {
+        console.error('Failed to load mdflow history', error);
+        return [] as MdflowHistoryItem[];
+      }
+    },
+    [],
+  );
+
+  const restoreMdflowHistory = useCallback(
+    async (shifuId: string, outlineId: string, versionId: number) => {
+      if (!shifuId || !outlineId || !versionId) {
+        return null;
+      }
+      try {
+        const result = (await api.restoreMdflowHistory({
+          shifu_bid: shifuId,
+          outline_bid: outlineId,
+          version_id: versionId,
+        })) as MdflowHistoryRestoreResult;
+        if (typeof result?.new_revision === 'number') {
+          setBaseRevision(result.new_revision);
+        }
+        return result;
+      } catch (error) {
+        console.error('Failed to restore mdflow history', error);
+        throw error;
+      }
+    },
+    [],
+  );
 
   const loadChapters = async (shifuId: string) => {
     try {
@@ -1951,6 +1997,8 @@ export const ShifuProvider = ({
       loadMdflow,
       saveMdflow,
       loadDraftMeta,
+      loadMdflowHistory,
+      restoreMdflowHistory,
       setBaseRevision,
       setLatestDraftMeta,
       setDraftConflict: setHasDraftConflict,

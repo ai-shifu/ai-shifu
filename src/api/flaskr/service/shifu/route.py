@@ -103,6 +103,8 @@ from flaskr.service.shifu.shifu_mdflow_funcs import (
     get_shifu_mdflow,
     save_shifu_mdflow,
     parse_shifu_mdflow,
+    get_shifu_mdflow_history,
+    restore_shifu_mdflow_history_version,
 )
 from flaskr.service.shifu.shifu_history_manager import get_shifu_draft_meta
 from flaskr.service.shifu.permissions import (
@@ -1403,6 +1405,48 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         data = request.get_json().get("data", None)
         return make_common_response(
             parse_shifu_mdflow(app, shifu_bid, outline_bid, data)
+        )
+
+    @app.route(
+        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow/history",
+        methods=["GET"],
+    )
+    @ShifuTokenValidation(ShifuPermission.VIEW)
+    @with_shifu_context()
+    def get_mdflow_history_api(shifu_bid: str, outline_bid: str):
+        """
+        get mdflow history
+        """
+        limit_raw = request.args.get("limit", 100)
+        try:
+            limit = int(limit_raw)
+        except (TypeError, ValueError):
+            raise_param_error("limit")
+        return make_common_response(
+            get_shifu_mdflow_history(app, shifu_bid, outline_bid, limit)
+        )
+
+    @app.route(
+        path_prefix
+        + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow/history/restore",
+        methods=["POST"],
+    )
+    @ShifuTokenValidation(ShifuPermission.EDIT)
+    def restore_mdflow_history_api(shifu_bid: str, outline_bid: str):
+        """
+        restore mdflow history version
+        """
+        user_id = request.user.user_id
+        json_data = request.get_json() or {}
+        version_id = json_data.get("version_id")
+        try:
+            version_id = int(version_id)
+        except (TypeError, ValueError):
+            raise_param_error("version_id")
+        return make_common_response(
+            restore_shifu_mdflow_history_version(
+                app, user_id, shifu_bid, outline_bid, version_id
+            )
         )
 
     @app.route(

@@ -7,6 +7,14 @@
     "modeText": "友好",
     "title": "授课提示词"
   },
+  "history": {
+    "empty": "暂无历史记录",
+    "loading": "加载中...",
+    "restore": "恢复此版本",
+    "restoring": "恢复中...",
+    "title": "历史记录",
+    "unknownUser": "未知用户"
+  },
   "newChapter": "添加章",
   "previewArea": {
     "action": "调试",
