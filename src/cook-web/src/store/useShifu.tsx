@@ -585,6 +585,8 @@ export const ShifuProvider = ({
       if (!shifuId || !outlineId || versionId == null) {
         return null;
       }
+      // Prevent pending debounced saves from overwriting restored content.
+      debouncedAutoSaveRef.current.cancel();
       try {
         const resolvedBaseRevision = revision ?? baseRevision ?? undefined;
         const result = (await api.restoreMdflowHistory({
@@ -597,12 +599,21 @@ export const ShifuProvider = ({
           setBaseRevision(result.new_revision);
         }
         return result;
-      } catch (error) {
+      } catch (error: any) {
+        if (error?.code === 4007) {
+          const meta = await loadDraftMeta(shifuId);
+          if (meta) {
+            setLatestDraftMeta(meta);
+          }
+          setHasDraftConflict(true);
+          setAutosavePaused(true);
+          return null;
+        }
         console.error('Failed to restore mdflow history', error);
         throw error;
       }
     },
-    [baseRevision],
+    [baseRevision, loadDraftMeta],
   );
 
   const loadChapters = async (shifuId: string) => {
