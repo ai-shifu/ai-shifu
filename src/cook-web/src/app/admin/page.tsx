@@ -64,7 +64,7 @@ const ShifuCard = ({
 }: ShifuCardProps) => {
   const { t } = useTranslation();
   return (
-    <div className='relative w-full h-full'>
+    <div className='relative w-full h-full group'>
       <Link
         href={`/shifu/${id}`}
         className='block w-full h-full'
@@ -105,7 +105,7 @@ const ShifuCard = ({
       </Link>
       {canManageArchive && (
         <DropdownMenu>
-          {/* Reveal the menu only when hovering the top-right hotspot to avoid overlapping the archive badge. */}
+          {/* Reveal the menu when hovering the whole card, while keeping click behavior unchanged. */}
           <div className='absolute top-0 right-0 h-10 w-10 flex items-center justify-center z-10 group'>
             <DropdownMenuTrigger asChild>
               <Button
