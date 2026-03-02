@@ -240,6 +240,7 @@ export interface ShifuActions {
     shifuId: string,
     outlineId: string,
     versionId: number,
+    baseRevision?: number | null,
   ) => Promise<MdflowHistoryRestoreResult | null>;
   setBaseRevision: (revision: number | null) => void;
   setLatestDraftMeta: (meta: DraftMeta | null) => void;

@@ -1290,6 +1290,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         methods=["POST"],
     )
     @ShifuTokenValidation(ShifuPermission.EDIT)
+    @with_shifu_context()
     def save_mdflow_api(shifu_bid: str, outline_bid: str):
         """
         save mdflow
@@ -1416,6 +1417,54 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     def get_mdflow_history_api(shifu_bid: str, outline_bid: str):
         """
         get mdflow history
+        ---
+        tags:
+            - shifu
+        parameters:
+            - name: shifu_bid
+              type: string
+              required: true
+            - name: outline_bid
+              type: string
+              required: true
+            - name: limit
+              in: query
+              type: integer
+              required: false
+              description: max number of history items, default 100, range 1-200
+        responses:
+            200:
+                description: get mdflow history success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    properties:
+                                        items:
+                                            type: array
+                                            items:
+                                                type: object
+                                                properties:
+                                                    version_id:
+                                                        type: integer
+                                                        description: outline history version id
+                                                    updated_at:
+                                                        type: string
+                                                        description: update time in app timezone
+                                                    updated_user_bid:
+                                                        type: string
+                                                        description: updater user bid
+                                                    updated_user_name:
+                                                        type: string
+                                                        description: updater display name
         """
         limit_raw = request.args.get("limit", 100)
         try:
@@ -1432,22 +1481,83 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         methods=["POST"],
     )
     @ShifuTokenValidation(ShifuPermission.EDIT)
+    @with_shifu_context()
     def restore_mdflow_history_api(shifu_bid: str, outline_bid: str):
         """
         restore mdflow history version
+        ---
+        tags:
+            - shifu
+        parameters:
+            - name: shifu_bid
+              type: string
+              required: true
+            - name: outline_bid
+              type: string
+              required: true
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    version_id:
+                        type: integer
+                        description: target history version id
+                    base_revision:
+                        type: integer
+                        description: current draft revision from client
+        responses:
+            200:
+                description: restore mdflow history success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    properties:
+                                        restored:
+                                            type: boolean
+                                            description: whether restore changed current content
+                                        new_revision:
+                                            type: integer
+                                            description: latest draft revision
         """
         user_id = request.user.user_id
         json_data = request.get_json() or {}
         version_id = json_data.get("version_id")
+        base_revision = json_data.get("base_revision")
         try:
             version_id = int(version_id)
         except (TypeError, ValueError):
             raise_param_error("version_id")
-        return make_common_response(
-            restore_shifu_mdflow_history_version(
-                app, user_id, shifu_bid, outline_bid, version_id
-            )
+        if base_revision is not None:
+            try:
+                base_revision = int(base_revision)
+            except (TypeError, ValueError):
+                raise_param_error("base_revision")
+        result = restore_shifu_mdflow_history_version(
+            app, user_id, shifu_bid, outline_bid, version_id, base_revision
         )
+        if result.get("conflict"):
+            body = json.dumps(
+                {
+                    "code": ERROR_CODE["server.shifu.draftConflict"],
+                    "message": _("server.shifu.draftConflict"),
+                    "data": {"meta": result.get("meta")},
+                },
+                default=fmt,
+                ensure_ascii=False,
+            )
+            return Response(body, status=200, mimetype="application/json")
+        return make_common_response(result)
 
     @app.route(
         path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow/run",

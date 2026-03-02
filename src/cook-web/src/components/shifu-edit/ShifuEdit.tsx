@@ -579,6 +579,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
       return '--';
     }
     const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '--';
+    }
     const pad = (num: number) => String(num).padStart(2, '0');
     return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
   };
@@ -606,7 +609,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     if (
       !currentShifu?.bid ||
       !currentNode?.bid ||
-      !selectedHistoryVersionId ||
+      selectedHistoryVersionId == null ||
       isHistoryRestoring
     ) {
       return;
@@ -617,6 +620,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
         currentShifu.bid,
         currentNode.bid,
         selectedHistoryVersionId,
+        baseRevisionRef.current,
       );
       await actions.loadMdflow(currentNode.bid, currentShifu.bid);
       await loadCurrentMdflowHistory();

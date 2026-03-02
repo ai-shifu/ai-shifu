@@ -13,6 +13,7 @@ from flaskr.service.shifu.shifu_history_manager import (
     get_shifu_draft_meta,
     get_shifu_draft_revision,
     get_shifu_draft_log,
+    mask_contact_identifier,
 )
 from flaskr.service.profile.profile_manage import (
     get_profile_item_definition_list,
@@ -20,7 +21,7 @@ from flaskr.service.profile.profile_manage import (
 )
 from flaskr.service.user.models import UserInfo
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
@@ -30,7 +31,8 @@ def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
     with app.app_context():
         outline_item = (
             DraftOutlineItem.query.filter(
-                DraftOutlineItem.outline_item_bid == outline_bid
+                DraftOutlineItem.shifu_bid == shifu_bid,
+                DraftOutlineItem.outline_item_bid == outline_bid,
             )
             .order_by(DraftOutlineItem.id.desc())
             .first()
@@ -151,7 +153,8 @@ def save_shifu_mdflow(
 
         outline_item: DraftOutlineItem = (
             DraftOutlineItem.query.filter(
-                DraftOutlineItem.outline_item_bid == outline_bid
+                DraftOutlineItem.shifu_bid == shifu_bid,
+                DraftOutlineItem.outline_item_bid == outline_bid,
             )
             .order_by(DraftOutlineItem.id.desc())
             .first()
@@ -177,9 +180,7 @@ def save_shifu_mdflow(
                 get_markdownflow_output_language()
             )
             blocks = markdown_flow.get_all_blocks()
-            variable_definitions = get_profile_item_definition_list(
-                app, outline_item.shifu_bid
-            )
+            variable_definitions = get_profile_item_definition_list(app, shifu_bid)
 
             variables = markdown_flow.extract_variables()
             for variable in variables:
@@ -187,21 +188,19 @@ def save_shifu_mdflow(
                     (v for v in variable_definitions if v.profile_key == variable), None
                 )
                 if not exist_variable:
-                    add_profile_item_quick(
-                        app, outline_item.shifu_bid, variable, user_id
-                    )
+                    add_profile_item_quick(app, shifu_bid, variable, user_id)
             new_revision = save_outline_history(
                 app,
                 user_id,
-                outline_item.shifu_bid,
-                outline_item.outline_item_bid,
+                shifu_bid,
+                outline_bid,
                 new_outline.id,
                 len(blocks),
             )
             _cleanup_outline_history_versions(
                 app,
-                outline_item.shifu_bid,
-                outline_item.outline_item_bid,
+                shifu_bid,
+                outline_bid,
             )
             db.session.commit()
         return {
@@ -221,7 +220,8 @@ def parse_shifu_mdflow(
     with app.app_context():
         outline_item = (
             DraftOutlineItem.query.filter(
-                DraftOutlineItem.outline_item_bid == outline_bid
+                DraftOutlineItem.shifu_bid == shifu_bid,
+                DraftOutlineItem.outline_item_bid == outline_bid,
             )
             .order_by(DraftOutlineItem.id.desc())
             .first()
@@ -263,7 +263,7 @@ def _query_outline_versions(shifu_bid: str, outline_bid: str):
             DraftOutlineItem.deleted == 0,
         )
         .order_by(DraftOutlineItem.id.asc())
-        .all()
+        .yield_per(200)
     )
 
 
@@ -271,7 +271,17 @@ def _get_app_timezone(app: Flask) -> ZoneInfo:
     tz_name = app.config.get("TZ", "UTC")
     try:
         return ZoneInfo(tz_name)
-    except Exception:
+    except ZoneInfoNotFoundError as error:
+        app.logger.warning(
+            "Failed to load timezone '%s': %s, falling back to UTC", tz_name, error
+        )
+        return ZoneInfo("UTC")
+    except Exception as error:
+        app.logger.warning(
+            "Unexpected timezone config '%s': %s, falling back to UTC",
+            tz_name,
+            error,
+        )
         return ZoneInfo("UTC")
 
 
@@ -293,19 +303,14 @@ def get_shifu_mdflow_history(
     """
     with app.app_context():
         safe_limit = max(1, min(limit, 200))
-        versions = _query_outline_versions(shifu_bid, outline_bid)
         changed_versions: list[DraftOutlineItem] = []
         previous_content: str | None = None
 
-        for version in versions:
+        for version in _query_outline_versions(shifu_bid, outline_bid):
             current_content = version.content or ""
-            if previous_content is None:
+            if previous_content is None or current_content != previous_content:
+                changed_versions.append(version)
                 previous_content = current_content
-                continue
-            if current_content == previous_content:
-                continue
-            changed_versions.append(version)
-            previous_content = current_content
 
         if not changed_versions:
             return {"items": []}
@@ -327,9 +332,14 @@ def get_shifu_mdflow_history(
         items = []
         for item in changed_versions:
             user = user_map.get(item.updated_user_bid)
+            masked_identifier = (
+                mask_contact_identifier(user.user_identify)
+                if user and user.user_identify
+                else ""
+            )
             user_name = (
                 (user.nickname if user and user.nickname else "")
-                or (user.user_identify if user and user.user_identify else "")
+                or masked_identifier
                 or item.updated_user_bid
             )
             items.append(
@@ -345,7 +355,12 @@ def get_shifu_mdflow_history(
 
 
 def restore_shifu_mdflow_history_version(
-    app: Flask, user_id: str, shifu_bid: str, outline_bid: str, version_id: int
+    app: Flask,
+    user_id: str,
+    shifu_bid: str,
+    outline_bid: str,
+    version_id: int,
+    base_revision: int | None = None,
 ) -> dict:
     """
     Restore lesson content to the selected historical version.
@@ -384,14 +399,21 @@ def restore_shifu_mdflow_history_version(
                 "new_revision": get_shifu_draft_revision(app, shifu_bid),
             }
 
+        effective_base_revision = (
+            base_revision
+            if isinstance(base_revision, int) and base_revision >= 0
+            else get_shifu_draft_revision(app, shifu_bid)
+        )
         result = save_shifu_mdflow(
             app,
             user_id,
             shifu_bid,
             outline_bid,
             target_content,
-            base_revision=None,
+            base_revision=effective_base_revision,
         )
+        if result.get("conflict"):
+            return {"conflict": True, "meta": result.get("meta")}
         return {
             "restored": True,
             "new_revision": result.get("new_revision"),

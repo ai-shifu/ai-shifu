@@ -137,6 +137,11 @@ def _mask_contact_identifier(identifier: Optional[str]) -> str:
     return _mask_phone_identifier(identifier)
 
 
+def mask_contact_identifier(identifier: Optional[str]) -> str:
+    """Public wrapper for contact identifier masking."""
+    return _mask_contact_identifier(identifier)
+
+
 def get_shifu_draft_revision(app: Flask, shifu_bid: str) -> int:
     with app.app_context():
         latest = _get_latest_draft_log(shifu_bid)

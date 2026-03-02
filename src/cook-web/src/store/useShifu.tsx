@@ -576,15 +576,22 @@ export const ShifuProvider = ({
   );
 
   const restoreMdflowHistory = useCallback(
-    async (shifuId: string, outlineId: string, versionId: number) => {
-      if (!shifuId || !outlineId || !versionId) {
+    async (
+      shifuId: string,
+      outlineId: string,
+      versionId: number,
+      revision?: number | null,
+    ) => {
+      if (!shifuId || !outlineId || versionId == null) {
         return null;
       }
       try {
+        const resolvedBaseRevision = revision ?? baseRevision ?? undefined;
         const result = (await api.restoreMdflowHistory({
           shifu_bid: shifuId,
           outline_bid: outlineId,
           version_id: versionId,
+          base_revision: resolvedBaseRevision,
         })) as MdflowHistoryRestoreResult;
         if (typeof result?.new_revision === 'number') {
           setBaseRevision(result.new_revision);
@@ -595,7 +602,7 @@ export const ShifuProvider = ({
         throw error;
       }
     },
-    [],
+    [baseRevision],
   );
 
   const loadChapters = async (shifuId: string) => {
