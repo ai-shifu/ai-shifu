@@ -237,6 +237,89 @@ class TestFinalizeSegmentation:
         assert "Submitted finalize segment" in caplog.text
 
 
+class TestOffsetDriftRegression:
+    """Regression tests for offset drift when markdown becomes complete across chunks."""
+
+    @patch("flaskr.service.tts.streaming_tts._tts_executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_bold_spanning_chunks_no_text_loss(
+        self, mock_is_configured, mock_executor, mock_app
+    ):
+        """Bold markers completing across chunks must not cause text loss.
+
+        Regression: when **bold** spans the processed/unprocessed boundary,
+        preprocess_for_tts output length changes for already-processed text,
+        causing _processed_text_offset to misalign and skip text.
+        """
+        mock_is_configured.return_value = True
+
+        processor = create_test_processor(mock_app)
+        submitted_texts = []
+
+        def mock_submit(*args, **kwargs):
+            if len(args) > 1:
+                segment = args[1]
+                if hasattr(segment, "text"):
+                    submitted_texts.append(segment.text)
+            future = MagicMock()
+            future.result.return_value = None
+            return future
+
+        mock_executor.submit.side_effect = mock_submit
+
+        # Chunk 1: bold starts but doesn't close, first sentence submitted
+        list(processor.process_chunk("First. **Second"))
+        assert len(submitted_texts) == 1
+        assert "First" in submitted_texts[0]
+
+        # Chunk 2: bold closes, completing the markdown construct
+        # This changes preprocessing output for already-processed text
+        list(processor.process_chunk(" part**. Third."))
+
+        # Verify "Second part" is NOT lost
+        all_text = " ".join(submitted_texts)
+        assert "Second" in all_text or "Second part" in all_text, (
+            f"Text 'Second part' was lost due to offset drift. "
+            f"Submitted: {submitted_texts}"
+        )
+        assert "Third" in all_text, (
+            f"Text 'Third' was lost. Submitted: {submitted_texts}"
+        )
+
+    @patch("flaskr.service.tts.streaming_tts._tts_executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_link_spanning_chunks_no_text_loss(
+        self, mock_is_configured, mock_executor, mock_app
+    ):
+        """Links completing across chunks must not lose surrounding text."""
+        mock_is_configured.return_value = True
+
+        processor = create_test_processor(mock_app)
+        submitted_texts = []
+
+        def mock_submit(*args, **kwargs):
+            if len(args) > 1:
+                segment = args[1]
+                if hasattr(segment, "text"):
+                    submitted_texts.append(segment.text)
+            future = MagicMock()
+            future.result.return_value = None
+            return future
+
+        mock_executor.submit.side_effect = mock_submit
+
+        # Chunk 1: sentence + start of a link
+        list(processor.process_chunk("Hello. See [docs](https://exam"))
+        # Chunk 2: link completes
+        list(processor.process_chunk("ple.com). World."))
+
+        all_text = " ".join(submitted_texts)
+        assert "Hello" in all_text
+        assert "World" in all_text, (
+            f"Text 'World' lost after link completion. Submitted: {submitted_texts}"
+        )
+
+
 class TestFinalizeDelayManagement:
     """Tests for finalize delay management improvements."""
 
