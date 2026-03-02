@@ -48,6 +48,7 @@ import re
 from flaskr.service.user.models import UserInfo
 
 T = TypeVar("T", bound="HistoryItem")
+OUTLINE_CONTENT_LOOKBACK_LIMIT = 1000
 
 
 class HistoryItem(BaseModel, Generic[T]):
@@ -129,6 +130,7 @@ def _get_latest_outline_content_log(shifu_bid: str, outline_bid: str):
             DraftOutlineItem.deleted == 0,
         )
         .order_by(DraftOutlineItem.id.desc())
+        .limit(OUTLINE_CONTENT_LOOKBACK_LIMIT)
         .yield_per(200)
     )
     for version in recent_active_versions:

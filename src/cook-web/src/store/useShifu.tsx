@@ -553,6 +553,7 @@ export const ShifuProvider = ({
         return meta as DraftMeta;
       } catch (error) {
         console.error('Failed to load draft meta', error);
+        setLatestDraftMeta(null);
         return null;
       }
     },
@@ -1748,10 +1749,7 @@ export const ShifuProvider = ({
       setLastSaveTime(new Date());
     } catch (error: any) {
       if (error?.code === 4007) {
-        const meta = await loadDraftMeta(shifu_bid, outline_bid);
-        if (meta) {
-          setLatestDraftMeta(meta);
-        }
+        await loadDraftMeta(shifu_bid, outline_bid);
         setHasDraftConflict(true);
         setAutosavePaused(true);
         debouncedAutoSaveRef.current.cancel();

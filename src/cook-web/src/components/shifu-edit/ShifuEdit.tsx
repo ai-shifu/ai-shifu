@@ -348,7 +348,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
       return;
     }
     const meta = await actionsRef.current.loadDraftMeta(shifuId, outlineBid);
-    if (currentNodeBidRef.current !== outlineBid) {
+    if (
+      currentShifuBidRef.current !== shifuId ||
+      currentNodeBidRef.current !== outlineBid
+    ) {
       return;
     }
     if (!meta || typeof meta.revision !== 'number') {
