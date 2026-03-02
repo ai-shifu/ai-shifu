@@ -578,6 +578,14 @@ const ScriptEditor = ({ id }: { id: string }) => {
     if (!value) {
       return '--';
     }
+    const normalized = value.trim();
+    const isoLikeMatch = normalized.match(
+      /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/,
+    );
+    if (isoLikeMatch) {
+      const [, , month, day, hour, minute, second] = isoLikeMatch;
+      return `${month}-${day} ${hour}:${minute}:${second}`;
+    }
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) {
       return '--';

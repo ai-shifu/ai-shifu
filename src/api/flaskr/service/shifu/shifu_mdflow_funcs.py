@@ -20,7 +20,7 @@ from flaskr.service.profile.profile_manage import (
     add_profile_item_quick,
 )
 from flaskr.service.user.models import UserInfo
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
@@ -262,7 +262,7 @@ def _query_outline_versions(shifu_bid: str, outline_bid: str):
             DraftOutlineItem.outline_item_bid == outline_bid,
             DraftOutlineItem.deleted == 0,
         )
-        .order_by(DraftOutlineItem.id.asc())
+        .order_by(DraftOutlineItem.id.desc())
         .yield_per(200)
     )
 
@@ -290,7 +290,7 @@ def _serialize_with_app_timezone(app: Flask, dt: datetime | None) -> str | None:
         return None
     app_tz = _get_app_timezone(app)
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=app_tz).isoformat()
+        dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(app_tz).isoformat()
 
 
@@ -304,19 +304,31 @@ def get_shifu_mdflow_history(
     with app.app_context():
         safe_limit = max(1, min(limit, 200))
         changed_versions: list[DraftOutlineItem] = []
-        previous_content: str | None = None
+        segment_content: str | None = None
+        segment_oldest: DraftOutlineItem | None = None
 
         for version in _query_outline_versions(shifu_bid, outline_bid):
             current_content = version.content or ""
-            if previous_content is None or current_content != previous_content:
-                changed_versions.append(version)
-                previous_content = current_content
+            if segment_content is None:
+                segment_content = current_content
+                segment_oldest = version
+                continue
+            if current_content == segment_content:
+                segment_oldest = version
+                continue
+
+            if segment_oldest is not None:
+                changed_versions.append(segment_oldest)
+                if len(changed_versions) >= safe_limit:
+                    break
+            segment_content = current_content
+            segment_oldest = version
+
+        if segment_oldest is not None and len(changed_versions) < safe_limit:
+            changed_versions.append(segment_oldest)
 
         if not changed_versions:
             return {"items": []}
-
-        changed_versions = changed_versions[-safe_limit:]
-        changed_versions.reverse()
 
         user_bids = {
             item.updated_user_bid for item in changed_versions if item.updated_user_bid

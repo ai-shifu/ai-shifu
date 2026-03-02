@@ -1470,6 +1470,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             limit = int(limit_raw)
         except (TypeError, ValueError):
             raise_param_error("limit")
+        if limit < 1 or limit > 200:
+            raise_param_error("limit")
         return make_common_response(
             get_shifu_mdflow_history(app, shifu_bid, outline_bid, limit)
         )
