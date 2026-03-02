@@ -158,7 +158,7 @@ class StreamingTTSProcessor:
 
         # State
         self._buffer = ""
-        self._processed_text_offset = 0
+        self._raw_offset = 0  # tracks position in raw (unprocessed) buffer
         self._segment_index = 0
         self._audio_bid = str(uuid.uuid4()).replace("-", "")
         self._usage_parent_bid = generate_id(app)
@@ -215,44 +215,80 @@ class StreamingTTSProcessor:
         if not self._buffer:
             return
 
-        # Preprocess buffer to remove code blocks, SVG, etc.
-        processable_text = preprocess_for_tts(self._buffer)
+        # Preprocess only the unprocessed portion of the raw buffer to avoid
+        # offset drift caused by markdown constructs (bold, links, etc.)
+        # becoming complete as the buffer grows.
+        raw_remaining = self._buffer[self._raw_offset :]
+        if not raw_remaining:
+            return
+
+        processable_text = preprocess_for_tts(raw_remaining)
         if not processable_text:
             return
 
-        # Keep the offset within bounds in case preprocessing shrunk the text.
-        if self._processed_text_offset > len(processable_text):
-            self._processed_text_offset = len(processable_text)
-
-        remaining_text = processable_text[self._processed_text_offset :]
-        if not remaining_text:
-            return
-
         # Skip leading whitespace without producing a segment.
-        leading_ws = len(remaining_text) - len(remaining_text.lstrip())
-        if leading_ws:
-            self._processed_text_offset += leading_ws
-            remaining_text = remaining_text[leading_ws:]
+        processable_text = processable_text.lstrip()
 
-        if len(remaining_text) < 2:
+        if len(processable_text) < 2:
             return
 
         # Only consume text up to the last complete sentence ending in the
         # currently processable stream window.
-        sentence_matches = list(SENTENCE_ENDINGS.finditer(remaining_text))
+        sentence_matches = list(SENTENCE_ENDINGS.finditer(processable_text))
         if not sentence_matches:
             return
 
-        consume_len = sentence_matches[-1].end()
-        if consume_len <= 0:
-            return
+        last_match = sentence_matches[-1]
+        completed_text = processable_text[: last_match.end()]
 
-        self._processed_text_offset += consume_len
-        completed_sentences_text = remaining_text[:consume_len]
+        # Advance the raw offset.  We need to find how far into the raw
+        # remaining text the last sentence ending corresponds.  Because
+        # preprocessing can change text length, we search for the sentence-
+        # ending character in the raw text scanning forward.
+        self._raw_offset += self._find_raw_consume_len(
+            raw_remaining, last_match.end(), processable_text
+        )
+
         self._submit_remaining_text_in_segments(
-            completed_sentences_text,
+            completed_text,
             include_trailing_fragment=False,
         )
+
+    @staticmethod
+    def _find_raw_consume_len(
+        raw_text: str, processed_end: int, processed_text: str
+    ) -> int:
+        """Map a position in preprocessed text back to the raw buffer.
+
+        Uses binary search: find the smallest raw-text prefix whose
+        preprocessed form covers ``processed_text[:processed_end]``.
+        This is robust against arbitrary preprocessing transformations
+        (bold/italic removal, code-block stripping, etc.).
+
+        Args:
+            raw_text: The raw (un-preprocessed) remaining buffer text.
+            processed_end: End offset in *processed_text* up to which we
+                want to consume.
+            processed_text: The fully preprocessed (and lstripped) version
+                of *raw_text*.
+
+        Returns:
+            Number of characters to consume from *raw_text*.
+        """
+        target = processed_text[:processed_end]
+        # raw text is always >= preprocessed text in length (preprocessing
+        # only removes content), so processed_end is a valid lower bound.
+        lo, hi = processed_end, len(raw_text)
+        best = hi  # worst case: consume everything
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            candidate = preprocess_for_tts(raw_text[:mid]).lstrip()
+            if len(candidate) >= len(target) and candidate[: len(target)] == target:
+                best = mid
+                hi = mid - 1
+            else:
+                lo = mid + 1
+        return best
 
     def _submit_tts_task(self, text: str):
         """Submit a TTS synthesis task to the background thread pool."""
@@ -458,13 +494,11 @@ class StreamingTTSProcessor:
 
         # Submit any remaining buffer content in segments to avoid burst
         if self._buffer:
-            full_text = preprocess_for_tts(self._buffer)
-            if self._processed_text_offset > len(full_text):
-                self._processed_text_offset = len(full_text)
-
-            remaining_text = full_text[self._processed_text_offset :].strip()
+            raw_remaining = self._buffer[self._raw_offset :]
+            remaining_text = preprocess_for_tts(raw_remaining).strip()
             # Use segmented submission to maintain consistent pacing
             self._submit_remaining_text_in_segments(remaining_text)
+            self._raw_offset = len(self._buffer)
             self._buffer = ""
 
         # Wait for all pending TTS tasks to complete
