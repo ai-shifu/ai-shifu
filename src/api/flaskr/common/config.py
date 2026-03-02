@@ -316,6 +316,22 @@ Default: "phone".""",
         secret=True,
         group="llm",
     ),
+    "VOLCENGINE_API_KEY": EnvVar(
+        name="VOLCENGINE_API_KEY",
+        default="",
+        description="Volcengine API key (LiteLLM standard key)",
+        secret=True,
+        group="llm",
+    ),
+    "VOLCENGINE_API_BASE": EnvVar(
+        name="VOLCENGINE_API_BASE",
+        default="https://ark.cn-beijing.volces.com/api/v3",
+        description=(
+            "Optional Volcengine API base URL override "
+            "(LiteLLM-compatible OpenAI endpoint)"
+        ),
+        group="llm",
+    ),
     "ARK_ACCESS_KEY_ID": EnvVar(
         name="ARK_ACCESS_KEY_ID",
         default="",
@@ -344,6 +360,21 @@ Default: "phone".""",
         secret=True,
         group="llm",
     ),
+    "ZAI_API_KEY": EnvVar(
+        name="ZAI_API_KEY",
+        default="",
+        description="Z.AI API key (LiteLLM standard key)",
+        secret=True,
+        group="llm",
+    ),
+    "ZAI_API_BASE": EnvVar(
+        name="ZAI_API_BASE",
+        default="https://api.z.ai/api/paas/v4",
+        description=(
+            "Optional Z.AI API base URL override (LiteLLM-compatible OpenAI endpoint)"
+        ),
+        group="llm",
+    ),
     "BIGMODEL_API_KEY": EnvVar(
         name="BIGMODEL_API_KEY",
         default="",
@@ -351,11 +382,30 @@ Default: "phone".""",
         secret=True,
         group="llm",
     ),
+    "DASHSCOPE_API_KEY": EnvVar(
+        name="DASHSCOPE_API_KEY",
+        default="",
+        description="DashScope API key for Qwen models (LiteLLM standard key)",
+        secret=True,
+        group="llm",
+    ),
+    "DASHSCOPE_API_BASE": EnvVar(
+        name="DASHSCOPE_API_BASE",
+        default="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        description="DashScope API base URL (LiteLLM standard key)",
+        group="llm",
+    ),
     "DEEPSEEK_API_KEY": EnvVar(
         name="DEEPSEEK_API_KEY",
         default="",
         description="DeepSeek API Key",
         secret=True,
+        group="llm",
+    ),
+    "DEEPSEEK_API_BASE": EnvVar(
+        name="DEEPSEEK_API_BASE",
+        default="https://api.deepseek.com",
+        description="DeepSeek API base URL (LiteLLM standard key)",
         group="llm",
     ),
     "DEEPSEEK_API_URL": EnvVar(
@@ -1145,11 +1195,14 @@ class EnhancedConfig:
             "OPENAI_API_KEY",
             "ERNIE_API_KEY",
             "ERNIE_API_ID",
+            "VOLCENGINE_API_KEY",
             "ARK_API_KEY",
             "SILICON_API_KEY",
+            "ZAI_API_KEY",
             "GLM_API_KEY",
             "GEMINI_API_KEY",
             "DEEPSEEK_API_KEY",
+            "DASHSCOPE_API_KEY",
             "QWEN_API_KEY",
             "BIGMODEL_API_KEY",
         ]
