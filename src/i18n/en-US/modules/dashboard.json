@@ -1,20 +1,19 @@
 {
   "__namespace__": "module.dashboard",
-  "title": "Dashboard",
   "entry": {
     "kpi": {
       "courses": "Courses",
       "learners": "Learners",
-      "orders": "Orders",
-      "orderAmount": "Order Amount"
+      "orderAmount": "Order Amount",
+      "orders": "Orders"
     },
     "table": {
       "course": "Course",
       "empty": "No courses",
       "lastActive": "Last active",
       "learners": "Learners",
-      "orders": "Orders",
       "orderAmount": "Order Amount",
+      "orders": "Orders",
       "reset": "Reset",
       "search": "Search",
       "searchPlaceholder": "Search by course name / course id",
@@ -29,5 +28,6 @@
   "pagination": {
     "next": "Next",
     "prev": "Previous"
-  }
+  },
+  "title": "Dashboard"
 }

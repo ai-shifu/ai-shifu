@@ -417,7 +417,9 @@ class TestDashboardRoutes:
 
         now = datetime(2025, 2, 10, 9, 0, 0)
         with app.app_context():
-            self._seed_dashboard_course(shifu_bid="course-import", title="Import Course")
+            self._seed_dashboard_course(
+                shifu_bid="course-import", title="Import Course"
+            )
             db.session.add(
                 Order(
                     order_bid="order-import-1",
@@ -679,9 +681,9 @@ class TestDashboardRoutes:
         self._mock_request_user(monkeypatch)
         monkeypatch.setattr(
             "flaskr.service.dashboard.funcs.get_dynamic_config",
-            lambda key, default=None: "course-demo"
-            if key == "DEMO_SHIFU_BID"
-            else default,
+            lambda key, default=None: (
+                "course-demo" if key == "DEMO_SHIFU_BID" else default
+            ),
             raising=False,
         )
 

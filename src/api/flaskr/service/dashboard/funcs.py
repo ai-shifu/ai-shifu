@@ -21,7 +21,10 @@ from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import LEARN_STATUS_RESET, ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.models import AiCourseAuth, PublishedShifu
-from flaskr.service.shifu.permissions import _auth_types_to_permissions, _normalize_auth_types
+from flaskr.service.shifu.permissions import (
+    _auth_types_to_permissions,
+    _normalize_auth_types,
+)
 
 # Built-in demo course IDs observed in legacy environments.
 _LEGACY_DEMO_SHIFU_BIDS: Set[str] = {

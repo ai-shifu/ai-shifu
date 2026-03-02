@@ -418,7 +418,6 @@ export default function AdminDashboardEntryPage() {
                 </div>
               </CardContent>
             </Card>
-
           </div>
 
           {error ? (
@@ -488,7 +487,10 @@ export default function AdminDashboardEntryPage() {
                             {item.order_count}
                           </TableCell>
                           <TableCell className='whitespace-nowrap'>
-                            {formatOrderAmount(item.order_amount, currencySymbol)}
+                            {formatOrderAmount(
+                              item.order_amount,
+                              currencySymbol,
+                            )}
                           </TableCell>
                           <TableCell className='whitespace-nowrap'>
                             {formatLastActive(item.last_active_at)}
