@@ -1,0 +1,96 @@
+{
+  "__namespace__": "module.dashboard",
+  "actions": {
+    "back": "返回"
+  },
+  "chart": {
+    "followUpsByChapter": "追问章节分布",
+    "followUpsTrend": "追问数量时间分布",
+    "progressDistribution": "进度分布",
+    "topOutlinesByFollowUps": "追问最多的课时"
+  },
+  "detail": {
+    "followUps": {
+      "answer": "回答",
+      "askedAt": "提问时间",
+      "empty": "暂无追问",
+      "outline": "课时",
+      "outlinePlaceholder": "按课时筛选",
+      "question": "问题",
+      "title": "追问",
+      "totalCount": "共 {count}"
+    },
+    "personalization": {
+      "empty": "暂无信息",
+      "key": "字段",
+      "value": "内容"
+    },
+    "progress": {
+      "empty": "暂无进度",
+      "outline": "课时",
+      "status": "状态",
+      "updatedAt": "更新时间"
+    },
+    "subtitle": "学员详情",
+    "tabs": {
+      "followUps": "追问",
+      "personalization": "个性化",
+      "progress": "学习进度"
+    },
+    "title": "学员详情"
+  },
+  "entry": {
+    "kpi": {
+      "courses": "课程数",
+      "generations": "生成数",
+      "learners": "学员数",
+      "orders": "订单数"
+    },
+    "table": {
+      "course": "课程",
+      "empty": "暂无课程",
+      "generations": "生成数",
+      "lastActive": "最近活跃",
+      "learners": "学员数",
+      "orders": "订单数",
+      "reset": "重置",
+      "search": "查询",
+      "searchPlaceholder": "搜索课程名称 / 课程ID",
+      "title": "课程列表",
+      "totalCount": "共 {count}"
+    }
+  },
+  "export": {
+    "button": "数据导出",
+    "error": "数据导出失败，请稍后重试",
+    "loading": "导出中..."
+  },
+  "filters": {
+    "dateRange": "时间范围",
+    "dateRangePlaceholder": "选择时间范围",
+    "reset": "重置"
+  },
+  "pagination": {
+    "next": "下一页",
+    "prev": "上一页"
+  },
+  "sort": {
+    "followUps": "追问",
+    "lastActive": "最近学习",
+    "progress": "进度"
+  },
+  "table": {
+    "empty": "暂无学员",
+    "followUps": "追问",
+    "keywordPlaceholder": "搜索 用户ID / 手机号 / 昵称",
+    "lastActive": "最近学习",
+    "progress": "进度",
+    "reset": "重置",
+    "search": "查询",
+    "sort": "排序",
+    "title": "学员",
+    "totalCount": "共 {count}",
+    "user": "学员"
+  },
+  "title": "数据看板"
+}

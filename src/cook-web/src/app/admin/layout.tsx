@@ -8,7 +8,11 @@ import React, {
 } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/Sheet';
-import { DocumentIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
+import {
+  ChartBarIcon,
+  DocumentIcon,
+  ShoppingCartIcon,
+} from '@heroicons/react/24/outline';
 import Image, { type StaticImageData } from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -225,6 +229,11 @@ const MainInterface = ({
       icon: <ShoppingCartIcon className='w-4 h-4' />,
       label: t('module.order.title'),
       href: '/admin/orders',
+    },
+    {
+      icon: <ChartBarIcon className='w-4 h-4' />,
+      label: t('module.dashboard.title'),
+      href: '/admin/dashboard',
     },
   ];
 

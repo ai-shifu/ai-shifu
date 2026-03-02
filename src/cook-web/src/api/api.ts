@@ -107,6 +107,16 @@ const api = {
   // MDF Conversion
   genMdfConvert: 'POST /gen_mdf/convert',
   genMdfConfigStatus: 'GET /gen_mdf/config-status',
+
+  // dashboard (teacher analytics)
+  getDashboardEntry: 'GET /dashboard/entry',
+  getDashboardOutlines: 'GET /dashboard/shifus/{shifu_bid}/outlines',
+  getDashboardOverview: 'GET /dashboard/shifus/{shifu_bid}/overview',
+  getDashboardLearners: 'GET /dashboard/shifus/{shifu_bid}/learners',
+  getDashboardLearnerDetail:
+    'GET /dashboard/shifus/{shifu_bid}/learners/{user_bid}',
+  getDashboardLearnerFollowups:
+    'GET /dashboard/shifus/{shifu_bid}/learners/{user_bid}/followups',
 };
 
 export default api;
