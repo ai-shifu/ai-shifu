@@ -214,6 +214,53 @@ class PreviewResolveLlmSettingsTests(unittest.TestCase):
         self.assertEqual(temperature, 0.3)
 
 
+class PreviewResolveBlockIndexTests(unittest.TestCase):
+    def test_keeps_valid_block_index(self):
+        app = Flask("preview-block-index")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        mdflow_context = types.SimpleNamespace(
+            get_all_blocks=lambda: ["b0", "b1", "b2"]
+        )
+
+        resolved = preview_ctx._resolve_preview_block_index(
+            mdflow_context,
+            1,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+        )
+
+        self.assertEqual(resolved, 1)
+
+    def test_falls_back_to_last_block_when_out_of_range(self):
+        app = Flask("preview-block-index-fallback")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        mdflow_context = types.SimpleNamespace(
+            get_all_blocks=lambda: ["b0", "b1", "b2"]
+        )
+
+        resolved = preview_ctx._resolve_preview_block_index(
+            mdflow_context,
+            7,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+        )
+
+        self.assertEqual(resolved, 2)
+
+    def test_rejects_empty_blocks(self):
+        app = Flask("preview-block-index-empty")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        mdflow_context = types.SimpleNamespace(get_all_blocks=lambda: [])
+
+        with self.assertRaises(ValueError):
+            preview_ctx._resolve_preview_block_index(
+                mdflow_context,
+                0,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+            )
+
+
 class PreviewResolveVariablesTests(unittest.TestCase):
     def test_does_not_inject_sys_user_language_when_missing(self):
         app = Flask("preview-variables")
