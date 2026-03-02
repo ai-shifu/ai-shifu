@@ -1195,7 +1195,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
             <div className='h-[68px] border-t border-[#E5E5E5] px-4 flex items-center justify-end'>
               <Button
                 type='button'
-                className='h-9 px-4 rounded-[10px] bg-[#171717] text-white text-sm font-medium hover:bg-[#262626]'
+                variant='outline'
+                className='h-9 px-4 rounded-[10px] text-red-500 border-red-500 hover:bg-red-50 text-sm font-medium'
                 disabled={
                   currentShifu?.readonly ||
                   isHistoryLoading ||
