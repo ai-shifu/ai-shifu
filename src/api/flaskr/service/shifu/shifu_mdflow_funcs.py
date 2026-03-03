@@ -385,16 +385,12 @@ def get_shifu_mdflow_history_version_detail(
     Get lesson content detail for a specific history version.
     """
     with app.app_context():
-        version = (
-            DraftOutlineItem.query.filter(
-                DraftOutlineItem.id == version_id,
-                DraftOutlineItem.shifu_bid == shifu_bid,
-                DraftOutlineItem.outline_item_bid == outline_bid,
-                DraftOutlineItem.deleted == 0,
-            )
-            .order_by(DraftOutlineItem.id.desc())
-            .first()
-        )
+        version = DraftOutlineItem.query.filter(
+            DraftOutlineItem.id == version_id,
+            DraftOutlineItem.shifu_bid == shifu_bid,
+            DraftOutlineItem.outline_item_bid == outline_bid,
+            DraftOutlineItem.deleted == 0,
+        ).first()
         if not version:
             raise_error("server.shifu.outlineItemNotFound")
 

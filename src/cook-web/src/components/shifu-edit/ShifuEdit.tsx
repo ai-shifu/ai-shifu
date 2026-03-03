@@ -132,6 +132,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [isHistoryContentExpanded, setIsHistoryContentExpanded] =
     useState(false);
   const historyRequestIdRef = useRef(0);
+  const historyDetailRequestIdRef = useRef(0);
+  const selectedHistoryVersionIdRef = useRef<number | null>(null);
   const [recentVariables, setRecentVariables] = useState<string[]>([]);
   const seenVariableNamesRef = useRef<Set<string>>(new Set());
   const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async preview is pending
@@ -515,6 +517,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
     currentNodeBidRef.current = currentNode?.bid ?? null;
   }, [currentNode?.bid]);
 
+  useEffect(() => {
+    selectedHistoryVersionIdRef.current = selectedHistoryVersionId;
+  }, [selectedHistoryVersionId]);
+
   const handleChapterSelect = useCallback(() => {
     if (!isPreviewPanelOpen) {
       return;
@@ -675,6 +681,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [currentNode?.bid, currentShifu?.bid]);
 
   const resetHistoryRestoreDialog = useCallback(() => {
+    historyDetailRequestIdRef.current += 1;
     setIsHistoryRestoreDialogOpen(false);
     setIsHistoryVersionDetailLoading(false);
     setHistoryVersionDetail(null);
@@ -692,6 +699,11 @@ const ScriptEditor = ({ id }: { id: string }) => {
     ) {
       return;
     }
+    const targetShifuBid = currentShifu.bid;
+    const targetOutlineBid = currentNode.bid;
+    const targetVersionId = selectedHistoryVersionId;
+    const requestId = historyDetailRequestIdRef.current + 1;
+    historyDetailRequestIdRef.current = requestId;
     setHistoryVersionDetail(null);
     setHistoryVersionLoadError(null);
     setIsHistoryContentExpanded(false);
@@ -699,17 +711,27 @@ const ScriptEditor = ({ id }: { id: string }) => {
     setIsHistoryVersionDetailLoading(true);
     try {
       const detail = await actions.loadMdflowHistoryVersionDetail(
-        currentShifu.bid,
-        currentNode.bid,
-        selectedHistoryVersionId,
+        targetShifuBid,
+        targetOutlineBid,
+        targetVersionId,
       );
+      const stale =
+        historyDetailRequestIdRef.current !== requestId ||
+        currentShifuBidRef.current !== targetShifuBid ||
+        currentNodeBidRef.current !== targetOutlineBid ||
+        selectedHistoryVersionIdRef.current !== targetVersionId;
+      if (stale) {
+        return;
+      }
       if (!detail) {
         setHistoryVersionLoadError(t('module.shifu.history.confirmLoadFailed'));
         return;
       }
       setHistoryVersionDetail(detail);
     } finally {
-      setIsHistoryVersionDetailLoading(false);
+      if (historyDetailRequestIdRef.current === requestId) {
+        setIsHistoryVersionDetailLoading(false);
+      }
     }
   }, [
     actions,
@@ -1359,13 +1381,13 @@ const ScriptEditor = ({ id }: { id: string }) => {
             }
           }}
         >
-          <DialogContent className='sm:max-w-[520px] max-h-[76vh] overflow-hidden'>
+          <DialogContent className='sm:max-w-[520px] max-h-[76vh] overflow-hidden flex flex-col'>
             <DialogHeader>
               <DialogTitle>
                 {t('module.shifu.history.confirmTitle')}
               </DialogTitle>
             </DialogHeader>
-            <div className='space-y-4 overflow-y-auto pr-1'>
+            <div className='flex-1 min-h-0 overflow-y-auto space-y-4 pr-1'>
               <div className='text-sm text-muted-foreground'>
                 {t('module.shifu.history.confirmDescription')}
               </div>

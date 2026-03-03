@@ -2,6 +2,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 import flaskr.dao as dao
+from flaskr.service.common.models import ERROR_CODE
 
 
 def _get_models():
@@ -118,4 +119,4 @@ def test_get_mdflow_history_version_detail_route_rejects_invalid_version_id(
     payload = resp.get_json(force=True)
 
     assert resp.status_code == 200
-    assert payload["code"] != 0
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
