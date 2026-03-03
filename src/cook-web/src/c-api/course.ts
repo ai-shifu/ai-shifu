@@ -1,7 +1,7 @@
 import request from '@/lib/request';
 import { inWechat } from '@/c-constants/uiConstants';
 import { tracking } from '@/c-common/tools/tracking';
-import i18n from 'i18next';
+import i18n from '@/i18n';
 
 const COURSE_NOT_FOUND_MESSAGE_FALLBACKS = ['course not found'];
 let cachedNotFoundMessages: { language: string; messages: string[] } | null =
@@ -20,7 +20,7 @@ const getCourseNotFoundMessages = (): string[] => {
 
   const translatedCandidates = [
     i18n.t('server.shifu.shifuNotFound'),
-    i18n.t('server.course.courseNotFound'),
+    i18n.t('server.shifu.courseNotFound'),
   ];
   const merged = [
     ...COURSE_NOT_FOUND_MESSAGE_FALLBACKS,

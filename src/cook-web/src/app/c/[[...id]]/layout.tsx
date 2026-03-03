@@ -254,6 +254,7 @@ export default function ChatLayout({
     courseId,
     envDataInitialized,
     setShowVip,
+    t,
     updateCourseName,
     updateCourseAvatar,
     updateCourseTtsEnabled,
