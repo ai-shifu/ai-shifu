@@ -230,7 +230,10 @@ export interface ShifuActions {
   updateBlockProperties: (bid: string, properties: any) => Promise<void>;
   loadMdflow: (outlineId: string, shifuId: string) => Promise<void>;
   saveMdflow: (payload?: SaveMdflowPayload) => Promise<void>;
-  loadDraftMeta: (shifuId: string) => Promise<DraftMeta | null>;
+  loadDraftMeta: (
+    shifuId: string,
+    outlineId?: string,
+  ) => Promise<DraftMeta | null>;
   loadMdflowHistory: (
     shifuId: string,
     outlineId: string,

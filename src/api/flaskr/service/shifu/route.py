@@ -1250,6 +1250,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             - name: shifu_bid
               type: string
               required: true
+            - name: outline_bid
+              in: query
+              type: string
+              required: false
         responses:
             200:
                 description: get draft meta success
@@ -1268,7 +1272,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     properties:
                                         revision:
                                             type: integer
-                                            description: latest draft revision
+                                            description: latest draft revision (course-level or outline content-level when outline_bid is provided)
                                         updated_at:
                                             type: string
                                             description: last update timestamp
@@ -1282,7 +1286,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                                     type: string
                                                     description: masked phone or email
         """
-        return make_common_response(get_shifu_draft_meta(app, shifu_bid))
+        outline_bid = request.args.get("outline_bid")
+        return make_common_response(get_shifu_draft_meta(app, shifu_bid, outline_bid))
 
     @app.route(
         path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow",
@@ -1314,7 +1319,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                         description: mdflow
                     base_revision:
                         type: integer
-                        description: current draft revision
+                        description: current outline content draft revision
         responses:
             200:
                 description: save mdflow success
@@ -1333,7 +1338,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     properties:
                                         new_revision:
                                             type: integer
-                                            description: latest draft revision
+                                            description: latest outline content draft revision
         """
         user_id = request.user.user_id
         json_data = request.get_json() or {}

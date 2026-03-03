@@ -540,20 +540,28 @@ export const ShifuProvider = ({
     }
   };
 
-  const loadDraftMeta = useCallback(async (shifuId: string) => {
-    if (!shifuId) {
-      setLatestDraftMeta(null);
-      return null;
-    }
-    try {
-      const meta = await api.getShifuDraftMeta({ shifu_bid: shifuId });
-      setLatestDraftMeta(meta as DraftMeta);
-      return meta as DraftMeta;
-    } catch (error) {
-      console.error('Failed to load draft meta', error);
-      return null;
-    }
-  }, []);
+  const loadDraftMeta = useCallback(
+    async (shifuId: string, outlineId?: string) => {
+      if (!shifuId) {
+        setLatestDraftMeta(null);
+        return null;
+      }
+      try {
+        const payload: Record<string, string> = { shifu_bid: shifuId };
+        if (outlineId) {
+          payload.outline_bid = outlineId;
+        }
+        const meta = await api.getShifuDraftMeta(payload);
+        setLatestDraftMeta(meta as DraftMeta);
+        return meta as DraftMeta;
+      } catch (error) {
+        console.error('Failed to load draft meta', error);
+        setLatestDraftMeta(null);
+        return null;
+      }
+    },
+    [],
+  );
 
   const loadMdflowHistory = useCallback(
     async (shifuId: string, outlineId: string, limit = 100) => {
@@ -1805,10 +1813,7 @@ export const ShifuProvider = ({
       setLastSaveTime(new Date());
     } catch (error: any) {
       if (error?.code === 4007) {
-        const meta = await loadDraftMeta(shifu_bid);
-        if (meta) {
-          setLatestDraftMeta(meta);
-        }
+        await loadDraftMeta(shifu_bid, outline_bid);
         setHasDraftConflict(true);
         setAutosavePaused(true);
         debouncedAutoSaveRef.current.cancel();
