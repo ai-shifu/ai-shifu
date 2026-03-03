@@ -1,4 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+import re
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pytest
 
@@ -90,6 +92,11 @@ def test_get_shifu_mdflow_history_includes_baseline_and_masks_user(app):
 
     history = get_shifu_mdflow_history(app, shifu_bid, outline_bid, limit=100)
     assert [item["version_id"] for item in history["items"]] == [id_5, id_3, id_1]
+    assert isinstance(history["items"][0]["updated_at"], str)
+    assert re.match(
+        r"^\d{2}-\d{2} \d{2}:\d{2}:\d{2}$",
+        history["items"][0]["updated_at_display"],
+    )
 
     latest_user_name = history["items"][0]["updated_user_name"]
     assert latest_user_name != "13812345678"
@@ -97,6 +104,48 @@ def test_get_shifu_mdflow_history_includes_baseline_and_masks_user(app):
 
     limited = get_shifu_mdflow_history(app, shifu_bid, outline_bid, limit=2)
     assert [item["version_id"] for item in limited["items"]] == [id_5, id_3]
+
+
+def test_get_shifu_mdflow_history_uses_request_timezone(app):
+    try:
+        ZoneInfo("Asia/Shanghai")
+    except ZoneInfoNotFoundError:
+        pytest.skip("Asia/Shanghai timezone is unavailable in test environment")
+
+    shifu_bid = "shifu-mdflow-history-tz-1"
+    outline_bid = "outline-mdflow-history-tz-1"
+
+    with app.app_context():
+        item = DraftOutlineItem(
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            title="outline",
+            content="A",
+            updated_user_bid="user-tz-1",
+            updated_at=datetime(2026, 3, 3, 0, 0, 0, tzinfo=timezone.utc),
+            created_user_bid="user-tz-1",
+        )
+        db.session.add(item)
+        db.session.commit()
+
+    history_utc = get_shifu_mdflow_history(
+        app,
+        shifu_bid,
+        outline_bid,
+        limit=100,
+        timezone_name="UTC",
+    )
+    history_shanghai = get_shifu_mdflow_history(
+        app,
+        shifu_bid,
+        outline_bid,
+        limit=100,
+        timezone_name="Asia/Shanghai",
+    )
+
+    assert history_utc["items"][0]["updated_at_display"] == "03-03 00:00:00"
+    assert history_shanghai["items"][0]["updated_at_display"] == "03-03 08:00:00"
+    assert history_shanghai["items"][0]["updated_at"].endswith("+08:00")
 
 
 def test_save_shifu_mdflow_rejects_outline_from_other_shifu(app):

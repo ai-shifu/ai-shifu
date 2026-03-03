@@ -574,26 +574,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
   };
 
-  const formatHistoryDateTime = (value?: string | null) => {
-    if (!value) {
-      return '--';
-    }
-    const normalized = value.trim();
-    const isoLikeMatch = normalized.match(
-      /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/,
-    );
-    if (isoLikeMatch) {
-      const [, , month, day, hour, minute, second] = isoLikeMatch;
-      return `${month}-${day} ${hour}:${minute}:${second}`;
-    }
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return '--';
-    }
-    const pad = (num: number) => String(num).padStart(2, '0');
-    return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-  };
-
   const loadCurrentMdflowHistory = useCallback(async () => {
     if (!currentShifu?.bid || !currentNode?.bid) {
       setHistoryItems([]);
@@ -1165,7 +1145,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   {historyItems.map(item => {
                     const selected =
                       selectedHistoryVersionId === item.version_id;
-                    const timeLabel = formatHistoryDateTime(item.updated_at);
+                    const timeLabel =
+                      item.updated_at_display || item.updated_at || '--';
                     const userName =
                       item.updated_user_name ||
                       item.updated_user_bid ||

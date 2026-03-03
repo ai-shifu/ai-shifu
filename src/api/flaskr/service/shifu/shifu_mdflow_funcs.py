@@ -267,35 +267,72 @@ def _query_outline_versions(shifu_bid: str, outline_bid: str):
     )
 
 
-def _get_app_timezone(app: Flask) -> ZoneInfo:
-    tz_name = app.config.get("TZ", "UTC")
+def _get_app_timezone(app: Flask, tz_name: str | None = None) -> ZoneInfo:
+    fallback_tz_name = app.config.get("TZ", "UTC")
+    candidate_tz_name = (tz_name or fallback_tz_name or "UTC").strip()
     try:
-        return ZoneInfo(tz_name)
+        return ZoneInfo(candidate_tz_name)
     except ZoneInfoNotFoundError as error:
         app.logger.warning(
-            "Failed to load timezone '%s': %s, falling back to UTC", tz_name, error
+            "Failed to load timezone '%s': %s, falling back to '%s'",
+            candidate_tz_name,
+            error,
+            fallback_tz_name,
         )
-        return ZoneInfo("UTC")
     except Exception as error:
         app.logger.warning(
             "Unexpected timezone config '%s': %s, falling back to UTC",
-            tz_name,
+            candidate_tz_name,
             error,
         )
-        return ZoneInfo("UTC")
+
+    if candidate_tz_name != fallback_tz_name:
+        try:
+            return ZoneInfo(fallback_tz_name)
+        except ZoneInfoNotFoundError as error:
+            app.logger.warning(
+                "Failed to load fallback timezone '%s': %s, falling back to UTC",
+                fallback_tz_name,
+                error,
+            )
+        except Exception as error:
+            app.logger.warning(
+                "Unexpected fallback timezone config '%s': %s, falling back to UTC",
+                fallback_tz_name,
+                error,
+            )
+
+    return ZoneInfo("UTC")
 
 
-def _serialize_with_app_timezone(app: Flask, dt: datetime | None) -> str | None:
+def _serialize_with_app_timezone(
+    app: Flask, dt: datetime | None, tz_name: str | None = None
+) -> str | None:
     if dt is None:
         return None
-    app_tz = _get_app_timezone(app)
+    app_tz = _get_app_timezone(app, tz_name)
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(app_tz).isoformat()
 
 
+def _format_with_app_timezone(
+    app: Flask, dt: datetime | None, fmt: str, tz_name: str | None = None
+) -> str | None:
+    if dt is None:
+        return None
+    app_tz = _get_app_timezone(app, tz_name)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(app_tz).strftime(fmt)
+
+
 def get_shifu_mdflow_history(
-    app: Flask, shifu_bid: str, outline_bid: str, limit: int = 100
+    app: Flask,
+    shifu_bid: str,
+    outline_bid: str,
+    limit: int = 100,
+    timezone_name: str | None = None,
 ) -> dict:
     """
     Get lesson content history for a specific outline.
@@ -357,7 +394,12 @@ def get_shifu_mdflow_history(
             items.append(
                 {
                     "version_id": int(item.id),
-                    "updated_at": _serialize_with_app_timezone(app, item.updated_at),
+                    "updated_at": _serialize_with_app_timezone(
+                        app, item.updated_at, timezone_name
+                    ),
+                    "updated_at_display": _format_with_app_timezone(
+                        app, item.updated_at, "%m-%d %H:%M:%S", timezone_name
+                    ),
                     "updated_user_bid": item.updated_user_bid,
                     "updated_user_name": user_name,
                 }

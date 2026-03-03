@@ -560,11 +560,18 @@ export const ShifuProvider = ({
       if (!shifuId || !outlineId) {
         return [] as MdflowHistoryItem[];
       }
+      const timezone =
+        typeof window !== 'undefined' &&
+        typeof Intl !== 'undefined' &&
+        Intl.DateTimeFormat
+          ? Intl.DateTimeFormat().resolvedOptions().timeZone
+          : '';
       try {
         const result = (await api.getMdflowHistory({
           shifu_bid: shifuId,
           outline_bid: outlineId,
           limit,
+          ...(timezone ? { timezone } : {}),
         })) as MdflowHistoryListResult;
         return result?.items || [];
       } catch (error) {

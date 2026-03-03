@@ -1431,6 +1431,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               type: integer
               required: false
               description: max number of history items, default 100, range 1-200
+            - name: timezone
+              in: query
+              type: string
+              required: false
+              description: IANA timezone, e.g. Asia/Shanghai
         responses:
             200:
                 description: get mdflow history success
@@ -1458,6 +1463,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                                     updated_at:
                                                         type: string
                                                         description: update time in app timezone
+                                                    updated_at_display:
+                                                        type: string
+                                                        description: formatted update time for direct display
                                                     updated_user_bid:
                                                         type: string
                                                         description: updater user bid
@@ -1466,6 +1474,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                                         description: updater display name
         """
         limit_raw = request.args.get("limit", 100)
+        timezone_name = (request.args.get("timezone", "") or "").strip() or None
+        if timezone_name and len(timezone_name) > 100:
+            raise_param_error("timezone")
         try:
             limit = int(limit_raw)
         except (TypeError, ValueError):
@@ -1473,7 +1484,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         if limit < 1 or limit > 200:
             raise_param_error("limit")
         return make_common_response(
-            get_shifu_mdflow_history(app, shifu_bid, outline_bid, limit)
+            get_shifu_mdflow_history(app, shifu_bid, outline_bid, limit, timezone_name)
         )
 
     @app.route(
