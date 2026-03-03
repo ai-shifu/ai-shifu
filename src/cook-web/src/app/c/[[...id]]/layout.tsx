@@ -226,9 +226,16 @@ export default function ChatLayout({
             preview_mode: isPreviewMode,
             reason: 'transient_or_unknown_error',
             path: window.location.pathname,
-            error_message: (error as Error)?.message || '',
             error_code:
               (error as { code?: number | string })?.code?.toString?.() || '',
+            http_status:
+              (error as { status?: number | string })?.status?.toString?.() ||
+              '',
+            error_type:
+              (error as { status?: number | string })?.status ||
+              (error as { code?: number | string })?.code
+                ? 'http_error'
+                : 'unknown_error',
             is_wechat:
               typeof navigator !== 'undefined' ? Boolean(inWechat()) : false,
             has_token: Boolean(useUserStore.getState().getToken()),

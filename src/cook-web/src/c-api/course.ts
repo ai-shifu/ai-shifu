@@ -4,6 +4,8 @@ import { tracking } from '@/c-common/tools/tracking';
 import i18n from 'i18next';
 
 const COURSE_NOT_FOUND_MESSAGE_FALLBACKS = ['course not found'];
+let cachedNotFoundMessages: { language: string; messages: string[] } | null =
+  null;
 
 const isHttpStatusCode = (value: unknown): value is number => {
   const code = Number(value);
@@ -11,6 +13,11 @@ const isHttpStatusCode = (value: unknown): value is number => {
 };
 
 const getCourseNotFoundMessages = (): string[] => {
+  const language = i18n.resolvedLanguage || i18n.language || '';
+  if (cachedNotFoundMessages && cachedNotFoundMessages.language === language) {
+    return cachedNotFoundMessages.messages;
+  }
+
   const translatedCandidates = [
     i18n.t('server.shifu.shifuNotFound'),
     i18n.t('server.course.courseNotFound'),
@@ -25,7 +32,9 @@ const getCourseNotFoundMessages = (): string[] => {
         .toLowerCase(),
     )
     .filter(Boolean);
-  return Array.from(new Set(merged));
+  const messages = Array.from(new Set(merged));
+  cachedNotFoundMessages = { language, messages };
+  return messages;
 };
 
 const isCourseNotFoundError = (error: any): boolean => {
@@ -35,9 +44,7 @@ const isCourseNotFoundError = (error: any): boolean => {
     return true;
   }
   const message = String(error?.message || '').toLowerCase();
-  return getCourseNotFoundMessages().some(keyword =>
-    message.includes(keyword.toLowerCase()),
-  );
+  return getCourseNotFoundMessages().some(keyword => message.includes(keyword));
 };
 
 export class CourseInfoFetchError extends Error {
@@ -66,8 +73,9 @@ export class CourseInfoFetchError extends Error {
 
 export const getCourseInfo = async (courseId: string, previewMode: boolean) => {
   try {
+    const encodedCourseId = encodeURIComponent(courseId);
     const res = await request.get(
-      `/api/learn/shifu/${courseId}?preview_mode=${previewMode}`,
+      `/api/learn/shifu/${encodedCourseId}?preview_mode=${previewMode}`,
       // `/api/course/get-course-info?course_id=${courseId}&preview_mode=${previewMode}`,
     );
 
@@ -94,7 +102,11 @@ export const getCourseInfo = async (courseId: string, previewMode: boolean) => {
       preview_mode: previewMode,
       error_code: error.code ?? '',
       http_status: error.status ?? '',
-      error_message: error.message || '',
+      error_type: error.isCourseNotFound
+        ? 'course_not_found'
+        : error.status
+          ? 'http_error'
+          : 'unknown_error',
       path: typeof window !== 'undefined' ? window.location.pathname : '',
       ua: typeof navigator !== 'undefined' ? navigator.userAgent : '',
       is_wechat: typeof navigator !== 'undefined' ? Boolean(inWechat()) : false,
