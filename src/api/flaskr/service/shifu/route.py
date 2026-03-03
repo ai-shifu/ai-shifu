@@ -1529,9 +1529,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         """
         try:
             version_id_int = int(version_id)
+            if version_id_int <= 0:
+                raise ValueError
         except (TypeError, ValueError):
-            raise_param_error("version_id")
-        if version_id_int <= 0:
             raise_param_error("version_id")
 
         timezone_name = (request.args.get("timezone", "") or "").strip() or None
