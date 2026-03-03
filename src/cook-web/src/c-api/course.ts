@@ -5,6 +5,11 @@ import i18n from 'i18next';
 
 const COURSE_NOT_FOUND_MESSAGE_FALLBACKS = ['course not found'];
 
+const isHttpStatusCode = (value: unknown): value is number => {
+  const code = Number(value);
+  return Number.isInteger(code) && code >= 400 && code <= 599;
+};
+
 const getCourseNotFoundMessages = (): string[] => {
   const translatedCandidates = [
     i18n.t('server.shifu.shifuNotFound'),
@@ -26,7 +31,7 @@ const getCourseNotFoundMessages = (): string[] => {
 const isCourseNotFoundError = (error: any): boolean => {
   const code = Number(error?.code);
   const status = Number(error?.status);
-  if (code === 4001 || status === 404) {
+  if (code === 4001 || code === 404 || status === 404) {
     return true;
   }
   const message = String(error?.message || '').toLowerCase();
@@ -48,8 +53,14 @@ export class CourseInfoFetchError extends Error {
       : undefined;
     this.status = Number.isFinite(Number(error?.status))
       ? Number(error?.status)
-      : undefined;
-    this.isCourseNotFound = isCourseNotFoundError(error);
+      : isHttpStatusCode(error?.code)
+        ? Number(error?.code)
+        : undefined;
+    this.isCourseNotFound = isCourseNotFoundError({
+      ...error,
+      code: this.code,
+      status: this.status,
+    });
   }
 }
 

@@ -27,7 +27,7 @@ export default function ChatLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
 
   const [checkWxcode, setCheckWxcode] = useState<boolean>(false);
   const envDataInitialized = useEnvStore(
@@ -179,7 +179,8 @@ export default function ChatLayout({
           updateCourseName(resp.course_name);
           updateCourseAvatar(resp.course_avatar);
           updateCourseTtsEnabled(resp.course_tts_enabled ?? null);
-          document.title = resp.course_name + ' - AI 师傅';
+          const titleSuffix = t('common.core.brandName');
+          document.title = `${resp.course_name} - ${titleSuffix}`;
           const metaDescription = document.querySelector(
             'meta[name="description"]',
           );
