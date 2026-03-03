@@ -17,6 +17,7 @@
     "expand": "Expand full text",
     "loading": "Loading...",
     "restore": "Restore This Version",
+    "restoreLessonDeleted": "This lesson has been deleted by another editor and cannot be restored. Please refresh and try again.",
     "restoring": "Restoring...",
     "title": "History",
     "unknownUser": "Unknown user"

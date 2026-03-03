@@ -655,7 +655,11 @@ export const ShifuProvider = ({
     [baseRevision, loadDraftMeta],
   );
 
-  const loadChapters = async (shifuId: string) => {
+  const loadChapters = async (
+    shifuId: string,
+    options?: { autoSelectFirstLesson?: boolean },
+  ) => {
+    const autoSelectFirstLesson = options?.autoSelectFirstLesson ?? true;
     try {
       setIsLoading(true);
       setError(null);
@@ -665,7 +669,7 @@ export const ShifuProvider = ({
       ]);
       setCurrentShifu(normalizeShifuDetail(shifuInfo) as Shifu | null);
       const list = remapOutlineTree(chaptersData);
-      if (list.length > 0) {
+      if (autoSelectFirstLesson && list.length > 0) {
         // Find the first lesson to select by default
         const firstLesson = list.find(
           chapter => chapter.children && chapter.children.length > 0,
@@ -679,6 +683,12 @@ export const ShifuProvider = ({
           await loadMdflow(firstLesson.bid, shifuId);
           // await loadBlocks(firstLesson.bid, shifuId);
         }
+      } else if (!autoSelectFirstLesson) {
+        internalSetCurrentNode(null);
+        setMdflow('');
+        currentMdflow.current = '';
+        setBaseRevision(null);
+        setLatestDraftMeta(null);
       }
       setChapters(list);
       buildOutlineTree(list);

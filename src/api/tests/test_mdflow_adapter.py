@@ -485,3 +485,41 @@ def test_restore_shifu_mdflow_history_passes_base_revision(app, monkeypatch):
     )
     assert captured["base_revision"] == 42
     assert result["conflict"] is True
+
+
+def test_restore_shifu_mdflow_history_deleted_outline_returns_deleted_flag(app):
+    shifu_bid = "shifu-mdflow-restore-deleted-1"
+    outline_bid = "outline-mdflow-restore-deleted-1"
+    user_bid = "user-restore-deleted-1"
+
+    _add_outline_version(app, shifu_bid, outline_bid, "Version 1", user_bid, 0)
+    target_version_id = _add_outline_version(
+        app, shifu_bid, outline_bid, "Version 2", user_bid, 1
+    )
+
+    with app.app_context():
+        latest = (
+            DraftOutlineItem.query.filter_by(
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+            )
+            .order_by(DraftOutlineItem.id.desc())
+            .first()
+        )
+        assert latest is not None
+        deleted_snapshot = latest.clone()
+        deleted_snapshot.deleted = 1
+        deleted_snapshot.updated_user_bid = user_bid
+        db.session.add(deleted_snapshot)
+        db.session.commit()
+
+    result = restore_shifu_mdflow_history_version(
+        app,
+        user_bid,
+        shifu_bid,
+        outline_bid,
+        target_version_id,
+        base_revision=target_version_id,
+    )
+    assert result["lesson_deleted"] is True
+    assert result["restored"] is False

@@ -1602,6 +1602,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                         new_revision:
                                             type: integer
                                             description: latest draft revision
+                                        lesson_deleted:
+                                            type: boolean
+                                            description: whether the outline has already been deleted
         """
         user_id = request.user.user_id
         json_data = request.get_json() or {}
