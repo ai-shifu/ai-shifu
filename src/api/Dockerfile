@@ -9,18 +9,6 @@ ARG SRC_ROOT
 ARG API_SRC
 ARG I18N_SRC
 
-# ensure /etc/apt/sources.list exists and change APT source to aliyun mirror
-RUN if [ -f /etc/apt/sources.list ]; then \
-    sed -i 's|http://deb.debian.org/debian|http://mirrors.aliyun.com/debian|g' /etc/apt/sources.list; \
-    sed -i 's|http://security.debian.org/debian-security|http://mirrors.aliyun.com/debian-security|g' /etc/apt/sources.list; \
-    apt-get update && \
-    apt-get install -y python3-pip && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*; \
-    else \
-    echo "No sources.list found!"; \
-    fi
-
 WORKDIR /app
 
 COPY ${API_SRC}/requirements.txt ./requirements.txt
@@ -34,10 +22,35 @@ FROM python:3.11-slim
 
 ENV SHARED_I18N_ROOT=/app/i18n
 
-# Install FFmpeg for audio processing (pydub dependency)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg && \
-    apt-get clean && \
+# Install FFmpeg for audio processing (pydub dependency).
+# Use a stable mirror and retry apt operations to reduce transient CI failures.
+RUN set -eux; \
+    if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
+        sed -i 's|http://deb.debian.org/debian|https://mirrors.aliyun.com/debian|g' /etc/apt/sources.list.d/debian.sources; \
+        sed -i 's|http://security.debian.org/debian-security|https://mirrors.aliyun.com/debian-security|g' /etc/apt/sources.list.d/debian.sources; \
+        sed -i 's|http://deb.debian.org/debian-security|https://mirrors.aliyun.com/debian-security|g' /etc/apt/sources.list.d/debian.sources; \
+    fi; \
+    if [ -f /etc/apt/sources.list ]; then \
+        sed -i 's|http://deb.debian.org/debian|https://mirrors.aliyun.com/debian|g' /etc/apt/sources.list; \
+        sed -i 's|http://security.debian.org/debian-security|https://mirrors.aliyun.com/debian-security|g' /etc/apt/sources.list; \
+        sed -i 's|http://deb.debian.org/debian-security|https://mirrors.aliyun.com/debian-security|g' /etc/apt/sources.list; \
+    fi; \
+    printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' > /etc/apt/apt.conf.d/99-ci-retries; \
+    update_success=0; \
+    for attempt in 1 2 3; do \
+        if apt-get update; then \
+            update_success=1; \
+            break; \
+        fi; \
+        echo "apt-get update failed (attempt ${attempt}), retrying..."; \
+        sleep $((attempt * 5)); \
+    done; \
+    if [ "${update_success}" -ne 1 ]; then \
+        echo "apt-get update failed after retries"; \
+        exit 1; \
+    fi; \
+    apt-get install -y --no-install-recommends ffmpeg; \
+    apt-get clean; \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=base /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
