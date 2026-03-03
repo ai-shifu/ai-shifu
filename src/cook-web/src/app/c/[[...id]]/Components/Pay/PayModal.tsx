@@ -227,6 +227,8 @@ export const PayModal = ({
     try {
       const resp = await getCourseInfo(courseId, previewMode);
       setPreviewPrice(resp?.course_price);
+    } catch {
+      // Keep default price for transient course info failures.
     } finally {
       setPreviewLoading(false);
       setPreviewInitLoading(false);
