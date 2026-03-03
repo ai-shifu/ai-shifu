@@ -31,6 +31,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/Sheet';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import './shifuEdit.scss';
 import Loading from '../loading';
@@ -59,6 +66,7 @@ import {
   DraftMeta,
   LessonCreationSettings,
   MdflowHistoryItem,
+  MdflowHistoryVersionDetail,
 } from '@/types/shifu';
 import DraftConflictDialog from './DraftConflictDialog';
 
@@ -68,6 +76,7 @@ const OUTLINE_STORAGE_KEY = 'shifu-outline-panel-width';
 const TOOLBAR_ICON_SIZE = 18; // Match markdown-flow-ui toolbar icon size
 
 const VARIABLE_NAME_REGEXP = /\{\{([\p{L}\p{N}_]+)\}\}/gu;
+const HISTORY_CONTENT_PREVIEW_LINES = 6;
 
 // Collect variable names that truly exist in current markdown content
 const extractVariableNames = (text?: string | null) => {
@@ -111,6 +120,18 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [selectedHistoryVersionId, setSelectedHistoryVersionId] = useState<
     number | null
   >(null);
+  const [isHistoryRestoreDialogOpen, setIsHistoryRestoreDialogOpen] =
+    useState(false);
+  const [isHistoryVersionDetailLoading, setIsHistoryVersionDetailLoading] =
+    useState(false);
+  const [historyVersionDetail, setHistoryVersionDetail] =
+    useState<MdflowHistoryVersionDetail | null>(null);
+  const [historyVersionLoadError, setHistoryVersionLoadError] = useState<
+    string | null
+  >(null);
+  const [isHistoryContentExpanded, setIsHistoryContentExpanded] =
+    useState(false);
+  const historyRequestIdRef = useRef(0);
   const [recentVariables, setRecentVariables] = useState<string[]>([]);
   const seenVariableNamesRef = useRef<Set<string>>(new Set());
   const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async preview is pending
@@ -602,40 +623,107 @@ const ScriptEditor = ({ id }: { id: string }) => {
     if (!currentShifu?.bid || !currentNode?.bid) {
       setHistoryItems([]);
       setSelectedHistoryVersionId(null);
+      setHistoryVersionDetail(null);
+      setHistoryVersionLoadError(null);
+      setIsHistoryRestoreDialogOpen(false);
       return;
     }
+    const targetShifuBid = currentShifu.bid;
+    const targetOutlineBid = currentNode.bid;
+    const requestId = historyRequestIdRef.current + 1;
+    historyRequestIdRef.current = requestId;
     setIsHistoryLoading(true);
     try {
-      const list = await actions.loadMdflowHistory(
-        currentShifu.bid,
-        currentNode.bid,
+      const list = await actionsRef.current.loadMdflowHistory(
+        targetShifuBid,
+        targetOutlineBid,
       );
+      if (
+        historyRequestIdRef.current !== requestId ||
+        currentShifuBidRef.current !== targetShifuBid ||
+        currentNodeBidRef.current !== targetOutlineBid
+      ) {
+        return;
+      }
       setHistoryItems(list);
       setSelectedHistoryVersionId(list.length ? list[0].version_id : null);
     } finally {
-      setIsHistoryLoading(false);
+      if (historyRequestIdRef.current === requestId) {
+        setIsHistoryLoading(false);
+      }
     }
-  }, [actions, currentNode?.bid, currentShifu?.bid]);
+  }, [currentNode?.bid, currentShifu?.bid]);
 
-  const handleRestoreMdflowHistory = useCallback(async () => {
+  const resetHistoryRestoreDialog = useCallback(() => {
+    setIsHistoryRestoreDialogOpen(false);
+    setIsHistoryVersionDetailLoading(false);
+    setHistoryVersionDetail(null);
+    setHistoryVersionLoadError(null);
+    setIsHistoryContentExpanded(false);
+  }, []);
+
+  const handleOpenHistoryRestoreDialog = useCallback(async () => {
     if (
       !currentShifu?.bid ||
       !currentNode?.bid ||
       selectedHistoryVersionId == null ||
-      isHistoryRestoring
+      isHistoryRestoring ||
+      currentShifu?.readonly
+    ) {
+      return;
+    }
+    setHistoryVersionDetail(null);
+    setHistoryVersionLoadError(null);
+    setIsHistoryContentExpanded(false);
+    setIsHistoryRestoreDialogOpen(true);
+    setIsHistoryVersionDetailLoading(true);
+    try {
+      const detail = await actions.loadMdflowHistoryVersionDetail(
+        currentShifu.bid,
+        currentNode.bid,
+        selectedHistoryVersionId,
+      );
+      if (!detail) {
+        setHistoryVersionLoadError(t('module.shifu.history.confirmLoadFailed'));
+        return;
+      }
+      setHistoryVersionDetail(detail);
+    } finally {
+      setIsHistoryVersionDetailLoading(false);
+    }
+  }, [
+    actions,
+    currentNode?.bid,
+    currentShifu?.bid,
+    currentShifu?.readonly,
+    isHistoryRestoring,
+    selectedHistoryVersionId,
+    t,
+  ]);
+
+  const handleConfirmRestoreMdflowHistory = useCallback(async () => {
+    if (
+      !currentShifu?.bid ||
+      !currentNode?.bid ||
+      isHistoryRestoring ||
+      !historyVersionDetail?.version_id
     ) {
       return;
     }
     setIsHistoryRestoring(true);
     try {
-      await actions.restoreMdflowHistory(
+      const result = await actions.restoreMdflowHistory(
         currentShifu.bid,
         currentNode.bid,
-        selectedHistoryVersionId,
+        historyVersionDetail.version_id,
         baseRevisionRef.current,
       );
+      resetHistoryRestoreDialog();
+      if (!result) {
+        return;
+      }
       await actions.loadMdflow(currentNode.bid, currentShifu.bid);
-      await loadCurrentMdflowHistory();
+      setIsHistoryPanelOpen(false);
     } catch (error) {
       console.error(error);
     } finally {
@@ -645,9 +733,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
     actions,
     currentNode?.bid,
     currentShifu?.bid,
+    historyVersionDetail?.version_id,
     isHistoryRestoring,
-    loadCurrentMdflowHistory,
-    selectedHistoryVersionId,
+    resetHistoryRestoreDialog,
   ]);
 
   useEffect(() => {
@@ -656,6 +744,33 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
     void loadCurrentMdflowHistory();
   }, [isHistoryPanelOpen, loadCurrentMdflowHistory]);
+
+  const historyVersionContent = historyVersionDetail?.content || '';
+  const historyVersionContentLines = useMemo(() => {
+    if (!historyVersionContent) {
+      return [] as string[];
+    }
+    return historyVersionContent.split('\n');
+  }, [historyVersionContent]);
+  const shouldTruncateHistoryContent =
+    historyVersionContentLines.length > HISTORY_CONTENT_PREVIEW_LINES;
+  const displayedHistoryVersionContent = useMemo(() => {
+    if (
+      !shouldTruncateHistoryContent ||
+      isHistoryContentExpanded ||
+      !historyVersionContentLines.length
+    ) {
+      return historyVersionContent;
+    }
+    return historyVersionContentLines
+      .slice(0, HISTORY_CONTENT_PREVIEW_LINES)
+      .join('\n');
+  }, [
+    historyVersionContent,
+    historyVersionContentLines,
+    isHistoryContentExpanded,
+    shouldTruncateHistoryContent,
+  ]);
 
   const mdflowVariableNames = useMemo(
     () => extractVariableNames(mdflow),
@@ -1208,7 +1323,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   isHistoryRestoring ||
                   !selectedHistoryVersionId
                 }
-                onClick={handleRestoreMdflowHistory}
+                onClick={handleOpenHistoryRestoreDialog}
               >
                 {isHistoryRestoring
                   ? t('module.shifu.history.restoring')
@@ -1217,6 +1332,86 @@ const ScriptEditor = ({ id }: { id: string }) => {
             </div>
           </SheetContent>
         </Sheet>
+        <Dialog
+          open={isHistoryRestoreDialogOpen}
+          onOpenChange={nextOpen => {
+            if (!nextOpen) {
+              resetHistoryRestoreDialog();
+            }
+          }}
+        >
+          <DialogContent className='sm:max-w-[520px] max-h-[76vh] overflow-hidden'>
+            <DialogHeader>
+              <DialogTitle>
+                {t('module.shifu.history.confirmTitle')}
+              </DialogTitle>
+            </DialogHeader>
+            <div className='space-y-4 overflow-y-auto pr-1'>
+              <div className='text-sm text-muted-foreground'>
+                {t('module.shifu.history.confirmDescription')}
+              </div>
+              <div>
+                {isHistoryVersionDetailLoading ? (
+                  <div className='h-24 text-sm text-muted-foreground'>
+                    {t('module.shifu.history.loading')}
+                  </div>
+                ) : historyVersionLoadError ? (
+                  <div className='h-24 text-sm text-destructive'>
+                    {historyVersionLoadError}
+                  </div>
+                ) : (
+                  <>
+                    <div className='max-h-[240px] overflow-y-auto whitespace-pre-wrap break-words text-sm leading-6 text-foreground'>
+                      {displayedHistoryVersionContent ||
+                        t('module.shifu.history.contentEmpty')}
+                    </div>
+                    {shouldTruncateHistoryContent ? (
+                      <div className='mt-1 flex items-center gap-1 text-sm text-muted-foreground'>
+                        <Button
+                          type='button'
+                          variant='link'
+                          className='h-auto p-0 text-sm'
+                          onClick={() =>
+                            setIsHistoryContentExpanded(prev => !prev)
+                          }
+                        >
+                          {isHistoryContentExpanded
+                            ? t('module.shifu.history.collapse')
+                            : t('module.shifu.history.expand')}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={resetHistoryRestoreDialog}
+                disabled={isHistoryRestoring}
+              >
+                {t('common.core.cancel')}
+              </Button>
+              <Button
+                type='button'
+                onClick={handleConfirmRestoreMdflowHistory}
+                disabled={
+                  currentShifu?.readonly ||
+                  isHistoryRestoring ||
+                  isHistoryVersionDetailLoading ||
+                  !historyVersionDetail ||
+                  !!historyVersionLoadError
+                }
+              >
+                {isHistoryRestoring
+                  ? t('module.shifu.history.restoring')
+                  : t('module.shifu.history.restore')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

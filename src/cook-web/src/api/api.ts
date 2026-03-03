@@ -61,6 +61,8 @@ const api = {
     'POST /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/mdflow/parse',
   getMdflowHistory:
     'GET /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/mdflow/history',
+  getMdflowHistoryVersionDetail:
+    'GET /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/mdflow/history/{version_id}',
   restoreMdflowHistory:
     'POST /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/mdflow/history/restore',
   runMdflow: 'POST /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/mdflow/run',

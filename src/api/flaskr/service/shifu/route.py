@@ -104,6 +104,7 @@ from flaskr.service.shifu.shifu_mdflow_funcs import (
     save_shifu_mdflow,
     parse_shifu_mdflow,
     get_shifu_mdflow_history,
+    get_shifu_mdflow_history_version_detail,
     restore_shifu_mdflow_history_version,
 )
 from flaskr.service.shifu.shifu_history_manager import get_shifu_draft_meta
@@ -1490,6 +1491,61 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             raise_param_error("limit")
         return make_common_response(
             get_shifu_mdflow_history(app, shifu_bid, outline_bid, limit, timezone_name)
+        )
+
+    @app.route(
+        path_prefix
+        + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow/history/<version_id>",
+        methods=["GET"],
+    )
+    @ShifuTokenValidation(ShifuPermission.VIEW)
+    @with_shifu_context()
+    def get_mdflow_history_version_detail_api(
+        shifu_bid: str, outline_bid: str, version_id: str
+    ):
+        """
+        get mdflow history version detail
+        ---
+        tags:
+            - shifu
+        parameters:
+            - name: shifu_bid
+              type: string
+              required: true
+            - name: outline_bid
+              type: string
+              required: true
+            - name: version_id
+              type: integer
+              required: true
+            - name: timezone
+              in: query
+              type: string
+              required: false
+              description: IANA timezone, e.g. Asia/Shanghai
+        responses:
+            200:
+                description: get mdflow history version detail success
+        """
+        try:
+            version_id_int = int(version_id)
+        except (TypeError, ValueError):
+            raise_param_error("version_id")
+        if version_id_int <= 0:
+            raise_param_error("version_id")
+
+        timezone_name = (request.args.get("timezone", "") or "").strip() or None
+        if timezone_name and len(timezone_name) > 100:
+            raise_param_error("timezone")
+
+        return make_common_response(
+            get_shifu_mdflow_history_version_detail(
+                app,
+                shifu_bid,
+                outline_bid,
+                version_id_int,
+                timezone_name,
+            )
         )
 
     @app.route(

@@ -15,6 +15,7 @@ from flaskr.service.shifu.shifu_mdflow_funcs import (
     cleanup_outline_history_versions,
     get_shifu_mdflow,
     get_shifu_mdflow_history,
+    get_shifu_mdflow_history_version_detail,
     parse_shifu_mdflow,
     restore_shifu_mdflow_history_version,
     save_shifu_mdflow,
@@ -166,6 +167,51 @@ def test_get_shifu_mdflow_history_uses_request_timezone(app):
         "%m-%d %H:%M:%S"
     )
     assert datetime.fromisoformat(history_utc["items"][0]["updated_at"]) == expected_utc
+
+
+def test_get_shifu_mdflow_history_version_detail_returns_content_and_user(app):
+    shifu_bid = "shifu-mdflow-history-detail-1"
+    outline_bid = "outline-mdflow-history-detail-1"
+    user_bid = "user-mdflow-history-detail-1"
+    content = "Line 1\nLine 2"
+
+    with app.app_context():
+        db.session.add(
+            UserInfo(
+                user_bid=user_bid,
+                user_identify="detail-user@example.com",
+                nickname="Detail User",
+                deleted=0,
+            )
+        )
+        db.session.commit()
+
+    version_id = _add_outline_version(app, shifu_bid, outline_bid, content, user_bid, 0)
+
+    detail = get_shifu_mdflow_history_version_detail(
+        app,
+        shifu_bid,
+        outline_bid,
+        version_id,
+        timezone_name="UTC",
+    )
+
+    assert detail["version_id"] == version_id
+    assert detail["content"] == content
+    assert detail["updated_user_bid"] == user_bid
+    assert detail["updated_user_name"] == "Detail User"
+    assert isinstance(detail["updated_at"], str)
+    assert re.match(r"^\d{2}-\d{2} \d{2}:\d{2}:\d{2}$", detail["updated_at_display"])
+
+
+def test_get_shifu_mdflow_history_version_detail_raises_not_found(app):
+    with pytest.raises(AppException):
+        get_shifu_mdflow_history_version_detail(
+            app,
+            "shifu-mdflow-history-detail-2",
+            "outline-mdflow-history-detail-2",
+            999999,
+        )
 
 
 def test_save_shifu_mdflow_rejects_outline_from_other_shifu(app):

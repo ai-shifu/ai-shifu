@@ -445,6 +445,66 @@ def get_shifu_mdflow_history(
         return {"items": items}
 
 
+def get_shifu_mdflow_history_version_detail(
+    app: Flask,
+    shifu_bid: str,
+    outline_bid: str,
+    version_id: int,
+    timezone_name: str | None = None,
+) -> dict:
+    """
+    Get lesson content detail for a specific history version.
+    """
+    with app.app_context():
+        version = (
+            DraftOutlineItem.query.filter(
+                DraftOutlineItem.id == version_id,
+                DraftOutlineItem.shifu_bid == shifu_bid,
+                DraftOutlineItem.outline_item_bid == outline_bid,
+                DraftOutlineItem.deleted == 0,
+            )
+            .order_by(DraftOutlineItem.id.desc())
+            .first()
+        )
+        if not version:
+            raise_error("server.shifu.outlineItemNotFound")
+
+        user_name = version.updated_user_bid
+        if version.updated_user_bid:
+            user = (
+                UserInfo.query.filter(
+                    UserInfo.user_bid == version.updated_user_bid,
+                    UserInfo.deleted == 0,
+                )
+                .order_by(UserInfo.id.desc())
+                .first()
+            )
+            if user:
+                masked_identifier = (
+                    mask_contact_identifier(user.user_identify)
+                    if user.user_identify
+                    else ""
+                )
+                user_name = (
+                    (user.nickname if user.nickname else "")
+                    or masked_identifier
+                    or version.updated_user_bid
+                )
+
+        return {
+            "version_id": int(version.id),
+            "content": version.content or "",
+            "updated_at": _serialize_with_app_timezone(
+                app, version.updated_at, timezone_name
+            ),
+            "updated_at_display": _format_with_app_timezone(
+                app, version.updated_at, "%m-%d %H:%M:%S", timezone_name
+            ),
+            "updated_user_bid": version.updated_user_bid,
+            "updated_user_name": user_name or "",
+        }
+
+
 def restore_shifu_mdflow_history_version(
     app: Flask,
     user_id: str,

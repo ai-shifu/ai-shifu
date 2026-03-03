@@ -19,6 +19,7 @@ import {
   DraftMeta,
   MdflowHistoryItem,
   MdflowHistoryListResult,
+  MdflowHistoryVersionDetail,
   MdflowHistoryRestoreResult,
 } from '../types/shifu';
 import api from '@/api';
@@ -585,6 +586,32 @@ export const ShifuProvider = ({
       } catch (error) {
         console.error('Failed to load mdflow history', error);
         return [] as MdflowHistoryItem[];
+      }
+    },
+    [],
+  );
+
+  const loadMdflowHistoryVersionDetail = useCallback(
+    async (shifuId: string, outlineId: string, versionId: number) => {
+      if (!shifuId || !outlineId || versionId <= 0) {
+        return null;
+      }
+      const timezone =
+        typeof window !== 'undefined' &&
+        typeof Intl !== 'undefined' &&
+        Intl.DateTimeFormat
+          ? Intl.DateTimeFormat().resolvedOptions().timeZone
+          : '';
+      try {
+        return (await api.getMdflowHistoryVersionDetail({
+          shifu_bid: shifuId,
+          outline_bid: outlineId,
+          version_id: versionId,
+          ...(timezone ? { timezone } : {}),
+        })) as MdflowHistoryVersionDetail;
+      } catch (error) {
+        console.error('Failed to load mdflow history version detail', error);
+        return null;
       }
     },
     [],
@@ -2025,6 +2052,7 @@ export const ShifuProvider = ({
       saveMdflow,
       loadDraftMeta,
       loadMdflowHistory,
+      loadMdflowHistoryVersionDetail,
       restoreMdflowHistory,
       setBaseRevision,
       setLatestDraftMeta,
