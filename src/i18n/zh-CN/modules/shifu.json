@@ -17,6 +17,7 @@
     "expand": "展开全文",
     "loading": "加载中...",
     "restore": "恢复此版本",
+    "restoreLessonDeleted": "该节已被其他编辑者删除，无法恢复，请刷新后重试",
     "restoring": "恢复中...",
     "title": "历史记录",
     "unknownUser": "未知用户"

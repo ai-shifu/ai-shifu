@@ -459,13 +459,18 @@ def restore_shifu_mdflow_history_version(
             DraftOutlineItem.query.filter(
                 DraftOutlineItem.shifu_bid == shifu_bid,
                 DraftOutlineItem.outline_item_bid == outline_bid,
-                DraftOutlineItem.deleted == 0,
             )
             .order_by(DraftOutlineItem.id.desc())
             .first()
         )
         if not latest_outline:
             raise_error("server.shifu.outlineItemNotFound")
+        if int(latest_outline.deleted or 0) == 1:
+            return {
+                "lesson_deleted": True,
+                "restored": False,
+                "new_revision": get_shifu_draft_revision(app, shifu_bid, outline_bid),
+            }
 
         target_content = target_version.content or ""
         current_content = latest_outline.content or ""

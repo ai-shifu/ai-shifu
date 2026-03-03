@@ -120,3 +120,56 @@ def test_get_mdflow_history_version_detail_route_rejects_invalid_version_id(
 
     assert resp.status_code == 200
     assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+
+
+def test_restore_mdflow_history_route_returns_deleted_flag(
+    monkeypatch, test_client, app
+):
+    shifu_bid = "test-route-history-restore-1"
+    outline_bid = "test-route-outline-restore-1"
+    owner_bid = "test-route-owner-restore-1"
+    _seed_shifu_with_outline(
+        app,
+        shifu_bid,
+        outline_bid,
+        owner_bid,
+        "restore route baseline",
+    )
+    _mock_user(monkeypatch, owner_bid)
+
+    with app.app_context():
+        _, DraftOutlineItem = _get_models()
+        latest = (
+            DraftOutlineItem.query.filter_by(
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+            )
+            .order_by(DraftOutlineItem.id.desc())
+            .first()
+        )
+        assert latest is not None
+
+        target_version = latest.clone()
+        target_version.content = "restore route changed"
+        target_version.updated_user_bid = owner_bid
+        dao.db.session.add(target_version)
+        dao.db.session.flush()
+        target_version_id = int(target_version.id)
+
+        deleted_snapshot = target_version.clone()
+        deleted_snapshot.deleted = 1
+        deleted_snapshot.updated_user_bid = owner_bid
+        dao.db.session.add(deleted_snapshot)
+        dao.db.session.commit()
+
+    resp = test_client.post(
+        f"/api/shifu/shifus/{shifu_bid}/outlines/{outline_bid}/mdflow/history/restore",
+        headers={"Token": "test-token"},
+        json={"version_id": target_version_id, "base_revision": target_version_id},
+    )
+    payload = resp.get_json(force=True)
+
+    assert resp.status_code == 200
+    assert payload["code"] == 0
+    assert payload["data"]["lesson_deleted"] is True
+    assert payload["data"]["restored"] is False

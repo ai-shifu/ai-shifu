@@ -42,6 +42,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import './shifuEdit.scss';
 import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
+import { toast } from '@/hooks/useToast';
 
 const MarkdownFlowEditor = dynamic(
   () => import('markdown-flow-ui/editor').then(mod => mod.MarkdownFlowEditor),
@@ -764,6 +765,17 @@ const ScriptEditor = ({ id }: { id: string }) => {
       if (!result) {
         return;
       }
+      if (result.lesson_deleted) {
+        toast({
+          title: t('module.shifu.history.restoreLessonDeleted'),
+          variant: 'destructive',
+        });
+        await actions.loadChapters(currentShifu.bid, {
+          autoSelectFirstLesson: false,
+        });
+        setIsHistoryPanelOpen(false);
+        return;
+      }
       await actions.loadMdflow(currentNode.bid, currentShifu.bid);
       setIsHistoryPanelOpen(false);
     } catch (error) {
@@ -778,6 +790,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     historyVersionDetail?.version_id,
     isHistoryRestoring,
     resetHistoryRestoreDialog,
+    t,
   ]);
 
   useEffect(() => {
