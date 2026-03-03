@@ -8,7 +8,13 @@
     "title": "Teaching Prompts"
   },
   "history": {
+    "collapse": "Collapse",
+    "confirmDescription": "After confirmation, the current lesson content will be fully replaced by this version.",
+    "confirmLoadFailed": "Failed to load this version content. Please try again later.",
+    "confirmTitle": "Confirm Restore",
+    "contentEmpty": "This version has empty content",
     "empty": "No history yet",
+    "expand": "Expand full text",
     "loading": "Loading...",
     "restore": "Restore This Version",
     "restoring": "Restoring...",

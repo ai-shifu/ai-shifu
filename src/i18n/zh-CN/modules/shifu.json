@@ -8,7 +8,13 @@
     "title": "授课提示词"
   },
   "history": {
+    "collapse": "收起",
+    "confirmDescription": "确认恢复后，当前节内容将被该版本完整覆盖。",
+    "confirmLoadFailed": "加载版本内容失败，请稍后重试",
+    "confirmTitle": "确认恢复此版本",
+    "contentEmpty": "该版本内容为空",
     "empty": "暂无历史记录",
+    "expand": "展开全文",
     "loading": "加载中...",
     "restore": "恢复此版本",
     "restoring": "恢复中...",
