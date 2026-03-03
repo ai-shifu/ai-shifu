@@ -385,6 +385,7 @@ class DraftOutlineItem(db.Model):
             "deleted",
             "id",
         ),
+        {"comment": "Draft outline item version records"},
     )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     outline_item_bid = Column(

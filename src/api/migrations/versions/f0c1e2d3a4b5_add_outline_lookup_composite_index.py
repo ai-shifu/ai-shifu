@@ -8,6 +8,7 @@ Create Date: 2026-03-03 16:30:00.000000
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.exc import SQLAlchemyError
 
 
 # revision identifiers, used by Alembic.
@@ -32,7 +33,7 @@ def _index_exists(table_name: str, index_name: str) -> bool:
     inspector = sa.inspect(bind)
     try:
         indexes = inspector.get_indexes(table_name)
-    except Exception:
+    except SQLAlchemyError:
         return False
     return any(index.get("name") == index_name for index in indexes)
 
