@@ -680,11 +680,14 @@ export const ShifuProvider = ({
           // await loadBlocks(firstLesson.bid, shifuId);
         }
       } else if (!autoSelectFirstLesson) {
+        debouncedAutoSaveRef.current.cancel();
         internalSetCurrentNode(null);
         setMdflow('');
         currentMdflow.current = '';
         setBaseRevision(null);
         setLatestDraftMeta(null);
+        setHasDraftConflict(false);
+        setAutosavePaused(false);
       }
       setChapters(list);
       buildOutlineTree(list);

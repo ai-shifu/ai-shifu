@@ -648,10 +648,14 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const loadCurrentMdflowHistory = useCallback(async () => {
     if (!currentShifu?.bid || !currentNode?.bid) {
+      historyRequestIdRef.current += 1;
+      historyDetailRequestIdRef.current += 1;
+      setIsHistoryLoading(false);
       setHistoryItems([]);
       setSelectedHistoryVersionId(null);
       setHistoryVersionDetail(null);
       setHistoryVersionLoadError(null);
+      setIsHistoryVersionDetailLoading(false);
       setIsHistoryRestoreDialogOpen(false);
       return;
     }
