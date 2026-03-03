@@ -190,7 +190,9 @@ def test_restore_shifu_mdflow_history_restores_content(app, monkeypatch):
     old_version_id = _add_outline_version(
         app, shifu_bid, outline_bid, "Old", "user-restore-1", 0
     )
-    _add_outline_version(app, shifu_bid, outline_bid, "Current", "user-restore-1", 1)
+    current_version_id = _add_outline_version(
+        app, shifu_bid, outline_bid, "Current", "user-restore-1", 1
+    )
 
     monkeypatch.setattr(
         "flaskr.service.shifu.shifu_mdflow_funcs.check_text_with_risk_control",
@@ -221,7 +223,7 @@ def test_restore_shifu_mdflow_history_restores_content(app, monkeypatch):
         shifu_bid,
         outline_bid,
         old_version_id,
-        base_revision=0,
+        base_revision=current_version_id,
     )
     assert result["restored"] is True
     assert isinstance(result["new_revision"], int)

@@ -455,13 +455,13 @@ def restore_shifu_mdflow_history_version(
         if target_content == current_content:
             return {
                 "restored": False,
-                "new_revision": get_shifu_draft_revision(app, shifu_bid),
+                "new_revision": get_shifu_draft_revision(app, shifu_bid, outline_bid),
             }
 
         effective_base_revision = (
             base_revision
             if isinstance(base_revision, int) and base_revision >= 0
-            else get_shifu_draft_revision(app, shifu_bid)
+            else get_shifu_draft_revision(app, shifu_bid, outline_bid)
         )
         result = save_shifu_mdflow(
             app,
