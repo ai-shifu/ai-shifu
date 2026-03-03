@@ -20,7 +20,7 @@ from flaskr.service.profile.profile_manage import (
     add_profile_item_quick,
 )
 from flaskr.service.user.models import UserInfo
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
@@ -84,7 +84,7 @@ def _cleanup_outline_history_versions(
         return
 
     latest_id = int(latest_version.id)
-    cutoff_time = datetime.utcnow() - timedelta(days=max(1, keep_days))
+    cutoff_time = datetime.now() - timedelta(days=max(1, keep_days))
     to_mark_deleted_ids: set[int] = set()
 
     # Trim by age.
@@ -312,7 +312,8 @@ def _serialize_with_app_timezone(
         return None
     app_tz = _get_app_timezone(app, tz_name)
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        source_tz = _get_app_timezone(app)
+        dt = dt.replace(tzinfo=source_tz)
     return dt.astimezone(app_tz).isoformat()
 
 
@@ -323,7 +324,8 @@ def _format_with_app_timezone(
         return None
     app_tz = _get_app_timezone(app, tz_name)
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        source_tz = _get_app_timezone(app)
+        dt = dt.replace(tzinfo=source_tz)
     return dt.astimezone(app_tz).strftime(fmt)
 
 

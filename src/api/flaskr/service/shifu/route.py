@@ -1462,7 +1462,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                                         description: outline history version id
                                                     updated_at:
                                                         type: string
-                                                        description: update time in app timezone
+                                                        description: update time in requested timezone (or app timezone if not specified)
                                                     updated_at_display:
                                                         type: string
                                                         description: formatted update time for direct display
@@ -1549,6 +1549,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         try:
             version_id = int(version_id)
         except (TypeError, ValueError):
+            raise_param_error("version_id")
+        if version_id <= 0:
             raise_param_error("version_id")
         if base_revision is not None:
             try:

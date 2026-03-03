@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -116,13 +116,14 @@ def test_get_shifu_mdflow_history_uses_request_timezone(app):
     outline_bid = "outline-mdflow-history-tz-1"
 
     with app.app_context():
+        app_tz = ZoneInfo(app.config.get("TZ", "UTC"))
         item = DraftOutlineItem(
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             title="outline",
             content="A",
             updated_user_bid="user-tz-1",
-            updated_at=datetime(2026, 3, 3, 0, 0, 0, tzinfo=timezone.utc),
+            updated_at=datetime(2026, 3, 3, 0, 0, 0, tzinfo=app_tz),
             created_user_bid="user-tz-1",
         )
         db.session.add(item)
@@ -143,9 +144,23 @@ def test_get_shifu_mdflow_history_uses_request_timezone(app):
         timezone_name="Asia/Shanghai",
     )
 
-    assert history_utc["items"][0]["updated_at_display"] == "03-03 00:00:00"
-    assert history_shanghai["items"][0]["updated_at_display"] == "03-03 08:00:00"
-    assert history_shanghai["items"][0]["updated_at"].endswith("+08:00")
+    expected_shanghai = datetime(2026, 3, 3, 0, 0, 0, tzinfo=app_tz).astimezone(
+        ZoneInfo("Asia/Shanghai")
+    )
+    expected_utc = datetime(2026, 3, 3, 0, 0, 0, tzinfo=app_tz).astimezone(
+        ZoneInfo("UTC")
+    )
+
+    assert history_shanghai["items"][0][
+        "updated_at_display"
+    ] == expected_shanghai.strftime("%m-%d %H:%M:%S")
+    assert datetime.fromisoformat(history_shanghai["items"][0]["updated_at"]) == (
+        expected_shanghai
+    )
+    assert history_utc["items"][0]["updated_at_display"] == expected_utc.strftime(
+        "%m-%d %H:%M:%S"
+    )
+    assert datetime.fromisoformat(history_utc["items"][0]["updated_at"]) == expected_utc
 
 
 def test_save_shifu_mdflow_rejects_outline_from_other_shifu(app):
