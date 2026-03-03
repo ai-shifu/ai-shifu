@@ -66,9 +66,12 @@ def cleanup_outline_history_versions(
 ) -> None:
     """
     Keep outline version history bounded:
-    - keep at most `keep_versions` latest non-deleted versions
-    - keep at most `keep_days` days of non-deleted versions
-    The latest version is always preserved.
+    - trim to around `keep_versions` latest non-deleted versions
+    - trim to around `keep_days` days of non-deleted versions
+    To keep outline-level revision stable for metadata-only updates, this
+    cleanup always preserves both the latest version and the current
+    content-anchor version. Therefore, actual retained rows can exceed strict
+    limits by protected anchor rows.
     """
     latest_version = (
         DraftOutlineItem.query.filter(
@@ -181,17 +184,8 @@ def save_shifu_mdflow(
             }
 
         if lock_latest:
-            latest_outline = (
-                DraftOutlineItem.query.filter(
-                    DraftOutlineItem.shifu_bid == shifu_bid,
-                    DraftOutlineItem.outline_item_bid == outline_bid,
-                )
-                .order_by(DraftOutlineItem.id.desc())
-                .with_for_update()
-                .first()
-            )
             latest_meta = get_shifu_draft_meta(app, shifu_bid, outline_bid)
-            if not latest_outline or latest_outline.deleted == 1:
+            if int(latest_meta.get("deleted", 0) or 0) == 1:
                 return {"conflict": True, "meta": latest_meta}
             latest_revision = int(latest_meta.get("revision", 0) or 0)
             updated_user_bid = (latest_meta.get("updated_user") or {}).get(

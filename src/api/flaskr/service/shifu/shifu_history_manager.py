@@ -178,7 +178,12 @@ def _mask_contact_identifier(identifier: Optional[str]) -> str:
 
 def _build_draft_meta(latest) -> dict:
     if not latest:
-        return {"revision": 0, "updated_at": None, "updated_user": None}
+        return {
+            "revision": 0,
+            "updated_at": None,
+            "updated_user": None,
+            "deleted": 0,
+        }
 
     user = (
         UserInfo.query.filter_by(user_bid=latest.updated_user_bid, deleted=0).first()
@@ -199,6 +204,7 @@ def _build_draft_meta(latest) -> dict:
         "revision": int(latest.id),
         "updated_at": latest.updated_at,
         "updated_user": updated_user,
+        "deleted": int(getattr(latest, "deleted", 0) or 0),
     }
 
 
