@@ -83,32 +83,41 @@ def cleanup_outline_history_versions(
         return
 
     latest_id = int(latest_version.id)
+    latest_content = latest_version.content or ""
+    content_anchor_version = latest_version
+    for version in _query_outline_versions(shifu_bid, outline_bid):
+        if version.id == latest_version.id:
+            continue
+        if (version.content or "") != latest_content:
+            break
+        content_anchor_version = version
+    protected_ids = {latest_id, int(content_anchor_version.id)}
+
     cutoff_time = datetime.now() - timedelta(days=max(1, keep_days))
     to_mark_deleted_ids: set[int] = set()
 
     # Trim by age.
-    expired_ids = (
-        DraftOutlineItem.query.filter(
-            DraftOutlineItem.shifu_bid == shifu_bid,
-            DraftOutlineItem.outline_item_bid == outline_bid,
-            DraftOutlineItem.deleted == 0,
-            DraftOutlineItem.updated_at < cutoff_time,
-            DraftOutlineItem.id != latest_id,
-        )
-        .with_entities(DraftOutlineItem.id)
-        .all()
+    expired_query = DraftOutlineItem.query.filter(
+        DraftOutlineItem.shifu_bid == shifu_bid,
+        DraftOutlineItem.outline_item_bid == outline_bid,
+        DraftOutlineItem.deleted == 0,
+        DraftOutlineItem.updated_at < cutoff_time,
     )
+    if protected_ids:
+        expired_query = expired_query.filter(~DraftOutlineItem.id.in_(protected_ids))
+    expired_ids = expired_query.with_entities(DraftOutlineItem.id).all()
     to_mark_deleted_ids.update(int(item.id) for item in expired_ids)
 
     # Trim by max count.
+    overflow_query = DraftOutlineItem.query.filter(
+        DraftOutlineItem.shifu_bid == shifu_bid,
+        DraftOutlineItem.outline_item_bid == outline_bid,
+        DraftOutlineItem.deleted == 0,
+    )
+    if protected_ids:
+        overflow_query = overflow_query.filter(~DraftOutlineItem.id.in_(protected_ids))
     overflow_ids = (
-        DraftOutlineItem.query.filter(
-            DraftOutlineItem.shifu_bid == shifu_bid,
-            DraftOutlineItem.outline_item_bid == outline_bid,
-            DraftOutlineItem.deleted == 0,
-            DraftOutlineItem.id != latest_id,
-        )
-        .order_by(DraftOutlineItem.id.desc())
+        overflow_query.order_by(DraftOutlineItem.id.desc())
         .offset(max(1, keep_versions) - 1)
         .with_entities(DraftOutlineItem.id)
         .all()
@@ -220,7 +229,7 @@ def save_shifu_mdflow(
                 )
                 if not exist_variable:
                     add_profile_item_quick(app, shifu_bid, variable, user_id)
-            new_revision = save_outline_history(
+            save_outline_history(
                 app,
                 user_id,
                 shifu_bid,
@@ -234,6 +243,7 @@ def save_shifu_mdflow(
                 outline_bid,
             )
             db.session.commit()
+            new_revision = int(new_outline.id)
         return {
             "conflict": False,
             "new_revision": new_revision

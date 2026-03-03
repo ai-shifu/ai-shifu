@@ -616,10 +616,7 @@ export const ShifuProvider = ({
         return result;
       } catch (error: any) {
         if (error?.code === 4007) {
-          const meta = await loadDraftMeta(shifuId);
-          if (meta) {
-            setLatestDraftMeta(meta);
-          }
+          await loadDraftMeta(shifuId, outlineId);
           setHasDraftConflict(true);
           setAutosavePaused(true);
           return null;
