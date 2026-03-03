@@ -6,6 +6,10 @@ import pytest
 
 from flaskr.dao import db
 from flaskr.service.common.models import AppException
+from flaskr.service.shifu.shifu_history_manager import (
+    get_shifu_draft_meta,
+    get_shifu_draft_revision,
+)
 from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.service.shifu.shifu_mdflow_funcs import (
     get_shifu_mdflow,
@@ -183,6 +187,82 @@ def test_save_shifu_mdflow_rejects_outline_from_other_shifu(app):
         )
 
 
+def test_draft_meta_revision_stays_stable_for_metadata_only_updates(app):
+    shifu_bid = "shifu-mdflow-meta-1"
+    outline_bid = "outline-mdflow-meta-1"
+
+    with app.app_context():
+        first = DraftOutlineItem(
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            title="Outline V1",
+            position="01",
+            content="Stable content",
+            updated_user_bid="user-meta-1",
+            created_user_bid="user-meta-1",
+            updated_at=datetime.now(),
+        )
+        db.session.add(first)
+        db.session.commit()
+        first_id = int(first.id)
+
+        second = first.clone()
+        second.title = "Outline V2"
+        second.position = "02"
+        second.updated_user_bid = "user-meta-2"
+        second.updated_at = datetime.now() + timedelta(minutes=1)
+        db.session.add(second)
+        db.session.commit()
+
+    revision = get_shifu_draft_revision(app, shifu_bid, outline_bid)
+    meta = get_shifu_draft_meta(app, shifu_bid, outline_bid)
+
+    assert revision == first_id
+    assert meta["revision"] == first_id
+    assert meta["updated_user"] is not None
+    assert meta["updated_user"]["user_bid"] == "user-meta-1"
+
+
+def test_save_shifu_mdflow_conflicts_when_outline_deleted(app):
+    shifu_bid = "shifu-mdflow-delete-1"
+    outline_bid = "outline-mdflow-delete-1"
+    active_revision = _add_outline_version(
+        app, shifu_bid, outline_bid, "Current", "user-delete-1", 0
+    )
+
+    with app.app_context():
+        latest = (
+            DraftOutlineItem.query.filter(
+                DraftOutlineItem.shifu_bid == shifu_bid,
+                DraftOutlineItem.outline_item_bid == outline_bid,
+            )
+            .order_by(DraftOutlineItem.id.desc())
+            .first()
+        )
+        assert latest is not None
+
+        deleted_version = latest.clone()
+        deleted_version.deleted = 1
+        deleted_version.updated_user_bid = "user-delete-1"
+        deleted_version.updated_at = datetime.now() + timedelta(minutes=1)
+        db.session.add(deleted_version)
+        db.session.commit()
+        deleted_revision = int(deleted_version.id)
+
+    assert get_shifu_draft_revision(app, shifu_bid, outline_bid) == deleted_revision
+
+    result = save_shifu_mdflow(
+        app,
+        "user-delete-1",
+        shifu_bid,
+        outline_bid,
+        "Resurrected content",
+        base_revision=active_revision,
+    )
+    assert result["conflict"] is True
+    assert result["meta"]["revision"] == deleted_revision
+
+
 def test_restore_shifu_mdflow_history_restores_content(app, monkeypatch):
     shifu_bid = "shifu-mdflow-restore-1"
     outline_bid = "outline-mdflow-restore-1"
@@ -213,7 +293,7 @@ def test_restore_shifu_mdflow_history_restores_content(app, monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        "flaskr.service.shifu.shifu_mdflow_funcs._cleanup_outline_history_versions",
+        "flaskr.service.shifu.shifu_mdflow_funcs.cleanup_outline_history_versions",
         lambda *_args, **_kwargs: None,
     )
 

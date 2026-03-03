@@ -57,7 +57,7 @@ LESSON_HISTORY_MAX_VERSIONS = 500
 LESSON_HISTORY_MAX_DAYS = 180
 
 
-def _cleanup_outline_history_versions(
+def cleanup_outline_history_versions(
     app: Flask,
     shifu_bid: str,
     outline_bid: str,
@@ -126,6 +126,23 @@ def _cleanup_outline_history_versions(
     )
 
 
+def _cleanup_outline_history_versions(
+    app: Flask,
+    shifu_bid: str,
+    outline_bid: str,
+    keep_versions: int = LESSON_HISTORY_MAX_VERSIONS,
+    keep_days: int = LESSON_HISTORY_MAX_DAYS,
+) -> None:
+    """Backward-compatible alias for tests and internal callers."""
+    cleanup_outline_history_versions(
+        app,
+        shifu_bid,
+        outline_bid,
+        keep_versions=keep_versions,
+        keep_days=keep_days,
+    )
+
+
 def save_shifu_mdflow(
     app: Flask,
     user_id: str,
@@ -155,7 +172,18 @@ def save_shifu_mdflow(
             }
 
         if lock_latest:
+            latest_outline = (
+                DraftOutlineItem.query.filter(
+                    DraftOutlineItem.shifu_bid == shifu_bid,
+                    DraftOutlineItem.outline_item_bid == outline_bid,
+                )
+                .order_by(DraftOutlineItem.id.desc())
+                .with_for_update()
+                .first()
+            )
             latest_meta = get_shifu_draft_meta(app, shifu_bid, outline_bid)
+            if not latest_outline or latest_outline.deleted == 1:
+                return {"conflict": True, "meta": latest_meta}
             latest_revision = int(latest_meta.get("revision", 0) or 0)
             updated_user_bid = (latest_meta.get("updated_user") or {}).get(
                 "user_bid"
@@ -200,7 +228,7 @@ def save_shifu_mdflow(
                 new_outline.id,
                 len(blocks),
             )
-            _cleanup_outline_history_versions(
+            cleanup_outline_history_versions(
                 app,
                 shifu_bid,
                 outline_bid,
