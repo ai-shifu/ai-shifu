@@ -92,6 +92,23 @@ export interface DraftMeta {
   } | null;
 }
 
+export interface MdflowHistoryItem {
+  version_id: number;
+  updated_at?: string | null;
+  updated_at_display?: string | null;
+  updated_user_bid?: string;
+  updated_user_name?: string;
+}
+
+export interface MdflowHistoryListResult {
+  items: MdflowHistoryItem[];
+}
+
+export interface MdflowHistoryRestoreResult {
+  restored: boolean;
+  new_revision?: number;
+}
+
 export interface ShifuState {
   currentShifu: Shifu | null;
   chapters: Outline[];
@@ -218,6 +235,17 @@ export interface ShifuActions {
     shifuId: string,
     outlineId?: string,
   ) => Promise<DraftMeta | null>;
+  loadMdflowHistory: (
+    shifuId: string,
+    outlineId: string,
+    limit?: number,
+  ) => Promise<MdflowHistoryItem[]>;
+  restoreMdflowHistory: (
+    shifuId: string,
+    outlineId: string,
+    versionId: number,
+    baseRevision?: number | null,
+  ) => Promise<MdflowHistoryRestoreResult | null>;
   setBaseRevision: (revision: number | null) => void;
   setLatestDraftMeta: (meta: DraftMeta | null) => void;
   setDraftConflict: (value: boolean) => void;

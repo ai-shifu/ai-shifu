@@ -59,6 +59,10 @@ const api = {
   saveMdflow: 'POST /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/mdflow',
   parseMdflow:
     'POST /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/mdflow/parse',
+  getMdflowHistory:
+    'GET /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/mdflow/history',
+  restoreMdflowHistory:
+    'POST /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/mdflow/history/restore',
   runMdflow: 'POST /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/mdflow/run',
   // outline api end
 

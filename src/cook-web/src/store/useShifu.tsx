@@ -17,6 +17,9 @@ import {
   SaveMdflowPayload,
   LessonCreationSettings,
   DraftMeta,
+  MdflowHistoryItem,
+  MdflowHistoryListResult,
+  MdflowHistoryRestoreResult,
 } from '../types/shifu';
 import api from '@/api';
 import { debounce } from 'lodash';
@@ -558,6 +561,74 @@ export const ShifuProvider = ({
       }
     },
     [],
+  );
+
+  const loadMdflowHistory = useCallback(
+    async (shifuId: string, outlineId: string, limit = 100) => {
+      if (!shifuId || !outlineId) {
+        return [] as MdflowHistoryItem[];
+      }
+      const timezone =
+        typeof window !== 'undefined' &&
+        typeof Intl !== 'undefined' &&
+        Intl.DateTimeFormat
+          ? Intl.DateTimeFormat().resolvedOptions().timeZone
+          : '';
+      try {
+        const result = (await api.getMdflowHistory({
+          shifu_bid: shifuId,
+          outline_bid: outlineId,
+          limit,
+          ...(timezone ? { timezone } : {}),
+        })) as MdflowHistoryListResult;
+        return result?.items || [];
+      } catch (error) {
+        console.error('Failed to load mdflow history', error);
+        return [] as MdflowHistoryItem[];
+      }
+    },
+    [],
+  );
+
+  const restoreMdflowHistory = useCallback(
+    async (
+      shifuId: string,
+      outlineId: string,
+      versionId: number,
+      revision?: number | null,
+    ) => {
+      if (!shifuId || !outlineId || versionId == null) {
+        return null;
+      }
+      // Prevent pending debounced saves from overwriting restored content.
+      debouncedAutoSaveRef.current.cancel();
+      try {
+        const resolvedBaseRevision = revision ?? baseRevision ?? undefined;
+        const result = (await api.restoreMdflowHistory({
+          shifu_bid: shifuId,
+          outline_bid: outlineId,
+          version_id: versionId,
+          base_revision: resolvedBaseRevision,
+        })) as MdflowHistoryRestoreResult;
+        if (typeof result?.new_revision === 'number') {
+          setBaseRevision(result.new_revision);
+        }
+        return result;
+      } catch (error: any) {
+        if (error?.code === 4007) {
+          const meta = await loadDraftMeta(shifuId);
+          if (meta) {
+            setLatestDraftMeta(meta);
+          }
+          setHasDraftConflict(true);
+          setAutosavePaused(true);
+          return null;
+        }
+        console.error('Failed to restore mdflow history', error);
+        throw error;
+      }
+    },
+    [baseRevision, loadDraftMeta],
   );
 
   const loadChapters = async (shifuId: string) => {
@@ -1956,6 +2027,8 @@ export const ShifuProvider = ({
       loadMdflow,
       saveMdflow,
       loadDraftMeta,
+      loadMdflowHistory,
+      restoreMdflowHistory,
       setBaseRevision,
       setLatestDraftMeta,
       setDraftConflict: setHasDraftConflict,

@@ -213,6 +213,11 @@ def get_shifu_draft_revision(
         return int(latest.id) if latest else 0
 
 
+def mask_contact_identifier(identifier: Optional[str]) -> str:
+    """Public wrapper for contact identifier masking."""
+    return _mask_contact_identifier(identifier)
+
+
 def get_shifu_draft_meta(
     app: Flask, shifu_bid: str, outline_bid: str | None = None
 ) -> dict:
