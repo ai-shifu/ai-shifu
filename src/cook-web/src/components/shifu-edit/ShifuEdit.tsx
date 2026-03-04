@@ -203,7 +203,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const currentUserIdRef = useRef<string | null>(null);
   const currentShifuBidRef = useRef<string | null>(null);
   const initializedShifuRef = useRef<string | null>(null);
-  const conflictDialogDismissedRef = useRef(false);
 
   useEffect(() => {
     actionsRef.current = actions;
@@ -215,9 +214,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   useEffect(() => {
     conflictStateRef.current = { hasDraftConflict, autosavePaused };
-    if (!hasDraftConflict) {
-      conflictDialogDismissedRef.current = false;
-    }
   }, [hasDraftConflict, autosavePaused]);
 
   useEffect(() => {
@@ -232,7 +228,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
     !currentShifu?.bid || Boolean(currentShifu?.readonly);
 
   const resetDraftConflictState = useCallback(() => {
-    conflictDialogDismissedRef.current = false;
     actionsRef.current.setDraftConflict(false);
     actionsRef.current.setAutosavePaused(false);
     actionsRef.current.setLatestDraftMeta(null);
@@ -355,7 +350,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
     actionsRef.current.setDraftConflict(true);
     actionsRef.current.setAutosavePaused(true);
     actionsRef.current.cancelAutoSaveBlocks();
-    conflictDialogDismissedRef.current = false;
     setIsDraftConflictDialogOpen(true);
   }, []);
 
@@ -440,15 +434,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [detectDraftConflict, shouldSkipConflictCheck]);
 
   useEffect(() => {
-    if (hasDraftConflict && !conflictDialogDismissedRef.current) {
+    if (hasDraftConflict) {
       setIsDraftConflictDialogOpen(true);
     }
   }, [hasDraftConflict]);
-
-  const handleDraftConflictCancel = useCallback(() => {
-    conflictDialogDismissedRef.current = true;
-    setIsDraftConflictDialogOpen(false);
-  }, []);
 
   const handleDraftConflictRefresh = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -1139,7 +1128,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
           open={isDraftConflictDialogOpen}
           phone={latestDraftMeta?.updated_user?.phone}
           onRefresh={handleDraftConflictRefresh}
-          onCancel={handleDraftConflictCancel}
         />
         <Sheet
           open={isHistoryPanelOpen}
