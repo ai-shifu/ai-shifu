@@ -75,23 +75,16 @@ def _get_latest_variable_value(
     Return the newest variable value row from a pre-fetched, id-desc sorted
     collection.
 
+    Matching is by key only (not variable_bid) to ensure the newest record
+    always wins regardless of which Variable definition it was saved against.
+    ``variable_bid`` is kept in the signature for backward compatibility but
+    is no longer used for lookup.
+
     Precedence:
-    1) shifu scope (shifu_bid)
-    2) global/system scope (empty shifu_bid)
+    1) shifu scope (shifu_bid) – newest record matching key
+    2) global/system scope (empty shifu_bid) – newest record matching key
     """
     target_shifu = shifu_bid or ""
-
-    if variable_bid:
-        scoped = next(
-            (
-                item
-                for item in values
-                if item.variable_bid == variable_bid and item.shifu_bid == target_shifu
-            ),
-            None,
-        )
-        if scoped:
-            return scoped
 
     scoped = next(
         (
@@ -106,18 +99,6 @@ def _get_latest_variable_value(
 
     if not target_shifu:
         return None
-
-    if variable_bid:
-        fallback = next(
-            (
-                item
-                for item in values
-                if item.variable_bid == variable_bid and item.shifu_bid == ""
-            ),
-            None,
-        )
-        if fallback:
-            return fallback
 
     return next(
         (item for item in values if item.key == variable_key and item.shifu_bid == ""),
@@ -462,15 +443,18 @@ def save_user_profiles(
 
 
 def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
+    """Get user profiles for Mdflow run.
+
+    NOTE:
+    - Some profile keys ("labels") are stored globally with ``shifu_bid=''``.
+    - Other profile keys are stored per-course with ``shifu_bid=course_id``.
+
+    This function must follow the same shifu_bid routing rules as
+    :func:`save_user_profiles`, otherwise the run context may see values different
+    from what the user sees in "个人设置".
     """
-    Get user profiles
-    Args:
-        app: Flask application instance
-        user_id: User id
-        course_id: Course id
-    Returns:
-        dict: User profiles
-    """
+
+    PROFILES_LABLES = get_profile_labels()
     profiles_items = get_profile_item_definition_list(app, course_id)
 
     candidate_shifus = [course_id or ""]
@@ -490,16 +474,23 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     except Exception as exc:  # pragma: no cover - defensive fallback
         app.logger.warning("Failed to load var_variable_values: %s", exc)
         user_values = []
+
     user_info: UserEntity = UserEntity.query.filter(
         UserEntity.user_bid == user_id
     ).first()
-    result = {}
+
+    result: dict[str, str] = {}
     for profile_item in profiles_items:
+        # Follow save_user_profiles routing: label keys are global, others per-course.
+        target_shifu = (
+            "" if profile_item.profile_key in PROFILES_LABLES else (course_id or "")
+        )
+
         user_value = (
             _get_latest_variable_value(
                 user_values,
                 variable_key=profile_item.profile_key,
-                shifu_bid=course_id or "",
+                shifu_bid=target_shifu,
                 variable_bid=(profile_item.profile_id or None),
             )
             if user_values
@@ -507,13 +498,14 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
         )
         if user_value:
             result[profile_item.profile_key] = user_value.value
-    if result.get(SYS_USER_LANGUAGE, None) is None:
+
+    # Ensure system variables are always available.
+    if result.get(SYS_USER_LANGUAGE) is None:
         result[SYS_USER_LANGUAGE] = user_info.language if user_info else "en-US"
-    if (
-        result.get(SYS_USER_NICKNAME, None) is None
-        or result.get(SYS_USER_NICKNAME, None) == ""
-    ):
+
+    if not result.get(SYS_USER_NICKNAME):
         result[SYS_USER_NICKNAME] = user_info.nickname if user_info else ""
+
     return result
 
 
@@ -735,6 +727,11 @@ def update_user_profile_with_lable(
         elif not profile_lable:
             app.logger.info("profile_lable not found:%s", key)
 
+        # System variables (in PROFILES_LABLES) are global; custom variables
+        # are scoped to the course.  This must match save_user_profiles() so
+        # that the run interface reads the same value the settings page wrote.
+        target_shifu = "" if key in PROFILES_LABLES else (course_id or "")
+
         should_persist_value = (
             profile_value not in (None, "") and profile_value != default_value
         )
@@ -742,7 +739,7 @@ def update_user_profile_with_lable(
             latest_value = _get_latest_variable_value(
                 user_values,
                 variable_key=key,
-                shifu_bid="",
+                shifu_bid=target_shifu,
                 variable_bid=(profile_item.profile_id if profile_item else None),
             )
             if latest_value is None or latest_value.value != profile_value:
@@ -750,7 +747,7 @@ def update_user_profile_with_lable(
                 new_value = VariableValue(
                     variable_value_bid=generate_id(app),
                     user_bid=user_id,
-                    shifu_bid="",
+                    shifu_bid=target_shifu,
                     variable_bid=variable_bid,
                     key=key,
                     value=str(profile_value) if profile_value is not None else "",

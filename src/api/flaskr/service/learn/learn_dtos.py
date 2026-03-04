@@ -589,6 +589,10 @@ class PlaygroundPreviewRequest(BaseModel):
         le=2.0,
         description="LLM temperature override used during preview",
     )
+    visual_mode: bool = Field(
+        default=False,
+        description="Whether to enable MarkdownFlow visual mode for preview",
+    )
 
     def get_document(self) -> str:
         return self.content or ""

@@ -37,15 +37,18 @@ format:
 """
 
 from flask import Flask
-from typing import Generic, TypeVar, List
+from typing import Generic, TypeVar, List, Optional
 from pydantic import BaseModel
-from .models import LogDraftStruct
+from .models import DraftOutlineItem, LogDraftStruct
 from flaskr.dao import db
 from flaskr.util import generate_id
 import queue
 from datetime import datetime
+import re
+from flaskr.service.user.models import UserInfo
 
 T = TypeVar("T", bound="HistoryItem")
+OUTLINE_CONTENT_LOOKBACK_LIMIT = 1000
 
 
 class HistoryItem(BaseModel, Generic[T]):
@@ -89,6 +92,152 @@ class HistoryInfo(BaseModel):
 
     bid: str
     id: int
+
+
+def _get_latest_draft_log(shifu_bid: str, for_update: bool = False):
+    query = LogDraftStruct.query.filter_by(
+        shifu_bid=shifu_bid,
+        deleted=0,
+    ).order_by(LogDraftStruct.id.desc())
+    if for_update:
+        query = query.with_for_update()
+    return query.first()
+
+
+def _get_latest_outline_content_log(shifu_bid: str, outline_bid: str):
+    latest_version = (
+        DraftOutlineItem.query.filter(
+            DraftOutlineItem.shifu_bid == shifu_bid,
+            DraftOutlineItem.outline_item_bid == outline_bid,
+        )
+        .order_by(DraftOutlineItem.id.desc())
+        .first()
+    )
+    if not latest_version:
+        return None
+
+    # If the latest revision marks this outline as deleted, treat it as a
+    # revision change so clients can notify editors currently on this lesson.
+    if latest_version.deleted == 1:
+        return latest_version
+
+    latest_content = latest_version.content or ""
+    latest_content_revision = latest_version
+    recent_active_versions = (
+        DraftOutlineItem.query.filter(
+            DraftOutlineItem.shifu_bid == shifu_bid,
+            DraftOutlineItem.outline_item_bid == outline_bid,
+            DraftOutlineItem.deleted == 0,
+        )
+        .order_by(DraftOutlineItem.id.desc())
+        .limit(OUTLINE_CONTENT_LOOKBACK_LIMIT)
+        .yield_per(200)
+    )
+    for version in recent_active_versions:
+        if version.id == latest_version.id:
+            continue
+        if (version.content or "") != latest_content:
+            break
+        latest_content_revision = version
+    return latest_content_revision
+
+
+def _mask_phone_identifier(identifier: Optional[str]) -> str:
+    if not identifier:
+        return ""
+    digits = re.sub(r"\D", "", identifier)
+    if len(digits) >= 7:
+        return f"{digits[:3]}****{digits[-4:]}"
+    if len(digits) >= 2:
+        return f"{digits[:1]}****{digits[-1:]}"
+    return digits or ""
+
+
+def _mask_email_identifier(identifier: Optional[str]) -> str:
+    if not identifier:
+        return ""
+    local, _, domain = identifier.partition("@")
+    if not domain:
+        return _mask_phone_identifier(identifier)
+    if not local:
+        return f"***@{domain}"
+    if len(local) <= 1:
+        masked_local = f"{local[:1]}***"
+    else:
+        masked_local = f"{local[:2]}***"
+    return f"{masked_local}@{domain}"
+
+
+def _mask_contact_identifier(identifier: Optional[str]) -> str:
+    if not identifier:
+        return ""
+    if "@" in identifier:
+        return _mask_email_identifier(identifier)
+    return _mask_phone_identifier(identifier)
+
+
+def _build_draft_meta(latest) -> dict:
+    if not latest:
+        return {
+            "revision": 0,
+            "updated_at": None,
+            "updated_user": None,
+            "deleted": 0,
+        }
+
+    user = (
+        UserInfo.query.filter_by(user_bid=latest.updated_user_bid, deleted=0).first()
+        if latest.updated_user_bid
+        else None
+    )
+    identifier = user.user_identify if user else ""
+    masked_identifier = _mask_contact_identifier(identifier) if identifier else ""
+    updated_user = (
+        {
+            "user_bid": latest.updated_user_bid,
+            "phone": masked_identifier,
+        }
+        if latest.updated_user_bid
+        else None
+    )
+    return {
+        "revision": int(latest.id),
+        "updated_at": latest.updated_at,
+        "updated_user": updated_user,
+        "deleted": int(getattr(latest, "deleted", 0) or 0),
+    }
+
+
+def get_shifu_draft_revision(
+    app: Flask, shifu_bid: str, outline_bid: str | None = None
+) -> int:
+    with app.app_context():
+        if outline_bid:
+            latest = _get_latest_outline_content_log(shifu_bid, outline_bid)
+        else:
+            latest = _get_latest_draft_log(shifu_bid)
+        return int(latest.id) if latest else 0
+
+
+def mask_contact_identifier(identifier: Optional[str]) -> str:
+    """Public wrapper for contact identifier masking."""
+    return _mask_contact_identifier(identifier)
+
+
+def get_shifu_draft_meta(
+    app: Flask, shifu_bid: str, outline_bid: str | None = None
+) -> dict:
+    with app.app_context():
+        if outline_bid:
+            latest = _get_latest_outline_content_log(shifu_bid, outline_bid)
+        else:
+            latest = _get_latest_draft_log(shifu_bid)
+        return _build_draft_meta(latest)
+
+
+def get_shifu_draft_log(app: Flask, shifu_bid: str, for_update: bool = False):
+    with app.app_context():
+        return _get_latest_draft_log(shifu_bid, for_update=for_update)
 
 
 def get_shifu_history(app, shifu_bid: str) -> HistoryItem:
@@ -139,6 +288,7 @@ def __save_shifu_history(
     )
     db.session.add(shifu_history)
     db.session.flush()
+    return shifu_history
 
 
 def save_shifu_history(app: Flask, user_id: str, shifu_bid: str, id: int):
@@ -351,7 +501,8 @@ def save_outline_history(
             break
         for child in item.children:
             q.put(child)
-    __save_shifu_history(app, user_id, shifu_bid, history)
+    log = __save_shifu_history(app, user_id, shifu_bid, history)
+    return int(log.id) if log else 0
 
 
 def delete_outline_history(app: Flask, user_id: str, shifu_bid: str, outline_bid: str):

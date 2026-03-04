@@ -17,6 +17,7 @@ from sqlalchemy import (
     SmallInteger,
     DateTime,
     UniqueConstraint,
+    Index,
 )
 from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
 from sqlalchemy.sql import func
@@ -376,6 +377,16 @@ class DraftShifu(db.Model):
 
 class DraftOutlineItem(db.Model):
     __tablename__ = "shifu_draft_outline_items"
+    __table_args__ = (
+        Index(
+            "ix_shifu_draft_outline_items_shifu_outline_deleted_id",
+            "shifu_bid",
+            "outline_item_bid",
+            "deleted",
+            "id",
+        ),
+        {"comment": "Draft outline item version records"},
+    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     outline_item_bid = Column(
         String(32),

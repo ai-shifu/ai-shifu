@@ -83,6 +83,43 @@ export interface ProfileItemDefinition {
   value: string;
 }
 
+export interface DraftMeta {
+  revision: number;
+  updated_at?: string | null;
+  deleted?: number;
+  updated_user?: {
+    user_bid?: string;
+    phone?: string;
+  } | null;
+}
+
+export interface MdflowHistoryItem {
+  version_id: number;
+  updated_at?: string | null;
+  updated_at_display?: string | null;
+  updated_user_bid?: string;
+  updated_user_name?: string;
+}
+
+export interface MdflowHistoryListResult {
+  items: MdflowHistoryItem[];
+}
+
+export interface MdflowHistoryVersionDetail {
+  version_id: number;
+  content: string;
+  updated_at?: string | null;
+  updated_at_display?: string | null;
+  updated_user_bid?: string;
+  updated_user_name?: string;
+}
+
+export interface MdflowHistoryRestoreResult {
+  restored: boolean;
+  new_revision?: number;
+  lesson_deleted?: boolean;
+}
+
 export interface ShifuState {
   currentShifu: Shifu | null;
   chapters: Outline[];
@@ -111,6 +148,10 @@ export interface ShifuState {
   systemVariables: Record<string, string>[];
   unusedVariables: string[];
   hideUnusedMode: boolean;
+  baseRevision: number | null;
+  latestDraftMeta: DraftMeta | null;
+  hasDraftConflict: boolean;
+  autosavePaused: boolean;
 }
 
 export interface ApiResponse<T> {
@@ -134,13 +175,17 @@ export interface SaveMdflowPayload {
   shifu_bid?: string;
   outline_bid?: string;
   data?: string;
+  base_revision?: number;
 }
 
 export interface ShifuActions {
   addChapter: (chapter: Outline) => void;
   addRootOutline: (settings: LessonCreationSettings) => Promise<void>;
   loadShifu: (shifuId: string, options?: { silent?: boolean }) => Promise<void>;
-  loadChapters: (shifuId: string) => Promise<void>;
+  loadChapters: (
+    shifuId: string,
+    options?: { autoSelectFirstLesson?: boolean },
+  ) => Promise<void>;
   createChapter: (chapter: Omit<Outline, 'chapter_id'>) => Promise<void>;
   setChapters: (chapters: Outline[]) => void;
   setFocusId: (id: string) => void;
@@ -200,6 +245,30 @@ export interface ShifuActions {
   updateBlockProperties: (bid: string, properties: any) => Promise<void>;
   loadMdflow: (outlineId: string, shifuId: string) => Promise<void>;
   saveMdflow: (payload?: SaveMdflowPayload) => Promise<void>;
+  loadDraftMeta: (
+    shifuId: string,
+    outlineId?: string,
+  ) => Promise<DraftMeta | null>;
+  loadMdflowHistory: (
+    shifuId: string,
+    outlineId: string,
+    limit?: number,
+  ) => Promise<MdflowHistoryItem[]>;
+  loadMdflowHistoryVersionDetail: (
+    shifuId: string,
+    outlineId: string,
+    versionId: number,
+  ) => Promise<MdflowHistoryVersionDetail | null>;
+  restoreMdflowHistory: (
+    shifuId: string,
+    outlineId: string,
+    versionId: number,
+    baseRevision?: number | null,
+  ) => Promise<MdflowHistoryRestoreResult | null>;
+  setBaseRevision: (revision: number | null) => void;
+  setLatestDraftMeta: (meta: DraftMeta | null) => void;
+  setDraftConflict: (value: boolean) => void;
+  setAutosavePaused: (value: boolean) => void;
   setCurrentMdflow: (value: string) => void;
   getCurrentMdflow: () => string;
   hasUnsavedMdflow: (outlineId?: string, value?: string) => boolean;

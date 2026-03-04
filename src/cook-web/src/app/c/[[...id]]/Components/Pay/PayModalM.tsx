@@ -264,6 +264,8 @@ export const PayModalM = ({
     try {
       const resp = await getCourseInfo(courseId, previewMode);
       setPreviewPrice(resp?.course_price);
+    } catch {
+      setPreviewPrice('0');
     } finally {
       setPreviewInitLoading(false);
     }

@@ -45,6 +45,7 @@ interface StartPreviewParams {
   block_index?: number;
   max_block_count?: number;
   systemVariableKeys?: string[];
+  visual_mode?: boolean;
 }
 
 enum PREVIEW_SSE_OUTPUT_TYPE {
@@ -579,6 +580,7 @@ export function usePreviewChat() {
       variables,
       max_block_count,
       systemVariableKeys,
+      visual_mode = false,
     }: StartPreviewParams) => {
       const normalizedUserInput =
         user_input &&
@@ -598,6 +600,7 @@ export function usePreviewChat() {
         variables,
         max_block_count,
         systemVariableKeys,
+        visual_mode,
       };
       const {
         shifuBid: finalShifuBid,
@@ -606,6 +609,7 @@ export function usePreviewChat() {
         block_index: finalBlockIndex = 0,
         variables: finalVariables = {},
         max_block_count: finalMaxBlockCount,
+        visual_mode: finalVisualMode = false,
       } = mergedParams;
       sseParams.current = mergedParams;
       setVariablesSnapshot(buildVariablesSnapshot(finalVariables));
@@ -658,6 +662,7 @@ export function usePreviewChat() {
           block_index: finalBlockIndex,
           content: finalMdflow,
           variables: finalVariables,
+          visual_mode: finalVisualMode,
         };
         if (normalizedUserInput) {
           payload.user_input = normalizedUserInput;
