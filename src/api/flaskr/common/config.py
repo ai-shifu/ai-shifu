@@ -628,15 +628,26 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="IP ban time (seconds)",
         group="auth",
     ),
-    "UNIVERSAL_VERIFICATION_CODE": EnvVar(
-        name="UNIVERSAL_VERIFICATION_CODE",
+    "BOOTSTRAP_ADMIN_PASSWORD": EnvVar(
+        name="BOOTSTRAP_ADMIN_PASSWORD",
         required=False,
-        example="1024",
+        default="",
         description=(
-            "Universal verification code for testing.\n"
-            "**SECURITY WARNING:** Do NOT set this in production environments.\n"
-            "If set, it will allow anyone to bypass verification.\n"
-            "Only use for local development or testing."
+            "One-time bootstrap password for the first admin login.\n"
+            "**SECURITY WARNING:** Only set this for initial setup.\n"
+            "Bootstrap login is only allowed when there are no creator users yet.\n"
+            "Remove this value immediately after the first successful admin login."
+        ),
+        secret=True,
+        group="auth",
+    ),
+    "BOOTSTRAP_ADMIN_IDENTIFIER": EnvVar(
+        name="BOOTSTRAP_ADMIN_IDENTIFIER",
+        required=False,
+        default="",
+        description=(
+            "Optional identifier (phone/email) restriction for bootstrap admin login.\n"
+            "When set, bootstrap login only works for this exact identifier."
         ),
         group="auth",
     ),

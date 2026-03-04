@@ -661,6 +661,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         identifier = request.get_json().get("identifier", None)
         password = request.get_json().get("password", None)
         language = request.get_json().get("language", None)
+        login_context = request.get_json().get("login_context", None)
         if language:
             try:
                 set_language(language)
@@ -673,7 +674,11 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         from flaskr.service.user.auth.base import VerificationRequest
 
         provider = get_provider("password")
-        vr = VerificationRequest(identifier=identifier, code=password)
+        vr = VerificationRequest(
+            identifier=identifier,
+            code=password,
+            metadata={"login_context": login_context, "language": language},
+        )
         # TODO: Add rate-limiting and failed login attempt tracking
         # (record identifier, request.remote_addr, timestamp on failure)
         auth_result = provider.verify(app, vr)
