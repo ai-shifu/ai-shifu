@@ -26,9 +26,10 @@ const DraftConflictDialog = ({
   return (
     <Dialog open={open}>
       <DialogContent
-        className='sm:max-w-md [&>button]:hidden'
+        className='sm:max-w-md'
+        showClose={false}
         onEscapeKeyDown={event => event.preventDefault()}
-        onPointerDownOutside={event => event.preventDefault()}
+        onInteractOutside={event => event.preventDefault()}
       >
         <DialogHeader>
           <DialogTitle>
