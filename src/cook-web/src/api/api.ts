@@ -33,6 +33,7 @@ const api = {
   getShifuList: 'GET /shifu/shifus',
   createShifu: 'PUT /shifu/shifus',
   getShifuDetail: 'GET /shifu/shifus/{shifu_bid}/detail',
+  getShifuDraftMeta: 'GET /shifu/shifus/{shifu_bid}/draft-meta',
   saveShifuDetail: 'POST /shifu/shifus/{shifu_bid}/detail',
   publishShifu: 'POST /shifu/shifus/{shifu_bid}/publish',
   previewShifu: 'POST /shifu/shifus/{shifu_bid}/preview',
@@ -109,13 +110,6 @@ const api = {
 
   // dashboard (teacher analytics)
   getDashboardEntry: 'GET /dashboard/entry',
-  getDashboardOutlines: 'GET /dashboard/shifus/{shifu_bid}/outlines',
-  getDashboardOverview: 'GET /dashboard/shifus/{shifu_bid}/overview',
-  getDashboardLearners: 'GET /dashboard/shifus/{shifu_bid}/learners',
-  getDashboardLearnerDetail:
-    'GET /dashboard/shifus/{shifu_bid}/learners/{user_bid}',
-  getDashboardLearnerFollowups:
-    'GET /dashboard/shifus/{shifu_bid}/learners/{user_bid}/followups',
 };
 
 export default api;

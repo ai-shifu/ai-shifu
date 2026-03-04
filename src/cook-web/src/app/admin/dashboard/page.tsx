@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import type { DateRange } from 'react-day-picker';
 import api from '@/api';
 import { useUserStore } from '@/store';
+import { useEnvStore } from '@/c-store';
 import { ErrorWithCode } from '@/lib/request';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
@@ -37,6 +36,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
+import type { DateRange } from 'react-day-picker';
 import type {
   DashboardEntryCourseItem,
   DashboardEntryResponse,
@@ -78,30 +78,33 @@ const DateRangeFilter = ({
   resetLabel,
   onChange,
 }: DateRangeFilterProps) => {
-  const selectedRange = useMemo<DateRange>(
-    () => ({
-      from: parseDateValue(startValue),
-      to: parseDateValue(endValue),
-    }),
-    [startValue, endValue],
+  const selectedRange = useMemo<DateRange | undefined>(() => {
+    const from = parseDateValue(startValue);
+    const to = parseDateValue(endValue);
+    if (!from && !to) {
+      return undefined;
+    }
+    return { from, to };
+  }, [startValue, endValue]);
+  const [draftRange, setDraftRange] = useState<DateRange | undefined>(
+    selectedRange,
   );
-  const [draftRange, setDraftRange] = useState<DateRange>(selectedRange);
 
   useEffect(() => {
     setDraftRange(selectedRange);
   }, [selectedRange]);
 
   const label = useMemo(() => {
-    if (draftRange.from && draftRange.to) {
+    if (draftRange?.from && draftRange?.to) {
       return `${formatDateValue(draftRange.from)} ~ ${formatDateValue(
         draftRange.to,
       )}`;
     }
-    if (draftRange.from) {
+    if (draftRange?.from) {
       return formatDateValue(draftRange.from);
     }
     return placeholder;
-  }, [draftRange.from, draftRange.to, placeholder]);
+  }, [draftRange?.from, draftRange?.to, placeholder]);
 
   return (
     <Popover>
@@ -115,7 +118,7 @@ const DateRangeFilter = ({
           <span
             className={cn(
               'flex-1 truncate text-left',
-              draftRange.from ? 'text-foreground' : 'text-muted-foreground',
+              draftRange?.from ? 'text-foreground' : 'text-muted-foreground',
             )}
           >
             {label}
@@ -132,12 +135,9 @@ const DateRangeFilter = ({
           numberOfMonths={2}
           selected={draftRange}
           onSelect={range => {
-            const nextRange = {
-              from: range?.from,
-              to: range?.to,
-            };
+            const nextRange = range;
             setDraftRange(nextRange);
-            if (!nextRange.from) {
+            if (!nextRange?.from) {
               onChange({ start: '', end: '' });
               return;
             }
@@ -156,7 +156,7 @@ const DateRangeFilter = ({
             variant='ghost'
             type='button'
             onClick={() => {
-              setDraftRange({ from: undefined, to: undefined });
+              setDraftRange(undefined);
               onChange({ start: '', end: '' });
             }}
           >
@@ -174,7 +174,7 @@ const EMPTY_SUMMARY: DashboardEntrySummary = {
   course_count: 0,
   learner_count: 0,
   order_count: 0,
-  generation_count: 0,
+  order_amount: '0.00',
 };
 
 const formatLastActive = (value: string): string => {
@@ -188,11 +188,22 @@ const formatLastActive = (value: string): string => {
   return parsed.toLocaleString();
 };
 
+const formatOrderAmount = (value: string, currencySymbol: string): string => {
+  const normalized = (value || '').trim();
+  const matched = normalized.match(/^(-?\d+)(?:\.(\d+))?$/);
+  if (!matched) {
+    return `${currencySymbol}0.00`;
+  }
+  const integerPart = matched[1].replace(/^(-?)0+(?=\d)/, '$1');
+  const decimalPart = (matched[2] || '').padEnd(2, '0').slice(0, 2);
+  return `${currencySymbol}${integerPart}.${decimalPart}`;
+};
+
 export default function AdminDashboardEntryPage() {
   const { t } = useTranslation();
-  const router = useRouter();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
+  const currencySymbol = useEnvStore(state => state.currencySymbol || '¥');
 
   const [keyword, setKeyword] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -294,22 +305,6 @@ export default function AdminDashboardEntryPage() {
       });
     },
     [endDate, fetchEntry, keyword, pageCount, pageIndex, startDate],
-  );
-
-  const buildCourseDetailHref = useCallback(
-    (shifuBid: string) => {
-      const query = new URLSearchParams();
-      if (startDate) {
-        query.set('start_date', startDate);
-      }
-      if (endDate) {
-        query.set('end_date', endDate);
-      }
-      const queryText = query.toString();
-      const basePath = `/admin/dashboard/shifu/${shifuBid}`;
-      return queryText ? `${basePath}?${queryText}` : basePath;
-    },
-    [endDate, startDate],
   );
 
   if (!isInitialized || isGuest) {
@@ -414,10 +409,12 @@ export default function AdminDashboardEntryPage() {
             <Card>
               <CardContent className='p-4'>
                 <div className='text-sm text-muted-foreground'>
-                  {t('module.dashboard.entry.kpi.generations')}
+                  {t('module.dashboard.entry.kpi.orderAmount')}
                 </div>
                 <div className='mt-2 text-2xl font-semibold text-foreground'>
-                  {loading ? '-' : summary.generation_count}
+                  {loading
+                    ? '-'
+                    : formatOrderAmount(summary.order_amount, currencySymbol)}
                 </div>
               </CardContent>
             </Card>
@@ -459,7 +456,7 @@ export default function AdminDashboardEntryPage() {
                           {t('module.dashboard.entry.table.orders')}
                         </TableHead>
                         <TableHead>
-                          {t('module.dashboard.entry.table.generations')}
+                          {t('module.dashboard.entry.table.orderAmount')}
                         </TableHead>
                         <TableHead>
                           {t('module.dashboard.entry.table.lastActive')}
@@ -474,13 +471,7 @@ export default function AdminDashboardEntryPage() {
                       ) : null}
 
                       {items.map(item => (
-                        <TableRow
-                          key={item.shifu_bid}
-                          className='cursor-pointer'
-                          onClick={() =>
-                            router.push(buildCourseDetailHref(item.shifu_bid))
-                          }
-                        >
+                        <TableRow key={item.shifu_bid}>
                           <TableCell className='whitespace-nowrap'>
                             <div className='text-sm text-foreground'>
                               {item.shifu_name || item.shifu_bid}
@@ -496,7 +487,10 @@ export default function AdminDashboardEntryPage() {
                             {item.order_count}
                           </TableCell>
                           <TableCell className='whitespace-nowrap'>
-                            {item.generation_count}
+                            {formatOrderAmount(
+                              item.order_amount,
+                              currencySymbol,
+                            )}
                           </TableCell>
                           <TableCell className='whitespace-nowrap'>
                             {formatLastActive(item.last_active_at)}
