@@ -270,7 +270,9 @@ class MdflowContextV2:
             interaction_prompt=interaction_prompt,
             interaction_error_prompt=interaction_error_prompt,
         )
-        self._mdflow.set_visual_mode(visual_mode)
+        set_visual_mode = getattr(self._mdflow, "set_visual_mode", None)
+        if callable(set_visual_mode):
+            set_visual_mode(visual_mode)
         # Only set output language if use_learner_language is enabled
         if use_learner_language:
             self._mdflow = self._mdflow.set_output_language(
