@@ -9,8 +9,8 @@ import React, {
 import { Button } from '@/components/ui/Button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/Sheet';
 import {
-  ChartBarIcon,
   DocumentIcon,
+  PresentationChartLineIcon,
   ShoppingCartIcon,
 } from '@heroicons/react/24/outline';
 import Image, { type StaticImageData } from 'next/image';
@@ -137,13 +137,15 @@ const SidebarContent = ({
                 key={index}
                 href={item.href || '#'}
                 className={cn(
-                  'flex items-center space-x-2 px-2 py-2 rounded-lg hover:bg-gray-100',
+                  'flex min-w-0 items-center space-x-2 px-2 py-2 rounded-lg hover:bg-gray-100',
                   isActive && 'bg-gray-200 text-gray-900 font-semibold',
                 )}
                 aria-current={isActive ? 'page' : undefined}
               >
                 {item.icon}
-                <span>{item.label}</span>
+                <span className='min-w-0 flex-1 truncate whitespace-nowrap'>
+                  {item.label}
+                </span>
               </Link>
             );
           })}
@@ -231,7 +233,7 @@ const MainInterface = ({
       href: '/admin/orders',
     },
     {
-      icon: <ChartBarIcon className='w-4 h-4' />,
+      icon: <PresentationChartLineIcon className='w-4 h-4' />,
       label: t('module.dashboard.title'),
       href: '/admin/dashboard',
     },
