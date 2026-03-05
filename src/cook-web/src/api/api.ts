@@ -113,6 +113,9 @@ const api = {
   // MDF Conversion
   genMdfConvert: 'POST /gen_mdf/convert',
   genMdfConfigStatus: 'GET /gen_mdf/config-status',
+
+  // dashboard (teacher analytics)
+  getDashboardEntry: 'GET /dashboard/entry',
 };
 
 export default api;
