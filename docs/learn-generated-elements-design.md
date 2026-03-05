@@ -121,6 +121,77 @@ DIFF 在三方案里都支持，但表达方式不同：
 - `elements`: 默认返回导航 element 终态快照
 - `events`: 仅 `include_non_navigable=true` 返回（含非导航事件与中间态）
 
+### 3.7 接口返回示例（共用）
+
+说明：示例中的 `element_type_code` 仅示意，最终以评审冻结枚举为准。
+
+run SSE（`type=element`）示例：
+
+```json
+{
+  "type": "element",
+  "event_type": "element",
+  "run_session_bid": "run_abc123",
+  "run_event_seq": 12,
+  "content": {
+    "element_bid": "el_001",
+    "element_index": 35,
+    "role": "teacher",
+    "element_type": "picture",
+    "element_type_code": 105,
+    "is_navigable": 1,
+    "is_final": 0,
+    "content_text": "",
+    "payload": {
+      "audio": null,
+      "previous_visuals": [
+        {
+          "visual_type": "img",
+          "content": "https://cdn.example.com/pic-01.png"
+        }
+      ]
+    }
+  }
+}
+```
+
+records 示例（默认 `include_non_navigable=false`）：
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "elements": [
+      {
+        "element_bid": "el_001",
+        "element_index": 35,
+        "role": "teacher",
+        "element_type": "picture",
+        "element_type_code": 105,
+        "is_navigable": 1,
+        "is_final": 1,
+        "content_text": "讲解完成",
+        "payload": {
+          "audio": {
+            "audio_bid": "au_001",
+            "audio_url": "https://...",
+            "duration_ms": 980,
+            "position": 5
+          },
+          "previous_visuals": [
+            {
+              "visual_type": "img",
+              "content": "https://cdn.example.com/pic-01.png"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
 ---
 
 ## 4. 方案 A-Flat（细分视觉类型 + 平铺时间线）
@@ -187,6 +258,70 @@ A-Flat 的 DIFF 定义：
 - 与现有前端 `sandbox` 主路径差距较大
 - run 过程中类型会后验变化，前端要处理类型提升
 
+### 4.8 A-Flat 接口示例（`SVG -> MD_img`）
+
+第一条（先到 `svg`）：
+
+```json
+{
+  "type": "element",
+  "event_type": "element",
+  "run_session_bid": "run_a_flat_1",
+  "run_event_seq": 20,
+  "content": {
+    "element_bid": "el_100",
+    "element_index": 40,
+    "role": "teacher",
+    "element_type": "svg",
+    "element_type_code": 102,
+    "is_navigable": 1,
+    "is_final": 0,
+    "payload": {
+      "audio": null,
+      "previous_visuals": [
+        {
+          "visual_type": "svg",
+          "content": "<svg>...</svg>"
+        }
+      ]
+    }
+  }
+}
+```
+
+第二条（增量，`element_type=diff`）：
+
+```json
+{
+  "type": "element",
+  "event_type": "element",
+  "run_session_bid": "run_a_flat_1",
+  "run_event_seq": 21,
+  "content": {
+    "element_bid": "el_100",
+    "element_index": 40,
+    "role": "teacher",
+    "element_type": "diff",
+    "element_type_code": 199,
+    "target_element_bid": "el_100",
+    "is_navigable": 1,
+    "is_final": 0,
+    "payload": {
+      "diff_payload": [
+        {
+          "op": "add",
+          "path": "/previous_visuals/-",
+          "value": {
+            "visual_type": "md_img",
+            "content": "https://cdn.example.com/pic-02.png"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
 ---
 
 ## 5. 方案 A-Tree（细分视觉类型 + 父子结构）
@@ -243,6 +378,63 @@ A-Tree 的 DIFF 定义：
 缺点：
 - 前后端复杂度最高
 - 默认查询与回放逻辑需要额外父子装配
+
+### 5.7 A-Tree 接口示例（`SVG -> MD_img`）
+
+父节点（部分态）：
+
+```json
+{
+  "type": "element",
+  "event_type": "element",
+  "run_session_bid": "run_a_tree_1",
+  "run_event_seq": 30,
+  "content": {
+    "element_bid": "el_parent_300",
+    "element_index": 42,
+    "role": "teacher",
+    "element_type": "mixed",
+    "element_type_code": 106,
+    "is_navigable": 1,
+    "is_final": 0,
+    "payload": {
+      "audio": null,
+      "previous_visuals": []
+    }
+  }
+}
+```
+
+子节点 diff（挂父）：
+
+```json
+{
+  "type": "element",
+  "event_type": "element",
+  "run_session_bid": "run_a_tree_1",
+  "run_event_seq": 31,
+  "content": {
+    "element_bid": "el_child_301",
+    "parent_element_bid": "el_parent_300",
+    "element_index": 42,
+    "role": "teacher",
+    "element_type": "diff",
+    "element_type_code": 199,
+    "target_element_bid": "el_child_301",
+    "is_navigable": 0,
+    "is_final": 0,
+    "payload": {
+      "diff_payload": [
+        {
+          "op": "replace",
+          "path": "/content",
+          "value": "https://cdn.example.com/pic-03.png"
+        }
+      ]
+    }
+  }
+}
+```
 
 ---
 
@@ -301,6 +493,72 @@ B 中的 DIFF 使用是主路径：
 缺点：
 - 类型语义粒度更粗，统计需看 `previous_visuals[].visual_type`
 - 需要稳定的 diff 合并机制
+
+### 6.7 B 接口示例（`SVG -> MD_img`）
+
+首包（`render`）：
+
+```json
+{
+  "type": "element",
+  "event_type": "element",
+  "run_session_bid": "run_b_1",
+  "run_event_seq": 40,
+  "content": {
+    "element_bid": "el_200",
+    "element_index": 41,
+    "role": "teacher",
+    "element_type": "sandbox",
+    "element_type_code": 102,
+    "change_type": "render",
+    "is_navigable": 1,
+    "is_final": 0,
+    "payload": {
+      "audio": null,
+      "previous_visuals": [
+        {
+          "visual_type": "svg",
+          "content": "<svg>...</svg>"
+        }
+      ]
+    }
+  }
+}
+```
+
+增量（`change_type=diff`）：
+
+```json
+{
+  "type": "element",
+  "event_type": "element",
+  "run_session_bid": "run_b_1",
+  "run_event_seq": 41,
+  "content": {
+    "element_bid": "el_200",
+    "element_index": 41,
+    "role": "teacher",
+    "element_type": "sandbox",
+    "element_type_code": 102,
+    "change_type": "diff",
+    "target_element_bid": "el_200",
+    "is_navigable": 1,
+    "is_final": 0,
+    "payload": {
+      "diff_payload": [
+        {
+          "op": "add",
+          "path": "/previous_visuals/-",
+          "value": {
+            "visual_type": "md_img",
+            "content": "https://cdn.example.com/pic-04.png"
+          }
+        }
+      ]
+    }
+  }
+}
+```
 
 ---
 
