@@ -172,14 +172,6 @@ def create_shifu_draft(
         if len(shifu_description) > 500:
             raise_error("server.shifu.shifuDescriptionTooLong")
 
-        # check if the name already exists
-        existing_shifu = (
-            DraftShifu.query.filter_by(title=shifu_name, deleted=0)
-            .order_by(DraftShifu.id.desc())
-            .first()
-        )
-        if existing_shifu:
-            raise_error("server.shifu.shifuNameAlreadyExists")
         # create a new DraftShifu object
         shifu_draft: DraftShifu = DraftShifu(
             shifu_bid=shifu_id,

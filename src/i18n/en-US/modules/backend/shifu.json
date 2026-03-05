@@ -13,7 +13,6 @@
     "parentOutlineNotFound": "Parent outline not found",
     "permissionContactLimit": "Shared permissions exceed the limit ({count})",
     "shifuDescriptionTooLong": "Course description is too long (max 500 characters)",
-    "shifuNameAlreadyExists": "Course name already exists",
     "shifuNameRequired": "Course name is required",
     "shifuNameTooLong": "Course name is too long (max {max_length} characters)",
     "shifuNotFound": "Course not found",
