@@ -103,7 +103,6 @@ import { useEnvStore } from '@/c-store';
 import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
 import { useShifu, useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
-import { canManageArchive as canManageArchiveForShifu } from '@/lib/shifu-permissions';
 import { isValidEmail } from '@/lib/validators';
 
 interface Shifu {
@@ -204,8 +203,6 @@ export default function ShifuSettingDialog({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedImageUrl, setUploadedImageUrl] = useState('');
   const [copying, setCopying] = useState<CopyingState>(defaultCopyingState);
-  const [archiveLoading, setArchiveLoading] = useState(false);
-  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const copyTimeoutRef = useRef<
     Record<keyof CopyingState, ReturnType<typeof setTimeout> | null>
   >({
@@ -213,10 +210,6 @@ export default function ShifuSettingDialog({
     url: null,
   });
   const { trackEvent } = useTracking();
-  const canManageArchive = canManageArchiveForShifu(
-    currentShifu,
-    currentUserId,
-  );
   const canManagePermissions =
     Boolean(currentShifu?.created_user_bid) &&
     currentShifu?.created_user_bid === currentUserId;
@@ -298,37 +291,6 @@ export default function ShifuSettingDialog({
     contactType === 'email'
       ? t('module.shifuSetting.permissionEmailPlaceholder')
       : t('module.shifuSetting.permissionPhonePlaceholder');
-  const handleArchiveToggle = useCallback(async () => {
-    if (!currentShifu?.bid || !canManageArchive) {
-      return;
-    }
-    setArchiveLoading(true);
-    try {
-      if (currentShifu.archived) {
-        await api.unarchiveShifu({ shifu_bid: currentShifu.bid });
-        toast({
-          title: t('module.shifuSetting.unarchiveSuccess'),
-        });
-      } else {
-        await api.archiveShifu({ shifu_bid: currentShifu.bid });
-        toast({
-          title: t('module.shifuSetting.archiveSuccess'),
-        });
-      }
-      await actions.loadShifu(currentShifu.bid, { silent: true });
-      onSave?.();
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : t('common.core.unknownError');
-      toast({
-        title: message,
-        variant: 'destructive',
-      });
-    } finally {
-      setArchiveLoading(false);
-      setArchiveDialogOpen(false);
-    }
-  }, [actions, canManageArchive, currentShifu, onSave, t, toast]);
 
   const permissionOptions = useMemo(
     () => [
@@ -1992,36 +1954,6 @@ export default function ShifuSettingDialog({
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog
-        open={archiveDialogOpen}
-        onOpenChange={setArchiveDialogOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {currentShifu?.archived
-                ? t('module.shifuSetting.unarchiveTitle')
-                : t('module.shifuSetting.archiveTitle')}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {currentShifu?.archived
-                ? t('module.shifuSetting.unarchiveConfirm')
-                : t('module.shifuSetting.archiveConfirm')}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={archiveLoading}>
-              {t('common.core.cancel')}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={archiveLoading}
-              onClick={handleArchiveToggle}
-            >
-              {t('common.core.confirm')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
       <Sheet
         open={open}
         onOpenChange={handleOpenChange}
@@ -2856,23 +2788,6 @@ export default function ShifuSettingDialog({
               <div className='h-px w-full bg-border' />
             </form>
           </Form>
-          {canManageArchive && (
-            <div className='flex justify-end mt-6 mb-6 pr-4'>
-              <Button
-                type='button'
-                variant='outline'
-                className='border border-destructive text-destructive hover:bg-destructive/5 px-4 py-2 h-10 rounded-lg'
-                onClick={() => setArchiveDialogOpen(true)}
-                disabled={archiveLoading}
-              >
-                {archiveLoading
-                  ? t('common.core.submitting')
-                  : currentShifu?.archived
-                    ? t('module.shifuSetting.unarchive')
-                    : t('module.shifuSetting.archive')}
-              </Button>
-            </div>
-          )}
         </SheetContent>
       </Sheet>
     </>
