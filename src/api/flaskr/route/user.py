@@ -242,7 +242,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         parsed_payload = request.get_json(silent=True)
         payload = parsed_payload if isinstance(parsed_payload, dict) else {}
         tmp_id = payload.get("temp_id", None)
-        source = (str(payload.get("source") or "")).strip() or "web"
+        source = "web"
         wx_code = payload.get("wxcode", None)
         language = payload.get("language") or "en-US"
         masked_wx_code = None

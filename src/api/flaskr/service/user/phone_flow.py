@@ -300,16 +300,27 @@ def verify_phone_code(
                     target_aggregate.user_bid,
                     normalized_course_id,
                 )
-                if (
-                    origin_aggregate
-                    and origin_aggregate.wechat_open_id
+            if origin_aggregate:
+                missing_open_id = (
+                    origin_aggregate.wechat_open_id
                     and not target_aggregate.wechat_open_id
-                ):
+                )
+                missing_union_id = (
+                    origin_aggregate.wechat_union_id
+                    and not target_aggregate.wechat_union_id
+                )
+                if missing_open_id or missing_union_id:
                     upsert_wechat_credentials(
                         app,
                         user_bid=target_aggregate.user_bid,
-                        open_id=origin_aggregate.wechat_open_id,
-                        union_id=origin_aggregate.wechat_union_id,
+                        open_id=(
+                            origin_aggregate.wechat_open_id if missing_open_id else None
+                        ),
+                        union_id=(
+                            origin_aggregate.wechat_union_id
+                            if missing_union_id
+                            else None
+                        ),
                         verified=True,
                     )
 
