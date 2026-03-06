@@ -735,7 +735,6 @@ export type I18nKey =
   | 'server.shifu.parentOutlineNotFound'
   | 'server.shifu.permissionContactLimit'
   | 'server.shifu.shifuDescriptionTooLong'
-  | 'server.shifu.shifuNameAlreadyExists'
   | 'server.shifu.shifuNameRequired'
   | 'server.shifu.shifuNameTooLong'
   | 'server.shifu.shifuNotFound'
