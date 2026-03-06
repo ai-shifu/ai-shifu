@@ -867,7 +867,6 @@ const OrdersPage = () => {
     isInitialized,
     syncJumpFiltersQuery,
   ]);
-
   const handleFilterChange = (
     key: Exclude<keyof OrderFilters, 'shifu_bids'>,
     value: string,

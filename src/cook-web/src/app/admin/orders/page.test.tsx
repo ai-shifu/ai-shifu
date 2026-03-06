@@ -1,0 +1,138 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import api from '@/api';
+
+import OrdersPage from './page';
+
+const mockReplace = jest.fn();
+let mockSearchParamsValue = 'shifu_bid=shifu-1';
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    replace: mockReplace,
+  }),
+  useSearchParams: () => new URLSearchParams(mockSearchParamsValue),
+}));
+
+jest.mock('@/api', () => ({
+  __esModule: true,
+  default: {
+    getAdminOrders: jest.fn(),
+    getAdminOrderShifus: jest.fn(),
+  },
+}));
+
+jest.mock('@/store', () => ({
+  __esModule: true,
+  useUserStore: (selector: (state: { isInitialized: boolean; isGuest: boolean }) => unknown) =>
+    selector({
+      isInitialized: true,
+      isGuest: false,
+    }),
+}));
+
+jest.mock('@/c-store', () => ({
+  __esModule: true,
+  useEnvStore: (
+    selector: (state: {
+      loginMethodsEnabled: string[];
+      defaultLoginMethod: string;
+      currencySymbol: string;
+      payOrderExpireSeconds: number;
+    }) => unknown,
+  ) =>
+    selector({
+      loginMethodsEnabled: ['email'],
+      defaultLoginMethod: 'email',
+      currencySymbol: '¥',
+      payOrderExpireSeconds: 600,
+    }),
+}));
+
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: {
+      language: 'en-US',
+    },
+  }),
+}));
+
+jest.mock('@/components/order/OrderDetailSheet', () => () => null);
+jest.mock('@/components/order/ImportActivationDialog', () => () => null);
+jest.mock('@/components/ErrorDisplay', () => ({
+  __esModule: true,
+  default: ({ errorMessage }: { errorMessage: string }) => <div>{errorMessage}</div>,
+}));
+jest.mock('@/components/loading', () => ({
+  __esModule: true,
+  default: () => <div data-testid='loading-indicator' />,
+}));
+
+const mockGetAdminOrders = api.getAdminOrders as jest.Mock;
+const mockGetAdminOrderShifus = api.getAdminOrderShifus as jest.Mock;
+
+describe('OrdersPage', () => {
+  beforeEach(() => {
+    mockReplace.mockReset();
+    mockGetAdminOrders.mockReset();
+    mockGetAdminOrderShifus.mockReset();
+    mockSearchParamsValue = 'shifu_bid=shifu-1';
+    window.localStorage.clear();
+
+    mockGetAdminOrders.mockResolvedValue({
+      items: [],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 0,
+    });
+    mockGetAdminOrderShifus.mockResolvedValue({
+      items: [{ bid: 'shifu-1', name: 'Course 1' }],
+    });
+  });
+
+  test('uses shifu_bid from url for the first orders request', async () => {
+    render(<OrdersPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOrders).toHaveBeenCalledWith(
+        expect.objectContaining({
+          page_index: 1,
+          page_size: 20,
+          shifu_bid: 'shifu-1',
+        }),
+      );
+    });
+  });
+
+  test('clears shifu_bid from url and query when resetting filters', async () => {
+    render(<OrdersPage />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOrders).toHaveBeenCalledWith(
+        expect.objectContaining({
+          shifu_bid: 'shifu-1',
+        }),
+      );
+    });
+
+    mockGetAdminOrders.mockClear();
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'module.order.filters.reset' }),
+    );
+
+    expect(mockReplace).toHaveBeenCalledWith('/admin/orders');
+
+    await waitFor(() => {
+      expect(mockGetAdminOrders).toHaveBeenCalledWith(
+        expect.objectContaining({
+          page_index: 1,
+          page_size: 20,
+          shifu_bid: '',
+        }),
+      );
+    });
+  });
+});
