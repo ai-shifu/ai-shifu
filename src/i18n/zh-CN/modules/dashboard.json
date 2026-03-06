@@ -17,7 +17,7 @@
       "reset": "重置",
       "search": "查询",
       "searchPlaceholder": "搜索课程名称 / 课程ID",
-      "scopeNote": "统计范围说明：仅统计您本人创建并拥有的课程数据。协作课程的数据不包含在内。",
+      "scopeNote": "统计范围说明：仅统计您本人创建并拥有的课程数据；协作课程的数据不包含在内。",
       "title": "课程列表",
       "totalCount": "共 {count}"
     }
