@@ -1,0 +1,33 @@
+{
+  "__namespace__": "module.dashboard",
+  "entry": {
+    "kpi": {
+      "courses": "Courses",
+      "learners": "Learners",
+      "orderAmount": "Order Amount",
+      "orders": "Orders"
+    },
+    "table": {
+      "course": "Course",
+      "empty": "No courses",
+      "lastActive": "Last active",
+      "learners": "Learners",
+      "orderAmount": "Order Amount",
+      "orders": "Orders",
+      "reset": "Reset",
+      "search": "Search",
+      "searchPlaceholder": "Search by course name / course id",
+      "title": "Course List",
+      "totalCount": "Total: {count}"
+    }
+  },
+  "filters": {
+    "dateRangePlaceholder": "Select date range",
+    "reset": "Reset"
+  },
+  "pagination": {
+    "next": "Next",
+    "prev": "Previous"
+  },
+  "title": "Dashboard"
+}

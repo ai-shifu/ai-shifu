@@ -1,3 +1,4 @@
+@import '@fontsource/inter/index.css';
 @import 'tailwindcss';
 @config "../../tailwind.config.ts";
 
