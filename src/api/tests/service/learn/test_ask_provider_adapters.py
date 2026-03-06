@@ -7,6 +7,7 @@ from flaskr.service.learn import ask_provider_adapters as module
 from flaskr.service.learn.ask_provider_adapters import (
     common,
     coze_adapter,
+    coze_workflow_adapter,
     dify_adapter,
     volc_knowledge_adapter,
 )
@@ -82,6 +83,56 @@ def test_dify_adapter_streams_success_content(app, monkeypatch):
     )
 
     assert [chunk.content for chunk in chunks] == ["hello", " world"]
+
+
+def test_dify_adapter_uses_messages_as_query_when_messages_present(app, monkeypatch):
+    adapter = module.DifyAskProviderAdapter()
+
+    monkeypatch.setattr(
+        common,
+        "get_config",
+        lambda key: {
+            "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
+        }.get(key),
+    )
+
+    request_state = {}
+
+    def _fake_post(*_args, **kwargs):
+        request_state["json"] = kwargs.get("json") or {}
+        return _FakeResponse(
+            lines=[
+                'data: {"event":"message","answer":"ok"}',
+                "data: [DONE]",
+            ]
+        )
+
+    monkeypatch.setattr(dify_adapter.requests, "post", _fake_post)
+
+    chunks = list(
+        adapter.stream_answer(
+            app=app,
+            user_id="user-1",
+            user_query="hello",
+            messages=[
+                {"role": "system", "content": "SYS"},
+                {"role": "user", "content": "U1"},
+                {"role": "assistant", "content": "A1"},
+                {"role": "user", "content": "hello"},
+            ],
+            provider_config={
+                "config": {
+                    "base_url": "https://dify.example.com",
+                    "api_key": "test-key",
+                }
+            },
+        )
+    )
+
+    assert [chunk.content for chunk in chunks] == ["ok"]
+    assert "[System]" in request_state["json"].get("query", "")
+    assert "[User]" in request_state["json"].get("query", "")
+    assert "[Assistant]" in request_state["json"].get("query", "")
 
 
 def test_coze_adapter_timeout_raises_timeout_error(app, monkeypatch):
@@ -200,6 +251,59 @@ def test_coze_adapter_missing_shifu_config_raises_config_error(app):
                 provider_config={"config": {"bot_id": "bot-1"}},
             )
         )
+
+
+def test_coze_workflow_adapter_streams_success_content(app, monkeypatch):
+    adapter = module.CozeWorkflowAskProviderAdapter()
+
+    monkeypatch.setattr(
+        common,
+        "get_config",
+        lambda key: {
+            "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
+        }.get(key),
+    )
+
+    monkeypatch.setattr(
+        coze_workflow_adapter.requests,
+        "post",
+        lambda *_args, **_kwargs: _FakeResponse(
+            lines=[
+                "id: 0",
+                "event: Message",
+                'data: {"content":"hello","node_is_finish":false}',
+                "",
+                "id: 1",
+                "event: Message",
+                'data: {"content":" world","node_is_finish":true}',
+                "",
+                "id: 2",
+                "event: Done",
+                "data: {}",
+                "",
+            ]
+        ),
+    )
+
+    chunks = list(
+        adapter.stream_answer(
+            app=app,
+            user_id="user-1",
+            user_query="hello",
+            messages=[],
+            provider_config={
+                "config": {
+                    "base_url": "https://api.coze.cn",
+                    "api_key": "test-key",
+                    "workflow_id": "wf-1",
+                    "query_parameter": "input",
+                    "parameters": {},
+                }
+            },
+        )
+    )
+
+    assert [chunk.content for chunk in chunks] == ["hello", " world"]
 
 
 def test_volc_knowledge_adapter_streams_success_content(app, monkeypatch):

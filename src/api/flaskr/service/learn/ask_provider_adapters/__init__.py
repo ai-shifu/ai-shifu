@@ -9,6 +9,7 @@ from .base import (
     AskProviderTimeoutError,
 )
 from .coze_adapter import CozeAskProviderAdapter
+from .coze_workflow_adapter import CozeWorkflowAskProviderAdapter
 from .dify_adapter import DifyAskProviderAdapter
 from .llm_adapter import LlmAskProviderAdapter
 from .volc_knowledge_adapter import VolcKnowledgeAskProviderAdapter
@@ -22,6 +23,7 @@ __all__ = [
     "AskProviderRuntime",
     "AskProviderTimeoutError",
     "CozeAskProviderAdapter",
+    "CozeWorkflowAskProviderAdapter",
     "DifyAskProviderAdapter",
     "LlmAskProviderAdapter",
     "VolcKnowledgeAskProviderAdapter",

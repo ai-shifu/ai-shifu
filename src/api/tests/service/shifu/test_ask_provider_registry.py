@@ -37,6 +37,19 @@ def test_validate_coze_requires_base_url_api_key_and_bot_id():
     assert field == "bot_id"
 
 
+def test_validate_coze_workflow_requires_api_key_and_workflow_id():
+    is_valid, field = module.validate_ask_provider_specific_config(
+        "coze_workflow",
+        {
+            "base_url": "https://api.coze.cn",
+            "api_key": "coze-key",
+        },
+    )
+
+    assert is_valid is False
+    assert field == "workflow_id"
+
+
 def test_validate_volc_knowledge_requires_account_credentials_and_collection():
     is_valid, field = module.validate_ask_provider_specific_config(
         "volc_knowledge",
@@ -73,6 +86,7 @@ def test_ask_provider_metadata_contains_shifu_level_defaults():
 
     dify = providers.get("dify", {})
     coze = providers.get("coze", {})
+    coze_workflow = providers.get("coze_workflow", {})
     volc = providers.get("volc_knowledge", {})
 
     assert dify.get("default_config", {}) == {
@@ -83,6 +97,13 @@ def test_ask_provider_metadata_contains_shifu_level_defaults():
         "base_url": "https://api.coze.com",
         "api_key": "",
         "bot_id": "",
+    }
+    assert coze_workflow.get("default_config", {}) == {
+        "base_url": "https://api.coze.cn",
+        "api_key": "",
+        "workflow_id": "",
+        "query_parameter": "input",
+        "parameters": {},
     }
     assert volc.get("default_config", {}) == {
         "account_id": "",
@@ -108,6 +129,12 @@ def test_ask_provider_metadata_marks_api_key_as_password():
         .get("properties", {})
         .get("api_key", {})
     )
+    coze_workflow_api_key = (
+        providers.get("coze_workflow", {})
+        .get("json_schema", {})
+        .get("properties", {})
+        .get("api_key", {})
+    )
     volc_ak = (
         providers.get("volc_knowledge", {})
         .get("json_schema", {})
@@ -123,6 +150,7 @@ def test_ask_provider_metadata_marks_api_key_as_password():
 
     assert dify_api_key.get("format") == "password"
     assert coze_api_key.get("format") == "password"
+    assert coze_workflow_api_key.get("format") == "password"
     assert volc_ak.get("format") == "password"
     assert volc_sk.get("format") == "password"
 
@@ -132,7 +160,7 @@ def test_ask_provider_metadata_includes_all_providers():
     providers = {item["provider"] for item in metadata.get("providers", [])}
 
     assert metadata.get("feature_enabled") is True
-    assert providers == {"llm", "dify", "coze", "volc_knowledge"}
+    assert providers == {"llm", "dify", "coze", "coze_workflow", "volc_knowledge"}
 
 
 def test_ask_provider_metadata_exposes_minimal_schema_properties():
@@ -145,6 +173,12 @@ def test_ask_provider_metadata_exposes_minimal_schema_properties():
     coze_fields = (
         providers.get("coze", {}).get("json_schema", {}).get("properties", {}).keys()
     )
+    coze_workflow_fields = (
+        providers.get("coze_workflow", {})
+        .get("json_schema", {})
+        .get("properties", {})
+        .keys()
+    )
     volc_fields = (
         providers.get("volc_knowledge", {})
         .get("json_schema", {})
@@ -154,4 +188,9 @@ def test_ask_provider_metadata_exposes_minimal_schema_properties():
 
     assert set(dify_fields) == {"base_url", "api_key"}
     assert set(coze_fields) == {"base_url", "api_key", "bot_id"}
+    assert set(coze_workflow_fields) >= {
+        "base_url",
+        "api_key",
+        "workflow_id",
+    }
     assert set(volc_fields) == {"account_id", "ak", "sk", "collection_name"}

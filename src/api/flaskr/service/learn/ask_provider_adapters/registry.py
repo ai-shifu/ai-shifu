@@ -6,6 +6,7 @@ from flask import Flask
 
 from flaskr.service.shifu.shifu_draft_funcs import (
     ASK_PROVIDER_COZE,
+    ASK_PROVIDER_COZE_WORKFLOW,
     ASK_PROVIDER_DIFY,
     ASK_PROVIDER_LLM,
     ASK_PROVIDER_VOLC_KNOWLEDGE,
@@ -18,6 +19,7 @@ from .base import (
     AskProviderRuntime,
 )
 from .coze_adapter import CozeAskProviderAdapter
+from .coze_workflow_adapter import CozeWorkflowAskProviderAdapter
 from .dify_adapter import DifyAskProviderAdapter
 from .llm_adapter import LlmAskProviderAdapter
 from .volc_knowledge_adapter import VolcKnowledgeAskProviderAdapter
@@ -31,6 +33,8 @@ def get_ask_provider_adapter(provider: str) -> AskProviderAdapter | None:
         return DifyAskProviderAdapter()
     if provider == ASK_PROVIDER_COZE:
         return CozeAskProviderAdapter()
+    if provider == ASK_PROVIDER_COZE_WORKFLOW:
+        return CozeWorkflowAskProviderAdapter()
     if provider == ASK_PROVIDER_VOLC_KNOWLEDGE:
         return VolcKnowledgeAskProviderAdapter()
     return None

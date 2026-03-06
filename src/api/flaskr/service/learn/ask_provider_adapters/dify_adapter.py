@@ -26,6 +26,33 @@ from .common import (
 class DifyAskProviderAdapter:
     provider = ASK_PROVIDER_DIFY
 
+    def _render_messages_as_query(
+        self,
+        messages: list[dict[str, Any]],
+    ) -> str:
+        parts: list[str] = []
+        for message in messages:
+            if not isinstance(message, dict):
+                continue
+            role = str(message.get("role") or "").strip().lower()
+            content = message.get("content")
+            if not isinstance(content, str):
+                continue
+            content = content.strip()
+            if not content:
+                continue
+
+            if role == "system":
+                parts.append(f"[System]\n{content}")
+            elif role == "user":
+                parts.append(f"[User]\n{content}")
+            elif role == "assistant":
+                parts.append(f"[Assistant]\n{content}")
+            else:
+                parts.append(content)
+
+        return "\n\n".join(parts).strip()
+
     def stream_answer(
         self,
         app: Flask,
@@ -47,8 +74,14 @@ class DifyAskProviderAdapter:
                 "dify base_url/api_key are required in ask_provider_config.config"
             )
 
+        query = user_query
+        if messages:
+            rendered = self._render_messages_as_query(messages)
+            if rendered:
+                query = rendered
+
         payload: dict[str, Any] = {
-            "query": user_query,
+            "query": query,
             "user": user_id,
             "response_mode": "streaming",
             "auto_generate_name": False,

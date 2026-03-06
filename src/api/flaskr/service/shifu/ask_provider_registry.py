@@ -6,6 +6,7 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     ASK_PROVIDER_LLM,
     ASK_PROVIDER_DIFY,
     ASK_PROVIDER_COZE,
+    ASK_PROVIDER_COZE_WORKFLOW,
     ASK_PROVIDER_VOLC_KNOWLEDGE,
     ASK_PROVIDER_MODE_PROVIDER_ONLY,
     ASK_PROVIDER_MODE_PROVIDER_THEN_LLM,
@@ -92,6 +93,75 @@ def get_ask_provider_schema_registry() -> dict[str, dict[str, Any]]:
                 "additionalProperties": True,
             },
         },
+        ASK_PROVIDER_COZE_WORKFLOW: {
+            "title": "Coze Workflow",
+            "description": "Route ask to Coze workflow stream_run API with minimal config.",
+            "default_config": {
+                "base_url": "https://api.coze.cn",
+                "api_key": "",
+                "workflow_id": "",
+                "query_parameter": "input",
+                "parameters": {},
+            },
+            "json_schema": {
+                "type": "object",
+                "properties": {
+                    "base_url": {
+                        "type": "string",
+                        "title": "Base URL",
+                        "description": "Coze base URL, e.g. https://api.coze.cn",
+                    },
+                    "api_key": {
+                        "type": "string",
+                        "format": "password",
+                        "title": "API Key",
+                        "description": "Coze personal access token.",
+                    },
+                    "workflow_id": {
+                        "type": "string",
+                        "title": "Workflow ID",
+                        "description": "Published Coze workflow id.",
+                    },
+                    "query_parameter": {
+                        "type": "string",
+                        "title": "Query Parameter",
+                        "description": "Parameter name to put the user query into (default: input).",
+                    },
+                    "parameters": {
+                        "type": "object",
+                        "title": "Parameters (JSON)",
+                        "description": "Static workflow parameters (JSON object).",
+                    },
+                    "bot_id": {
+                        "type": "string",
+                        "title": "Bot ID (optional)",
+                        "description": "Required if your workflow run needs a bot context.",
+                    },
+                    "app_id": {
+                        "type": "string",
+                        "title": "App ID (optional)",
+                        "description": "Only required when running workflows inside a Coze app.",
+                    },
+                    "connector_id": {
+                        "type": "string",
+                        "title": "Connector ID (optional)",
+                        "description": "Channel id, default 1024 for API.",
+                    },
+                    "workflow_version": {
+                        "type": "string",
+                        "title": "Workflow Version (optional)",
+                        "description": "Workflow version, only effective for library workflows.",
+                    },
+                    "ext": {
+                        "type": "object",
+                        "title": "Ext (JSON)",
+                        "description": 'Extra fields, e.g. {"user_id":"u1"} or latitude/longitude.',
+                    },
+                },
+                "required": ["base_url", "api_key", "workflow_id"],
+                "additionalProperties": True,
+            },
+        },
         ASK_PROVIDER_VOLC_KNOWLEDGE: {
             "title": "Volcengine Knowledge Base",
             "description": "Route ask to Volcengine Knowledge Base search API with minimal config.",
@@ -173,6 +243,7 @@ def get_ask_provider_metadata() -> dict[str, Any]:
         ASK_PROVIDER_LLM,
         ASK_PROVIDER_DIFY,
         ASK_PROVIDER_COZE,
+        ASK_PROVIDER_COZE_WORKFLOW,
         ASK_PROVIDER_VOLC_KNOWLEDGE,
     ]:
         item = registry[provider]
