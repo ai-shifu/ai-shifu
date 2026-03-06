@@ -241,7 +241,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         """
         payload = request.get_json(silent=True) or {}
         tmp_id = payload.get("temp_id", None)
-        source = (str(payload.get("source") or "")).strip() or "web"
+        source = "web"
         wx_code = payload.get("wxcode", None)
         language = payload.get("language", "en-US")
         app.logger.info(
