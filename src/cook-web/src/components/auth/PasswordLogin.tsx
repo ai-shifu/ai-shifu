@@ -16,16 +16,14 @@ import apiService from '@/api';
 import { cn } from '@/lib/utils';
 import i18n from '@/i18n';
 
-import type { UserInfo } from '@/c-types';
-
 interface PasswordLoginProps {
   onLoginSuccess: () => void;
-  loginContext: string;
+  supportEmailIdentifier?: boolean;
 }
 
 export function PasswordLogin({
   onLoginSuccess,
-  loginContext,
+  supportEmailIdentifier = true,
 }: PasswordLoginProps) {
   const { toast } = useToast();
   const { login } = useUserStore();
@@ -42,7 +40,11 @@ export function PasswordLogin({
 
   const validateIdentifier = (value: string) => {
     if (!value) {
-      setIdentifierError(t('module.auth.identifierEmpty'));
+      setIdentifierError(
+        supportEmailIdentifier
+          ? t('module.auth.identifierEmpty')
+          : t('module.auth.identifierPhoneOnlyEmpty'),
+      );
       return false;
     }
     setIdentifierError('');
@@ -148,11 +150,17 @@ export function PasswordLogin({
             htmlFor='identifier'
             className={identifierError ? 'text-red-500' : ''}
           >
-            {t('module.auth.identifier')}
+            {supportEmailIdentifier
+              ? t('module.auth.identifier')
+              : t('module.auth.identifierPhoneOnly')}
           </Label>
           <Input
             id='identifier'
-            placeholder={t('module.auth.identifierPlaceholder')}
+            placeholder={
+              supportEmailIdentifier
+                ? t('module.auth.identifierPlaceholder')
+                : t('module.auth.identifierPhoneOnlyPlaceholder')
+            }
             value={identifier}
             onChange={handleIdentifierChange}
             onKeyDown={handleKeyDown}
