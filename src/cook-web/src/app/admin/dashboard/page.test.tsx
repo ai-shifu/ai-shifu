@@ -2,7 +2,8 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
 
-import AdminDashboardEntryPage, { buildAdminOrdersUrl } from './page';
+import { buildAdminOrdersUrl } from './admin-dashboard-routes';
+import AdminDashboardEntryPage from './page';
 
 const mockPush = jest.fn();
 

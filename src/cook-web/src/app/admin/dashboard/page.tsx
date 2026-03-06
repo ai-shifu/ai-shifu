@@ -43,6 +43,7 @@ import type {
   DashboardEntryResponse,
   DashboardEntrySummary,
 } from '@/types/dashboard';
+import { buildAdminOrdersUrl } from './admin-dashboard-routes';
 
 const PAGE_SIZE = 20;
 
@@ -198,15 +199,6 @@ const formatOrderAmount = (value: string, currencySymbol: string): string => {
   const integerPart = matched[1].replace(/^(-?)0+(?=\d)/, '$1');
   const decimalPart = (matched[2] || '').padEnd(2, '0').slice(0, 2);
   return `${currencySymbol}${integerPart}.${decimalPart}`;
-};
-
-export const buildAdminOrdersUrl = (shifuBid: string): string | null => {
-  const normalizedShifuBid = shifuBid.trim();
-  if (!normalizedShifuBid) {
-    return null;
-  }
-  const params = new URLSearchParams({ shifu_bid: normalizedShifuBid });
-  return `/admin/orders?${params.toString()}`;
 };
 
 export default function AdminDashboardEntryPage() {
