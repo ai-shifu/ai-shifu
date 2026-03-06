@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { useUserStore } from '@/store';
@@ -42,6 +43,7 @@ import type {
   DashboardEntryResponse,
   DashboardEntrySummary,
 } from '@/types/dashboard';
+import { buildAdminOrdersUrl } from './admin-dashboard-routes';
 
 const PAGE_SIZE = 20;
 
@@ -201,6 +203,7 @@ const formatOrderAmount = (value: string, currencySymbol: string): string => {
 
 export default function AdminDashboardEntryPage() {
   const { t } = useTranslation();
+  const router = useRouter();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const currencySymbol = useEnvStore(state => state.currencySymbol || '¥');
@@ -305,6 +308,17 @@ export default function AdminDashboardEntryPage() {
       });
     },
     [endDate, fetchEntry, keyword, pageCount, pageIndex, startDate],
+  );
+
+  const handleOrderClick = useCallback(
+    (shifuBid: string) => {
+      const nextUrl = buildAdminOrdersUrl(shifuBid);
+      if (!nextUrl) {
+        return;
+      }
+      router.push(nextUrl);
+    },
+    [router],
   );
 
   if (!isInitialized || isGuest) {
@@ -484,7 +498,17 @@ export default function AdminDashboardEntryPage() {
                             {item.learner_count}
                           </TableCell>
                           <TableCell className='whitespace-nowrap'>
-                            {item.order_count}
+                            <button
+                              type='button'
+                              onClick={() => handleOrderClick(item.shifu_bid)}
+                              disabled={!item.shifu_bid.trim()}
+                              aria-label={`${t('module.dashboard.entry.table.orders')}-${item.shifu_bid}`}
+                              className={cn(
+                                'text-sm font-medium text-primary transition hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline',
+                              )}
+                            >
+                              {item.order_count}
+                            </button>
                           </TableCell>
                           <TableCell className='whitespace-nowrap'>
                             {formatOrderAmount(
