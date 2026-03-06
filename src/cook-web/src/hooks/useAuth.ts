@@ -23,6 +23,7 @@ interface UseAuthOptions {
   onSuccess?: (userInfo: UserInfo) => void;
   onError?: (error: any) => void;
   loginContext?: string;
+  courseId?: string;
 }
 
 export function useAuth(options: UseAuthOptions = {}) {
@@ -34,18 +35,27 @@ export function useAuth(options: UseAuthOptions = {}) {
   // Generic wrapper for API calls with automatic token refresh on expiration
   const callWithTokenRefresh = async <T extends ApiResponse>(
     apiCall: () => Promise<T>,
+    hasRetried = false,
   ): Promise<T> => {
-    const response = await apiCall();
+    try {
+      const response = await apiCall();
 
-    // Handle token expiration
-    if (response.code === 1005) {
-      // Refresh token
-      await logout(false);
-      // Retry the API call
-      return await apiCall();
+      // Handle token expiration
+      if (response.code === 1005 && !hasRetried) {
+        // Refresh token
+        await logout(false);
+        // Retry the API call once with the new guest token
+        return await callWithTokenRefresh(apiCall, true);
+      }
+
+      return response;
+    } catch (error: any) {
+      if (error?.code === 1005 && !hasRetried) {
+        await logout(false);
+        return await callWithTokenRefresh(apiCall, true);
+      }
+      throw error;
     }
-
-    return response;
   };
 
   // Handle common login errors
@@ -117,6 +127,7 @@ export function useAuth(options: UseAuthOptions = {}) {
           sms_code,
           language,
           login_context: options.loginContext,
+          course_id: options.courseId,
         }),
       );
 

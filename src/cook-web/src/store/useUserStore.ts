@@ -10,11 +10,41 @@ import { UserStoreState } from '@/c-types/store';
 import { clearGoogleOAuthSession } from '@/lib/google-oauth-session';
 import { identifyUmamiUser } from '@/c-common/tools/tracking';
 
+const GUEST_TEMP_ID_KEY = 'guest_temp_id';
+
+const rotateGuestTempId = (): void => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    localStorage.setItem(GUEST_TEMP_ID_KEY, genUuid());
+  } catch {
+    // Ignore storage errors in restricted browser modes.
+  }
+};
+
+const getGuestTempId = (): string => {
+  if (typeof window === 'undefined') {
+    return genUuid();
+  }
+  try {
+    const cached = localStorage.getItem(GUEST_TEMP_ID_KEY);
+    if (cached && cached.trim()) {
+      return cached;
+    }
+    const nextId = genUuid();
+    localStorage.setItem(GUEST_TEMP_ID_KEY, nextId);
+    return nextId;
+  } catch {
+    return genUuid();
+  }
+};
+
 // Helper function to register as guest user
 const registerAsGuest = async (): Promise<string> => {
   // Always fetch a fresh guest token to avoid expiration issues
   tokenTool.remove();
-  const res = await registerTmp({ temp_id: genUuid() });
+  const res = await registerTmp({ temp_id: getGuestTempId() });
   identifyUmamiUser(res?.userInfo);
   const token = res.token;
   tokenTool.set({ token, faked: true });
@@ -52,6 +82,9 @@ export const useUserStore = create<
 
     // Public API: Login with user credentials
     login: async (userInfo: any, token: string) => {
+      // Prevent future guest registration from resolving back to this
+      // authenticated account via stale temp_id mapping.
+      rotateGuestTempId();
       tokenTool.set({ token, faked: false });
 
       const normalizedUserInfo = {
@@ -92,6 +125,7 @@ export const useUserStore = create<
     // Public API: Logout user
     logout: async (reload = true) => {
       let didTriggerReload = false;
+      const tokenDataBeforeLogout = tokenTool.get();
       const resetLogoutFlag = () => {
         if (typeof window !== 'undefined') {
           (window as any).__IS_LOGGING_OUT__ = false;
@@ -103,6 +137,10 @@ export const useUserStore = create<
       }
 
       try {
+        // Keep temp_id only for guest-session auth recovery flows.
+        if (reload || !tokenDataBeforeLogout.faked) {
+          rotateGuestTempId();
+        }
         clearGoogleOAuthSession();
         await registerAsGuest();
         set(() => ({
