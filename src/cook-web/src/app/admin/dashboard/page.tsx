@@ -436,6 +436,9 @@ export default function AdminDashboardEntryPage() {
                   })}
                 </span>
               </div>
+              <p className='mt-2 text-sm text-muted-foreground'>
+                {t('module.dashboard.entry.table.scopeNote')}
+              </p>
 
               <div className='mt-4 overflow-auto rounded-lg border border-border bg-white'>
                 {loading ? (
