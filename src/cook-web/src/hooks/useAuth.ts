@@ -37,13 +37,18 @@ export function useAuth(options: UseAuthOptions = {}) {
     apiCall: () => Promise<T>,
     hasRetried = false,
   ): Promise<T> => {
+    const tokenBefore = useUserStore.getState().getToken?.() || '';
     try {
       const response = await apiCall();
 
       // Handle token expiration
       if (response.code === 1005 && !hasRetried) {
-        // Refresh token
-        await logout(false);
+        const tokenAfter = useUserStore.getState().getToken?.() || '';
+        // Request layer usually handles auth recovery. Only run local recovery
+        // if token did not change (recovery likely did not happen yet).
+        if (tokenAfter === tokenBefore) {
+          await logout(false);
+        }
         // Retry the API call once with the new guest token
         return await callWithTokenRefresh(apiCall, true);
       }
@@ -51,7 +56,10 @@ export function useAuth(options: UseAuthOptions = {}) {
       return response;
     } catch (error: any) {
       if (error?.code === 1005 && !hasRetried) {
-        await logout(false);
+        const tokenAfter = useUserStore.getState().getToken?.() || '';
+        if (tokenAfter === tokenBefore) {
+          await logout(false);
+        }
         return await callWithTokenRefresh(apiCall, true);
       }
       throw error;
