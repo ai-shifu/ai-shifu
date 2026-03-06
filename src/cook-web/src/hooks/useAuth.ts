@@ -37,20 +37,31 @@ export function useAuth(options: UseAuthOptions = {}) {
     apiCall: () => Promise<T>,
     hasRetried = false,
   ): Promise<T> => {
+    const buildTokenRetryError = (message?: string) => {
+      const error = new Error(
+        message || t('module.auth.failed') || t('common.core.networkError'),
+      ) as Error & { code?: number };
+      error.code = 1005;
+      return error;
+    };
+
     const tokenBefore = useUserStore.getState().getToken?.() || '';
     try {
       const response = await apiCall();
 
       // Handle token expiration
-      if (response.code === 1005 && !hasRetried) {
-        const tokenAfter = useUserStore.getState().getToken?.() || '';
-        // Request layer usually handles auth recovery. Only run local recovery
-        // if token did not change (recovery likely did not happen yet).
-        if (tokenAfter === tokenBefore) {
-          await logout(false);
+      if (response.code === 1005) {
+        if (!hasRetried) {
+          const tokenAfter = useUserStore.getState().getToken?.() || '';
+          // Request layer usually handles auth recovery. Only run local recovery
+          // if token did not change (recovery likely did not happen yet).
+          if (tokenAfter === tokenBefore) {
+            await logout(false);
+          }
+          // Retry the API call once with the new guest token
+          return await callWithTokenRefresh(apiCall, true);
         }
-        // Retry the API call once with the new guest token
-        return await callWithTokenRefresh(apiCall, true);
+        throw buildTokenRetryError(response.message || response.msg);
       }
 
       return response;
@@ -61,6 +72,9 @@ export function useAuth(options: UseAuthOptions = {}) {
           await logout(false);
         }
         return await callWithTokenRefresh(apiCall, true);
+      }
+      if (error?.code === 1005 && hasRetried) {
+        throw buildTokenRetryError(error?.message);
       }
       throw error;
     }
