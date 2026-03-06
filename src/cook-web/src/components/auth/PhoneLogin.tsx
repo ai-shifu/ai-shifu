@@ -17,13 +17,17 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
 import type { UserInfo } from '@/c-types';
-import { tokenTool } from '@/c-service/storeUtil';
 interface PhoneLoginProps {
   onLoginSuccess: (userInfo: UserInfo) => void;
   loginContext?: string;
+  courseId?: string;
 }
 
-export function PhoneLogin({ onLoginSuccess, loginContext }: PhoneLoginProps) {
+export function PhoneLogin({
+  onLoginSuccess,
+  loginContext,
+  courseId,
+}: PhoneLoginProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -37,6 +41,7 @@ export function PhoneLogin({ onLoginSuccess, loginContext }: PhoneLoginProps) {
   const { loginWithSmsCode, sendSmsCode } = useAuth({
     onSuccess: onLoginSuccess,
     loginContext,
+    courseId,
   });
   const validatePhone = (phone: string) => {
     if (!phone) {

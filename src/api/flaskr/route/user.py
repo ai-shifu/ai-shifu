@@ -240,7 +240,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         """
         tmp_id = request.get_json().get("temp_id", None)
-        source = request.get_json().get("source", "web")
+        source = str(request.get_json().get("source", "web") or "web").strip()
+        if not source:
+            source = "web"
         wx_code = request.get_json().get("wxcode", None)
         language = request.get_json().get("language", "en-US")
         app.logger.info(
