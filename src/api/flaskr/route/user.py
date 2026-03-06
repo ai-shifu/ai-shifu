@@ -239,12 +239,11 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
 
         """
-        tmp_id = request.get_json().get("temp_id", None)
-        source = str(request.get_json().get("source", "web") or "web").strip()
-        if not source:
-            source = "web"
-        wx_code = request.get_json().get("wxcode", None)
-        language = request.get_json().get("language", "en-US")
+        payload = request.get_json(silent=True) or {}
+        tmp_id = payload.get("temp_id", None)
+        source = (str(payload.get("source") or "")).strip() or "web"
+        wx_code = payload.get("wxcode", None)
+        language = payload.get("language", "en-US")
         app.logger.info(
             f"require_tmp tmp_id: {tmp_id}, source: {source}, wx_code: {wx_code}"
         )
