@@ -2,7 +2,7 @@
 
 import type React from 'react';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -37,14 +37,25 @@ export function PasswordLogin({
   const [showPassword, setShowPassword] = useState(false);
   const [identifierError, setIdentifierError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const identifierTexts = useMemo(
+    () =>
+      supportEmailIdentifier
+        ? {
+            label: t('module.auth.identifier'),
+            placeholder: t('module.auth.identifierPlaceholder'),
+            emptyError: t('module.auth.identifierEmpty'),
+          }
+        : {
+            label: t('module.auth.identifierPhoneOnly'),
+            placeholder: t('module.auth.identifierPhoneOnlyPlaceholder'),
+            emptyError: t('module.auth.identifierPhoneOnlyEmpty'),
+          },
+    [supportEmailIdentifier, t],
+  );
 
   const validateIdentifier = (value: string) => {
     if (!value) {
-      setIdentifierError(
-        supportEmailIdentifier
-          ? t('module.auth.identifierEmpty')
-          : t('module.auth.identifierPhoneOnlyEmpty'),
-      );
+      setIdentifierError(identifierTexts.emptyError);
       return false;
     }
     setIdentifierError('');
@@ -150,17 +161,11 @@ export function PasswordLogin({
             htmlFor='identifier'
             className={identifierError ? 'text-red-500' : ''}
           >
-            {supportEmailIdentifier
-              ? t('module.auth.identifier')
-              : t('module.auth.identifierPhoneOnly')}
+            {identifierTexts.label}
           </Label>
           <Input
             id='identifier'
-            placeholder={
-              supportEmailIdentifier
-                ? t('module.auth.identifierPlaceholder')
-                : t('module.auth.identifierPhoneOnlyPlaceholder')
-            }
+            placeholder={identifierTexts.placeholder}
             value={identifier}
             onChange={handleIdentifierChange}
             onKeyDown={handleKeyDown}
