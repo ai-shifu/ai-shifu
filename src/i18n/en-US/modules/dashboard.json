@@ -15,9 +15,9 @@
       "orderAmount": "Order Amount",
       "orders": "Orders",
       "reset": "Reset",
+      "scopeNote": "Scope: Only data from courses you created and own is included. Collaborative courses are excluded.",
       "search": "Search",
       "searchPlaceholder": "Search by course name / course id",
-      "scopeNote": "Scope: Only data from courses you created and own is included. Collaborative courses are excluded.",
       "title": "Course List",
       "totalCount": "Total: {count}"
     }
