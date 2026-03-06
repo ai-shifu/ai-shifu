@@ -24,7 +24,9 @@ jest.mock('@/api', () => ({
 
 jest.mock('@/store', () => ({
   __esModule: true,
-  useUserStore: (selector: (state: { isInitialized: boolean; isGuest: boolean }) => unknown) =>
+  useUserStore: (
+    selector: (state: { isInitialized: boolean; isGuest: boolean }) => unknown,
+  ) =>
     selector({
       isInitialized: true,
       isGuest: false,
@@ -62,7 +64,9 @@ jest.mock('@/components/order/OrderDetailSheet', () => () => null);
 jest.mock('@/components/order/ImportActivationDialog', () => () => null);
 jest.mock('@/components/ErrorDisplay', () => ({
   __esModule: true,
-  default: ({ errorMessage }: { errorMessage: string }) => <div>{errorMessage}</div>,
+  default: ({ errorMessage }: { errorMessage: string }) => (
+    <div>{errorMessage}</div>
+  ),
 }));
 jest.mock('@/components/loading', () => ({
   __esModule: true,

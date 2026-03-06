@@ -21,7 +21,9 @@ jest.mock('@/api', () => ({
 
 jest.mock('@/store', () => ({
   __esModule: true,
-  useUserStore: (selector: (state: { isInitialized: boolean; isGuest: boolean }) => unknown) =>
+  useUserStore: (
+    selector: (state: { isInitialized: boolean; isGuest: boolean }) => unknown,
+  ) =>
     selector({
       isInitialized: true,
       isGuest: false,
