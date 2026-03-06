@@ -195,7 +195,8 @@ def run_script(
 
     if acquired:
         stop_event = threading.Event()
-        output_queue: queue.Queue[tuple[str, object]] = queue.Queue()
+        # Use SimpleQueue to avoid gevent-patched Queue lock contention in background threads.
+        output_queue: queue.SimpleQueue = queue.SimpleQueue()
         # Capture logging context from the request thread so logs in the producer thread keep the same identifiers
         parent_request_id = getattr(log_thread_local, "request_id", None)
         parent_url = getattr(log_thread_local, "url", None)
@@ -257,35 +258,45 @@ def run_script(
         done_received = False
         try:
             while True:
+                kind: str
+                payload: object
                 try:
-                    kind, payload = output_queue.get(timeout=heartbeat_interval)
+                    kind, payload = output_queue.get_nowait()
                 except queue.Empty:
                     if done_received or client_disconnected:
                         break
+                    if heartbeat_interval > 0:
+                        # Keep waiting cooperative under gevent while polling a thread-safe queue.
+                        time.sleep(heartbeat_interval)
                     try:
-                        yield (
-                            "data: "
-                            + json.dumps(
-                                {"type": "heartbeat"}, default=fmt, ensure_ascii=False
+                        kind, payload = output_queue.get_nowait()
+                    except queue.Empty:
+                        try:
+                            yield (
+                                "data: "
+                                + json.dumps(
+                                    {"type": "heartbeat"},
+                                    default=fmt,
+                                    ensure_ascii=False,
+                                )
+                                + "\n\n".encode("utf-8").decode("utf-8")
                             )
-                            + "\n\n".encode("utf-8").decode("utf-8")
-                        )
-                    except GeneratorExit:
-                        client_disconnected = True
-                        stop_event.set()
-                        app.logger.info(
-                            "Client disconnected from SSE stream during heartbeat"
-                        )
-                        break
-                    except (ConnectionError, BrokenPipeError, OSError) as exc:
-                        client_disconnected = True
-                        stop_event.set()
-                        app.logger.info(
-                            "Client disconnected from SSE stream during heartbeat: %s",
-                            repr(exc),
-                        )
-                        break
-                    continue
+                        except GeneratorExit:
+                            client_disconnected = True
+                            stop_event.set()
+                            app.logger.info(
+                                "Client disconnected from SSE stream during heartbeat"
+                            )
+                            break
+                        except (ConnectionError, BrokenPipeError, OSError) as exc:
+                            client_disconnected = True
+                            stop_event.set()
+                            app.logger.info(
+                                "Client disconnected from SSE stream during heartbeat: %s",
+                                repr(exc),
+                            )
+                            break
+                        continue
 
                 if kind == "data":
                     try:
