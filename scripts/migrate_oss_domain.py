@@ -59,19 +59,19 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 TARGETS: list[tuple[str, str, bool]] = [
     # course outline content (MarkdownFlow – may embed multiple image URLs)
-    ("shifu_draft_outline_items",     "content",  True),
-    ("shifu_published_outline_items", "content",  True),
+    ("shifu_draft_outline_items", "content", True),
+    ("shifu_published_outline_items", "content", True),
     # course resource references
-    ("scenario_resource",             "url",      False),
+    ("scenario_resource", "url", False),
     # generic resource table
-    ("resource",                      "url",      False),
+    ("resource", "url", False),
     # TTS audio
-    ("learn_generated_audios",        "oss_url",  False),
+    ("learn_generated_audios", "oss_url", False),
     # user avatar
-    ("user_users",                    "avatar",   False),
+    ("user_users", "avatar", False),
 ]
 
-_ALLOWED_TABLES  = {t for t, _, _ in TARGETS}
+_ALLOWED_TABLES = {t for t, _, _ in TARGETS}
 _ALLOWED_COLUMNS = {c for _, c, _ in TARGETS}
 
 DEFAULT_BATCH_SIZE = 500
@@ -80,6 +80,7 @@ DEFAULT_BATCH_SIZE = 500
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _mask_url(url: str) -> str:
     """Replace credentials in a DB URL with ***."""
@@ -92,11 +93,11 @@ def get_db_url(args: argparse.Namespace) -> str:
     explicit = os.getenv("DATABASE_URL")
     if explicit:
         return explicit
-    host     = os.getenv("DB_HOST", "127.0.0.1")
-    port     = os.getenv("DB_PORT", "3306")
-    user     = os.getenv("DB_USER", "root")
+    host = os.getenv("DB_HOST", "127.0.0.1")
+    port = os.getenv("DB_PORT", "3306")
+    user = os.getenv("DB_USER", "root")
     password = os.getenv("DB_PASSWORD", "")
-    name     = os.getenv("DB_NAME", "")
+    name = os.getenv("DB_NAME", "")
     if not name:
         log.error(
             "Database name is not set. "
@@ -110,10 +111,12 @@ def build_replacements(args: argparse.Namespace) -> list[tuple[str, str]]:
     """Return a list of (old, new) string pairs to replace."""
     pairs: list[tuple[str, str]] = []
 
-    old_cn  = args.old_cn.rstrip("/")
-    new_cn  = (args.new_cn or os.getenv("ALIBABA_CLOUD_OSS_BASE_URL", "")).rstrip("/")
+    old_cn = args.old_cn.rstrip("/")
+    new_cn = (args.new_cn or os.getenv("ALIBABA_CLOUD_OSS_BASE_URL", "")).rstrip("/")
     old_com = args.old_com.rstrip("/")
-    new_com = (args.new_com or os.getenv("ALIBABA_CLOUD_OSS_COURSES_URL", "")).rstrip("/")
+    new_com = (args.new_com or os.getenv("ALIBABA_CLOUD_OSS_COURSES_URL", "")).rstrip(
+        "/"
+    )
 
     if new_cn and new_cn != old_cn:
         pairs.append((old_cn, new_cn))
@@ -126,6 +129,7 @@ def build_replacements(args: argparse.Namespace) -> list[tuple[str, str]]:
 # ---------------------------------------------------------------------------
 # Core migration
 # ---------------------------------------------------------------------------
+
 
 def migrate(
     apply: bool,
@@ -145,7 +149,7 @@ def migrate(
     with engine.begin() as conn:
         for table, column, is_content in TARGETS:
             # Whitelist check (defence-in-depth; values come from the constant above)
-            assert table  in _ALLOWED_TABLES,  f"Unknown table: {table!r}"
+            assert table in _ALLOWED_TABLES, f"Unknown table: {table!r}"
             assert column in _ALLOWED_COLUMNS, f"Unknown column: {column!r}"
 
             # Check table exists in this deployment
@@ -159,19 +163,34 @@ def migrate(
             for old_url, new_url in replacements:
                 pat = f"%{old_url}%"
 
-                count: int = conn.execute(
-                    sa.text(f"SELECT COUNT(*) FROM `{table}` WHERE `{column}` LIKE :pat"),
-                    {"pat": pat},
-                ).scalar() or 0
+                count: int = (
+                    conn.execute(
+                        sa.text(
+                            f"SELECT COUNT(*) FROM `{table}` WHERE `{column}` LIKE :pat"
+                        ),
+                        {"pat": pat},
+                    ).scalar()
+                    or 0
+                )
 
                 if count == 0:
                     continue
 
                 label = "[apply]" if apply else "[dry-run]"
-                suffix = " (embedded URLs — actual replacement count may be higher)" if is_content else ""
+                suffix = (
+                    " (embedded URLs — actual replacement count may be higher)"
+                    if is_content
+                    else ""
+                )
                 log.info(
                     "%s  %s.%s: %d row(s)  %r -> %r%s",
-                    label, table, column, count, old_url, new_url, suffix,
+                    label,
+                    table,
+                    column,
+                    count,
+                    old_url,
+                    new_url,
+                    suffix,
                 )
 
                 if apply:
@@ -184,7 +203,12 @@ def migrate(
                                 f"WHERE `{column}` LIKE :pat "
                                 f"LIMIT :lim"
                             ),
-                            {"old": old_url, "new": new_url, "pat": pat, "lim": batch_size},
+                            {
+                                "old": old_url,
+                                "new": new_url,
+                                "pat": pat,
+                                "lim": batch_size,
+                            },
                         )
                         updated += result.rowcount
                         if result.rowcount < batch_size:
@@ -212,42 +236,51 @@ def migrate(
 # Entry point
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--apply", action="store_true",
+        "--apply",
+        action="store_true",
         help="Write changes to the database (default: dry run)",
     )
     parser.add_argument(
-        "--old-cn",  default="https://resource.ai-shifu.cn",
+        "--old-cn",
+        default="https://resource.ai-shifu.cn",
         help="Old .cn OSS base URL to replace",
     )
     parser.add_argument(
-        "--new-cn",  default="",
+        "--new-cn",
+        default="",
         help="New .cn OSS base URL (overrides ALIBABA_CLOUD_OSS_BASE_URL env)",
     )
     parser.add_argument(
-        "--old-com", default="https://resource.ai-shifu.com",
+        "--old-com",
+        default="https://resource.ai-shifu.com",
         help="Old .com OSS base URL to replace",
     )
     parser.add_argument(
-        "--new-com", default="",
+        "--new-com",
+        default="",
         help="New .com OSS base URL (overrides ALIBABA_CLOUD_OSS_COURSES_URL env)",
     )
     parser.add_argument(
-        "--db-url",  default="",
+        "--db-url",
+        default="",
         help="SQLAlchemy DB URL (overrides DATABASE_URL env and DB_* vars)",
     )
     parser.add_argument(
-        "--batch-size", type=int, default=DEFAULT_BATCH_SIZE,
+        "--batch-size",
+        type=int,
+        default=DEFAULT_BATCH_SIZE,
         help=f"Rows per UPDATE batch (default: {DEFAULT_BATCH_SIZE})",
     )
     args = parser.parse_args()
 
-    db_url       = get_db_url(args)
+    db_url = get_db_url(args)
     replacements = build_replacements(args)
 
     if not replacements:
