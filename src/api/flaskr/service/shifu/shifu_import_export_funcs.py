@@ -11,7 +11,11 @@ from flaskr.dao import db
 from flaskr.util import generate_id
 from flaskr.service.common.models import raise_error
 from flaskr.service.shifu.models import DraftShifu, DraftOutlineItem
-from flaskr.service.shifu.shifu_draft_funcs import get_latest_shifu_draft
+from flaskr.service.shifu.shifu_draft_funcs import (
+    get_latest_shifu_draft,
+    normalize_ask_provider_config,
+    serialize_ask_provider_config,
+)
 from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
 from flaskr.service.shifu.shifu_history_manager import (
     HistoryItem,
@@ -20,6 +24,16 @@ from flaskr.service.shifu.shifu_history_manager import (
 )
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from markdown_flow import MarkdownFlow
+
+
+def _extract_import_ask_provider_config(shifu_data: dict) -> str:
+    """
+    Extract and normalize ask_provider_config from import payload.
+    Keep legacy imports compatible by defaulting to "{}" when missing.
+    """
+    if "ask_provider_config" not in shifu_data:
+        return "{}"
+    return serialize_ask_provider_config(shifu_data.get("ask_provider_config"))
 
 
 def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
@@ -82,6 +96,9 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
                 if shifu_draft.ask_llm_temperature
                 else 0.0,
                 "ask_llm_system_prompt": shifu_draft.ask_llm_system_prompt,
+                "ask_provider_config": normalize_ask_provider_config(
+                    getattr(shifu_draft, "ask_provider_config", "")
+                ),
                 "price": float(shifu_draft.price) if shifu_draft.price else 0.0,
             },
             "outline_items": [
@@ -160,6 +177,7 @@ def import_shifu(
         shifu_data = import_data["shifu"]
         outline_items_data = import_data["outline_items"]
         structure_data = import_data.get("structure")
+        ask_provider_config = _extract_import_ask_provider_config(shifu_data)
 
         now_time = datetime.now()
 
@@ -190,6 +208,7 @@ def import_shifu(
                 new_shifu.ask_llm_system_prompt = shifu_data.get(
                     "ask_llm_system_prompt", ""
                 )
+                new_shifu.ask_provider_config = ask_provider_config
                 new_shifu.price = Decimal(str(shifu_data.get("price", 0.0)))
                 new_shifu.updated_user_bid = user_id
                 new_shifu.updated_at = now_time
@@ -226,6 +245,7 @@ def import_shifu(
                         str(shifu_data.get("ask_llm_temperature", 0.0))
                     ),
                     ask_llm_system_prompt=shifu_data.get("ask_llm_system_prompt", ""),
+                    ask_provider_config=ask_provider_config,
                     price=Decimal(str(shifu_data.get("price", 0.0))),
                     deleted=0,
                     created_user_bid=user_id,
@@ -261,6 +281,7 @@ def import_shifu(
                     str(shifu_data.get("ask_llm_temperature", 0.0))
                 ),
                 ask_llm_system_prompt=shifu_data.get("ask_llm_system_prompt", ""),
+                ask_provider_config=ask_provider_config,
                 price=Decimal(str(shifu_data.get("price", 0.0))),
                 deleted=0,
                 created_user_bid=user_id,

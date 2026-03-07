@@ -27,6 +27,15 @@ export interface Shifu {
   created_user_bid?: string;
   can_manage_archive?: boolean;
   canPublish?: boolean;
+  ask_enabled_status?: number;
+  ask_model?: string;
+  ask_temperature?: number;
+  ask_system_prompt?: string;
+  ask_provider_config?: {
+    provider?: string;
+    mode?: string;
+    config?: Record<string, any>;
+  };
 }
 
 export interface Outline {

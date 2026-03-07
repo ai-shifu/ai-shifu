@@ -11,7 +11,6 @@ from flask import Flask, current_app, request
 from langfuse.client import StatefulSpanClient
 from langfuse.model import ModelUsage
 
-from .dify import DifyChunkChatCompletionResponse, dify_chat_message
 from flaskr.service.config import get_config
 from flaskr.service.common.models import raise_error_with_args
 from flaskr.service.metering import UsageContext, record_llm_usage
@@ -538,13 +537,6 @@ any_litellm_enabled = any(state.enabled for state in PROVIDER_STATES.values())
 if not any_litellm_enabled:
     _log_warning("No LLM Configured")
 
-DIFY_MODELS = []
-
-if get_config("DIFY_API_KEY") and get_config("DIFY_URL"):
-    DIFY_MODELS = ["dify"]
-else:
-    _log_warning("DIFY_API_KEY and DIFY_URL not configured")
-
 
 class LLMStreamaUsage:
     def __init__(self, prompt_tokens, completion_tokens, total_tokens):
@@ -671,22 +663,6 @@ def invoke_llm(
                     input=res_usage.prompt_tokens,
                     output=res_usage.completion_tokens,
                     total=res_usage.total_tokens,
-                )
-    elif model in DIFY_MODELS:
-        provider_name = "dify"
-        response = dify_chat_message(app, message, user_id)
-        for res in response:
-            if start_completion_time is None:
-                start_completion_time = datetime.now()
-            if res.event == "message":
-                response_text += res.answer
-                yield LLMStreamResponse(
-                    res.task_id,
-                    True if res.event == "message" else False,
-                    False,
-                    res.answer,
-                    None,
-                    None,
                 )
     else:
         raise_error_with_args(
@@ -843,24 +819,6 @@ def chat_llm(
                     output=res_usage.completion_tokens,
                     total=res_usage.total_tokens,
                 )
-    elif model in DIFY_MODELS:
-        provider_name = "dify"
-        response: Generator[DifyChunkChatCompletionResponse, None, None] = (
-            dify_chat_message(app, messages[-1]["content"], user_id)
-        )
-        for res in response:
-            if start_completion_time is None:
-                start_completion_time = datetime.now()
-            if res.event == "message":
-                response_text += res.answer
-                yield LLMStreamResponse(
-                    res.task_id,
-                    True if res.event == "message" else False,
-                    False,
-                    res.answer,
-                    None,
-                    None,
-                )
     else:
         raise_error_with_args(
             "server.llm.modelNotSupported",
@@ -979,8 +937,7 @@ def get_current_models(app: Flask) -> list[dict[str, str]]:
     litellm_models: list[str] = []
     for state in PROVIDER_STATES.values():
         litellm_models.extend(state.models)
-    combined = litellm_models + DIFY_MODELS
-    available_models = list(dict.fromkeys(combined))
+    available_models = list(dict.fromkeys(litellm_models))
     return _build_model_options(app, available_models)
 
 

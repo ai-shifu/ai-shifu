@@ -104,6 +104,10 @@ import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
 import { useShifu, useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { isValidEmail } from '@/lib/validators';
+import {
+  AskProviderSchemaValidationError,
+  buildAskProviderConfigForSubmit as buildAskProviderConfigBySchema,
+} from '@/components/shifu-setting/ask-provider-schema';
 
 interface Shifu {
   description: string;
@@ -117,6 +121,15 @@ interface Shifu {
   url: string;
   temperature: number;
   system_prompt?: string;
+  ask_enabled_status?: number;
+  ask_model?: string;
+  ask_temperature?: number;
+  ask_system_prompt?: string;
+  ask_provider_config?: {
+    provider?: string;
+    mode?: string;
+    config?: Record<string, any>;
+  };
   archived?: boolean;
   created_user_bid?: string;
   canPublish?: boolean;
@@ -136,6 +149,13 @@ interface Shifu {
 const MIN_SHIFU_PRICE = 0.5;
 const TEMPERATURE_MIN = 0;
 const TEMPERATURE_MAX = 2;
+const ASK_MODE_DEFAULT = 5101;
+const ASK_MODE_DISABLE = 5102;
+const ASK_MODE_ENABLE = 5103;
+const ASK_PROVIDER_LLM = 'llm';
+const ASK_PROVIDER_MODE_PROVIDER_ONLY = 'provider_only';
+const ASK_TEMPERATURE_MIN = 0;
+const ASK_TEMPERATURE_MAX = 2;
 type CopyingState = {
   previewUrl: boolean;
   url: boolean;
@@ -648,6 +668,32 @@ export default function ShifuSettingDialog({
   ]);
 
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
+  // Ask configuration state
+  const [askEnabledStatus, setAskEnabledStatus] =
+    useState<number>(ASK_MODE_DEFAULT);
+  const [askModel, setAskModel] = useState('');
+  const [askTemperature, setAskTemperature] =
+    useState<number>(ASK_TEMPERATURE_MIN);
+  const [askTemperatureInput, setAskTemperatureInput] = useState<string>(
+    String(ASK_TEMPERATURE_MIN),
+  );
+  const [askSystemPrompt, setAskSystemPrompt] = useState('');
+  const [askProvider, setAskProvider] = useState(ASK_PROVIDER_LLM);
+  const [askProviderConfig, setAskProviderConfig] = useState<
+    Record<string, any>
+  >({});
+  const [askProviderObjectInputs, setAskProviderObjectInputs] = useState<
+    Record<string, string>
+  >({});
+  const [askPreviewLoading, setAskPreviewLoading] = useState(false);
+  const [askPreviewQuery, setAskPreviewQuery] = useState('');
+  const [askPreviewResult, setAskPreviewResult] = useState('');
+  const [askPreviewMeta, setAskPreviewMeta] = useState<{
+    provider: string;
+    requestedProvider: string;
+    fallbackUsed: boolean;
+  } | null>(null);
+
   // TTS Configuration state
   const [ttsEnabled, setTtsEnabled] = useState(false);
   const [ttsProvider, setTtsProvider] = useState('');
@@ -789,6 +835,26 @@ export default function ShifuSettingDialog({
   );
 
   // TTS Config from backend
+  interface AskProviderConfigItem {
+    provider: string;
+    title: string;
+    description?: string;
+    default_config?: Record<string, any>;
+    json_schema?: {
+      properties?: Record<string, any>;
+      required?: string[];
+    };
+  }
+  interface AskConfigMetadata {
+    feature_enabled?: boolean;
+    default?: {
+      provider?: string;
+      mode?: string;
+      config?: Record<string, any>;
+    };
+    modes?: Array<{ value: string; title: string }>;
+    providers?: AskProviderConfigItem[];
+  }
   interface TTSProviderConfig {
     name: string;
     label: string;
@@ -802,6 +868,9 @@ export default function ShifuSettingDialog({
   const [ttsConfig, setTtsConfig] = useState<{
     providers: TTSProviderConfig[];
   } | null>(null);
+  const [askConfigMeta, setAskConfigMeta] = useState<AskConfigMetadata | null>(
+    null,
+  );
   const normalizeTtsProviders = useCallback(
     (providers?: TTSProviderConfig[] | null): TTSProviderConfig[] =>
       (providers ?? []).map(provider => ({
@@ -810,19 +879,36 @@ export default function ShifuSettingDialog({
       })),
     [],
   );
+  const normalizeAskProviders = useCallback(
+    (providers?: AskProviderConfigItem[] | null): AskProviderConfigItem[] =>
+      (providers ?? []).map(provider => ({
+        ...provider,
+        provider: (provider.provider || '').toLowerCase(),
+      })),
+    [],
+  );
 
   // Fetch TTS config from backend
   useEffect(() => {
-    const fetchTtsConfig = async () => {
+    const fetchConfig = async () => {
       try {
-        const config = await api.ttsConfig({});
-        setTtsConfig({ providers: normalizeTtsProviders(config?.providers) });
+        const [ttsConfigResponse, askConfigResponse] = await Promise.all([
+          api.ttsConfig({}),
+          api.askConfig({}),
+        ]);
+        setTtsConfig({
+          providers: normalizeTtsProviders(ttsConfigResponse?.providers),
+        });
+        setAskConfigMeta({
+          ...askConfigResponse,
+          providers: normalizeAskProviders(askConfigResponse?.providers),
+        });
       } catch (error) {
-        console.error('Failed to fetch TTS config:', error);
+        console.error('Failed to fetch config:', error);
       }
     };
-    fetchTtsConfig();
-  }, [normalizeTtsProviders]);
+    fetchConfig();
+  }, [normalizeAskProviders, normalizeTtsProviders]);
 
   const resolvedProvider = (() => {
     const provider = (ttsProvider || '').trim();
@@ -907,6 +993,112 @@ export default function ShifuSettingDialog({
       setTtsPitchInput(String(Math.round(ttsPitch)));
     }
   }, [ttsSpeed, ttsPitch]);
+
+  const askProviderOptions =
+    askConfigMeta?.providers?.map(item => ({
+      value: item.provider,
+      label: item.title || item.provider,
+    })) || [];
+  const resolvedAskProvider = (() => {
+    const provider = (askProvider || '').trim().toLowerCase();
+    if (!provider) {
+      return askConfigMeta?.providers?.[0]?.provider || ASK_PROVIDER_LLM;
+    }
+    if (askConfigMeta?.providers?.length) {
+      const exists = askConfigMeta.providers.some(p => p.provider === provider);
+      return exists
+        ? provider
+        : askConfigMeta.providers[0]?.provider || provider;
+    }
+    return provider;
+  })();
+  const currentAskProviderMeta =
+    askConfigMeta?.providers?.find(
+      item => item.provider === resolvedAskProvider,
+    ) || askConfigMeta?.providers?.[0];
+  const askProviderFieldEntries = useMemo(
+    () => Object.entries(currentAskProviderMeta?.json_schema?.properties || {}),
+    [currentAskProviderMeta],
+  );
+  const askProviderRequiredFields = useMemo(
+    () => new Set(currentAskProviderMeta?.json_schema?.required || []),
+    [currentAskProviderMeta],
+  );
+  const getAskProviderDefaultConfig = useCallback(
+    (provider: string) => {
+      const config =
+        askConfigMeta?.providers?.find(item => item.provider === provider)
+          ?.default_config || {};
+      return config && typeof config === 'object' && !Array.isArray(config)
+        ? { ...config }
+        : {};
+    },
+    [askConfigMeta],
+  );
+
+  useEffect(() => {
+    if (!askConfigMeta?.providers?.length) return;
+    const provider = (askProvider || '').trim().toLowerCase();
+    if (
+      provider &&
+      askConfigMeta.providers.some(item => item.provider === provider)
+    ) {
+      return;
+    }
+    const fallbackProvider = askConfigMeta.providers[0].provider;
+    setAskProvider(fallbackProvider);
+    setAskProviderConfig(getAskProviderDefaultConfig(fallbackProvider));
+    setAskProviderObjectInputs({});
+  }, [askConfigMeta, askProvider, getAskProviderDefaultConfig]);
+
+  const normalizeAskTemperature = useCallback((value: number) => {
+    const clamped = Math.min(
+      Math.max(value, ASK_TEMPERATURE_MIN),
+      ASK_TEMPERATURE_MAX,
+    );
+    return Number(clamped.toFixed(1));
+  }, []);
+
+  useEffect(() => {
+    if (askTemperature === null || Number.isNaN(askTemperature)) {
+      setAskTemperatureInput('');
+    } else {
+      setAskTemperatureInput(String(askTemperature));
+    }
+  }, [askTemperature]);
+
+  const buildAskProviderConfigForSubmit = useCallback(() => {
+    try {
+      return buildAskProviderConfigBySchema({
+        schema: currentAskProviderMeta?.json_schema,
+        providerConfig: askProviderConfig as Record<string, unknown>,
+        objectInputs: askProviderObjectInputs,
+      });
+    } catch (error) {
+      if (error instanceof AskProviderSchemaValidationError) {
+        const fieldSchema =
+          currentAskProviderMeta?.json_schema?.properties?.[error.field];
+        const fieldLabel = String(fieldSchema?.title || error.field);
+
+        if (error.code === 'required') {
+          throw new Error(
+            t('module.shifuSetting.askProviderConfigRequired', {
+              field: fieldLabel,
+            }),
+          );
+        }
+
+        throw new Error(
+          t('module.shifuSetting.askProviderConfigInvalidJson', {
+            field: fieldLabel,
+          }),
+        );
+      }
+
+      throw error;
+    }
+  }, [askProviderConfig, askProviderObjectInputs, currentAskProviderMeta, t]);
+
   const clampTemperature = useCallback((value: number) => {
     return Math.min(Math.max(value, 0), 2);
   }, []);
@@ -1131,6 +1323,15 @@ export default function ShifuSettingDialog({
       try {
         const providerForSubmit =
           resolvedProvider || ttsConfig?.providers?.[0]?.name || '';
+        const askProviderForSubmit =
+          resolvedAskProvider ||
+          askConfigMeta?.default?.provider ||
+          ASK_PROVIDER_LLM;
+        const askModeForSubmit = ASK_PROVIDER_MODE_PROVIDER_ONLY;
+        const askTemperatureForSubmit = normalizeAskTemperature(
+          Number(askTemperatureInput || askTemperature || 0),
+        );
+        const askConfigForSubmit = buildAskProviderConfigForSubmit();
 
         if (ttsEnabled && !providerForSubmit) {
           if (!ttsProviderToastShownRef.current && saveType === 'manual') {
@@ -1154,6 +1355,15 @@ export default function ShifuSettingDialog({
           avatar: uploadedImageUrl,
           temperature: Number(data.temperature),
           system_prompt: data.systemPrompt,
+          ask_enabled_status: askEnabledStatus,
+          ask_model: askModel,
+          ask_temperature: askTemperatureForSubmit,
+          ask_system_prompt: askSystemPrompt,
+          ask_provider_config: {
+            provider: askProviderForSubmit,
+            mode: askModeForSubmit,
+            config: askConfigForSubmit,
+          },
           // TTS Configuration
           tts_enabled: ttsEnabled,
           tts_provider: providerForSubmit,
@@ -1178,7 +1388,13 @@ export default function ShifuSettingDialog({
         if (needClose) {
           setOpen(false);
         }
-      } catch {
+      } catch (error) {
+        if (!currentShifu?.readonly && error instanceof Error) {
+          toast({
+            title: error.message || t('common.core.unknownError'),
+            variant: 'destructive',
+          });
+        }
         if (currentShifu?.readonly) {
           setOpen(false);
         }
@@ -1200,6 +1416,15 @@ export default function ShifuSettingDialog({
       pitchValue,
       ttsEmotion,
       useLearnerLanguage,
+      askConfigMeta,
+      askEnabledStatus,
+      askModel,
+      askSystemPrompt,
+      askTemperature,
+      askTemperatureInput,
+      buildAskProviderConfigForSubmit,
+      normalizeAskTemperature,
+      resolvedAskProvider,
       toast,
       t,
     ],
@@ -1224,6 +1449,34 @@ export default function ShifuSettingDialog({
         temperature: result.temperature + '',
         systemPrompt: result.system_prompt || '',
       });
+      const rawAskProviderConfig =
+        result.ask_provider_config &&
+        typeof result.ask_provider_config === 'object' &&
+        !Array.isArray(result.ask_provider_config)
+          ? result.ask_provider_config
+          : {};
+      const rawAskProviderInnerConfig =
+        rawAskProviderConfig.config &&
+        typeof rawAskProviderConfig.config === 'object' &&
+        !Array.isArray(rawAskProviderConfig.config)
+          ? rawAskProviderConfig.config
+          : {};
+      setAskEnabledStatus(result.ask_enabled_status ?? ASK_MODE_DEFAULT);
+      setAskModel(result.ask_model || '');
+      setAskTemperature(result.ask_temperature ?? ASK_TEMPERATURE_MIN);
+      setAskTemperatureInput(
+        String(result.ask_temperature ?? ASK_TEMPERATURE_MIN),
+      );
+      setAskSystemPrompt(result.ask_system_prompt || '');
+      setAskProvider(
+        (rawAskProviderConfig.provider || ASK_PROVIDER_LLM).toLowerCase(),
+      );
+      setAskProviderConfig(rawAskProviderInnerConfig);
+      setAskProviderObjectInputs({});
+      setAskPreviewLoading(false);
+      setAskPreviewQuery('');
+      setAskPreviewResult('');
+      setAskPreviewMeta(null);
       setKeywords(result.keywords || []);
       setUploadedImageUrl(result.avatar || '');
       // Set TTS Configuration
@@ -1449,6 +1702,100 @@ export default function ShifuSettingDialog({
       shouldValidate: true,
     });
   };
+
+  const adjustAskTemperature = (delta: number) => {
+    const currentValue = Number(askTemperatureInput || askTemperature || 0);
+    const safeValue = Number.isNaN(currentValue) ? 0 : currentValue;
+    const nextValue = normalizeAskTemperature(
+      parseFloat((safeValue + delta).toFixed(1)),
+    );
+    setAskTemperature(nextValue);
+    setAskTemperatureInput(String(nextValue));
+  };
+
+  const handleAskPreview = useCallback(async () => {
+    if (currentShifu?.readonly || askPreviewLoading) {
+      return;
+    }
+    const query = askPreviewQuery.trim();
+    if (!query) {
+      toast({
+        title: t('module.shifuSetting.askPreviewQuestionRequired'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    let askConfigForSubmit: Record<string, unknown> = {};
+    try {
+      askConfigForSubmit = buildAskProviderConfigForSubmit();
+    } catch (error) {
+      toast({
+        title:
+          error instanceof Error
+            ? error.message
+            : t('common.core.unknownError'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const askProviderForSubmit =
+      resolvedAskProvider ||
+      askConfigMeta?.default?.provider ||
+      ASK_PROVIDER_LLM;
+    const askModeForSubmit = ASK_PROVIDER_MODE_PROVIDER_ONLY;
+    const askTemperatureForSubmit = normalizeAskTemperature(
+      Number(askTemperatureInput || askTemperature || 0),
+    );
+
+    setAskPreviewLoading(true);
+    try {
+      const response = (await api.askPreview({
+        query,
+        ask_model: askModel,
+        ask_temperature: askTemperatureForSubmit,
+        ask_system_prompt: askSystemPrompt,
+        ask_provider_config: {
+          provider: askProviderForSubmit,
+          mode: askModeForSubmit,
+          config: askConfigForSubmit,
+        },
+      })) as {
+        answer?: string;
+        provider?: string;
+        requested_provider?: string;
+        fallback_used?: boolean;
+      };
+
+      const answer = String(response?.answer || '').trim();
+      setAskPreviewResult(answer);
+      setAskPreviewMeta({
+        provider: String(response?.provider || ''),
+        requestedProvider: String(response?.requested_provider || ''),
+        fallbackUsed: Boolean(response?.fallback_used),
+      });
+    } catch {
+      setAskPreviewResult('');
+      setAskPreviewMeta(null);
+    } finally {
+      setAskPreviewLoading(false);
+    }
+  }, [
+    askConfigMeta?.default?.provider,
+    askModel,
+    askPreviewLoading,
+    askPreviewQuery,
+    askSystemPrompt,
+    askTemperature,
+    askTemperatureInput,
+    buildAskProviderConfigForSubmit,
+    currentShifu?.readonly,
+    normalizeAskTemperature,
+    resolvedAskProvider,
+    t,
+    toast,
+  ]);
 
   const permissionLabelMap = useMemo(() => {
     return permissionOptions.reduce<Record<string, string>>((map, option) => {
@@ -2299,6 +2646,377 @@ export default function ShifuSettingDialog({
                     </FormItem>
                   )}
                 />
+
+                {/* Ask Configuration Section */}
+                <div className='mb-6'>
+                  <div className='space-y-1 mb-4'>
+                    <FormLabel className='text-sm font-medium text-foreground'>
+                      {t('module.shifuSetting.askTitle')}
+                    </FormLabel>
+                    <p className='text-xs text-muted-foreground'>
+                      {t('module.shifuSetting.askDescription')}
+                    </p>
+                  </div>
+
+                  <div className='space-y-2 mb-4'>
+                    <FormLabel className='text-sm font-medium text-foreground'>
+                      {t('module.shifuSetting.askEnabledStatus')}
+                    </FormLabel>
+                    <Select
+                      value={String(askEnabledStatus)}
+                      onValueChange={value =>
+                        setAskEnabledStatus(Number(value))
+                      }
+                      disabled={currentShifu?.readonly}
+                    >
+                      <SelectTrigger className='h-9'>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={String(ASK_MODE_DEFAULT)}>
+                          {t('module.shifuSetting.askModeDefault')}
+                        </SelectItem>
+                        <SelectItem value={String(ASK_MODE_DISABLE)}>
+                          {t('module.shifuSetting.askModeDisabled')}
+                        </SelectItem>
+                        <SelectItem value={String(ASK_MODE_ENABLE)}>
+                          {t('module.shifuSetting.askModeEnabled')}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className='space-y-2 mb-4'>
+                    <FormLabel className='text-sm font-medium text-foreground'>
+                      {t('module.shifuSetting.askTemperature')}
+                    </FormLabel>
+                    <p className='text-xs text-muted-foreground'>
+                      {t('module.shifuSetting.askTemperatureHint')}
+                    </p>
+                    <div className='flex items-center gap-2'>
+                      <Input
+                        type='text'
+                        inputMode='decimal'
+                        value={askTemperatureInput}
+                        onChange={e => setAskTemperatureInput(e.target.value)}
+                        onBlur={() => {
+                          const parsed = Number(askTemperatureInput);
+                          const normalized = Number.isFinite(parsed)
+                            ? normalizeAskTemperature(parsed)
+                            : askTemperature;
+                          setAskTemperature(normalized);
+                          setAskTemperatureInput(String(normalized));
+                        }}
+                        disabled={currentShifu?.readonly}
+                        className='h-9 flex-1'
+                      />
+                      {!currentShifu?.readonly && (
+                        <div className='flex items-center gap-2'>
+                          <Button
+                            type='button'
+                            variant='outline'
+                            size='icon'
+                            onClick={() => adjustAskTemperature(-0.1)}
+                            className='h-9 w-9'
+                          >
+                            <Minus className='h-4 w-4' />
+                          </Button>
+                          <Button
+                            type='button'
+                            variant='outline'
+                            size='icon'
+                            onClick={() => adjustAskTemperature(0.1)}
+                            className='h-9 w-9'
+                          >
+                            <Plus className='h-4 w-4' />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className='space-y-2 mb-4'>
+                    <FormLabel className='text-sm font-medium text-foreground'>
+                      {t('module.shifuSetting.askSystemPrompt')}
+                    </FormLabel>
+                    <Textarea
+                      disabled={currentShifu?.readonly}
+                      value={askSystemPrompt}
+                      onChange={e => setAskSystemPrompt(e.target.value)}
+                      placeholder={t('module.shifuSetting.askSystemPromptHint')}
+                      minRows={3}
+                      maxRows={20}
+                    />
+                  </div>
+
+                  <div className='space-y-2 mb-4'>
+                    <FormLabel className='text-sm font-medium text-foreground'>
+                      {t('module.shifuSetting.askProvider')}
+                    </FormLabel>
+                    <p className='text-xs text-muted-foreground'>
+                      {t('module.shifuSetting.askProviderHint')}
+                    </p>
+                    <Select
+                      value={resolvedAskProvider}
+                      onValueChange={value => {
+                        setAskProvider(value);
+                        setAskProviderConfig(
+                          getAskProviderDefaultConfig(value),
+                        );
+                        setAskProviderObjectInputs({});
+                      }}
+                      disabled={currentShifu?.readonly}
+                    >
+                      <SelectTrigger className='h-9'>
+                        <SelectValue
+                          placeholder={t(
+                            'module.shifuSetting.askProviderSelect',
+                          )}
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {askProviderOptions.map(option => (
+                          <SelectItem
+                            key={option.value}
+                            value={option.value}
+                          >
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {resolvedAskProvider === ASK_PROVIDER_LLM && (
+                      <div className='space-y-2 pt-2'>
+                        <FormLabel className='text-sm font-medium text-foreground'>
+                          {t('module.shifuSetting.askModel')}
+                        </FormLabel>
+                        <ModelList
+                          disabled={currentShifu?.readonly}
+                          className='h-9'
+                          value={askModel}
+                          onChange={setAskModel}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {askProviderFieldEntries.map(([fieldName, fieldSchema]) => {
+                    const schemaType = String(
+                      (fieldSchema as any)?.type || 'string',
+                    );
+                    const schemaFormat = String(
+                      (fieldSchema as any)?.format || '',
+                    ).toLowerCase();
+                    const fieldLabel =
+                      (fieldSchema as any)?.title || fieldName || '';
+                    const fieldHint = (fieldSchema as any)?.description || '';
+                    const isRequired = askProviderRequiredFields.has(fieldName);
+                    const displayLabel = isRequired
+                      ? `${fieldLabel} *`
+                      : fieldLabel;
+
+                    if (schemaType === 'object') {
+                      const rawValue =
+                        askProviderObjectInputs[fieldName] ??
+                        JSON.stringify(
+                          askProviderConfig[fieldName] ?? {},
+                          null,
+                          2,
+                        );
+                      return (
+                        <div
+                          key={fieldName}
+                          className='space-y-2 mb-4'
+                        >
+                          <FormLabel className='text-sm font-medium text-foreground'>
+                            {displayLabel}
+                          </FormLabel>
+                          {fieldHint && (
+                            <p className='text-xs text-muted-foreground'>
+                              {fieldHint}
+                            </p>
+                          )}
+                          <Textarea
+                            disabled={currentShifu?.readonly}
+                            value={rawValue}
+                            onChange={e =>
+                              setAskProviderObjectInputs(prev => ({
+                                ...prev,
+                                [fieldName]: e.target.value,
+                              }))
+                            }
+                            onBlur={() => {
+                              const nextRaw =
+                                askProviderObjectInputs[fieldName] ?? rawValue;
+                              const trimmed = String(nextRaw || '').trim();
+                              if (!trimmed) {
+                                if (isRequired) {
+                                  toast({
+                                    title: t(
+                                      'module.shifuSetting.askProviderConfigRequired',
+                                      { field: fieldLabel },
+                                    ),
+                                    variant: 'destructive',
+                                  });
+                                }
+                                return;
+                              }
+                              try {
+                                const parsed = JSON.parse(trimmed);
+                                if (
+                                  !parsed ||
+                                  typeof parsed !== 'object' ||
+                                  Array.isArray(parsed)
+                                ) {
+                                  throw new Error('invalid object');
+                                }
+                                setAskProviderConfig(prev => ({
+                                  ...prev,
+                                  [fieldName]: parsed,
+                                }));
+                              } catch {
+                                toast({
+                                  title: t(
+                                    'module.shifuSetting.askProviderConfigInvalidJson',
+                                    { field: fieldLabel },
+                                  ),
+                                  variant: 'destructive',
+                                });
+                              }
+                            }}
+                            minRows={3}
+                            maxRows={12}
+                          />
+                        </div>
+                      );
+                    }
+
+                    const rawFieldValue = askProviderConfig[fieldName];
+                    if (schemaType === 'boolean') {
+                      return (
+                        <div
+                          key={fieldName}
+                          className='flex items-start justify-between mb-4'
+                        >
+                          <div className='space-y-1'>
+                            <FormLabel className='text-sm font-medium text-foreground'>
+                              {displayLabel}
+                            </FormLabel>
+                            {fieldHint && (
+                              <p className='text-xs text-muted-foreground'>
+                                {fieldHint}
+                              </p>
+                            )}
+                          </div>
+                          <Switch
+                            checked={Boolean(rawFieldValue)}
+                            onCheckedChange={value =>
+                              setAskProviderConfig(prev => ({
+                                ...prev,
+                                [fieldName]: value,
+                              }))
+                            }
+                            disabled={currentShifu?.readonly}
+                          />
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={fieldName}
+                        className='space-y-2 mb-4'
+                      >
+                        <FormLabel className='text-sm font-medium text-foreground'>
+                          {displayLabel}
+                        </FormLabel>
+                        {fieldHint && (
+                          <p className='text-xs text-muted-foreground'>
+                            {fieldHint}
+                          </p>
+                        )}
+                        <Input
+                          type={
+                            schemaType === 'number' || schemaType === 'integer'
+                              ? 'number'
+                              : schemaFormat === 'password'
+                                ? 'password'
+                                : 'text'
+                          }
+                          value={rawFieldValue ?? ''}
+                          onChange={e =>
+                            setAskProviderConfig(prev => ({
+                              ...prev,
+                              [fieldName]: e.target.value,
+                            }))
+                          }
+                          disabled={currentShifu?.readonly}
+                          className='h-9'
+                        />
+                      </div>
+                    );
+                  })}
+
+                  <div className='space-y-2 mb-4'>
+                    <FormLabel className='text-sm font-medium text-foreground'>
+                      {t('module.shifuSetting.askPreviewQuestion')}
+                    </FormLabel>
+                    <Input
+                      disabled={currentShifu?.readonly || askPreviewLoading}
+                      value={askPreviewQuery}
+                      onChange={e => setAskPreviewQuery(e.target.value)}
+                      placeholder={t(
+                        'module.shifuSetting.askPreviewQuestionPlaceholder',
+                      )}
+                      className='h-9'
+                    />
+                  </div>
+
+                  <div className='pt-2'>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      onClick={handleAskPreview}
+                      disabled={currentShifu?.readonly || askPreviewLoading}
+                      className='w-full'
+                    >
+                      {askPreviewLoading ? (
+                        <>
+                          <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                          {t('module.shifuSetting.askPreviewLoading')}
+                        </>
+                      ) : (
+                        t('module.shifuSetting.askPreview')
+                      )}
+                    </Button>
+                  </div>
+
+                  {askPreviewMeta && (
+                    <p className='mt-3 text-xs text-muted-foreground'>
+                      {askPreviewMeta.fallbackUsed
+                        ? t('module.shifuSetting.askPreviewUsedFallback', {
+                            provider: askPreviewMeta.requestedProvider,
+                          })
+                        : t('module.shifuSetting.askPreviewUsedProvider', {
+                            provider: askPreviewMeta.provider,
+                          })}
+                    </p>
+                  )}
+
+                  {askPreviewResult && (
+                    <div className='space-y-2 mt-3'>
+                      <FormLabel className='text-sm font-medium text-foreground'>
+                        {t('module.shifuSetting.askPreviewResult')}
+                      </FormLabel>
+                      <Textarea
+                        value={askPreviewResult}
+                        readOnly
+                        minRows={3}
+                        maxRows={12}
+                      />
+                    </div>
+                  )}
+                </div>
 
                 {/* Language Output Configuration Section */}
                 <div className='mb-6'>
