@@ -347,7 +347,7 @@ export default function AuthPage() {
           return (
             <PasswordLogin
               onLoginSuccess={handleAuthSuccess}
-              loginContext={loginContext}
+              supportEmailIdentifier={isEmailEnabled}
             />
           );
         default:
@@ -361,6 +361,7 @@ export default function AuthPage() {
       isGoogleLoading,
       loginContext,
       courseIdFromRedirect,
+      isEmailEnabled,
     ],
   );
 

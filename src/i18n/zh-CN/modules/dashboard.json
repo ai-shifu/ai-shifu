@@ -3,9 +3,9 @@
   "entry": {
     "kpi": {
       "courses": "课程数",
-      "learners": "学员数",
-      "orderAmount": "订单金额",
-      "orders": "订单数"
+      "learners": "总学员数",
+      "orderAmount": "总订单金额",
+      "orders": "总订单数"
     },
     "table": {
       "course": "课程",
@@ -15,6 +15,7 @@
       "orderAmount": "订单金额",
       "orders": "订单数",
       "reset": "重置",
+      "scopeNote": "统计范围说明：仅统计您本人创建并拥有的课程数据；协作课程的数据不包含在内。",
       "search": "查询",
       "searchPlaceholder": "搜索课程名称 / 课程ID",
       "title": "课程列表",

@@ -75,6 +75,10 @@ from flaskr.service.user.repository import (
     set_user_state,
     upsert_credential,
 )
+from flaskr.service.user.utils import (
+    ensure_demo_course_permissions,
+    load_existing_demo_shifu_ids,
+)
 from flaskr.i18n import _
 from flaskr.util.uuid import generate_id
 
@@ -490,18 +494,22 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             # Publish grants both edit and publish permissions.
             auth_types = ["edit", "publish"]
 
+        demo_shifu_ids = load_existing_demo_shifu_ids()
         for contact in contacts:
             aggregate = aggregate_by_contact.get(contact)
+            should_grant_demo_permissions = False
             if aggregate is None:
-                aggregate, _created = ensure_user_for_identifier(
+                aggregate, created_new_user = ensure_user_for_identifier(
                     app,
                     provider=contact_type,
                     identifier=contact,
                     defaults={"state": USER_STATE_REGISTERED},
                 )
+                should_grant_demo_permissions = created_new_user
             else:
                 if aggregate.state == USER_STATE_UNREGISTERED:
                     set_user_state(aggregate.user_bid, USER_STATE_REGISTERED)
+                    should_grant_demo_permissions = True
             if not aggregate or aggregate.user_bid == owner_id:
                 continue
 
@@ -519,6 +527,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 metadata={},
                 verified=True,
             )
+            if should_grant_demo_permissions:
+                ensure_demo_course_permissions(
+                    app, aggregate.user_bid, demo_ids=demo_shifu_ids
+                )
 
             auth = AiCourseAuth.query.filter(
                 AiCourseAuth.course_id == shifu_bid,
