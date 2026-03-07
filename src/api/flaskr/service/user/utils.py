@@ -292,28 +292,48 @@ def ensure_creator_demo_permissions_and_first_lesson(
 
 
 def _load_existing_demo_shifu_ids() -> set[str]:
-    demo_ids: set[str] = set()
-    for key in ("DEMO_SHIFU_BID", "DEMO_EN_SHIFU_BID"):
-        bid = str(get_dynamic_config(key) or "").strip()
-        if not bid:
-            continue
-        has_published = (
-            PublishedShifu.query.filter(
-                PublishedShifu.shifu_bid == bid,
-                PublishedShifu.deleted == 0,
-            ).first()
-            is not None
+    configured_bids = {
+        str(get_dynamic_config(key) or "").strip()
+        for key in ("DEMO_SHIFU_BID", "DEMO_EN_SHIFU_BID")
+    }
+    configured_bids.discard("")
+    if not configured_bids:
+        return set()
+
+    published_bids = {
+        row[0]
+        for row in PublishedShifu.query.filter(
+            PublishedShifu.shifu_bid.in_(configured_bids),
+            PublishedShifu.deleted == 0,
         )
-        has_draft = (
-            DraftShifu.query.filter(
-                DraftShifu.shifu_bid == bid,
-                DraftShifu.deleted == 0,
-            ).first()
-            is not None
+        .with_entities(PublishedShifu.shifu_bid)
+        .all()
+        if row and row[0]
+    }
+    draft_bids = {
+        row[0]
+        for row in DraftShifu.query.filter(
+            DraftShifu.shifu_bid.in_(configured_bids),
+            DraftShifu.deleted == 0,
         )
-        if has_published or has_draft:
-            demo_ids.add(bid)
-    return demo_ids
+        .with_entities(DraftShifu.shifu_bid)
+        .all()
+        if row and row[0]
+    }
+    return published_bids.union(draft_bids)
+
+
+def _is_empty_auth_type(raw_auth_type) -> bool:
+    text = str(raw_auth_type or "").strip()
+    if not text:
+        return True
+    if text in {"[]", "null"}:
+        return True
+    try:
+        parsed = json.loads(text)
+    except (TypeError, json.JSONDecodeError):
+        return False
+    return parsed is None or (isinstance(parsed, list) and len(parsed) == 0)
 
 
 def ensure_demo_course_permissions(app: Flask, user_id: str) -> None:
@@ -322,22 +342,24 @@ def ensure_demo_course_permissions(app: Flask, user_id: str) -> None:
     if not demo_ids:
         return
 
-    view_auth_types = json.dumps(["view"])
-    for shifu_bid in demo_ids:
-        auth = AiCourseAuth.query.filter(
+    existing_auths = {
+        auth.course_id: auth
+        for auth in AiCourseAuth.query.filter(
             AiCourseAuth.user_id == user_id,
-            AiCourseAuth.course_id == shifu_bid,
-        ).first()
+            AiCourseAuth.course_id.in_(demo_ids),
+        ).all()
+    }
+    view_auth_types = json.dumps(["view"])
+    has_changes = False
+    for shifu_bid in demo_ids:
+        auth = existing_auths.get(shifu_bid)
         if auth:
-            updated = False
-            if not str(auth.auth_type or "").strip():
+            if _is_empty_auth_type(auth.auth_type):
                 auth.auth_type = view_auth_types
-                updated = True
+                has_changes = True
             if auth.status != 1:
                 auth.status = 1
-                updated = True
-            if updated:
-                db.session.flush()
+                has_changes = True
             continue
 
         db.session.add(
@@ -349,6 +371,8 @@ def ensure_demo_course_permissions(app: Flask, user_id: str) -> None:
                 status=1,
             )
         )
+        has_changes = True
+    if has_changes:
         db.session.flush()
 
 
