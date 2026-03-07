@@ -284,7 +284,7 @@ def ensure_creator_demo_permissions_and_first_lesson(
     ensure_demo_course_permissions(app, user_id)
 
 
-def _load_existing_demo_shifu_ids() -> set[str]:
+def load_existing_demo_shifu_ids() -> set[str]:
     configured_bids = {
         str(get_dynamic_config(key) or "").strip()
         for key in ("DEMO_SHIFU_BID", "DEMO_EN_SHIFU_BID")
@@ -316,11 +316,6 @@ def _load_existing_demo_shifu_ids() -> set[str]:
     return published_bids.union(draft_bids)
 
 
-def load_existing_demo_shifu_ids() -> set[str]:
-    """Load configured demo shifu ids that currently exist in DB."""
-    return _load_existing_demo_shifu_ids()
-
-
 def _is_empty_auth_type(raw_auth_type) -> bool:
     text = str(raw_auth_type or "").strip()
     if not text:
@@ -340,7 +335,7 @@ def ensure_demo_course_permissions(
     """Grant configured demo course view permissions to a user."""
     effective_demo_ids = set(demo_ids or ()) if demo_ids is not None else None
     if effective_demo_ids is None:
-        effective_demo_ids = _load_existing_demo_shifu_ids()
+        effective_demo_ids = load_existing_demo_shifu_ids()
     if not effective_demo_ids:
         return
 

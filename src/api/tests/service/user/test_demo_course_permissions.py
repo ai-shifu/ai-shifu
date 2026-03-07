@@ -177,3 +177,63 @@ def test_ensure_demo_course_permissions_skips_missing_demo_courses(app, monkeypa
                 AiCourseAuth.course_id == demo_bid,
             ).delete()
             db.session.commit()
+
+
+def test_ensure_demo_course_permissions_uses_explicit_demo_ids(app):
+    demo_bid = uuid.uuid4().hex[:32]
+    user_id = uuid.uuid4().hex[:32]
+
+    with app.app_context():
+        try:
+            _seed_published_shifu(demo_bid)
+            db.session.flush()
+
+            ensure_demo_course_permissions(app, user_id, demo_ids={demo_bid})
+            db.session.commit()
+
+            auth = AiCourseAuth.query.filter(
+                AiCourseAuth.user_id == user_id,
+                AiCourseAuth.course_id == demo_bid,
+            ).first()
+            assert auth is not None
+            assert auth.auth_type == json.dumps(["view"])
+            assert auth.status == 1
+        finally:
+            AiCourseAuth.query.filter(
+                AiCourseAuth.user_id == user_id,
+                AiCourseAuth.course_id == demo_bid,
+            ).delete()
+            PublishedShifu.query.filter(PublishedShifu.shifu_bid == demo_bid).delete()
+            db.session.commit()
+
+
+def test_ensure_demo_course_permissions_skips_empty_explicit_demo_ids(app, monkeypatch):
+    demo_bid = uuid.uuid4().hex[:32]
+    user_id = uuid.uuid4().hex[:32]
+
+    monkeypatch.setattr(
+        "flaskr.service.user.utils.get_dynamic_config",
+        lambda key: demo_bid if key == "DEMO_SHIFU_BID" else None,
+        raising=False,
+    )
+
+    with app.app_context():
+        try:
+            _seed_published_shifu(demo_bid)
+            db.session.flush()
+
+            ensure_demo_course_permissions(app, user_id, demo_ids=set())
+            db.session.commit()
+
+            auth = AiCourseAuth.query.filter(
+                AiCourseAuth.user_id == user_id,
+                AiCourseAuth.course_id == demo_bid,
+            ).first()
+            assert auth is None
+        finally:
+            AiCourseAuth.query.filter(
+                AiCourseAuth.user_id == user_id,
+                AiCourseAuth.course_id == demo_bid,
+            ).delete()
+            PublishedShifu.query.filter(PublishedShifu.shifu_bid == demo_bid).delete()
+            db.session.commit()
