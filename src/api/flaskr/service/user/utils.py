@@ -17,9 +17,8 @@ from .models import UserVerifyCode
 import json
 
 from flaskr.service.config.funcs import get_config as get_dynamic_config
-from flaskr.service.shifu.models import AiCourseAuth
+from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
 from flaskr.service.user.repository import mark_user_roles
-from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.token_store import token_store
 from flaskr.util import generate_id
 
@@ -274,21 +273,15 @@ def ensure_creator_demo_permissions_and_first_lesson(
     app: Flask, user_id: str, language: str
 ) -> None:
     """
-    Ensure that a user is marked as creator, has demo course permissions,
-    and a first lesson draft.
+    Ensure that a user is marked as creator and has demo course permissions.
+
+    The function name is kept for compatibility. First lesson draft creation
+    is handled by course creation flows.
     """
     # Mark user as creator in canonical user entity
     mark_user_roles(user_id, is_creator=True)
 
     ensure_demo_course_permissions(app, user_id)
-
-    # Create first lesson draft if none exists
-    draft_shifu = DraftShifu.query.filter(
-        DraftShifu.created_user_bid == user_id
-    ).first()
-    if draft_shifu:
-        db.session.flush()
-        return
 
 
 def _load_existing_demo_shifu_ids() -> set[str]:
@@ -323,6 +316,11 @@ def _load_existing_demo_shifu_ids() -> set[str]:
     return published_bids.union(draft_bids)
 
 
+def load_existing_demo_shifu_ids() -> set[str]:
+    """Load configured demo shifu ids that currently exist in DB."""
+    return _load_existing_demo_shifu_ids()
+
+
 def _is_empty_auth_type(raw_auth_type) -> bool:
     text = str(raw_auth_type or "").strip()
     if not text:
@@ -336,22 +334,26 @@ def _is_empty_auth_type(raw_auth_type) -> bool:
     return parsed is None or (isinstance(parsed, list) and len(parsed) == 0)
 
 
-def ensure_demo_course_permissions(app: Flask, user_id: str) -> None:
+def ensure_demo_course_permissions(
+    app: Flask, user_id: str, demo_ids: set[str] | None = None
+) -> None:
     """Grant configured demo course view permissions to a user."""
-    demo_ids = _load_existing_demo_shifu_ids()
-    if not demo_ids:
+    effective_demo_ids = set(demo_ids or ()) if demo_ids is not None else None
+    if effective_demo_ids is None:
+        effective_demo_ids = _load_existing_demo_shifu_ids()
+    if not effective_demo_ids:
         return
 
     existing_auths = {
         auth.course_id: auth
         for auth in AiCourseAuth.query.filter(
             AiCourseAuth.user_id == user_id,
-            AiCourseAuth.course_id.in_(demo_ids),
+            AiCourseAuth.course_id.in_(effective_demo_ids),
         ).all()
     }
     view_auth_types = json.dumps(["view"])
     has_changes = False
-    for shifu_bid in demo_ids:
+    for shifu_bid in effective_demo_ids:
         auth = existing_auths.get(shifu_bid)
         if auth:
             if _is_empty_auth_type(auth.auth_type):

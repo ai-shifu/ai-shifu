@@ -10,11 +10,7 @@ from typing import Any, Dict, List, Optional
 from flask import Flask
 
 from flaskr.dao import db
-from flaskr.service.common.dtos import (
-    PageNationDTO,
-    USER_STATE_REGISTERED,
-    USER_STATE_UNREGISTERED,
-)
+from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.common.models import (
     AppException,
     raise_error,
@@ -61,6 +57,7 @@ from flaskr.service.user.repository import (
     upsert_credential,
 )
 from flaskr.service.user.utils import ensure_demo_course_permissions
+from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 
 
 ORDER_STATUS_KEY_MAP = {
