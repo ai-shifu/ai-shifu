@@ -19,7 +19,7 @@ import json
 from flaskr.service.config.funcs import get_config as get_dynamic_config
 from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.service.user.repository import mark_user_roles
-from flaskr.service.shifu.models import DraftShifu
+from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.user.token_store import token_store
 from flaskr.util import generate_id
 
@@ -280,44 +280,7 @@ def ensure_creator_demo_permissions_and_first_lesson(
     # Mark user as creator in canonical user entity
     mark_user_roles(user_id, is_creator=True)
 
-    # Grant demo course permissions if demo shifus are configured
-    demo_ids = set()
-    for key in ("DEMO_SHIFU_BID", "DEMO_EN_SHIFU_BID"):
-        bid = get_dynamic_config(key)
-        if bid:
-            demo_ids.add(bid)
-
-    if not demo_ids:
-        # No demo courses configured; nothing more to do
-        return
-
-    full_auth_types = json.dumps(["view"])
-
-    for shifu_bid in demo_ids:
-        auth = AiCourseAuth.query.filter(
-            AiCourseAuth.user_id == user_id,
-            AiCourseAuth.course_id == shifu_bid,
-        ).first()
-        if auth:
-            updated = False
-            if auth.auth_type != full_auth_types:
-                auth.auth_type = full_auth_types
-                updated = True
-            if auth.status != 1:
-                auth.status = 1
-                updated = True
-            if updated:
-                db.session.flush()
-        else:
-            auth = AiCourseAuth(
-                course_auth_id=generate_id(app),
-                user_id=user_id,
-                course_id=shifu_bid,
-                auth_type=full_auth_types,
-                status=1,
-            )
-            db.session.add(auth)
-            db.session.flush()
+    ensure_demo_course_permissions(app, user_id)
 
     # Create first lesson draft if none exists
     draft_shifu = DraftShifu.query.filter(
@@ -326,6 +289,67 @@ def ensure_creator_demo_permissions_and_first_lesson(
     if draft_shifu:
         db.session.flush()
         return
+
+
+def _load_existing_demo_shifu_ids() -> set[str]:
+    demo_ids: set[str] = set()
+    for key in ("DEMO_SHIFU_BID", "DEMO_EN_SHIFU_BID"):
+        bid = str(get_dynamic_config(key) or "").strip()
+        if not bid:
+            continue
+        has_published = (
+            PublishedShifu.query.filter(
+                PublishedShifu.shifu_bid == bid,
+                PublishedShifu.deleted == 0,
+            ).first()
+            is not None
+        )
+        has_draft = (
+            DraftShifu.query.filter(
+                DraftShifu.shifu_bid == bid,
+                DraftShifu.deleted == 0,
+            ).first()
+            is not None
+        )
+        if has_published or has_draft:
+            demo_ids.add(bid)
+    return demo_ids
+
+
+def ensure_demo_course_permissions(app: Flask, user_id: str) -> None:
+    """Grant configured demo course view permissions to a user."""
+    demo_ids = _load_existing_demo_shifu_ids()
+    if not demo_ids:
+        return
+
+    view_auth_types = json.dumps(["view"])
+    for shifu_bid in demo_ids:
+        auth = AiCourseAuth.query.filter(
+            AiCourseAuth.user_id == user_id,
+            AiCourseAuth.course_id == shifu_bid,
+        ).first()
+        if auth:
+            updated = False
+            if not str(auth.auth_type or "").strip():
+                auth.auth_type = view_auth_types
+                updated = True
+            if auth.status != 1:
+                auth.status = 1
+                updated = True
+            if updated:
+                db.session.flush()
+            continue
+
+        db.session.add(
+            AiCourseAuth(
+                course_auth_id=generate_id(app),
+                user_id=user_id,
+                course_id=shifu_bid,
+                auth_type=view_auth_types,
+                status=1,
+            )
+        )
+        db.session.flush()
 
 
 def ensure_admin_creator_and_demo_permissions(
