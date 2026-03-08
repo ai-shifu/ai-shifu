@@ -139,14 +139,6 @@ class ShifuTokenValidation:
     def __call__(self, f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            token = request.cookies.get("token", None)
-            if not token:
-                token = request.args.get("token", None)
-            if not token:
-                token = request.headers.get("Token", None)
-            if not token and request.method.upper() == "POST" and request.is_json:
-                token = request.get_json().get("token", None)
-
             # If is_creator is True, only verify creator permission and skip shifu-specific verification
             if self.is_creator:
                 if not request.user.is_creator:
@@ -165,8 +157,6 @@ class ShifuTokenValidation:
                 if not shifu_bid:
                     shifu_bid = request.get_json().get("shifu_id", None)
 
-            if not token:
-                raise_param_error("token is required")
             if not shifu_bid or not str(shifu_bid).strip():
                 raise_param_error("shifu_bid is required")
 

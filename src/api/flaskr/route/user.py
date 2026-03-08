@@ -48,22 +48,44 @@ thread_local = threading.local()
 def optional_token_validation(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        token = request.cookies.get("token", None)
-        if not token:
-            token = request.args.get("token", None)
-        if not token:
-            token = request.headers.get("Token", None)
-        if not token and request.method.upper() == "POST" and request.is_json:
-            token = request.get_json().get("token", None)
+        token = _extract_token_from_request()
 
         if token:
             token = str(token)
-            user = validate_user(current_app, token)
+            if token.startswith("sk-"):
+                from flaskr.service.user.api_key_funcs import validate_api_key
+
+                user = validate_api_key(current_app, token)
+                request.is_api_key_auth = True
+            else:
+                user = validate_user(current_app, token)
+                request.is_api_key_auth = False
             set_language(user.language)
             request.user = user
         return f(*args, **kwargs)
 
     return decorated_function
+
+
+def _extract_token_from_request():
+    """Extract authentication token from the request.
+
+    Checks sources in order: cookies, query params, Authorization header
+    (Bearer scheme), custom Token header, and POST body.
+    """
+    token = request.cookies.get("token", None)
+    if not token:
+        token = request.args.get("token", None)
+    if not token:
+        # Support standard Authorization: Bearer <token> header
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+    if not token:
+        token = request.headers.get("Token", None)
+    if not token and request.method.upper() == "POST" and request.is_json:
+        token = request.get_json().get("token", None)
+    return token
 
 
 def register_user_handler(app: Flask, path_prefix: str) -> Flask:
@@ -80,17 +102,22 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         ):
             return
 
-        token = request.cookies.get("token", None)
-        if not token:
-            token = request.args.get("token", None)
-        if not token:
-            token = request.headers.get("Token", None)
-        if not token and request.method.upper() == "POST" and request.is_json:
-            token = request.get_json().get("token", None)
-        token = str(token)
+        token = _extract_token_from_request()
         if not token and request.endpoint in by_pass_login_func:
             return
-        user = validate_user(app, token)
+
+        token = str(token)
+
+        # Route to API Key validation when token starts with "sk-"
+        if token.startswith("sk-"):
+            from flaskr.service.user.api_key_funcs import validate_api_key
+
+            user = validate_api_key(app, token)
+            request.is_api_key_auth = True
+        else:
+            user = validate_user(app, token)
+            request.is_api_key_auth = False
+
         set_language(user.language)
         request.user = user
 
@@ -859,6 +886,80 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             set_password_hash(pwd_cred, hash_password(new_password))
 
         db.session.commit()
+        return make_common_response({"success": True})
+
+    # -------- API Key management routes --------
+
+    @app.route(path_prefix + "/api-keys", methods=["POST"])
+    def create_api_key_api():
+        """
+        Create a new API key
+        ---
+        tags:
+            - user
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    name:
+                        type: string
+                        description: Human-readable key name
+        responses:
+            200:
+                description: API key created (full key shown only once)
+        """
+        # API Key management requires session authentication, not API Key
+        if getattr(request, "is_api_key_auth", False):
+            raise_error("server.user.apiKeySessionRequired")
+
+        from flaskr.service.user.api_key_funcs import create_api_key
+
+        name = request.get_json().get("name", "")
+        return make_common_response(create_api_key(app, request.user.user_id, name))
+
+    @app.route(path_prefix + "/api-keys", methods=["GET"])
+    def list_api_keys_api():
+        """
+        List all API keys for the current user
+        ---
+        tags:
+            - user
+        responses:
+            200:
+                description: List of API keys (prefixes only, no full keys)
+        """
+        if getattr(request, "is_api_key_auth", False):
+            raise_error("server.user.apiKeySessionRequired")
+
+        from flaskr.service.user.api_key_funcs import list_api_keys
+
+        return make_common_response(list_api_keys(app, request.user.user_id))
+
+    @app.route(path_prefix + "/api-keys/<key_bid>", methods=["DELETE"])
+    def revoke_api_key_api(key_bid: str):
+        """
+        Revoke an API key
+        ---
+        tags:
+            - user
+        parameters:
+            - name: key_bid
+              type: string
+              required: true
+              description: API key business identifier
+        responses:
+            200:
+                description: API key revoked
+        """
+        if getattr(request, "is_api_key_auth", False):
+            raise_error("server.user.apiKeySessionRequired")
+
+        from flaskr.service.user.api_key_funcs import revoke_api_key
+
+        revoke_api_key(app, request.user.user_id, key_bid)
         return make_common_response({"success": True})
 
     # health check

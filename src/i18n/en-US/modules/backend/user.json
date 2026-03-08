@@ -1,6 +1,11 @@
 {
   "__namespace__": "server.user",
   "__flat__": {
+    "apiKeyInvalid": "Invalid or expired API key",
+    "apiKeyLimitExceeded": "Maximum number of API keys reached",
+    "apiKeyNameTooLong": "API key name must be 100 characters or less",
+    "apiKeyNotFound": "API key not found",
+    "apiKeySessionRequired": "API key management requires session authentication",
     "emailSendFailed": "Email send failed",
     "emailSendTooFrequent": "Emails sent too frequently",
     "emailVerificationSubject": "AI-Shifu: Your Verification Code",
