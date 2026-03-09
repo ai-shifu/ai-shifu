@@ -1583,6 +1583,7 @@ class RunScriptContextV2:
             LearnProgressRecord.query.filter(
                 LearnProgressRecord.user_bid == self._user_info.user_id,
                 LearnProgressRecord.shifu_bid == self._outline_item_info.shifu_bid,
+                LearnProgressRecord.outline_item_bid == self._outline_item_info.bid,
                 LearnProgressRecord.deleted == 0,
                 LearnProgressRecord.status == LEARN_STATUS_COMPLETED,
                 generated_block_exists,

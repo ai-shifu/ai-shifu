@@ -226,7 +226,7 @@ class ExceptionGateFeedbackTests(unittest.TestCase):
             progress = LearnProgressRecord(
                 progress_record_bid="progress-1",
                 shifu_bid="shifu-1",
-                outline_item_bid="outline-1",
+                outline_item_bid="outline-locked",
                 user_bid="user-1",
                 status=LEARN_STATUS_COMPLETED,
             )
