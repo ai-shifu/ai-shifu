@@ -237,7 +237,6 @@ class LearnLessonFeedback(db.Model):
     score = Column(
         SmallInteger,
         nullable=False,
-        default=0,
         comment="Lesson score: 1-5",
     )
     comment = Column(

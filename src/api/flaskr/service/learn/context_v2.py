@@ -1558,39 +1558,35 @@ class RunScriptContextV2:
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         if not self._outline_item_info:
             return
-        completed_progresses = (
+        generated_block_exists = (
+            db.session.query(LearnGeneratedBlock.id)
+            .filter(
+                LearnGeneratedBlock.progress_record_bid
+                == LearnProgressRecord.progress_record_bid,
+                LearnGeneratedBlock.outline_item_bid
+                == LearnProgressRecord.outline_item_bid,
+                LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                LearnGeneratedBlock.status == 1,
+                LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.type.in_(
+                    [BLOCK_TYPE_MDCONTENT_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]
+                ),
+            )
+            .exists()
+        )
+        latest_completed_progress = (
             LearnProgressRecord.query.filter(
                 LearnProgressRecord.user_bid == self._user_info.user_id,
                 LearnProgressRecord.shifu_bid == self._outline_item_info.shifu_bid,
                 LearnProgressRecord.deleted == 0,
                 LearnProgressRecord.status == LEARN_STATUS_COMPLETED,
+                generated_block_exists,
             )
             .order_by(
                 LearnProgressRecord.updated_at.desc(), LearnProgressRecord.id.desc()
             )
-            .limit(20)
-            .all()
+            .first()
         )
-        latest_completed_progress = None
-        for progress in completed_progresses:
-            has_generated_block = (
-                LearnGeneratedBlock.query.filter(
-                    LearnGeneratedBlock.progress_record_bid
-                    == progress.progress_record_bid,
-                    LearnGeneratedBlock.outline_item_bid == progress.outline_item_bid,
-                    LearnGeneratedBlock.user_bid == self._user_info.user_id,
-                    LearnGeneratedBlock.status == 1,
-                    LearnGeneratedBlock.deleted == 0,
-                    LearnGeneratedBlock.type.in_(
-                        [BLOCK_TYPE_MDCONTENT_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]
-                    ),
-                )
-                .order_by(LearnGeneratedBlock.id.desc())
-                .first()
-            )
-            if has_generated_block:
-                latest_completed_progress = progress
-                break
         if not latest_completed_progress:
             return
         yield from self._emit_lesson_feedback_interaction(latest_completed_progress)
