@@ -619,6 +619,8 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             raise_error("server.shifu.noPermission")
         _ensure_outline_belongs_to_shifu(shifu_bid, outline_bid)
         payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("body")
         return make_common_response(
             submit_lesson_feedback(
                 app,
