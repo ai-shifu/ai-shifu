@@ -140,6 +140,10 @@ def submit_lesson_feedback(
         if not existing and not progress_record_bid:
             raise_param_error("outline_bid")
         if existing:
+            if not existing.bid:
+                existing.bid = existing.lesson_feedback_bid or generate_id(app)
+            if not existing.lesson_feedback_bid:
+                existing.lesson_feedback_bid = existing.bid
             existing.score = normalized_score
             existing.comment = normalized_comment
             existing.mode = normalized_mode
@@ -147,8 +151,10 @@ def submit_lesson_feedback(
                 existing.progress_record_bid = progress_record_bid
             feedback_record = existing
         else:
+            feedback_bid = generate_id(app)
             feedback_record = LearnLessonFeedback(
-                lesson_feedback_bid=generate_id(app),
+                bid=feedback_bid,
+                lesson_feedback_bid=feedback_bid,
                 shifu_bid=shifu_bid,
                 outline_item_bid=outline_bid,
                 progress_record_bid=progress_record_bid,
@@ -184,6 +190,12 @@ def submit_lesson_feedback(
             )
             if not feedback_record:
                 raise
+            if not feedback_record.bid:
+                feedback_record.bid = (
+                    feedback_record.lesson_feedback_bid or generate_id(app)
+                )
+            if not feedback_record.lesson_feedback_bid:
+                feedback_record.lesson_feedback_bid = feedback_record.bid
             feedback_record.score = normalized_score
             feedback_record.comment = normalized_comment
             feedback_record.mode = normalized_mode
