@@ -1534,12 +1534,16 @@ class RunScriptContextV2:
         )
 
     def _is_access_gate_blocking_interaction(self, parsed_interaction: dict) -> bool:
+        is_logged_in = bool(
+            getattr(self._user_info, "mobile", None)
+            or getattr(self._user_info, "email", None)
+        )
         buttons = parsed_interaction.get("buttons") or []
         for button in buttons:
             value = button.get("value")
             if value == "_sys_pay" and not self._is_paid:
                 return True
-            if value == "_sys_login" and not bool(self._user_info.mobile):
+            if value == "_sys_login" and not is_logged_in:
                 return True
         return False
 
@@ -1548,8 +1552,11 @@ class RunScriptContextV2:
         *,
         parsed_interaction: dict,
         progress_record: LearnProgressRecord,
+        is_tail_gate: bool,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         if not self._is_access_gate_blocking_interaction(parsed_interaction):
+            return
+        if not is_tail_gate:
             return
         yield from self._emit_lesson_feedback_interaction(progress_record)
 
@@ -1906,6 +1913,8 @@ class RunScriptContextV2:
                             yield from self._maybe_emit_feedback_before_access_gate(
                                 parsed_interaction=parsed_interaction,
                                 progress_record=run_script_info.attend,
+                                is_tail_gate=run_script_info.block_position
+                                >= len(block_list) - 1,
                             )
                             # Use translated content from database if available
                             interaction_content = (
@@ -1942,6 +1951,8 @@ class RunScriptContextV2:
                             yield from self._maybe_emit_feedback_before_access_gate(
                                 parsed_interaction=parsed_interaction,
                                 progress_record=run_script_info.attend,
+                                is_tail_gate=run_script_info.block_position
+                                >= len(block_list) - 1,
                             )
                             # Use translated content from database if available
                             interaction_content = (
@@ -2286,6 +2297,7 @@ class RunScriptContextV2:
                 yield from self._maybe_emit_feedback_before_access_gate(
                     parsed_interaction=parsed_interaction,
                     progress_record=run_script_info.attend,
+                    is_tail_gate=run_script_info.block_position >= len(block_list) - 1,
                 )
                 if (
                     parsed_interaction.get("buttons")
