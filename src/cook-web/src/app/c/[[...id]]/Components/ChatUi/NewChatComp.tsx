@@ -379,6 +379,12 @@ export const NewChatComponents = ({
     [items],
   );
 
+  useEffect(() => {
+    if (!mobileStyle) {
+      dismissMobileInteraction();
+    }
+  }, [dismissMobileInteraction, mobileStyle]);
+
   // Close mobile interaction popover on outside interaction or page context changes.
   useEffect(() => {
     if (!mobileStyle || !mobileInteraction.open) {
