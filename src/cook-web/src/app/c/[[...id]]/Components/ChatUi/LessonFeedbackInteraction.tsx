@@ -68,7 +68,7 @@ export default function LessonFeedbackInteraction({
   }, [comment]);
 
   return (
-    <div className='rounded-xl border border-[var(--border)] bg-[var(--card)] p-3'>
+    <div className='rounded-xl bg-[var(--muted)] p-3'>
       <div className='flex flex-wrap items-center gap-x-2 gap-y-[9px]'>
         {SCORE_OPTIONS.map(score => {
           const selected = selectedScore === score;
