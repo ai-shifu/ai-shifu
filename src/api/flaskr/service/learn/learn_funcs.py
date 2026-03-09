@@ -94,6 +94,10 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_CHECKCODE_VALUE,
 )
 from flaskr.service.learn.const import ROLE_TEACHER, CONTEXT_INTERACTION_NEXT
+from flaskr.service.learn.lesson_feedback import (
+    build_lesson_feedback_interaction_md,
+    is_lesson_feedback_interaction,
+)
 from flaskr.service.learn.listen_slide_builder import build_listen_slides_for_block
 from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_TRIAL,
@@ -110,6 +114,17 @@ STATUS_MAP = {
 }
 
 logger = logging.getLogger(__name__)
+
+
+def _is_access_gate_interaction(content: str | None) -> bool:
+    if not content:
+        return False
+    try:
+        parsed = InteractionParser().parse(content)
+    except Exception:
+        return False
+    buttons = parsed.get("buttons") or []
+    return any(button.get("value") in {"_sys_pay", "_sys_login"} for button in buttons)
 
 
 def _collect_outline_bids(struct: HistoryItem) -> list[str]:
@@ -552,9 +567,45 @@ def get_learn_record(
             and CONTEXT_INTERACTION_NEXT in record.content
             for record in records
         )
+        has_feedback_interaction = any(
+            record.block_type == BlockType.INTERACTION
+            and is_lesson_feedback_interaction(record.content)
+            for record in records
+        )
+        has_tail_access_gate = bool(
+            records
+            and records[-1].block_type == BlockType.INTERACTION
+            and _is_access_gate_interaction(records[-1].content)
+        )
+        if (
+            progress_record.status == LEARN_STATUS_COMPLETED or has_tail_access_gate
+        ) and not has_feedback_interaction:
+            feedback_content = build_lesson_feedback_interaction_md()
+            feedback_record = GeneratedBlockDTO(
+                generate_id(app),
+                feedback_content,
+                LikeStatus.NONE,
+                BlockType.INTERACTION,
+                "",
+            )
+            next_button_index = next(
+                (
+                    index
+                    for index, record in enumerate(records)
+                    if record.block_type == BlockType.INTERACTION
+                    and CONTEXT_INTERACTION_NEXT in record.content
+                ),
+                len(records),
+            )
+            insert_index = next_button_index
+            if has_tail_access_gate:
+                insert_index = min(insert_index, len(records) - 1)
+            records.insert(insert_index, feedback_record)
+
         if (
             progress_record.status == LEARN_STATUS_COMPLETED
             and has_next_outline
+            and not has_tail_access_gate
             and not has_next_chapter_button
         ):
             button_label = _("server.learn.nextChapterButton")

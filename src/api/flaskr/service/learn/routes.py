@@ -17,6 +17,12 @@ from flaskr.service.learn.learn_funcs import (
     stream_generated_block_audio,
     stream_preview_tts_audio,
 )
+from flaskr.service.learn.lesson_feedback import (
+    submit_lesson_feedback,
+    list_lesson_feedbacks,
+)
+from flaskr.service.shifu.funcs import shifu_permission_verification
+from flaskr.service.common import raise_error
 from flaskr.service.learn.runscript_v2 import run_script, get_run_status
 from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
 from flaskr.service.learn.context_v2 import RunScriptPreviewContextV2
@@ -515,6 +521,113 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         user_bid = request.user.user_id
         return make_common_response(
             reset_learn_record(app, shifu_bid, outline_bid, user_bid)
+        )
+
+    @app.route(
+        path_prefix + "/shifu/<shifu_bid>/lesson-feedback/<outline_bid>",
+        methods=["POST"],
+    )
+    @with_shifu_context()
+    def submit_lesson_feedback_api(shifu_bid: str, outline_bid: str):
+        """
+        submit lesson feedback
+        ---
+        tags:
+            - learn
+        parameters:
+            - name: shifu_bid
+              type: string
+              required: true
+            - name: outline_bid
+              type: string
+              required: true
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    score:
+                        type: integer
+                        required: true
+                    comment:
+                        type: string
+                        required: false
+                    mode:
+                        type: string
+                        required: false
+                        description: read or listen
+        responses:
+            200:
+                description: submit lesson feedback success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    type: object
+        """
+        user_bid = request.user.user_id
+        payload = request.get_json(silent=True) or {}
+        return make_common_response(
+            submit_lesson_feedback(
+                app,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                score=payload.get("score"),
+                comment=payload.get("comment"),
+                mode=payload.get("mode"),
+            )
+        )
+
+    @app.route(path_prefix + "/shifu/<shifu_bid>/lesson-feedbacks", methods=["GET"])
+    @with_shifu_context()
+    def list_lesson_feedbacks_api(shifu_bid: str):
+        """
+        list lesson feedbacks for a course (teacher/authoring side)
+        ---
+        tags:
+            - learn
+        parameters:
+            - name: shifu_bid
+              type: string
+              required: true
+            - in: query
+              name: outline_bid
+              type: string
+              required: false
+            - in: query
+              name: page_index
+              type: integer
+              required: false
+            - in: query
+              name: page_size
+              type: integer
+              required: false
+        """
+        user_bid = request.user.user_id
+        if not shifu_permission_verification(app, user_bid, shifu_bid, "view"):
+            raise_error("server.shifu.noPermission")
+        page_index_raw = request.args.get("page_index", "1")
+        page_size_raw = request.args.get("page_size", "20")
+        try:
+            page_index = int(page_index_raw)
+            page_size = int(page_size_raw)
+        except ValueError:
+            raise_param_error("page_index or page_size")
+        return make_common_response(
+            list_lesson_feedbacks(
+                app,
+                shifu_bid=shifu_bid,
+                outline_bid=request.args.get("outline_bid"),
+                page_index=page_index,
+                page_size=page_size,
+            )
         )
 
     @app.route(

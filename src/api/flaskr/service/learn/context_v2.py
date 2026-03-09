@@ -10,6 +10,7 @@ from flaskr.service.learn.const import (
     ROLE_STUDENT,
     ROLE_TEACHER,
     CONTEXT_INTERACTION_NEXT,
+    CONTEXT_INTERACTION_LESSON_FEEDBACK_SCORE,
 )
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDINTERACTION_VALUE,
@@ -96,6 +97,7 @@ from flaskr.service.learn.langfuse_naming import (
     build_langfuse_trace_name,
 )
 from flaskr.service.learn.utils_v2 import init_generated_block
+from flaskr.service.learn.lesson_feedback import build_lesson_feedback_interaction_md
 from flaskr.service.learn.exceptions import PaidException
 from flaskr.i18n import _, get_current_language, set_language
 from flaskr.service.user.exceptions import UserNotLoginException
@@ -1328,6 +1330,17 @@ class RunScriptContextV2:
             for update in outline_updates
         )
 
+    def _is_current_outline_completed(
+        self, outline_updates: list[OutlineItemUpdateDTO]
+    ) -> bool:
+        if not outline_updates or not self._current_outline_item:
+            return False
+        current_bid = self._current_outline_item.bid
+        return any(
+            update.outline_bid == current_bid and update.status == LearnStatus.COMPLETED
+            for update in outline_updates
+        )
+
     def _get_current_outline_item(self) -> ShifuOutlineItemDto:
         return self._current_outline_item
 
@@ -1470,6 +1483,118 @@ class RunScriptContextV2:
             content=button_md,
         )
 
+    def _emit_lesson_feedback_interaction(
+        self,
+        progress_record: LearnProgressRecord,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """
+        Persist and emit the lesson-end feedback interaction before next chapter.
+        """
+        if not progress_record or not self._outline_item_info:
+            return
+
+        feedback_md = build_lesson_feedback_interaction_md()
+        marker = f"%{{{{{CONTEXT_INTERACTION_LESSON_FEEDBACK_SCORE}}}}}"
+        existing_block = (
+            LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.progress_record_bid
+                == progress_record.progress_record_bid,
+                LearnGeneratedBlock.outline_item_bid
+                == progress_record.outline_item_bid,
+                LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
+                LearnGeneratedBlock.status == 1,
+                LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.block_content_conf.contains(marker),
+            )
+            .order_by(LearnGeneratedBlock.id.desc())
+            .first()
+        )
+        if existing_block:
+            return
+        generated_block: LearnGeneratedBlock = init_generated_block(
+            self.app,
+            shifu_bid=progress_record.shifu_bid,
+            outline_item_bid=progress_record.outline_item_bid,
+            progress_record_bid=progress_record.progress_record_bid,
+            user_bid=self._user_info.user_id,
+            block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+            mdflow=feedback_md,
+            block_index=progress_record.block_position,
+        )
+        generated_block.role = ROLE_TEACHER
+        generated_block.block_content_conf = feedback_md
+        db.session.add(generated_block)
+        db.session.flush()
+        yield RunMarkdownFlowDTO(
+            outline_bid=progress_record.outline_item_bid,
+            generated_block_bid=generated_block.generated_block_bid,
+            type=GeneratedType.INTERACTION,
+            content=feedback_md,
+        )
+
+    def _is_access_gate_blocking_interaction(self, parsed_interaction: dict) -> bool:
+        buttons = parsed_interaction.get("buttons") or []
+        for button in buttons:
+            value = button.get("value")
+            if value == "_sys_pay" and not self._is_paid:
+                return True
+            if value == "_sys_login" and not bool(self._user_info.mobile):
+                return True
+        return False
+
+    def _maybe_emit_feedback_before_access_gate(
+        self,
+        *,
+        parsed_interaction: dict,
+        progress_record: LearnProgressRecord,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if not self._is_access_gate_blocking_interaction(parsed_interaction):
+            return
+        yield from self._emit_lesson_feedback_interaction(progress_record)
+
+    def _emit_feedback_before_exception_gate(
+        self,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if not self._outline_item_info:
+            return
+        completed_progresses = (
+            LearnProgressRecord.query.filter(
+                LearnProgressRecord.user_bid == self._user_info.user_id,
+                LearnProgressRecord.shifu_bid == self._outline_item_info.shifu_bid,
+                LearnProgressRecord.deleted == 0,
+                LearnProgressRecord.status == LEARN_STATUS_COMPLETED,
+            )
+            .order_by(
+                LearnProgressRecord.updated_at.desc(), LearnProgressRecord.id.desc()
+            )
+            .limit(20)
+            .all()
+        )
+        latest_completed_progress = None
+        for progress in completed_progresses:
+            has_generated_block = (
+                LearnGeneratedBlock.query.filter(
+                    LearnGeneratedBlock.progress_record_bid
+                    == progress.progress_record_bid,
+                    LearnGeneratedBlock.outline_item_bid == progress.outline_item_bid,
+                    LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                    LearnGeneratedBlock.status == 1,
+                    LearnGeneratedBlock.deleted == 0,
+                    LearnGeneratedBlock.type.in_(
+                        [BLOCK_TYPE_MDCONTENT_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]
+                    ),
+                )
+                .order_by(LearnGeneratedBlock.id.desc())
+                .first()
+            )
+            if has_generated_block:
+                latest_completed_progress = progress
+                break
+        if not latest_completed_progress:
+            return
+        yield from self._emit_lesson_feedback_interaction(latest_completed_progress)
+
     def _get_default_llm_settings(self) -> LLMSettings:
         return LLMSettings(
             model=self.app.config.get("DEFAULT_LLM_MODEL"),
@@ -1599,7 +1724,13 @@ class RunScriptContextV2:
         if run_script_info is None:
             self.app.logger.warning("run script is none")
             outline_updates = self._get_next_outline_item()
-            if self._has_next_outline_item(outline_updates):
+            has_next_outline_item = self._has_next_outline_item(outline_updates)
+            current_outline_completed = self._is_current_outline_completed(
+                outline_updates
+            )
+            if current_outline_completed:
+                yield from self._emit_lesson_feedback_interaction(self._current_attend)
+            if has_next_outline_item:
                 yield from self._emit_next_chapter_interaction(self._current_attend)
             self._can_continue = False
             if len(outline_updates) > 0:
@@ -1775,6 +1906,10 @@ class RunScriptContextV2:
                 for button in parsed_interaction.get("buttons"):
                     if button.get("value") == "_sys_pay":
                         if not self._is_paid:
+                            yield from self._maybe_emit_feedback_before_access_gate(
+                                parsed_interaction=parsed_interaction,
+                                progress_record=run_script_info.attend,
+                            )
                             # Use translated content from database if available
                             interaction_content = (
                                 generated_block.block_content_conf
@@ -1807,6 +1942,10 @@ class RunScriptContextV2:
                             db.session.flush()
                             return
                         else:
+                            yield from self._maybe_emit_feedback_before_access_gate(
+                                parsed_interaction=parsed_interaction,
+                                progress_record=run_script_info.attend,
+                            )
                             # Use translated content from database if available
                             interaction_content = (
                                 generated_block.block_content_conf
@@ -2147,6 +2286,10 @@ class RunScriptContextV2:
             if block.block_type == BlockType.INTERACTION:
                 interaction_parser: InteractionParser = InteractionParser()
                 parsed_interaction = interaction_parser.parse(block.content)
+                yield from self._maybe_emit_feedback_before_access_gate(
+                    parsed_interaction=parsed_interaction,
+                    progress_record=run_script_info.attend,
+                )
                 if (
                     parsed_interaction.get("buttons")
                     and len(parsed_interaction.get("buttons")) > 0
@@ -2202,6 +2345,10 @@ class RunScriptContextV2:
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                 db.session.add(generated_block)
                 db.session.flush()
+                # For interaction blocks we should stop here and wait for explicit user action.
+                # Continuing into outline completion fallback may incorrectly append
+                # `_sys_next_chapter` after access-gate interactions such as pay/login.
+                return
             else:
                 # Guard against replaying the same fixed-output block right after
                 # processing an interaction input in the same request.
@@ -2457,7 +2604,12 @@ class RunScriptContextV2:
         outline_updates = self._get_next_outline_item()
         if len(outline_updates) > 0:
             has_next_outline_item = self._has_next_outline_item(outline_updates)
+            current_outline_completed = self._is_current_outline_completed(
+                outline_updates
+            )
             yield from self._render_outline_updates(outline_updates, new_chapter=True)
+            if current_outline_completed:
+                yield from self._emit_lesson_feedback_interaction(progress_record)
             if has_next_outline_item:
                 yield from self._emit_next_chapter_interaction(progress_record)
             self._can_continue = False
@@ -2470,6 +2622,7 @@ class RunScriptContextV2:
         except PaidException:
             app.logger.info("PaidException")
             self._can_continue = False
+            yield from self._emit_feedback_before_exception_gate()
             yield RunMarkdownFlowDTO(
                 outline_bid=self._outline_item_info.bid,
                 generated_block_bid=generate_id(self.app),
@@ -2479,6 +2632,7 @@ class RunScriptContextV2:
         except UserNotLoginException:
             app.logger.info("UserNotLoginException")
             self._can_continue = False
+            yield from self._emit_feedback_before_exception_gate()
             yield RunMarkdownFlowDTO(
                 outline_bid=self._outline_item_info.bid,
                 generated_block_bid=generate_id(self.app),
