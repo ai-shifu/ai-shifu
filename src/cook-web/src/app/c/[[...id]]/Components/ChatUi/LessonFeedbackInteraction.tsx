@@ -15,6 +15,7 @@ interface LessonFeedbackInteractionProps {
 }
 
 const SCORE_OPTIONS = [1, 2, 3, 4, 5];
+const COMMENT_MAX_LENGTH = 1000;
 
 const normalizeScore = (raw?: string): number | null => {
   const score = Number(raw || '');
@@ -96,6 +97,7 @@ export default function LessonFeedbackInteraction({
             ref={textareaRef}
             value={comment}
             disabled={readonly}
+            maxLength={COMMENT_MAX_LENGTH}
             rows={1}
             onChange={event => setComment(event.target.value)}
             placeholder={placeholder}
