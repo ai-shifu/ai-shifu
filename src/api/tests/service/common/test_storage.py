@@ -84,7 +84,7 @@ def test_upload_audio_to_oss_uses_storage_layer(monkeypatch, tmp_path):
     url, bucket = upload_audio_to_oss(app, audio_bytes, "abc123")
 
     assert bucket == ""
-    assert url == "/api/storage/courses/tts-audio/abc123.mp3"
+    assert url == "/api/storage/default/tts-audio/abc123.mp3"
     assert (
-        tmp_path / "courses" / "tts-audio" / "abc123.mp3"
+        tmp_path / "default" / "tts-audio" / "abc123.mp3"
     ).read_bytes() == audio_bytes

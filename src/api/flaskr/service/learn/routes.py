@@ -4,6 +4,7 @@ import uuid
 from flask import Flask, Response, request, stream_with_context
 from pydantic import ValidationError
 
+from flaskr.dao import db
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response, bypass_token_validation
 from flaskr.service.common.models import raise_param_error
@@ -22,6 +23,8 @@ from flaskr.service.learn.lesson_feedback import (
     list_lesson_feedbacks,
 )
 from flaskr.service.shifu.funcs import shifu_permission_verification
+from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
+from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.common import raise_error
 from flaskr.service.learn.runscript_v2 import run_script, get_run_status
 from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
@@ -92,6 +95,46 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     """
     app.logger.info(f"register learn routes {path_prefix}")
     preview_service = RunScriptPreviewContextV2(app)
+
+    def _require_shifu_owner(shifu_bid: str) -> str:
+        """Ensure current user is the owner of the specified shifu."""
+        user_bid = request.user.user_id
+        if not getattr(request.user, "is_creator", False):
+            raise_error("server.shifu.noPermission")
+        context_snapshot = get_shifu_context_snapshot()
+        creator_bid = (context_snapshot or {}).get("shifu_creator_bid") or ""
+        if not creator_bid:
+            creator_bid = get_shifu_creator_bid(app, shifu_bid) or ""
+        if not creator_bid:
+            raise_error("server.shifu.shifuNotFound")
+        if creator_bid != user_bid:
+            raise_error("server.shifu.noPermission")
+        return user_bid
+
+    def _ensure_outline_belongs_to_shifu(shifu_bid: str, outline_bid: str) -> None:
+        """Validate that outline belongs to the specified shifu."""
+        in_draft = (
+            db.session.query(DraftOutlineItem.id)
+            .filter(
+                DraftOutlineItem.shifu_bid == shifu_bid,
+                DraftOutlineItem.outline_item_bid == outline_bid,
+                DraftOutlineItem.deleted == 0,
+            )
+            .first()
+        )
+        if in_draft:
+            return
+        in_published = (
+            db.session.query(PublishedOutlineItem.id)
+            .filter(
+                PublishedOutlineItem.shifu_bid == shifu_bid,
+                PublishedOutlineItem.outline_item_bid == outline_bid,
+                PublishedOutlineItem.deleted == 0,
+            )
+            .first()
+        )
+        if not in_published:
+            raise_error("server.shifu.lessonNotFoundInCourse")
 
     @app.route(path_prefix + "/shifu/<shifu_bid>", methods=["GET"])
     @bypass_token_validation
@@ -572,6 +615,9 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                                     type: object
         """
         user_bid = request.user.user_id
+        if not shifu_permission_verification(app, user_bid, shifu_bid, "view"):
+            raise_error("server.shifu.noPermission")
+        _ensure_outline_belongs_to_shifu(shifu_bid, outline_bid)
         payload = request.get_json(silent=True) or {}
         return make_common_response(
             submit_lesson_feedback(
@@ -610,9 +656,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
               type: integer
               required: false
         """
-        user_bid = request.user.user_id
-        if not shifu_permission_verification(app, user_bid, shifu_bid, "view"):
-            raise_error("server.shifu.noPermission")
+        _require_shifu_owner(shifu_bid)
         page_index_raw = request.args.get("page_index", "1")
         page_size_raw = request.args.get("page_size", "20")
         try:
