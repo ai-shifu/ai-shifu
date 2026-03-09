@@ -101,6 +101,7 @@ class LessonFeedbackTests(unittest.TestCase):
         self.assertEqual(rows[0].comment, "Need more examples")
         self.assertEqual(rows[0].mode, "listen")
         self.assertEqual(rows[0].progress_record_bid, "progress-1")
+        self.assertEqual(rows[0].bid, rows[0].lesson_feedback_bid)
         self.assertEqual(first["lesson_feedback_bid"], second["lesson_feedback_bid"])
 
         synced_block = LearnGeneratedBlock.query.filter(
