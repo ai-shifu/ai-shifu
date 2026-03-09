@@ -2,23 +2,7 @@ import json
 import unittest
 
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-
 import flaskr.dao as dao
-
-if dao.db is None:
-    _test_app = Flask("test-lesson-feedback")
-    _test_app.config.update(
-        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
-        SQLALCHEMY_BINDS={
-            "ai_shifu_saas": "sqlite:///:memory:",
-            "ai_shifu_admin": "sqlite:///:memory:",
-        },
-        SQLALCHEMY_TRACK_MODIFICATIONS=False,
-    )
-    _db = SQLAlchemy()
-    _db.init_app(_test_app)
-    dao.db = _db
 
 from flaskr.service.learn.lesson_feedback import (
     build_lesson_feedback_interaction_md,
