@@ -432,7 +432,6 @@ export const NewChatComponents = ({
     const parentContainer = chatContainer?.parentElement;
 
     document.addEventListener('pointerdown', handleOutsidePointerDown, true);
-    document.addEventListener('touchstart', handleOutsidePointerDown, true);
     document.addEventListener('touchmove', handleTouchMove, {
       capture: true,
       passive: true,
@@ -454,11 +453,6 @@ export const NewChatComponents = ({
     return () => {
       document.removeEventListener(
         'pointerdown',
-        handleOutsidePointerDown,
-        true,
-      );
-      document.removeEventListener(
-        'touchstart',
         handleOutsidePointerDown,
         true,
       );
