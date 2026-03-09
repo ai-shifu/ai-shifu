@@ -3,6 +3,7 @@
   "__flat__": {
     "generatedBlockNotFound": "生成的块未找到",
     "invalidAction": "无效的操作",
+    "lessonFeedbackCommentPlaceholder": "选填：告诉我们你的建议",
     "nextChapterButton": "下一节",
     "outputInProgress": "正在有内容输出中，请等待输出结束后再重试"
   }

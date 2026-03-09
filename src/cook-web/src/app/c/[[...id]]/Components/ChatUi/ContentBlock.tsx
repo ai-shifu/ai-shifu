@@ -4,12 +4,19 @@ import { isEqual } from 'lodash';
 import { ContentRender } from 'markdown-flow-ui/renderer';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { cn } from '@/lib/utils';
-import type { ChatContentItem } from './useChatLogicHook';
+import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import {
   getAudioTrackByPosition,
   hasAudioContentInTrack,
 } from '@/c-utils/audio-utils';
+import { useTranslation } from 'react-i18next';
+import {
+  LESSON_FEEDBACK_INTERACTION_MARKER,
+  LESSON_FEEDBACK_VARIABLE_NAME,
+  SYS_INTERACTION_TYPE,
+} from '@/c-api/studyV2';
+import LessonFeedbackInteraction from './LessonFeedbackInteraction';
 
 interface ContentBlockProps {
   item: ChatContentItem;
@@ -43,6 +50,7 @@ const ContentBlock = memo(
     onAudioEnded,
     showAudioAction = true,
   }: ContentBlockProps) => {
+    const { t } = useTranslation();
     const handleClick = useCallback(() => {
       onClickCustomButtonAfterContent?.(blockBid);
     }, [blockBid, onClickCustomButtonAfterContent]);
@@ -71,26 +79,65 @@ const ContentBlock = memo(
     const primaryTrack = getAudioTrackByPosition(item.audioTracks ?? []);
     const hasAudioContent = Boolean(hasAudioContentInTrack(primaryTrack));
     const shouldShowAudioAction = Boolean(showAudioAction);
+    const isLessonFeedbackInteraction =
+      item.type === ChatContentItemType.INTERACTION &&
+      Boolean(item.content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER));
 
     return (
       <div
-        className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
+        className={cn(
+          isLessonFeedbackInteraction ? '' : 'content-render-theme',
+          mobileStyle ? 'mobile' : '',
+          isLessonFeedbackInteraction ? 'mt-6' : '',
+        )}
         {...(mobileStyle ? longPressEvent : {})}
       >
-        <ContentRender
-          enableTypewriter={false}
-          content={item.content || ''}
-          onClickCustomButtonAfterContent={handleClick}
-          customRenderBar={item.customRenderBar}
-          defaultButtonText={item.defaultButtonText}
-          defaultInputText={item.defaultInputText}
-          defaultSelectedValues={item.defaultSelectedValues}
-          readonly={item.readonly}
-          confirmButtonText={confirmButtonText}
-          copyButtonText={copyButtonText}
-          copiedButtonText={copiedButtonText}
-          onSend={_onSend}
-        />
+        {isLessonFeedbackInteraction ? (
+          <p className='mb-2 text-[16px] leading-[22px] text-[var(--foreground)]'>
+            {t('module.chat.lessonFeedbackPrompt')}
+          </p>
+        ) : null}
+        {isLessonFeedbackInteraction ? (
+          <LessonFeedbackInteraction
+            defaultScoreText={item.defaultButtonText}
+            defaultCommentText={item.defaultInputText}
+            placeholder={t('module.chat.lessonFeedbackCommentPlaceholder')}
+            submitLabel={confirmButtonText || t('module.renderUi.core.confirm')}
+            skipLabel={t('module.chat.lessonFeedbackSkip')}
+            clearLabel={t('module.chat.lessonFeedbackClearInput')}
+            readonly={item.readonly}
+            onSubmit={(score, comment) =>
+              _onSend({
+                variableName: LESSON_FEEDBACK_VARIABLE_NAME,
+                buttonText: String(score),
+                inputText: comment,
+              })
+            }
+            onSkip={(score, comment) =>
+              _onSend({
+                variableName: LESSON_FEEDBACK_VARIABLE_NAME,
+                buttonText: SYS_INTERACTION_TYPE.NEXT_CHAPTER,
+                inputText: comment,
+                selectedValues: score ? [String(score)] : [],
+              })
+            }
+          />
+        ) : (
+          <ContentRender
+            enableTypewriter={false}
+            content={item.content || ''}
+            onClickCustomButtonAfterContent={handleClick}
+            customRenderBar={item.customRenderBar}
+            defaultButtonText={item.defaultButtonText}
+            defaultInputText={item.defaultInputText}
+            defaultSelectedValues={item.defaultSelectedValues}
+            readonly={item.readonly}
+            confirmButtonText={confirmButtonText}
+            copyButtonText={copyButtonText}
+            copiedButtonText={copiedButtonText}
+            onSend={_onSend}
+          />
+        )}
         {mobileStyle && hasAudioContent && shouldShowAudioAction ? (
           <div className='mt-2 flex justify-end'>
             <AudioPlayer

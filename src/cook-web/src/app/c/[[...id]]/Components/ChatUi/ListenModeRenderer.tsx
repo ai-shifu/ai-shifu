@@ -11,6 +11,7 @@ import { AudioPlayerList } from '@/components/audio/AudioPlayerList';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import {
+  isLessonFeedbackInteractionItem,
   resolveListenAudioSourceBid,
   useListenAudioSequence,
   useListenContentData,
@@ -322,6 +323,9 @@ const ListenModeRenderer = ({
   );
 
   const listenPlayerInteraction = sequenceInteraction;
+  const isListenFeedbackInteraction = isLessonFeedbackInteractionItem(
+    listenPlayerInteraction,
+  );
   const isLatestInteractionEditable = Boolean(
     listenPlayerInteraction?.generated_block_bid &&
     lastItemIsInteraction &&
@@ -329,7 +333,9 @@ const ListenModeRenderer = ({
     listenPlayerInteraction.generated_block_bid === lastInteractionBid,
   );
   const interactionReadonly = listenPlayerInteraction
-    ? !isLatestInteractionEditable
+    ? isListenFeedbackInteraction
+      ? Boolean(listenPlayerInteraction.readonly)
+      : !isLatestInteractionEditable
     : true;
 
   return (

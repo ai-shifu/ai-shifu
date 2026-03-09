@@ -16,6 +16,12 @@ import {
   type OnSendContentParams,
 } from 'markdown-flow-ui/renderer';
 import { useTranslation } from 'react-i18next';
+import {
+  LESSON_FEEDBACK_INTERACTION_MARKER,
+  LESSON_FEEDBACK_VARIABLE_NAME,
+  SYS_INTERACTION_TYPE,
+} from '@/c-api/studyV2';
+import LessonFeedbackInteraction from './LessonFeedbackInteraction';
 
 interface ListenPlayerProps {
   className?: string;
@@ -67,6 +73,12 @@ const ListenPlayer = ({
     typeof interactionReadonly === 'boolean'
       ? interactionReadonly
       : Boolean(interaction?.readonly);
+  const isLessonFeedbackInteraction = Boolean(
+    interaction?.content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER),
+  );
+  const interactionHintText = isLessonFeedbackInteraction
+    ? t('module.chat.lessonFeedbackPrompt')
+    : t('module.chat.listenInteractionHint');
 
   useEffect(() => {
     const nextBid = interaction?.generated_block_bid ?? null;
@@ -100,6 +112,43 @@ const ListenPlayer = ({
     [onSend, interaction?.generated_block_bid],
   );
 
+  const handleLessonFeedbackSubmit = useCallback(
+    (score: number, comment: string) => {
+      if (!interaction?.generated_block_bid) {
+        return;
+      }
+      setIsInteractionOpen(false);
+      onSend?.(
+        {
+          variableName: LESSON_FEEDBACK_VARIABLE_NAME,
+          buttonText: String(score),
+          inputText: comment,
+        },
+        interaction.generated_block_bid,
+      );
+    },
+    [interaction?.generated_block_bid, onSend],
+  );
+
+  const handleLessonFeedbackSkip = useCallback(
+    (score: number | null, comment: string) => {
+      if (!interaction?.generated_block_bid) {
+        return;
+      }
+      setIsInteractionOpen(false);
+      onSend?.(
+        {
+          variableName: LESSON_FEEDBACK_VARIABLE_NAME,
+          buttonText: SYS_INTERACTION_TYPE.NEXT_CHAPTER,
+          inputText: comment,
+          selectedValues: score ? [String(score)] : [],
+        },
+        interaction.generated_block_bid,
+      );
+    },
+    [interaction?.generated_block_bid, onSend],
+  );
+
   return (
     <div
       className={cn(
@@ -119,24 +168,46 @@ const ListenPlayer = ({
           <div className='rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-lg'>
             <div className='px-4 pt-3'>
               <p className='text-[16px] leading-[20px] text-foreground/65'>
-                {t('module.chat.listenInteractionHint')}
+                {interactionHintText}
               </p>
             </div>
-            <div className='content-render-theme max-h-60 overflow-y-auto px-4 pb-3 text-[var(--card-foreground)]'>
-              <ContentRender
-                enableTypewriter={false}
-                content={interaction.content || ''}
-                customRenderBar={interaction.customRenderBar}
-                defaultButtonText={interaction.defaultButtonText}
-                defaultInputText={interaction.defaultInputText}
-                defaultSelectedValues={interaction.defaultSelectedValues}
-                confirmButtonText={t('module.renderUi.core.confirm')}
-                copyButtonText={t('module.renderUi.core.copyCode')}
-                copiedButtonText={t('module.renderUi.core.copied')}
-                readonly={resolvedReadonly}
-                sandboxMode='content'
-                onSend={_onSend}
-              />
+            <div
+              className={cn(
+                'overflow-y-auto px-4 pb-3 text-[var(--card-foreground)]',
+                isLessonFeedbackInteraction ? '' : 'content-render-theme',
+                isLessonFeedbackInteraction ? 'max-h-[360px]' : 'max-h-60',
+              )}
+            >
+              {isLessonFeedbackInteraction ? (
+                <LessonFeedbackInteraction
+                  defaultScoreText={interaction.defaultButtonText}
+                  defaultCommentText={interaction.defaultInputText}
+                  placeholder={t(
+                    'module.chat.lessonFeedbackCommentPlaceholder',
+                  )}
+                  submitLabel={t('module.renderUi.core.confirm')}
+                  skipLabel={t('module.chat.lessonFeedbackSkip')}
+                  clearLabel={t('module.chat.lessonFeedbackClearInput')}
+                  readonly={resolvedReadonly}
+                  onSubmit={handleLessonFeedbackSubmit}
+                  onSkip={handleLessonFeedbackSkip}
+                />
+              ) : (
+                <ContentRender
+                  enableTypewriter={false}
+                  content={interaction.content || ''}
+                  customRenderBar={interaction.customRenderBar}
+                  defaultButtonText={interaction.defaultButtonText}
+                  defaultInputText={interaction.defaultInputText}
+                  defaultSelectedValues={interaction.defaultSelectedValues}
+                  confirmButtonText={t('module.renderUi.core.confirm')}
+                  copyButtonText={t('module.renderUi.core.copyCode')}
+                  copiedButtonText={t('module.renderUi.core.copied')}
+                  readonly={resolvedReadonly}
+                  sandboxMode='content'
+                  onSend={_onSend}
+                />
+              )}
             </div>
           </div>
         </div>
