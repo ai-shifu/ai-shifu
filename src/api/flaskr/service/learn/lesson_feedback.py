@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 
 from flask import Flask
-from sqlalchemy.exc import IntegrityError
 
 from flaskr.dao import db
 from flaskr.i18n import _
@@ -137,13 +136,7 @@ def submit_lesson_feedback(
             .order_by(LearnLessonFeedback.id.desc())
             .first()
         )
-        if not existing and not progress_record_bid:
-            raise_param_error("outline_bid")
         if existing:
-            if not existing.bid:
-                existing.bid = existing.lesson_feedback_bid or generate_id(app)
-            if not existing.lesson_feedback_bid:
-                existing.lesson_feedback_bid = existing.bid
             existing.score = normalized_score
             existing.comment = normalized_comment
             existing.mode = normalized_mode
@@ -151,10 +144,8 @@ def submit_lesson_feedback(
                 existing.progress_record_bid = progress_record_bid
             feedback_record = existing
         else:
-            feedback_bid = generate_id(app)
             feedback_record = LearnLessonFeedback(
-                bid=feedback_bid,
-                lesson_feedback_bid=feedback_bid,
+                lesson_feedback_bid=generate_id(app),
                 shifu_bid=shifu_bid,
                 outline_item_bid=outline_bid,
                 progress_record_bid=progress_record_bid,
@@ -173,42 +164,7 @@ def submit_lesson_feedback(
             normalized_score,
             normalized_comment,
         )
-        try:
-            db.session.commit()
-        except IntegrityError:
-            # Handle race on unique active row: re-read and update instead of failing.
-            db.session.rollback()
-            feedback_record = (
-                LearnLessonFeedback.query.filter(
-                    LearnLessonFeedback.user_bid == user_bid,
-                    LearnLessonFeedback.shifu_bid == shifu_bid,
-                    LearnLessonFeedback.outline_item_bid == outline_bid,
-                    LearnLessonFeedback.deleted == 0,
-                )
-                .order_by(LearnLessonFeedback.id.desc())
-                .first()
-            )
-            if not feedback_record:
-                raise
-            if not feedback_record.bid:
-                feedback_record.bid = (
-                    feedback_record.lesson_feedback_bid or generate_id(app)
-                )
-            if not feedback_record.lesson_feedback_bid:
-                feedback_record.lesson_feedback_bid = feedback_record.bid
-            feedback_record.score = normalized_score
-            feedback_record.comment = normalized_comment
-            feedback_record.mode = normalized_mode
-            if progress_record_bid:
-                feedback_record.progress_record_bid = progress_record_bid
-            _sync_feedback_to_generated_block(
-                user_bid,
-                shifu_bid,
-                outline_bid,
-                normalized_score,
-                normalized_comment,
-            )
-            db.session.commit()
+        db.session.commit()
         return {
             "lesson_feedback_bid": feedback_record.lesson_feedback_bid,
             "shifu_bid": shifu_bid,

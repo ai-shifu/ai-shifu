@@ -15,7 +15,6 @@ interface LessonFeedbackInteractionProps {
 }
 
 const SCORE_OPTIONS = [1, 2, 3, 4, 5];
-const COMMENT_MAX_LENGTH = 1000;
 
 const normalizeScore = (raw?: string): number | null => {
   const score = Number(raw || '');
@@ -68,7 +67,7 @@ export default function LessonFeedbackInteraction({
   }, [comment]);
 
   return (
-    <div className='rounded-xl bg-[var(--muted)] p-3'>
+    <div className='rounded-xl bg-[#f5f5f5] p-3'>
       <div className='flex flex-wrap items-center gap-x-2 gap-y-[9px]'>
         {SCORE_OPTIONS.map(score => {
           const selected = selectedScore === score;
@@ -82,7 +81,7 @@ export default function LessonFeedbackInteraction({
                 'h-8 min-w-8 rounded-md border px-3 text-sm leading-none transition-colors',
                 selected
                   ? 'border-primary bg-primary text-white'
-                  : 'border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]',
+                  : 'border-[#e5e7eb] bg-white text-[#111827]',
                 readonly ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
               )}
             >
@@ -91,20 +90,18 @@ export default function LessonFeedbackInteraction({
           );
         })}
       </div>
-      <div className='mt-[9px] flex flex-col gap-2 sm:flex-row sm:items-start'>
-        <div className='relative w-full sm:min-w-[220px] sm:flex-1'>
+      <div className='mt-[9px] flex flex-wrap items-start gap-2'>
+        <div className='relative min-w-[220px] flex-1'>
           <textarea
             ref={textareaRef}
             value={comment}
             disabled={readonly}
-            maxLength={COMMENT_MAX_LENGTH}
-            aria-label={placeholder}
             rows={1}
             onChange={event => setComment(event.target.value)}
             placeholder={placeholder}
             className={cn(
-              'min-h-9 max-h-[120px] w-full resize-none overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 pr-8 text-sm leading-5 text-[var(--foreground)] outline-none',
-              'placeholder:text-foreground/45 focus:border-primary',
+              'min-h-9 max-h-[120px] w-full resize-none overflow-y-auto rounded-lg border border-[#d1d5db] bg-white px-3 py-1.5 pr-8 text-sm leading-5 text-[#111827] outline-none',
+              'placeholder:text-[rgba(99,114,128,1)] focus:border-primary',
               readonly ? 'cursor-not-allowed opacity-60' : '',
             )}
           />
@@ -116,45 +113,43 @@ export default function LessonFeedbackInteraction({
                 setComment('');
                 textareaRef.current?.focus();
               }}
-              className='absolute inset-y-0 right-2 my-auto inline-flex h-5 w-5 items-center justify-center rounded text-foreground/45 transition-colors hover:text-foreground/65'
+              className='absolute inset-y-0 right-2 my-auto inline-flex h-5 w-5 items-center justify-center rounded text-[#9ca3af] transition-colors hover:text-[#6b7280]'
             >
               <X className='h-3.5 w-3.5' />
             </button>
           ) : null}
         </div>
-        <div className='flex items-center gap-2 sm:self-start'>
-          <button
-            type='button'
-            disabled={readonly || !selectedScore}
-            onClick={() => {
-              if (!selectedScore) {
-                return;
-              }
-              onSubmit(selectedScore, comment.trim());
-            }}
-            className={cn(
-              'h-9 min-w-[72px] rounded-md px-3 text-sm font-medium text-white transition-colors',
-              readonly || !selectedScore
-                ? 'cursor-not-allowed bg-primary/50'
-                : 'bg-primary hover:bg-primary/90',
-            )}
-          >
-            {submitLabel}
-          </button>
-          <button
-            type='button'
-            disabled={readonly}
-            onClick={() => onSkip(selectedScore, comment.trim())}
-            className={cn(
-              'h-9 min-w-[84px] rounded-md border border-[var(--border)] bg-[var(--background)] px-3 text-sm font-medium text-[var(--foreground)] transition-colors',
-              readonly
-                ? 'cursor-not-allowed opacity-60'
-                : 'cursor-pointer hover:bg-[var(--card)]',
-            )}
-          >
-            {skipLabel}
-          </button>
-        </div>
+        <button
+          type='button'
+          disabled={readonly || !selectedScore}
+          onClick={() => {
+            if (!selectedScore) {
+              return;
+            }
+            onSubmit(selectedScore, comment.trim());
+          }}
+          className={cn(
+            'h-9 min-w-[72px] self-start rounded-md px-3 text-sm font-medium text-white transition-colors',
+            readonly || !selectedScore
+              ? 'cursor-not-allowed bg-primary/50'
+              : 'bg-primary hover:bg-primary/90',
+          )}
+        >
+          {submitLabel}
+        </button>
+        <button
+          type='button'
+          disabled={readonly}
+          onClick={() => onSkip(selectedScore, comment.trim())}
+          className={cn(
+            'h-9 min-w-[84px] self-start rounded-md border border-[#d1d5db] bg-white px-3 text-sm font-medium text-[#374151] transition-colors',
+            readonly
+              ? 'cursor-not-allowed opacity-60'
+              : 'cursor-pointer hover:bg-[#f9fafb]',
+          )}
+        >
+          {skipLabel}
+        </button>
       </div>
     </div>
   );

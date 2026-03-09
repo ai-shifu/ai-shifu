@@ -22,8 +22,7 @@ from flaskr.service.learn.lesson_feedback import (
     submit_lesson_feedback,
     list_lesson_feedbacks,
 )
-from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
-from flaskr.service.shifu.utils import get_shifu_creator_bid
+from flaskr.service.shifu.funcs import shifu_permission_verification
 from flaskr.service.common import raise_error
 from flaskr.service.learn.runscript_v2 import run_script, get_run_status
 from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
@@ -614,10 +613,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                                     type: object
         """
         user_bid = request.user.user_id
-        _ensure_outline_belongs_to_shifu(shifu_bid, outline_bid)
         payload = request.get_json(silent=True) or {}
-        if not isinstance(payload, dict):
-            raise_param_error("body")
         return make_common_response(
             submit_lesson_feedback(
                 app,
@@ -655,21 +651,16 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
               type: integer
               required: false
         """
-        _require_shifu_owner(shifu_bid)
+        user_bid = request.user.user_id
+        if not shifu_permission_verification(app, user_bid, shifu_bid, "view"):
+            raise_error("server.shifu.noPermission")
         page_index_raw = request.args.get("page_index", "1")
         page_size_raw = request.args.get("page_size", "20")
         try:
             page_index = int(page_index_raw)
-        except ValueError:
-            raise_param_error("page_index")
-        try:
             page_size = int(page_size_raw)
         except ValueError:
-            raise_param_error("page_size")
-        if page_index < 1:
-            raise_param_error("page_index")
-        if page_size < 1:
-            raise_param_error("page_size")
+            raise_param_error("page_index or page_size")
         return make_common_response(
             list_lesson_feedbacks(
                 app,

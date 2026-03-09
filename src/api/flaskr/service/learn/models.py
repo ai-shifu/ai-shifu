@@ -199,13 +199,6 @@ class LearnLessonFeedback(db.Model):
     )
 
     id = Column(BIGINT, primary_key=True, autoincrement=True)
-    bid = Column(
-        String(36),
-        nullable=False,
-        default="",
-        comment="Lesson feedback business identifier",
-        index=True,
-    )
     lesson_feedback_bid = Column(
         String(36),
         nullable=False,
@@ -244,6 +237,7 @@ class LearnLessonFeedback(db.Model):
     score = Column(
         SmallInteger,
         nullable=False,
+        default=0,
         comment="Lesson score: 1-5",
     )
     comment = Column(

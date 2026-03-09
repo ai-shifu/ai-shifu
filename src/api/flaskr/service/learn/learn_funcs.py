@@ -121,9 +121,7 @@ STATUS_MAP = {
 logger = logging.getLogger(__name__)
 
 
-def _is_access_gate_interaction(
-    content: str | None, *, is_paid: bool, is_logged_in: bool
-) -> bool:
+def _is_access_gate_interaction(content: str | None) -> bool:
     if not content:
         return False
     try:
@@ -131,13 +129,7 @@ def _is_access_gate_interaction(
     except Exception:
         return False
     buttons = parsed.get("buttons") or []
-    for button in buttons:
-        value = button.get("value")
-        if value == "_sys_pay" and not is_paid:
-            return True
-        if value == "_sys_login" and not is_logged_in:
-            return True
-    return False
+    return any(button.get("value") in {"_sys_pay", "_sys_login"} for button in buttons)
 
 
 def _collect_outline_bids(struct: HistoryItem) -> list[str]:
@@ -601,46 +593,18 @@ def get_learn_record(
         has_tail_access_gate = bool(
             records
             and records[-1].block_type == BlockType.INTERACTION
-            and _is_access_gate_interaction(
-                records[-1].content,
-                is_paid=is_paid,
-                is_logged_in=bool(
-                    getattr(getattr(request, "user", None), "mobile", None)
-                    or getattr(getattr(request, "user", None), "email", None)
-                )
-                if has_request_context()
-                else False,
-            )
+            and _is_access_gate_interaction(records[-1].content)
         )
         if (
             progress_record.status == LEARN_STATUS_COMPLETED or has_tail_access_gate
         ) and not has_feedback_interaction:
-            saved_feedback = (
-                LearnLessonFeedback.query.filter(
-                    LearnLessonFeedback.user_bid == user_bid,
-                    LearnLessonFeedback.shifu_bid == shifu_bid,
-                    LearnLessonFeedback.outline_item_bid == outline_bid,
-                    LearnLessonFeedback.deleted == 0,
-                )
-                .order_by(LearnLessonFeedback.id.desc())
-                .first()
-            )
-            feedback_generated_content = ""
-            if saved_feedback and 1 <= int(saved_feedback.score or 0) <= 5:
-                feedback_generated_content = json.dumps(
-                    {
-                        "score": int(saved_feedback.score),
-                        "comment": saved_feedback.comment or "",
-                    },
-                    ensure_ascii=False,
-                )
             feedback_content = build_lesson_feedback_interaction_md()
             feedback_record = GeneratedBlockDTO(
                 generate_id(app),
                 feedback_content,
                 LikeStatus.NONE,
                 BlockType.INTERACTION,
-                feedback_generated_content,
+                "",
             )
             next_button_index = next(
                 (

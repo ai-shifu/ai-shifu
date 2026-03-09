@@ -2,7 +2,23 @@ import json
 import unittest
 
 from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+
 import flaskr.dao as dao
+
+if dao.db is None:
+    _test_app = Flask("test-lesson-feedback")
+    _test_app.config.update(
+        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+        SQLALCHEMY_BINDS={
+            "ai_shifu_saas": "sqlite:///:memory:",
+            "ai_shifu_admin": "sqlite:///:memory:",
+        },
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+    )
+    _db = SQLAlchemy()
+    _db.init_app(_test_app)
+    dao.db = _db
 
 from flaskr.service.learn.lesson_feedback import (
     build_lesson_feedback_interaction_md,
@@ -101,7 +117,6 @@ class LessonFeedbackTests(unittest.TestCase):
         self.assertEqual(rows[0].comment, "Need more examples")
         self.assertEqual(rows[0].mode, "listen")
         self.assertEqual(rows[0].progress_record_bid, "progress-1")
-        self.assertEqual(rows[0].bid, rows[0].lesson_feedback_bid)
         self.assertEqual(first["lesson_feedback_bid"], second["lesson_feedback_bid"])
 
         synced_block = LearnGeneratedBlock.query.filter(
