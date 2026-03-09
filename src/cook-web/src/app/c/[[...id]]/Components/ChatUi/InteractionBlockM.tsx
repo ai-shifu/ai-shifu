@@ -141,6 +141,7 @@ export default function InteractionBlockM({
           className='w-auto p-2 bg-white shadow-lg rounded-lg border border-gray-200'
           align='start'
           forceMount
+          data-mobile-interaction-popover='true'
         >
           <div className='flex flex-col'>
             <button
