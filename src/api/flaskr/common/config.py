@@ -114,6 +114,13 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Shifu permission cache expiration time in seconds",
         group="app",
     ),
+    "API_KEY_CACHE_TTL": EnvVar(
+        name="API_KEY_CACHE_TTL",
+        default=300,
+        type=int,
+        description="Cache TTL in seconds for API key validation lookups",
+        group="auth",
+    ),
     "TZ": EnvVar(
         name="TZ",
         default="UTC",

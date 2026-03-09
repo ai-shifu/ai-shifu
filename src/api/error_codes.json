@@ -15,6 +15,11 @@
   "server.user.passwordTooShort": 1018,
   "server.user.passwordNeedsLetter": 1019,
   "server.user.passwordNeedsDigit": 1020,
+  "server.user.apiKeyInvalid": 1001,
+  "server.user.apiKeyNameTooLong": 2001,
+  "server.user.apiKeyLimitExceeded": 1021,
+  "server.user.apiKeyNotFound": 1022,
+  "server.user.apiKeySessionRequired": 1001,
 
   "server.common.unknownError": 9999,
   "server.common.paramsError": 2001,

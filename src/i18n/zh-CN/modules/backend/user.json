@@ -1,6 +1,11 @@
 {
   "__namespace__": "server.user",
   "__flat__": {
+    "apiKeyInvalid": "API Key 无效或已过期",
+    "apiKeyLimitExceeded": "API Key 数量已达上限",
+    "apiKeyNameTooLong": "API Key 名称不能超过 100 个字符",
+    "apiKeyNotFound": "未找到该 API Key",
+    "apiKeySessionRequired": "管理 API Key 需要登录认证",
     "emailSendFailed": "邮件发送失败",
     "emailSendTooFrequent": "邮件发送过于频繁",
     "emailVerificationSubject": "AI-Shifu: 您的验证码",
