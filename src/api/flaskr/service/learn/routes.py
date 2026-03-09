@@ -23,6 +23,8 @@ from flaskr.service.learn.lesson_feedback import (
     list_lesson_feedbacks,
 )
 from flaskr.service.shifu.funcs import shifu_permission_verification
+from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
+from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.common import raise_error
 from flaskr.service.learn.runscript_v2 import run_script, get_run_status
 from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
@@ -613,6 +615,9 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                                     type: object
         """
         user_bid = request.user.user_id
+        if not shifu_permission_verification(app, user_bid, shifu_bid, "view"):
+            raise_error("server.shifu.noPermission")
+        _ensure_outline_belongs_to_shifu(shifu_bid, outline_bid)
         payload = request.get_json(silent=True) or {}
         return make_common_response(
             submit_lesson_feedback(
@@ -651,9 +656,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
               type: integer
               required: false
         """
-        user_bid = request.user.user_id
-        if not shifu_permission_verification(app, user_bid, shifu_bid, "view"):
-            raise_error("server.shifu.noPermission")
+        _require_shifu_owner(shifu_bid)
         page_index_raw = request.args.get("page_index", "1")
         page_size_raw = request.args.get("page_size", "20")
         try:

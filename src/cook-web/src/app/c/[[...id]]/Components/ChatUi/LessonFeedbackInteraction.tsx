@@ -67,7 +67,7 @@ export default function LessonFeedbackInteraction({
   }, [comment]);
 
   return (
-    <div className='rounded-xl bg-[#f5f5f5] p-3'>
+    <div className='rounded-xl border border-[var(--border)] bg-[var(--card)] p-3'>
       <div className='flex flex-wrap items-center gap-x-2 gap-y-[9px]'>
         {SCORE_OPTIONS.map(score => {
           const selected = selectedScore === score;
@@ -81,7 +81,7 @@ export default function LessonFeedbackInteraction({
                 'h-8 min-w-8 rounded-md border px-3 text-sm leading-none transition-colors',
                 selected
                   ? 'border-primary bg-primary text-white'
-                  : 'border-[#e5e7eb] bg-white text-[#111827]',
+                  : 'border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]',
                 readonly ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
               )}
             >
@@ -100,8 +100,8 @@ export default function LessonFeedbackInteraction({
             onChange={event => setComment(event.target.value)}
             placeholder={placeholder}
             className={cn(
-              'min-h-9 max-h-[120px] w-full resize-none overflow-y-auto rounded-lg border border-[#d1d5db] bg-white px-3 py-1.5 pr-8 text-sm leading-5 text-[#111827] outline-none',
-              'placeholder:text-[rgba(99,114,128,1)] focus:border-primary',
+              'min-h-9 max-h-[120px] w-full resize-none overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 pr-8 text-sm leading-5 text-[var(--foreground)] outline-none',
+              'placeholder:text-foreground/45 focus:border-primary',
               readonly ? 'cursor-not-allowed opacity-60' : '',
             )}
           />
@@ -113,7 +113,7 @@ export default function LessonFeedbackInteraction({
                 setComment('');
                 textareaRef.current?.focus();
               }}
-              className='absolute inset-y-0 right-2 my-auto inline-flex h-5 w-5 items-center justify-center rounded text-[#9ca3af] transition-colors hover:text-[#6b7280]'
+              className='absolute inset-y-0 right-2 my-auto inline-flex h-5 w-5 items-center justify-center rounded text-foreground/45 transition-colors hover:text-foreground/65'
             >
               <X className='h-3.5 w-3.5' />
             </button>
@@ -142,10 +142,10 @@ export default function LessonFeedbackInteraction({
           disabled={readonly}
           onClick={() => onSkip(selectedScore, comment.trim())}
           className={cn(
-            'h-9 min-w-[84px] self-start rounded-md border border-[#d1d5db] bg-white px-3 text-sm font-medium text-[#374151] transition-colors',
+            'h-9 min-w-[84px] self-start rounded-md border border-[var(--border)] bg-[var(--background)] px-3 text-sm font-medium text-[var(--foreground)] transition-colors',
             readonly
               ? 'cursor-not-allowed opacity-60'
-              : 'cursor-pointer hover:bg-[#f9fafb]',
+              : 'cursor-pointer hover:bg-[var(--card)]',
           )}
         >
           {skipLabel}

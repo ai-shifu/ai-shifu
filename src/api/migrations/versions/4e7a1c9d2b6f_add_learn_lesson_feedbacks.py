@@ -55,7 +55,6 @@ def upgrade():
             "score",
             sa.SmallInteger(),
             nullable=False,
-            server_default=sa.text("0"),
             comment="Lesson score: 1-5",
         ),
         sa.Column(
