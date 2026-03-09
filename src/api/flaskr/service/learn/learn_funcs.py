@@ -606,6 +606,7 @@ def get_learn_record(
                 is_paid=is_paid,
                 is_logged_in=bool(
                     getattr(getattr(request, "user", None), "mobile", None)
+                    or getattr(getattr(request, "user", None), "email", None)
                 )
                 if has_request_context()
                 else False,
