@@ -98,6 +98,7 @@ export default function LessonFeedbackInteraction({
             value={comment}
             disabled={readonly}
             maxLength={COMMENT_MAX_LENGTH}
+            aria-label={placeholder}
             rows={1}
             onChange={event => setComment(event.target.value)}
             placeholder={placeholder}
