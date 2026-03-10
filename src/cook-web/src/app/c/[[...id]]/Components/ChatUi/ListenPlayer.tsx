@@ -16,12 +16,7 @@ import {
   type OnSendContentParams,
 } from 'markdown-flow-ui/renderer';
 import { useTranslation } from 'react-i18next';
-import {
-  LESSON_FEEDBACK_INTERACTION_MARKER,
-  LESSON_FEEDBACK_VARIABLE_NAME,
-  SYS_INTERACTION_TYPE,
-} from '@/c-api/studyV2';
-import LessonFeedbackInteraction from './LessonFeedbackInteraction';
+import { LESSON_FEEDBACK_INTERACTION_MARKER } from '@/c-api/studyV2';
 
 interface ListenPlayerProps {
   className?: string;
@@ -76,12 +71,11 @@ const ListenPlayer = ({
   const isLessonFeedbackInteraction = Boolean(
     interaction?.content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER),
   );
-  const interactionHintText = isLessonFeedbackInteraction
-    ? t('module.chat.lessonFeedbackPrompt')
-    : t('module.chat.listenInteractionHint');
+  const effectiveInteraction = isLessonFeedbackInteraction ? null : interaction;
+  const interactionHintText = t('module.chat.listenInteractionHint');
 
   useEffect(() => {
-    const nextBid = interaction?.generated_block_bid ?? null;
+    const nextBid = effectiveInteraction?.generated_block_bid ?? null;
     if (!nextBid) {
       lastInteractionBidRef.current = null;
       setIsInteractionOpen(false);
@@ -91,62 +85,25 @@ const ListenPlayer = ({
       lastInteractionBidRef.current = nextBid;
       setIsInteractionOpen(true);
     }
-  }, [interaction]);
+  }, [effectiveInteraction]);
 
   const handleNotesClick = useCallback(() => {
-    if (!interaction) {
+    if (!effectiveInteraction) {
       return;
     }
     setIsInteractionOpen(prev => !prev);
     onNotes?.();
-  }, [interaction, onNotes]);
+  }, [effectiveInteraction, onNotes]);
 
   const _onSend = useCallback(
     (content: OnSendContentParams) => {
-      if (!interaction?.generated_block_bid) {
+      if (!effectiveInteraction?.generated_block_bid) {
         return;
       }
       setIsInteractionOpen(false);
-      onSend?.(content, interaction.generated_block_bid);
+      onSend?.(content, effectiveInteraction.generated_block_bid);
     },
-    [onSend, interaction?.generated_block_bid],
-  );
-
-  const handleLessonFeedbackSubmit = useCallback(
-    (score: number, comment: string) => {
-      if (!interaction?.generated_block_bid) {
-        return;
-      }
-      setIsInteractionOpen(false);
-      onSend?.(
-        {
-          variableName: LESSON_FEEDBACK_VARIABLE_NAME,
-          buttonText: String(score),
-          inputText: comment,
-        },
-        interaction.generated_block_bid,
-      );
-    },
-    [interaction?.generated_block_bid, onSend],
-  );
-
-  const handleLessonFeedbackSkip = useCallback(
-    (score: number | null, comment: string) => {
-      if (!interaction?.generated_block_bid) {
-        return;
-      }
-      setIsInteractionOpen(false);
-      onSend?.(
-        {
-          variableName: LESSON_FEEDBACK_VARIABLE_NAME,
-          buttonText: SYS_INTERACTION_TYPE.NEXT_CHAPTER,
-          inputText: comment,
-          selectedValues: score ? [String(score)] : [],
-        },
-        interaction.generated_block_bid,
-      );
-    },
-    [interaction?.generated_block_bid, onSend],
+    [effectiveInteraction?.generated_block_bid, onSend],
   );
 
   return (
@@ -158,7 +115,7 @@ const ListenPlayer = ({
         className,
       )}
     >
-      {interaction && isInteractionOpen ? (
+      {effectiveInteraction && isInteractionOpen ? (
         <div
           className={cn(
             'absolute left-1/2 top-0 w-full -translate-x-1/2 -translate-y-full pb-4',
@@ -174,40 +131,26 @@ const ListenPlayer = ({
             <div
               className={cn(
                 'overflow-y-auto px-4 pb-3 text-[var(--card-foreground)]',
-                isLessonFeedbackInteraction ? '' : 'content-render-theme',
-                isLessonFeedbackInteraction ? 'max-h-[360px]' : 'max-h-60',
+                'content-render-theme',
+                'max-h-60',
               )}
             >
-              {isLessonFeedbackInteraction ? (
-                <LessonFeedbackInteraction
-                  defaultScoreText={interaction.defaultButtonText}
-                  defaultCommentText={interaction.defaultInputText}
-                  placeholder={t(
-                    'module.chat.lessonFeedbackCommentPlaceholder',
-                  )}
-                  submitLabel={t('module.renderUi.core.confirm')}
-                  skipLabel={t('module.chat.lessonFeedbackSkip')}
-                  clearLabel={t('module.chat.lessonFeedbackClearInput')}
-                  readonly={resolvedReadonly}
-                  onSubmit={handleLessonFeedbackSubmit}
-                  onSkip={handleLessonFeedbackSkip}
-                />
-              ) : (
-                <ContentRender
-                  enableTypewriter={false}
-                  content={interaction.content || ''}
-                  customRenderBar={interaction.customRenderBar}
-                  defaultButtonText={interaction.defaultButtonText}
-                  defaultInputText={interaction.defaultInputText}
-                  defaultSelectedValues={interaction.defaultSelectedValues}
-                  confirmButtonText={t('module.renderUi.core.confirm')}
-                  copyButtonText={t('module.renderUi.core.copyCode')}
-                  copiedButtonText={t('module.renderUi.core.copied')}
-                  readonly={resolvedReadonly}
-                  sandboxMode='content'
-                  onSend={_onSend}
-                />
-              )}
+              <ContentRender
+                enableTypewriter={false}
+                content={effectiveInteraction.content || ''}
+                customRenderBar={effectiveInteraction.customRenderBar}
+                defaultButtonText={effectiveInteraction.defaultButtonText}
+                defaultInputText={effectiveInteraction.defaultInputText}
+                defaultSelectedValues={
+                  effectiveInteraction.defaultSelectedValues
+                }
+                confirmButtonText={t('module.renderUi.core.confirm')}
+                copyButtonText={t('module.renderUi.core.copyCode')}
+                copiedButtonText={t('module.renderUi.core.copied')}
+                readonly={resolvedReadonly}
+                sandboxMode='content'
+                onSend={_onSend}
+              />
             </div>
           </div>
         </div>
@@ -331,8 +274,10 @@ const ListenPlayer = ({
           type='button'
           aria-label='Notes'
           onClick={handleNotesClick}
-          disabled={!interaction}
-          className={cn(interaction ? '!text-primary' : disabledClassName)}
+          disabled={!effectiveInteraction}
+          className={cn(
+            effectiveInteraction ? '!text-primary' : disabledClassName,
+          )}
         >
           <SquarePen size={32} />
         </button>

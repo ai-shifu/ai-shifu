@@ -1083,7 +1083,7 @@ export const useListenAudioSequence = ({
         setActiveAudioBid(null);
         activeAudioBidRef.current = null;
         if (isLessonFeedbackInteractionItem(nextItem)) {
-          // Keep feedback interaction open for manual input in listen mode.
+          // Pause sequence here and let the floating feedback popup handle input.
           return;
         }
         if (index >= list.length - 1) {

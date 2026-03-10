@@ -123,6 +123,7 @@ export const ChatUi = ({
           chapterUpdate={chapterUpdate}
           updateSelectedLesson={updateSelectedLesson}
           getNextLessonId={getNextLessonId}
+          isNavOpen={isNavOpen}
         />
       }
       {showUserSettings && (
