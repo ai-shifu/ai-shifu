@@ -1739,7 +1739,7 @@ class RunScriptContextV2:
             )
             if current_outline_completed:
                 yield from self._emit_lesson_feedback_interaction(self._current_attend)
-            if has_next_outline_item:
+            elif has_next_outline_item:
                 yield from self._emit_next_chapter_interaction(self._current_attend)
             self._can_continue = False
             if len(outline_updates) > 0:
@@ -2625,7 +2625,7 @@ class RunScriptContextV2:
             yield from self._render_outline_updates(outline_updates, new_chapter=True)
             if current_outline_completed:
                 yield from self._emit_lesson_feedback_interaction(progress_record)
-            if has_next_outline_item:
+            elif has_next_outline_item:
                 yield from self._emit_next_chapter_interaction(progress_record)
             self._can_continue = False
             db.session.flush()
