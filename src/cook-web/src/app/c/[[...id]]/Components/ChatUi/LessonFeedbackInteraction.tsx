@@ -91,8 +91,8 @@ export default function LessonFeedbackInteraction({
           );
         })}
       </div>
-      <div className='mt-[9px] flex flex-col gap-2 sm:flex-row sm:items-start'>
-        <div className='relative w-full sm:min-w-[220px] sm:flex-1'>
+      <div className='mt-[9px]'>
+        <div className='relative w-full min-w-0'>
           <textarea
             ref={textareaRef}
             value={comment}
@@ -122,7 +122,7 @@ export default function LessonFeedbackInteraction({
             </button>
           ) : null}
         </div>
-        <div className='flex items-center gap-2 sm:self-start'>
+        <div className='mt-2 flex items-center justify-end gap-2'>
           <button
             type='button'
             disabled={readonly || !selectedScore}
@@ -133,7 +133,7 @@ export default function LessonFeedbackInteraction({
               onSubmit(selectedScore, comment.trim());
             }}
             className={cn(
-              'h-9 min-w-[72px] rounded-md px-3 text-sm font-medium text-white transition-colors',
+              'h-9 min-w-[64px] whitespace-nowrap rounded-md px-3 text-sm font-medium text-white transition-colors',
               readonly || !selectedScore
                 ? 'cursor-not-allowed bg-primary/50'
                 : 'bg-primary hover:bg-primary/90',
@@ -146,7 +146,7 @@ export default function LessonFeedbackInteraction({
             disabled={readonly}
             onClick={() => onSkip(selectedScore, comment.trim())}
             className={cn(
-              'h-9 min-w-[84px] rounded-md border border-[var(--border)] bg-[var(--background)] px-3 text-sm font-medium text-[var(--foreground)] transition-colors',
+              'h-9 min-w-[72px] whitespace-nowrap rounded-md border border-[var(--border)] bg-[var(--background)] px-3 text-sm font-medium text-[var(--foreground)] transition-colors',
               readonly
                 ? 'cursor-not-allowed opacity-60'
                 : 'cursor-pointer hover:bg-[var(--card)]',

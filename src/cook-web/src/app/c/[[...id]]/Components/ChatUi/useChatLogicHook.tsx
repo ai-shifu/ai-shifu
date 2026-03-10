@@ -72,6 +72,16 @@ interface InteractionDefaultValues {
   selectedValues?: string[];
 }
 
+interface LessonFeedbackPopupState {
+  open: boolean;
+  generatedBlockBid: string;
+  defaultScoreText: string;
+  defaultCommentText: string;
+  readonly: boolean;
+}
+
+const LESSON_FEEDBACK_DISMISS_CACHE_LIMIT = 200;
+
 export enum ChatContentItemType {
   CONTENT = 'content',
   INTERACTION = 'interaction',
@@ -146,6 +156,16 @@ export interface UseChatSessionResult {
     onConfirm: () => void;
     onCancel: () => void;
   };
+  lessonFeedbackPopup: {
+    open: boolean;
+    generatedBlockBid: string;
+    defaultScoreText: string;
+    defaultCommentText: string;
+    readonly: boolean;
+    onClose: () => void;
+    onSubmit: (score: number, comment: string) => void;
+    onSkip: (score: number | null, comment: string) => void;
+  };
 }
 
 /**
@@ -214,6 +234,15 @@ function useChatLogicHook({
     blockBid: string;
   } | null>(null);
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
+  const [lessonFeedbackPopupState, setLessonFeedbackPopupState] =
+    useState<LessonFeedbackPopupState>({
+      open: false,
+      generatedBlockBid: '',
+      defaultScoreText: '',
+      defaultCommentText: '',
+      readonly: false,
+    });
+  const dismissedLessonFeedbackBlockBidsRef = useRef<Set<string>>(new Set());
 
   const effectivePreviewMode = previewMode ?? false;
   const allowTtsStreaming = !effectivePreviewMode;
@@ -290,6 +319,75 @@ function useChatLogicHook({
   const isLessonFeedbackContent = useCallback((content?: string | null) => {
     return Boolean(content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER));
   }, []);
+
+  const markLessonFeedbackPopupDismissed = useCallback((blockBid: string) => {
+    if (!blockBid) {
+      return;
+    }
+    const cache = dismissedLessonFeedbackBlockBidsRef.current;
+    if (cache.has(blockBid)) {
+      cache.delete(blockBid);
+    }
+    cache.add(blockBid);
+
+    while (cache.size > LESSON_FEEDBACK_DISMISS_CACHE_LIMIT) {
+      const oldestBid = cache.values().next().value as string | undefined;
+      if (!oldestBid) {
+        break;
+      }
+      cache.delete(oldestBid);
+    }
+  }, []);
+
+  const resetLessonFeedbackPopup = useCallback(() => {
+    setLessonFeedbackPopupState({
+      open: false,
+      generatedBlockBid: '',
+      defaultScoreText: '',
+      defaultCommentText: '',
+      readonly: false,
+    });
+  }, []);
+
+  const dismissLessonFeedbackPopup = useCallback(
+    (blockBid?: string) => {
+      if (blockBid) {
+        markLessonFeedbackPopupDismissed(blockBid);
+      }
+      setLessonFeedbackPopupState(prev =>
+        prev.open ? { ...prev, open: false } : prev,
+      );
+    },
+    [markLessonFeedbackPopupDismissed],
+  );
+
+  const openLessonFeedbackPopup = useCallback(
+    (interaction: {
+      generatedBlockBid: string;
+      defaultScoreText?: string;
+      defaultCommentText?: string;
+      readonly?: boolean;
+    }) => {
+      if (!interaction.generatedBlockBid) {
+        return;
+      }
+      if (
+        dismissedLessonFeedbackBlockBidsRef.current.has(
+          interaction.generatedBlockBid,
+        )
+      ) {
+        return;
+      }
+      setLessonFeedbackPopupState({
+        open: true,
+        generatedBlockBid: interaction.generatedBlockBid,
+        defaultScoreText: interaction.defaultScoreText || '',
+        defaultCommentText: interaction.defaultCommentText || '',
+        readonly: Boolean(interaction.readonly),
+      });
+    },
+    [],
+  );
 
   const parseLessonFeedbackScore = useCallback((raw?: string | null) => {
     if (!raw) {
@@ -490,6 +588,16 @@ function useChatLogicHook({
           };
         }),
       );
+      setLessonFeedbackPopupState(prev => {
+        if (prev.generatedBlockBid !== blockBid) {
+          return prev;
+        }
+        return {
+          ...prev,
+          defaultScoreText: scoreText,
+          defaultCommentText: commentText,
+        };
+      });
     },
     [setTrackedContentList],
   );
@@ -742,6 +850,9 @@ function useChatLogicHook({
             }
 
             if (response.type === SSE_OUTPUT_TYPE.INTERACTION) {
+              const isLessonFeedbackInteraction = isLessonFeedbackContent(
+                response.content,
+              );
               setTrackedContentList((prev: ChatContentItem[]) => {
                 // Use markdown-flow-ui default rendering for all interactions
                 const interactionBlock: ChatContentItem = {
@@ -770,6 +881,11 @@ function useChatLogicHook({
                   return [...prev, interactionBlock];
                 }
               });
+              if (isLessonFeedbackInteraction && nid) {
+                openLessonFeedbackPopup({
+                  generatedBlockBid: nid,
+                });
+              }
             } else if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
               if (isEnd) {
                 return;
@@ -1051,7 +1167,9 @@ function useChatLogicHook({
       allowTtsStreaming,
       ensureContentItem,
       getAskButtonMarkup,
+      isLessonFeedbackContent,
       logAudioDebug,
+      openLessonFeedbackPopup,
       upsertListenSlide,
       updateUserInfo,
     ],
@@ -1223,6 +1341,7 @@ function useChatLogicHook({
     // });
     setTrackedContentList(() => []);
     pendingSlidesRef.current = {};
+    resetLessonFeedbackPopup();
 
     // setIsTypeFinished(true);
     isTypeFinishedRef.current = true;
@@ -1253,6 +1372,22 @@ function useChatLogicHook({
           recordResp.slides ?? [],
         );
         setTrackedContentList(contentRecords);
+        const latestFeedbackInteraction =
+          [...contentRecords]
+            .reverse()
+            .find(
+              item =>
+                item.type === ChatContentItemType.INTERACTION &&
+                isLessonFeedbackContent(item.content),
+            ) ?? null;
+        if (latestFeedbackInteraction?.generated_block_bid) {
+          openLessonFeedbackPopup({
+            generatedBlockBid: latestFeedbackInteraction.generated_block_bid,
+            defaultScoreText: latestFeedbackInteraction.defaultButtonText,
+            defaultCommentText: latestFeedbackInteraction.defaultInputText,
+            readonly: latestFeedbackInteraction.readonly,
+          });
+        }
         // setIsTypeFinished(true);
         isTypeFinishedRef.current = true;
         if (chapterId) {
@@ -1303,8 +1438,11 @@ function useChatLogicHook({
     }
   }, [
     chapterId,
+    isLessonFeedbackContent,
     mapRecordsToContent,
+    openLessonFeedbackPopup,
     outlineBid,
+    resetLessonFeedbackPopup,
     // scrollToBottom,
     setTrackedContentList,
     shifuBid,
@@ -1573,6 +1711,7 @@ function useChatLogicHook({
             had_input_comment: Boolean(effectiveComment),
             comment_length: effectiveComment.length,
           });
+          dismissLessonFeedbackPopup(blockBid);
         }
         const nextLessonId = getNextLessonId(lessonId);
         if (nextLessonId) {
@@ -1613,6 +1752,7 @@ function useChatLogicHook({
               String(score),
               comment,
             );
+            dismissLessonFeedbackPopup(blockBid);
             trackEvent(EVENT_NAMES.LESSON_FEEDBACK_SUBMIT, {
               shifu_bid: shifuBid,
               outline_bid: outlineBid,
@@ -1700,6 +1840,7 @@ function useChatLogicHook({
       // });
     },
     [
+      dismissLessonFeedbackPopup,
       getNextLessonId,
       isTypeFinishedRef,
       isLessonFeedbackContent,
@@ -2010,6 +2151,43 @@ function useChatLogicHook({
     };
   }, []);
 
+  const handleLessonFeedbackPopupSubmit = useCallback(
+    (score: number, comment: string) => {
+      const blockBid = lessonFeedbackPopupState.generatedBlockBid;
+      if (!blockBid) {
+        return;
+      }
+      processSend(
+        {
+          variableName: LESSON_FEEDBACK_VARIABLE_NAME,
+          buttonText: String(score),
+          inputText: comment,
+        },
+        blockBid,
+      );
+    },
+    [lessonFeedbackPopupState.generatedBlockBid, processSend],
+  );
+
+  const handleLessonFeedbackPopupSkip = useCallback(
+    (score: number | null, comment: string) => {
+      const blockBid = lessonFeedbackPopupState.generatedBlockBid;
+      if (!blockBid) {
+        return;
+      }
+      processSend(
+        {
+          variableName: LESSON_FEEDBACK_VARIABLE_NAME,
+          buttonText: SYS_INTERACTION_TYPE.NEXT_CHAPTER,
+          inputText: comment,
+          selectedValues: score ? [String(score)] : [],
+        },
+        blockBid,
+      );
+    },
+    [lessonFeedbackPopupState.generatedBlockBid, processSend],
+  );
+
   return {
     items,
     isLoading,
@@ -2021,6 +2199,19 @@ function useChatLogicHook({
       open: showRegenerateConfirm,
       onConfirm: handleConfirmRegenerate,
       onCancel: handleCancelRegenerate,
+    },
+    lessonFeedbackPopup: {
+      open:
+        lessonFeedbackPopupState.open &&
+        Boolean(lessonFeedbackPopupState.generatedBlockBid),
+      generatedBlockBid: lessonFeedbackPopupState.generatedBlockBid,
+      defaultScoreText: lessonFeedbackPopupState.defaultScoreText,
+      defaultCommentText: lessonFeedbackPopupState.defaultCommentText,
+      readonly: lessonFeedbackPopupState.readonly,
+      onClose: () =>
+        dismissLessonFeedbackPopup(lessonFeedbackPopupState.generatedBlockBid),
+      onSubmit: handleLessonFeedbackPopupSubmit,
+      onSkip: handleLessonFeedbackPopupSkip,
     },
   };
 }
