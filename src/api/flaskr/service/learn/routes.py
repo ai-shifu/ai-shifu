@@ -22,7 +22,6 @@ from flaskr.service.learn.lesson_feedback import (
     submit_lesson_feedback,
     list_lesson_feedbacks,
 )
-from flaskr.service.shifu.funcs import shifu_permission_verification
 from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.common import raise_error
@@ -615,8 +614,6 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                                     type: object
         """
         user_bid = request.user.user_id
-        if not shifu_permission_verification(app, user_bid, shifu_bid, "view"):
-            raise_error("server.shifu.noPermission")
         _ensure_outline_belongs_to_shifu(shifu_bid, outline_bid)
         payload = request.get_json(silent=True) or {}
         if not isinstance(payload, dict):
