@@ -660,11 +660,16 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         page_size_raw = request.args.get("page_size", "20")
         try:
             page_index = int(page_index_raw)
+        except ValueError:
+            raise_param_error("page_index")
+        try:
             page_size = int(page_size_raw)
         except ValueError:
-            raise_param_error("page_index or page_size")
-        if page_index < 1 or page_size < 1:
-            raise_param_error("page_index or page_size")
+            raise_param_error("page_size")
+        if page_index < 1:
+            raise_param_error("page_index")
+        if page_size < 1:
+            raise_param_error("page_size")
         return make_common_response(
             list_lesson_feedbacks(
                 app,
