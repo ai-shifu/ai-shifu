@@ -81,6 +81,7 @@ interface LessonFeedbackPopupState {
 }
 
 const LESSON_FEEDBACK_DISMISS_CACHE_LIMIT = 200;
+type LessonFeedbackSkipSource = 'close_icon' | 'skip_button' | 'next_chapter';
 
 export enum ChatContentItemType {
   CONTENT = 'content',
@@ -1659,7 +1660,10 @@ function useChatLogicHook({
     (
       content: OnSendContentParams,
       blockBid: string,
-      options?: { skipConfirm?: boolean },
+      options?: {
+        skipConfirm?: boolean;
+        lessonFeedbackSkipSource?: LessonFeedbackSkipSource;
+      },
     ) => {
       if (isStreamingRef.current) {
         showOutputInProgressToast();
@@ -1689,29 +1693,62 @@ function useChatLogicHook({
         return;
       }
       if (buttonText === SYS_INTERACTION_TYPE.NEXT_CHAPTER) {
-        if (isLessonFeedbackInteraction) {
+        const emitLessonFeedbackSkip = (
+          feedbackBlockBid: string,
+          feedbackItem?: ChatContentItem,
+          selectedScoreRaw?: string | null,
+          commentFromActionRaw?: string,
+          source: LessonFeedbackSkipSource = 'next_chapter',
+        ) => {
           const persistedScore = parseLessonFeedbackScore(
-            currentInteractionItem?.defaultButtonText,
+            feedbackItem?.defaultButtonText,
           );
-          const selectedScore = parseLessonFeedbackScore(
-            content.selectedValues?.[0],
-          );
-          const commentFromAction = (inputText || '').trim();
+          const selectedScore = parseLessonFeedbackScore(selectedScoreRaw);
+          const commentFromAction = (commentFromActionRaw || '').trim();
           const persistedComment = (
-            currentInteractionItem?.defaultInputText || ''
+            feedbackItem?.defaultInputText || ''
           ).trim();
           const effectiveComment = commentFromAction || persistedComment;
           trackEvent(EVENT_NAMES.LESSON_FEEDBACK_SKIP, {
             shifu_bid: shifuBid,
             outline_bid: outlineBid,
-            generated_block_bid: blockBid,
+            generated_block_bid: feedbackBlockBid,
             mode: isListenMode ? 'listen' : 'read',
             trigger_scene: 'before_next_lesson',
+            skip_source: source,
             had_selected_score: Boolean(selectedScore || persistedScore),
             had_input_comment: Boolean(effectiveComment),
             comment_length: effectiveComment.length,
           });
+        };
+
+        if (isLessonFeedbackInteraction) {
+          emitLessonFeedbackSkip(
+            blockBid,
+            currentInteractionItem,
+            content.selectedValues?.[0],
+            inputText,
+            options?.lessonFeedbackSkipSource || 'next_chapter',
+          );
           dismissLessonFeedbackPopup(blockBid);
+        } else if (lessonFeedbackPopupState.generatedBlockBid) {
+          const pendingFeedbackBlockBid =
+            lessonFeedbackPopupState.generatedBlockBid;
+          const pendingFeedbackItem = contentListRef.current.find(
+            item => item.generated_block_bid === pendingFeedbackBlockBid,
+          );
+          if (pendingFeedbackItem?.content) {
+            if (isLessonFeedbackContent(pendingFeedbackItem.content)) {
+              emitLessonFeedbackSkip(
+                pendingFeedbackBlockBid,
+                pendingFeedbackItem,
+                undefined,
+                undefined,
+                'next_chapter',
+              );
+              dismissLessonFeedbackPopup(pendingFeedbackBlockBid);
+            }
+          }
         }
         const nextLessonId = getNextLessonId(lessonId);
         if (nextLessonId) {
@@ -1846,6 +1883,7 @@ function useChatLogicHook({
       isLessonFeedbackContent,
       isListenMode,
       lessonId,
+      lessonFeedbackPopupState.generatedBlockBid,
       syncLessonFeedbackInteractionValues,
       onGoChapter,
       onPayModalOpen,
@@ -2183,10 +2221,41 @@ function useChatLogicHook({
           selectedValues: score ? [String(score)] : [],
         },
         blockBid,
+        {
+          lessonFeedbackSkipSource: 'skip_button',
+        },
       );
     },
     [lessonFeedbackPopupState.generatedBlockBid, processSend],
   );
+
+  const handleLessonFeedbackPopupClose = useCallback(() => {
+    const blockBid = lessonFeedbackPopupState.generatedBlockBid;
+    if (!blockBid) {
+      return;
+    }
+    const score = parseLessonFeedbackScore(
+      lessonFeedbackPopupState.defaultScoreText,
+    );
+    processSend(
+      {
+        variableName: LESSON_FEEDBACK_VARIABLE_NAME,
+        buttonText: SYS_INTERACTION_TYPE.NEXT_CHAPTER,
+        inputText: lessonFeedbackPopupState.defaultCommentText || '',
+        selectedValues: score ? [String(score)] : [],
+      },
+      blockBid,
+      {
+        lessonFeedbackSkipSource: 'close_icon',
+      },
+    );
+  }, [
+    lessonFeedbackPopupState.defaultCommentText,
+    lessonFeedbackPopupState.defaultScoreText,
+    lessonFeedbackPopupState.generatedBlockBid,
+    parseLessonFeedbackScore,
+    processSend,
+  ]);
 
   return {
     items,
@@ -2208,8 +2277,7 @@ function useChatLogicHook({
       defaultScoreText: lessonFeedbackPopupState.defaultScoreText,
       defaultCommentText: lessonFeedbackPopupState.defaultCommentText,
       readonly: lessonFeedbackPopupState.readonly,
-      onClose: () =>
-        dismissLessonFeedbackPopup(lessonFeedbackPopupState.generatedBlockBid),
+      onClose: handleLessonFeedbackPopupClose,
       onSubmit: handleLessonFeedbackPopupSubmit,
       onSkip: handleLessonFeedbackPopupSkip,
     },
