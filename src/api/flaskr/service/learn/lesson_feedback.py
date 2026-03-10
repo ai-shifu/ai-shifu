@@ -98,7 +98,7 @@ def _sync_feedback_to_generated_block(
             LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
             LearnGeneratedBlock.status == 1,
             LearnGeneratedBlock.deleted == 0,
-            LearnGeneratedBlock.block_content_conf.contains(marker),
+            LearnGeneratedBlock.block_content_conf.contains(marker, autoescape=True),
         )
         .order_by(LearnGeneratedBlock.id.desc())
         .first()
