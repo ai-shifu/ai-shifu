@@ -774,17 +774,12 @@ export const NewChatComponents = ({
       {lessonFeedbackPopup.open && !(mobileStyle && isNavOpen) ? (
         <div
           className={cn(
-            'pointer-events-none absolute z-20',
+            'pointer-events-none z-20',
             mobileStyle
-              ? 'left-3 right-3'
-              : 'right-6 w-[260px] max-w-[calc(100%-48px)]',
-            isListenModeActive
-              ? mobileStyle
-                ? 'bottom-[86px]'
-                : 'bottom-[118px]'
-              : mobileStyle
-                ? 'bottom-4'
-                : 'bottom-6',
+              ? isListenModeActive
+                ? 'fixed left-3 right-3 bottom-[calc(env(safe-area-inset-bottom)+88px)]'
+                : 'fixed left-3 right-3 bottom-[calc(env(safe-area-inset-bottom)+56px)]'
+              : 'absolute right-6 w-[260px] max-w-[calc(100%-48px)] bottom-6',
           )}
         >
           <div className='pointer-events-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-lg'>
