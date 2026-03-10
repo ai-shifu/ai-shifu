@@ -7,11 +7,9 @@ interface LessonFeedbackInteractionProps {
   defaultCommentText?: string;
   placeholder: string;
   submitLabel: string;
-  skipLabel: string;
   clearLabel: string;
   readonly?: boolean;
   onSubmit: (score: number, comment: string) => void;
-  onSkip: (score: number | null, comment: string) => void;
 }
 
 const SCORE_OPTIONS = [1, 2, 3, 4, 5];
@@ -30,11 +28,9 @@ export default function LessonFeedbackInteraction({
   defaultCommentText,
   placeholder,
   submitLabel,
-  skipLabel,
   clearLabel,
   readonly = false,
   onSubmit,
-  onSkip,
 }: LessonFeedbackInteractionProps) {
   const initialScore = useMemo(
     () => normalizeScore(defaultScoreText),
@@ -122,7 +118,7 @@ export default function LessonFeedbackInteraction({
             </button>
           ) : null}
         </div>
-        <div className='mt-2 flex items-center justify-end gap-2'>
+        <div className='mt-2 flex items-center justify-end'>
           <button
             type='button'
             disabled={readonly || !selectedScore}
@@ -140,19 +136,6 @@ export default function LessonFeedbackInteraction({
             )}
           >
             {submitLabel}
-          </button>
-          <button
-            type='button'
-            disabled={readonly}
-            onClick={() => onSkip(selectedScore, comment.trim())}
-            className={cn(
-              'h-9 min-w-[72px] whitespace-nowrap rounded-md border border-[var(--border)] bg-[var(--background)] px-3 text-sm font-medium text-[var(--foreground)] transition-colors',
-              readonly
-                ? 'cursor-not-allowed opacity-60'
-                : 'cursor-pointer hover:bg-[var(--card)]',
-            )}
-          >
-            {skipLabel}
           </button>
         </div>
       </div>

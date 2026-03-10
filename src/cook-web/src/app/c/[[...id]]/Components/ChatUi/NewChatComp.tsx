@@ -801,11 +801,9 @@ export const NewChatComponents = ({
               defaultCommentText={lessonFeedbackPopup.defaultCommentText}
               placeholder={t('module.chat.lessonFeedbackCommentPlaceholder')}
               submitLabel={confirmButtonText}
-              skipLabel={t('module.chat.lessonFeedbackSkip')}
               clearLabel={t('module.chat.lessonFeedbackClearInput')}
               readonly={lessonFeedbackPopup.readonly}
               onSubmit={lessonFeedbackPopup.onSubmit}
-              onSkip={lessonFeedbackPopup.onSkip}
             />
           </div>
         </div>

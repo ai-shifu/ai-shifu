@@ -81,7 +81,6 @@ interface LessonFeedbackPopupState {
 }
 
 const LESSON_FEEDBACK_DISMISS_CACHE_LIMIT = 200;
-type LessonFeedbackSkipSource = 'close_icon' | 'skip_button' | 'next_chapter';
 
 export enum ChatContentItemType {
   CONTENT = 'content',
@@ -165,7 +164,6 @@ export interface UseChatSessionResult {
     readonly: boolean;
     onClose: () => void;
     onSubmit: (score: number, comment: string) => void;
-    onSkip: (score: number | null, comment: string) => void;
   };
 }
 
@@ -1660,10 +1658,7 @@ function useChatLogicHook({
     (
       content: OnSendContentParams,
       blockBid: string,
-      options?: {
-        skipConfirm?: boolean;
-        lessonFeedbackSkipSource?: LessonFeedbackSkipSource;
-      },
+      options?: { skipConfirm?: boolean },
     ) => {
       if (isStreamingRef.current) {
         showOutputInProgressToast();
@@ -1698,7 +1693,6 @@ function useChatLogicHook({
           feedbackItem?: ChatContentItem,
           selectedScoreRaw?: string | null,
           commentFromActionRaw?: string,
-          source: LessonFeedbackSkipSource = 'next_chapter',
         ) => {
           const persistedScore = parseLessonFeedbackScore(
             feedbackItem?.defaultButtonText,
@@ -1715,7 +1709,6 @@ function useChatLogicHook({
             generated_block_bid: feedbackBlockBid,
             mode: isListenMode ? 'listen' : 'read',
             trigger_scene: 'before_next_lesson',
-            skip_source: source,
             had_selected_score: Boolean(selectedScore || persistedScore),
             had_input_comment: Boolean(effectiveComment),
             comment_length: effectiveComment.length,
@@ -1728,7 +1721,6 @@ function useChatLogicHook({
             currentInteractionItem,
             content.selectedValues?.[0],
             inputText,
-            options?.lessonFeedbackSkipSource || 'next_chapter',
           );
           dismissLessonFeedbackPopup(blockBid);
         } else if (lessonFeedbackPopupState.generatedBlockBid) {
@@ -1744,7 +1736,6 @@ function useChatLogicHook({
                 pendingFeedbackItem,
                 undefined,
                 undefined,
-                'next_chapter',
               );
               dismissLessonFeedbackPopup(pendingFeedbackBlockBid);
             }
@@ -2207,28 +2198,6 @@ function useChatLogicHook({
     [lessonFeedbackPopupState.generatedBlockBid, processSend],
   );
 
-  const handleLessonFeedbackPopupSkip = useCallback(
-    (score: number | null, comment: string) => {
-      const blockBid = lessonFeedbackPopupState.generatedBlockBid;
-      if (!blockBid) {
-        return;
-      }
-      processSend(
-        {
-          variableName: LESSON_FEEDBACK_VARIABLE_NAME,
-          buttonText: SYS_INTERACTION_TYPE.NEXT_CHAPTER,
-          inputText: comment,
-          selectedValues: score ? [String(score)] : [],
-        },
-        blockBid,
-        {
-          lessonFeedbackSkipSource: 'skip_button',
-        },
-      );
-    },
-    [lessonFeedbackPopupState.generatedBlockBid, processSend],
-  );
-
   const handleLessonFeedbackPopupClose = useCallback(() => {
     const blockBid = lessonFeedbackPopupState.generatedBlockBid;
     if (!blockBid) {
@@ -2245,9 +2214,6 @@ function useChatLogicHook({
         selectedValues: score ? [String(score)] : [],
       },
       blockBid,
-      {
-        lessonFeedbackSkipSource: 'close_icon',
-      },
     );
   }, [
     lessonFeedbackPopupState.defaultCommentText,
@@ -2279,7 +2245,6 @@ function useChatLogicHook({
       readonly: lessonFeedbackPopupState.readonly,
       onClose: handleLessonFeedbackPopupClose,
       onSubmit: handleLessonFeedbackPopupSubmit,
-      onSkip: handleLessonFeedbackPopupSkip,
     },
   };
 }
