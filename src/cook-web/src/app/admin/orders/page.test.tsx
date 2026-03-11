@@ -126,7 +126,9 @@ describe('OrdersPage', () => {
     mockGetAdminOrders.mockClear();
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'module.order.filters.search' }),
+      await screen.findByRole('button', {
+        name: 'module.order.filters.search',
+      }),
     );
 
     expect(mockReplace).toHaveBeenCalledWith(

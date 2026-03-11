@@ -84,10 +84,7 @@ type OrderFilters = {
 };
 
 const PAGE_SIZE = 20;
-<<<<<<< HEAD
 const DEFAULT_ORDER_STATUS = '502';
-=======
->>>>>>> c6bac8aa (fix: add success filter to dashboard order jump)
 const QUERY_STATUS_KEY = 'status';
 const QUERY_SHIFU_BID_KEY = 'shifu_bid';
 const COLUMN_MIN_WIDTH = 80;
