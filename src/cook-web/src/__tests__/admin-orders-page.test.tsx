@@ -1,5 +1,11 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import api from '@/api';
 
 import OrdersPage from '@/app/admin/orders/page';
@@ -77,7 +83,9 @@ jest.mock('@/components/ui/Popover', () => ({
   __esModule: true,
   Popover: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   PopoverTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
-  PopoverContent: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  PopoverContent: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
 }));
 
 jest.mock('@/components/ui/ScrollArea', () => ({
@@ -92,10 +100,14 @@ jest.mock('@/components/ui/Calendar', () => ({
 
 jest.mock('@/components/ui/tooltip', () => ({
   __esModule: true,
-  TooltipProvider: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  TooltipProvider: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
   Tooltip: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   TooltipTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
-  TooltipContent: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  TooltipContent: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
 }));
 
 jest.mock('@/components/ui/Badge', () => ({
@@ -108,14 +120,21 @@ jest.mock('@/components/ui/pagination', () => ({
   Pagination: ({ children }: React.PropsWithChildren) => (
     <nav aria-label='pagination'>{children}</nav>
   ),
-  PaginationContent: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  PaginationContent: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
   PaginationEllipsis: () => <span>...</span>,
-  PaginationItem: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  PaginationItem: ({ children }: React.PropsWithChildren) => (
+    <div>{children}</div>
+  ),
   PaginationLink: ({
     children,
     href,
     onClick,
-  }: React.PropsWithChildren<{ href?: string; onClick?: React.MouseEventHandler }>) => (
+  }: React.PropsWithChildren<{
+    href?: string;
+    onClick?: React.MouseEventHandler;
+  }>) => (
     <a
       href={href}
       onClick={onClick}
@@ -123,7 +142,9 @@ jest.mock('@/components/ui/pagination', () => ({
       {children}
     </a>
   ),
-  PaginationNext: ({ children }: React.PropsWithChildren) => <button>{children}</button>,
+  PaginationNext: ({ children }: React.PropsWithChildren) => (
+    <button>{children}</button>
+  ),
   PaginationPrevious: ({ children }: React.PropsWithChildren) => (
     <button>{children}</button>
   ),
@@ -153,11 +174,15 @@ jest.mock('@/components/ui/Select', () => {
         <div>{children}</div>
       </SelectContext.Provider>
     ),
-    SelectTrigger: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+    SelectTrigger: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
     SelectValue: ({ placeholder }: { placeholder?: string }) => (
       <span>{placeholder}</span>
     ),
-    SelectContent: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+    SelectContent: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
     SelectItem: ({
       value,
       children,
@@ -179,7 +204,9 @@ const mockGetAdminOrders = api.getAdminOrders as jest.Mock;
 const mockGetAdminOrderShifus = api.getAdminOrderShifus as jest.Mock;
 
 const getStatusFilterRow = (): HTMLElement =>
-  screen.getAllByText('module.order.filters.status')[0].closest('div') as HTMLElement;
+  screen
+    .getAllByText('module.order.filters.status')[0]
+    .closest('div') as HTMLElement;
 
 describe('OrdersPage', () => {
   beforeEach(() => {

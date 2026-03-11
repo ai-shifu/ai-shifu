@@ -105,7 +105,10 @@ const DEFAULT_COLUMN_WIDTHS = {
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 type ColumnWidthState = Record<ColumnKey, number>;
 const COLUMN_KEYS = Object.keys(DEFAULT_COLUMN_WIDTHS) as ColumnKey[];
-type SearchParamsLike = Pick<URLSearchParams, 'get' | 'has' | 'toString'> | null;
+type SearchParamsLike = Pick<
+  URLSearchParams,
+  'get' | 'has' | 'toString'
+> | null;
 
 const clampWidth = (value: number): number =>
   Math.min(COLUMN_MAX_WIDTH, Math.max(COLUMN_MIN_WIDTH, value));
@@ -274,7 +277,9 @@ const createFiltersFromSearchParams = (
   searchParams: SearchParamsLike,
 ): OrderFilters => ({
   ...createDefaultFilters(),
-  shifu_bids: parseShifuBidQuery(searchParams?.get(QUERY_SHIFU_BID_KEY) || null),
+  shifu_bids: parseShifuBidQuery(
+    searchParams?.get(QUERY_SHIFU_BID_KEY) || null,
+  ),
   status: searchParams?.has(QUERY_STATUS_KEY)
     ? searchParams.get(QUERY_STATUS_KEY) || ''
     : DEFAULT_ORDER_STATUS,
@@ -304,7 +309,8 @@ const OrdersPage = () => {
     (state: EnvStoreState) => state.payOrderExpireSeconds,
   );
   const initialFilters = useMemo(
-    () => createFiltersFromSearchParams(new URLSearchParams(searchParamsString)),
+    () =>
+      createFiltersFromSearchParams(new URLSearchParams(searchParamsString)),
     [searchParamsString],
   );
   const [orders, setOrders] = useState<OrderSummary[]>([]);
@@ -854,7 +860,13 @@ const OrdersPage = () => {
       return;
     }
     syncJumpFiltersQuery(initialFilters);
-  }, [hasStatusQuery, initialFilters, isGuest, isInitialized, syncJumpFiltersQuery]);
+  }, [
+    hasStatusQuery,
+    initialFilters,
+    isGuest,
+    isInitialized,
+    syncJumpFiltersQuery,
+  ]);
 
   const handleFilterChange = (
     key: Exclude<keyof OrderFilters, 'shifu_bids'>,
