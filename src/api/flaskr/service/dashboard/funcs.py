@@ -123,9 +123,7 @@ def _load_dashboard_entry_courses(
         .distinct()
         .all()
     )
-    owned_bids = {
-        str(row[0]).strip() for row in owned_rows if str(row[0]).strip()
-    }
+    owned_bids = {str(row[0]).strip() for row in owned_rows if str(row[0]).strip()}
     all_bids = owned_bids
     all_bids = all_bids.difference(_load_demo_shifu_bids())
     if not all_bids:
