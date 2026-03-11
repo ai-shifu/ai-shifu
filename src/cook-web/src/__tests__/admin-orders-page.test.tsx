@@ -151,7 +151,7 @@ jest.mock('@/components/ui/pagination', () => ({
 }));
 
 jest.mock('@/components/ui/Select', () => {
-  const ReactModule = require('react') as typeof React;
+  const ReactModule = jest.requireActual('react') as typeof React;
   const SelectContext = ReactModule.createContext<{
     value: string;
     onValueChange: (value: string) => void;
