@@ -29,7 +29,10 @@ from flaskr.service.learn.context_v2 import (
 )
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import GeneratedType, PlaygroundPreviewRequest
-from flaskr.service.learn.models import LearnGeneratedBlock
+from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+from flaskr.service.order.consts import LEARN_STATUS_COMPLETED
+from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
+from flaskr.util import generate_id
 
 
 def _make_context() -> RunScriptContextV2:
@@ -160,6 +163,114 @@ class NextChapterInteractionTests(unittest.TestCase):
                 ).count(),
                 1,
             )
+
+
+class AccessGateFeedbackHelperTests(unittest.TestCase):
+    def test_detects_blocking_access_gate(self):
+        ctx = _make_context()
+        ctx._is_paid = False
+        ctx._user_info = types.SimpleNamespace(mobile="")
+
+        self.assertTrue(
+            ctx._is_access_gate_blocking_interaction(
+                {"buttons": [{"value": "_sys_pay"}]}
+            )
+        )
+        self.assertTrue(
+            ctx._is_access_gate_blocking_interaction(
+                {"buttons": [{"value": "_sys_login"}]}
+            )
+        )
+
+        ctx._is_paid = True
+        ctx._user_info = types.SimpleNamespace(mobile="13800000000")
+        self.assertFalse(
+            ctx._is_access_gate_blocking_interaction(
+                {"buttons": [{"value": "_sys_pay"}, {"value": "_sys_login"}]}
+            )
+        )
+
+
+class ExceptionGateFeedbackTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = Flask("exception-gate-feedback")
+        cls.app.config.update(
+            SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+            SQLALCHEMY_BINDS={
+                "ai_shifu_saas": "sqlite:///:memory:",
+                "ai_shifu_admin": "sqlite:///:memory:",
+            },
+            SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        )
+        dao.db.init_app(cls.app)
+        with cls.app.app_context():
+            dao.db.create_all()
+
+    def setUp(self):
+        self.app = self.__class__.app
+        self.ctx = _make_context()
+        self.ctx.app = self.app
+        self.ctx._outline_item_info = types.SimpleNamespace(
+            bid="outline-locked",
+            shifu_bid="shifu-1",
+        )
+        self.ctx._user_info = types.SimpleNamespace(user_id="user-1")
+        with self.app.app_context():
+            LearnGeneratedBlock.query.delete()
+            LearnProgressRecord.query.delete()
+            dao.db.session.commit()
+
+    def test_emits_feedback_for_latest_completed_progress(self):
+        with self.app.app_context():
+            progress = LearnProgressRecord(
+                progress_record_bid="progress-1",
+                shifu_bid="shifu-1",
+                outline_item_bid="outline-locked",
+                user_bid="user-1",
+                status=LEARN_STATUS_COMPLETED,
+            )
+            dao.db.session.add(progress)
+            dao.db.session.add(
+                LearnGeneratedBlock(
+                    generated_block_bid=generate_id(self.app),
+                    progress_record_bid=progress.progress_record_bid,
+                    user_bid="user-1",
+                    block_bid="",
+                    outline_item_bid=progress.outline_item_bid,
+                    shifu_bid=progress.shifu_bid,
+                    type=BLOCK_TYPE_MDCONTENT_VALUE,
+                    role=1,
+                    generated_content="content",
+                    position=0,
+                    block_content_conf="content",
+                    status=1,
+                )
+            )
+            dao.db.session.commit()
+            events = list(self.ctx._emit_feedback_before_exception_gate())
+            self.assertEqual(len(events), 1)
+            self.assertEqual(events[0].type, GeneratedType.INTERACTION)
+
+    def test_skips_when_no_completed_progress(self):
+        with self.app.app_context():
+            events = list(self.ctx._emit_feedback_before_exception_gate())
+            self.assertEqual(events, [])
+
+    def test_skips_completed_progress_without_generated_blocks(self):
+        with self.app.app_context():
+            dao.db.session.add(
+                LearnProgressRecord(
+                    progress_record_bid="progress-empty",
+                    shifu_bid="shifu-1",
+                    outline_item_bid="outline-empty",
+                    user_bid="user-1",
+                    status=LEARN_STATUS_COMPLETED,
+                )
+            )
+            dao.db.session.commit()
+            events = list(self.ctx._emit_feedback_before_exception_gate())
+            self.assertEqual(events, [])
 
 
 class StreamTtsGateTests(unittest.TestCase):

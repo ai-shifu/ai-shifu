@@ -1,6 +1,7 @@
 from typing import Generator
 from flask import Flask
 from flaskr.api.llm import chat_llm
+from flaskr.i18n import _
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 
 from flaskr.service.learn.models import LearnGeneratedBlock
@@ -26,6 +27,19 @@ from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_generation_name,
     build_langfuse_span_name,
+)
+from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
+from flaskr.service.learn.ask_provider_adapters import (
+    AskProviderError,
+    AskProviderRuntime,
+    AskProviderTimeoutError,
+    stream_ask_provider_response,
+)
+from flaskr.service.shifu.ask_provider_registry import get_effective_ask_provider_config
+from flaskr.service.shifu.shifu_draft_funcs import (
+    ASK_PROVIDER_LLM,
+    ASK_PROVIDER_MODE_PROVIDER_ONLY,
+    ASK_PROVIDER_MODE_PROVIDER_THEN_LLM,
 )
 from flaskr.service.metering import UsageContext
 from flaskr.service.metering.consts import (
@@ -90,12 +104,13 @@ def handle_input_ask(
 
     history_scripts = history_scripts[::-1]
 
-    messages = []  # List to store conversation messages
+    llm_messages = []  # Conversation messages for built-in LLM ask.
+    provider_messages = []  # Conversation messages for external ask providers.
     input = input.replace("{", "{{").replace(
         "}", "}}"
     )  # Escape braces to avoid formatting conflicts
     system_prompt_template = context.get_system_prompt(outline_item_info.bid)
-    system_prompt = (
+    base_system_prompt = (
         None
         if system_prompt_template is None or system_prompt_template == ""
         else get_fmt_prompt(
@@ -105,25 +120,30 @@ def handle_input_ask(
             system_prompt_template,
         )
     )
-    system_prompt = follow_up_info.ask_prompt.replace(
-        "{shifu_system_message}", system_prompt if system_prompt else ""
+    llm_system_prompt = follow_up_info.ask_prompt.replace(
+        "{shifu_system_message}", base_system_prompt if base_system_prompt else ""
     )
     # Append language instruction if use_learner_language is enabled
     use_learner_language = getattr(context._shifu_info, "use_learner_language", 0)
     if use_learner_language:
         output_language = get_markdownflow_output_language()
-        system_prompt += f"\n\nIMPORTANT: You MUST respond in {output_language}."
-    messages.append({"role": "system", "content": system_prompt})
+        llm_system_prompt += f"\n\nIMPORTANT: You MUST respond in {output_language}."
+    llm_messages.append({"role": "system", "content": llm_system_prompt})
+    if base_system_prompt:
+        provider_messages.append({"role": "system", "content": base_system_prompt})
     # Add historical conversation records to system messages
     for script in history_scripts:
         if script.type in [BLOCK_TYPE_MDASK_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]:
-            messages.append(
-                {"role": "user", "content": script.generated_content}
-            )  # Add user message
+            history_message = {"role": "user", "content": script.generated_content}
+            llm_messages.append(history_message)
+            provider_messages.append(history_message)
         elif script.type in [BLOCK_TYPE_MDANSWER_VALUE, BLOCK_TYPE_MDCONTENT_VALUE]:
-            messages.append(
-                {"role": "assistant", "content": script.generated_content}
-            )  # Add assistant message
+            history_message = {
+                "role": "assistant",
+                "content": script.generated_content,
+            }
+            llm_messages.append(history_message)
+            provider_messages.append(history_message)
 
     # RAG retrieval has been removed from this system
 
@@ -133,13 +153,14 @@ def handle_input_ask(
     if use_learner_language:
         output_language = get_markdownflow_output_language()
         user_content += f"\n\n(IMPORTANT: You MUST respond in {output_language}.)"
-    messages.append(
-        {
-            "role": "user",
-            "content": user_content,
-        }
-    )
-    app.logger.info(f"messages: {messages}")
+    user_message = {
+        "role": "user",
+        "content": user_content,
+    }
+    llm_messages.append(user_message)
+    provider_messages.append(user_message)
+    app.logger.info(f"llm_messages: {llm_messages}")
+    app.logger.info(f"provider_messages: {provider_messages}")
 
     # Get model for follow-up Q&A
     follow_up_model = follow_up_info.ask_model
@@ -223,35 +244,131 @@ def handle_input_ask(
         ask_scene,
         "user_follow_ask",
     )
-    resp = chat_llm(
-        app,
-        user_info.user_id,
-        span,
-        model=follow_up_model,  # Use configured model
-        json=True,
-        stream=True,  # Enable streaming output
-        temperature=follow_up_info.model_args[
-            "temperature"
-        ],  # Use configured temperature parameter
-        generation_name=generation_name,
-        messages=messages,  # Pass complete conversation history
-        usage_context=usage_context,
-        usage_scene=usage_scene,
+    ask_provider_config = get_effective_ask_provider_config(
+        getattr(follow_up_info, "ask_provider_config", {})
+    )
+    ask_provider = ask_provider_config.get("provider", ASK_PROVIDER_LLM)
+    ask_provider_mode = ask_provider_config.get(
+        "mode",
+        ASK_PROVIDER_MODE_PROVIDER_THEN_LLM,
+    )
+    app.logger.info(
+        "ask provider routing: provider=%s mode=%s",
+        ask_provider,
+        ask_provider_mode,
     )
 
     response_text = ""  # Store complete response text
-    # Stream process LLM response
-    for i in resp:
-        current_content = i.result
-        if isinstance(current_content, str):
-            response_text += current_content
-            # Return each text fragment in real-time
+    provider_error: Exception | None = None
+    llm_runtime = AskProviderRuntime(
+        llm_stream_factory=lambda: chat_llm(
+            app,
+            user_info.user_id,
+            span,
+            model=follow_up_model,  # Use configured model
+            json=True,
+            stream=True,  # Enable streaming output
+            temperature=follow_up_info.model_args[
+                "temperature"
+            ],  # Use configured temperature parameter
+            generation_name=generation_name,
+            messages=llm_messages,  # Pass complete conversation history
+            usage_context=usage_context,
+            usage_scene=usage_scene,
+        )
+    )
+
+    def _emit_provider_stream(
+        provider_name: str,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        nonlocal response_text
+        provider_input_messages = (
+            llm_messages if provider_name == ASK_PROVIDER_LLM else provider_messages
+        )
+        provider_resp = stream_ask_provider_response(
+            app=app,
+            provider=provider_name,
+            user_id=user_info.user_id,
+            user_query=user_content,
+            messages=provider_input_messages,
+            provider_config=ask_provider_config,
+            runtime=llm_runtime,
+        )
+        if provider_name != ASK_PROVIDER_LLM:
+            provider_resp = stream_provider_with_langfuse(
+                provider_stream=provider_resp,
+                span=span,
+                provider_name=provider_name,
+                generation_name=build_langfuse_generation_name(
+                    chapter_title,
+                    ask_scene,
+                    f"user_follow_ask_{provider_name}",
+                ),
+                user_query=user_content,
+                messages=provider_input_messages,
+                provider_config=ask_provider_config,
+            )
+        for chunk in provider_resp:
+            current_content = chunk.content
+            if isinstance(current_content, str) and current_content:
+                response_text += current_content
+                yield RunMarkdownFlowDTO(
+                    outline_bid=outline_item_info.bid,
+                    generated_block_bid=log_script.generated_block_bid,
+                    type=GeneratedType.CONTENT,
+                    content=current_content,
+                )
+
+    if ask_provider == ASK_PROVIDER_LLM:
+        yield from _emit_provider_stream(ASK_PROVIDER_LLM)
+    else:
+        try:
+            yield from _emit_provider_stream(ask_provider)
+        except AskProviderTimeoutError as exc:
+            provider_error = exc
+            app.logger.warning(
+                "ask provider timeout, provider=%s, mode=%s, shifu_bid=%s, outline_bid=%s",
+                ask_provider,
+                ask_provider_mode,
+                outline_item_info.shifu_bid,
+                outline_item_info.bid,
+            )
+        except AskProviderError as exc:
+            provider_error = exc
+            app.logger.warning(
+                "ask provider failed, provider=%s, mode=%s, shifu_bid=%s, outline_bid=%s, error=%s",
+                ask_provider,
+                ask_provider_mode,
+                outline_item_info.shifu_bid,
+                outline_item_info.bid,
+                exc,
+            )
+
+    use_llm_fallback = False
+    if ask_provider != ASK_PROVIDER_LLM and not response_text:
+        if ask_provider_mode == ASK_PROVIDER_MODE_PROVIDER_ONLY:
+            if isinstance(provider_error, AskProviderTimeoutError):
+                response_text = str(_("server.learn.askProviderTimeout"))
+            else:
+                response_text = str(_("server.learn.askProviderUnavailable"))
             yield RunMarkdownFlowDTO(
                 outline_bid=outline_item_info.bid,
                 generated_block_bid=log_script.generated_block_bid,
                 type=GeneratedType.CONTENT,
-                content=i.result,
+                content=response_text,
             )
+        else:
+            use_llm_fallback = True
+            app.logger.info(
+                "ask provider fallback to llm, provider=%s, mode=%s, shifu_bid=%s, outline_bid=%s",
+                ask_provider,
+                ask_provider_mode,
+                outline_item_info.shifu_bid,
+                outline_item_info.bid,
+            )
+
+    if use_llm_fallback:
+        yield from _emit_provider_stream(ASK_PROVIDER_LLM)
 
     # Log AI response to database
     log_script: LearnGeneratedBlock = init_generated_block(

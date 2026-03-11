@@ -18,6 +18,10 @@ import {
   type AudioSegment,
   type AudioTrack,
 } from '@/c-utils/audio-utils';
+import {
+  LESSON_FEEDBACK_INTERACTION_MARKER,
+  SYS_INTERACTION_TYPE,
+} from '@/c-api/studyV2';
 
 export type AudioInteractionItem = ChatContentItem & {
   page: number;
@@ -56,6 +60,20 @@ const sortByPosition = <T extends { position?: number }>(list: T[] = []) =>
 const sortSegmentsByIndex = (segments: AudioSegment[] = []) =>
   [...segments].sort(
     (a, b) => Number(a.segmentIndex ?? 0) - Number(b.segmentIndex ?? 0),
+  );
+
+export const isLessonFeedbackInteractionItem = (
+  item?: ChatContentItem | null,
+) =>
+  Boolean(
+    item?.type === ChatContentItemType.INTERACTION &&
+    item.content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER),
+  );
+
+const isNextChapterInteractionItem = (item?: ChatContentItem | null) =>
+  Boolean(
+    item?.type === ChatContentItemType.INTERACTION &&
+    item.content?.includes(SYS_INTERACTION_TYPE.NEXT_CHAPTER),
   );
 
 const normalizeAudioTracks = (item: ChatContentItem): AudioTrack[] => {
@@ -195,21 +213,6 @@ export const useListenContentData = (items: ChatContentItem[]) => {
     return bids;
   }, [items]);
 
-  const { lastInteractionBid, lastItemIsInteraction } = useMemo(() => {
-    let latestInteractionBid: string | null = null;
-    for (let i = items.length - 1; i >= 0; i -= 1) {
-      if (items[i].type === ChatContentItemType.INTERACTION) {
-        latestInteractionBid = items[i].generated_block_bid;
-        break;
-      }
-    }
-    const lastItem = items[items.length - 1];
-    return {
-      lastInteractionBid: latestInteractionBid,
-      lastItemIsInteraction: lastItem?.type === ChatContentItemType.INTERACTION,
-    };
-  }, [items]);
-
   const { slideItems, interactionByPage, audioAndInteractionList } =
     useMemo(() => {
       let pageCursor = 0;
@@ -232,6 +235,14 @@ export const useListenContentData = (items: ChatContentItem[]) => {
         );
 
         if (item.type === ChatContentItemType.INTERACTION) {
+          const existingInteraction = mapping.get(interactionPage) ?? null;
+          const shouldSkipNextChapterInteraction =
+            isLessonFeedbackInteractionItem(existingInteraction) &&
+            isNextChapterInteractionItem(item);
+          if (shouldSkipNextChapterInteraction) {
+            return;
+          }
+
           mapping.set(interactionPage, item);
           nextAudioAndInteractionList.push({
             ...item,
@@ -288,6 +299,22 @@ export const useListenContentData = (items: ChatContentItem[]) => {
         audioAndInteractionList: nextAudioAndInteractionList,
       };
     }, [items]);
+
+  const { lastInteractionBid, lastItemIsInteraction } = useMemo(() => {
+    let latestInteractionBid: string | null = null;
+    for (let i = audioAndInteractionList.length - 1; i >= 0; i -= 1) {
+      if (audioAndInteractionList[i].type === ChatContentItemType.INTERACTION) {
+        latestInteractionBid = audioAndInteractionList[i].generated_block_bid;
+        break;
+      }
+    }
+    const lastItem =
+      audioAndInteractionList[audioAndInteractionList.length - 1];
+    return {
+      lastInteractionBid: latestInteractionBid,
+      lastItemIsInteraction: lastItem?.type === ChatContentItemType.INTERACTION,
+    };
+  }, [audioAndInteractionList]);
 
   const contentByBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();
@@ -1055,6 +1082,10 @@ export const useListenAudioSequence = ({
         setSequenceInteraction(nextItem);
         setActiveAudioBid(null);
         activeAudioBidRef.current = null;
+        if (isLessonFeedbackInteractionItem(nextItem)) {
+          // Pause sequence here and let the floating feedback popup handle input.
+          return;
+        }
         if (index >= list.length - 1) {
           return;
         }

@@ -71,6 +71,11 @@ export const SYS_INTERACTION_TYPE = {
 export type SysInteractionType =
   (typeof SYS_INTERACTION_TYPE)[keyof typeof SYS_INTERACTION_TYPE];
 
+export const LESSON_FEEDBACK_VARIABLE_NAME =
+  'sys_lesson_feedback_score' as const;
+export const LESSON_FEEDBACK_INTERACTION_MARKER =
+  `%{{${LESSON_FEEDBACK_VARIABLE_NAME}}}` as const;
+
 export interface StudyRecordItem {
   block_type: BlockType;
   content: string;
@@ -117,6 +122,23 @@ export interface PostGeneratedContentActionData {
 export interface RunningResult {
   is_running: boolean;
   running_time: number;
+}
+
+export interface SubmitLessonFeedbackParams {
+  shifu_bid: string;
+  outline_bid: string;
+  score: number;
+  comment?: string;
+  mode?: 'read' | 'listen';
+}
+
+export interface SubmitLessonFeedbackResult {
+  lesson_feedback_bid: string;
+  shifu_bid: string;
+  outline_bid: string;
+  score: number;
+  comment: string;
+  mode: 'read' | 'listen';
 }
 
 // Audio types for TTS
@@ -324,4 +346,14 @@ export const checkIsRunning = async (
 ): Promise<RunningResult> => {
   const url = `/api/learn/shifu/${shifu_bid}/run/${outline_bid}`;
   return request.get(url);
+};
+
+export const submitLessonFeedback = async (
+  params: SubmitLessonFeedbackParams,
+): Promise<SubmitLessonFeedbackResult> => {
+  const { shifu_bid, outline_bid, ...payload } = params;
+  return request.post(
+    `/api/learn/shifu/${shifu_bid}/lesson-feedback/${outline_bid}`,
+    payload,
+  );
 };

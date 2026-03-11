@@ -15,6 +15,7 @@ from flaskr.service.profile.dtos import (
     TextProfileDto,
     SelectProfileDto,
 )
+from typing import Any
 from pydantic import BaseModel, Field
 
 
@@ -115,6 +116,31 @@ class ShifuDetailDto(BaseModel):
         description="Use learner language for AI output",
         required=False,
     )
+    ask_enabled_status: int = Field(
+        5101,
+        description="Ask mode status: 5101=default, 5102=disabled, 5103=enabled",
+        required=False,
+    )
+    ask_model: str = Field(
+        "",
+        description="Ask model (maps to ask_llm)",
+        required=False,
+    )
+    ask_temperature: float = Field(
+        0.0,
+        description="Ask model temperature",
+        required=False,
+    )
+    ask_system_prompt: str = Field(
+        "",
+        description="Ask model system prompt",
+        required=False,
+    )
+    ask_provider_config: dict[str, Any] = Field(
+        default_factory=dict,
+        description='Ask provider config, e.g. {"provider":"llm","mode":"provider_then_llm","config":{}}',
+        required=False,
+    )
 
     def __init__(
         self,
@@ -142,6 +168,11 @@ class ShifuDetailDto(BaseModel):
         tts_pitch: int = 0,
         tts_emotion: str = "",
         use_learner_language: bool = False,
+        ask_enabled_status: int = 5101,
+        ask_model: str = "",
+        ask_temperature: float = 0.0,
+        ask_system_prompt: str = "",
+        ask_provider_config: dict[str, Any] | None = None,
     ):
         super().__init__(
             bid=shifu_id,
@@ -168,6 +199,11 @@ class ShifuDetailDto(BaseModel):
             tts_pitch=tts_pitch,
             tts_emotion=tts_emotion,
             use_learner_language=use_learner_language,
+            ask_enabled_status=ask_enabled_status,
+            ask_model=ask_model,
+            ask_temperature=ask_temperature,
+            ask_system_prompt=ask_system_prompt,
+            ask_provider_config=ask_provider_config or {},
         )
 
     def __json__(self):
@@ -196,6 +232,11 @@ class ShifuDetailDto(BaseModel):
             "tts_pitch": self.tts_pitch,
             "tts_emotion": self.tts_emotion,
             "use_learner_language": self.use_learner_language,
+            "ask_enabled_status": self.ask_enabled_status,
+            "ask_model": self.ask_model,
+            "ask_temperature": self.ask_temperature,
+            "ask_system_prompt": self.ask_system_prompt,
+            "ask_provider_config": self.ask_provider_config,
         }
 
 

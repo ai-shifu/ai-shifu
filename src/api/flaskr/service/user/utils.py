@@ -58,16 +58,22 @@ def _normalize_language_code(language_code: str) -> str:
 
 
 def get_user_language(user):
+    language = ""
     if hasattr(user, "user_language") and user.user_language:
+        language = user.user_language
+    elif hasattr(user, "language") and user.language:
+        language = user.language
+
+    if language:
         # Return the user's language as-is, let the i18n system handle fallback
         # Only normalize old format for compatibility
-        normalized = _normalize_language_code(user.user_language)
+        normalized = _normalize_language_code(language)
         if normalized:
             return normalized
-        return user.user_language
-    else:
-        # No language set, default to English
-        return "en-US"
+        return language
+
+    # No language set, default to English
+    return "en-US"
 
 
 # generate token

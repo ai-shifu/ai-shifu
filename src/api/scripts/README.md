@@ -50,9 +50,9 @@ The script provides helpful output:
 ✅ Generated full configuration: .env.example.full
 
 📊 Summary:
-  - Total variables: 106
-  - Required variables: 3
-  - Optional variables: 103
+  - Total variables: 151
+  - Required variables: 2
+  - Optional variables: 149
 
 📌 Required variables that must be configured:
   [AUTH]

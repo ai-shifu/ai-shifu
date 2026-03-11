@@ -119,6 +119,13 @@ def publish_shifu_draft(
         shifu_published.updated_user_bid = user_id
         shifu_published.updated_at = now_time
         shifu_published.llm_system_prompt = shifu_draft.llm_system_prompt
+        shifu_published.ask_enabled_status = shifu_draft.ask_enabled_status
+        shifu_published.ask_llm = shifu_draft.ask_llm
+        shifu_published.ask_llm_temperature = shifu_draft.ask_llm_temperature
+        shifu_published.ask_llm_system_prompt = shifu_draft.ask_llm_system_prompt
+        shifu_published.ask_provider_config = (
+            getattr(shifu_draft, "ask_provider_config", "{}") or "{}"
+        )
         # TTS Configuration
         shifu_published.tts_enabled = shifu_draft.tts_enabled
         shifu_published.tts_provider = getattr(shifu_draft, "tts_provider", "") or ""

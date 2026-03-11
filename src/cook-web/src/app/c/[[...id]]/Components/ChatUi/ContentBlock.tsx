@@ -4,12 +4,13 @@ import { isEqual } from 'lodash';
 import { ContentRender } from 'markdown-flow-ui/renderer';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { cn } from '@/lib/utils';
-import type { ChatContentItem } from './useChatLogicHook';
+import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import {
   getAudioTrackByPosition,
   hasAudioContentInTrack,
 } from '@/c-utils/audio-utils';
+import { LESSON_FEEDBACK_INTERACTION_MARKER } from '@/c-api/studyV2';
 
 interface ContentBlockProps {
   item: ChatContentItem;
@@ -71,6 +72,13 @@ const ContentBlock = memo(
     const primaryTrack = getAudioTrackByPosition(item.audioTracks ?? []);
     const hasAudioContent = Boolean(hasAudioContentInTrack(primaryTrack));
     const shouldShowAudioAction = Boolean(showAudioAction);
+    const isLessonFeedbackInteraction =
+      item.type === ChatContentItemType.INTERACTION &&
+      Boolean(item.content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER));
+
+    if (isLessonFeedbackInteraction) {
+      return null;
+    }
 
     return (
       <div

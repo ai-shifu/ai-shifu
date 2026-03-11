@@ -1,8 +1,9 @@
 from markdown_flow import (
     InteractionParser,
 )
-from flask import Flask, request
+from flask import Flask, request, has_request_context
 import base64
+import json
 import time
 import logging
 from dataclasses import replace
@@ -32,7 +33,11 @@ from flaskr.service.shifu.models import (
     LogDraftStruct,
     LogPublishedStruct,
 )
-from flaskr.service.learn.models import LearnProgressRecord, LearnGeneratedBlock
+from flaskr.service.learn.models import (
+    LearnProgressRecord,
+    LearnGeneratedBlock,
+    LearnLessonFeedback,
+)
 from flaskr.service.tts.models import LearnGeneratedAudio, AUDIO_STATUS_COMPLETED
 from flaskr.service.metering import UsageContext, record_tts_usage
 from flaskr.service.metering.consts import (
@@ -94,6 +99,10 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_CHECKCODE_VALUE,
 )
 from flaskr.service.learn.const import ROLE_TEACHER, CONTEXT_INTERACTION_NEXT
+from flaskr.service.learn.lesson_feedback import (
+    build_lesson_feedback_interaction_md,
+    is_lesson_feedback_interaction,
+)
 from flaskr.service.learn.listen_slide_builder import build_listen_slides_for_block
 from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_TRIAL,
@@ -110,6 +119,25 @@ STATUS_MAP = {
 }
 
 logger = logging.getLogger(__name__)
+
+
+def _is_access_gate_interaction(
+    content: str | None, *, is_paid: bool, is_logged_in: bool
+) -> bool:
+    if not content:
+        return False
+    try:
+        parsed = InteractionParser().parse(content)
+    except Exception:
+        return False
+    buttons = parsed.get("buttons") or []
+    for button in buttons:
+        value = button.get("value")
+        if value == "_sys_pay" and not is_paid:
+            return True
+        if value == "_sys_login" and not is_logged_in:
+            return True
+    return False
 
 
 def _collect_outline_bids(struct: HistoryItem) -> list[str]:
@@ -334,6 +362,19 @@ def get_learn_record(
     app: Flask, shifu_bid: str, outline_bid: str, user_bid: str, preview_mode: bool
 ) -> LearnRecordDTO:
     with app.app_context():
+        is_paid = preview_mode
+        if not is_paid:
+            buy_record = (
+                Order.query.filter(
+                    Order.user_bid == user_bid,
+                    Order.shifu_bid == shifu_bid,
+                    Order.status == ORDER_STATUS_SUCCESS,
+                )
+                .order_by(Order.id.desc())
+                .first()
+            )
+            is_paid = bool(buy_record)
+
         progress_record = LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == user_bid,
             LearnProgressRecord.shifu_bid == shifu_bid,
@@ -552,9 +593,73 @@ def get_learn_record(
             and CONTEXT_INTERACTION_NEXT in record.content
             for record in records
         )
+        has_feedback_interaction = any(
+            record.block_type == BlockType.INTERACTION
+            and is_lesson_feedback_interaction(record.content)
+            for record in records
+        )
+        has_tail_access_gate = bool(
+            records
+            and records[-1].block_type == BlockType.INTERACTION
+            and _is_access_gate_interaction(
+                records[-1].content,
+                is_paid=is_paid,
+                is_logged_in=bool(
+                    getattr(getattr(request, "user", None), "mobile", None)
+                    or getattr(getattr(request, "user", None), "email", None)
+                )
+                if has_request_context()
+                else False,
+            )
+        )
+        if (
+            progress_record.status == LEARN_STATUS_COMPLETED or has_tail_access_gate
+        ) and not has_feedback_interaction:
+            saved_feedback = (
+                LearnLessonFeedback.query.filter(
+                    LearnLessonFeedback.user_bid == user_bid,
+                    LearnLessonFeedback.shifu_bid == shifu_bid,
+                    LearnLessonFeedback.outline_item_bid == outline_bid,
+                    LearnLessonFeedback.deleted == 0,
+                )
+                .order_by(LearnLessonFeedback.id.desc())
+                .first()
+            )
+            feedback_generated_content = ""
+            if saved_feedback and 1 <= int(saved_feedback.score or 0) <= 5:
+                feedback_generated_content = json.dumps(
+                    {
+                        "score": int(saved_feedback.score),
+                        "comment": saved_feedback.comment or "",
+                    },
+                    ensure_ascii=False,
+                )
+            feedback_content = build_lesson_feedback_interaction_md()
+            feedback_record = GeneratedBlockDTO(
+                generate_id(app),
+                feedback_content,
+                LikeStatus.NONE,
+                BlockType.INTERACTION,
+                feedback_generated_content,
+            )
+            next_button_index = next(
+                (
+                    index
+                    for index, record in enumerate(records)
+                    if record.block_type == BlockType.INTERACTION
+                    and CONTEXT_INTERACTION_NEXT in record.content
+                ),
+                len(records),
+            )
+            insert_index = next_button_index
+            if has_tail_access_gate:
+                insert_index = min(insert_index, len(records) - 1)
+            records.insert(insert_index, feedback_record)
+
         if (
             progress_record.status == LEARN_STATUS_COMPLETED
             and has_next_outline
+            and not has_tail_access_gate
             and not has_next_chapter_button
         ):
             button_label = _("server.learn.nextChapterButton")
