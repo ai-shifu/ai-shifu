@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
 
 import { buildAdminOrdersUrl } from './admin-dashboard-routes';
@@ -77,7 +77,7 @@ describe('AdminDashboardEntryPage', () => {
 
   test('builds orders url with shifu_bid', () => {
     expect(buildAdminOrdersUrl('shifu-1')).toBe(
-      '/admin/orders?shifu_bid=shifu-1',
+      '/admin/orders?shifu_bid=shifu-1&status=502',
     );
     expect(buildAdminOrdersUrl('   ')).toBeNull();
   });
@@ -103,8 +103,33 @@ describe('AdminDashboardEntryPage', () => {
     ).toBeEnabled();
   });
 
+  test('navigates to orders page with success status filter', async () => {
+    render(<AdminDashboardEntryPage />);
+
+    await waitFor(() => {
+      expect(mockGetDashboardEntry).toHaveBeenCalled();
+    });
+
+    const orderButton = await screen.findByRole('button', {
+      name: 'module.dashboard.entry.table.orders-shifu-1',
+    });
+    expect(orderButton).toBeEnabled();
+
+    fireEvent.click(orderButton);
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith(
+        '/admin/orders?shifu_bid=shifu-1&status=502',
+      );
+    });
+  });
+
   test('keeps pagination and scope note outside the list scroll region', async () => {
     render(<AdminDashboardEntryPage />);
+
+    await waitFor(() => {
+      expect(mockGetDashboardEntry).toHaveBeenCalled();
+    });
 
     const orderButton = await screen.findByRole('button', {
       name: 'module.dashboard.entry.table.orders-shifu-1',
