@@ -53,6 +53,7 @@ interface ListenModeRendererProps {
   previewMode?: boolean;
   onRequestAudioForBlock?: (generatedBlockBid: string) => Promise<any>;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
+  onPlayerVisibilityChange?: (visible: boolean) => void;
 }
 
 const ListenModeRenderer = ({
@@ -66,6 +67,7 @@ const ListenModeRenderer = ({
   previewMode = false,
   onRequestAudioForBlock,
   onSend,
+  onPlayerVisibilityChange,
 }: ListenModeRendererProps) => {
   const deckRef = useRef<Reveal.Api | null>(null);
   const currentPptPageRef = useRef<number>(0);
@@ -244,6 +246,13 @@ const ListenModeRenderer = ({
     setIsSlideNavigationLocked(false);
     showListenPlayer();
   }, [lessonId, sectionTitle, showListenPlayer]);
+
+  useEffect(() => {
+    onPlayerVisibilityChange?.(isListenPlayerVisible);
+    return () => {
+      onPlayerVisibilityChange?.(false);
+    };
+  }, [isListenPlayerVisible, onPlayerVisibilityChange]);
 
   const shouldRenderEmptyPpt = useMemo(() => {
     if (isLoading) {

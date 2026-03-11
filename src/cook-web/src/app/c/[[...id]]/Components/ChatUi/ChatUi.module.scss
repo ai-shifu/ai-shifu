@@ -169,8 +169,17 @@
 
   &.mobile.listenMode {
     overflow: visible;
-    .chatComponents {
-      padding: 0 0 128px 0 !important;
+
+    &.listenModeWithPlayer {
+      .chatComponents {
+        padding: 0 0 128px 0 !important;
+      }
+    }
+
+    &.listenModeWithoutPlayer {
+      .chatComponents {
+        padding: 0 0 40px 0 !important;
+      }
     }
   }
 
