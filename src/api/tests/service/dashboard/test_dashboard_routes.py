@@ -470,11 +470,11 @@ class TestDashboardRoutes:
         assert resp.status_code == 200
         assert payload["code"] == 0
         assert payload["data"]["summary"]["learner_count"] == 1
-        assert payload["data"]["summary"]["order_count"] == 0
+        assert payload["data"]["summary"]["order_count"] == 1
         assert payload["data"]["summary"]["order_amount"] == "0.00"
         assert payload["data"]["items"][0]["shifu_bid"] == "course-import"
         assert payload["data"]["items"][0]["learner_count"] == 1
-        assert payload["data"]["items"][0]["order_count"] == 0
+        assert payload["data"]["items"][0]["order_count"] == 1
         assert payload["data"]["items"][0]["order_amount"] == "0.00"
 
     def test_entry_manual_non_zero_order_counted_in_order_metrics(

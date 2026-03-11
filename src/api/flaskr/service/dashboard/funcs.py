@@ -284,7 +284,6 @@ def _collect_dashboard_entry_metrics(
         Order.shifu_bid.in_(shifu_bids),
         Order.deleted == 0,
         Order.status == ORDER_STATUS_SUCCESS,
-        ~((Order.payment_channel == "manual") & (Order.paid_price == 0)),
     )
     if start_dt is not None:
         order_query = order_query.filter(Order.created_at >= start_dt)
