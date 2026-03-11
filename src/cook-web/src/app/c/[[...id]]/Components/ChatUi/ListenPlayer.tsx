@@ -102,6 +102,13 @@ const ListenPlayer = ({
     [onSend, interaction?.generated_block_bid],
   );
 
+  const stopOverlayPropagation = useCallback(
+    (event: React.PointerEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
+      event.stopPropagation();
+    },
+    [],
+  );
+
   return (
     <div
       className={cn(
@@ -116,6 +123,8 @@ const ListenPlayer = ({
             'absolute left-1/2 bottom-full -translate-x-1/2 pb-4',
             styles.interactionContainer,
           )}
+          onPointerDown={stopOverlayPropagation}
+          onClick={stopOverlayPropagation}
         >
           <div className='rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-lg'>
             <div className='px-4 pt-3'>

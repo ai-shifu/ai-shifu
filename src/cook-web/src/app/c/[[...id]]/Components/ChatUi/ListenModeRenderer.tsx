@@ -384,7 +384,7 @@ const ListenModeRenderer = ({
     <div
       className={cn('listen-reveal-wrapper', mobileStyle ? 'mobile' : '')}
       style={{ background: '#F7F9FF', position: 'relative' }}
-      onPointerDownCapture={handleListenSurfacePointerDown}
+      onPointerDown={handleListenSurfacePointerDown}
     >
       <div
         className={cn('reveal', 'listen-reveal')}
