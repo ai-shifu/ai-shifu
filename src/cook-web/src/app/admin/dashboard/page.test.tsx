@@ -102,4 +102,24 @@ describe('AdminDashboardEntryPage', () => {
       }),
     ).toBeEnabled();
   });
+
+  test('keeps pagination and scope note outside the list scroll region', async () => {
+    render(<AdminDashboardEntryPage />);
+
+    const orderButton = await screen.findByRole('button', {
+      name: 'module.dashboard.entry.table.orders-shifu-1',
+    });
+    expect(orderButton).toBeEnabled();
+
+    const scrollRegion = screen.getByTestId(
+      'dashboard-course-list-scroll-region',
+    );
+    const pagination = screen.getByRole('navigation', { name: 'pagination' });
+    const scopeNote = screen.getByText(
+      'module.dashboard.entry.table.scopeNote',
+    );
+
+    expect(scrollRegion).not.toContainElement(pagination);
+    expect(scrollRegion).not.toContainElement(scopeNote);
+  });
 });

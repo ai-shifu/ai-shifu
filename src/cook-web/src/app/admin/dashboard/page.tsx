@@ -201,6 +201,12 @@ const formatOrderAmount = (value: string, currencySymbol: string): string => {
   return `${currencySymbol}${integerPart}.${decimalPart}`;
 };
 
+const DASHBOARD_TABLE_HEAD_CLASS =
+  'sticky top-0 z-30 bg-muted border-r border-border last:border-r-0';
+
+const DASHBOARD_TABLE_CELL_CLASS =
+  'whitespace-nowrap overflow-hidden text-ellipsis border-r border-border last:border-r-0';
+
 export default function AdminDashboardEntryPage() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -385,61 +391,63 @@ export default function AdminDashboardEntryPage() {
           </div>
         </div>
 
-        <div className='flex-1 overflow-auto pb-4 space-y-5'>
-          <div className='grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4'>
-            <Card>
-              <CardContent className='p-4'>
-                <div className='text-sm text-muted-foreground'>
-                  {t('module.dashboard.entry.kpi.courses')}
-                </div>
-                <div className='mt-2 text-2xl font-semibold text-foreground'>
-                  {loading ? '-' : summary.course_count}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className='p-4'>
-                <div className='text-sm text-muted-foreground'>
-                  {t('module.dashboard.entry.kpi.learners')}
-                </div>
-                <div className='mt-2 text-2xl font-semibold text-foreground'>
-                  {loading ? '-' : summary.learner_count}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className='p-4'>
-                <div className='text-sm text-muted-foreground'>
-                  {t('module.dashboard.entry.kpi.orders')}
-                </div>
-                <div className='mt-2 text-2xl font-semibold text-foreground'>
-                  {loading ? '-' : summary.order_count}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className='p-4'>
-                <div className='text-sm text-muted-foreground'>
-                  {t('module.dashboard.entry.kpi.orderAmount')}
-                </div>
-                <div className='mt-2 text-2xl font-semibold text-foreground'>
-                  {loading
-                    ? '-'
-                    : formatOrderAmount(summary.order_amount, currencySymbol)}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {error ? (
-            <div className='text-sm text-destructive'>{error.message}</div>
-          ) : null}
+        <div className='shrink-0 mb-5 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4'>
+          <Card>
+            <CardContent className='p-4'>
+              <div className='text-sm text-muted-foreground'>
+                {t('module.dashboard.entry.kpi.courses')}
+              </div>
+              <div className='mt-2 text-2xl font-semibold text-foreground'>
+                {loading ? '-' : summary.course_count}
+              </div>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardContent className='p-4'>
+              <div className='text-sm text-muted-foreground'>
+                {t('module.dashboard.entry.kpi.learners')}
+              </div>
+              <div className='mt-2 text-2xl font-semibold text-foreground'>
+                {loading ? '-' : summary.learner_count}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className='p-4'>
+              <div className='text-sm text-muted-foreground'>
+                {t('module.dashboard.entry.kpi.orders')}
+              </div>
+              <div className='mt-2 text-2xl font-semibold text-foreground'>
+                {loading ? '-' : summary.order_count}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className='p-4'>
+              <div className='text-sm text-muted-foreground'>
+                {t('module.dashboard.entry.kpi.orderAmount')}
+              </div>
+              <div className='mt-2 text-2xl font-semibold text-foreground'>
+                {loading
+                  ? '-'
+                  : formatOrderAmount(summary.order_amount, currencySymbol)}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {error ? (
+          <div className='shrink-0 mb-4 text-sm text-destructive'>
+            {error.message}
+          </div>
+        ) : null}
+
+        <div className='flex-1 min-h-0 flex flex-col'>
+          <div className='flex min-h-0 flex-1 flex-col rounded-xl border border-border bg-white shadow-sm'>
+            <div className='shrink-0 border-b border-border p-4'>
               <div className='flex items-baseline gap-2'>
                 <h2 className='text-base font-semibold text-foreground'>
                   {t('module.dashboard.entry.table.title')}
@@ -450,155 +458,209 @@ export default function AdminDashboardEntryPage() {
                   })}
                 </span>
               </div>
+            </div>
 
-              <div className='mt-4 overflow-auto rounded-lg border border-border bg-white'>
-                {loading ? (
-                  <div className='flex h-40 items-center justify-center'>
-                    <Loading />
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>
-                          {t('module.dashboard.entry.table.course')}
-                        </TableHead>
-                        <TableHead>
-                          {t('module.dashboard.entry.table.learners')}
-                        </TableHead>
-                        <TableHead>
-                          {t('module.dashboard.entry.table.orders')}
-                        </TableHead>
-                        <TableHead>
-                          {t('module.dashboard.entry.table.orderAmount')}
-                        </TableHead>
-                        <TableHead>
-                          {t('module.dashboard.entry.table.lastActive')}
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.length === 0 ? (
-                        <TableEmpty colSpan={5}>
-                          {t('module.dashboard.entry.table.empty')}
-                        </TableEmpty>
-                      ) : null}
+            <div
+              data-testid='dashboard-course-list-scroll-region'
+              className='min-h-0 flex-1 overflow-hidden'
+            >
+              {loading ? (
+                <div className='flex h-full min-h-40 items-center justify-center'>
+                  <Loading />
+                </div>
+              ) : (
+                <Table
+                  containerClassName='h-full'
+                  className='min-w-[820px]'
+                >
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead
+                        className={cn(
+                          DASHBOARD_TABLE_HEAD_CLASS,
+                          'min-w-[280px]',
+                        )}
+                      >
+                        {t('module.dashboard.entry.table.course')}
+                      </TableHead>
+                      <TableHead
+                        className={cn(
+                          DASHBOARD_TABLE_HEAD_CLASS,
+                          'min-w-[120px]',
+                        )}
+                      >
+                        {t('module.dashboard.entry.table.learners')}
+                      </TableHead>
+                      <TableHead
+                        className={cn(
+                          DASHBOARD_TABLE_HEAD_CLASS,
+                          'min-w-[120px]',
+                        )}
+                      >
+                        {t('module.dashboard.entry.table.orders')}
+                      </TableHead>
+                      <TableHead
+                        className={cn(
+                          DASHBOARD_TABLE_HEAD_CLASS,
+                          'min-w-[140px]',
+                        )}
+                      >
+                        {t('module.dashboard.entry.table.orderAmount')}
+                      </TableHead>
+                      <TableHead
+                        className={cn(
+                          DASHBOARD_TABLE_HEAD_CLASS,
+                          'min-w-[180px]',
+                        )}
+                      >
+                        {t('module.dashboard.entry.table.lastActive')}
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.length === 0 ? (
+                      <TableEmpty colSpan={5}>
+                        {t('module.dashboard.entry.table.empty')}
+                      </TableEmpty>
+                    ) : null}
 
-                      {items.map(item => (
-                        <TableRow key={item.shifu_bid}>
-                          <TableCell className='whitespace-nowrap'>
-                            <div className='text-sm text-foreground'>
-                              {item.shifu_name || item.shifu_bid}
-                            </div>
-                            <div className='text-xs text-muted-foreground'>
-                              {item.shifu_bid}
-                            </div>
-                          </TableCell>
-                          <TableCell className='whitespace-nowrap'>
-                            {item.learner_count}
-                          </TableCell>
-                          <TableCell className='whitespace-nowrap'>
-                            <button
-                              type='button'
-                              onClick={() => handleOrderClick(item.shifu_bid)}
-                              disabled={!item.shifu_bid.trim()}
-                              aria-label={`${t('module.dashboard.entry.table.orders')}-${item.shifu_bid}`}
-                              className={cn(
-                                'text-sm font-medium text-primary transition hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline',
-                              )}
-                            >
-                              {item.order_count}
-                            </button>
-                          </TableCell>
-                          <TableCell className='whitespace-nowrap'>
-                            {formatOrderAmount(
-                              item.order_amount,
-                              currencySymbol,
+                    {items.map(item => (
+                      <TableRow key={item.shifu_bid}>
+                        <TableCell
+                          className={cn(
+                            DASHBOARD_TABLE_CELL_CLASS,
+                            'min-w-[280px]',
+                          )}
+                        >
+                          <div className='max-w-[320px] truncate text-sm text-foreground'>
+                            {item.shifu_name || item.shifu_bid}
+                          </div>
+                          <div className='mt-1 max-w-[320px] truncate text-xs text-muted-foreground'>
+                            {item.shifu_bid}
+                          </div>
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            DASHBOARD_TABLE_CELL_CLASS,
+                            'min-w-[120px] text-sm text-foreground',
+                          )}
+                        >
+                          {item.learner_count}
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            DASHBOARD_TABLE_CELL_CLASS,
+                            'min-w-[120px]',
+                          )}
+                        >
+                          <button
+                            type='button'
+                            onClick={() => handleOrderClick(item.shifu_bid)}
+                            disabled={!item.shifu_bid.trim()}
+                            aria-label={`${t('module.dashboard.entry.table.orders')}-${item.shifu_bid}`}
+                            className={cn(
+                              'text-sm font-medium text-primary transition hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline',
                             )}
-                          </TableCell>
-                          <TableCell className='whitespace-nowrap'>
-                            {formatLastActive(item.last_active_at)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </div>
-
-              <div className='mt-4 flex justify-end'>
-                <Pagination className='justify-end w-auto mx-0'>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        href='#'
-                        onClick={event => {
-                          event.preventDefault();
-                          handlePageChange(pageIndex - 1);
-                        }}
-                        aria-disabled={pageIndex <= 1}
-                        className={
-                          pageIndex <= 1 ? 'pointer-events-none opacity-50' : ''
-                        }
-                      >
-                        {t('module.dashboard.pagination.prev')}
-                      </PaginationPrevious>
-                    </PaginationItem>
-
-                    {(() => {
-                      const startPage =
-                        pageCount <= 5
-                          ? 1
-                          : Math.max(1, Math.min(pageIndex - 2, pageCount - 4));
-                      const endPage =
-                        pageCount <= 5
-                          ? pageCount
-                          : Math.min(pageCount, startPage + 4);
-
-                      const pages: number[] = [];
-                      for (let page = startPage; page <= endPage; page += 1) {
-                        pages.push(page);
-                      }
-
-                      return pages.map(page => (
-                        <PaginationItem key={page}>
-                          <PaginationLink
-                            href='#'
-                            onClick={event => {
-                              event.preventDefault();
-                              handlePageChange(page);
-                            }}
-                            isActive={page === pageIndex}
                           >
-                            {page}
-                          </PaginationLink>
-                        </PaginationItem>
-                      ));
-                    })()}
+                            {item.order_count}
+                          </button>
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            DASHBOARD_TABLE_CELL_CLASS,
+                            'min-w-[140px] text-sm text-foreground',
+                          )}
+                        >
+                          {formatOrderAmount(item.order_amount, currencySymbol)}
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            DASHBOARD_TABLE_CELL_CLASS,
+                            'min-w-[180px] text-sm text-foreground',
+                          )}
+                        >
+                          {formatLastActive(item.last_active_at)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </div>
 
-                    <PaginationItem>
-                      <PaginationNext
+          <div className='mt-4 flex shrink-0 justify-end'>
+            <Pagination className='justify-end w-auto mx-0'>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href='#'
+                    onClick={event => {
+                      event.preventDefault();
+                      handlePageChange(pageIndex - 1);
+                    }}
+                    aria-disabled={pageIndex <= 1}
+                    className={
+                      pageIndex <= 1 ? 'pointer-events-none opacity-50' : ''
+                    }
+                  >
+                    {t('module.dashboard.pagination.prev')}
+                  </PaginationPrevious>
+                </PaginationItem>
+
+                {(() => {
+                  const startPage =
+                    pageCount <= 5
+                      ? 1
+                      : Math.max(1, Math.min(pageIndex - 2, pageCount - 4));
+                  const endPage =
+                    pageCount <= 5
+                      ? pageCount
+                      : Math.min(pageCount, startPage + 4);
+
+                  const pages: number[] = [];
+                  for (let page = startPage; page <= endPage; page += 1) {
+                    pages.push(page);
+                  }
+
+                  return pages.map(page => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
                         href='#'
                         onClick={event => {
                           event.preventDefault();
-                          handlePageChange(pageIndex + 1);
+                          handlePageChange(page);
                         }}
-                        aria-disabled={pageIndex >= pageCount}
-                        className={
-                          pageIndex >= pageCount
-                            ? 'pointer-events-none opacity-50'
-                            : ''
-                        }
+                        isActive={page === pageIndex}
                       >
-                        {t('module.dashboard.pagination.next')}
-                      </PaginationNext>
+                        {page}
+                      </PaginationLink>
                     </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              </div>
-            </CardContent>
-          </Card>
-          <p className='text-sm text-muted-foreground'>
+                  ));
+                })()}
+
+                <PaginationItem>
+                  <PaginationNext
+                    href='#'
+                    onClick={event => {
+                      event.preventDefault();
+                      handlePageChange(pageIndex + 1);
+                    }}
+                    aria-disabled={pageIndex >= pageCount}
+                    className={
+                      pageIndex >= pageCount
+                        ? 'pointer-events-none opacity-50'
+                        : ''
+                    }
+                  >
+                    {t('module.dashboard.pagination.next')}
+                  </PaginationNext>
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+
+          <p className='mt-4 shrink-0 text-sm text-muted-foreground'>
             {t('module.dashboard.entry.table.scopeNote')}
           </p>
         </div>
