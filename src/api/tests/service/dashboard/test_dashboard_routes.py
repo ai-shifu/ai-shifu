@@ -19,6 +19,19 @@ from flaskr.service.shifu.models import AiCourseAuth, PublishedShifu, ShifuUserA
 
 @pytest.mark.usefixtures("app")
 class TestDashboardRoutes:
+    @pytest.fixture(autouse=True)
+    def _reset_dashboard_storage(self, app):
+        # NOTE: Some test runs reuse the same app/database across test cases.
+        # These dashboard route tests assume an isolated DB state, so we
+        # defensively clear the relevant tables before each test.
+        with app.app_context():
+            db.session.query(AiCourseAuth).delete()
+            db.session.query(ShifuUserArchive).delete()
+            db.session.query(LearnProgressRecord).delete()
+            db.session.query(Order).delete()
+            db.session.query(PublishedShifu).delete()
+            db.session.commit()
+
     def _mock_request_user(self, monkeypatch, *, user_id: str = "teacher-1"):
         dummy_user = SimpleNamespace(
             user_id=user_id,
