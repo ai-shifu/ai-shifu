@@ -726,7 +726,13 @@ const AudioPlayerListBase = (
       return;
     }
     finishTrack();
-  }, [finishTrack, handleSegmentEnded, isSequenceActive, sequenceBlockBid]);
+  }, [
+    finishTrack,
+    handleSegmentEnded,
+    isSequenceActive,
+    logAudioInterrupt,
+    sequenceBlockBid,
+  ]);
 
   const handleAudioError = useCallback(() => {
     logAudioInterrupt('收到 audio onError 事件，停止当前播放', {
