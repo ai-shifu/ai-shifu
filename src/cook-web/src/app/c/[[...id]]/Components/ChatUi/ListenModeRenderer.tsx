@@ -452,21 +452,20 @@ const ListenModeRenderer = ({
           />
         </div>
       ) : null}
-      {isListenPlayerVisible ? (
-        <ListenPlayer
-          onPrev={onPrev}
-          onPlay={onPlay}
-          onPause={onPause}
-          onNext={onNext}
-          prevDisabled={prevControlDisabled}
-          nextDisabled={nextControlDisabled}
-          isAudioPlaying={isAudioPlaying}
-          interaction={listenPlayerInteraction}
-          interactionReadonly={interactionReadonly}
-          onSend={onSend}
-          mobileStyle={mobileStyle}
-        />
-      ) : null}
+      <ListenPlayer
+        onPrev={onPrev}
+        onPlay={onPlay}
+        onPause={onPause}
+        onNext={onNext}
+        prevDisabled={prevControlDisabled}
+        nextDisabled={nextControlDisabled}
+        isAudioPlaying={isAudioPlaying}
+        interaction={listenPlayerInteraction}
+        interactionReadonly={interactionReadonly}
+        onSend={onSend}
+        mobileStyle={mobileStyle}
+        showControls={isListenPlayerVisible}
+      />
     </div>
   );
 };
