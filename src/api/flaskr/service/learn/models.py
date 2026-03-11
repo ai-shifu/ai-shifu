@@ -5,6 +5,7 @@ from sqlalchemy import (
     DateTime,
     Text,
     SmallInteger,
+    Index,
 )
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
@@ -178,4 +179,105 @@ class LearnGeneratedBlock(db.Model):
         default=func.now(),
         onupdate=func.now(),
         comment="Update time",
+    )
+
+
+class LearnLessonFeedback(db.Model):
+    """Lesson feedback record (one effective record per user + lesson)."""
+
+    __tablename__ = "learn_lesson_feedbacks"
+    __table_args__ = (
+        Index(
+            "idx_learn_lesson_feedback_unique_active",
+            "shifu_bid",
+            "outline_item_bid",
+            "user_bid",
+            "deleted",
+            unique=True,
+        ),
+        {"comment": "Learn lesson feedback records"},
+    )
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Lesson feedback business identifier",
+        index=True,
+    )
+    lesson_feedback_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Lesson feedback business identifier",
+        index=True,
+    )
+    shifu_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Shifu business identifier",
+        index=True,
+    )
+    outline_item_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Outline item business identifier",
+        index=True,
+    )
+    progress_record_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Learn progress record business identifier",
+        index=True,
+    )
+    user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="User business identifier",
+        index=True,
+    )
+    score = Column(
+        SmallInteger,
+        nullable=False,
+        comment="Lesson score: 1-5",
+    )
+    comment = Column(
+        Text,
+        nullable=False,
+        default="",
+        comment="Optional feedback comment",
+    )
+    mode = Column(
+        String(16),
+        nullable=False,
+        default="read",
+        comment="Submit mode: read or listen",
+        index=True,
+    )
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Deletion flag: 0=active, 1=deleted",
+        index=True,
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        comment="Creation timestamp",
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now(),
+        comment="Last update timestamp",
     )

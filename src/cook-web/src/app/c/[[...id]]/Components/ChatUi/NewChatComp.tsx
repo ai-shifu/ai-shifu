@@ -1,5 +1,5 @@
 import styles from './ChatComponents.module.scss';
-import { ChevronsDown, Loader2 } from 'lucide-react';
+import { ChevronsDown, Loader2, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import {
   useContext,
@@ -28,6 +28,7 @@ import AskBlock from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
 import ListenModeRenderer from './ListenModeRenderer';
+import LessonFeedbackInteraction from './LessonFeedbackInteraction';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import {
   getAudioTrackByPosition,
@@ -57,6 +58,7 @@ export const NewChatComponents = ({
   updateSelectedLesson,
   getNextLessonId,
   previewMode = false,
+  isNavOpen = false,
 }) => {
   const { trackEvent, trackTrailProgress } = useTracking();
   const { t } = useTranslation();
@@ -226,6 +228,7 @@ export const NewChatComponents = ({
     toggleAskExpanded,
     reGenerateConfirm,
     requestAudioForBlock,
+    lessonFeedbackPopup,
   } = useChatLogicHook({
     onGoChapter,
     shifuBid,
@@ -768,6 +771,43 @@ export const NewChatComponents = ({
           showAudioAction={shouldShowAudioAction}
         />
       )}
+      {lessonFeedbackPopup.open && !(mobileStyle && isNavOpen) ? (
+        <div
+          className={cn(
+            'pointer-events-none z-20',
+            mobileStyle
+              ? isListenModeActive
+                ? 'fixed left-3 right-3 bottom-[calc(env(safe-area-inset-bottom)+88px)]'
+                : 'fixed left-3 right-3 bottom-[calc(env(safe-area-inset-bottom)+56px)]'
+              : 'absolute right-6 w-[260px] max-w-[calc(100%-48px)] bottom-6',
+          )}
+        >
+          <div className='pointer-events-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-lg'>
+            <div className='mb-2 flex items-center justify-between gap-2'>
+              <p className='text-[14px] leading-5 text-[var(--foreground)]'>
+                {t('module.chat.lessonFeedbackPrompt')}
+              </p>
+              <button
+                type='button'
+                aria-label={t('common.core.cancel')}
+                onClick={lessonFeedbackPopup.onClose}
+                className='inline-flex h-6 w-6 items-center justify-center rounded text-foreground/50 transition-colors hover:bg-[var(--muted)] hover:text-foreground/75'
+              >
+                <X className='h-4 w-4' />
+              </button>
+            </div>
+            <LessonFeedbackInteraction
+              defaultScoreText={lessonFeedbackPopup.defaultScoreText}
+              defaultCommentText={lessonFeedbackPopup.defaultCommentText}
+              placeholder={t('module.chat.lessonFeedbackCommentPlaceholder')}
+              submitLabel={confirmButtonText}
+              clearLabel={t('module.chat.lessonFeedbackClearInput')}
+              readonly={lessonFeedbackPopup.readonly}
+              onSubmit={lessonFeedbackPopup.onSubmit}
+            />
+          </div>
+        </div>
+      ) : null}
       <Dialog
         open={reGenerateConfirm.open}
         onOpenChange={open => {

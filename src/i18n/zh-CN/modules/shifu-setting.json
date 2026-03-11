@@ -5,6 +5,89 @@
   "archiveConfirm": "归档后课程会被移动到“归档”，也可以恢复成“未归档”。归档状态下不影响课程的编辑和学习。",
   "archiveSuccess": "课程已归档",
   "archiveTitle": "是否归档课程",
+  "askModel": "追问模型",
+  "askPreview": "测试追问",
+  "askPreviewLoading": "测试中...",
+  "askPreviewQuestion": "测试问题",
+  "askPreviewQuestionPlaceholder": "输入一个问题来测试追问配置",
+  "askPreviewQuestionRequired": "请输入测试问题",
+  "askPreviewResult": "测试结果",
+  "askPreviewUsedFallback": "服务商 {provider} 调用失败，已回退到 LLM",
+  "askPreviewUsedProvider": "当前使用服务商：{provider}",
+  "askProviderConfigInvalidJson": "{field} 必须是合法 JSON 对象",
+  "askProviderConfigRequired": "{field} 为必填项",
+  "askProviderDescriptions": {
+    "coze": "使用 Coze Bot 对话接口处理追问。",
+    "coze_workflow": "使用 Coze 工作流运行接口处理追问。",
+    "dify": "使用 Dify 对话应用处理追问。",
+    "llm": "仅使用内置追问 LLM。",
+    "volc_knowledge": "使用火山引擎知识库检索接口处理追问。"
+  },
+  "askProviderFields": {
+    "coze": {
+      "api_key": {
+        "hint": "Coze 个人访问令牌。",
+        "label": "API 密钥"
+      },
+      "bot_id": {
+        "hint": "Coze Bot 标识。",
+        "label": "Bot ID"
+      }
+    },
+    "coze_workflow": {
+      "api_key": {
+        "hint": "Coze 个人访问令牌。",
+        "label": "API 密钥"
+      },
+      "workflow_id": {
+        "hint": "Coze 工作流标识。",
+        "label": "工作流 ID"
+      }
+    },
+    "dify": {
+      "api_key": {
+        "hint": "Dify 应用 API Key。",
+        "label": "API 密钥"
+      },
+      "base_url": {
+        "hint": "Dify 服务地址，例如 https://api.dify.ai/v1",
+        "label": "服务地址"
+      }
+    },
+    "volc_knowledge": {
+      "account_id": {
+        "hint": "用于 V-Account-Id 请求头的火山引擎账号 ID。",
+        "label": "账号 ID"
+      },
+      "ak": {
+        "hint": "火山引擎 Access Key。",
+        "label": "Access Key (AK)"
+      },
+      "collection_name": {
+        "hint": "知识库集合名称。",
+        "label": "知识库集合"
+      },
+      "sk": {
+        "hint": "火山引擎 Secret Key。",
+        "label": "Secret Key (SK)"
+      }
+    }
+  },
+  "askProviderModes": {
+    "provider_only": "仅服务商",
+    "provider_then_llm": "服务商优先，失败后回退 LLM"
+  },
+  "askProviderOptions": {
+    "coze": "Coze",
+    "coze_workflow": "Coze 工作流",
+    "dify": "Dify",
+    "llm": "LLM",
+    "volc_knowledge": "火山引擎知识库"
+  },
+  "askProviderSelect": "请选择服务商",
+  "askTemperature": "追问温度",
+  "askTemperatureHint": "设置追问回答的创造力（0-2）",
+  "askTitle": "追问设置",
   "draftConflictDescription": "课程已被 {phone} 修改，请刷新网页获取最新记录",
   "draftConflictRefresh": "刷新",
   "draftConflictTitle": "课程已更新",
