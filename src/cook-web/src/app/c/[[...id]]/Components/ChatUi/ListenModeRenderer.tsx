@@ -364,6 +364,11 @@ const ListenModeRenderer = ({
     showListenPlayer();
   }, [showListenPlayer]);
 
+  const handleListenSurfacePointerDown = useCallback(() => {
+    setHasPageInteraction(true);
+    showListenPlayer();
+  }, [showListenPlayer]);
+
   const listenPlayerInteraction = sequenceInteraction;
   const isLatestInteractionEditable = Boolean(
     listenPlayerInteraction?.generated_block_bid &&
@@ -379,6 +384,7 @@ const ListenModeRenderer = ({
     <div
       className={cn('listen-reveal-wrapper', mobileStyle ? 'mobile' : '')}
       style={{ background: '#F7F9FF', position: 'relative' }}
+      onPointerDownCapture={handleListenSurfacePointerDown}
     >
       <div
         className={cn('reveal', 'listen-reveal')}
