@@ -17,6 +17,31 @@ from flaskr.service.order.models import Order
 from flaskr.service.shifu.models import AiCourseAuth, PublishedShifu, ShifuUserArchive
 
 
+def _clear_dashboard_tables() -> None:
+    db.session.query(Order).delete()
+    db.session.query(LearnProgressRecord).delete()
+    db.session.query(ShifuUserArchive).delete()
+    db.session.query(AiCourseAuth).delete()
+    db.session.query(PublishedShifu).delete()
+    db.session.commit()
+    db.session.remove()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_dashboard_tables(app):
+    if app is None:
+        yield
+        return
+
+    with app.app_context():
+        _clear_dashboard_tables()
+
+    yield
+
+    with app.app_context():
+        _clear_dashboard_tables()
+
+
 @pytest.mark.usefixtures("app")
 class TestDashboardRoutes:
     def _mock_request_user(self, monkeypatch, *, user_id: str = "teacher-1"):

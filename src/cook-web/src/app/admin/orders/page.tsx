@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/api';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store';
@@ -83,6 +84,9 @@ type OrderFilters = {
 };
 
 const PAGE_SIZE = 20;
+const DEFAULT_ORDER_STATUS = '502';
+const QUERY_STATUS_KEY = 'status';
+const QUERY_SHIFU_BID_KEY = 'shifu_bid';
 const COLUMN_MIN_WIDTH = 80;
 const COLUMN_MAX_WIDTH = 360;
 const COLUMN_WIDTH_STORAGE_KEY = 'adminOrdersColumnWidths';
@@ -101,6 +105,10 @@ const DEFAULT_COLUMN_WIDTHS = {
 type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
 type ColumnWidthState = Record<ColumnKey, number>;
 const COLUMN_KEYS = Object.keys(DEFAULT_COLUMN_WIDTHS) as ColumnKey[];
+type SearchParamsLike = Pick<
+  URLSearchParams,
+  'get' | 'has' | 'toString'
+> | null;
 
 const clampWidth = (value: number): number =>
   Math.min(COLUMN_MAX_WIDTH, Math.max(COLUMN_MIN_WIDTH, value));
@@ -242,8 +250,50 @@ const DateRangeFilter = ({
   );
 };
 
+const createDefaultFilters = (): OrderFilters => ({
+  order_bid: '',
+  user_bid: '',
+  shifu_bids: [],
+  status: DEFAULT_ORDER_STATUS,
+  payment_channel: '',
+  start_time: '',
+  end_time: '',
+});
+
+const parseShifuBidQuery = (value: string | null): string[] =>
+  Array.from(
+    new Set(
+      (value || '')
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean),
+    ),
+  );
+
+const serializeShifuBidQuery = (value: string[]): string =>
+  parseShifuBidQuery(value.join(',')).join(',');
+
+const createFiltersFromSearchParams = (
+  searchParams: SearchParamsLike,
+): OrderFilters => ({
+  ...createDefaultFilters(),
+  shifu_bids: parseShifuBidQuery(
+    searchParams?.get(QUERY_SHIFU_BID_KEY) || null,
+  ),
+  status: searchParams?.has(QUERY_STATUS_KEY)
+    ? searchParams.get(QUERY_STATUS_KEY) || ''
+    : DEFAULT_ORDER_STATUS,
+});
+
 const OrdersPage = () => {
   const { t, i18n } = useTranslation();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const searchParamsString = searchParams?.toString() || '';
+  const hasStatusQuery = useMemo(
+    () => new URLSearchParams(searchParamsString).has(QUERY_STATUS_KEY),
+    [searchParamsString],
+  );
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const loginMethodsEnabled = useEnvStore(
@@ -257,6 +307,11 @@ const OrdersPage = () => {
   );
   const payOrderExpireSeconds = useEnvStore(
     (state: EnvStoreState) => state.payOrderExpireSeconds,
+  );
+  const initialFilters = useMemo(
+    () =>
+      createFiltersFromSearchParams(new URLSearchParams(searchParamsString)),
+    [searchParamsString],
   );
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -273,16 +328,8 @@ const OrdersPage = () => {
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [coursesError, setCoursesError] = useState<string | null>(null);
   const [courseSearch, setCourseSearch] = useState('');
-  const [filters, setFilters] = useState<OrderFilters>({
-    order_bid: '',
-    user_bid: '',
-    shifu_bids: [],
-    status: '',
-    payment_channel: '',
-    start_time: '',
-    end_time: '',
-  });
-  const filtersRef = useRef<OrderFilters>(filters);
+  const [filters, setFilters] = useState<OrderFilters>(() => initialFilters);
+  const filtersRef = useRef<OrderFilters>(initialFilters);
   const [expanded, setExpanded] = useState(false);
   const [cols, setCols] = useState(4);
 
@@ -465,6 +512,48 @@ const OrdersPage = () => {
   useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
+
+  useEffect(() => {
+    setFilters(prev => {
+      const hasSameCourseFilters =
+        prev.shifu_bids.length === initialFilters.shifu_bids.length &&
+        prev.shifu_bids.every(
+          (bid, index) => bid === initialFilters.shifu_bids[index],
+        );
+      if (
+        prev.order_bid === initialFilters.order_bid &&
+        prev.user_bid === initialFilters.user_bid &&
+        prev.status === initialFilters.status &&
+        prev.payment_channel === initialFilters.payment_channel &&
+        prev.start_time === initialFilters.start_time &&
+        prev.end_time === initialFilters.end_time &&
+        hasSameCourseFilters
+      ) {
+        return prev;
+      }
+      return initialFilters;
+    });
+  }, [initialFilters]);
+
+  const syncJumpFiltersQuery = useCallback(
+    (nextFilters: Pick<OrderFilters, 'shifu_bids' | 'status'>) => {
+      const nextSearchParams = new URLSearchParams(searchParamsString);
+      const serializedShifuBid = serializeShifuBidQuery(nextFilters.shifu_bids);
+      const normalizedStatus = nextFilters.status.trim();
+
+      if (serializedShifuBid) {
+        nextSearchParams.set(QUERY_SHIFU_BID_KEY, serializedShifuBid);
+      } else {
+        nextSearchParams.delete(QUERY_SHIFU_BID_KEY);
+      }
+
+      nextSearchParams.set(QUERY_STATUS_KEY, normalizedStatus);
+
+      const query = nextSearchParams.toString();
+      router.replace(query ? `/admin/orders?${query}` : '/admin/orders');
+    },
+    [router, searchParamsString],
+  );
 
   const startColumnResize = useCallback(
     (key: ColumnKey, clientX: number) => {
@@ -754,7 +843,7 @@ const OrdersPage = () => {
     if (isInitialized && !isGuest) {
       fetchOrders(1);
     }
-  }, [fetchOrders, isInitialized, isGuest]);
+  }, [fetchOrders, i18n.language, isGuest, isInitialized]);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -767,11 +856,17 @@ const OrdersPage = () => {
   }, [isInitialized, isGuest]);
 
   useEffect(() => {
-    if (isInitialized && !isGuest) {
-      fetchOrders(1);
+    if (!isInitialized || isGuest || hasStatusQuery) {
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [i18n.language]);
+    syncJumpFiltersQuery(initialFilters);
+  }, [
+    hasStatusQuery,
+    initialFilters,
+    isGuest,
+    isInitialized,
+    syncJumpFiltersQuery,
+  ]);
 
   const handleFilterChange = (
     key: Exclude<keyof OrderFilters, 'shifu_bids'>,
@@ -791,21 +886,15 @@ const OrdersPage = () => {
   };
 
   const handleSearch = () => {
+    syncJumpFiltersQuery(filters);
     fetchOrders(1, filters);
   };
 
   const handleReset = () => {
-    const cleared: OrderFilters = {
-      order_bid: '',
-      user_bid: '',
-      shifu_bids: [],
-      status: '',
-      payment_channel: '',
-      start_time: '',
-      end_time: '',
-    };
+    const cleared = createDefaultFilters();
     setFilters(cleared);
     setCourseSearch('');
+    syncJumpFiltersQuery(cleared);
     fetchOrders(1, cleared);
   };
 

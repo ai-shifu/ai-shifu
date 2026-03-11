@@ -13,7 +13,6 @@
     "parentOutlineNotFound": "父级大纲不存在",
     "permissionContactLimit": "共享权限最多支持{count}个用户",
     "shifuDescriptionTooLong": "课程描述不能超过500个字符",
-    "shifuNameAlreadyExists": "同名课程已存在",
     "shifuNameRequired": "请输入课程名称",
     "shifuNameTooLong": "课程名称不能超过{max_length}个字符",
     "shifuNotFound": "课程不存在",

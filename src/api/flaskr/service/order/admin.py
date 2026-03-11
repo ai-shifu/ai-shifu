@@ -10,11 +10,7 @@ from typing import Any, Dict, List, Optional
 from flask import Flask
 
 from flaskr.dao import db
-from flaskr.service.common.dtos import (
-    PageNationDTO,
-    USER_STATE_REGISTERED,
-    USER_STATE_UNREGISTERED,
-)
+from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.common.models import (
     AppException,
     raise_error,
@@ -56,9 +52,12 @@ from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 from flaskr.service.user.repository import (
     ensure_user_for_identifier,
     get_user_entity_by_bid,
+    load_user_aggregate_by_identifier,
     update_user_entity_fields,
     upsert_credential,
 )
+from flaskr.service.user.utils import ensure_demo_course_permissions
+from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 
 
 ORDER_STATUS_KEY_MAP = {
@@ -473,7 +472,10 @@ def import_activation_order(
             "language": "en-US",
             "state": USER_STATE_REGISTERED,
         }
-        aggregate, _ = ensure_user_for_identifier(
+        existing_aggregate = load_user_aggregate_by_identifier(
+            normalized_identifier, providers=[contact_type]
+        )
+        aggregate, created_new_user = ensure_user_for_identifier(
             app,
             provider=contact_type,
             identifier=normalized_identifier,
@@ -514,6 +516,10 @@ def import_activation_order(
             if aggregate.state == USER_STATE_UNREGISTERED:
                 updates["state"] = USER_STATE_REGISTERED
             update_user_entity_fields(entity, **updates)
+        if created_new_user or (
+            existing_aggregate and existing_aggregate.state == USER_STATE_UNREGISTERED
+        ):
+            ensure_demo_course_permissions(app, user_id)
 
         upsert_credential(
             app,

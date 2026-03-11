@@ -30,7 +30,6 @@ from flaskr.service.profile.models import (
 )
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.user.dtos import UserProfileLabelDTO, UserProfileLabelItemDTO
-from flaskr.service.user.repository import UserEntity
 
 logger = logging.getLogger(__name__)
 
@@ -475,9 +474,7 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
         app.logger.warning("Failed to load var_variable_values: %s", exc)
         user_values = []
 
-    user_info: UserEntity = UserEntity.query.filter(
-        UserEntity.user_bid == user_id
-    ).first()
+    aggregate = load_user_aggregate(user_id, with_credentials=False)
 
     result: dict[str, str] = {}
     for profile_item in profiles_items:
@@ -499,12 +496,30 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
         if user_value:
             result[profile_item.profile_key] = user_value.value
 
+    # Keep runtime variable resolution aligned with /api/user/get_profile:
+    # mapped system fields should use the latest canonical user entity values.
+    if aggregate:
+        for key, profile_label in PROFILES_LABLES.items():
+            mapping = profile_label.get("mapping")
+            if not mapping:
+                continue
+            raw_value = _current_core_value(aggregate, mapping)
+            if raw_value is None:
+                continue
+            if isinstance(raw_value, datetime.date):
+                result[key] = raw_value.isoformat()
+            else:
+                result[key] = str(raw_value)
+        # Runtime prompt variables must stay consistent with canonical user fields.
+        result[SYS_USER_LANGUAGE] = aggregate.user_language
+        result[SYS_USER_NICKNAME] = aggregate.nickname or ""
+
     # Ensure system variables are always available.
     if result.get(SYS_USER_LANGUAGE) is None:
-        result[SYS_USER_LANGUAGE] = user_info.language if user_info else "en-US"
+        result[SYS_USER_LANGUAGE] = aggregate.user_language if aggregate else "en-US"
 
     if not result.get(SYS_USER_NICKNAME):
-        result[SYS_USER_NICKNAME] = user_info.nickname if user_info else ""
+        result[SYS_USER_NICKNAME] = aggregate.nickname if aggregate else ""
 
     return result
 

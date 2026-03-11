@@ -93,13 +93,13 @@ def update_user_info(
         updates_profile = {}
         update_profile = False
         if name is not None:
-            updates = {"nickname": name}
-            updates_profile = {"sys_user_nickname": name}
+            updates["nickname"] = name
+            updates_profile["sys_user_nickname"] = name
             update_profile = True
         if language is not None:
             if language in get_i18n_list(app):
                 updates["language"] = language
-                updates_profile = {"sys_user_language": language}
+                updates_profile["sys_user_language"] = language
                 update_profile = True
             else:
                 raise_error("USER.LANGUAGE_NOT_FOUND")

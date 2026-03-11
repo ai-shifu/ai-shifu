@@ -2,7 +2,7 @@
 
 import type React from 'react';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -16,16 +16,14 @@ import apiService from '@/api';
 import { cn } from '@/lib/utils';
 import i18n from '@/i18n';
 
-import type { UserInfo } from '@/c-types';
-
 interface PasswordLoginProps {
   onLoginSuccess: () => void;
-  loginContext: string;
+  supportEmailIdentifier?: boolean;
 }
 
 export function PasswordLogin({
   onLoginSuccess,
-  loginContext,
+  supportEmailIdentifier = true,
 }: PasswordLoginProps) {
   const { toast } = useToast();
   const { login } = useUserStore();
@@ -39,10 +37,25 @@ export function PasswordLogin({
   const [showPassword, setShowPassword] = useState(false);
   const [identifierError, setIdentifierError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const identifierTexts = useMemo(
+    () =>
+      supportEmailIdentifier
+        ? {
+            label: t('module.auth.identifier'),
+            placeholder: t('module.auth.identifierPlaceholder'),
+            emptyError: t('module.auth.identifierEmpty'),
+          }
+        : {
+            label: t('module.auth.identifierPhoneOnly'),
+            placeholder: t('module.auth.identifierPhoneOnlyPlaceholder'),
+            emptyError: t('module.auth.identifierPhoneOnlyEmpty'),
+          },
+    [supportEmailIdentifier, t],
+  );
 
   const validateIdentifier = (value: string) => {
     if (!value) {
-      setIdentifierError(t('module.auth.identifierEmpty'));
+      setIdentifierError(identifierTexts.emptyError);
       return false;
     }
     setIdentifierError('');
@@ -148,11 +161,11 @@ export function PasswordLogin({
             htmlFor='identifier'
             className={identifierError ? 'text-red-500' : ''}
           >
-            {t('module.auth.identifier')}
+            {identifierTexts.label}
           </Label>
           <Input
             id='identifier'
-            placeholder={t('module.auth.identifierPlaceholder')}
+            placeholder={identifierTexts.placeholder}
             value={identifier}
             onChange={handleIdentifierChange}
             onKeyDown={handleKeyDown}

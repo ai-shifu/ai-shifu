@@ -11,6 +11,7 @@ from typing import List, Sequence
 from flaskr.common.log import AppLoggerProxy
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
+DEFAULT_CROSSFADE_MS = 50
 
 # Try to import pydub, which wraps ffmpeg
 try:
@@ -68,8 +69,12 @@ def concat_audio_mp3(segments: List[bytes], output_format: str = "mp3") -> bytes
             if combined is None:
                 combined = segment
             else:
-                # Add small crossfade for smoother transitions (50ms)
-                combined = combined.append(segment, crossfade=50)
+                # Keep crossfade short enough for both segments to avoid pydub errors.
+                crossfade_ms = min(DEFAULT_CROSSFADE_MS, len(combined), len(segment))
+                if crossfade_ms > 0:
+                    combined = combined.append(segment, crossfade=crossfade_ms)
+                else:
+                    combined = combined.append(segment)
 
         except Exception as e:
             logger.error(f"Error processing audio segment {i}: {e}")

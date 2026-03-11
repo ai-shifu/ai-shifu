@@ -239,12 +239,20 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
 
         """
-        tmp_id = request.get_json().get("temp_id", None)
-        source = request.get_json().get("source", "web")
-        wx_code = request.get_json().get("wxcode", None)
-        language = request.get_json().get("language", "en-US")
+        parsed_payload = request.get_json(silent=True)
+        payload = parsed_payload if isinstance(parsed_payload, dict) else {}
+        tmp_id = payload.get("temp_id", None)
+        source = "web"
+        wx_code = payload.get("wxcode", None)
+        language = payload.get("language") or "en-US"
+        masked_wx_code = None
+        if isinstance(wx_code, str) and wx_code:
+            masked_wx_code = f"***{wx_code[-4:]}" if len(wx_code) > 4 else "***"
         app.logger.info(
-            f"require_tmp tmp_id: {tmp_id}, source: {source}, wx_code: {wx_code}"
+            "require_tmp tmp_id: %s, source: %s, wx_code: %s",
+            tmp_id,
+            source,
+            masked_wx_code,
         )
         if not tmp_id:
             raise_param_error("temp_id")

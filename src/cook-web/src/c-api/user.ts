@@ -24,11 +24,8 @@ export const updateUserInfo = name => {
  * https://agiclass.feishu.cn/docx/WyXhdgeVzoKVqDx1D4wc0eMknmg
  */
 export const registerTmp = ({ temp_id }) => {
-  const {
-    channel: source,
-    wechatCode: wxcode,
-    language,
-  } = useSystemStore.getState();
+  const { channel, wechatCode: wxcode, language } = useSystemStore.getState();
+  const source = (channel || '').trim() || 'web';
 
   return request.post('/api/user/require_tmp', {
     temp_id,

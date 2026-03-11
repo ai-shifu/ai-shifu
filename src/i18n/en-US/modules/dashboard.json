@@ -3,9 +3,9 @@
   "entry": {
     "kpi": {
       "courses": "Courses",
-      "learners": "Learners",
-      "orderAmount": "Order Amount",
-      "orders": "Orders"
+      "learners": "Total Learners",
+      "orderAmount": "Total Order Amount",
+      "orders": "Total Orders"
     },
     "table": {
       "course": "Course",
@@ -15,6 +15,7 @@
       "orderAmount": "Order Amount",
       "orders": "Orders",
       "reset": "Reset",
+      "scopeNote": "Scope: Only data from courses you created and own is included. Collaborative courses are excluded.",
       "search": "Search",
       "searchPlaceholder": "Search by course name / course id",
       "title": "Course List",
