@@ -109,7 +109,11 @@ const ListenPlayer = ({
   );
 
   const stopOverlayPropagation = useCallback(
-    (event: React.PointerEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
+    (
+      event:
+        | React.PointerEvent<HTMLDivElement>
+        | React.MouseEvent<HTMLDivElement>,
+    ) => {
       event.stopPropagation();
     },
     [],
