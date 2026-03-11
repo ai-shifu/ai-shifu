@@ -19,6 +19,8 @@ import {
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import type { AudioPlayerHandle } from './AudioPlayer';
 
+const AUDIO_PLAYER_END_DEDUP_WINDOW_MS = 1000;
+
 export interface AudioPlayerListProps {
   audioList: AudioItem[];
   className?: string;
@@ -74,6 +76,15 @@ const AudioPlayerListBase = (
   const currentSegmentIndexRef = useRef(0);
   const segmentOffsetRef = useRef(0);
   const playedSecondsRef = useRef(0);
+  const recentAudioEndedRef = useRef<{
+    bid: string | null;
+    src: string | null;
+    at: number;
+  } | null>(null);
+  const recentFinishTrackRef = useRef<{
+    bid: string | null;
+    at: number;
+  } | null>(null);
   const playerDebugIdRef = useRef(
     `list-${Math.random().toString(36).slice(2, 8)}`,
   );
@@ -253,6 +264,8 @@ const AudioPlayerListBase = (
       isUsingSegmentsRef.current = false;
       isSegmentsPlaybackRef.current = false;
       isWaitingForSegmentRef.current = false;
+      recentAudioEndedRef.current = null;
+      recentFinishTrackRef.current = null;
       if (currentSrcRef.current !== url) {
         currentSrcRef.current = url;
         audio.src = url;
@@ -323,6 +336,8 @@ const AudioPlayerListBase = (
       isUsingSegmentsRef.current = true;
       isSegmentsPlaybackRef.current = true;
       isWaitingForSegmentRef.current = false;
+      recentAudioEndedRef.current = null;
+      recentFinishTrackRef.current = null;
       currentSegmentIndexRef.current = index;
       segmentOffsetRef.current = Math.max(0, startOffsetSeconds);
       if (currentSrcRef.current !== src) {
@@ -542,11 +557,29 @@ const AudioPlayerListBase = (
   );
 
   const finishTrack = useCallback(() => {
+    const trackBid = currentTrackRef.current?.generated_block_bid ?? null;
+    const now = Date.now();
+    const recentFinished = recentFinishTrackRef.current;
+    if (
+      recentFinished &&
+      recentFinished.bid === trackBid &&
+      now - recentFinished.at < AUDIO_PLAYER_END_DEDUP_WINDOW_MS
+    ) {
+      logAudioInterrupt('finish-track-skip-duplicate', {
+        trackBid,
+        elapsed: now - recentFinished.at,
+      });
+      return;
+    }
+    recentFinishTrackRef.current = {
+      bid: trackBid,
+      at: now,
+    };
     logAudioInterrupt('finish-track-enter', {
       currentIndex: currentIndexRef.current,
       playlistLength: playlist.length,
       isSequenceActive,
-      trackBid: currentTrackRef.current?.generated_block_bid ?? null,
+      trackBid,
     });
     resetSegmentState();
     isUsingSegmentsRef.current = false;
@@ -660,8 +693,29 @@ const AudioPlayerListBase = (
   }, [logAudioInterrupt, releaseExclusive, setPlayingState]);
 
   const handleAudioEnded = useCallback(() => {
+    const currentBid = currentTrackRef.current?.generated_block_bid ?? null;
+    const currentSrc = currentSrcRef.current;
+    const now = Date.now();
+    const recentEnded = recentAudioEndedRef.current;
+    if (
+      recentEnded &&
+      recentEnded.bid === currentBid &&
+      recentEnded.src === currentSrc &&
+      now - recentEnded.at < AUDIO_PLAYER_END_DEDUP_WINDOW_MS
+    ) {
+      logAudioInterrupt('audio-player-ended-skip-duplicate', {
+        bid: currentBid,
+        elapsed: now - recentEnded.at,
+      });
+      return;
+    }
+    recentAudioEndedRef.current = {
+      bid: currentBid,
+      src: currentSrc,
+      at: now,
+    };
     logAudioDebug('audio-player-ended', {
-      bid: currentTrackRef.current?.generated_block_bid ?? null,
+      bid: currentBid,
       usingSegments: isUsingSegmentsRef.current,
       waitingForSegment: isWaitingForSegmentRef.current,
       sequenceBlockBid,
@@ -790,6 +844,8 @@ const AudioPlayerListBase = (
       fromIndex: currentIndexRef.current,
     });
     currentTrackBidRef.current = nextBid;
+    recentAudioEndedRef.current = null;
+    recentFinishTrackRef.current = null;
     isUsingSegmentsRef.current = false;
     isSegmentsPlaybackRef.current = false;
     isWaitingForSegmentRef.current = false;

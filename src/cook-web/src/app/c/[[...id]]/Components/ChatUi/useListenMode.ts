@@ -33,6 +33,7 @@ export type ListenSlideItem = {
 };
 
 export const LISTEN_AUDIO_BID_DELIMITER = '::listen-audio-pos::';
+const AUDIO_END_TRANSITION_DEDUP_WINDOW_MS = 1200;
 
 export const buildListenAudioSequenceBid = (
   generatedBlockBid: string,
@@ -894,6 +895,15 @@ export const useListenAudioSequence = ({
   const isAudioSequenceActiveRef = useRef(false);
   const activeAudioBidRef = useRef<string | null>(null);
   const isAudioPlayingRef = useRef(isAudioPlaying);
+  const recentHandledAudioEndedRef = useRef<{
+    index: number;
+    activeAudioBid: string | null;
+    at: number;
+  } | null>(null);
+  const recentEndedAdvanceRef = useRef<{
+    nextIndex: number;
+    at: number;
+  } | null>(null);
 
   const lastPlayedAudioBidRef = useRef<string | null>(null);
 
@@ -929,6 +939,30 @@ export const useListenAudioSequence = ({
       audioSequenceTimerRef.current = null;
     }
   }, []);
+
+  const shouldSkipAppendAutoPlayFromRecentEnded = useCallback(
+    (targetIndex: number) => {
+      const recentEndedAdvance = recentEndedAdvanceRef.current;
+      if (!recentEndedAdvance) {
+        return false;
+      }
+      const elapsed = Date.now() - recentEndedAdvance.at;
+      if (elapsed > AUDIO_END_TRANSITION_DEDUP_WINDOW_MS) {
+        recentEndedAdvanceRef.current = null;
+        return false;
+      }
+      if (recentEndedAdvance.nextIndex !== targetIndex) {
+        return false;
+      }
+      logAudioInterrupt('命中最近 ended 推进防重，跳过列表追加自动播放', {
+        targetIndex,
+        recentNextIndex: recentEndedAdvance.nextIndex,
+        elapsed,
+      });
+      return true;
+    },
+    [logAudioInterrupt],
+  );
 
   const syncToSequencePage = useCallback(
     (page: number) => {
@@ -994,6 +1028,15 @@ export const useListenAudioSequence = ({
       }
 
       clearAudioSequenceTimer();
+      const recentEndedAdvance = recentEndedAdvanceRef.current;
+      if (
+        recentEndedAdvance &&
+        (Date.now() - recentEndedAdvance.at >
+          AUDIO_END_TRANSITION_DEDUP_WINDOW_MS ||
+          recentEndedAdvance.nextIndex !== index)
+      ) {
+        recentEndedAdvanceRef.current = null;
+      }
       const list = audioSequenceListRef.current;
       const nextItem = list[index];
 
@@ -1126,7 +1169,11 @@ export const useListenAudioSequence = ({
         currentIndex,
         nextIndex: currentIndex + 1,
       });
-      playAudioSequenceFromIndex(currentIndex + 1);
+      const targetIndex = currentIndex + 1;
+      if (shouldSkipAppendAutoPlayFromRecentEnded(targetIndex)) {
+        return;
+      }
+      playAudioSequenceFromIndex(targetIndex);
       return;
     }
 
@@ -1236,6 +1283,9 @@ export const useListenAudioSequence = ({
               newItemPage: newItem?.page ?? null,
               newItemBid: newItem?.generated_block_bid ?? null,
             });
+            if (shouldSkipAppendAutoPlayFromRecentEnded(newItemIndex)) {
+              return;
+            }
             playAudioSequenceFromIndex(newItemIndex);
           } else {
             logAudioInterrupt('列表追加但当前序列活跃，未触发自动播放', {
@@ -1267,6 +1317,9 @@ export const useListenAudioSequence = ({
             isAudioPlaying: isAudioPlayingNow,
           },
         );
+        if (shouldSkipAppendAutoPlayFromRecentEnded(newItemIndex)) {
+          return;
+        }
         playAudioSequenceFromIndex(newItemIndex);
       } else {
         // Keep silent for this high-frequency non-action branch.
@@ -1283,6 +1336,7 @@ export const useListenAudioSequence = ({
     currentPptPageRef,
     resolveContentBid,
     resolveSequenceStartIndex,
+    shouldSkipAppendAutoPlayFromRecentEnded,
   ]);
 
   const resetSequenceState = useCallback(() => {
@@ -1579,6 +1633,28 @@ export const useListenAudioSequence = ({
       // console.log('listen-sequence-ended-skip-paused');
       return;
     }
+    const now = Date.now();
+    const currentIndex = audioSequenceIndexRef.current;
+    const currentActiveAudioBid = activeAudioBidRef.current;
+    const recentEnded = recentHandledAudioEndedRef.current;
+    if (
+      recentEnded &&
+      recentEnded.index === currentIndex &&
+      recentEnded.activeAudioBid === currentActiveAudioBid &&
+      now - recentEnded.at < AUDIO_END_TRANSITION_DEDUP_WINDOW_MS
+    ) {
+      logAudioInterrupt('忽略重复 onEnded 事件（同序号短窗口防重）', {
+        currentIndex,
+        activeAudioBid: currentActiveAudioBid,
+        elapsed: now - recentEnded.at,
+      });
+      return;
+    }
+    recentHandledAudioEndedRef.current = {
+      index: currentIndex,
+      activeAudioBid: currentActiveAudioBid,
+      at: now,
+    };
     const list = audioSequenceListRef.current;
     if (list.length) {
       const nextIndex = audioSequenceIndexRef.current + 1;
@@ -1598,6 +1674,7 @@ export const useListenAudioSequence = ({
             listLength: list.length,
           },
         );
+        recentEndedAdvanceRef.current = null;
         const advanced = tryAdvanceToNextBlock();
         logAudioInterrupt('sequence-handle-audio-ended-tail-advance-result', {
           nextIndex,
@@ -1611,6 +1688,10 @@ export const useListenAudioSequence = ({
         currentIndex: audioSequenceIndexRef.current,
         nextIndex,
       });
+      recentEndedAdvanceRef.current = {
+        nextIndex,
+        at: now,
+      };
       playAudioSequenceFromIndex(nextIndex);
       return;
     }
@@ -1618,6 +1699,7 @@ export const useListenAudioSequence = ({
     logAudioInterrupt('当前音频结束但序列为空，尝试推进到下一个 block', {
       reason: 'empty-sequence-on-ended',
     });
+    recentEndedAdvanceRef.current = null;
     const advanced = tryAdvanceToNextBlock();
     logAudioInterrupt('sequence-handle-audio-ended-empty-advance-result', {
       advanced,
