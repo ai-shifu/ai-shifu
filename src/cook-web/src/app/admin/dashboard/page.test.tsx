@@ -81,7 +81,9 @@ describe('AdminDashboardEntryPage', () => {
   });
 
   test('builds orders url with shifu_bid', () => {
-    expect(buildAdminOrdersUrl('shifu-1')).toBe('/admin/orders?shifu_bid=shifu-1');
+    expect(buildAdminOrdersUrl('shifu-1')).toBe(
+      '/admin/orders?shifu_bid=shifu-1',
+    );
     expect(buildAdminOrdersUrl('   ')).toBeNull();
   });
 
