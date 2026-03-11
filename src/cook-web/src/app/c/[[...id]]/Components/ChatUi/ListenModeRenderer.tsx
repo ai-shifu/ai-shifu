@@ -79,6 +79,9 @@ const ListenModeRenderer = ({
   const [hasPageInteraction, setHasPageInteraction] = useState(() =>
     hasBrowserUserActivation(),
   );
+  const listenPlayerAutoHideDelay = 3000;
+  const listenPlayerHideTimerRef = useRef<number | null>(null);
+  const [isListenPlayerVisible, setIsListenPlayerVisible] = useState(true);
 
   const {
     orderedContentBlockBids,
@@ -211,10 +214,36 @@ const ListenModeRenderer = ({
     };
   }, [hasPageInteraction]);
 
+  const clearListenPlayerHideTimer = useCallback(() => {
+    if (listenPlayerHideTimerRef.current === null) {
+      return;
+    }
+    window.clearTimeout(listenPlayerHideTimerRef.current);
+    listenPlayerHideTimerRef.current = null;
+  }, []);
+
+  const showListenPlayer = useCallback(() => {
+    // Keep the player visible briefly after entering or tapping the slide area.
+    setIsListenPlayerVisible(true);
+    clearListenPlayerHideTimer();
+    listenPlayerHideTimerRef.current = window.setTimeout(() => {
+      setIsListenPlayerVisible(false);
+      listenPlayerHideTimerRef.current = null;
+    }, listenPlayerAutoHideDelay);
+  }, [clearListenPlayerHideTimer]);
+
+  useEffect(
+    () => () => {
+      clearListenPlayerHideTimer();
+    },
+    [clearListenPlayerHideTimer],
+  );
+
   useEffect(() => {
     setHasUserStartedPlayback(false);
     setIsSlideNavigationLocked(false);
-  }, [lessonId]);
+    showListenPlayer();
+  }, [lessonId, sectionTitle, showListenPlayer]);
 
   const shouldRenderEmptyPpt = useMemo(() => {
     if (isLoading) {
@@ -321,6 +350,11 @@ const ListenModeRenderer = ({
     [handlePause],
   );
 
+  const handleListenSurfaceActivate = useCallback(() => {
+    setHasPageInteraction(true);
+    showListenPlayer();
+  }, [showListenPlayer]);
+
   const listenPlayerInteraction = sequenceInteraction;
   const isLatestInteractionEditable = Boolean(
     listenPlayerInteraction?.generated_block_bid &&
@@ -372,6 +406,17 @@ const ListenModeRenderer = ({
           ) : null}
         </div>
       </div>
+      {!isListenPlayerVisible ? (
+        <button
+          type='button'
+          aria-label='Activate listen player'
+          className={cn(
+            'absolute z-[3] cursor-pointer bg-transparent p-0',
+            mobileStyle ? 'inset-0' : 'inset-[96px_32px_72px]',
+          )}
+          onClick={handleListenSurfaceActivate}
+        />
+      ) : null}
       {audioList.length ? (
         <div className={cn('listen-audio-controls', 'hidden')}>
           <AudioPlayerList
@@ -392,19 +437,21 @@ const ListenModeRenderer = ({
           />
         </div>
       ) : null}
-      <ListenPlayer
-        onPrev={onPrev}
-        onPlay={onPlay}
-        onPause={onPause}
-        onNext={onNext}
-        prevDisabled={prevControlDisabled}
-        nextDisabled={nextControlDisabled}
-        isAudioPlaying={isAudioPlaying}
-        interaction={listenPlayerInteraction}
-        interactionReadonly={interactionReadonly}
-        onSend={onSend}
-        mobileStyle={mobileStyle}
-      />
+      {isListenPlayerVisible ? (
+        <ListenPlayer
+          onPrev={onPrev}
+          onPlay={onPlay}
+          onPause={onPause}
+          onNext={onNext}
+          prevDisabled={prevControlDisabled}
+          nextDisabled={nextControlDisabled}
+          isAudioPlaying={isAudioPlaying}
+          interaction={listenPlayerInteraction}
+          interactionReadonly={interactionReadonly}
+          onSend={onSend}
+          mobileStyle={mobileStyle}
+        />
+      ) : null}
     </div>
   );
 };
