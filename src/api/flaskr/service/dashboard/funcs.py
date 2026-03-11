@@ -20,11 +20,7 @@ from flaskr.service.dashboard.dtos import (
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import LEARN_STATUS_RESET, ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
-from flaskr.service.shifu.models import AiCourseAuth, PublishedShifu
-from flaskr.service.shifu.permissions import (
-    _auth_types_to_permissions,
-    _normalize_auth_types,
-)
+from flaskr.service.shifu.models import PublishedShifu
 
 # Built-in demo course IDs observed in legacy environments.
 _LEGACY_DEMO_SHIFU_BIDS: Set[str] = {
@@ -118,28 +114,6 @@ def _load_dashboard_entry_courses(
     *,
     keyword: Optional[str] = None,
 ) -> List[_DashboardEntryCourse]:
-    shared_rows = (
-        db.session.query(AiCourseAuth.course_id, AiCourseAuth.auth_type)
-        .filter(
-            AiCourseAuth.user_id == user_id,
-            AiCourseAuth.status == 1,
-        )
-        .all()
-    )
-
-    def _is_view_only_auth_type(raw_auth_type: object) -> bool:
-        auth_types = _normalize_auth_types(raw_auth_type)
-        permissions = _auth_types_to_permissions(auth_types) or {
-            str(item).strip().lower() for item in auth_types if str(item).strip()
-        }
-        return permissions == {"view"}
-
-    shared_bids = {
-        str(course_id).strip()
-        for course_id, auth_type in shared_rows
-        if str(course_id).strip() and _is_view_only_auth_type(auth_type)
-    }
-
     owned_rows = (
         db.session.query(PublishedShifu.shifu_bid)
         .filter(
@@ -152,9 +126,9 @@ def _load_dashboard_entry_courses(
     owned_bids = {
         str(row[0]).strip()
         for row in owned_rows
-        if row and str(row[0]).strip() and str(row[0]).strip() not in shared_bids
+        if row and str(row[0]).strip()
     }
-    all_bids = shared_bids.union(owned_bids)
+    all_bids = owned_bids
     all_bids = all_bids.difference(_load_demo_shifu_bids())
     if not all_bids:
         return []

@@ -107,7 +107,7 @@ class TestDashboardRoutes:
             )
         )
 
-    def test_entry_summary_uses_shared_and_owned_courses(
+    def test_entry_summary_uses_owned_courses_only(
         self,
         monkeypatch,
         test_client,
@@ -123,7 +123,6 @@ class TestDashboardRoutes:
                 title="Course B",
                 user_id="another-teacher",
             )
-            self._seed_shared_course_auth(shifu_bid="course-b")
             self._seed_shared_course_auth(shifu_bid="course-b")
             db.session.add(
                 ShifuUserArchive(
@@ -216,21 +215,19 @@ class TestDashboardRoutes:
 
         assert resp.status_code == 200
         assert payload["code"] == 0
-        assert payload["data"]["summary"]["course_count"] == 2
-        assert payload["data"]["summary"]["learner_count"] == 3
-        assert payload["data"]["summary"]["order_count"] == 3
-        assert payload["data"]["summary"]["order_amount"] == "60.50"
-        assert payload["data"]["total"] == 2
-        assert len(payload["data"]["items"]) == 2
+        assert payload["data"]["summary"]["course_count"] == 1
+        assert payload["data"]["summary"]["learner_count"] == 2
+        assert payload["data"]["summary"]["order_count"] == 2
+        assert payload["data"]["summary"]["order_amount"] == "30.50"
+        assert payload["data"]["total"] == 1
+        assert len(payload["data"]["items"]) == 1
         assert {item["shifu_bid"] for item in payload["data"]["items"]} == {
             "course-a",
-            "course-b",
         }
         amount_map = {
             item["shifu_bid"]: item["order_amount"] for item in payload["data"]["items"]
         }
         assert amount_map["course-a"] == "30.50"
-        assert amount_map["course-b"] == "30.00"
 
     def test_entry_keyword_and_date_range_filters(
         self,
@@ -581,7 +578,7 @@ class TestDashboardRoutes:
         assert payload["data"]["items"][0]["order_count"] == 0
         assert payload["data"]["items"][0]["order_amount"] == "0.00"
 
-    def test_entry_shared_course_auth_requires_view_only_and_status_1(
+    def test_entry_excludes_all_shared_courses(
         self,
         monkeypatch,
         test_client,
@@ -656,14 +653,13 @@ class TestDashboardRoutes:
 
         assert resp.status_code == 200
         assert payload["code"] == 0
-        assert payload["data"]["summary"]["course_count"] == 2
-        assert payload["data"]["total"] == 2
+        assert payload["data"]["summary"]["course_count"] == 1
+        assert payload["data"]["total"] == 1
         assert {item["shifu_bid"] for item in payload["data"]["items"]} == {
             "course-owned",
-            "course-view",
         }
 
-    def test_entry_excludes_stale_shared_courses(
+    def test_entry_excludes_shared_courses_without_owned_copy(
         self,
         monkeypatch,
         test_client,
