@@ -58,6 +58,7 @@ export const NewChatComponents = ({
   updateSelectedLesson,
   getNextLessonId,
   previewMode = false,
+  isNavOpen = false,
   onListenPlayerVisibilityChange,
 }) => {
   const { trackEvent, trackTrailProgress } = useTracking();
