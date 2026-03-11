@@ -589,8 +589,15 @@ export default function AdminDashboardEntryPage() {
             </div>
           </div>
 
-          <div className='mt-4 flex shrink-0 justify-end'>
-            <Pagination className='justify-end w-auto mx-0'>
+          <div
+            data-testid='dashboard-course-list-footer'
+            className='mt-4 flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'
+          >
+            <p className='min-w-0 flex-1 text-sm text-muted-foreground'>
+              {t('module.dashboard.entry.table.scopeNote')}
+            </p>
+
+            <Pagination className='mx-0 w-full justify-start sm:w-auto sm:shrink-0 sm:justify-end'>
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious
@@ -659,10 +666,6 @@ export default function AdminDashboardEntryPage() {
               </PaginationContent>
             </Pagination>
           </div>
-
-          <p className='mt-4 shrink-0 text-sm text-muted-foreground'>
-            {t('module.dashboard.entry.table.scopeNote')}
-          </p>
         </div>
       </div>
     </div>

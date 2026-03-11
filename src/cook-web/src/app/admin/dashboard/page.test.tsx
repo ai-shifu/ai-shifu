@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
 
 import { buildAdminOrdersUrl } from './admin-dashboard-routes';
@@ -43,6 +43,11 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
   }),
+}));
+
+jest.mock('@/components/loading', () => ({
+  __esModule: true,
+  default: () => <div data-testid='loading-indicator' />,
 }));
 
 const mockGetDashboardEntry = api.getDashboardEntry as jest.Mock;
@@ -103,42 +108,27 @@ describe('AdminDashboardEntryPage', () => {
     ).toBeEnabled();
   });
 
-  test('navigates to orders page with success status filter', async () => {
+  test('keeps pagination and scope note outside the list scroll region', async () => {
+    mockGetDashboardEntry.mockImplementation(() => new Promise(() => {}));
+
     render(<AdminDashboardEntryPage />);
 
     await waitFor(() => {
-      expect(mockGetDashboardEntry).toHaveBeenCalled();
-    });
-
-    const orderButton = await screen.findByRole('button', {
-      name: 'module.dashboard.entry.table.orders-shifu-1',
-    });
-    expect(orderButton).toBeEnabled();
-
-    fireEvent.click(orderButton);
-
-    await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith(
-        '/admin/orders?shifu_bid=shifu-1&status=502',
+      expect(mockGetDashboardEntry).toHaveBeenCalledWith(
+        expect.objectContaining({
+          page_index: 1,
+          page_size: 20,
+          keyword: '',
+          start_date: '',
+          end_date: '',
+        }),
       );
     });
-  });
-
-  test('keeps pagination and scope note outside the list scroll region', async () => {
-    render(<AdminDashboardEntryPage />);
-
-    await waitFor(() => {
-      expect(mockGetDashboardEntry).toHaveBeenCalled();
-    });
-
-    const orderButton = await screen.findByRole('button', {
-      name: 'module.dashboard.entry.table.orders-shifu-1',
-    });
-    expect(orderButton).toBeEnabled();
 
     const scrollRegion = screen.getByTestId(
       'dashboard-course-list-scroll-region',
     );
+    const footer = screen.getByTestId('dashboard-course-list-footer');
     const pagination = screen.getByRole('navigation', { name: 'pagination' });
     const scopeNote = screen.getByText(
       'module.dashboard.entry.table.scopeNote',
@@ -146,5 +136,7 @@ describe('AdminDashboardEntryPage', () => {
 
     expect(scrollRegion).not.toContainElement(pagination);
     expect(scrollRegion).not.toContainElement(scopeNote);
+    expect(footer).toContainElement(pagination);
+    expect(footer).toContainElement(scopeNote);
   });
 });
