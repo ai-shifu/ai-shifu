@@ -75,13 +75,14 @@ jest.mock('@/components/loading', () => ({
 
 const mockGetAdminOrders = api.getAdminOrders as jest.Mock;
 const mockGetAdminOrderShifus = api.getAdminOrderShifus as jest.Mock;
+const NORMALIZED_JUMP_URL = '/admin/orders?shifu_bid=shifu-1&status=502';
 
 describe('OrdersPage', () => {
   beforeEach(() => {
     mockReplace.mockReset();
     mockGetAdminOrders.mockReset();
     mockGetAdminOrderShifus.mockReset();
-    mockSearchParamsValue = 'shifu_bid=shifu-1&status=502';
+    mockSearchParamsValue = 'shifu_bid=shifu-1';
     window.localStorage.clear();
 
     mockGetAdminOrders.mockResolvedValue({
@@ -96,7 +97,7 @@ describe('OrdersPage', () => {
     });
   });
 
-  test('uses shifu_bid and status from url for the first orders request', async () => {
+  test('uses shifu_bid and default success status for the first orders request', async () => {
     render(<OrdersPage />);
 
     await waitFor(() => {
@@ -108,6 +109,10 @@ describe('OrdersPage', () => {
           status: '502',
         }),
       );
+    });
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith(NORMALIZED_JUMP_URL);
     });
   });
 
@@ -124,6 +129,7 @@ describe('OrdersPage', () => {
     });
 
     mockGetAdminOrders.mockClear();
+    mockReplace.mockClear();
 
     fireEvent.click(
       await screen.findByRole('button', {
@@ -131,9 +137,7 @@ describe('OrdersPage', () => {
       }),
     );
 
-    expect(mockReplace).toHaveBeenCalledWith(
-      '/admin/orders?shifu_bid=shifu-1&status=502',
-    );
+    expect(mockReplace).toHaveBeenCalledWith(NORMALIZED_JUMP_URL);
 
     await waitFor(() => {
       expect(mockGetAdminOrders).toHaveBeenCalledWith(
@@ -147,7 +151,7 @@ describe('OrdersPage', () => {
     });
   });
 
-  test('clears shifu_bid and status from url and query when resetting filters', async () => {
+  test('resets to default success status while clearing shifu_bid from url', async () => {
     render(<OrdersPage />);
 
     await waitFor(() => {
@@ -160,12 +164,13 @@ describe('OrdersPage', () => {
     });
 
     mockGetAdminOrders.mockClear();
+    mockReplace.mockClear();
 
     fireEvent.click(
       await screen.findByRole('button', { name: 'module.order.filters.reset' }),
     );
 
-    expect(mockReplace).toHaveBeenCalledWith('/admin/orders');
+    expect(mockReplace).toHaveBeenCalledWith('/admin/orders?status=502');
 
     await waitFor(() => {
       expect(mockGetAdminOrders).toHaveBeenCalledWith(
@@ -173,7 +178,7 @@ describe('OrdersPage', () => {
           page_index: 1,
           page_size: 20,
           shifu_bid: '',
-          status: '',
+          status: '502',
         }),
       );
     });
