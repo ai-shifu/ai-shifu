@@ -20,6 +20,7 @@ import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import type { AudioPlayerHandle } from './AudioPlayer';
 
 const AUDIO_PLAYER_END_DEDUP_WINDOW_MS = 1000;
+const AUDIO_PLAYER_URL_FALLBACK_REMAINING_SECONDS = 0.35;
 
 export interface AudioPlayerListProps {
   audioList: AudioItem[];
@@ -646,6 +647,30 @@ const AudioPlayerListBase = (
       return;
     }
     const url = resolveTrackUrl(track ?? null);
+    const hasFinalSegment = segments.some(segment => Boolean(segment?.isFinal));
+    const totalDurationSeconds =
+      track?.audioDurationMs && track.audioDurationMs > 0
+        ? track.audioDurationMs / 1000
+        : 0;
+    const remainingSeconds =
+      totalDurationSeconds > 0
+        ? Math.max(0, totalDurationSeconds - playedSecondsRef.current)
+        : null;
+    if (
+      hasFinalSegment ||
+      (remainingSeconds !== null &&
+        remainingSeconds <= AUDIO_PLAYER_URL_FALLBACK_REMAINING_SECONDS)
+    ) {
+      logAudioInterrupt('segment-ended-skip-url-fallback', {
+        trackBid: track?.generated_block_bid ?? null,
+        hasFinalSegment,
+        totalDurationSeconds,
+        playedSeconds: playedSecondsRef.current,
+        remainingSeconds,
+      });
+      finishTrack();
+      return;
+    }
     if (url) {
       const startAtSeconds = playedSecondsRef.current;
       resetSegmentState();
@@ -984,22 +1009,33 @@ const AudioPlayerListBase = (
       const hasFinalSegment = segments.some(segment =>
         Boolean(segment?.isFinal),
       );
-      if (isSequenceActive && hasFinalSegment) {
-        logAudioInterrupt(
-          '序列模式检测到 final segment，跳过 URL 补播兜底，直接结束当前轨道',
-          {
-            segmentCount: segments.length,
-            hasUrl: Boolean(url),
-            startAtSeconds: playedSecondsRef.current + segmentOffsetRef.current,
-            trackDurationMs: track.audioDurationMs ?? 0,
-          },
-        );
+      const startAtSeconds =
+        playedSecondsRef.current + segmentOffsetRef.current;
+      const totalDurationSeconds =
+        track.audioDurationMs && track.audioDurationMs > 0
+          ? track.audioDurationMs / 1000
+          : 0;
+      const remainingSeconds =
+        totalDurationSeconds > 0
+          ? Math.max(0, totalDurationSeconds - startAtSeconds)
+          : null;
+      if (
+        hasFinalSegment ||
+        (remainingSeconds !== null &&
+          remainingSeconds <= AUDIO_PLAYER_URL_FALLBACK_REMAINING_SECONDS)
+      ) {
+        logAudioInterrupt('wait-mode-skip-url-fallback', {
+          segmentCount: segments.length,
+          hasUrl: Boolean(url),
+          startAtSeconds,
+          totalDurationSeconds,
+          remainingSeconds,
+          isSequenceActive,
+        });
         finishTrack();
         return;
       }
       if (url) {
-        const startAtSeconds =
-          playedSecondsRef.current + segmentOffsetRef.current;
         resetSegmentState();
         startUrlPlayback(url, startAtSeconds);
         return;
