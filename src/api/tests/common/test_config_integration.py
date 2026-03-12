@@ -28,7 +28,6 @@ class TestFullConfigurationFlow:
         # Set up production-like environment
         for key, value in PRODUCTION_ENV_CONFIG.items():
             monkeypatch.setenv(key, value)
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "prod-code")
 
         # Create Flask app
         app = Flask(__name__)
@@ -62,7 +61,6 @@ class TestFullConfigurationFlow:
         # Set up Docker environment
         for key, value in DOCKER_ENV_CONFIG.items():
             monkeypatch.setenv(key, value)
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "docker-code")
 
         app = Flask(__name__)
         config = Config(app.config, app)
@@ -92,7 +90,6 @@ class TestEnvironmentVariableInterpolation:
             "mysql://${DB_USER}:${DB_PASS}@${DB_HOST}:3306/test?charset=utf8mb4",
         )
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         app = Flask(__name__)
@@ -110,7 +107,6 @@ class TestEnvironmentVariableInterpolation:
             "SQLALCHEMY_DATABASE_URI", "mysql://user:pass@${MISSING_HOST}:3306/test"
         )
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         app = Flask(__name__)
@@ -128,7 +124,6 @@ class TestConfigurationValidation:
         """Test that missing all LLM API keys fails validation."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         # Don't set any LLM keys
 
         app = Flask(__name__)
@@ -143,7 +138,6 @@ class TestConfigurationValidation:
         """Test that having at least one LLM key succeeds."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
 
         # Test with different LLM keys
         llm_keys = [
@@ -177,7 +171,6 @@ class TestConfigurationValidation:
         """Test that invalid type conversion falls back to default."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_PORT", "invalid-port")  # Invalid integer
 
@@ -236,7 +229,6 @@ class TestConfigurationCaching:
         """Test that caching improves performance."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_PORT", "6379")
 
@@ -263,7 +255,6 @@ class TestConfigurationCaching:
         """Test that cache is cleared when values are updated."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_HOST", "original")
 
@@ -296,7 +287,6 @@ class TestMultiEnvironmentSupport:
         # Start with Docker environment
         for key, value in DOCKER_ENV_CONFIG.items():
             monkeypatch.setenv(key, value)
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "docker-code")
 
         config1 = Config(app.config, app)
         assert "ai-shifu-mysql" in config1["SQLALCHEMY_DATABASE_URI"]
@@ -309,7 +299,6 @@ class TestMultiEnvironmentSupport:
         # Switch to production environment
         for key, value in PRODUCTION_ENV_CONFIG.items():
             monkeypatch.setenv(key, value)
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "prod-code")
 
         # Clear cache to pick up new values
         config_module.__ENHANCED_CONFIG__._cache.clear()
@@ -344,7 +333,6 @@ class TestErrorHandling:
         """Test that validation errors provide details."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_PORT", "99999")  # Invalid port
         monkeypatch.setenv("DEFAULT_LLM_TEMPERATURE", "5.0")  # Out of range

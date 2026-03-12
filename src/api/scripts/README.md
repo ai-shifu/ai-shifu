@@ -57,7 +57,6 @@ The script provides helpful output:
 📌 Required variables that must be configured:
   [AUTH]
     - SECRET_KEY
-    - UNIVERSAL_VERIFICATION_CODE
   [DATABASE]
     - SQLALCHEMY_DATABASE_URI
 ```

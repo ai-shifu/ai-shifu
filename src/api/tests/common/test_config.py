@@ -23,7 +23,6 @@ class TestConfigInitialization:
         # Set up required environment variables
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db-uri")
         monkeypatch.setenv("SECRET_KEY", "test-secret")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         # Create Flask app
@@ -66,7 +65,6 @@ class TestConfigInitialization:
         # Set up environment
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         app = Flask(__name__)
@@ -91,7 +89,6 @@ class TestConfigGetItem:
         """Test getting value from enhanced config."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_HOST", "test-redis")
 
@@ -108,7 +105,6 @@ class TestConfigGetItem:
         """Test falling back to parent config for unknown keys."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         app = Flask(__name__)
@@ -130,7 +126,6 @@ class TestConfigGetItem:
         """Test returning None for missing keys."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         app = Flask(__name__)
@@ -155,7 +150,6 @@ class TestConfigSetItem:
         """Test setting value updates parent config and environment."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         app = Flask(__name__)
@@ -177,7 +171,6 @@ class TestConfigSetItem:
         """Test setting value clears the cache."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_HOST", "original-host")
 
@@ -205,7 +198,6 @@ class TestConfigGetMethods:
         """Test get_str method."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_HOST", "test-redis")
 
@@ -220,7 +212,6 @@ class TestConfigGetMethods:
         """Test get_int method."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_PORT", "7000")
 
@@ -235,7 +226,6 @@ class TestConfigGetMethods:
         """Test get_bool method."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("SWAGGER_ENABLED", "true")
 
@@ -250,7 +240,6 @@ class TestConfigGetMethods:
         """Test get_float method."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("DEFAULT_LLM_TEMPERATURE", "0.8")
 
@@ -265,7 +254,6 @@ class TestConfigGetMethods:
         """Test get_list method."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("LOGIN_METHODS_ENABLED", "phone,email,oauth")
 
@@ -285,7 +273,6 @@ class TestConfigGetAttr:
         """Test getting attribute from enhanced config."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_HOST", "attr-redis")
 
@@ -302,7 +289,6 @@ class TestConfigGetAttr:
         """Test falling back to parent for unknown attributes."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         app = Flask(__name__)
@@ -325,7 +311,6 @@ class TestConfigSetDefault:
         """Test setdefault with existing value."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_HOST", "existing-host")
 
@@ -347,7 +332,6 @@ class TestConfigSetDefault:
         """Test setdefault with missing value."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         app = Flask(__name__)
@@ -371,7 +355,6 @@ class TestConfigCall:
         """Test that __call__ delegates to parent config."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         app = Flask(__name__)
@@ -395,7 +378,6 @@ class TestGetConfigFunction:
         """Test get_config when instance is initialized."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_HOST", "global-redis")
 
@@ -449,7 +431,6 @@ class TestConfigIntegrationWithFlask:
         # Set up comprehensive environment
         for key, value in DOCKER_ENV_CONFIG.items():
             monkeypatch.setenv(key, value)
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
 
         # Create real Flask app
         app = Flask(__name__)
@@ -470,7 +451,6 @@ class TestConfigIntegrationWithFlask:
         """Test that enhanced config takes priority over parent."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
-        monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_HOST", "enhanced-redis")
 

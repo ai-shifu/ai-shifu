@@ -29,13 +29,6 @@ from flaskr.service.user.repository import (
     transactional_session,
 )
 
-FIX_CHECK_CODE = None
-
-
-def configure_fix_check_code(value: Optional[str]) -> None:
-    global FIX_CHECK_CODE
-    FIX_CHECK_CODE = value
-
 
 def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
     if value is None:
@@ -94,30 +87,24 @@ def verify_email_code(
         update_user_profile_with_lable,
     )
 
-    if FIX_CHECK_CODE is None:
-        configure_fix_check_code(app.config.get("UNIVERSAL_VERIFICATION_CODE"))
-
     email_key = (email or "").strip()
     code_key = app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + email_key
-    if code != FIX_CHECK_CODE:
-        cached = redis.get(code_key)
-        if cached is not None:
-            cached_str = (
-                cached.decode("utf-8") if isinstance(cached, bytes) else str(cached)
-            )
-            if code != cached_str:
-                raise_error("server.user.mailCheckError")
-            _consume_latest_email_code_from_db(app, email_key, code)
-        else:
-            status = _consume_latest_email_code_from_db(app, email_key, code)
-            if status != "ok" and email_key.lower() != email_key:
-                status = _consume_latest_email_code_from_db(
-                    app, email_key.lower(), code
-                )
-            if status == "invalid":
-                raise_error("server.user.mailCheckError")
-            if status != "ok":
-                raise_error("server.user.mailSendExpired")
+    cached = redis.get(code_key)
+    if cached is not None:
+        cached_str = (
+            cached.decode("utf-8") if isinstance(cached, bytes) else str(cached)
+        )
+        if code != cached_str:
+            raise_error("server.user.mailCheckError")
+        _consume_latest_email_code_from_db(app, email_key, code)
+    else:
+        status = _consume_latest_email_code_from_db(app, email_key, code)
+        if status != "ok" and email_key.lower() != email_key:
+            status = _consume_latest_email_code_from_db(app, email_key.lower(), code)
+        if status == "invalid":
+            raise_error("server.user.mailCheckError")
+        if status != "ok":
+            raise_error("server.user.mailSendExpired")
 
     redis.delete(code_key)
 
