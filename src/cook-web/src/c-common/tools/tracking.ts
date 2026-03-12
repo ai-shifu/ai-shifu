@@ -28,11 +28,14 @@ type UmamiUserInfo = {
   language?: string;
 };
 
+type UmamiEventData = Record<string, unknown>;
+type SanitizedEventData = Record<string, string | number | boolean>;
+
 type QueuedUmamiCall =
   | {
       kind: 'event';
-      eventName: any;
-      eventData: any;
+      eventName: string;
+      eventData: SanitizedEventData;
       url?: string;
       referrer?: string;
     }
@@ -42,6 +45,7 @@ const UMAMI_LIMITS = {
   eventName: 50,
   dataKey: 64,
   dataValue: 240,
+  dataJson: 1024,
   url: 500,
   referrer: 500,
   maxDataFields: 30,
@@ -147,24 +151,31 @@ const sanitizeDataValue = (value: unknown): string | number | boolean => {
   return truncateText(String(value), UMAMI_LIMITS.dataValue);
 };
 
-const sanitizeEventData = (eventData: any) => {
+const sanitizeEventData = (
+  eventData: UmamiEventData | undefined,
+): SanitizedEventData => {
   if (!eventData || typeof eventData !== 'object' || Array.isArray(eventData)) {
     return {};
   }
 
-  const safeData: Record<string, string | number | boolean> = {};
+  const safeData: SanitizedEventData = {};
   const entries = Object.entries(eventData).slice(
     0,
     UMAMI_LIMITS.maxDataFields,
   );
 
-  entries.forEach(([rawKey, rawValue]) => {
+  for (const [rawKey, rawValue] of entries) {
     const key = normalizeText(rawKey, UMAMI_LIMITS.dataKey);
     if (!key) {
-      return;
+      continue;
     }
-    safeData[key] = sanitizeDataValue(rawValue);
-  });
+    const value = sanitizeDataValue(rawValue);
+    const nextData = { ...safeData, [key]: value };
+    if (JSON.stringify(nextData).length > UMAMI_LIMITS.dataJson) {
+      break;
+    }
+    safeData[key] = value;
+  }
 
   return safeData;
 };
@@ -174,7 +185,7 @@ const sanitizeUrlLike = (url: string | undefined, maxLength: number) => {
   return normalized || undefined;
 };
 
-const sanitizeEventName = (eventName: any) => {
+const sanitizeEventName = (eventName: unknown): string => {
   return normalizeText(eventName, UMAMI_LIMITS.eventName) || 'unknown_event';
 };
 
@@ -210,25 +221,28 @@ function trackUmamiEvent(
     eventData,
     url,
     referrer,
-  }: { eventName: any; eventData: any; url?: string; referrer?: string },
+  }: {
+    eventName: string;
+    eventData: SanitizedEventData;
+    url?: string;
+    referrer?: string;
+  },
 ) {
   const resolvedUrl =
     typeof url === 'string' && url.trim() ? url : getCurrentUrl();
-  const safeEventName = sanitizeEventName(eventName);
-  const safeEventData = sanitizeEventData(eventData);
   const safeUrl = sanitizeUrlLike(resolvedUrl, UMAMI_LIMITS.url);
   const safeReferrer = sanitizeUrlLike(referrer, UMAMI_LIMITS.referrer);
 
   try {
     umami.track((payload: any) => ({
       ...payload,
-      name: safeEventName,
-      data: safeEventData,
+      name: eventName,
+      data: eventData,
       url: safeUrl || payload.url,
       referrer: safeReferrer || payload.referrer,
     }));
   } catch {
-    umami.track(safeEventName, safeEventData);
+    umami.track(eventName, eventData);
   }
 }
 
@@ -383,7 +397,10 @@ const ensureIdentifyReady = () => {
   flushUmamiIdentify();
 };
 
-export const tracking = async (eventName, eventData) => {
+export const tracking = async (
+  eventName: unknown,
+  eventData: UmamiEventData = {},
+) => {
   try {
     ensureCurrentPageviewTracked();
     ensureIdentifyReady();
@@ -439,8 +456,8 @@ export const trackPageview = (url?: string) => {
     if (!umami || !identifyState.ready) {
       const pageviewCall: QueuedUmamiCall = {
         kind: 'pageview',
-        url: urlSnapshot,
-        referrer: previousUrl,
+        url: sanitizeUrlLike(urlSnapshot, UMAMI_LIMITS.url),
+        referrer: sanitizeUrlLike(previousUrl, UMAMI_LIMITS.referrer),
       };
       identifyState.queuedCalls = identifyState.queuedCalls.filter(
         call => call.kind !== 'pageview',
