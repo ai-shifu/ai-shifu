@@ -1793,14 +1793,6 @@ function useChatLogicHook({
               is_update: Boolean(persistedScore || persistedComment),
             });
             toast({ title: t('module.chat.lessonFeedbackSubmitted') });
-            const nextLessonId = getNextLessonId(lessonId);
-            if (nextLessonId) {
-              updateSelectedLesson(nextLessonId, true);
-              onGoChapter(nextLessonId);
-              scrollToLesson(nextLessonId);
-            } else {
-              showToast(t('module.chat.noMoreLessons'));
-            }
           })
           .catch(() => {
             // request.ts already handles global error display
@@ -2203,24 +2195,10 @@ function useChatLogicHook({
     if (!blockBid) {
       return;
     }
-    const score = parseLessonFeedbackScore(
-      lessonFeedbackPopupState.defaultScoreText,
-    );
-    processSend(
-      {
-        variableName: LESSON_FEEDBACK_VARIABLE_NAME,
-        buttonText: SYS_INTERACTION_TYPE.NEXT_CHAPTER,
-        inputText: lessonFeedbackPopupState.defaultCommentText || '',
-        selectedValues: score ? [String(score)] : [],
-      },
-      blockBid,
-    );
+    dismissLessonFeedbackPopup(blockBid);
   }, [
-    lessonFeedbackPopupState.defaultCommentText,
-    lessonFeedbackPopupState.defaultScoreText,
     lessonFeedbackPopupState.generatedBlockBid,
-    parseLessonFeedbackScore,
-    processSend,
+    dismissLessonFeedbackPopup,
   ]);
 
   return {
