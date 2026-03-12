@@ -8,3 +8,13 @@ export const buildAdminOrdersUrl = (shifuBid: string): string | null => {
   });
   return `/admin/orders?${params.toString()}`;
 };
+
+export const buildAdminDashboardCourseDetailUrl = (
+  shifuBid: string,
+): string | null => {
+  const normalizedShifuBid = shifuBid.trim();
+  if (!normalizedShifuBid) {
+    return null;
+  }
+  return `/admin/dashboard/${encodeURIComponent(normalizedShifuBid)}`;
+};
