@@ -53,7 +53,7 @@ import { createInteractionParser } from 'remark-flow';
 import LoadingBar from './LoadingBar';
 import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
 import { useTranslation } from 'react-i18next';
-import { show as showToast } from '@/hooks/useToast';
+import { show as showToast, toast } from '@/hooks/useToast';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import { AppContext } from '../AppContext';
 import { appendCustomButtonAfterContent } from './chatUiUtils';
@@ -1757,7 +1757,7 @@ function useChatLogicHook({
           parseLessonFeedbackScore(buttonText) ||
           parseLessonFeedbackScore(currentInteractionItem?.defaultButtonText);
         if (!score) {
-          showToast(t('module.chat.lessonFeedbackScoreRequired'));
+          toast({ title: t('module.chat.lessonFeedbackScoreRequired') });
           return;
         }
         const comment = (inputText || '').trim();
@@ -1792,7 +1792,7 @@ function useChatLogicHook({
               comment_length: comment.length,
               is_update: Boolean(persistedScore || persistedComment),
             });
-            showToast(t('module.chat.lessonFeedbackSubmitted'));
+            toast({ title: t('module.chat.lessonFeedbackSubmitted') });
             const nextLessonId = getNextLessonId(lessonId);
             if (nextLessonId) {
               updateSelectedLesson(nextLessonId, true);
