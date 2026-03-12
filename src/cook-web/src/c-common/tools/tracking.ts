@@ -123,6 +123,9 @@ const sanitizeDataValue = (value: unknown): string | number | boolean => {
   }
 
   if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      return '';
+    }
     return truncateText(value.toISOString(), UMAMI_LIMITS.dataValue);
   }
 
