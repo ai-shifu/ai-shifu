@@ -76,6 +76,7 @@ from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     OutlineItemUpdateDTO,
     LearnStatus,
+    ViewingModeDTO,
 )
 from flaskr.api.llm import chat_llm, get_allowed_models, get_current_models
 from flaskr.service.learn.handle_input_ask import handle_input_ask
@@ -96,6 +97,7 @@ from flaskr.service.learn.langfuse_naming import (
     build_langfuse_generation_name,
     build_langfuse_trace_name,
 )
+from flaskr.service.learn.viewing_mode import build_viewing_mode_prompt
 from flaskr.service.learn.utils_v2 import init_generated_block
 from flaskr.service.learn.lesson_feedback import build_lesson_feedback_interaction_md
 from flaskr.service.learn.exceptions import PaidException
@@ -264,6 +266,7 @@ class MdflowContextV2:
         interaction_error_prompt: Optional[str] = None,
         use_learner_language: bool = False,
         visual_mode: bool = True,
+        viewing_mode_prompt: Optional[str] = None,
     ):
         self._mdflow = MarkdownFlow(
             document=document,
@@ -272,6 +275,11 @@ class MdflowContextV2:
             interaction_prompt=interaction_prompt,
             interaction_error_prompt=interaction_error_prompt,
         )
+        set_viewing_mode_prompt = getattr(self._mdflow, "set_viewing_mode_prompt", None)
+        if callable(set_viewing_mode_prompt) and viewing_mode_prompt:
+            maybe_updated_mdflow = set_viewing_mode_prompt(viewing_mode_prompt)
+            if maybe_updated_mdflow is not None:
+                self._mdflow = maybe_updated_mdflow
         # markdown_flow>=0.2.44 removed set_visual_mode; keep backward compatibility.
         set_visual_mode = getattr(self._mdflow, "set_visual_mode", None)
         if callable(set_visual_mode):
@@ -1050,6 +1058,7 @@ class RunScriptContextV2:
     _input: str
     _can_continue: bool
     _last_position: int
+    _viewing_mode: ViewingModeDTO | None
 
     def __init__(
         self,
@@ -1061,6 +1070,7 @@ class RunScriptContextV2:
         is_paid: bool,
         preview_mode: bool,
         listen: bool = False,
+        viewing_mode: ViewingModeDTO | None = None,
     ):
         self._last_position = -1
         self.app = app
@@ -1069,6 +1079,7 @@ class RunScriptContextV2:
         self._user_info = user_info
         self._is_paid = is_paid
         self._listen = listen
+        self._viewing_mode = viewing_mode
         self._preview_mode = preview_mode
         self._shifu_info = shifu_info
         self.shifu_ids = []
@@ -1809,6 +1820,7 @@ class RunScriptContextV2:
             progress_record_bid=self._current_attend.progress_record_bid,
             usage_scene=usage_scene,
         )
+        viewing_mode_prompt = build_viewing_mode_prompt(self._viewing_mode)
         mdflow_context = MdflowContextV2(
             document=run_script_info.mdflow,
             document_prompt=system_prompt,
@@ -1822,6 +1834,7 @@ class RunScriptContextV2:
             ),
             use_learner_language=self._shifu_info.use_learner_language,
             visual_mode=self._listen,
+            viewing_mode_prompt=viewing_mode_prompt,
         )
         block_list = mdflow_context.get_all_blocks()
         user_profile = get_user_profiles(

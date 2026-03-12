@@ -12,7 +12,11 @@ from flaskr.i18n import _
 import json
 
 
-from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO, RunStatusDTO
+from flaskr.service.learn.learn_dtos import (
+    RunMarkdownFlowDTO,
+    RunStatusDTO,
+    ViewingModeDTO,
+)
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.dao import db
 from flaskr.service.shifu.shifu_struct_manager import (
@@ -47,6 +51,7 @@ def run_script_inner(
     input_type: str = None,
     reload_generated_block_bid: str = None,
     listen: bool = False,
+    viewing_mode: Optional[ViewingModeDTO] = None,
     preview_mode: bool = False,
     stop_event: threading.Event | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, None]:
@@ -114,6 +119,7 @@ def run_script_inner(
                 user_info=user_info,
                 is_paid=is_paid,
                 listen=listen,
+                viewing_mode=viewing_mode,
                 preview_mode=preview_mode,
             )
 
@@ -160,6 +166,7 @@ def run_script(
     input_type: str = None,
     reload_generated_block_bid: str = None,
     listen: bool = False,
+    viewing_mode: Optional[ViewingModeDTO] = None,
     preview_mode: bool = False,
     shifu_context_snapshot: Optional[dict[str, Any]] = None,
 ) -> Generator[str, None, None]:
@@ -214,6 +221,7 @@ def run_script(
             input_type=input_type,
             reload_generated_block_bid=reload_generated_block_bid,
             listen=listen,
+            viewing_mode=viewing_mode,
             preview_mode=preview_mode,
             stop_event=stop_event,
         )

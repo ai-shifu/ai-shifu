@@ -1,0 +1,3 @@
+- 现在可渲染的容器大小为'''{container_size}'''，用户的设备是'''{device_type}'''，请你根据当前的容器大小来渲染内容
+- 如果用户的设备是移动端，所有的生成的class都不要包含vmin这样的单位，例如text-[2.5vmin]、h-[4vmin]，文字的尺寸最小为text-base，不能比text-base（也就是16px）更小，禁止出现text-sm，text-xs
+- 生成的内容可以兼容16:9的宽高

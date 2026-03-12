@@ -26,7 +26,10 @@ from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.common import raise_error
 from flaskr.service.learn.runscript_v2 import run_script, get_run_status
-from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
+from flaskr.service.learn.learn_dtos import (
+    PlaygroundPreviewRequest,
+    RunOutlineRequestDTO,
+)
 from flaskr.service.learn.context_v2 import RunScriptPreviewContextV2
 from flaskr.service.learn.learn_dtos import PreviewSSEMessage, PreviewSSEMessageType
 from flaskr.util import generate_id
@@ -251,6 +254,10 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     reload_generated_block_bid:
                         type: string
                         required: false
+                    viewing_mode:
+                        type: object
+                        required: false
+                        description: Actual runtime device type and render container size
             - in: query
               name: preview_mode
               type: string
@@ -264,17 +271,16 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                             $ref: "#/components/schemas/RunMarkdownFlowDTO"
         """
         user_bid = request.user.user_id
-        payload = request.get_json() or {}
-        input = payload.get("input", None)
-        input_type = payload.get("input_type", None)
-        reload_generated_block_bid = payload.get("reload_generated_block_bid", None)
-        listen_raw = payload.get("listen", False)
-        if isinstance(listen_raw, str):
-            listen = listen_raw.strip().lower() == "true"
-        elif listen_raw is None:
-            listen = False
-        else:
-            listen = bool(listen_raw)
+        payload = request.get_json(silent=True) or {}
+        try:
+            run_request = RunOutlineRequestDTO(**payload)
+        except ValidationError as exc:
+            raise_param_error(str(exc))
+        input = run_request.input
+        input_type = run_request.input_type
+        reload_generated_block_bid = run_request.reload_generated_block_bid
+        listen = run_request.listen_enabled()
+        viewing_mode = run_request.viewing_mode
         preview_mode = request.args.get("preview_mode", "False")
         app.logger.info(
             f"run outline item, shifu_bid: {shifu_bid}, outline_bid: {outline_bid}, preview_mode: {preview_mode}, listen: {listen}"
@@ -292,6 +298,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     input_type=input_type,
                     reload_generated_block_bid=reload_generated_block_bid,
                     listen=listen,
+                    viewing_mode=viewing_mode,
                     preview_mode=preview_mode,
                     shifu_context_snapshot=shifu_context_snapshot,
                 ),

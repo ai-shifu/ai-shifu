@@ -304,6 +304,23 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
 
         self.assertIsInstance(context._mdflow, FakeMarkdownFlow)
 
+    def test_init_ignores_viewing_mode_prompt_when_api_missing(self):
+        class FakeMarkdownFlow:
+            def __init__(self, *args, **kwargs):
+                self.args = args
+                self.kwargs = kwargs
+
+            def set_output_language(self, *_args, **_kwargs):
+                return self
+
+        with patch("flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow):
+            context = MdflowContextV2(
+                document="doc",
+                viewing_mode_prompt="view prompt",
+            )
+
+        self.assertIsInstance(context._mdflow, FakeMarkdownFlow)
+
     def test_init_calls_visual_mode_when_api_exists(self):
         class FakeMarkdownFlow:
             def __init__(self, *args, **kwargs):
@@ -319,6 +336,26 @@ class MdflowContextCompatibilityTests(unittest.TestCase):
             context = MdflowContextV2(document="doc", visual_mode=False)
 
         self.assertFalse(context._mdflow.visual_mode)
+
+    def test_init_calls_viewing_mode_prompt_when_api_exists(self):
+        class FakeMarkdownFlow:
+            def __init__(self, *args, **kwargs):
+                self.viewing_mode_prompt = None
+
+            def set_viewing_mode_prompt(self, prompt):
+                self.viewing_mode_prompt = prompt
+                return self
+
+            def set_output_language(self, *_args, **_kwargs):
+                return self
+
+        with patch("flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow):
+            context = MdflowContextV2(
+                document="doc",
+                viewing_mode_prompt="view prompt",
+            )
+
+        self.assertEqual(context._mdflow.viewing_mode_prompt, "view prompt")
 
 
 class PreviewResolveLlmSettingsTests(unittest.TestCase):
