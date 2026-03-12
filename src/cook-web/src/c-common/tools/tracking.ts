@@ -38,6 +38,16 @@ type QueuedUmamiCall =
     }
   | { kind: 'pageview'; url?: string; referrer?: string };
 
+const UMAMI_LIMITS = {
+  eventName: 50,
+  dataKey: 64,
+  dataValue: 240,
+  url: 500,
+  referrer: 500,
+  maxDataFields: 30,
+  maxArrayItems: 10,
+} as const;
+
 const pageviewState = {
   lastTrackedUrl: '',
   lastReferrer: '',
@@ -71,14 +81,111 @@ const getCurrentUrl = () => {
   return `${origin}${pathname}${search}`;
 };
 
+const truncateText = (value: string, maxLength: number) => {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return value.slice(0, maxLength);
+};
+
+const normalizeText = (value: unknown, maxLength: number) => {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    return '';
+  }
+
+  return truncateText(text, maxLength);
+};
+
+const stringifyUnknown = (value: unknown) => {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+};
+
+const sanitizeDataValue = (value: unknown): string | number | boolean => {
+  if (typeof value === 'string') {
+    return truncateText(value, UMAMI_LIMITS.dataValue);
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (value instanceof Date) {
+    return truncateText(value.toISOString(), UMAMI_LIMITS.dataValue);
+  }
+
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  if (Array.isArray(value)) {
+    return truncateText(
+      stringifyUnknown(value.slice(0, UMAMI_LIMITS.maxArrayItems)),
+      UMAMI_LIMITS.dataValue,
+    );
+  }
+
+  if (typeof value === 'object') {
+    return truncateText(stringifyUnknown(value), UMAMI_LIMITS.dataValue);
+  }
+
+  return truncateText(String(value), UMAMI_LIMITS.dataValue);
+};
+
+const sanitizeEventData = (eventData: any) => {
+  if (!eventData || typeof eventData !== 'object' || Array.isArray(eventData)) {
+    return {};
+  }
+
+  const safeData: Record<string, string | number | boolean> = {};
+  const entries = Object.entries(eventData).slice(
+    0,
+    UMAMI_LIMITS.maxDataFields,
+  );
+
+  entries.forEach(([rawKey, rawValue]) => {
+    const key = normalizeText(rawKey, UMAMI_LIMITS.dataKey);
+    if (!key) {
+      return;
+    }
+    safeData[key] = sanitizeDataValue(rawValue);
+  });
+
+  return safeData;
+};
+
+const sanitizeUrlLike = (url?: string) => {
+  const normalized = normalizeText(url, UMAMI_LIMITS.url);
+  return normalized || undefined;
+};
+
+const sanitizeEventName = (eventName: any) => {
+  return normalizeText(eventName, UMAMI_LIMITS.eventName) || 'unknown_event';
+};
+
 function trackUmamiPageview(
   umami: any,
   { url, referrer }: { url?: string; referrer?: string } = {},
 ) {
   const resolvedUrl =
     typeof url === 'string' && url.trim() ? url : getCurrentUrl();
+  const safeUrl = sanitizeUrlLike(resolvedUrl);
+  const safeReferrer =
+    normalizeText(referrer, UMAMI_LIMITS.referrer) || undefined;
 
-  if (!resolvedUrl) {
+  if (!safeUrl) {
     umami.track();
     return;
   }
@@ -86,8 +193,8 @@ function trackUmamiPageview(
   try {
     umami.track((payload: any) => ({
       ...payload,
-      url: resolvedUrl,
-      referrer: referrer || payload.referrer,
+      url: safeUrl,
+      referrer: safeReferrer || payload.referrer,
     }));
   } catch {
     umami.track();
@@ -105,17 +212,22 @@ function trackUmamiEvent(
 ) {
   const resolvedUrl =
     typeof url === 'string' && url.trim() ? url : getCurrentUrl();
+  const safeEventName = sanitizeEventName(eventName);
+  const safeEventData = sanitizeEventData(eventData);
+  const safeUrl = sanitizeUrlLike(resolvedUrl);
+  const safeReferrer =
+    normalizeText(referrer, UMAMI_LIMITS.referrer) || undefined;
 
   try {
     umami.track((payload: any) => ({
       ...payload,
-      name: eventName,
-      data: eventData,
-      url: resolvedUrl || payload.url,
-      referrer: referrer || payload.referrer,
+      name: safeEventName,
+      data: safeEventData,
+      url: safeUrl || payload.url,
+      referrer: safeReferrer || payload.referrer,
     }));
   } catch {
-    umami.track(eventName, eventData);
+    umami.track(safeEventName, safeEventData);
   }
 }
 
@@ -277,21 +389,26 @@ export const tracking = async (eventName, eventData) => {
     const umami = (window as any).umami;
     const urlSnapshot = pageviewState.lastTrackedUrl || getCurrentUrl();
     const referrerSnapshot = pageviewState.lastReferrer || '';
+    const safeEventName = sanitizeEventName(eventName);
+    const safeEventData = sanitizeEventData(eventData);
+    const safeUrl = sanitizeUrlLike(urlSnapshot);
+    const safeReferrer =
+      normalizeText(referrerSnapshot, UMAMI_LIMITS.referrer) || undefined;
     if (!umami || !identifyState.ready) {
       identifyState.queuedCalls.push({
         kind: 'event',
-        eventName,
-        eventData,
-        url: urlSnapshot,
-        referrer: referrerSnapshot,
+        eventName: safeEventName,
+        eventData: safeEventData,
+        url: safeUrl,
+        referrer: safeReferrer,
       });
       return;
     }
     trackUmamiEvent(umami, {
-      eventName,
-      eventData,
-      url: urlSnapshot,
-      referrer: referrerSnapshot,
+      eventName: safeEventName,
+      eventData: safeEventData,
+      url: safeUrl,
+      referrer: safeReferrer,
     });
   } catch {
     // swallow tracking errors
