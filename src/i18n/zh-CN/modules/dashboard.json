@@ -1,5 +1,44 @@
 {
   "__namespace__": "module.dashboard",
+  "detail": {
+    "basicInfo": {
+      "chapterCount": "章节数",
+      "courseName": "课程名称",
+      "createdAt": "创建时间",
+      "learnerCount": "学员数",
+      "placeholderName": "课程名称占位",
+      "title": "基础信息"
+    },
+    "charts": {
+      "chapterProgress": "章节学习进度分布图",
+      "learningTrend": "学习活跃趋势图",
+      "placeholder": "图表占位",
+      "questionsByChapter": "追问数量按章节分布图",
+      "questionsByTime": "追问数量按时间分布图",
+      "title": "图表区"
+    },
+    "courseIdLabel": "课程 ID",
+    "learners": {
+      "columns": {
+        "lastActiveAt": "最近活跃时间",
+        "name": "学员",
+        "progress": "学习进度",
+        "questions": "累计追问数"
+      },
+      "empty": "暂无学员数据",
+      "title": "学员列表"
+    },
+    "metrics": {
+      "activeLearnersLast7Days": "近7天活跃学员数",
+      "avgQuestionsPerLearner": "人均追问数",
+      "completedLearners": "完成课程人数",
+      "completionRate": "完课率",
+      "title": "核心指标",
+      "totalLearners": "累计学员数",
+      "totalQuestions": "累计追问数"
+    },
+    "title": "课程详情"
+  },
   "entry": {
     "kpi": {
       "courses": "课程数",
@@ -20,45 +59,6 @@
       "searchPlaceholder": "搜索课程名称 / 课程ID",
       "title": "课程列表",
       "totalCount": "共 {count}"
-    }
-  },
-  "detail": {
-    "title": "课程详情",
-    "courseIdLabel": "课程 ID",
-    "basicInfo": {
-      "title": "基础信息",
-      "courseName": "课程名称",
-      "createdAt": "创建时间",
-      "chapterCount": "章节数",
-      "learnerCount": "学员数",
-      "placeholderName": "课程名称占位"
-    },
-    "metrics": {
-      "title": "核心指标",
-      "totalLearners": "累计学员数",
-      "totalQuestions": "累计追问数",
-      "activeLearnersLast7Days": "近7天活跃学员数",
-      "avgQuestionsPerLearner": "人均追问数",
-      "completedLearners": "完成课程人数",
-      "completionRate": "完课率"
-    },
-    "charts": {
-      "title": "图表区",
-      "questionsByChapter": "追问数量按章节分布图",
-      "questionsByTime": "追问数量按时间分布图",
-      "learningTrend": "学习活跃趋势图",
-      "chapterProgress": "章节学习进度分布图",
-      "placeholder": "图表占位"
-    },
-    "learners": {
-      "title": "学员列表",
-      "columns": {
-        "name": "学员",
-        "progress": "学习进度",
-        "questions": "累计追问数",
-        "lastActiveAt": "最近活跃时间"
-      },
-      "empty": "暂无学员数据"
     }
   },
   "filters": {

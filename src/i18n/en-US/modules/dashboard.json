@@ -1,5 +1,44 @@
 {
   "__namespace__": "module.dashboard",
+  "detail": {
+    "basicInfo": {
+      "chapterCount": "Chapter Count",
+      "courseName": "Course Name",
+      "createdAt": "Created At",
+      "learnerCount": "Learner Count",
+      "placeholderName": "Course name placeholder",
+      "title": "Basic Information"
+    },
+    "charts": {
+      "chapterProgress": "Chapter Progress Distribution",
+      "learningTrend": "Learning Activity Trend",
+      "placeholder": "Chart placeholder",
+      "questionsByChapter": "Follow-up Questions by Chapter",
+      "questionsByTime": "Follow-up Questions by Time",
+      "title": "Charts"
+    },
+    "courseIdLabel": "Course ID",
+    "learners": {
+      "columns": {
+        "lastActiveAt": "Last Active",
+        "name": "Learner",
+        "progress": "Progress",
+        "questions": "Total Questions"
+      },
+      "empty": "No learner data",
+      "title": "Learner List"
+    },
+    "metrics": {
+      "activeLearnersLast7Days": "Active Learners in Last 7 Days",
+      "avgQuestionsPerLearner": "Average Questions per Learner",
+      "completedLearners": "Completed Learners",
+      "completionRate": "Completion Rate",
+      "title": "Key Metrics",
+      "totalLearners": "Total Learners",
+      "totalQuestions": "Total Follow-up Questions"
+    },
+    "title": "Course Detail"
+  },
   "entry": {
     "kpi": {
       "courses": "Courses",
@@ -20,45 +59,6 @@
       "searchPlaceholder": "Search by course name / course id",
       "title": "Course List",
       "totalCount": "Total: {count}"
-    }
-  },
-  "detail": {
-    "title": "Course Detail",
-    "courseIdLabel": "Course ID",
-    "basicInfo": {
-      "title": "Basic Information",
-      "courseName": "Course Name",
-      "createdAt": "Created At",
-      "chapterCount": "Chapter Count",
-      "learnerCount": "Learner Count",
-      "placeholderName": "Course name placeholder"
-    },
-    "metrics": {
-      "title": "Key Metrics",
-      "totalLearners": "Total Learners",
-      "totalQuestions": "Total Follow-up Questions",
-      "activeLearnersLast7Days": "Active Learners in Last 7 Days",
-      "avgQuestionsPerLearner": "Average Questions per Learner",
-      "completedLearners": "Completed Learners",
-      "completionRate": "Completion Rate"
-    },
-    "charts": {
-      "title": "Charts",
-      "questionsByChapter": "Follow-up Questions by Chapter",
-      "questionsByTime": "Follow-up Questions by Time",
-      "learningTrend": "Learning Activity Trend",
-      "chapterProgress": "Chapter Progress Distribution",
-      "placeholder": "Chart placeholder"
-    },
-    "learners": {
-      "title": "Learner List",
-      "columns": {
-        "name": "Learner",
-        "progress": "Progress",
-        "questions": "Total Questions",
-        "lastActiveAt": "Last Active"
-      },
-      "empty": "No learner data"
     }
   },
   "filters": {
