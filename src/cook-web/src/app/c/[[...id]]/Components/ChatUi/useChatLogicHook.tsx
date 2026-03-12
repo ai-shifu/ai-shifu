@@ -2196,10 +2196,7 @@ function useChatLogicHook({
       return;
     }
     dismissLessonFeedbackPopup(blockBid);
-  }, [
-    lessonFeedbackPopupState.generatedBlockBid,
-    dismissLessonFeedbackPopup,
-  ]);
+  }, [lessonFeedbackPopupState.generatedBlockBid, dismissLessonFeedbackPopup]);
 
   return {
     items,
