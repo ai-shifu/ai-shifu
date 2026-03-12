@@ -166,8 +166,8 @@ const sanitizeEventData = (eventData: any) => {
   return safeData;
 };
 
-const sanitizeUrlLike = (url?: string) => {
-  const normalized = normalizeText(url, UMAMI_LIMITS.url);
+const sanitizeUrlLike = (url: string | undefined, maxLength: number) => {
+  const normalized = normalizeText(url, maxLength);
   return normalized || undefined;
 };
 
@@ -181,9 +181,8 @@ function trackUmamiPageview(
 ) {
   const resolvedUrl =
     typeof url === 'string' && url.trim() ? url : getCurrentUrl();
-  const safeUrl = sanitizeUrlLike(resolvedUrl);
-  const safeReferrer =
-    normalizeText(referrer, UMAMI_LIMITS.referrer) || undefined;
+  const safeUrl = sanitizeUrlLike(resolvedUrl, UMAMI_LIMITS.url);
+  const safeReferrer = sanitizeUrlLike(referrer, UMAMI_LIMITS.referrer);
 
   if (!safeUrl) {
     umami.track();
@@ -214,9 +213,8 @@ function trackUmamiEvent(
     typeof url === 'string' && url.trim() ? url : getCurrentUrl();
   const safeEventName = sanitizeEventName(eventName);
   const safeEventData = sanitizeEventData(eventData);
-  const safeUrl = sanitizeUrlLike(resolvedUrl);
-  const safeReferrer =
-    normalizeText(referrer, UMAMI_LIMITS.referrer) || undefined;
+  const safeUrl = sanitizeUrlLike(resolvedUrl, UMAMI_LIMITS.url);
+  const safeReferrer = sanitizeUrlLike(referrer, UMAMI_LIMITS.referrer);
 
   try {
     umami.track((payload: any) => ({
@@ -391,9 +389,11 @@ export const tracking = async (eventName, eventData) => {
     const referrerSnapshot = pageviewState.lastReferrer || '';
     const safeEventName = sanitizeEventName(eventName);
     const safeEventData = sanitizeEventData(eventData);
-    const safeUrl = sanitizeUrlLike(urlSnapshot);
-    const safeReferrer =
-      normalizeText(referrerSnapshot, UMAMI_LIMITS.referrer) || undefined;
+    const safeUrl = sanitizeUrlLike(urlSnapshot, UMAMI_LIMITS.url);
+    const safeReferrer = sanitizeUrlLike(
+      referrerSnapshot,
+      UMAMI_LIMITS.referrer,
+    );
     if (!umami || !identifyState.ready) {
       identifyState.queuedCalls.push({
         kind: 'event',
