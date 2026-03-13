@@ -6,13 +6,12 @@
       "courseName": "课程名称",
       "createdAt": "创建时间",
       "learnerCount": "学员数",
-      "placeholderName": "课程名称占位",
       "title": "基础信息"
     },
     "charts": {
       "chapterProgress": "章节学习进度分布图",
       "learningTrend": "学习活跃趋势图",
-      "placeholder": "图表占位",
+      "placeholder": "图表能力建设中，敬请期待",
       "questionsByChapter": "追问数量按章节分布图",
       "questionsByTime": "追问数量按时间分布图",
       "title": "图表区"
@@ -25,7 +24,7 @@
         "progress": "学习进度",
         "questions": "累计追问数"
       },
-      "empty": "暂无学员数据",
+      "empty": "学员列表能力建设中，敬请期待",
       "title": "学员列表"
     },
     "metrics": {
@@ -37,6 +36,8 @@
       "totalLearners": "累计学员数",
       "totalQuestions": "累计追问数"
     },
+    "placeholderValue": "敬请期待",
+    "subtitle": "课程详情能力建设中，更多基础信息、指标、图表和学员数据敬请期待。",
     "title": "课程详情"
   },
   "entry": {

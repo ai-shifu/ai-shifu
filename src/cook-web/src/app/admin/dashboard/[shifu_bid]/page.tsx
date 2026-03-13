@@ -34,6 +34,7 @@ export default function AdminDashboardCourseDetailPage() {
     ? params.shifu_bid[0] || ''
     : params?.shifu_bid || '';
   const emptyValue = '--';
+  const placeholderValue = t('module.dashboard.detail.placeholderValue');
   const metricLabels = [
     t('module.dashboard.detail.metrics.totalLearners'),
     t('module.dashboard.detail.metrics.totalQuestions'),
@@ -106,6 +107,9 @@ export default function AdminDashboardCourseDetailPage() {
                 {shifuBid || emptyValue}
               </span>
             </div>
+            <p className='text-sm text-muted-foreground'>
+              {t('module.dashboard.detail.subtitle')}
+            </p>
           </div>
         </div>
 
@@ -122,7 +126,7 @@ export default function AdminDashboardCourseDetailPage() {
                   {t('module.dashboard.detail.basicInfo.courseName')}
                 </dt>
                 <dd className='text-sm font-medium text-foreground'>
-                  {t('module.dashboard.detail.basicInfo.placeholderName')}
+                  {placeholderValue}
                 </dd>
               </div>
               <div className='space-y-1'>
@@ -130,7 +134,7 @@ export default function AdminDashboardCourseDetailPage() {
                   {t('module.dashboard.detail.basicInfo.createdAt')}
                 </dt>
                 <dd className='text-sm font-medium text-foreground'>
-                  {emptyValue}
+                  {placeholderValue}
                 </dd>
               </div>
               <div className='space-y-1'>
@@ -138,7 +142,7 @@ export default function AdminDashboardCourseDetailPage() {
                   {t('module.dashboard.detail.basicInfo.chapterCount')}
                 </dt>
                 <dd className='text-sm font-medium text-foreground'>
-                  {emptyValue}
+                  {placeholderValue}
                 </dd>
               </div>
               <div className='space-y-1'>
@@ -146,7 +150,7 @@ export default function AdminDashboardCourseDetailPage() {
                   {t('module.dashboard.detail.basicInfo.learnerCount')}
                 </dt>
                 <dd className='text-sm font-medium text-foreground'>
-                  {emptyValue}
+                  {placeholderValue}
                 </dd>
               </div>
             </dl>
@@ -164,8 +168,8 @@ export default function AdminDashboardCourseDetailPage() {
                   <div className='text-sm text-muted-foreground'>
                     {metricLabel}
                   </div>
-                  <div className='mt-2 text-2xl font-semibold text-foreground'>
-                    {emptyValue}
+                  <div className='mt-3 text-sm font-medium text-muted-foreground'>
+                    {placeholderValue}
                   </div>
                 </CardContent>
               </Card>

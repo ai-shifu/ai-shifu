@@ -60,13 +60,16 @@ describe('AdminDashboardCourseDetailPage', () => {
       screen.getByText('module.dashboard.detail.courseIdLabel'),
     ).toBeInTheDocument();
     expect(screen.getByText('shifu-1')).toBeInTheDocument();
+    expect(
+      screen.getByText('module.dashboard.detail.subtitle'),
+    ).toBeInTheDocument();
 
     expect(
       screen.getByText('module.dashboard.detail.basicInfo.title'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('module.dashboard.detail.basicInfo.placeholderName'),
-    ).toBeInTheDocument();
+      screen.getAllByText('module.dashboard.detail.placeholderValue').length,
+    ).toBeGreaterThan(0);
 
     expect(
       screen.getByText('module.dashboard.detail.metrics.title'),

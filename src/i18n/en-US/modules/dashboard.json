@@ -6,13 +6,12 @@
       "courseName": "Course Name",
       "createdAt": "Created At",
       "learnerCount": "Learner Count",
-      "placeholderName": "Course name placeholder",
       "title": "Basic Information"
     },
     "charts": {
       "chapterProgress": "Chapter Progress Distribution",
       "learningTrend": "Learning Activity Trend",
-      "placeholder": "Chart placeholder",
+      "placeholder": "Charts are coming soon",
       "questionsByChapter": "Follow-up Questions by Chapter",
       "questionsByTime": "Follow-up Questions by Time",
       "title": "Charts"
@@ -25,7 +24,7 @@
         "progress": "Progress",
         "questions": "Total Questions"
       },
-      "empty": "No learner data",
+      "empty": "Learner list is coming soon",
       "title": "Learner List"
     },
     "metrics": {
@@ -37,6 +36,8 @@
       "totalLearners": "Total Learners",
       "totalQuestions": "Total Follow-up Questions"
     },
+    "placeholderValue": "Coming soon",
+    "subtitle": "This course detail page is still being built out. More basic info, metrics, charts, and learner data are coming soon.",
     "title": "Course Detail"
   },
   "entry": {
