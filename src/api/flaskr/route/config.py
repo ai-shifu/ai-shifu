@@ -105,7 +105,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             "defaultLoginMethod": get_config("DEFAULT_LOGIN_METHOD", "phone"),
             "googleOauthRedirect": f"{origin}/login/google-callback",
             # Redirect Configuration
-            "homeUrl": get_config("HOME_URL", "/admin"),
+            "homeUrl": get_config("HOME_URL", ""),
             "currencySymbol": get_config("CURRENCY_SYMBOL", "¥"),
             # Legal Documents Configuration
             "legalUrls": legal_urls,

@@ -137,8 +137,8 @@ ENV_VARS: Dict[str, EnvVar] = {
     ),
     "HOME_URL": EnvVar(
         name="HOME_URL",
-        default="/admin",
-        description="Default redirect path after login",
+        default="",
+        description="Cook Web logo/home redirect URL. Leave empty to disable automatic redirects.",
         group="frontend",
     ),
     "LOGO_WIDE_URL": EnvVar(
