@@ -7,7 +7,7 @@ import {
   buildAdminOrdersUrl,
 } from './admin-dashboard-routes';
 import AdminDashboardEntryPage from './page';
-import { DashboardCourseTableRow } from './dashboard-course-table-row';
+import { DashboardCourseTableRow } from './dashboardCourseTableRow';
 
 const mockPush = jest.fn();
 

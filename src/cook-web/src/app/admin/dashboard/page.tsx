@@ -49,7 +49,7 @@ import {
 import {
   DashboardCourseTableRow,
   formatOrderAmount,
-} from './dashboard-course-table-row';
+} from './dashboardCourseTableRow';
 
 const PAGE_SIZE = 20;
 
