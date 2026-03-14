@@ -40,8 +40,6 @@ export const LogoWithText = ({ direction, size = 64 }) => {
     return Math.round(size * (imgLogoRow.width / imgLogoRow.height));
   }, [size, wideLogoSrc]);
 
-  const containerWidth = isRow ? wideWidth : size;
-
   return (
     <div
       style={{
@@ -52,12 +50,12 @@ export const LogoWithText = ({ direction, size = 64 }) => {
       }}
     >
       <a
-        href={homeUrl || 'https://ai-shifu.cn/'}
-        target='_blank'
+        href={homeUrl || undefined}
+        target={homeUrl ? '_blank' : undefined}
+        rel={homeUrl ? 'noreferrer' : undefined}
       >
         <div
           style={{
-            // width: containerWidth,
             height: size,
             position: 'relative',
           }}

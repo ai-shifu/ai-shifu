@@ -54,7 +54,7 @@ import { createInteractionParser } from 'remark-flow';
 import LoadingBar from './LoadingBar';
 import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
 import { useTranslation } from 'react-i18next';
-import { show as showToast } from '@/hooks/useToast';
+import { show as showToast, toast } from '@/hooks/useToast';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import { AppContext } from '../AppContext';
 import { appendCustomButtonAfterContent } from './chatUiUtils';
@@ -1761,7 +1761,7 @@ function useChatLogicHook({
           parseLessonFeedbackScore(buttonText) ||
           parseLessonFeedbackScore(currentInteractionItem?.defaultButtonText);
         if (!score) {
-          showToast(t('module.chat.lessonFeedbackScoreRequired'));
+          toast({ title: t('module.chat.lessonFeedbackScoreRequired') });
           return;
         }
         const comment = (inputText || '').trim();
@@ -1796,15 +1796,7 @@ function useChatLogicHook({
               comment_length: comment.length,
               is_update: Boolean(persistedScore || persistedComment),
             });
-            showToast(t('module.chat.lessonFeedbackSubmitted'));
-            const nextLessonId = getNextLessonId(lessonId);
-            if (nextLessonId) {
-              updateSelectedLesson(nextLessonId, true);
-              onGoChapter(nextLessonId);
-              scrollToLesson(nextLessonId);
-            } else {
-              showToast(t('module.chat.noMoreLessons'));
-            }
+            toast({ title: t('module.chat.lessonFeedbackSubmitted') });
           })
           .catch(() => {
             // request.ts already handles global error display
@@ -2207,25 +2199,8 @@ function useChatLogicHook({
     if (!blockBid) {
       return;
     }
-    const score = parseLessonFeedbackScore(
-      lessonFeedbackPopupState.defaultScoreText,
-    );
-    processSend(
-      {
-        variableName: LESSON_FEEDBACK_VARIABLE_NAME,
-        buttonText: SYS_INTERACTION_TYPE.NEXT_CHAPTER,
-        inputText: lessonFeedbackPopupState.defaultCommentText || '',
-        selectedValues: score ? [String(score)] : [],
-      },
-      blockBid,
-    );
-  }, [
-    lessonFeedbackPopupState.defaultCommentText,
-    lessonFeedbackPopupState.defaultScoreText,
-    lessonFeedbackPopupState.generatedBlockBid,
-    parseLessonFeedbackScore,
-    processSend,
-  ]);
+    dismissLessonFeedbackPopup(blockBid);
+  }, [lessonFeedbackPopupState.generatedBlockBid, dismissLessonFeedbackPopup]);
 
   return {
     items,

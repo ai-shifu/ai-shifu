@@ -304,7 +304,7 @@ function getDefaultLoginMethod(): string {
  * Gets home URL
  */
 function getHomeUrl(): string {
-  return getRuntimeEnv('HOME_URL') || process.env.HOME_URL || '/admin';
+  return getRuntimeEnv('HOME_URL') || process.env.HOME_URL || '';
 }
 
 /**

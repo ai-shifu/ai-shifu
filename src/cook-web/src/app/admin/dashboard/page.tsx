@@ -23,7 +23,6 @@ import { cn } from '@/lib/utils';
 import {
   Table,
   TableBody,
-  TableCell,
   TableEmpty,
   TableHead,
   TableHeader,
@@ -43,7 +42,14 @@ import type {
   DashboardEntryResponse,
   DashboardEntrySummary,
 } from '@/types/dashboard';
-import { buildAdminOrdersUrl } from './admin-dashboard-routes';
+import {
+  buildAdminDashboardCourseDetailUrl,
+  buildAdminOrdersUrl,
+} from './admin-dashboard-routes';
+import {
+  DashboardCourseTableRow,
+  formatOrderAmount,
+} from './dashboardCourseTableRow';
 
 const PAGE_SIZE = 20;
 
@@ -179,33 +185,8 @@ const EMPTY_SUMMARY: DashboardEntrySummary = {
   order_amount: '0.00',
 };
 
-const formatLastActive = (value: string): string => {
-  if (!value) {
-    return '-';
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  return parsed.toLocaleString();
-};
-
-const formatOrderAmount = (value: string, currencySymbol: string): string => {
-  const normalized = (value || '').trim();
-  const matched = normalized.match(/^(-?\d+)(?:\.(\d+))?$/);
-  if (!matched) {
-    return `${currencySymbol}0.00`;
-  }
-  const integerPart = matched[1].replace(/^(-?)0+(?=\d)/, '$1');
-  const decimalPart = (matched[2] || '').padEnd(2, '0').slice(0, 2);
-  return `${currencySymbol}${integerPart}.${decimalPart}`;
-};
-
 const DASHBOARD_TABLE_HEAD_CLASS =
   'sticky top-0 z-30 bg-muted border-r border-border last:border-r-0';
-
-const DASHBOARD_TABLE_CELL_CLASS =
-  'whitespace-nowrap overflow-hidden text-ellipsis border-r border-border last:border-r-0';
 
 export default function AdminDashboardEntryPage() {
   const { t } = useTranslation();
@@ -319,6 +300,17 @@ export default function AdminDashboardEntryPage() {
   const handleOrderClick = useCallback(
     (shifuBid: string) => {
       const nextUrl = buildAdminOrdersUrl(shifuBid);
+      if (!nextUrl) {
+        return;
+      }
+      router.push(nextUrl);
+    },
+    [router],
+  );
+
+  const handleCourseDetailClick = useCallback(
+    (shifuBid: string) => {
+      const nextUrl = buildAdminDashboardCourseDetailUrl(shifuBid);
       if (!nextUrl) {
         return;
       }
@@ -525,63 +517,14 @@ export default function AdminDashboardEntryPage() {
                     ) : null}
 
                     {items.map(item => (
-                      <TableRow key={item.shifu_bid}>
-                        <TableCell
-                          className={cn(
-                            DASHBOARD_TABLE_CELL_CLASS,
-                            'min-w-[280px]',
-                          )}
-                        >
-                          <div className='max-w-[320px] truncate text-sm text-foreground'>
-                            {item.shifu_name || item.shifu_bid}
-                          </div>
-                          <div className='mt-1 max-w-[320px] truncate text-xs text-muted-foreground'>
-                            {item.shifu_bid}
-                          </div>
-                        </TableCell>
-                        <TableCell
-                          className={cn(
-                            DASHBOARD_TABLE_CELL_CLASS,
-                            'min-w-[120px] text-sm text-foreground',
-                          )}
-                        >
-                          {item.learner_count}
-                        </TableCell>
-                        <TableCell
-                          className={cn(
-                            DASHBOARD_TABLE_CELL_CLASS,
-                            'min-w-[120px]',
-                          )}
-                        >
-                          <button
-                            type='button'
-                            onClick={() => handleOrderClick(item.shifu_bid)}
-                            disabled={!item.shifu_bid.trim()}
-                            aria-label={`${t('module.dashboard.entry.table.orders')}-${item.shifu_bid}`}
-                            className={cn(
-                              'text-sm font-medium text-primary transition hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline',
-                            )}
-                          >
-                            {item.order_count}
-                          </button>
-                        </TableCell>
-                        <TableCell
-                          className={cn(
-                            DASHBOARD_TABLE_CELL_CLASS,
-                            'min-w-[140px] text-sm text-foreground',
-                          )}
-                        >
-                          {formatOrderAmount(item.order_amount, currencySymbol)}
-                        </TableCell>
-                        <TableCell
-                          className={cn(
-                            DASHBOARD_TABLE_CELL_CLASS,
-                            'min-w-[180px] text-sm text-foreground',
-                          )}
-                        >
-                          {formatLastActive(item.last_active_at)}
-                        </TableCell>
-                      </TableRow>
+                      <DashboardCourseTableRow
+                        key={item.shifu_bid}
+                        item={item}
+                        currencySymbol={currencySymbol}
+                        orderButtonLabel={`${t('module.dashboard.entry.table.orders')}-${item.shifu_bid}`}
+                        onCourseDetailClick={handleCourseDetailClick}
+                        onOrderClick={handleOrderClick}
+                      />
                     ))}
                   </TableBody>
                 </Table>

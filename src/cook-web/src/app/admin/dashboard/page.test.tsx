@@ -1,9 +1,13 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
 
-import { buildAdminOrdersUrl } from './admin-dashboard-routes';
+import {
+  buildAdminDashboardCourseDetailUrl,
+  buildAdminOrdersUrl,
+} from './admin-dashboard-routes';
 import AdminDashboardEntryPage from './page';
+import { DashboardCourseTableRow } from './dashboardCourseTableRow';
 
 const mockPush = jest.fn();
 
@@ -51,40 +55,45 @@ jest.mock('@/components/loading', () => ({
 }));
 
 const mockGetDashboardEntry = api.getDashboardEntry as jest.Mock;
+const DASHBOARD_ENTRY_RESPONSE = {
+  summary: {
+    course_count: 1,
+    learner_count: 2,
+    order_count: 3,
+    order_amount: '99.00',
+  },
+  items: [
+    {
+      shifu_bid: 'shifu-1',
+      shifu_name: 'Course 1',
+      learner_count: 2,
+      order_count: 3,
+      order_amount: '99.00',
+      last_active_at: '2026-03-06T08:00:00Z',
+    },
+  ],
+  page: 1,
+  page_count: 1,
+  page_size: 20,
+  total: 1,
+};
 
 describe('AdminDashboardEntryPage', () => {
   beforeEach(() => {
     mockPush.mockReset();
     mockGetDashboardEntry.mockReset();
-    mockGetDashboardEntry.mockResolvedValue({
-      summary: {
-        course_count: 1,
-        learner_count: 2,
-        order_count: 3,
-        order_amount: '99.00',
-      },
-      items: [
-        {
-          shifu_bid: 'shifu-1',
-          shifu_name: 'Course 1',
-          learner_count: 2,
-          order_count: 3,
-          order_amount: '99.00',
-          last_active_at: '2026-03-06T08:00:00Z',
-        },
-      ],
-      page: 1,
-      page_count: 1,
-      page_size: 20,
-      total: 1,
-    });
+    mockGetDashboardEntry.mockResolvedValue(DASHBOARD_ENTRY_RESPONSE);
   });
 
-  test('builds orders url with shifu_bid', () => {
+  test('builds dashboard urls with shifu_bid', () => {
     expect(buildAdminOrdersUrl('shifu-1')).toBe(
       '/admin/orders?shifu_bid=shifu-1',
     );
+    expect(buildAdminDashboardCourseDetailUrl('shifu-1')).toBe(
+      '/admin/dashboard/shifu-1',
+    );
     expect(buildAdminOrdersUrl('   ')).toBeNull();
+    expect(buildAdminDashboardCourseDetailUrl('   ')).toBeNull();
   });
 
   test('renders order count button for each dashboard row', async () => {
@@ -101,11 +110,49 @@ describe('AdminDashboardEntryPage', () => {
         }),
       );
     });
-    expect(
-      await screen.findByRole('button', {
-        name: 'module.dashboard.entry.table.orders-shifu-1',
-      }),
-    ).toBeEnabled();
+
+    const orderButton = await screen.findByRole('button', {
+      name: 'module.dashboard.entry.table.orders-shifu-1',
+    });
+
+    expect(orderButton).toBeEnabled();
+  });
+
+  test('keeps order click isolated while row click opens course detail', () => {
+    const onCourseDetailClick = jest.fn();
+    const onOrderClick = jest.fn();
+
+    render(
+      <table>
+        <tbody>
+          <DashboardCourseTableRow
+            item={DASHBOARD_ENTRY_RESPONSE.items[0]}
+            currencySymbol='¥'
+            orderButtonLabel='module.dashboard.entry.table.orders-shifu-1'
+            onCourseDetailClick={onCourseDetailClick}
+            onOrderClick={onOrderClick}
+          />
+        </tbody>
+      </table>,
+    );
+
+    const orderButton = screen.getByRole('button', {
+      name: 'module.dashboard.entry.table.orders-shifu-1',
+    });
+    const courseRow = orderButton.closest('tr');
+
+    expect(courseRow).not.toBeNull();
+
+    fireEvent.click(orderButton);
+
+    expect(onOrderClick).toHaveBeenCalledTimes(1);
+    expect(onOrderClick).toHaveBeenCalledWith('shifu-1');
+    expect(onCourseDetailClick).not.toHaveBeenCalled();
+
+    fireEvent.click(courseRow as HTMLElement);
+
+    expect(onCourseDetailClick).toHaveBeenCalledTimes(1);
+    expect(onCourseDetailClick).toHaveBeenCalledWith('shifu-1');
   });
 
   test('keeps pagination and scope note outside the list scroll region', async () => {

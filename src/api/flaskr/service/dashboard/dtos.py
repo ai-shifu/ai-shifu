@@ -87,3 +87,93 @@ class DashboardEntryDTO(BaseModel):
             "total": int(self.total),
             "items": [item.__json__() for item in self.items],
         }
+
+
+@register_schema_to_swagger
+class DashboardCourseDetailBasicInfoDTO(BaseModel):
+    """Dashboard detail basic course information."""
+
+    shifu_bid: str = Field(
+        ..., description="Course business identifier", required=False
+    )
+    course_name: str = Field(..., description="Course name", required=False)
+    created_at: str = Field(
+        default="",
+        description="Course creation timestamp (ISO)",
+        required=False,
+    )
+    chapter_count: int = Field(..., description="Visible lesson count", required=False)
+    learner_count: int = Field(
+        ..., description="Distinct learner count", required=False
+    )
+
+    def __json__(self) -> Dict[str, Any]:
+        return {
+            "shifu_bid": self.shifu_bid,
+            "course_name": self.course_name,
+            "created_at": self.created_at,
+            "chapter_count": int(self.chapter_count),
+            "learner_count": int(self.learner_count),
+        }
+
+
+@register_schema_to_swagger
+class DashboardCourseDetailMetricsDTO(BaseModel):
+    """Dashboard detail metrics for a single course."""
+
+    order_count: int = Field(..., description="Order count", required=False)
+    order_amount: str = Field(
+        ..., description="Order amount with 2 decimal places", required=False
+    )
+    completed_learner_count: int = Field(
+        ..., description="Completed learner count", required=False
+    )
+    completion_rate: str = Field(
+        ..., description="Completion rate percentage with 2 decimals", required=False
+    )
+    active_learner_count_last_7_days: int = Field(
+        ..., description="Distinct active learners in last 7 days", required=False
+    )
+    total_follow_up_count: int = Field(
+        ..., description="Total follow-up question count", required=False
+    )
+    avg_follow_up_count_per_learner: str = Field(
+        ...,
+        description="Average follow-up count per learner with 2 decimals",
+        required=False,
+    )
+    avg_learning_duration_seconds: int = Field(
+        ..., description="Average learning duration in seconds", required=False
+    )
+
+    def __json__(self) -> Dict[str, Any]:
+        return {
+            "order_count": int(self.order_count),
+            "order_amount": self.order_amount,
+            "completed_learner_count": int(self.completed_learner_count),
+            "completion_rate": self.completion_rate,
+            "active_learner_count_last_7_days": int(
+                self.active_learner_count_last_7_days
+            ),
+            "total_follow_up_count": int(self.total_follow_up_count),
+            "avg_follow_up_count_per_learner": self.avg_follow_up_count_per_learner,
+            "avg_learning_duration_seconds": int(self.avg_learning_duration_seconds),
+        }
+
+
+@register_schema_to_swagger
+class DashboardCourseDetailDTO(BaseModel):
+    """Dashboard detail response payload."""
+
+    basic_info: DashboardCourseDetailBasicInfoDTO = Field(
+        ..., description="Course basic information", required=False
+    )
+    metrics: DashboardCourseDetailMetricsDTO = Field(
+        ..., description="Course detail metrics", required=False
+    )
+
+    def __json__(self) -> Dict[str, Any]:
+        return {
+            "basic_info": self.basic_info.__json__(),
+            "metrics": self.metrics.__json__(),
+        }

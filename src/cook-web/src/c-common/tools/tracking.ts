@@ -28,15 +28,29 @@ type UmamiUserInfo = {
   language?: string;
 };
 
+type UmamiEventData = Record<string, unknown>;
+type SanitizedEventData = Record<string, string | number | boolean>;
+
 type QueuedUmamiCall =
   | {
       kind: 'event';
-      eventName: any;
-      eventData: any;
+      eventName: string;
+      eventData: SanitizedEventData;
       url?: string;
       referrer?: string;
     }
   | { kind: 'pageview'; url?: string; referrer?: string };
+
+const UMAMI_LIMITS = {
+  eventName: 50,
+  dataKey: 64,
+  dataValue: 240,
+  dataJson: 1024,
+  url: 500,
+  referrer: 500,
+  maxDataFields: 30,
+  maxArrayItems: 10,
+} as const;
 
 const pageviewState = {
   lastTrackedUrl: '',
@@ -71,14 +85,120 @@ const getCurrentUrl = () => {
   return `${origin}${pathname}${search}`;
 };
 
+const truncateText = (value: string, maxLength: number) => {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return value.slice(0, maxLength);
+};
+
+const normalizeText = (value: unknown, maxLength: number) => {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    return '';
+  }
+
+  return truncateText(text, maxLength);
+};
+
+const stringifyUnknown = (value: unknown) => {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+};
+
+const sanitizeDataValue = (value: unknown): string | number | boolean => {
+  if (typeof value === 'string') {
+    return truncateText(value, UMAMI_LIMITS.dataValue);
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      return '';
+    }
+    return truncateText(value.toISOString(), UMAMI_LIMITS.dataValue);
+  }
+
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  if (Array.isArray(value)) {
+    return truncateText(
+      stringifyUnknown(value.slice(0, UMAMI_LIMITS.maxArrayItems)),
+      UMAMI_LIMITS.dataValue,
+    );
+  }
+
+  if (typeof value === 'object') {
+    return truncateText(stringifyUnknown(value), UMAMI_LIMITS.dataValue);
+  }
+
+  return truncateText(String(value), UMAMI_LIMITS.dataValue);
+};
+
+const sanitizeEventData = (
+  eventData: UmamiEventData | undefined,
+): SanitizedEventData => {
+  if (!eventData || typeof eventData !== 'object' || Array.isArray(eventData)) {
+    return {};
+  }
+
+  const safeData: SanitizedEventData = {};
+  const entries = Object.entries(eventData).slice(
+    0,
+    UMAMI_LIMITS.maxDataFields,
+  );
+
+  for (const [rawKey, rawValue] of entries) {
+    const key = normalizeText(rawKey, UMAMI_LIMITS.dataKey);
+    if (!key) {
+      continue;
+    }
+    const value = sanitizeDataValue(rawValue);
+    const nextData = { ...safeData, [key]: value };
+    if (JSON.stringify(nextData).length > UMAMI_LIMITS.dataJson) {
+      break;
+    }
+    safeData[key] = value;
+  }
+
+  return safeData;
+};
+
+const sanitizeUrlLike = (url: string | undefined, maxLength: number) => {
+  const normalized = normalizeText(url, maxLength);
+  return normalized || undefined;
+};
+
+const sanitizeEventName = (eventName: unknown): string => {
+  return normalizeText(eventName, UMAMI_LIMITS.eventName) || 'unknown_event';
+};
+
 function trackUmamiPageview(
   umami: any,
   { url, referrer }: { url?: string; referrer?: string } = {},
 ) {
   const resolvedUrl =
     typeof url === 'string' && url.trim() ? url : getCurrentUrl();
+  const safeUrl = sanitizeUrlLike(resolvedUrl, UMAMI_LIMITS.url);
+  const safeReferrer = sanitizeUrlLike(referrer, UMAMI_LIMITS.referrer);
 
-  if (!resolvedUrl) {
+  if (!safeUrl) {
     umami.track();
     return;
   }
@@ -86,8 +206,8 @@ function trackUmamiPageview(
   try {
     umami.track((payload: any) => ({
       ...payload,
-      url: resolvedUrl,
-      referrer: referrer || payload.referrer,
+      url: safeUrl,
+      referrer: safeReferrer || payload.referrer,
     }));
   } catch {
     umami.track();
@@ -101,18 +221,25 @@ function trackUmamiEvent(
     eventData,
     url,
     referrer,
-  }: { eventName: any; eventData: any; url?: string; referrer?: string },
+  }: {
+    eventName: string;
+    eventData: SanitizedEventData;
+    url?: string;
+    referrer?: string;
+  },
 ) {
   const resolvedUrl =
     typeof url === 'string' && url.trim() ? url : getCurrentUrl();
+  const safeUrl = sanitizeUrlLike(resolvedUrl, UMAMI_LIMITS.url);
+  const safeReferrer = sanitizeUrlLike(referrer, UMAMI_LIMITS.referrer);
 
   try {
     umami.track((payload: any) => ({
       ...payload,
       name: eventName,
       data: eventData,
-      url: resolvedUrl || payload.url,
-      referrer: referrer || payload.referrer,
+      url: safeUrl || payload.url,
+      referrer: safeReferrer || payload.referrer,
     }));
   } catch {
     umami.track(eventName, eventData);
@@ -270,28 +397,38 @@ const ensureIdentifyReady = () => {
   flushUmamiIdentify();
 };
 
-export const tracking = async (eventName, eventData) => {
+export const tracking = async (
+  eventName: unknown,
+  eventData: UmamiEventData = {},
+) => {
   try {
     ensureCurrentPageviewTracked();
     ensureIdentifyReady();
     const umami = (window as any).umami;
     const urlSnapshot = pageviewState.lastTrackedUrl || getCurrentUrl();
     const referrerSnapshot = pageviewState.lastReferrer || '';
+    const safeEventName = sanitizeEventName(eventName);
+    const safeEventData = sanitizeEventData(eventData);
+    const safeUrl = sanitizeUrlLike(urlSnapshot, UMAMI_LIMITS.url);
+    const safeReferrer = sanitizeUrlLike(
+      referrerSnapshot,
+      UMAMI_LIMITS.referrer,
+    );
     if (!umami || !identifyState.ready) {
       identifyState.queuedCalls.push({
         kind: 'event',
-        eventName,
-        eventData,
-        url: urlSnapshot,
-        referrer: referrerSnapshot,
+        eventName: safeEventName,
+        eventData: safeEventData,
+        url: safeUrl,
+        referrer: safeReferrer,
       });
       return;
     }
     trackUmamiEvent(umami, {
-      eventName,
-      eventData,
-      url: urlSnapshot,
-      referrer: referrerSnapshot,
+      eventName: safeEventName,
+      eventData: safeEventData,
+      url: safeUrl,
+      referrer: safeReferrer,
     });
   } catch {
     // swallow tracking errors
@@ -319,8 +456,8 @@ export const trackPageview = (url?: string) => {
     if (!umami || !identifyState.ready) {
       const pageviewCall: QueuedUmamiCall = {
         kind: 'pageview',
-        url: urlSnapshot,
-        referrer: previousUrl,
+        url: sanitizeUrlLike(urlSnapshot, UMAMI_LIMITS.url),
+        referrer: sanitizeUrlLike(previousUrl, UMAMI_LIMITS.referrer),
       };
       identifyState.queuedCalls = identifyState.queuedCalls.filter(
         call => call.kind !== 'pageview',
