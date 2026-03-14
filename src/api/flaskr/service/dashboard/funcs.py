@@ -10,17 +10,30 @@ from typing import Dict, List, Optional, Set, Tuple
 from flask import Flask
 
 from flaskr.dao import db
-from flaskr.service.common.models import raise_param_error
+from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config.funcs import get_config as get_dynamic_config
 from flaskr.service.dashboard.dtos import (
+    DashboardCourseDetailBasicInfoDTO,
+    DashboardCourseDetailDTO,
+    DashboardCourseDetailMetricsDTO,
     DashboardEntryCourseItemDTO,
     DashboardEntryDTO,
     DashboardEntrySummaryDTO,
 )
-from flaskr.service.learn.models import LearnProgressRecord
-from flaskr.service.order.consts import LEARN_STATUS_RESET, ORDER_STATUS_SUCCESS
+from flaskr.service.learn.const import ROLE_STUDENT
+from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+from flaskr.service.order.consts import (
+    LEARN_STATUS_COMPLETED,
+    LEARN_STATUS_RESET,
+    ORDER_STATUS_SUCCESS,
+)
 from flaskr.service.order.models import Order
-from flaskr.service.shifu.models import PublishedShifu
+from flaskr.service.shifu.consts import BLOCK_TYPE_MDASK_VALUE
+from flaskr.service.shifu.models import (
+    DraftShifu,
+    PublishedOutlineItem,
+    PublishedShifu,
+)
 
 # Built-in demo course IDs observed in legacy environments.
 _LEGACY_DEMO_SHIFU_BIDS: Set[str] = {
@@ -34,7 +47,7 @@ _BUILTIN_DEMO_TITLES: Set[str] = {
 
 
 @dataclass(frozen=True)
-class _DashboardEntryCourse:
+class _DashboardCourseMeta:
     shifu_bid: str
     shifu_name: str
 
@@ -52,6 +65,18 @@ class _DashboardEntryMetrics:
 def _format_money(value: Decimal) -> str:
     quantized = value.quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
     return format(quantized, "f")
+
+
+def _format_ratio(numerator: int, denominator: int) -> str:
+    if denominator <= 0:
+        return "0.00"
+    return _format_money(Decimal(numerator) / Decimal(denominator))
+
+
+def _format_percentage(numerator: int, denominator: int) -> str:
+    if denominator <= 0:
+        return "0.00"
+    return _format_money((Decimal(numerator) * Decimal("100")) / Decimal(denominator))
 
 
 def _parse_iso_date(raw: Optional[str]) -> Optional[date]:
@@ -109,11 +134,7 @@ def _load_demo_shifu_bids() -> Set[str]:
     return demo_bids
 
 
-def _load_dashboard_entry_courses(
-    user_id: str,
-    *,
-    keyword: Optional[str] = None,
-) -> List[_DashboardEntryCourse]:
+def _load_dashboard_course_meta_map(user_id: str) -> Dict[str, _DashboardCourseMeta]:
     owned_rows = (
         db.session.query(PublishedShifu.shifu_bid)
         .filter(
@@ -124,10 +145,9 @@ def _load_dashboard_entry_courses(
         .all()
     )
     owned_bids = {str(row[0]).strip() for row in owned_rows if str(row[0]).strip()}
-    all_bids = owned_bids
-    all_bids = all_bids.difference(_load_demo_shifu_bids())
+    all_bids = owned_bids.difference(_load_demo_shifu_bids())
     if not all_bids:
-        return []
+        return {}
 
     latest_subquery = (
         db.session.query(db.func.max(PublishedShifu.id).label("max_id"))
@@ -144,7 +164,7 @@ def _load_dashboard_entry_courses(
         .all()
     )
     demo_bids = _load_demo_shifu_bids()
-    title_map: Dict[str, str] = {}
+    course_map: Dict[str, _DashboardCourseMeta] = {}
     for row in published_rows:
         shifu_bid = str(row.shifu_bid or "").strip()
         if not shifu_bid:
@@ -156,17 +176,19 @@ def _load_dashboard_entry_courses(
         )
         if is_builtin_demo:
             continue
-        title_map[shifu_bid] = title
-
-    available_bids = set(title_map.keys())
-    courses = [
-        _DashboardEntryCourse(
+        course_map[shifu_bid] = _DashboardCourseMeta(
             shifu_bid=shifu_bid,
-            shifu_name=title_map.get(shifu_bid, ""),
+            shifu_name=title,
         )
-        for shifu_bid in all_bids
-        if shifu_bid in available_bids
-    ]
+    return course_map
+
+
+def _load_dashboard_entry_courses(
+    user_id: str,
+    *,
+    keyword: Optional[str] = None,
+) -> List[_DashboardCourseMeta]:
+    courses = list(_load_dashboard_course_meta_map(user_id).values())
     normalized_keyword = str(keyword or "").strip().lower()
     if normalized_keyword:
         courses = [
@@ -177,6 +199,150 @@ def _load_dashboard_entry_courses(
         ]
     courses.sort(key=lambda item: (item.shifu_name.lower(), item.shifu_bid))
     return courses
+
+
+def _load_dashboard_course_created_at(shifu_bid: str) -> Optional[datetime]:
+    latest_draft: Optional[DraftShifu] = (
+        DraftShifu.query.filter(
+            DraftShifu.shifu_bid == shifu_bid,
+            DraftShifu.deleted == 0,
+        )
+        .order_by(DraftShifu.id.desc())
+        .first()
+    )
+    if latest_draft and latest_draft.created_at:
+        return latest_draft.created_at
+
+    earliest_published_created_at = (
+        db.session.query(db.func.min(PublishedShifu.created_at))
+        .filter(PublishedShifu.shifu_bid == shifu_bid)
+        .scalar()
+    )
+    return earliest_published_created_at
+
+
+def _load_course_leaf_outline_bids(shifu_bid: str) -> List[str]:
+    outline_rows = (
+        db.session.query(
+            PublishedOutlineItem.outline_item_bid,
+            PublishedOutlineItem.parent_bid,
+        )
+        .filter(
+            PublishedOutlineItem.shifu_bid == shifu_bid,
+            PublishedOutlineItem.deleted == 0,
+            PublishedOutlineItem.hidden == 0,
+        )
+        .all()
+    )
+    if not outline_rows:
+        return []
+
+    visible_bids: Set[str] = set()
+    visible_parent_bids: Set[str] = set()
+    for outline_item_bid, parent_bid in outline_rows:
+        normalized_outline_item_bid = str(outline_item_bid or "").strip()
+        normalized_parent_bid = str(parent_bid or "").strip()
+        if not normalized_outline_item_bid:
+            continue
+        visible_bids.add(normalized_outline_item_bid)
+        if normalized_parent_bid:
+            visible_parent_bids.add(normalized_parent_bid)
+    return sorted(
+        outline_item_bid
+        for outline_item_bid in visible_bids
+        if outline_item_bid not in visible_parent_bids
+    )
+
+
+def _load_course_learner_bids(shifu_bid: str) -> Set[str]:
+    learner_bids: Set[str] = set()
+
+    progress_rows = (
+        db.session.query(LearnProgressRecord.user_bid)
+        .filter(
+            LearnProgressRecord.shifu_bid == shifu_bid,
+            LearnProgressRecord.deleted == 0,
+            LearnProgressRecord.status != LEARN_STATUS_RESET,
+        )
+        .distinct()
+        .all()
+    )
+    learner_bids.update(str(row[0]).strip() for row in progress_rows if str(row[0]).strip())
+
+    manual_order_rows = (
+        db.session.query(Order.user_bid)
+        .filter(
+            Order.shifu_bid == shifu_bid,
+            Order.deleted == 0,
+            Order.payment_channel == "manual",
+            Order.status == ORDER_STATUS_SUCCESS,
+        )
+        .distinct()
+        .all()
+    )
+    learner_bids.update(
+        str(row[0]).strip() for row in manual_order_rows if str(row[0]).strip()
+    )
+    return learner_bids
+
+
+def _count_completed_learners(shifu_bid: str, leaf_outline_bids: List[str]) -> int:
+    if not leaf_outline_bids:
+        return 0
+
+    completed_rows = (
+        db.session.query(
+            LearnProgressRecord.user_bid,
+            db.func.count(
+                db.distinct(LearnProgressRecord.outline_item_bid)
+            ).label("completed_outline_count"),
+        )
+        .filter(
+            LearnProgressRecord.shifu_bid == shifu_bid,
+            LearnProgressRecord.outline_item_bid.in_(leaf_outline_bids),
+            LearnProgressRecord.deleted == 0,
+            LearnProgressRecord.status == LEARN_STATUS_COMPLETED,
+        )
+        .group_by(LearnProgressRecord.user_bid)
+        .all()
+    )
+    leaf_count = len(leaf_outline_bids)
+    return sum(
+        1
+        for user_bid, completed_outline_count in completed_rows
+        if str(user_bid or "").strip() and int(completed_outline_count or 0) >= leaf_count
+    )
+
+
+def _calculate_avg_learning_duration_seconds(
+    shifu_bid: str,
+    learner_count: int,
+) -> int:
+    if learner_count <= 0:
+        return 0
+
+    duration_rows = (
+        db.session.query(
+            LearnProgressRecord.user_bid,
+            db.func.min(LearnProgressRecord.created_at).label("started_at"),
+            db.func.max(LearnProgressRecord.updated_at).label("ended_at"),
+        )
+        .filter(
+            LearnProgressRecord.shifu_bid == shifu_bid,
+            LearnProgressRecord.deleted == 0,
+            LearnProgressRecord.status != LEARN_STATUS_RESET,
+        )
+        .group_by(LearnProgressRecord.user_bid)
+        .all()
+    )
+
+    total_duration_seconds = 0
+    for user_bid, started_at, ended_at in duration_rows:
+        if not str(user_bid or "").strip() or not started_at or not ended_at:
+            continue
+        duration_seconds = max(int((ended_at - started_at).total_seconds()), 0)
+        total_duration_seconds += duration_seconds
+    return int(total_duration_seconds / learner_count)
 
 
 def _collect_dashboard_entry_metrics(
@@ -409,4 +575,104 @@ def build_dashboard_entry(
             page_count=page_count,
             total=total,
             items=items,
+        )
+
+
+def build_dashboard_course_detail(
+    app: Flask,
+    user_id: str,
+    shifu_bid: str,
+) -> DashboardCourseDetailDTO:
+    with app.app_context():
+        normalized_shifu_bid = str(shifu_bid or "").strip()
+        if not normalized_shifu_bid:
+            raise_param_error("shifu_bid is required")
+
+        course_meta = _load_dashboard_course_meta_map(user_id).get(normalized_shifu_bid)
+        if course_meta is None:
+            raise_error("server.shifu.shifuNotFound")
+
+        learner_bids = _load_course_learner_bids(normalized_shifu_bid)
+        learner_count = len(learner_bids)
+        leaf_outline_bids = _load_course_leaf_outline_bids(normalized_shifu_bid)
+
+        order_summary = (
+            db.session.query(
+                db.func.count(Order.id).label("order_count"),
+                db.func.coalesce(db.func.sum(Order.paid_price), 0).label(
+                    "order_amount"
+                ),
+            )
+            .filter(
+                Order.shifu_bid == normalized_shifu_bid,
+                Order.deleted == 0,
+                Order.status == ORDER_STATUS_SUCCESS,
+            )
+            .first()
+        )
+        order_count = int(getattr(order_summary, "order_count", 0) or 0)
+        order_amount = Decimal(str(getattr(order_summary, "order_amount", 0) or 0))
+
+        completed_learner_count = _count_completed_learners(
+            normalized_shifu_bid,
+            leaf_outline_bids,
+        )
+
+        active_learner_count_last_7_days = (
+            db.session.query(db.func.count(db.distinct(LearnProgressRecord.user_bid)))
+            .filter(
+                LearnProgressRecord.shifu_bid == normalized_shifu_bid,
+                LearnProgressRecord.deleted == 0,
+                LearnProgressRecord.status != LEARN_STATUS_RESET,
+                LearnProgressRecord.updated_at >= datetime.utcnow() - timedelta(days=7),
+            )
+            .scalar()
+            or 0
+        )
+
+        total_follow_up_count = (
+            db.session.query(db.func.count(LearnGeneratedBlock.id))
+            .filter(
+                LearnGeneratedBlock.shifu_bid == normalized_shifu_bid,
+                LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.status == 1,
+                LearnGeneratedBlock.type == BLOCK_TYPE_MDASK_VALUE,
+                LearnGeneratedBlock.role == ROLE_STUDENT,
+            )
+            .scalar()
+            or 0
+        )
+
+        created_at = _load_dashboard_course_created_at(normalized_shifu_bid)
+        avg_learning_duration_seconds = _calculate_avg_learning_duration_seconds(
+            normalized_shifu_bid,
+            learner_count,
+        )
+
+        return DashboardCourseDetailDTO(
+            basic_info=DashboardCourseDetailBasicInfoDTO(
+                shifu_bid=normalized_shifu_bid,
+                course_name=course_meta.shifu_name,
+                created_at=created_at.isoformat() if created_at else "",
+                chapter_count=len(leaf_outline_bids),
+                learner_count=learner_count,
+            ),
+            metrics=DashboardCourseDetailMetricsDTO(
+                order_count=order_count,
+                order_amount=_format_money(order_amount),
+                completed_learner_count=completed_learner_count,
+                completion_rate=_format_percentage(
+                    completed_learner_count,
+                    learner_count,
+                ),
+                active_learner_count_last_7_days=int(
+                    active_learner_count_last_7_days
+                ),
+                total_follow_up_count=int(total_follow_up_count),
+                avg_follow_up_count_per_learner=_format_ratio(
+                    int(total_follow_up_count),
+                    learner_count,
+                ),
+                avg_learning_duration_seconds=avg_learning_duration_seconds,
+            ),
         )

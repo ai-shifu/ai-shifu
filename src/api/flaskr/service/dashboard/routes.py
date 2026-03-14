@@ -6,7 +6,10 @@ from flask import Flask, request
 
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response
-from flaskr.service.dashboard.funcs import build_dashboard_entry
+from flaskr.service.dashboard.funcs import (
+    build_dashboard_course_detail,
+    build_dashboard_entry,
+)
 
 
 @inject
@@ -36,5 +39,10 @@ def register_dashboard_routes(app: Flask, path_prefix: str = "/api/dashboard") -
                 page_size=page_size,
             )
         )
+
+    @app.route(path_prefix + "/shifus/<shifu_bid>/detail", methods=["GET"])
+    def dashboard_course_detail_api(shifu_bid: str):
+        user_id = request.user.user_id
+        return make_common_response(build_dashboard_course_detail(app, user_id, shifu_bid))
 
     return None
