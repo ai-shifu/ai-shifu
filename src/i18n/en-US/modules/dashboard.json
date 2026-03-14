@@ -28,8 +28,8 @@
       "title": "Learner List"
     },
     "metrics": {
-      "avgLearningDuration": "Average Learning Duration",
       "activeLearnersLast7Days": "Active Learners in Last 7 Days",
+      "avgLearningDuration": "Average Learning Duration",
       "avgQuestionsPerLearner": "Average Questions per Learner",
       "completedLearners": "Completed Learners",
       "completionRate": "Completion Rate",

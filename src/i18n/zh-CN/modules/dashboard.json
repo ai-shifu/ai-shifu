@@ -28,8 +28,8 @@
       "title": "学员列表"
     },
     "metrics": {
-      "avgLearningDuration": "平均学习时长",
       "activeLearnersLast7Days": "近7天活跃学员数",
+      "avgLearningDuration": "平均学习时长",
       "avgQuestionsPerLearner": "人均追问数",
       "completedLearners": "完成课程人数",
       "completionRate": "完课率",

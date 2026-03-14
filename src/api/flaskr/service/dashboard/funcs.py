@@ -267,7 +267,9 @@ def _load_course_learner_bids(shifu_bid: str) -> Set[str]:
         .distinct()
         .all()
     )
-    learner_bids.update(str(row[0]).strip() for row in progress_rows if str(row[0]).strip())
+    learner_bids.update(
+        str(row[0]).strip() for row in progress_rows if str(row[0]).strip()
+    )
 
     manual_order_rows = (
         db.session.query(Order.user_bid)
@@ -293,9 +295,9 @@ def _count_completed_learners(shifu_bid: str, leaf_outline_bids: List[str]) -> i
     completed_rows = (
         db.session.query(
             LearnProgressRecord.user_bid,
-            db.func.count(
-                db.distinct(LearnProgressRecord.outline_item_bid)
-            ).label("completed_outline_count"),
+            db.func.count(db.distinct(LearnProgressRecord.outline_item_bid)).label(
+                "completed_outline_count"
+            ),
         )
         .filter(
             LearnProgressRecord.shifu_bid == shifu_bid,
@@ -310,7 +312,8 @@ def _count_completed_learners(shifu_bid: str, leaf_outline_bids: List[str]) -> i
     return sum(
         1
         for user_bid, completed_outline_count in completed_rows
-        if str(user_bid or "").strip() and int(completed_outline_count or 0) >= leaf_count
+        if str(user_bid or "").strip()
+        and int(completed_outline_count or 0) >= leaf_count
     )
 
 
@@ -665,9 +668,7 @@ def build_dashboard_course_detail(
                     completed_learner_count,
                     learner_count,
                 ),
-                active_learner_count_last_7_days=int(
-                    active_learner_count_last_7_days
-                ),
+                active_learner_count_last_7_days=int(active_learner_count_last_7_days),
                 total_follow_up_count=int(total_follow_up_count),
                 avg_follow_up_count_per_learner=_format_ratio(
                     int(total_follow_up_count),
