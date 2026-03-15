@@ -4,16 +4,21 @@ import api from '@/api';
 import { ErrorWithCode } from '@/lib/request';
 
 import AdminDashboardCourseDetailPage from './page';
+import { buildAdminOrdersUrl } from '../admin-dashboard-routes';
 
 let mockParams: { shifu_bid?: string | string[] } = {
   shifu_bid: 'shifu-1',
 };
+const mockPush = jest.fn();
 
 const mockGetDashboardCourseDetail = api.getDashboardCourseDetail as jest.Mock;
 const mockTranslate = (key: string) => key;
 
 jest.mock('next/navigation', () => ({
   useParams: () => mockParams,
+  useRouter: () => ({
+    push: mockPush,
+  }),
 }));
 
 jest.mock('next/link', () => ({
@@ -64,6 +69,11 @@ jest.mock('@/components/loading', () => ({
   default: () => <div data-testid='loading-indicator' />,
 }));
 
+jest.mock('@/lib/browser-timezone', () => ({
+  __esModule: true,
+  getBrowserTimeZone: () => 'Asia/Shanghai',
+}));
+
 jest.mock('@/components/ErrorDisplay', () => ({
   __esModule: true,
   default: ({
@@ -81,16 +91,10 @@ jest.mock('@/components/ErrorDisplay', () => ({
 }));
 
 describe('AdminDashboardCourseDetailPage', () => {
-  const dateToLocaleStringSpy = jest.spyOn(Date.prototype, 'toLocaleString');
-
   beforeEach(() => {
     mockParams = { shifu_bid: 'shifu-1' };
     mockGetDashboardCourseDetail.mockReset();
-    dateToLocaleStringSpy.mockReturnValue('formatted-date');
-  });
-
-  afterAll(() => {
-    dateToLocaleStringSpy.mockRestore();
+    mockPush.mockReset();
   });
 
   test('renders real course detail data and keeps placeholder sections', async () => {
@@ -99,6 +103,7 @@ describe('AdminDashboardCourseDetailPage', () => {
         shifu_bid: 'shifu-1',
         course_name: 'Course 1',
         created_at: '2025-01-01T08:00:00',
+        created_at_display: '2025-01-01 16:00:00',
         chapter_count: 3,
         learner_count: 2,
       },
@@ -119,6 +124,7 @@ describe('AdminDashboardCourseDetailPage', () => {
     await waitFor(() => {
       expect(mockGetDashboardCourseDetail).toHaveBeenCalledWith({
         shifu_bid: 'shifu-1',
+        timezone: 'Asia/Shanghai',
       });
     });
 
@@ -127,7 +133,7 @@ describe('AdminDashboardCourseDetailPage', () => {
       screen.getAllByText('module.dashboard.detail.title').length,
     ).toBeGreaterThan(0);
     expect(screen.getByText('Course 1')).toBeInTheDocument();
-    expect(screen.getByText('formatted-date')).toBeInTheDocument();
+    expect(screen.getByText('2025-01-01 16:00:00')).toBeInTheDocument();
     expect(screen.getByText('¥99.00')).toBeInTheDocument();
     expect(screen.getByText('50.00%')).toBeInTheDocument();
     expect(screen.getByText('4.00')).toBeInTheDocument();
@@ -154,6 +160,45 @@ describe('AdminDashboardCourseDetailPage', () => {
     ).toBeInTheDocument();
   });
 
+  test('navigates to order list from order count and order amount', async () => {
+    mockGetDashboardCourseDetail.mockResolvedValue({
+      basic_info: {
+        shifu_bid: 'shifu-1',
+        course_name: 'Course 1',
+        created_at: '2025-01-01T08:00:00',
+        created_at_display: '2025-01-01 16:00:00',
+        chapter_count: 3,
+        learner_count: 2,
+      },
+      metrics: {
+        order_count: 3,
+        order_amount: '99.00',
+        completed_learner_count: 1,
+        completion_rate: '50.00',
+        active_learner_count_last_7_days: 1,
+        total_follow_up_count: 8,
+        avg_follow_up_count_per_learner: '4.00',
+        avg_learning_duration_seconds: 3661,
+      },
+    });
+
+    render(<AdminDashboardCourseDetailPage />);
+
+    const orderCountButton = await screen.findByRole('button', {
+      name: 'module.dashboard.detail.metrics.orderCount-value',
+    });
+    const orderAmountButton = screen.getByRole('button', {
+      name: 'module.dashboard.detail.metrics.orderAmount-value',
+    });
+
+    fireEvent.click(orderCountButton);
+    fireEvent.click(orderAmountButton);
+
+    expect(mockPush).toHaveBeenCalledTimes(2);
+    expect(mockPush).toHaveBeenNthCalledWith(1, buildAdminOrdersUrl('shifu-1'));
+    expect(mockPush).toHaveBeenNthCalledWith(2, buildAdminOrdersUrl('shifu-1'));
+  });
+
   test('renders error state and retries fetching detail', async () => {
     mockGetDashboardCourseDetail
       .mockRejectedValueOnce(new ErrorWithCode('detail failed', 404))
@@ -162,6 +207,7 @@ describe('AdminDashboardCourseDetailPage', () => {
           shifu_bid: 'shifu-1',
           course_name: 'Recovered Course',
           created_at: '',
+          created_at_display: '',
           chapter_count: 0,
           learner_count: 0,
         },

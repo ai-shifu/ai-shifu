@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from types import SimpleNamespace
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pytest
 
@@ -12,6 +13,7 @@ from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
     LEARN_STATUS_NOT_STARTED,
+    LEARN_STATUS_RESET,
     ORDER_STATUS_SUCCESS,
     ORDER_STATUS_TO_BE_PAID,
 )
@@ -402,6 +404,52 @@ class TestDashboardRoutes:
         assert payload["data"]["items"][0]["learner_count"] == 1
         assert payload["data"]["items"][0]["order_count"] == 1
         assert payload["data"]["items"][0]["order_amount"] == "9.99"
+
+    def test_entry_returns_timezone_adjusted_last_active_fields(
+        self,
+        monkeypatch,
+        test_client,
+        app,
+    ):
+        try:
+            ZoneInfo("Asia/Shanghai")
+        except ZoneInfoNotFoundError:
+            pytest.skip("Asia/Shanghai timezone is unavailable in test environment")
+
+        self._mock_request_user(monkeypatch)
+        with app.app_context():
+            self._seed_dashboard_course(shifu_bid="course-timezone", title="Course TZ")
+            app_tz = ZoneInfo(app.config.get("TZ", "UTC"))
+            last_active = datetime(2026, 3, 6, 8, 0, 0, tzinfo=app_tz)
+            db.session.add(
+                LearnProgressRecord(
+                    progress_record_bid="entry-timezone-progress-1",
+                    shifu_bid="course-timezone",
+                    outline_item_bid="outline-1",
+                    user_bid="learner-1",
+                    status=LEARN_STATUS_IN_PROGRESS,
+                    block_position=0,
+                    deleted=0,
+                    created_at=last_active - timedelta(hours=1),
+                    updated_at=last_active,
+                )
+            )
+            db.session.commit()
+
+        resp = test_client.get(
+            "/api/dashboard/entry?page_index=1&page_size=20&timezone=Asia/Shanghai"
+        )
+        payload = resp.get_json(force=True)
+
+        expected = datetime(2026, 3, 6, 8, 0, 0, tzinfo=app_tz).astimezone(
+            ZoneInfo("Asia/Shanghai")
+        )
+        item = payload["data"]["items"][0]
+
+        assert resp.status_code == 200
+        assert payload["code"] == 0
+        assert item["last_active_at"] == expected.isoformat()
+        assert item["last_active_at_display"] == expected.strftime("%Y-%m-%d %H:%M:%S")
 
     def test_entry_course_count_respects_date_filter(
         self,
@@ -1089,7 +1137,8 @@ class TestDashboardRoutes:
         assert payload["data"]["basic_info"] == {
             "shifu_bid": "course-detail",
             "course_name": "Detail Course",
-            "created_at": "2025-01-01T08:00:00",
+            "created_at": "2025-01-01T08:00:00+00:00",
+            "created_at_display": "2025-01-01 08:00:00",
             "chapter_count": 3,
             "learner_count": 3,
         }
@@ -1103,6 +1152,162 @@ class TestDashboardRoutes:
             "avg_follow_up_count_per_learner": "1.00",
             "avg_learning_duration_seconds": 2300,
         }
+
+    def test_course_detail_returns_timezone_adjusted_created_at_fields(
+        self,
+        monkeypatch,
+        test_client,
+        app,
+    ):
+        try:
+            ZoneInfo("Asia/Shanghai")
+        except ZoneInfoNotFoundError:
+            pytest.skip("Asia/Shanghai timezone is unavailable in test environment")
+
+        self._mock_request_user(monkeypatch)
+
+        with app.app_context():
+            created_at = datetime(2026, 3, 3, 0, 0, 0)
+            self._seed_dashboard_course(
+                shifu_bid="course-detail-tz",
+                title="Detail TZ Course",
+                created_at=created_at,
+                published_created_at=created_at,
+            )
+            db.session.commit()
+
+        resp = test_client.get(
+            "/api/dashboard/shifus/course-detail-tz/detail?timezone=Asia/Shanghai"
+        )
+        payload = resp.get_json(force=True)
+
+        app_tz = ZoneInfo(app.config.get("TZ", "UTC"))
+        expected = datetime(2026, 3, 3, 0, 0, 0, tzinfo=app_tz).astimezone(
+            ZoneInfo("Asia/Shanghai")
+        )
+
+        assert resp.status_code == 200
+        assert payload["code"] == 0
+        assert payload["data"]["basic_info"]["created_at"] == expected.isoformat()
+        assert payload["data"]["basic_info"]["created_at_display"] == expected.strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+
+    def test_course_detail_counts_restudy_learners_as_completed(
+        self,
+        monkeypatch,
+        test_client,
+        app,
+    ):
+        self._mock_request_user(monkeypatch)
+
+        with app.app_context():
+            self._seed_dashboard_course(
+                shifu_bid="course-restudy",
+                title="Restudy Course",
+            )
+            self._seed_outline_item(
+                shifu_bid="course-restudy",
+                outline_item_bid="chapter-1",
+                title="Chapter 1",
+                position="1",
+            )
+            self._seed_outline_item(
+                shifu_bid="course-restudy",
+                outline_item_bid="lesson-1",
+                title="Lesson 1",
+                parent_bid="chapter-1",
+                position="1.1",
+            )
+            self._seed_outline_item(
+                shifu_bid="course-restudy",
+                outline_item_bid="lesson-2",
+                title="Lesson 2",
+                parent_bid="chapter-1",
+                position="1.2",
+            )
+
+            now = datetime.utcnow()
+            db.session.add_all(
+                [
+                    LearnProgressRecord(
+                        progress_record_bid="restudy-u1-l1-completed",
+                        shifu_bid="course-restudy",
+                        outline_item_bid="lesson-1",
+                        user_bid="learner-1",
+                        status=LEARN_STATUS_COMPLETED,
+                        block_position=0,
+                        deleted=0,
+                        created_at=now - timedelta(hours=4),
+                        updated_at=now - timedelta(hours=4),
+                    ),
+                    LearnProgressRecord(
+                        progress_record_bid="restudy-u1-l2-completed",
+                        shifu_bid="course-restudy",
+                        outline_item_bid="lesson-2",
+                        user_bid="learner-1",
+                        status=LEARN_STATUS_COMPLETED,
+                        block_position=0,
+                        deleted=0,
+                        created_at=now - timedelta(hours=3),
+                        updated_at=now - timedelta(hours=3),
+                    ),
+                    LearnProgressRecord(
+                        progress_record_bid="restudy-u2-l1-completed",
+                        shifu_bid="course-restudy",
+                        outline_item_bid="lesson-1",
+                        user_bid="learner-2",
+                        status=LEARN_STATUS_COMPLETED,
+                        block_position=0,
+                        deleted=0,
+                        created_at=now - timedelta(hours=4),
+                        updated_at=now - timedelta(hours=4),
+                    ),
+                    LearnProgressRecord(
+                        progress_record_bid="restudy-u2-l2-reset",
+                        shifu_bid="course-restudy",
+                        outline_item_bid="lesson-2",
+                        user_bid="learner-2",
+                        status=LEARN_STATUS_RESET,
+                        block_position=0,
+                        deleted=0,
+                        created_at=now - timedelta(hours=2),
+                        updated_at=now - timedelta(hours=2),
+                    ),
+                    LearnProgressRecord(
+                        progress_record_bid="restudy-u2-l2-restudy",
+                        shifu_bid="course-restudy",
+                        outline_item_bid="lesson-2",
+                        user_bid="learner-2",
+                        status=LEARN_STATUS_IN_PROGRESS,
+                        block_position=0,
+                        deleted=0,
+                        created_at=now - timedelta(hours=1),
+                        updated_at=now - timedelta(hours=1),
+                    ),
+                    LearnProgressRecord(
+                        progress_record_bid="restudy-u3-l1-completed",
+                        shifu_bid="course-restudy",
+                        outline_item_bid="lesson-1",
+                        user_bid="learner-3",
+                        status=LEARN_STATUS_COMPLETED,
+                        block_position=0,
+                        deleted=0,
+                        created_at=now - timedelta(minutes=50),
+                        updated_at=now - timedelta(minutes=50),
+                    ),
+                ]
+            )
+            db.session.commit()
+
+        resp = test_client.get("/api/dashboard/shifus/course-restudy/detail")
+        payload = resp.get_json(force=True)
+
+        assert resp.status_code == 200
+        assert payload["code"] == 0
+        assert payload["data"]["basic_info"]["learner_count"] == 3
+        assert payload["data"]["metrics"]["completed_learner_count"] == 2
+        assert payload["data"]["metrics"]["completion_rate"] == "66.67"
 
     def test_course_detail_rejects_non_owned_course(
         self,

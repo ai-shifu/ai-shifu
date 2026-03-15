@@ -34,6 +34,7 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
+from flaskr.util.timezone import format_with_app_timezone, serialize_with_app_timezone
 
 # Built-in demo course IDs observed in legacy environments.
 _LEGACY_DEMO_SHIFU_BIDS: Set[str] = {
@@ -292,28 +293,66 @@ def _count_completed_learners(shifu_bid: str, leaf_outline_bids: List[str]) -> i
     if not leaf_outline_bids:
         return 0
 
-    completed_rows = (
+    progress_rows = (
         db.session.query(
             LearnProgressRecord.user_bid,
-            db.func.count(db.distinct(LearnProgressRecord.outline_item_bid)).label(
-                "completed_outline_count"
-            ),
+            LearnProgressRecord.outline_item_bid,
+            LearnProgressRecord.status,
         )
         .filter(
             LearnProgressRecord.shifu_bid == shifu_bid,
             LearnProgressRecord.outline_item_bid.in_(leaf_outline_bids),
             LearnProgressRecord.deleted == 0,
-            LearnProgressRecord.status == LEARN_STATUS_COMPLETED,
         )
-        .group_by(LearnProgressRecord.user_bid)
+        .order_by(
+            LearnProgressRecord.user_bid.asc(),
+            LearnProgressRecord.outline_item_bid.asc(),
+            LearnProgressRecord.created_at.asc(),
+            LearnProgressRecord.id.asc(),
+        )
         .all()
     )
+
+    completed_leaf_bids_by_user: Dict[str, Set[str]] = {}
+    records_by_user_and_outline: Dict[Tuple[str, str], List[int]] = {}
+
+    for user_bid, outline_item_bid, status in progress_rows:
+        normalized_user_bid = str(user_bid or "").strip()
+        normalized_outline_item_bid = str(outline_item_bid or "").strip()
+        if not normalized_user_bid or not normalized_outline_item_bid:
+            continue
+
+        record_statuses = records_by_user_and_outline.setdefault(
+            (normalized_user_bid, normalized_outline_item_bid),
+            [],
+        )
+        record_statuses.append(int(status or 0))
+
+    for (
+        user_bid,
+        outline_item_bid,
+    ), record_statuses in records_by_user_and_outline.items():
+        has_completed_record = any(
+            record_status == LEARN_STATUS_COMPLETED for record_status in record_statuses
+        )
+        has_reset_with_follow_up_record = any(
+            record_status == LEARN_STATUS_RESET
+            for record_status in record_statuses[:-1]
+        )
+        if not has_completed_record and not has_reset_with_follow_up_record:
+            continue
+
+        completed_outline_bids = completed_leaf_bids_by_user.setdefault(
+            user_bid,
+            set(),
+        )
+        completed_outline_bids.add(outline_item_bid)
+
     leaf_count = len(leaf_outline_bids)
     return sum(
         1
-        for user_bid, completed_outline_count in completed_rows
-        if str(user_bid or "").strip()
-        and int(completed_outline_count or 0) >= leaf_count
+        for completed_outline_bids in completed_leaf_bids_by_user.values()
+        if len(completed_outline_bids) >= leaf_count
     )
 
 
@@ -485,6 +524,7 @@ def build_dashboard_entry(
     keyword: Optional[str] = None,
     page_index: int = 1,
     page_size: int = 20,
+    timezone_name: Optional[str] = None,
 ) -> DashboardEntryDTO:
     with app.app_context():
         safe_page_index = max(int(page_index or 1), 1)
@@ -558,7 +598,19 @@ def build_dashboard_entry(
                     order_amount=_format_money(
                         metrics.order_amount_map.get(shifu_bid, Decimal("0"))
                     ),
-                    last_active_at=last_active.isoformat() if last_active else "",
+                    last_active_at=serialize_with_app_timezone(
+                        app,
+                        last_active,
+                        timezone_name,
+                    )
+                    or "",
+                    last_active_at_display=format_with_app_timezone(
+                        app,
+                        last_active,
+                        "%Y-%m-%d %H:%M:%S",
+                        timezone_name,
+                    )
+                    or "",
                 )
             )
 
@@ -585,6 +637,8 @@ def build_dashboard_course_detail(
     app: Flask,
     user_id: str,
     shifu_bid: str,
+    *,
+    timezone_name: Optional[str] = None,
 ) -> DashboardCourseDetailDTO:
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
@@ -656,7 +710,19 @@ def build_dashboard_course_detail(
             basic_info=DashboardCourseDetailBasicInfoDTO(
                 shifu_bid=normalized_shifu_bid,
                 course_name=course_meta.shifu_name,
-                created_at=created_at.isoformat() if created_at else "",
+                created_at=serialize_with_app_timezone(
+                    app,
+                    created_at,
+                    timezone_name,
+                )
+                or "",
+                created_at_display=format_with_app_timezone(
+                    app,
+                    created_at,
+                    "%Y-%m-%d %H:%M:%S",
+                    timezone_name,
+                )
+                or "",
                 chapter_count=len(leaf_outline_bids),
                 learner_count=learner_count,
             ),
