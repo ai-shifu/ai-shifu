@@ -50,9 +50,9 @@ export const LogoWithText = ({ direction, size = 64 }) => {
       }}
     >
       <a
-        href={homeUrl || undefined}
-        target={homeUrl ? '_blank' : undefined}
-        rel={homeUrl ? 'noreferrer' : undefined}
+        href={homeUrl || '/'}
+        target={homeUrl && homeUrl !== '/' ? '_blank' : undefined}
+        rel={homeUrl && homeUrl !== '/' ? 'noreferrer' : undefined}
       >
         <div
           style={{

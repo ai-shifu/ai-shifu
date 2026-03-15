@@ -15,7 +15,7 @@ export default function Home() {
     if (!runtimeConfigLoaded) {
       return;
     }
-    redirectToHomeUrlIfRootPath(homeUrl);
+    redirectToHomeUrlIfRootPath(homeUrl || '/');
   }, [homeUrl, runtimeConfigLoaded]);
 
   return (
