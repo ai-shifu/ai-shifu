@@ -12,6 +12,7 @@ export type DashboardEntryCourseItem = {
   order_count: number;
   order_amount: string;
   last_active_at: string;
+  last_active_at_display?: string;
 };
 
 export type DashboardEntryResponse = {
@@ -27,6 +28,7 @@ export type DashboardCourseDetailBasicInfo = {
   shifu_bid: string;
   course_name: string;
   created_at: string;
+  created_at_display?: string;
   chapter_count: number;
   learner_count: number;
 };

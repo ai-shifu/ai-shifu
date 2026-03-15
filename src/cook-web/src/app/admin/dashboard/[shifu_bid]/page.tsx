@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { useEnvStore } from '@/c-store';
@@ -26,8 +26,10 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import { ErrorWithCode } from '@/lib/request';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { useUserStore } from '@/store';
 import type { DashboardCourseDetailResponse } from '@/types/dashboard';
+import { buildAdminOrdersUrl } from '../admin-dashboard-routes';
 import { formatOrderAmount } from '../dashboardCourseTableRow';
 
 type ErrorState = { message: string; code?: number };
@@ -52,15 +54,18 @@ const EMPTY_DETAIL: DashboardCourseDetailResponse = {
   },
 };
 
-const formatDateTime = (value: string, emptyValue: string): string => {
+const formatDateTime = (
+  value: string,
+  emptyValue: string,
+  displayValue?: string,
+): string => {
+  if (displayValue) {
+    return displayValue;
+  }
   if (!value) {
     return emptyValue;
   }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  return parsed.toLocaleString();
+  return value;
 };
 
 const formatCount = (value: number, emptyValue: string): string => {
@@ -91,10 +96,12 @@ const formatDuration = (seconds: number): string => {
 
 export default function AdminDashboardCourseDetailPage() {
   const { t } = useTranslation();
+  const router = useRouter();
   const params = useParams<{ shifu_bid?: string }>();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const currencySymbol = useEnvStore(state => state.currencySymbol || '¥');
+  const timezone = getBrowserTimeZone();
 
   const [detail, setDetail] =
     useState<DashboardCourseDetailResponse>(EMPTY_DETAIL);
@@ -105,6 +112,7 @@ export default function AdminDashboardCourseDetailPage() {
     ? params.shifu_bid[0] || ''
     : params?.shifu_bid || '';
   const emptyValue = '--';
+  const orderListUrl = buildAdminOrdersUrl(shifuBid);
 
   const chartLabels = [
     t('module.dashboard.detail.charts.questionsByChapter'),
@@ -130,6 +138,7 @@ export default function AdminDashboardCourseDetailPage() {
     try {
       const response = (await api.getDashboardCourseDetail({
         shifu_bid: shifuBid,
+        ...(timezone ? { timezone } : {}),
       })) as DashboardCourseDetailResponse;
       setDetail(response || EMPTY_DETAIL);
     } catch (err) {
@@ -144,7 +153,7 @@ export default function AdminDashboardCourseDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [shifuBid, t]);
+  }, [shifuBid, t, timezone]);
 
   useEffect(() => {
     if (!isInitialized || !isGuest) {
@@ -164,15 +173,24 @@ export default function AdminDashboardCourseDetailPage() {
     fetchDetail();
   }, [fetchDetail, isGuest, isInitialized]);
 
+  const handleOrderClick = useCallback(() => {
+    if (!orderListUrl) {
+      return;
+    }
+    router.push(orderListUrl);
+  }, [orderListUrl, router]);
+
   const metricCards = useMemo(
     () => [
       {
         label: t('module.dashboard.detail.metrics.orderCount'),
         value: formatCount(detail.metrics.order_count, emptyValue),
+        onClick: orderListUrl ? handleOrderClick : undefined,
       },
       {
         label: t('module.dashboard.detail.metrics.orderAmount'),
         value: formatOrderAmount(detail.metrics.order_amount, currencySymbol),
+        onClick: orderListUrl ? handleOrderClick : undefined,
       },
       {
         label: t('module.dashboard.detail.metrics.completedLearners'),
@@ -202,7 +220,7 @@ export default function AdminDashboardCourseDetailPage() {
         value: formatDuration(detail.metrics.avg_learning_duration_seconds),
       },
     ],
-    [currencySymbol, detail.metrics, t],
+    [currencySymbol, detail.metrics, emptyValue, handleOrderClick, orderListUrl, t],
   );
 
   if (!isInitialized || isGuest || (loading && !detail.basic_info.shifu_bid)) {
@@ -284,7 +302,11 @@ export default function AdminDashboardCourseDetailPage() {
                   {t('module.dashboard.detail.basicInfo.createdAt')}
                 </dt>
                 <dd className='text-sm font-medium text-foreground'>
-                  {formatDateTime(detail.basic_info.created_at, emptyValue)}
+                  {formatDateTime(
+                    detail.basic_info.created_at,
+                    emptyValue,
+                    detail.basic_info.created_at_display,
+                  )}
                 </dd>
               </div>
               <div className='space-y-1'>
@@ -318,9 +340,20 @@ export default function AdminDashboardCourseDetailPage() {
                   <div className='text-sm text-muted-foreground'>
                     {metricCard.label}
                   </div>
-                  <div className='mt-3 text-2xl font-semibold text-foreground'>
-                    {metricCard.value}
-                  </div>
+                  {metricCard.onClick ? (
+                    <button
+                      type='button'
+                      onClick={metricCard.onClick}
+                      className='mt-3 text-left text-2xl font-semibold text-primary transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                      aria-label={`${metricCard.label}-value`}
+                    >
+                      {metricCard.value}
+                    </button>
+                  ) : (
+                    <div className='mt-3 text-2xl font-semibold text-foreground'>
+                      {metricCard.value}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}

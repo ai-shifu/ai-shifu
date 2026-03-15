@@ -51,6 +51,11 @@ class DashboardEntryCourseItemDTO(BaseModel):
         description="Course last active timestamp (ISO)",
         required=False,
     )
+    last_active_at_display: str = Field(
+        default="",
+        description="Course last active timestamp for direct display",
+        required=False,
+    )
 
     def __json__(self) -> Dict[str, Any]:
         return {
@@ -60,6 +65,7 @@ class DashboardEntryCourseItemDTO(BaseModel):
             "order_count": int(self.order_count),
             "order_amount": self.order_amount,
             "last_active_at": self.last_active_at,
+            "last_active_at_display": self.last_active_at_display,
         }
 
 
@@ -102,6 +108,11 @@ class DashboardCourseDetailBasicInfoDTO(BaseModel):
         description="Course creation timestamp (ISO)",
         required=False,
     )
+    created_at_display: str = Field(
+        default="",
+        description="Course creation timestamp for direct display",
+        required=False,
+    )
     chapter_count: int = Field(..., description="Visible lesson count", required=False)
     learner_count: int = Field(
         ..., description="Distinct learner count", required=False
@@ -112,6 +123,7 @@ class DashboardCourseDetailBasicInfoDTO(BaseModel):
             "shifu_bid": self.shifu_bid,
             "course_name": self.course_name,
             "created_at": self.created_at,
+            "created_at_display": self.created_at_display,
             "chapter_count": int(self.chapter_count),
             "learner_count": int(self.learner_count),
         }
