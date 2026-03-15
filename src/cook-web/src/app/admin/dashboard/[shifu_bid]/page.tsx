@@ -220,7 +220,14 @@ export default function AdminDashboardCourseDetailPage() {
         value: formatDuration(detail.metrics.avg_learning_duration_seconds),
       },
     ],
-    [currencySymbol, detail.metrics, emptyValue, handleOrderClick, orderListUrl, t],
+    [
+      currencySymbol,
+      detail.metrics,
+      emptyValue,
+      handleOrderClick,
+      orderListUrl,
+      t,
+    ],
   );
 
   if (!isInitialized || isGuest || (loading && !detail.basic_info.shifu_bid)) {

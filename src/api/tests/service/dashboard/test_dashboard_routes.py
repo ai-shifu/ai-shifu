@@ -1189,9 +1189,9 @@ class TestDashboardRoutes:
         assert resp.status_code == 200
         assert payload["code"] == 0
         assert payload["data"]["basic_info"]["created_at"] == expected.isoformat()
-        assert payload["data"]["basic_info"][
-            "created_at_display"
-        ] == expected.strftime("%Y-%m-%d %H:%M:%S")
+        assert payload["data"]["basic_info"]["created_at_display"] == expected.strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
 
     def test_course_detail_counts_restudy_learners_as_completed(
         self,

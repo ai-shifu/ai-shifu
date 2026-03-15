@@ -195,14 +195,8 @@ describe('AdminDashboardCourseDetailPage', () => {
     fireEvent.click(orderAmountButton);
 
     expect(mockPush).toHaveBeenCalledTimes(2);
-    expect(mockPush).toHaveBeenNthCalledWith(
-      1,
-      buildAdminOrdersUrl('shifu-1'),
-    );
-    expect(mockPush).toHaveBeenNthCalledWith(
-      2,
-      buildAdminOrdersUrl('shifu-1'),
-    );
+    expect(mockPush).toHaveBeenNthCalledWith(1, buildAdminOrdersUrl('shifu-1'));
+    expect(mockPush).toHaveBeenNthCalledWith(2, buildAdminOrdersUrl('shifu-1'));
   });
 
   test('renders error state and retries fetching detail', async () => {
