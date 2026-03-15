@@ -118,6 +118,7 @@ const api = {
 
   // dashboard (teacher analytics)
   getDashboardEntry: 'GET /dashboard/entry',
+  getDashboardCourseDetail: 'GET /dashboard/shifus/{shifu_bid}/detail',
 };
 
 export default api;
