@@ -22,6 +22,14 @@ type UserActivationLike = {
   isActive?: boolean;
 };
 
+type ListenSandboxMessage = {
+  source?: string;
+  type?: string;
+};
+
+const LISTEN_SANDBOX_MESSAGE_SOURCE = 'markdown-flow-ui:sandbox';
+const LISTEN_SANDBOX_MESSAGE_TYPE = 'interaction';
+
 const hasBrowserUserActivation = () => {
   if (typeof window === 'undefined') {
     return false;
@@ -242,6 +250,25 @@ const ListenModeRenderer = ({
   );
 
   useEffect(() => {
+    const handleSandboxMessage = (event: MessageEvent<ListenSandboxMessage>) => {
+      // Sandbox iframes can emit postMessage with a null origin, so match by payload.
+      if (
+        event.data?.source !== LISTEN_SANDBOX_MESSAGE_SOURCE ||
+        event.data?.type !== LISTEN_SANDBOX_MESSAGE_TYPE
+      ) {
+        return;
+      }
+      setHasPageInteraction(true);
+      showListenPlayer();
+    };
+
+    window.addEventListener('message', handleSandboxMessage);
+    return () => {
+      window.removeEventListener('message', handleSandboxMessage);
+    };
+  }, [showListenPlayer]);
+
+  useEffect(() => {
     setHasUserStartedPlayback(false);
     setIsSlideNavigationLocked(false);
     showListenPlayer();
@@ -359,11 +386,6 @@ const ListenModeRenderer = ({
     [handlePause],
   );
 
-  const handleListenSurfaceActivate = useCallback(() => {
-    setHasPageInteraction(true);
-    showListenPlayer();
-  }, [showListenPlayer]);
-
   const handleListenSurfacePointerDown = useCallback(() => {
     setHasPageInteraction(true);
     showListenPlayer();
@@ -421,17 +443,6 @@ const ListenModeRenderer = ({
           ) : null}
         </div>
       </div>
-      {!isListenPlayerVisible ? (
-        <button
-          type='button'
-          aria-label='Activate listen player'
-          className={cn(
-            'absolute z-[3] cursor-pointer bg-transparent p-0',
-            mobileStyle ? 'inset-0' : 'inset-[96px_32px_72px]',
-          )}
-          onClick={handleListenSurfaceActivate}
-        />
-      ) : null}
       {audioList.length ? (
         <div className={cn('listen-audio-controls', 'hidden')}>
           <AudioPlayerList
