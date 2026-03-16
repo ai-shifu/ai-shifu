@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+import re
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from flaskr.common.swagger import register_schema_to_swagger
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 @register_schema_to_swagger
@@ -554,6 +555,59 @@ class GeneratedBlockDTO(BaseModel):
         if self.av_contract:
             ret["av_contract"] = self.av_contract
         return ret
+
+
+@register_schema_to_swagger
+class ViewingModeDTO(BaseModel):
+    container_size: str = Field(
+        ..., description="Measured render container size like 358*608px"
+    )
+    device_type: Literal["mobile", "desktop"] = Field(
+        ..., description="Canonical device type"
+    )
+
+    @field_validator("container_size")
+    @classmethod
+    def validate_container_size(cls, value: str) -> str:
+        normalized = (value or "").strip()
+        if not re.fullmatch(r"\d+\*\d+px", normalized):
+            raise ValueError(
+                "container_size must match '<width>*<height>px', e.g. 358*608px"
+            )
+        return normalized
+
+    @field_validator("device_type", mode="before")
+    @classmethod
+    def normalize_device_type(cls, value: str) -> str:
+        normalized = (value or "").strip().lower()
+        if normalized not in {"mobile", "desktop"}:
+            raise ValueError("device_type must be one of: mobile, desktop")
+        return normalized
+
+
+@register_schema_to_swagger
+class RunOutlineRequestDTO(BaseModel):
+    input: Dict[str, Any] | str | None = Field(
+        default=None, description="Runtime input payload"
+    )
+    input_type: Optional[str] = Field(default=None, description="Runtime input type")
+    listen: bool | str | None = Field(
+        default=False,
+        description="Whether to enable listen mode runtime generation",
+    )
+    reload_generated_block_bid: Optional[str] = Field(
+        default=None, description="Generated block bid to regenerate from"
+    )
+    viewing_mode: Optional[ViewingModeDTO] = Field(
+        default=None, description="Measured runtime viewing mode metadata"
+    )
+
+    def listen_enabled(self) -> bool:
+        if isinstance(self.listen, str):
+            return self.listen.strip().lower() == "true"
+        if self.listen is None:
+            return False
+        return bool(self.listen)
 
 
 class PlaygroundPreviewRequest(BaseModel):
