@@ -250,7 +250,9 @@ const ListenModeRenderer = ({
   );
 
   useEffect(() => {
-    const handleSandboxMessage = (event: MessageEvent<ListenSandboxMessage>) => {
+    const handleSandboxMessage = (
+      event: MessageEvent<ListenSandboxMessage>,
+    ) => {
       // Sandbox iframes can emit postMessage with a null origin, so match by payload.
       if (
         event.data?.source !== LISTEN_SANDBOX_MESSAGE_SOURCE ||
