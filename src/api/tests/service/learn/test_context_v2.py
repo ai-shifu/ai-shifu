@@ -191,6 +191,60 @@ class AccessGateFeedbackHelperTests(unittest.TestCase):
         )
 
 
+class CompletionTailInteractionTests(unittest.TestCase):
+    def test_emits_feedback_and_next_when_both_conditions_met(self):
+        ctx = _make_context()
+        calls: list[str] = []
+
+        def _emit_feedback(_progress):
+            calls.append("feedback")
+            yield "feedback-event"
+
+        def _emit_next(_progress):
+            calls.append("next")
+            yield "next-event"
+
+        ctx._emit_lesson_feedback_interaction = _emit_feedback
+        ctx._emit_next_chapter_interaction = _emit_next
+
+        events = list(
+            ctx._emit_completion_tail_interactions(
+                progress_record=object(),
+                current_outline_completed=True,
+                has_next_outline_item=True,
+            )
+        )
+
+        self.assertEqual(calls, ["feedback", "next"])
+        self.assertEqual(events, ["feedback-event", "next-event"])
+
+    def test_skips_next_when_no_next_outline(self):
+        ctx = _make_context()
+        calls: list[str] = []
+
+        def _emit_feedback(_progress):
+            calls.append("feedback")
+            yield "feedback-event"
+
+        def _emit_next(_progress):
+            calls.append("next")
+            yield "next-event"
+
+        ctx._emit_lesson_feedback_interaction = _emit_feedback
+        ctx._emit_next_chapter_interaction = _emit_next
+
+        events = list(
+            ctx._emit_completion_tail_interactions(
+                progress_record=object(),
+                current_outline_completed=True,
+                has_next_outline_item=False,
+            )
+        )
+
+        self.assertEqual(calls, ["feedback"])
+        self.assertEqual(events, ["feedback-event"])
+
+
 class ExceptionGateFeedbackTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
