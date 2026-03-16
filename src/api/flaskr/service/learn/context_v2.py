@@ -1606,6 +1606,18 @@ class RunScriptContextV2:
             return
         yield from self._emit_lesson_feedback_interaction(latest_completed_progress)
 
+    def _emit_completion_tail_interactions(
+        self,
+        *,
+        progress_record: LearnProgressRecord,
+        current_outline_completed: bool,
+        has_next_outline_item: bool,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if current_outline_completed:
+            yield from self._emit_lesson_feedback_interaction(progress_record)
+        if has_next_outline_item:
+            yield from self._emit_next_chapter_interaction(progress_record)
+
     def _get_default_llm_settings(self) -> LLMSettings:
         return LLMSettings(
             model=self.app.config.get("DEFAULT_LLM_MODEL"),
@@ -1739,10 +1751,11 @@ class RunScriptContextV2:
             current_outline_completed = self._is_current_outline_completed(
                 outline_updates
             )
-            if current_outline_completed:
-                yield from self._emit_lesson_feedback_interaction(self._current_attend)
-            elif has_next_outline_item:
-                yield from self._emit_next_chapter_interaction(self._current_attend)
+            yield from self._emit_completion_tail_interactions(
+                progress_record=self._current_attend,
+                current_outline_completed=current_outline_completed,
+                has_next_outline_item=has_next_outline_item,
+            )
             self._can_continue = False
             if len(outline_updates) > 0:
                 yield from self._render_outline_updates(
@@ -2625,10 +2638,11 @@ class RunScriptContextV2:
                 outline_updates
             )
             yield from self._render_outline_updates(outline_updates, new_chapter=True)
-            if current_outline_completed:
-                yield from self._emit_lesson_feedback_interaction(progress_record)
-            elif has_next_outline_item:
-                yield from self._emit_next_chapter_interaction(progress_record)
+            yield from self._emit_completion_tail_interactions(
+                progress_record=progress_record,
+                current_outline_completed=current_outline_completed,
+                has_next_outline_item=has_next_outline_item,
+            )
             self._can_continue = False
             db.session.flush()
         self._trace.update(**self._trace_args)
