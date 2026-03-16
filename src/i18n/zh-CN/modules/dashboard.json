@@ -29,15 +29,16 @@
     },
     "metrics": {
       "activeLearnersLast7Days": "近7天活跃学员数",
+      "avgLearningDuration": "平均学习时长",
       "avgQuestionsPerLearner": "人均追问数",
-      "completedLearners": "完成课程人数",
+      "completedLearners": "完课人数",
       "completionRate": "完课率",
+      "orderAmount": "订单金额",
+      "orderCount": "订单数",
       "title": "核心指标",
-      "totalLearners": "累计学员数",
       "totalQuestions": "累计追问数"
     },
-    "placeholderValue": "敬请期待",
-    "subtitle": "课程详情能力建设中，更多基础信息、指标、图表和学员数据敬请期待。",
+    "subtitle": "课程基础信息和核心指标已支持真实取数，图表区和学员列表仍在建设中。",
     "title": "课程详情"
   },
   "entry": {

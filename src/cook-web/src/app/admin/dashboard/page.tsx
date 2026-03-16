@@ -7,6 +7,7 @@ import api from '@/api';
 import { useUserStore } from '@/store';
 import { useEnvStore } from '@/c-store';
 import { ErrorWithCode } from '@/lib/request';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
@@ -194,6 +195,7 @@ export default function AdminDashboardEntryPage() {
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const currencySymbol = useEnvStore(state => state.currencySymbol || '¥');
+  const timezone = getBrowserTimeZone();
 
   const [keyword, setKeyword] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -222,6 +224,7 @@ export default function AdminDashboardEntryPage() {
           keyword: params.keyword.trim(),
           start_date: params.startDate,
           end_date: params.endDate,
+          ...(timezone ? { timezone } : {}),
         })) as DashboardEntryResponse;
 
         setSummary(response.summary || EMPTY_SUMMARY);
@@ -246,7 +249,7 @@ export default function AdminDashboardEntryPage() {
         setLoading(false);
       }
     },
-    [t],
+    [t, timezone],
   );
 
   useEffect(() => {
