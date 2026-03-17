@@ -477,8 +477,14 @@ export class Request {
       }
 
       // Check the last non-empty line for auth error codes to maintain
-      // consistent stale-token detection across all request types
-      const lastLine = [...lines].reverse().find(line => line.trim() !== '');
+      // consistent stale-token detection across all request types.
+      let lastLine: string | undefined;
+      for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].trim() !== '') {
+          lastLine = lines[i];
+          break;
+        }
+      }
       if (lastLine) {
         const parsed = parseJson(lastLine);
         if (typeof parsed === 'object' && parsed.code !== undefined) {

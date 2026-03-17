@@ -106,9 +106,14 @@ export const useLessonTree = () => {
         setSelectedLessonId(lesson.id);
       } else {
         // find the last chapter that is completed
-        const lastChapter = [...tree.catalogs]
-          .reverse()
-          .find(v => v.status_value === LESSON_STATUS_VALUE.COMPLETED);
+        let lastChapter;
+        for (let i = tree.catalogs.length - 1; i >= 0; i--) {
+          const chapter = tree.catalogs[i];
+          if (chapter.status_value === LESSON_STATUS_VALUE.COMPLETED) {
+            lastChapter = chapter;
+            break;
+          }
+        }
         if (lastChapter) {
           setSelectedLessonId(
             lastChapter.lessons[lastChapter.lessons.length - 1].id,
