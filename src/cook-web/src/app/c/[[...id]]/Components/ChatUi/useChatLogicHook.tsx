@@ -791,7 +791,6 @@ function useChatLogicHook({
         effectivePreviewMode,
         { ...sseParams, listen: isListenMode },
         async response => {
-          hasReceivedSseMessage = true;
           if (
             sseRef.current !== source ||
             runSerial !== sseRunSerialRef.current
@@ -804,6 +803,9 @@ function useChatLogicHook({
             //   generatedBlockBid: response?.generated_block_bid ?? null,
             // });
             return;
+          }
+          if (response?.type !== SSE_OUTPUT_TYPE.HEARTBEAT) {
+            hasReceivedSseMessage = true;
           }
           // if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
           //   if (!isEnd) {
@@ -1151,22 +1153,6 @@ function useChatLogicHook({
             sseRef.current = null;
           }
         }
-      });
-      source.addEventListener('error', () => {
-        const isActiveSource =
-          sseRef.current === source && runSerial === sseRunSerialRef.current;
-        // console.log('[音频中断排查][SSE] 流发生 error 事件', {
-        //   lessonId,
-        //   outlineBid,
-        //   runSerial,
-        //   isActiveSource,
-        // });
-        if (!isActiveSource) {
-          return;
-        }
-        clearLoadingPlaceholder();
-        isStreamingRef.current = false;
-        sseRef.current = null;
       });
     },
     [
