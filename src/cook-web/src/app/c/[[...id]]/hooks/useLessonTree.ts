@@ -106,7 +106,7 @@ export const useLessonTree = () => {
         setSelectedLessonId(lesson.id);
       } else {
         // find the last chapter that is completed
-        let lastChapter;
+        let lastChapter: (typeof tree.catalogs)[number] | undefined;
         for (let i = tree.catalogs.length - 1; i >= 0; i--) {
           const chapter = tree.catalogs[i];
           if (chapter.status_value === LESSON_STATUS_VALUE.COMPLETED) {
