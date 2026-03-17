@@ -93,6 +93,8 @@ const api = {
   // resource api end
 
   // TTS api
+  askConfig: 'GET /shifu/ask/config',
+  askPreview: 'POST /shifu/ask/preview',
   ttsPreview: 'POST /shifu/tts/preview',
   ttsConfig: 'GET /shifu/tts/config',
   // admin order api
@@ -116,6 +118,7 @@ const api = {
 
   // dashboard (teacher analytics)
   getDashboardEntry: 'GET /dashboard/entry',
+  getDashboardCourseDetail: 'GET /dashboard/shifus/{shifu_bid}/detail',
 };
 
 export default api;

@@ -101,8 +101,6 @@ def app():
     os.environ["UNIVERSAL_VERIFICATION_CODE"] = "9999"
     os.environ["DEFAULT_LLM_MODEL"] = "gpt-test"
     os.environ["OPENAI_API_KEY"] = "test-key"
-    os.environ["DIFY_API_KEY"] = "test-key"
-    os.environ["DIFY_URL"] = "https://example.com"
 
     from app import create_app
     from flask_migrate import upgrade

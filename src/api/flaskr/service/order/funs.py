@@ -1,6 +1,7 @@
 import datetime
 import decimal
 import json
+import re
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
@@ -625,6 +626,17 @@ def _format_response_channel(payment_channel: str, provider_channel: str) -> str
     return provider_channel
 
 
+def _sanitize_pingxx_text(
+    value: Optional[str], *, fallback: str, max_length: int
+) -> str:
+    text = (value or fallback or "").strip()
+    text = re.sub(r"[\r\n\t]+", " ", text)
+    text = re.sub(r"\s{2,}", " ", text).strip()
+    if not text:
+        text = fallback.strip() or "订单支付"
+    return text[:max_length]
+
+
 def _generate_pingxx_charge(
     *,
     app: Flask,
@@ -661,6 +673,23 @@ def _generate_pingxx_charge(
         raise_error("server.pay.payChannelNotSupport")
 
     provider_options["charge_extra"] = charge_extra
+    sanitized_subject = _sanitize_pingxx_text(
+        subject,
+        fallback=course.title or "订单支付",
+        max_length=32,
+    )
+    sanitized_body = _sanitize_pingxx_text(
+        body,
+        fallback=sanitized_subject,
+        max_length=128,
+    )
+    if sanitized_subject != (subject or "") or sanitized_body != (body or ""):
+        app.logger.info(
+            "Sanitized pingxx payment text for order=%s subject_changed=%s body_changed=%s",
+            order_no,
+            sanitized_subject != (subject or ""),
+            sanitized_body != (body or ""),
+        )
     payment_request = PaymentRequest(
         order_bid=order_no,
         user_bid=buy_record.user_bid,
@@ -668,8 +697,8 @@ def _generate_pingxx_charge(
         amount=amount,
         channel=channel,
         currency="cny",
-        subject=subject,
-        body=body,
+        subject=sanitized_subject,
+        body=sanitized_body,
         client_ip=client_ip,
         extra=provider_options,
     )

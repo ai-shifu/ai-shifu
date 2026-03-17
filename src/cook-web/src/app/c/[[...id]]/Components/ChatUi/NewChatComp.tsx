@@ -1,5 +1,5 @@
 import styles from './ChatComponents.module.scss';
-import { ChevronsDown, Loader2 } from 'lucide-react';
+import { ChevronsDown, Loader2, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import {
   useContext,
@@ -28,6 +28,7 @@ import AskBlock from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
 import ListenModeRenderer from './ListenModeRenderer';
+import LessonFeedbackInteraction from './LessonFeedbackInteraction';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import {
   getAudioTrackByPosition,
@@ -57,6 +58,8 @@ export const NewChatComponents = ({
   updateSelectedLesson,
   getNextLessonId,
   previewMode = false,
+  isNavOpen = false,
+  onListenPlayerVisibilityChange,
 }) => {
   const { trackEvent, trackTrailProgress } = useTracking();
   const { t } = useTranslation();
@@ -174,6 +177,15 @@ export const NewChatComponents = ({
     likeStatus: null as any,
   });
   const [longPressedBlockBid, setLongPressedBlockBid] = useState<string>('');
+  const dismissMobileInteraction = useCallback(() => {
+    setMobileInteraction(prev => {
+      if (!prev.open) {
+        return prev;
+      }
+      return { ...prev, open: false };
+    });
+    setLongPressedBlockBid('');
+  }, []);
 
   // Streaming TTS sequential playback (auto-play next block)
   const autoPlayAudio = isListenModeActive;
@@ -217,6 +229,7 @@ export const NewChatComponents = ({
     toggleAskExpanded,
     reGenerateConfirm,
     requestAudioForBlock,
+    lessonFeedbackPopup,
   } = useChatLogicHook({
     onGoChapter,
     shifuBid,
@@ -237,6 +250,13 @@ export const NewChatComponents = ({
     showOutputInProgressToast,
     onPayModalOpen,
   });
+
+  useEffect(() => {
+    if (isListenModeActive && !isLoading) {
+      return;
+    }
+    onListenPlayerVisibilityChange?.(false);
+  }, [isListenModeActive, isLoading, onListenPlayerVisibilityChange]);
 
   const listenModeItems = useMemo(() => {
     if (!isListenModeActive || !mobileStyle) {
@@ -370,44 +390,98 @@ export const NewChatComponents = ({
     [items],
   );
 
-  // Close interaction popover when scrolling
+  useEffect(() => {
+    if (!mobileStyle) {
+      dismissMobileInteraction();
+    }
+  }, [dismissMobileInteraction, mobileStyle]);
+
+  // Close mobile interaction popover on outside interaction or page context changes.
   useEffect(() => {
     if (!mobileStyle || !mobileInteraction.open) {
       return;
     }
 
-    const handleScroll = () => {
-      // Close popover and clear selection when scrolling
-      setMobileInteraction(prev => ({ ...prev, open: false }));
-      setLongPressedBlockBid('');
+    const isInsideMobileInteractionPopover = (target: EventTarget | null) => {
+      if (!(target instanceof Node)) {
+        return false;
+      }
+      const element =
+        target instanceof Element ? target : (target.parentElement ?? null);
+      return Boolean(
+        element?.closest('[data-mobile-interaction-popover="true"]'),
+      );
     };
 
-    // Try to find the actual scrolling container
-    // Check current element, parent, and window
+    const handleOutsidePointerDown = (event: Event) => {
+      if (isInsideMobileInteractionPopover(event.target)) {
+        return;
+      }
+      dismissMobileInteraction();
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      if (isInsideMobileInteractionPopover(event.target)) {
+        return;
+      }
+      dismissMobileInteraction();
+    };
+
+    const handleScroll = () => {
+      dismissMobileInteraction();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        dismissMobileInteraction();
+      }
+    };
+
+    const handlePageHide = () => {
+      dismissMobileInteraction();
+    };
+
+    const handleWindowBlur = () => {
+      dismissMobileInteraction();
+    };
+
     const chatContainer = chatRef.current;
     const parentContainer = chatContainer?.parentElement;
 
-    // Add listeners to multiple possible scroll containers
-    const listeners: Array<{
-      element: EventTarget;
-      handler: typeof handleScroll;
-    }> = [];
-
-    // Listen to parent container
+    document.addEventListener('pointerdown', handleOutsidePointerDown, true);
+    document.addEventListener('touchmove', handleTouchMove, {
+      capture: true,
+      passive: true,
+    });
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('scroll', handleScroll, {
+      capture: true,
+      passive: true,
+    });
+    chatContainer?.addEventListener('scroll', handleScroll, { passive: true });
     if (parentContainer) {
       parentContainer.addEventListener('scroll', handleScroll, {
         passive: true,
       });
-      listeners.push({ element: parentContainer, handler: handleScroll });
     }
 
     return () => {
-      // Clean up all listeners
-      listeners.forEach(({ element, handler }) => {
-        element.removeEventListener('scroll', handler);
-      });
+      document.removeEventListener(
+        'pointerdown',
+        handleOutsidePointerDown,
+        true,
+      );
+      document.removeEventListener('touchmove', handleTouchMove, true);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('scroll', handleScroll, true);
+      chatContainer?.removeEventListener('scroll', handleScroll);
+      parentContainer?.removeEventListener('scroll', handleScroll);
     };
-  }, [mobileStyle, mobileInteraction.open]);
+  }, [dismissMobileInteraction, mobileStyle, mobileInteraction.open]);
 
   // Memoize callbacks to prevent unnecessary re-renders
   const handleClickAskButton = useCallback(
@@ -514,6 +588,7 @@ export const NewChatComponents = ({
               previewMode={previewMode}
               onRequestAudioForBlock={requestAudioForBlock}
               onSend={memoizedOnSend}
+              onPlayerVisibilityChange={onListenPlayerVisibilityChange}
             />
           )
         ) : (
@@ -683,10 +758,11 @@ export const NewChatComponents = ({
         <InteractionBlockM
           open={mobileInteraction.open}
           onOpenChange={open => {
-            setMobileInteraction(prev => ({ ...prev, open }));
-            if (!open) {
-              setLongPressedBlockBid('');
+            if (open) {
+              setMobileInteraction(prev => ({ ...prev, open: true }));
+              return;
             }
+            dismissMobileInteraction();
           }}
           position={mobileInteraction.position}
           shifu_bid={shifuBid}
@@ -704,6 +780,43 @@ export const NewChatComponents = ({
           showAudioAction={shouldShowAudioAction}
         />
       )}
+      {lessonFeedbackPopup.open && !(mobileStyle && isNavOpen) ? (
+        <div
+          className={cn(
+            'pointer-events-none z-20',
+            mobileStyle
+              ? isListenModeActive
+                ? 'fixed left-3 right-3 bottom-[calc(env(safe-area-inset-bottom)+88px)]'
+                : 'fixed left-3 right-3 bottom-[calc(env(safe-area-inset-bottom)+56px)]'
+              : 'absolute right-6 w-[260px] max-w-[calc(100%-48px)] bottom-6',
+          )}
+        >
+          <div className='pointer-events-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-lg'>
+            <div className='mb-2 flex items-center justify-between gap-2'>
+              <p className='text-[14px] leading-5 text-[var(--foreground)]'>
+                {t('module.chat.lessonFeedbackPrompt')}
+              </p>
+              <button
+                type='button'
+                aria-label={t('common.core.cancel')}
+                onClick={lessonFeedbackPopup.onClose}
+                className='inline-flex h-6 w-6 items-center justify-center rounded text-foreground/50 transition-colors hover:bg-[var(--muted)] hover:text-foreground/75'
+              >
+                <X className='h-4 w-4' />
+              </button>
+            </div>
+            <LessonFeedbackInteraction
+              defaultScoreText={lessonFeedbackPopup.defaultScoreText}
+              defaultCommentText={lessonFeedbackPopup.defaultCommentText}
+              placeholder={t('module.chat.lessonFeedbackCommentPlaceholder')}
+              submitLabel={confirmButtonText}
+              clearLabel={t('module.chat.lessonFeedbackClearInput')}
+              readonly={lessonFeedbackPopup.readonly}
+              onSubmit={lessonFeedbackPopup.onSubmit}
+            />
+          </div>
+        </div>
+      ) : null}
       <Dialog
         open={reGenerateConfirm.open}
         onOpenChange={open => {

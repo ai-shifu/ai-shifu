@@ -178,7 +178,7 @@ const loadRuntimeConfig = async () => {
     runtimeConfig?.enableWechatCode?.toString() || 'true',
   );
   await updateDefaultLlmModel(runtimeConfig?.defaultLlmModel || '');
-  await updateHomeUrl(runtimeConfig?.homeUrl || '');
+  await updateHomeUrl(runtimeConfig?.homeUrl || '/');
   await updateCurrencySymbol(runtimeConfig?.currencySymbol || '¥');
   await updateStripePublishableKey(runtimeConfig?.stripePublishableKey || '');
   await updateStripeEnabled(

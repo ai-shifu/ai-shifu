@@ -8,7 +8,7 @@ services:
       - ./.env
     volumes:
       - ../src/api/:/app/
-      - ../src/i18n/:/i18n/
+      - ../src/i18n/:/app/i18n/
       - ./storage:/app/storage
     depends_on:
       - ai-shifu-mysql

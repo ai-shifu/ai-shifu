@@ -4,6 +4,7 @@ import uuid
 from flask import Flask, Response, request, stream_with_context
 from pydantic import ValidationError
 
+from flaskr.dao import db
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response, bypass_token_validation
 from flaskr.service.common.models import raise_param_error
@@ -17,6 +18,13 @@ from flaskr.service.learn.learn_funcs import (
     stream_generated_block_audio,
     stream_preview_tts_audio,
 )
+from flaskr.service.learn.lesson_feedback import (
+    submit_lesson_feedback,
+    list_lesson_feedbacks,
+)
+from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
+from flaskr.service.shifu.utils import get_shifu_creator_bid
+from flaskr.service.common import raise_error
 from flaskr.service.learn.runscript_v2 import run_script, get_run_status
 from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
 from flaskr.service.learn.context_v2 import RunScriptPreviewContextV2
@@ -86,6 +94,46 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     """
     app.logger.info(f"register learn routes {path_prefix}")
     preview_service = RunScriptPreviewContextV2(app)
+
+    def _require_shifu_owner(shifu_bid: str) -> str:
+        """Ensure current user is the owner of the specified shifu."""
+        user_bid = request.user.user_id
+        if not getattr(request.user, "is_creator", False):
+            raise_error("server.shifu.noPermission")
+        context_snapshot = get_shifu_context_snapshot()
+        creator_bid = (context_snapshot or {}).get("shifu_creator_bid") or ""
+        if not creator_bid:
+            creator_bid = get_shifu_creator_bid(app, shifu_bid) or ""
+        if not creator_bid:
+            raise_error("server.shifu.shifuNotFound")
+        if creator_bid != user_bid:
+            raise_error("server.shifu.noPermission")
+        return user_bid
+
+    def _ensure_outline_belongs_to_shifu(shifu_bid: str, outline_bid: str) -> None:
+        """Validate that outline belongs to the specified shifu."""
+        in_draft = (
+            db.session.query(DraftOutlineItem.id)
+            .filter(
+                DraftOutlineItem.shifu_bid == shifu_bid,
+                DraftOutlineItem.outline_item_bid == outline_bid,
+                DraftOutlineItem.deleted == 0,
+            )
+            .first()
+        )
+        if in_draft:
+            return
+        in_published = (
+            db.session.query(PublishedOutlineItem.id)
+            .filter(
+                PublishedOutlineItem.shifu_bid == shifu_bid,
+                PublishedOutlineItem.outline_item_bid == outline_bid,
+                PublishedOutlineItem.deleted == 0,
+            )
+            .first()
+        )
+        if not in_published:
+            raise_error("server.shifu.lessonNotFoundInCourse")
 
     @app.route(path_prefix + "/shifu/<shifu_bid>", methods=["GET"])
     @bypass_token_validation
@@ -515,6 +563,121 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         user_bid = request.user.user_id
         return make_common_response(
             reset_learn_record(app, shifu_bid, outline_bid, user_bid)
+        )
+
+    @app.route(
+        path_prefix + "/shifu/<shifu_bid>/lesson-feedback/<outline_bid>",
+        methods=["POST"],
+    )
+    @with_shifu_context()
+    def submit_lesson_feedback_api(shifu_bid: str, outline_bid: str):
+        """
+        submit lesson feedback
+        ---
+        tags:
+            - learn
+        parameters:
+            - name: shifu_bid
+              type: string
+              required: true
+            - name: outline_bid
+              type: string
+              required: true
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    score:
+                        type: integer
+                        required: true
+                    comment:
+                        type: string
+                        required: false
+                    mode:
+                        type: string
+                        required: false
+                        description: read or listen
+        responses:
+            200:
+                description: submit lesson feedback success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    type: object
+        """
+        user_bid = request.user.user_id
+        _ensure_outline_belongs_to_shifu(shifu_bid, outline_bid)
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("body")
+        return make_common_response(
+            submit_lesson_feedback(
+                app,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                score=payload.get("score"),
+                comment=payload.get("comment"),
+                mode=payload.get("mode"),
+            )
+        )
+
+    @app.route(path_prefix + "/shifu/<shifu_bid>/lesson-feedbacks", methods=["GET"])
+    @with_shifu_context()
+    def list_lesson_feedbacks_api(shifu_bid: str):
+        """
+        list lesson feedbacks for a course (teacher/authoring side)
+        ---
+        tags:
+            - learn
+        parameters:
+            - name: shifu_bid
+              type: string
+              required: true
+            - in: query
+              name: outline_bid
+              type: string
+              required: false
+            - in: query
+              name: page_index
+              type: integer
+              required: false
+            - in: query
+              name: page_size
+              type: integer
+              required: false
+        """
+        _require_shifu_owner(shifu_bid)
+        page_index_raw = request.args.get("page_index", "1")
+        page_size_raw = request.args.get("page_size", "20")
+        try:
+            page_index = int(page_index_raw)
+        except ValueError:
+            raise_param_error("page_index")
+        try:
+            page_size = int(page_size_raw)
+        except ValueError:
+            raise_param_error("page_size")
+        if page_index < 1:
+            raise_param_error("page_index")
+        if page_size < 1:
+            raise_param_error("page_size")
+        return make_common_response(
+            list_lesson_feedbacks(
+                app,
+                shifu_bid=shifu_bid,
+                outline_bid=request.args.get("outline_bid"),
+                page_index=page_index,
+                page_size=page_size,
+            )
         )
 
     @app.route(

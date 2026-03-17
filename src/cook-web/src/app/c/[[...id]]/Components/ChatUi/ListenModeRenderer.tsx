@@ -22,6 +22,14 @@ type UserActivationLike = {
   isActive?: boolean;
 };
 
+type ListenSandboxMessage = {
+  source?: string;
+  type?: string;
+};
+
+const LISTEN_SANDBOX_MESSAGE_SOURCE = 'markdown-flow-ui:sandbox';
+const LISTEN_SANDBOX_MESSAGE_TYPE = 'interaction';
+
 const hasBrowserUserActivation = () => {
   if (typeof window === 'undefined') {
     return false;
@@ -53,6 +61,7 @@ interface ListenModeRendererProps {
   previewMode?: boolean;
   onRequestAudioForBlock?: (generatedBlockBid: string) => Promise<any>;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
+  onPlayerVisibilityChange?: (visible: boolean) => void;
 }
 
 const ListenModeRenderer = ({
@@ -66,6 +75,7 @@ const ListenModeRenderer = ({
   previewMode = false,
   onRequestAudioForBlock,
   onSend,
+  onPlayerVisibilityChange,
 }: ListenModeRendererProps) => {
   const deckRef = useRef<Reveal.Api | null>(null);
   const currentPptPageRef = useRef<number>(0);
@@ -79,6 +89,9 @@ const ListenModeRenderer = ({
   const [hasPageInteraction, setHasPageInteraction] = useState(() =>
     hasBrowserUserActivation(),
   );
+  const listenPlayerAutoHideDelay = 3000;
+  const listenPlayerHideTimerRef = useRef<number | null>(null);
+  const [isListenPlayerVisible, setIsListenPlayerVisible] = useState(true);
 
   const {
     orderedContentBlockBids,
@@ -211,10 +224,64 @@ const ListenModeRenderer = ({
     };
   }, [hasPageInteraction]);
 
+  const clearListenPlayerHideTimer = useCallback(() => {
+    if (listenPlayerHideTimerRef.current === null) {
+      return;
+    }
+    window.clearTimeout(listenPlayerHideTimerRef.current);
+    listenPlayerHideTimerRef.current = null;
+  }, []);
+
+  const showListenPlayer = useCallback(() => {
+    // Keep the player visible briefly after entering or tapping the slide area.
+    setIsListenPlayerVisible(true);
+    clearListenPlayerHideTimer();
+    listenPlayerHideTimerRef.current = window.setTimeout(() => {
+      setIsListenPlayerVisible(false);
+      listenPlayerHideTimerRef.current = null;
+    }, listenPlayerAutoHideDelay);
+  }, [clearListenPlayerHideTimer]);
+
+  useEffect(
+    () => () => {
+      clearListenPlayerHideTimer();
+    },
+    [clearListenPlayerHideTimer],
+  );
+
+  useEffect(() => {
+    const handleSandboxMessage = (
+      event: MessageEvent<ListenSandboxMessage>,
+    ) => {
+      // Sandbox iframes can emit postMessage with a null origin, so match by payload.
+      if (
+        event.data?.source !== LISTEN_SANDBOX_MESSAGE_SOURCE ||
+        event.data?.type !== LISTEN_SANDBOX_MESSAGE_TYPE
+      ) {
+        return;
+      }
+      setHasPageInteraction(true);
+      showListenPlayer();
+    };
+
+    window.addEventListener('message', handleSandboxMessage);
+    return () => {
+      window.removeEventListener('message', handleSandboxMessage);
+    };
+  }, [showListenPlayer]);
+
   useEffect(() => {
     setHasUserStartedPlayback(false);
     setIsSlideNavigationLocked(false);
-  }, [lessonId]);
+    showListenPlayer();
+  }, [lessonId, sectionTitle, showListenPlayer]);
+
+  useEffect(() => {
+    onPlayerVisibilityChange?.(isListenPlayerVisible);
+    return () => {
+      onPlayerVisibilityChange?.(false);
+    };
+  }, [isListenPlayerVisible, onPlayerVisibilityChange]);
 
   const shouldRenderEmptyPpt = useMemo(() => {
     if (isLoading) {
@@ -321,6 +388,11 @@ const ListenModeRenderer = ({
     [handlePause],
   );
 
+  const handleListenSurfacePointerDown = useCallback(() => {
+    setHasPageInteraction(true);
+    showListenPlayer();
+  }, [showListenPlayer]);
+
   const listenPlayerInteraction = sequenceInteraction;
   const isLatestInteractionEditable = Boolean(
     listenPlayerInteraction?.generated_block_bid &&
@@ -336,6 +408,7 @@ const ListenModeRenderer = ({
     <div
       className={cn('listen-reveal-wrapper', mobileStyle ? 'mobile' : '')}
       style={{ background: '#F7F9FF', position: 'relative' }}
+      onPointerDown={handleListenSurfacePointerDown}
     >
       <div
         className={cn('reveal', 'listen-reveal')}
@@ -404,6 +477,7 @@ const ListenModeRenderer = ({
         interactionReadonly={interactionReadonly}
         onSend={onSend}
         mobileStyle={mobileStyle}
+        showControls={isListenPlayerVisible}
       />
     </div>
   );

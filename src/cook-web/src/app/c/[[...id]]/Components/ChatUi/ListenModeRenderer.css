@@ -11,9 +11,6 @@
   overflow: hidden;
   position: relative;
 }
-.listen-reveal-wrapper .content-render-iframe-sandbox img {
-  width: 100%;
-}
 .listen-reveal-wrapper.mobile {
   padding: 0 !important;
   height: 100%;

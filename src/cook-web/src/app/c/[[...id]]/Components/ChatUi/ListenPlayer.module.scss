@@ -1,8 +1,37 @@
-.playerContainer {
+.playerAnchor {
   position: absolute;
   bottom: 100px;
   left: 50%;
   transform: translateX(-50%);
+  z-index: 4;
+
+  .interactionContainer {
+    width: 664px;
+  }
+
+  &.mobile {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 40px;
+    width: 100%;
+    transform: none;
+    z-index: 4;
+
+    .interactionContainer {
+      width: 95%;
+    }
+
+    .playerContainer {
+      width: 100%;
+      border: 1px solid #0000001a;
+      border-radius: 0;
+      box-shadow: none;
+    }
+  }
+}
+
+.playerContainer {
   background: #ffffff;
   border-radius: 16px;
   border: 1px solid rgba(0, 0, 0, 0.05);
@@ -14,11 +43,7 @@
   justify-content: center;
   align-items: center;
   gap: 40px;
-  z-index: 2;
   box-sizing: border-box;
-  .interactionContainer {
-    width: 664px;
-  }
 
   .controlGroup {
     display: flex;
@@ -61,22 +86,6 @@
         width: 34px;
         height: 34px;
       }
-    }
-  }
-  &.mobile {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 40px;
-    width: 100%;
-    transform: none;
-    border: 1px solid #0000001a;
-    border-radius: 0;
-    box-shadow: none;
-    z-index: 1;
-
-    .interactionContainer {
-      width: 95%;
     }
   }
 }

@@ -96,20 +96,30 @@ def migrate_user_study_record(
 ) -> None:
     from flaskr.service.learn.models import LearnProgressRecord
 
+    normalized_course_id = str(course_id or "").strip()
+    if not normalized_course_id:
+        app.logger.warning(
+            "migrate_user_study_record skipped: missing course_id, from_user_id=%s, to_user_id=%s",
+            from_user_id,
+            to_user_id,
+        )
+        return
+
     app.logger.info(
-        "migrate_user_study_record from_user_id:%s to_user_id:%s",
+        "migrate_user_study_record from_user_id:%s to_user_id:%s course_id:%s",
         from_user_id,
         to_user_id,
+        normalized_course_id,
     )
     from_attends = LearnProgressRecord.query.filter(
         LearnProgressRecord.user_bid == from_user_id,
         LearnProgressRecord.status != LEARN_STATUS_RESET,
-        LearnProgressRecord.shifu_bid == course_id,
+        LearnProgressRecord.shifu_bid == normalized_course_id,
     ).all()
     to_attends = LearnProgressRecord.query.filter(
         LearnProgressRecord.user_bid == to_user_id,
         LearnProgressRecord.status != LEARN_STATUS_RESET,
-        LearnProgressRecord.shifu_bid == course_id,
+        LearnProgressRecord.shifu_bid == normalized_course_id,
     ).all()
     migrate_attends = []
     for from_attend in from_attends:
@@ -123,6 +133,12 @@ def migrate_user_study_record(
         migrate_attends.append(from_attend)
 
     if not migrate_attends:
+        app.logger.info(
+            "migrate_user_study_record no-op: from_records=%s to_records=%s course_id=%s",
+            len(from_attends),
+            len(to_attends),
+            normalized_course_id,
+        )
         return
 
     db.session.execute(
@@ -144,6 +160,11 @@ def migrate_user_study_record(
         )
     )
     db.session.flush()
+    app.logger.info(
+        "migrate_user_study_record done: migrated_records=%s course_id=%s",
+        len(migrate_attends),
+        normalized_course_id,
+    )
 
 
 def init_first_course(app: Flask, user_id: str) -> None:
@@ -238,6 +259,7 @@ def verify_phone_code(
 
     created_new_user = False
     normalized_phone = phone.strip()
+    normalized_course_id = str(course_id or "").strip() or None
 
     with transactional_session():
         target_aggregate = load_user_aggregate_by_identifier(
@@ -248,34 +270,59 @@ def verify_phone_code(
         if not target_aggregate and origin_aggregate:
             target_aggregate = origin_aggregate
 
-        if (
-            target_aggregate
-            and user_id
-            and target_aggregate.user_bid != user_id
-            and course_id is not None
-        ):
-            new_profiles = get_user_profile_labels(app, user_id, course_id)
-            update_user_profile_with_lable(
-                app, target_aggregate.user_bid, new_profiles, False, course_id
-            )
-            migrate_user_study_record(
-                app,
-                origin_aggregate.user_bid if origin_aggregate else user_id,
+        if target_aggregate and user_id and target_aggregate.user_bid != user_id:
+            app.logger.info(
+                "verify_phone_code merge_candidate origin_user_id=%s target_user_id=%s course_id=%s",
+                user_id,
                 target_aggregate.user_bid,
-                course_id,
+                normalized_course_id,
             )
-            if (
-                origin_aggregate
-                and origin_aggregate.wechat_open_id
-                and not target_aggregate.wechat_open_id
-            ):
-                upsert_wechat_credentials(
-                    app,
-                    user_bid=target_aggregate.user_bid,
-                    open_id=origin_aggregate.wechat_open_id,
-                    union_id=origin_aggregate.wechat_union_id,
-                    verified=True,
+            if normalized_course_id is None:
+                app.logger.warning(
+                    "verify_phone_code skip_study_migration missing_course_id origin_user_id=%s target_user_id=%s",
+                    user_id,
+                    target_aggregate.user_bid,
                 )
+            else:
+                new_profiles = get_user_profile_labels(
+                    app, user_id, normalized_course_id
+                )
+                update_user_profile_with_lable(
+                    app,
+                    target_aggregate.user_bid,
+                    new_profiles,
+                    False,
+                    normalized_course_id,
+                )
+                migrate_user_study_record(
+                    app,
+                    origin_aggregate.user_bid if origin_aggregate else user_id,
+                    target_aggregate.user_bid,
+                    normalized_course_id,
+                )
+            if origin_aggregate:
+                missing_open_id = (
+                    origin_aggregate.wechat_open_id
+                    and not target_aggregate.wechat_open_id
+                )
+                missing_union_id = (
+                    origin_aggregate.wechat_union_id
+                    and not target_aggregate.wechat_union_id
+                )
+                if missing_open_id or missing_union_id:
+                    upsert_wechat_credentials(
+                        app,
+                        user_bid=target_aggregate.user_bid,
+                        open_id=(
+                            origin_aggregate.wechat_open_id if missing_open_id else None
+                        ),
+                        union_id=(
+                            origin_aggregate.wechat_union_id
+                            if missing_union_id
+                            else None
+                        ),
+                        verified=True,
+                    )
 
         if target_aggregate is None:
             defaults = {
@@ -316,7 +363,7 @@ def verify_phone_code(
             subject_id=normalized_phone,
             subject_format="phone",
             identifier=normalized_phone,
-            metadata={"course_id": course_id, "language": language},
+            metadata={"course_id": normalized_course_id, "language": language},
             verified=True,
         )
 
@@ -336,7 +383,7 @@ def verify_phone_code(
         UserToken(userInfo=user_dto, token=token),
         created_new_user,
         {
-            "course_id": course_id,
+            "course_id": normalized_course_id,
             "language": language,
             "snapshot": snapshot.to_dict(),
         },

@@ -16,7 +16,7 @@ repos:
     -   id: requirements-txt-fixer
         exclude: ^src/api/requirements\.txt$
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.4
+    rev: v0.15.5
     hooks:
     -   id: ruff-check
         args: [ --fix ]

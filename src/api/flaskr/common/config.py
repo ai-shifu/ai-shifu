@@ -137,8 +137,8 @@ ENV_VARS: Dict[str, EnvVar] = {
     ),
     "HOME_URL": EnvVar(
         name="HOME_URL",
-        default="/admin",
-        description="Default redirect path after login",
+        default="/",
+        description="Cook Web logo/home redirect URL (default: /)",
         group="frontend",
     ),
     "LOGO_WIDE_URL": EnvVar(
@@ -389,6 +389,14 @@ Default: "phone".""",
         default="",
         description="Alibaba Cloud Qwen API URL",
         group="llm",
+    ),
+    "ASK_PROVIDER_TIMEOUT_SECONDS": EnvVar(
+        name="ASK_PROVIDER_TIMEOUT_SECONDS",
+        default=20,
+        type=int,
+        description="Timeout in seconds for external ask provider calls.",
+        group="llm",
+        required=False,
     ),
     "DEFAULT_LLM_MODEL": EnvVar(
         name="DEFAULT_LLM_MODEL",

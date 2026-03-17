@@ -231,6 +231,12 @@ class DraftShifu(db.Model):
         default="",
         comment="Ask agent LLM system prompt",
     )
+    ask_provider_config = Column(
+        Text,
+        nullable=False,
+        default="{}",
+        comment='Ask provider config JSON, e.g. {"provider":"llm","mode":"provider_then_llm","config":{}}',
+    )
     price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
 
     # TTS Configuration
@@ -330,6 +336,7 @@ class DraftShifu(db.Model):
             ask_llm=self.ask_llm,
             ask_llm_temperature=self.ask_llm_temperature,
             ask_llm_system_prompt=self.ask_llm_system_prompt,
+            ask_provider_config=self.ask_provider_config,
             price=self.price,
             tts_enabled=self.tts_enabled,
             tts_provider=self.tts_provider,
@@ -360,6 +367,7 @@ class DraftShifu(db.Model):
             and self.ask_llm == other.ask_llm
             and compare_decimal(self.ask_llm_temperature, other.ask_llm_temperature)
             and self.ask_llm_system_prompt == other.ask_llm_system_prompt
+            and self.ask_provider_config == other.ask_provider_config
             and compare_decimal(self.price, other.price)
             and self.tts_enabled == other.tts_enabled
             and self.tts_provider == other.tts_provider
@@ -643,6 +651,12 @@ class PublishedShifu(db.Model):
     )
     ask_llm_system_prompt = Column(
         Text, nullable=False, default="", comment="Ask agent LLM system prompt"
+    )
+    ask_provider_config = Column(
+        Text,
+        nullable=False,
+        default="{}",
+        comment='Ask provider config JSON, e.g. {"provider":"llm","mode":"provider_then_llm","config":{}}',
     )
     price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
 

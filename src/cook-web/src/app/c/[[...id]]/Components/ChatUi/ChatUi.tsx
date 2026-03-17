@@ -1,6 +1,6 @@
 import styles from './ChatUi.module.scss';
 
-import { memo } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
@@ -57,6 +57,13 @@ export const ChatUi = ({
   const showHeader = frameLayout !== FRAME_LAYOUT_MOBILE;
   const showModeToggle = showLearningModeToggle;
   const isListenMode = learningMode === 'listen';
+  const [isListenPlayerVisible, setIsListenPlayerVisible] = useState(false);
+
+  useEffect(() => {
+    if (!isListenMode) {
+      setIsListenPlayerVisible(false);
+    }
+  }, [isListenMode]);
 
   return (
     <div
@@ -64,6 +71,12 @@ export const ChatUi = ({
         styles.ChatUi,
         frameLayout === FRAME_LAYOUT_MOBILE ? styles.mobile : '',
         isListenMode ? styles.listenMode : '',
+        isListenMode && isListenPlayerVisible
+          ? styles.listenModeWithPlayer
+          : '',
+        isListenMode && !isListenPlayerVisible
+          ? styles.listenModeWithoutPlayer
+          : '',
         hideMobileFooter ? styles.hideMobileFooter : '',
       )}
     >
@@ -123,6 +136,8 @@ export const ChatUi = ({
           chapterUpdate={chapterUpdate}
           updateSelectedLesson={updateSelectedLesson}
           getNextLessonId={getNextLessonId}
+          isNavOpen={isNavOpen}
+          onListenPlayerVisibilityChange={setIsListenPlayerVisible}
         />
       }
       {showUserSettings && (

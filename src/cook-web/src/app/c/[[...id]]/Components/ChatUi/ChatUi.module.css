@@ -151,8 +151,11 @@
 .ChatUi.mobile.listenMode {
   overflow: visible;
 }
-.ChatUi.mobile.listenMode .chatComponents {
+.ChatUi.mobile.listenMode.listenModeWithPlayer .chatComponents {
   padding: 0 0 128px 0 !important;
+}
+.ChatUi.mobile.listenMode.listenModeWithoutPlayer .chatComponents {
+  padding: 0 0 40px 0 !important;
 }
 .ChatUi .chatComponents {
   width: 100%;

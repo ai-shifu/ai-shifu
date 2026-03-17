@@ -110,8 +110,8 @@ def collect_backend_keys() -> Set[str]:
             for match in pattern.findall(text):
                 if "." not in match:
                     continue
-                # Only consider our backend namespaces
-                if match.startswith("server.") or match.startswith("module.backend."):
+                # Only consider backend namespaces we intentionally allow in Python.
+                if match.startswith("server.") or match.startswith("module."):
                     used.add(match)
                     # Add alias (with domain remap where needed)
                     if match.startswith("server."):
@@ -136,7 +136,7 @@ def collect_backend_keys() -> Set[str]:
                             )
                         else:
                             used.add("module.backend." + match[len("server.") :])
-                    else:
+                    elif match.startswith("module.backend."):
                         if match.startswith("module.backend.course."):
                             used.add(
                                 "server.shifu." + match[len("module.backend.course.") :]

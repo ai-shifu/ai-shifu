@@ -13,6 +13,7 @@ import {
   calcFrameLayout,
   FRAME_LAYOUT_MOBILE,
   inWechat,
+  inMiniProgram,
 } from '@/c-constants/uiConstants';
 import { EVENT_NAMES, events } from './events';
 
@@ -36,9 +37,16 @@ import FeedbackModal from './Components/FeedbackModal/FeedbackModal';
 import TrackingVisit from '@/c-components/TrackingVisit';
 import ChatUi from './Components/ChatUi/ChatUi';
 
+import dynamic from 'next/dynamic';
 import ChatMobileHeader from './Components/ChatMobileHeader';
-import PayModalM from './Components/Pay/PayModalM';
-import PayModal from './Components/Pay/PayModal';
+import MiniProgramPayGuide from './Components/Pay/MiniProgramPayGuide';
+
+const PayModalM = dynamic(() => import('./Components/Pay/PayModalM'), {
+  ssr: false,
+});
+const PayModal = dynamic(() => import('./Components/Pay/PayModal'), {
+  ssr: false,
+});
 
 // import LoginModal from './Components/Login/LoginModal';
 
@@ -530,7 +538,14 @@ export default function ChatPage() {
           />
         ) : null} */}
 
-        {payModalOpen && mobileStyle ? (
+        {payModalOpen && inMiniProgram() ? (
+          <MiniProgramPayGuide
+            open={payModalOpen}
+            onClose={_onPayModalCancel}
+          />
+        ) : null}
+
+        {payModalOpen && !inMiniProgram() && mobileStyle ? (
           <PayModalM
             open={payModalOpen}
             onCancel={_onPayModalCancel}
@@ -540,7 +555,7 @@ export default function ChatPage() {
           />
         ) : null}
 
-        {payModalOpen && !mobileStyle ? (
+        {payModalOpen && !inMiniProgram() && !mobileStyle ? (
           <PayModal
             open={payModalOpen}
             onCancel={_onPayModalCancel}

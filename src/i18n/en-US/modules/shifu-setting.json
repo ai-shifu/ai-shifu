@@ -5,6 +5,89 @@
   "archiveConfirm": "Archiving moves this course to \"Archived\". You can restore it later; editing and learning remain available while archived.",
   "archiveSuccess": "Course archived",
   "archiveTitle": "Archive course?",
+  "askModel": "Follow-up model",
+  "askPreview": "Test Follow-up",
+  "askPreviewLoading": "Testing...",
+  "askPreviewQuestion": "Test question",
+  "askPreviewQuestionPlaceholder": "Enter a question to test follow-up settings",
+  "askPreviewQuestionRequired": "Please enter a test question",
+  "askPreviewResult": "Test result",
+  "askPreviewUsedFallback": "Provider {provider} failed, switched to LLM fallback",
+  "askPreviewUsedProvider": "Provider used: {provider}",
+  "askProviderConfigInvalidJson": "{field} must be valid JSON object",
+  "askProviderConfigRequired": "{field} is required",
+  "askProviderDescriptions": {
+    "coze": "Use the Coze bot chat API for follow-up.",
+    "coze_workflow": "Use the Coze workflow run API for follow-up.",
+    "dify": "Use the Dify chat app for follow-up.",
+    "llm": "Use the built-in follow-up LLM only.",
+    "volc_knowledge": "Use the Volcengine knowledge base search API for follow-up."
+  },
+  "askProviderFields": {
+    "coze": {
+      "api_key": {
+        "hint": "Coze personal access token.",
+        "label": "API Key"
+      },
+      "bot_id": {
+        "hint": "Coze bot identifier.",
+        "label": "Bot ID"
+      }
+    },
+    "coze_workflow": {
+      "api_key": {
+        "hint": "Coze personal access token.",
+        "label": "API Key"
+      },
+      "workflow_id": {
+        "hint": "Coze workflow identifier.",
+        "label": "Workflow ID"
+      }
+    },
+    "dify": {
+      "api_key": {
+        "hint": "Dify app API key.",
+        "label": "API Key"
+      },
+      "base_url": {
+        "hint": "Dify base URL, e.g. https://api.dify.ai/v1",
+        "label": "Base URL"
+      }
+    },
+    "volc_knowledge": {
+      "account_id": {
+        "hint": "Volcengine account ID for the V-Account-Id header.",
+        "label": "Account ID"
+      },
+      "ak": {
+        "hint": "Volcengine access key.",
+        "label": "Access Key"
+      },
+      "collection_name": {
+        "hint": "Knowledge base collection name.",
+        "label": "Collection Name"
+      },
+      "sk": {
+        "hint": "Volcengine secret key.",
+        "label": "Secret Key"
+      }
+    }
+  },
+  "askProviderModes": {
+    "provider_only": "Provider Only",
+    "provider_then_llm": "Provider Then LLM"
+  },
+  "askProviderOptions": {
+    "coze": "Coze",
+    "coze_workflow": "Coze Workflow",
+    "dify": "Dify",
+    "llm": "LLM",
+    "volc_knowledge": "Volcengine Knowledge Base"
+  },
+  "askProviderSelect": "Select provider",
+  "askTemperature": "Follow-up temperature",
+  "askTemperatureHint": "Set follow-up generation creativity (0-2)",
+  "askTitle": "Follow-up Settings",
   "draftConflictDescription": "This course was updated by {phone}. Refresh to get the latest content.",
   "draftConflictRefresh": "Refresh",
   "draftConflictTitle": "Course updated",

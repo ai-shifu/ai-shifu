@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { useUserStore } from '@/store';
 import { useEnvStore } from '@/c-store';
 import { ErrorWithCode } from '@/lib/request';
+import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
@@ -22,7 +24,6 @@ import { cn } from '@/lib/utils';
 import {
   Table,
   TableBody,
-  TableCell,
   TableEmpty,
   TableHead,
   TableHeader,
@@ -42,6 +43,14 @@ import type {
   DashboardEntryResponse,
   DashboardEntrySummary,
 } from '@/types/dashboard';
+import {
+  buildAdminDashboardCourseDetailUrl,
+  buildAdminOrdersUrl,
+} from './admin-dashboard-routes';
+import {
+  DashboardCourseTableRow,
+  formatOrderAmount,
+} from './dashboardCourseTableRow';
 
 const PAGE_SIZE = 20;
 
@@ -177,33 +186,16 @@ const EMPTY_SUMMARY: DashboardEntrySummary = {
   order_amount: '0.00',
 };
 
-const formatLastActive = (value: string): string => {
-  if (!value) {
-    return '-';
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  return parsed.toLocaleString();
-};
-
-const formatOrderAmount = (value: string, currencySymbol: string): string => {
-  const normalized = (value || '').trim();
-  const matched = normalized.match(/^(-?\d+)(?:\.(\d+))?$/);
-  if (!matched) {
-    return `${currencySymbol}0.00`;
-  }
-  const integerPart = matched[1].replace(/^(-?)0+(?=\d)/, '$1');
-  const decimalPart = (matched[2] || '').padEnd(2, '0').slice(0, 2);
-  return `${currencySymbol}${integerPart}.${decimalPart}`;
-};
+const DASHBOARD_TABLE_HEAD_CLASS =
+  'sticky top-0 z-30 bg-muted border-r border-border last:border-r-0';
 
 export default function AdminDashboardEntryPage() {
   const { t } = useTranslation();
+  const router = useRouter();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const currencySymbol = useEnvStore(state => state.currencySymbol || '¥');
+  const timezone = getBrowserTimeZone();
 
   const [keyword, setKeyword] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -232,6 +224,7 @@ export default function AdminDashboardEntryPage() {
           keyword: params.keyword.trim(),
           start_date: params.startDate,
           end_date: params.endDate,
+          ...(timezone ? { timezone } : {}),
         })) as DashboardEntryResponse;
 
         setSummary(response.summary || EMPTY_SUMMARY);
@@ -256,7 +249,7 @@ export default function AdminDashboardEntryPage() {
         setLoading(false);
       }
     },
-    [t],
+    [t, timezone],
   );
 
   useEffect(() => {
@@ -305,6 +298,28 @@ export default function AdminDashboardEntryPage() {
       });
     },
     [endDate, fetchEntry, keyword, pageCount, pageIndex, startDate],
+  );
+
+  const handleOrderClick = useCallback(
+    (shifuBid: string) => {
+      const nextUrl = buildAdminOrdersUrl(shifuBid);
+      if (!nextUrl) {
+        return;
+      }
+      router.push(nextUrl);
+    },
+    [router],
+  );
+
+  const handleCourseDetailClick = useCallback(
+    (shifuBid: string) => {
+      const nextUrl = buildAdminDashboardCourseDetailUrl(shifuBid);
+      if (!nextUrl) {
+        return;
+      }
+      router.push(nextUrl);
+    },
+    [router],
   );
 
   if (!isInitialized || isGuest) {
@@ -371,61 +386,63 @@ export default function AdminDashboardEntryPage() {
           </div>
         </div>
 
-        <div className='flex-1 overflow-auto pb-4 space-y-5'>
-          <div className='grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4'>
-            <Card>
-              <CardContent className='p-4'>
-                <div className='text-sm text-muted-foreground'>
-                  {t('module.dashboard.entry.kpi.courses')}
-                </div>
-                <div className='mt-2 text-2xl font-semibold text-foreground'>
-                  {loading ? '-' : summary.course_count}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className='p-4'>
-                <div className='text-sm text-muted-foreground'>
-                  {t('module.dashboard.entry.kpi.learners')}
-                </div>
-                <div className='mt-2 text-2xl font-semibold text-foreground'>
-                  {loading ? '-' : summary.learner_count}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className='p-4'>
-                <div className='text-sm text-muted-foreground'>
-                  {t('module.dashboard.entry.kpi.orders')}
-                </div>
-                <div className='mt-2 text-2xl font-semibold text-foreground'>
-                  {loading ? '-' : summary.order_count}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className='p-4'>
-                <div className='text-sm text-muted-foreground'>
-                  {t('module.dashboard.entry.kpi.orderAmount')}
-                </div>
-                <div className='mt-2 text-2xl font-semibold text-foreground'>
-                  {loading
-                    ? '-'
-                    : formatOrderAmount(summary.order_amount, currencySymbol)}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {error ? (
-            <div className='text-sm text-destructive'>{error.message}</div>
-          ) : null}
+        <div className='shrink-0 mb-5 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4'>
+          <Card>
+            <CardContent className='p-4'>
+              <div className='text-sm text-muted-foreground'>
+                {t('module.dashboard.entry.kpi.courses')}
+              </div>
+              <div className='mt-2 text-2xl font-semibold text-foreground'>
+                {loading ? '-' : summary.course_count}
+              </div>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardContent className='p-4'>
+              <div className='text-sm text-muted-foreground'>
+                {t('module.dashboard.entry.kpi.learners')}
+              </div>
+              <div className='mt-2 text-2xl font-semibold text-foreground'>
+                {loading ? '-' : summary.learner_count}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className='p-4'>
+              <div className='text-sm text-muted-foreground'>
+                {t('module.dashboard.entry.kpi.orders')}
+              </div>
+              <div className='mt-2 text-2xl font-semibold text-foreground'>
+                {loading ? '-' : summary.order_count}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className='p-4'>
+              <div className='text-sm text-muted-foreground'>
+                {t('module.dashboard.entry.kpi.orderAmount')}
+              </div>
+              <div className='mt-2 text-2xl font-semibold text-foreground'>
+                {loading
+                  ? '-'
+                  : formatOrderAmount(summary.order_amount, currencySymbol)}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {error ? (
+          <div className='shrink-0 mb-4 text-sm text-destructive'>
+            {error.message}
+          </div>
+        ) : null}
+
+        <div className='flex-1 min-h-0 flex flex-col'>
+          <div className='flex min-h-0 flex-1 flex-col rounded-xl border border-border bg-white shadow-sm'>
+            <div className='shrink-0 border-b border-border p-4'>
               <div className='flex items-baseline gap-2'>
                 <h2 className='text-base font-semibold text-foreground'>
                   {t('module.dashboard.entry.table.title')}
@@ -436,144 +453,165 @@ export default function AdminDashboardEntryPage() {
                   })}
                 </span>
               </div>
+            </div>
 
-              <div className='mt-4 overflow-auto rounded-lg border border-border bg-white'>
-                {loading ? (
-                  <div className='flex h-40 items-center justify-center'>
-                    <Loading />
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>
-                          {t('module.dashboard.entry.table.course')}
-                        </TableHead>
-                        <TableHead>
-                          {t('module.dashboard.entry.table.learners')}
-                        </TableHead>
-                        <TableHead>
-                          {t('module.dashboard.entry.table.orders')}
-                        </TableHead>
-                        <TableHead>
-                          {t('module.dashboard.entry.table.orderAmount')}
-                        </TableHead>
-                        <TableHead>
-                          {t('module.dashboard.entry.table.lastActive')}
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.length === 0 ? (
-                        <TableEmpty colSpan={5}>
-                          {t('module.dashboard.entry.table.empty')}
-                        </TableEmpty>
-                      ) : null}
+            <div
+              data-testid='dashboard-course-list-scroll-region'
+              className='min-h-0 flex-1 overflow-hidden'
+            >
+              {loading ? (
+                <div className='flex h-full min-h-40 items-center justify-center'>
+                  <Loading />
+                </div>
+              ) : (
+                <Table
+                  containerClassName='h-full'
+                  className='min-w-[820px]'
+                >
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead
+                        className={cn(
+                          DASHBOARD_TABLE_HEAD_CLASS,
+                          'min-w-[280px]',
+                        )}
+                      >
+                        {t('module.dashboard.entry.table.course')}
+                      </TableHead>
+                      <TableHead
+                        className={cn(
+                          DASHBOARD_TABLE_HEAD_CLASS,
+                          'min-w-[120px]',
+                        )}
+                      >
+                        {t('module.dashboard.entry.table.learners')}
+                      </TableHead>
+                      <TableHead
+                        className={cn(
+                          DASHBOARD_TABLE_HEAD_CLASS,
+                          'min-w-[120px]',
+                        )}
+                      >
+                        {t('module.dashboard.entry.table.orders')}
+                      </TableHead>
+                      <TableHead
+                        className={cn(
+                          DASHBOARD_TABLE_HEAD_CLASS,
+                          'min-w-[140px]',
+                        )}
+                      >
+                        {t('module.dashboard.entry.table.orderAmount')}
+                      </TableHead>
+                      <TableHead
+                        className={cn(
+                          DASHBOARD_TABLE_HEAD_CLASS,
+                          'min-w-[180px]',
+                        )}
+                      >
+                        {t('module.dashboard.entry.table.lastActive')}
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.length === 0 ? (
+                      <TableEmpty colSpan={5}>
+                        {t('module.dashboard.entry.table.empty')}
+                      </TableEmpty>
+                    ) : null}
 
-                      {items.map(item => (
-                        <TableRow key={item.shifu_bid}>
-                          <TableCell className='whitespace-nowrap'>
-                            <div className='text-sm text-foreground'>
-                              {item.shifu_name || item.shifu_bid}
-                            </div>
-                            <div className='text-xs text-muted-foreground'>
-                              {item.shifu_bid}
-                            </div>
-                          </TableCell>
-                          <TableCell className='whitespace-nowrap'>
-                            {item.learner_count}
-                          </TableCell>
-                          <TableCell className='whitespace-nowrap'>
-                            {item.order_count}
-                          </TableCell>
-                          <TableCell className='whitespace-nowrap'>
-                            {formatOrderAmount(
-                              item.order_amount,
-                              currencySymbol,
-                            )}
-                          </TableCell>
-                          <TableCell className='whitespace-nowrap'>
-                            {formatLastActive(item.last_active_at)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </div>
+                    {items.map(item => (
+                      <DashboardCourseTableRow
+                        key={item.shifu_bid}
+                        item={item}
+                        currencySymbol={currencySymbol}
+                        orderButtonLabel={`${t('module.dashboard.entry.table.orders')}-${item.shifu_bid}`}
+                        onCourseDetailClick={handleCourseDetailClick}
+                        onOrderClick={handleOrderClick}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </div>
 
-              <div className='mt-4 flex justify-end'>
-                <Pagination className='justify-end w-auto mx-0'>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
+          <div
+            data-testid='dashboard-course-list-footer'
+            className='mt-4 flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'
+          >
+            <p className='min-w-0 flex-1 text-sm text-muted-foreground'>
+              {t('module.dashboard.entry.table.scopeNote')}
+            </p>
+
+            <Pagination className='mx-0 w-full justify-start sm:w-auto sm:shrink-0 sm:justify-end'>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href='#'
+                    onClick={event => {
+                      event.preventDefault();
+                      handlePageChange(pageIndex - 1);
+                    }}
+                    aria-disabled={pageIndex <= 1}
+                    className={
+                      pageIndex <= 1 ? 'pointer-events-none opacity-50' : ''
+                    }
+                  >
+                    {t('module.dashboard.pagination.prev')}
+                  </PaginationPrevious>
+                </PaginationItem>
+
+                {(() => {
+                  const startPage =
+                    pageCount <= 5
+                      ? 1
+                      : Math.max(1, Math.min(pageIndex - 2, pageCount - 4));
+                  const endPage =
+                    pageCount <= 5
+                      ? pageCount
+                      : Math.min(pageCount, startPage + 4);
+
+                  const pages: number[] = [];
+                  for (let page = startPage; page <= endPage; page += 1) {
+                    pages.push(page);
+                  }
+
+                  return pages.map(page => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
                         href='#'
                         onClick={event => {
                           event.preventDefault();
-                          handlePageChange(pageIndex - 1);
+                          handlePageChange(page);
                         }}
-                        aria-disabled={pageIndex <= 1}
-                        className={
-                          pageIndex <= 1 ? 'pointer-events-none opacity-50' : ''
-                        }
+                        isActive={page === pageIndex}
                       >
-                        {t('module.dashboard.pagination.prev')}
-                      </PaginationPrevious>
+                        {page}
+                      </PaginationLink>
                     </PaginationItem>
+                  ));
+                })()}
 
-                    {(() => {
-                      const startPage =
-                        pageCount <= 5
-                          ? 1
-                          : Math.max(1, Math.min(pageIndex - 2, pageCount - 4));
-                      const endPage =
-                        pageCount <= 5
-                          ? pageCount
-                          : Math.min(pageCount, startPage + 4);
-
-                      const pages: number[] = [];
-                      for (let page = startPage; page <= endPage; page += 1) {
-                        pages.push(page);
-                      }
-
-                      return pages.map(page => (
-                        <PaginationItem key={page}>
-                          <PaginationLink
-                            href='#'
-                            onClick={event => {
-                              event.preventDefault();
-                              handlePageChange(page);
-                            }}
-                            isActive={page === pageIndex}
-                          >
-                            {page}
-                          </PaginationLink>
-                        </PaginationItem>
-                      ));
-                    })()}
-
-                    <PaginationItem>
-                      <PaginationNext
-                        href='#'
-                        onClick={event => {
-                          event.preventDefault();
-                          handlePageChange(pageIndex + 1);
-                        }}
-                        aria-disabled={pageIndex >= pageCount}
-                        className={
-                          pageIndex >= pageCount
-                            ? 'pointer-events-none opacity-50'
-                            : ''
-                        }
-                      >
-                        {t('module.dashboard.pagination.next')}
-                      </PaginationNext>
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              </div>
-            </CardContent>
-          </Card>
+                <PaginationItem>
+                  <PaginationNext
+                    href='#'
+                    onClick={event => {
+                      event.preventDefault();
+                      handlePageChange(pageIndex + 1);
+                    }}
+                    aria-disabled={pageIndex >= pageCount}
+                    className={
+                      pageIndex >= pageCount
+                        ? 'pointer-events-none opacity-50'
+                        : ''
+                    }
+                  >
+                    {t('module.dashboard.pagination.next')}
+                  </PaginationNext>
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
         </div>
       </div>
     </div>

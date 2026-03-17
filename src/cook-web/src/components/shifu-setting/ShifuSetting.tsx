@@ -104,6 +104,11 @@ import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
 import { useShifu, useUserStore } from '@/store';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { isValidEmail } from '@/lib/validators';
+import {
+  AskProviderSchemaValidationError,
+  buildAskProviderConfigForSubmit as buildAskProviderConfigBySchema,
+} from '@/components/shifu-setting/ask-provider-schema';
+import AskSettingsSection from '@/components/shifu-setting/AskSettingsSection';
 
 interface Shifu {
   description: string;
@@ -117,6 +122,15 @@ interface Shifu {
   url: string;
   temperature: number;
   system_prompt?: string;
+  ask_enabled_status?: number;
+  ask_model?: string;
+  ask_temperature?: number;
+  ask_system_prompt?: string;
+  ask_provider_config?: {
+    provider?: string;
+    mode?: string;
+    config?: Record<string, any>;
+  };
   archived?: boolean;
   created_user_bid?: string;
   canPublish?: boolean;
@@ -136,6 +150,11 @@ interface Shifu {
 const MIN_SHIFU_PRICE = 0.5;
 const TEMPERATURE_MIN = 0;
 const TEMPERATURE_MAX = 2;
+const ASK_MODE_ENABLE = 5103;
+const ASK_PROVIDER_LLM = 'llm';
+const ASK_PROVIDER_MODE_PROVIDER_ONLY = 'provider_only';
+const ASK_TEMPERATURE_MIN = 0;
+const ASK_TEMPERATURE_MAX = 2;
 type CopyingState = {
   previewUrl: boolean;
   url: boolean;
@@ -648,6 +667,29 @@ export default function ShifuSettingDialog({
   ]);
 
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
+  // Ask configuration state
+  const [askModel, setAskModel] = useState('');
+  const [askTemperature, setAskTemperature] =
+    useState<number>(ASK_TEMPERATURE_MIN);
+  const [askTemperatureInput, setAskTemperatureInput] = useState<string>(
+    String(ASK_TEMPERATURE_MIN),
+  );
+  const [askProvider, setAskProvider] = useState(ASK_PROVIDER_LLM);
+  const [askProviderConfig, setAskProviderConfig] = useState<
+    Record<string, any>
+  >({});
+  const [askProviderObjectInputs, setAskProviderObjectInputs] = useState<
+    Record<string, string>
+  >({});
+  const [askPreviewLoading, setAskPreviewLoading] = useState(false);
+  const [askPreviewQuery, setAskPreviewQuery] = useState('');
+  const [askPreviewResult, setAskPreviewResult] = useState('');
+  const [askPreviewMeta, setAskPreviewMeta] = useState<{
+    provider: string;
+    requestedProvider: string;
+    fallbackUsed: boolean;
+  } | null>(null);
+
   // TTS Configuration state
   const [ttsEnabled, setTtsEnabled] = useState(false);
   const [ttsProvider, setTtsProvider] = useState('');
@@ -789,6 +831,26 @@ export default function ShifuSettingDialog({
   );
 
   // TTS Config from backend
+  interface AskProviderConfigItem {
+    provider: string;
+    title: string;
+    description?: string;
+    default_config?: Record<string, any>;
+    json_schema?: {
+      properties?: Record<string, any>;
+      required?: string[];
+    };
+  }
+  interface AskConfigMetadata {
+    feature_enabled?: boolean;
+    default?: {
+      provider?: string;
+      mode?: string;
+      config?: Record<string, any>;
+    };
+    modes?: Array<{ value: string; title: string }>;
+    providers?: AskProviderConfigItem[];
+  }
   interface TTSProviderConfig {
     name: string;
     label: string;
@@ -802,6 +864,9 @@ export default function ShifuSettingDialog({
   const [ttsConfig, setTtsConfig] = useState<{
     providers: TTSProviderConfig[];
   } | null>(null);
+  const [askConfigMeta, setAskConfigMeta] = useState<AskConfigMetadata | null>(
+    null,
+  );
   const normalizeTtsProviders = useCallback(
     (providers?: TTSProviderConfig[] | null): TTSProviderConfig[] =>
       (providers ?? []).map(provider => ({
@@ -810,19 +875,36 @@ export default function ShifuSettingDialog({
       })),
     [],
   );
+  const normalizeAskProviders = useCallback(
+    (providers?: AskProviderConfigItem[] | null): AskProviderConfigItem[] =>
+      (providers ?? []).map(provider => ({
+        ...provider,
+        provider: (provider.provider || '').toLowerCase(),
+      })),
+    [],
+  );
 
   // Fetch TTS config from backend
   useEffect(() => {
-    const fetchTtsConfig = async () => {
+    const fetchConfig = async () => {
       try {
-        const config = await api.ttsConfig({});
-        setTtsConfig({ providers: normalizeTtsProviders(config?.providers) });
+        const [ttsConfigResponse, askConfigResponse] = await Promise.all([
+          api.ttsConfig({}),
+          api.askConfig({}),
+        ]);
+        setTtsConfig({
+          providers: normalizeTtsProviders(ttsConfigResponse?.providers),
+        });
+        setAskConfigMeta({
+          ...askConfigResponse,
+          providers: normalizeAskProviders(askConfigResponse?.providers),
+        });
       } catch (error) {
-        console.error('Failed to fetch TTS config:', error);
+        console.error('Failed to fetch config:', error);
       }
     };
-    fetchTtsConfig();
-  }, [normalizeTtsProviders]);
+    fetchConfig();
+  }, [normalizeAskProviders, normalizeTtsProviders]);
 
   const resolvedProvider = (() => {
     const provider = (ttsProvider || '').trim();
@@ -907,6 +989,120 @@ export default function ShifuSettingDialog({
       setTtsPitchInput(String(Math.round(ttsPitch)));
     }
   }, [ttsSpeed, ttsPitch]);
+
+  const askProviderOptions =
+    askConfigMeta?.providers?.map(item => ({
+      value: item.provider,
+      label: item.title || item.provider,
+    })) || [];
+  const resolvedAskProvider = (() => {
+    const provider = (askProvider || '').trim().toLowerCase();
+    if (!provider) {
+      return askConfigMeta?.providers?.[0]?.provider || ASK_PROVIDER_LLM;
+    }
+    if (askConfigMeta?.providers?.length) {
+      const exists = askConfigMeta.providers.some(p => p.provider === provider);
+      return exists
+        ? provider
+        : askConfigMeta.providers[0]?.provider || provider;
+    }
+    return provider;
+  })();
+  const currentAskProviderMeta =
+    askConfigMeta?.providers?.find(
+      item => item.provider === resolvedAskProvider,
+    ) || askConfigMeta?.providers?.[0];
+  const askProviderFieldEntries = useMemo(
+    () => Object.entries(currentAskProviderMeta?.json_schema?.properties || {}),
+    [currentAskProviderMeta],
+  );
+  const askProviderRequiredFields = useMemo(
+    () => new Set(currentAskProviderMeta?.json_schema?.required || []),
+    [currentAskProviderMeta],
+  );
+  const getAskProviderDefaultConfig = useCallback(
+    (provider: string) => {
+      const config =
+        askConfigMeta?.providers?.find(item => item.provider === provider)
+          ?.default_config || {};
+      return config && typeof config === 'object' && !Array.isArray(config)
+        ? { ...config }
+        : {};
+    },
+    [askConfigMeta],
+  );
+  const handleAskProviderChange = useCallback(
+    (value: string) => {
+      setAskProvider(value);
+      setAskProviderConfig(getAskProviderDefaultConfig(value));
+      setAskProviderObjectInputs({});
+    },
+    [getAskProviderDefaultConfig],
+  );
+
+  useEffect(() => {
+    if (!askConfigMeta?.providers?.length) return;
+    const provider = (askProvider || '').trim().toLowerCase();
+    if (
+      provider &&
+      askConfigMeta.providers.some(item => item.provider === provider)
+    ) {
+      return;
+    }
+    const fallbackProvider = askConfigMeta.providers[0].provider;
+    setAskProvider(fallbackProvider);
+    setAskProviderConfig(getAskProviderDefaultConfig(fallbackProvider));
+    setAskProviderObjectInputs({});
+  }, [askConfigMeta, askProvider, getAskProviderDefaultConfig]);
+
+  const normalizeAskTemperature = useCallback((value: number) => {
+    const clamped = Math.min(
+      Math.max(value, ASK_TEMPERATURE_MIN),
+      ASK_TEMPERATURE_MAX,
+    );
+    return Number(clamped.toFixed(1));
+  }, []);
+
+  useEffect(() => {
+    if (askTemperature === null || Number.isNaN(askTemperature)) {
+      setAskTemperatureInput('');
+    } else {
+      setAskTemperatureInput(String(askTemperature));
+    }
+  }, [askTemperature]);
+
+  const buildAskProviderConfigForSubmit = useCallback(() => {
+    try {
+      return buildAskProviderConfigBySchema({
+        schema: currentAskProviderMeta?.json_schema,
+        providerConfig: askProviderConfig as Record<string, unknown>,
+        objectInputs: askProviderObjectInputs,
+      });
+    } catch (error) {
+      if (error instanceof AskProviderSchemaValidationError) {
+        const fieldSchema =
+          currentAskProviderMeta?.json_schema?.properties?.[error.field];
+        const fieldLabel = String(fieldSchema?.title || error.field);
+
+        if (error.code === 'required') {
+          throw new Error(
+            t('module.shifuSetting.askProviderConfigRequired', {
+              field: fieldLabel,
+            }),
+          );
+        }
+
+        throw new Error(
+          t('module.shifuSetting.askProviderConfigInvalidJson', {
+            field: fieldLabel,
+          }),
+        );
+      }
+
+      throw error;
+    }
+  }, [askProviderConfig, askProviderObjectInputs, currentAskProviderMeta, t]);
+
   const clampTemperature = useCallback((value: number) => {
     return Math.min(Math.max(value, 0), 2);
   }, []);
@@ -1131,6 +1327,15 @@ export default function ShifuSettingDialog({
       try {
         const providerForSubmit =
           resolvedProvider || ttsConfig?.providers?.[0]?.name || '';
+        const askProviderForSubmit =
+          resolvedAskProvider ||
+          askConfigMeta?.default?.provider ||
+          ASK_PROVIDER_LLM;
+        const askModeForSubmit = ASK_PROVIDER_MODE_PROVIDER_ONLY;
+        const askTemperatureForSubmit = normalizeAskTemperature(
+          Number(askTemperatureInput || askTemperature || 0),
+        );
+        const askConfigForSubmit = buildAskProviderConfigForSubmit();
 
         if (ttsEnabled && !providerForSubmit) {
           if (!ttsProviderToastShownRef.current && saveType === 'manual') {
@@ -1154,6 +1359,15 @@ export default function ShifuSettingDialog({
           avatar: uploadedImageUrl,
           temperature: Number(data.temperature),
           system_prompt: data.systemPrompt,
+          ask_enabled_status: ASK_MODE_ENABLE,
+          ask_model: askModel,
+          ask_temperature: askTemperatureForSubmit,
+          ask_system_prompt: '',
+          ask_provider_config: {
+            provider: askProviderForSubmit,
+            mode: askModeForSubmit,
+            config: askConfigForSubmit,
+          },
           // TTS Configuration
           tts_enabled: ttsEnabled,
           tts_provider: providerForSubmit,
@@ -1178,7 +1392,13 @@ export default function ShifuSettingDialog({
         if (needClose) {
           setOpen(false);
         }
-      } catch {
+      } catch (error) {
+        if (!currentShifu?.readonly && error instanceof Error) {
+          toast({
+            title: error.message || t('common.core.unknownError'),
+            variant: 'destructive',
+          });
+        }
         if (currentShifu?.readonly) {
           setOpen(false);
         }
@@ -1200,6 +1420,13 @@ export default function ShifuSettingDialog({
       pitchValue,
       ttsEmotion,
       useLearnerLanguage,
+      askConfigMeta,
+      askModel,
+      askTemperature,
+      askTemperatureInput,
+      buildAskProviderConfigForSubmit,
+      normalizeAskTemperature,
+      resolvedAskProvider,
       toast,
       t,
     ],
@@ -1224,6 +1451,32 @@ export default function ShifuSettingDialog({
         temperature: result.temperature + '',
         systemPrompt: result.system_prompt || '',
       });
+      const rawAskProviderConfig =
+        result.ask_provider_config &&
+        typeof result.ask_provider_config === 'object' &&
+        !Array.isArray(result.ask_provider_config)
+          ? result.ask_provider_config
+          : {};
+      const rawAskProviderInnerConfig =
+        rawAskProviderConfig.config &&
+        typeof rawAskProviderConfig.config === 'object' &&
+        !Array.isArray(rawAskProviderConfig.config)
+          ? rawAskProviderConfig.config
+          : {};
+      setAskModel(result.ask_model || '');
+      setAskTemperature(result.ask_temperature ?? ASK_TEMPERATURE_MIN);
+      setAskTemperatureInput(
+        String(result.ask_temperature ?? ASK_TEMPERATURE_MIN),
+      );
+      setAskProvider(
+        (rawAskProviderConfig.provider || ASK_PROVIDER_LLM).toLowerCase(),
+      );
+      setAskProviderConfig(rawAskProviderInnerConfig);
+      setAskProviderObjectInputs({});
+      setAskPreviewLoading(false);
+      setAskPreviewQuery('');
+      setAskPreviewResult('');
+      setAskPreviewMeta(null);
       setKeywords(result.keywords || []);
       setUploadedImageUrl(result.avatar || '');
       // Set TTS Configuration
@@ -1449,6 +1702,99 @@ export default function ShifuSettingDialog({
       shouldValidate: true,
     });
   };
+
+  const adjustAskTemperature = (delta: number) => {
+    const currentValue = Number(askTemperatureInput || askTemperature || 0);
+    const safeValue = Number.isNaN(currentValue) ? 0 : currentValue;
+    const nextValue = normalizeAskTemperature(
+      parseFloat((safeValue + delta).toFixed(1)),
+    );
+    setAskTemperature(nextValue);
+    setAskTemperatureInput(String(nextValue));
+  };
+
+  const handleAskPreview = useCallback(async () => {
+    if (currentShifu?.readonly || askPreviewLoading) {
+      return;
+    }
+    const query = askPreviewQuery.trim();
+    if (!query) {
+      toast({
+        title: t('module.shifuSetting.askPreviewQuestionRequired'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    let askConfigForSubmit: Record<string, unknown> = {};
+    try {
+      askConfigForSubmit = buildAskProviderConfigForSubmit();
+    } catch (error) {
+      toast({
+        title:
+          error instanceof Error
+            ? error.message
+            : t('common.core.unknownError'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const askProviderForSubmit =
+      resolvedAskProvider ||
+      askConfigMeta?.default?.provider ||
+      ASK_PROVIDER_LLM;
+    const askModeForSubmit = ASK_PROVIDER_MODE_PROVIDER_ONLY;
+    const askTemperatureForSubmit = normalizeAskTemperature(
+      Number(askTemperatureInput || askTemperature || 0),
+    );
+
+    setAskPreviewLoading(true);
+    try {
+      const response = (await api.askPreview({
+        query,
+        ask_model: askModel,
+        ask_temperature: askTemperatureForSubmit,
+        ask_system_prompt: '',
+        ask_provider_config: {
+          provider: askProviderForSubmit,
+          mode: askModeForSubmit,
+          config: askConfigForSubmit,
+        },
+      })) as {
+        answer?: string;
+        provider?: string;
+        requested_provider?: string;
+        fallback_used?: boolean;
+      };
+
+      const answer = String(response?.answer || '').trim();
+      setAskPreviewResult(answer);
+      setAskPreviewMeta({
+        provider: String(response?.provider || ''),
+        requestedProvider: String(response?.requested_provider || ''),
+        fallbackUsed: Boolean(response?.fallback_used),
+      });
+    } catch {
+      setAskPreviewResult('');
+      setAskPreviewMeta(null);
+    } finally {
+      setAskPreviewLoading(false);
+    }
+  }, [
+    askConfigMeta?.default?.provider,
+    askModel,
+    askPreviewLoading,
+    askPreviewQuery,
+    askTemperature,
+    askTemperatureInput,
+    buildAskProviderConfigForSubmit,
+    currentShifu?.readonly,
+    normalizeAskTemperature,
+    resolvedAskProvider,
+    t,
+    toast,
+  ]);
 
   const permissionLabelMap = useMemo(() => {
     return permissionOptions.reduce<Record<string, string>>((map, option) => {
@@ -2298,6 +2644,34 @@ export default function ShifuSettingDialog({
                       <FormMessage />
                     </FormItem>
                   )}
+                />
+
+                <AskSettingsSection
+                  readonly={currentShifu?.readonly}
+                  askProviderOptions={askProviderOptions}
+                  resolvedAskProvider={resolvedAskProvider}
+                  askProviderLlmValue={ASK_PROVIDER_LLM}
+                  askModel={askModel}
+                  onAskModelChange={setAskModel}
+                  askTemperature={askTemperature}
+                  askTemperatureInput={askTemperatureInput}
+                  setAskTemperature={setAskTemperature}
+                  setAskTemperatureInput={setAskTemperatureInput}
+                  normalizeAskTemperature={normalizeAskTemperature}
+                  adjustAskTemperature={adjustAskTemperature}
+                  onAskProviderChange={handleAskProviderChange}
+                  askProviderFieldEntries={askProviderFieldEntries}
+                  askProviderRequiredFields={askProviderRequiredFields}
+                  askProviderConfig={askProviderConfig}
+                  setAskProviderConfig={setAskProviderConfig}
+                  askProviderObjectInputs={askProviderObjectInputs}
+                  setAskProviderObjectInputs={setAskProviderObjectInputs}
+                  askPreviewLoading={askPreviewLoading}
+                  askPreviewQuery={askPreviewQuery}
+                  setAskPreviewQuery={setAskPreviewQuery}
+                  handleAskPreview={handleAskPreview}
+                  askPreviewMeta={askPreviewMeta}
+                  askPreviewResult={askPreviewResult}
                 />
 
                 {/* Language Output Configuration Section */}

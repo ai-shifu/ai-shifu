@@ -10,7 +10,11 @@ import { useTranslation } from 'react-i18next';
 
 import { useShallow } from 'zustand/react/shallow';
 
-import { inWechat, wechatLogin } from '@/c-constants/uiConstants';
+import {
+  inWechat,
+  inMiniProgram,
+  wechatLogin,
+} from '@/c-constants/uiConstants';
 import { getCourseInfo } from '@/c-api/course';
 import { tracking } from '@/c-common/tools/tracking';
 import {
@@ -111,7 +115,7 @@ export default function ChatLayout({
     if (!envDataInitialized) return;
     const wxcodeEnabled =
       typeof enableWxcode === 'string' && enableWxcode.toLowerCase() === 'true';
-    if (!wxcodeEnabled || !inWechat()) {
+    if (!wxcodeEnabled || !inWechat() || inMiniProgram()) {
       setCheckWxcode(true);
       return;
     }
