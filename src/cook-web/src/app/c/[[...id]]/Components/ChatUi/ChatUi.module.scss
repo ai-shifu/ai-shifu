@@ -169,13 +169,15 @@
 
   &.mobile.listenMode {
     display: flex;
-    height: 100%;
+    flex: 1 1 0;
+    height: calc(100dvh - 76px);
+    max-height: calc(100dvh - 76px);
     min-height: 0;
     flex-direction: column;
     overflow: visible;
 
     .chatComponents {
-      height: auto;
+      height: 100%;
       min-height: 0;
       flex: 1 1 auto;
     }
