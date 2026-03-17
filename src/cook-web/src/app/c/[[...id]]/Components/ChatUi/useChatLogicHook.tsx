@@ -778,6 +778,12 @@ function useChatLogicHook({
       }
 
       let isEnd = false;
+      let hasReceivedSseMessage = false;
+      const clearLoadingPlaceholder = () => {
+        setTrackedContentList(prev =>
+          prev.filter(item => item.generated_block_bid !== 'loading'),
+        );
+      };
 
       const source = getRunMessage(
         shifuBid,
@@ -785,6 +791,7 @@ function useChatLogicHook({
         effectivePreviewMode,
         { ...sseParams, listen: isListenMode },
         async response => {
+          hasReceivedSseMessage = true;
           if (
             sseRef.current !== source ||
             runSerial !== sseRunSerialRef.current
@@ -1097,6 +1104,16 @@ function useChatLogicHook({
             console.warn('SSE handling error:', error);
           }
         },
+        () => {
+          const isActiveSource =
+            sseRef.current === source && runSerial === sseRunSerialRef.current;
+          if (!isActiveSource) {
+            return;
+          }
+          clearLoadingPlaceholder();
+          isStreamingRef.current = false;
+          sseRef.current = null;
+        },
       );
       sseRef.current = source;
       // console.log('[音频中断排查][SSE] sseRef.current 指向新流实例', {
@@ -1127,6 +1144,9 @@ function useChatLogicHook({
           //   isActiveSource,
           // });
           if (isActiveSource) {
+            if (!hasReceivedSseMessage) {
+              clearLoadingPlaceholder();
+            }
             isStreamingRef.current = false;
             sseRef.current = null;
           }
@@ -1144,9 +1164,7 @@ function useChatLogicHook({
         if (!isActiveSource) {
           return;
         }
-        setTrackedContentList(prev => {
-          return prev.filter(item => item.generated_block_bid !== 'loading');
-        });
+        clearLoadingPlaceholder();
         isStreamingRef.current = false;
         sseRef.current = null;
       });
@@ -1655,7 +1673,7 @@ function useChatLogicHook({
    * onSend processes user interactions and continues streaming responses.
    */
   const processSend = useCallback(
-    (
+    async (
       content: OnSendContentParams,
       blockBid: string,
       options?: { skipConfirm?: boolean },
@@ -1800,6 +1818,16 @@ function useChatLogicHook({
         return;
       }
 
+      const runningRes = await checkIsRunning(shifuBid, outlineBid).catch(
+        () => {
+          return null;
+        },
+      );
+      if (runningRes?.is_running) {
+        showOutputInProgressToast();
+        return;
+      }
+
       let isReGenerate = false;
       const currentList = contentListRef.current;
       if (currentList.length > 0) {
@@ -1885,7 +1913,7 @@ function useChatLogicHook({
 
   const onSend = useCallback(
     (content: OnSendContentParams, blockBid: string) => {
-      processSend(content, blockBid);
+      void processSend(content, blockBid);
     },
     [processSend],
   );
@@ -1895,7 +1923,7 @@ function useChatLogicHook({
       setShowRegenerateConfirm(false);
       return;
     }
-    processSend(pendingRegenerate.content, pendingRegenerate.blockBid, {
+    void processSend(pendingRegenerate.content, pendingRegenerate.blockBid, {
       skipConfirm: true,
     });
     setPendingRegenerate(null);
@@ -2178,7 +2206,7 @@ function useChatLogicHook({
       if (!blockBid) {
         return;
       }
-      processSend(
+      void processSend(
         {
           variableName: LESSON_FEEDBACK_VARIABLE_NAME,
           buttonText: String(score),
