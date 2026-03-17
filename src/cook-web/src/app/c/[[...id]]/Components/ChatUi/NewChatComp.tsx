@@ -28,6 +28,7 @@ import AskBlock from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
 import ListenModeRenderer from './ListenModeRenderer';
+import ListenModeSlideRenderer from './ListenModeSlideRenderer';
 import LessonFeedbackInteraction from './LessonFeedbackInteraction';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import {
@@ -577,19 +578,35 @@ export const NewChatComponents = ({
               <Loader2 className='animate-spin size-6 text-primary' />
             </div>
           ) : (
-            <ListenModeRenderer
-              items={listenModeItems}
-              mobileStyle={mobileStyle}
-              chatRef={chatRef as React.RefObject<HTMLDivElement>}
-              isLoading={isLoading}
-              sectionTitle={lessonTitle}
-              lessonId={lessonId}
-              lessonStatus={lessonStatus}
-              previewMode={previewMode}
-              onRequestAudioForBlock={requestAudioForBlock}
-              onSend={memoizedOnSend}
-              onPlayerVisibilityChange={onListenPlayerVisibilityChange}
-            />
+            previewMode ? (
+              <ListenModeRenderer
+                items={listenModeItems}
+                mobileStyle={mobileStyle}
+                chatRef={chatRef as React.RefObject<HTMLDivElement>}
+                isLoading={isLoading}
+                sectionTitle={lessonTitle}
+                lessonId={lessonId}
+                lessonStatus={lessonStatus}
+                previewMode={previewMode}
+                onRequestAudioForBlock={requestAudioForBlock}
+                onSend={memoizedOnSend}
+                onPlayerVisibilityChange={onListenPlayerVisibilityChange}
+              />
+            ) : (
+              <ListenModeSlideRenderer
+                items={listenModeItems}
+                mobileStyle={mobileStyle}
+                chatRef={chatRef as React.RefObject<HTMLDivElement>}
+                isLoading={isLoading}
+                sectionTitle={lessonTitle}
+                lessonId={lessonId}
+                lessonStatus={lessonStatus}
+                previewMode={previewMode}
+                onRequestAudioForBlock={requestAudioForBlock}
+                onSend={memoizedOnSend}
+                onPlayerVisibilityChange={onListenPlayerVisibilityChange}
+              />
+            )
           )
         ) : (
           <div

@@ -16,9 +16,13 @@ import type { AudioPlayerHandle } from '@/components/audio/AudioPlayer';
 import {
   hasAudioContentInTracks,
   type AudioSegment,
-  type AudioTrack,
 } from '@/c-utils/audio-utils';
 import { LESSON_FEEDBACK_INTERACTION_MARKER } from '@/c-api/studyV2';
+import {
+  buildSlidePageMapping,
+  normalizeAudioTracks,
+  sortSegmentsByIndex,
+} from './listenModeUtils';
 
 export type AudioInteractionItem = ChatContentItem & {
   page: number;
@@ -52,14 +56,6 @@ export const resolveListenAudioSourceBid = (bid: string | null) => {
   return bid.slice(0, hit) || null;
 };
 
-const sortByPosition = <T extends { position?: number }>(list: T[] = []) =>
-  [...list].sort((a, b) => Number(a.position ?? 0) - Number(b.position ?? 0));
-
-const sortSegmentsByIndex = (segments: AudioSegment[] = []) =>
-  [...segments].sort(
-    (a, b) => Number(a.segmentIndex ?? 0) - Number(b.segmentIndex ?? 0),
-  );
-
 export const isLessonFeedbackInteractionItem = (
   item?: ChatContentItem | null,
 ) =>
@@ -67,122 +63,6 @@ export const isLessonFeedbackInteractionItem = (
     item?.type === ChatContentItemType.INTERACTION &&
     item.content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER),
   );
-
-const normalizeAudioTracks = (item: ChatContentItem): AudioTrack[] => {
-  const trackByPosition = new Map<number, AudioTrack>();
-
-  (item.audioTracks ?? []).forEach(track => {
-    const position = Number(track.position ?? 0);
-    trackByPosition.set(position, {
-      ...track,
-      position,
-      audioSegments: sortSegmentsByIndex(track.audioSegments ?? []),
-    });
-  });
-
-  return sortByPosition(Array.from(trackByPosition.values()));
-};
-
-const buildSlidePageMapping = (
-  item: ChatContentItem,
-  pageIndices: number[],
-  fallbackPage: number,
-) => {
-  const blockSlides = [...(item.listenSlides ?? [])]
-    .filter(slide => slide.generated_block_bid === item.generated_block_bid)
-    .sort(
-      (a, b) =>
-        Number(a.slide_index ?? 0) - Number(b.slide_index ?? 0) ||
-        Number(a.audio_position ?? 0) - Number(b.audio_position ?? 0),
-    );
-  const pageBySlideId = new Map<string, number>();
-  const pageByAudioPosition = new Map<number, number>();
-  const realSlides = blockSlides.filter(slide => !slide.is_placeholder);
-
-  if (pageIndices.length > 0 && realSlides.length > 0) {
-    realSlides.forEach((slide, index) => {
-      const page = pageIndices[Math.min(index, pageIndices.length - 1)];
-      pageBySlideId.set(slide.slide_id, page);
-    });
-  }
-
-  blockSlides.forEach((slide, index) => {
-    if (pageBySlideId.has(slide.slide_id)) {
-      return;
-    }
-
-    const samePositionSlide = realSlides.find(
-      candidate =>
-        Number(candidate.audio_position ?? 0) ===
-          Number(slide.audio_position ?? 0) &&
-        pageBySlideId.has(candidate.slide_id),
-    );
-    if (samePositionSlide) {
-      pageBySlideId.set(
-        slide.slide_id,
-        pageBySlideId.get(samePositionSlide.slide_id)!,
-      );
-      return;
-    }
-
-    for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
-      const previous = blockSlides[cursor];
-      const previousPage = pageBySlideId.get(previous.slide_id);
-      if (previousPage !== undefined) {
-        pageBySlideId.set(slide.slide_id, previousPage);
-        return;
-      }
-    }
-
-    const firstPage = pageIndices[0];
-    if (firstPage !== undefined) {
-      pageBySlideId.set(slide.slide_id, firstPage);
-      return;
-    }
-
-    pageBySlideId.set(slide.slide_id, fallbackPage);
-  });
-
-  blockSlides.forEach(slide => {
-    const page = pageBySlideId.get(slide.slide_id);
-    if (page === undefined) {
-      return;
-    }
-    const position = Number(slide.audio_position ?? 0);
-    const hasCurrent = pageByAudioPosition.has(position);
-    if (!hasCurrent || !slide.is_placeholder) {
-      pageByAudioPosition.set(position, page);
-    }
-  });
-
-  const resolvePageByPosition = (position: number) => {
-    if (pageByAudioPosition.has(position)) {
-      return pageByAudioPosition.get(position)!;
-    }
-    const orderedPositions = [...pageByAudioPosition.keys()].sort(
-      (a, b) => a - b,
-    );
-    let nearestLower: number | null = null;
-    orderedPositions.forEach(candidate => {
-      if (candidate <= position) {
-        nearestLower = candidate;
-      }
-    });
-    if (nearestLower !== null) {
-      return pageByAudioPosition.get(nearestLower)!;
-    }
-    if (pageIndices.length > 0) {
-      return pageIndices[0];
-    }
-    return fallbackPage;
-  };
-
-  return {
-    blockSlides,
-    pageBySlideId,
-    resolvePageByPosition,
-  };
-};
 
 export const useListenContentData = (items: ChatContentItem[]) => {
   const orderedContentBlockBids = useMemo(() => {
