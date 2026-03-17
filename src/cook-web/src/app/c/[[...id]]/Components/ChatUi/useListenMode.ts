@@ -240,6 +240,32 @@ export const useListenContentData = (items: ChatContentItem[]) => {
           const { pageBySlideId, resolvePageByPosition } =
             buildSlidePageMapping(item, pageIndices, fallbackPage);
 
+          if (
+            tracks.length === 0 &&
+            item.generated_block_bid &&
+            item.generated_block_bid !== 'loading'
+          ) {
+            const defaultPosition = 0;
+            const sequenceBid = buildListenAudioSequenceBid(
+              item.generated_block_bid,
+              defaultPosition,
+            );
+            nextAudioAndInteractionList.push({
+              ...item,
+              generated_block_bid: sequenceBid,
+              sourceGeneratedBlockBid: item.generated_block_bid,
+              page: resolvePageByPosition(defaultPosition),
+              sequenceKind: 'audio',
+              audioPosition: defaultPosition,
+              listenSlideId: undefined,
+              audioUrl: undefined,
+              audioDurationMs: undefined,
+              isAudioStreaming: Boolean(item.isAudioStreaming),
+              audioSegments: [],
+              audioTracks: [],
+            });
+          }
+
           tracks.forEach(track => {
             const position = Number(track.position ?? 0);
             const page =
