@@ -51,6 +51,11 @@ export const inWechat = () => {
   return isWeixin;
 };
 
+export const inMiniProgram = () => {
+  if (typeof navigator === 'undefined') return false;
+  return /miniprogram/i.test(navigator.userAgent);
+};
+
 // Redirect to the WeChat login flow
 export const wechatLogin = ({
   appId,
