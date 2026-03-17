@@ -778,6 +778,12 @@ function useChatLogicHook({
       }
 
       let isEnd = false;
+      let hasReceivedSseMessage = false;
+      const clearLoadingPlaceholder = () => {
+        setTrackedContentList(prev =>
+          prev.filter(item => item.generated_block_bid !== 'loading'),
+        );
+      };
 
       const source = getRunMessage(
         shifuBid,
@@ -797,6 +803,9 @@ function useChatLogicHook({
             //   generatedBlockBid: response?.generated_block_bid ?? null,
             // });
             return;
+          }
+          if (response?.type !== SSE_OUTPUT_TYPE.HEARTBEAT) {
+            hasReceivedSseMessage = true;
           }
           // if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
           //   if (!isEnd) {
@@ -1097,6 +1106,17 @@ function useChatLogicHook({
             console.warn('SSE handling error:', error);
           }
         },
+        () => {
+          const isLatestRun = runSerial === sseRunSerialRef.current;
+          const isCurrentSource =
+            sseRef.current === source || sseRef.current === null;
+          if (!isLatestRun || !isCurrentSource) {
+            return;
+          }
+          clearLoadingPlaceholder();
+          isStreamingRef.current = false;
+          sseRef.current = null;
+        },
       );
       sseRef.current = source;
       // console.log('[音频中断排查][SSE] sseRef.current 指向新流实例', {
@@ -1127,28 +1147,13 @@ function useChatLogicHook({
           //   isActiveSource,
           // });
           if (isActiveSource) {
+            if (!hasReceivedSseMessage) {
+              clearLoadingPlaceholder();
+            }
             isStreamingRef.current = false;
             sseRef.current = null;
           }
         }
-      });
-      source.addEventListener('error', () => {
-        const isActiveSource =
-          sseRef.current === source && runSerial === sseRunSerialRef.current;
-        // console.log('[音频中断排查][SSE] 流发生 error 事件', {
-        //   lessonId,
-        //   outlineBid,
-        //   runSerial,
-        //   isActiveSource,
-        // });
-        if (!isActiveSource) {
-          return;
-        }
-        setTrackedContentList(prev => {
-          return prev.filter(item => item.generated_block_bid !== 'loading');
-        });
-        isStreamingRef.current = false;
-        sseRef.current = null;
       });
     },
     [
@@ -1655,7 +1660,7 @@ function useChatLogicHook({
    * onSend processes user interactions and continues streaming responses.
    */
   const processSend = useCallback(
-    (
+    async (
       content: OnSendContentParams,
       blockBid: string,
       options?: { skipConfirm?: boolean },
@@ -1800,6 +1805,16 @@ function useChatLogicHook({
         return;
       }
 
+      const runningRes = await checkIsRunning(shifuBid, outlineBid).catch(
+        () => {
+          return null;
+        },
+      );
+      if (runningRes?.is_running) {
+        showOutputInProgressToast();
+        return;
+      }
+
       let isReGenerate = false;
       const currentList = contentListRef.current;
       if (currentList.length > 0) {
@@ -1885,7 +1900,7 @@ function useChatLogicHook({
 
   const onSend = useCallback(
     (content: OnSendContentParams, blockBid: string) => {
-      processSend(content, blockBid);
+      void processSend(content, blockBid);
     },
     [processSend],
   );
@@ -1895,7 +1910,7 @@ function useChatLogicHook({
       setShowRegenerateConfirm(false);
       return;
     }
-    processSend(pendingRegenerate.content, pendingRegenerate.blockBid, {
+    void processSend(pendingRegenerate.content, pendingRegenerate.blockBid, {
       skipConfirm: true,
     });
     setPendingRegenerate(null);
@@ -2178,7 +2193,7 @@ function useChatLogicHook({
       if (!blockBid) {
         return;
       }
-      processSend(
+      void processSend(
         {
           variableName: LESSON_FEEDBACK_VARIABLE_NAME,
           buttonText: String(score),

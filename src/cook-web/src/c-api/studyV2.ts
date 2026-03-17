@@ -192,6 +192,7 @@ export const getRunMessage = (
     [key: string]: any;
   },
   onMessage: (data: any) => void,
+  onError?: (error: unknown) => void,
 ) => {
   const token = useUserStore.getState().getToken();
   const payload = { ...body };
@@ -237,6 +238,10 @@ export const getRunMessage = (
   });
 
   source.addEventListener('error', e => {
+    if (onError) {
+      onError(e);
+      return;
+    }
     console.error('[SSE error]', e);
   });
 
