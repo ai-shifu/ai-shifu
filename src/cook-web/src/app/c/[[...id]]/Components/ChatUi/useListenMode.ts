@@ -18,10 +18,7 @@ import {
   type AudioSegment,
   type AudioTrack,
 } from '@/c-utils/audio-utils';
-import {
-  LESSON_FEEDBACK_INTERACTION_MARKER,
-  SYS_INTERACTION_TYPE,
-} from '@/c-api/studyV2';
+import { LESSON_FEEDBACK_INTERACTION_MARKER } from '@/c-api/studyV2';
 
 export type AudioInteractionItem = ChatContentItem & {
   page: number;
@@ -69,12 +66,6 @@ export const isLessonFeedbackInteractionItem = (
   Boolean(
     item?.type === ChatContentItemType.INTERACTION &&
     item.content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER),
-  );
-
-const isNextChapterInteractionItem = (item?: ChatContentItem | null) =>
-  Boolean(
-    item?.type === ChatContentItemType.INTERACTION &&
-    item.content?.includes(SYS_INTERACTION_TYPE.NEXT_CHAPTER),
   );
 
 const normalizeAudioTracks = (item: ChatContentItem): AudioTrack[] => {
@@ -236,14 +227,6 @@ export const useListenContentData = (items: ChatContentItem[]) => {
         );
 
         if (item.type === ChatContentItemType.INTERACTION) {
-          const existingInteraction = mapping.get(interactionPage) ?? null;
-          const shouldSkipNextChapterInteraction =
-            isLessonFeedbackInteractionItem(existingInteraction) &&
-            isNextChapterInteractionItem(item);
-          if (shouldSkipNextChapterInteraction) {
-            return;
-          }
-
           mapping.set(interactionPage, item);
           nextAudioAndInteractionList.push({
             ...item,
@@ -1126,7 +1109,13 @@ export const useListenAudioSequence = ({
         setActiveAudioBid(null);
         activeAudioBidRef.current = null;
         if (isLessonFeedbackInteractionItem(nextItem)) {
-          // Pause sequence here and let the floating feedback popup handle input.
+          // Keep feedback popup behavior, but do not block following CTA interactions
+          // (next/login/pay) from being shown in listen mode.
+          if (index < list.length - 1) {
+            audioSequenceTimerRef.current = setTimeout(() => {
+              playAudioSequenceFromIndex(index + 1);
+            }, 0);
+          }
           return;
         }
         if (index >= list.length - 1) {

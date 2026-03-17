@@ -48,6 +48,7 @@ const PayModal = dynamic(() => import('./Components/Pay/PayModal'), {
   ssr: false,
 });
 
+
 // import LoginModal from './Components/Login/LoginModal';
 
 // the main page of course learning
