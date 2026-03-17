@@ -312,14 +312,17 @@ const ListenModeSlideRenderer = ({
       )}
       ref={chatRef}
     >
-      <Slide
-        className='h-full w-full'
-        elementList={elementList}
-        onPlayerVisibilityChange={onPlayerVisibilityChange}
-        onSend={handleInteractionSend}
-        onStepChange={handleStepChange}
-        showPlayer={!shouldRenderEmptyPpt}
-      />
+      <div className='listen-slide-shell'>
+        <Slide
+          className='h-full w-full listen-slide-root'
+          elementList={elementList}
+          onPlayerVisibilityChange={onPlayerVisibilityChange}
+          onSend={handleInteractionSend}
+          onStepChange={handleStepChange}
+          playerClassName={mobileStyle ? 'listen-slide-player-mobile' : ''}
+          showPlayer={!shouldRenderEmptyPpt}
+        />
+      </div>
     </div>
   );
 };

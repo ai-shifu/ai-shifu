@@ -168,7 +168,17 @@
   }
 
   &.mobile.listenMode {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
     overflow: visible;
+
+    .chatComponents {
+      height: auto;
+      min-height: 0;
+      flex: 1 1 auto;
+    }
 
     &.listenModeWithPlayer {
       .chatComponents {
@@ -188,7 +198,7 @@
 
     height: 100%;
     min-width: 0;
-    min-height: 100vh;
+    min-height: 100dvh;
     background: #fff;
     flex: 1 1 auto;
     justify-content: center;
