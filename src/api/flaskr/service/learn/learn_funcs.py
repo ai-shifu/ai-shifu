@@ -103,7 +103,6 @@ from flaskr.service.learn.lesson_feedback import (
     build_lesson_feedback_interaction_md,
     is_lesson_feedback_interaction,
 )
-from flaskr.service.learn.listen_slide_builder import build_listen_slides_for_block
 from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_TRIAL,
     UNIT_TYPE_VALUE_NORMAL,
@@ -385,7 +384,6 @@ def get_learn_record(
         if not progress_record:
             return LearnRecordDTO(
                 records=[],
-                interaction="",
             )
         app.logger.info(f"progress_record: {progress_record.progress_record_bid}")
         generated_blocks: list[LearnGeneratedBlock] = (
@@ -431,9 +429,6 @@ def get_learn_record(
                 )
 
         records: list[GeneratedBlockDTO] = []
-        slides = []
-        next_slide_index = 0
-        interaction = ""
         BLOCK_TYPE_MAP = {
             BLOCK_TYPE_MDCONTENT_VALUE: BlockType.CONTENT,
             BLOCK_TYPE_MDINTERACTION_VALUE: BlockType.INTERACTION,
@@ -488,40 +483,6 @@ def get_learn_record(
                 and (content or "").strip()
                 else None
             )
-
-            audio_position_to_slide_id: dict[int, str] = {}
-            if av_contract is not None:
-                block_slides, audio_position_to_slide_id = (
-                    build_listen_slides_for_block(
-                        raw_content=content or "",
-                        generated_block_bid=generated_block.generated_block_bid,
-                        av_contract=av_contract,
-                        slide_index_offset=next_slide_index,
-                    )
-                )
-                if block_slides:
-                    slides.extend(block_slides)
-                    next_slide_index = int(block_slides[-1].slide_index or 0) + 1
-
-            if block_audios and audio_position_to_slide_id:
-                enriched_block_audios: list[AudioCompleteDTO] = []
-                for audio in block_audios:
-                    audio_position = int(getattr(audio, "position", 0) or 0)
-                    mapped_slide_id = audio_position_to_slide_id.get(audio_position)
-                    if not mapped_slide_id:
-                        enriched_block_audios.append(audio)
-                        continue
-                    enriched_block_audios.append(
-                        AudioCompleteDTO(
-                            audio_url=audio.audio_url,
-                            audio_bid=audio.audio_bid,
-                            duration_ms=int(audio.duration_ms or 0),
-                            position=audio_position,
-                            slide_id=mapped_slide_id,
-                            av_contract=getattr(audio, "av_contract", None),
-                        )
-                    )
-                block_audios = enriched_block_audios
 
             record = GeneratedBlockDTO(
                 generated_block.generated_block_bid,
@@ -675,8 +636,6 @@ def get_learn_record(
             )
         return LearnRecordDTO(
             records=records,
-            interaction=interaction,
-            slides=slides or None,
         )
 
 

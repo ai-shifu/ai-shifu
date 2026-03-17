@@ -39,8 +39,26 @@ class GeneratedType(Enum):
     # Audio types for TTS
     AUDIO_SEGMENT = "audio_segment"
     AUDIO_COMPLETE = "audio_complete"
-    # Listen-mode slide timeline event
-    NEW_SLIDE = "new_slide"
+
+    def __json__(self):
+        return self.value
+
+
+@register_schema_to_swagger
+class ElementType(Enum):
+    INTERACTION = "interaction"
+    SANDBOX = "sandbox"
+    PICTURE = "picture"
+    VIDEO = "video"
+
+    def __json__(self):
+        return self.value
+
+
+@register_schema_to_swagger
+class ElementChangeType(Enum):
+    RENDER = "render"
+    DIFF = "diff"
 
     def __json__(self):
         return self.value
@@ -289,10 +307,6 @@ class AudioSegmentDTO(BaseModel):
     position: int = Field(
         default=0, description="Audio position within the block (0-based)"
     )
-    slide_id: str | None = Field(
-        default=None,
-        description="Run-local slide identifier that this audio belongs to",
-    )
     av_contract: Dict[str, Any] | None = Field(
         default=None, description="AV boundary contract metadata"
     )
@@ -310,12 +324,10 @@ class AudioSegmentDTO(BaseModel):
         duration_ms: int = 0,
         is_final: bool = False,
         position: int = 0,
-        slide_id: str | None = None,
         av_contract: Dict[str, Any] | None = None,
     ):
         super().__init__(
             position=position,
-            slide_id=slide_id,
             av_contract=av_contract,
             segment_index=segment_index,
             audio_data=audio_data,
@@ -331,8 +343,6 @@ class AudioSegmentDTO(BaseModel):
             "duration_ms": self.duration_ms,
             "is_final": self.is_final,
         }
-        if self.slide_id is not None:
-            ret["slide_id"] = self.slide_id
         if self.av_contract is not None:
             ret["av_contract"] = self.av_contract
         return ret
@@ -403,10 +413,6 @@ class AudioCompleteDTO(BaseModel):
     position: int = Field(
         default=0, description="Audio position within the block (0-based)"
     )
-    slide_id: str | None = Field(
-        default=None,
-        description="Run-local slide identifier that this audio belongs to",
-    )
     av_contract: Dict[str, Any] | None = Field(
         default=None, description="AV boundary contract metadata"
     )
@@ -420,12 +426,10 @@ class AudioCompleteDTO(BaseModel):
         audio_bid: str,
         duration_ms: int,
         position: int = 0,
-        slide_id: str | None = None,
         av_contract: Dict[str, Any] | None = None,
     ):
         super().__init__(
             position=position,
-            slide_id=slide_id,
             av_contract=av_contract,
             audio_url=audio_url,
             audio_bid=audio_bid,
@@ -439,10 +443,179 @@ class AudioCompleteDTO(BaseModel):
             "audio_bid": self.audio_bid,
             "duration_ms": self.duration_ms,
         }
-        if self.slide_id is not None:
-            ret["slide_id"] = self.slide_id
         if self.av_contract is not None:
             ret["av_contract"] = self.av_contract
+        return ret
+
+
+@register_schema_to_swagger
+class ElementVisualDTO(BaseModel):
+    visual_type: str = Field(..., description="Visual payload type", required=False)
+    content: str = Field(..., description="Visual payload content", required=False)
+
+    def __init__(self, visual_type: str, content: str):
+        super().__init__(visual_type=visual_type, content=content)
+
+    def __json__(self):
+        return {"visual_type": self.visual_type, "content": self.content}
+
+
+@register_schema_to_swagger
+class ElementAudioDTO(BaseModel):
+    position: int = Field(
+        default=0, description="Audio position within the element", required=False
+    )
+    audio_url: str = Field(..., description="Audio URL", required=False)
+    audio_bid: str = Field(..., description="Audio business identifier", required=False)
+    duration_ms: int = Field(..., description="Audio duration in ms", required=False)
+
+    def __init__(
+        self,
+        audio_url: str,
+        audio_bid: str,
+        duration_ms: int,
+        position: int = 0,
+    ):
+        super().__init__(
+            position=position,
+            audio_url=audio_url,
+            audio_bid=audio_bid,
+            duration_ms=duration_ms,
+        )
+
+    def __json__(self):
+        return {
+            "position": int(self.position or 0),
+            "audio_url": self.audio_url,
+            "audio_bid": self.audio_bid,
+            "duration_ms": int(self.duration_ms or 0),
+        }
+
+
+@register_schema_to_swagger
+class ElementPayloadDTO(BaseModel):
+    audio: ElementAudioDTO | None = Field(
+        default=None, description="Final merged audio payload"
+    )
+    previous_visuals: List[ElementVisualDTO] = Field(
+        default_factory=list, description="Visual snapshots for the element"
+    )
+    diff_payload: List[Dict[str, Any]] | None = Field(
+        default=None, description="Optional diff payload for incremental updates"
+    )
+
+    def __init__(
+        self,
+        audio: ElementAudioDTO | None = None,
+        previous_visuals: Optional[List[ElementVisualDTO]] = None,
+        diff_payload: List[Dict[str, Any]] | None = None,
+    ):
+        super().__init__(
+            audio=audio,
+            previous_visuals=previous_visuals or [],
+            diff_payload=diff_payload,
+        )
+
+    def __json__(self):
+        ret = {
+            "audio": self.audio.__json__() if self.audio is not None else None,
+            "previous_visuals": [
+                item.__json__() if isinstance(item, BaseModel) else item
+                for item in self.previous_visuals
+            ],
+        }
+        if self.diff_payload is not None:
+            ret["diff_payload"] = self.diff_payload
+        return ret
+
+
+@register_schema_to_swagger
+class ElementDTO(BaseModel):
+    run_session_bid: str | None = Field(
+        default=None, description="Run session business identifier"
+    )
+    run_event_seq: int | None = Field(default=None, description="Run event sequence")
+    event_type: str = Field(default="element", description="Element event type")
+    element_bid: str = Field(..., description="Element business identifier")
+    generated_block_bid: str = Field(
+        default="", description="Source generated block identifier"
+    )
+    element_index: int = Field(..., description="Global element order index")
+    role: str = Field(..., description="Element role")
+    element_type: ElementType = Field(..., description="Element type")
+    element_type_code: int = Field(..., description="Element type code")
+    change_type: ElementChangeType | None = Field(
+        default=None, description="Optional change type"
+    )
+    target_element_bid: str | None = Field(
+        default=None, description="Diff target element identifier"
+    )
+    is_navigable: int = Field(default=1, description="Navigation flag")
+    is_final: int = Field(default=0, description="Final snapshot flag")
+    content_text: str = Field(default="", description="Element text snapshot")
+    payload: ElementPayloadDTO | None = Field(
+        default=None, description="Element payload"
+    )
+
+    def __json__(self):
+        ret = {
+            "event_type": self.event_type,
+            "element_bid": self.element_bid,
+            "generated_block_bid": self.generated_block_bid,
+            "element_index": int(self.element_index or 0),
+            "role": self.role,
+            "element_type": self.element_type.value,
+            "element_type_code": int(self.element_type_code or 0),
+            "is_navigable": int(self.is_navigable or 0),
+            "is_final": int(self.is_final or 0),
+            "content_text": self.content_text or "",
+            "payload": self.payload.__json__() if self.payload is not None else None,
+        }
+        if self.run_session_bid is not None:
+            ret["run_session_bid"] = self.run_session_bid
+        if self.run_event_seq is not None:
+            ret["run_event_seq"] = int(self.run_event_seq)
+        if self.change_type is not None:
+            ret["change_type"] = self.change_type.value
+        if self.target_element_bid:
+            ret["target_element_bid"] = self.target_element_bid
+        return ret
+
+
+@register_schema_to_swagger
+class RunElementSSEMessageDTO(BaseModel):
+    type: str = Field(..., description="Run event type")
+    event_type: str = Field(..., description="Run event type mirror")
+    generated_block_bid: str | None = Field(
+        default=None, description="Source generated block identifier"
+    )
+    run_session_bid: str | None = Field(
+        default=None, description="Run session business identifier"
+    )
+    run_event_seq: int | None = Field(default=None, description="Run event sequence")
+    content: Union[
+        str,
+        ElementDTO,
+        VariableUpdateDTO,
+        OutlineItemUpdateDTO,
+        AudioSegmentDTO,
+        AudioCompleteDTO,
+    ] = Field(..., description="Run event content")
+
+    def __json__(self):
+        ret = {
+            "type": self.type,
+            "event_type": self.event_type,
+            "content": self.content.__json__()
+            if isinstance(self.content, BaseModel)
+            else self.content,
+        }
+        if self.generated_block_bid is not None:
+            ret["generated_block_bid"] = self.generated_block_bid
+        if self.run_session_bid is not None:
+            ret["run_session_bid"] = self.run_session_bid
+        if self.run_event_seq is not None:
+            ret["run_event_seq"] = int(self.run_event_seq)
         return ret
 
 
@@ -459,7 +632,6 @@ class RunMarkdownFlowDTO(BaseModel):
         OutlineItemUpdateDTO,
         AudioSegmentDTO,
         AudioCompleteDTO,
-        NewSlideDTO,
     ] = Field(..., description="generated content", required=True)
 
     def __init__(
@@ -473,7 +645,6 @@ class RunMarkdownFlowDTO(BaseModel):
             OutlineItemUpdateDTO,
             AudioSegmentDTO,
             AudioCompleteDTO,
-            NewSlideDTO,
         ],
     ):
         super().__init__(
@@ -635,7 +806,6 @@ class PreviewSSEMessage(BaseModel):
         | PreviewTextEndSSEData
         | AudioSegmentDTO
         | AudioCompleteDTO
-        | NewSlideDTO
         | str
     )
 
@@ -650,25 +820,48 @@ class LearnRecordDTO(BaseModel):
     records: list[GeneratedBlockDTO] = Field(
         ..., description="generated blocks", required=False
     )
-    interaction: str = Field(..., description="interaction", required=False)
-    slides: Optional[list[NewSlideDTO]] = Field(
-        default=None, description="Listen-mode slide timeline"
-    )
 
     def __init__(
         self,
         records: list[GeneratedBlockDTO],
-        interaction: str,
-        slides: Optional[list[NewSlideDTO]] = None,
     ):
-        super().__init__(records=records, interaction=interaction, slides=slides)
+        super().__init__(records=records)
 
     def __json__(self):
         return {
             "records": self.records,
-            "interaction": self.interaction,
-            **({"slides": self.slides} if self.slides is not None else {}),
         }
+
+
+@register_schema_to_swagger
+class LearnElementRecordDTO(BaseModel):
+    elements: List[ElementDTO] = Field(
+        default_factory=list, description="Listen-mode final element snapshots"
+    )
+    events: Optional[List[RunElementSSEMessageDTO]] = Field(
+        default=None, description="Optional listen-mode event stream replay"
+    )
+
+    def __init__(
+        self,
+        elements: Optional[List[ElementDTO]] = None,
+        events: Optional[List[RunElementSSEMessageDTO]] = None,
+    ):
+        super().__init__(elements=elements or [], events=events)
+
+    def __json__(self):
+        ret = {
+            "elements": [
+                item.__json__() if isinstance(item, BaseModel) else item
+                for item in self.elements
+            ]
+        }
+        if self.events is not None:
+            ret["events"] = [
+                item.__json__() if isinstance(item, BaseModel) else item
+                for item in self.events
+            ]
+        return ret
 
 
 @register_schema_to_swagger

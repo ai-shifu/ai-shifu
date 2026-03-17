@@ -11,13 +11,13 @@ from flaskr.service.common.models import raise_param_error
 from flaskr.service.learn.learn_funcs import (
     get_shifu_info,
     get_outline_item_tree,
-    get_learn_record,
     handle_reaction,
     reset_learn_record,
     get_generated_content,
     stream_generated_block_audio,
     stream_preview_tts_audio,
 )
+from flaskr.service.learn.listen_elements import get_listen_element_record
 from flaskr.service.learn.lesson_feedback import (
     submit_lesson_feedback,
     list_lesson_feedbacks,
@@ -247,7 +247,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     listen:
                         type: boolean
                         required: false
-                        description: Whether to enable streaming TTS during learning (default: false)
+                        description: Whether to enable segmented listen-mode TTS during learning (default: false)
                     reload_generated_block_bid:
                         type: string
                         required: false
@@ -261,7 +261,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                 content:
                     text/event-stream:
                         schema:
-                            $ref: "#/components/schemas/RunMarkdownFlowDTO"
+                            $ref: "#/components/schemas/RunElementSSEMessageDTO"
         """
         user_bid = request.user.user_id
         payload = request.get_json() or {}
@@ -501,6 +501,13 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             - name: outline_bid
               type: string
               required: true
+            - name: preview_mode
+              type: boolean
+              required: false
+            - name: include_non_navigable
+              type: boolean
+              required: false
+              description: include persisted non-navigable events replay
         responses:
             200:
                 description: get learn records of the outline success
@@ -515,17 +522,28 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                                     type: string
                                     description: message
                                 data:
-                                    $ref: "#/components/schemas/LearnRecordDTO"
+                                    $ref: "#/components/schemas/LearnElementRecordDTO"
 
         """
         preview_mode = request.args.get("preview_mode", "False")
+        include_non_navigable = request.args.get("include_non_navigable", "False")
         app.logger.info(
-            f"get learn record, shifu_bid: {shifu_bid}, outline_bid: {outline_bid}, preview_mode: {preview_mode}"
+            f"get learn element record, shifu_bid: {shifu_bid}, outline_bid: {outline_bid}, preview_mode: {preview_mode}"
         )
         preview_mode = True if preview_mode.lower() == "true" else False
+        include_non_navigable = (
+            True if include_non_navigable.lower() == "true" else False
+        )
         user_bid = request.user.user_id
         return make_common_response(
-            get_learn_record(app, shifu_bid, outline_bid, user_bid, preview_mode)
+            get_listen_element_record(
+                app,
+                shifu_bid,
+                outline_bid,
+                user_bid,
+                preview_mode,
+                include_non_navigable=include_non_navigable,
+            )
         )
 
     @app.route(

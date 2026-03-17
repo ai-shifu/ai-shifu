@@ -2492,7 +2492,6 @@ class RunScriptContextV2:
                                     tts_model=validated.model,
                                     slide_index_offset=self._listen_slide_index_cursor,
                                 )
-                                yield from tts_processor.emit_run_start_slide()
                     except Exception as exc:
                         app.logger.warning(
                             "Initialize streaming TTS failed: %s", exc, exc_info=True
@@ -2535,17 +2534,10 @@ class RunScriptContextV2:
                         )
                         return
 
-                    # Cache content until AV validation confirms slide boundaries,
-                    # then emit NEW_SLIDE before the cached content.
+                    # Cache content and flush on visual boundaries to avoid splitting markers.
                     content_cache += chunk_content
                     try:
-                        new_slide_events = []
-                        other_events = []
-                        for event in tts_processor.process_chunk(chunk_content):
-                            if event.type == GeneratedType.NEW_SLIDE:
-                                new_slide_events.append(event)
-                            else:
-                                other_events.append(event)
+                        other_events = list(tts_processor.process_chunk(chunk_content))
                     except Exception as exc:
                         app.logger.warning(
                             "Streaming TTS failed; disable for this block: %s",
@@ -2556,17 +2548,14 @@ class RunScriptContextV2:
                         yield from _flush_content_cache()
                         return
 
-                    if new_slide_events:
-                        yield from new_slide_events
                     has_pending_visual_boundary = bool(
                         getattr(tts_processor, "has_pending_visual_boundary", False)
                     )
                     # Stream-through policy:
-                    # 1) any NEW_SLIDE -> flush immediately (after NEW_SLIDE),
-                    # 2) boundary pending -> keep streaming immediately,
-                    # 3) otherwise keep only a tiny guard tail to avoid emitting
+                    # 1) boundary pending -> flush immediately,
+                    # 2) otherwise keep only a tiny guard tail to avoid emitting
                     #    split visual markers (e.g. `<sv`, `<di`) too early.
-                    if new_slide_events or has_pending_visual_boundary:
+                    if has_pending_visual_boundary:
                         yield from _flush_content_cache()
                     else:
                         yield from _flush_content_cache(keep_tail=12)
