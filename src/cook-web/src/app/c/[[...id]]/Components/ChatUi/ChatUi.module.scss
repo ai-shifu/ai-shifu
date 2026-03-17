@@ -180,17 +180,38 @@
       height: 100%;
       min-height: 0;
       flex: 1 1 auto;
+      padding: 0 !important;
     }
 
     &.listenModeWithPlayer {
       .chatComponents {
-        padding: 0 0 128px 0 !important;
+        :global(
+          .listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__content
+        ) {
+          min-height: calc(100% - 120px);
+        }
+
+        :global(
+          .listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__layer
+        ) {
+          padding-bottom: 120px;
+        }
       }
     }
 
     &.listenModeWithoutPlayer {
       .chatComponents {
-        padding: 0 0 40px 0 !important;
+        :global(
+          .listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__content
+        ) {
+          min-height: calc(100% - 40px);
+        }
+
+        :global(
+          .listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__layer
+        ) {
+          padding-bottom: 40px;
+        }
       }
     }
   }
