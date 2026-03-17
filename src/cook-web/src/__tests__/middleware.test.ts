@@ -38,7 +38,7 @@ describe('middleware', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
-      'https://app.ai-shifu.cn/unsupported-browser.html',
+      'https://app.ai-shifu.cn/unsupported-browser',
     );
   });
 

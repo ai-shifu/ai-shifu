@@ -61,7 +61,7 @@ export function middleware(request: NextRequest) {
   }
 
   const redirectUrl = request.nextUrl.clone();
-  redirectUrl.pathname = '/unsupported-browser.html';
+  redirectUrl.pathname = '/unsupported-browser';
   redirectUrl.search = '';
   return NextResponse.redirect(redirectUrl);
 }
