@@ -238,7 +238,6 @@ export const getRunMessage = (
   });
 
   source.addEventListener('error', e => {
-    console.error('[SSE error]', e);
     onError?.(e);
   });
 
