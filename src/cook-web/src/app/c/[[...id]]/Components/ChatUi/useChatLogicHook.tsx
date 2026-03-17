@@ -1107,9 +1107,10 @@ function useChatLogicHook({
           }
         },
         () => {
-          const isActiveSource =
-            sseRef.current === source && runSerial === sseRunSerialRef.current;
-          if (!isActiveSource) {
+          const isLatestRun = runSerial === sseRunSerialRef.current;
+          const isCurrentSource =
+            sseRef.current === source || sseRef.current === null;
+          if (!isLatestRun || !isCurrentSource) {
             return;
           }
           clearLoadingPlaceholder();
