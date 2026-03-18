@@ -89,8 +89,8 @@ def test_run_script_retries_lock_then_streams(app, monkeypatch):
             "done",
         ]
         assert events[0]["event_type"] == "element"
-        assert events[0]["content"]["is_final"] == 0
-        assert events[1]["content"]["is_final"] == 1
+        assert events[0]["content"]["is_final"] is False
+        assert events[1]["content"]["is_final"] is True
         assert events[1]["content"]["content_text"] == "hello"
         assert events[-1]["type"] == "done"
 

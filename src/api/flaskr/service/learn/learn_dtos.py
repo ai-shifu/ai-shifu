@@ -588,7 +588,7 @@ class ElementDTO(BaseModel):
         default_factory=list, description="Streaming audio segment trail"
     )
     is_navigable: int = Field(default=1, description="Navigation flag")
-    is_final: int = Field(default=0, description="Final snapshot flag")
+    is_final: bool = Field(default=False, description="Final snapshot flag")
     content_text: str = Field(default="", description="Element text snapshot")
     payload: ElementPayloadDTO | None = Field(
         default=None, description="Element payload"
@@ -611,7 +611,7 @@ class ElementDTO(BaseModel):
             "audio_url": self.audio_url or "",
             "audio_segments": self.audio_segments,
             "is_navigable": int(self.is_navigable or 0),
-            "is_final": int(self.is_final or 0),
+            "is_final": bool(self.is_final),
             "content_text": self.content_text or "",
             "payload": self.payload.__json__() if self.payload is not None else None,
         }

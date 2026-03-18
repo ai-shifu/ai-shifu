@@ -403,7 +403,7 @@ def _element_from_row(row: LearnGeneratedElement) -> ElementDTO:
         audio_url=str(getattr(row, "audio_url", "") or ""),
         audio_segments=audio_segments,
         is_navigable=int(row.is_navigable or 0),
-        is_final=int(row.is_final or 0),
+        is_final=bool(row.is_final),
         content_text=row.content_text or "",
         payload=_deserialize_payload(row.payload or ""),
     )
@@ -753,7 +753,7 @@ class ListenElementRunAdapter:
             element_type_code=_element_type_code(ElementType.HTML),
             change_type=ElementChangeType.RENDER,
             is_navigable=1,
-            is_final=0,
+            is_final=False,
             content_text=state.raw_content,
             payload=ElementPayloadDTO(audio=None, previous_visuals=[]),
         )
@@ -977,7 +977,7 @@ class ListenElementRunAdapter:
                     element_type_code=_element_type_code(element_type),
                     change_type=ElementChangeType.RENDER,
                     is_navigable=1,
-                    is_final=1,
+                    is_final=True,
                     content_text=aggregated_text.get(slide.slide_id, ""),
                     payload=payload,
                 )
@@ -996,7 +996,7 @@ class ListenElementRunAdapter:
                 element_type_code=_element_type_code(ElementType.HTML),
                 change_type=ElementChangeType.RENDER,
                 is_navigable=1,
-                is_final=1,
+                is_final=True,
                 content_text=state.raw_content,
                 payload=ElementPayloadDTO(audio=None, previous_visuals=[]),
             )
@@ -1019,7 +1019,7 @@ class ListenElementRunAdapter:
             element_type_code=_element_type_code(ElementType.INTERACTION),
             change_type=ElementChangeType.RENDER,
             is_navigable=0,
-            is_final=1,
+            is_final=True,
             content_text=str(event.content or ""),
             payload=ElementPayloadDTO(audio=None, previous_visuals=[]),
         )
@@ -1097,7 +1097,7 @@ def _interaction_element_from_record(
         element_type_code=_element_type_code(ElementType.INTERACTION),
         change_type=ElementChangeType.RENDER,
         is_navigable=0,
-        is_final=1,
+        is_final=True,
         content_text=content or "",
         payload=ElementPayloadDTO(audio=None, previous_visuals=[]),
     )
@@ -1174,7 +1174,7 @@ def build_listen_elements_from_legacy_record(
                     element_type_code=_element_type_code(element_type),
                     change_type=ElementChangeType.RENDER,
                     is_navigable=1,
-                    is_final=1,
+                    is_final=True,
                     content_text=aggregated_text.get(slide.slide_id, ""),
                     payload=payload,
                 )
@@ -1194,7 +1194,7 @@ def build_listen_elements_from_legacy_record(
                 element_type_code=_element_type_code(ElementType.HTML),
                 change_type=ElementChangeType.RENDER,
                 is_navigable=1,
-                is_final=1,
+                is_final=True,
                 content_text=record.content or "",
                 payload=ElementPayloadDTO(
                     audio=audio_by_position.get(0),

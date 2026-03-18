@@ -212,7 +212,7 @@ def test_get_listen_element_record_returns_latest_elements_and_events(app):
         assert result.events is None
         element = result.elements[0]
         assert element.element_bid == element_bid
-        assert element.is_final == 1
+        assert element.is_final is True
         assert element.content_text == "final"
         assert element.payload is not None
         assert element.payload.audio is not None
@@ -237,7 +237,7 @@ def test_get_listen_element_record_returns_latest_elements_and_events(app):
         ]
         final_event = result_with_events.events[1]
         assert final_event.run_event_seq == 2
-        assert final_event.content.is_final == 1
+        assert final_event.content.is_final is True
         assert isinstance(result_with_events.events[2].content, AudioCompleteDTO)
         assert result_with_events.events[2].content.audio_bid == "audio-listen-001"
         assert isinstance(result_with_events.events[3].content, VariableUpdateDTO)
@@ -660,7 +660,7 @@ def test_backfill_learn_generated_elements_for_progress_persists_clean_elements(
     assert [row.run_event_seq for row in rows] == [1, 2]
     assert [row.content_text for row in rows] == ["Before intro.", "After chart."]
     assert all(row.event_type == "element" for row in rows)
-    assert all(row.is_final == 1 for row in rows)
+    assert all(row.is_final == 1 for row in rows)  # DB model uses int
 
     payload_1 = json.loads(rows[1].payload)
     assert payload_1["audio"]["audio_bid"] == "audio-backfill-1-final"

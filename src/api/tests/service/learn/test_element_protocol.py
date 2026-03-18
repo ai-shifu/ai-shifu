@@ -437,7 +437,7 @@ def test_is_new_false_applies_to_target_element_in_records(app):
     assert len(result.elements) == 1
     assert result.elements[0].element_bid == "el-original"
     assert result.elements[0].content_text == "version 2 patched"
-    assert result.elements[0].is_final == 1
+    assert result.elements[0].is_final is True
 
 
 def test_records_ordered_by_sequence_number(app):
