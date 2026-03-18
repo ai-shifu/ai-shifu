@@ -51,6 +51,12 @@ AV_MD_IMAGE = re.compile(r"!\[[^\]]*\]\([^\)\n]*\)", re.IGNORECASE)
 AV_MD_IMAGE_START = re.compile(r"!\[")
 AV_MD_TABLE_ROW = re.compile(r"^\s*\|.+\|\s*$", re.MULTILINE)
 
+# LaTeX block formulas: $$...$$ (block-level, not inline $...$)
+AV_LATEX_BLOCK = re.compile(r"\$\$[\s\S]+?\$\$")
+
+# H1 title: "# Title" at start of line (single hash only, not ## or deeper)
+AV_TITLE_H1 = re.compile(r"^# [^\n]+$", re.MULTILINE)
+
 # Sandbox / HTML block detection
 AV_SANDBOX_START = re.compile(
     r"<(script|style|link|iframe|html|head|body|meta|title|base"

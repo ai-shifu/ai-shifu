@@ -49,6 +49,7 @@ from flaskr.service.tts.patterns import (
     AV_IFRAME_CLOSE,
     AV_IFRAME_OPEN,
     AV_IMG_TAG,
+    AV_LATEX_BLOCK,
     AV_MD_IMAGE,
     AV_MD_IMAGE_START,
     AV_MD_TABLE_ROW,
@@ -57,12 +58,17 @@ from flaskr.service.tts.patterns import (
     AV_SVG_OPEN,
     AV_TABLE_CLOSE,
     AV_TABLE_OPEN,
+    AV_TITLE_H1,
     AV_VIDEO_CLOSE,
     AV_VIDEO_OPEN,
     FIXED_MARKER_TAIL,
     TAG_NAME_EXTRACT,
 )
+
 from flaskr.util.uuid import generate_id
+
+_AV_LATEX_BLOCK = AV_LATEX_BLOCK
+_AV_TITLE_H1 = AV_TITLE_H1
 
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
@@ -354,10 +360,20 @@ def _find_next_av_boundary(
     fence_start = raw.find("```")
     if fence_start != -1:
         fence_close = raw.find("```", fence_start + 3)
+        # Determine the fenced code block kind from the language tag
+        fence_kind = "fence"
+        lang_line_end = raw.find("\n", fence_start + 3)
+        if lang_line_end == -1:
+            lang_line_end = len(raw)
+        lang_tag = raw[fence_start + 3 : lang_line_end].strip().lower()
+        if lang_tag == "mermaid":
+            fence_kind = "mermaid"
+        elif lang_tag == "diff":
+            fence_kind = "diff"
         if fence_close == -1:
-            candidates.append(("fence", fence_start, len(raw), False))
+            candidates.append((fence_kind, fence_start, len(raw), False))
         else:
-            candidates.append(("fence", fence_start, fence_close + 3, True))
+            candidates.append((fence_kind, fence_start, fence_close + 3, True))
 
     _append_open_close_boundary_candidate(
         candidates=candidates,
@@ -427,6 +443,16 @@ def _find_next_av_boundary(
             raw, sandbox_start
         )
         candidates.append(("sandbox", sandbox_start, sandbox_end, sandbox_complete))
+
+    # LaTeX block formulas: $$...$$
+    latex_match = _find_first_match_outside_fence(raw, _AV_LATEX_BLOCK, fence_ranges)
+    if latex_match is not None:
+        candidates.append(("latex", latex_match.start(), latex_match.end(), True))
+
+    # H1 title: lines starting with "# " (single hash only)
+    title_match = _find_first_match_outside_fence(raw, _AV_TITLE_H1, fence_ranges)
+    if title_match is not None:
+        candidates.append(("title", title_match.start(), title_match.end(), True))
 
     if not candidates:
         return None

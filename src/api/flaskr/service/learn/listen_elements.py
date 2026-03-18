@@ -75,6 +75,7 @@ VISUAL_KIND_TO_ELEMENT_TYPE = {
     "html_table": ElementType.TABLES,
     "md_table": ElementType.TABLES,
     "fence": ElementType.CODE,
+    "diff": ElementType.DIFF,
     "mermaid": ElementType.MERMAID,
     "latex": ElementType.LATEX,
     "title": ElementType.TITLE,
@@ -760,7 +761,9 @@ class ListenElementRunAdapter:
             payload=ElementPayloadDTO(audio=None, previous_visuals=[]),
         )
 
-    def _retire_fallback_element(self, state: BlockState) -> None:
+    def _retire_fallback_element(
+        self, state: BlockState
+    ) -> Generator[RunElementSSEMessageDTO, None, None]:
         if not state.fallback_element_bid:
             return
         (
@@ -776,6 +779,36 @@ class ListenElementRunAdapter:
                 },
                 synchronize_session=False,
             )
+        )
+        # Notify the frontend to remove the retired fallback element.
+        # This is ephemeral (not persisted to DB) since the original row's
+        # status was already set to 0 above.
+        meta = self._load_block_meta(state.generated_block_bid)
+        seq = self._next_seq()
+        retire_element = ElementDTO(
+            event_type="element",
+            element_bid=state.fallback_element_bid,
+            generated_block_bid=state.generated_block_bid,
+            element_index=max(self._max_element_index, 0),
+            role=meta.role,
+            element_type=ElementType.TEXT,
+            element_type_code=_element_type_code(ElementType.TEXT),
+            change_type=ElementChangeType.RENDER,
+            is_new=False,
+            is_renderable=False,
+            is_navigable=0,
+            is_final=True,
+            content_text="",
+            run_session_bid=self.run_session_bid,
+            run_event_seq=seq,
+        )
+        yield RunElementSSEMessageDTO(
+            type="element",
+            event_type="element",
+            generated_block_bid=state.generated_block_bid or None,
+            run_session_bid=self.run_session_bid,
+            run_event_seq=seq,
+            content=retire_element,
         )
 
     def _append_audio_segment_to_element(
@@ -953,7 +986,7 @@ class ListenElementRunAdapter:
                     next_index += 1
 
         if visual_segments:
-            self._retire_fallback_element(state)
+            yield from self._retire_fallback_element(state)
             aggregated_text = _aggregate_segment_text(
                 state.raw_content,
                 state.latest_av_contract,

@@ -396,9 +396,16 @@ def test_listen_element_adapter_retires_fallback_once_visual_element_arrives(app
         assert [item.type for item in streamed] == [
             "element",
             "audio_complete",
-            "element",
+            "element",  # retire notification (is_new=false, is_renderable=false)
+            "element",  # final visual element with correct type
             "break",
         ]
+
+        # Verify the retire notification element
+        retire_evt = streamed[2]
+        assert retire_evt.content.is_new is False
+        assert retire_evt.content.is_renderable is False
+        assert retire_evt.content.is_final is True
 
         active_rows = LearnGeneratedElement.query.filter(
             LearnGeneratedElement.run_session_bid == adapter.run_session_bid,
