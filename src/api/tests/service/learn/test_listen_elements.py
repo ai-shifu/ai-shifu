@@ -410,17 +410,17 @@ def test_listen_element_adapter_retires_fallback_once_visual_element_arrives(app
             row.element_bid for row in active_rows if row.event_type == "element"
         }
 
-        slide_element_bid = next(
+        visual_element_bid = next(
             row.element_bid
             for row in active_rows
             if row.event_type == "element"
             and row.element_bid != f"el_{generated_block_bid}"
         )
-        assert slide_element_bid
+        assert visual_element_bid
         assert f"el_{generated_block_bid}" not in active_element_bids
 
 
-def test_build_listen_elements_from_legacy_record_without_slides(app):
+def test_build_listen_elements_from_legacy_record_without_visuals(app):
     _require_app(app)
 
     from flaskr.service.learn.learn_dtos import (

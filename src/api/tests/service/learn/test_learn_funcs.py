@@ -224,7 +224,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx._input = None
         ctx._last_position = -1
         ctx._listen = False
-        ctx._listen_slide_index_cursor = 0
+        ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
             lambda self, outline_bid: progress, ctx
@@ -359,7 +359,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx._input = {"answer": ["A"]}
         ctx._last_position = -1
         ctx._listen = False
-        ctx._listen_slide_index_cursor = 0
+        ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
             lambda self, outline_bid: progress, ctx
@@ -483,7 +483,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx._input = {"v": ["A"]}
         ctx._last_position = -1
         ctx._listen = False
-        ctx._listen_slide_index_cursor = 0
+        ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
             lambda self, outline_bid: progress, ctx
@@ -603,7 +603,7 @@ class LearnRecordLoadTests(unittest.TestCase):
         ctx._input = {"input": [""]}
         ctx._last_position = -1
         ctx._listen = False
-        ctx._listen_slide_index_cursor = 0
+        ctx._element_index_cursor = 0
         ctx._current_attend = progress
         ctx._get_current_attend = types.MethodType(
             lambda self, outline_bid: progress, ctx

@@ -1076,7 +1076,7 @@ class RunScriptContextV2:
         self.current_outline_item = None
         self._run_type = RunType.INPUT
         self._can_continue = True
-        self._listen_slide_index_cursor = 0
+        self._element_index_cursor = 0
 
         if preview_mode:
             self._outline_model = DraftOutlineItem
@@ -2490,7 +2490,7 @@ class RunScriptContextV2:
                                     max_segment_chars=int(max_segment_chars),
                                     tts_provider=validated.provider,
                                     tts_model=validated.model,
-                                    slide_index_offset=self._listen_slide_index_cursor,
+                                    element_index_offset=self._element_index_cursor,
                                 )
                     except Exception as exc:
                         app.logger.warning(
@@ -2597,9 +2597,9 @@ class RunScriptContextV2:
                 if tts_processor:
                     try:
                         yield from tts_processor.finalize(commit=False)
-                        self._listen_slide_index_cursor = max(
-                            self._listen_slide_index_cursor,
-                            int(getattr(tts_processor, "next_slide_index", 0) or 0),
+                        self._element_index_cursor = max(
+                            self._element_index_cursor,
+                            int(getattr(tts_processor, "next_element_index", 0) or 0),
                         )
                     except Exception as exc:
                         app.logger.warning(

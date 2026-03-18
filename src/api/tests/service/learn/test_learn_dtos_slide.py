@@ -13,7 +13,7 @@ def test_generated_type_excludes_new_slide():
     assert "new_slide" not in {item.value for item in GeneratedType}
 
 
-def test_audio_segment_dto_omits_slide_id_from_payload():
+def test_audio_segment_dto_payload_has_no_legacy_fields():
     dto = AudioSegmentDTO(
         segment_index=0,
         audio_data="ZmFrZS1hdWRpbw==",
@@ -27,7 +27,7 @@ def test_audio_segment_dto_omits_slide_id_from_payload():
     assert "slide_id" not in payload
 
 
-def test_audio_complete_dto_omits_slide_id_from_payload():
+def test_audio_complete_dto_payload_has_no_legacy_fields():
     dto = AudioCompleteDTO(
         audio_url="https://example.com/a.mp3",
         audio_bid="audio-1",
@@ -39,7 +39,7 @@ def test_audio_complete_dto_omits_slide_id_from_payload():
     assert "slide_id" not in payload
 
 
-def test_learn_record_dto_omits_slides_from_payload():
+def test_learn_record_dto_payload_has_no_legacy_fields():
     record = GeneratedBlockDTO(
         generated_block_bid="gen-1",
         content="hello",

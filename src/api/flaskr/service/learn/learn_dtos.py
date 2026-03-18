@@ -363,64 +363,6 @@ class AudioSegmentDTO(BaseModel):
 
 
 @register_schema_to_swagger
-class NewSlideDTO(BaseModel):
-    """DTO for listen-mode slide timeline items."""
-
-    slide_id: str = Field(..., description="Run-local slide identifier")
-    generated_block_bid: str = Field(..., description="Generated block identifier")
-    slide_index: int = Field(..., description="Monotonic index in slide timeline")
-    audio_position: int = Field(
-        default=0, description="Audio position within generated block (0-based)"
-    )
-    visual_kind: str = Field(..., description="Visual boundary kind")
-    segment_type: str = Field(..., description="Renderable segment type")
-    segment_content: str = Field(..., description="Renderable segment content")
-    source_span: List[int] = Field(
-        default_factory=list, description="Source span in raw content [start, end]"
-    )
-    is_placeholder: bool = Field(
-        default=False, description="Whether this slide is a placeholder slide"
-    )
-
-    def __init__(
-        self,
-        slide_id: str,
-        generated_block_bid: str,
-        slide_index: int,
-        audio_position: int = 0,
-        visual_kind: str = "",
-        segment_type: str = "",
-        segment_content: str = "",
-        source_span: Optional[List[int]] = None,
-        is_placeholder: bool = False,
-    ):
-        super().__init__(
-            slide_id=slide_id,
-            generated_block_bid=generated_block_bid,
-            slide_index=slide_index,
-            audio_position=audio_position,
-            visual_kind=visual_kind,
-            segment_type=segment_type,
-            segment_content=segment_content,
-            source_span=source_span or [],
-            is_placeholder=is_placeholder,
-        )
-
-    def __json__(self):
-        return {
-            "slide_id": self.slide_id,
-            "generated_block_bid": self.generated_block_bid,
-            "slide_index": self.slide_index,
-            "audio_position": self.audio_position,
-            "visual_kind": self.visual_kind,
-            "segment_type": self.segment_type,
-            "segment_content": self.segment_content,
-            "source_span": self.source_span,
-            "is_placeholder": self.is_placeholder,
-        }
-
-
-@register_schema_to_swagger
 class AudioCompleteDTO(BaseModel):
     """DTO for completed TTS audio with OSS URL."""
 

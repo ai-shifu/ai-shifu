@@ -276,11 +276,12 @@ def test_av_streaming_tts_processor_never_emits_new_slide_event(app, monkeypatch
     assert "new_slide" not in {event.type.value for event in events}
 
 
-def test_av_streaming_tts_processor_updates_next_slide_index_from_contract(
+def test_av_streaming_tts_processor_updates_next_element_index_from_contract(
     app, monkeypatch
 ):
     _require_app(app)
 
+    from flaskr.service.learn.listen_slide_builder import VisualSegment
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
 
     class _NoopStreamingTTSProcessor:
@@ -297,21 +298,22 @@ def test_av_streaming_tts_processor_updates_next_slide_index_from_contract(
             return
             yield
 
-    class _SlideStub:
-        def __init__(self, index: int):
-            self.slide_index = index
-
-    def _fake_build_listen_slides_for_block(**kwargs):
+    def _fake_build_visual_segments(**kwargs):
         _ = kwargs
-        return [_SlideStub(7)], {1: "slide-1"}
+        seg = VisualSegment(
+            segment_id="seg-1",
+            generated_block_bid="gen-contract-2",
+            element_index=7,
+        )
+        return [seg], {1: "seg-1"}
 
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.StreamingTTSProcessor",
         _NoopStreamingTTSProcessor,
     )
     monkeypatch.setattr(
-        "flaskr.service.tts.streaming_tts.build_listen_slides_for_block",
-        _fake_build_listen_slides_for_block,
+        "flaskr.service.tts.streaming_tts.build_visual_segments_for_block",
+        _fake_build_visual_segments,
     )
 
     processor = AVStreamingTTSProcessor(
@@ -328,4 +330,4 @@ def test_av_streaming_tts_processor_updates_next_slide_index_from_contract(
     list(processor.process_chunk("Only visual <svg><text>v</text></svg>"))
     list(processor.finalize(commit=False))
 
-    assert processor.next_slide_index >= 8
+    assert processor.next_element_index >= 8

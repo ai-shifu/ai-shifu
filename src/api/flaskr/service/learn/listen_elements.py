@@ -24,14 +24,16 @@ from flaskr.service.learn.learn_dtos import (
     LearnElementRecordDTO,
     LearnRecordDTO,
     LearnStatus,
-    NewSlideDTO,
     OutlineItemUpdateDTO,
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
     VariableUpdateDTO,
 )
 from flaskr.service.learn.learn_funcs import get_learn_record
-from flaskr.service.learn.listen_slide_builder import build_listen_slides_for_block
+from flaskr.service.learn.listen_slide_builder import (
+    VisualSegment,
+    build_visual_segments_for_block,
+)
 from flaskr.service.learn.listen_source_span_utils import (
     normalize_source_span,
     slice_source_by_span,
@@ -245,11 +247,11 @@ def _deserialize_payload(raw_payload: str) -> ElementPayloadDTO:
     )
 
 
-def _visuals_from_slide_content(
-    slide: NewSlideDTO, raw_content: str
+def _visuals_from_segment(
+    segment: VisualSegment, raw_content: str
 ) -> list[ElementVisualDTO]:
-    source_span = normalize_source_span(getattr(slide, "source_span", []))
-    visual_kind = str(getattr(slide, "visual_kind", "") or "")
+    source_span = normalize_source_span(segment.source_span)
+    visual_kind = segment.visual_kind or ""
     if not visual_kind:
         return []
     content = slice_source_by_span(raw_content, source_span)
@@ -258,43 +260,43 @@ def _visuals_from_slide_content(
     return [ElementVisualDTO(visual_type=visual_kind, content=content)]
 
 
-def _element_payload_from_slide(
-    slide: NewSlideDTO,
+def _element_payload_from_segment(
+    segment: VisualSegment,
     raw_content: str,
     audio: ElementAudioDTO | None = None,
 ) -> ElementPayloadDTO:
     return ElementPayloadDTO(
         audio=audio,
-        previous_visuals=_visuals_from_slide_content(slide, raw_content),
+        previous_visuals=_visuals_from_segment(segment, raw_content),
     )
 
 
-def _aggregate_slide_text(
+def _aggregate_segment_text(
     raw_content: str,
     av_contract: dict[str, Any] | None,
-    slide_id_by_position: dict[int, str],
+    segment_id_by_position: dict[int, str],
 ) -> dict[str, str]:
     if not raw_content or not isinstance(av_contract, dict):
         return {}
     aggregated: dict[str, list[str]] = {}
-    for segment in av_contract.get("speakable_segments") or []:
-        if not isinstance(segment, dict):
+    for seg in av_contract.get("speakable_segments") or []:
+        if not isinstance(seg, dict):
             continue
         try:
-            position = int(segment.get("position", 0))
+            position = int(seg.get("position", 0))
         except (TypeError, ValueError):
             continue
-        slide_id = slide_id_by_position.get(position)
-        if not slide_id:
+        segment_id = segment_id_by_position.get(position)
+        if not segment_id:
             continue
-        source_span = normalize_source_span(segment.get("source_span"))
+        source_span = normalize_source_span(seg.get("source_span"))
         text = slice_source_by_span(raw_content, source_span).strip()
         if not text:
             continue
-        aggregated.setdefault(slide_id, []).append(text)
+        aggregated.setdefault(segment_id, []).append(text)
     return {
-        slide_id: "\n".join(chunks).strip()
-        for slide_id, chunks in aggregated.items()
+        segment_id: "\n".join(chunks).strip()
+        for segment_id, chunks in aggregated.items()
         if chunks
     }
 
@@ -906,22 +908,22 @@ class ListenElementRunAdapter:
         if state is None:
             return
         meta = self._load_block_meta(generated_block_bid)
-        block_slides: list[NewSlideDTO] = []
+        visual_segments: list[VisualSegment] = []
         if (
             isinstance(state.latest_av_contract, dict)
             and (state.raw_content or "").strip()
         ):
-            block_slides, _audio_position_to_slide = build_listen_slides_for_block(
+            visual_segments, _ = build_visual_segments_for_block(
                 raw_content=state.raw_content or "",
                 generated_block_bid=generated_block_bid,
                 av_contract=state.latest_av_contract,
-                slide_index_offset=max(self._max_element_index + 1, 0),
+                element_index_offset=max(self._max_element_index + 1, 0),
             )
-            if not block_slides:
+            if not visual_segments:
                 visual_boundaries = (
                     state.latest_av_contract.get("visual_boundaries") or []
                 )
-                next_slide_index = max(self._max_element_index + 1, 0)
+                next_index = max(self._max_element_index + 1, 0)
                 for boundary in visual_boundaries:
                     if not isinstance(boundary, dict):
                         continue
@@ -931,11 +933,11 @@ class ListenElementRunAdapter:
                     visual_kind = str(boundary.get("kind", "") or "")
                     if not visual_kind:
                         continue
-                    block_slides.append(
-                        NewSlideDTO(
-                            slide_id=uuid.uuid4().hex,
+                    visual_segments.append(
+                        VisualSegment(
+                            segment_id=uuid.uuid4().hex,
                             generated_block_bid=generated_block_bid,
-                            slide_index=next_slide_index,
+                            element_index=next_index,
                             audio_position=int(boundary.get("position", 0) or 0),
                             visual_kind=visual_kind,
                             segment_type="sandbox"
@@ -948,37 +950,34 @@ class ListenElementRunAdapter:
                             is_placeholder=False,
                         )
                     )
-                    next_slide_index += 1
+                    next_index += 1
 
-        if block_slides:
+        if visual_segments:
             self._retire_fallback_element(state)
-            aggregated_text = _aggregate_slide_text(
+            aggregated_text = _aggregate_segment_text(
                 state.raw_content,
                 state.latest_av_contract,
-                {
-                    int(getattr(slide, "audio_position", 0) or 0): slide.slide_id
-                    for slide in block_slides
-                },
+                {seg.audio_position: seg.segment_id for seg in visual_segments},
             )
-            for slide in block_slides:
-                payload = _element_payload_from_slide(
-                    slide,
+            for seg in visual_segments:
+                payload = _element_payload_from_segment(
+                    seg,
                     state.raw_content,
-                    state.audio_by_position.get(int(slide.audio_position or 0)),
+                    state.audio_by_position.get(seg.audio_position),
                 )
-                element_type = _element_type_for_visual_kind(slide.visual_kind or "")
+                element_type = _element_type_for_visual_kind(seg.visual_kind or "")
                 element = ElementDTO(
                     event_type="element",
-                    element_bid=slide.slide_id,
+                    element_bid=seg.segment_id,
                     generated_block_bid=generated_block_bid,
-                    element_index=int(slide.slide_index or 0),
+                    element_index=seg.element_index,
                     role=meta.role,
                     element_type=element_type,
                     element_type_code=_element_type_code(element_type),
                     change_type=ElementChangeType.RENDER,
                     is_navigable=1,
                     is_final=True,
-                    content_text=aggregated_text.get(slide.slide_id, ""),
+                    content_text=aggregated_text.get(seg.segment_id, ""),
                     payload=payload,
                 )
                 self._max_element_index = max(
@@ -1125,57 +1124,52 @@ def build_listen_elements_from_legacy_record(
             continue
 
         role = "student" if block_type == BlockType.ASK else "teacher"
-        block_slides: list[NewSlideDTO] = []
-        audio_by_slide_id: dict[str, ElementAudioDTO] = {}
+        visual_segments: list[VisualSegment] = []
+        audio_by_segment_id: dict[str, ElementAudioDTO] = {}
         audio_by_position: dict[int, ElementAudioDTO] = {}
         for audio in record.audios or []:
             audio_payload = _make_audio_payload(audio)
             audio_by_position[int(getattr(audio, "position", 0) or 0)] = audio_payload
 
         if isinstance(record.av_contract, dict) and (record.content or "").strip():
-            block_slides, audio_position_to_slide_id = build_listen_slides_for_block(
+            visual_segments, pos_to_seg_id = build_visual_segments_for_block(
                 raw_content=record.content or "",
                 generated_block_bid=record.generated_block_bid,
                 av_contract=record.av_contract,
-                slide_index_offset=max_index + 1,
+                element_index_offset=max_index + 1,
             )
-            for position, slide_id in audio_position_to_slide_id.items():
+            for position, segment_id in pos_to_seg_id.items():
                 audio_payload = audio_by_position.get(int(position or 0))
                 if audio_payload is not None:
-                    audio_by_slide_id.setdefault(slide_id, audio_payload)
+                    audio_by_segment_id.setdefault(segment_id, audio_payload)
 
-        if block_slides:
-            aggregated_text = _aggregate_slide_text(
+        if visual_segments:
+            aggregated_text = _aggregate_segment_text(
                 record.content or "",
                 record.av_contract if isinstance(record.av_contract, dict) else None,
-                {
-                    int(getattr(slide, "audio_position", 0) or 0): slide.slide_id
-                    for slide in block_slides
-                },
+                {seg.audio_position: seg.segment_id for seg in visual_segments},
             )
-            for slide in block_slides:
-                audio = audio_by_slide_id.get(slide.slide_id) or audio_by_position.get(
-                    int(getattr(slide, "audio_position", 0) or 0)
-                )
+            for seg in visual_segments:
+                audio = audio_by_segment_id.get(
+                    seg.segment_id
+                ) or audio_by_position.get(seg.audio_position)
                 payload = ElementPayloadDTO(
                     audio=audio,
-                    previous_visuals=_visuals_from_slide_content(
-                        slide, record.content or ""
-                    ),
+                    previous_visuals=_visuals_from_segment(seg, record.content or ""),
                 )
-                element_type = _element_type_for_visual_kind(slide.visual_kind or "")
+                element_type = _element_type_for_visual_kind(seg.visual_kind or "")
                 element = ElementDTO(
                     event_type="element",
-                    element_bid=slide.slide_id,
+                    element_bid=seg.segment_id,
                     generated_block_bid=record.generated_block_bid,
-                    element_index=int(slide.slide_index or 0),
+                    element_index=seg.element_index,
                     role=role,
                     element_type=element_type,
                     element_type_code=_element_type_code(element_type),
                     change_type=ElementChangeType.RENDER,
                     is_navigable=1,
                     is_final=True,
-                    content_text=aggregated_text.get(slide.slide_id, ""),
+                    content_text=aggregated_text.get(seg.segment_id, ""),
                     payload=payload,
                 )
                 max_index = max(max_index, element.element_index)

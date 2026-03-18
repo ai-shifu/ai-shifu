@@ -47,7 +47,7 @@ from flaskr.service.learn.learn_dtos import (
     AudioSegmentDTO,
     AudioCompleteDTO,
 )
-from flaskr.service.learn.listen_slide_builder import build_listen_slides_for_block
+from flaskr.service.learn.listen_slide_builder import build_visual_segments_for_block
 from flaskr.service.tts.boundary_strategies import find_boundary_end
 from flaskr.service.tts.patterns import (
     SENTENCE_ENDINGS,
@@ -657,7 +657,7 @@ class AVStreamingTTSProcessor:
         tts_provider: str = "",
         tts_model: str = "",
         usage_scene: int = BILL_USAGE_SCENE_PROD,
-        slide_index_offset: int = 0,
+        element_index_offset: int = 0,
     ):
         self.app = app
         self.generated_block_bid = generated_block_bid
@@ -673,14 +673,14 @@ class AVStreamingTTSProcessor:
         self.tts_provider = tts_provider
         self.tts_model = tts_model
         self.usage_scene = usage_scene
-        self.slide_index_offset = int(slide_index_offset or 0)
+        self.element_index_offset = int(element_index_offset or 0)
 
         self._position_cursor = 0
         self._current_processor: Optional[StreamingTTSProcessor] = None
         self._raw_buffer = ""
         self._raw_full_content = ""
         self._av_contract: Optional[Dict[str, Any]] = None
-        self._next_slide_index = self.slide_index_offset
+        self._next_element_index = self.element_index_offset
         self._current_segment_has_speakable_text = False
 
         # When we hit a non-speakable block boundary (e.g. `<svg>`), we may need to
@@ -731,25 +731,25 @@ class AVStreamingTTSProcessor:
             yield event
 
     @property
-    def next_slide_index(self) -> int:
-        return int(self._next_slide_index or self.slide_index_offset)
+    def next_element_index(self) -> int:
+        return int(self._next_element_index or self.element_index_offset)
 
     @property
     def has_pending_visual_boundary(self) -> bool:
         return bool(self._skip_mode)
 
-    def _refresh_next_slide_index_from_contract(self):
-        slides, mapping = build_listen_slides_for_block(
+    def _refresh_next_element_index_from_contract(self):
+        segments, _ = build_visual_segments_for_block(
             raw_content=self._raw_full_content,
             generated_block_bid=self.generated_block_bid,
             av_contract=self._av_contract,
-            slide_index_offset=self.slide_index_offset,
+            element_index_offset=self.element_index_offset,
         )
-        if not slides:
+        if not segments:
             return
-        self._next_slide_index = max(
-            self._next_slide_index,
-            max(int(slide.slide_index or 0) + 1 for slide in slides),
+        self._next_element_index = max(
+            self._next_element_index,
+            max(seg.element_index + 1 for seg in segments),
         )
 
     def _finalize_current(
@@ -792,7 +792,7 @@ class AVStreamingTTSProcessor:
                 self._raw_buffer = self._raw_buffer[skip_end:]
                 self._skip_mode = None
                 if skip_kind in _VISUAL_SKIP_KINDS:
-                    self._next_slide_index += 1
+                    self._next_element_index += 1
                 continue
 
             boundary = self._find_next_boundary(self._raw_buffer)
@@ -822,7 +822,7 @@ class AVStreamingTTSProcessor:
             # Boundary encountered: finalize the current speakable segment.
             yield from self._finalize_current(commit=False)
             if kind in _VISUAL_SLIDE_KINDS and complete and boundary_len > 0:
-                self._next_slide_index += 1
+                self._next_element_index += 1
 
             # Consume the boundary itself.
             self._raw_buffer = remainder
@@ -846,5 +846,5 @@ class AVStreamingTTSProcessor:
 
         yield from self._finalize_current(commit=commit)
 
-        # Refresh cursor from the full contract so next block can continue slide index.
-        self._refresh_next_slide_index_from_contract()
+        # Refresh cursor from the full contract so next block can continue element index.
+        self._refresh_next_element_index_from_contract()
