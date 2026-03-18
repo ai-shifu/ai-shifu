@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 import uuid
 from collections import OrderedDict
 from dataclasses import dataclass, field
@@ -198,23 +197,6 @@ def _role_value_to_name(role_value: Any) -> str:
 def _element_type_for_visual_kind(visual_kind: str) -> ElementType:
     normalized = (visual_kind or "").strip().lower()
     return VISUAL_KIND_TO_ELEMENT_TYPE.get(normalized, ElementType.TEXT)
-
-
-# Lightweight regex patterns used by _infer_element_type_from_content
-_HTML_TAG_RE = re.compile(r"<(?:div|span|p|table|svg|iframe|style)\b", re.IGNORECASE)
-_SVG_TAG_RE = re.compile(r"<svg\b", re.IGNORECASE)
-
-
-def _infer_element_type_from_content(content: str) -> ElementType:
-    """Infer the element type from raw content when no av_contract is available."""
-    text = (content or "").strip()
-    if not text:
-        return ElementType.TEXT
-    if _SVG_TAG_RE.search(text):
-        return ElementType.SVG
-    if _HTML_TAG_RE.search(text):
-        return ElementType.HTML
-    return ElementType.TEXT
 
 
 def _element_type_code(element_type: ElementType) -> int:
@@ -761,15 +743,14 @@ class ListenElementRunAdapter:
                 f"el_{state.generated_block_bid or uuid.uuid4().hex}"
             )
             self._max_element_index += 1
-        etype = _infer_element_type_from_content(state.raw_content)
         return ElementDTO(
             event_type="element",
             element_bid=state.fallback_element_bid,
             generated_block_bid=state.generated_block_bid,
             element_index=max(self._max_element_index, 0),
             role=role,
-            element_type=etype,
-            element_type_code=_element_type_code(etype),
+            element_type=ElementType.TEXT,
+            element_type_code=_element_type_code(ElementType.TEXT),
             change_type=ElementChangeType.RENDER,
             is_navigable=1,
             is_final=False,
@@ -1005,15 +986,14 @@ class ListenElementRunAdapter:
                 )
                 yield self._element_message(element)
         elif state.fallback_element_bid:
-            etype = _infer_element_type_from_content(state.raw_content)
             element = ElementDTO(
                 event_type="element",
                 element_bid=state.fallback_element_bid,
                 generated_block_bid=generated_block_bid,
                 element_index=max(self._max_element_index, 0),
                 role=meta.role,
-                element_type=etype,
-                element_type_code=_element_type_code(etype),
+                element_type=ElementType.TEXT,
+                element_type_code=_element_type_code(ElementType.TEXT),
                 change_type=ElementChangeType.RENDER,
                 is_navigable=1,
                 is_final=True,
@@ -1203,7 +1183,6 @@ def build_listen_elements_from_legacy_record(
             continue
 
         max_index += 1
-        etype = _infer_element_type_from_content(record.content)
         elements.append(
             ElementDTO(
                 event_type="element",
@@ -1211,8 +1190,8 @@ def build_listen_elements_from_legacy_record(
                 generated_block_bid=record.generated_block_bid,
                 element_index=max_index,
                 role=role,
-                element_type=etype,
-                element_type_code=_element_type_code(etype),
+                element_type=ElementType.TEXT,
+                element_type_code=_element_type_code(ElementType.TEXT),
                 change_type=ElementChangeType.RENDER,
                 is_navigable=1,
                 is_final=True,
