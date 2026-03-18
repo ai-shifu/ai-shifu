@@ -1,633 +1,248 @@
-# learn_generated_elements 设计文档（v1.0，2026-03-06）
+# learn_generated_elements 设计文档（v1.1，2026-03-18）
 
-## 1. 目标与范围
+## 1. 范围与目标（仅后端）
 
-本版目标：把 `run/records` 从旧 `new_slide + slides` 协议，切换到统一的 `element` 协议，并给出三套可评审方案。
+本版仅规划后端改造，不包含前端实现计划。
 
-- 范围：`src/api/flaskr/service/learn` 与 `src/cook-web` 听课模式
-- 发布策略：不做兼容，不保留旧协议
-- 评审输出：在 `A-Flat / A-Tree / B` 三选一
+目标：
 
----
-
-## 2. 当前代码现状（As-Is）
-
-### 2.1 run SSE
-
-接口：`PUT /api/learn/shifu/{shifu_bid}/run/{outline_bid}`
-
-当前仍输出旧事件模型（含 `new_slide`），并保留传输层 `heartbeat`。
-
-### 2.2 records
-
-接口：`GET /api/learn/shifu/{shifu_bid}/records/{outline_bid}`
-
-当前返回 `records + interaction + slides`，`slides` 为读时组装。
-
-### 2.3 数据层
-
-已存在：
-- `learn_generated_blocks`
-- `learn_generated_audios`
-
-未落地：
-- `learn_generated_elements`
-- `run_session_bid / run_event_seq / element_index` 的统一持久化链路
-
-### 2.4 前端现状（对照代码）
-
-当前前端主要依赖：
-- `new_slide`
-- `slides`
-- `markdown/sandbox` 主路径
-
-结论：如果后端直接切协议，前端必须同版本同步改造。
+1. 统一 `run` 与 `records` 的 `elements` 协议。
+2. 在 element 层补齐渲染/增量/导航标记/音频合成相关字段。
+3. 将 `type` 产出逻辑收敛到状态机，不再散落在分支中硬编码。
 
 ---
 
-## 3. 三方案共用协议（固定不变）
+## 2. 现状核对（As-Is）
 
-以下内容在三套方案里都一致。
+基于当前代码（`src/api/flaskr/service/learn`）：
 
-### 3.1 run SSE 事件包
+1. `element_type` 仅有 `interaction/sandbox/picture/video`。
+2. `LearnGeneratedElement` 已有 `element_type/change_type/target_element_bid/is_navigable/is_final/content_text/payload`，但没有本次新增字段。
+3. `run` 写链路中：
+   - `audio_segment/audio_complete` 作为非 element 事件落库；
+   - 终态音频合并在 `payload.audio`；
+   - 可选 `payload.diff_payload` 支持。
+4. `records` 读链路默认返回 `elements`，`include_non_navigable=true` 时附带 `events`。
 
-统一事件包：`RunElementSSEMessageDTO`
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `type` | string | `element/audio_segment/audio_complete/variable_update/outline_item_update/break/done/error/heartbeat` |
-| `event_type` | string | 与 `type` 对齐 |
-| `run_session_bid` | string | run 会话 ID（`heartbeat` 可空） |
-| `run_event_seq` | int | run 内递增序号（`heartbeat` 可空） |
-| `content` | object/string | 按 `type` 决定结构 |
-
-规则：
-1. `run_event_seq` 对业务事件严格递增。
-2. `heartbeat` 仅传输保活，不落 element。
-3. 保留 `audio_segment/audio_complete`，但不单独生成 element。
-4. 异常时先 `error` 后 `done`，正常结束最后一条是 `done`。
-
-### 3.2 Element 共用字段
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `element_bid` | string | element 业务 ID |
-| `generated_block_bid` | string? | 旧 block 关联 |
-| `element_index` | int | 导航顺序号 |
-| `role` | string | `teacher/student/ui` |
-| `element_type` | string | 方案相关 |
-| `element_type_code` | int | 方案相关 |
-| `change_type` | string? | 仅方案 B 使用：`render/diff` |
-| `target_element_bid` | string? | diff 目标锚点（A: `element_type=diff`；B: `change_type=diff`） |
-| `is_navigable` | int | `0/1` |
-| `is_final` | int | `0/1` |
-| `content_text` | string? | 文本内容 |
-| `payload` | object? | 结构化内容 |
-
-### 3.3 SSE 部分态语义（关键）
-
-`run` 阶段默认是部分内容：
-
-1. `is_final=0`：部分态，可持续更新。
-2. `is_final=1`：终态，后续不允许再改该稳定锚点。
-3. 前端 run 态必须做 upsert，不得每条都 append。
-
-### 3.4 DIFF 通用定义（三方案共用能力）
-
-DIFF 在三方案里都支持，但表达方式不同：
-
-1. 方案 A-Flat / A-Tree：`element_type=diff`
-2. 方案 B：`change_type=diff`（`element_type` 仍是渲染器类型）
-
-统一约束：
-1. 补丁载荷放在 `payload.diff_payload`（建议 JSON Patch）。
-2. `target_element_bid` 必须可解析到当前稳定锚点。
-3. 前端应用 `diff` 失败时，必须回退到等待下一条全量快照（`render` 或非 diff 全量 event）。
-4. 终态（`is_final=1`）建议带完整可回放快照。
-
-### 3.5 语音与图像合并语义
-
-内容 element 的 `payload` 统一约定：
-- `payload.audio`：`is_final=0` 可为 `null`；终态需完整（若本单元有语音）
-- `payload.previous_visuals`：语音对应的上一组视觉（可空数组）
-
-`audio_segment/audio_complete` 用于流式传输，最终音频信息并入 `payload.audio`。
-
-### 3.6 records 共用外层结构
-
-接口：`GET /api/learn/shifu/{shifu_bid}/records/{outline_bid}`
-
-`data` 统一：
-- `elements`: 默认返回导航 element 终态快照
-- `events`: 仅 `include_non_navigable=true` 返回（含非导航事件与中间态）
-
-### 3.7 接口返回示例（共用）
-
-说明：示例中的 `element_type_code` 仅示意，最终以评审冻结枚举为准。
-
-run SSE（`type=element`）示例：
-
-```json
-{
-  "type": "element",
-  "event_type": "element",
-  "run_session_bid": "run_abc123",
-  "run_event_seq": 12,
-  "content": {
-    "element_bid": "el_001",
-    "element_index": 35,
-    "role": "teacher",
-    "element_type": "picture",
-    "element_type_code": 105,
-    "is_navigable": 1,
-    "is_final": 0,
-    "content_text": "",
-    "payload": {
-      "audio": null,
-      "previous_visuals": [
-        {
-          "visual_type": "img",
-          "content": "https://cdn.example.com/pic-01.png"
-        }
-      ]
-    }
-  }
-}
-```
-
-records 示例（默认 `include_non_navigable=false`）：
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "elements": [
-      {
-        "element_bid": "el_001",
-        "element_index": 35,
-        "role": "teacher",
-        "element_type": "picture",
-        "element_type_code": 105,
-        "is_navigable": 1,
-        "is_final": 1,
-        "content_text": "讲解完成",
-        "payload": {
-          "audio": {
-            "audio_bid": "au_001",
-            "audio_url": "https://...",
-            "duration_ms": 980,
-            "position": 5
-          },
-          "previous_visuals": [
-            {
-              "visual_type": "img",
-              "content": "https://cdn.example.com/pic-01.png"
-            }
-          ]
-        }
-      }
-    ]
-  }
-}
-```
+结论：当前实现已具备 element 化基础，但字段语义和枚举粒度与本次目标不一致。
 
 ---
 
-## 4. 方案 A-Flat（细分视觉类型 + 平铺时间线）
+## 3. 目标协议（To-Be）
 
-### 4.1 方案定义
+## 3.1 element_type（冻结）
 
-`element_type`：
-- `interaction`
-- `svg`
+`element_type` 固定为：
+
 - `html`
-- `video`
-- `picture`
-- `mixed`
+- `svg`
 - `diff`
+- `img`
+- `interaction`
+- `tables`
+- `code`
+- `latex`
+- `md_img`
+- `mermaid`
+- `title`
+- `text`
 
-不使用父子结构，`parent_element_bid` 不出现。
+备注：
 
-### 4.2 与现有 visual_kind 映射
+1. 旧 `sandbox/picture/video` 不再作为对外枚举值。
+2. 当前 `video` 视觉边界在本版映射为 `html`（后端通过 `<video>` 片段归类）。
 
-- `svg` -> `svg`
-- `video` -> `video`
-- `img/md_img` -> `picture`
-- `iframe/sandbox/html_table/md_table` -> `html`
-- 多类型混合或无法单类归类 -> `mixed`
-- `diff` 不来自 `visual_kind`，仅表示“对既有 element 的增量变更”。
+## 3.2 Element 数据结构（后端输出）
 
-### 4.3 SSE 组装规则
+每个 `elements[]` 项是一个 element 对象，包含：
 
-稳定锚点：同一叙述单元复用同一 `element_bid + element_index`。
-
-A-Flat 的 DIFF 定义：
-- 使用 `element_type=diff` 对同一 `element_bid` 做增量更新。
-- `target_element_bid` 默认等于当前 `element_bid`。
-- `diff` 既可用于文本补充，也可用于 `payload.previous_visuals` 增量追加。
-- 当出现类型提升（例如 `svg -> mixed`）时，可先发一次全量快照，再继续 `element_type=diff`。
-
-`SVG -> MD_img` 场景：
-1. 首次 `svg` 到达：`element_type=svg`, `is_final=0`
-2. 后续 `md_img` 到达：同 `element_bid` 发送 `element_type=diff`, `is_final=0`
-3. 单元结束：同 `element_bid` 终态快照 `is_final=1`（含完整 `audio + previous_visuals`）
-
-### 4.4 records 规则
-
-- 默认 `elements`：每个 `element_bid` 仅保留终态（`is_final=1` 优先）
-- `events`：可选返回中间态（`is_final=0`）
-
-### 4.5 前端改造影响
-
-- 按 `element_type` 分发：`svg/html/video/picture/mixed/interaction` 走渲染器，`diff` 走补丁处理器
-- 需支持 run 中类型提升（如 `svg -> mixed`）
-
-### 4.6 回填口径
-
-- 每个叙述单元回填为一条终态 element
-- 混合视觉直接回填为 `mixed`
-
-### 4.7 优缺点
-
-优点：
-- 类型语义直观，前端按类型选渲染器最直接
-- 埋点统计按视觉类型更清晰
-
-缺点：
-- 与现有前端 `sandbox` 主路径差距较大
-- run 过程中类型会后验变化，前端要处理类型提升
-
-### 4.8 A-Flat 接口示例（`SVG -> MD_img`）
-
-第一条（先到 `svg`）：
-
-```json
-{
-  "type": "element",
-  "event_type": "element",
-  "run_session_bid": "run_a_flat_1",
-  "run_event_seq": 20,
-  "content": {
-    "element_bid": "el_100",
-    "element_index": 40,
-    "role": "teacher",
-    "element_type": "svg",
-    "element_type_code": 102,
-    "is_navigable": 1,
-    "is_final": 0,
-    "payload": {
-      "audio": null,
-      "previous_visuals": [
-        {
-          "visual_type": "svg",
-          "content": "<svg>...</svg>"
-        }
-      ]
-    }
-  }
-}
-```
-
-第二条（增量，`element_type=diff`）：
-
-```json
-{
-  "type": "element",
-  "event_type": "element",
-  "run_session_bid": "run_a_flat_1",
-  "run_event_seq": 21,
-  "content": {
-    "element_bid": "el_100",
-    "element_index": 40,
-    "role": "teacher",
-    "element_type": "diff",
-    "element_type_code": 199,
-    "target_element_bid": "el_100",
-    "is_navigable": 1,
-    "is_final": 0,
-    "payload": {
-      "diff_payload": [
-        {
-          "op": "add",
-          "path": "/previous_visuals/-",
-          "value": {
-            "visual_type": "md_img",
-            "content": "https://cdn.example.com/pic-02.png"
-          }
-        }
-      ]
-    }
-  }
-}
-```
-
----
-
-## 5. 方案 A-Tree（细分视觉类型 + 父子结构）
-
-### 5.1 方案定义
-
-`element_type` 同 A-Flat（含 `diff`），并引入父子关系。
-
-新增字段：
-- `parent_element_bid`（仅本方案）
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `event_type` | string | 固定 `element` |
+| `element_bid` | string | 当前 element 唯一业务 ID |
+| `generated_block_bid` | string | 来源 block |
+| `role` | string | `teacher/student/ui` |
+| `element_type` | string | 见 3.1 |
+| `is_renderable` | bool | 是否参与前端渲染 |
+| `is_new` | bool | 是否创建新 element；`false` 表示应用到已有 element |
+| `target_element_bid` | string? | `is_new=false` 或 `element_type=diff` 时目标 element |
+| `is_marker` | bool | 是否是前进/后退锚点 |
+| `sequence_number` | int | 当前 run 会话内 element 生成序号（严格递增） |
+| `is_speakable` | bool | 是否需要语音合成 |
+| `audio_url` | string | 完整音频地址（无则空字符串） |
+| `audio_segments` | array | 音频流分段（见 3.3） |
+| `content_text` | string | 文本快照 |
+| `payload` | object? | 结构化内容（含 visuals、diff 等） |
+| `is_final` | bool | 是否终态 |
+| `run_session_bid` | string | run 会话 ID |
+| `run_event_seq` | int | run 事件序号（保持现有链路） |
 
 约束：
-- 父 element：导航节点（`is_navigable=1`）
-- 子 element：视觉片段（`is_navigable=0`，必须带 `parent_element_bid`）
 
-### 5.2 SSE 组装规则
+1. `is_new=false` 时必须提供 `target_element_bid`。
+2. `is_marker=true` 时必须满足：
+   - `is_renderable=false`
+   - `is_speakable=false`
+3. `audio_url` 仅在音频完成后写入；未完成时可为空。
+4. `sequence_number` 作用于 element 维度，和 `run_event_seq` 并存。
 
-稳定锚点：同一叙述单元复用同一父 `element_bid + element_index`。
+## 3.3 audio_segments 结构
 
-A-Tree 的 DIFF 定义：
-- 父节点可用 `element_type=diff` 增量维护聚合快照（`payload.previous_visuals/audio/content_text`）。
-- 子节点可用 `element_type=diff` 更新同一子 `element_bid`，也可直接新建子节点。
-- 父节点的 `target_element_bid` 默认指向父 `element_bid`；子节点同理。
-
-`SVG -> MD_img` 场景：
-1. 先发父 element（部分态，`is_final=0`）
-2. 发 `svg` 子 element（终态子片段）
-3. 发 `md_img` 子 element（终态子片段）
-4. 回写父 element 终态（`is_final=1`，聚合 `previous_visuals + audio`）
-
-### 5.3 records 规则
-
-- 默认 `elements`：只返回父节点终态（导航稳定）
-- `events` 或扩展模式：返回子节点与中间态
-
-### 5.4 前端改造影响
-
-- 除类型渲染外，还要做父子装配（按 `parent_element_bid` 聚合）
-- 需支持 `element_type=diff` 对父或子节点的增量应用
-- 回放与导航逻辑更复杂，但可细粒度控制子片段
-
-### 5.5 回填口径
-
-- 每个叙述单元至少 1 条父 element
-- 视觉片段拆分为多条子 element
-- 父节点保留聚合快照，保证默认 records 可直接回放
-
-### 5.6 优缺点
-
-优点：
-- 对复杂混合视觉表达能力最强
-- 子片段可独立管理，结构清晰
-
-缺点：
-- 前后端复杂度最高
-- 默认查询与回放逻辑需要额外父子装配
-
-### 5.7 A-Tree 接口示例（`SVG -> MD_img`）
-
-父节点（部分态）：
+`audio_segments` 每个节点建议结构：
 
 ```json
 {
-  "type": "element",
-  "event_type": "element",
-  "run_session_bid": "run_a_tree_1",
-  "run_event_seq": 30,
-  "content": {
-    "element_bid": "el_parent_300",
-    "element_index": 42,
-    "role": "teacher",
-    "element_type": "mixed",
-    "element_type_code": 106,
-    "is_navigable": 1,
-    "is_final": 0,
-    "payload": {
-      "audio": null,
-      "previous_visuals": []
-    }
-  }
+  "position": 0,
+  "segment_index": 3,
+  "duration_ms": 240,
+  "is_final": false,
+  "audio_data": "base64..."
 }
 ```
 
-子节点 diff（挂父）：
+字段来源与当前 `AudioSegmentDTO` 对齐，后端保存为 element 级别增量轨迹。
 
-```json
-{
-  "type": "element",
-  "event_type": "element",
-  "run_session_bid": "run_a_tree_1",
-  "run_event_seq": 31,
-  "content": {
-    "element_bid": "el_child_301",
-    "parent_element_bid": "el_parent_300",
-    "element_index": 42,
-    "role": "teacher",
-    "element_type": "diff",
-    "element_type_code": 199,
-    "target_element_bid": "el_child_301",
-    "is_navigable": 0,
-    "is_final": 0,
-    "payload": {
-      "diff_payload": [
-        {
-          "op": "replace",
-          "path": "/content",
-          "value": "https://cdn.example.com/pic-03.png"
-        }
-      ]
-    }
-  }
-}
-```
+## 3.4 type 统一状态机判断
 
----
+`RunElementSSEMessageDTO.type` 必须由状态机统一产出，不允许业务分支直接拼字符串。
 
-## 6. 方案 B（渲染器类型 + diff）
+状态定义：
 
-### 6.1 方案定义
+- `IDLE`：当前无开放 element
+- `BUILDING`：正在累积当前 element
+- `PATCHING`：对既有 element 增量应用（`is_new=false`）
+- `TERMINATED`：已结束（`done`/`error`）
 
-`element_type`：
-- `interaction`
-- `sandbox`
-- `picture`
-- `video`
+触发与输出：
 
-B 中的 DIFF 使用是主路径：
-- `change_type`: `render/diff`
-- `target_element_bid`（`diff` 时必填）
-- `payload.diff_payload`（建议 JSON Patch）
-
-说明：`sandbox` 统一承载 `svg/html/div/table/iframe`。
-
-### 6.2 SSE 组装规则
-
-稳定锚点：同一叙述单元复用同一 `element_bid + element_index`。
-
-推荐模式：
-1. 初次输出 `change_type=render`, `is_final=0`
-2. 增量变化输出 `change_type=diff`, `target_element_bid=element_bid`
-3. 终态输出 `is_final=1`，含完整快照（可保留 diff 审计）
-
-`SVG -> MD_img` 场景：
-- 先 `sandbox/render` 带 svg
-- 后 `sandbox/diff` 追加 md_img
-- 终态同一 element 定型
-
-### 6.3 records 规则
-
-- 与 A-Flat 一致：默认终态快照，扩展返回中间态
-- `diff_payload` 作为可选审计信息，不影响默认回放
-
-### 6.4 前端改造影响
-
-- 渲染器分发更简单（4 类）
-- 需要补丁应用与容错（`diff` 失败回退全量）
-
-### 6.5 回填口径
-
-- 按渲染器归并为 `sandbox/picture/video/interaction`
-- 回填终态快照；是否保留 `diff_payload` 由实现成本决定
-
-### 6.6 优缺点
-
-优点：
-- 与当前前端 `sandbox` 路径最接近
-- 流式后验更新自然（同 bid + diff）
-
-缺点：
-- 类型语义粒度更粗，统计需看 `previous_visuals[].visual_type`
-- 需要稳定的 diff 合并机制
-
-### 6.7 B 接口示例（`SVG -> MD_img`）
-
-首包（`render`）：
-
-```json
-{
-  "type": "element",
-  "event_type": "element",
-  "run_session_bid": "run_b_1",
-  "run_event_seq": 40,
-  "content": {
-    "element_bid": "el_200",
-    "element_index": 41,
-    "role": "teacher",
-    "element_type": "sandbox",
-    "element_type_code": 102,
-    "change_type": "render",
-    "is_navigable": 1,
-    "is_final": 0,
-    "payload": {
-      "audio": null,
-      "previous_visuals": [
-        {
-          "visual_type": "svg",
-          "content": "<svg>...</svg>"
-        }
-      ]
-    }
-  }
-}
-```
-
-增量（`change_type=diff`）：
-
-```json
-{
-  "type": "element",
-  "event_type": "element",
-  "run_session_bid": "run_b_1",
-  "run_event_seq": 41,
-  "content": {
-    "element_bid": "el_200",
-    "element_index": 41,
-    "role": "teacher",
-    "element_type": "sandbox",
-    "element_type_code": 102,
-    "change_type": "diff",
-    "target_element_bid": "el_200",
-    "is_navigable": 1,
-    "is_final": 0,
-    "payload": {
-      "diff_payload": [
-        {
-          "op": "add",
-          "path": "/previous_visuals/-",
-          "value": {
-            "visual_type": "md_img",
-            "content": "https://cdn.example.com/pic-04.png"
-          }
-        }
-      ]
-    }
-  }
-}
-```
-
----
-
-## 7. 三方案集中对比（评审主表）
-
-| 维度 | A-Flat | A-Tree | B |
+| 当前状态 | 输入事件 | 输出 `type` | 下一状态 |
 |---|---|---|---|
-| 类型体系 | 细分视觉类型 | 细分视觉类型 | 渲染器类型 |
-| `parent_element_bid` | 否 | 是 | 否 |
-| 稳定锚点 | 同 `element_bid` | 同父 `element_bid` | 同 `element_bid` |
-| DIFF 表达 | `element_type=diff`（可选） | `element_type=diff`（可选） | `change_type=diff`（主路径） |
-| `SVG -> MD_img` | 类型提升到 `mixed` | 子节点追加 | `sandbox + diff` |
-| 前端渲染分发 | 中等复杂 | 高复杂 | 低复杂 |
-| 前端状态管理 | 中等（upsert + 类型提升） | 高（父子装配） | 中高（diff 管理） |
-| 与现有代码贴合度 | 中 | 低 | 高 |
-| 回填复杂度 | 低 | 高 | 中 |
-| 可观测性（按类型） | 高 | 高 | 中 |
-| 扩展复杂视觉 | 中 | 高 | 中 |
+| `IDLE` | 内容/视觉开始 | `element` | `BUILDING` |
+| `BUILDING` | 增量更新且 `is_new=false` | `element` | `PATCHING` |
+| `PATCHING` | 连续增量更新 | `element` | `PATCHING` |
+| `BUILDING/PATCHING` | block break | `break` | `IDLE` |
+| 任意非终态 | 音频分段 | `audio_segment` | 原状态保持 |
+| 任意非终态 | 音频完成 | `audio_complete` | 原状态保持 |
+| 任意非终态 | 正常结束 | `done` | `TERMINATED` |
+| 任意非终态 | 异常结束 | `error` | `TERMINATED` |
+
+`heartbeat` 为传输层事件，不参与 element 状态迁移。
 
 ---
 
-## 8. 评审结论模板（直接填写）
+## 4. 现状到目标的映射规则
 
-- 最终方案：`A-Flat / A-Tree / B`
-- 结论日期：`YYYY-MM-DD`
-- 决策人：`xxx`
-- 关键理由：
-  1. ...
-  2. ...
-- 放弃方案及原因：
-  1. ...
-  2. ...
+## 4.1 视觉类型映射（后端归类）
 
----
+| 当前来源 | 新 `element_type` |
+|---|---|
+| `svg` | `svg` |
+| `iframe/sandbox` | `html` |
+| `html_table/md_table` | `tables` |
+| `fence` | `code` |
+| `md_img` | `md_img` |
+| `img` | `img` |
+| `video` | `html` |
+| `mermaid` 代码块 | `mermaid` |
+| 公式片段 | `latex` |
+| 标题行 | `title` |
+| 普通叙述文本 | `text` |
+| 交互块 | `interaction` |
+| 对既有 element 的补丁 | `diff` |
 
-## 9. 实施与切换（不兼容）
+## 4.2 新字段与现实现对应关系
 
-### Phase 0：冻结
-
-- 冻结最终方案与枚举值
-- 冻结 run/records DTO
-- 冻结 SSE 部分态与终态语义
-
-### Phase 1：落表与写链路
-
-- 建 `learn_generated_elements`
-- 落 `run_session_bid + run_event_seq`
-- 接入 element writer
-
-### Phase 2：切接口
-
-- run 只输出新事件包
-- records 只返回 `elements/events`
-- 删除 `new_slide/slides` 读写路径
-
-### Phase 3：回填与收口
-
-- 历史回填（按选定方案）
-- 删除旧 DTO/旧监控/旧处理分支
+| 新字段 | 现状 | 后端处理 |
+|---|---|---|
+| `is_renderable` | 无 | 新增列与 DTO 字段；按 element_type 决定默认值 |
+| `is_new` | 无 | 新增列与 DTO 字段；写链路决定新建或补丁 |
+| `is_marker` | 无 | 新增列与 DTO 字段；用于导航锚点事件 |
+| `sequence_number` | 无 | 新增列与 DTO 字段；run 内 element 单独计数 |
+| `is_speakable` | 无 | 新增列与 DTO 字段；由 AV 合约与 block 类型推导 |
+| `audio_url` | 仅在 payload.audio | 顶层冗余字段，便于快速读取 |
+| `audio_segments` | 仅作为独立事件 | 合并进 element，保留流式轨迹 |
 
 ---
 
-## 10. 非兼容变更清单（上线前核对）
+## 5. 数据层改造（后端）
 
-后端：
-- 移除 run `new_slide`
-- 移除 records 旧字段 `records/slides/interaction`
+`learn_generated_elements` 需要新增字段：
 
-前端：
-- 删除 `new_slide/slides` 处理逻辑
-- run 态改为按稳定锚点 upsert
-- 仅 `is_final=1` 固化导航节点
+1. `is_renderable`（bool，default true，index）
+2. `is_new`（bool，default true，index）
+3. `is_marker`（bool，default false，index）
+4. `sequence_number`（int，default 0，index）
+5. `is_speakable`（bool，default false，index）
+6. `audio_url`（varchar，default ""）
+7. `audio_segments`（text/json，default "[]")
+
+同时更新：
+
+1. `element_type` 字段注释与校验口径为 3.1 枚举。
+2. `element_type_code` 的映射表与枚举同步（可保留 int code 以兼容排序/埋点）。
+
+---
+
+## 6. 写链路改造（后端）
+
+## 6.1 writer 核心
+
+1. 增加 `TypeStateMachine`（纯后端模块）统一产出 `type`。
+2. element 组装时写入新增字段：
+   - `is_renderable`
+   - `is_new`
+   - `is_marker`
+   - `sequence_number`
+   - `is_speakable`
+   - `audio_url`
+   - `audio_segments`
+3. `audio_segment/audio_complete` 除了发事件，还要同步更新当前 element 的 `audio_segments/audio_url`。
+4. `is_new=false` 必须命中 `target_element_bid`；命中失败写 `error` 事件并终止该分支。
+
+## 6.2 序号策略
+
+1. `run_event_seq`：保持现有 run 事件级递增。
+2. `sequence_number`：仅在输出 `type=element` 时递增。
+3. 两者均落库，便于回放与排障。
+
+---
+
+## 7. 读链路改造（后端）
+
+1. `records` 默认返回最终 `elements` 快照。
+2. `include_non_navigable=true` 时返回 `events`，保留 `audio_segment/audio_complete`。
+3. `elements` 默认按 `sequence_number` + `run_event_seq` 排序。
+4. `is_new=false` 的数据在回放层按 `target_element_bid` 应用后再输出最终快照。
+
+---
+
+## 8. 回填与兼容策略（后端）
+
+1. 历史 `sandbox/picture/video` 数据按 4.1 规则映射到新枚举。
+2. 历史数据回填新增字段默认值：
+   - `is_renderable=true`
+   - `is_new=true`
+   - `is_marker=false`
+   - `sequence_number` 按历史顺序重建
+   - `is_speakable` 依据是否存在音频
+   - `audio_url` 从终态音频提取
+   - `audio_segments` 无法恢复时置空数组
+3. 回填脚本支持 `dry_run/overwrite`，并输出统计。
+
+---
+
+## 9. 测试要求（后端）
+
+1. DTO 序列化单测：新字段完整性与默认值。
+2. 状态机单测：状态迁移与 `type` 输出正确性。
+3. 写链路单测：`is_new=false` 应用到目标 element。
+4. 音频链路单测：`audio_segments` 累积与 `audio_url` 终态回填。
+5. records 单测：排序、快照合并、`include_non_navigable`。
+6. 回填单测：旧枚举映射到新枚举，新增字段补值正确。
+
+---
+
+## 10. 非目标
+
+1. 不在本版规划前端消费改造细节。
+2. 不在本版规划 UI 展示策略与交互动画。

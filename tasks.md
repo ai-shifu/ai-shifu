@@ -1,114 +1,88 @@
-# Tasks (updated 2026-03-06)
+# Tasks (backend-only, updated 2026-03-18)
 
-## 0. 当前状态核对（已完成）
+Design reference: `docs/learn-generated-elements-design.md`
 
-- [x] 确认 `run` SSE 仍基于 `RunMarkdownFlowDTO`，并包含 `new_slide`
-- [x] 确认 `run` 传输层仍发送 `heartbeat`
-- [x] 确认 `records` 仍返回 `{records, interaction, slides?}`
-- [x] 确认历史数据仍存储在 `learn_generated_blocks` + `learn_generated_audios`
-- [x] 确认 `learn_generated_audios.position` 已落地（migration: `3ef04a9b5d37`）
-- [x] 确认当前尚无 `learn_generated_elements` 表/模型/迁移
+## 0. 现状核对（已完成）
+
+- [x] 确认当前 `element_type` 仅为 `interaction/sandbox/picture/video`
+- [x] 确认 `LearnGeneratedElement` 尚无 `is_renderable/is_new/is_marker/sequence_number/is_speakable/audio_url/audio_segments`
+- [x] 确认 `audio_segment/audio_complete` 当前作为非 element 事件落库
+- [x] 确认 `records` 已支持 `include_non_navigable`，默认返回 `elements`
 
 ## A. 协议冻结（P0）
 
-- [ ] 冻结 `event_type` 枚举值（含 `heartbeat` 是否入库）
-- [ ] 评审方案 A(Flat/Tree)/B 并选定唯一口径（必做门禁）
-- [ ] 方案 A：`element_type=svg/html/video/picture/mixed/interaction/diff`（评审 A-Flat / A-Tree）
-- [ ] 方案 B：`element_type=interaction/sandbox/picture/video` + `change_type=render/diff`
-- [ ] 冻结最终 `element_type` 枚举值（按评审结论）
-- [ ] 若选方案 A：冻结是否启用父子结构（`A-Flat` 或 `A-Tree`）
-- [ ] 冻结 `records` 默认过滤策略（默认仅返回 element）
-- [ ] 冻结 `run` 事件包字段：`type/run_session_bid/run_event_seq/event_type/content`
-- [ ] 冻结 `run` 事件类型集合（保留 `audio_segment/audio_complete`，移除 `new_slide`）
-- [ ] 冻结 `records` 数据结构：`elements/events`
-- [ ] 冻结 element 组装规则：平铺时间线 + `element(audio + previous_visuals)`（按评审方案落地）
-- [ ] 冻结 SSE 增量规则：A-Flat/B 同一叙述单元复用同一 `element_bid`；A-Tree 复用同一父 `element_bid`（子节点单独 `element_bid`）
-- [ ] 冻结 SSE 部分态语义：run 阶段 `type=element` 默认允许部分内容（`is_final=0`）
-- [ ] 冻结 `SVG -> MD_img` 后验合并规则（A-Flat/B：同 `element_bid` 更新；A-Tree：同父节点下增量子节点）
-- [ ] 冻结类型变化与 DIFF 规则：方案 A 用 `element_type=diff`（并可类型提升 `svg -> mixed`）；方案 B 用 `change_type=diff`/重渲染
-- [ ] 冻结“不做兼容”发布策略（不保留 `response_version` 与旧协议）
-- [ ] 明确 feature flag 命名与默认值
+- [ ] 冻结 `element_type`：`html|svg|diff|img|interaction|tables|code|latex|md_img|mermaid|title|text`
+- [ ] 冻结 element 新字段语义：`is_renderable/is_new/is_marker/sequence_number/is_speakable/audio_url/audio_segments`
+- [ ] 冻结 `is_new=false` 约束：必须携带 `target_element_bid`
+- [ ] 冻结 `is_marker=true` 约束：`is_renderable=false` 且 `is_speakable=false`
+- [ ] 冻结 `audio_segments` 节点结构（最小字段集与存储上限）
+- [ ] 冻结 `type` 状态机输入/状态/输出集合（禁止业务分支硬编码）
+- [ ] 冻结旧类型映射规则（`sandbox/picture/video` -> 新枚举）
 
 ## B. 数据库与模型（P1）
 
-- [ ] 新增 `LearnGeneratedElement` SQLAlchemy 模型
-- [ ] 若选 A-Flat/B：不引入 `parent_element_bid`
-- [ ] 若选 A-Tree：引入 `parent_element_bid` 并约束子 element `is_navigable=0`
-- [ ] 完整定义字段注释与默认值（`deleted/status/is_navigable/is_final`）
-- [ ] 添加普通索引（无唯一索引）
-- [ ] 新增 Alembic migration（建表 + 索引）
-- [ ] 本地执行 migration smoke test（upgrade/downgrade）
+- [ ] 更新 `ElementType` 枚举定义与 `element_type_code` 映射
+- [ ] 更新 `LearnGeneratedElement` 模型注释与校验口径
+- [ ] 新增列：`is_renderable`（bool）
+- [ ] 新增列：`is_new`（bool）
+- [ ] 新增列：`is_marker`（bool）
+- [ ] 新增列：`sequence_number`（int）
+- [ ] 新增列：`is_speakable`（bool）
+- [ ] 新增列：`audio_url`（string）
+- [ ] 新增列：`audio_segments`（text/json）
+- [ ] 为高频检索字段补索引（`sequence_number/is_marker/is_new/is_renderable/is_speakable`）
+- [ ] 生成 Alembic migration 并完成 upgrade/downgrade smoke test
 
-## C. run 写链路（P1）
+## C. DTO 与序列化（P1）
 
-- [ ] 生成并贯穿 `run_session_bid`
-- [ ] 生成 run 内递增 `run_event_seq`
-- [ ] 新增 element writer（含应用层幂等去重）
-- [ ] 新增“当前开放 element”组装上下文（按 outline item/session 管理）
-- [ ] 按评审选定方案组装并落库 element（A-Flat / A-Tree / B）
-- [ ] 同一叙述单元增量更新时复用稳定锚点（A-Flat/B: `element_bid + element_index`；A-Tree: 父 `element_bid + element_index`）
-- [ ] `is_final=0` 阶段输出可变快照（推荐累积快照）并持续覆盖稳定锚点（A-Flat/B: 同 `element_bid`；A-Tree: 同父 `element_bid`）
-- [ ] 在 `break/interaction/done` 或单元结束时写入 `is_final=1` 终态快照
-- [ ] 将语音与上一组图像合并进同一 `element.payload`
-- [ ] 若选方案 A：实现类型提升（如 `svg -> mixed`）
-- [ ] 若选方案 A：实现 `element_type=diff`、`target_element_bid`、`payload.diff_payload`（类型提升建议先全量再 diff）
-- [ ] 若选方案 B：实现 `change_type=diff`、`target_element_bid`、`payload.diff_payload`（run 默认 `target_element_bid=element_bid`，必要时支持 `render` 覆盖）
-- [ ] 将 `variable_update/outline_item_update/break/done/error` 作为上层事件落库
-- [ ] 输出 `RunElementSSEMessageDTO`（唯一协议）
-- [ ] 移除 `new_slide` 事件输出
-- [ ] 保留并对齐 `audio_segment/audio_complete` 到新事件包字段
-- [ ] 明确并实现：`audio_segment/audio_complete` 不单独落 element，最终并入 `element.payload.audio`
+- [ ] 扩展 `ElementDTO` 字段与 `__json__` 输出
+- [ ] 扩展 payload 结构，保证 `audio_segments` 与 `audio_url` 顶层可直接读取
+- [ ] 统一 `records` 输出结构中 element 字段顺序与默认值
+- [ ] 更新 swagger schema 注释，确保新字段对齐
 
-## D. records 读链路（P2）
+## D. run 写链路（P1）
 
-- [ ] 新增 element records DTO
-- [ ] `records` 仅读 `learn_generated_elements`
-- [ ] 支持 `include_non_navigable` 查询参数
-- [ ] `elements` 默认按 `element_bid` 返回终态快照（`is_final=1` 优先）
-- [ ] 中间态增量（`is_final=0`）仅在 `events`（`include_non_navigable=true`）返回
-- [ ] 若选 A-Tree：默认 `elements` 返回父节点终态，子节点通过 `events` 或父聚合字段回放
-- [ ] 保留外层响应包装 `{code,message,data}`
-- [ ] 移除 `records/slides/interaction` 旧返回结构
+- [ ] 新增 `TypeStateMachine`，统一生成 `RunElementSSEMessageDTO.type`
+- [ ] 在 writer 中维护 `sequence_number`（仅 element 事件递增）
+- [ ] 在 writer 中处理 `is_new` 与 `target_element_bid` 绑定逻辑
+- [ ] 在 writer 中处理 `is_marker` 节点（前进/后退锚点）
+- [ ] 在 writer 中补齐 `is_renderable/is_speakable` 推导规则
+- [ ] `audio_segment` 到达时追加 `audio_segments`
+- [ ] `audio_complete` 到达时回填 `audio_url` 并封口对应 segment
+- [ ] `done/error` 时写终态并保证状态机进入终止态
 
-## E. 历史回填与清洗（P2）
+## E. records 读链路（P2）
 
-- [ ] 新建回填脚本入口（按 `progress_record_bid` 分批）
-- [ ] 从 `learn_generated_blocks` 重建顺序（`position,id`）
-- [ ] 合并 `learn_generated_audios` 并生成内容 element（按评审方案）
-- [ ] 把上一组图像写入 `element.payload.previous_visuals`
-- [ ] 执行清洗规则（孤儿音频、空内容、重复记录）
-- [ ] 记录回填审计日志与统计
-- [ ] 支持断点续跑与重跑
+- [ ] 默认按 `sequence_number, run_event_seq, id` 返回稳定顺序
+- [ ] `is_new=false` 的事件在聚合层应用到目标 element 后输出快照
+- [ ] `include_non_navigable=true` 时返回完整 events 回放序列
+- [ ] 增加 `is_marker` 过滤/保留策略（默认保留）
+- [ ] 确认无 `target_element_bid` 命中的异常数据处理策略
 
-## F. 前端同步改造（P3）
+## F. 回填与数据修复（P2）
 
-- [ ] Cook Web 新增 element 消费路径（run）
-- [ ] Cook Web 新增 element 消费路径（records）
-- [ ] 删除对 `new_slide/slides` 的依赖和处理逻辑
-- [ ] run 态 `is_final=0` 按 `element_bid` 实时覆盖渲染，`is_final=1` 再固化导航节点
-- [ ] 若选 A-Tree：前端实现 `parent_element_bid` 装配逻辑（父导航 + 子视觉）
-- [ ] 听课模式回放验证（时间轴、页切换、音频绑定）
+- [ ] 回填脚本增加旧 `element_type` 到新枚举映射
+- [ ] 回填脚本补齐新增字段默认值
+- [ ] 回填脚本生成 `sequence_number`
+- [ ] 回填脚本从历史音频恢复 `audio_url`，无法恢复时保留空值
+- [ ] 回填脚本对 `audio_segments` 采用可恢复即恢复、否则空数组策略
+- [ ] 输出回填统计：总量、映射结果、异常行、跳过行
 
-## G. 测试与验收（P3）
+## G. 测试与验收（P2）
 
-- [ ] 单测：`event_type/element_type` 序列化
-- [ ] 单测：方案 A 下 `element_type=diff` 的序列化与反序列化
-- [ ] 单测：run 事件顺序与 `run_event_seq` 递增
-- [ ] 单测：同一 `element_bid` 多次更新保持同 `element_index`
-- [ ] 单测：`is_final=1` 后禁止继续更新同一 `element_bid`
-- [ ] 单测：`is_final=0` 阶段连续部分内容覆盖后，最终态内容一致
-- [ ] 单测：场景 `SVG -> MD_img` 聚合同屏（同 `element_bid`）
-- [ ] 单测：records 默认仅 element
-- [ ] 单测：`include_non_navigable=true` 返回控制事件
-- [ ] 单测：应用层去重与幂等
-- [ ] 集成测试：回填前后同章节回放一致性
+- [ ] 单测：`ElementDTO` 新字段序列化/反序列化
+- [ ] 单测：`element_type` 新枚举合法性与非法值兜底
+- [ ] 单测：状态机迁移与 `type` 输出
+- [ ] 单测：`is_new=false` 应用到历史 element 的正确性
+- [ ] 单测：`is_marker` 节点规则
+- [ ] 单测：`audio_segments` 累积和 `audio_url` 回填
+- [ ] 单测：records 聚合顺序与 include_non_navigable
+- [ ] 集成测试：run -> records 全链路一致性
 
-## H. 灰度与发布（P4）
+## H. 发布门禁（P3）
 
-- [ ] 灰度开关：run element 输出
-- [ ] 灰度开关：records element 读取
-- [ ] 一次性切换生产协议（不保留旧协议）
-- [ ] 观测指标：run 写入成功率/延迟/错误
-- [ ] 观测指标：records 查询耗时与返回规模
-- [ ] 抽样比对：新旧链路回放一致性
-- [ ] 全量切换后删除旧 DTO/旧事件/旧读路径代码
+- [ ] pre-commit 通过
+- [ ] 后端相关 pytest 用例通过
+- [ ] migration 在本地与测试库双环境验证通过
+- [ ] 回填 dry-run 报告通过评审
+- [ ] 线上灰度观测项就绪：写入成功率、回放一致性、异常 target 命中率
