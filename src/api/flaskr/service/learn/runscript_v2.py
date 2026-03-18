@@ -124,13 +124,6 @@ def run_script_inner(
             )
 
             run_script_context.set_input(input, input_type)
-            if element_adapter is None:
-                element_adapter = ListenElementRunAdapter(
-                    app,
-                    shifu_bid=shifu_bid,
-                    outline_bid=outline_bid,
-                    user_bid=user_bid,
-                )
 
             def _iter_run_events(events):
                 if element_adapter is None:

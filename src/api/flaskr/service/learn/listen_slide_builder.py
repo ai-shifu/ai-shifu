@@ -4,30 +4,10 @@ import uuid
 from typing import Any
 
 from flaskr.service.learn.learn_dtos import NewSlideDTO
-
-
-def _normalize_source_span(raw: Any) -> list[int]:
-    if not isinstance(raw, list) or len(raw) < 2:
-        return []
-    try:
-        start = int(raw[0])
-        end = int(raw[1])
-    except (TypeError, ValueError):
-        return []
-    if start < 0 or end < 0:
-        return []
-    if end < start:
-        return []
-    return [start, end]
-
-
-def _slice_segment_content(raw_content: str, source_span: list[int]) -> str:
-    if not source_span:
-        return ""
-    start, end = source_span
-    if start >= len(raw_content) or end <= start:
-        return ""
-    return raw_content[start : min(end, len(raw_content))]
+from flaskr.service.learn.listen_source_span_utils import (
+    normalize_source_span,
+    slice_source_by_span,
+)
 
 
 def _segment_type_for_visual_kind(visual_kind: str, is_placeholder: bool) -> str:
@@ -64,7 +44,7 @@ def build_listen_slides_for_block(
             position = int(boundary.get("position", 0))
         except (TypeError, ValueError):
             continue
-        source_span = _normalize_source_span(boundary.get("source_span"))
+        source_span = normalize_source_span(boundary.get("source_span"))
         visual_boundaries.append(
             {
                 "position": position,
@@ -83,7 +63,7 @@ def build_listen_slides_for_block(
             position = int(segment.get("position", 0))
         except (TypeError, ValueError):
             continue
-        source_span = _normalize_source_span(segment.get("source_span"))
+        source_span = normalize_source_span(segment.get("source_span"))
         speakable_segments.append(
             {
                 "position": position,
@@ -118,7 +98,7 @@ def build_listen_slides_for_block(
         segment_content = (
             ""
             if is_placeholder
-            else _slice_segment_content(raw_content or "", source_span)
+            else slice_source_by_span(raw_content or "", source_span)
         )
         slide = NewSlideDTO(
             slide_id=slide_id,

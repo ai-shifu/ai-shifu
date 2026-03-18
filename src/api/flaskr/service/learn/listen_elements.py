@@ -9,7 +9,7 @@ from typing import Any, Generator, Iterable
 from flask import Flask
 
 from flaskr.dao import db
-from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER, ROLE_UI
+from flaskr.service.learn.const import ROLE_STUDENT, ROLE_UI
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
@@ -20,12 +20,10 @@ from flaskr.service.learn.learn_dtos import (
     ElementPayloadDTO,
     ElementType,
     ElementVisualDTO,
-    GeneratedBlockDTO,
     GeneratedType,
     LearnElementRecordDTO,
     LearnRecordDTO,
     LearnStatus,
-    LikeStatus,
     NewSlideDTO,
     OutlineItemUpdateDTO,
     RunElementSSEMessageDTO,
@@ -34,30 +32,16 @@ from flaskr.service.learn.learn_dtos import (
 )
 from flaskr.service.learn.learn_funcs import get_learn_record
 from flaskr.service.learn.listen_slide_builder import build_listen_slides_for_block
+from flaskr.service.learn.listen_source_span_utils import (
+    normalize_source_span,
+    slice_source_by_span,
+)
+from flaskr.service.learn.legacy_record_builder import build_legacy_record_for_progress
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
     LearnProgressRecord,
 )
-from flaskr.service.shifu.consts import (
-    BLOCK_TYPE_BREAK_VALUE,
-    BLOCK_TYPE_BUTTON_VALUE,
-    BLOCK_TYPE_CHECKCODE_VALUE,
-    BLOCK_TYPE_CONTENT_VALUE,
-    BLOCK_TYPE_GOTO_VALUE,
-    BLOCK_TYPE_INPUT_VALUE,
-    BLOCK_TYPE_LOGIN_VALUE,
-    BLOCK_TYPE_MDANSWER_VALUE,
-    BLOCK_TYPE_MDASK_VALUE,
-    BLOCK_TYPE_MDCONTENT_VALUE,
-    BLOCK_TYPE_MDERRORMESSAGE_VALUE,
-    BLOCK_TYPE_MDINTERACTION_VALUE,
-    BLOCK_TYPE_OPTIONS_VALUE,
-    BLOCK_TYPE_PAYMENT_VALUE,
-    BLOCK_TYPE_PHONE_VALUE,
-)
-from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
-from flaskr.service.tts.pipeline import build_av_segmentation_contract
 
 ELEMENT_TYPE_CODES = {
     ElementType.INTERACTION: 101,
@@ -70,31 +54,6 @@ VISUAL_KIND_TO_ELEMENT_TYPE = {
     "video": ElementType.VIDEO,
     "img": ElementType.PICTURE,
     "md_img": ElementType.PICTURE,
-}
-
-LEGACY_BLOCK_TYPE_MAP = {
-    BLOCK_TYPE_MDCONTENT_VALUE: BlockType.CONTENT,
-    BLOCK_TYPE_MDINTERACTION_VALUE: BlockType.INTERACTION,
-    BLOCK_TYPE_MDERRORMESSAGE_VALUE: BlockType.ERROR_MESSAGE,
-    BLOCK_TYPE_MDASK_VALUE: BlockType.ASK,
-    BLOCK_TYPE_MDANSWER_VALUE: BlockType.ANSWER,
-    BLOCK_TYPE_CONTENT_VALUE: BlockType.CONTENT,
-    BLOCK_TYPE_BUTTON_VALUE: BlockType.INTERACTION,
-    BLOCK_TYPE_INPUT_VALUE: BlockType.INTERACTION,
-    BLOCK_TYPE_OPTIONS_VALUE: BlockType.INTERACTION,
-    BLOCK_TYPE_GOTO_VALUE: BlockType.INTERACTION,
-    BLOCK_TYPE_PAYMENT_VALUE: BlockType.INTERACTION,
-    BLOCK_TYPE_LOGIN_VALUE: BlockType.INTERACTION,
-    BLOCK_TYPE_BREAK_VALUE: BlockType.INTERACTION,
-    BLOCK_TYPE_PHONE_VALUE: BlockType.INTERACTION,
-    BLOCK_TYPE_CHECKCODE_VALUE: BlockType.INTERACTION,
-}
-
-CONTENT_LIKE_BLOCK_TYPES = {
-    BlockType.CONTENT,
-    BlockType.ASK,
-    BlockType.ANSWER,
-    BlockType.ERROR_MESSAGE,
 }
 
 
@@ -197,30 +156,6 @@ def _normalize_bool(raw: Any) -> bool:
     return bool(raw)
 
 
-def _safe_source_span(raw: Any) -> list[int]:
-    if not isinstance(raw, list) or len(raw) < 2:
-        return []
-    try:
-        start = int(raw[0])
-        end = int(raw[1])
-    except (TypeError, ValueError):
-        return []
-    if start < 0 or end <= start:
-        return []
-    return [start, end]
-
-
-def _slice_source(raw_content: str, source_span: list[int]) -> str:
-    if not raw_content:
-        return ""
-    if len(source_span) != 2:
-        return ""
-    start, end = source_span
-    if start >= len(raw_content):
-        return ""
-    return raw_content[start : min(end, len(raw_content))]
-
-
 def _role_value_to_name(role_value: Any) -> str:
     if role_value == ROLE_STUDENT:
         return "student"
@@ -283,11 +218,11 @@ def _deserialize_payload(raw_payload: str) -> ElementPayloadDTO:
 def _visuals_from_slide_content(
     slide: NewSlideDTO, raw_content: str
 ) -> list[ElementVisualDTO]:
-    source_span = _safe_source_span(getattr(slide, "source_span", []))
+    source_span = normalize_source_span(getattr(slide, "source_span", []))
     visual_kind = str(getattr(slide, "visual_kind", "") or "")
     if not visual_kind:
         return []
-    content = _slice_source(raw_content, source_span)
+    content = slice_source_by_span(raw_content, source_span)
     if not content:
         return []
     return [ElementVisualDTO(visual_type=visual_kind, content=content)]
@@ -322,8 +257,8 @@ def _aggregate_slide_text(
         slide_id = slide_id_by_position.get(position)
         if not slide_id:
             continue
-        source_span = _safe_source_span(segment.get("source_span"))
-        text = _slice_source(raw_content, source_span).strip()
+        source_span = normalize_source_span(segment.get("source_span"))
+        text = slice_source_by_span(raw_content, source_span).strip()
         if not text:
             continue
         aggregated.setdefault(slide_id, []).append(text)
@@ -341,22 +276,6 @@ def _make_audio_payload(audio: AudioCompleteDTO) -> ElementAudioDTO:
         duration_ms=int(audio.duration_ms or 0),
         position=int(getattr(audio, "position", 0) or 0),
     )
-
-
-def _legacy_block_type(generated_block: LearnGeneratedBlock) -> BlockType:
-    block_type = LEGACY_BLOCK_TYPE_MAP.get(generated_block.type, BlockType.CONTENT)
-    if block_type == BlockType.ASK and generated_block.role == ROLE_TEACHER:
-        return BlockType.ANSWER
-    return block_type
-
-
-def _legacy_block_content(
-    generated_block: LearnGeneratedBlock,
-    block_type: BlockType,
-) -> str:
-    if block_type in CONTENT_LIKE_BLOCK_TYPES:
-        return generated_block.generated_content or ""
-    return generated_block.block_content_conf or ""
 
 
 def _serialize_element_row(
@@ -395,112 +314,14 @@ def _build_legacy_record_for_progress(
     progress_record: LearnProgressRecord,
     stats: LearnElementsBackfillStats,
 ) -> LearnRecordDTO:
-    generated_blocks = (
-        LearnGeneratedBlock.query.filter(
-            LearnGeneratedBlock.progress_record_bid
-            == progress_record.progress_record_bid,
-            LearnGeneratedBlock.deleted == 0,
-            LearnGeneratedBlock.status == 1,
-        )
-        .order_by(LearnGeneratedBlock.position.asc(), LearnGeneratedBlock.id.asc())
-        .all()
+    return build_legacy_record_for_progress(
+        progress_record,
+        include_like_status=False,
+        dedupe_blocks_by_bid=True,
+        dedupe_audio_by_block_position=True,
+        skip_empty_content=True,
+        stats=stats,
     )
-    stats.generated_blocks_total = len(generated_blocks)
-
-    latest_blocks_by_bid: dict[str, LearnGeneratedBlock] = {}
-    for generated_block in generated_blocks:
-        if generated_block.generated_block_bid in latest_blocks_by_bid:
-            stats.duplicate_blocks_skipped += 1
-        latest_blocks_by_bid[generated_block.generated_block_bid] = generated_block
-    deduped_blocks = sorted(
-        latest_blocks_by_bid.values(),
-        key=lambda item: (int(item.position or 0), int(item.id or 0)),
-    )
-
-    audio_records = (
-        LearnGeneratedAudio.query.filter(
-            LearnGeneratedAudio.progress_record_bid
-            == progress_record.progress_record_bid,
-            LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
-            LearnGeneratedAudio.deleted == 0,
-        )
-        .order_by(
-            LearnGeneratedAudio.generated_block_bid.asc(),
-            LearnGeneratedAudio.position.asc(),
-            LearnGeneratedAudio.id.asc(),
-        )
-        .all()
-    )
-    stats.audio_records_total = len(audio_records)
-
-    active_block_bids = {
-        generated_block.generated_block_bid
-        for generated_block in deduped_blocks
-        if generated_block.generated_block_bid
-    }
-    latest_audio_by_block_position: dict[tuple[str, int], LearnGeneratedAudio] = {}
-    for audio_record in audio_records:
-        block_bid = audio_record.generated_block_bid or ""
-        position = int(getattr(audio_record, "position", 0) or 0)
-        if block_bid not in active_block_bids:
-            stats.orphan_audios_skipped += 1
-            continue
-        dedupe_key = (block_bid, position)
-        if dedupe_key in latest_audio_by_block_position:
-            stats.duplicate_audios_skipped += 1
-        latest_audio_by_block_position[dedupe_key] = audio_record
-
-    block_audios_map: dict[str, list[AudioCompleteDTO]] = {}
-    for (block_bid, _position), audio_record in sorted(
-        latest_audio_by_block_position.items(),
-        key=lambda item: (
-            item[0][0],
-            item[0][1],
-            int(item[1].id or 0),
-        ),
-    ):
-        block_audios_map.setdefault(block_bid, []).append(
-            AudioCompleteDTO(
-                audio_url=audio_record.oss_url or "",
-                audio_bid=audio_record.audio_bid or "",
-                duration_ms=int(audio_record.duration_ms or 0),
-                position=int(getattr(audio_record, "position", 0) or 0),
-            )
-        )
-
-    records: list[GeneratedBlockDTO] = []
-    for generated_block in deduped_blocks:
-        block_type = _legacy_block_type(generated_block)
-        content = _legacy_block_content(generated_block, block_type)
-        if not (content or "").strip():
-            stats.skipped_empty_blocks += 1
-            continue
-
-        block_audios = block_audios_map.get(generated_block.generated_block_bid) or []
-        av_contract = (
-            build_av_segmentation_contract(
-                content,
-                generated_block.generated_block_bid,
-            )
-            if block_type in {BlockType.CONTENT, BlockType.ASK, BlockType.ANSWER}
-            else None
-        )
-        records.append(
-            GeneratedBlockDTO(
-                generated_block.generated_block_bid,
-                content,
-                LikeStatus.NONE,
-                block_type,
-                generated_block.generated_content
-                if block_type == BlockType.INTERACTION
-                else "",
-                audio_url=block_audios[0].audio_url if len(block_audios) == 1 else None,
-                audios=block_audios or None,
-                av_contract=av_contract,
-            )
-        )
-
-    return LearnRecordDTO(records=records)
 
 
 def _element_from_row(row: LearnGeneratedElement) -> ElementDTO:
@@ -953,7 +774,7 @@ class ListenElementRunAdapter:
                 for boundary in visual_boundaries:
                     if not isinstance(boundary, dict):
                         continue
-                    source_span = _safe_source_span(boundary.get("source_span"))
+                    source_span = normalize_source_span(boundary.get("source_span"))
                     if not source_span:
                         continue
                     visual_kind = str(boundary.get("kind", "") or "")
@@ -969,7 +790,7 @@ class ListenElementRunAdapter:
                             segment_type="sandbox"
                             if visual_kind in {"iframe", "sandbox", "html_table"}
                             else "markdown",
-                            segment_content=_slice_source(
+                            segment_content=slice_source_by_span(
                                 state.raw_content, source_span
                             ),
                             source_span=source_span,

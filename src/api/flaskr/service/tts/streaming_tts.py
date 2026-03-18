@@ -680,7 +680,6 @@ class AVStreamingTTSProcessor:
         self._raw_buffer = ""
         self._raw_full_content = ""
         self._av_contract: Optional[Dict[str, Any]] = None
-        self._audio_bound_positions: set[int] = set()
         self._next_slide_index = self.slide_index_offset
         self._current_segment_has_speakable_text = False
 
@@ -729,12 +728,6 @@ class AVStreamingTTSProcessor:
         if (chunk or "").strip():
             self._current_segment_has_speakable_text = True
         for event in processor.process_chunk(chunk):
-            if event.type in {
-                GeneratedType.AUDIO_SEGMENT,
-                GeneratedType.AUDIO_COMPLETE,
-            }:
-                position = int(getattr(event.content, "position", 0) or 0)
-                self._audio_bound_positions.add(position)
             yield event
 
     @property
@@ -758,8 +751,6 @@ class AVStreamingTTSProcessor:
             self._next_slide_index,
             max(int(slide.slide_index or 0) + 1 for slide in slides),
         )
-        if mapping:
-            self._audio_bound_positions.update(int(pos) for pos in mapping.keys())
 
     def _finalize_current(
         self, *, commit: bool
@@ -768,12 +759,6 @@ class AVStreamingTTSProcessor:
             return
         did_complete = False
         for event in self._current_processor.finalize(commit=commit):
-            if event.type in {
-                GeneratedType.AUDIO_SEGMENT,
-                GeneratedType.AUDIO_COMPLETE,
-            }:
-                position = int(getattr(event.content, "position", 0) or 0)
-                self._audio_bound_positions.add(position)
             if event.type == GeneratedType.AUDIO_COMPLETE:
                 did_complete = True
             yield event
