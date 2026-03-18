@@ -1152,6 +1152,47 @@ class TestDashboardRoutes:
             "avg_follow_up_count_per_learner": "1.00",
             "avg_learning_duration_seconds": 2300,
         }
+        assert payload["data"]["charts"] == {
+            "questions_by_chapter": [
+                {
+                    "outline_item_bid": "lesson-1",
+                    "title": "Lesson 1",
+                    "ask_count": 2,
+                },
+                {
+                    "outline_item_bid": "lesson-2",
+                    "title": "Lesson 2",
+                    "ask_count": 1,
+                },
+                {
+                    "outline_item_bid": "lesson-3",
+                    "title": "Lesson 3",
+                    "ask_count": 0,
+                },
+            ],
+            "questions_by_time": [],
+            "learning_activity_trend": [],
+            "chapter_progress_distribution": [],
+        }
+        assert payload["data"]["learners"]["page"] == 1
+        assert payload["data"]["learners"]["page_size"] == 20
+        assert payload["data"]["learners"]["total"] == 3
+        assert [item["user_bid"] for item in payload["data"]["learners"]["items"]] == [
+            "learner-1",
+            "learner-2",
+            "learner-3",
+        ]
+        assert payload["data"]["learners"]["items"][0]["progress_percent"] == "100.00"
+        assert payload["data"]["learners"]["items"][0]["follow_up_ask_count"] == 2
+        assert payload["data"]["learners"]["items"][1]["progress_percent"] == "33.33"
+        assert payload["data"]["learners"]["items"][1]["follow_up_ask_count"] == 1
+        assert payload["data"]["learners"]["items"][2]["progress_percent"] == "0.00"
+        assert payload["data"]["learners"]["items"][2]["follow_up_ask_count"] == 0
+        assert payload["data"]["learners"]["items"][2]["last_active_at"] == ""
+        assert payload["data"]["applied_range"] == {
+            "start_date": "",
+            "end_date": "",
+        }
 
     def test_course_detail_returns_timezone_adjusted_created_at_fields(
         self,
@@ -1192,6 +1233,360 @@ class TestDashboardRoutes:
         assert payload["data"]["basic_info"]["created_at_display"] == expected.strftime(
             "%Y-%m-%d %H:%M:%S"
         )
+
+    def test_course_detail_applies_date_range_and_learner_pagination(
+        self,
+        monkeypatch,
+        test_client,
+        app,
+    ):
+        self._mock_request_user(monkeypatch)
+
+        recent_now = datetime(2025, 1, 15, 10, 0, 0)
+        old_time = datetime(2025, 1, 10, 9, 0, 0)
+
+        with app.app_context():
+            self._seed_dashboard_course(
+                shifu_bid="course-range",
+                title="Range Course",
+                created_at=old_time,
+                published_created_at=old_time,
+            )
+            self._seed_outline_item(
+                shifu_bid="course-range",
+                outline_item_bid="chapter-1",
+                title="Chapter 1",
+                position="1",
+            )
+            self._seed_outline_item(
+                shifu_bid="course-range",
+                outline_item_bid="lesson-1",
+                title="Lesson 1",
+                parent_bid="chapter-1",
+                position="1.1",
+            )
+            self._seed_outline_item(
+                shifu_bid="course-range",
+                outline_item_bid="lesson-2",
+                title="Lesson 2",
+                parent_bid="chapter-1",
+                position="1.2",
+            )
+            db.session.add_all(
+                [
+                    LearnProgressRecord(
+                        progress_record_bid="range-progress-recent",
+                        shifu_bid="course-range",
+                        outline_item_bid="lesson-1",
+                        user_bid="learner-1",
+                        status=LEARN_STATUS_COMPLETED,
+                        block_position=0,
+                        deleted=0,
+                        created_at=recent_now,
+                        updated_at=recent_now,
+                    ),
+                    LearnProgressRecord(
+                        progress_record_bid="range-progress-old",
+                        shifu_bid="course-range",
+                        outline_item_bid="lesson-2",
+                        user_bid="learner-2",
+                        status=LEARN_STATUS_COMPLETED,
+                        block_position=0,
+                        deleted=0,
+                        created_at=old_time,
+                        updated_at=old_time,
+                    ),
+                ]
+            )
+            db.session.add_all(
+                [
+                    LearnGeneratedBlock(
+                        generated_block_bid="range-ask-recent",
+                        progress_record_bid="range-progress-recent",
+                        user_bid="learner-1",
+                        block_bid="",
+                        outline_item_bid="lesson-1",
+                        shifu_bid="course-range",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=ROLE_STUDENT,
+                        generated_content="Recent question",
+                        position=1,
+                        block_content_conf="",
+                        status=1,
+                        deleted=0,
+                        created_at=recent_now,
+                        updated_at=recent_now,
+                    ),
+                    LearnGeneratedBlock(
+                        generated_block_bid="range-ask-old",
+                        progress_record_bid="range-progress-old",
+                        user_bid="learner-2",
+                        block_bid="",
+                        outline_item_bid="lesson-2",
+                        shifu_bid="course-range",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=ROLE_STUDENT,
+                        generated_content="Old question",
+                        position=2,
+                        block_content_conf="",
+                        status=1,
+                        deleted=0,
+                        created_at=old_time,
+                        updated_at=old_time,
+                    ),
+                ]
+            )
+            db.session.commit()
+
+        resp = test_client.get(
+            "/api/dashboard/shifus/course-range/detail"
+            "?start_date=2025-01-15&end_date=2025-01-15"
+            "&learner_page_index=1&learner_page_size=1"
+        )
+        payload = resp.get_json(force=True)
+
+        assert resp.status_code == 200
+        assert payload["code"] == 0
+        assert payload["data"]["metrics"]["total_follow_up_count"] == 1
+        assert payload["data"]["charts"]["questions_by_chapter"] == [
+            {
+                "outline_item_bid": "lesson-1",
+                "title": "Lesson 1",
+                "ask_count": 1,
+            },
+            {
+                "outline_item_bid": "lesson-2",
+                "title": "Lesson 2",
+                "ask_count": 0,
+            },
+        ]
+        assert payload["data"]["learners"] == {
+            "page": 1,
+            "page_size": 1,
+            "total": 2,
+            "items": [
+                {
+                    "user_bid": "learner-1",
+                    "nickname": "",
+                    "progress_percent": "50.00",
+                    "follow_up_ask_count": 1,
+                    "last_active_at": "2025-01-15T10:00:00+00:00",
+                    "last_active_at_display": "2025-01-15 10:00:00",
+                }
+            ],
+        }
+        assert payload["data"]["applied_range"] == {
+            "start_date": "2025-01-15",
+            "end_date": "2025-01-15",
+        }
+
+    def test_course_detail_chart_ignores_non_leaf_and_hidden_outlines(
+        self,
+        monkeypatch,
+        test_client,
+        app,
+    ):
+        self._mock_request_user(monkeypatch)
+
+        now = datetime(2025, 1, 20, 10, 0, 0)
+
+        with app.app_context():
+            self._seed_dashboard_course(
+                shifu_bid="course-chart-filter",
+                title="Chart Filter Course",
+                created_at=now,
+                published_created_at=now,
+            )
+            self._seed_outline_item(
+                shifu_bid="course-chart-filter",
+                outline_item_bid="chapter-1",
+                title="Chapter 1",
+                position="1",
+            )
+            self._seed_outline_item(
+                shifu_bid="course-chart-filter",
+                outline_item_bid="lesson-visible",
+                title="Visible Lesson",
+                parent_bid="chapter-1",
+                position="1.1",
+            )
+            self._seed_outline_item(
+                shifu_bid="course-chart-filter",
+                outline_item_bid="lesson-hidden",
+                title="Hidden Lesson",
+                parent_bid="chapter-1",
+                position="1.2",
+                hidden=1,
+            )
+            db.session.add_all(
+                [
+                    LearnGeneratedBlock(
+                        generated_block_bid="chart-filter-parent",
+                        progress_record_bid="chart-filter-parent-progress",
+                        user_bid="learner-1",
+                        block_bid="",
+                        outline_item_bid="chapter-1",
+                        shifu_bid="course-chart-filter",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=ROLE_STUDENT,
+                        generated_content="Parent question",
+                        position=1,
+                        block_content_conf="",
+                        status=1,
+                        deleted=0,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                    LearnGeneratedBlock(
+                        generated_block_bid="chart-filter-visible",
+                        progress_record_bid="chart-filter-visible-progress",
+                        user_bid="learner-1",
+                        block_bid="",
+                        outline_item_bid="lesson-visible",
+                        shifu_bid="course-chart-filter",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=ROLE_STUDENT,
+                        generated_content="Visible question",
+                        position=2,
+                        block_content_conf="",
+                        status=1,
+                        deleted=0,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                    LearnGeneratedBlock(
+                        generated_block_bid="chart-filter-hidden",
+                        progress_record_bid="chart-filter-hidden-progress",
+                        user_bid="learner-1",
+                        block_bid="",
+                        outline_item_bid="lesson-hidden",
+                        shifu_bid="course-chart-filter",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=ROLE_STUDENT,
+                        generated_content="Hidden question",
+                        position=3,
+                        block_content_conf="",
+                        status=1,
+                        deleted=0,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                ]
+            )
+            db.session.commit()
+
+        resp = test_client.get("/api/dashboard/shifus/course-chart-filter/detail")
+        payload = resp.get_json(force=True)
+
+        assert resp.status_code == 200
+        assert payload["code"] == 0
+        assert payload["data"]["metrics"]["total_follow_up_count"] == 3
+        assert payload["data"]["charts"]["questions_by_chapter"] == [
+            {
+                "outline_item_bid": "lesson-visible",
+                "title": "Visible Lesson",
+                "ask_count": 1,
+            }
+        ]
+
+    def test_course_detail_counts_history_student_follow_ups(
+        self,
+        monkeypatch,
+        test_client,
+        app,
+    ):
+        self._mock_request_user(monkeypatch)
+
+        now = datetime(2025, 1, 20, 10, 0, 0)
+
+        with app.app_context():
+            self._seed_dashboard_course(
+                shifu_bid="course-history-follow-up",
+                title="History Follow Up Course",
+                created_at=now,
+                published_created_at=now,
+            )
+            self._seed_outline_item(
+                shifu_bid="course-history-follow-up",
+                outline_item_bid="chapter-1",
+                title="Chapter 1",
+                position="1",
+            )
+            self._seed_outline_item(
+                shifu_bid="course-history-follow-up",
+                outline_item_bid="lesson-5",
+                title="Lesson 5",
+                parent_bid="chapter-1",
+                position="1.5",
+            )
+            db.session.add(
+                LearnProgressRecord(
+                    progress_record_bid="history-progress-1",
+                    shifu_bid="course-history-follow-up",
+                    outline_item_bid="lesson-5",
+                    user_bid="learner-1",
+                    status=LEARN_STATUS_IN_PROGRESS,
+                    block_position=0,
+                    deleted=0,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+            db.session.add_all(
+                [
+                    LearnGeneratedBlock(
+                        generated_block_bid="history-ask-1",
+                        progress_record_bid="history-progress-1",
+                        user_bid="learner-1",
+                        block_bid="",
+                        outline_item_bid="lesson-5",
+                        shifu_bid="course-history-follow-up",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=ROLE_STUDENT,
+                        generated_content="Archived follow-up",
+                        position=1,
+                        block_content_conf="",
+                        status=0,
+                        deleted=0,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                    LearnGeneratedBlock(
+                        generated_block_bid="history-ask-2",
+                        progress_record_bid="history-progress-1",
+                        user_bid="learner-1",
+                        block_bid="",
+                        outline_item_bid="lesson-5",
+                        shifu_bid="course-history-follow-up",
+                        type=BLOCK_TYPE_MDASK_VALUE,
+                        role=ROLE_STUDENT,
+                        generated_content="Active follow-up",
+                        position=2,
+                        block_content_conf="",
+                        status=1,
+                        deleted=0,
+                        created_at=now,
+                        updated_at=now,
+                    ),
+                ]
+            )
+            db.session.commit()
+
+        resp = test_client.get("/api/dashboard/shifus/course-history-follow-up/detail")
+        payload = resp.get_json(force=True)
+
+        assert resp.status_code == 200
+        assert payload["code"] == 0
+        assert payload["data"]["metrics"]["total_follow_up_count"] == 2
+        assert payload["data"]["charts"]["questions_by_chapter"] == [
+            {
+                "outline_item_bid": "lesson-5",
+                "title": "Lesson 5",
+                "ask_count": 2,
+            }
+        ]
+        assert payload["data"]["learners"]["items"][0]["user_bid"] == "learner-1"
+        assert payload["data"]["learners"]["items"][0]["follow_up_ask_count"] == 2
 
     def test_course_detail_counts_restudy_learners_as_completed(
         self,

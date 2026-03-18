@@ -48,14 +48,26 @@ def register_dashboard_routes(app: Flask, path_prefix: str = "/api/dashboard") -
     @app.route(path_prefix + "/shifus/<shifu_bid>/detail", methods=["GET"])
     def dashboard_course_detail_api(shifu_bid: str):
         user_id = request.user.user_id
+        learner_page_index_raw = request.args.get("learner_page_index", "1")
+        learner_page_size_raw = request.args.get("learner_page_size", "20")
         timezone_name = (request.args.get("timezone", "") or "").strip() or None
         if timezone_name and len(timezone_name) > 100:
             raise_param_error("timezone")
+        try:
+            learner_page_index = int(learner_page_index_raw)
+            learner_page_size = int(learner_page_size_raw)
+        except ValueError:
+            learner_page_index = 1
+            learner_page_size = 20
         return make_common_response(
             build_dashboard_course_detail(
                 app,
                 user_id,
                 shifu_bid,
+                start_date=request.args.get("start_date"),
+                end_date=request.args.get("end_date"),
+                learner_page_index=learner_page_index,
+                learner_page_size=learner_page_size,
                 timezone_name=timezone_name,
             )
         )

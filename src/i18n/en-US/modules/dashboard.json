@@ -9,12 +9,15 @@
       "title": "Basic Information"
     },
     "charts": {
+      "allChaptersDialogTitle": "All Chapter Question Distribution",
       "chapterProgress": "Chapter Progress Distribution",
       "learningTrend": "Learning Activity Trend",
       "placeholder": "Charts are coming soon",
+      "questionCount": "Questions",
       "questionsByChapter": "Follow-up Questions by Chapter",
       "questionsByTime": "Follow-up Questions by Time",
-      "title": "Charts"
+      "title": "Charts",
+      "viewAllChapters": "View all chapters"
     },
     "courseIdLabel": "Course ID",
     "learners": {

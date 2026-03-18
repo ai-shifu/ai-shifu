@@ -9,12 +9,15 @@
       "title": "基础信息"
     },
     "charts": {
+      "allChaptersDialogTitle": "全部章节追问分布",
       "chapterProgress": "章节学习进度分布图",
       "learningTrend": "学习活跃趋势图",
       "placeholder": "图表能力建设中，敬请期待",
+      "questionCount": "追问数",
       "questionsByChapter": "追问数量按章节分布图",
       "questionsByTime": "追问数量按时间分布图",
-      "title": "图表区"
+      "title": "图表区",
+      "viewAllChapters": "查看全部章节"
     },
     "courseIdLabel": "课程 ID",
     "learners": {

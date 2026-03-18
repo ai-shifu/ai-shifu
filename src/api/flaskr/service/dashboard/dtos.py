@@ -174,6 +174,160 @@ class DashboardCourseDetailMetricsDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class DashboardSeriesPointDTO(BaseModel):
+    """A single chart series point."""
+
+    label: str = Field(..., description="Point label", required=False)
+    value: int = Field(..., description="Point value", required=False)
+
+    def __json__(self) -> Dict[str, Any]:
+        return {
+            "label": self.label,
+            "value": int(self.value),
+        }
+
+
+@register_schema_to_swagger
+class DashboardCourseDetailQuestionsByChapterItemDTO(BaseModel):
+    """Chart item for follow-up questions by chapter."""
+
+    outline_item_bid: str = Field(
+        ..., description="Outline item business identifier", required=False
+    )
+    title: str = Field(..., description="Outline title", required=False)
+    ask_count: int = Field(..., description="Follow-up ask count", required=False)
+
+    def __json__(self) -> Dict[str, Any]:
+        return {
+            "outline_item_bid": self.outline_item_bid,
+            "title": self.title,
+            "ask_count": int(self.ask_count),
+        }
+
+
+@register_schema_to_swagger
+class DashboardCourseDetailChartsDTO(BaseModel):
+    """Chart payloads for the course detail page."""
+
+    questions_by_chapter: List[DashboardCourseDetailQuestionsByChapterItemDTO] = Field(
+        default_factory=list,
+        description="Follow-up question distribution by chapter",
+        required=False,
+    )
+    questions_by_time: List[DashboardSeriesPointDTO] = Field(
+        default_factory=list,
+        description="Follow-up question distribution by time",
+        required=False,
+    )
+    learning_activity_trend: List[DashboardSeriesPointDTO] = Field(
+        default_factory=list,
+        description="Learning activity trend",
+        required=False,
+    )
+    chapter_progress_distribution: List[DashboardSeriesPointDTO] = Field(
+        default_factory=list,
+        description="Chapter progress distribution",
+        required=False,
+    )
+
+    def __json__(self) -> Dict[str, Any]:
+        return {
+            "questions_by_chapter": [
+                item.__json__() for item in self.questions_by_chapter
+            ],
+            "questions_by_time": [item.__json__() for item in self.questions_by_time],
+            "learning_activity_trend": [
+                item.__json__() for item in self.learning_activity_trend
+            ],
+            "chapter_progress_distribution": [
+                item.__json__() for item in self.chapter_progress_distribution
+            ],
+        }
+
+
+@register_schema_to_swagger
+class DashboardCourseDetailLearnerItemDTO(BaseModel):
+    """Learner summary row for course detail page."""
+
+    user_bid: str = Field(..., description="User business identifier", required=False)
+    nickname: str = Field(..., description="User nickname", required=False)
+    progress_percent: str = Field(
+        ...,
+        description="Completed leaf chapter percentage with 2 decimals",
+        required=False,
+    )
+    follow_up_ask_count: int = Field(
+        default=0,
+        description="Follow-up ask count within the applied range",
+        required=False,
+    )
+    last_active_at: str = Field(
+        default="",
+        description="Last active timestamp (ISO) within the applied range",
+        required=False,
+    )
+    last_active_at_display: str = Field(
+        default="",
+        description="Last active timestamp for direct display",
+        required=False,
+    )
+
+    def __json__(self) -> Dict[str, Any]:
+        return {
+            "user_bid": self.user_bid,
+            "nickname": self.nickname,
+            "progress_percent": self.progress_percent,
+            "follow_up_ask_count": int(self.follow_up_ask_count),
+            "last_active_at": self.last_active_at,
+            "last_active_at_display": self.last_active_at_display,
+        }
+
+
+@register_schema_to_swagger
+class DashboardCourseDetailLearnersDTO(BaseModel):
+    """Paginated learner payload for course detail page."""
+
+    page: int = Field(..., description="Current learner page", required=False)
+    page_size: int = Field(..., description="Learner page size", required=False)
+    total: int = Field(..., description="Total learner count", required=False)
+    items: List[DashboardCourseDetailLearnerItemDTO] = Field(
+        default_factory=list,
+        description="Learner rows",
+        required=False,
+    )
+
+    def __json__(self) -> Dict[str, Any]:
+        return {
+            "page": int(self.page),
+            "page_size": int(self.page_size),
+            "total": int(self.total),
+            "items": [item.__json__() for item in self.items],
+        }
+
+
+@register_schema_to_swagger
+class DashboardCourseDetailAppliedRangeDTO(BaseModel):
+    """Applied date range for behavior-based metrics."""
+
+    start_date: str = Field(
+        default="",
+        description="Applied start date (YYYY-MM-DD)",
+        required=False,
+    )
+    end_date: str = Field(
+        default="",
+        description="Applied end date (YYYY-MM-DD)",
+        required=False,
+    )
+
+    def __json__(self) -> Dict[str, Any]:
+        return {
+            "start_date": self.start_date,
+            "end_date": self.end_date,
+        }
+
+
+@register_schema_to_swagger
 class DashboardCourseDetailDTO(BaseModel):
     """Dashboard detail response payload."""
 
@@ -183,9 +337,21 @@ class DashboardCourseDetailDTO(BaseModel):
     metrics: DashboardCourseDetailMetricsDTO = Field(
         ..., description="Course detail metrics", required=False
     )
+    charts: DashboardCourseDetailChartsDTO = Field(
+        ..., description="Course detail chart payloads", required=False
+    )
+    learners: DashboardCourseDetailLearnersDTO = Field(
+        ..., description="Course learner list payload", required=False
+    )
+    applied_range: DashboardCourseDetailAppliedRangeDTO = Field(
+        ..., description="Applied date range for behavior metrics", required=False
+    )
 
     def __json__(self) -> Dict[str, Any]:
         return {
             "basic_info": self.basic_info.__json__(),
             "metrics": self.metrics.__json__(),
+            "charts": self.charts.__json__(),
+            "learners": self.learners.__json__(),
+            "applied_range": self.applied_range.__json__(),
         }
