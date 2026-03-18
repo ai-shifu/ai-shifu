@@ -10,6 +10,7 @@ import AdminDashboardEntryPage from './page';
 import { DashboardCourseTableRow } from './dashboardCourseTableRow';
 
 const mockPush = jest.fn();
+const mockTranslate = (key: string) => key;
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -45,13 +46,18 @@ jest.mock('@/c-store', () => ({
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: mockTranslate,
   }),
 }));
 
 jest.mock('@/components/loading', () => ({
   __esModule: true,
   default: () => <div data-testid='loading-indicator' />,
+}));
+
+jest.mock('@/lib/browser-timezone', () => ({
+  __esModule: true,
+  getBrowserTimeZone: () => 'Asia/Shanghai',
 }));
 
 const mockGetDashboardEntry = api.getDashboardEntry as jest.Mock;
@@ -70,6 +76,7 @@ const DASHBOARD_ENTRY_RESPONSE = {
       order_count: 3,
       order_amount: '99.00',
       last_active_at: '2026-03-06T08:00:00Z',
+      last_active_at_display: '2026-03-06 16:00:00',
     },
   ],
   page: 1,
@@ -107,6 +114,7 @@ describe('AdminDashboardEntryPage', () => {
           keyword: '',
           start_date: '',
           end_date: '',
+          timezone: 'Asia/Shanghai',
         }),
       );
     });
@@ -118,7 +126,7 @@ describe('AdminDashboardEntryPage', () => {
     expect(orderButton).toBeEnabled();
   });
 
-  test('keeps order click isolated while row click opens course detail', () => {
+  test('keeps order click isolated while only the course cell opens detail', () => {
     const onCourseDetailClick = jest.fn();
     const onOrderClick = jest.fn();
 
@@ -139,9 +147,20 @@ describe('AdminDashboardEntryPage', () => {
     const orderButton = screen.getByRole('button', {
       name: 'module.dashboard.entry.table.orders-shifu-1',
     });
+    const courseButton = screen.getByRole('button', {
+      name: 'Course 1-shifu-1',
+    });
+    const courseName = screen.getByText('Course 1');
+    const courseId = screen.getByText('shifu-1');
     const courseRow = orderButton.closest('tr');
 
     expect(courseRow).not.toBeNull();
+    expect(screen.getByText('2026-03-06 16:00:00')).toBeInTheDocument();
+    expect(courseButton).toHaveClass('group');
+    expect(courseName).toHaveClass('text-primary');
+    expect(courseName).toHaveClass('group-hover:underline');
+    expect(courseId).toHaveClass('text-muted-foreground');
+    expect(courseId).toHaveClass('group-hover:text-primary/80');
 
     fireEvent.click(orderButton);
 
@@ -150,6 +169,10 @@ describe('AdminDashboardEntryPage', () => {
     expect(onCourseDetailClick).not.toHaveBeenCalled();
 
     fireEvent.click(courseRow as HTMLElement);
+
+    expect(onCourseDetailClick).not.toHaveBeenCalled();
+
+    fireEvent.click(courseButton);
 
     expect(onCourseDetailClick).toHaveBeenCalledTimes(1);
     expect(onCourseDetailClick).toHaveBeenCalledWith('shifu-1');
@@ -168,6 +191,7 @@ describe('AdminDashboardEntryPage', () => {
           keyword: '',
           start_date: '',
           end_date: '',
+          timezone: 'Asia/Shanghai',
         }),
       );
     });

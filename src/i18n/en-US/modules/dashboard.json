@@ -9,12 +9,15 @@
       "title": "Basic Information"
     },
     "charts": {
+      "allChaptersDialogTitle": "All Chapter Question Distribution",
       "chapterProgress": "Chapter Progress Distribution",
       "learningTrend": "Learning Activity Trend",
       "placeholder": "Charts are coming soon",
+      "questionCount": "Questions",
       "questionsByChapter": "Follow-up Questions by Chapter",
       "questionsByTime": "Follow-up Questions by Time",
-      "title": "Charts"
+      "title": "Charts",
+      "viewAllChapters": "View all chapters"
     },
     "courseIdLabel": "Course ID",
     "learners": {
@@ -29,15 +32,16 @@
     },
     "metrics": {
       "activeLearnersLast7Days": "Active Learners in Last 7 Days",
+      "avgLearningDuration": "Average Learning Duration",
       "avgQuestionsPerLearner": "Average Questions per Learner",
-      "completedLearners": "Completed Learners",
+      "completedLearners": "Completers",
       "completionRate": "Completion Rate",
+      "orderAmount": "Order Amount",
+      "orderCount": "Order Count",
       "title": "Key Metrics",
-      "totalLearners": "Total Learners",
       "totalQuestions": "Total Follow-up Questions"
     },
-    "placeholderValue": "Coming soon",
-    "subtitle": "This course detail page is still being built out. More basic info, metrics, charts, and learner data are coming soon.",
+    "subtitle": "Basic course info and key metrics now use live data. Charts and learner list are still under construction.",
     "title": "Course Detail"
   },
   "entry": {
