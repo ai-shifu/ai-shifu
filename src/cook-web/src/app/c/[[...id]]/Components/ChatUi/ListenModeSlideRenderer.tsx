@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { hasAudioContentInTrack } from '@/c-utils/audio-utils';
 import { LESSON_FEEDBACK_INTERACTION_MARKER } from '@/c-api/studyV2';
@@ -227,6 +228,7 @@ const ListenModeSlideRenderer = ({
   onSend,
   onPlayerVisibilityChange,
 }: ListenModeSlideRendererProps) => {
+  const { t } = useTranslation();
   const requestedAudioBlockBidsRef = useRef<Set<string>>(new Set());
   const [interactionInputMap, setInteractionInputMap] = useState<
     Record<string, string>
@@ -317,6 +319,12 @@ const ListenModeSlideRenderer = ({
           // playerAlwaysVisible={true}
           className='h-full w-full listen-slide-root'
           elementList={elementList}
+          interactionTexts={{
+            title: t('module.chat.listenInteractionHint'),
+            confirmButtonText: t('module.renderUi.core.confirm'),
+            copyButtonText: t('module.renderUi.core.copyCode'),
+            copiedButtonText: t('module.renderUi.core.copied'),
+          }}
           onPlayerVisibilityChange={onPlayerVisibilityChange}
           onSend={handleInteractionSend}
           onStepChange={handleStepChange}
