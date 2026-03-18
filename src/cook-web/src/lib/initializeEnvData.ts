@@ -137,7 +137,11 @@ const loadRuntimeConfig = async () => {
 
   const payload = await fetchRuntimeConfig();
   const runtimeConfig = payload?.data ?? payload;
-  if (redirectToHomeUrlIfRootPath(runtimeConfig?.homeUrl)) {
+  // Sync the resolved home URL before any root redirect to avoid racing
+  // against page-level redirects that still see the default store value.
+  const resolvedHomeUrl = runtimeConfig?.homeUrl || '/';
+  await updateHomeUrl(resolvedHomeUrl);
+  if (redirectToHomeUrlIfRootPath(resolvedHomeUrl)) {
     return;
   }
 
@@ -178,7 +182,6 @@ const loadRuntimeConfig = async () => {
     runtimeConfig?.enableWechatCode?.toString() || 'true',
   );
   await updateDefaultLlmModel(runtimeConfig?.defaultLlmModel || '');
-  await updateHomeUrl(runtimeConfig?.homeUrl || '/');
   await updateCurrencySymbol(runtimeConfig?.currencySymbol || '¥');
   await updateStripePublishableKey(runtimeConfig?.stripePublishableKey || '');
   await updateStripeEnabled(
