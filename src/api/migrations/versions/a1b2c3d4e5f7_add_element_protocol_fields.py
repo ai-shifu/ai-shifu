@@ -71,15 +71,13 @@ def upgrade() -> None:
         if _column_exists(TABLE_NAME, col_name):
             continue
         try:
+            # MySQL TEXT/BLOB columns do not support DEFAULT values
+            col_kwargs = dict(nullable=False, comment=comment)
+            if not isinstance(col_type, (sa.Text, sa.LargeBinary)):
+                col_kwargs["server_default"] = str(default)
             op.add_column(
                 TABLE_NAME,
-                sa.Column(
-                    col_name,
-                    col_type,
-                    nullable=False,
-                    server_default=str(default),
-                    comment=comment,
-                ),
+                sa.Column(col_name, col_type, **col_kwargs),
             )
         except SQLAlchemyError:
             pass
