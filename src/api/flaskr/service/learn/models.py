@@ -269,14 +269,14 @@ class LearnGeneratedElement(db.Model):
         String(32),
         nullable=False,
         default="",
-        comment="Element type: interaction/sandbox/picture/video",
+        comment="Element type: html/svg/diff/img/interaction/tables/code/latex/md_img/mermaid/title/text",
         index=True,
     )
     element_type_code = Column(
         Integer,
         nullable=False,
         default=0,
-        comment="Element type code",
+        comment="Element type numeric code",
     )
     change_type = Column(
         String(16),
@@ -290,6 +290,53 @@ class LearnGeneratedElement(db.Model):
         default="",
         comment="Diff target element business identifier",
         index=True,
+    )
+    is_renderable = Column(
+        SmallInteger,
+        nullable=False,
+        default=1,
+        comment="Renderable flag: 1=renderable, 0=non-renderable",
+        index=True,
+    )
+    is_new = Column(
+        SmallInteger,
+        nullable=False,
+        default=1,
+        comment="New element flag: 1=creates new element, 0=patches existing via target_element_bid",
+        index=True,
+    )
+    is_marker = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Marker flag: 1=forward/backward navigation anchor, 0=normal",
+        index=True,
+    )
+    sequence_number = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Element generation sequence within the run session (strictly increasing)",
+        index=True,
+    )
+    is_speakable = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Speakable flag: 1=needs TTS synthesis, 0=silent",
+        index=True,
+    )
+    audio_url = Column(
+        String(512),
+        nullable=False,
+        default="",
+        comment="Complete audio URL; empty until audio is finalized",
+    )
+    audio_segments = Column(
+        Text,
+        nullable=False,
+        default="[]",
+        comment="Audio segment trail as JSON array",
     )
     is_navigable = Column(
         SmallInteger,

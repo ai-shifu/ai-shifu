@@ -46,10 +46,24 @@ class GeneratedType(Enum):
 
 @register_schema_to_swagger
 class ElementType(Enum):
+    HTML = "html"
+    SVG = "svg"
+    DIFF = "diff"
+    IMG = "img"
     INTERACTION = "interaction"
-    SANDBOX = "sandbox"
-    PICTURE = "picture"
-    VIDEO = "video"
+    TABLES = "tables"
+    CODE = "code"
+    LATEX = "latex"
+    MD_IMG = "md_img"
+    MERMAID = "mermaid"
+    TITLE = "title"
+    TEXT = "text"
+
+    # Legacy aliases kept for backward-compatible deserialization only.
+    # New code must not produce these values.
+    _SANDBOX = "sandbox"
+    _PICTURE = "picture"
+    _VIDEO = "video"
 
     def __json__(self):
         return self.value
@@ -550,6 +564,29 @@ class ElementDTO(BaseModel):
     target_element_bid: str | None = Field(
         default=None, description="Diff target element identifier"
     )
+    is_renderable: bool = Field(
+        default=True, description="Whether this element participates in rendering"
+    )
+    is_new: bool = Field(
+        default=True,
+        description="Whether this creates a new element; false means patch to existing",
+    )
+    is_marker: bool = Field(
+        default=False,
+        description="Whether this is a forward/backward navigation anchor",
+    )
+    sequence_number: int = Field(
+        default=0, description="Element generation sequence within the run session"
+    )
+    is_speakable: bool = Field(
+        default=False, description="Whether this element needs TTS synthesis"
+    )
+    audio_url: str = Field(
+        default="", description="Complete audio URL; empty until audio is finalized"
+    )
+    audio_segments: List[Dict[str, Any]] = Field(
+        default_factory=list, description="Streaming audio segment trail"
+    )
     is_navigable: int = Field(default=1, description="Navigation flag")
     is_final: int = Field(default=0, description="Final snapshot flag")
     content_text: str = Field(default="", description="Element text snapshot")
@@ -566,6 +603,13 @@ class ElementDTO(BaseModel):
             "role": self.role,
             "element_type": self.element_type.value,
             "element_type_code": int(self.element_type_code or 0),
+            "is_renderable": self.is_renderable,
+            "is_new": self.is_new,
+            "is_marker": self.is_marker,
+            "sequence_number": int(self.sequence_number or 0),
+            "is_speakable": self.is_speakable,
+            "audio_url": self.audio_url or "",
+            "audio_segments": self.audio_segments,
             "is_navigable": int(self.is_navigable or 0),
             "is_final": int(self.is_final or 0),
             "content_text": self.content_text or "",

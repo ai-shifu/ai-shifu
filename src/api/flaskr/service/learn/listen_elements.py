@@ -42,18 +42,48 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
     LearnProgressRecord,
 )
+from flaskr.service.learn.type_state_machine import TypeInput, TypeStateMachine
 
 ELEMENT_TYPE_CODES = {
-    ElementType.INTERACTION: 101,
-    ElementType.SANDBOX: 102,
-    ElementType.PICTURE: 103,
-    ElementType.VIDEO: 104,
+    ElementType.HTML: 201,
+    ElementType.SVG: 202,
+    ElementType.DIFF: 203,
+    ElementType.IMG: 204,
+    ElementType.INTERACTION: 205,
+    ElementType.TABLES: 206,
+    ElementType.CODE: 207,
+    ElementType.LATEX: 208,
+    ElementType.MD_IMG: 209,
+    ElementType.MERMAID: 210,
+    ElementType.TITLE: 211,
+    ElementType.TEXT: 212,
+    # Legacy codes kept for backfill compatibility
+    ElementType._SANDBOX: 102,
+    ElementType._PICTURE: 103,
+    ElementType._VIDEO: 104,
 }
 
 VISUAL_KIND_TO_ELEMENT_TYPE = {
-    "video": ElementType.VIDEO,
-    "img": ElementType.PICTURE,
-    "md_img": ElementType.PICTURE,
+    "video": ElementType.HTML,
+    "img": ElementType.IMG,
+    "md_img": ElementType.MD_IMG,
+    "svg": ElementType.SVG,
+    "iframe": ElementType.HTML,
+    "sandbox": ElementType.HTML,
+    "html_table": ElementType.TABLES,
+    "md_table": ElementType.TABLES,
+    "fence": ElementType.CODE,
+    "mermaid": ElementType.MERMAID,
+    "latex": ElementType.LATEX,
+    "title": ElementType.TITLE,
+    "text": ElementType.TEXT,
+}
+
+# Mapping from legacy element_type values to new enum values
+LEGACY_ELEMENT_TYPE_MAP = {
+    ElementType._SANDBOX: ElementType.HTML,
+    ElementType._PICTURE: ElementType.IMG,
+    ElementType._VIDEO: ElementType.HTML,
 }
 
 
@@ -166,7 +196,7 @@ def _role_value_to_name(role_value: Any) -> str:
 
 def _element_type_for_visual_kind(visual_kind: str) -> ElementType:
     normalized = (visual_kind or "").strip().lower()
-    return VISUAL_KIND_TO_ELEMENT_TYPE.get(normalized, ElementType.SANDBOX)
+    return VISUAL_KIND_TO_ELEMENT_TYPE.get(normalized, ElementType.TEXT)
 
 
 def _element_type_code(element_type: ElementType) -> int:
@@ -301,6 +331,13 @@ def _serialize_element_row(
         element_type_code=int(element.element_type_code or 0),
         change_type=element.change_type.value if element.change_type else "",
         target_element_bid=element.target_element_bid or "",
+        is_renderable=1 if element.is_renderable else 0,
+        is_new=1 if element.is_new else 0,
+        is_marker=1 if element.is_marker else 0,
+        sequence_number=int(element.sequence_number or 0),
+        is_speakable=1 if element.is_speakable else 0,
+        audio_url=element.audio_url or "",
+        audio_segments=json.dumps(element.audio_segments or [], ensure_ascii=False),
         is_navigable=int(element.is_navigable or 0),
         is_final=int(element.is_final or 0),
         content_text=element.content_text or "",
@@ -325,17 +362,27 @@ def _build_legacy_record_for_progress(
 
 
 def _element_from_row(row: LearnGeneratedElement) -> ElementDTO:
-    element_type_raw = str(row.element_type or ElementType.SANDBOX.value)
+    element_type_raw = str(row.element_type or ElementType.TEXT.value)
     try:
         element_type = ElementType(element_type_raw)
     except ValueError:
-        element_type = ElementType.SANDBOX
+        element_type = ElementType.TEXT
+    # Map legacy enum values to new ones
+    element_type = LEGACY_ELEMENT_TYPE_MAP.get(element_type, element_type)
     change_type = None
     if row.change_type:
         try:
             change_type = ElementChangeType(row.change_type)
         except ValueError:
             change_type = None
+    # Deserialize audio_segments from JSON text
+    audio_segments_raw = getattr(row, "audio_segments", None) or "[]"
+    try:
+        audio_segments = json.loads(audio_segments_raw)
+        if not isinstance(audio_segments, list):
+            audio_segments = []
+    except Exception:
+        audio_segments = []
     return ElementDTO(
         run_session_bid=row.run_session_bid or None,
         run_event_seq=int(row.run_event_seq or 0),
@@ -345,9 +392,16 @@ def _element_from_row(row: LearnGeneratedElement) -> ElementDTO:
         element_index=int(row.element_index or 0),
         role=row.role or "teacher",
         element_type=element_type,
-        element_type_code=int(row.element_type_code or 0),
+        element_type_code=ELEMENT_TYPE_CODES.get(element_type, 0),
         change_type=change_type,
         target_element_bid=row.target_element_bid or None,
+        is_renderable=bool(getattr(row, "is_renderable", 1)),
+        is_new=bool(getattr(row, "is_new", 1)),
+        is_marker=bool(getattr(row, "is_marker", 0)),
+        sequence_number=int(getattr(row, "sequence_number", 0) or 0),
+        is_speakable=bool(getattr(row, "is_speakable", 0)),
+        audio_url=str(getattr(row, "audio_url", "") or ""),
+        audio_segments=audio_segments,
         is_navigable=int(row.is_navigable or 0),
         is_final=int(row.is_final or 0),
         content_text=row.content_text or "",
@@ -482,13 +536,21 @@ class ListenElementRunAdapter:
         self.user_bid = user_bid
         self.run_session_bid = run_session_bid or uuid.uuid4().hex
         self._run_event_seq = 0
+        self._sequence_number = 0
+        self._state_machine = TypeStateMachine()
         self._block_meta_cache: dict[str, BlockMeta] = {}
         self._block_states: dict[str, BlockState] = {}
         self._max_element_index = -1
+        # Track current element bid for audio association
+        self._current_element_bid: str | None = None
 
     def _next_seq(self) -> int:
         self._run_event_seq += 1
         return self._run_event_seq
+
+    def _next_sequence_number(self) -> int:
+        self._sequence_number += 1
+        return self._sequence_number
 
     def _load_block_meta(self, generated_block_bid: str) -> BlockMeta:
         if generated_block_bid in self._block_meta_cache:
@@ -529,6 +591,13 @@ class ListenElementRunAdapter:
         element_type: ElementType | None = None,
         change_type: ElementChangeType | None = None,
         target_element_bid: str | None = None,
+        is_renderable: bool = True,
+        is_new: bool = True,
+        is_marker: bool = False,
+        sequence_number: int = 0,
+        is_speakable: bool = False,
+        audio_url: str = "",
+        audio_segments: list | None = None,
         is_navigable: int = 1,
         is_final: int = 0,
         content_text: str = "",
@@ -554,6 +623,13 @@ class ListenElementRunAdapter:
             ),
             change_type=change_type.value if change_type is not None else "",
             target_element_bid=target_element_bid or "",
+            is_renderable=1 if is_renderable else 0,
+            is_new=1 if is_new else 0,
+            is_marker=1 if is_marker else 0,
+            sequence_number=int(sequence_number or 0),
+            is_speakable=1 if is_speakable else 0,
+            audio_url=audio_url or "",
+            audio_segments=json.dumps(audio_segments or [], ensure_ascii=False),
             is_navigable=int(is_navigable or 0),
             is_final=int(is_final or 0),
             content_text=content_text or "",
@@ -566,8 +642,15 @@ class ListenElementRunAdapter:
 
     def _element_message(self, element: ElementDTO) -> RunElementSSEMessageDTO:
         seq = self._next_seq()
+        # Assign sequence_number (element-level counter)
+        element.sequence_number = self._next_sequence_number()
         element.run_session_bid = self.run_session_bid
         element.run_event_seq = seq
+        # Feed state machine
+        if not self._state_machine.is_terminated:
+            self._state_machine.feed(TypeInput.CONTENT_START, is_new=element.is_new)
+        # Track current element for audio association
+        self._current_element_bid = element.element_bid
         self._insert_row(
             generated_block_bid=element.generated_block_bid,
             element_index=element.element_index,
@@ -577,6 +660,13 @@ class ListenElementRunAdapter:
             element_type=element.element_type,
             change_type=element.change_type,
             target_element_bid=element.target_element_bid,
+            is_renderable=element.is_renderable,
+            is_new=element.is_new,
+            is_marker=element.is_marker,
+            sequence_number=element.sequence_number,
+            is_speakable=element.is_speakable,
+            audio_url=element.audio_url,
+            audio_segments=element.audio_segments,
             is_navigable=element.is_navigable,
             is_final=element.is_final,
             content_text=element.content_text,
@@ -659,8 +749,8 @@ class ListenElementRunAdapter:
             generated_block_bid=state.generated_block_bid,
             element_index=max(self._max_element_index, 0),
             role=role,
-            element_type=ElementType.SANDBOX,
-            element_type_code=_element_type_code(ElementType.SANDBOX),
+            element_type=ElementType.HTML,
+            element_type_code=_element_type_code(ElementType.HTML),
             change_type=ElementChangeType.RENDER,
             is_navigable=1,
             is_final=0,
@@ -685,6 +775,47 @@ class ListenElementRunAdapter:
                 synchronize_session=False,
             )
         )
+
+    def _append_audio_segment_to_element(
+        self, element_bid: str, segment_data: dict
+    ) -> None:
+        """Append an audio segment entry to the element's audio_segments JSON."""
+        row = (
+            LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.run_session_bid == self.run_session_bid,
+                LearnGeneratedElement.element_bid == element_bid,
+                LearnGeneratedElement.event_type == "element",
+                LearnGeneratedElement.deleted == 0,
+                LearnGeneratedElement.status == 1,
+            )
+            .order_by(LearnGeneratedElement.id.desc())
+            .first()
+        )
+        if row is None:
+            return
+        try:
+            segments = json.loads(row.audio_segments or "[]")
+            if not isinstance(segments, list):
+                segments = []
+        except Exception:
+            segments = []
+        segments.append(segment_data)
+        row.audio_segments = json.dumps(segments, ensure_ascii=False)
+        db.session.flush()
+
+    def _backfill_audio_url(self, element_bid: str, audio_url: str) -> None:
+        """Set audio_url on the element row."""
+        LearnGeneratedElement.query.filter(
+            LearnGeneratedElement.run_session_bid == self.run_session_bid,
+            LearnGeneratedElement.element_bid == element_bid,
+            LearnGeneratedElement.event_type == "element",
+            LearnGeneratedElement.deleted == 0,
+            LearnGeneratedElement.status == 1,
+        ).update(
+            {"audio_url": audio_url, "is_speakable": 1},
+            synchronize_session=False,
+        )
+        db.session.flush()
 
     def _handle_content(
         self, event: RunMarkdownFlowDTO
@@ -714,6 +845,12 @@ class ListenElementRunAdapter:
         state.audio_by_position[int(getattr(content, "position", 0) or 0)] = (
             _make_audio_payload(content)
         )
+        # Backfill audio_url on the current element
+        if self._current_element_bid and content.audio_url:
+            self._backfill_audio_url(self._current_element_bid, content.audio_url)
+        # Feed state machine
+        if not self._state_machine.is_terminated:
+            self._state_machine.feed(TypeInput.AUDIO_COMPLETE)
         yield self._non_element_message(
             event_type=GeneratedType.AUDIO_COMPLETE.value,
             content=content,
@@ -740,6 +877,20 @@ class ListenElementRunAdapter:
                     position=int(getattr(content, "position", 0) or 0),
                 )
             )
+            # Append audio segment to current element's audio_segments
+            if self._current_element_bid:
+                segment_data = {
+                    "position": int(getattr(content, "position", 0) or 0),
+                    "segment_index": int(content.segment_index or 0),
+                    "duration_ms": int(content.duration_ms or 0),
+                    "is_final": content.is_final,
+                }
+                self._append_audio_segment_to_element(
+                    self._current_element_bid, segment_data
+                )
+        # Feed state machine
+        if not self._state_machine.is_terminated:
+            self._state_machine.feed(TypeInput.AUDIO_SEGMENT)
         yield self._non_element_message(
             event_type=GeneratedType.AUDIO_SEGMENT.value,
             content=event.content,
@@ -841,8 +992,8 @@ class ListenElementRunAdapter:
                 generated_block_bid=generated_block_bid,
                 element_index=max(self._max_element_index, 0),
                 role=meta.role,
-                element_type=ElementType.SANDBOX,
-                element_type_code=_element_type_code(ElementType.SANDBOX),
+                element_type=ElementType.HTML,
+                element_type_code=_element_type_code(ElementType.HTML),
                 change_type=ElementChangeType.RENDER,
                 is_navigable=1,
                 is_final=1,
@@ -892,6 +1043,9 @@ class ListenElementRunAdapter:
                 continue
             if event.type == GeneratedType.BREAK:
                 yield from self._finalize_block(event.generated_block_bid or "")
+                if not self._state_machine.is_terminated:
+                    self._state_machine.feed(TypeInput.BLOCK_BREAK)
+                self._current_element_bid = None
                 yield self._non_element_message(
                     event_type=GeneratedType.BREAK.value,
                     content="",
@@ -901,6 +1055,9 @@ class ListenElementRunAdapter:
             if event.type == GeneratedType.DONE:
                 for block_id in list(self._block_states.keys()):
                     yield from self._finalize_block(block_id)
+                if not self._state_machine.is_terminated:
+                    self._state_machine.feed(TypeInput.DONE)
+                self._current_element_bid = None
                 yield self._non_element_message(
                     event_type=GeneratedType.DONE.value,
                     content="",
@@ -1033,8 +1190,8 @@ def build_listen_elements_from_legacy_record(
                 generated_block_bid=record.generated_block_bid,
                 element_index=max_index,
                 role=role,
-                element_type=ElementType.SANDBOX,
-                element_type_code=_element_type_code(ElementType.SANDBOX),
+                element_type=ElementType.HTML,
+                element_type_code=_element_type_code(ElementType.HTML),
                 change_type=ElementChangeType.RENDER,
                 is_navigable=1,
                 is_final=1,
@@ -1117,6 +1274,16 @@ def backfill_learn_generated_elements_for_progress(
         )
 
     for run_event_seq, element in enumerate(built_record.elements, start=1):
+        # Assign sequence_number for backfilled elements
+        element.sequence_number = run_event_seq
+        # Extract audio_url from payload if available
+        if (
+            element.payload
+            and element.payload.audio
+            and element.payload.audio.audio_url
+        ):
+            element.audio_url = element.payload.audio.audio_url
+            element.is_speakable = True
         row = _serialize_element_row(
             progress_record=progress_record,
             element=element,
@@ -1238,7 +1405,7 @@ def get_listen_element_record(
                 LearnGeneratedElement.status == 1,
             )
             .order_by(
-                LearnGeneratedElement.element_index.asc(),
+                LearnGeneratedElement.sequence_number.asc(),
                 LearnGeneratedElement.run_event_seq.asc(),
                 LearnGeneratedElement.id.asc(),
             )
@@ -1250,6 +1417,14 @@ def get_listen_element_record(
                 if row.event_type != "element" or not row.element_bid:
                     continue
                 dto = _element_from_row(row)
+                # For is_new=false elements, apply to target if found
+                if not dto.is_new and dto.target_element_bid:
+                    if dto.target_element_bid in latest_by_bid:
+                        target = latest_by_bid[dto.target_element_bid]
+                        target.content_text = dto.content_text
+                        target.payload = dto.payload
+                        target.is_final = dto.is_final
+                        continue
                 latest_by_bid[row.element_bid] = dto
             events = None
             if include_non_navigable:
