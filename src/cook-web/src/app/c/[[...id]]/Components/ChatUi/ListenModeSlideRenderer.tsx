@@ -314,6 +314,7 @@ const ListenModeSlideRenderer = ({
     >
       <div className='listen-slide-shell'>
         <Slide
+          // playerAlwaysVisible={true}
           className='h-full w-full listen-slide-root'
           elementList={elementList}
           onPlayerVisibilityChange={onPlayerVisibilityChange}

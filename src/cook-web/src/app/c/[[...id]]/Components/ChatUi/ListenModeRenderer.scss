@@ -160,7 +160,6 @@
 
   .listen-slide-root .slide-stage__layer {
     box-sizing: border-box;
-    padding-bottom: 40px;
   }
 
   .listen-slide-root .slide-element--single {
@@ -176,13 +175,6 @@
   }
 
   .listen-slide-player-mobile {
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 40px !important;
-    min-height: 80px !important;
-    width: 100% !important;
-    transform: none !important;
-    translate: 0 !important;
   }
 
   .listen-slide-player-mobile .slide-player__controls {
@@ -196,7 +188,6 @@
   }
 
   .listen-slide-root .slide-interaction-overlay--with-player {
-    bottom: 138px;
   }
 
   .listen-slide-root .slide-interaction-overlay--standalone {

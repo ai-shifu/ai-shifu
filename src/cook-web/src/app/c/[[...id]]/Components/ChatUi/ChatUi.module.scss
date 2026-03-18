@@ -170,8 +170,8 @@
   &.mobile.listenMode {
     display: flex;
     flex: 1 1 0;
-    height: calc(100dvh - 76px);
-    max-height: calc(100dvh - 76px);
+    height: calc(100dvh - 76px - 40px);
+    max-height: calc(100dvh - 76px - 40px);
     min-height: 0;
     flex-direction: column;
     overflow: visible;
@@ -188,32 +188,17 @@
         :global(
           .listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__content
         ) {
-          min-height: calc(100% - 120px);
+          min-height: calc(100% - 80px);
         }
 
         :global(
           .listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__layer
         ) {
-          padding-bottom: 120px;
+          padding-bottom: 80px;
         }
       }
     }
 
-    &.listenModeWithoutPlayer {
-      .chatComponents {
-        :global(
-          .listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__content
-        ) {
-          min-height: calc(100% - 40px);
-        }
-
-        :global(
-          .listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__layer
-        ) {
-          padding-bottom: 40px;
-        }
-      }
-    }
   }
 
   .chatComponents {
