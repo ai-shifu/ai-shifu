@@ -179,7 +179,12 @@ const buildQuestionsByChapterBarOption = ({
           position: 'right',
           color: '#334155',
           fontWeight: 500,
-          formatter: ({ value }: { value?: number }) => String(value ?? 0),
+          formatter: (params: any) => {
+            const rawValue = params?.value;
+            const normalizedValue =
+              typeof rawValue === 'number' ? rawValue : Number(rawValue ?? 0) || 0;
+            return String(normalizedValue);
+          },
         },
         data: items.map((item, index) => ({
           value: item.ask_count,
