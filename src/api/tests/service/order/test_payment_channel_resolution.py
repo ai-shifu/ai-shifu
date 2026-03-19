@@ -1,7 +1,11 @@
 import pytest
 
 from flaskr.service.common.models import AppException
-from flaskr.service.order.funs import _resolve_payment_channel
+from flaskr.service.order.funs import (
+    _extract_pingxx_redirect_url,
+    _normalize_pingxx_return_url,
+    _resolve_payment_channel,
+)
 
 
 class TestResolvePaymentChannel:
@@ -80,3 +84,48 @@ class TestResolvePaymentChannel:
                 channel_hint="wx_pub_qr",
                 stored_channel="pingxx",
             )
+
+    def test_extract_pingxx_redirect_url_from_channel_key(self):
+        assert (
+            _extract_pingxx_redirect_url(
+                "wx_wap",
+                {"wx_wap": "https://pay.example.com/wx-wap-session"},
+            )
+            == "https://pay.example.com/wx-wap-session"
+        )
+
+    def test_extract_pingxx_redirect_url_from_fallback_key(self):
+        assert (
+            _extract_pingxx_redirect_url(
+                "wx_wap",
+                {"redirect_url": "https://pay.example.com/redirect"},
+            )
+            == "https://pay.example.com/redirect"
+        )
+
+    def test_normalize_pingxx_return_url_allows_same_origin_absolute_url(self):
+        assert (
+            _normalize_pingxx_return_url(
+                "https://cook.example.com/payment/pingxx/result?order_id=1",
+                allowed_origins=["https://cook.example.com"],
+            )
+            == "https://cook.example.com/payment/pingxx/result?order_id=1"
+        )
+
+    def test_normalize_pingxx_return_url_builds_absolute_url_from_path(self):
+        assert (
+            _normalize_pingxx_return_url(
+                "/payment/pingxx/result?order_id=1",
+                allowed_origins=["https://cook.example.com"],
+            )
+            == "https://cook.example.com/payment/pingxx/result?order_id=1"
+        )
+
+    def test_normalize_pingxx_return_url_rejects_cross_origin_url(self):
+        assert (
+            _normalize_pingxx_return_url(
+                "https://evil.example.com/payment/pingxx/result?order_id=1",
+                allowed_origins=["https://cook.example.com"],
+            )
+            == ""
+        )

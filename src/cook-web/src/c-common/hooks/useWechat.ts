@@ -2,35 +2,43 @@
 import { inWechat } from '@/c-constants/uiConstants';
 
 export const useWechat = () => {
-  const jsBridegetReady = Promise.resolve((resolve, reject) => {
+  let jsBridegetReady: Promise<void> | null = null;
+
+  const ensureJsBridgeReady = () => {
     if (!inWechat()) {
-      reject('not in wechat');
+      return Promise.reject(new Error('not in wechat'));
     }
-    function onBridgeReady() {
-      resolve();
+    if (jsBridegetReady) {
+      return jsBridegetReady;
     }
-    // @ts-expect-error EXPECT
-    if (typeof WeixinJSBridge == 'undefined') {
-      if (document.addEventListener) {
-        document.addEventListener('WeixinJSBridgeReady', onBridgeReady, false);
-        // @ts-expect-error EXPECT
-      } else if (document.attachEvent) {
-        // @ts-expect-error EXPECT
-        document.attachEvent('WeixinJSBridgeReady', onBridgeReady);
-        // @ts-expect-error EXPECT
-        document.attachEvent('onWeixinJSBridgeReady', onBridgeReady);
+    jsBridegetReady = new Promise<void>(resolve => {
+      function onBridgeReady() {
+        resolve();
       }
-    } else {
-      onBridgeReady();
-    }
-  });
+      // @ts-expect-error EXPECT
+      if (typeof WeixinJSBridge == 'undefined') {
+        if (document.addEventListener) {
+          document.addEventListener(
+            'WeixinJSBridgeReady',
+            onBridgeReady,
+            false,
+          );
+          // @ts-expect-error EXPECT
+        } else if (document.attachEvent) {
+          // @ts-expect-error EXPECT
+          document.attachEvent('WeixinJSBridgeReady', onBridgeReady);
+          // @ts-expect-error EXPECT
+          document.attachEvent('onWeixinJSBridgeReady', onBridgeReady);
+        }
+      } else {
+        onBridgeReady();
+      }
+    });
+    return jsBridegetReady;
+  };
 
   const runInJsBridge = callback => {
-    if (!inWechat()) {
-      return;
-    }
-
-    jsBridegetReady.then(callback);
+    return ensureJsBridgeReady().then(callback);
   };
 
   const payByJsApi = async payData => {
@@ -45,7 +53,7 @@ export const useWechat = () => {
             reject(res.err_msg);
           }
         });
-      });
+      }).catch(reject);
     });
   };
 
