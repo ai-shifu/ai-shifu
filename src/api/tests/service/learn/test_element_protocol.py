@@ -743,6 +743,7 @@ def test_legacy_element_type_deserialized_to_new_enum(app):
     assert len(result.elements) == 1
     # Legacy "sandbox" should be mapped to ElementType.HTML
     assert result.elements[0].element_type == ElementType.HTML
+    assert result.elements[0].is_marker is True
 
 
 def test_backfill_populates_sequence_number_and_audio_url(app):

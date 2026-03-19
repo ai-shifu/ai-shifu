@@ -14,7 +14,7 @@ Design reference: `docs/learn-generated-elements-design.md`
 - [x] 冻结 `element_type`：`html|svg|diff|img|interaction|tables|code|latex|md_img|mermaid|title|text`
 - [x] 冻结 element 新字段语义：`is_renderable/is_new/is_marker/sequence_number/is_speakable/audio_url/audio_segments`
 - [x] 冻结 `is_new=false` 约束：必须携带 `target_element_bid`
-- [x] 冻结 `is_marker=true` 约束：`is_renderable=false` 且 `is_speakable=false`
+- [x] 冻结 `is_marker` 规则：`text=false`，其他 `element_type=true`
 - [x] 冻结 `audio_segments` 节点结构（最小字段集与存储上限）
 - [x] 冻结 `type` 状态机输入/状态/输出集合（禁止业务分支硬编码）
 - [x] 冻结旧类型映射规则（`sandbox/picture/video` -> 新枚举）
@@ -92,5 +92,6 @@ Design reference: `docs/learn-generated-elements-design.md`
 - [x] 更新设计：final 阶段 narration 必须保留为独立 `text` element
 - [x] live SSE finalize 改为输出独立 `text` element，而不是把 narration 合并到视觉 element
 - [x] legacy records builder 改为与 live SSE 一致的 final element 组装策略
+- [x] final `text` element 补齐顶层 `audio_url/audio_segments` 与 `payload.audio`
 - [x] 新增回归测试：`svg + text + html + text` final 顺序
 - [x] 更新回归测试：视觉前后 narration 在 records 中保持独立 `text`

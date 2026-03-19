@@ -213,6 +213,10 @@ def _element_type_code(element_type: ElementType) -> int:
     return ELEMENT_TYPE_CODES[element_type]
 
 
+def _default_is_marker(element_type: ElementType) -> bool:
+    return element_type != ElementType.TEXT
+
+
 def _element_type_from_mdflow_stream(
     stream_element_type: str,
     content: str = "",
@@ -393,6 +397,7 @@ def _build_visual_element_from_segment(
         element_type=element_type,
         element_type_code=_element_type_code(element_type),
         change_type=ElementChangeType.RENDER,
+        is_marker=_default_is_marker(element_type),
         is_navigable=1,
         is_final=True,
         content_text="",
@@ -407,7 +412,9 @@ def _build_text_element(
     element_index: int,
     content_text: str,
     audio: ElementAudioDTO | None = None,
+    audio_segments: list[dict[str, Any]] | None = None,
 ) -> ElementDTO:
+    audio_segments = list(audio_segments or [])
     return ElementDTO(
         event_type="element",
         element_bid=uuid.uuid4().hex,
@@ -421,6 +428,7 @@ def _build_text_element(
         is_final=True,
         is_speakable=bool(content_text),
         audio_url=audio.audio_url if audio is not None else "",
+        audio_segments=audio_segments,
         content_text=content_text,
         payload=ElementPayloadDTO(
             audio=audio,
@@ -437,6 +445,7 @@ def _build_final_elements_for_av_contract(
     av_contract: dict[str, Any] | None,
     visual_segments: list[VisualSegment],
     audio_by_position: dict[int, ElementAudioDTO],
+    audio_segments_by_position: dict[int, list[dict[str, Any]]],
     position_to_segment_id: dict[int, str] | None = None,
     element_index_offset: int = 0,
 ) -> list[ElementDTO]:
@@ -493,6 +502,7 @@ def _build_final_elements_for_av_contract(
                     element_index=next_element_index,
                     content_text=text,
                     audio=audio_by_position.get(position),
+                    audio_segments=audio_segments_by_position.get(position, []),
                 )
             )
             next_element_index += 1
@@ -537,10 +547,36 @@ def _build_final_elements_for_av_contract(
                 element_index=next_element_index,
                 content_text=text,
                 audio=audio_by_position.get(segment.audio_position),
+                audio_segments=audio_segments_by_position.get(
+                    segment.audio_position, []
+                ),
             )
         )
         next_element_index += 1
     return built
+
+
+def _audio_segment_payload(audio_segment: AudioSegmentDTO) -> dict[str, Any]:
+    return {
+        "position": int(getattr(audio_segment, "position", 0) or 0),
+        "segment_index": int(audio_segment.segment_index or 0),
+        "audio_data": str(audio_segment.audio_data or ""),
+        "duration_ms": int(audio_segment.duration_ms or 0),
+        "is_final": bool(audio_segment.is_final),
+    }
+
+
+def _pick_default_audio_position(
+    audio_by_position: dict[int, ElementAudioDTO],
+    audio_segments_by_position: dict[int, list[dict[str, Any]]],
+) -> int | None:
+    if len(audio_by_position) == 1:
+        return next(iter(audio_by_position))
+    if len(audio_segments_by_position) == 1:
+        return next(iter(audio_segments_by_position))
+    if 0 in audio_by_position or 0 in audio_segments_by_position:
+        return 0
+    return None
 
 
 def _make_audio_payload(audio: AudioCompleteDTO) -> ElementAudioDTO:
@@ -641,7 +677,7 @@ def _element_from_row(row: LearnGeneratedElement) -> ElementDTO:
         target_element_bid=row.target_element_bid or None,
         is_renderable=bool(getattr(row, "is_renderable", 1)),
         is_new=bool(getattr(row, "is_new", 1)),
-        is_marker=bool(getattr(row, "is_marker", 0)),
+        is_marker=_default_is_marker(element_type),
         sequence_number=int(getattr(row, "sequence_number", 0) or 0),
         is_speakable=bool(getattr(row, "is_speakable", 0)),
         audio_url=str(getattr(row, "audio_url", "") or ""),
@@ -767,6 +803,9 @@ class BlockState:
     generated_block_bid: str
     raw_content: str = ""
     audio_by_position: dict[int, ElementAudioDTO] = field(default_factory=dict)
+    audio_segments_by_position: dict[int, list[dict[str, Any]]] = field(
+        default_factory=dict
+    )
     fallback_element_bid: str | None = None
     latest_av_contract: dict[str, Any] | None = None
     stream_elements: OrderedDict[int, StreamElementState] = field(
@@ -1017,6 +1056,7 @@ class ListenElementRunAdapter:
             element_type=ElementType.TEXT,
             element_type_code=_element_type_code(ElementType.TEXT),
             change_type=ElementChangeType.RENDER,
+            is_marker=False,
             is_navigable=1,
             is_final=False,
             content_text=state.raw_content,
@@ -1057,6 +1097,7 @@ class ListenElementRunAdapter:
             element_type_code=_element_type_code(ElementType.TEXT),
             change_type=ElementChangeType.RENDER,
             is_new=False,
+            is_marker=False,
             is_renderable=False,
             is_navigable=0,
             is_final=True,
@@ -1122,10 +1163,13 @@ class ListenElementRunAdapter:
         stream_state: StreamElementState,
         is_new: bool,
         is_final: bool,
+        audio: ElementAudioDTO | None = None,
+        audio_segments: list[dict[str, Any]] | None = None,
     ) -> RunElementSSEMessageDTO:
         payload = _payload_from_stream_element(
             stream_state.element_type,
             stream_state.content_text,
+            audio=audio,
         )
         element_bid = (
             stream_state.element_bid
@@ -1144,6 +1188,10 @@ class ListenElementRunAdapter:
                 change_type=ElementChangeType.RENDER,
                 target_element_bid=None if is_new else stream_state.element_bid,
                 is_new=is_new,
+                is_marker=_default_is_marker(stream_state.element_type),
+                is_speakable=bool(audio is not None or audio_segments),
+                audio_url=audio.audio_url if audio is not None else "",
+                audio_segments=list(audio_segments or []),
                 is_navigable=1,
                 is_final=is_final,
                 content_text=stream_state.content_text,
@@ -1223,6 +1271,7 @@ class ListenElementRunAdapter:
                 element_type_code=_element_type_code(stream_state.element_type),
                 change_type=ElementChangeType.RENDER,
                 is_new=False,
+                is_marker=_default_is_marker(stream_state.element_type),
                 is_renderable=False,
                 is_navigable=0,
                 is_final=True,
@@ -1245,6 +1294,12 @@ class ListenElementRunAdapter:
         if not state.stream_elements:
             return
         meta = self._load_block_meta(state.generated_block_bid)
+        default_audio_position = None
+        if len(state.stream_elements) == 1:
+            default_audio_position = _pick_default_audio_position(
+                state.audio_by_position,
+                state.audio_segments_by_position,
+            )
         for stream_state in state.stream_elements.values():
             yield self._build_stream_element_message(
                 state=state,
@@ -1252,6 +1307,16 @@ class ListenElementRunAdapter:
                 stream_state=stream_state,
                 is_new=False,
                 is_final=True,
+                audio=(
+                    state.audio_by_position.get(default_audio_position)
+                    if default_audio_position is not None
+                    else None
+                ),
+                audio_segments=(
+                    state.audio_segments_by_position.get(default_audio_position, [])
+                    if default_audio_position is not None
+                    else []
+                ),
             )
 
     def _handle_content(
@@ -1310,22 +1375,20 @@ class ListenElementRunAdapter:
             state.latest_av_contract = content.av_contract
         if isinstance(content, AudioSegmentDTO):
             state = self._ensure_block_state(generated_block_bid)
-            state.audio_by_position[int(getattr(content, "position", 0) or 0)] = (
-                ElementAudioDTO(
+            position = int(getattr(content, "position", 0) or 0)
+            if position not in state.audio_by_position:
+                state.audio_by_position[position] = ElementAudioDTO(
                     audio_url="",
                     audio_bid="",
                     duration_ms=int(getattr(content, "duration_ms", 0) or 0),
-                    position=int(getattr(content, "position", 0) or 0),
+                    position=position,
                 )
+            segment_data = _audio_segment_payload(content)
+            state.audio_segments_by_position.setdefault(position, []).append(
+                segment_data
             )
             # Append audio segment to current element's audio_segments
             if self._current_element_bid:
-                segment_data = {
-                    "position": int(getattr(content, "position", 0) or 0),
-                    "segment_index": int(content.segment_index or 0),
-                    "duration_ms": int(content.duration_ms or 0),
-                    "is_final": content.is_final,
-                }
                 self._append_audio_segment_to_element(
                     self._current_element_bid, segment_data
                 )
@@ -1403,6 +1466,7 @@ class ListenElementRunAdapter:
                 av_contract=state.latest_av_contract,
                 visual_segments=visual_segments,
                 audio_by_position=state.audio_by_position,
+                audio_segments_by_position=state.audio_segments_by_position,
                 position_to_segment_id=pos_to_seg_id,
                 element_index_offset=max(self._max_element_index + 1, 0),
             )
@@ -1415,6 +1479,15 @@ class ListenElementRunAdapter:
             yield from self._retire_fallback_element(state)
             yield from self._finalize_stream_elements(state)
         elif state.fallback_element_bid:
+            default_audio_position = _pick_default_audio_position(
+                state.audio_by_position,
+                state.audio_segments_by_position,
+            )
+            default_audio = (
+                state.audio_by_position.get(default_audio_position)
+                if default_audio_position is not None
+                else None
+            )
             element = ElementDTO(
                 event_type="element",
                 element_bid=state.fallback_element_bid,
@@ -1424,10 +1497,18 @@ class ListenElementRunAdapter:
                 element_type=ElementType.TEXT,
                 element_type_code=_element_type_code(ElementType.TEXT),
                 change_type=ElementChangeType.RENDER,
+                is_marker=False,
                 is_navigable=1,
                 is_final=True,
+                is_speakable=default_audio is not None,
+                audio_url=default_audio.audio_url if default_audio is not None else "",
+                audio_segments=(
+                    state.audio_segments_by_position.get(default_audio_position, [])
+                    if default_audio_position is not None
+                    else []
+                ),
                 content_text=state.raw_content,
-                payload=ElementPayloadDTO(audio=None, previous_visuals=[]),
+                payload=ElementPayloadDTO(audio=default_audio, previous_visuals=[]),
             )
             yield self._element_message(element)
         self._block_states.pop(generated_block_bid, None)
@@ -1447,6 +1528,7 @@ class ListenElementRunAdapter:
             element_type=ElementType.INTERACTION,
             element_type_code=_element_type_code(ElementType.INTERACTION),
             change_type=ElementChangeType.RENDER,
+            is_marker=True,
             is_navigable=0,
             is_final=True,
             content_text=str(event.content or ""),
@@ -1525,6 +1607,7 @@ def _interaction_element_from_record(
         element_type=ElementType.INTERACTION,
         element_type_code=_element_type_code(ElementType.INTERACTION),
         change_type=ElementChangeType.RENDER,
+        is_marker=True,
         is_navigable=0,
         is_final=True,
         content_text=content or "",
@@ -1578,6 +1661,7 @@ def build_listen_elements_from_legacy_record(
                 else None,
                 visual_segments=visual_segments,
                 audio_by_position=audio_by_position,
+                audio_segments_by_position={},
                 position_to_segment_id=pos_to_seg_id,
                 element_index_offset=max_index + 1,
             )
@@ -1599,6 +1683,11 @@ def build_listen_elements_from_legacy_record(
                 change_type=ElementChangeType.RENDER,
                 is_navigable=1,
                 is_final=True,
+                is_speakable=audio_by_position.get(0) is not None,
+                audio_url=(
+                    audio_by_position[0].audio_url if audio_by_position.get(0) else ""
+                ),
+                audio_segments=[],
                 content_text=record.content or "",
                 payload=ElementPayloadDTO(
                     audio=audio_by_position.get(0),

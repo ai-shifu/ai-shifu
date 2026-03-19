@@ -67,7 +67,7 @@
 | `is_renderable` | bool | 是否参与前端渲染 |
 | `is_new` | bool | 是否创建新 element；`false` 表示应用到已有 element |
 | `target_element_bid` | string? | `is_new=false` 或 `element_type=diff` 时目标 element |
-| `is_marker` | bool | 是否是前进/后退锚点 |
+| `is_marker` | bool | 是否作为导航标记；`text=false`，其他 element 默认为 `true` |
 | `sequence_number` | int | 当前 run 会话内 element 生成序号（严格递增） |
 | `is_speakable` | bool | 是否需要语音合成 |
 | `audio_url` | string | 完整音频地址（无则空字符串） |
@@ -81,9 +81,9 @@
 约束：
 
 1. `is_new=false` 时必须提供 `target_element_bid`。
-2. `is_marker=true` 时必须满足：
-   - `is_renderable=false`
-   - `is_speakable=false`
+2. `is_marker` 由 `element_type` 推导：
+   - `text=false`
+   - 其他 `element_type=true`
 3. `audio_url` 仅在音频完成后写入；未完成时可为空。
 4. `sequence_number` 作用于 element 维度，和 `run_event_seq` 并存。
 
@@ -157,7 +157,7 @@
 |---|---|---|
 | `is_renderable` | 无 | 新增列与 DTO 字段；按 element_type 决定默认值 |
 | `is_new` | 无 | 新增列与 DTO 字段；写链路决定新建或补丁 |
-| `is_marker` | 无 | 新增列与 DTO 字段；用于导航锚点事件 |
+| `is_marker` | 无 | 新增列与 DTO 字段；按 `element_type` 推导，`text=false`，其他为 `true` |
 | `sequence_number` | 无 | 新增列与 DTO 字段；run 内 element 单独计数 |
 | `is_speakable` | 无 | 新增列与 DTO 字段；由 AV 合约与 block 类型推导 |
 | `audio_url` | 仅在 payload.audio | 顶层冗余字段，便于快速读取 |
@@ -172,7 +172,7 @@
 3. narration 的 `text` element 独立承载：
    - `content_text`
    - `is_speakable=true`
-   - 对应位置的 `audio_url/payload.audio`
+   - 对应位置的 `audio_url/audio_segments/payload.audio`
 4. 若 narration 出现在第一个视觉之前，则直接输出独立 `text` element。
 
 ---
@@ -235,7 +235,7 @@
 2. 历史数据回填新增字段默认值：
    - `is_renderable=true`
    - `is_new=true`
-   - `is_marker=false`
+   - `is_marker` 按 `element_type` 推导，`text=false`，其他为 `true`
    - `sequence_number` 按历史顺序重建
    - `is_speakable` 依据是否存在音频
    - `audio_url` 从终态音频提取

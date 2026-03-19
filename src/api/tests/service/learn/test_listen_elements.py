@@ -434,6 +434,7 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
     from flaskr.service.learn.const import ROLE_TEACHER
     from flaskr.service.learn.learn_dtos import (
         AudioCompleteDTO,
+        AudioSegmentDTO,
         GeneratedType,
         RunMarkdownFlowDTO,
     )
@@ -492,12 +493,38 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
             RunMarkdownFlowDTO(
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_SEGMENT,
+                content=AudioSegmentDTO(
+                    position=0,
+                    segment_index=0,
+                    audio_data="segment-0",
+                    duration_ms=350,
+                    is_final=False,
+                    av_contract=av_contract,
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
                 type=GeneratedType.AUDIO_COMPLETE,
                 content=AudioCompleteDTO(
                     audio_url="https://example.com/audio-0.mp3",
                     audio_bid="audio-final-text-0",
                     duration_ms=700,
                     position=0,
+                    av_contract=av_contract,
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_SEGMENT,
+                content=AudioSegmentDTO(
+                    position=1,
+                    segment_index=0,
+                    audio_data="segment-1",
+                    duration_ms=400,
+                    is_final=True,
                     av_contract=av_contract,
                 ),
             ),
@@ -536,16 +563,134 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
             "html",
             "text",
         ]
+        assert final_elements[0].is_marker is True
         assert final_elements[0].content_text == ""
+        assert final_elements[1].is_marker is False
         assert final_elements[1].content_text == "After svg."
         assert final_elements[1].audio_url == "https://example.com/audio-0.mp3"
+        assert final_elements[1].audio_segments == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "segment-0",
+                "duration_ms": 350,
+                "is_final": False,
+            }
+        ]
+        assert final_elements[1].payload is not None
+        assert final_elements[1].payload.audio is not None
+        assert final_elements[1].payload.audio.audio_bid == "audio-final-text-0"
+        assert final_elements[2].is_marker is True
         assert final_elements[2].content_text == ""
+        assert final_elements[3].is_marker is False
         assert final_elements[3].content_text == "After html."
         assert final_elements[3].audio_url == "https://example.com/audio-1.mp3"
+        assert final_elements[3].audio_segments == [
+            {
+                "position": 1,
+                "segment_index": 0,
+                "audio_data": "segment-1",
+                "duration_ms": 400,
+                "is_final": True,
+            }
+        ]
         assert final_elements[0].payload is not None
         assert final_elements[0].payload.previous_visuals[0].visual_type == "svg"
         assert final_elements[1].payload is not None
         assert final_elements[1].payload.previous_visuals == []
+
+
+def test_listen_adapter_finalizes_fallback_text_with_embedded_audio(app):
+    _require_app(app)
+
+    from flaskr.service.learn.learn_dtos import (
+        AudioCompleteDTO,
+        AudioSegmentDTO,
+        ElementType,
+        GeneratedType,
+        RunMarkdownFlowDTO,
+    )
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+
+    user_bid = "user-listen-fallback-audio"
+    shifu_bid = "shifu-listen-fallback-audio"
+    outline_bid = "outline-listen-fallback-audio"
+    generated_block_bid = "generated-listen-fallback-audio"
+
+    with app.app_context():
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+        )
+
+        events = [
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="Fallback narration.",
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_SEGMENT,
+                content=AudioSegmentDTO(
+                    position=0,
+                    segment_index=0,
+                    audio_data="fallback-segment",
+                    duration_ms=280,
+                    is_final=True,
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_COMPLETE,
+                content=AudioCompleteDTO(
+                    audio_url="https://example.com/fallback-audio.mp3",
+                    audio_bid="audio-fallback-0",
+                    duration_ms=280,
+                    position=0,
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.BREAK,
+                content="",
+            ),
+        ]
+
+        streamed = list(adapter.process(events))
+        final_elements = [
+            item.content
+            for item in streamed
+            if item.type == "element"
+            and item.content.is_renderable
+            and item.content.is_final
+        ]
+
+        assert len(final_elements) == 1
+        final_element = final_elements[0]
+        assert final_element.element_type == ElementType.TEXT
+        assert final_element.content_text == "Fallback narration."
+        assert final_element.is_speakable is True
+        assert final_element.audio_url == "https://example.com/fallback-audio.mp3"
+        assert final_element.audio_segments == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "fallback-segment",
+                "duration_ms": 280,
+                "is_final": True,
+            }
+        ]
+        assert final_element.payload is not None
+        assert final_element.payload.audio is not None
+        assert final_element.payload.audio.audio_bid == "audio-fallback-0"
+        assert final_element.payload.previous_visuals == []
 
 
 def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
@@ -555,6 +700,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
     from flaskr.service.learn.const import ROLE_TEACHER
     from flaskr.service.learn.learn_dtos import (
         AudioCompleteDTO,
+        AudioSegmentDTO,
         ElementType,
         GeneratedType,
         RunMarkdownFlowDTO,
@@ -635,6 +781,18 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
             RunMarkdownFlowDTO(
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_SEGMENT,
+                content=AudioSegmentDTO(
+                    position=0,
+                    segment_index=0,
+                    audio_data="stream-segment-0",
+                    duration_ms=240,
+                    is_final=False,
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
                 type=GeneratedType.AUDIO_COMPLETE,
                 content=AudioCompleteDTO(
                     audio_url="https://example.com/stream-audio.mp3",
@@ -655,6 +813,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         assert [item.type for item in streamed] == [
             "element",
             "element",
+            "audio_segment",
             "audio_complete",
             "element",
             "break",
@@ -662,7 +821,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
 
         first_element = streamed[0].content
         patch_element = streamed[1].content
-        final_element = streamed[3].content
+        final_element = streamed[4].content
 
         assert first_element.is_new is True
         assert first_element.element_type == ElementType.MD_IMG
@@ -685,7 +844,17 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         assert element.element_bid == first_element.element_bid
         assert element.element_type == ElementType.MD_IMG
         assert element.is_final is True
+        assert element.is_marker is True
         assert element.audio_url == "https://example.com/stream-audio.mp3"
+        assert element.audio_segments == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "stream-segment-0",
+                "duration_ms": 240,
+                "is_final": False,
+            }
+        ]
         assert element.content_text.endswith("caption line\n")
         assert element.payload is not None
         assert len(element.payload.previous_visuals) == 1
@@ -753,10 +922,14 @@ def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(a
     assert first.payload.audio is not None
     assert first.payload.audio.audio_bid == "audio-legacy-0"
     assert first.payload.previous_visuals == []
+    assert first.is_marker is False
+    assert first.audio_url == "https://example.com/audio-0.mp3"
+    assert first.audio_segments == []
 
     assert second.generated_block_bid == generated_block_bid
     assert second.element_index == 1
     assert second.element_type == ElementType.SVG
+    assert second.is_marker is True
     assert second.content_text == ""
     assert second.payload is not None
     assert second.payload.audio is None
@@ -772,6 +945,9 @@ def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(a
     assert third.payload.audio is not None
     assert third.payload.audio.audio_bid == "audio-legacy-1"
     assert third.payload.previous_visuals == []
+    assert third.is_marker is False
+    assert third.audio_url == "https://example.com/audio-1.mp3"
+    assert third.audio_segments == []
 
 
 def test_backfill_learn_generated_elements_for_progress_persists_clean_elements(app):
