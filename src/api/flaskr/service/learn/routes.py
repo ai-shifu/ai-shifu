@@ -821,7 +821,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     text/event-stream:
                         schema:
                             type: string
-                            example: 'data: {"type":"audio_segment","content":{"segment_index":0,"audio_data":"...","duration_ms":123,"is_final":false}}'
+                            example: 'data: {"type":"element","content":{"event_type":"element","element_bid":"el_demo_patch","is_new":false,"target_element_bid":"el_demo","audio_segments":[{"segment_index":0,"audio_data":"...","duration_ms":123,"is_final":false}]}}'
         """
         user_bid = request.user.user_id
         preview_mode = request.args.get("preview_mode", "False")

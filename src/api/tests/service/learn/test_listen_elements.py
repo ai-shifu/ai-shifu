@@ -244,6 +244,257 @@ def test_get_listen_element_record_returns_latest_elements_and_events(app):
         assert result_with_events.events[3].content.variable_name == "sys_user_nickname"
 
 
+def test_get_listen_element_record_merges_patch_audio_fields_into_target_snapshot(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-listen-patch-audio"
+    shifu_bid = "shifu-listen-patch-audio"
+    outline_bid = "outline-listen-patch-audio"
+    progress_bid = "progress-listen-patch-audio"
+    generated_block_bid = "generated-listen-patch-audio"
+    element_bid = "element-listen-patch-audio"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        original = LearnGeneratedElement(
+            element_bid=element_bid,
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            generated_block_bid=generated_block_bid,
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            run_session_bid="run-listen-patch-audio",
+            run_event_seq=1,
+            event_type="element",
+            role="teacher",
+            element_index=0,
+            element_type="text",
+            element_type_code=112,
+            change_type="render",
+            target_element_bid="",
+            is_renderable=1,
+            is_new=1,
+            is_marker=0,
+            sequence_number=1,
+            is_speakable=0,
+            audio_url="",
+            audio_segments="[]",
+            is_navigable=1,
+            is_final=0,
+            content_text="Narration",
+            payload=json.dumps({"audio": None, "previous_visuals": []}),
+            status=1,
+        )
+        patch = LearnGeneratedElement(
+            element_bid="element-listen-patch-audio-patch-1",
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            generated_block_bid=generated_block_bid,
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            run_session_bid="run-listen-patch-audio",
+            run_event_seq=2,
+            event_type="element",
+            role="teacher",
+            element_index=0,
+            element_type="text",
+            element_type_code=112,
+            change_type="render",
+            target_element_bid=element_bid,
+            is_renderable=1,
+            is_new=0,
+            is_marker=0,
+            sequence_number=2,
+            is_speakable=1,
+            audio_url="",
+            audio_segments=json.dumps(
+                [
+                    {
+                        "position": 0,
+                        "segment_index": 0,
+                        "audio_data": "patch-audio-segment",
+                        "duration_ms": 180,
+                        "is_final": False,
+                    }
+                ]
+            ),
+            is_navigable=1,
+            is_final=0,
+            content_text="Narration",
+            payload=json.dumps({"audio": None, "previous_visuals": []}),
+            status=1,
+        )
+        db.session.add_all([progress, original, patch])
+        db.session.commit()
+
+        result = get_listen_element_record(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            preview_mode=False,
+        )
+
+        assert len(result.elements) == 1
+        element = result.elements[0]
+        assert element.element_bid == element_bid
+        assert element.content_text == "Narration"
+        assert element.is_speakable is True
+        assert element.audio_segments == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "patch-audio-segment",
+                "duration_ms": 180,
+                "is_final": False,
+            }
+        ]
+
+
+def test_get_listen_element_record_returns_all_persisted_elements_across_progress_records(
+    app, monkeypatch
+):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.learn_dtos import ElementType
+    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-listen-all-persisted-elements"
+    shifu_bid = "shifu-listen-all-persisted-elements"
+    outline_bid = "outline-listen-all-persisted-elements"
+    content_progress_bid = "progress-listen-content"
+    interaction_progress_bid = "progress-listen-interaction"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        monkeypatch.setattr(
+            "flaskr.service.learn.listen_elements.get_learn_record",
+            lambda *args, **kwargs: pytest.fail(
+                "persisted element query should not fall back to legacy records"
+            ),
+        )
+
+        content_progress = LearnProgressRecord(
+            progress_record_bid=content_progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        interaction_progress = LearnProgressRecord(
+            progress_record_bid=interaction_progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=1,
+        )
+        content_element = LearnGeneratedElement(
+            element_bid="el_persisted_content",
+            progress_record_bid=content_progress_bid,
+            user_bid=user_bid,
+            generated_block_bid="generated-content-1",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            run_session_bid="run-listen-content",
+            run_event_seq=1,
+            event_type="element",
+            role="teacher",
+            element_index=0,
+            element_type="text",
+            element_type_code=112,
+            change_type="render",
+            target_element_bid="",
+            is_renderable=1,
+            is_new=1,
+            is_marker=0,
+            sequence_number=1,
+            is_speakable=0,
+            audio_url="",
+            audio_segments="[]",
+            is_navigable=1,
+            is_final=1,
+            content_text="Lesson content",
+            payload=json.dumps({"audio": None, "previous_visuals": []}),
+            status=1,
+        )
+        interaction_element = LearnGeneratedElement(
+            element_bid="el_only_interaction",
+            progress_record_bid=interaction_progress_bid,
+            user_bid=user_bid,
+            generated_block_bid="generated-interaction-1",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            run_session_bid="run-listen-interaction",
+            run_event_seq=1,
+            event_type="element",
+            role="ui",
+            element_index=0,
+            element_type="interaction",
+            element_type_code=105,
+            change_type="render",
+            target_element_bid="",
+            is_renderable=1,
+            is_new=1,
+            is_marker=1,
+            sequence_number=1,
+            is_speakable=0,
+            audio_url="",
+            audio_segments="[]",
+            is_navigable=0,
+            is_final=1,
+            content_text="Choose one",
+            payload=json.dumps({"audio": None, "previous_visuals": []}),
+            status=1,
+        )
+        db.session.add_all(
+            [
+                content_progress,
+                interaction_progress,
+                content_element,
+                interaction_element,
+            ]
+        )
+        db.session.commit()
+
+        result = get_listen_element_record(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            preview_mode=False,
+        )
+
+        assert len(result.elements) == 2
+        assert result.elements[0].element_type == ElementType.TEXT
+        assert result.elements[0].content_text == "Lesson content"
+        assert result.elements[1].element_type == ElementType.INTERACTION
+        assert result.elements[1].content_text == "Choose one"
+
+
 def test_get_record_api_returns_element_payload_by_default(app):
     _require_app(app)
 
@@ -813,7 +1064,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         assert [item.type for item in streamed] == [
             "element",
             "element",
-            "audio_segment",
+            "element",
             "audio_complete",
             "element",
             "break",
@@ -821,12 +1072,24 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
 
         first_element = streamed[0].content
         patch_element = streamed[1].content
+        audio_patch_element = streamed[2].content
         final_element = streamed[4].content
 
         assert first_element.is_new is True
         assert first_element.element_type == ElementType.MD_IMG
         assert patch_element.is_new is False
         assert patch_element.target_element_bid == first_element.element_bid
+        assert audio_patch_element.is_new is False
+        assert audio_patch_element.target_element_bid == first_element.element_bid
+        assert audio_patch_element.audio_segments == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "stream-segment-0",
+                "duration_ms": 240,
+                "is_final": False,
+            }
+        ]
         assert final_element.is_new is False
         assert final_element.is_final is True
         assert final_element.target_element_bid == first_element.element_bid
@@ -860,6 +1123,36 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         assert len(element.payload.previous_visuals) == 1
         assert element.payload.previous_visuals[0].visual_type == "md_img"
         assert element.payload.previous_visuals[0].content.startswith("![img]")
+
+        result_with_events = get_listen_element_record(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            preview_mode=False,
+            include_non_navigable=True,
+        )
+
+        assert result_with_events.events is not None
+        replay_event_types = [item.type for item in result_with_events.events]
+        assert "audio_segment" not in replay_event_types
+        assert replay_event_types.count("element") >= 1
+        assert "audio_complete" in replay_event_types
+        assert "break" in replay_event_types
+        replay_audio_patch = next(
+            item.content
+            for item in result_with_events.events
+            if item.type == "element" and item.content.audio_segments
+        )
+        assert replay_audio_patch.audio_segments == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "stream-segment-0",
+                "duration_ms": 240,
+                "is_final": False,
+            }
+        ]
 
 
 def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(app):

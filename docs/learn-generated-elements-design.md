@@ -19,7 +19,8 @@
 1. `element_type` 仅有 `interaction/sandbox/picture/video`。
 2. `LearnGeneratedElement` 已有 `element_type/change_type/target_element_bid/is_navigable/is_final/content_text/payload`，但没有本次新增字段。
 3. `run` 写链路中：
-   - `audio_segment/audio_complete` 作为非 element 事件落库；
+   - `audio_segment` 已并入当前 element patch，不再单独作为 SSE 事件输出；
+   - `audio_complete` 仍作为非 element 事件落库；
    - 终态音频合并在 `payload.audio`；
    - 可选 `payload.diff_payload` 支持。
 4. `records` 读链路默认返回 `elements`，`include_non_navigable=true` 时附带 `events`。
@@ -122,7 +123,7 @@
 | `BUILDING` | 增量更新且 `is_new=false` | `element` | `PATCHING` |
 | `PATCHING` | 连续增量更新 | `element` | `PATCHING` |
 | `BUILDING/PATCHING` | block break | `break` | `IDLE` |
-| 任意非终态 | 音频分段 | `audio_segment` | 原状态保持 |
+| 任意非终态 | 音频分段 | `element` | 原状态保持 |
 | 任意非终态 | 音频完成 | `audio_complete` | 原状态保持 |
 | 任意非终态 | 正常结束 | `done` | `TERMINATED` |
 | 任意非终态 | 异常结束 | `error` | `TERMINATED` |
@@ -161,7 +162,7 @@
 | `sequence_number` | 无 | 新增列与 DTO 字段；run 内 element 单独计数 |
 | `is_speakable` | 无 | 新增列与 DTO 字段；由 AV 合约与 block 类型推导 |
 | `audio_url` | 仅在 payload.audio | 顶层冗余字段，便于快速读取 |
-| `audio_segments` | 仅作为独立事件 | 合并进 element，保留流式轨迹 |
+| `audio_segments` | 仅作为独立事件 | 合并进 element，保留流式轨迹；live SSE 不再单独输出 `audio_segment` |
 
 ## 4.3 final 组装规则
 
@@ -209,7 +210,7 @@
    - `is_speakable`
    - `audio_url`
    - `audio_segments`
-3. `audio_segment/audio_complete` 除了发事件，还要同步更新当前 element 的 `audio_segments/audio_url`。
+3. `audio_segment` 不再单独发 SSE，改为输出当前 element 的 patch，并同步更新 `audio_segments`；`audio_complete` 继续发事件，同时回填当前 element 的 `audio_url`。
 4. `is_new=false` 必须命中 `target_element_bid`；命中失败写 `error` 事件并终止该分支。
 
 ## 6.2 序号策略
@@ -223,7 +224,7 @@
 ## 7. 读链路改造（后端）
 
 1. `records` 默认返回最终 `elements` 快照。
-2. `include_non_navigable=true` 时返回 `events`，保留 `audio_segment/audio_complete`。
+2. `include_non_navigable=true` 时返回 `events`；其中 `audio_segment` 已折叠为 `element` patch，`audio_complete` 仍保留。
 3. `elements` 默认按 `sequence_number` + `run_event_seq` 排序。
 4. `is_new=false` 的数据在回放层按 `target_element_bid` 应用后再输出最终快照。
 

@@ -95,3 +95,10 @@ Design reference: `docs/learn-generated-elements-design.md`
 - [x] final `text` element 补齐顶层 `audio_url/audio_segments` 与 `payload.audio`
 - [x] 新增回归测试：`svg + text + html + text` final 顺序
 - [x] 更新回归测试：视觉前后 narration 在 records 中保持独立 `text`
+
+## J. live audio_segment 合并到 element（P1）
+
+- [x] live SSE 不再单独输出 `audio_segment`
+- [x] `audio_segment` 到达时改为输出当前 element 的 patch
+- [x] records 聚合在 patch 合并时同步覆盖 `audio_segments/is_speakable/audio_url`
+- [x] 更新回归测试：stream events 中 `audio_segment` 被 `element` patch 替代

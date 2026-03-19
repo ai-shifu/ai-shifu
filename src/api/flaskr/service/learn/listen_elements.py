@@ -44,6 +44,7 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
     LearnProgressRecord,
 )
+from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.learn.type_state_machine import TypeInput, TypeStateMachine
 
 ELEMENT_TYPE_CODES = {
@@ -1118,28 +1119,86 @@ class ListenElementRunAdapter:
         self, element_bid: str, segment_data: dict
     ) -> None:
         """Append an audio segment entry to the element's audio_segments JSON."""
-        row = (
+        rows = (
             LearnGeneratedElement.query.filter(
                 LearnGeneratedElement.run_session_bid == self.run_session_bid,
-                LearnGeneratedElement.element_bid == element_bid,
                 LearnGeneratedElement.event_type == "element",
                 LearnGeneratedElement.deleted == 0,
                 LearnGeneratedElement.status == 1,
+                (LearnGeneratedElement.element_bid == element_bid)
+                | (LearnGeneratedElement.target_element_bid == element_bid),
             )
-            .order_by(LearnGeneratedElement.id.desc())
+            .order_by(
+                LearnGeneratedElement.sequence_number.asc(),
+                LearnGeneratedElement.run_event_seq.asc(),
+                LearnGeneratedElement.id.asc(),
+            )
+            .all()
+        )
+        if not rows:
+            return
+        for row in rows:
+            try:
+                segments = json.loads(row.audio_segments or "[]")
+                if not isinstance(segments, list):
+                    segments = []
+            except Exception:
+                segments = []
+            segments.append(segment_data)
+            row.audio_segments = json.dumps(segments, ensure_ascii=False)
+            row.is_speakable = 1
+        db.session.flush()
+
+    def _load_latest_element_snapshot(self, element_bid: str) -> ElementDTO | None:
+        row = (
+            LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.run_session_bid == self.run_session_bid,
+                LearnGeneratedElement.event_type == "element",
+                LearnGeneratedElement.deleted == 0,
+                LearnGeneratedElement.status == 1,
+                (LearnGeneratedElement.element_bid == element_bid)
+                | (LearnGeneratedElement.target_element_bid == element_bid),
+            )
+            .order_by(
+                LearnGeneratedElement.sequence_number.desc(),
+                LearnGeneratedElement.run_event_seq.desc(),
+                LearnGeneratedElement.id.desc(),
+            )
             .first()
         )
         if row is None:
-            return
-        try:
-            segments = json.loads(row.audio_segments or "[]")
-            if not isinstance(segments, list):
-                segments = []
-        except Exception:
-            segments = []
-        segments.append(segment_data)
-        row.audio_segments = json.dumps(segments, ensure_ascii=False)
-        db.session.flush()
+            return None
+        return _element_from_row(row)
+
+    def _build_audio_segment_patch_message(
+        self, element_bid: str
+    ) -> RunElementSSEMessageDTO | None:
+        snapshot = self._load_latest_element_snapshot(element_bid)
+        if snapshot is None:
+            return None
+        return self._element_message(
+            ElementDTO(
+                event_type="element",
+                element_bid=f"{element_bid}_patch_{uuid.uuid4().hex}",
+                generated_block_bid=snapshot.generated_block_bid,
+                element_index=snapshot.element_index,
+                role=snapshot.role,
+                element_type=snapshot.element_type,
+                element_type_code=snapshot.element_type_code,
+                change_type=ElementChangeType.RENDER,
+                target_element_bid=element_bid,
+                is_new=False,
+                is_renderable=snapshot.is_renderable,
+                is_marker=snapshot.is_marker,
+                is_speakable=snapshot.is_speakable,
+                audio_url=snapshot.audio_url,
+                audio_segments=list(snapshot.audio_segments or []),
+                is_navigable=snapshot.is_navigable,
+                is_final=snapshot.is_final,
+                content_text=snapshot.content_text,
+                payload=snapshot.payload,
+            )
+        )
 
     def _backfill_audio_url(self, element_bid: str, audio_url: str) -> None:
         """Set audio_url on the element row."""
@@ -1392,14 +1451,15 @@ class ListenElementRunAdapter:
                 self._append_audio_segment_to_element(
                     self._current_element_bid, segment_data
                 )
+                patch_message = self._build_audio_segment_patch_message(
+                    self._current_element_bid
+                )
+                if patch_message is not None:
+                    yield patch_message
         # Feed state machine
         if not self._state_machine.is_terminated:
             self._state_machine.feed(TypeInput.AUDIO_SEGMENT)
-        yield self._non_element_message(
-            event_type=GeneratedType.AUDIO_SEGMENT.value,
-            content=event.content,
-            generated_block_bid=generated_block_bid,
-        )
+        return
 
     def _finalize_block(
         self, generated_block_bid: str
@@ -1876,24 +1936,33 @@ def get_listen_element_record(
     preview_mode: bool,
     include_non_navigable: bool = False,
 ) -> LearnElementRecordDTO:
-    progress_record = (
+    progress_records = (
         LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == user_bid,
             LearnProgressRecord.shifu_bid == shifu_bid,
             LearnProgressRecord.outline_item_bid == outline_bid,
             LearnProgressRecord.deleted == 0,
+            LearnProgressRecord.status != LEARN_STATUS_RESET,
         )
-        .order_by(LearnProgressRecord.id.desc())
-        .first()
+        .order_by(LearnProgressRecord.id.asc())
+        .all()
     )
-    if progress_record:
+    progress_record_bids = [
+        progress_record.progress_record_bid
+        for progress_record in progress_records
+        if progress_record.progress_record_bid
+    ]
+    if progress_record_bids:
+        progress_order = {
+            progress_record_bid: index
+            for index, progress_record_bid in enumerate(progress_record_bids)
+        }
         rows = (
             LearnGeneratedElement.query.filter(
                 LearnGeneratedElement.user_bid == user_bid,
                 LearnGeneratedElement.shifu_bid == shifu_bid,
                 LearnGeneratedElement.outline_item_bid == outline_bid,
-                LearnGeneratedElement.progress_record_bid
-                == progress_record.progress_record_bid,
+                LearnGeneratedElement.progress_record_bid.in_(progress_record_bids),
                 LearnGeneratedElement.deleted == 0,
                 LearnGeneratedElement.status == 1,
             )
@@ -1905,6 +1974,16 @@ def get_listen_element_record(
             .all()
         )
         if rows:
+            rows.sort(
+                key=lambda row: (
+                    progress_order.get(
+                        row.progress_record_bid or "", len(progress_order)
+                    ),
+                    int(getattr(row, "sequence_number", 0) or 0),
+                    int(getattr(row, "run_event_seq", 0) or 0),
+                    int(getattr(row, "id", 0) or 0),
+                )
+            )
             latest_by_bid: "OrderedDict[str, ElementDTO]" = OrderedDict()
             for row in rows:
                 if row.event_type != "element" or not row.element_bid:
@@ -1914,18 +1993,27 @@ def get_listen_element_record(
                 if not dto.is_new and dto.target_element_bid:
                     if dto.target_element_bid in latest_by_bid:
                         target = latest_by_bid[dto.target_element_bid]
+                        target.is_renderable = dto.is_renderable
                         target.content_text = dto.content_text
+                        target.is_speakable = dto.is_speakable
+                        target.audio_url = dto.audio_url
+                        target.audio_segments = dto.audio_segments
                         target.payload = dto.payload
+                        target.is_navigable = dto.is_navigable
                         target.is_final = dto.is_final
+                        target.run_session_bid = dto.run_session_bid
+                        target.run_event_seq = dto.run_event_seq
+                        target.sequence_number = dto.sequence_number
                         continue
                 latest_by_bid[row.element_bid] = dto
-            events = None
-            if include_non_navigable:
-                events = [_event_from_row(row) for row in rows]
-            return LearnElementRecordDTO(
-                elements=list(latest_by_bid.values()),
-                events=events,
-            )
+            if latest_by_bid:
+                events = None
+                if include_non_navigable:
+                    events = [_event_from_row(row) for row in rows]
+                return LearnElementRecordDTO(
+                    elements=list(latest_by_bid.values()),
+                    events=events,
+                )
 
     legacy_record = get_learn_record(
         app,
