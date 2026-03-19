@@ -423,8 +423,13 @@ export default function ChatPage() {
   // listen global event
   useEffect(() => {
     const resetChapterEventHandler = async e => {
-      await reloadTree(e.detail.chapter_id, e.detail.lesson_id);
-      onGoChapter(e.detail.lesson_id);
+      const targetLessonId = e.detail.lesson_id;
+      await reloadTree(e.detail.chapter_id, targetLessonId);
+      updateSelectedLesson(targetLessonId, true);
+      onGoChapter(targetLessonId);
+      if (mobileStyle) {
+        onNavClose();
+      }
     };
     const eventHandler = () => {
       // setLoginModalOpen(true);
@@ -452,7 +457,14 @@ export default function ChatPage() {
         resetChapterEventHandler,
       );
     };
-  }, [gotoLogin, onGoChapter, reloadTree]);
+  }, [
+    gotoLogin,
+    mobileStyle,
+    onGoChapter,
+    onNavClose,
+    reloadTree,
+    updateSelectedLesson,
+  ]);
 
   return (
     <div
