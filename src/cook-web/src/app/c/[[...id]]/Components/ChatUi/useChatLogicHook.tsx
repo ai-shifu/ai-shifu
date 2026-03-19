@@ -778,7 +778,6 @@ function useChatLogicHook({
       }
 
       let isEnd = false;
-      let hasReceivedSseMessage = false;
       const clearLoadingPlaceholder = () => {
         setTrackedContentList(prev =>
           prev.filter(item => item.generated_block_bid !== 'loading'),
@@ -803,9 +802,6 @@ function useChatLogicHook({
             //   generatedBlockBid: response?.generated_block_bid ?? null,
             // });
             return;
-          }
-          if (response?.type !== SSE_OUTPUT_TYPE.HEARTBEAT) {
-            hasReceivedSseMessage = true;
           }
           // if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
           //   if (!isEnd) {
@@ -1147,9 +1143,10 @@ function useChatLogicHook({
           //   isActiveSource,
           // });
           if (isActiveSource) {
-            if (!hasReceivedSseMessage) {
-              clearLoadingPlaceholder();
-            }
+            // Always clear the loading placeholder when the active stream closes.
+            // Some interaction flows may only emit control events before closing,
+            // which still leaves the placeholder visible without this cleanup.
+            clearLoadingPlaceholder();
             isStreamingRef.current = false;
             sseRef.current = null;
           }
