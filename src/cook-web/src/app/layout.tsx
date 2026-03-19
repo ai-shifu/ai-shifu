@@ -8,6 +8,7 @@ import { UserProvider } from '@/store';
 import '@/i18n';
 import I18nGlobalLoading from '@/components/I18nGlobalLoading';
 import 'markdown-flow-ui/dist/markdown-flow-ui.css';
+export { metadata, viewport } from './metadata';
 // fix: dont't use, it will cause logo in dark mode is not blue
 // import 'markdown-flow-ui/dist/markdown-flow-ui-lib.css';
 
@@ -18,12 +19,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang='en'>
-      <head>
-        <meta
-          name='viewport'
-          content='width=device-width, initial-scale=1, viewport-fit=cover'
-        />
-      </head>
       <body className='min-h-screen overflow-x-hidden overscroll-none'>
         <div
           id='root'
