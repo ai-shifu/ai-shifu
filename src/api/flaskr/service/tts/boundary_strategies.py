@@ -124,6 +124,18 @@ class MarkdownImageBoundaryStrategy:
         return image_close + 1
 
 
+class HtmlImageBoundaryStrategy:
+    """Strategy for HTML image tags (<img ...>)."""
+
+    def find_end(self, raw: str) -> Optional[int]:
+        if not raw:
+            return None
+        close = raw.find(">")
+        if close == -1:
+            return None
+        return close + 1
+
+
 # Registry of boundary strategies
 BOUNDARY_STRATEGIES = {
     "fence": FenceBoundaryStrategy(),
@@ -133,6 +145,7 @@ BOUNDARY_STRATEGIES = {
     "html_table": HtmlTableBoundaryStrategy(),
     "md_table": MarkdownTableBoundaryStrategy(),
     "sandbox": SandboxBoundaryStrategy(),
+    "img": HtmlImageBoundaryStrategy(),
     "md_img": MarkdownImageBoundaryStrategy(),
 }
 

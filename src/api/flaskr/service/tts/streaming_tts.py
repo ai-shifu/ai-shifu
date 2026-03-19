@@ -85,6 +85,7 @@ _VISUAL_SKIP_KINDS = frozenset(
         "html_table",
         "md_table",
         "sandbox",
+        "img",
         "md_img",
     }
 )

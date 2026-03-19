@@ -144,6 +144,127 @@ def test_av_streaming_tts_processor_skips_chunked_markdown_image(app, monkeypatc
     assert "![" not in joined
 
 
+def test_av_streaming_tts_processor_skips_chunked_html_img_tag(app, monkeypatch):
+    _require_app(app)
+
+    from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
+
+    captured_chunks: list[str] = []
+
+    class _CaptureStreamingTTSProcessor:
+        def __init__(self, **kwargs):
+            _ = kwargs
+
+        def process_chunk(self, chunk):
+            if (chunk or "").strip():
+                captured_chunks.append(chunk)
+            return
+            yield
+
+        def finalize(self, commit=True):
+            _ = commit
+            return
+            yield
+
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.StreamingTTSProcessor",
+        _CaptureStreamingTTSProcessor,
+    )
+
+    processor = AVStreamingTTSProcessor(
+        app=app,
+        generated_block_bid="gen-1",
+        outline_bid="outline-1",
+        progress_record_bid="progress-1",
+        user_bid="user-1",
+        shifu_bid="shifu-1",
+        tts_provider="minimax",
+        tts_model="test-model",
+    )
+
+    html_img = (
+        'Hello before image.\n\n<img src="https://example.com/a-very-long-image-path.png" '
+        'alt="demo" title="demo" width="30%" />'
+    )
+    for step in (1, 2, 3, 5, 8, 13):
+        cursor = 0
+        while cursor < len(html_img):
+            list(processor.process_chunk(html_img[cursor : cursor + step]))
+            cursor += step
+    list(processor.finalize(commit=False))
+
+    joined = "\n".join(captured_chunks)
+    assert "Hello before image." in joined
+    assert "<img" not in joined.lower()
+    assert "example.com" not in joined
+
+
+def test_av_streaming_tts_processor_does_not_split_markdown_h2_after_svg(
+    app, monkeypatch
+):
+    _require_app(app)
+
+    from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
+
+    captured_by_position: dict[int, list[str]] = {}
+
+    class _CaptureStreamingTTSProcessor:
+        def __init__(self, **kwargs):
+            self.position = int(kwargs.get("position", 0) or 0)
+            self._parts: list[str] = []
+
+        def process_chunk(self, chunk):
+            if chunk:
+                self._parts.append(chunk)
+            return
+            yield
+
+        def finalize(self, commit=True):
+            _ = commit
+            text = "".join(self._parts).strip()
+            if text:
+                captured_by_position.setdefault(self.position, []).append(text)
+            return
+            yield
+
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.StreamingTTSProcessor",
+        _CaptureStreamingTTSProcessor,
+    )
+
+    processor = AVStreamingTTSProcessor(
+        app=app,
+        generated_block_bid="gen-1",
+        outline_bid="outline-1",
+        progress_record_bid="progress-1",
+        user_bid="user-1",
+        shifu_bid="shifu-1",
+        tts_provider="minimax",
+        tts_model="test-model",
+    )
+
+    content = (
+        "<svg><text>diagram</text></svg>\n\n"
+        "## Why this matters\n\n"
+        "The explanation continues."
+    )
+    chunk_sizes = (1, 2, 3, 5, 8, 13)
+    cursor = 0
+    step_idx = 0
+    while cursor < len(content):
+        step = chunk_sizes[step_idx % len(chunk_sizes)]
+        list(processor.process_chunk(content[cursor : cursor + step]))
+        cursor += step
+        step_idx += 1
+    list(processor.finalize(commit=False))
+
+    merged = [
+        "".join(captured_by_position[pos]).strip()
+        for pos in sorted(captured_by_position)
+    ]
+    assert merged == ["## Why this matters\n\nThe explanation continues."]
+
+
 def test_av_streaming_tts_processor_advances_position_when_segment_has_no_audio(
     app, monkeypatch
 ):
