@@ -154,14 +154,12 @@ def upgrade():
             "content_text",
             sa.Text(),
             nullable=False,
-            server_default="",
             comment="Element textual content snapshot",
         ),
         sa.Column(
             "payload",
             sa.Text(),
             nullable=False,
-            server_default="",
             comment="Element payload JSON",
         ),
         sa.Column(
