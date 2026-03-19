@@ -52,16 +52,16 @@ const resolveSegmentElementType = (segmentType: string) =>
 const createEmptyStateElement = (
   sectionTitle: string | undefined,
 ): ListenSlideElement => ({
-  serial_number: 1,
+  sequence_number: 1,
   type: 'slot',
   content: (
     <div className='flex h-full w-full items-center justify-center font-bold text-primary'>
       {sectionTitle}
     </div>
   ),
-  is_checkpoint: true,
-  is_show: true,
-  operation: 'new',
+  is_marker: true,
+  is_renderable: true,
+  is_new: true,
   blockBid: 'empty-ppt',
   page: 0,
 });
@@ -80,7 +80,7 @@ const buildSlideElementList = ({
   lastItemIsInteraction: boolean;
 }) => {
   let pageCursor = 0;
-  let serialNumber = 0;
+  let sequenceNumber = 0;
   const elementList: ListenSlideElement[] = [];
 
   items.forEach(item => {
@@ -116,15 +116,15 @@ const buildSlideElementList = ({
         const pageTracks = tracksByPage.get(page) ?? [];
         const [primaryTrack, ...secondaryTracks] = pageTracks;
 
-        serialNumber += 1;
+        sequenceNumber += 1;
         elementList.push({
-          serial_number: serialNumber,
+          sequence_number: sequenceNumber,
           type: resolveSegmentElementType(segment.type),
           content: segment.value,
-          is_checkpoint: true,
-          is_show: true,
-          operation: 'new',
-          is_read: hasAudioContentInTrack(primaryTrack),
+          is_marker: true,
+          is_renderable: true,
+          is_new: true,
+          is_speakable: hasAudioContentInTrack(primaryTrack),
           audio_url: primaryTrack?.audioUrl,
           audio_segments: primaryTrack
             ? sortSegmentsByIndex(primaryTrack.audioSegments ?? []).map(
@@ -148,12 +148,12 @@ const buildSlideElementList = ({
             return;
           }
 
-          serialNumber += 1;
+          sequenceNumber += 1;
           elementList.push({
-            serial_number: serialNumber,
+            sequence_number: sequenceNumber,
             type: 'slot',
             content: null,
-            is_read: true,
+            is_speakable: true,
             audio_url: track.audioUrl,
             audio_segments: sortSegmentsByIndex(track.audioSegments ?? []).map(
               audioSegment => ({
@@ -190,14 +190,14 @@ const buildSlideElementList = ({
     const isLatestEditable =
       lastItemIsInteraction && item.generated_block_bid === lastInteractionBid;
 
-    serialNumber += 1;
+    sequenceNumber += 1;
     elementList.push({
-      serial_number: serialNumber,
+      sequence_number: sequenceNumber,
       type: 'interaction',
       content: item.content || '',
-      is_checkpoint: true,
-      is_show: true,
-      operation: 'new',
+      is_marker: true,
+      is_renderable: true,
+      is_new: true,
       blockBid: item.generated_block_bid,
       page: Math.max(pageCursor - 1, 0),
       user_input: currentUserInput,
