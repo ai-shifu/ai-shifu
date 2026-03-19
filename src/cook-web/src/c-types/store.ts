@@ -95,8 +95,10 @@ export interface CourseStoreState {
   purchased: boolean;
   changePurchased: (purchased: boolean) => void;
   resetedChapterId: string | null;
+  resettingLessonId: string;
   resetedLessonId: string;
   updateResetedChapterId: (id: string) => void;
+  updateResettingLessonId: (id: string) => void;
   updateResetedLessonId: (id: string) => void;
   resetChapter: (id: string) => Promise<void>;
   payModalOpen: boolean;
