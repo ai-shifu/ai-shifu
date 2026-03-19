@@ -1124,7 +1124,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
             {
                 "position": 0,
                 "segment_index": 0,
-                "audio_data": "stream-segment-0",
+                "audio_data": "",
                 "duration_ms": 240,
                 "is_final": False,
             }
@@ -1159,11 +1159,38 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
             {
                 "position": 0,
                 "segment_index": 0,
-                "audio_data": "stream-segment-0",
+                "audio_data": "",
                 "duration_ms": 240,
                 "is_final": False,
             }
         ]
+
+        persisted_rows = (
+            LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.generated_block_bid == generated_block_bid,
+                LearnGeneratedElement.event_type == "element",
+                LearnGeneratedElement.deleted == 0,
+                LearnGeneratedElement.status == 1,
+            )
+            .order_by(LearnGeneratedElement.id.asc())
+            .all()
+        )
+        persisted_segments = [
+            json.loads(row.audio_segments or "[]")
+            for row in persisted_rows
+            if row.audio_segments and row.audio_segments != "[]"
+        ]
+        assert persisted_segments
+        for segments in persisted_segments:
+            assert segments == [
+                {
+                    "position": 0,
+                    "segment_index": 0,
+                    "audio_data": "",
+                    "duration_ms": 240,
+                    "is_final": False,
+                }
+            ]
 
 
 def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(app):

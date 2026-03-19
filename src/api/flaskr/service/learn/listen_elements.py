@@ -586,6 +586,25 @@ def _audio_segment_payload(audio_segment: AudioSegmentDTO) -> dict[str, Any]:
     }
 
 
+def _sanitize_audio_segments_for_storage(
+    audio_segments: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    sanitized: list[dict[str, Any]] = []
+    for item in list(audio_segments or []):
+        if not isinstance(item, dict):
+            continue
+        sanitized.append(
+            {
+                "position": int(item.get("position", 0) or 0),
+                "segment_index": int(item.get("segment_index", 0) or 0),
+                "audio_data": "",
+                "duration_ms": int(item.get("duration_ms", 0) or 0),
+                "is_final": bool(item.get("is_final", False)),
+            }
+        )
+    return sanitized
+
+
 def _pick_default_audio_position(
     audio_by_position: dict[int, ElementAudioDTO],
     audio_segments_by_position: dict[int, list[dict[str, Any]]],
@@ -637,7 +656,10 @@ def _serialize_element_row(
         sequence_number=int(element.sequence_number or 0),
         is_speakable=1 if element.is_speakable else 0,
         audio_url=element.audio_url or "",
-        audio_segments=json.dumps(element.audio_segments or [], ensure_ascii=False),
+        audio_segments=json.dumps(
+            _sanitize_audio_segments_for_storage(element.audio_segments),
+            ensure_ascii=False,
+        ),
         is_navigable=int(element.is_navigable or 0),
         is_final=int(element.is_final or 0),
         content_text=element.content_text or "",
@@ -958,7 +980,10 @@ class ListenElementRunAdapter:
             sequence_number=int(sequence_number or 0),
             is_speakable=1 if is_speakable else 0,
             audio_url=audio_url or "",
-            audio_segments=json.dumps(audio_segments or [], ensure_ascii=False),
+            audio_segments=json.dumps(
+                _sanitize_audio_segments_for_storage(audio_segments),
+                ensure_ascii=False,
+            ),
             is_navigable=int(is_navigable or 0),
             is_final=int(is_final or 0),
             content_text=content_text or "",
@@ -1165,6 +1190,7 @@ class ListenElementRunAdapter:
         )
         if not rows:
             return
+        persisted_segment = _sanitize_audio_segments_for_storage([segment_data])[0]
         for row in rows:
             try:
                 segments = json.loads(row.audio_segments or "[]")
@@ -1172,7 +1198,7 @@ class ListenElementRunAdapter:
                     segments = []
             except Exception:
                 segments = []
-            segments.append(segment_data)
+            segments.append(persisted_segment)
             row.audio_segments = json.dumps(segments, ensure_ascii=False)
             row.is_speakable = 1
         db.session.flush()
@@ -1199,7 +1225,9 @@ class ListenElementRunAdapter:
         return _element_from_row(row)
 
     def _build_audio_segment_patch_message(
-        self, element_bid: str
+        self,
+        element_bid: str,
+        audio_segments: list[dict[str, Any]] | None = None,
     ) -> RunElementSSEMessageDTO | None:
         snapshot = self._load_latest_element_snapshot(element_bid)
         if snapshot is None:
@@ -1220,7 +1248,7 @@ class ListenElementRunAdapter:
                 is_marker=snapshot.is_marker,
                 is_speakable=snapshot.is_speakable,
                 audio_url=snapshot.audio_url,
-                audio_segments=list(snapshot.audio_segments or []),
+                audio_segments=list(audio_segments or snapshot.audio_segments or []),
                 is_navigable=snapshot.is_navigable,
                 is_final=snapshot.is_final,
                 content_text=snapshot.content_text,
@@ -1484,7 +1512,10 @@ class ListenElementRunAdapter:
                     self._current_element_bid, segment_data
                 )
                 patch_message = self._build_audio_segment_patch_message(
-                    self._current_element_bid
+                    self._current_element_bid,
+                    audio_segments=list(
+                        state.audio_segments_by_position.get(position, [])
+                    ),
                 )
                 if patch_message is not None:
                     yield patch_message
