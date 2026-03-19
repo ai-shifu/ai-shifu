@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import styles from './ListenPlayer.module.scss';
 import { cn } from '@/lib/utils';
+import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import type { ChatContentItem } from './useChatLogicHook';
 import {
   ContentRender,
@@ -153,11 +154,8 @@ const ListenPlayer = ({
                 enableTypewriter={false}
                 content={effectiveInteraction.content || ''}
                 customRenderBar={effectiveInteraction.customRenderBar}
-                defaultButtonText={effectiveInteraction.defaultButtonText}
-                defaultInputText={effectiveInteraction.defaultInputText}
-                defaultSelectedValues={
-                  effectiveInteraction.defaultSelectedValues
-                }
+                userInput={effectiveInteraction.user_input}
+                interactionDefaultValueOptions={lessonFeedbackInteractionDefaultValueOptions}
                 confirmButtonText={t('module.renderUi.core.confirm')}
                 copyButtonText={t('module.renderUi.core.copyCode')}
                 copiedButtonText={t('module.renderUi.core.copied')}

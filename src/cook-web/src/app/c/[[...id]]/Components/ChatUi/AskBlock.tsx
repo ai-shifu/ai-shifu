@@ -6,6 +6,7 @@ import React, {
   useEffect,
 } from 'react';
 import { cn } from '@/lib/utils';
+import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { useTranslation } from 'react-i18next';
 import { Maximize2, Minimize2, X } from 'lucide-react';
 import { ContentRender, MarkdownFlowInput } from 'markdown-flow-ui/renderer';
@@ -401,8 +402,8 @@ export default function AskBlock({
                       : () => null
                   }
                   onSend={() => {}}
-                  defaultButtonText={''}
-                  defaultInputText={''}
+                  userInput={''}
+                  interactionDefaultValueOptions={lessonFeedbackInteractionDefaultValueOptions}
                   enableTypewriter={false}
                   typingSpeed={20}
                   readonly={true}

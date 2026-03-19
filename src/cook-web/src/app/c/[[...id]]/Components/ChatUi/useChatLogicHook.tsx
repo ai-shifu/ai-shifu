@@ -48,8 +48,12 @@ import {
   EVENT_NAMES as BZ_EVENT_NAMES,
 } from '@/app/c/[[...id]]/events';
 import { EVENT_NAMES } from '@/c-common/hooks/useTracking';
+import {
+  buildLessonFeedbackUserInput,
+  parseLessonFeedbackUserInput,
+  resolveInteractionSubmission,
+} from '@/c-utils/interaction-user-input';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
-import { createInteractionParser } from 'remark-flow';
 import LoadingBar from './LoadingBar';
 import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
 import { useTranslation } from 'react-i18next';
@@ -57,20 +61,6 @@ import { show as showToast, toast } from '@/hooks/useToast';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import { AppContext } from '../AppContext';
 import { appendCustomButtonAfterContent } from './chatUiUtils';
-
-interface InteractionParseResult {
-  variableName?: string;
-  buttonTexts?: string[];
-  buttonValues?: string[];
-  placeholder?: string;
-  isMultiSelect?: boolean;
-}
-
-interface InteractionDefaultValues {
-  buttonText?: string;
-  inputText?: string;
-  selectedValues?: string[];
-}
 
 interface LessonFeedbackPopupState {
   open: boolean;
@@ -92,9 +82,7 @@ export enum ChatContentItemType {
 export interface ChatContentItem {
   content?: string;
   customRenderBar?: (() => React.ReactNode | null) | ComponentType<any>;
-  defaultButtonText?: string;
-  defaultInputText?: string;
-  defaultSelectedValues?: string[]; // for multi-select interactions
+  user_input?: string;
   readonly?: boolean;
   isHistory?: boolean;
   generated_block_bid: string;
@@ -221,7 +209,6 @@ function useChatLogicHook({
   const currentContentRef = useRef<string>('');
   const currentBlockIdRef = useRef<string | null>(null);
   const runRef = useRef<((params: SSEParams) => void) | null>(null);
-  const interactionParserRef = useRef(createInteractionParser());
   const sseRef = useRef<any>(null);
   const sseRunSerialRef = useRef(0);
   const ttsSseRef = useRef<Record<string, any>>({});
@@ -260,60 +247,6 @@ function useChatLogicHook({
       `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
     [t],
   );
-
-  const parseInteractionBlock = useCallback(
-    (content?: string | null): InteractionParseResult | null => {
-      if (!content) {
-        return null;
-      }
-      try {
-        return interactionParserRef.current.parseToRemarkFormat(
-          content,
-        ) as InteractionParseResult;
-      } catch (error) {
-        console.warn('Failed to parse interaction block', error);
-        return null;
-      }
-    },
-    [],
-  );
-
-  const normalizeButtonValue = useCallback(
-    (
-      token: string,
-      info: InteractionParseResult,
-    ): { value: string; display?: string } | null => {
-      if (!token) {
-        return null;
-      }
-      const cleaned = token.trim();
-      const buttonValues = info.buttonValues || [];
-      const buttonTexts = info.buttonTexts || [];
-      const valueIndex = buttonValues.indexOf(cleaned);
-      if (valueIndex > -1) {
-        return {
-          value: buttonValues[valueIndex],
-          display: buttonTexts[valueIndex],
-        };
-      }
-      const textIndex = buttonTexts.indexOf(cleaned);
-      if (textIndex > -1) {
-        return {
-          value: buttonValues[textIndex] || buttonTexts[textIndex],
-          display: buttonTexts[textIndex],
-        };
-      }
-      return null;
-    },
-    [],
-  );
-
-  const splitPresetValues = useCallback((raw: string) => {
-    return raw
-      .split(/[,，\n]/)
-      .map(item => item.trim())
-      .filter(Boolean);
-  }, []);
 
   const isLessonFeedbackContent = useCallback((content?: string | null) => {
     return Boolean(content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER));
@@ -402,112 +335,17 @@ function useChatLogicHook({
     return normalized;
   }, []);
 
-  const parseLessonFeedbackPersistedValue = useCallback(
-    (raw?: string | null): { score?: number; comment?: string } | null => {
-      if (!raw) {
-        return null;
-      }
-      try {
-        const parsed = JSON.parse(raw) as {
-          score?: number | string;
-          comment?: unknown;
-        };
-        if (!parsed || typeof parsed !== 'object') {
-          return null;
-        }
-        const score = parseLessonFeedbackScore(String(parsed.score ?? ''));
-        if (!score) {
-          return null;
-        }
-        const comment =
-          typeof parsed.comment === 'string' ? parsed.comment : undefined;
-        return {
-          score,
-          comment,
-        };
-      } catch {
-        return null;
-      }
-    },
-    [parseLessonFeedbackScore],
-  );
-
-  const getInteractionDefaultValues = useCallback(
-    (
-      content?: string | null,
-      rawValue?: string | null,
-    ): InteractionDefaultValues => {
-      const normalized = rawValue?.toString().trim();
-      if (!normalized) {
-        return {};
-      }
-
-      if (isLessonFeedbackContent(content)) {
-        const persisted = parseLessonFeedbackPersistedValue(normalized);
-        if (persisted) {
-          return {
-            buttonText: String(persisted.score),
-            inputText: persisted.comment || undefined,
-          };
-        }
-      }
-
-      const interactionInfo = parseInteractionBlock(content);
-      if (!interactionInfo) {
-        return {
-          buttonText: normalized,
-          inputText: normalized,
-        };
-      }
-
-      if (interactionInfo.isMultiSelect) {
-        const tokens = splitPresetValues(normalized);
-        if (!tokens.length) {
-          return {};
-        }
-        const selectedValues: string[] = [];
-        const customInputs: string[] = [];
-        tokens.forEach(token => {
-          const mapped = normalizeButtonValue(token, interactionInfo);
-          if (mapped) {
-            selectedValues.push(mapped.value);
-          } else if (interactionInfo.placeholder) {
-            customInputs.push(token);
-          } else {
-            selectedValues.push(token);
-          }
-        });
-        return {
-          selectedValues: selectedValues.length ? selectedValues : undefined,
-          inputText: customInputs.length ? customInputs.join(', ') : undefined,
-        };
-      }
-
-      const mapped = normalizeButtonValue(normalized, interactionInfo);
-      if (mapped) {
-        return {
-          buttonText: mapped.value || mapped.display || normalized,
-        };
-      }
-
-      if (interactionInfo.placeholder) {
-        return {
-          inputText: normalized,
-        };
-      }
+  const getLessonFeedbackDefaults = useCallback(
+    (raw?: string | null) => {
+      const parsed = parseLessonFeedbackUserInput(raw);
+      const score = parseLessonFeedbackScore(parsed.scoreText);
 
       return {
-        buttonText: normalized,
-        inputText: normalized,
+        scoreText: score ? String(score) : '',
+        commentText: parsed.commentText || '',
       };
     },
-    [
-      isLessonFeedbackContent,
-      normalizeButtonValue,
-      parseInteractionBlock,
-      parseLessonFeedbackPersistedValue,
-      splitPresetValues,
-    ],
+    [parseLessonFeedbackScore],
   );
 
   // Use react-use hooks for safer state management
@@ -582,8 +420,7 @@ function useChatLogicHook({
           return {
             ...item,
             readonly: false,
-            defaultButtonText: scoreText,
-            defaultInputText: commentText,
+            user_input: buildLessonFeedbackUserInput(scoreText, commentText),
           };
         }),
       );
@@ -673,8 +510,7 @@ function useChatLogicHook({
         {
           generated_block_bid: blockId,
           content: '',
-          defaultButtonText: '',
-          defaultInputText: '',
+          user_input: '',
           readonly: false,
           customRenderBar: () => null,
           type: ChatContentItemType.CONTENT,
@@ -858,8 +694,7 @@ function useChatLogicHook({
                   generated_block_bid: nid,
                   content: response.content,
                   customRenderBar: () => null,
-                  defaultButtonText: '',
-                  defaultInputText: '',
+                  user_input: '',
                   readonly: false,
                   type: ChatContentItemType.INTERACTION,
                 };
@@ -917,8 +752,7 @@ function useChatLogicHook({
                     updatedList.push({
                       generated_block_bid: blockId,
                       content: displayText,
-                      defaultButtonText: '',
-                      defaultInputText: '',
+                      user_input: '',
                       readonly: false,
                       customRenderBar: () => null,
                       type: ChatContentItemType.CONTENT,
@@ -1226,8 +1060,7 @@ function useChatLogicHook({
             readonly: false,
             isHistory: true,
             customRenderBar: () => null,
-            defaultButtonText: '',
-            defaultInputText: '',
+            user_input: '',
           });
           buffer = [];
         }
@@ -1252,8 +1085,7 @@ function useChatLogicHook({
             generated_block_bid: item.generated_block_bid,
             content: contentWithButton,
             customRenderBar: () => null,
-            defaultButtonText: item.user_input || '',
-            defaultInputText: item.user_input || '',
+            user_input: item.user_input || '',
             readonly: false,
             isHistory: true,
             type: item.block_type,
@@ -1283,30 +1115,12 @@ function useChatLogicHook({
           // flush and handle other types (including INTERACTION)
           flushBuffer();
 
-          const interactionDefaults =
-            item.block_type === BLOCK_TYPE.INTERACTION
-              ? getInteractionDefaultValues(item.content, item.user_input)
-              : null;
-
           // Use markdown-flow-ui default rendering for all interactions
           result.push({
             generated_block_bid: item.generated_block_bid,
             content: item.content,
             customRenderBar: () => null,
-            defaultButtonText: interactionDefaults
-              ? (interactionDefaults.buttonText ?? '')
-              : item.user_input || '',
-            defaultInputText: interactionDefaults
-              ? (interactionDefaults.inputText ?? '')
-              : item.user_input || '',
-            defaultSelectedValues: interactionDefaults
-              ? interactionDefaults.selectedValues
-              : item.user_input
-                ? item.user_input
-                    .split(',')
-                    .map(v => v.trim())
-                    .filter(v => v)
-                : undefined,
+            user_input: item.user_input || '',
             readonly: false,
             isHistory: true,
             type: item.block_type,
@@ -1380,10 +1194,13 @@ function useChatLogicHook({
                 isLessonFeedbackContent(item.content),
             ) ?? null;
         if (latestFeedbackInteraction?.generated_block_bid) {
+          const feedbackDefaults = getLessonFeedbackDefaults(
+            latestFeedbackInteraction.user_input,
+          );
           openLessonFeedbackPopup({
             generatedBlockBid: latestFeedbackInteraction.generated_block_bid,
-            defaultScoreText: latestFeedbackInteraction.defaultButtonText,
-            defaultCommentText: latestFeedbackInteraction.defaultInputText,
+            defaultScoreText: feedbackDefaults.scoreText,
+            defaultCommentText: feedbackDefaults.commentText,
             readonly: latestFeedbackInteraction.readonly,
           });
         }
@@ -1437,6 +1254,7 @@ function useChatLogicHook({
     }
   }, [
     chapterId,
+    getLessonFeedbackDefaults,
     isLessonFeedbackContent,
     mapRecordsToContent,
     openLessonFeedbackPopup,
@@ -1590,9 +1408,7 @@ function useChatLogicHook({
         newList[needChangeItemIndex] = {
           ...newList[needChangeItemIndex],
           readonly: false,
-          defaultButtonText: params.buttonText || '',
-          defaultInputText: params.inputText || '',
-          defaultSelectedValues: params.selectedValues,
+          user_input: resolveInteractionSubmission(params).userInput,
         };
         if (!isListenMode) {
           newList.length = needChangeItemIndex + 1;
@@ -1694,14 +1510,15 @@ function useChatLogicHook({
           selectedScoreRaw?: string | null,
           commentFromActionRaw?: string,
         ) => {
+          const persistedDefaults = getLessonFeedbackDefaults(
+            feedbackItem?.user_input,
+          );
           const persistedScore = parseLessonFeedbackScore(
-            feedbackItem?.defaultButtonText,
+            persistedDefaults.scoreText,
           );
           const selectedScore = parseLessonFeedbackScore(selectedScoreRaw);
           const commentFromAction = (commentFromActionRaw || '').trim();
-          const persistedComment = (
-            feedbackItem?.defaultInputText || ''
-          ).trim();
+          const persistedComment = persistedDefaults.commentText.trim();
           const effectiveComment = commentFromAction || persistedComment;
           trackEvent(EVENT_NAMES.LESSON_FEEDBACK_SKIP, {
             shifu_bid: shifuBid,
@@ -1755,18 +1572,22 @@ function useChatLogicHook({
       if (isLessonFeedbackInteraction) {
         const score =
           parseLessonFeedbackScore(buttonText) ||
-          parseLessonFeedbackScore(currentInteractionItem?.defaultButtonText);
+          parseLessonFeedbackScore(
+            getLessonFeedbackDefaults(currentInteractionItem?.user_input)
+              .scoreText,
+          );
         if (!score) {
           toast({ title: t('module.chat.lessonFeedbackScoreRequired') });
           return;
         }
         const comment = (inputText || '').trim();
-        const persistedScore = parseLessonFeedbackScore(
-          currentInteractionItem?.defaultButtonText,
+        const persistedDefaults = getLessonFeedbackDefaults(
+          currentInteractionItem?.user_input,
         );
-        const persistedComment = (
-          currentInteractionItem?.defaultInputText || ''
-        ).trim();
+        const persistedScore = parseLessonFeedbackScore(
+          persistedDefaults.scoreText,
+        );
+        const persistedComment = persistedDefaults.commentText.trim();
         submitLessonFeedback({
           shifu_bid: shifuBid,
           outline_bid: outlineBid,
@@ -1826,21 +1647,7 @@ function useChatLogicHook({
       isTypeFinishedRef.current = false;
       // scrollToBottom();
 
-      // Build values array from user input (following playground pattern)
-      let values: string[] = [];
-      if (content.selectedValues && content.selectedValues.length > 0) {
-        // Multi-select mode: combine selected values with optional input text
-        values = [...content.selectedValues];
-        if (inputText) {
-          values.push(inputText);
-        }
-      } else if (inputText) {
-        // Single-select mode: use input text
-        values = [inputText];
-      } else if (buttonText) {
-        // Single-select mode: use button text
-        values = [buttonText];
-      }
+      const { values } = resolveInteractionSubmission(content);
 
       runRef.current?.({
         input: {
@@ -1861,6 +1668,7 @@ function useChatLogicHook({
     },
     [
       dismissLessonFeedbackPopup,
+      getLessonFeedbackDefaults,
       getNextLessonId,
       isTypeFinishedRef,
       isLessonFeedbackContent,
@@ -1946,8 +1754,7 @@ function useChatLogicHook({
                   ask_list: [],
                   readonly: false,
                   customRenderBar: () => null,
-                  defaultButtonText: '',
-                  defaultInputText: '',
+                  user_input: '',
                 },
               ];
             }

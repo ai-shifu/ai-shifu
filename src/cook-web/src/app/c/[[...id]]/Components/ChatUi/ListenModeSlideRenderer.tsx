@@ -7,7 +7,9 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { hasAudioContentInTrack } from '@/c-utils/audio-utils';
+import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import { LESSON_FEEDBACK_INTERACTION_MARKER } from '@/c-api/studyV2';
 import {
   splitContentSegments,
@@ -46,15 +48,6 @@ interface ListenModeSlideRendererProps {
 
 const resolveSegmentElementType = (segmentType: string) =>
   segmentType === 'sandbox' ? 'html' : 'markdown';
-
-const buildSubmittedInteractionValue = (content: OnSendContentParams) =>
-  [
-    ...(content.selectedValues ?? []),
-    content.inputText?.trim() ?? '',
-    content.buttonText?.trim() ?? '',
-  ]
-    .filter(Boolean)
-    .join(', ');
 
 const createEmptyStateElement = (
   sectionTitle: string | undefined,
@@ -191,7 +184,9 @@ const buildSlideElementList = ({
       return;
     }
 
-    const currentUserInput = interactionInputMap[item.generated_block_bid] ?? '';
+    // Prefer in-memory interaction state, then fall back to persisted user_input.
+    const currentUserInput =
+      interactionInputMap[item.generated_block_bid] ?? item.user_input ?? '';
     const isLatestEditable =
       lastItemIsInteraction && item.generated_block_bid === lastInteractionBid;
 
@@ -293,7 +288,7 @@ const ListenModeSlideRenderer = ({
         return;
       }
 
-      const submittedValue = buildSubmittedInteractionValue(content);
+      const submittedValue = resolveInteractionSubmission(content).userInput;
       if (submittedValue) {
         setInteractionInputMap(prev => ({
           ...prev,
@@ -326,6 +321,7 @@ const ListenModeSlideRenderer = ({
             copiedButtonText: t('module.renderUi.core.copied'),
           }}
           onPlayerVisibilityChange={onPlayerVisibilityChange}
+          interactionDefaultValueOptions={lessonFeedbackInteractionDefaultValueOptions}
           onSend={handleInteractionSend}
           onStepChange={handleStepChange}
           playerClassName={mobileStyle ? 'listen-slide-player-mobile' : ''}
