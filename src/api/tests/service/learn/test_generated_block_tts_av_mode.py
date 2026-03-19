@@ -6,7 +6,10 @@ def _require_app(app):
         pytest.skip("App fixture disabled")
 
 
-def test_stream_generated_block_audio_listen_persists_positions(app, monkeypatch):
+@pytest.mark.parametrize("block_status", [1, 0])
+def test_stream_generated_block_audio_listen_persists_positions(
+    app, monkeypatch, block_status
+):
     _require_app(app)
 
     from flaskr.dao import db
@@ -36,7 +39,7 @@ def test_stream_generated_block_audio_listen_persists_positions(app, monkeypatch
             generated_content="First.\n\n<svg><text>v</text></svg>\n\nSecond.",
             position=0,
             block_content_conf="",
-            status=1,
+            status=block_status,
         )
         db.session.add(block)
         db.session.commit()

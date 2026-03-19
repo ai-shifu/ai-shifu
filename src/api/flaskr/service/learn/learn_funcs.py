@@ -698,17 +698,41 @@ def reset_learn_record(
         return True
 
 
-def handle_reaction(
-    app: Flask, shifu_bid: str, user_bid: str, generated_block_bid: str, action: str
-) -> bool:
-    with app.app_context():
-        generated_block = LearnGeneratedBlock.query.filter(
+def _get_generated_block_by_bid(
+    *, shifu_bid: str, user_bid: str, generated_block_bid: str
+) -> LearnGeneratedBlock | None:
+    """
+    Resolve one generated block by business id.
+
+    Direct lookups should prefer the active row, but older rows may still carry
+    valid content/audio while having a non-active status in legacy data.
+    """
+
+    return (
+        LearnGeneratedBlock.query.filter(
             LearnGeneratedBlock.user_bid == user_bid,
             LearnGeneratedBlock.shifu_bid == shifu_bid,
             LearnGeneratedBlock.generated_block_bid == generated_block_bid,
             LearnGeneratedBlock.deleted == 0,
-            LearnGeneratedBlock.status == 1,
-        ).first()
+        )
+        .order_by(
+            LearnGeneratedBlock.status.desc(),
+            LearnGeneratedBlock.updated_at.desc(),
+            LearnGeneratedBlock.id.desc(),
+        )
+        .first()
+    )
+
+
+def handle_reaction(
+    app: Flask, shifu_bid: str, user_bid: str, generated_block_bid: str, action: str
+) -> bool:
+    with app.app_context():
+        generated_block = _get_generated_block_by_bid(
+            shifu_bid=shifu_bid,
+            user_bid=user_bid,
+            generated_block_bid=generated_block_bid,
+        )
         if not generated_block:
             raise_error("server.learn.generatedBlockNotFound")
         if action not in ["like", "dislike", "none"]:
@@ -731,13 +755,11 @@ def get_generated_content(
     preview_mode: bool,
 ) -> GeneratedInfoDTO:
     with app.app_context():
-        generated_block = LearnGeneratedBlock.query.filter(
-            LearnGeneratedBlock.user_bid == user_bid,
-            LearnGeneratedBlock.shifu_bid == shifu_bid,
-            LearnGeneratedBlock.generated_block_bid == generated_block_bid,
-            LearnGeneratedBlock.deleted == 0,
-            LearnGeneratedBlock.status == 1,
-        ).first()
+        generated_block = _get_generated_block_by_bid(
+            shifu_bid=shifu_bid,
+            user_bid=user_bid,
+            generated_block_bid=generated_block_bid,
+        )
         if not generated_block:
             return GeneratedInfoDTO(
                 position=0,
@@ -1164,13 +1186,11 @@ def stream_generated_block_audio(
     listen: bool = False,
 ):
     with app.app_context():
-        generated_block = LearnGeneratedBlock.query.filter(
-            LearnGeneratedBlock.user_bid == user_bid,
-            LearnGeneratedBlock.shifu_bid == shifu_bid,
-            LearnGeneratedBlock.generated_block_bid == generated_block_bid,
-            LearnGeneratedBlock.deleted == 0,
-            LearnGeneratedBlock.status == 1,
-        ).first()
+        generated_block = _get_generated_block_by_bid(
+            shifu_bid=shifu_bid,
+            user_bid=user_bid,
+            generated_block_bid=generated_block_bid,
+        )
         if not generated_block:
             raise_error("server.learn.generatedBlockNotFound")
 
