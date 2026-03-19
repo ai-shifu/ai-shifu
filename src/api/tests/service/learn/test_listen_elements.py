@@ -427,6 +427,127 @@ def test_listen_element_adapter_retires_fallback_once_visual_element_arrives(app
         assert f"el_{generated_block_bid}" not in active_element_bids
 
 
+def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.learn_dtos import (
+        AudioCompleteDTO,
+        GeneratedType,
+        RunMarkdownFlowDTO,
+    )
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.models import LearnGeneratedBlock
+    from flaskr.service.tts.pipeline import build_av_segmentation_contract
+
+    user_bid = "user-listen-final-text"
+    shifu_bid = "shifu-listen-final-text"
+    outline_bid = "outline-listen-final-text"
+    progress_bid = "progress-listen-final-text"
+    generated_block_bid = "generated-listen-final-text"
+    raw_content = (
+        "<svg><text>Chart</text></svg>\n\n"
+        "After svg.\n\n"
+        "<div>Question card</div>\n\n"
+        "After html."
+    )
+    av_contract = build_av_segmentation_contract(raw_content, generated_block_bid)
+
+    with app.app_context():
+        LearnGeneratedBlock.query.delete()
+        db.session.commit()
+
+        block = LearnGeneratedBlock(
+            generated_block_bid=generated_block_bid,
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            block_bid="block-listen-final-text",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            type=0,
+            role=ROLE_TEACHER,
+            generated_content=raw_content,
+            position=0,
+            block_content_conf="",
+            status=1,
+        )
+        db.session.add(block)
+        db.session.commit()
+
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+        )
+
+        events = [
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content=raw_content,
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_COMPLETE,
+                content=AudioCompleteDTO(
+                    audio_url="https://example.com/audio-0.mp3",
+                    audio_bid="audio-final-text-0",
+                    duration_ms=700,
+                    position=0,
+                    av_contract=av_contract,
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_COMPLETE,
+                content=AudioCompleteDTO(
+                    audio_url="https://example.com/audio-1.mp3",
+                    audio_bid="audio-final-text-1",
+                    duration_ms=800,
+                    position=1,
+                    av_contract=av_contract,
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.BREAK,
+                content="",
+            ),
+        ]
+
+        streamed = list(adapter.process(events))
+        final_elements = [
+            item.content
+            for item in streamed
+            if item.type == "element"
+            and item.content.is_renderable
+            and item.content.is_final
+        ]
+
+        assert [item.element_type.value for item in final_elements] == [
+            "svg",
+            "text",
+            "html",
+            "text",
+        ]
+        assert final_elements[0].content_text == ""
+        assert final_elements[1].content_text == "After svg."
+        assert final_elements[1].audio_url == "https://example.com/audio-0.mp3"
+        assert final_elements[2].content_text == ""
+        assert final_elements[3].content_text == "After html."
+        assert final_elements[3].audio_url == "https://example.com/audio-1.mp3"
+        assert final_elements[0].payload is not None
+        assert final_elements[0].payload.previous_visuals[0].visual_type == "svg"
+        assert final_elements[1].payload is not None
+        assert final_elements[1].payload.previous_visuals == []
+
+
 def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
     _require_app(app)
 
@@ -572,12 +693,13 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         assert element.payload.previous_visuals[0].content.startswith("![img]")
 
 
-def test_build_listen_elements_from_legacy_record_without_visuals(app):
+def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(app):
     _require_app(app)
 
     from flaskr.service.learn.learn_dtos import (
         AudioCompleteDTO,
         BlockType,
+        ElementType,
         GeneratedBlockDTO,
         LearnRecordDTO,
         LikeStatus,
@@ -619,12 +741,13 @@ def test_build_listen_elements_from_legacy_record_without_visuals(app):
 
     result = build_listen_elements_from_legacy_record(app, legacy_record)
 
-    assert len(result.elements) == 2
+    assert len(result.elements) == 3
 
-    first, second = result.elements
+    first, second, third = result.elements
 
     assert first.generated_block_bid == generated_block_bid
     assert first.element_index == 0
+    assert first.element_type == ElementType.TEXT
     assert first.content_text == "Before intro."
     assert first.payload is not None
     assert first.payload.audio is not None
@@ -633,13 +756,22 @@ def test_build_listen_elements_from_legacy_record_without_visuals(app):
 
     assert second.generated_block_bid == generated_block_bid
     assert second.element_index == 1
-    assert second.content_text == "After chart."
+    assert second.element_type == ElementType.SVG
+    assert second.content_text == ""
     assert second.payload is not None
-    assert second.payload.audio is not None
-    assert second.payload.audio.audio_bid == "audio-legacy-1"
+    assert second.payload.audio is None
     assert len(second.payload.previous_visuals) == 1
     assert second.payload.previous_visuals[0].visual_type == "svg"
     assert second.payload.previous_visuals[0].content.startswith("<svg")
+
+    assert third.generated_block_bid == generated_block_bid
+    assert third.element_index == 2
+    assert third.element_type == ElementType.TEXT
+    assert third.content_text == "After chart."
+    assert third.payload is not None
+    assert third.payload.audio is not None
+    assert third.payload.audio.audio_bid == "audio-legacy-1"
+    assert third.payload.previous_visuals == []
 
 
 def test_backfill_learn_generated_elements_for_progress_persists_clean_elements(app):
@@ -805,19 +937,24 @@ def test_backfill_learn_generated_elements_for_progress_persists_clean_elements(
     assert result.duplicate_audios_skipped == 1
     assert result.orphan_audios_skipped == 1
     assert result.skipped_empty_blocks == 1
-    assert result.elements_built == 2
-    assert result.inserted_rows == 2
+    assert result.elements_built == 3
+    assert result.inserted_rows == 3
     assert result.run_session_bid.startswith(f"backfill_{progress_bid}_")
 
-    assert [row.run_event_seq for row in rows] == [1, 2]
-    assert [row.content_text for row in rows] == ["Before intro.", "After chart."]
+    assert [row.run_event_seq for row in rows] == [1, 2, 3]
+    assert [row.element_type for row in rows] == ["text", "svg", "text"]
+    assert [row.content_text for row in rows] == ["Before intro.", "", "After chart."]
     assert all(row.event_type == "element" for row in rows)
     assert all(row.is_final == 1 for row in rows)  # DB model uses int
 
     payload_1 = json.loads(rows[1].payload)
-    assert payload_1["audio"]["audio_bid"] == "audio-backfill-1-final"
+    assert payload_1["audio"] is None
     assert payload_1["previous_visuals"][0]["visual_type"] == "svg"
     assert payload_1["previous_visuals"][0]["content"].startswith("<svg")
+
+    payload_2 = json.loads(rows[2].payload)
+    assert payload_2["audio"]["audio_bid"] == "audio-backfill-1-final"
+    assert payload_2["previous_visuals"] == []
 
 
 def test_backfill_learn_generated_elements_for_progress_overwrite_replaces_active_rows(

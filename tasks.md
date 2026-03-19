@@ -1,4 +1,4 @@
-# Tasks (backend-only, updated 2026-03-18)
+# Tasks (backend-only, updated 2026-03-19)
 
 Design reference: `docs/learn-generated-elements-design.md`
 
@@ -86,3 +86,11 @@ Design reference: `docs/learn-generated-elements-design.md`
 - [ ] migration 在本地与测试库双环境验证通过
 - [ ] 回填 dry-run 报告通过评审
 - [ ] 线上灰度观测项就绪：写入成功率、回放一致性、异常 target 命中率
+
+## I. final text 保留（P1）
+
+- [x] 更新设计：final 阶段 narration 必须保留为独立 `text` element
+- [x] live SSE finalize 改为输出独立 `text` element，而不是把 narration 合并到视觉 element
+- [x] legacy records builder 改为与 live SSE 一致的 final element 组装策略
+- [x] 新增回归测试：`svg + text + html + text` final 顺序
+- [x] 更新回归测试：视觉前后 narration 在 records 中保持独立 `text`

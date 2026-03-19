@@ -1,4 +1,4 @@
-# learn_generated_elements 设计文档（v1.1，2026-03-18）
+# learn_generated_elements 设计文档（v1.2，2026-03-19）
 
 ## 1. 范围与目标（仅后端）
 
@@ -51,6 +51,7 @@
 
 1. 旧 `sandbox/picture/video` 不再作为对外枚举值。
 2. 当前 `video` 视觉边界在本版映射为 `html`（后端通过 `<video>` 片段归类）。
+3. final 阶段不能把 narration 合并回视觉 element。`text` 必须作为独立 element 保留；视觉 element 仅承载视觉快照。
 
 ## 3.2 Element 数据结构（后端输出）
 
@@ -161,6 +162,18 @@
 | `is_speakable` | 无 | 新增列与 DTO 字段；由 AV 合约与 block 类型推导 |
 | `audio_url` | 仅在 payload.audio | 顶层冗余字段，便于快速读取 |
 | `audio_segments` | 仅作为独立事件 | 合并进 element，保留流式轨迹 |
+
+## 4.3 final 组装规则
+
+1. 有 `visual_boundaries` 且有 `speakable_segments` 时，最终输出按时间顺序交错组装：
+   - 先输出视觉 element
+   - 再输出对应 narration 的 `text` element
+2. 视觉 element 的 `content_text` 为空字符串，`payload.previous_visuals` 承载视觉内容。
+3. narration 的 `text` element 独立承载：
+   - `content_text`
+   - `is_speakable=true`
+   - 对应位置的 `audio_url/payload.audio`
+4. 若 narration 出现在第一个视觉之前，则直接输出独立 `text` element。
 
 ---
 

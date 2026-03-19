@@ -369,6 +369,180 @@ def _aggregate_segment_text(
     }
 
 
+def _text_for_speakable_segment(raw_content: str, segment: dict[str, Any]) -> str:
+    source_span = normalize_source_span(segment.get("source_span"))
+    text = slice_source_by_span(raw_content, source_span).strip()
+    if text:
+        return text
+    return str(segment.get("text", "") or "").strip()
+
+
+def _build_visual_element_from_segment(
+    *,
+    segment: VisualSegment,
+    raw_content: str,
+    role: str,
+) -> ElementDTO:
+    element_type = _element_type_for_visual_kind(segment.visual_kind or "")
+    return ElementDTO(
+        event_type="element",
+        element_bid=segment.segment_id,
+        generated_block_bid=segment.generated_block_bid,
+        element_index=segment.element_index,
+        role=role,
+        element_type=element_type,
+        element_type_code=_element_type_code(element_type),
+        change_type=ElementChangeType.RENDER,
+        is_navigable=1,
+        is_final=True,
+        content_text="",
+        payload=_element_payload_from_segment(segment, raw_content),
+    )
+
+
+def _build_text_element(
+    *,
+    generated_block_bid: str,
+    role: str,
+    element_index: int,
+    content_text: str,
+    audio: ElementAudioDTO | None = None,
+) -> ElementDTO:
+    return ElementDTO(
+        event_type="element",
+        element_bid=uuid.uuid4().hex,
+        generated_block_bid=generated_block_bid,
+        element_index=element_index,
+        role=role,
+        element_type=ElementType.TEXT,
+        element_type_code=_element_type_code(ElementType.TEXT),
+        change_type=ElementChangeType.RENDER,
+        is_navigable=1,
+        is_final=True,
+        is_speakable=bool(content_text),
+        audio_url=audio.audio_url if audio is not None else "",
+        content_text=content_text,
+        payload=ElementPayloadDTO(
+            audio=audio,
+            previous_visuals=[],
+        ),
+    )
+
+
+def _build_final_elements_for_av_contract(
+    *,
+    generated_block_bid: str,
+    role: str,
+    raw_content: str,
+    av_contract: dict[str, Any] | None,
+    visual_segments: list[VisualSegment],
+    audio_by_position: dict[int, ElementAudioDTO],
+    position_to_segment_id: dict[int, str] | None = None,
+    element_index_offset: int = 0,
+) -> list[ElementDTO]:
+    visual_by_id = {segment.segment_id: segment for segment in visual_segments}
+    speakable_segments_raw = (
+        (av_contract or {}).get("speakable_segments") or []
+        if isinstance(av_contract, dict)
+        else []
+    )
+    speakable_segments: list[dict[str, Any]] = []
+    for item in speakable_segments_raw:
+        if not isinstance(item, dict):
+            continue
+        try:
+            position = int(item.get("position", 0))
+        except (TypeError, ValueError):
+            continue
+        speakable_segments.append({"position": position, **item})
+    speakable_segments.sort(key=lambda item: int(item["position"]))
+
+    next_element_index = int(element_index_offset or 0)
+    position_to_segment_id = position_to_segment_id or {}
+    emitted_visual_ids: set[str] = set()
+    built: list[ElementDTO] = []
+
+    if speakable_segments:
+        for item in speakable_segments:
+            position = int(item["position"])
+            segment_id = position_to_segment_id.get(position, "")
+            visual_segment = visual_by_id.get(segment_id)
+            if (
+                visual_segment is not None
+                and (visual_segment.visual_kind or "").strip()
+            ):
+                if visual_segment.segment_id not in emitted_visual_ids:
+                    visual_segment.element_index = next_element_index
+                    built.append(
+                        _build_visual_element_from_segment(
+                            segment=visual_segment,
+                            raw_content=raw_content,
+                            role=role,
+                        )
+                    )
+                    emitted_visual_ids.add(visual_segment.segment_id)
+                    next_element_index += 1
+
+            text = _text_for_speakable_segment(raw_content, item)
+            if not text:
+                continue
+            built.append(
+                _build_text_element(
+                    generated_block_bid=generated_block_bid,
+                    role=role,
+                    element_index=next_element_index,
+                    content_text=text,
+                    audio=audio_by_position.get(position),
+                )
+            )
+            next_element_index += 1
+
+        for segment in visual_segments:
+            if segment.segment_id in emitted_visual_ids:
+                continue
+            if not (segment.visual_kind or "").strip():
+                continue
+            segment.element_index = next_element_index
+            built.append(
+                _build_visual_element_from_segment(
+                    segment=segment,
+                    raw_content=raw_content,
+                    role=role,
+                )
+            )
+            next_element_index += 1
+        return built
+
+    for segment in visual_segments:
+        if (segment.visual_kind or "").strip():
+            segment.element_index = next_element_index
+            built.append(
+                _build_visual_element_from_segment(
+                    segment=segment,
+                    raw_content=raw_content,
+                    role=role,
+                )
+            )
+            next_element_index += 1
+            continue
+        text = slice_source_by_span(raw_content, segment.source_span).strip()
+        if not text:
+            text = (segment.segment_content or "").strip()
+        if not text:
+            continue
+        built.append(
+            _build_text_element(
+                generated_block_bid=generated_block_bid,
+                role=role,
+                element_index=next_element_index,
+                content_text=text,
+                audio=audio_by_position.get(segment.audio_position),
+            )
+        )
+        next_element_index += 1
+    return built
+
+
 def _make_audio_payload(audio: AudioCompleteDTO) -> ElementAudioDTO:
     return ElementAudioDTO(
         audio_url=audio.audio_url or "",
@@ -1174,11 +1348,12 @@ class ListenElementRunAdapter:
             return
         meta = self._load_block_meta(generated_block_bid)
         visual_segments: list[VisualSegment] = []
+        pos_to_seg_id: dict[int, str] = {}
         if (
             isinstance(state.latest_av_contract, dict)
             and (state.raw_content or "").strip()
         ):
-            visual_segments, _ = build_visual_segments_for_block(
+            visual_segments, pos_to_seg_id = build_visual_segments_for_block(
                 raw_content=state.raw_content or "",
                 generated_block_bid=generated_block_bid,
                 av_contract=state.latest_av_contract,
@@ -1221,32 +1396,17 @@ class ListenElementRunAdapter:
             if state.stream_elements:
                 yield from self._retire_stream_elements(state)
             yield from self._retire_fallback_element(state)
-            aggregated_text = _aggregate_segment_text(
-                state.raw_content,
-                state.latest_av_contract,
-                {seg.audio_position: seg.segment_id for seg in visual_segments},
+            final_elements = _build_final_elements_for_av_contract(
+                generated_block_bid=generated_block_bid,
+                role=meta.role,
+                raw_content=state.raw_content,
+                av_contract=state.latest_av_contract,
+                visual_segments=visual_segments,
+                audio_by_position=state.audio_by_position,
+                position_to_segment_id=pos_to_seg_id,
+                element_index_offset=max(self._max_element_index + 1, 0),
             )
-            for seg in visual_segments:
-                payload = _element_payload_from_segment(
-                    seg,
-                    state.raw_content,
-                    state.audio_by_position.get(seg.audio_position),
-                )
-                element_type = _element_type_for_visual_kind(seg.visual_kind or "")
-                element = ElementDTO(
-                    event_type="element",
-                    element_bid=seg.segment_id,
-                    generated_block_bid=generated_block_bid,
-                    element_index=seg.element_index,
-                    role=meta.role,
-                    element_type=element_type,
-                    element_type_code=_element_type_code(element_type),
-                    change_type=ElementChangeType.RENDER,
-                    is_navigable=1,
-                    is_final=True,
-                    content_text=aggregated_text.get(seg.segment_id, ""),
-                    payload=payload,
-                )
+            for element in final_elements:
                 self._max_element_index = max(
                     self._max_element_index, element.element_index
                 )
@@ -1395,7 +1555,6 @@ def build_listen_elements_from_legacy_record(
 
         role = "student" if block_type == BlockType.ASK else "teacher"
         visual_segments: list[VisualSegment] = []
-        audio_by_segment_id: dict[str, ElementAudioDTO] = {}
         audio_by_position: dict[int, ElementAudioDTO] = {}
         for audio in record.audios or []:
             audio_payload = _make_audio_payload(audio)
@@ -1408,40 +1567,21 @@ def build_listen_elements_from_legacy_record(
                 av_contract=record.av_contract,
                 element_index_offset=max_index + 1,
             )
-            for position, segment_id in pos_to_seg_id.items():
-                audio_payload = audio_by_position.get(int(position or 0))
-                if audio_payload is not None:
-                    audio_by_segment_id.setdefault(segment_id, audio_payload)
 
         if visual_segments:
-            aggregated_text = _aggregate_segment_text(
-                record.content or "",
-                record.av_contract if isinstance(record.av_contract, dict) else None,
-                {seg.audio_position: seg.segment_id for seg in visual_segments},
+            built_elements = _build_final_elements_for_av_contract(
+                generated_block_bid=record.generated_block_bid,
+                role=role,
+                raw_content=record.content or "",
+                av_contract=record.av_contract
+                if isinstance(record.av_contract, dict)
+                else None,
+                visual_segments=visual_segments,
+                audio_by_position=audio_by_position,
+                position_to_segment_id=pos_to_seg_id,
+                element_index_offset=max_index + 1,
             )
-            for seg in visual_segments:
-                audio = audio_by_segment_id.get(
-                    seg.segment_id
-                ) or audio_by_position.get(seg.audio_position)
-                payload = ElementPayloadDTO(
-                    audio=audio,
-                    previous_visuals=_visuals_from_segment(seg, record.content or ""),
-                )
-                element_type = _element_type_for_visual_kind(seg.visual_kind or "")
-                element = ElementDTO(
-                    event_type="element",
-                    element_bid=seg.segment_id,
-                    generated_block_bid=record.generated_block_bid,
-                    element_index=seg.element_index,
-                    role=role,
-                    element_type=element_type,
-                    element_type_code=_element_type_code(element_type),
-                    change_type=ElementChangeType.RENDER,
-                    is_navigable=1,
-                    is_final=True,
-                    content_text=aggregated_text.get(seg.segment_id, ""),
-                    payload=payload,
-                )
+            for element in built_elements:
                 max_index = max(max_index, element.element_index)
                 elements.append(element)
             continue
