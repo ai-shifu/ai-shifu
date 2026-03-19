@@ -3,9 +3,10 @@ import inspect
 import json
 import queue
 import threading
+import contextlib
 from decimal import Decimal
 from enum import Enum
-from typing import Generator, Iterable, Optional, Union
+from typing import Any, Callable, Generator, Iterable, Optional, Union
 from flaskr.service.learn.const import (
     ROLE_STUDENT,
     ROLE_TEACHER,
@@ -101,6 +102,10 @@ from flaskr.service.learn.lesson_feedback import build_lesson_feedback_interacti
 from flaskr.service.learn.exceptions import PaidException
 from flaskr.i18n import _, get_current_language, set_language
 from flaskr.service.user.exceptions import UserNotLoginException
+from flaskr.common.shifu_context import (
+    get_shifu_context_snapshot,
+    apply_shifu_context_snapshot,
+)
 
 context_local = threading.local()
 
@@ -1121,6 +1126,60 @@ class RunScriptContextV2:
 
     def _should_stream_tts(self) -> bool:
         return (not self._preview_mode) and bool(getattr(self, "_listen", False))
+
+    def _iter_stream_result_with_idle_callback(
+        self,
+        stream_result: Generator[Any, None, None],
+        *,
+        idle_callback: Callable[[], Iterable[Any]] | None = None,
+        idle_poll_interval: float = 0.05,
+    ) -> Generator[tuple[str, Any], None, None]:
+        """Poll a blocking stream generator while allowing idle side-channel output."""
+        result_queue: queue.Queue = queue.Queue()
+        parent_language = get_current_language()
+        parent_shifu_context = get_shifu_context_snapshot()
+        poll_timeout = max(float(idle_poll_interval or 0.0), 0.01)
+
+        def _produce() -> None:
+            with self.app.app_context():
+                set_language(parent_language)
+                apply_shifu_context_snapshot(parent_shifu_context)
+                try:
+                    for item in stream_result:
+                        result_queue.put(("item", item))
+                except Exception as exc:
+                    result_queue.put(("error", exc))
+                finally:
+                    with contextlib.suppress(Exception):
+                        stream_result.close()
+                    result_queue.put(("done", None))
+
+        producer_thread = threading.Thread(
+            target=_produce,
+            name="mdflow_stream_result_producer",
+            daemon=True,
+        )
+        producer_thread.start()
+
+        try:
+            while True:
+                try:
+                    kind, payload = result_queue.get(timeout=poll_timeout)
+                except queue.Empty:
+                    if idle_callback is None:
+                        continue
+                    for idle_item in idle_callback():
+                        yield ("idle", idle_item)
+                    continue
+
+                if kind == "item":
+                    yield ("item", payload)
+                    continue
+                if kind == "error":
+                    raise payload
+                break
+        finally:
+            producer_thread.join(timeout=0.1)
 
     def _get_current_attend(self, outline_bid: str) -> LearnProgressRecord:
         attend_info: LearnProgressRecord = (
@@ -2680,6 +2739,20 @@ class RunScriptContextV2:
 
                     yield from other_events
 
+                def _drain_tts_ready_events():
+                    nonlocal tts_processor
+                    if not tts_processor:
+                        return
+                    try:
+                        yield from tts_processor.drain_ready_segments()
+                    except Exception as exc:
+                        app.logger.warning(
+                            "Idle streaming TTS drain failed; disable for this block: %s",
+                            exc,
+                            exc_info=True,
+                        )
+                        tts_processor = None
+
                 stream_result = mdflow_context.process(
                     block_index=run_script_info.block_position,
                     mode=ProcessMode.STREAM,
@@ -2690,8 +2763,20 @@ class RunScriptContextV2:
                 # Handle both Generator and single LLMResult (markdown-flow 0.2.27+)
                 # In some edge cases (e.g., no LLM provider), returns a single LLMResult instead of Generator
                 if inspect.isgenerator(stream_result):
-                    # It's a generator, iterate normally
-                    for llm_result in stream_result:
+                    idle_poll_interval = float(
+                        app.config.get("STREAM_TTS_IDLE_DRAIN_INTERVAL", 0.05)
+                    )
+                    for source, payload in self._iter_stream_result_with_idle_callback(
+                        stream_result,
+                        idle_callback=_drain_tts_ready_events
+                        if tts_processor
+                        else None,
+                        idle_poll_interval=idle_poll_interval,
+                    ):
+                        if source == "idle":
+                            yield payload
+                            continue
+                        llm_result = payload
                         for (
                             chunk_content,
                             stream_element_type,

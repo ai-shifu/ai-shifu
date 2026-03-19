@@ -209,6 +209,10 @@ class StreamingTTSProcessor:
         # Yield any segments that are ready
         yield from self._yield_ready_segments()
 
+    def drain_ready_segments(self) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Yield already-synthesized segments without submitting new text."""
+        yield from self._yield_ready_segments()
+
     def _try_submit_tts_task(self):
         """Submit all complete sentences currently available in the stream buffer."""
         if not self._buffer:
@@ -741,6 +745,7 @@ class AVStreamingTTSProcessor:
 
     def _refresh_next_element_index_from_contract(self):
         segments, _ = build_visual_segments_for_block(
+            app=self.app,
             raw_content=self._raw_full_content,
             generated_block_bid=self.generated_block_bid,
             av_contract=self._av_contract,
@@ -774,8 +779,7 @@ class AVStreamingTTSProcessor:
 
     def process_chunk(self, chunk: str) -> Generator[RunMarkdownFlowDTO, None, None]:
         if not chunk:
-            if self._current_processor is not None:
-                yield from self._process_processor_chunk(self._current_processor, "")
+            yield from self.drain_ready_segments()
             return
 
         self._raw_full_content += chunk
@@ -831,6 +835,12 @@ class AVStreamingTTSProcessor:
                 self._skip_mode = kind
                 break
             self._raw_buffer = self._raw_buffer[boundary_len:]
+
+    def drain_ready_segments(self) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Yield already-ready audio events for the current speakable segment."""
+        if self._current_processor is None:
+            return
+        yield from self._current_processor.drain_ready_segments()
 
     def finalize(
         self, *, commit: bool = True

@@ -1,4 +1,5 @@
 import asyncio
+import time
 import types
 import unittest
 from unittest.mock import patch
@@ -367,6 +368,34 @@ class StreamTtsGateTests(unittest.TestCase):
         ctx._preview_mode = True
         ctx._listen = True
         self.assertFalse(ctx._should_stream_tts())
+
+    def test_iter_stream_result_with_idle_callback_drains_while_waiting(self):
+        app = Flask("stream-tts-idle-drain")
+        ctx = _make_context()
+        ctx.app = app
+
+        idle_ticks: list[int] = []
+
+        def delayed_stream():
+            time.sleep(0.05)
+            yield "chunk-1"
+
+        def on_idle():
+            idle_ticks.append(len(idle_ticks))
+            yield f"idle-{len(idle_ticks)}"
+
+        with app.app_context():
+            outputs = list(
+                ctx._iter_stream_result_with_idle_callback(
+                    delayed_stream(),
+                    idle_callback=on_idle,
+                    idle_poll_interval=0.01,
+                )
+            )
+
+        assert outputs[0][0] == "idle"
+        assert outputs[-1] == ("item", "chunk-1")
+        assert idle_ticks
 
 
 class MdflowContextCompatibilityTests(unittest.TestCase):
