@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+from flask import Flask
+
+from flaskr.util.uuid import generate_id
 from flaskr.service.learn.listen_source_span_utils import (
     normalize_source_span,
     slice_source_by_span,
@@ -35,6 +37,7 @@ def _segment_type_for_visual_kind(visual_kind: str, is_placeholder: bool) -> str
 
 def build_visual_segments_for_block(
     *,
+    app: Flask,
     raw_content: str,
     generated_block_bid: str,
     av_contract: dict[str, Any] | None,
@@ -108,7 +111,7 @@ def build_visual_segments_for_block(
         existing = segment_id_by_key.get(key)
         if existing:
             return existing
-        segment_id = uuid.uuid4().hex
+        segment_id = generate_id(app)
         segment_type = _segment_type_for_visual_kind(visual_kind, is_placeholder)
         segment_content = (
             ""

@@ -657,6 +657,7 @@ def test_listen_element_adapter_retires_fallback_once_visual_element_arrives(app
         assert retire_evt.content.is_new is False
         assert retire_evt.content.is_renderable is False
         assert retire_evt.content.is_final is True
+        fallback_element_bid = streamed[0].content.element_bid
 
         active_rows = LearnGeneratedElement.query.filter(
             LearnGeneratedElement.run_session_bid == adapter.run_session_bid,
@@ -671,11 +672,10 @@ def test_listen_element_adapter_retires_fallback_once_visual_element_arrives(app
         visual_element_bid = next(
             row.element_bid
             for row in active_rows
-            if row.event_type == "element"
-            and row.element_bid != f"el_{generated_block_bid}"
+            if row.event_type == "element" and row.element_bid != fallback_element_bid
         )
         assert visual_element_bid
-        assert f"el_{generated_block_bid}" not in active_element_bids
+        assert fallback_element_bid not in active_element_bids
 
 
 def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
@@ -1080,9 +1080,16 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
 
         assert first_element.is_new is True
         assert first_element.element_type == ElementType.MD_IMG
+        assert "_" not in first_element.element_bid
         assert patch_element.is_new is False
+        assert len(patch_element.element_bid) <= 64
+        assert patch_element.element_bid != first_element.element_bid
+        assert "_" not in patch_element.element_bid
         assert patch_element.target_element_bid == first_element.element_bid
         assert audio_patch_element.is_new is False
+        assert len(audio_patch_element.element_bid) <= 64
+        assert audio_patch_element.element_bid != first_element.element_bid
+        assert "_" not in audio_patch_element.element_bid
         assert audio_patch_element.target_element_bid == first_element.element_bid
         assert audio_patch_element.audio_segments == [
             {

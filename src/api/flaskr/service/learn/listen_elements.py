@@ -9,6 +9,7 @@ from typing import Any, Generator, Iterable
 from flask import Flask
 
 from flaskr.dao import db
+from flaskr.util.uuid import generate_id
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_UI
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
@@ -226,6 +227,10 @@ def _default_is_speakable(element_type: ElementType, content_text: str = "") -> 
     return element_type == ElementType.TEXT and bool(content_text)
 
 
+def _new_element_bid(app: Flask) -> str:
+    return generate_id(app)
+
+
 def _element_type_from_mdflow_stream(
     stream_element_type: str,
     content: str = "",
@@ -417,6 +422,7 @@ def _build_visual_element_from_segment(
 
 def _build_text_element(
     *,
+    app: Flask,
     generated_block_bid: str,
     role: str,
     element_index: int,
@@ -427,7 +433,7 @@ def _build_text_element(
     audio_segments = list(audio_segments or [])
     return ElementDTO(
         event_type="element",
-        element_bid=uuid.uuid4().hex,
+        element_bid=_new_element_bid(app),
         generated_block_bid=generated_block_bid,
         element_index=element_index,
         role=role,
@@ -450,6 +456,7 @@ def _build_text_element(
 
 def _build_final_elements_for_av_contract(
     *,
+    app: Flask,
     generated_block_bid: str,
     role: str,
     raw_content: str,
@@ -508,6 +515,7 @@ def _build_final_elements_for_av_contract(
                 continue
             built.append(
                 _build_text_element(
+                    app=app,
                     generated_block_bid=generated_block_bid,
                     role=role,
                     element_index=next_element_index,
@@ -553,6 +561,7 @@ def _build_final_elements_for_av_contract(
             continue
         built.append(
             _build_text_element(
+                app=app,
                 generated_block_bid=generated_block_bid,
                 role=role,
                 element_index=next_element_index,
@@ -1063,9 +1072,7 @@ class ListenElementRunAdapter:
 
     def _build_fallback_element(self, state: BlockState, role: str) -> ElementDTO:
         if not state.fallback_element_bid:
-            state.fallback_element_bid = (
-                f"el_{state.generated_block_bid or uuid.uuid4().hex}"
-            )
+            state.fallback_element_bid = _new_element_bid(self.app)
             self._max_element_index += 1
         return ElementDTO(
             event_type="element",
@@ -1200,7 +1207,7 @@ class ListenElementRunAdapter:
         return self._element_message(
             ElementDTO(
                 event_type="element",
-                element_bid=f"{element_bid}_patch_{uuid.uuid4().hex}",
+                element_bid=_new_element_bid(self.app),
                 generated_block_bid=snapshot.generated_block_bid,
                 element_index=snapshot.element_index,
                 role=snapshot.role,
@@ -1251,11 +1258,7 @@ class ListenElementRunAdapter:
             stream_state.content_text,
             audio=audio,
         )
-        element_bid = (
-            stream_state.element_bid
-            if is_new
-            else f"{stream_state.element_bid}_patch_{uuid.uuid4().hex}"
-        )
+        element_bid = stream_state.element_bid if is_new else _new_element_bid(self.app)
         return self._element_message(
             ElementDTO(
                 event_type="element",
@@ -1302,7 +1305,7 @@ class ListenElementRunAdapter:
                 self._max_element_index += 1
                 stream_state = StreamElementState(
                     number=stream_number,
-                    element_bid=f"el_{generated_block_bid or uuid.uuid4().hex}_{stream_number}",
+                    element_bid=_new_element_bid(self.app),
                     element_index=max(self._max_element_index, 0),
                     element_type=_element_type_from_mdflow_stream(
                         stream_type,
@@ -1506,6 +1509,7 @@ class ListenElementRunAdapter:
             and (state.raw_content or "").strip()
         ):
             visual_segments, pos_to_seg_id = build_visual_segments_for_block(
+                app=self.app,
                 raw_content=state.raw_content or "",
                 generated_block_bid=generated_block_bid,
                 av_contract=state.latest_av_contract,
@@ -1527,7 +1531,7 @@ class ListenElementRunAdapter:
                         continue
                     visual_segments.append(
                         VisualSegment(
-                            segment_id=uuid.uuid4().hex,
+                            segment_id=_new_element_bid(self.app),
                             generated_block_bid=generated_block_bid,
                             element_index=next_index,
                             audio_position=int(boundary.get("position", 0) or 0),
@@ -1549,6 +1553,7 @@ class ListenElementRunAdapter:
                 yield from self._retire_stream_elements(state)
             yield from self._retire_fallback_element(state)
             final_elements = _build_final_elements_for_av_contract(
+                app=self.app,
                 generated_block_bid=generated_block_bid,
                 role=meta.role,
                 raw_content=state.raw_content,
@@ -1614,7 +1619,7 @@ class ListenElementRunAdapter:
         self._max_element_index += 1
         element = ElementDTO(
             event_type="element",
-            element_bid=f"el_{generated_block_bid or uuid.uuid4().hex}",
+            element_bid=_new_element_bid(self.app),
             generated_block_bid=generated_block_bid,
             element_index=max(self._max_element_index, 0),
             role=meta.role,
@@ -1685,6 +1690,7 @@ class ListenElementRunAdapter:
 
 
 def _interaction_element_from_record(
+    app: Flask,
     generated_block_bid: str,
     content: str,
     *,
@@ -1693,7 +1699,7 @@ def _interaction_element_from_record(
 ) -> ElementDTO:
     return ElementDTO(
         event_type="element",
-        element_bid=f"el_{generated_block_bid or uuid.uuid4().hex}",
+        element_bid=_new_element_bid(app),
         generated_block_bid=generated_block_bid,
         element_index=element_index,
         role=role,
@@ -1721,6 +1727,7 @@ def build_listen_elements_from_legacy_record(
             max_index += 1
             elements.append(
                 _interaction_element_from_record(
+                    app,
                     record.generated_block_bid,
                     record.content,
                     role="ui",
@@ -1738,6 +1745,7 @@ def build_listen_elements_from_legacy_record(
 
         if isinstance(record.av_contract, dict) and (record.content or "").strip():
             visual_segments, pos_to_seg_id = build_visual_segments_for_block(
+                app=app,
                 raw_content=record.content or "",
                 generated_block_bid=record.generated_block_bid,
                 av_contract=record.av_contract,
@@ -1746,6 +1754,7 @@ def build_listen_elements_from_legacy_record(
 
         if visual_segments:
             built_elements = _build_final_elements_for_av_contract(
+                app=app,
                 generated_block_bid=record.generated_block_bid,
                 role=role,
                 raw_content=record.content or "",
@@ -1767,7 +1776,7 @@ def build_listen_elements_from_legacy_record(
         elements.append(
             ElementDTO(
                 event_type="element",
-                element_bid=f"el_{record.generated_block_bid or uuid.uuid4().hex}",
+                element_bid=_new_element_bid(app),
                 generated_block_bid=record.generated_block_bid,
                 element_index=max_index,
                 role=role,
