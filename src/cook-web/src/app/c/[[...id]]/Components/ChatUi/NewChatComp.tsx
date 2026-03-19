@@ -146,15 +146,18 @@ export const NewChatComponents = ({
     });
   }, [isNearBottom, mobileStyle]);
 
-  const { openPayModal, payModalResult, resetedLessonId } = useCourseStore(
-    useShallow(state => ({
-      openPayModal: state.openPayModal,
-      payModalResult: state.payModalResult,
-      resetedLessonId: state.resetedLessonId,
-    })),
-  );
+  const { openPayModal, payModalResult, resetedLessonId, resettingLessonId } =
+    useCourseStore(
+      useShallow(state => ({
+        openPayModal: state.openPayModal,
+        payModalResult: state.payModalResult,
+        resetedLessonId: state.resetedLessonId,
+        resettingLessonId: state.resettingLessonId,
+      })),
+    );
   const shouldShowResetLoading =
-    mobileStyle && Boolean(resetedLessonId) && resetedLessonId === lessonId;
+    mobileStyle &&
+    (resettingLessonId === lessonId || resetedLessonId === lessonId);
   const learningMode = useSystemStore(state => state.learningMode);
   const isListenMode = learningMode === 'listen';
   const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);

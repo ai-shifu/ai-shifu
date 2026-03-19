@@ -94,10 +94,10 @@ export default function ChatPage() {
   }, [initialized, isLoggedIn, wechatCode]);
 
   // NOTE: User-related features should be organized into one module
-  function gotoLogin() {
+  const gotoLogin = useCallback(() => {
     const redirectPath = buildLoginRedirectPath(window.location.href);
     window.location.href = `/login?redirect=${encodeURIComponent(redirectPath)}`;
-  }
+  }, []);
   // NOTE: Probably don't need this.
   // const [loginModalOpen, setLoginModalOpen] = useState(false);
 
