@@ -1168,41 +1168,6 @@ class ListenElementRunAdapter:
             content=retire_element,
         )
 
-    def _append_audio_segment_to_element(
-        self, element_bid: str, segment_data: dict
-    ) -> None:
-        """Append an audio segment entry to the element's audio_segments JSON."""
-        rows = (
-            LearnGeneratedElement.query.filter(
-                LearnGeneratedElement.run_session_bid == self.run_session_bid,
-                LearnGeneratedElement.event_type == "element",
-                LearnGeneratedElement.deleted == 0,
-                LearnGeneratedElement.status == 1,
-                (LearnGeneratedElement.element_bid == element_bid)
-                | (LearnGeneratedElement.target_element_bid == element_bid),
-            )
-            .order_by(
-                LearnGeneratedElement.sequence_number.asc(),
-                LearnGeneratedElement.run_event_seq.asc(),
-                LearnGeneratedElement.id.asc(),
-            )
-            .all()
-        )
-        if not rows:
-            return
-        persisted_segment = _sanitize_audio_segments_for_storage([segment_data])[0]
-        for row in rows:
-            try:
-                segments = json.loads(row.audio_segments or "[]")
-                if not isinstance(segments, list):
-                    segments = []
-            except Exception:
-                segments = []
-            segments.append(persisted_segment)
-            row.audio_segments = json.dumps(segments, ensure_ascii=False)
-            row.is_speakable = 1
-        db.session.flush()
-
     def _load_latest_element_snapshot(self, element_bid: str) -> ElementDTO | None:
         row = (
             LearnGeneratedElement.query.filter(
@@ -1246,7 +1211,7 @@ class ListenElementRunAdapter:
                 is_new=False,
                 is_renderable=snapshot.is_renderable,
                 is_marker=snapshot.is_marker,
-                is_speakable=snapshot.is_speakable,
+                is_speakable=bool(audio_segments) or snapshot.is_speakable,
                 audio_url=snapshot.audio_url,
                 audio_segments=list(audio_segments or snapshot.audio_segments or []),
                 is_navigable=snapshot.is_navigable,
@@ -1506,16 +1471,10 @@ class ListenElementRunAdapter:
             state.audio_segments_by_position.setdefault(position, []).append(
                 segment_data
             )
-            # Append audio segment to current element's audio_segments
             if self._current_element_bid:
-                self._append_audio_segment_to_element(
-                    self._current_element_bid, segment_data
-                )
                 patch_message = self._build_audio_segment_patch_message(
                     self._current_element_bid,
-                    audio_segments=list(
-                        state.audio_segments_by_position.get(position, [])
-                    ),
+                    audio_segments=[segment_data],
                 )
                 if patch_message is not None:
                     yield patch_message

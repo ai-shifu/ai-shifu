@@ -1047,6 +1047,18 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
             RunMarkdownFlowDTO(
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_SEGMENT,
+                content=AudioSegmentDTO(
+                    position=0,
+                    segment_index=1,
+                    audio_data="stream-segment-1",
+                    duration_ms=260,
+                    is_final=False,
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
                 type=GeneratedType.AUDIO_COMPLETE,
                 content=AudioCompleteDTO(
                     audio_url="https://example.com/stream-audio.mp3",
@@ -1068,6 +1080,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
             "element",
             "element",
             "element",
+            "element",
             "audio_complete",
             "element",
             "break",
@@ -1075,8 +1088,9 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
 
         first_element = streamed[0].content
         patch_element = streamed[1].content
-        audio_patch_element = streamed[2].content
-        final_element = streamed[4].content
+        first_audio_patch_element = streamed[2].content
+        second_audio_patch_element = streamed[3].content
+        final_element = streamed[5].content
 
         assert first_element.is_new is True
         assert first_element.element_type == ElementType.MD_IMG
@@ -1086,12 +1100,12 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         assert patch_element.element_bid == first_element.element_bid
         assert "_" not in patch_element.element_bid
         assert patch_element.target_element_bid == first_element.element_bid
-        assert audio_patch_element.is_new is False
-        assert len(audio_patch_element.element_bid) <= 64
-        assert audio_patch_element.element_bid == first_element.element_bid
-        assert "_" not in audio_patch_element.element_bid
-        assert audio_patch_element.target_element_bid == first_element.element_bid
-        assert audio_patch_element.audio_segments == [
+        assert first_audio_patch_element.is_new is False
+        assert len(first_audio_patch_element.element_bid) <= 64
+        assert first_audio_patch_element.element_bid == first_element.element_bid
+        assert "_" not in first_audio_patch_element.element_bid
+        assert first_audio_patch_element.target_element_bid == first_element.element_bid
+        assert first_audio_patch_element.audio_segments == [
             {
                 "position": 0,
                 "segment_index": 0,
@@ -1100,10 +1114,42 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
                 "is_final": False,
             }
         ]
+        assert second_audio_patch_element.is_new is False
+        assert len(second_audio_patch_element.element_bid) <= 64
+        assert second_audio_patch_element.element_bid == first_element.element_bid
+        assert "_" not in second_audio_patch_element.element_bid
+        assert (
+            second_audio_patch_element.target_element_bid == first_element.element_bid
+        )
+        assert second_audio_patch_element.audio_segments == [
+            {
+                "position": 0,
+                "segment_index": 1,
+                "audio_data": "stream-segment-1",
+                "duration_ms": 260,
+                "is_final": False,
+            }
+        ]
         assert final_element.is_new is False
         assert final_element.is_final is True
         assert final_element.element_bid == first_element.element_bid
         assert final_element.target_element_bid == first_element.element_bid
+        assert final_element.audio_segments == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "stream-segment-0",
+                "duration_ms": 240,
+                "is_final": False,
+            },
+            {
+                "position": 0,
+                "segment_index": 1,
+                "audio_data": "stream-segment-1",
+                "duration_ms": 260,
+                "is_final": False,
+            },
+        ]
 
         result = get_listen_element_record(
             app,
@@ -1127,7 +1173,14 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
                 "audio_data": "",
                 "duration_ms": 240,
                 "is_final": False,
-            }
+            },
+            {
+                "position": 0,
+                "segment_index": 1,
+                "audio_data": "",
+                "duration_ms": 260,
+                "is_final": False,
+            },
         ]
         assert element.content_text.endswith("caption line\n")
         assert element.payload is not None
@@ -1150,19 +1203,32 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         assert replay_event_types.count("element") >= 1
         assert "audio_complete" in replay_event_types
         assert "break" in replay_event_types
-        replay_audio_patch = next(
+        replay_audio_patches = [
             item.content
             for item in result_with_events.events
-            if item.type == "element" and item.content.audio_segments
-        )
-        assert replay_audio_patch.audio_segments == [
-            {
-                "position": 0,
-                "segment_index": 0,
-                "audio_data": "",
-                "duration_ms": 240,
-                "is_final": False,
-            }
+            if item.type == "element"
+            and item.content.audio_segments
+            and not item.content.is_final
+        ]
+        assert [item.audio_segments for item in replay_audio_patches] == [
+            [
+                {
+                    "position": 0,
+                    "segment_index": 0,
+                    "audio_data": "",
+                    "duration_ms": 240,
+                    "is_final": False,
+                }
+            ],
+            [
+                {
+                    "position": 0,
+                    "segment_index": 1,
+                    "audio_data": "",
+                    "duration_ms": 260,
+                    "is_final": False,
+                }
+            ],
         ]
 
         persisted_rows = (
@@ -1181,8 +1247,8 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
             if row.audio_segments and row.audio_segments != "[]"
         ]
         assert persisted_segments
-        for segments in persisted_segments:
-            assert segments == [
+        assert persisted_segments == [
+            [
                 {
                     "position": 0,
                     "segment_index": 0,
@@ -1190,7 +1256,33 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
                     "duration_ms": 240,
                     "is_final": False,
                 }
-            ]
+            ],
+            [
+                {
+                    "position": 0,
+                    "segment_index": 1,
+                    "audio_data": "",
+                    "duration_ms": 260,
+                    "is_final": False,
+                }
+            ],
+            [
+                {
+                    "position": 0,
+                    "segment_index": 0,
+                    "audio_data": "",
+                    "duration_ms": 240,
+                    "is_final": False,
+                },
+                {
+                    "position": 0,
+                    "segment_index": 1,
+                    "audio_data": "",
+                    "duration_ms": 260,
+                    "is_final": False,
+                },
+            ],
+        ]
 
 
 def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(app):
