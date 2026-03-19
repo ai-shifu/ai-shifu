@@ -227,6 +227,19 @@ def _default_is_speakable(element_type: ElementType, content_text: str = "") -> 
     return element_type == ElementType.TEXT and bool(content_text)
 
 
+def _normalized_is_speakable(
+    element_type: ElementType,
+    content_text: str = "",
+    *,
+    stored_is_speakable: bool = False,
+) -> bool:
+    if element_type != ElementType.TEXT:
+        return False
+    return bool(
+        stored_is_speakable or _default_is_speakable(element_type, content_text)
+    )
+
+
 def _new_element_bid(app: Flask) -> str:
     return generate_id(app)
 
@@ -710,10 +723,6 @@ def _element_from_row(row: LearnGeneratedElement) -> ElementDTO:
         getattr(row, "is_renderable", 1 if default_is_renderable else 0)
     )
     stored_is_speakable = bool(getattr(row, "is_speakable", 0))
-    derived_is_speakable = _default_is_speakable(
-        element_type,
-        row.content_text or "",
-    )
     return ElementDTO(
         run_session_bid=row.run_session_bid or None,
         run_event_seq=int(row.run_event_seq or 0),
@@ -730,7 +739,11 @@ def _element_from_row(row: LearnGeneratedElement) -> ElementDTO:
         is_new=bool(getattr(row, "is_new", 1)),
         is_marker=_default_is_marker(element_type),
         sequence_number=int(getattr(row, "sequence_number", 0) or 0),
-        is_speakable=stored_is_speakable or derived_is_speakable,
+        is_speakable=_normalized_is_speakable(
+            element_type,
+            row.content_text or "",
+            stored_is_speakable=stored_is_speakable,
+        ),
         audio_url=str(getattr(row, "audio_url", "") or ""),
         audio_segments=audio_segments,
         is_navigable=int(row.is_navigable or 0),
@@ -857,6 +870,7 @@ class BlockState:
     audio_segments_by_position: dict[int, list[dict[str, Any]]] = field(
         default_factory=dict
     )
+    audio_target_element_bid_by_position: dict[int, str] = field(default_factory=dict)
     fallback_element_bid: str | None = None
     latest_av_contract: dict[str, Any] | None = None
     stream_elements: OrderedDict[int, StreamElementState] = field(
@@ -1211,7 +1225,11 @@ class ListenElementRunAdapter:
                 is_new=False,
                 is_renderable=snapshot.is_renderable,
                 is_marker=snapshot.is_marker,
-                is_speakable=bool(audio_segments) or snapshot.is_speakable,
+                is_speakable=_normalized_is_speakable(
+                    snapshot.element_type,
+                    snapshot.content_text,
+                    stored_is_speakable=snapshot.is_speakable,
+                ),
                 audio_url=snapshot.audio_url,
                 audio_segments=list(audio_segments or snapshot.audio_segments or []),
                 is_navigable=snapshot.is_navigable,
@@ -1229,10 +1247,7 @@ class ListenElementRunAdapter:
             LearnGeneratedElement.event_type == "element",
             LearnGeneratedElement.deleted == 0,
             LearnGeneratedElement.status == 1,
-        ).update(
-            {"audio_url": audio_url, "is_speakable": 1},
-            synchronize_session=False,
-        )
+        ).update({"audio_url": audio_url}, synchronize_session=False)
         db.session.flush()
 
     def _build_stream_element_message(
@@ -1266,13 +1281,10 @@ class ListenElementRunAdapter:
                 is_new=is_new,
                 is_renderable=_default_is_renderable(stream_state.element_type),
                 is_marker=_default_is_marker(stream_state.element_type),
-                is_speakable=bool(
-                    audio is not None
-                    or audio_segments
-                    or _default_is_speakable(
-                        stream_state.element_type,
-                        stream_state.content_text,
-                    )
+                is_speakable=_normalized_is_speakable(
+                    stream_state.element_type,
+                    stream_state.content_text,
+                    stored_is_speakable=bool(audio is not None or audio_segments),
                 ),
                 audio_url=audio.audio_url if audio is not None else "",
                 audio_segments=list(audio_segments or []),
@@ -1432,12 +1444,14 @@ class ListenElementRunAdapter:
         state = self._ensure_block_state(generated_block_bid)
         if isinstance(content.av_contract, dict):
             state.latest_av_contract = content.av_contract
-        state.audio_by_position[int(getattr(content, "position", 0) or 0)] = (
-            _make_audio_payload(content)
+        position = int(getattr(content, "position", 0) or 0)
+        state.audio_by_position[position] = _make_audio_payload(content)
+        target_element_bid = (
+            state.audio_target_element_bid_by_position.get(position)
+            or self._current_element_bid
         )
-        # Backfill audio_url on the current element
-        if self._current_element_bid and content.audio_url:
-            self._backfill_audio_url(self._current_element_bid, content.audio_url)
+        if target_element_bid and content.audio_url:
+            self._backfill_audio_url(target_element_bid, content.audio_url)
         # Feed state machine
         if not self._state_machine.is_terminated:
             self._state_machine.feed(TypeInput.AUDIO_COMPLETE)
@@ -1471,9 +1485,17 @@ class ListenElementRunAdapter:
             state.audio_segments_by_position.setdefault(position, []).append(
                 segment_data
             )
-            if self._current_element_bid:
+            target_element_bid = state.audio_target_element_bid_by_position.get(
+                position
+            )
+            if not target_element_bid and self._current_element_bid:
+                target_element_bid = self._current_element_bid
+                state.audio_target_element_bid_by_position[position] = (
+                    target_element_bid
+                )
+            if target_element_bid:
                 patch_message = self._build_audio_segment_patch_message(
-                    self._current_element_bid,
+                    target_element_bid,
                     audio_segments=[segment_data],
                 )
                 if patch_message is not None:
