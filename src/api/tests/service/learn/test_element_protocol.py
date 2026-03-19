@@ -68,6 +68,21 @@ class TestElementType:
         assert LEGACY_ELEMENT_TYPE_MAP[ElementType._PICTURE] == ElementType.IMG
         assert LEGACY_ELEMENT_TYPE_MAP[ElementType._VIDEO] == ElementType.HTML
 
+    def test_mdflow_stream_mapping_keeps_only_compat_special_cases(self):
+        from flaskr.service.learn.learn_dtos import ElementType
+        from flaskr.service.learn.listen_elements import (
+            _element_type_from_mdflow_stream,
+        )
+
+        assert _element_type_from_mdflow_stream("text", "hello") == ElementType.TEXT
+        assert _element_type_from_mdflow_stream("code", "```py\nprint(1)\n```") == (
+            ElementType.CODE
+        )
+        assert _element_type_from_mdflow_stream("img", "![x](y)") == ElementType.MD_IMG
+        assert _element_type_from_mdflow_stream(
+            "html", "<table><tr><td>x</td></tr></table>"
+        ) == (ElementType.TABLES)
+
 
 # ---------------------------------------------------------------------------
 # ElementDTO new fields tests
@@ -129,6 +144,26 @@ class TestElementDTONewFields:
         assert "is_speakable" in keys
         assert "audio_url" in keys
         assert "audio_segments" in keys
+
+
+class TestRunMarkdownFlowDTO:
+    def test_private_mdflow_stream_parts_do_not_leak_into_json(self):
+        from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
+
+        dto = RunMarkdownFlowDTO(
+            outline_bid="outline-1",
+            generated_block_bid="block-1",
+            type=GeneratedType.CONTENT,
+            content="hello",
+        ).set_mdflow_stream_parts([("hello", "text", 0)])
+
+        assert dto.get_mdflow_stream_parts() == [("hello", "text", 0)]
+        assert dto.__json__() == {
+            "outline_bid": "outline-1",
+            "generated_block_bid": "block-1",
+            "type": "content",
+            "content": "hello",
+        }
 
 
 # ---------------------------------------------------------------------------

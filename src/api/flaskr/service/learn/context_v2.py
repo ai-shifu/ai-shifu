@@ -2416,7 +2416,7 @@ class RunScriptContextV2:
                 generated_block.type = BLOCK_TYPE_MDCONTENT_VALUE
                 generated_content = ""
                 tts_processor = None
-                content_cache = ""
+                content_cache_parts = []
 
                 # Direct synchronous stream processing (markdown-flow 0.2.27+)
                 app.logger.info(f"process_stream: {run_script_info.block_position}")
@@ -2497,45 +2497,163 @@ class RunScriptContextV2:
                             "Initialize streaming TTS failed: %s", exc, exc_info=True
                         )
 
-                def _flush_content_cache(*, keep_tail: int = 0):
-                    nonlocal content_cache
-                    if not content_cache:
-                        return
-                    if keep_tail > 0 and len(content_cache) > keep_tail:
-                        cached = content_cache[:-keep_tail]
-                        content_cache = content_cache[-keep_tail:]
-                    elif keep_tail > 0:
-                        # Keep the whole cache for next chunk to avoid breaking
-                        # partial visual markers like `<svg` / `<div`.
-                        return
-                    else:
-                        cached = content_cache
-                        content_cache = ""
-                    if not cached:
-                        return
-                    yield RunMarkdownFlowDTO(
+                def _build_content_event(
+                    chunk_text: str,
+                    stream_element_type: str | None = None,
+                    stream_element_number: int | None = None,
+                ) -> RunMarkdownFlowDTO:
+                    event = RunMarkdownFlowDTO(
                         outline_bid=run_script_info.outline_bid,
                         generated_block_bid=generated_block.generated_block_bid,
                         type=GeneratedType.CONTENT,
-                        content=cached,
+                        content=chunk_text,
+                    )
+                    if stream_element_type and stream_element_number is not None:
+                        event.set_mdflow_stream_parts(
+                            [(chunk_text, stream_element_type, stream_element_number)]
+                        )
+                    return event
+
+                def _append_content_cache_part(
+                    chunk_text: str,
+                    stream_element_type: str | None = None,
+                    stream_element_number: int | None = None,
+                ) -> None:
+                    nonlocal content_cache_parts
+                    if not chunk_text:
+                        return
+                    if (
+                        content_cache_parts
+                        and content_cache_parts[-1]["stream_element_type"]
+                        == stream_element_type
+                        and content_cache_parts[-1]["stream_element_number"]
+                        == stream_element_number
+                    ):
+                        content_cache_parts[-1]["content"] += chunk_text
+                        return
+                    content_cache_parts.append(
+                        {
+                            "content": chunk_text,
+                            "stream_element_type": stream_element_type,
+                            "stream_element_number": stream_element_number,
+                        }
                     )
 
-                def _process_stream_chunk(chunk_content: str):
-                    nonlocal generated_content, tts_processor, content_cache
+                def _iter_llm_result_parts(result):
+                    formatted_elements = getattr(result, "formatted_elements", None)
+                    if isinstance(formatted_elements, list) and formatted_elements:
+                        for item in formatted_elements:
+                            content = getattr(item, "content", None)
+                            if content is None and isinstance(item, dict):
+                                content = item.get("content")
+                            content = str(content or "")
+                            if not content:
+                                continue
+                            stream_element_type = getattr(item, "type", None)
+                            if stream_element_type is None and isinstance(item, dict):
+                                stream_element_type = item.get("type")
+                            stream_element_type = str(stream_element_type or "") or None
+                            stream_element_number = getattr(item, "number", None)
+                            if stream_element_number is None and isinstance(item, dict):
+                                stream_element_number = item.get("number")
+                            try:
+                                normalized_number = (
+                                    int(stream_element_number)
+                                    if stream_element_number is not None
+                                    else None
+                                )
+                            except (TypeError, ValueError):
+                                normalized_number = None
+                            yield content, stream_element_type, normalized_number
+                        return
+
+                    chunk_content = (
+                        result.content if hasattr(result, "content") else str(result)
+                    )
+                    chunk_content = str(chunk_content or "")
+                    if not chunk_content:
+                        return
+                    stream_element_type = getattr(result, "type", None)
+                    stream_element_type = str(stream_element_type or "") or None
+                    stream_element_number = getattr(result, "number", None)
+                    try:
+                        normalized_number = (
+                            int(stream_element_number)
+                            if stream_element_number is not None
+                            else None
+                        )
+                    except (TypeError, ValueError):
+                        normalized_number = None
+                    yield chunk_content, stream_element_type, normalized_number
+
+                def _flush_content_cache(*, keep_tail: int = 0):
+                    nonlocal content_cache_parts
+                    total_length = sum(
+                        len(part.get("content", "")) for part in content_cache_parts
+                    )
+                    if total_length <= 0:
+                        return
+                    if keep_tail > 0 and total_length <= keep_tail:
+                        # Keep the whole cache for next chunk to avoid breaking
+                        # partial visual markers like `<svg` / `<div`.
+                        return
+                    flush_length = total_length - max(keep_tail, 0)
+                    next_parts = []
+                    for part in content_cache_parts:
+                        part_content = str(part.get("content", "") or "")
+                        if not part_content:
+                            continue
+                        if flush_length <= 0:
+                            next_parts.append(part)
+                            continue
+                        if len(part_content) <= flush_length:
+                            yield _build_content_event(
+                                part_content,
+                                stream_element_type=part.get("stream_element_type"),
+                                stream_element_number=part.get("stream_element_number"),
+                            )
+                            flush_length -= len(part_content)
+                            continue
+                        emit_content = part_content[:flush_length]
+                        keep_content = part_content[flush_length:]
+                        if emit_content:
+                            yield _build_content_event(
+                                emit_content,
+                                stream_element_type=part.get("stream_element_type"),
+                                stream_element_number=part.get("stream_element_number"),
+                            )
+                        next_parts.append(
+                            {
+                                **part,
+                                "content": keep_content,
+                            }
+                        )
+                        flush_length = 0
+                    content_cache_parts = next_parts
+
+                def _process_stream_chunk(
+                    chunk_content: str,
+                    stream_element_type: str | None = None,
+                    stream_element_number: int | None = None,
+                ):
+                    nonlocal generated_content, tts_processor, content_cache_parts
                     if not chunk_content:
                         return
                     generated_content += chunk_content
                     if not tts_processor:
-                        yield RunMarkdownFlowDTO(
-                            outline_bid=run_script_info.outline_bid,
-                            generated_block_bid=generated_block.generated_block_bid,
-                            type=GeneratedType.CONTENT,
-                            content=chunk_content,
+                        yield _build_content_event(
+                            chunk_content,
+                            stream_element_type=stream_element_type,
+                            stream_element_number=stream_element_number,
                         )
                         return
 
                     # Cache content and flush on visual boundaries to avoid splitting markers.
-                    content_cache += chunk_content
+                    _append_content_cache_part(
+                        chunk_content,
+                        stream_element_type=stream_element_type,
+                        stream_element_number=stream_element_number,
+                    )
                     try:
                         other_events = list(tts_processor.process_chunk(chunk_content))
                     except Exception as exc:
@@ -2574,24 +2692,30 @@ class RunScriptContextV2:
                 if inspect.isgenerator(stream_result):
                     # It's a generator, iterate normally
                     for llm_result in stream_result:
-                        chunk_content = (
-                            llm_result.content
-                            if hasattr(llm_result, "content")
-                            else str(llm_result)
-                        )
-                        if chunk_content:
-                            yield from _process_stream_chunk(chunk_content)
+                        for (
+                            chunk_content,
+                            stream_element_type,
+                            stream_element_number,
+                        ) in _iter_llm_result_parts(llm_result):
+                            yield from _process_stream_chunk(
+                                chunk_content,
+                                stream_element_type=stream_element_type,
+                                stream_element_number=stream_element_number,
+                            )
                 else:
                     # It's a single LLMResult object (edge case)
-                    chunk_content = (
-                        stream_result.content
-                        if hasattr(stream_result, "content")
-                        else str(stream_result)
-                    )
-                    if chunk_content:
-                        yield from _process_stream_chunk(chunk_content)
+                    for (
+                        chunk_content,
+                        stream_element_type,
+                        stream_element_number,
+                    ) in _iter_llm_result_parts(stream_result):
+                        yield from _process_stream_chunk(
+                            chunk_content,
+                            stream_element_type=stream_element_type,
+                            stream_element_number=stream_element_number,
+                        )
 
-                if content_cache:
+                if content_cache_parts:
                     yield from _flush_content_cache()
 
                 if tts_processor:

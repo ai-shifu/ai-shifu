@@ -89,6 +89,13 @@ LEGACY_ELEMENT_TYPE_MAP = {
     ElementType._VIDEO: ElementType.HTML,
 }
 
+MDFLOW_DIRECT_ELEMENT_TYPES = {
+    element.value: element
+    for element in ElementType
+    if not element.name.startswith("_")
+    and element not in {ElementType.HTML, ElementType.IMG, ElementType.MD_IMG}
+}
+
 
 @dataclass
 class LearnElementsBackfillStats:
@@ -204,6 +211,66 @@ def _element_type_for_visual_kind(visual_kind: str) -> ElementType:
 
 def _element_type_code(element_type: ElementType) -> int:
     return ELEMENT_TYPE_CODES[element_type]
+
+
+def _element_type_from_mdflow_stream(
+    stream_element_type: str,
+    content: str = "",
+) -> ElementType:
+    normalized = (stream_element_type or "").strip().lower()
+    if normalized == "img":
+        return (
+            ElementType.MD_IMG
+            if (content or "").lstrip().startswith("![")
+            else ElementType.IMG
+        )
+    if normalized == "html":
+        lowered = (content or "").lower()
+        if "<table" in lowered or lowered.lstrip().startswith(("<tr", "<td", "<th")):
+            return ElementType.TABLES
+        return ElementType.HTML
+    return MDFLOW_DIRECT_ELEMENT_TYPES.get(normalized, ElementType.TEXT)
+
+
+def _visual_type_for_element(
+    element_type: ElementType,
+    content: str = "",
+) -> str:
+    if element_type == ElementType.HTML:
+        return "html"
+    if element_type == ElementType.SVG:
+        return "svg"
+    if element_type == ElementType.DIFF:
+        return "diff"
+    if element_type == ElementType.IMG:
+        return "img"
+    if element_type == ElementType.TABLES:
+        lowered = (content or "").lower()
+        return "html_table" if "<table" in lowered else "md_table"
+    if element_type == ElementType.CODE:
+        return "fence"
+    if element_type == ElementType.LATEX:
+        return "latex"
+    if element_type == ElementType.MD_IMG:
+        return "md_img"
+    if element_type == ElementType.MERMAID:
+        return "mermaid"
+    return ""
+
+
+def _payload_from_stream_element(
+    element_type: ElementType,
+    content: str,
+    *,
+    audio: ElementAudioDTO | None = None,
+) -> ElementPayloadDTO:
+    visual_type = _visual_type_for_element(element_type, content)
+    previous_visuals = []
+    if visual_type and content:
+        previous_visuals.append(
+            ElementVisualDTO(visual_type=visual_type, content=content)
+        )
+    return ElementPayloadDTO(audio=audio, previous_visuals=previous_visuals)
 
 
 def _serialize_payload(payload: ElementPayloadDTO | None) -> str:
@@ -513,12 +580,24 @@ class BlockMeta:
 
 
 @dataclass
+class StreamElementState:
+    number: int
+    element_bid: str
+    element_index: int
+    element_type: ElementType
+    content_text: str = ""
+
+
+@dataclass
 class BlockState:
     generated_block_bid: str
     raw_content: str = ""
     audio_by_position: dict[int, ElementAudioDTO] = field(default_factory=dict)
     fallback_element_bid: str | None = None
     latest_av_contract: dict[str, Any] | None = None
+    stream_elements: OrderedDict[int, StreamElementState] = field(
+        default_factory=OrderedDict
+    )
 
 
 class ListenElementRunAdapter:
@@ -582,6 +661,11 @@ class ListenElementRunAdapter:
             state = BlockState(generated_block_bid=generated_block_bid)
             self._block_states[generated_block_bid] = state
         return state
+
+    def _formatted_parts_from_event(
+        self, event: RunMarkdownFlowDTO
+    ) -> list[tuple[str, str, int]]:
+        return event.get_mdflow_stream_parts()
 
     def _insert_row(
         self,
@@ -653,7 +737,11 @@ class ListenElementRunAdapter:
         if not self._state_machine.is_terminated:
             self._state_machine.feed(TypeInput.CONTENT_START, is_new=element.is_new)
         # Track current element for audio association
-        self._current_element_bid = element.element_bid
+        self._current_element_bid = (
+            element.target_element_bid
+            if not element.is_new and element.target_element_bid
+            else element.element_bid
+        )
         self._insert_row(
             generated_block_bid=element.generated_block_bid,
             element_index=element.element_index,
@@ -852,9 +940,153 @@ class ListenElementRunAdapter:
         )
         db.session.flush()
 
+    def _build_stream_element_message(
+        self,
+        *,
+        state: BlockState,
+        role: str,
+        stream_state: StreamElementState,
+        is_new: bool,
+        is_final: bool,
+    ) -> RunElementSSEMessageDTO:
+        payload = _payload_from_stream_element(
+            stream_state.element_type,
+            stream_state.content_text,
+        )
+        element_bid = (
+            stream_state.element_bid
+            if is_new
+            else f"{stream_state.element_bid}_patch_{uuid.uuid4().hex}"
+        )
+        return self._element_message(
+            ElementDTO(
+                event_type="element",
+                element_bid=element_bid,
+                generated_block_bid=state.generated_block_bid,
+                element_index=stream_state.element_index,
+                role=role,
+                element_type=stream_state.element_type,
+                element_type_code=_element_type_code(stream_state.element_type),
+                change_type=ElementChangeType.RENDER,
+                target_element_bid=None if is_new else stream_state.element_bid,
+                is_new=is_new,
+                is_navigable=1,
+                is_final=is_final,
+                content_text=stream_state.content_text,
+                payload=payload,
+            )
+        )
+
+    def _handle_formatted_content(
+        self, event: RunMarkdownFlowDTO, parts: list[tuple[str, str, int]]
+    ) -> Generator[RunElementSSEMessageDTO, None, None]:
+        generated_block_bid = event.generated_block_bid or ""
+        state = self._ensure_block_state(generated_block_bid)
+        meta = self._load_block_meta(generated_block_bid)
+        for chunk_content, stream_type, stream_number in parts:
+            if not chunk_content:
+                continue
+            state.raw_content += chunk_content
+            stream_state = state.stream_elements.get(stream_number)
+            if stream_state is None:
+                self._max_element_index += 1
+                stream_state = StreamElementState(
+                    number=stream_number,
+                    element_bid=f"el_{generated_block_bid or uuid.uuid4().hex}_{stream_number}",
+                    element_index=max(self._max_element_index, 0),
+                    element_type=_element_type_from_mdflow_stream(
+                        stream_type,
+                        chunk_content,
+                    ),
+                )
+                state.stream_elements[stream_number] = stream_state
+                is_new = True
+            else:
+                is_new = False
+            stream_state.content_text += chunk_content
+            yield self._build_stream_element_message(
+                state=state,
+                role=meta.role,
+                stream_state=stream_state,
+                is_new=is_new,
+                is_final=False,
+            )
+
+    def _retire_stream_elements(
+        self, state: BlockState
+    ) -> Generator[RunElementSSEMessageDTO, None, None]:
+        if not state.stream_elements:
+            return
+        target_bids = [item.element_bid for item in state.stream_elements.values()]
+        (
+            LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.run_session_bid == self.run_session_bid,
+                LearnGeneratedElement.generated_block_bid == state.generated_block_bid,
+                LearnGeneratedElement.deleted == 0,
+                LearnGeneratedElement.status == 1,
+                LearnGeneratedElement.event_type == "element",
+                (
+                    LearnGeneratedElement.element_bid.in_(target_bids)
+                    | LearnGeneratedElement.target_element_bid.in_(target_bids)
+                ),
+            ).update(
+                {
+                    "status": 0,
+                },
+                synchronize_session=False,
+            )
+        )
+        meta = self._load_block_meta(state.generated_block_bid)
+        for stream_state in state.stream_elements.values():
+            seq = self._next_seq()
+            retire_element = ElementDTO(
+                event_type="element",
+                element_bid=stream_state.element_bid,
+                generated_block_bid=state.generated_block_bid,
+                element_index=stream_state.element_index,
+                role=meta.role,
+                element_type=stream_state.element_type,
+                element_type_code=_element_type_code(stream_state.element_type),
+                change_type=ElementChangeType.RENDER,
+                is_new=False,
+                is_renderable=False,
+                is_navigable=0,
+                is_final=True,
+                content_text="",
+                run_session_bid=self.run_session_bid,
+                run_event_seq=seq,
+            )
+            yield RunElementSSEMessageDTO(
+                type="element",
+                event_type="element",
+                generated_block_bid=state.generated_block_bid or None,
+                run_session_bid=self.run_session_bid,
+                run_event_seq=seq,
+                content=retire_element,
+            )
+
+    def _finalize_stream_elements(
+        self, state: BlockState
+    ) -> Generator[RunElementSSEMessageDTO, None, None]:
+        if not state.stream_elements:
+            return
+        meta = self._load_block_meta(state.generated_block_bid)
+        for stream_state in state.stream_elements.values():
+            yield self._build_stream_element_message(
+                state=state,
+                role=meta.role,
+                stream_state=stream_state,
+                is_new=False,
+                is_final=True,
+            )
+
     def _handle_content(
         self, event: RunMarkdownFlowDTO
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
+        formatted_parts = self._formatted_parts_from_event(event)
+        if formatted_parts:
+            yield from self._handle_formatted_content(event, formatted_parts)
+            return
         generated_block_bid = event.generated_block_bid or ""
         state = self._ensure_block_state(generated_block_bid)
         state.raw_content += str(event.content or "")
@@ -986,6 +1218,8 @@ class ListenElementRunAdapter:
                     next_index += 1
 
         if visual_segments:
+            if state.stream_elements:
+                yield from self._retire_stream_elements(state)
             yield from self._retire_fallback_element(state)
             aggregated_text = _aggregate_segment_text(
                 state.raw_content,
@@ -1017,6 +1251,9 @@ class ListenElementRunAdapter:
                     self._max_element_index, element.element_index
                 )
                 yield self._element_message(element)
+        elif state.stream_elements:
+            yield from self._retire_fallback_element(state)
+            yield from self._finalize_stream_elements(state)
         elif state.fallback_element_bid:
             element = ElementDTO(
                 event_type="element",

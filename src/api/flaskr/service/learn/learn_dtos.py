@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
 from flaskr.common.swagger import register_schema_to_swagger
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 
 @register_schema_to_swagger
@@ -607,6 +607,8 @@ class RunElementSSEMessageDTO(BaseModel):
 
 @register_schema_to_swagger
 class RunMarkdownFlowDTO(BaseModel):
+    _mdflow_stream_parts: list[tuple[str, str, int]] = PrivateAttr(default_factory=list)
+
     outline_bid: str = Field(..., description="outline id", required=False)
     generated_block_bid: str = Field(
         ..., description="generated block id", required=False
@@ -639,6 +641,29 @@ class RunMarkdownFlowDTO(BaseModel):
             type=type,
             content=content,
         )
+
+    def set_mdflow_stream_parts(
+        self, parts: list[tuple[str, str, int]] | None
+    ) -> "RunMarkdownFlowDTO":
+        normalized_parts: list[tuple[str, str, int]] = []
+        for item in parts or []:
+            if not isinstance(item, tuple) or len(item) != 3:
+                continue
+            content, stream_type, stream_number = item
+            content_text = str(content or "")
+            stream_type_text = str(stream_type or "")
+            if not content_text or not stream_type_text:
+                continue
+            try:
+                normalized_number = int(stream_number)
+            except (TypeError, ValueError):
+                continue
+            normalized_parts.append((content_text, stream_type_text, normalized_number))
+        self._mdflow_stream_parts = normalized_parts
+        return self
+
+    def get_mdflow_stream_parts(self) -> list[tuple[str, str, int]]:
+        return list(self._mdflow_stream_parts)
 
     def __json__(self):
         return {

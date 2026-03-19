@@ -427,6 +427,151 @@ def test_listen_element_adapter_retires_fallback_once_visual_element_arrives(app
         assert f"el_{generated_block_bid}" not in active_element_bids
 
 
+def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.learn_dtos import (
+        AudioCompleteDTO,
+        ElementType,
+        GeneratedType,
+        RunMarkdownFlowDTO,
+    )
+    from flaskr.service.learn.listen_elements import (
+        ListenElementRunAdapter,
+        get_listen_element_record,
+    )
+    from flaskr.service.learn.models import (
+        LearnGeneratedBlock,
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-listen-mdflow-stream"
+    shifu_bid = "shifu-listen-mdflow-stream"
+    outline_bid = "outline-listen-mdflow-stream"
+    progress_bid = "progress-listen-mdflow-stream"
+    generated_block_bid = "generated-listen-mdflow-stream"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        block = LearnGeneratedBlock(
+            generated_block_bid=generated_block_bid,
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            block_bid="block-listen-mdflow-stream",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            type=0,
+            role=ROLE_TEACHER,
+            generated_content="![img](https://example.com/visual.png)\ncaption line\n",
+            position=0,
+            block_content_conf="",
+            status=1,
+        )
+        db.session.add_all([progress, block])
+        db.session.commit()
+
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+        )
+
+        first_content = RunMarkdownFlowDTO(
+            outline_bid=outline_bid,
+            generated_block_bid=generated_block_bid,
+            type=GeneratedType.CONTENT,
+            content="![img](https://example.com/visual.png)\n",
+        ).set_mdflow_stream_parts(
+            [("![img](https://example.com/visual.png)\n", "img", 0)]
+        )
+        second_content = RunMarkdownFlowDTO(
+            outline_bid=outline_bid,
+            generated_block_bid=generated_block_bid,
+            type=GeneratedType.CONTENT,
+            content="caption line\n",
+        ).set_mdflow_stream_parts([("caption line\n", "img", 0)])
+
+        events = [
+            first_content,
+            second_content,
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_COMPLETE,
+                content=AudioCompleteDTO(
+                    audio_url="https://example.com/stream-audio.mp3",
+                    audio_bid="audio-stream-1",
+                    duration_ms=900,
+                    position=0,
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.BREAK,
+                content="",
+            ),
+        ]
+
+        streamed = list(adapter.process(events))
+        assert [item.type for item in streamed] == [
+            "element",
+            "element",
+            "audio_complete",
+            "element",
+            "break",
+        ]
+
+        first_element = streamed[0].content
+        patch_element = streamed[1].content
+        final_element = streamed[3].content
+
+        assert first_element.is_new is True
+        assert first_element.element_type == ElementType.MD_IMG
+        assert patch_element.is_new is False
+        assert patch_element.target_element_bid == first_element.element_bid
+        assert final_element.is_new is False
+        assert final_element.is_final is True
+        assert final_element.target_element_bid == first_element.element_bid
+
+        result = get_listen_element_record(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            preview_mode=False,
+        )
+
+        assert len(result.elements) == 1
+        element = result.elements[0]
+        assert element.element_bid == first_element.element_bid
+        assert element.element_type == ElementType.MD_IMG
+        assert element.is_final is True
+        assert element.audio_url == "https://example.com/stream-audio.mp3"
+        assert element.content_text.endswith("caption line\n")
+        assert element.payload is not None
+        assert len(element.payload.previous_visuals) == 1
+        assert element.payload.previous_visuals[0].visual_type == "md_img"
+        assert element.payload.previous_visuals[0].content.startswith("![img]")
+
+
 def test_build_listen_elements_from_legacy_record_without_visuals(app):
     _require_app(app)
 
