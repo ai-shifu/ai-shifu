@@ -1232,7 +1232,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         assert element.payload is not None
         assert len(element.payload.previous_visuals) == 1
         assert element.payload.previous_visuals[0].visual_type == "md_img"
-        assert element.payload.previous_visuals[0].content.startswith("![img]")
+        assert element.payload.previous_visuals[0].content == ""
 
         result_with_events = get_listen_element_record(
             app,

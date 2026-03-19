@@ -834,7 +834,7 @@ def _event_from_row(row: LearnGeneratedElement) -> RunElementSSEMessageDTO:
         | AudioCompleteDTO
     )
     if row.event_type == "element":
-        content = _element_from_row(row)
+        content = _normalize_record_element(_element_from_row(row))
     else:
         content = _deserialize_event_content(row)
     return RunElementSSEMessageDTO(
@@ -845,6 +845,26 @@ def _event_from_row(row: LearnGeneratedElement) -> RunElementSSEMessageDTO:
         run_event_seq=int(row.run_event_seq or 0),
         content=content,
     )
+
+
+def _normalize_record_element(element: ElementDTO) -> ElementDTO:
+    payload = element.payload
+    if payload is None or not payload.previous_visuals:
+        return element
+
+    primary_visual_content = next(
+        (item.content for item in payload.previous_visuals if item.content),
+        "",
+    )
+    if primary_visual_content and not (element.content_text or ""):
+        element.content_text = primary_visual_content
+
+    payload.previous_visuals = [
+        ElementVisualDTO(visual_type=item.visual_type, content="")
+        for item in payload.previous_visuals
+    ]
+    element.payload = payload
+    return element
 
 
 @dataclass
@@ -2111,7 +2131,10 @@ def get_listen_element_record(
                 if include_non_navigable:
                     events = [_event_from_row(row) for row in rows]
                 return LearnElementRecordDTO(
-                    elements=list(latest_by_bid.values()),
+                    elements=[
+                        _normalize_record_element(element)
+                        for element in latest_by_bid.values()
+                    ],
                     events=events,
                 )
 
@@ -2122,4 +2145,10 @@ def get_listen_element_record(
         user_bid=user_bid,
         preview_mode=preview_mode,
     )
-    return build_listen_elements_from_legacy_record(app, legacy_record)
+    built_record = build_listen_elements_from_legacy_record(app, legacy_record)
+    return LearnElementRecordDTO(
+        elements=[
+            _normalize_record_element(element) for element in built_record.elements
+        ],
+        events=built_record.events,
+    )
