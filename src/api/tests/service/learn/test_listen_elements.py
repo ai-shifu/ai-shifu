@@ -1083,12 +1083,12 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         assert "_" not in first_element.element_bid
         assert patch_element.is_new is False
         assert len(patch_element.element_bid) <= 64
-        assert patch_element.element_bid != first_element.element_bid
+        assert patch_element.element_bid == first_element.element_bid
         assert "_" not in patch_element.element_bid
         assert patch_element.target_element_bid == first_element.element_bid
         assert audio_patch_element.is_new is False
         assert len(audio_patch_element.element_bid) <= 64
-        assert audio_patch_element.element_bid != first_element.element_bid
+        assert audio_patch_element.element_bid == first_element.element_bid
         assert "_" not in audio_patch_element.element_bid
         assert audio_patch_element.target_element_bid == first_element.element_bid
         assert audio_patch_element.audio_segments == [
@@ -1102,6 +1102,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         ]
         assert final_element.is_new is False
         assert final_element.is_final is True
+        assert final_element.element_bid == first_element.element_bid
         assert final_element.target_element_bid == first_element.element_bid
 
         result = get_listen_element_record(

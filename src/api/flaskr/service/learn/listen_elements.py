@@ -1207,7 +1207,7 @@ class ListenElementRunAdapter:
         return self._element_message(
             ElementDTO(
                 event_type="element",
-                element_bid=_new_element_bid(self.app),
+                element_bid=element_bid,
                 generated_block_bid=snapshot.generated_block_bid,
                 element_index=snapshot.element_index,
                 role=snapshot.role,
@@ -1258,7 +1258,7 @@ class ListenElementRunAdapter:
             stream_state.content_text,
             audio=audio,
         )
-        element_bid = stream_state.element_bid if is_new else _new_element_bid(self.app)
+        element_bid = stream_state.element_bid
         return self._element_message(
             ElementDTO(
                 event_type="element",
