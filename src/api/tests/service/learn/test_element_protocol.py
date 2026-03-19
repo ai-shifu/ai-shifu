@@ -826,6 +826,101 @@ def test_non_text_elements_are_never_speakable_in_records(app):
     assert result.elements[0].is_speakable is False
 
 
+def test_interaction_elements_backfill_user_input_from_generated_blocks(app):
+    """Interaction record elements should expose submitted user input."""
+    _require_app(app)
+    import json
+
+    from flaskr.dao import db
+    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.models import (
+        LearnGeneratedBlock,
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+    from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
+
+    user_bid = "user-interaction-input"
+    shifu_bid = "shifu-interaction-input"
+    outline_bid = "outline-interaction-input"
+    progress_bid = "progress-interaction-input"
+    generated_block_bid = "generated-interaction-input"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        interaction_block = LearnGeneratedBlock(
+            generated_block_bid=generated_block_bid,
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            type=BLOCK_TYPE_MDINTERACTION_VALUE,
+            role="teacher",
+            block_content_conf="?[Agree//agree][Disagree//disagree]",
+            generated_content="agree",
+            status=1,
+            deleted=0,
+            position=0,
+        )
+        interaction_element = LearnGeneratedElement(
+            element_bid="el-interaction-input",
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            generated_block_bid=generated_block_bid,
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            run_session_bid="run-interaction-input",
+            run_event_seq=1,
+            event_type="element",
+            role="ui",
+            element_index=0,
+            element_type="interaction",
+            element_type_code=211,
+            change_type="render",
+            target_element_bid="",
+            is_renderable=1,
+            is_new=1,
+            is_marker=1,
+            sequence_number=1,
+            is_speakable=0,
+            audio_url="",
+            audio_segments="[]",
+            is_navigable=0,
+            is_final=1,
+            content_text="?[Agree//agree][Disagree//disagree]",
+            payload=json.dumps({"audio": None, "previous_visuals": []}),
+            status=1,
+        )
+        db.session.add_all([progress, interaction_block, interaction_element])
+        db.session.commit()
+
+        result = get_listen_element_record(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            preview_mode=False,
+        )
+
+    assert len(result.elements) == 1
+    element = result.elements[0]
+    assert element.payload is not None
+    assert element.payload.user_input == "agree"
+
+
 def test_backfill_populates_sequence_number_and_audio_url(app):
     """Backfill should assign sequence_number and extract audio_url from payload."""
     _require_app(app)

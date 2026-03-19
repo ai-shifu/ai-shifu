@@ -339,9 +339,13 @@ def _deserialize_payload(raw_payload: str) -> ElementPayloadDTO:
     diff_payload = payload_dict.get("diff_payload")
     if not isinstance(diff_payload, list):
         diff_payload = None
+    user_input = payload_dict.get("user_input")
+    if user_input is not None:
+        user_input = str(user_input or "")
     return ElementPayloadDTO(
         audio=audio,
         previous_visuals=visuals,
+        user_input=user_input,
         diff_payload=diff_payload,
     )
 
@@ -697,6 +701,14 @@ def _build_legacy_record_for_progress(
 
 
 def _element_from_row(row: LearnGeneratedElement) -> ElementDTO:
+    return _element_from_row_with_interaction_input(row, interaction_user_input="")
+
+
+def _element_from_row_with_interaction_input(
+    row: LearnGeneratedElement,
+    *,
+    interaction_user_input: str = "",
+) -> ElementDTO:
     element_type_raw = str(row.element_type or ElementType.TEXT.value)
     try:
         element_type = ElementType(element_type_raw)
@@ -723,7 +735,7 @@ def _element_from_row(row: LearnGeneratedElement) -> ElementDTO:
         getattr(row, "is_renderable", 1 if default_is_renderable else 0)
     )
     stored_is_speakable = bool(getattr(row, "is_speakable", 0))
-    return ElementDTO(
+    dto = ElementDTO(
         run_session_bid=row.run_session_bid or None,
         run_event_seq=int(row.run_event_seq or 0),
         event_type=row.event_type or "element",
@@ -751,6 +763,11 @@ def _element_from_row(row: LearnGeneratedElement) -> ElementDTO:
         content_text=row.content_text or "",
         payload=_deserialize_payload(row.payload or ""),
     )
+    if element_type == ElementType.INTERACTION and interaction_user_input:
+        payload = dto.payload or ElementPayloadDTO()
+        payload.user_input = interaction_user_input
+        dto.payload = payload
+    return dto
 
 
 def _deserialize_event_content(
@@ -825,6 +842,14 @@ def _deserialize_event_content(
 
 
 def _event_from_row(row: LearnGeneratedElement) -> RunElementSSEMessageDTO:
+    return _event_from_row_with_interaction_input(row, interaction_user_input="")
+
+
+def _event_from_row_with_interaction_input(
+    row: LearnGeneratedElement,
+    *,
+    interaction_user_input: str = "",
+) -> RunElementSSEMessageDTO:
     content: (
         str
         | ElementDTO
@@ -834,7 +859,12 @@ def _event_from_row(row: LearnGeneratedElement) -> RunElementSSEMessageDTO:
         | AudioCompleteDTO
     )
     if row.event_type == "element":
-        content = _normalize_record_element(_element_from_row(row))
+        content = _normalize_record_element(
+            _element_from_row_with_interaction_input(
+                row,
+                interaction_user_input=interaction_user_input,
+            )
+        )
     else:
         content = _deserialize_event_content(row)
     return RunElementSSEMessageDTO(
@@ -1768,6 +1798,7 @@ def _interaction_element_from_record(
     generated_block_bid: str,
     content: str,
     *,
+    user_input: str = "",
     role: str,
     element_index: int,
 ) -> ElementDTO:
@@ -1784,7 +1815,11 @@ def _interaction_element_from_record(
         is_navigable=0,
         is_final=True,
         content_text=content or "",
-        payload=ElementPayloadDTO(audio=None, previous_visuals=[]),
+        payload=ElementPayloadDTO(
+            audio=None,
+            previous_visuals=[],
+            user_input=user_input or None,
+        ),
     )
 
 
@@ -1804,6 +1839,7 @@ def build_listen_elements_from_legacy_record(
                     app,
                     record.generated_block_bid,
                     record.content,
+                    user_input=record.user_input,
                     role="ui",
                     element_index=max_index,
                 )
@@ -2094,6 +2130,30 @@ def get_listen_element_record(
             .all()
         )
         if rows:
+            interaction_block_bids = {
+                row.generated_block_bid or ""
+                for row in rows
+                if row.event_type == "element"
+                and str(row.element_type or "") == ElementType.INTERACTION.value
+                and (row.generated_block_bid or "")
+            }
+            interaction_user_input_by_block_bid: dict[str, str] = {}
+            if interaction_block_bids:
+                interaction_blocks = (
+                    LearnGeneratedBlock.query.filter(
+                        LearnGeneratedBlock.generated_block_bid.in_(
+                            list(interaction_block_bids)
+                        ),
+                        LearnGeneratedBlock.deleted == 0,
+                        LearnGeneratedBlock.status == 1,
+                    )
+                    .order_by(LearnGeneratedBlock.id.asc())
+                    .all()
+                )
+                for interaction_block in interaction_blocks:
+                    interaction_user_input_by_block_bid[
+                        interaction_block.generated_block_bid or ""
+                    ] = str(interaction_block.generated_content or "")
             rows.sort(
                 key=lambda row: (
                     progress_order.get(
@@ -2108,7 +2168,13 @@ def get_listen_element_record(
             for row in rows:
                 if row.event_type != "element" or not row.element_bid:
                     continue
-                dto = _element_from_row(row)
+                dto = _element_from_row_with_interaction_input(
+                    row,
+                    interaction_user_input=interaction_user_input_by_block_bid.get(
+                        row.generated_block_bid or "",
+                        "",
+                    ),
+                )
                 # For is_new=false elements, apply to target if found
                 if not dto.is_new and dto.target_element_bid:
                     if dto.target_element_bid in latest_by_bid:
@@ -2129,7 +2195,16 @@ def get_listen_element_record(
             if latest_by_bid:
                 events = None
                 if include_non_navigable:
-                    events = [_event_from_row(row) for row in rows]
+                    events = [
+                        _event_from_row_with_interaction_input(
+                            row,
+                            interaction_user_input=interaction_user_input_by_block_bid.get(
+                                row.generated_block_bid or "",
+                                "",
+                            ),
+                        )
+                        for row in rows
+                    ]
                 return LearnElementRecordDTO(
                     elements=[
                         _normalize_record_element(element)

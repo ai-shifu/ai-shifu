@@ -1620,6 +1620,39 @@ def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(a
     assert third.audio_segments == []
 
 
+def test_build_listen_elements_from_legacy_record_keeps_interaction_user_input(app):
+    _require_app(app)
+
+    from flaskr.service.learn.learn_dtos import (
+        BlockType,
+        GeneratedBlockDTO,
+        LearnRecordDTO,
+        LikeStatus,
+    )
+    from flaskr.service.learn.listen_elements import (
+        build_listen_elements_from_legacy_record,
+    )
+
+    legacy_record = LearnRecordDTO(
+        records=[
+            GeneratedBlockDTO(
+                generated_block_bid="generated-interaction-legacy",
+                content="?[Agree//agree][Disagree//disagree]",
+                like_status=LikeStatus.NONE,
+                block_type=BlockType.INTERACTION,
+                user_input="agree",
+            )
+        ]
+    )
+
+    result = build_listen_elements_from_legacy_record(app, legacy_record)
+
+    assert len(result.elements) == 1
+    element = result.elements[0]
+    assert element.payload is not None
+    assert element.payload.user_input == "agree"
+
+
 def test_backfill_learn_generated_elements_for_progress_persists_clean_elements(app):
     _require_app(app)
 

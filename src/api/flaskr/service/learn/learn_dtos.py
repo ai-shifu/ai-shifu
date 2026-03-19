@@ -456,6 +456,10 @@ class ElementPayloadDTO(BaseModel):
     previous_visuals: List[ElementVisualDTO] = Field(
         default_factory=list, description="Visual snapshots for the element"
     )
+    user_input: str | None = Field(
+        default=None,
+        description="Interaction user input when available",
+    )
     diff_payload: List[Dict[str, Any]] | None = Field(
         default=None, description="Optional diff payload for incremental updates"
     )
@@ -464,11 +468,13 @@ class ElementPayloadDTO(BaseModel):
         self,
         audio: ElementAudioDTO | None = None,
         previous_visuals: Optional[List[ElementVisualDTO]] = None,
+        user_input: str | None = None,
         diff_payload: List[Dict[str, Any]] | None = None,
     ):
         super().__init__(
             audio=audio,
             previous_visuals=previous_visuals or [],
+            user_input=user_input,
             diff_payload=diff_payload,
         )
 
@@ -482,6 +488,8 @@ class ElementPayloadDTO(BaseModel):
         }
         if self.diff_payload is not None:
             ret["diff_payload"] = self.diff_payload
+        if self.user_input is not None:
+            ret["user_input"] = self.user_input
         return ret
 
 
