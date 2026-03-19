@@ -90,6 +90,11 @@ _VISUAL_SKIP_KINDS = frozenset(
     }
 )
 
+# Keep only a short tail when no visual boundary is detected so partial markers
+# like `<div`, `<svg`, `![` or fenced code openers can span across chunks
+# without delaying speakable text submission more than necessary.
+_STREAM_BOUNDARY_GUARD_TAIL_CHARS = 12
+
 
 @dataclass
 class TTSSegment:
@@ -804,7 +809,7 @@ class AVStreamingTTSProcessor:
             if boundary is None:
                 # Keep a small tail so we don't lose boundary markers split across chunks,
                 # e.g. `<di` + `v ...>` or partial fences/backticks.
-                tail_len = 32
+                tail_len = _STREAM_BOUNDARY_GUARD_TAIL_CHARS
                 if len(self._raw_buffer) <= tail_len:
                     break
 

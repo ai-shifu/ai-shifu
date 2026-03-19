@@ -193,7 +193,7 @@ def test_av_streaming_tts_processor_skips_chunked_html_img_tag(app, monkeypatch)
             cursor += step
     list(processor.finalize(commit=False))
 
-    joined = "\n".join(captured_chunks)
+    joined = "".join(captured_chunks)
     assert "Hello before image." in joined
     assert "<img" not in joined.lower()
     assert "example.com" not in joined
@@ -452,3 +452,61 @@ def test_av_streaming_tts_processor_updates_next_element_index_from_contract(
     list(processor.finalize(commit=False))
 
     assert processor.next_element_index >= 8
+
+
+def test_av_streaming_tts_processor_releases_sentence_before_long_list_tail(
+    app, monkeypatch
+):
+    _require_app(app)
+
+    from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
+
+    captured_chunks: list[str] = []
+
+    class _CaptureStreamingTTSProcessor:
+        def __init__(self, **kwargs):
+            _ = kwargs
+
+        def process_chunk(self, chunk):
+            if chunk:
+                captured_chunks.append(chunk)
+            return
+            yield
+
+        def finalize(self, commit=True):
+            _ = commit
+            return
+            yield
+
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.StreamingTTSProcessor",
+        _CaptureStreamingTTSProcessor,
+    )
+
+    processor = AVStreamingTTSProcessor(
+        app=app,
+        generated_block_bid="gen-contract-3",
+        outline_bid="outline-contract-3",
+        progress_record_bid="progress-contract-3",
+        user_bid="user-contract-3",
+        shifu_bid="shifu-contract-3",
+        tts_provider="minimax",
+        tts_model="test-model",
+    )
+
+    chunks = [
+        "在正式开始课程前，我想了解一下，您是否同意以下几个观点？这能帮助我",
+        "判",
+        "断本课程是否适合您。\n\n1",
+        ".  AI 是一种工具\n2.  每种 AI ",
+    ]
+
+    for chunk in chunks:
+        list(processor.process_chunk(chunk))
+
+    joined = "".join(captured_chunks)
+    assert (
+        "在正式开始课程前，我想了解一下，您是否同意以下几个观点？这能帮助我判断本课程是否适合您。"
+        in joined
+    )
+    assert "每种 AI" not in joined
