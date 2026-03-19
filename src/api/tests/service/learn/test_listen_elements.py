@@ -803,9 +803,7 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
         final_elements = [
             item.content
             for item in streamed
-            if item.type == "element"
-            and item.content.is_renderable
-            and item.content.is_final
+            if item.type == "element" and item.content.is_final and item.content.is_new
         ]
 
         assert [item.element_type.value for item in final_elements] == [
@@ -815,8 +813,11 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
             "text",
         ]
         assert final_elements[0].is_marker is True
+        assert final_elements[0].is_renderable is True
         assert final_elements[0].content_text == ""
         assert final_elements[1].is_marker is False
+        assert final_elements[1].is_renderable is False
+        assert final_elements[1].is_speakable is True
         assert final_elements[1].content_text == "After svg."
         assert final_elements[1].audio_url == "https://example.com/audio-0.mp3"
         assert final_elements[1].audio_segments == [
@@ -832,8 +833,11 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
         assert final_elements[1].payload.audio is not None
         assert final_elements[1].payload.audio.audio_bid == "audio-final-text-0"
         assert final_elements[2].is_marker is True
+        assert final_elements[2].is_renderable is True
         assert final_elements[2].content_text == ""
         assert final_elements[3].is_marker is False
+        assert final_elements[3].is_renderable is False
+        assert final_elements[3].is_speakable is True
         assert final_elements[3].content_text == "After html."
         assert final_elements[3].audio_url == "https://example.com/audio-1.mp3"
         assert final_elements[3].audio_segments == [
@@ -918,14 +922,13 @@ def test_listen_adapter_finalizes_fallback_text_with_embedded_audio(app):
         final_elements = [
             item.content
             for item in streamed
-            if item.type == "element"
-            and item.content.is_renderable
-            and item.content.is_final
+            if item.type == "element" and item.content.is_final and item.content.is_new
         ]
 
         assert len(final_elements) == 1
         final_element = final_elements[0]
         assert final_element.element_type == ElementType.TEXT
+        assert final_element.is_renderable is False
         assert final_element.content_text == "Fallback narration."
         assert final_element.is_speakable is True
         assert final_element.audio_url == "https://example.com/fallback-audio.mp3"
@@ -1215,6 +1218,8 @@ def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(a
     assert first.payload.audio is not None
     assert first.payload.audio.audio_bid == "audio-legacy-0"
     assert first.payload.previous_visuals == []
+    assert first.is_renderable is False
+    assert first.is_speakable is True
     assert first.is_marker is False
     assert first.audio_url == "https://example.com/audio-0.mp3"
     assert first.audio_segments == []
@@ -1222,6 +1227,7 @@ def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(a
     assert second.generated_block_bid == generated_block_bid
     assert second.element_index == 1
     assert second.element_type == ElementType.SVG
+    assert second.is_renderable is True
     assert second.is_marker is True
     assert second.content_text == ""
     assert second.payload is not None
@@ -1238,6 +1244,8 @@ def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(a
     assert third.payload.audio is not None
     assert third.payload.audio.audio_bid == "audio-legacy-1"
     assert third.payload.previous_visuals == []
+    assert third.is_renderable is False
+    assert third.is_speakable is True
     assert third.is_marker is False
     assert third.audio_url == "https://example.com/audio-1.mp3"
     assert third.audio_segments == []

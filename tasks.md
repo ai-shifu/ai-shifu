@@ -102,3 +102,28 @@ Design reference: `docs/learn-generated-elements-design.md`
 - [x] `audio_segment` 到达时改为输出当前 element 的 patch
 - [x] records 聚合在 patch 合并时同步覆盖 `audio_segments/is_speakable/audio_url`
 - [x] 更新回归测试：stream events 中 `audio_segment` 被 `element` patch 替代
+
+## K. 追问挂到 element（P1）
+
+- [x] 更新设计文档，冻结 ask element 的协议语义与 block 归属规则
+- [x] 更新 `tasks.md`，拆分 ask element 化的实现任务
+- [ ] 调整追问入口协议：客户端/接口侧从 `generated_block_bid` 迁移到 `element_bid`
+- [ ] 增加服务端反查逻辑：通过 `element_bid` 定位所属 `generated_block_bid/progress_record_bid/outline_item_bid`
+- [ ] 冻结兼容策略：`GeneratedType.ASK` 仅作为 listen 内部事件，非 listen 原始 run 流默认忽略
+- [ ] 调整 `handle_input_ask`：先创建 ask block，再创建 answer block，禁止回答流复用 ask 的 `generated_block_bid`
+- [ ] 在 ask 流程中新增内部 `ASK` 事件，只承载用户追问文本
+- [ ] 扩展 `ListenElementRunAdapter`：新增 `_handle_ask()`，输出终态 `student/text` element
+- [ ] 明确 ask element 默认字段：`is_new=true`、`is_marker=false`、`is_speakable=false`、`is_final=true`
+- [ ] 调整 run 转 element 的处理顺序，保证 ask element 的 `sequence_number` 位于 answer elements 之前
+- [ ] 调整 answer 侧流式 `CONTENT/AUDIO_COMPLETE/BREAK` 统一挂到 answer block
+- [ ] 调整追问历史装载：优先从 `LearnGeneratedElement` 聚合快照装载上下文，不再默认从 `LearnGeneratedBlock` 取
+- [ ] 定义 element 到 ask 历史消息的映射规则：`student/text -> user`，`teacher/text -> assistant`
+- [ ] 仅在目标 progress 缺失 element 数据时回退到 legacy block 上下文
+- [ ] 更新 records 聚合逻辑，确保已落库 ask elements 直接参与最终快照，不依赖 legacy fallback
+- [ ] 增加回归测试：一次追问返回 `student ask` + `teacher answer` 两组独立 elements
+- [ ] 增加回归测试：ask/answer 使用不同 `generated_block_bid`
+- [ ] 增加回归测试：追问入口使用 `element_bid` 仍能正确命中原锚点
+- [ ] 增加回归测试：ask 上下文来自 elements 快照而不是 blocks
+- [ ] 增加回归测试：非 listen 模式不会额外暴露 `ASK` 事件
+- [ ] 增加回填/修复任务：历史 `mdask` blocks 可按需补生成 `student/text` elements
+- [ ] 评估并补充 `audio_complete` 在 ask 场景下的 block 归属测试

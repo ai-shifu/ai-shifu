@@ -218,6 +218,14 @@ def _default_is_marker(element_type: ElementType) -> bool:
     return element_type != ElementType.TEXT
 
 
+def _default_is_renderable(element_type: ElementType) -> bool:
+    return element_type != ElementType.TEXT
+
+
+def _default_is_speakable(element_type: ElementType, content_text: str = "") -> bool:
+    return element_type == ElementType.TEXT and bool(content_text)
+
+
 def _element_type_from_mdflow_stream(
     stream_element_type: str,
     content: str = "",
@@ -398,6 +406,7 @@ def _build_visual_element_from_segment(
         element_type=element_type,
         element_type_code=_element_type_code(element_type),
         change_type=ElementChangeType.RENDER,
+        is_renderable=_default_is_renderable(element_type),
         is_marker=_default_is_marker(element_type),
         is_navigable=1,
         is_final=True,
@@ -425,9 +434,10 @@ def _build_text_element(
         element_type=ElementType.TEXT,
         element_type_code=_element_type_code(ElementType.TEXT),
         change_type=ElementChangeType.RENDER,
+        is_renderable=False,
         is_navigable=1,
         is_final=True,
-        is_speakable=bool(content_text),
+        is_speakable=_default_is_speakable(ElementType.TEXT, content_text),
         audio_url=audio.audio_url if audio is not None else "",
         audio_segments=audio_segments,
         content_text=content_text,
@@ -664,6 +674,15 @@ def _element_from_row(row: LearnGeneratedElement) -> ElementDTO:
             audio_segments = []
     except Exception:
         audio_segments = []
+    default_is_renderable = _default_is_renderable(element_type)
+    stored_is_renderable = bool(
+        getattr(row, "is_renderable", 1 if default_is_renderable else 0)
+    )
+    stored_is_speakable = bool(getattr(row, "is_speakable", 0))
+    derived_is_speakable = _default_is_speakable(
+        element_type,
+        row.content_text or "",
+    )
     return ElementDTO(
         run_session_bid=row.run_session_bid or None,
         run_event_seq=int(row.run_event_seq or 0),
@@ -676,11 +695,11 @@ def _element_from_row(row: LearnGeneratedElement) -> ElementDTO:
         element_type_code=ELEMENT_TYPE_CODES.get(element_type, 0),
         change_type=change_type,
         target_element_bid=row.target_element_bid or None,
-        is_renderable=bool(getattr(row, "is_renderable", 1)),
+        is_renderable=stored_is_renderable and default_is_renderable,
         is_new=bool(getattr(row, "is_new", 1)),
         is_marker=_default_is_marker(element_type),
         sequence_number=int(getattr(row, "sequence_number", 0) or 0),
-        is_speakable=bool(getattr(row, "is_speakable", 0)),
+        is_speakable=stored_is_speakable or derived_is_speakable,
         audio_url=str(getattr(row, "audio_url", "") or ""),
         audio_segments=audio_segments,
         is_navigable=int(row.is_navigable or 0),
@@ -1057,9 +1076,11 @@ class ListenElementRunAdapter:
             element_type=ElementType.TEXT,
             element_type_code=_element_type_code(ElementType.TEXT),
             change_type=ElementChangeType.RENDER,
+            is_renderable=False,
             is_marker=False,
             is_navigable=1,
             is_final=False,
+            is_speakable=_default_is_speakable(ElementType.TEXT, state.raw_content),
             content_text=state.raw_content,
             payload=ElementPayloadDTO(audio=None, previous_visuals=[]),
         )
@@ -1247,8 +1268,16 @@ class ListenElementRunAdapter:
                 change_type=ElementChangeType.RENDER,
                 target_element_bid=None if is_new else stream_state.element_bid,
                 is_new=is_new,
+                is_renderable=_default_is_renderable(stream_state.element_type),
                 is_marker=_default_is_marker(stream_state.element_type),
-                is_speakable=bool(audio is not None or audio_segments),
+                is_speakable=bool(
+                    audio is not None
+                    or audio_segments
+                    or _default_is_speakable(
+                        stream_state.element_type,
+                        stream_state.content_text,
+                    )
+                ),
                 audio_url=audio.audio_url if audio is not None else "",
                 audio_segments=list(audio_segments or []),
                 is_navigable=1,
@@ -1557,10 +1586,14 @@ class ListenElementRunAdapter:
                 element_type=ElementType.TEXT,
                 element_type_code=_element_type_code(ElementType.TEXT),
                 change_type=ElementChangeType.RENDER,
+                is_renderable=False,
                 is_marker=False,
                 is_navigable=1,
                 is_final=True,
-                is_speakable=default_audio is not None,
+                is_speakable=_default_is_speakable(
+                    ElementType.TEXT,
+                    state.raw_content,
+                ),
                 audio_url=default_audio.audio_url if default_audio is not None else "",
                 audio_segments=(
                     state.audio_segments_by_position.get(default_audio_position, [])
@@ -1741,9 +1774,13 @@ def build_listen_elements_from_legacy_record(
                 element_type=ElementType.TEXT,
                 element_type_code=_element_type_code(ElementType.TEXT),
                 change_type=ElementChangeType.RENDER,
+                is_renderable=False,
                 is_navigable=1,
                 is_final=True,
-                is_speakable=audio_by_position.get(0) is not None,
+                is_speakable=_default_is_speakable(
+                    ElementType.TEXT,
+                    record.content or "",
+                ),
                 audio_url=(
                     audio_by_position[0].audio_url if audio_by_position.get(0) else ""
                 ),

@@ -472,6 +472,8 @@ def test_is_new_false_applies_to_target_element_in_records(app):
     assert len(result.elements) == 1
     assert result.elements[0].element_bid == "el-original"
     assert result.elements[0].content_text == "version 2 patched"
+    assert result.elements[0].is_renderable is False
+    assert result.elements[0].is_speakable is True
     assert result.elements[0].is_final is True
 
 
@@ -835,5 +837,5 @@ def test_backfill_populates_sequence_number_and_audio_url(app):
     assert row.audio_url == "https://example.com/backfill-seqnum.mp3"
     assert row.is_speakable == 1
     assert row.is_new == 1
-    assert row.is_renderable == 1
+    assert row.is_renderable == 0
     assert row.is_marker == 0
