@@ -19,7 +19,7 @@
 基于当前代码（`src/api/flaskr/service/learn`）：
 
 1. `element_type` 仅有 `interaction/sandbox/picture/video`。
-2. `LearnGeneratedElement` 已有 `element_type/change_type/target_element_bid/is_navigable/is_final/content_text/payload`，但没有本次新增字段。
+2. `LearnGeneratedElement` 已有 `element_type/change_type/target_element_bid/is_navigable/is_final/content_text/payload`，但 `ElementDTO` 对外协议中的文本字段统一为 `content`。
 3. `run` 写链路中：
    - `audio_segment` 已并入当前 element patch，不再单独作为 SSE 事件输出；
    - `audio_complete` 仍作为非 element 事件落库；
@@ -84,7 +84,7 @@
 | `is_speakable` | bool | 是否需要语音合成 |
 | `audio_url` | string | 完整音频地址（无则空字符串） |
 | `audio_segments` | array | 音频流分段（见 3.3） |
-| `content_text` | string | 文本快照 |
+| `content` | string | 文本快照 |
 | `payload` | object? | 结构化内容（含 visuals、diff 等） |
 | `is_final` | bool | 是否终态 |
 | `run_session_bid` | string | run 会话 ID |
@@ -181,7 +181,7 @@
   "audio_url": "",
   "audio_segments": [],
   "is_final": true,
-  "content_text": "用户追问内容",
+  "content": "用户追问内容",
   "payload": {
     "audio": null,
     "previous_visuals": []
@@ -297,9 +297,9 @@ To-Be 约束：
 1. 有 `visual_boundaries` 且有 `speakable_segments` 时，最终输出按时间顺序交错组装：
    - 先输出视觉 element
    - 再输出对应 narration 的 `text` element
-2. 视觉 element 的 `content_text` 为空字符串，`payload.previous_visuals` 承载视觉内容。
+2. 视觉 element 的 `content` 为空字符串，`payload.previous_visuals` 承载视觉内容。
 3. narration 的 `text` element 独立承载：
-   - `content_text`
+   - `content`
    - `is_speakable=true`
    - 对应位置的 `audio_url/audio_segments/payload.audio`
 4. 若 narration 出现在第一个视觉之前，则直接输出独立 `text` element。

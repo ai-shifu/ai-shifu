@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
 from flaskr.common.swagger import register_schema_to_swagger
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, PrivateAttr
 
 
 @register_schema_to_swagger
@@ -487,6 +487,8 @@ class ElementPayloadDTO(BaseModel):
 
 @register_schema_to_swagger
 class ElementDTO(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     run_session_bid: str | None = Field(
         default=None, description="Run session business identifier"
     )
@@ -531,10 +533,22 @@ class ElementDTO(BaseModel):
     )
     is_navigable: int = Field(default=1, description="Navigation flag")
     is_final: bool = Field(default=False, description="Final snapshot flag")
-    content_text: str = Field(default="", description="Element text snapshot")
+    content: str = Field(
+        default="",
+        description="Element content snapshot",
+        validation_alias=AliasChoices("content", "content_text"),
+    )
     payload: ElementPayloadDTO | None = Field(
         default=None, description="Element payload"
     )
+
+    @property
+    def content_text(self) -> str:
+        return self.content
+
+    @content_text.setter
+    def content_text(self, value: str) -> None:
+        object.__setattr__(self, "content", value or "")
 
     def __json__(self):
         ret = {
@@ -554,7 +568,7 @@ class ElementDTO(BaseModel):
             "audio_segments": self.audio_segments,
             "is_navigable": int(self.is_navigable or 0),
             "is_final": bool(self.is_final),
-            "content_text": self.content_text or "",
+            "content": self.content or "",
             "payload": self.payload.__json__() if self.payload is not None else None,
         }
         if self.run_session_bid is not None:

@@ -400,7 +400,7 @@ class TestSSEElementSplitFromDB:
                         "element_type_code",
                         "role",
                         "is_final",
-                        "content_text",
+                        "content",
                     ]
                     for field in required_fields:
                         if field not in content:
@@ -432,12 +432,12 @@ class TestSSEElementSplitFromDB:
             except Exception:
                 continue
 
-            # Collect all content_text from element events
+            # Collect all content from element events
             element_texts = []
             for evt in streamed:
                 if evt.type != "element":
                     continue
-                ct = evt.content.__json__().get("content_text", "")
+                ct = evt.content.__json__().get("content", "")
                 if ct and ct.strip():
                     element_texts.append(ct.strip())
 
@@ -516,7 +516,7 @@ class TestSSEElementSplitFromDB:
                     continue
                 j = evt.content.__json__()
                 et = j.get("element_type")
-                ct = j.get("content_text", "")
+                ct = j.get("content", "")
 
                 # SVG content should have SVG element type
                 if "<svg" in ct.lower() and et != "svg" and et != "html":
