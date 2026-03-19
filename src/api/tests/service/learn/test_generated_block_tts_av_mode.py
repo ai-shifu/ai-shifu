@@ -139,3 +139,145 @@ def test_stream_generated_block_audio_listen_persists_positions(app, monkeypatch
         )
         assert [r.position for r in records] == [0, 1]
         assert all(r.oss_url for r in records)
+
+
+def test_stream_generated_block_audio_listen_no_speakable_is_noop(app, monkeypatch):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+    from flaskr.service.learn.models import LearnGeneratedBlock
+
+    user_bid = "user-1"
+    shifu_bid = "shifu-1"
+    generated_block_bid = "gen-empty"
+
+    with app.app_context():
+        db.session.query(LearnGeneratedBlock).delete()
+        db.session.commit()
+
+        block = LearnGeneratedBlock(
+            generated_block_bid=generated_block_bid,
+            progress_record_bid="progress-1",
+            user_bid=user_bid,
+            block_bid="block-1",
+            outline_item_bid="outline-1",
+            shifu_bid=shifu_bid,
+            type=1,
+            role=1,
+            generated_content="<svg></svg>",
+            position=0,
+            block_content_conf="",
+            status=1,
+        )
+        db.session.add(block)
+        db.session.commit()
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs._resolve_shifu_tts_settings",
+        lambda *_args, **_kwargs: (
+            "minimax",
+            "test-model",
+            type(
+                "Voice",
+                (),
+                {
+                    "voice_id": "voice",
+                    "speed": 1.0,
+                    "pitch": 0,
+                    "emotion": "",
+                    "volume": 1.0,
+                },
+            )(),
+            type("Audio", (), {"format": "mp3", "sample_rate": 24000})(),
+        ),
+    )
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs.build_av_segmentation_contract",
+        lambda *_args, **_kwargs: {"speakable_segments": []},
+    )
+
+    events = list(
+        stream_generated_block_audio(
+            app,
+            shifu_bid=shifu_bid,
+            generated_block_bid=generated_block_bid,
+            user_bid=user_bid,
+            preview_mode=False,
+            listen=True,
+        )
+    )
+
+    assert events == []
+
+
+def test_stream_generated_block_audio_no_speakable_is_noop(app, monkeypatch):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+    from flaskr.service.learn.models import LearnGeneratedBlock
+
+    user_bid = "user-1"
+    shifu_bid = "shifu-1"
+    generated_block_bid = "gen-empty-single"
+
+    with app.app_context():
+        db.session.query(LearnGeneratedBlock).delete()
+        db.session.commit()
+
+        block = LearnGeneratedBlock(
+            generated_block_bid=generated_block_bid,
+            progress_record_bid="progress-1",
+            user_bid=user_bid,
+            block_bid="block-1",
+            outline_item_bid="outline-1",
+            shifu_bid=shifu_bid,
+            type=1,
+            role=1,
+            generated_content=" ",
+            position=0,
+            block_content_conf="",
+            status=1,
+        )
+        db.session.add(block)
+        db.session.commit()
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs._resolve_shifu_tts_settings",
+        lambda *_args, **_kwargs: (
+            "minimax",
+            "test-model",
+            type(
+                "Voice",
+                (),
+                {
+                    "voice_id": "voice",
+                    "speed": 1.0,
+                    "pitch": 0,
+                    "emotion": "",
+                    "volume": 1.0,
+                },
+            )(),
+            type("Audio", (), {"format": "mp3", "sample_rate": 24000})(),
+        ),
+    )
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs.preprocess_for_tts",
+        lambda *_args, **_kwargs: "",
+    )
+
+    events = list(
+        stream_generated_block_audio(
+            app,
+            shifu_bid=shifu_bid,
+            generated_block_bid=generated_block_bid,
+            user_bid=user_bid,
+            preview_mode=False,
+            listen=False,
+        )
+    )
+
+    assert events == []

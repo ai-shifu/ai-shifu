@@ -1212,10 +1212,18 @@ def stream_generated_block_audio(
                 for segment in av_contract.get("speakable_segments", [])
             ]
             if not speakable_segments:
-                raise_error_with_args(
-                    "server.common.paramsError",
-                    param_message="No speakable text available for TTS synthesis",
+                # Nothing to synthesize (e.g. block only contains visuals/code/whitespace).
+                # This is an expected scenario and should not be treated as a server error.
+                app.logger.info(
+                    "No speakable text for generated block TTS; skipping synthesis",
+                    extra={
+                        "shifu_bid": shifu_bid,
+                        "generated_block_bid": generated_block_bid,
+                        "user_bid": user_bid,
+                        "listen": True,
+                    },
                 )
+                return
 
             expected_segment_count = len(speakable_segments)
             existing_by_position: dict[int, LearnGeneratedAudio] = {}
@@ -1375,10 +1383,18 @@ def stream_generated_block_audio(
 
         cleaned_text = preprocess_for_tts(raw_text)
         if not cleaned_text or len(cleaned_text.strip()) < 2:
-            raise_error_with_args(
-                "server.common.paramsError",
-                param_message="No speakable text available for TTS synthesis",
+            # Nothing to synthesize (e.g. content is empty after TTS preprocessing).
+            # Treat as a no-op to avoid noisy error tracking.
+            app.logger.info(
+                "No speakable text for generated block TTS; skipping synthesis",
+                extra={
+                    "shifu_bid": shifu_bid,
+                    "generated_block_bid": generated_block_bid,
+                    "user_bid": user_bid,
+                    "listen": False,
+                },
             )
+            return
 
         audio_bid = uuid.uuid4().hex
         usage_scene = (
