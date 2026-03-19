@@ -1009,6 +1009,17 @@ class ListenElementRunAdapter:
         db.session.flush()
 
     def _element_message(self, element: ElementDTO) -> RunElementSSEMessageDTO:
+        self._persist_element(element)
+        return RunElementSSEMessageDTO(
+            type="element",
+            event_type="element",
+            generated_block_bid=element.generated_block_bid or None,
+            run_session_bid=self.run_session_bid,
+            run_event_seq=element.run_event_seq,
+            content=element,
+        )
+
+    def _persist_element(self, element: ElementDTO) -> None:
         seq = self._next_seq()
         # Assign sequence_number (element-level counter)
         element.sequence_number = self._next_sequence_number()
@@ -1044,14 +1055,6 @@ class ListenElementRunAdapter:
             content_text=element.content_text,
             payload=element.payload,
             run_event_seq=seq,
-        )
-        return RunElementSSEMessageDTO(
-            type="element",
-            event_type="element",
-            generated_block_bid=element.generated_block_bid or None,
-            run_session_bid=self.run_session_bid,
-            run_event_seq=seq,
-            content=element,
         )
 
     def _non_element_message(
@@ -1132,7 +1135,7 @@ class ListenElementRunAdapter:
         )
 
     def _retire_fallback_element(
-        self, state: BlockState
+        self, state: BlockState, *, emit_notification: bool = True
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         if not state.fallback_element_bid:
             return
@@ -1150,6 +1153,8 @@ class ListenElementRunAdapter:
                 synchronize_session=False,
             )
         )
+        if not emit_notification:
+            return
         # Notify the frontend to remove the retired fallback element.
         # This is ephemeral (not persisted to DB) since the original row's
         # status was already set to 0 above.
@@ -1261,38 +1266,59 @@ class ListenElementRunAdapter:
         audio: ElementAudioDTO | None = None,
         audio_segments: list[dict[str, Any]] | None = None,
     ) -> RunElementSSEMessageDTO:
+        return self._element_message(
+            self._build_stream_element(
+                state=state,
+                role=role,
+                stream_state=stream_state,
+                is_new=is_new,
+                is_final=is_final,
+                audio=audio,
+                audio_segments=audio_segments,
+            )
+        )
+
+    def _build_stream_element(
+        self,
+        *,
+        state: BlockState,
+        role: str,
+        stream_state: StreamElementState,
+        is_new: bool,
+        is_final: bool,
+        audio: ElementAudioDTO | None = None,
+        audio_segments: list[dict[str, Any]] | None = None,
+    ) -> ElementDTO:
         payload = _payload_from_stream_element(
             stream_state.element_type,
             stream_state.content_text,
             audio=audio,
         )
         element_bid = stream_state.element_bid
-        return self._element_message(
-            ElementDTO(
-                event_type="element",
-                element_bid=element_bid,
-                generated_block_bid=state.generated_block_bid,
-                element_index=stream_state.element_index,
-                role=role,
-                element_type=stream_state.element_type,
-                element_type_code=_element_type_code(stream_state.element_type),
-                change_type=ElementChangeType.RENDER,
-                target_element_bid=None if is_new else stream_state.element_bid,
-                is_new=is_new,
-                is_renderable=_default_is_renderable(stream_state.element_type),
-                is_marker=_default_is_marker(stream_state.element_type),
-                is_speakable=_normalized_is_speakable(
-                    stream_state.element_type,
-                    stream_state.content_text,
-                    stored_is_speakable=bool(audio is not None or audio_segments),
-                ),
-                audio_url=audio.audio_url if audio is not None else "",
-                audio_segments=list(audio_segments or []),
-                is_navigable=1,
-                is_final=is_final,
-                content_text=stream_state.content_text,
-                payload=payload,
-            )
+        return ElementDTO(
+            event_type="element",
+            element_bid=element_bid,
+            generated_block_bid=state.generated_block_bid,
+            element_index=stream_state.element_index,
+            role=role,
+            element_type=stream_state.element_type,
+            element_type_code=_element_type_code(stream_state.element_type),
+            change_type=ElementChangeType.RENDER,
+            target_element_bid=None if is_new else stream_state.element_bid,
+            is_new=is_new,
+            is_renderable=_default_is_renderable(stream_state.element_type),
+            is_marker=_default_is_marker(stream_state.element_type),
+            is_speakable=_normalized_is_speakable(
+                stream_state.element_type,
+                stream_state.content_text,
+                stored_is_speakable=bool(audio is not None or audio_segments),
+            ),
+            audio_url=audio.audio_url if audio is not None else "",
+            audio_segments=list(audio_segments or []),
+            is_navigable=1,
+            is_final=is_final,
+            content_text=stream_state.content_text,
+            payload=payload,
         )
 
     def _handle_formatted_content(
@@ -1331,7 +1357,7 @@ class ListenElementRunAdapter:
             )
 
     def _retire_stream_elements(
-        self, state: BlockState
+        self, state: BlockState, *, emit_notification: bool = True
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         if not state.stream_elements:
             return
@@ -1354,6 +1380,8 @@ class ListenElementRunAdapter:
                 synchronize_session=False,
             )
         )
+        if not emit_notification:
+            return
         meta = self._load_block_meta(state.generated_block_bid)
         for stream_state in state.stream_elements.values():
             seq = self._next_seq()
@@ -1385,7 +1413,7 @@ class ListenElementRunAdapter:
             )
 
     def _finalize_stream_elements(
-        self, state: BlockState
+        self, state: BlockState, *, emit: bool = True
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         if not state.stream_elements:
             return
@@ -1397,7 +1425,7 @@ class ListenElementRunAdapter:
                 state.audio_segments_by_position,
             )
         for stream_state in state.stream_elements.values():
-            yield self._build_stream_element_message(
+            element = self._build_stream_element(
                 state=state,
                 role=meta.role,
                 stream_state=stream_state,
@@ -1414,6 +1442,10 @@ class ListenElementRunAdapter:
                     else []
                 ),
             )
+            if emit:
+                yield self._element_message(element)
+            else:
+                self._persist_element(element)
 
     def _handle_content(
         self, event: RunMarkdownFlowDTO
@@ -1561,9 +1593,16 @@ class ListenElementRunAdapter:
                     next_index += 1
 
         if visual_segments:
+            had_stream_elements = bool(state.stream_elements)
             if state.stream_elements:
-                yield from self._retire_stream_elements(state)
-            yield from self._retire_fallback_element(state)
+                yield from self._retire_stream_elements(
+                    state,
+                    emit_notification=False,
+                )
+            yield from self._retire_fallback_element(
+                state,
+                emit_notification=not had_stream_elements,
+            )
             final_elements = _build_final_elements_for_av_contract(
                 app=self.app,
                 generated_block_bid=generated_block_bid,
@@ -1580,10 +1619,13 @@ class ListenElementRunAdapter:
                 self._max_element_index = max(
                     self._max_element_index, element.element_index
                 )
-                yield self._element_message(element)
+                if had_stream_elements:
+                    self._persist_element(element)
+                else:
+                    yield self._element_message(element)
         elif state.stream_elements:
-            yield from self._retire_fallback_element(state)
-            yield from self._finalize_stream_elements(state)
+            yield from self._retire_fallback_element(state, emit_notification=False)
+            yield from self._finalize_stream_elements(state, emit=False)
         elif state.fallback_element_bid:
             default_audio_position = _pick_default_audio_position(
                 state.audio_by_position,
@@ -1620,7 +1662,7 @@ class ListenElementRunAdapter:
                 content_text=state.raw_content,
                 payload=ElementPayloadDTO(audio=default_audio, previous_visuals=[]),
             )
-            yield self._element_message(element)
+            self._persist_element(element)
         self._block_states.pop(generated_block_bid, None)
 
     def _handle_interaction(

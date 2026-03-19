@@ -686,11 +686,12 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
     from flaskr.service.learn.learn_dtos import (
         AudioCompleteDTO,
         AudioSegmentDTO,
+        ElementType,
         GeneratedType,
         RunMarkdownFlowDTO,
     )
     from flaskr.service.learn.listen_elements import ListenElementRunAdapter
-    from flaskr.service.learn.models import LearnGeneratedBlock
+    from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
     from flaskr.service.tts.pipeline import build_av_segmentation_contract
 
     user_bid = "user-listen-final-text"
@@ -805,7 +806,6 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
             for item in streamed
             if item.type == "element" and item.content.is_final and item.content.is_new
         ]
-
         assert [item.element_type.value for item in final_elements] == [
             "svg",
             "text",
@@ -829,9 +829,6 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
                 "is_final": False,
             }
         ]
-        assert final_elements[1].payload is not None
-        assert final_elements[1].payload.audio is not None
-        assert final_elements[1].payload.audio.audio_bid == "audio-final-text-0"
         assert final_elements[2].is_marker is True
         assert final_elements[2].is_renderable is True
         assert final_elements[2].content_text == ""
@@ -854,6 +851,65 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
         assert final_elements[1].payload is not None
         assert final_elements[1].payload.previous_visuals == []
 
+        persisted_rows = (
+            LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.run_session_bid == adapter.run_session_bid,
+                LearnGeneratedElement.event_type == "element",
+                LearnGeneratedElement.deleted == 0,
+                LearnGeneratedElement.status == 1,
+            )
+            .order_by(
+                LearnGeneratedElement.element_index.asc(),
+                LearnGeneratedElement.run_event_seq.asc(),
+            )
+            .all()
+        )
+        assert [row.element_type for row in persisted_rows] == [
+            ElementType.SVG.value,
+            ElementType.TEXT.value,
+            ElementType.HTML.value,
+            ElementType.TEXT.value,
+        ]
+        assert persisted_rows[0].is_marker == 1
+        assert persisted_rows[0].is_renderable == 1
+        assert persisted_rows[0].content_text == ""
+        assert persisted_rows[1].is_marker == 0
+        assert persisted_rows[1].is_renderable == 0
+        assert persisted_rows[1].is_speakable == 1
+        assert persisted_rows[1].content_text == "After svg."
+        assert persisted_rows[1].audio_url == "https://example.com/audio-0.mp3"
+        assert json.loads(persisted_rows[1].audio_segments) == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "",
+                "duration_ms": 350,
+                "is_final": False,
+            }
+        ]
+        assert persisted_rows[2].is_marker == 1
+        assert persisted_rows[2].is_renderable == 1
+        assert persisted_rows[2].content_text == ""
+        assert persisted_rows[3].is_marker == 0
+        assert persisted_rows[3].is_renderable == 0
+        assert persisted_rows[3].is_speakable == 1
+        assert persisted_rows[3].content_text == "After html."
+        assert persisted_rows[3].audio_url == "https://example.com/audio-1.mp3"
+        assert json.loads(persisted_rows[3].audio_segments) == [
+            {
+                "position": 1,
+                "segment_index": 0,
+                "audio_data": "",
+                "duration_ms": 400,
+                "is_final": True,
+            }
+        ]
+        assert (
+            json.loads(persisted_rows[0].payload)["previous_visuals"][0]["visual_type"]
+            == "svg"
+        )
+        assert json.loads(persisted_rows[1].payload)["previous_visuals"] == []
+
 
 def test_listen_adapter_finalizes_fallback_text_with_embedded_audio(app):
     _require_app(app)
@@ -866,6 +922,7 @@ def test_listen_adapter_finalizes_fallback_text_with_embedded_audio(app):
         RunMarkdownFlowDTO,
     )
     from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.models import LearnGeneratedElement
 
     user_bid = "user-listen-fallback-audio"
     shifu_bid = "shifu-listen-fallback-audio"
@@ -924,27 +981,40 @@ def test_listen_adapter_finalizes_fallback_text_with_embedded_audio(app):
             for item in streamed
             if item.type == "element" and item.content.is_final and item.content.is_new
         ]
+        assert final_elements == []
 
-        assert len(final_elements) == 1
-        final_element = final_elements[0]
-        assert final_element.element_type == ElementType.TEXT
-        assert final_element.is_renderable is False
-        assert final_element.content_text == "Fallback narration."
-        assert final_element.is_speakable is True
-        assert final_element.audio_url == "https://example.com/fallback-audio.mp3"
-        assert final_element.audio_segments == [
+        persisted_rows = (
+            LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.run_session_bid == adapter.run_session_bid,
+                LearnGeneratedElement.event_type == "element",
+                LearnGeneratedElement.deleted == 0,
+                LearnGeneratedElement.status == 1,
+            )
+            .order_by(
+                LearnGeneratedElement.run_event_seq.desc(),
+                LearnGeneratedElement.id.desc(),
+            )
+            .all()
+        )
+        assert persisted_rows
+        final_row = persisted_rows[0]
+        assert final_row.element_type == ElementType.TEXT.value
+        assert final_row.is_renderable == 0
+        assert final_row.content_text == "Fallback narration."
+        assert final_row.is_speakable == 1
+        assert final_row.audio_url == "https://example.com/fallback-audio.mp3"
+        assert json.loads(final_row.audio_segments) == [
             {
                 "position": 0,
                 "segment_index": 0,
-                "audio_data": "fallback-segment",
+                "audio_data": "",
                 "duration_ms": 280,
                 "is_final": True,
             }
         ]
-        assert final_element.payload is not None
-        assert final_element.payload.audio is not None
-        assert final_element.payload.audio.audio_bid == "audio-fallback-0"
-        assert final_element.payload.previous_visuals == []
+        payload = json.loads(final_row.payload)
+        assert payload["audio"]["audio_bid"] == "audio-fallback-0"
+        assert payload["previous_visuals"] == []
 
 
 def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
@@ -1082,7 +1152,6 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
             "element",
             "element",
             "audio_complete",
-            "element",
             "break",
         ]
 
@@ -1090,8 +1159,6 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         patch_element = streamed[1].content
         first_audio_patch_element = streamed[2].content
         second_audio_patch_element = streamed[3].content
-        final_element = streamed[5].content
-
         assert first_element.is_new is True
         assert first_element.element_type == ElementType.MD_IMG
         assert "_" not in first_element.element_bid
@@ -1130,27 +1197,6 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
                 "is_final": False,
             }
         ]
-        assert final_element.is_new is False
-        assert final_element.is_final is True
-        assert final_element.element_bid == first_element.element_bid
-        assert final_element.target_element_bid == first_element.element_bid
-        assert final_element.audio_segments == [
-            {
-                "position": 0,
-                "segment_index": 0,
-                "audio_data": "stream-segment-0",
-                "duration_ms": 240,
-                "is_final": False,
-            },
-            {
-                "position": 0,
-                "segment_index": 1,
-                "audio_data": "stream-segment-1",
-                "duration_ms": 260,
-                "is_final": False,
-            },
-        ]
-
         result = get_listen_element_record(
             app,
             shifu_bid=shifu_bid,
