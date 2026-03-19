@@ -24,6 +24,7 @@ jest.mock('@/i18n', () => ({
 jest.mock('remark-flow', () => ({
   createInteractionParser: jest.fn(() => ({
     parse: jest.fn(),
+    parseToRemarkFormat: jest.fn(),
   })),
 }));
 
@@ -40,51 +41,51 @@ jest.mock('@/c-assets/newchat/light/icon_ask.svg', () => ({
   },
 }));
 
-let mockUpdateUserInfo: jest.Mock;
-let mockUpdateResetedChapterId: jest.Mock;
-let mockUpdateResetedLessonId: jest.Mock;
-let mockUseCourseStore: jest.MockedFunction<any>;
-let mockUseUserStore: jest.MockedFunction<any>;
+declare global {
+  var __chatHookMockUpdateUserInfo__: jest.Mock | undefined;
+
+  var __chatHookMockUpdateResetedChapterId__: jest.Mock | undefined;
+
+  var __chatHookMockUpdateResetedLessonId__: jest.Mock | undefined;
+}
 
 jest.mock('@/c-store/useCourseStore', () => ({
   useCourseStore: (() => {
-    mockUpdateResetedChapterId = jest.fn();
-    mockUpdateResetedLessonId = jest.fn();
+    globalThis.__chatHookMockUpdateResetedChapterId__ = jest.fn();
+    globalThis.__chatHookMockUpdateResetedLessonId__ = jest.fn();
     const state = {
       resetedLessonId: null as string | null,
-      updateResetedChapterId: mockUpdateResetedChapterId,
-      updateResetedLessonId: mockUpdateResetedLessonId,
+      updateResetedChapterId: globalThis.__chatHookMockUpdateResetedChapterId__,
+      updateResetedLessonId: globalThis.__chatHookMockUpdateResetedLessonId__,
     };
-    mockUseCourseStore = Object.assign(
+    return Object.assign(
       (selector?: (store: typeof state) => unknown) =>
         selector ? selector(state) : state,
       {
         subscribe: jest.fn(() => jest.fn()),
       },
     );
-    return mockUseCourseStore;
   })(),
 }));
 
 jest.mock('@/store', () => ({
   useUserStore: (() => {
-    mockUpdateUserInfo = jest.fn();
+    globalThis.__chatHookMockUpdateUserInfo__ = jest.fn();
     const state = {
       isLoggedIn: false,
-      updateUserInfo: mockUpdateUserInfo,
+      updateUserInfo: globalThis.__chatHookMockUpdateUserInfo__,
     };
-    mockUseUserStore = Object.assign(
+    return Object.assign(
       (selector?: (store: typeof state) => unknown) =>
         selector ? selector(state) : state,
       {
         subscribe: jest.fn(() => jest.fn()),
         getState: jest.fn(() => ({
           getToken: () => '',
-          updateUserInfo: mockUpdateUserInfo,
+          updateUserInfo: globalThis.__chatHookMockUpdateUserInfo__,
         })),
       },
     );
-    return mockUseUserStore;
   })(),
 }));
 
@@ -273,7 +274,9 @@ describe('useChatLogicHook stream cleanup', () => {
       });
     });
 
-    expect(mockUpdateUserInfo).toHaveBeenCalledWith({ name: 'Tester' });
+    expect(globalThis.__chatHookMockUpdateUserInfo__).toHaveBeenCalledWith({
+      name: 'Tester',
+    });
 
     act(() => {
       if (!activeRun) {
