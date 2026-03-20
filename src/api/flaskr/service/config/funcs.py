@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from flaskr.framework import extensible
 from sqlalchemy.exc import SQLAlchemyError
 import random
+import time
 
 
 class ConfigCache(BaseModel):
@@ -18,22 +19,39 @@ class ConfigCache(BaseModel):
     value: str = Field(default="")
 
 
+_REDIS_AVAILABILITY_TTL_SECONDS = 1.0
+_redis_availability_checked_at = 0.0
+_redis_availability_cached: bool | None = None
+
+
 def _is_redis_available() -> bool:
     """
     Determine whether the Redis-backed cache is available.
 
-    Prefer an explicit availability probe on the cache provider when present.
-    Otherwise keep the historical behavior and assume the wrapper can serve
-    requests via its own fallback path.
+    Cache the result for a short TTL so hot-path config lookups do not perform
+    a Redis health check on every call.
     """
+    global _redis_availability_checked_at, _redis_availability_cached
+
+    now = time.monotonic()
+    if (
+        _redis_availability_cached is not None
+        and now - _redis_availability_checked_at < _REDIS_AVAILABILITY_TTL_SECONDS
+    ):
+        return _redis_availability_cached
 
     try:
         is_available = getattr(redis, "is_available", None)
         if callable(is_available):
-            return bool(is_available())
-        return True
+            result = bool(is_available())
+        else:
+            result = True
     except Exception:
-        return False
+        result = False
+
+    _redis_availability_cached = result
+    _redis_availability_checked_at = now
+    return result
 
 
 def _get_fernet_key(app: Flask) -> bytes:

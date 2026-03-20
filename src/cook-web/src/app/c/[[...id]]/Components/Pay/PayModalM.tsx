@@ -92,7 +92,8 @@ export const PayModalM = ({
     isWechatBrowser && wechatJsApiReady
       ? PAY_CHANNEL_WECHAT_JSAPI
       : PAY_CHANNEL_WECHAT_WAP;
-  // Keep desktop Alipay on QR while mobile web uses the WAP redirect channel.
+  // This mobile payment modal uses Alipay WAP redirects; the desktop modal
+  // keeps the existing QR flow.
   const mobileAlipayChannel = PAY_CHANNEL_ALIPAY_WAP;
   const [payChannel, setPayChannel] = useState(mobileWechatChannel);
   const [couponCodeInput, setCouponCodeInput] = useState('');
