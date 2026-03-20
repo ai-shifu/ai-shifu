@@ -4,19 +4,17 @@ import { cn } from '@/lib/utils';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { hasAudioContentInTrack } from '@/c-utils/audio-utils';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
-import { LESSON_FEEDBACK_INTERACTION_MARKER } from '@/c-api/studyV2';
 import {
-  splitContentSegments,
+  ELEMENT_TYPE,
+  LESSON_FEEDBACK_INTERACTION_MARKER,
+} from '@/c-api/studyV2';
+import {
   type OnSendContentParams,
   Slide,
   type Element as SlideElement,
 } from 'markdown-flow-ui/renderer';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
-import {
-  buildSlidePageMapping,
-  normalizeAudioTracks,
-  sortSegmentsByIndex,
-} from './listenModeUtils';
+import { normalizeAudioTracks, sortSegmentsByIndex } from './listenModeUtils';
 import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
 
@@ -39,9 +37,6 @@ interface ListenModeSlideRendererProps {
   onPlayerVisibilityChange?: (visible: boolean) => void;
 }
 
-const resolveSegmentElementType = (segmentType: string) =>
-  segmentType === 'sandbox' ? 'html' : 'markdown';
-
 const createEmptyStateElement = (
   sectionTitle: string | undefined,
 ): ListenSlideElement => ({
@@ -58,6 +53,49 @@ const createEmptyStateElement = (
   blockBid: 'empty-ppt',
   page: 0,
 });
+
+const resolveItemAudioSegments = (item: ChatContentItem) => {
+  if (item.audio_segments?.length) {
+    return item.audio_segments;
+  }
+
+  const primaryTrack = normalizeAudioTracks(item).find(track =>
+    hasAudioContentInTrack(track),
+  );
+
+  if (!primaryTrack) {
+    return undefined;
+  }
+
+  return sortSegmentsByIndex(primaryTrack.audioSegments ?? []).map(
+    audioSegment => ({
+      segment_index: audioSegment.segmentIndex,
+      audio_data: audioSegment.audioData,
+      duration_ms: audioSegment.durationMs,
+      is_final: audioSegment.isFinal,
+      position: audioSegment.position,
+      slide_id: audioSegment.slideId,
+      av_contract: audioSegment.avContract ?? null,
+    }),
+  );
+};
+
+const resolveItemAudioUrl = (item: ChatContentItem) => {
+  if (item.audio_url || item.audioUrl) {
+    return item.audio_url ?? item.audioUrl;
+  }
+
+  return normalizeAudioTracks(item).find(track => hasAudioContentInTrack(track))
+    ?.audioUrl;
+};
+
+const resolveContentElementType = (item: ChatContentItem) => {
+  if (item.element_type && item.element_type !== ChatContentItemType.CONTENT) {
+    return item.element_type;
+  }
+
+  return ELEMENT_TYPE.TEXT;
+};
 
 const buildSlideElementList = ({
   items,
@@ -78,94 +116,26 @@ const buildSlideElementList = ({
 
   items.forEach(item => {
     if (item.type === ChatContentItemType.CONTENT) {
-      const segments = item.content
-        ? splitContentSegments(item.content, true)
-        : [];
-      const slideSegments = segments.filter(
-        segment => segment.type === 'markdown' || segment.type === 'sandbox',
-      );
-      const fallbackPage = Math.max(pageCursor - 1, 0);
-      const pageIndices = slideSegments.map((_, index) => pageCursor + index);
-      const tracks = normalizeAudioTracks(item);
-      const { pageBySlideId, resolvePageByPosition } = buildSlidePageMapping(
-        item,
-        pageIndices,
-        fallbackPage,
-      );
-      const tracksByPage = new Map<number, typeof tracks>();
+      const audioSegments = resolveItemAudioSegments(item);
+      const audioUrl = resolveItemAudioUrl(item);
 
-      tracks.forEach(track => {
-        const position = Number(track.position ?? 0);
-        const page =
-          (track.slideId ? pageBySlideId.get(track.slideId) : undefined) ??
-          resolvePageByPosition(position);
-        const currentTracks = tracksByPage.get(page) ?? [];
-        currentTracks.push(track);
-        tracksByPage.set(page, currentTracks);
+      sequenceNumber += 1;
+      elementList.push({
+        sequence_number: item.sequence_number ?? sequenceNumber,
+        type: resolveContentElementType(item),
+        content: item.content || '',
+        is_marker: item.is_marker ?? true,
+        is_renderable: item.is_renderable ?? true,
+        is_new: item.is_new ?? true,
+        is_speakable:
+          item.is_speakable ?? Boolean(audioUrl || audioSegments?.length),
+        audio_url: audioUrl,
+        audio_segments: audioSegments,
+        blockBid: item.element_bid,
+        page: pageCursor,
       });
 
-      slideSegments.forEach((segment, index) => {
-        const page = pageCursor + index;
-        const pageTracks = tracksByPage.get(page) ?? [];
-        const [primaryTrack, ...secondaryTracks] = pageTracks;
-
-        sequenceNumber += 1;
-        elementList.push({
-          sequence_number: sequenceNumber,
-          type: resolveSegmentElementType(segment.type),
-          content: segment.value,
-          is_marker: true,
-          is_renderable: true,
-          is_new: true,
-          is_speakable: hasAudioContentInTrack(primaryTrack),
-          audio_url: primaryTrack?.audioUrl,
-          audio_segments: primaryTrack
-            ? sortSegmentsByIndex(primaryTrack.audioSegments ?? []).map(
-                audioSegment => ({
-                  segment_index: audioSegment.segmentIndex,
-                  audio_data: audioSegment.audioData,
-                  duration_ms: audioSegment.durationMs,
-                  is_final: audioSegment.isFinal,
-                  position: audioSegment.position,
-                  slide_id: audioSegment.slideId,
-                  av_contract: audioSegment.avContract ?? null,
-                }),
-              )
-            : undefined,
-          blockBid: item.element_bid,
-          page,
-        });
-
-        secondaryTracks.forEach(track => {
-          if (!hasAudioContentInTrack(track)) {
-            return;
-          }
-
-          sequenceNumber += 1;
-          elementList.push({
-            sequence_number: sequenceNumber,
-            type: 'slot',
-            content: null,
-            is_speakable: true,
-            audio_url: track.audioUrl,
-            audio_segments: sortSegmentsByIndex(track.audioSegments ?? []).map(
-              audioSegment => ({
-                segment_index: audioSegment.segmentIndex,
-                audio_data: audioSegment.audioData,
-                duration_ms: audioSegment.durationMs,
-                is_final: audioSegment.isFinal,
-                position: audioSegment.position,
-                slide_id: audioSegment.slideId,
-                av_contract: audioSegment.avContract ?? null,
-              }),
-            ),
-            blockBid: item.element_bid,
-            page,
-          });
-        });
-      });
-
-      pageCursor += slideSegments.length;
+      pageCursor += 1;
       return;
     }
 
@@ -185,12 +155,12 @@ const buildSlideElementList = ({
 
     sequenceNumber += 1;
     elementList.push({
-      sequence_number: sequenceNumber,
+      sequence_number: item.sequence_number ?? sequenceNumber,
       type: 'interaction',
       content: item.content || '',
-      is_marker: true,
-      is_renderable: true,
-      is_new: true,
+      is_marker: item.is_marker ?? true,
+      is_renderable: item.is_renderable ?? true,
+      is_new: item.is_new ?? true,
       blockBid: item.element_bid,
       page: Math.max(pageCursor - 1, 0),
       user_input: currentUserInput,
@@ -300,7 +270,7 @@ const ListenModeSlideRenderer = ({
     [onSend],
   );
 
-  console.log('elementList', elementList);
+  console.log('elementList',items, elementList);
 
   return (
     <div

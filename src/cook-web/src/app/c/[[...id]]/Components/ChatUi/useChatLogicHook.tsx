@@ -22,6 +22,7 @@ import {
   AudioCompleteData,
   type AudioSegmentData,
   type ListenSlideData,
+  type ElementType,
   getRunMessage,
   SSE_INPUT_TYPE,
   getLessonStudyRecord,
@@ -102,6 +103,15 @@ export interface ChatContentItem {
   isAudioStreaming?: boolean;
   audioDurationMs?: number;
   listenSlides?: ListenSlideData[];
+  // Preserve element-level fields from backend records for listen-mode rendering.
+  element_type?: ElementType;
+  sequence_number?: number;
+  is_marker?: boolean;
+  is_new?: boolean;
+  is_renderable?: boolean;
+  is_speakable?: boolean;
+  audio_url?: string;
+  audio_segments?: AudioSegmentData[];
 }
 
 interface SSEParams {
