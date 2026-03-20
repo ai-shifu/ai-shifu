@@ -47,13 +47,17 @@ export const useWechat = () => {
       () =>
         new Promise<void>((resolve, reject) => {
           // @ts-expect-error EXPECT
-          WeixinJSBridge.invoke('getBrandWCPayRequest', payData, function (res) {
-            if (res.err_msg === 'get_brand_wcpay_request:ok') {
-              resolve();
-            } else {
-              reject(res.err_msg);
-            }
-          });
+          WeixinJSBridge.invoke(
+            'getBrandWCPayRequest',
+            payData,
+            function (res) {
+              if (res.err_msg === 'get_brand_wcpay_request:ok') {
+                resolve();
+              } else {
+                reject(res.err_msg);
+              }
+            },
+          );
         }),
     );
   };

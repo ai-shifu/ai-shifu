@@ -130,7 +130,9 @@ class TestResolvePaymentChannel:
             == ""
         )
 
-    def test_normalize_pingxx_return_url_rejects_absolute_url_without_trusted_origin(self):
+    def test_normalize_pingxx_return_url_rejects_absolute_url_without_trusted_origin(
+        self,
+    ):
         assert (
             normalize_pingxx_return_url(
                 "https://cook.example.com/payment/pingxx/result?order_id=1",

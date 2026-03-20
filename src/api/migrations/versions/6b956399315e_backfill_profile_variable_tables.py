@@ -112,7 +112,9 @@ def upgrade():
         has_profile_item_parent = _table_exists("profile_item") and _column_exists(
             "profile_item", "parent_id"
         )
-        shifu_bid_expr = "COALESCE(pi.parent_id, '')" if has_profile_item_parent else "''"
+        shifu_bid_expr = (
+            "COALESCE(pi.parent_id, '')" if has_profile_item_parent else "''"
+        )
         profile_item_join = (
             """
             LEFT JOIN profile_item pi
