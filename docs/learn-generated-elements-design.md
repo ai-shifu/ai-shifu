@@ -1,4 +1,4 @@
-# learn_generated_elements 设计文档（v1.3，2026-03-19）
+# learn_generated_elements 设计文档（v1.4，2026-03-20）
 
 ## 1. 范围与目标（仅后端）
 
@@ -9,7 +9,7 @@
 1. 统一 `run` 与 `records` 的 `elements` 协议。
 2. 在 element 层补齐渲染/增量/导航标记/音频合成相关字段。
 3. 将 `type` 产出逻辑收敛到状态机，不再散落在分支中硬编码。
-4. 让学习过程中的“追问（ask）”也成为独立、可持久化、可回放的 element。
+4. 让学习过程中的”追问（ask）”内嵌在被追问的 anchor element 的 `payload.asks` 中，不产生独立 element 行。
 5. 让追问入口与上下文装载从 `generated_block_bid` 迁移到 `element_bid`。
 
 ---
@@ -144,119 +144,87 @@
 
 `heartbeat` 为传输层事件，不参与 element 状态迁移。
 
-## 3.5 追问（ask）element 化目标
+## 3.5 追问（ask）内嵌 anchor element 模型
 
-追问在目标协议中必须满足：
+追问问答对不产生独立 `LearnGeneratedElement` 行，而是内嵌在被追问的 anchor element 的 `payload.asks` 数组中。
 
-1. 用户追问本身要作为一个独立 `text` element 出现在 live SSE 与 records 中。
-2. 用户追问与老师回答必须分属两个不同的 `generated_block_bid`，不能共用同一个 block 标识。
-3. 用户追问默认不参与前端直接渲染：
-   - `role=student`
-   - `element_type=text`
-   - `is_renderable=false`
-4. `text` element 默认需要语音能力：
-   - `is_speakable=true`
-   - `audio_url=""`
-   - `audio_segments=[]`
-5. 用户追问不是 `interaction`，也不是 `diff`，而是普通终态文本 element：
-   - `is_new=true`
-   - `is_marker=false`
-   - `is_renderable=false`
-   - `is_final=true`
-6. 老师回答继续走现有内容 element 链路，可拆分为视觉 element 与 narration `text` element。
-7. 追问的入口锚点必须改成 `element_bid`，不再暴露 `generated_block_bid` 给追问入口。
-8. 追问上下文的首选来源必须是 `LearnGeneratedElement`，而不是 `LearnGeneratedBlock`。
+核心规则：
 
-建议的 ask element 最小结构：
+1. 追问问答对存储在 anchor element 的 `payload.asks` 数组中，按 role 交替排列。
+2. 不产生独立 `LearnGeneratedElement` 行，不占用 `sequence_number`。
+3. anchor element 本身的 `element_type`、`is_renderable`、`is_marker`、`sequence_number` 等字段不变。
+4. 追问入口改为 `reload_element_bid`（指向 anchor element）。
+5. 追问上下文从 anchor element 的 `payload.asks` 读取。
+6. 被追问的锚点 element（无论 `text` 还是视觉 element）以聚合后的最终快照进入 ask 上下文。
+7. 老师回答在 live SSE 阶段作为独立事件推送（`is_new=false` + `target_element_bid=anchor`），落库时合并到 `payload.asks`。
+
+`payload.asks` 示意结构：
 
 ```json
-{
-  "event_type": "element",
-  "role": "student",
-  "element_type": "text",
-  "is_new": true,
-  "is_marker": false,
-  "is_renderable": false,
-  "is_speakable": true,
-  "audio_url": "",
-  "audio_segments": [],
-  "is_final": true,
-  "content": "用户追问内容",
-  "payload": {
-    "audio": null,
-    "previous_visuals": []
-  }
-}
+"asks": [
+  {"role": "student", "content": "用户追问"},
+  {"role": "teacher", "content": "老师回答"},
+  {"role": "student", "content": "第二次追问"},
+  {"role": "teacher", "content": "第二次回答"}
+]
 ```
+
+asks 条目字段集待冻结（至少 `role` + `content`，可选 `generated_block_bid`/`timestamp`/`audio_url`）。
+
+asks 数组上限待定义（建议与 `ASK_MAX_HISTORY_LEN=10` 对齐，即最多 5 轮 Q&A，10 条条目）。
 
 ---
 
-## 3.6 ask/answer 分块规则（新增）
+## 3.6 ask/answer block 归属规则
 
-现有 ask 流程的问题不是“缺一个字段”，而是 block 归属错位：
+现有 ask 流程的问题不是”缺一个字段”，而是 block 归属错位：
 
 1. 用户追问块（`mdask`）已经存在。
 2. 老师回答块（`mdanswer`）目前是在回答完成后才写入。
 3. 回答流式 `CONTENT` 在此之前复用了用户追问块的 `generated_block_bid`。
 
-这会导致：
-
-1. 用户追问 element 和老师回答 element 无法稳定区分。
-2. `LearnGeneratedElement.generated_block_bid` 失去“一个 block 对应一组 element”的语义。
-3. records 如果完全信任持久化 elements，就拿不到 ask 本身。
-
 To-Be 规则：
 
-1. 进入 ask 流程后，先创建并持久化 `mdask` block。
-2. ask block 创建完成后，立即产出一个“仅供 element 链路消费”的 ask 事件。
-3. 在任何老师侧文本输出前，先创建并持久化 `mdanswer` block。
-4. 后续老师侧的 `content/audio_complete/break` 全部绑定到 answer block 的 `generated_block_bid`。
-5. 用户 ask element 不需要 `break` 才能封口；它天然是单条终态 element。
+1. 进入 ask 流程后，先创建 `mdask` block。
+2. **在任何老师侧输出前**（包括 guardrail 响应），创建 `mdanswer` block。
+3. 所有老师侧 `CONTENT`/`AUDIO_COMPLETE`/`BREAK` 绑定 answer block 的 `generated_block_bid`。
+4. guardrail 命中时也必须先创建 answer block（修复 `handle_input_ask.py:225-239` 早返回路径）。
+5. guardrail 路径的 `INTERACTION` 事件（`handle_input_ask.py:232-237`）在 listen 模式下不再需要，非 listen 兼容期内保留。
+6. 追问文本和回答文本最终写入 anchor element 的 `payload.asks`。
 
-这样分块后：
-
-1. ask element 永远挂在 ask block 上。
-2. teacher answer element 永远挂在 answer block 上。
-3. backfill / records / live SSE 三条链路可以共享同一套 block 归属。
-
-## 3.7 追问入口与上下文来源（新增）
+## 3.7 追问入口与上下文来源
 
 ### 3.7.1 追问入口标识
 
 To-Be 约束：
 
-1. 触发追问时，客户端传递的锚点从 `generated_block_bid` 改为 `element_bid`。
-2. 该 `element_bid` 必须指向一个已存在、可追问的终态 element。
-3. 服务端通过 `element_bid` 反查：
-   - `generated_block_bid`
-   - `progress_record_bid`
-   - `outline_item_bid`
-   - `run_session_bid`
-4. `generated_block_bid` 仍保留在内部落库与回放中使用，但不再作为追问入口参数。
+1. 当 `input_type=ask` 时，客户端优先传递 `reload_element_bid`；普通 regenerate 继续使用现有 `reload_generated_block_bid`。
+2. 兼容过渡期内，ask 请求若未传 `reload_element_bid`，服务端允许回退读取 `reload_generated_block_bid`，再解析到对应的 askable final element。
+3. 该 `reload_element_bid` / 解析后的 `element_bid` 必须指向一个已存在、可追问的终态 element。
+4. 服务端通过 `element_bid` 反查 anchor element，获取 `generated_block_bid`、`progress_record_bid`、`outline_item_bid`、`run_session_bid`。
+5. 若目标 element 不存在、未终态或不允许追问，直接拒绝 ask，不回退到”最近一个 block”的模糊猜测。
+6. `generated_block_bid` 仍保留在内部落库与回放中使用，但不再作为 ask 的长期入口参数。
+
+参数传递链路：`routes.py` 新增 `reload_element_bid` 解析 → `run_script_inner`/`run_script` 签名新增参数 → `context_v2.reload()` 支持 element_bid 入口 → `handle_input_ask`。
 
 设计原因：
 
 1. 前端主渲染协议已经是 element。
 2. 一个 block 在未来可能对应多个 elements，追问入口需要锚定到用户实际点击/看到的那个 element。
-3. 以 `element_bid` 作为入口，才能天然支持“追问内容挂在 elements 下面”的完整闭环。
+3. 以 `element_bid` 作为入口，才能天然支持”追问内容内嵌在 anchor element 的 payload.asks 中”的完整闭环。
+4. 普通 regenerate 仍然是”回滚某个 block 之后重新生成”，不应和 ask 锚点迁移混为一谈。
 
 ### 3.7.2 上下文来源切换
 
 To-Be 约束：
 
-1. 追问历史上下文优先从 `LearnGeneratedElement` 读取。
-2. 仅在目标 progress 尚未完成 element 化或没有足够 element 数据时，才回退到 `LearnGeneratedBlock`。
-3. 上下文组装按 element 顺序进行，而不是 block 顺序：
-   - `role=student` 的 `text` element -> user turn
-   - `role=teacher` 的 `text` element -> assistant turn
-   - 视觉型 element 默认不直接进问答上下文
-4. 对同一 `target_element_bid` 的 patch，要先聚合成最终快照，再参与上下文装载。
-
-上下文裁剪规则：
-
-1. 历史窗口以 element 为单位裁剪，而不是以 block 为单位裁剪。
-2. ask element 与 answer text element 都计入历史轮次。
-3. interaction element 不直接作为用户发言文本进入 ask 历史，除非未来单独定义转换规则。
+1. 追问上下文优先从 anchor element 的 `payload.asks` 读取。
+2. 仅在 `payload.asks` 为空或不存在时回退到 `LearnGeneratedBlock`。
+3. 直接将 `payload.asks` 条目按 role 映射为 LLM 消息（`student` → `user`，`teacher` → `assistant`）。
+4. 锚点 element 本身的 content 作为首条 assistant context message。
+5. 裁剪以 asks 条目为单位，与 `ASK_MAX_HISTORY_LEN` 对齐。
+6. 不再需要 `sequence_number` 截断。
+7. legacy fallback 条件：anchor element payload 中无 `asks` 字段。
 
 ---
 
@@ -288,7 +256,7 @@ To-Be 约束：
 | `is_new` | 无 | 新增列与 DTO 字段；写链路决定新建或补丁 |
 | `is_marker` | 无 | 新增列与 DTO 字段；按 `element_type` 推导，`text=false`，其他为 `true` |
 | `sequence_number` | 无 | 新增列与 DTO 字段；run 内 element 单独计数 |
-| `is_speakable` | 无 | 新增列与 DTO 字段；由 AV 合约与 block 类型推导 |
+| `is_speakable` | 无 | 新增列与 DTO 字段；由 AV 合约与 block 类型推导，teacher narration `text` 通常为 `true`，其余默认 `false` |
 | `audio_url` | 仅在 payload.audio | 顶层冗余字段，便于快速读取 |
 | `audio_segments` | 仅作为独立事件 | 合并进 element，保留流式轨迹；live SSE 不再单独输出 `audio_segment` |
 
@@ -347,51 +315,45 @@ To-Be 约束：
 2. `sequence_number`：仅在输出 `type=element` 时递增。
 3. 两者均落库，便于回放与排障。
 
-## 6.3 ask 写链路改造（新增）
+## 6.3 ask 写链路改造
 
-原则：尽量不改数据库表，仅调整运行事件与 block 写入时机。
+原则：asks 内嵌在 anchor element 的 `payload.asks` 中，不产生独立 element 行，不新增数据库列。
 
-### 6.3.1 事件层设计
+### 6.3.1 事件层
 
-新增一个内部事件类型：
-
-- `GeneratedType.ASK`
+保留 `GeneratedType.ASK`：用于 adapter 识别并触发 `payload.asks` 写入。
 
 约束：
 
-1. `GeneratedType.ASK` 只用于 run -> element adapter 的内部桥接。
+1. `GeneratedType.ASK` 只用于 run → element adapter 的内部桥接。
 2. 非 listen/raw mdflow 消费链路不对外暴露 `ASK`。
-3. `ASK` 事件只承载用户追问文本，不承载音频。
+3. `ASK` 事件承载：用户追问文本 + `anchor_element_bid`。
 
-### 6.3.2 handle_input_ask 流程调整
+### 6.3.2 handle_input_ask 流程
 
-新的 ask 流程建议为：
-
-1. 创建 `mdask` 的 `LearnGeneratedBlock`，写入用户追问文本。
-2. 立即产出一条 `GeneratedType.ASK`，`generated_block_bid` 指向 ask block。
-3. 在任何老师侧输出前，创建 `mdanswer` 的 `LearnGeneratedBlock`。
-4. 所有老师侧：
-   - `GeneratedType.CONTENT`
-   - `GeneratedType.AUDIO_COMPLETE`
-   - `GeneratedType.BREAK`
-   均改为使用 answer block 的 `generated_block_bid`。
+1. 通过 `reload_element_bid` 定位 anchor element（兼容 `reload_generated_block_bid`）。
+2. 创建 `mdask` block。
+3. 产出 `GeneratedType.ASK`（含追问文本 + `anchor_element_bid`）。
+4. **在任何老师侧输出前**创建 `mdanswer` block（含 guardrail 路径）。
+5. 所有老师侧 `CONTENT`/`BREAK` 使用 answer block 的 `generated_block_bid`。
+6. answer block 创建时 content 为空，结束后 UPDATE 回填。
+7. guardrail 路径不再特殊早返回。
 
 ### 6.3.3 ListenElementRunAdapter 行为
 
 adapter 新增 `_handle_ask()`：
 
-1. 直接输出一个终态 `text` element。
-2. `role` 固定为 `student`。
-3. 不进入当前 block 的增量拼装状态，不等待 `break`。
-4. 不影响后续 answer block 的 state machine。
+1. 追加 `{role: "student", content}` 到 anchor element 的 `payload.asks` 并 UPDATE，不产出独立 element，不占 `sequence_number`。
+2. answer 流式阶段：独立 SSE 事件推送（`is_new=false`，`target_element_bid=anchor`），BREAK 时追加 `{role: "teacher", content}` 到 `payload.asks` 并 UPDATE。
 
 ### 6.3.4 非 listen 兼容
 
-为了不破坏现有 raw run 链路：
+`element_adapter is None` 时忽略 `GeneratedType.ASK`。
 
-1. `run_script_inner()` 在 `element_adapter is None` 时忽略 `GeneratedType.ASK`。
-2. 现有前端若仍使用传统 run 流，不会额外收到 ask 事件。
-3. listen 模式下由 element adapter 消费 `ASK` 并产出 SSE `element`。
+### 6.3.5 并发安全
+
+1. 前端禁止对同一 anchor 并发 ask。
+2. 后端建议乐观锁或 last-write-wins。
 
 ---
 
@@ -401,7 +363,8 @@ adapter 新增 `_handle_ask()`：
 2. `include_non_navigable=true` 时返回 `events`；其中 `audio_segment` 已折叠为 `element` patch，`audio_complete` 仍保留。
 3. `elements` 默认按 `sequence_number` + `run_event_seq` 排序。
 4. `is_new=false` 的数据在回放层按 `target_element_bid` 应用后再输出最终快照。
-5. ask element 一旦已落库，records 优先直接返回持久化 student `text` element，不再依赖 legacy block fallback 才能看到追问。
+5. `payload.asks` 随 element 在 records 中直接返回，前端可从 anchor element 的 payload 获取追问历史。
+6. ask 上下文从 `payload.asks` 读取；无 `asks` 字段时回退 legacy block。
 
 ---
 
@@ -409,18 +372,20 @@ adapter 新增 `_handle_ask()`：
 
 1. 历史 `sandbox/picture/video` 数据按 4.1 规则映射到新枚举。
 2. 历史数据回填新增字段默认值：
-   - `is_renderable=false`
+   - `is_renderable` 按 `element_type` 推导，`text=false`，其他为 `true`
    - `is_new=true`
    - `is_marker` 按 `element_type` 推导，`text=false`，其他为 `true`
    - `sequence_number` 按历史顺序重建
-   - `is_speakable` 依据是否存在音频
+   - `is_speakable` 按 element 语义恢复：teacher narration `text` 或已有音频的 element 为 `true`，其余无法确认时保守置 `false`
    - `audio_url` 从终态音频提取
    - `audio_segments` 无法恢复时置空数组
 3. 回填脚本支持 `dry_run/overwrite`，并输出统计。
-4. 对历史 `LearnGeneratedBlock.type=MDASK` 但尚未存在 ask element 的 progress：
-   - 允许回填脚本直接合成 `role=student` 的 `text` element
-   - `generated_block_bid` 复用原 ask block
-   - 不新增任何表字段
+4. 历史 MDASK/MDANSWER blocks → 匹配 anchor element → 回填到 `payload.asks`：
+   - 通过 ask block 的 position 匹配同 progress 下最近的 askable element
+   - 将 ask block content 作为 `{role: "student", content}` 条目
+   - 将 answer block content 作为 `{role: "teacher", content}` 条目
+   - 追加到匹配到的 anchor element 的 `payload.asks` 数组
+   - 不新增 element 行或表字段
 
 ---
 
@@ -428,10 +393,17 @@ adapter 新增 `_handle_ask()`：
 
 1. DTO 序列化单测：新字段完整性与默认值。
 2. 状态机单测：状态迁移与 `type` 输出正确性。
-3. 写链路单测：`is_new=false` 应用到目标 element。
-4. 音频链路单测：`audio_segments` 累积与 `audio_url` 终态回填。
-5. records 单测：排序、快照合并、`include_non_navigable`。
-6. 回填单测：旧枚举映射到新枚举，新增字段补值正确。
+3. ask 写链路单测：`payload.asks` 结构正确性 + MDASK/MDANSWER block 创建。
+4. 写链路单测：`is_new=false` 应用到目标 element。
+5. 音频链路单测：`audio_segments` 累积与 `audio_url` 终态回填。
+6. ask 上下文单测：从 `payload.asks` 组装 LLM 消息，role 映射正确（student→user，teacher→assistant）。
+7. ask 上下文单测：视觉锚点聚合快照作为首条 context message。
+8. records 单测：排序、快照合并、`include_non_navigable`。
+9. 兼容单测：ask 请求双读 `reload_element_bid` / `reload_generated_block_bid`，普通 regenerate 仍沿用 block 入口。
+10. 回填单测：旧枚举映射到新枚举，新增字段补值正确，历史 mdask/mdanswer 正确回填到 `payload.asks`。
+11. 并发 ask 单测：并发 ask 不丢失 `payload.asks` 条目。
+12. guardrail 单测：guardrail 命中时 answer block 创建且 `payload.asks` 包含 student+teacher 条目。
+13. answer SSE 单测：answer SSE 事件携带 `target_element_bid=anchor`。
 
 ---
 
@@ -439,4 +411,4 @@ adapter 新增 `_handle_ask()`：
 
 1. 不在本版规划前端消费改造细节。
 2. 不在本版规划 UI 展示策略与交互动画。
-3. 不在本版引入新的数据库表，也不优先新增 `LearnGeneratedElement` 字段。
+3. 不在本版引入新的数据库表或 ask 专用持久化表。

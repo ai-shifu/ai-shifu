@@ -107,23 +107,27 @@ Design reference: `docs/learn-generated-elements-design.md`
 
 - [x] 更新设计文档，冻结 ask element 的协议语义与 block 归属规则
 - [x] 更新 `tasks.md`，拆分 ask element 化的实现任务
-- [ ] 调整追问入口协议：客户端/接口侧从 `generated_block_bid` 迁移到 `element_bid`
-- [ ] 增加服务端反查逻辑：通过 `element_bid` 定位所属 `generated_block_bid/progress_record_bid/outline_item_bid`
+- [ ] 调整追问入口协议：ask 请求新增 `reload_element_bid`；`reload_generated_block_bid` 仅保留给非 ask regenerate，并在 ask 场景双读兼容
+- [ ] 增加服务端反查逻辑：通过 `element_bid` 定位所属 `generated_block_bid/progress_record_bid/outline_item_bid/run_session_bid/anchor sequence`
 - [ ] 冻结兼容策略：`GeneratedType.ASK` 仅作为 listen 内部事件，非 listen 原始 run 流默认忽略
 - [ ] 调整 `handle_input_ask`：先创建 ask block，再创建 answer block，禁止回答流复用 ask 的 `generated_block_bid`
 - [ ] 在 ask 流程中新增内部 `ASK` 事件，只承载用户追问文本
 - [ ] 扩展 `ListenElementRunAdapter`：新增 `_handle_ask()`，输出终态 `student/text` element
-- [ ] 明确 ask element 默认字段：`is_new=true`、`is_marker=false`、`is_speakable=false`、`is_final=true`
+- [ ] 明确 ask element 默认字段：`is_new=true`、`is_marker=false`、`is_speakable=false`、`is_final=true`、`audio_url=""`、`audio_segments=[]`
 - [ ] 调整 run 转 element 的处理顺序，保证 ask element 的 `sequence_number` 位于 answer elements 之前
-- [ ] 调整 answer 侧流式 `CONTENT/AUDIO_COMPLETE/BREAK` 统一挂到 answer block
+- [ ] 调整 answer 侧流式 `CONTENT/AUDIO_COMPLETE/BREAK` 以及 guardrail/provider fallback 文本统一挂到 answer block
 - [ ] 调整追问历史装载：优先从 `LearnGeneratedElement` 聚合快照装载上下文，不再默认从 `LearnGeneratedBlock` 取
+- [ ] 定义并实现 ask 上下文截止规则：先截断到 anchor element，再做窗口裁剪，且始终保留 anchor
 - [ ] 定义 element 到 ask 历史消息的映射规则：`student/text -> user`，`teacher/text -> assistant`
+- [ ] 定义视觉锚点进入 ask 上下文的归一化规则：聚合后的 `content + previous_visuals` 摘要映射为 assistant anchor message
 - [ ] 仅在目标 progress 缺失 element 数据时回退到 legacy block 上下文
 - [ ] 更新 records 聚合逻辑，确保已落库 ask elements 直接参与最终快照，不依赖 legacy fallback
 - [ ] 增加回归测试：一次追问返回 `student ask` + `teacher answer` 两组独立 elements
 - [ ] 增加回归测试：ask/answer 使用不同 `generated_block_bid`
-- [ ] 增加回归测试：追问入口使用 `element_bid` 仍能正确命中原锚点
+- [ ] 增加回归测试：ask 请求使用 `reload_element_bid` 仍能正确命中原锚点；legacy `reload_generated_block_bid` 在过渡期仍可用
 - [ ] 增加回归测试：ask 上下文来自 elements 快照而不是 blocks
+- [ ] 增加回归测试：追问点击较早 element 时，上下文不会包含锚点之后的内容
+- [ ] 增加回归测试：追问点击视觉 element 时，锚点快照会进入 ask prompt/context
 - [ ] 增加回归测试：非 listen 模式不会额外暴露 `ASK` 事件
-- [ ] 增加回填/修复任务：历史 `mdask` blocks 可按需补生成 `student/text` elements
+- [ ] 增加回填/修复任务：历史 `mdask` blocks 可按需补生成 `student/text` elements，且 `sequence_number` 位于对应 answer 之前
 - [ ] 评估并补充 `audio_complete` 在 ask 场景下的 block 归属测试
