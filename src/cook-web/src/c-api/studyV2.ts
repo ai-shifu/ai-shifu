@@ -64,6 +64,7 @@ export type LearningPermission =
 
 // run sse output type
 export const SSE_OUTPUT_TYPE = {
+  ELEMENT: 'element',
   CONTENT: 'content',
   BREAK: 'break',
   ASK: 'ask',
@@ -97,6 +98,10 @@ export const LESSON_FEEDBACK_INTERACTION_MARKER =
 export interface StudyRecordItem {
   element_type: ElementType;
   element_bid: string;
+  element_index?: number;
+  sequence_number?: number;
+  target_element_bid?: string;
+  change_type?: string;
   content: string;
   is_marker: boolean;
   is_new: boolean;

@@ -22,6 +22,7 @@ export interface AudioTrack {
 
 export interface AudioItem {
   generated_block_bid: string;
+  sourceGeneratedBlockBid?: string;
   audioSegments?: AudioSegment[];
   audioTracks?: AudioTrack[];
   audioUrl?: string;
@@ -299,7 +300,10 @@ export const upsertAudioSegment = <T extends AudioItem>(
   const mappedSegment = toAudioSegment(segment);
 
   return nextItems.map(item => {
-    if (item.generated_block_bid !== blockId) {
+    if (
+      item.generated_block_bid !== blockId &&
+      item.sourceGeneratedBlockBid !== blockId
+    ) {
       return item;
     }
 
@@ -345,7 +349,10 @@ export const upsertAudioComplete = <T extends AudioItem>(
   const nextItems = ensureItem ? ensureItem(items, blockId) : items;
 
   return nextItems.map(item => {
-    if (item.generated_block_bid !== blockId) {
+    if (
+      item.generated_block_bid !== blockId &&
+      item.sourceGeneratedBlockBid !== blockId
+    ) {
       return item;
     }
 
