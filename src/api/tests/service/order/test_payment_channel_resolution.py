@@ -3,8 +3,8 @@ import pytest
 from flaskr.service.common.models import AppException
 from flaskr.service.order.funs import (
     _extract_pingxx_redirect_url,
-    _normalize_pingxx_return_url,
     _resolve_payment_channel,
+    normalize_pingxx_return_url,
 )
 
 
@@ -105,7 +105,7 @@ class TestResolvePaymentChannel:
 
     def test_normalize_pingxx_return_url_allows_same_origin_absolute_url(self):
         assert (
-            _normalize_pingxx_return_url(
+            normalize_pingxx_return_url(
                 "https://cook.example.com/payment/pingxx/result?order_id=1",
                 allowed_origins=["https://cook.example.com"],
             )
@@ -114,7 +114,7 @@ class TestResolvePaymentChannel:
 
     def test_normalize_pingxx_return_url_builds_absolute_url_from_path(self):
         assert (
-            _normalize_pingxx_return_url(
+            normalize_pingxx_return_url(
                 "/payment/pingxx/result?order_id=1",
                 allowed_origins=["https://cook.example.com"],
             )
@@ -123,9 +123,18 @@ class TestResolvePaymentChannel:
 
     def test_normalize_pingxx_return_url_rejects_cross_origin_url(self):
         assert (
-            _normalize_pingxx_return_url(
+            normalize_pingxx_return_url(
                 "https://evil.example.com/payment/pingxx/result?order_id=1",
                 allowed_origins=["https://cook.example.com"],
+            )
+            == ""
+        )
+
+    def test_normalize_pingxx_return_url_rejects_absolute_url_without_trusted_origin(self):
+        assert (
+            normalize_pingxx_return_url(
+                "https://cook.example.com/payment/pingxx/result?order_id=1",
+                allowed_origins=[],
             )
             == ""
         )

@@ -76,9 +76,20 @@ export const PayModalM = ({
   payload = {},
 }) => {
   const isWechatBrowser = inWechat();
-  const mobileWechatChannel = isWechatBrowser
-    ? PAY_CHANNEL_WECHAT_JSAPI
-    : PAY_CHANNEL_WECHAT_WAP;
+  const wechatBridgeWindow =
+    typeof window === 'undefined'
+      ? null
+      : (window as Window & { WeixinJSBridge?: unknown });
+  const [wechatJsApiReady, setWechatJsApiReady] = useState(() => {
+    if (!wechatBridgeWindow) {
+      return false;
+    }
+    return typeof wechatBridgeWindow.WeixinJSBridge !== 'undefined';
+  });
+  const mobileWechatChannel =
+    isWechatBrowser && wechatJsApiReady
+      ? PAY_CHANNEL_WECHAT_JSAPI
+      : PAY_CHANNEL_WECHAT_WAP;
   const [payChannel, setPayChannel] = useState(mobileWechatChannel);
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [previewPrice, setPreviewPrice] = useState('0');
@@ -144,6 +155,43 @@ export const PayModalM = ({
     () => getCurrencyCode(currencySymbol),
     [currencySymbol],
   );
+
+  useEffect(() => {
+    if (!isWechatBrowser) {
+      setWechatJsApiReady(false);
+      return;
+    }
+    if (
+      wechatBridgeWindow &&
+      typeof wechatBridgeWindow.WeixinJSBridge !== 'undefined'
+    ) {
+      setWechatJsApiReady(true);
+      return;
+    }
+    const handleBridgeReady = () => {
+      setWechatJsApiReady(true);
+    };
+    document.addEventListener('WeixinJSBridgeReady', handleBridgeReady, false);
+    return () => {
+      document.removeEventListener(
+        'WeixinJSBridgeReady',
+        handleBridgeReady,
+        false,
+      );
+    };
+  }, [isWechatBrowser, wechatBridgeWindow]);
+
+  useEffect(() => {
+    setPayChannel(prev => {
+      if (
+        prev === PAY_CHANNEL_WECHAT_JSAPI ||
+        prev === PAY_CHANNEL_WECHAT_WAP
+      ) {
+        return mobileWechatChannel;
+      }
+      return prev;
+    });
+  }, [mobileWechatChannel]);
   const emitCancelEvent = useCallback(() => {
     trackEvent('learner_pay_cancel', {
       shifu_bid: courseId,

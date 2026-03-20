@@ -648,7 +648,7 @@ def _extract_pingxx_redirect_url(
     return ""
 
 
-def _normalize_pingxx_return_url(
+def normalize_pingxx_return_url(
     return_url: str, allowed_origins: Optional[List[str]] = None
 ) -> str:
     """Normalize a Ping++ result URL and restrict it to trusted origins."""
@@ -690,7 +690,9 @@ def _normalize_pingxx_return_url(
         split_candidate.scheme.lower(),
         split_candidate.netloc.lower(),
     )
-    if normalized_origins and candidate_origin not in normalized_origins:
+    if not normalized_origins:
+        return ""
+    if candidate_origin not in normalized_origins:
         return ""
 
     return urlunsplit(

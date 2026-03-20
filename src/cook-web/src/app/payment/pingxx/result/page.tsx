@@ -27,7 +27,11 @@ const resolveRedirectPath = (
   redirectPath: string,
   courseId?: string,
 ): string => {
-  if (redirectPath && redirectPath.startsWith('/')) {
+  if (
+    redirectPath &&
+    redirectPath.startsWith('/') &&
+    !redirectPath.startsWith('//')
+  ) {
     return redirectPath;
   }
   if (courseId) {

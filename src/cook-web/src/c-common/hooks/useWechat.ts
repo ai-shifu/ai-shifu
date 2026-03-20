@@ -2,16 +2,16 @@
 import { inWechat } from '@/c-constants/uiConstants';
 
 export const useWechat = () => {
-  let jsBridegetReady: Promise<void> | null = null;
+  let jsBridgeReady: Promise<void> | null = null;
 
   const ensureJsBridgeReady = () => {
     if (!inWechat()) {
       return Promise.reject(new Error('not in wechat'));
     }
-    if (jsBridegetReady) {
-      return jsBridegetReady;
+    if (jsBridgeReady) {
+      return jsBridgeReady;
     }
-    jsBridegetReady = new Promise<void>(resolve => {
+    jsBridgeReady = new Promise<void>(resolve => {
       function onBridgeReady() {
         resolve();
       }
@@ -34,27 +34,28 @@ export const useWechat = () => {
         onBridgeReady();
       }
     });
-    return jsBridegetReady;
+    return jsBridgeReady;
   };
 
-  const runInJsBridge = callback => {
-    return ensureJsBridgeReady().then(callback);
+  const runInJsBridge = async callback => {
+    await ensureJsBridgeReady();
+    return callback();
   };
 
   const payByJsApi = async payData => {
-    return new Promise((resolve, reject) => {
-      runInJsBridge(() => {
-        // @ts-expect-error EXPECT
-        WeixinJSBridge.invoke('getBrandWCPayRequest', payData, function (res) {
-          if (res.err_msg === 'get_brand_wcpay_request:ok') {
-            // @ts-expect-error EXPECT
-            resolve();
-          } else {
-            reject(res.err_msg);
-          }
-        });
-      }).catch(reject);
-    });
+    await runInJsBridge(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          // @ts-expect-error EXPECT
+          WeixinJSBridge.invoke('getBrandWCPayRequest', payData, function (res) {
+            if (res.err_msg === 'get_brand_wcpay_request:ok') {
+              resolve();
+            } else {
+              reject(res.err_msg);
+            }
+          });
+        }),
+    );
   };
 
   return { runInJsBridge, payByJsApi };
