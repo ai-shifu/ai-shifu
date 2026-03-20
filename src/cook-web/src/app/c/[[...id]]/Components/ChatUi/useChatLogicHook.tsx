@@ -1807,29 +1807,34 @@ function useChatLogicHook({
               : item,
           );
         } else {
-          // Create new ASK block after LIKE_STATUS block
-          return prev.flatMap(item => {
+          // Create a new ASK block next to the target element when needed.
+          const nextAskBlock: ChatContentItem = {
+            element_bid: '',
+            parent_element_bid: parentElementBid,
+            type: BLOCK_TYPE.ASK,
+            content: '',
+            isAskExpanded: true,
+            ask_list: [],
+            readonly: false,
+            customRenderBar: () => null,
+            user_input: '',
+          };
+          let inserted = false;
+          const nextList = prev.flatMap(item => {
             if (
               item.parent_element_bid === parentElementBid &&
               item.type === ChatContentItemType.LIKE_STATUS
             ) {
-              return [
-                item,
-                {
-                  element_bid: '',
-                  parent_element_bid: parentElementBid,
-                  type: BLOCK_TYPE.ASK,
-                  content: '',
-                  isAskExpanded: true,
-                  ask_list: [],
-                  readonly: false,
-                  customRenderBar: () => null,
-                  user_input: '',
-                },
-              ];
+              inserted = true;
+              return [item, nextAskBlock];
+            }
+            if (item.element_bid === parentElementBid) {
+              inserted = true;
+              return [item, nextAskBlock];
             }
             return [item];
           });
+          return inserted ? nextList : [...prev, nextAskBlock];
         }
       });
     },

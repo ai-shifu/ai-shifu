@@ -300,6 +300,8 @@ const ListenModeSlideRenderer = ({
     [onSend],
   );
 
+  console.log('elementList', elementList)
+
   return (
     <div
       className={cn(
