@@ -1,30 +1,16 @@
-"""Test element splitting via SSE simulation using real generated blocks from test DB.
+"""Test element splitting via SSE simulation using generated blocks from the test DB.
 
 Fetches the latest 100 generated blocks (with non-empty content) from the test
 database, feeds each through the ListenElementRunAdapter, and verifies that the
 element splitting produces valid SSE output.
 
-Requirements:
-    TEST_SQLALCHEMY_DATABASE_URI must point to the test MySQL instance, e.g.:
-      export TEST_SQLALCHEMY_DATABASE_URI="mysql+pymysql://sifu_test:P14FQWzjcKNWKvZ4@rm-2ze59ehub1no8i221vo.mysql.rds.aliyuncs.com/agi-sifu-test"
-      cd src/api && pytest tests/service/learn/test_sse_element_split_from_db.py -v --no-header
+Run with:
+    cd src/api && pytest tests/service/learn/test_sse_element_split_from_db.py -v --no-header
 """
 
 import json
-import os
 
 import pytest
-
-# ---------------------------------------------------------------------------
-# Skip entire module unless the test DB URI is explicitly configured
-# ---------------------------------------------------------------------------
-_TEST_DB_URI = os.environ.get("TEST_SQLALCHEMY_DATABASE_URI", "")
-_NEED_MYSQL = "mysql" in _TEST_DB_URI.lower()
-
-pytestmark = pytest.mark.skipif(
-    not _NEED_MYSQL,
-    reason="Requires TEST_SQLALCHEMY_DATABASE_URI pointing to MySQL test DB",
-)
 
 # ---------------------------------------------------------------------------
 # Constants
