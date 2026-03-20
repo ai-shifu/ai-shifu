@@ -169,8 +169,8 @@ class TestResolvePaymentChannel:
             "get_config",
             lambda key, default="": "/" if key == "HOME_URL" else default,
         )
-        app.config["SERVER_NAME"] = "cook.example.com"
-        app.config["PREFERRED_URL_SCHEME"] = "https"
+        monkeypatch.setitem(app.config, "SERVER_NAME", "cook.example.com")
+        monkeypatch.setitem(app.config, "PREFERRED_URL_SCHEME", "https")
 
         with app.test_request_context(
             "/api/order/reqiure-to-pay",
@@ -188,7 +188,7 @@ class TestResolvePaymentChannel:
             "get_config",
             lambda key, default="": "/" if key == "HOME_URL" else default,
         )
-        app.config["SERVER_NAME"] = ""
+        monkeypatch.setitem(app.config, "SERVER_NAME", "")
 
         with app.test_request_context(
             "/api/order/reqiure-to-pay",
@@ -204,7 +204,7 @@ class TestResolvePaymentChannel:
             "get_config",
             lambda key, default="": "/" if key == "HOME_URL" else default,
         )
-        app.config["SERVER_NAME"] = ""
+        monkeypatch.setitem(app.config, "SERVER_NAME", "")
 
         with app.test_request_context(
             "/api/order/reqiure-to-pay",
@@ -225,7 +225,7 @@ class TestResolvePaymentChannel:
             "get_config",
             lambda key, default="": "/" if key == "HOME_URL" else default,
         )
-        app.config["SERVER_NAME"] = ""
+        monkeypatch.setitem(app.config, "SERVER_NAME", "")
 
         with app.test_request_context(
             "/api/order/reqiure-to-pay",
