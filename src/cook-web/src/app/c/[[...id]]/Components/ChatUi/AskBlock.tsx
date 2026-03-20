@@ -137,6 +137,7 @@ export default function AskBlock({
         input: question,
         input_type: SSE_INPUT_TYPE.ASK,
         reload_generated_block_bid: generated_block_bid,
+        listen: false,
       },
       async response => {
         try {
@@ -389,7 +390,9 @@ export default function AskBlock({
                 {message.content}
               </div>
             ) : (
-              <div className={cn(styles.assistantMessage)}>
+              <div
+                className={cn(styles.assistantMessage, styles.askIframeWrapper)}
+              >
                 <ContentRender
                   content={message.content}
                   customRenderBar={

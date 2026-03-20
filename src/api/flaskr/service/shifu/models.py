@@ -17,6 +17,7 @@ from sqlalchemy import (
     SmallInteger,
     DateTime,
     UniqueConstraint,
+    Index,
 )
 from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
 from sqlalchemy.sql import func
@@ -230,6 +231,12 @@ class DraftShifu(db.Model):
         default="",
         comment="Ask agent LLM system prompt",
     )
+    ask_provider_config = Column(
+        Text,
+        nullable=False,
+        default="{}",
+        comment='Ask provider config JSON, e.g. {"provider":"llm","mode":"provider_then_llm","config":{}}',
+    )
     price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
 
     # TTS Configuration
@@ -243,10 +250,7 @@ class DraftShifu(db.Model):
         String(32),
         nullable=False,
         default="",
-        comment=(
-            "TTS provider: minimax, volcengine, baidu, aliyun "
-            "(empty=use system default)"
-        ),
+        comment="TTS provider: minimax, volcengine, volcengine_http, baidu, aliyun",
     )
     tts_model = Column(
         String(64),
@@ -278,6 +282,15 @@ class DraftShifu(db.Model):
         default="",
         comment="TTS emotion setting",
     )
+
+    # Language Output Configuration
+    use_learner_language = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Use learner language for output: 0=disabled (default), 1=enabled",
+    )
+
     deleted = Column(
         SmallInteger,
         nullable=False,
@@ -323,6 +336,7 @@ class DraftShifu(db.Model):
             ask_llm=self.ask_llm,
             ask_llm_temperature=self.ask_llm_temperature,
             ask_llm_system_prompt=self.ask_llm_system_prompt,
+            ask_provider_config=self.ask_provider_config,
             price=self.price,
             tts_enabled=self.tts_enabled,
             tts_provider=self.tts_provider,
@@ -331,6 +345,7 @@ class DraftShifu(db.Model):
             tts_speed=self.tts_speed,
             tts_pitch=self.tts_pitch,
             tts_emotion=self.tts_emotion,
+            use_learner_language=self.use_learner_language,
             deleted=self.deleted,
             created_at=self.created_at,
             created_user_bid=self.created_user_bid,
@@ -352,6 +367,7 @@ class DraftShifu(db.Model):
             and self.ask_llm == other.ask_llm
             and compare_decimal(self.ask_llm_temperature, other.ask_llm_temperature)
             and self.ask_llm_system_prompt == other.ask_llm_system_prompt
+            and self.ask_provider_config == other.ask_provider_config
             and compare_decimal(self.price, other.price)
             and self.tts_enabled == other.tts_enabled
             and self.tts_provider == other.tts_provider
@@ -360,6 +376,7 @@ class DraftShifu(db.Model):
             and compare_decimal(self.tts_speed, other.tts_speed)
             and self.tts_pitch == other.tts_pitch
             and self.tts_emotion == other.tts_emotion
+            and self.use_learner_language == other.use_learner_language
         )
 
     def get_str_to_check(self):
@@ -368,6 +385,16 @@ class DraftShifu(db.Model):
 
 class DraftOutlineItem(db.Model):
     __tablename__ = "shifu_draft_outline_items"
+    __table_args__ = (
+        Index(
+            "ix_shifu_draft_outline_items_shifu_outline_deleted_id",
+            "shifu_bid",
+            "outline_item_bid",
+            "deleted",
+            "id",
+        ),
+        {"comment": "Draft outline item version records"},
+    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     outline_item_bid = Column(
         String(32),
@@ -625,6 +652,12 @@ class PublishedShifu(db.Model):
     ask_llm_system_prompt = Column(
         Text, nullable=False, default="", comment="Ask agent LLM system prompt"
     )
+    ask_provider_config = Column(
+        Text,
+        nullable=False,
+        default="{}",
+        comment='Ask provider config JSON, e.g. {"provider":"llm","mode":"provider_then_llm","config":{}}',
+    )
     price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
 
     # TTS Configuration
@@ -638,10 +671,7 @@ class PublishedShifu(db.Model):
         String(32),
         nullable=False,
         default="",
-        comment=(
-            "TTS provider: minimax, volcengine, baidu, aliyun "
-            "(empty=use system default)"
-        ),
+        comment="TTS provider: minimax, volcengine, volcengine_http, baidu, aliyun",
     )
     tts_model = Column(
         String(64),
@@ -673,6 +703,15 @@ class PublishedShifu(db.Model):
         default="",
         comment="TTS emotion setting",
     )
+
+    # Language Output Configuration
+    use_learner_language = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Use learner language for output: 0=disabled (default), 1=enabled",
+    )
+
     deleted = Column(
         SmallInteger,
         nullable=False,

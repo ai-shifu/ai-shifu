@@ -35,7 +35,7 @@ class DummyApp:
 
 def test_order_init_lock_uses_prefixed_key(monkeypatch):
     dummy_redis = DummyRedis()
-    monkeypatch.setattr(order_funs, "redis_client", dummy_redis)
+    monkeypatch.setattr(order_funs, "cache_provider", dummy_redis)
     app = DummyApp(prefix="unit-test")
 
     with order_funs._order_init_lock(app, "user-1", "course-1"):
@@ -48,8 +48,12 @@ def test_order_init_lock_uses_prefixed_key(monkeypatch):
     assert dummy_redis.lock_instance.released == 1
 
 
-def test_order_init_lock_no_redis(monkeypatch):
-    monkeypatch.setattr(order_funs, "redis_client", None)
+def test_order_init_lock_skips_when_cache_provider_errors(monkeypatch):
+    class _BrokenCacheProvider:
+        def lock(self, *args, **kwargs):
+            raise RuntimeError("lock unavailable")
+
+    monkeypatch.setattr(order_funs, "cache_provider", _BrokenCacheProvider())
     app = DummyApp(prefix="unit-test")
 
     with order_funs._order_init_lock(app, "user-1", "course-1"):

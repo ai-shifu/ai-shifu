@@ -3,6 +3,7 @@
   "__flat__": {
     "defaultChapterName": "Untitled Chapter",
     "defaultLessonName": "Untitled Lesson",
+    "draftConflict": "Course content has been updated by another user",
     "importFileInvalid": "Import file is invalid",
     "noPermission": "No permission",
     "outlineDeleted": "Outline has been deleted",
@@ -10,8 +11,8 @@
     "outlineNameTooLong": "Outline name is too long",
     "outlineNotFound": "Outline not found",
     "parentOutlineNotFound": "Parent outline not found",
+    "permissionContactLimit": "Shared permissions exceed the limit ({count})",
     "shifuDescriptionTooLong": "Course description is too long (max 500 characters)",
-    "shifuNameAlreadyExists": "Course name already exists",
     "shifuNameRequired": "Course name is required",
     "shifuNameTooLong": "Course name is too long (max {max_length} characters)",
     "shifuNotFound": "Course not found",

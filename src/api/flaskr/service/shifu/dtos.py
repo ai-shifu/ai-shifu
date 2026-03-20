@@ -15,6 +15,7 @@ from flaskr.service.profile.dtos import (
     TextProfileDto,
     SelectProfileDto,
 )
+from typing import Any
 from pydantic import BaseModel, Field
 
 
@@ -86,6 +87,9 @@ class ShifuDetailDto(BaseModel):
     can_manage_archive: bool = Field(
         False, description="whether current user can archive/unarchive", required=False
     )
+    can_publish: bool = Field(
+        False, description="whether current user can publish", required=False
+    )
     created_user_bid: str = Field(
         "", description="owner user business id", required=False
     )
@@ -93,7 +97,7 @@ class ShifuDetailDto(BaseModel):
     tts_enabled: bool = Field(False, description="TTS enabled", required=False)
     tts_provider: str = Field(
         "",
-        description="TTS provider: minimax, volcengine, baidu, aliyun",
+        description="TTS provider: minimax, volcengine, volcengine_http, baidu, aliyun",
         required=False,
     )
     tts_model: str = Field("", description="TTS model/resource ID", required=False)
@@ -107,6 +111,36 @@ class ShifuDetailDto(BaseModel):
         required=False,
     )
     tts_emotion: str = Field("", description="TTS emotion setting", required=False)
+    use_learner_language: bool = Field(
+        False,
+        description="Use learner language for AI output",
+        required=False,
+    )
+    ask_enabled_status: int = Field(
+        5101,
+        description="Ask mode status: 5101=default, 5102=disabled, 5103=enabled",
+        required=False,
+    )
+    ask_model: str = Field(
+        "",
+        description="Ask model (maps to ask_llm)",
+        required=False,
+    )
+    ask_temperature: float = Field(
+        0.0,
+        description="Ask model temperature",
+        required=False,
+    )
+    ask_system_prompt: str = Field(
+        "",
+        description="Ask model system prompt",
+        required=False,
+    )
+    ask_provider_config: dict[str, Any] = Field(
+        default_factory=dict,
+        description='Ask provider config, e.g. {"provider":"llm","mode":"provider_then_llm","config":{}}',
+        required=False,
+    )
 
     def __init__(
         self,
@@ -124,6 +158,7 @@ class ShifuDetailDto(BaseModel):
         readonly: bool,
         archived: bool,
         can_manage_archive: bool = False,
+        can_publish: bool = False,
         created_user_bid: str = "",
         tts_enabled: bool = False,
         tts_provider: str = "",
@@ -132,6 +167,12 @@ class ShifuDetailDto(BaseModel):
         tts_speed: float = 1.0,
         tts_pitch: int = 0,
         tts_emotion: str = "",
+        use_learner_language: bool = False,
+        ask_enabled_status: int = 5101,
+        ask_model: str = "",
+        ask_temperature: float = 0.0,
+        ask_system_prompt: str = "",
+        ask_provider_config: dict[str, Any] | None = None,
     ):
         super().__init__(
             bid=shifu_id,
@@ -148,6 +189,7 @@ class ShifuDetailDto(BaseModel):
             readonly=readonly,
             archived=archived,
             can_manage_archive=can_manage_archive,
+            can_publish=can_publish,
             created_user_bid=created_user_bid or "",
             tts_enabled=tts_enabled,
             tts_provider=tts_provider,
@@ -156,6 +198,12 @@ class ShifuDetailDto(BaseModel):
             tts_speed=tts_speed,
             tts_pitch=tts_pitch,
             tts_emotion=tts_emotion,
+            use_learner_language=use_learner_language,
+            ask_enabled_status=ask_enabled_status,
+            ask_model=ask_model,
+            ask_temperature=ask_temperature,
+            ask_system_prompt=ask_system_prompt,
+            ask_provider_config=ask_provider_config or {},
         )
 
     def __json__(self):
@@ -174,6 +222,7 @@ class ShifuDetailDto(BaseModel):
             "readonly": self.readonly,
             "archived": self.archived,
             "can_manage_archive": self.can_manage_archive,
+            "can_publish": self.can_publish,
             "created_user_bid": self.created_user_bid,
             "tts_enabled": self.tts_enabled,
             "tts_provider": self.tts_provider,
@@ -182,6 +231,12 @@ class ShifuDetailDto(BaseModel):
             "tts_speed": self.tts_speed,
             "tts_pitch": self.tts_pitch,
             "tts_emotion": self.tts_emotion,
+            "use_learner_language": self.use_learner_language,
+            "ask_enabled_status": self.ask_enabled_status,
+            "ask_model": self.ask_model,
+            "ask_temperature": self.ask_temperature,
+            "ask_system_prompt": self.ask_system_prompt,
+            "ask_provider_config": self.ask_provider_config,
         }
 
 

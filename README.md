@@ -45,7 +45,7 @@ Make sure your machine has installed [Docker](https://docs.docker.com/get-docker
 git clone https://github.com/ai-shifu/ai-shifu.git
 cd ai-shifu/docker
 
-# Use Docker-ready defaults (matches bundled MySQL/Redis services)
+# Use Docker-ready defaults (matches bundled MySQL service; Redis is optional)
 cp .env.example.full .env
 
 # Only required change: edit .env and set at least one LLM API key
@@ -73,7 +73,7 @@ cp .env.example.full .env
 # Edit .env and customize as needed (only mandatory change is an LLM key):
 # - OPENAI_API_KEY / ERNIE_API_KEY / GLM_API_KEY / ...
 # - SQLALCHEMY_DATABASE_URI: Defaults to docker MySQL service
-# - REDIS_HOST: Defaults to docker Redis service
+# - REDIS_HOST: Optional; set to enable Redis caching/locks (leave empty to disable)
 # - SECRET_KEY: Defaults to a demo value; change for production (generate with: python -c "import secrets; print(secrets.token_urlsafe(32))")
 # - UNIVERSAL_VERIFICATION_CODE: Test verification code (remove/empty in production)
 # - Any other optional integrations
@@ -114,3 +114,13 @@ After Docker starts:
 - Shared translations live in `src/i18n/<locale>/**/*.json` and are consumed by both Backend and Cook Web.
 - See the consolidated guide for conventions, scripts, and CI checks: `docs/i18n.md`.
 - Frontend language list only exposes `en-US` and `zh-CN`.
+
+## Text-to-Speech (TTS)
+
+AI-Shifu supports multiple TTS providers. To enable Volcengine HTTP v1/tts, set:
+
+- `VOLCENGINE_TTS_APP_KEY` (AppID)
+- `VOLCENGINE_TTS_ACCESS_KEY` (Token used by `Authorization: Bearer;{token}`)
+- `VOLCENGINE_TTS_CLUSTER_ID` (Cluster, default: `volcano_tts`)
+
+In Shifu settings, select the provider name `volcengine_http` and choose a voice/model.

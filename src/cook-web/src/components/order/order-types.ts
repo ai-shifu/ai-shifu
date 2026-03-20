@@ -4,6 +4,7 @@ export type OrderSummary = {
   shifu_name: string;
   user_bid: string;
   user_mobile: string;
+  user_email: string;
   user_nickname: string;
   payable_price: string;
   paid_price: string;

@@ -55,6 +55,13 @@ class LearnGeneratedAudio(db.Model):
         comment="Generated block business identifier",
     )
 
+    position = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Audio segment position within a generated block (0-based)",
+    )
+
     progress_record_bid = Column(
         String(36),
         nullable=False,

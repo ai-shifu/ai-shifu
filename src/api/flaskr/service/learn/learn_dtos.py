@@ -39,6 +39,8 @@ class GeneratedType(Enum):
     # Audio types for TTS
     AUDIO_SEGMENT = "audio_segment"
     AUDIO_COMPLETE = "audio_complete"
+    # Listen-mode slide timeline event
+    NEW_SLIDE = "new_slide"
 
     def __json__(self):
         return self.value
@@ -135,6 +137,7 @@ class LearnShifuInfoDTO(BaseModel):
     keywords: list[str] = Field(..., description="shifu keywords", required=False)
     avatar: str = Field(..., description="shifu avatar", required=False)
     price: str = Field(..., description="shifu price", required=False)
+    tts_enabled: bool = Field(False, description="tts enabled", required=False)
 
     def __init__(
         self,
@@ -144,6 +147,7 @@ class LearnShifuInfoDTO(BaseModel):
         keywords: list[str],
         avatar: str,
         price: str,
+        tts_enabled: bool = False,
     ):
         super().__init__(
             bid=bid,
@@ -152,6 +156,7 @@ class LearnShifuInfoDTO(BaseModel):
             keywords=keywords,
             avatar=avatar,
             price=price,
+            tts_enabled=tts_enabled,
         )
 
     def __json__(self):
@@ -162,6 +167,7 @@ class LearnShifuInfoDTO(BaseModel):
             "keywords": self.keywords,
             "avatar": self.avatar,
             "price": self.price,
+            "tts_enabled": self.tts_enabled,
         }
 
 
@@ -280,6 +286,16 @@ class LearnOutlineItemsWithBannerInfoDTO(BaseModel):
 class AudioSegmentDTO(BaseModel):
     """DTO for streaming audio segment during TTS synthesis."""
 
+    position: int = Field(
+        default=0, description="Audio position within the block (0-based)"
+    )
+    slide_id: str | None = Field(
+        default=None,
+        description="Run-local slide identifier that this audio belongs to",
+    )
+    av_contract: Dict[str, Any] | None = Field(
+        default=None, description="AV boundary contract metadata"
+    )
     segment_index: int = Field(..., description="Segment sequence number")
     audio_data: str = Field(..., description="Base64-encoded audio data")
     duration_ms: int = Field(default=0, description="Segment duration in milliseconds")
@@ -293,8 +309,14 @@ class AudioSegmentDTO(BaseModel):
         audio_data: str,
         duration_ms: int = 0,
         is_final: bool = False,
+        position: int = 0,
+        slide_id: str | None = None,
+        av_contract: Dict[str, Any] | None = None,
     ):
         super().__init__(
+            position=position,
+            slide_id=slide_id,
+            av_contract=av_contract,
             segment_index=segment_index,
             audio_data=audio_data,
             duration_ms=duration_ms,
@@ -302,11 +324,75 @@ class AudioSegmentDTO(BaseModel):
         )
 
     def __json__(self):
-        return {
+        ret = {
+            "position": self.position,
             "segment_index": self.segment_index,
             "audio_data": self.audio_data,
             "duration_ms": self.duration_ms,
             "is_final": self.is_final,
+        }
+        if self.slide_id is not None:
+            ret["slide_id"] = self.slide_id
+        if self.av_contract is not None:
+            ret["av_contract"] = self.av_contract
+        return ret
+
+
+@register_schema_to_swagger
+class NewSlideDTO(BaseModel):
+    """DTO for listen-mode slide timeline items."""
+
+    slide_id: str = Field(..., description="Run-local slide identifier")
+    generated_block_bid: str = Field(..., description="Generated block identifier")
+    slide_index: int = Field(..., description="Monotonic index in slide timeline")
+    audio_position: int = Field(
+        default=0, description="Audio position within generated block (0-based)"
+    )
+    visual_kind: str = Field(..., description="Visual boundary kind")
+    segment_type: str = Field(..., description="Renderable segment type")
+    segment_content: str = Field(..., description="Renderable segment content")
+    source_span: List[int] = Field(
+        default_factory=list, description="Source span in raw content [start, end]"
+    )
+    is_placeholder: bool = Field(
+        default=False, description="Whether this slide is a placeholder slide"
+    )
+
+    def __init__(
+        self,
+        slide_id: str,
+        generated_block_bid: str,
+        slide_index: int,
+        audio_position: int = 0,
+        visual_kind: str = "",
+        segment_type: str = "",
+        segment_content: str = "",
+        source_span: Optional[List[int]] = None,
+        is_placeholder: bool = False,
+    ):
+        super().__init__(
+            slide_id=slide_id,
+            generated_block_bid=generated_block_bid,
+            slide_index=slide_index,
+            audio_position=audio_position,
+            visual_kind=visual_kind,
+            segment_type=segment_type,
+            segment_content=segment_content,
+            source_span=source_span or [],
+            is_placeholder=is_placeholder,
+        )
+
+    def __json__(self):
+        return {
+            "slide_id": self.slide_id,
+            "generated_block_bid": self.generated_block_bid,
+            "slide_index": self.slide_index,
+            "audio_position": self.audio_position,
+            "visual_kind": self.visual_kind,
+            "segment_type": self.segment_type,
+            "segment_content": self.segment_content,
+            "source_span": self.source_span,
+            "is_placeholder": self.is_placeholder,
         }
 
 
@@ -314,6 +400,16 @@ class AudioSegmentDTO(BaseModel):
 class AudioCompleteDTO(BaseModel):
     """DTO for completed TTS audio with OSS URL."""
 
+    position: int = Field(
+        default=0, description="Audio position within the block (0-based)"
+    )
+    slide_id: str | None = Field(
+        default=None,
+        description="Run-local slide identifier that this audio belongs to",
+    )
+    av_contract: Dict[str, Any] | None = Field(
+        default=None, description="AV boundary contract metadata"
+    )
     audio_url: str = Field(..., description="OSS URL of complete audio")
     audio_bid: str = Field(..., description="Audio business identifier")
     duration_ms: int = Field(..., description="Total audio duration in milliseconds")
@@ -323,19 +419,31 @@ class AudioCompleteDTO(BaseModel):
         audio_url: str,
         audio_bid: str,
         duration_ms: int,
+        position: int = 0,
+        slide_id: str | None = None,
+        av_contract: Dict[str, Any] | None = None,
     ):
         super().__init__(
+            position=position,
+            slide_id=slide_id,
+            av_contract=av_contract,
             audio_url=audio_url,
             audio_bid=audio_bid,
             duration_ms=duration_ms,
         )
 
     def __json__(self):
-        return {
+        ret = {
+            "position": self.position,
             "audio_url": self.audio_url,
             "audio_bid": self.audio_bid,
             "duration_ms": self.duration_ms,
         }
+        if self.slide_id is not None:
+            ret["slide_id"] = self.slide_id
+        if self.av_contract is not None:
+            ret["av_contract"] = self.av_contract
+        return ret
 
 
 @register_schema_to_swagger
@@ -346,7 +454,12 @@ class RunMarkdownFlowDTO(BaseModel):
     )
     type: GeneratedType = Field(..., description="generated type", required=False)
     content: Union[
-        str, VariableUpdateDTO, OutlineItemUpdateDTO, AudioSegmentDTO, AudioCompleteDTO
+        str,
+        VariableUpdateDTO,
+        OutlineItemUpdateDTO,
+        AudioSegmentDTO,
+        AudioCompleteDTO,
+        NewSlideDTO,
     ] = Field(..., description="generated content", required=True)
 
     def __init__(
@@ -360,6 +473,7 @@ class RunMarkdownFlowDTO(BaseModel):
             OutlineItemUpdateDTO,
             AudioSegmentDTO,
             AudioCompleteDTO,
+            NewSlideDTO,
         ],
     ):
         super().__init__(
@@ -392,6 +506,12 @@ class GeneratedBlockDTO(BaseModel):
     audio_url: Optional[str] = Field(
         default=None, description="TTS audio URL for this block"
     )
+    audios: Optional[List[AudioCompleteDTO]] = Field(
+        default=None, description="TTS audio segments for this block"
+    )
+    av_contract: Dict[str, Any] | None = Field(
+        default=None, description="AV boundary contract metadata"
+    )
 
     def __init__(
         self,
@@ -401,6 +521,8 @@ class GeneratedBlockDTO(BaseModel):
         block_type: BlockType,
         user_input: str,
         audio_url: Optional[str] = None,
+        audios: Optional[List[AudioCompleteDTO]] = None,
+        av_contract: Dict[str, Any] | None = None,
     ):
         super().__init__(
             generated_block_bid=generated_block_bid,
@@ -409,6 +531,8 @@ class GeneratedBlockDTO(BaseModel):
             block_type=block_type,
             user_input=user_input,
             audio_url=audio_url,
+            audios=audios,
+            av_contract=av_contract,
         )
 
     def __json__(self):
@@ -422,6 +546,13 @@ class GeneratedBlockDTO(BaseModel):
             ret["like_status"] = self.like_status.value
         if self.audio_url:
             ret["audio_url"] = self.audio_url
+        if self.audios:
+            ret["audios"] = [
+                audio.__json__() if isinstance(audio, BaseModel) else audio
+                for audio in self.audios
+            ]
+        if self.av_contract:
+            ret["av_contract"] = self.av_contract
         return ret
 
 
@@ -457,6 +588,10 @@ class PlaygroundPreviewRequest(BaseModel):
         ge=0.0,
         le=2.0,
         description="LLM temperature override used during preview",
+    )
+    visual_mode: bool = Field(
+        default=False,
+        description="Whether to enable MarkdownFlow visual mode for preview",
     )
 
     def get_document(self) -> str:
@@ -500,6 +635,7 @@ class PreviewSSEMessage(BaseModel):
         | PreviewTextEndSSEData
         | AudioSegmentDTO
         | AudioCompleteDTO
+        | NewSlideDTO
         | str
     )
 
@@ -515,18 +651,23 @@ class LearnRecordDTO(BaseModel):
         ..., description="generated blocks", required=False
     )
     interaction: str = Field(..., description="interaction", required=False)
+    slides: Optional[list[NewSlideDTO]] = Field(
+        default=None, description="Listen-mode slide timeline"
+    )
 
     def __init__(
         self,
         records: list[GeneratedBlockDTO],
         interaction: str,
+        slides: Optional[list[NewSlideDTO]] = None,
     ):
-        super().__init__(records=records, interaction=interaction)
+        super().__init__(records=records, interaction=interaction, slides=slides)
 
     def __json__(self):
         return {
             "records": self.records,
             "interaction": self.interaction,
+            **({"slides": self.slides} if self.slides is not None else {}),
         }
 
 

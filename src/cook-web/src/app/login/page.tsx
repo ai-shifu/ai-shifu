@@ -21,15 +21,15 @@ import { useTranslation } from 'react-i18next';
 import i18n, { browserLanguage, normalizeLanguage } from '@/i18n';
 import { environment } from '@/config/environment';
 import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
+import { PasswordLogin } from '@/components/auth/PasswordLogin';
 import { TermsCheckbox } from '@/components/TermsCheckbox';
 import { TermsConfirmDialog } from '@/components/auth/TermsConfirmDialog';
-import { useToast } from '@/hooks/useToast';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { useUserStore } from '@/store';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
 
-type LoginMethod = 'phone' | 'email' | 'google';
+type LoginMethod = 'phone' | 'email' | 'google' | 'password';
 
 export default function AuthPage() {
   const router = useRouter();
@@ -80,14 +80,16 @@ export default function AuthPage() {
   const isPhoneEnabled = normalizedMethods.includes('phone');
   const isEmailEnabled = normalizedMethods.includes('email');
   const isGoogleEnabled = normalizedMethods.includes('google');
+  const isPasswordEnabled = normalizedMethods.includes('password');
 
   const availableMethods = useMemo<LoginMethod[]>(() => {
     const methods: LoginMethod[] = [];
     if (isPhoneEnabled) methods.push('phone');
     if (isEmailEnabled) methods.push('email');
     if (isGoogleEnabled) methods.push('google');
+    if (isPasswordEnabled) methods.push('password');
     return methods;
-  }, [isEmailEnabled, isGoogleEnabled, isPhoneEnabled]);
+  }, [isEmailEnabled, isGoogleEnabled, isPhoneEnabled, isPasswordEnabled]);
 
   const initialLoginMethod = useMemo<LoginMethod>(() => {
     const normalizedDefault = defaultMethod as LoginMethod;
@@ -107,9 +109,7 @@ export default function AuthPage() {
   }, [initialLoginMethod]);
 
   const searchParams = useSearchParams();
-  const { toast } = useToast();
   const isInitialized = useUserStore(state => state.isInitialized);
-  const isLoggedIn = useUserStore(state => state.isLoggedIn);
 
   const resolveRedirectPath = useCallback(() => {
     const fallback = '/admin';
@@ -128,10 +128,22 @@ export default function AuthPage() {
     const redirectPath = resolveRedirectPath();
     return redirectPath.startsWith('/admin') ? 'admin' : 'default';
   }, [resolveRedirectPath]);
+  const courseIdFromRedirect = useMemo(() => {
+    const redirectPath = resolveRedirectPath();
+    const match = redirectPath.match(/^\/c\/([^/?#]+)/);
+    if (!match?.[1]) {
+      return '';
+    }
+    try {
+      return decodeURIComponent(match[1]);
+    } catch {
+      return match[1];
+    }
+  }, [resolveRedirectPath]);
 
-  const handleAuthSuccess = () => {
+  const handleAuthSuccess = useCallback(() => {
     router.replace(resolveRedirectPath());
-  };
+  }, [resolveRedirectPath, router]);
 
   const handleFeedback = () => {
     setAuthMode('feedback');
@@ -176,8 +188,8 @@ export default function AuthPage() {
         if (!isCancelled) {
           setLanguage(nextLanguage);
         }
-      } catch (error) {
-        console.error('Failed to change language', error);
+      } catch {
+        // Ignore language switch failures and keep previous language.
       }
     };
 
@@ -186,7 +198,7 @@ export default function AuthPage() {
     return () => {
       isCancelled = true;
     };
-  }, [browserLanguage, isInitialized, language, userInfo]);
+  }, [isInitialized, language, userInfo]);
 
   const handleManualLanguageChange = useCallback(
     async (value: string) => {
@@ -201,8 +213,8 @@ export default function AuthPage() {
       try {
         await i18n.changeLanguage(normalized);
         setLanguage(normalized);
-      } catch (error) {
-        console.error('Failed to change language', error);
+      } catch {
+        // Ignore manual language switch failures and keep current language.
       }
     },
     [language],
@@ -274,7 +286,7 @@ export default function AuthPage() {
         redirectPath: resolveRedirectPath(),
         language: language ?? undefined,
       });
-    } catch (error) {
+    } catch {
       setIsGoogleLoading(false);
     }
   }, [language, resolveRedirectPath, startGoogleLogin]);
@@ -311,6 +323,7 @@ export default function AuthPage() {
             <PhoneLogin
               onLoginSuccess={handleAuthSuccess}
               loginContext={loginContext}
+              courseId={courseIdFromRedirect || undefined}
             />
           );
         case 'email':
@@ -330,6 +343,13 @@ export default function AuthPage() {
               />
             </div>
           );
+        case 'password':
+          return (
+            <PasswordLogin
+              onLoginSuccess={handleAuthSuccess}
+              supportEmailIdentifier={isEmailEnabled}
+            />
+          );
         default:
           return null;
       }
@@ -340,6 +360,8 @@ export default function AuthPage() {
       googleTermsAccepted,
       isGoogleLoading,
       loginContext,
+      courseIdFromRedirect,
+      isEmailEnabled,
     ],
   );
 
@@ -445,7 +467,9 @@ export default function AuthPage() {
                                 ? t('module.auth.phone')
                                 : method === 'email'
                                   ? t('module.auth.email')
-                                  : t('module.auth.googleTab')}
+                                  : method === 'password'
+                                    ? t('module.auth.passwordTab')
+                                    : t('module.auth.googleTab')}
                             </TabsTrigger>
                           ))}
                         </TabsList>

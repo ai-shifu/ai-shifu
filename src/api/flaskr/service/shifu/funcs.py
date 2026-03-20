@@ -7,7 +7,8 @@ Author: yfge
 Date: 2025-08-07
 """
 
-from ...dao import redis_client as redis, db
+from flaskr.common.cache_provider import cache as redis
+from ...dao import db
 from .models import FavoriteScenario, AiCourseAuth
 from ..common.models import raise_error
 from flaskr.service.config import get_config
@@ -289,7 +290,9 @@ def shifu_permission_verification(
         else:
             # Collaborators need to verify specific permissions
             auth = AiCourseAuth.query.filter(
-                AiCourseAuth.course_id == shifu_id, AiCourseAuth.user_id == user_id
+                AiCourseAuth.course_id == shifu_id,
+                AiCourseAuth.user_id == user_id,
+                AiCourseAuth.status == 1,
             ).first()
             if auth:
                 try:

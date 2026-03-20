@@ -94,12 +94,13 @@ def app():
         return
     original_env = os.environ.copy()
     os.environ["SQLALCHEMY_DATABASE_URI"] = _test_db_uri
+    # Ensure plugin binds use SQLite in tests.
+    os.environ["SAAS_DB_URI"] = _test_db_uri
+    os.environ["ADMIN_DB_URI"] = _test_db_uri
     os.environ["SECRET_KEY"] = "test-secret-key"
     os.environ["UNIVERSAL_VERIFICATION_CODE"] = "9999"
     os.environ["DEFAULT_LLM_MODEL"] = "gpt-test"
     os.environ["OPENAI_API_KEY"] = "test-key"
-    os.environ["DIFY_API_KEY"] = "test-key"
-    os.environ["DIFY_URL"] = "https://example.com"
 
     from app import create_app
     from flask_migrate import upgrade
@@ -197,9 +198,34 @@ def isolate_env_for_non_app_tests(request):
     original = {key: os.environ.get(key) for key in ENV_VARS.keys()}
     for key in ENV_VARS.keys():
         os.environ.pop(key, None)
+
+    # Some tests monkeypatch env vars while a session-scoped Flask app has
+    # already initialized the enhanced config cache. Clear caches so get_config
+    # reflects per-test env changes.
+    from flaskr.common import config as config_module
+
+    try:
+        config_module.__ENHANCED_CONFIG__._cache.clear()
+    except Exception:
+        pass
+    try:
+        if config_module.__INSTANCE__ is not None:
+            config_module.__INSTANCE__.enhanced._cache.clear()
+    except Exception:
+        pass
     yield
     for key, value in original.items():
         if value is None:
             os.environ.pop(key, None)
         else:
             os.environ[key] = value
+
+    try:
+        config_module.__ENHANCED_CONFIG__._cache.clear()
+    except Exception:
+        pass
+    try:
+        if config_module.__INSTANCE__ is not None:
+            config_module.__INSTANCE__.enhanced._cache.clear()
+    except Exception:
+        pass

@@ -5,12 +5,137 @@
   "archiveConfirm": "归档后课程会被移动到“归档”，也可以恢复成“未归档”。归档状态下不影响课程的编辑和学习。",
   "archiveSuccess": "课程已归档",
   "archiveTitle": "是否归档课程",
+  "askModel": "追问模型",
+  "askPreview": "测试追问",
+  "askPreviewLoading": "测试中...",
+  "askPreviewQuestion": "测试问题",
+  "askPreviewQuestionPlaceholder": "输入一个问题来测试追问配置",
+  "askPreviewQuestionRequired": "请输入测试问题",
+  "askPreviewResult": "测试结果",
+  "askPreviewUsedFallback": "服务商 {provider} 调用失败，已回退到 LLM",
+  "askPreviewUsedProvider": "当前使用服务商：{provider}",
+  "askProviderConfigInvalidJson": "{field} 必须是合法 JSON 对象",
+  "askProviderConfigRequired": "{field} 为必填项",
+  "askProviderDescriptions": {
+    "coze": "使用 Coze Bot 对话接口处理追问。",
+    "coze_workflow": "使用 Coze 工作流运行接口处理追问。",
+    "dify": "使用 Dify 对话应用处理追问。",
+    "llm": "仅使用内置追问 LLM。",
+    "volc_knowledge": "使用火山引擎知识库检索接口处理追问。"
+  },
+  "askProviderFields": {
+    "coze": {
+      "api_key": {
+        "hint": "Coze 个人访问令牌。",
+        "label": "API 密钥"
+      },
+      "bot_id": {
+        "hint": "Coze Bot 标识。",
+        "label": "Bot ID"
+      }
+    },
+    "coze_workflow": {
+      "api_key": {
+        "hint": "Coze 个人访问令牌。",
+        "label": "API 密钥"
+      },
+      "workflow_id": {
+        "hint": "Coze 工作流标识。",
+        "label": "工作流 ID"
+      }
+    },
+    "dify": {
+      "api_key": {
+        "hint": "Dify 应用 API Key。",
+        "label": "API 密钥"
+      },
+      "base_url": {
+        "hint": "Dify 服务地址，例如 https://api.dify.ai/v1",
+        "label": "服务地址"
+      }
+    },
+    "volc_knowledge": {
+      "account_id": {
+        "hint": "用于 V-Account-Id 请求头的火山引擎账号 ID。",
+        "label": "账号 ID"
+      },
+      "ak": {
+        "hint": "火山引擎 Access Key。",
+        "label": "Access Key (AK)"
+      },
+      "collection_name": {
+        "hint": "知识库集合名称。",
+        "label": "知识库集合"
+      },
+      "sk": {
+        "hint": "火山引擎 Secret Key。",
+        "label": "Secret Key (SK)"
+      }
+    }
+  },
+  "askProviderModes": {
+    "provider_only": "仅服务商",
+    "provider_then_llm": "服务商优先，失败后回退 LLM"
+  },
+  "askProviderOptions": {
+    "coze": "Coze",
+    "coze_workflow": "Coze 工作流",
+    "dify": "Dify",
+    "llm": "LLM",
+    "volc_knowledge": "火山引擎知识库"
+  },
+  "askProviderSelect": "请选择服务商",
+  "askTemperature": "追问温度",
+  "askTemperatureHint": "设置追问回答的创造力（0-2）",
+  "askTitle": "追问设置",
+  "draftConflictDescription": "课程已被 {phone} 修改，请刷新网页获取最新记录",
+  "draftConflictRefresh": "刷新",
+  "draftConflictTitle": "课程已更新",
+  "draftConflictUnknownUser": "其他用户",
   "fileSizeLimit": "文件大小不能超过2MB",
   "imageFormatHint": "支持 JPG、PNG 格式，最大2MB，推荐长宽比为1:1",
   "inputKeywords": "输入关键词后回车",
   "keywords": "关键词",
   "learningUrl": "学习地址",
   "number": "数字",
+  "permissionContactRequired": "请输入至少一个账号",
+  "permissionCount": "已共享：{count}/{max}",
+  "permissionDialogTitle": "共享权限",
+  "permissionDuplicate": "账号已开通共享权限：{values}",
+  "permissionEdit": "编辑",
+  "permissionEditChangeItem": "{identifier}：{from} → {to}",
+  "permissionEditChangeTitle": "权限修改",
+  "permissionEditConfirmTitle": "确认保存修改？",
+  "permissionEditNoChanges": "暂无可保存的修改",
+  "permissionEditRemoveTitle": "将移除",
+  "permissionEditSuccess": "已保存权限修改",
+  "permissionEmailInvalid": "请输入正确的邮箱：{values}",
+  "permissionEmailLabel": "邮箱",
+  "permissionEmailPlaceholder": "输入邮箱，使用逗号或换行分隔",
+  "permissionEmpty": "暂无共享用户",
+  "permissionGrant": "开通",
+  "permissionGrantConfirmDesc": "将为以下{contactType}开通 <strong>{permission}</strong> 权限",
+  "permissionGrantConfirmTitle": "确认开通共享权限",
+  "permissionGrantSuccess": "开通成功",
+  "permissionLabel": "权限范围",
+  "permissionLimit": "最多可共享 {count} 个用户",
+  "permissionLoading": "加载中...",
+  "permissionManage": "管理",
+  "permissionOwnerNotAllowed": "不可为课程创作者本人开通权限",
+  "permissionPhoneInvalid": "请输入正确的手机号：{values}",
+  "permissionPhoneLabel": "手机号",
+  "permissionPhonePlaceholder": "输入手机号,支持批量开通共享权限",
+  "permissionPublish": "发布",
+  "permissionPublishHint": "发布包含编辑权限",
+  "permissionPublishHintWrapped": "（{hint}）",
+  "permissionReadOnly": "只读",
+  "permissionRemove": "移除",
+  "permissionRemoveUndo": "撤销移除",
+  "permissionRemoved": "已移除",
+  "permissionSectionDesc": "为其他用户开通本课程权限",
+  "permissionSectionTitle": "共享权限",
+  "permissionTabGrant": "开通权限",
+  "permissionTabList": "共享用户",
   "placeholder": "请输入",
   "previewUrl": "预览地址",
   "price": "价格",
@@ -23,7 +148,7 @@
   "shifuDescriptionMaxLength": "简介不能超过500个字符",
   "shifuName": "名称",
   "shifuNameEmpty": "名称不能为空",
-  "shifuNameMaxLength": "名称不能超过{{maxLength}}个字符",
+  "shifuNameMaxLength": "名称不能超过{maxLength}个字符",
   "shifuPriceEmpty": "价格不能为空",
   "shifuPriceFormat": "价格必须为有效数字格式",
   "shifuPrompt": "课程提示词",
@@ -48,9 +173,8 @@
   "ttsPreviewLoading": "加载中...",
   "ttsPreviewStop": "停止",
   "ttsProvider": "服务商",
-  "ttsProviderDefault": "使用系统默认",
-  "ttsProviderHint": "选择语音合成服务商，留空使用系统默认配置",
-  "ttsProviderRequiredDesc": "开启语音合成后请先选择语音服务商，不确定时可使用系统默认。",
+  "ttsProviderHint": "选择语音合成服务商",
+  "ttsProviderRequiredDesc": "开启语音合成后请先选择语音服务商。",
   "ttsProviderRequiredTitle": "请选择语音服务商",
   "ttsSelectEmotion": "选择情感",
   "ttsSelectModel": "选择模型",
@@ -66,5 +190,7 @@
   "unarchiveTitle": "是否取消归档",
   "upload": "上传",
   "uploadFailed": "上传失败，请稍后再试",
-  "uploading": "正在上传"
+  "uploading": "正在上传",
+  "useLearnerLanguageDescription": "开启后，AI会匹配学员选择的语言授课",
+  "useLearnerLanguageTitle": "自动翻译"
 }

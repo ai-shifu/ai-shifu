@@ -1,6 +1,7 @@
 import datetime
 import decimal
 import json
+import re
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
@@ -9,11 +10,6 @@ from flask import Flask
 from flaskr.service.config import get_config
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.i18n import _
-from flaskr.service.active import (
-    query_active_record,
-    query_and_join_active,
-    query_to_failure_active,
-)
 from flaskr.service.common.dtos import USER_STATE_PAID, USER_STATE_REGISTERED
 from flaskr.service.learn.learn_dtos import LearnShifuInfoDTO
 from flaskr.service.learn.learn_funcs import get_shifu_info
@@ -27,6 +23,11 @@ from flaskr.service.order.consts import (
 )
 from flaskr.service.order.query_discount import query_discount_record
 from flaskr.service.promo.consts import COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT
+from flaskr.service.promo.funcs import (
+    apply_promo_campaigns,
+    query_promo_campaign_applications,
+    void_promo_campaign_applications,
+)
 from flaskr.service.promo.models import Coupon, CouponUsage as CouponUsageModel
 from flaskr.service.user.models import UserConversion
 from flaskr.service.user.models import UserInfo as UserEntity
@@ -41,7 +42,8 @@ from flaskr.service.order.payment_providers.base import (
     PaymentRefundRequest,
 )
 from flaskr.util.uuid import generate_id as get_uuid
-from flaskr.dao import db, redis_client
+from flaskr.common.cache_provider import cache as cache_provider
+from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from flaskr.service.order.models import Order, PingxxOrder, StripeOrder
 import pytz
@@ -244,16 +246,14 @@ def _order_init_lock(app: Flask, user_id: str, course_id: str) -> Iterator[None]
     lock = None
     acquired = False
 
-    if redis_client is not None:
-        try:
-            prefix = app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
-            lock_key = f"{prefix}:order:init:{user_id}:{course_id}"
-            lock = redis_client.lock(lock_key, timeout=10, blocking_timeout=10)
-            if lock is not None:
-                acquired = lock.acquire(blocking=True)
-        except Exception:
-            lock = None
-            acquired = False
+    try:
+        prefix = app.config.get("REDIS_KEY_PREFIX", "ai-shifu")
+        lock_key = f"{prefix}:order:init:{user_id}:{course_id}"
+        lock = cache_provider.lock(lock_key, timeout=10, blocking_timeout=10)
+        acquired = bool(lock.acquire(blocking=True))
+    except Exception:
+        lock = None
+        acquired = False
 
     try:
         yield
@@ -275,7 +275,6 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
 
         with _order_init_lock(app, user_id, course_id):
             order_timeout_make_new_order = False
-            find_active_id = None
 
             # By default, each user should only have one unpaid order per course (shifu).
             # Unpaid orders are those in INIT or TO_BE_PAID status and not timed out.
@@ -295,12 +294,11 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
                     )
                 if order_timeout_make_new_order:
                     # Check if there are any coupons in the order. If there are, make them failure
-                    find_active_id = query_to_failure_active(
+                    void_promo_campaign_applications(
                         app, origin_record.user_bid, origin_record.order_bid
                     )
             else:
                 order_timeout_make_new_order = True
-                find_active_id = None
             if (
                 (not order_timeout_make_new_order)
                 and origin_record
@@ -320,10 +318,13 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             else:
                 buy_record = origin_record
                 order_id = origin_record.order_bid
-            if find_active_id:
-                active_id = find_active_id
-            active_records = query_and_join_active(
-                app, course_id, user_id, order_id, active_id
+            campaign_applications = apply_promo_campaigns(
+                app,
+                shifu_bid=course_id,
+                user_bid=user_id,
+                order_bid=order_id,
+                promo_bid=active_id,
+                payable_price=buy_record.payable_price,
             )
             price_items = []
             price_items.append(
@@ -336,20 +337,22 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
                 )
             )
             discount_value = decimal.Decimal(0.00)
-            if active_records:
-                for active_record in active_records:
+            if campaign_applications:
+                for campaign_application in campaign_applications:
                     discount_value = decimal.Decimal(discount_value) + decimal.Decimal(
-                        active_record.price
+                        campaign_application.discount_amount
                     )
                     price_items.append(
                         PayItemDto(
                             _("server.order.payItemPromotion"),
-                            active_record.active_name,
-                            active_record.price,
+                            campaign_application.promo_name,
+                            campaign_application.discount_amount,
                             True,
                             None,
                         )
                     )
+            if discount_value > buy_record.payable_price:
+                discount_value = buy_record.payable_price
             buy_record.paid_price = decimal.Decimal(
                 buy_record.payable_price
             ) - decimal.Decimal(discount_value)
@@ -701,6 +704,17 @@ def _normalize_pingxx_return_url(
     )
 
 
+def _sanitize_pingxx_text(
+    value: Optional[str], *, fallback: str, max_length: int
+) -> str:
+    text = (value or fallback or "").strip()
+    text = re.sub(r"[\r\n\t]+", " ", text)
+    text = re.sub(r"\s{2,}", " ", text).strip()
+    if not text:
+        text = fallback.strip() or "订单支付"
+    return text[:max_length]
+
+
 def _generate_pingxx_charge(
     *,
     app: Flask,
@@ -738,6 +752,23 @@ def _generate_pingxx_charge(
         raise_error("server.pay.payChannelNotSupport")
 
     provider_options["charge_extra"] = charge_extra
+    sanitized_subject = _sanitize_pingxx_text(
+        subject,
+        fallback=course.title or "订单支付",
+        max_length=32,
+    )
+    sanitized_body = _sanitize_pingxx_text(
+        body,
+        fallback=sanitized_subject,
+        max_length=128,
+    )
+    if sanitized_subject != (subject or "") or sanitized_body != (body or ""):
+        app.logger.info(
+            "Sanitized pingxx payment text for order=%s subject_changed=%s body_changed=%s",
+            order_no,
+            sanitized_subject != (subject or ""),
+            sanitized_body != (body or ""),
+        )
     payment_request = PaymentRequest(
         order_bid=order_no,
         user_bid=buy_record.user_bid,
@@ -745,8 +776,8 @@ def _generate_pingxx_charge(
         amount=amount,
         channel=channel,
         currency="cny",
-        subject=subject,
-        body=body,
+        subject=sanitized_subject,
+        body=sanitized_body,
         client_ip=client_ip,
         extra=provider_options,
     )
@@ -1326,7 +1357,7 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
         ).first()
         if not pingxx_order:
             return
-        lock = redis_client.lock(
+        lock = cache_provider.lock(
             "success_buy_record_from_pingxx" + charge_id,
             timeout=10,
             blocking_timeout=10,
@@ -1436,8 +1467,8 @@ class DiscountInfo:
 
 def calculate_discount_value(
     app: Flask,
-    price: str,
-    active_records: list,
+    price: decimal.Decimal,
+    campaign_applications: list,
     discount_records: list[CouponUsageModel],
 ) -> DiscountInfo:
     """
@@ -1445,14 +1476,14 @@ def calculate_discount_value(
     """
     discount_value = 0
     items = []
-    if active_records is not None and len(active_records) > 0:
-        for active_record in active_records:
-            discount_value += active_record.price
+    if campaign_applications is not None and len(campaign_applications) > 0:
+        for campaign_application in campaign_applications:
+            discount_value += campaign_application.discount_amount
             items.append(
                 PayItemDto(
                     _("server.order.payItemPromotion"),
-                    active_record.active_name,
-                    active_record.price,
+                    campaign_application.promo_name,
+                    campaign_application.discount_amount,
                     True,
                     None,
                 )
@@ -1502,12 +1533,17 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
             )
             recaul_discount = buy_record.status != ORDER_STATUS_SUCCESS
             if buy_record.payable_price > 0:
-                aitive_records = query_active_record(app, record_id, recaul_discount)
+                campaign_applications = query_promo_campaign_applications(
+                    app, record_id, recaul_discount
+                )
                 discount_records = query_discount_record(
                     app, record_id, recaul_discount
                 )
                 discount_info = calculate_discount_value(
-                    app, buy_record.payable_price, aitive_records, discount_records
+                    app,
+                    buy_record.payable_price,
+                    campaign_applications,
+                    discount_records,
                 )
                 if (
                     recaul_discount

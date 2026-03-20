@@ -3,6 +3,7 @@
   "adminTitle": "Admin",
   "all": "All",
   "archived": "Archived",
+  "brandName": "AI Shifu",
   "cancel": "Cancel",
   "close": "Close",
   "collapse": "Collapse",
@@ -43,5 +44,7 @@
   "submitFailed": "Submit failed",
   "submitting": "Submitting...",
   "unknownError": "Unknown error",
+  "unsupportedBrowserDescription": "Your current iOS version is not supported. Please upgrade to iOS 16.4 or later and try again.",
+  "unsupportedBrowserTitle": "Your iOS Version Is Not Supported",
   "waitingForCompletion": "Coming Soon"
 }

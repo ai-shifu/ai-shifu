@@ -7,6 +7,12 @@ import styles from './CourseCatalog.module.scss';
 import { cn } from '@/lib/utils';
 
 import { ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export const CourseCatalog = ({
   id = 0,
@@ -43,7 +49,21 @@ export const CourseCatalog = ({
         className={styles.titleRow}
         onClick={onTitleRowClick}
       >
-        <div className={styles.leftSection}>{name}</div>
+        <div className={styles.leftSection}>
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className={styles.leftSectionText}>{name}</span>
+              </TooltipTrigger>
+              <TooltipContent
+                side='top'
+                className='max-w-[260px] whitespace-pre-wrap break-words'
+              >
+                {name}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         <div className={styles.rightSection}>
           {collapse ? (
             <ChevronDownIcon className={styles.collapseBtn} />

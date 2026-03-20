@@ -69,7 +69,10 @@ def get_user_shifu_permissions(app: Flask, user_id: str) -> Dict[str, Set[str]]:
             if shifu_bid:
                 permission_map[shifu_bid] = set(DEFAULT_SHIFU_PERMISSIONS)
 
-        shared_auths = AiCourseAuth.query.filter(AiCourseAuth.user_id == user_id).all()
+        shared_auths = AiCourseAuth.query.filter(
+            AiCourseAuth.user_id == user_id,
+            AiCourseAuth.status == 1,
+        ).all()
         for auth in shared_auths:
             shifu_bid = auth.course_id
             if not shifu_bid or shifu_bid in permission_map:

@@ -58,6 +58,7 @@ export const SSE_OUTPUT_TYPE = {
   // Audio types for TTS
   AUDIO_SEGMENT: 'audio_segment',
   AUDIO_COMPLETE: 'audio_complete',
+  NEW_SLIDE: 'new_slide',
 } as const;
 export type SSE_OUTPUT_TYPE =
   (typeof SSE_OUTPUT_TYPE)[keyof typeof SSE_OUTPUT_TYPE];
@@ -70,6 +71,11 @@ export const SYS_INTERACTION_TYPE = {
 export type SysInteractionType =
   (typeof SYS_INTERACTION_TYPE)[keyof typeof SYS_INTERACTION_TYPE];
 
+export const LESSON_FEEDBACK_VARIABLE_NAME =
+  'sys_lesson_feedback_score' as const;
+export const LESSON_FEEDBACK_INTERACTION_MARKER =
+  `%{{${LESSON_FEEDBACK_VARIABLE_NAME}}}` as const;
+
 export interface StudyRecordItem {
   block_type: BlockType;
   content: string;
@@ -78,11 +84,14 @@ export interface StudyRecordItem {
   user_input?: string;
   isHistory?: boolean;
   audio_url?: string;
+  audios?: AudioCompleteData[];
+  av_contract?: Record<string, any> | null;
 }
 
 export interface LessonStudyRecords {
   mdflow: string;
   records: StudyRecordItem[];
+  slides?: ListenSlideData[];
 }
 
 export interface GetLessonStudyRecordParams {
@@ -115,24 +124,60 @@ export interface RunningResult {
   running_time: number;
 }
 
+export interface SubmitLessonFeedbackParams {
+  shifu_bid: string;
+  outline_bid: string;
+  score: number;
+  comment?: string;
+  mode?: 'read' | 'listen';
+}
+
+export interface SubmitLessonFeedbackResult {
+  lesson_feedback_bid: string;
+  shifu_bid: string;
+  outline_bid: string;
+  score: number;
+  comment: string;
+  mode: 'read' | 'listen';
+}
+
 // Audio types for TTS
 export interface AudioSegmentData {
   segment_index: number;
   audio_data: string; // Base64 encoded
   duration_ms: number;
   is_final: boolean;
+  position?: number;
+  slide_id?: string;
+  av_contract?: Record<string, any> | null;
 }
 
 export interface AudioCompleteData {
   audio_url: string;
   audio_bid: string;
   duration_ms: number;
+  position?: number;
+  slide_id?: string;
+  av_contract?: Record<string, any> | null;
+}
+
+export interface ListenSlideData {
+  slide_id: string;
+  generated_block_bid: string;
+  slide_index: number;
+  audio_position: number;
+  visual_kind: string;
+  segment_type: string;
+  segment_content: string;
+  source_span: number[];
+  is_placeholder: boolean;
 }
 
 export interface StreamGeneratedBlockAudioParams {
   shifu_bid: string;
   generated_block_bid: string;
   preview_mode?: boolean;
+  listen?: boolean;
   onMessage: (data: any) => void;
   onError?: (error: unknown) => void;
 }
@@ -141,8 +186,13 @@ export const getRunMessage = (
   shifu_bid: string,
   outline_bid: string,
   preview_mode: boolean,
-  body: { input: Record<string, any> | string; [key: string]: any },
+  body: {
+    input: Record<string, any> | string;
+    listen?: boolean;
+    [key: string]: any;
+  },
   onMessage: (data: any) => void,
+  onError?: (error: unknown) => void,
 ) => {
   const token = useUserStore.getState().getToken();
   const payload = { ...body };
@@ -188,6 +238,10 @@ export const getRunMessage = (
   });
 
   source.addEventListener('error', e => {
+    if (onError) {
+      onError(e);
+      return;
+    }
     console.error('[SSE error]', e);
   });
 
@@ -240,11 +294,12 @@ export const streamGeneratedBlockAudio = ({
   shifu_bid,
   generated_block_bid,
   preview_mode = false,
+  listen = false,
   onMessage,
   onError,
 }: StreamGeneratedBlockAudioParams) => {
   const baseURL = getResolvedBaseURL();
-  const url = `${baseURL}/api/learn/shifu/${shifu_bid}/generated-blocks/${generated_block_bid}/tts?preview_mode=${preview_mode}`;
+  const url = `${baseURL}/api/learn/shifu/${shifu_bid}/generated-blocks/${generated_block_bid}/tts?preview_mode=${preview_mode}&listen=${listen}`;
   return createSseSource(url, {}, onMessage, onError);
 };
 
@@ -296,4 +351,14 @@ export const checkIsRunning = async (
 ): Promise<RunningResult> => {
   const url = `/api/learn/shifu/${shifu_bid}/run/${outline_bid}`;
   return request.get(url);
+};
+
+export const submitLessonFeedback = async (
+  params: SubmitLessonFeedbackParams,
+): Promise<SubmitLessonFeedbackResult> => {
+  const { shifu_bid, outline_bid, ...payload } = params;
+  return request.post(
+    `/api/learn/shifu/${shifu_bid}/lesson-feedback/${outline_bid}`,
+    payload,
+  );
 };

@@ -69,19 +69,25 @@ export interface SystemStoreState {
   showVip: boolean;
   previewMode: boolean;
   skip: boolean;
+  learningMode: 'listen' | 'read';
+  showLearningModeToggle: boolean;
   updateLanguage: (language: string) => void;
   updateChannel: (channel: string) => void;
   updateWechatCode: (code: string) => void;
   setShowVip: (show: boolean) => void;
   updatePreviewMode: (mode: boolean) => void;
   updateSkip: (skip: boolean) => void;
+  updateLearningMode: (mode: 'listen' | 'read') => void;
+  updateShowLearningModeToggle: (show: boolean) => void;
 }
 
 export interface CourseStoreState {
   courseName: string;
   courseAvatar: string;
+  courseTtsEnabled: boolean | null;
   updateCourseAvatar: (avatar: string) => void;
   updateCourseName: (name: string) => void;
+  updateCourseTtsEnabled: (enabled: boolean | null) => void;
   lessonId: string | undefined;
   updateLessonId: (id: string) => void;
   chapterId: string;
@@ -89,8 +95,10 @@ export interface CourseStoreState {
   purchased: boolean;
   changePurchased: (purchased: boolean) => void;
   resetedChapterId: string | null;
+  resettingLessonId: string;
   resetedLessonId: string;
   updateResetedChapterId: (id: string) => void;
+  updateResettingLessonId: (id: string) => void;
   updateResetedLessonId: (id: string) => void;
   resetChapter: (id: string) => Promise<void>;
   payModalOpen: boolean;

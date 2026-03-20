@@ -7,7 +7,9 @@ Author: yfge
 Date: 2025-08-07
 """
 
-from typing import Optional
+from typing import Any, Optional
+import math
+import json
 
 from flask import Flask
 from ...dao import db
@@ -15,7 +17,15 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from datetime import datetime
 from .dtos import ShifuDto, ShifuDetailDto
 from ...util import generate_id
-from .consts import STATUS_DRAFT, SHIFU_NAME_MAX_LENGTH, UNIT_TYPE_GUEST
+from .consts import (
+    STATUS_DRAFT,
+    STATUS_PUBLISHED,
+    SHIFU_NAME_MAX_LENGTH,
+    UNIT_TYPE_GUEST,
+    ASK_MODE_DEFAULT,
+    ASK_MODE_DISABLE,
+    ASK_MODE_ENABLE,
+)
 from ..check_risk.funcs import check_text_with_risk_control
 from ..common.models import raise_error, raise_error_with_args, AppException
 from .utils import (
@@ -23,7 +33,7 @@ from .utils import (
     parse_shifu_res_bid,
     get_shifu_res_url_dict,
 )
-from .models import DraftShifu, FavoriteScenario, ShifuUserArchive
+from .models import DraftShifu, FavoriteScenario, ShifuUserArchive, PublishedShifu
 from .permissions import get_user_shifu_permissions
 from .shifu_history_manager import save_shifu_history
 from ..common.dtos import PageNationDTO
@@ -32,6 +42,75 @@ from .funcs import shifu_permission_verification
 from .shifu_outline_funcs import create_outline
 from flaskr.i18n import _
 from ..tts.validation import validate_tts_settings_strict
+
+ASK_PROVIDER_LLM = "llm"
+ASK_PROVIDER_DIFY = "dify"
+ASK_PROVIDER_COZE = "coze"
+ASK_PROVIDER_COZE_WORKFLOW = "coze_workflow"
+ASK_PROVIDER_VOLC_KNOWLEDGE = "volc_knowledge"
+ASK_PROVIDER_MODE_PROVIDER_ONLY = "provider_only"
+ASK_PROVIDER_MODE_PROVIDER_THEN_LLM = "provider_then_llm"
+
+SUPPORTED_ASK_PROVIDERS = {
+    ASK_PROVIDER_LLM,
+    ASK_PROVIDER_DIFY,
+    ASK_PROVIDER_COZE,
+    ASK_PROVIDER_COZE_WORKFLOW,
+    ASK_PROVIDER_VOLC_KNOWLEDGE,
+}
+SUPPORTED_ASK_PROVIDER_MODES = {
+    ASK_PROVIDER_MODE_PROVIDER_ONLY,
+    ASK_PROVIDER_MODE_PROVIDER_THEN_LLM,
+}
+SUPPORTED_ASK_ENABLED_STATUSES = {
+    ASK_MODE_DEFAULT,
+    ASK_MODE_DISABLE,
+    ASK_MODE_ENABLE,
+}
+
+
+def normalize_ask_provider_config(raw_config: Any) -> dict[str, Any]:
+    """
+    Normalize ask_provider_config into a stable object shape.
+    """
+    parsed: dict[str, Any] = {}
+    if isinstance(raw_config, dict):
+        parsed = raw_config
+    elif isinstance(raw_config, str):
+        trimmed = raw_config.strip()
+        if trimmed:
+            try:
+                loaded = json.loads(trimmed)
+                if isinstance(loaded, dict):
+                    parsed = loaded
+            except json.JSONDecodeError:
+                parsed = {}
+
+    provider = str(parsed.get("provider") or "").strip().lower()
+    if provider not in SUPPORTED_ASK_PROVIDERS:
+        provider = ASK_PROVIDER_LLM
+
+    mode = str(parsed.get("mode") or "").strip().lower()
+    if mode not in SUPPORTED_ASK_PROVIDER_MODES:
+        mode = ASK_PROVIDER_MODE_PROVIDER_ONLY
+
+    config = parsed.get("config", {})
+    if not isinstance(config, dict):
+        config = {}
+
+    return {
+        "provider": provider,
+        "mode": mode,
+        "config": config,
+    }
+
+
+def serialize_ask_provider_config(raw_config: Any) -> str:
+    """
+    Serialize ask_provider_config into canonical JSON for persistence.
+    """
+    normalized = normalize_ask_provider_config(raw_config)
+    return json.dumps(normalized, ensure_ascii=False, sort_keys=True)
 
 
 def get_latest_shifu_draft(shifu_id: str) -> DraftShifu:
@@ -59,6 +138,7 @@ def return_shifu_draft_dto(
     readonly: bool,
     archived_override: Optional[bool] = None,
     can_manage_archive: bool = False,
+    can_publish: bool = False,
 ) -> ShifuDetailDto:
     """
     Return shifu draft dto
@@ -78,8 +158,9 @@ def return_shifu_draft_dto(
     )
 
     stored_provider = getattr(shifu_draft, "tts_provider", "") or ""
-    if stored_provider == "default":
-        stored_provider = ""
+    ask_provider_config = normalize_ask_provider_config(
+        getattr(shifu_draft, "ask_provider_config", "")
+    )
 
     return ShifuDetailDto(
         shifu_id=shifu_draft.shifu_bid,
@@ -98,6 +179,7 @@ def return_shifu_draft_dto(
         readonly=readonly,
         archived=bool(archived_override) if archived_override is not None else False,
         can_manage_archive=can_manage_archive,
+        can_publish=can_publish,
         created_user_bid=shifu_draft.created_user_bid or "",
         tts_enabled=bool(shifu_draft.tts_enabled),
         tts_provider=stored_provider,
@@ -108,6 +190,14 @@ def return_shifu_draft_dto(
         else 1.0,
         tts_pitch=int(shifu_draft.tts_pitch) if shifu_draft.tts_pitch else 0,
         tts_emotion=shifu_draft.tts_emotion or "",
+        use_learner_language=bool(getattr(shifu_draft, "use_learner_language", 0)),
+        ask_enabled_status=int(
+            getattr(shifu_draft, "ask_enabled_status", ASK_MODE_DEFAULT)
+        ),
+        ask_model=getattr(shifu_draft, "ask_llm", "") or "",
+        ask_temperature=float(getattr(shifu_draft, "ask_llm_temperature", 0.0) or 0.0),
+        ask_system_prompt=getattr(shifu_draft, "ask_llm_system_prompt", "") or "",
+        ask_provider_config=ask_provider_config,
     )
 
 
@@ -165,14 +255,6 @@ def create_shifu_draft(
         if len(shifu_description) > 500:
             raise_error("server.shifu.shifuDescriptionTooLong")
 
-        # check if the name already exists
-        existing_shifu = (
-            DraftShifu.query.filter_by(title=shifu_name, deleted=0)
-            .order_by(DraftShifu.id.desc())
-            .first()
-        )
-        if existing_shifu:
-            raise_error("server.shifu.shifuNameAlreadyExists")
         # create a new DraftShifu object
         shifu_draft: DraftShifu = DraftShifu(
             shifu_bid=shifu_id,
@@ -281,7 +363,10 @@ def get_shifu_draft_info(
         has_edit_permission = shifu_permission_verification(
             app, user_id, shifu_id, "edit"
         )
-        readonly = not has_edit_permission
+        has_publish_permission = shifu_permission_verification(
+            app, user_id, shifu_id, "publish"
+        )
+        readonly = not (has_edit_permission or has_publish_permission)
         archive_map = _get_user_archive_map(app, user_id, [shifu_id])
         archived_override = archive_map.get(shifu_id)
         return return_shifu_draft_dto(
@@ -290,6 +375,7 @@ def get_shifu_draft_info(
             readonly,
             archived_override,
             can_manage_archive=has_view_permission,
+            can_publish=has_publish_permission,
         )
 
 
@@ -313,6 +399,12 @@ def save_shifu_draft_info(
     tts_speed: float = 1.0,
     tts_pitch: int = 0,
     tts_emotion: str = "",
+    use_learner_language: bool = False,
+    ask_enabled_status: int | None = None,
+    ask_model: str | None = None,
+    ask_temperature: float | None = None,
+    ask_system_prompt: str | None = None,
+    ask_provider_config: Any = None,
 ):
     """
     Save shifu draft info
@@ -330,12 +422,18 @@ def save_shifu_draft_info(
         shifu_system_prompt: Shifu system prompt
         base_url: Base URL to build shifu links
         tts_enabled: Whether TTS is enabled
-        tts_provider: TTS provider (minimax, volcengine, baidu, aliyun)
+        tts_provider: TTS provider (minimax, volcengine, volcengine_http, baidu, aliyun)
         tts_model: TTS model/resource ID
         tts_voice_id: TTS voice ID
         tts_speed: TTS speech speed
         tts_pitch: TTS pitch adjustment
         tts_emotion: TTS emotion setting
+        use_learner_language: Whether to use learner's language for AI output
+        ask_enabled_status: Ask mode status
+        ask_model: Ask model name
+        ask_temperature: Ask model temperature
+        ask_system_prompt: Ask model system prompt
+        ask_provider_config: Ask provider config object or JSON string
     Returns:
         ShifuDetailDto: Shifu detail dto
     """
@@ -365,7 +463,46 @@ def save_shifu_draft_info(
             raise_error("server.shifu.shifuDescriptionTooLong")
 
         shifu_draft = get_latest_shifu_draft(shifu_id)
+
+        if ask_enabled_status is None:
+            ask_enabled_status = (
+                int(shifu_draft.ask_enabled_status) if shifu_draft else ASK_MODE_DEFAULT
+            )
+        if ask_enabled_status not in SUPPORTED_ASK_ENABLED_STATUSES:
+            ask_enabled_status = ASK_MODE_DEFAULT
+
+        if ask_model is None:
+            ask_model = shifu_draft.ask_llm if shifu_draft else ""
+        ask_model = ask_model or ""
+
+        if ask_temperature is None:
+            ask_temperature = (
+                float(shifu_draft.ask_llm_temperature)
+                if shifu_draft and shifu_draft.ask_llm_temperature is not None
+                else 0.0
+            )
+
+        if ask_system_prompt is None:
+            ask_system_prompt = shifu_draft.ask_llm_system_prompt if shifu_draft else ""
+        ask_system_prompt = ask_system_prompt or ""
+
+        if ask_provider_config is None:
+            if shifu_draft:
+                serialized_ask_provider_config = (
+                    getattr(shifu_draft, "ask_provider_config", "{}") or "{}"
+                )
+            else:
+                serialized_ask_provider_config = "{}"
+        else:
+            serialized_ask_provider_config = serialize_ask_provider_config(
+                ask_provider_config
+            )
+
         min_shifu_price = get_config("MIN_SHIFU_PRICE")
+        if shifu_price is None and shifu_draft:
+            shifu_price = float(shifu_draft.price)
+        elif shifu_price is None:
+            shifu_price = min_shifu_price
         if shifu_price < min_shifu_price:
             raise_error_with_args(
                 "server.shifu.shifuPriceTooLow", min_shifu_price=min_shifu_price
@@ -381,6 +518,11 @@ def save_shifu_draft_info(
                 llm_temperature=shifu_temperature,
                 price=shifu_price,
                 llm_system_prompt=shifu_system_prompt if shifu_system_prompt else "",
+                ask_enabled_status=ask_enabled_status,
+                ask_llm=ask_model,
+                ask_llm_temperature=ask_temperature,
+                ask_llm_system_prompt=ask_system_prompt,
+                ask_provider_config=serialized_ask_provider_config,
                 tts_enabled=1 if tts_enabled else 0,
                 tts_provider=tts_provider or "",
                 tts_model=tts_model or "",
@@ -388,6 +530,7 @@ def save_shifu_draft_info(
                 tts_speed=tts_speed,
                 tts_pitch=tts_pitch,
                 tts_emotion=tts_emotion or "",
+                use_learner_language=1 if use_learner_language else 0,
                 deleted=0,
                 created_user_bid=user_id,
                 updated_user_bid=user_id,
@@ -407,6 +550,11 @@ def save_shifu_draft_info(
             new_shifu_draft.llm = shifu_model
             new_shifu_draft.llm_temperature = shifu_temperature
             new_shifu_draft.price = shifu_price
+            new_shifu_draft.ask_enabled_status = ask_enabled_status
+            new_shifu_draft.ask_llm = ask_model
+            new_shifu_draft.ask_llm_temperature = ask_temperature
+            new_shifu_draft.ask_llm_system_prompt = ask_system_prompt
+            new_shifu_draft.ask_provider_config = serialized_ask_provider_config
             new_shifu_draft.tts_enabled = 1 if tts_enabled else 0
             new_shifu_draft.tts_provider = tts_provider or ""
             new_shifu_draft.tts_model = tts_model or ""
@@ -414,6 +562,7 @@ def save_shifu_draft_info(
             new_shifu_draft.tts_speed = tts_speed
             new_shifu_draft.tts_pitch = tts_pitch
             new_shifu_draft.tts_emotion = tts_emotion or ""
+            new_shifu_draft.use_learner_language = 1 if use_learner_language else 0
             new_shifu_draft.updated_user_bid = user_id
             new_shifu_draft.updated_at = datetime.now()
             if shifu_system_prompt is not None:
@@ -431,8 +580,23 @@ def save_shifu_draft_info(
         has_edit_permission = shifu_permission_verification(
             app, user_id, shifu_id, "edit"
         )
-        readonly = not has_edit_permission
-        return return_shifu_draft_dto(shifu_draft, base_url, readonly)
+        has_view_permission = shifu_permission_verification(
+            app, user_id, shifu_id, "view"
+        )
+        has_publish_permission = shifu_permission_verification(
+            app, user_id, shifu_id, "publish"
+        )
+        readonly = not (has_edit_permission or has_publish_permission)
+        archive_map = _get_user_archive_map(app, user_id, [shifu_id])
+        archived_override = archive_map.get(shifu_id)
+        return return_shifu_draft_dto(
+            shifu_draft,
+            base_url,
+            readonly,
+            archived_override,
+            can_manage_archive=has_view_permission,
+            can_publish=has_publish_permission,
+        )
 
 
 def get_shifu_draft_list(
@@ -460,7 +624,6 @@ def get_shifu_draft_list(
     with app.app_context():
         page_index = max(page_index, 1)
         page_size = max(page_size, 1)
-        page_offset = (page_index - 1) * page_size
 
         if creator_only:
             shifu_bids = get_user_created_shifu_bids(app, user_id)
@@ -482,7 +645,7 @@ def get_shifu_draft_list(
         shifu_drafts: list[DraftShifu] = (
             db.session.query(DraftShifu)
             .filter(DraftShifu.id.in_(latest_subquery))
-            .order_by(DraftShifu.title.asc())
+            .order_by(DraftShifu.title.asc(), DraftShifu.shifu_bid.asc())
             .all()
         )
 
@@ -510,6 +673,9 @@ def get_shifu_draft_list(
         ]
 
         total = len(filtered_shifus)
+        page_count = math.ceil(total / page_size) if page_size > 0 else 0
+        safe_page_index = min(page_index, max(page_count, 1))
+        page_offset = (safe_page_index - 1) * page_size
         shifu_drafts = filtered_shifus[page_offset : page_offset + page_size]
 
         app.logger.debug(
@@ -533,7 +699,7 @@ def get_shifu_draft_list(
             )
             for shifu_draft in shifu_drafts
         ]
-        return PageNationDTO(page_index, page_size, total, shifu_dtos)
+        return PageNationDTO(safe_page_index, page_size, total, shifu_dtos)
 
 
 def get_user_created_shifu_bids(app: Flask, user_id: str) -> list[str]:
@@ -549,6 +715,81 @@ def get_user_created_shifu_bids(app: Flask, user_id: str) -> list[str]:
             .all()
         )
         return [row[0] for row in rows if row and row[0]]
+
+
+def get_user_created_published_shifu_bids(app: Flask, user_id: str) -> list[str]:
+    """Return published shifu bids created by the specified user."""
+    with app.app_context():
+        rows = (
+            db.session.query(PublishedShifu.shifu_bid)
+            .filter(
+                PublishedShifu.created_user_bid == user_id,
+                PublishedShifu.deleted == 0,
+            )
+            .distinct()
+            .all()
+        )
+        return [row[0] for row in rows if row and row[0]]
+
+
+def get_shifu_published_list(
+    app,
+    user_id: str,
+    page_index: int,
+    page_size: int,
+    creator_only: bool = True,
+):
+    """Get published shifu list."""
+    with app.app_context():
+        page_index = max(page_index, 1)
+        page_size = max(page_size, 1)
+
+        if creator_only:
+            shifu_bids = get_user_created_published_shifu_bids(app, user_id)
+        else:
+            permission_map = get_user_shifu_permissions(app, user_id)
+            shifu_bids = list(permission_map.keys())
+        if not shifu_bids:
+            return PageNationDTO(page_index, page_size, 0, [])
+
+        latest_subquery = (
+            db.session.query(db.func.max(PublishedShifu.id))
+            .filter(
+                PublishedShifu.shifu_bid.in_(shifu_bids),
+                PublishedShifu.deleted == 0,
+            )
+            .group_by(PublishedShifu.shifu_bid)
+        ).subquery()
+
+        base_query = (
+            db.session.query(PublishedShifu)
+            .filter(PublishedShifu.id.in_(latest_subquery))
+            .order_by(PublishedShifu.title.asc(), PublishedShifu.shifu_bid.asc())
+        )
+
+        total = base_query.order_by(None).count()
+        page_count = math.ceil(total / page_size) if page_size > 0 else 0
+        safe_page_index = min(page_index, max(page_count, 1))
+        page_offset = (safe_page_index - 1) * page_size
+        shifus: list[PublishedShifu] = (
+            base_query.limit(page_size).offset(page_offset).all()
+        )
+
+        res_bids = [shifu.avatar_res_bid for shifu in shifus]
+        res_url_map = get_shifu_res_url_dict(res_bids)
+        shifu_dtos = [
+            ShifuDto(
+                shifu.shifu_bid,
+                shifu.title,
+                shifu.description,
+                res_url_map.get(shifu.avatar_res_bid, ""),
+                STATUS_PUBLISHED,
+                False,
+                False,
+            )
+            for shifu in shifus
+        ]
+        return PageNationDTO(safe_page_index, page_size, total, shifu_dtos)
 
 
 def _set_shifu_archive_state(app, user_id: str, shifu_id: str, archived: bool):
@@ -658,5 +899,20 @@ def save_shifu_draft_detail(
             has_edit_permission = shifu_permission_verification(
                 app, user_id, shifu_id, "edit"
             )
-            readonly = not has_edit_permission
-            return return_shifu_draft_dto(new_shifu, base_url, readonly)
+            has_view_permission = shifu_permission_verification(
+                app, user_id, shifu_id, "view"
+            )
+            has_publish_permission = shifu_permission_verification(
+                app, user_id, shifu_id, "publish"
+            )
+            readonly = not (has_edit_permission or has_publish_permission)
+            archive_map = _get_user_archive_map(app, user_id, [shifu_id])
+            archived_override = archive_map.get(shifu_id)
+            return return_shifu_draft_dto(
+                new_shifu,
+                base_url,
+                readonly,
+                archived_override,
+                can_manage_archive=has_view_permission,
+                can_publish=has_publish_permission,
+            )

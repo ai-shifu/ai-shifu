@@ -15,7 +15,7 @@ export const FRAME_LAYOUT_MOBILE = 10;
  */
 export const FRAME_LAYOUT_PC_WIDTH = 1080;
 export const FRAME_LAYOUT_PAD_INTENSIVE_WIDTH = 800;
-export const FRAME_LAYOUT_MOBILE_WIDTH = 430;
+export const FRAME_LAYOUT_MOBILE_WIDTH = 480;
 
 export const calcFrameLayout = selector => {
   const elem = document.querySelector(selector);
@@ -49,6 +49,11 @@ export const inWechat = () => {
   const isWeixin = !isWXWork && /MicroMessenger/i.test(ua);
 
   return isWeixin;
+};
+
+export const inMiniProgram = () => {
+  if (typeof navigator === 'undefined') return false;
+  return /miniprogram/i.test(navigator.userAgent);
 };
 
 // Redirect to the WeChat login flow

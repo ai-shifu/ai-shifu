@@ -17,7 +17,7 @@ def test_init_buy_record_creates_order(app, monkeypatch):
         lambda _app, _bid, _preview: SimpleNamespace(price=Decimal("100.00")),
     )
     monkeypatch.setattr(
-        order_funs, "query_and_join_active", lambda *_args, **_kwargs: []
+        order_funs, "apply_promo_campaigns", lambda *_args, **_kwargs: []
     )
 
     result = init_buy_record(app, "user-order-1", "course-order-1")

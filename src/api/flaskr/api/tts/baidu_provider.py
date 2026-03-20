@@ -15,6 +15,7 @@ import hashlib
 from typing import Optional, List
 
 from flaskr.common.config import get_config
+from flaskr.common.log import AppLoggerProxy
 from flaskr.api.tts.base import (
     BaseTTSProvider,
     TTSResult,
@@ -25,7 +26,7 @@ from flaskr.api.tts.base import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = AppLoggerProxy(logging.getLogger(__name__))
 
 # Baidu TTS API endpoints
 BAIDU_TTS_API_URL = "https://tsn.baidu.com/text2audio"

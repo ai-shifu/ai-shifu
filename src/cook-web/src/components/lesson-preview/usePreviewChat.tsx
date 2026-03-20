@@ -16,7 +16,11 @@ import {
   fixMarkdownStream,
   maskIncompleteMermaidBlock,
 } from '@/c-utils/markdownUtils';
-import { upsertAudioComplete, upsertAudioSegment } from '@/c-utils/audio-utils';
+import {
+  getAudioTrackByPosition,
+  upsertAudioComplete,
+  upsertAudioSegment,
+} from '@/c-utils/audio-utils';
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import { useShifu, useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
@@ -41,6 +45,7 @@ interface StartPreviewParams {
   block_index?: number;
   max_block_count?: number;
   systemVariableKeys?: string[];
+  visual_mode?: boolean;
 }
 
 enum PREVIEW_SSE_OUTPUT_TYPE {
@@ -575,6 +580,7 @@ export function usePreviewChat() {
       variables,
       max_block_count,
       systemVariableKeys,
+      visual_mode = false,
     }: StartPreviewParams) => {
       const normalizedUserInput =
         user_input &&
@@ -594,6 +600,7 @@ export function usePreviewChat() {
         variables,
         max_block_count,
         systemVariableKeys,
+        visual_mode,
       };
       const {
         shifuBid: finalShifuBid,
@@ -602,6 +609,7 @@ export function usePreviewChat() {
         block_index: finalBlockIndex = 0,
         variables: finalVariables = {},
         max_block_count: finalMaxBlockCount,
+        visual_mode: finalVisualMode = false,
       } = mergedParams;
       sseParams.current = mergedParams;
       setVariablesSnapshot(buildVariablesSnapshot(finalVariables));
@@ -654,6 +662,7 @@ export function usePreviewChat() {
           block_index: finalBlockIndex,
           content: finalMdflow,
           variables: finalVariables,
+          visual_mode: finalVisualMode,
         };
         if (normalizedUserInput) {
           payload.user_input = normalizedUserInput;
@@ -994,11 +1003,14 @@ export function usePreviewChat() {
       const existingItem = contentListRef.current.find(
         item => item.generated_block_bid === blockId,
       );
-      if (existingItem?.audioUrl && !existingItem.isAudioStreaming) {
+      const cachedTrack = getAudioTrackByPosition(
+        existingItem?.audioTracks ?? [],
+      );
+      if (cachedTrack?.audioUrl && !cachedTrack.isAudioStreaming) {
         return {
-          audio_url: existingItem.audioUrl,
+          audio_url: cachedTrack.audioUrl,
           audio_bid: '',
-          duration_ms: existingItem.audioDurationMs ?? 0,
+          duration_ms: cachedTrack.durationMs ?? 0,
         };
       }
 
@@ -1014,7 +1026,7 @@ export function usePreviewChat() {
             }
             return {
               ...item,
-              audioSegments: [],
+              audioTracks: [],
               audioUrl: undefined,
               audioDurationMs: undefined,
               isAudioStreaming: true,
@@ -1022,7 +1034,7 @@ export function usePreviewChat() {
           }),
           blockId,
           {
-            audioSegments: [],
+            audioTracks: [],
             audioUrl: undefined,
             audioDurationMs: undefined,
             isAudioStreaming: true,

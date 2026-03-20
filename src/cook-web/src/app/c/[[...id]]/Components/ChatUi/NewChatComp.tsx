@@ -1,5 +1,5 @@
 import styles from './ChatComponents.module.scss';
-import { ChevronsDown } from 'lucide-react';
+import { ChevronsDown, Loader2, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import {
   useContext,
@@ -8,6 +8,7 @@ import {
   useCallback,
   useState,
   useEffect,
+  useMemo,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -18,13 +19,23 @@ import { useTracking } from '@/c-common/hooks/useTracking';
 import { useEnvStore } from '@/c-store/envStore';
 import { useUserStore } from '@/store';
 import { useCourseStore } from '@/c-store/useCourseStore';
-import { toast } from '@/hooks/useToast';
+import { fail, toast } from '@/hooks/useToast';
+import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import InteractionBlock from './InteractionBlock';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import type { ChatContentItem } from './useChatLogicHook';
 import AskBlock from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
+import ListenModeRenderer from './ListenModeRenderer';
+import LessonFeedbackInteraction from './LessonFeedbackInteraction';
+import LoadingBar from './LoadingBar';
+import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import {
+  getAudioTrackByPosition,
+  hasAudioContentInTrack,
+} from '@/c-utils/audio-utils';
+import { stripCustomButtonAfterContent } from './chatUiUtils';
 import {
   Dialog,
   DialogContent,
@@ -33,6 +44,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
+import { useSystemStore } from '@/c-store/useSystemStore';
 
 export const NewChatComponents = ({
   className,
@@ -40,11 +52,15 @@ export const NewChatComponents = ({
   onGoChapter,
   chapterId,
   lessonId,
+  lessonTitle = '',
+  lessonStatus = '',
   onPurchased,
   chapterUpdate,
   updateSelectedLesson,
   getNextLessonId,
   previewMode = false,
+  isNavOpen = false,
+  onListenPlayerVisibilityChange,
 }) => {
   const { trackEvent, trackTrailProgress } = useTracking();
   const { t } = useTranslation();
@@ -74,11 +90,14 @@ export const NewChatComponents = ({
     appendMsg: () => {},
     deleteMsg: () => {},
   });
+
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   // const { scrollToBottom } = useAutoScroll(chatRef as any, {
   //   threshold: 120,
   // });
 
   const [showScrollDown, setShowScrollDown] = useState(false);
+  const listenTtsToastShownRef = useRef(false);
 
   const scrollToBottom = useCallback(() => {
     chatBoxBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -127,12 +146,25 @@ export const NewChatComponents = ({
     });
   }, [isNearBottom, mobileStyle]);
 
-  const { openPayModal, payModalResult } = useCourseStore(
-    useShallow(state => ({
-      openPayModal: state.openPayModal,
-      payModalResult: state.payModalResult,
-    })),
-  );
+  const { openPayModal, payModalResult, resetedLessonId, resettingLessonId } =
+    useCourseStore(
+      useShallow(state => ({
+        openPayModal: state.openPayModal,
+        payModalResult: state.payModalResult,
+        resetedLessonId: state.resetedLessonId,
+        resettingLessonId: state.resettingLessonId,
+      })),
+    );
+  const shouldShowResetLoading =
+    mobileStyle &&
+    (resettingLessonId === lessonId || resetedLessonId === lessonId);
+  const learningMode = useSystemStore(state => state.learningMode);
+  const isListenMode = learningMode === 'listen';
+  const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
+  const isListenModeAvailable = courseTtsEnabled !== false;
+  const isListenModeActive = isListenMode && isListenModeAvailable;
+  const shouldShowAudioAction = previewMode || isListenModeActive;
+  const { requestExclusive, releaseExclusive } = useExclusiveAudio();
 
   const onPayModalOpen = useCallback(() => {
     openPayModal();
@@ -152,6 +184,49 @@ export const NewChatComponents = ({
     likeStatus: null as any,
   });
   const [longPressedBlockBid, setLongPressedBlockBid] = useState<string>('');
+  const dismissMobileInteraction = useCallback(() => {
+    setMobileInteraction(prev => {
+      if (!prev.open) {
+        return prev;
+      }
+      return { ...prev, open: false };
+    });
+    setLongPressedBlockBid('');
+  }, []);
+
+  // Streaming TTS sequential playback (auto-play next block)
+  const autoPlayAudio = isListenModeActive;
+  const [currentPlayingBlockBid, setCurrentPlayingBlockBid] = useState<
+    string | null
+  >(null);
+  const currentPlayingBlockBidRef = useRef<string | null>(null);
+  const playedBlocksRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    currentPlayingBlockBidRef.current = currentPlayingBlockBid;
+  }, [currentPlayingBlockBid]);
+
+  useEffect(() => {
+    if (isListenModeActive) {
+      return;
+    }
+    requestExclusive(() => {});
+    releaseExclusive();
+    currentPlayingBlockBidRef.current = null;
+    setCurrentPlayingBlockBid(null);
+  }, [isListenModeActive, releaseExclusive, requestExclusive]);
+
+  useEffect(() => {
+    if (!isListenMode || isListenModeAvailable) {
+      listenTtsToastShownRef.current = false;
+      return;
+    }
+    if (listenTtsToastShownRef.current) {
+      return;
+    }
+    fail(t('module.chat.listenModeTtsDisabled'));
+    listenTtsToastShownRef.current = true;
+  }, [isListenMode, isListenModeAvailable, t]);
 
   const {
     items,
@@ -160,6 +235,8 @@ export const NewChatComponents = ({
     onRefresh,
     toggleAskExpanded,
     reGenerateConfirm,
+    requestAudioForBlock,
+    lessonFeedbackPopup,
   } = useChatLogicHook({
     onGoChapter,
     shifuBid,
@@ -167,6 +244,7 @@ export const NewChatComponents = ({
     lessonId,
     chapterId,
     previewMode,
+    isListenMode: isListenModeActive,
     trackEvent,
     chatBoxBottomRef,
     trackTrailProgress,
@@ -179,6 +257,116 @@ export const NewChatComponents = ({
     showOutputInProgressToast,
     onPayModalOpen,
   });
+
+  useEffect(() => {
+    if (isListenModeActive && !isLoading) {
+      return;
+    }
+    onListenPlayerVisibilityChange?.(false);
+  }, [isListenModeActive, isLoading, onListenPlayerVisibilityChange]);
+
+  const listenModeItems = useMemo(() => {
+    if (!isListenModeActive || !mobileStyle) {
+      return items;
+    }
+    let hasChanges = false;
+    const nextItems = items.map(item => {
+      if (item.type !== ChatContentItemType.CONTENT) {
+        return item;
+      }
+      const sanitizedContent = stripCustomButtonAfterContent(item.content);
+      if (sanitizedContent === item.content) {
+        return item;
+      }
+      hasChanges = true;
+      return {
+        ...item,
+        content: sanitizedContent ?? '',
+      };
+    });
+    return hasChanges ? nextItems : items;
+  }, [isListenModeActive, items, mobileStyle]);
+
+  const itemByGeneratedBid = useMemo(() => {
+    const mapping = new Map<string, ChatContentItem>();
+    items.forEach(item => {
+      if (item.generated_block_bid) {
+        mapping.set(item.generated_block_bid, item);
+      }
+    });
+    return mapping;
+  }, [items]);
+
+  const handleAudioPlayStateChange = useCallback(
+    (blockBid: string, isPlaying: boolean) => {
+      if (!isPlaying) {
+        return;
+      }
+      currentPlayingBlockBidRef.current = blockBid;
+      setCurrentPlayingBlockBid(blockBid);
+    },
+    [],
+  );
+
+  const handleAudioEnded = useCallback((blockBid: string) => {
+    if (currentPlayingBlockBidRef.current !== blockBid) {
+      return;
+    }
+    playedBlocksRef.current.add(blockBid);
+    currentPlayingBlockBidRef.current = null;
+    setCurrentPlayingBlockBid(null);
+  }, []);
+
+  useEffect(() => {
+    playedBlocksRef.current.clear();
+    currentPlayingBlockBidRef.current = null;
+    setCurrentPlayingBlockBid(null);
+  }, [lessonId]);
+
+  const autoPlayTargetBlockBid = useMemo(() => {
+    if (!autoPlayAudio || previewMode) {
+      return null;
+    }
+
+    if (currentPlayingBlockBid) {
+      return currentPlayingBlockBid;
+    }
+
+    for (const item of items) {
+      if (item.type !== ChatContentItemType.CONTENT) {
+        continue;
+      }
+      if (item.isHistory) {
+        continue;
+      }
+      const blockBid = item.generated_block_bid;
+      if (!blockBid || blockBid === 'loading') {
+        continue;
+      }
+      if (playedBlocksRef.current.has(blockBid)) {
+        continue;
+      }
+      const primaryTrack = getAudioTrackByPosition(item.audioTracks ?? []);
+      if (!hasAudioContentInTrack(primaryTrack)) {
+        continue;
+      }
+      return blockBid;
+    }
+
+    return null;
+  }, [autoPlayAudio, currentPlayingBlockBid, items, previewMode]);
+
+  const mobileInteractionPrimaryTrack = useMemo(
+    () =>
+      getAudioTrackByPosition(
+        itemByGeneratedBid.get(mobileInteraction.generatedBlockBid)
+          ?.audioTracks ?? [],
+      ),
+    [itemByGeneratedBid, mobileInteraction.generatedBlockBid],
+  );
+
+  // Memoize onSend to prevent new function references
+  const memoizedOnSend = useCallback(onSend, [onSend]);
 
   const handleLongPress = useCallback(
     (event: any, currentBlock: ChatContentItem) => {
@@ -209,44 +397,98 @@ export const NewChatComponents = ({
     [items],
   );
 
-  // Close interaction popover when scrolling
+  useEffect(() => {
+    if (!mobileStyle) {
+      dismissMobileInteraction();
+    }
+  }, [dismissMobileInteraction, mobileStyle]);
+
+  // Close mobile interaction popover on outside interaction or page context changes.
   useEffect(() => {
     if (!mobileStyle || !mobileInteraction.open) {
       return;
     }
 
-    const handleScroll = () => {
-      // Close popover and clear selection when scrolling
-      setMobileInteraction(prev => ({ ...prev, open: false }));
-      setLongPressedBlockBid('');
+    const isInsideMobileInteractionPopover = (target: EventTarget | null) => {
+      if (!(target instanceof Node)) {
+        return false;
+      }
+      const element =
+        target instanceof Element ? target : (target.parentElement ?? null);
+      return Boolean(
+        element?.closest('[data-mobile-interaction-popover="true"]'),
+      );
     };
 
-    // Try to find the actual scrolling container
-    // Check current element, parent, and window
+    const handleOutsidePointerDown = (event: Event) => {
+      if (isInsideMobileInteractionPopover(event.target)) {
+        return;
+      }
+      dismissMobileInteraction();
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      if (isInsideMobileInteractionPopover(event.target)) {
+        return;
+      }
+      dismissMobileInteraction();
+    };
+
+    const handleScroll = () => {
+      dismissMobileInteraction();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        dismissMobileInteraction();
+      }
+    };
+
+    const handlePageHide = () => {
+      dismissMobileInteraction();
+    };
+
+    const handleWindowBlur = () => {
+      dismissMobileInteraction();
+    };
+
     const chatContainer = chatRef.current;
     const parentContainer = chatContainer?.parentElement;
 
-    // Add listeners to multiple possible scroll containers
-    const listeners: Array<{
-      element: EventTarget;
-      handler: typeof handleScroll;
-    }> = [];
-
-    // Listen to parent container
+    document.addEventListener('pointerdown', handleOutsidePointerDown, true);
+    document.addEventListener('touchmove', handleTouchMove, {
+      capture: true,
+      passive: true,
+    });
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('scroll', handleScroll, {
+      capture: true,
+      passive: true,
+    });
+    chatContainer?.addEventListener('scroll', handleScroll, { passive: true });
     if (parentContainer) {
       parentContainer.addEventListener('scroll', handleScroll, {
         passive: true,
       });
-      listeners.push({ element: parentContainer, handler: handleScroll });
     }
 
     return () => {
-      // Clean up all listeners
-      listeners.forEach(({ element, handler }) => {
-        element.removeEventListener('scroll', handler);
-      });
+      document.removeEventListener(
+        'pointerdown',
+        handleOutsidePointerDown,
+        true,
+      );
+      document.removeEventListener('touchmove', handleTouchMove, true);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('scroll', handleScroll, true);
+      chatContainer?.removeEventListener('scroll', handleScroll);
+      parentContainer?.removeEventListener('scroll', handleScroll);
     };
-  }, [mobileStyle, mobileInteraction.open]);
+  }, [dismissMobileInteraction, mobileStyle, mobileInteraction.open]);
 
   // Memoize callbacks to prevent unnecessary re-renders
   const handleClickAskButton = useCallback(
@@ -300,10 +542,6 @@ export const NewChatComponents = ({
     };
   }, [checkScroll, items, mobileStyle]); // Added items as dependency to re-bind if structure changes significantly
 
-  // Memoize onSend to prevent new function references
-  const memoizedOnSend = useCallback(onSend, [onSend]);
-
-  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   useEffect(() => {
     if (mobileStyle) {
       setPortalTarget(document.getElementById('chat-scroll-target'));
@@ -311,6 +549,12 @@ export const NewChatComponents = ({
       setPortalTarget(null);
     }
   }, [mobileStyle]);
+
+  const containerClassName = cn(
+    styles.chatComponents,
+    className,
+    mobileStyle ? styles.mobile : '',
+  );
 
   const scrollButton = (
     <button
@@ -325,137 +569,271 @@ export const NewChatComponents = ({
     </button>
   );
 
+  // useEffect(() => {
+  //   console.log('isLoading', isLoading);
+  // }, [isLoading]);
   return (
     <div
-      className={cn(
-        styles.chatComponents,
-        className,
-        mobileStyle ? styles.mobile : '',
-      )}
+      className={containerClassName}
       style={{ position: 'relative', overflow: 'hidden', padding: 0 }}
     >
-      <div
-        className={cn(
-          styles.chatComponents,
-          className,
-          mobileStyle ? styles.mobile : '',
-        )}
-        ref={chatRef}
-        style={{ width: '100%', height: '100%', overflowY: 'auto' }}
-      >
-        <div>
-          {isLoading ? (
-            <></>
+      {isListenMode ? (
+        isListenModeAvailable ? (
+          isLoading ? (
+            <div className='w-full h-full flex items-center justify-center'>
+              <Loader2 className='animate-spin size-6 text-primary' />
+            </div>
           ) : (
-            items.map((item, idx) => {
-              const isLongPressed =
-                longPressedBlockBid === item.generated_block_bid;
-              const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
-              const parentKey = item.parent_block_bid || baseKey;
+            <ListenModeRenderer
+              items={listenModeItems}
+              mobileStyle={mobileStyle}
+              chatRef={chatRef as React.RefObject<HTMLDivElement>}
+              isLoading={isLoading}
+              sectionTitle={lessonTitle}
+              lessonId={lessonId}
+              lessonStatus={lessonStatus}
+              previewMode={previewMode}
+              onRequestAudioForBlock={requestAudioForBlock}
+              onSend={memoizedOnSend}
+              onPlayerVisibilityChange={onListenPlayerVisibilityChange}
+            />
+          )
+        ) : (
+          <div
+            className={cn(
+              containerClassName,
+              'listen-reveal-wrapper',
+              mobileStyle ? 'mobile' : '',
+              'bg-[var(--color-4)]',
+            )}
+          />
+        )
+      ) : (
+        <div
+          className={containerClassName}
+          ref={chatRef}
+          style={{ width: '100%', height: '100%', overflowY: 'auto' }}
+        >
+          <div>
+            {shouldShowResetLoading ? (
+              <div
+                style={{
+                  margin: '0 auto',
+                  maxWidth: '1000px',
+                  padding: '24px 20px 0',
+                }}
+              >
+                <LoadingBar />
+              </div>
+            ) : isLoading ? (
+              <></>
+            ) : (
+              items.map((item, idx) => {
+                const isLongPressed =
+                  longPressedBlockBid === item.generated_block_bid;
+                const baseKey =
+                  item.generated_block_bid || `${item.type}-${idx}`;
+                const parentKey = item.parent_block_bid || baseKey;
+                if (item.type === ChatContentItemType.ASK) {
+                  return (
+                    <div
+                      key={`ask-${parentKey}`}
+                      style={{
+                        position: 'relative',
+                        margin: '0 auto',
+                        maxWidth: mobileStyle ? '100%' : '1000px',
+                        padding: '0 20px',
+                      }}
+                    >
+                      <AskBlock
+                        isExpanded={item.isAskExpanded}
+                        shifu_bid={shifuBid}
+                        outline_bid={lessonId}
+                        preview_mode={previewMode}
+                        generated_block_bid={item.parent_block_bid || ''}
+                        onToggleAskExpanded={toggleAskExpanded}
+                        askList={(item.ask_list || []) as any[]}
+                      />
+                    </div>
+                  );
+                }
 
-              if (item.type === ChatContentItemType.ASK) {
+                if (item.type === ChatContentItemType.LIKE_STATUS) {
+                  const parentBlockBid = item.parent_block_bid || '';
+                  const parentContentItem = parentBlockBid
+                    ? itemByGeneratedBid.get(parentBlockBid)
+                    : undefined;
+                  const parentPrimaryTrack = getAudioTrackByPosition(
+                    parentContentItem?.audioTracks ?? [],
+                  );
+                  const canRequestAudio =
+                    !previewMode && Boolean(parentBlockBid);
+                  const hasAudioForBlock =
+                    hasAudioContentInTrack(parentPrimaryTrack);
+                  const shouldAutoPlay =
+                    autoPlayTargetBlockBid === parentBlockBid;
+                  return mobileStyle ? null : (
+                    <div
+                      key={`like-${parentKey}`}
+                      style={{
+                        margin: '0 auto',
+                        maxWidth: '1000px',
+                        padding: '0px 20px',
+                      }}
+                    >
+                      <InteractionBlock
+                        shifu_bid={shifuBid}
+                        generated_block_bid={parentBlockBid}
+                        like_status={item.like_status}
+                        readonly={item.readonly}
+                        onRefresh={onRefresh}
+                        onToggleAskExpanded={toggleAskExpanded}
+                        extraActions={
+                          shouldShowAudioAction &&
+                          (canRequestAudio || hasAudioForBlock) ? (
+                            <AudioPlayer
+                              audioUrl={parentPrimaryTrack?.audioUrl}
+                              streamingSegments={
+                                parentPrimaryTrack?.audioSegments
+                              }
+                              isStreaming={Boolean(
+                                parentPrimaryTrack?.isAudioStreaming,
+                              )}
+                              alwaysVisible={canRequestAudio}
+                              onRequestAudio={
+                                canRequestAudio
+                                  ? () => requestAudioForBlock(parentBlockBid)
+                                  : undefined
+                              }
+                              autoPlay={shouldAutoPlay}
+                              onPlayStateChange={isPlaying =>
+                                handleAudioPlayStateChange(
+                                  parentBlockBid,
+                                  isPlaying,
+                                )
+                              }
+                              onEnded={() => handleAudioEnded(parentBlockBid)}
+                              className='interaction-icon-btn'
+                              size={16}
+                            />
+                          ) : null
+                        }
+                      />
+                    </div>
+                  );
+                }
+
                 return (
                   <div
-                    key={`ask-${parentKey}`}
+                    key={`content-${baseKey}`}
                     style={{
                       position: 'relative',
-                      margin: '0 auto',
+                      margin:
+                        !idx || item.type === ChatContentItemType.INTERACTION
+                          ? '0 auto'
+                          : '40px auto 0 auto',
                       maxWidth: mobileStyle ? '100%' : '1000px',
                       padding: '0 20px',
                     }}
                   >
-                    <AskBlock
-                      isExpanded={item.isAskExpanded}
-                      shifu_bid={shifuBid}
-                      outline_bid={lessonId}
-                      preview_mode={previewMode}
-                      generated_block_bid={item.parent_block_bid || ''}
-                      onToggleAskExpanded={toggleAskExpanded}
-                      askList={(item.ask_list || []) as any[]}
+                    {isLongPressed && mobileStyle && (
+                      <div className='long-press-overlay' />
+                    )}
+                    <ContentBlock
+                      item={item}
+                      mobileStyle={mobileStyle}
+                      blockBid={item.generated_block_bid}
+                      confirmButtonText={confirmButtonText}
+                      copyButtonText={copyButtonText}
+                      copiedButtonText={copiedButtonText}
+                      onClickCustomButtonAfterContent={handleClickAskButton}
+                      onSend={memoizedOnSend}
+                      onLongPress={handleLongPress}
+                      autoPlayAudio={
+                        autoPlayTargetBlockBid === item.generated_block_bid
+                      }
+                      showAudioAction={shouldShowAudioAction}
+                      onAudioPlayStateChange={handleAudioPlayStateChange}
+                      onAudioEnded={handleAudioEnded}
                     />
                   </div>
                 );
-              }
-
-              if (item.type === ChatContentItemType.LIKE_STATUS) {
-                const parentBlockBid = item.parent_block_bid || '';
-                return mobileStyle ? null : (
-                  <div
-                    key={`like-${parentKey}`}
-                    style={{
-                      margin: '0 auto',
-                      maxWidth: '1000px',
-                      padding: '0px 20px',
-                    }}
-                  >
-                    <InteractionBlock
-                      shifu_bid={shifuBid}
-                      generated_block_bid={parentBlockBid}
-                      like_status={item.like_status}
-                      readonly={item.readonly}
-                      onRefresh={onRefresh}
-                      onToggleAskExpanded={toggleAskExpanded}
-                    />
-                  </div>
-                );
-              }
-
-              return (
-                <div
-                  key={`content-${baseKey}`}
-                  style={{
-                    position: 'relative',
-                    margin:
-                      !idx || item.type === ChatContentItemType.INTERACTION
-                        ? '0 auto'
-                        : '40px auto 0 auto',
-                    maxWidth: mobileStyle ? '100%' : '1000px',
-                    padding: '0 20px',
-                  }}
-                >
-                  {isLongPressed && mobileStyle && (
-                    <div className='long-press-overlay' />
-                  )}
-                  <ContentBlock
-                    item={item}
-                    mobileStyle={mobileStyle}
-                    blockBid={item.generated_block_bid}
-                    confirmButtonText={confirmButtonText}
-                    copyButtonText={copyButtonText}
-                    copiedButtonText={copiedButtonText}
-                    onClickCustomButtonAfterContent={handleClickAskButton}
-                    onSend={memoizedOnSend}
-                    onLongPress={handleLongPress}
-                  />
-                </div>
-              );
-            })
-          )}
-          <div
-            ref={chatBoxBottomRef}
-            id='chat-box-bottom'
-          ></div>
+              })
+            )}
+            <div
+              ref={chatBoxBottomRef}
+              id='chat-box-bottom'
+            ></div>
+          </div>
         </div>
-      </div>
-      {mobileStyle && portalTarget
-        ? createPortal(scrollButton, portalTarget)
-        : scrollButton}
+      )}
+      {!isListenMode &&
+        (mobileStyle && portalTarget
+          ? createPortal(scrollButton, portalTarget)
+          : scrollButton)}
       {mobileStyle && mobileInteraction?.generatedBlockBid && (
         <InteractionBlockM
           open={mobileInteraction.open}
           onOpenChange={open => {
-            setMobileInteraction(prev => ({ ...prev, open }));
-            if (!open) {
-              setLongPressedBlockBid('');
+            if (open) {
+              setMobileInteraction(prev => ({ ...prev, open: true }));
+              return;
             }
+            dismissMobileInteraction();
           }}
           position={mobileInteraction.position}
           shifu_bid={shifuBid}
           generated_block_bid={mobileInteraction.generatedBlockBid}
           like_status={mobileInteraction.likeStatus}
           onRefresh={onRefresh}
+          audioUrl={mobileInteractionPrimaryTrack?.audioUrl}
+          streamingSegments={mobileInteractionPrimaryTrack?.audioSegments}
+          isStreaming={Boolean(mobileInteractionPrimaryTrack?.isAudioStreaming)}
+          onRequestAudio={
+            !previewMode && mobileInteraction.generatedBlockBid
+              ? () => requestAudioForBlock(mobileInteraction.generatedBlockBid)
+              : undefined
+          }
+          showAudioAction={shouldShowAudioAction}
         />
       )}
+      {lessonFeedbackPopup.open && !(mobileStyle && isNavOpen) ? (
+        <div
+          className={cn(
+            'pointer-events-none z-20',
+            mobileStyle
+              ? isListenModeActive
+                ? 'fixed left-3 right-3 bottom-[calc(env(safe-area-inset-bottom)+88px)]'
+                : 'fixed left-3 right-3 bottom-[calc(env(safe-area-inset-bottom)+56px)]'
+              : 'absolute right-6 w-[260px] max-w-[calc(100%-48px)] bottom-6',
+          )}
+        >
+          <div className='pointer-events-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-lg'>
+            <div className='mb-2 flex items-center justify-between gap-2'>
+              <p className='text-[14px] leading-5 text-[var(--foreground)]'>
+                {t('module.chat.lessonFeedbackPrompt')}
+              </p>
+              <button
+                type='button'
+                aria-label={t('common.core.cancel')}
+                onClick={lessonFeedbackPopup.onClose}
+                className='inline-flex h-6 w-6 items-center justify-center rounded text-foreground/50 transition-colors hover:bg-[var(--muted)] hover:text-foreground/75'
+              >
+                <X className='h-4 w-4' />
+              </button>
+            </div>
+            <LessonFeedbackInteraction
+              defaultScoreText={lessonFeedbackPopup.defaultScoreText}
+              defaultCommentText={lessonFeedbackPopup.defaultCommentText}
+              placeholder={t('module.chat.lessonFeedbackCommentPlaceholder')}
+              submitLabel={confirmButtonText}
+              clearLabel={t('module.chat.lessonFeedbackClearInput')}
+              readonly={lessonFeedbackPopup.readonly}
+              onSubmit={lessonFeedbackPopup.onSubmit}
+            />
+          </div>
+        </div>
+      ) : null}
       <Dialog
         open={reGenerateConfirm.open}
         onOpenChange={open => {
