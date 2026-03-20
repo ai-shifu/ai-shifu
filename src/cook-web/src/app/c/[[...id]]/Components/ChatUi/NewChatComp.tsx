@@ -672,6 +672,7 @@ export const NewChatComponents = ({
                   autoPlayTargetBlockBid === elementBid;
                 const shouldRenderElementInteraction =
                   !isListenMode &&
+                  !mobileStyle &&
                   Boolean(elementBid) &&
                   elementBid !== 'loading' &&
                   (item.type === ChatContentItemType.CONTENT ||
