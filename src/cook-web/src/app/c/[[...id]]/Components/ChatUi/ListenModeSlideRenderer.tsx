@@ -270,7 +270,7 @@ const ListenModeSlideRenderer = ({
     [onSend],
   );
 
-  console.log('elementList',items, elementList);
+  console.log('elementList', items, elementList);
 
   return (
     <div
