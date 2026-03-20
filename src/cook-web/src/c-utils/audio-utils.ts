@@ -222,6 +222,22 @@ const upsertAudioTrackSegment = (
   return sortAudioTracksByPosition([...tracks, nextTrack]);
 };
 
+export const mergeAudioSegmentsIntoTracks = (
+  elementBid: string,
+  tracks: AudioTrack[] = [],
+  segments: AudioSegmentData[] = [],
+): AudioTrack[] => {
+  if (!segments.length) {
+    return tracks;
+  }
+
+  return segments.reduce(
+    (nextTracks, segment) =>
+      upsertAudioTrackSegment(elementBid, nextTracks, toAudioSegment(segment)),
+    tracks,
+  );
+};
+
 const normalizeTrackForUpsert = (
   complete: Partial<AudioCompleteData>,
 ): {
@@ -288,6 +304,11 @@ const upsertAudioTrackComplete = (
   }
   return sortAudioTracksByPosition([...tracks, nextTrack]);
 };
+
+export const mergeAudioCompleteIntoTracks = (
+  tracks: AudioTrack[] = [],
+  complete: Partial<AudioCompleteData>,
+): AudioTrack[] => upsertAudioTrackComplete(tracks, complete);
 
 export const upsertAudioSegment = <T extends AudioItem>(
   items: T[],

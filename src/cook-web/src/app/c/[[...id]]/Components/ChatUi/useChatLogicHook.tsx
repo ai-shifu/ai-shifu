@@ -41,6 +41,8 @@ import {
 } from '@/c-api/studyV2';
 import {
   getAudioTrackByPosition,
+  mergeAudioCompleteIntoTracks,
+  mergeAudioSegmentsIntoTracks,
   upsertAudioComplete,
   upsertAudioSegment,
   type AudioTrack,
@@ -284,34 +286,35 @@ function useChatLogicHook({
   }, []);
 
   const normalizeHistoryAudioTracks = useCallback(
-    (record: StudyRecordItem): AudioTrack[] => {
+    (
+      record: StudyRecordItem,
+      previousItem?: Pick<
+        ChatContentItem,
+        'audioTracks' | 'audioDurationMs'
+      > | null,
+    ): AudioTrack[] => {
       const audios = Array.isArray(record.audio_segments)
         ? record.audio_segments
         : [];
-      if (!audios.length) {
-        if (!record.audio_url) {
-          return [];
-        }
-        return [
-          {
-            position: 0,
-            audioUrl: record.audio_url,
-            durationMs: 0,
-            isAudioStreaming: false,
-          },
-        ];
+
+      const itemBid =
+        resolveElementItemBid(record) || record.generated_block_bid || '';
+      let nextTracks = previousItem?.audioTracks ?? [];
+
+      if (audios.length && itemBid) {
+        nextTracks = mergeAudioSegmentsIntoTracks(itemBid, nextTracks, audios);
       }
 
-      return [...audios]
-        .sort((a, b) => Number(a.position ?? 0) - Number(b.position ?? 0))
-        .map(audio => ({
-          position: Number(audio.position ?? 0),
-          audioUrl: audio.audio_data,
-          durationMs: Number(audio.duration_ms ?? 0),
-          isAudioStreaming: false,
-        }));
+      if (record.audio_url) {
+        nextTracks = mergeAudioCompleteIntoTracks(nextTracks, {
+          audio_url: record.audio_url,
+          duration_ms: previousItem?.audioDurationMs ?? 0,
+        });
+      }
+
+      return nextTracks;
     },
-    [],
+    [resolveElementItemBid],
   );
 
   const buildElementContentItem = useCallback(
@@ -324,8 +327,11 @@ function useChatLogicHook({
         previousItem?: ChatContentItem;
       },
     ): ChatContentItem => {
-      const historyTracks = normalizeHistoryAudioTracks(record);
-      const singleTrack = historyTracks.length === 1 ? historyTracks[0] : null;
+      const historyTracks = normalizeHistoryAudioTracks(
+        record,
+        options?.previousItem,
+      );
+      const primaryTrack = getAudioTrackByPosition(historyTracks);
       const itemBid = resolveElementItemBid(record);
       const isInteractionElement =
         record.element_type === ELEMENT_TYPE.INTERACTION;
@@ -352,15 +358,19 @@ function useChatLogicHook({
           ? ChatContentItemType.INTERACTION
           : ChatContentItemType.CONTENT,
         audioUrl:
-          singleTrack?.audioUrl ??
+          primaryTrack?.audioUrl ??
           record.audio_url ??
           options?.previousItem?.audioUrl,
         audioDurationMs:
-          singleTrack?.durationMs ?? options?.previousItem?.audioDurationMs,
+          primaryTrack?.durationMs ?? options?.previousItem?.audioDurationMs,
         audioTracks:
           historyTracks.length > 0
             ? historyTracks
             : options?.previousItem?.audioTracks,
+        isAudioStreaming:
+          historyTracks.length > 0
+            ? historyTracks.some(track => Boolean(track.isAudioStreaming))
+            : options?.previousItem?.isAudioStreaming,
         listenSlides:
           options?.listenSlides ?? options?.previousItem?.listenSlides,
       };
@@ -1205,11 +1215,12 @@ function useChatLogicHook({
           return;
         }
 
+        const hitIndex = indexByElementBid.get(itemBid);
         const nextItem = buildElementContentItem(item, {
           appendAskButton: true,
           isHistory: true,
+          previousItem: hitIndex === undefined ? undefined : result[hitIndex],
         });
-        const hitIndex = indexByElementBid.get(itemBid);
 
         if (hitIndex === undefined) {
           indexByElementBid.set(itemBid, result.length);
