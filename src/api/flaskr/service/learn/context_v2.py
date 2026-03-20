@@ -1665,6 +1665,39 @@ class RunScriptContextV2:
             return
         yield from self._emit_lesson_feedback_interaction(latest_completed_progress)
 
+    def _emit_current_progress_gate_interaction(
+        self,
+        content: str,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if not self._current_attend:
+            return
+        outline_bid = self._current_attend.outline_item_bid or getattr(
+            self._outline_item_info, "bid", ""
+        )
+        if not outline_bid:
+            return
+        generated_block: LearnGeneratedBlock = init_generated_block(
+            self.app,
+            shifu_bid=self._current_attend.shifu_bid,
+            outline_item_bid=outline_bid,
+            progress_record_bid=self._current_attend.progress_record_bid,
+            user_bid=self._user_info.user_id,
+            block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+            mdflow=content,
+            block_index=self._current_attend.block_position,
+        )
+        generated_block.role = ROLE_TEACHER
+        generated_block.block_content_conf = content
+        generated_block.generated_content = ""
+        db.session.add(generated_block)
+        db.session.flush()
+        yield RunMarkdownFlowDTO(
+            outline_bid=outline_bid,
+            generated_block_bid=generated_block.generated_block_bid,
+            type=GeneratedType.INTERACTION,
+            content=content,
+        )
+
     def _emit_completion_tail_interactions(
         self,
         *,
@@ -1825,6 +1858,15 @@ class RunScriptContextV2:
             return
         llm_settings = self.get_llm_settings(run_script_info.outline_bid)
         system_prompt = self.get_system_prompt(run_script_info.outline_bid)
+
+        def _persist_generated_block_for_events(
+            generated_block: LearnGeneratedBlock | None,
+        ) -> None:
+            if generated_block is None:
+                return
+            if not getattr(generated_block, "id", None):
+                db.session.add(generated_block)
+            db.session.flush()
 
         if self._input_type == "ask":
             if self._last_position == -1:
@@ -2003,11 +2045,24 @@ class RunScriptContextV2:
                                 and generated_block.block_content_conf
                                 else block.content
                             )
+                            if not generated_block:
+                                generated_block = init_generated_block(
+                                    app,
+                                    shifu_bid=run_script_info.attend.shifu_bid,
+                                    outline_item_bid=run_script_info.outline_bid,
+                                    progress_record_bid=run_script_info.attend.progress_record_bid,
+                                    user_bid=self._user_info.user_id,
+                                    block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                                    mdflow=block.content,
+                                    block_index=run_script_info.block_position,
+                                )
+                                generated_block.role = ROLE_TEACHER
+                            generated_block.block_content_conf = interaction_content
+                            generated_block.generated_content = ""
+                            _persist_generated_block_for_events(generated_block)
                             yield RunMarkdownFlowDTO(
                                 outline_bid=run_script_info.outline_bid,
-                                generated_block_bid=generated_block.generated_block_bid
-                                if generated_block
-                                else generate_id(app),
+                                generated_block_bid=generated_block.generated_block_bid,
                                 type=GeneratedType.INTERACTION,
                                 content=interaction_content,
                             )
@@ -2041,11 +2096,24 @@ class RunScriptContextV2:
                                 and generated_block.block_content_conf
                                 else block.content
                             )
+                            if not generated_block:
+                                generated_block = init_generated_block(
+                                    app,
+                                    shifu_bid=run_script_info.attend.shifu_bid,
+                                    outline_item_bid=run_script_info.outline_bid,
+                                    progress_record_bid=run_script_info.attend.progress_record_bid,
+                                    user_bid=self._user_info.user_id,
+                                    block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                                    mdflow=block.content,
+                                    block_index=run_script_info.block_position,
+                                )
+                                generated_block.role = ROLE_TEACHER
+                            generated_block.block_content_conf = interaction_content
+                            generated_block.generated_content = ""
+                            _persist_generated_block_for_events(generated_block)
                             yield RunMarkdownFlowDTO(
                                 outline_bid=run_script_info.outline_bid,
-                                generated_block_bid=generated_block.generated_block_bid
-                                if generated_block
-                                else generate_id(app),
+                                generated_block_bid=generated_block.generated_block_bid,
                                 type=GeneratedType.INTERACTION,
                                 content=interaction_content,
                             )
@@ -2083,6 +2151,8 @@ class RunScriptContextV2:
                 generated_block.block_content_conf = rendered_content
                 # Keep generated_content empty, will be filled with user input later
                 generated_block.generated_content = ""
+                generated_block.role = ROLE_TEACHER
+                _persist_generated_block_for_events(generated_block)
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
@@ -2090,8 +2160,6 @@ class RunScriptContextV2:
                     content=rendered_content,
                 )
                 self._can_continue = False
-                db.session.add(generated_block)
-                db.session.flush()
                 return
             expected_variable = (parsed_interaction.get("variable") or "input").strip()
             if not expected_variable:
@@ -2199,14 +2267,13 @@ class RunScriptContextV2:
                 # Keep generated_content empty, will be filled with user input later
                 generated_block.generated_content = ""
                 generated_block.generated_block_bid = generate_id(app)
+                _persist_generated_block_for_events(generated_block)
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
                     type=GeneratedType.INTERACTION,
                     content=rendered_content,
                 )
-
-                db.session.flush()
                 return
             if not parsed_interaction.get("variable"):
                 self._can_continue = True
@@ -2350,6 +2417,7 @@ class RunScriptContextV2:
                 generated_block.block_content_conf = rendered_content
                 # Keep generated_content empty, will be filled with user input later
                 generated_block.generated_content = ""
+                _persist_generated_block_for_events(generated_block)
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
@@ -2358,8 +2426,6 @@ class RunScriptContextV2:
                 )
                 self._can_continue = False
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                db.session.add(generated_block)
-                db.session.flush()
         elif self._run_type == RunType.OUTPUT:
             generated_block: LearnGeneratedBlock = init_generated_block(
                 app,
@@ -2424,6 +2490,7 @@ class RunScriptContextV2:
                 generated_block.block_content_conf = rendered_content
                 # Keep generated_content empty, will be filled with user input later
                 generated_block.generated_content = ""
+                _persist_generated_block_for_events(generated_block)
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
@@ -2432,8 +2499,6 @@ class RunScriptContextV2:
                 )
                 self._can_continue = False
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                db.session.add(generated_block)
-                db.session.flush()
                 # For interaction blocks we should stop here and wait for explicit user action.
                 # Continuing into outline completion fallback may incorrectly append
                 # `_sys_next_chapter` after access-gate interactions such as pay/login.
@@ -2473,6 +2538,7 @@ class RunScriptContextV2:
                         db.session.flush()
                         return
                 generated_block.type = BLOCK_TYPE_MDCONTENT_VALUE
+                _persist_generated_block_for_events(generated_block)
                 generated_content = ""
                 tts_processor = None
                 content_cache_parts = []
@@ -2855,21 +2921,15 @@ class RunScriptContextV2:
             app.logger.info("PaidException")
             self._can_continue = False
             yield from self._emit_feedback_before_exception_gate()
-            yield RunMarkdownFlowDTO(
-                outline_bid=self._outline_item_info.bid,
-                generated_block_bid=generate_id(self.app),
-                type=GeneratedType.INTERACTION,
-                content=f"?[{_('server.order.checkout')}//_sys_pay]",
+            yield from self._emit_current_progress_gate_interaction(
+                f"?[{_('server.order.checkout')}//_sys_pay]"
             )
         except UserNotLoginException:
             app.logger.info("UserNotLoginException")
             self._can_continue = False
             yield from self._emit_feedback_before_exception_gate()
-            yield RunMarkdownFlowDTO(
-                outline_bid=self._outline_item_info.bid,
-                generated_block_bid=generate_id(self.app),
-                type=GeneratedType.INTERACTION,
-                content=f"?[{_('server.user.login')}//_sys_login]",
+            yield from self._emit_current_progress_gate_interaction(
+                f"?[{_('server.user.login')}//_sys_login]"
             )
 
     def has_next(self) -> bool:

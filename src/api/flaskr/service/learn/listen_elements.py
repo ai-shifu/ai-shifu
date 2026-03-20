@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any, Generator, Iterable
 
 from flask import Flask
+from sqlalchemy import and_, or_
 
 from flaskr.dao import db
 from flaskr.util.uuid import generate_id
@@ -895,6 +896,125 @@ def _normalize_record_element(element: ElementDTO) -> ElementDTO:
     ]
     element.payload = payload
     return element
+
+
+def _load_interaction_user_input_by_block_bid(
+    rows: list[LearnGeneratedElement],
+) -> dict[str, str]:
+    interaction_block_bids = {
+        row.generated_block_bid or ""
+        for row in rows
+        if row.event_type == "element"
+        and str(row.element_type or "") == ElementType.INTERACTION.value
+        and (row.generated_block_bid or "")
+    }
+    if not interaction_block_bids:
+        return {}
+
+    interaction_blocks = (
+        LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.generated_block_bid.in_(list(interaction_block_bids)),
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+        )
+        .order_by(LearnGeneratedBlock.id.asc())
+        .all()
+    )
+    interaction_user_input_by_block_bid: dict[str, str] = {}
+    for interaction_block in interaction_blocks:
+        interaction_user_input_by_block_bid[
+            interaction_block.generated_block_bid or ""
+        ] = str(interaction_block.generated_content or "")
+    return interaction_user_input_by_block_bid
+
+
+def _load_progress_bid_by_generated_block_bid(
+    progress_record_bids: list[str],
+) -> dict[str, str]:
+    if not progress_record_bids:
+        return {}
+
+    blocks = (
+        LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.progress_record_bid.in_(progress_record_bids),
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+        )
+        .order_by(LearnGeneratedBlock.id.asc())
+        .all()
+    )
+    progress_bid_by_generated_block_bid: dict[str, str] = {}
+    for block in blocks:
+        generated_block_bid = block.generated_block_bid or ""
+        progress_record_bid = block.progress_record_bid or ""
+        if not generated_block_bid or not progress_record_bid:
+            continue
+        progress_bid_by_generated_block_bid[generated_block_bid] = progress_record_bid
+    return progress_bid_by_generated_block_bid
+
+
+def _build_final_elements_from_rows(
+    rows: list[LearnGeneratedElement],
+    *,
+    interaction_user_input_by_block_bid: dict[str, str],
+    include_non_navigable: bool = False,
+) -> tuple[list[ElementDTO], list[RunElementSSEMessageDTO] | None]:
+    if not rows:
+        return [], [] if include_non_navigable else None
+
+    sorted_rows = sorted(
+        rows,
+        key=lambda row: (
+            int(getattr(row, "sequence_number", 0) or 0),
+            int(getattr(row, "run_event_seq", 0) or 0),
+            int(getattr(row, "id", 0) or 0),
+        ),
+    )
+    latest_by_bid: "OrderedDict[str, ElementDTO]" = OrderedDict()
+    for row in sorted_rows:
+        if row.event_type != "element" or not row.element_bid:
+            continue
+        dto = _element_from_row_with_interaction_input(
+            row,
+            interaction_user_input=interaction_user_input_by_block_bid.get(
+                row.generated_block_bid or "",
+                "",
+            ),
+        )
+        if not dto.is_new and dto.target_element_bid:
+            if dto.target_element_bid in latest_by_bid:
+                target = latest_by_bid[dto.target_element_bid]
+                target.is_renderable = dto.is_renderable
+                target.content_text = dto.content_text
+                target.is_speakable = dto.is_speakable
+                target.audio_url = dto.audio_url
+                target.audio_segments = dto.audio_segments
+                target.payload = dto.payload
+                target.is_navigable = dto.is_navigable
+                target.is_final = dto.is_final
+                target.run_session_bid = dto.run_session_bid
+                target.run_event_seq = dto.run_event_seq
+                target.sequence_number = dto.sequence_number
+                continue
+        latest_by_bid[row.element_bid] = dto
+
+    events = None
+    if include_non_navigable:
+        events = [
+            _event_from_row_with_interaction_input(
+                row,
+                interaction_user_input=interaction_user_input_by_block_bid.get(
+                    row.generated_block_bid or "",
+                    "",
+                ),
+            )
+            for row in sorted_rows
+        ]
+
+    return (
+        [_normalize_record_element(element) for element in latest_by_bid.values()],
+        events,
+    )
 
 
 @dataclass
@@ -2108,17 +2228,37 @@ def get_listen_element_record(
         for progress_record in progress_records
         if progress_record.progress_record_bid
     ]
+    collected_elements: list[ElementDTO] = []
+    collected_events: list[RunElementSSEMessageDTO] | None = (
+        [] if include_non_navigable else None
+    )
     if progress_record_bids:
-        progress_order = {
-            progress_record_bid: index
-            for index, progress_record_bid in enumerate(progress_record_bids)
-        }
+        progress_bid_by_generated_block_bid = _load_progress_bid_by_generated_block_bid(
+            progress_record_bids
+        )
+        relevant_generated_block_bids = list(progress_bid_by_generated_block_bid.keys())
+        progress_row_filter = LearnGeneratedElement.progress_record_bid.in_(
+            progress_record_bids
+        )
+        if relevant_generated_block_bids:
+            progress_row_filter = or_(
+                progress_row_filter,
+                and_(
+                    or_(
+                        LearnGeneratedElement.progress_record_bid == "",
+                        LearnGeneratedElement.progress_record_bid.is_(None),
+                    ),
+                    LearnGeneratedElement.generated_block_bid.in_(
+                        relevant_generated_block_bids
+                    ),
+                ),
+            )
         rows = (
             LearnGeneratedElement.query.filter(
                 LearnGeneratedElement.user_bid == user_bid,
                 LearnGeneratedElement.shifu_bid == shifu_bid,
                 LearnGeneratedElement.outline_item_bid == outline_bid,
-                LearnGeneratedElement.progress_record_bid.in_(progress_record_bids),
+                progress_row_filter,
                 LearnGeneratedElement.deleted == 0,
                 LearnGeneratedElement.status == 1,
             )
@@ -2129,89 +2269,85 @@ def get_listen_element_record(
             )
             .all()
         )
-        if rows:
-            interaction_block_bids = {
-                row.generated_block_bid or ""
-                for row in rows
-                if row.event_type == "element"
-                and str(row.element_type or "") == ElementType.INTERACTION.value
-                and (row.generated_block_bid or "")
-            }
-            interaction_user_input_by_block_bid: dict[str, str] = {}
-            if interaction_block_bids:
-                interaction_blocks = (
-                    LearnGeneratedBlock.query.filter(
-                        LearnGeneratedBlock.generated_block_bid.in_(
-                            list(interaction_block_bids)
-                        ),
-                        LearnGeneratedBlock.deleted == 0,
-                        LearnGeneratedBlock.status == 1,
-                    )
-                    .order_by(LearnGeneratedBlock.id.asc())
-                    .all()
-                )
-                for interaction_block in interaction_blocks:
-                    interaction_user_input_by_block_bid[
-                        interaction_block.generated_block_bid or ""
-                    ] = str(interaction_block.generated_content or "")
-            rows.sort(
-                key=lambda row: (
-                    progress_order.get(
-                        row.progress_record_bid or "", len(progress_order)
-                    ),
-                    int(getattr(row, "sequence_number", 0) or 0),
-                    int(getattr(row, "run_event_seq", 0) or 0),
-                    int(getattr(row, "id", 0) or 0),
+        rows_by_progress: dict[str, list[LearnGeneratedElement]] = {}
+        for row in rows:
+            progress_bid = (
+                row.progress_record_bid
+                or progress_bid_by_generated_block_bid.get(
+                    row.generated_block_bid or "",
+                    "",
                 )
             )
-            latest_by_bid: "OrderedDict[str, ElementDTO]" = OrderedDict()
-            for row in rows:
-                if row.event_type != "element" or not row.element_bid:
-                    continue
-                dto = _element_from_row_with_interaction_input(
-                    row,
-                    interaction_user_input=interaction_user_input_by_block_bid.get(
-                        row.generated_block_bid or "",
-                        "",
-                    ),
+            if not progress_bid:
+                continue
+            rows_by_progress.setdefault(progress_bid, []).append(row)
+
+        interaction_user_input_by_block_bid = _load_interaction_user_input_by_block_bid(
+            rows
+        )
+
+        for progress_record in progress_records:
+            progress_bid = progress_record.progress_record_bid or ""
+            progress_rows = rows_by_progress.get(progress_bid, [])
+            persisted_elements, persisted_events = _build_final_elements_from_rows(
+                progress_rows,
+                interaction_user_input_by_block_bid=interaction_user_input_by_block_bid,
+                include_non_navigable=include_non_navigable,
+            )
+            persisted_block_bids = {
+                row.generated_block_bid or ""
+                for row in progress_rows
+                if row.event_type == "element" and (row.generated_block_bid or "")
+            }
+
+            legacy_record = build_legacy_record_for_progress(
+                progress_record,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                include_like_status=False,
+                dedupe_blocks_by_bid=True,
+                dedupe_audio_by_block_position=True,
+                skip_empty_content=True,
+            )
+            legacy_records = [
+                record
+                for record in legacy_record.records
+                if (record.generated_block_bid or "") not in persisted_block_bids
+            ]
+            legacy_elements: list[ElementDTO] = []
+            if legacy_records:
+                built_record = build_listen_elements_from_legacy_record(
+                    app,
+                    LearnRecordDTO(records=legacy_records),
                 )
-                # For is_new=false elements, apply to target if found
-                if not dto.is_new and dto.target_element_bid:
-                    if dto.target_element_bid in latest_by_bid:
-                        target = latest_by_bid[dto.target_element_bid]
-                        target.is_renderable = dto.is_renderable
-                        target.content_text = dto.content_text
-                        target.is_speakable = dto.is_speakable
-                        target.audio_url = dto.audio_url
-                        target.audio_segments = dto.audio_segments
-                        target.payload = dto.payload
-                        target.is_navigable = dto.is_navigable
-                        target.is_final = dto.is_final
-                        target.run_session_bid = dto.run_session_bid
-                        target.run_event_seq = dto.run_event_seq
-                        target.sequence_number = dto.sequence_number
-                        continue
-                latest_by_bid[row.element_bid] = dto
-            if latest_by_bid:
-                events = None
-                if include_non_navigable:
-                    events = [
-                        _event_from_row_with_interaction_input(
-                            row,
-                            interaction_user_input=interaction_user_input_by_block_bid.get(
-                                row.generated_block_bid or "",
-                                "",
-                            ),
-                        )
-                        for row in rows
-                    ]
-                return LearnElementRecordDTO(
-                    elements=[
-                        _normalize_record_element(element)
-                        for element in latest_by_bid.values()
-                    ],
-                    events=events,
+                legacy_elements = [
+                    _normalize_record_element(element)
+                    for element in built_record.elements
+                ]
+                if include_non_navigable and collected_events is not None:
+                    for event in built_record.events or []:
+                        collected_events.append(event)
+
+            merged_elements = list(persisted_elements) + legacy_elements
+            merged_elements.sort(
+                key=lambda item: (
+                    int(item.element_index or 0),
+                    int(item.run_event_seq or 0),
+                    item.generated_block_bid or "",
+                    item.element_bid or "",
                 )
+            )
+            collected_elements.extend(merged_elements)
+            if include_non_navigable and collected_events is not None:
+                for event in persisted_events or []:
+                    collected_events.append(event)
+
+        if collected_elements:
+            return LearnElementRecordDTO(
+                elements=collected_elements,
+                events=collected_events,
+            )
 
     legacy_record = get_learn_record(
         app,

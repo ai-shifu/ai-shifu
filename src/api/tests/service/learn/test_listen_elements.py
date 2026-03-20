@@ -495,6 +495,440 @@ def test_get_listen_element_record_returns_all_persisted_elements_across_progres
         assert result.elements[1].content_text == "Choose one"
 
 
+def test_get_listen_element_record_includes_persisted_rows_missing_progress_bid(
+    app, monkeypatch
+):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.learn_dtos import LearnRecordDTO
+    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.models import (
+        LearnGeneratedBlock,
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-listen-missing-progress-bid"
+    shifu_bid = "shifu-listen-missing-progress-bid"
+    outline_bid = "outline-listen-missing-progress-bid"
+    progress_bid = "progress-listen-missing-progress-bid"
+    orphan_block_bid = "generated-orphan-persisted"
+    attached_block_bid = "generated-attached-persisted"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        orphan_block = LearnGeneratedBlock(
+            generated_block_bid=orphan_block_bid,
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            block_bid="block-orphan-persisted",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            type=0,
+            role=ROLE_TEACHER,
+            generated_content="legacy should not be needed here",
+            position=0,
+            block_content_conf="",
+            status=1,
+        )
+        attached_block = LearnGeneratedBlock(
+            generated_block_bid=attached_block_bid,
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            block_bid="block-attached-persisted",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            type=0,
+            role=ROLE_TEACHER,
+            generated_content="legacy should not be needed here either",
+            position=1,
+            block_content_conf="",
+            status=1,
+        )
+        orphan_element = LearnGeneratedElement(
+            element_bid="element-orphan-persisted",
+            progress_record_bid="",
+            user_bid=user_bid,
+            generated_block_bid=orphan_block_bid,
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            run_session_bid="run-listen-missing-progress-bid",
+            run_event_seq=10,
+            event_type="element",
+            role="teacher",
+            element_index=0,
+            element_type="text",
+            element_type_code=112,
+            change_type="render",
+            target_element_bid="",
+            is_renderable=1,
+            is_new=1,
+            is_marker=0,
+            sequence_number=1,
+            is_speakable=0,
+            audio_url="",
+            audio_segments="[]",
+            is_navigable=1,
+            is_final=1,
+            content_text="Persisted row with blank progress_record_bid",
+            payload=json.dumps({"audio": None, "previous_visuals": []}),
+            status=1,
+        )
+        attached_element = LearnGeneratedElement(
+            element_bid="element-attached-persisted",
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            generated_block_bid=attached_block_bid,
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            run_session_bid="run-listen-missing-progress-bid",
+            run_event_seq=11,
+            event_type="element",
+            role="teacher",
+            element_index=1,
+            element_type="text",
+            element_type_code=112,
+            change_type="render",
+            target_element_bid="",
+            is_renderable=1,
+            is_new=1,
+            is_marker=0,
+            sequence_number=2,
+            is_speakable=0,
+            audio_url="",
+            audio_segments="[]",
+            is_navigable=1,
+            is_final=1,
+            content_text="Persisted row with linked progress_record_bid",
+            payload=json.dumps({"audio": None, "previous_visuals": []}),
+            status=1,
+        )
+        db.session.add_all(
+            [
+                progress,
+                orphan_block,
+                attached_block,
+                orphan_element,
+                attached_element,
+            ]
+        )
+        db.session.commit()
+
+        monkeypatch.setattr(
+            "flaskr.service.learn.listen_elements.build_legacy_record_for_progress",
+            lambda *args, **kwargs: LearnRecordDTO(records=[]),
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.listen_elements.get_learn_record",
+            lambda *args, **kwargs: pytest.fail(
+                "persisted rows should satisfy the record query without legacy fallback"
+            ),
+        )
+
+        result = get_listen_element_record(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            preview_mode=False,
+        )
+
+        assert len(result.elements) == 2
+        contents = {item.content_text for item in result.elements}
+        assert contents == {
+            "Persisted row with blank progress_record_bid",
+            "Persisted row with linked progress_record_bid",
+        }
+
+
+def test_listen_run_persists_content_block_before_element_rows(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.context_v2 import (
+        BlockType as MarkdownFlowBlockType,
+        RunScriptContextV2,
+        RunScriptInfo,
+        RunType,
+    )
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.llmsetting import LLMSettings
+    from flaskr.service.learn.models import (
+        LearnGeneratedBlock,
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-listen-run-content-progress"
+    shifu_bid = "shifu-listen-run-content-progress"
+    outline_bid = "outline-listen-run-content-progress"
+    progress_bid = "progress-listen-run-content-progress"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        db.session.add(progress)
+        db.session.commit()
+
+        ctx = RunScriptContextV2.__new__(RunScriptContextV2)
+        ctx.app = app
+        ctx._trace_args = {}
+        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._outline_item_info = types.SimpleNamespace(
+            bid=outline_bid,
+            shifu_bid=shifu_bid,
+            position=0,
+            title="Listen Content Progress",
+        )
+        ctx._shifu_info = types.SimpleNamespace(use_learner_language=False)
+        ctx._user_info = types.SimpleNamespace(user_id=user_bid, mobile="", email="")
+        ctx._preview_mode = False
+        ctx._struct = None
+        ctx._is_paid = True
+        ctx._run_type = RunType.OUTPUT
+        ctx._can_continue = True
+        ctx._input_type = "normal"
+        ctx._input = None
+        ctx._last_position = -1
+        ctx._listen = True
+        ctx._element_index_cursor = 0
+        ctx._current_attend = progress
+        ctx._get_current_attend = types.MethodType(
+            lambda self, current_outline_bid: progress, ctx
+        )
+        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx.get_llm_settings = types.MethodType(
+            lambda self, current_outline_bid: LLMSettings(
+                model="fake",
+                temperature=0.0,
+            ),
+            ctx,
+        )
+        ctx.get_system_prompt = types.MethodType(
+            lambda self, current_outline_bid: None,
+            ctx,
+        )
+        ctx._get_run_script_info = types.MethodType(
+            lambda self, attend, is_ask=False: RunScriptInfo(
+                attend=attend,
+                outline_bid=attend.outline_item_bid,
+                block_position=attend.block_position,
+                mdflow="doc",
+            ),
+            ctx,
+        )
+
+        class DummyBlock:
+            def __init__(self, block_type, content, index):
+                self.block_type = block_type
+                self.content = content
+                self.index = index
+
+        class DummyLLMResult:
+            def __init__(self, content):
+                self.content = content
+
+        class FakeMarkdownFlow:
+            def __init__(self, *args, **kwargs):
+                self.blocks = [
+                    DummyBlock(
+                        MarkdownFlowBlockType.CONTENT,
+                        "Persisted content block",
+                        0,
+                    )
+                ]
+
+            def set_visual_mode(self, *_args, **_kwargs):
+                pass
+
+            def set_output_language(self, *_args, **_kwargs):
+                return self
+
+            def get_all_blocks(self):
+                return self.blocks
+
+            def get_block(self, block_index):
+                return self.blocks[block_index]
+
+            def process(
+                self, block_index, mode, variables=None, context=None, user_input=None
+            ):
+                block = self.blocks[block_index]
+
+                def _gen():
+                    yield DummyLLMResult(block.content)
+
+                return _gen()
+
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+        )
+
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            monkeypatch.setattr(
+                "flaskr.service.learn.context_v2.MarkdownFlow",
+                FakeMarkdownFlow,
+            )
+            monkeypatch.setattr(
+                "flaskr.service.learn.context_v2.get_user_profiles",
+                lambda *args, **kwargs: {},
+            )
+            monkeypatch.setattr(
+                "flaskr.service.learn.context_v2.get_profile_item_definition_list",
+                lambda *args, **kwargs: [],
+            )
+            monkeypatch.setattr(
+                RunScriptContextV2,
+                "_should_stream_tts",
+                lambda self: False,
+            )
+            streamed = list(adapter.process(ctx.run_inner(app)))
+
+        rows = (
+            LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.run_session_bid == adapter.run_session_bid,
+                LearnGeneratedElement.event_type == "element",
+                LearnGeneratedElement.deleted == 0,
+                LearnGeneratedElement.status == 1,
+            )
+            .order_by(
+                LearnGeneratedElement.run_event_seq.asc(),
+                LearnGeneratedElement.id.asc(),
+            )
+            .all()
+        )
+
+    assert [item.type for item in streamed] == ["element", "break"]
+    assert rows
+    assert {row.progress_record_bid for row in rows} == {progress_bid}
+    assert {row.content_text for row in rows} == {"Persisted content block"}
+
+
+def test_listen_run_persists_exception_gate_block_before_element_rows(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.context_v2 import RunScriptContextV2
+    from flaskr.service.learn.exceptions import PaidException
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.models import (
+        LearnGeneratedBlock,
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-listen-run-paid-gate"
+    shifu_bid = "shifu-listen-run-paid-gate"
+    outline_bid = "outline-listen-run-paid-gate"
+    progress_bid = "progress-listen-run-paid-gate"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=3,
+        )
+        db.session.add(progress)
+        db.session.commit()
+
+        ctx = RunScriptContextV2.__new__(RunScriptContextV2)
+        ctx.app = app
+        ctx._can_continue = True
+        ctx._user_info = types.SimpleNamespace(user_id=user_bid, mobile="", email="")
+        ctx._outline_item_info = types.SimpleNamespace(
+            bid=outline_bid,
+            shifu_bid=shifu_bid,
+        )
+        ctx._current_attend = progress
+        ctx._emit_feedback_before_exception_gate = types.MethodType(
+            lambda self: iter(()),
+            ctx,
+        )
+
+        def _raise_paid(self, current_app):
+            raise PaidException()
+            yield  # pragma: no cover
+
+        ctx.run_inner = types.MethodType(_raise_paid, ctx)
+
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+        )
+        streamed = list(adapter.process(ctx.run(app)))
+
+        rows = (
+            LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.run_session_bid == adapter.run_session_bid,
+                LearnGeneratedElement.event_type == "element",
+                LearnGeneratedElement.deleted == 0,
+                LearnGeneratedElement.status == 1,
+            )
+            .order_by(
+                LearnGeneratedElement.run_event_seq.asc(),
+                LearnGeneratedElement.id.asc(),
+            )
+            .all()
+        )
+        generated_blocks = (
+            LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.progress_record_bid == progress_bid,
+                LearnGeneratedBlock.outline_item_bid == outline_bid,
+                LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.status == 1,
+            )
+            .order_by(LearnGeneratedBlock.id.asc())
+            .all()
+        )
+
+    assert [item.type for item in streamed] == ["element"]
+    assert rows
+    assert {row.progress_record_bid for row in rows} == {progress_bid}
+    assert len(generated_blocks) == 1
+    assert rows[0].generated_block_bid == generated_blocks[0].generated_block_bid
+
+
 def test_get_record_api_returns_element_payload_by_default(app):
     _require_app(app)
 
