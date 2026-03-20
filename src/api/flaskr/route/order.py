@@ -1,4 +1,7 @@
+from urllib.parse import urlsplit
+
 from flask import Flask, request
+from flaskr.service.config.funcs import get_config
 from flaskr.service.common.models import raise_param_error, raise_error
 from flaskr.service.order.coupon_funcs import use_coupon_code
 from flaskr.route.common import make_common_response
@@ -24,6 +27,27 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     get_shifu_draft_list,
     get_shifu_published_list,
 )
+
+
+def build_pingxx_allowed_origins() -> list[str]:
+    """Build trusted origins for Ping++ WAP return URLs."""
+
+    origins: list[str] = []
+    candidates = [
+        request.host_url,
+        request.url_root,
+        get_config("HOME_URL", ""),
+    ]
+
+    for candidate in candidates:
+        split = urlsplit(str(candidate or "").strip())
+        if not split.scheme or not split.netloc:
+            continue
+        origin = f"{split.scheme}://{split.netloc}"
+        if origin not in origins:
+            origins.append(origin)
+
+    return origins
 
 
 def register_order_handler(app: Flask, path_prefix: str):
@@ -81,10 +105,7 @@ def register_order_handler(app: Flask, path_prefix: str):
         raw_return_url = payload.get("return_url", "")
         return_url = normalize_pingxx_return_url(
             raw_return_url,
-            allowed_origins=[
-                request.host_url,
-                request.url_root,
-            ],
+            allowed_origins=build_pingxx_allowed_origins(),
         )
         if raw_return_url and not return_url:
             raise_param_error("return_url")
