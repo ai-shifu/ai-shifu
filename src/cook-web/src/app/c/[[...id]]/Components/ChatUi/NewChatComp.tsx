@@ -181,7 +181,7 @@ export const NewChatComponents = ({
   const [mobileInteraction, setMobileInteraction] = useState({
     open: false,
     position: { x: 0, y: 0 },
-    generatedBlockBid: '',
+    elementBid: '',
     likeStatus: null as any,
   });
   const [longPressedBlockBid, setLongPressedBlockBid] = useState<string>('');
@@ -291,8 +291,8 @@ export const NewChatComponents = ({
   const itemByGeneratedBid = useMemo(() => {
     const mapping = new Map<string, ChatContentItem>();
     items.forEach(item => {
-      if (item.generated_block_bid) {
-        mapping.set(item.generated_block_bid, item);
+      if (item.element_bid) {
+        mapping.set(item.element_bid, item);
       }
     });
     return mapping;
@@ -340,7 +340,7 @@ export const NewChatComponents = ({
       if (item.isHistory) {
         continue;
       }
-      const blockBid = item.generated_block_bid;
+      const blockBid = item.element_bid;
       if (!blockBid || blockBid === 'loading') {
         continue;
       }
@@ -360,10 +360,10 @@ export const NewChatComponents = ({
   const mobileInteractionPrimaryTrack = useMemo(
     () =>
       getAudioTrackByPosition(
-        itemByGeneratedBid.get(mobileInteraction.generatedBlockBid)
+        itemByGeneratedBid.get(mobileInteraction.elementBid)
           ?.audioTracks ?? [],
       ),
-    [itemByGeneratedBid, mobileInteraction.generatedBlockBid],
+    [itemByGeneratedBid, mobileInteraction.elementBid],
   );
 
   // Memoize onSend to prevent new function references
@@ -379,18 +379,18 @@ export const NewChatComponents = ({
       const interactionItem = items.find(
         item =>
           item.type === ChatContentItemType.LIKE_STATUS &&
-          item.parent_block_bid === currentBlock.generated_block_bid,
+          item.parent_element_bid === currentBlock.element_bid,
       );
       // Use requestAnimationFrame to avoid blocking rendering
       requestAnimationFrame(() => {
-        setLongPressedBlockBid(currentBlock.generated_block_bid);
+        setLongPressedBlockBid(currentBlock.element_bid);
         setMobileInteraction({
           open: true,
           position: {
             x: rect.left + rect.width / 2,
             y: rect.top + rect.height / 2,
           },
-          generatedBlockBid: interactionItem?.parent_block_bid || '',
+          elementBid: interactionItem?.parent_element_bid || '',
           likeStatus: interactionItem?.like_status,
         });
       });
@@ -647,10 +647,10 @@ export const NewChatComponents = ({
             ) : (
               items.map((item, idx) => {
                 const isLongPressed =
-                  longPressedBlockBid === item.generated_block_bid;
+                  longPressedBlockBid === item.element_bid;
                 const baseKey =
-                  item.generated_block_bid || `${item.type}-${idx}`;
-                const parentKey = item.parent_block_bid || baseKey;
+                  item.element_bid || `${item.type}-${idx}`;
+                const parentKey = item.parent_element_bid || baseKey;
                 if (item.type === ChatContentItemType.ASK) {
                   return (
                     <div
@@ -667,7 +667,7 @@ export const NewChatComponents = ({
                         shifu_bid={shifuBid}
                         outline_bid={lessonId}
                         preview_mode={previewMode}
-                        generated_block_bid={item.parent_block_bid || ''}
+                        element_bid={item.parent_element_bid || ''}
                         onToggleAskExpanded={toggleAskExpanded}
                         askList={(item.ask_list || []) as any[]}
                       />
@@ -676,19 +676,19 @@ export const NewChatComponents = ({
                 }
 
                 if (item.type === ChatContentItemType.LIKE_STATUS) {
-                  const parentBlockBid = item.parent_block_bid || '';
-                  const parentContentItem = parentBlockBid
-                    ? itemByGeneratedBid.get(parentBlockBid)
+                  const parentElementBid = item.parent_element_bid || '';
+                  const parentContentItem = parentElementBid
+                    ? itemByGeneratedBid.get(parentElementBid)
                     : undefined;
                   const parentPrimaryTrack = getAudioTrackByPosition(
                     parentContentItem?.audioTracks ?? [],
                   );
                   const canRequestAudio =
-                    !previewMode && Boolean(parentBlockBid);
+                    !previewMode && Boolean(parentElementBid);
                   const hasAudioForBlock =
                     hasAudioContentInTrack(parentPrimaryTrack);
                   const shouldAutoPlay =
-                    autoPlayTargetBlockBid === parentBlockBid;
+                    autoPlayTargetBlockBid === parentElementBid;
                   return mobileStyle ? null : (
                     <div
                       key={`like-${parentKey}`}
@@ -700,7 +700,7 @@ export const NewChatComponents = ({
                     >
                       <InteractionBlock
                         shifu_bid={shifuBid}
-                        generated_block_bid={parentBlockBid}
+                        element_bid={parentElementBid}
                         like_status={item.like_status}
                         readonly={item.readonly}
                         onRefresh={onRefresh}
@@ -719,17 +719,17 @@ export const NewChatComponents = ({
                               alwaysVisible={canRequestAudio}
                               onRequestAudio={
                                 canRequestAudio
-                                  ? () => requestAudioForBlock(parentBlockBid)
+                                  ? () => requestAudioForBlock(parentElementBid)
                                   : undefined
                               }
                               autoPlay={shouldAutoPlay}
                               onPlayStateChange={isPlaying =>
                                 handleAudioPlayStateChange(
-                                  parentBlockBid,
+                                  parentElementBid,
                                   isPlaying,
                                 )
                               }
-                              onEnded={() => handleAudioEnded(parentBlockBid)}
+                              onEnded={() => handleAudioEnded(parentElementBid)}
                               className='interaction-icon-btn'
                               size={16}
                             />
@@ -759,7 +759,7 @@ export const NewChatComponents = ({
                     <ContentBlock
                       item={item}
                       mobileStyle={mobileStyle}
-                      blockBid={item.generated_block_bid}
+                      blockBid={item.element_bid}
                       confirmButtonText={confirmButtonText}
                       copyButtonText={copyButtonText}
                       copiedButtonText={copiedButtonText}
@@ -767,7 +767,7 @@ export const NewChatComponents = ({
                       onSend={memoizedOnSend}
                       onLongPress={handleLongPress}
                       autoPlayAudio={
-                        autoPlayTargetBlockBid === item.generated_block_bid
+                        autoPlayTargetBlockBid === item.element_bid
                       }
                       showAudioAction={shouldShowAudioAction}
                       onAudioPlayStateChange={handleAudioPlayStateChange}
@@ -788,7 +788,7 @@ export const NewChatComponents = ({
         (mobileStyle && portalTarget
           ? createPortal(scrollButton, portalTarget)
           : scrollButton)}
-      {mobileStyle && mobileInteraction?.generatedBlockBid && (
+      {mobileStyle && mobileInteraction?.elementBid && (
         <InteractionBlockM
           open={mobileInteraction.open}
           onOpenChange={open => {
@@ -800,15 +800,15 @@ export const NewChatComponents = ({
           }}
           position={mobileInteraction.position}
           shifu_bid={shifuBid}
-          generated_block_bid={mobileInteraction.generatedBlockBid}
+          element_bid={mobileInteraction.elementBid}
           like_status={mobileInteraction.likeStatus}
           onRefresh={onRefresh}
           audioUrl={mobileInteractionPrimaryTrack?.audioUrl}
           streamingSegments={mobileInteractionPrimaryTrack?.audioSegments}
           isStreaming={Boolean(mobileInteractionPrimaryTrack?.isAudioStreaming)}
           onRequestAudio={
-            !previewMode && mobileInteraction.generatedBlockBid
-              ? () => requestAudioForBlock(mobileInteraction.generatedBlockBid)
+            !previewMode && mobileInteraction.elementBid
+              ? () => requestAudioForBlock(mobileInteraction.elementBid)
               : undefined
           }
           showAudioAction={shouldShowAudioAction}

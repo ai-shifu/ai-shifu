@@ -66,7 +66,7 @@ import { appendCustomButtonAfterContent } from './chatUiUtils';
 
 interface LessonFeedbackPopupState {
   open: boolean;
-  generatedBlockBid: string;
+  elementBid: string;
   defaultScoreText: string;
   defaultCommentText: string;
   readonly: boolean;
@@ -87,9 +87,9 @@ export interface ChatContentItem {
   user_input?: string;
   readonly?: boolean;
   isHistory?: boolean;
-  generated_block_bid: string;
-  ask_generated_block_bid?: string; // use for ask block, because an interaction block gid isn't ask gid
-  parent_block_bid?: string; // when like_status is not none, the parent_block_bid is the generated_block_bid of the interaction block
+  element_bid: string;
+  ask_element_bid?: string; // use for ask block, because an interaction block gid isn't ask gid
+  parent_element_bid?: string; // when like_status is not none, the parent_element_bid is the element_bid of the interaction block
   like_status?: LikeStatus;
   type: ChatContentItemType | BlockType | ElementType;
   ask_list?: ChatContentItem[]; // list of ask records for this content block
@@ -102,7 +102,6 @@ export interface ChatContentItem {
   isAudioStreaming?: boolean;
   audioDurationMs?: number;
   listenSlides?: ListenSlideData[];
-  sourceGeneratedBlockBid?: string;
 }
 
 interface SSEParams {
@@ -119,7 +118,7 @@ export interface UseChatSessionParams {
   previewMode?: boolean;
   isListenMode?: boolean;
   trackEvent: (name: string, payload?: Record<string, any>) => void;
-  trackTrailProgress: (courseId: string, generatedBlockBid: string) => void;
+  trackTrailProgress: (courseId: string, elementBid: string) => void;
   lessonUpdate?: (params: Record<string, any>) => void;
   chapterUpdate?: (params: Record<string, any>) => void;
   updateSelectedLesson: (lessonId: string, forceExpand?: boolean) => void;
@@ -136,10 +135,10 @@ export interface UseChatSessionResult {
   items: ChatContentItem[];
   isLoading: boolean;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
-  onRefresh: (generatedBlockBid: string) => void;
-  toggleAskExpanded: (parentBlockBid: string) => void;
+  onRefresh: (elementBid: string) => void;
+  toggleAskExpanded: (parentElementBid: string) => void;
   requestAudioForBlock: (
-    generatedBlockBid: string,
+    elementBid: string,
   ) => Promise<AudioCompleteData | null>;
   reGenerateConfirm: {
     open: boolean;
@@ -148,7 +147,7 @@ export interface UseChatSessionResult {
   };
   lessonFeedbackPopup: {
     open: boolean;
-    generatedBlockBid: string;
+    elementBid: string;
     defaultScoreText: string;
     defaultCommentText: string;
     readonly: boolean;
@@ -225,7 +224,7 @@ function useChatLogicHook({
   const [lessonFeedbackPopupState, setLessonFeedbackPopupState] =
     useState<LessonFeedbackPopupState>({
       open: false,
-      generatedBlockBid: '',
+      elementBid: '',
       defaultScoreText: '',
       defaultCommentText: '',
       readonly: false,
@@ -251,8 +250,9 @@ function useChatLogicHook({
   );
 
   const resolveElementItemBid = useCallback(
-    (record?: Pick<StudyRecordItem, 'element_bid' | 'generated_block_bid'> | null) =>
-      record?.element_bid || record?.generated_block_bid || '',
+    (
+      record?: Pick<StudyRecordItem, 'element_bid' | 'generated_block_bid'> | null,
+    ) => record?.element_bid || record?.generated_block_bid || '',
     [],
   );
 
@@ -261,22 +261,10 @@ function useChatLogicHook({
       return false;
     }
 
-    return (
-      item.generated_block_bid === bid || item.sourceGeneratedBlockBid === bid
-    );
+    return item.element_bid === bid;
   }, []);
 
-  const resolveSourceGeneratedBlockBid = useCallback((bid: string) => {
-    if (!bid) {
-      return '';
-    }
-
-    const hit = contentListRef.current.find(
-      item => item.generated_block_bid === bid,
-    );
-
-    return hit?.sourceGeneratedBlockBid || hit?.generated_block_bid || bid;
-  }, []);
+  const resolveSourceGeneratedBlockBid = useCallback((bid: string) => bid, []);
 
   const isLessonFeedbackContent = useCallback((content?: string | null) => {
     return Boolean(content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER));
@@ -336,8 +324,7 @@ function useChatLogicHook({
       return {
         ...options?.previousItem,
         ...record,
-        generated_block_bid: itemBid,
-        sourceGeneratedBlockBid: record.generated_block_bid,
+        element_bid: itemBid,
         content,
         customRenderBar: () => null,
         user_input: record.user_input || options?.previousItem?.user_input || '',
@@ -390,7 +377,7 @@ function useChatLogicHook({
   const resetLessonFeedbackPopup = useCallback(() => {
     setLessonFeedbackPopupState({
       open: false,
-      generatedBlockBid: '',
+      elementBid: '',
       defaultScoreText: '',
       defaultCommentText: '',
       readonly: false,
@@ -411,24 +398,24 @@ function useChatLogicHook({
 
   const openLessonFeedbackPopup = useCallback(
     (interaction: {
-      generatedBlockBid: string;
+      elementBid: string;
       defaultScoreText?: string;
       defaultCommentText?: string;
       readonly?: boolean;
     }) => {
-      if (!interaction.generatedBlockBid) {
+      if (!interaction.elementBid) {
         return;
       }
       if (
         dismissedLessonFeedbackBlockBidsRef.current.has(
-          interaction.generatedBlockBid,
+          interaction.elementBid,
         )
       ) {
         return;
       }
       setLessonFeedbackPopupState({
         open: true,
-        generatedBlockBid: interaction.generatedBlockBid,
+        elementBid: interaction.elementBid,
         defaultScoreText: interaction.defaultScoreText || '',
         defaultCommentText: interaction.defaultCommentText || '',
         readonly: Boolean(interaction.readonly),
@@ -530,7 +517,7 @@ function useChatLogicHook({
     (blockBid: string, scoreText: string, commentText: string) => {
       setTrackedContentList(prev =>
         prev.map(item => {
-          if (item.generated_block_bid !== blockBid) {
+          if (item.element_bid !== blockBid) {
             return item;
           }
           return {
@@ -541,7 +528,7 @@ function useChatLogicHook({
         }),
       );
       setLessonFeedbackPopupState(prev => {
-        if (prev.generatedBlockBid !== blockBid) {
+        if (prev.elementBid !== blockBid) {
           return prev;
         }
         return {
@@ -672,13 +659,13 @@ function useChatLogicHook({
       if (!isListenMode) {
         setTrackedContentList(prev => {
           const hasLoading = prev.some(
-            item => item.generated_block_bid === 'loading',
+            item => item.element_bid === 'loading',
           );
           if (hasLoading) {
             return prev;
           }
           const placeholderItem: ChatContentItem = {
-            generated_block_bid: 'loading',
+            element_bid: 'loading',
             content: '',
             customRenderBar: () => <LoadingBar />,
             type: ChatContentItemType.CONTENT,
@@ -690,7 +677,7 @@ function useChatLogicHook({
       let isEnd = false;
       const clearLoadingPlaceholder = () => {
         setTrackedContentList(prev =>
-          prev.filter(item => item.generated_block_bid !== 'loading'),
+          prev.filter(item => item.element_bid !== 'loading'),
         );
       };
 
@@ -709,7 +696,7 @@ function useChatLogicHook({
             //   outlineBid,
             //   runSerial,
             //   responseType: response?.type ?? null,
-            //   generatedBlockBid: response?.generated_block_bid ?? null,
+            //   elementBid: response?.element_bid ?? null,
             // });
             return;
           }
@@ -718,13 +705,13 @@ function useChatLogicHook({
           //     currentBlockIdRef.current = 'loading';
           //     setTrackedContentList(prev => {
           //       const hasLoading = prev.some(
-          //         item => item.generated_block_bid === 'loading',
+          //         item => item.element_bid === 'loading',
           //       );
           //       if (hasLoading) {
           //         return prev;
           //       }
           //       const placeholderItem: ChatContentItem = {
-          //         generated_block_bid: 'loading',
+          //         element_bid: 'loading',
           //         content: '',
           //         customRenderBar: () => <LoadingBar />,
           //         type: ChatContentItemType.CONTENT,
@@ -735,7 +722,11 @@ function useChatLogicHook({
           //   return;
           // }
           try {
-            const nid = response.generated_block_bid;
+            const nid =
+              response?.content?.element_bid ||
+              response?.element_bid ||
+              response?.generated_block_bid ||
+              '';
             if (
               response.type === SSE_OUTPUT_TYPE.ELEMENT ||
               response.type === SSE_OUTPUT_TYPE.INTERACTION ||
@@ -743,14 +734,14 @@ function useChatLogicHook({
             ) {
               if (
                 contentListRef.current?.some(
-                  item => item.generated_block_bid === 'loading',
+                  item => item.element_bid === 'loading',
                 )
               ) {
                 // currentBlockIdRef.current = nid;
                 // close loading
                 setTrackedContentList(pre => {
                   const newList = pre.filter(
-                    item => item.generated_block_bid !== 'loading',
+                    item => item.element_bid !== 'loading',
                   );
                   return newList;
                 });
@@ -775,12 +766,13 @@ function useChatLogicHook({
                 return;
               }
 
+              currentBlockIdRef.current = itemBid;
+
               const nextItem = buildElementContentItem(elementRecord, {
                 previousItem: contentListRef.current.find(
-                  item => item.generated_block_bid === itemBid,
+                  item => item.element_bid === itemBid,
                 ),
-                listenSlides:
-                  pendingSlidesRef.current[elementRecord.generated_block_bid],
+                listenSlides: pendingSlidesRef.current[itemBid],
               });
               const isLessonFeedbackInteraction = isLessonFeedbackContent(
                 nextItem.content,
@@ -788,7 +780,7 @@ function useChatLogicHook({
 
               setTrackedContentList(prevState => {
                 const hitIndex = prevState.findIndex(
-                  item => item.generated_block_bid === itemBid,
+                  item => item.element_bid === itemBid,
                 );
 
                 if (hitIndex >= 0) {
@@ -812,9 +804,9 @@ function useChatLogicHook({
                     return [
                       ...prevState,
                       {
-                        parent_block_bid:
-                          lastContent.generated_block_bid || '',
-                        generated_block_bid: '',
+                        parent_element_bid:
+                          lastContent.element_bid || '',
+                        element_bid: '',
                         content: '',
                         like_status: LIKE_STATUS.NONE,
                         type: ChatContentItemType.LIKE_STATUS,
@@ -827,13 +819,13 @@ function useChatLogicHook({
                 return [...prevState, nextItem];
               });
 
-              if (pendingSlidesRef.current[elementRecord.generated_block_bid]) {
-                delete pendingSlidesRef.current[elementRecord.generated_block_bid];
+              if (pendingSlidesRef.current[itemBid]) {
+                delete pendingSlidesRef.current[itemBid];
               }
 
-              if (isLessonFeedbackInteraction && nextItem.generated_block_bid) {
+              if (isLessonFeedbackInteraction && nextItem.element_bid) {
                 openLessonFeedbackPopup({
-                  generatedBlockBid: nextItem.generated_block_bid,
+                  elementBid: nextItem.element_bid,
                 });
               }
             } else if (response.type === SSE_OUTPUT_TYPE.INTERACTION) {
@@ -843,8 +835,7 @@ function useChatLogicHook({
               setTrackedContentList((prev: ChatContentItem[]) => {
                 // Use markdown-flow-ui default rendering for all interactions
                 const interactionBlock: ChatContentItem = {
-                  generated_block_bid: nid,
-                  sourceGeneratedBlockBid: nid,
+                  element_bid: nid,
                   content: response.content,
                   customRenderBar: () => null,
                   user_input: '',
@@ -857,8 +848,8 @@ function useChatLogicHook({
                   lastContent.type === ChatContentItemType.CONTENT
                 ) {
                   const likeStatusItem: ChatContentItem = {
-                    parent_block_bid: lastContent.generated_block_bid || '',
-                    generated_block_bid: '',
+                    parent_element_bid: lastContent.element_bid || '',
+                    element_bid: '',
                     content: '',
                     like_status: LIKE_STATUS.NONE,
                     type: ChatContentItemType.LIKE_STATUS,
@@ -870,7 +861,7 @@ function useChatLogicHook({
               });
               if (isLessonFeedbackInteraction && nid) {
                 openLessonFeedbackPopup({
-                  generatedBlockBid: nid,
+                  elementBid: nid,
                 });
               }
             } else if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
@@ -887,7 +878,7 @@ function useChatLogicHook({
                 setTrackedContentList(prevState => {
                   let hasItem = false;
                   const updatedList = prevState.map(item => {
-                    if (item.generated_block_bid === blockId) {
+                    if (item.element_bid === blockId) {
                       hasItem = true;
                       return {
                         ...item,
@@ -902,10 +893,9 @@ function useChatLogicHook({
                     return item;
                   });
                   if (!hasItem) {
-                    updatedList.push({
-                      generated_block_bid: blockId,
-                      sourceGeneratedBlockBid: blockId,
-                      content: displayText,
+                      updatedList.push({
+                        element_bid: blockId,
+                        content: displayText,
                       user_input: '',
                       readonly: false,
                       customRenderBar: () => null,
@@ -945,7 +935,7 @@ function useChatLogicHook({
             ) {
               setTrackedContentList((prev: ChatContentItem[]) => {
                 const updatedList = [...prev].filter(
-                  item => item.generated_block_bid !== 'loading',
+                  item => item.element_bid !== 'loading',
                 );
                 // Find the last CONTENT type item and append AskButton to its content
                 // Set isHistory=true to prevent triggering typewriter effect for AskButton
@@ -972,11 +962,11 @@ function useChatLogicHook({
 
                 // Add interaction blocks - use captured value instead of ref
                 const lastItem = updatedList[updatedList.length - 1];
-                const gid = lastItem?.generated_block_bid || '';
+                const gid = lastItem?.element_bid || '';
                 if (lastItem && lastItem.type === ChatContentItemType.CONTENT) {
                   updatedList.push({
-                    parent_block_bid: gid,
-                    generated_block_bid: '',
+                    parent_element_bid: gid,
+                    element_bid: '',
                     content: '',
                     like_status: LIKE_STATUS.NONE,
                     type: ChatContentItemType.LIKE_STATUS,
@@ -1006,34 +996,43 @@ function useChatLogicHook({
               }
             } else if (response.type === SSE_OUTPUT_TYPE.NEW_SLIDE) {
               const incomingSlide = response.content as ListenSlideData;
-              const slideBlockBid =
-                incomingSlide?.generated_block_bid || blockId || '';
-              if (!slideBlockBid || !incomingSlide?.slide_id) {
+              const slideElementBid =
+                incomingSlide?.element_bid ||
+                incomingSlide?.target_element_bid ||
+                currentBlockIdRef.current ||
+                blockId ||
+                '';
+              if (!slideElementBid || !incomingSlide?.slide_id) {
                 return;
               }
 
+              const nextSlide = {
+                ...incomingSlide,
+                element_bid: slideElementBid,
+              };
+
               setTrackedContentList(prevState => {
                 const hasContentBlock = prevState.some(
-                  item => matchItemBid(item, slideBlockBid),
+                  item => matchItemBid(item, slideElementBid),
                 );
                 if (!hasContentBlock) {
-                  const pending = pendingSlidesRef.current[slideBlockBid] ?? [];
-                  pendingSlidesRef.current[slideBlockBid] = upsertListenSlide(
+                  const pending = pendingSlidesRef.current[slideElementBid] ?? [];
+                  pendingSlidesRef.current[slideElementBid] = upsertListenSlide(
                     pending,
-                    incomingSlide,
+                    nextSlide,
                   );
                   return prevState;
                 }
 
                 return prevState.map(item => {
-                  if (!matchItemBid(item, slideBlockBid)) {
+                  if (!matchItemBid(item, slideElementBid)) {
                     return item;
                   }
                   return {
                     ...item,
                     listenSlides: upsertListenSlide(
                       item.listenSlides ?? [],
-                      incomingSlide,
+                      nextSlide,
                     ),
                   };
                 });
@@ -1211,11 +1210,11 @@ function useChatLogicHook({
           const likeStatusIndex = result.findIndex(
             contentItem =>
               contentItem.type === ChatContentItemType.LIKE_STATUS &&
-              contentItem.parent_block_bid === itemBid,
+              contentItem.parent_element_bid === itemBid,
           );
           const likeStatusItem: ChatContentItem = {
-            generated_block_bid: '',
-            parent_block_bid: itemBid,
+            element_bid: '',
+            parent_element_bid: itemBid,
             like_status: item.like_status,
             type: ChatContentItemType.LIKE_STATUS,
           };
@@ -1271,12 +1270,12 @@ function useChatLogicHook({
                 item.type === ChatContentItemType.INTERACTION &&
                 isLessonFeedbackContent(item.content),
             ) ?? null;
-        if (latestFeedbackInteraction?.generated_block_bid) {
+        if (latestFeedbackInteraction?.element_bid) {
           const feedbackDefaults = getLessonFeedbackDefaults(
             latestFeedbackInteraction.user_input,
           );
           openLessonFeedbackPopup({
-            generatedBlockBid: latestFeedbackInteraction.generated_block_bid,
+            elementBid: latestFeedbackInteraction.element_bid,
             defaultScoreText: feedbackDefaults.scoreText,
             defaultCommentText: feedbackDefaults.commentText,
             readonly: latestFeedbackInteraction.readonly,
@@ -1456,7 +1455,7 @@ function useChatLogicHook({
         ) || [];
       if (sameVariableValueItems.length > 1) {
         needChangeItemIndex = newList.findIndex(
-          item => item.generated_block_bid === blockBid,
+          item => item.element_bid === blockBid,
         );
       }
       if (needChangeItemIndex !== -1) {
@@ -1480,7 +1479,7 @@ function useChatLogicHook({
    * onRefresh replays a block from the server using the original inputs.
    */
   const onRefresh = useCallback(
-    async (generatedBlockBid: string) => {
+    async (elementBid: string) => {
       if (isStreamingRef.current) {
         showOutputInProgressToast();
         return;
@@ -1492,11 +1491,11 @@ function useChatLogicHook({
         return;
       }
 
-      const sourceBlockBid = resolveSourceGeneratedBlockBid(generatedBlockBid);
+      const sourceBlockBid = resolveSourceGeneratedBlockBid(elementBid);
 
       const newList = [...contentListRef.current];
       const needChangeItemIndex = newList.findIndex(
-        item => item.generated_block_bid === generatedBlockBid,
+        item => item.element_bid === elementBid,
       );
       if (needChangeItemIndex === -1) {
         showOutputInProgressToast();
@@ -1542,7 +1541,7 @@ function useChatLogicHook({
       const { variableName, buttonText, inputText } = content;
       const sourceBlockBid = resolveSourceGeneratedBlockBid(blockBid);
       const currentInteractionItem = contentListRef.current.find(
-        item => item.generated_block_bid === blockBid,
+        item => item.element_bid === blockBid,
       );
       const isLessonFeedbackInteraction =
         variableName === LESSON_FEEDBACK_VARIABLE_NAME ||
@@ -1582,7 +1581,7 @@ function useChatLogicHook({
           trackEvent(EVENT_NAMES.LESSON_FEEDBACK_SKIP, {
             shifu_bid: shifuBid,
             outline_bid: outlineBid,
-            generated_block_bid:
+            element_bid:
               resolveSourceGeneratedBlockBid(feedbackBlockBid),
             mode: isListenMode ? 'listen' : 'read',
             trigger_scene: 'before_next_lesson',
@@ -1600,11 +1599,11 @@ function useChatLogicHook({
             inputText,
           );
           dismissLessonFeedbackPopup(blockBid);
-        } else if (lessonFeedbackPopupState.generatedBlockBid) {
+        } else if (lessonFeedbackPopupState.elementBid) {
           const pendingFeedbackBlockBid =
-            lessonFeedbackPopupState.generatedBlockBid;
+            lessonFeedbackPopupState.elementBid;
           const pendingFeedbackItem = contentListRef.current.find(
-            item => item.generated_block_bid === pendingFeedbackBlockBid,
+            item => item.element_bid === pendingFeedbackBlockBid,
           );
           if (pendingFeedbackItem?.content) {
             if (isLessonFeedbackContent(pendingFeedbackItem.content)) {
@@ -1695,7 +1694,7 @@ function useChatLogicHook({
       const currentList = contentListRef.current;
       if (currentList.length > 0) {
         isReGenerate =
-          blockBid !== currentList[currentList.length - 1].generated_block_bid;
+          blockBid !== currentList[currentList.length - 1].element_bid;
       }
 
       if (isReGenerate && !options?.skipConfirm) {
@@ -1727,7 +1726,7 @@ function useChatLogicHook({
         reload_generated_block_bid:
           isReGenerate && needChangeItemIndex !== -1
             ? resolveSourceGeneratedBlockBid(
-                newList[needChangeItemIndex].generated_block_bid,
+                newList[needChangeItemIndex].element_bid,
               )
             : undefined,
       });
@@ -1746,7 +1745,7 @@ function useChatLogicHook({
       isLessonFeedbackContent,
       isListenMode,
       lessonId,
-      lessonFeedbackPopupState.generatedBlockBid,
+      lessonFeedbackPopupState.elementBid,
       syncLessonFeedbackInteractionValues,
       onGoChapter,
       onPayModalOpen,
@@ -1792,19 +1791,19 @@ function useChatLogicHook({
    * toggleAskExpanded toggles the expanded state of the ask panel for a specific block
    */
   const toggleAskExpanded = useCallback(
-    (parentBlockBid: string) => {
+    (parentElementBid: string) => {
       setTrackedContentList(prev => {
         // Check if ASK block already exists
         const hasAskBlock = prev.some(
           item =>
-            item.parent_block_bid === parentBlockBid &&
+            item.parent_element_bid === parentElementBid &&
             item.type === ChatContentItemType.ASK,
         );
 
         if (hasAskBlock) {
           // Toggle existing ASK block's expanded state
           return prev.map(item =>
-            item.parent_block_bid === parentBlockBid &&
+            item.parent_element_bid === parentElementBid &&
             item.type === ChatContentItemType.ASK
               ? { ...item, isAskExpanded: !item.isAskExpanded }
               : item,
@@ -1813,14 +1812,14 @@ function useChatLogicHook({
           // Create new ASK block after LIKE_STATUS block
           return prev.flatMap(item => {
             if (
-              item.parent_block_bid === parentBlockBid &&
+              item.parent_element_bid === parentElementBid &&
               item.type === ChatContentItemType.LIKE_STATUS
             ) {
               return [
                 item,
                 {
-                  generated_block_bid: '',
-                  parent_block_bid: parentBlockBid,
+                  element_bid: '',
+                  parent_element_bid: parentElementBid,
                   type: BLOCK_TYPE.ASK,
                   content: '',
                   isAskExpanded: true,
@@ -1867,29 +1866,29 @@ function useChatLogicHook({
   );
 
   const requestAudioForBlock = useCallback(
-    async (generatedBlockBid: string): Promise<AudioCompleteData | null> => {
-      if (!generatedBlockBid) {
+    async (elementBid: string): Promise<AudioCompleteData | null> => {
+      if (!elementBid) {
         return null;
       }
 
-      const sourceBlockBid = resolveSourceGeneratedBlockBid(generatedBlockBid);
+      const sourceBlockBid = resolveSourceGeneratedBlockBid(elementBid);
 
       if (!allowTtsStreaming) {
         logAudioDebug('tts-request-skip-disabled', {
-          generatedBlockBid: sourceBlockBid,
+          elementBid: sourceBlockBid,
         });
         return null;
       }
 
       const existingItem = contentListRef.current.find(
-        item => item.generated_block_bid === generatedBlockBid,
+        item => item.element_bid === elementBid,
       );
       const cachedTrack = getAudioTrackByPosition(
         existingItem?.audioTracks ?? [],
       );
       if (cachedTrack?.audioUrl && !cachedTrack.isAudioStreaming) {
         logAudioDebug('tts-request-hit-cache', {
-          generatedBlockBid,
+          elementBid,
           hasAudioUrl: Boolean(cachedTrack?.audioUrl),
           isAudioStreaming: Boolean(cachedTrack?.isAudioStreaming),
           audioTracks: existingItem?.audioTracks?.length ?? 0,
@@ -1903,14 +1902,14 @@ function useChatLogicHook({
 
       if (ttsSseRef.current[sourceBlockBid]) {
         logAudioDebug('tts-request-skip-existing-stream', {
-          generatedBlockBid: sourceBlockBid,
+          elementBid: sourceBlockBid,
         });
         return null;
       }
       const requestTraceId = `${sourceBlockBid}:${Date.now()}`;
       logAudioDebug('tts-request-start', {
         requestTraceId,
-        generatedBlockBid: sourceBlockBid,
+        elementBid: sourceBlockBid,
         isListenMode,
         previewMode: effectivePreviewMode,
       });
@@ -1944,7 +1943,7 @@ function useChatLogicHook({
               const audioPayload = response.content ?? response.data;
               logAudioDebug('tts-request-segment', {
                 requestTraceId,
-                generatedBlockBid: sourceBlockBid,
+                elementBid: sourceBlockBid,
                 segmentIndex:
                   audioPayload?.segment_index ??
                   audioPayload?.segmentIndex ??
@@ -1971,7 +1970,7 @@ function useChatLogicHook({
               latestComplete = audioComplete ?? latestComplete;
               logAudioDebug('tts-request-complete', {
                 requestTraceId,
-                generatedBlockBid: sourceBlockBid,
+                elementBid: sourceBlockBid,
                 position: audioComplete?.position ?? 0,
                 hasAudioUrl: Boolean(audioComplete?.audio_url),
                 durationMs: audioComplete?.duration_ms ?? 0,
@@ -1989,13 +1988,13 @@ function useChatLogicHook({
               const delayMs = isListenMode ? 500 : 0;
               logAudioDebug('tts-request-finalize-scheduled', {
                 requestTraceId,
-                generatedBlockBid: sourceBlockBid,
+                elementBid: sourceBlockBid,
                 delayMs,
               });
               finalizeTimer = setTimeout(() => {
                 logAudioDebug('tts-request-finalize-run', {
                   requestTraceId,
-                  generatedBlockBid: sourceBlockBid,
+                  elementBid: sourceBlockBid,
                   hasComplete: Boolean(latestComplete),
                 });
                 closeTtsStream(sourceBlockBid);
@@ -2009,7 +2008,7 @@ function useChatLogicHook({
             }
             logAudioDebug('tts-request-error', {
               requestTraceId,
-              generatedBlockBid: sourceBlockBid,
+              elementBid: sourceBlockBid,
             });
             setTrackedContentList(prev =>
               prev.map(item => {
@@ -2030,7 +2029,7 @@ function useChatLogicHook({
         ttsSseRef.current[sourceBlockBid] = source;
         logAudioDebug('tts-request-stream-opened', {
           requestTraceId,
-          generatedBlockBid: sourceBlockBid,
+          elementBid: sourceBlockBid,
         });
       });
     },
@@ -2058,7 +2057,7 @@ function useChatLogicHook({
 
   const handleLessonFeedbackPopupSubmit = useCallback(
     (score: number, comment: string) => {
-      const blockBid = lessonFeedbackPopupState.generatedBlockBid;
+      const blockBid = lessonFeedbackPopupState.elementBid;
       if (!blockBid) {
         return;
       }
@@ -2071,16 +2070,16 @@ function useChatLogicHook({
         blockBid,
       );
     },
-    [lessonFeedbackPopupState.generatedBlockBid, processSend],
+    [lessonFeedbackPopupState.elementBid, processSend],
   );
 
   const handleLessonFeedbackPopupClose = useCallback(() => {
-    const blockBid = lessonFeedbackPopupState.generatedBlockBid;
+    const blockBid = lessonFeedbackPopupState.elementBid;
     if (!blockBid) {
       return;
     }
     dismissLessonFeedbackPopup(blockBid);
-  }, [lessonFeedbackPopupState.generatedBlockBid, dismissLessonFeedbackPopup]);
+  }, [lessonFeedbackPopupState.elementBid, dismissLessonFeedbackPopup]);
 
   return {
     items,
@@ -2097,8 +2096,8 @@ function useChatLogicHook({
     lessonFeedbackPopup: {
       open:
         lessonFeedbackPopupState.open &&
-        Boolean(lessonFeedbackPopupState.generatedBlockBid),
-      generatedBlockBid: lessonFeedbackPopupState.generatedBlockBid,
+        Boolean(lessonFeedbackPopupState.elementBid),
+      elementBid: lessonFeedbackPopupState.elementBid,
       defaultScoreText: lessonFeedbackPopupState.defaultScoreText,
       defaultCommentText: lessonFeedbackPopupState.defaultCommentText,
       readonly: lessonFeedbackPopupState.readonly,

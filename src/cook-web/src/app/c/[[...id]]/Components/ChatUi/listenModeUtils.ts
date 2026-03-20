@@ -36,7 +36,7 @@ export const buildSlidePageMapping = (
   fallbackPage: number,
 ): ListenSlidePageMapping => {
   const blockSlides = [...(item.listenSlides ?? [])]
-    .filter(slide => slide.generated_block_bid === item.generated_block_bid)
+    .filter(slide => slide.element_bid === item.element_bid)
     .sort(
       (a, b) =>
         Number(a.slide_index ?? 0) - Number(b.slide_index ?? 0) ||

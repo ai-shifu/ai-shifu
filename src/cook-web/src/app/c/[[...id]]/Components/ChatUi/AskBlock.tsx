@@ -39,8 +39,8 @@ export interface AskBlockProps {
   shifu_bid: string;
   outline_bid: string;
   preview_mode?: boolean;
-  generated_block_bid: string;
-  onToggleAskExpanded?: (generated_block_bid: string) => void;
+  element_bid: string;
+  onToggleAskExpanded?: (element_bid: string) => void;
 }
 
 /**
@@ -54,7 +54,7 @@ export default function AskBlock({
   shifu_bid,
   outline_bid,
   preview_mode = false,
-  generated_block_bid,
+  element_bid,
   onToggleAskExpanded,
 }: AskBlockProps) {
   const { t } = useTranslation();
@@ -137,7 +137,7 @@ export default function AskBlock({
       {
         input: question,
         input_type: SSE_INPUT_TYPE.ASK,
-        reload_generated_block_bid: generated_block_bid,
+        reload_generated_block_bid: element_bid,
         listen: false,
       },
       async response => {
@@ -234,7 +234,7 @@ export default function AskBlock({
     shifu_bid,
     outline_bid,
     preview_mode,
-    generated_block_bid,
+    element_bid,
     inputValue,
     showOutputInProgressToast,
   ]);
@@ -305,8 +305,8 @@ export default function AskBlock({
   const handleClose = useCallback(() => {
     setIsFullscreen(false);
     // onClose?.();
-    onToggleAskExpanded?.(generated_block_bid);
-  }, [onToggleAskExpanded, generated_block_bid]);
+    onToggleAskExpanded?.(element_bid);
+  }, [onToggleAskExpanded, element_bid]);
 
   const handleToggleFullscreen = useCallback(() => {
     setIsFullscreen(prev => !prev);
@@ -346,9 +346,9 @@ export default function AskBlock({
       if (index !== 0 || expanded || !mobileStyle) {
         return;
       }
-      onToggleAskExpanded?.(generated_block_bid);
+      onToggleAskExpanded?.(element_bid);
     },
-    [onToggleAskExpanded, generated_block_bid, expanded, mobileStyle],
+    [onToggleAskExpanded, element_bid, expanded, mobileStyle],
   );
 
   const renderMessages = ({

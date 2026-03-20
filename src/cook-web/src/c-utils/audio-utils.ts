@@ -21,8 +21,7 @@ export interface AudioTrack {
 }
 
 export interface AudioItem {
-  generated_block_bid: string;
-  sourceGeneratedBlockBid?: string;
+  element_bid: string;
   audioSegments?: AudioSegment[];
   audioTracks?: AudioTrack[];
   audioUrl?: string;
@@ -30,7 +29,7 @@ export interface AudioItem {
   audioDurationMs?: number;
 }
 
-type EnsureItem<T> = (items: T[], blockId: string) => T[];
+type EnsureItem<T> = (items: T[], elementBid: string) => T[];
 type SegmentKeyParams = {
   segmentIndex: number;
   position?: number | null;
@@ -95,10 +94,10 @@ export const hasAudioContentInTracks = (
 ) => tracks.some(track => hasAudioContentInTrack(track));
 
 export const buildAudioSegmentUniqueKey = (
-  blockId: string,
+  elementBid: string,
   params: SegmentKeyParams,
 ) =>
-  `${blockId}:${normalizeAudioPosition(params.position)}:${params.segmentIndex}`;
+  `${elementBid}:${normalizeAudioPosition(params.position)}:${params.segmentIndex}`;
 
 export interface AudioSegmentPayload {
   segment_index?: number;
@@ -292,24 +291,21 @@ const upsertAudioTrackComplete = (
 
 export const upsertAudioSegment = <T extends AudioItem>(
   items: T[],
-  blockId: string,
+  elementBid: string,
   segment: AudioSegmentData,
   ensureItem?: EnsureItem<T>,
 ): T[] => {
-  const nextItems = ensureItem ? ensureItem(items, blockId) : items;
+  const nextItems = ensureItem ? ensureItem(items, elementBid) : items;
   const mappedSegment = toAudioSegment(segment);
 
   return nextItems.map(item => {
-    if (
-      item.generated_block_bid !== blockId &&
-      item.sourceGeneratedBlockBid !== blockId
-    ) {
+    if (item.element_bid !== elementBid) {
       return item;
     }
 
     const existingTracks = item.audioTracks ?? [];
     const updatedTracks = upsertAudioTrackSegment(
-      blockId,
+      elementBid,
       existingTracks,
       mappedSegment,
     );
@@ -319,9 +315,9 @@ export const upsertAudioSegment = <T extends AudioItem>(
 
     const hasNoChanges = updatedTracks === existingTracks;
     logAudioUtilsDebug('audio-utils-upsert-segment', {
-      blockId,
+      elementBid,
       segmentIndex: mappedSegment.segmentIndex,
-      dedupeKey: buildAudioSegmentUniqueKey(blockId, mappedSegment),
+      dedupeKey: buildAudioSegmentUniqueKey(elementBid, mappedSegment),
       position: normalizeAudioPosition(mappedSegment.position),
       existingTracks: item.audioTracks?.length ?? 0,
       mergedTracks: updatedTracks.length,
@@ -342,17 +338,14 @@ export const upsertAudioSegment = <T extends AudioItem>(
 
 export const upsertAudioComplete = <T extends AudioItem>(
   items: T[],
-  blockId: string,
+  elementBid: string,
   complete: Partial<AudioCompleteData>,
   ensureItem?: EnsureItem<T>,
 ): T[] => {
-  const nextItems = ensureItem ? ensureItem(items, blockId) : items;
+  const nextItems = ensureItem ? ensureItem(items, elementBid) : items;
 
   return nextItems.map(item => {
-    if (
-      item.generated_block_bid !== blockId &&
-      item.sourceGeneratedBlockBid !== blockId
-    ) {
+    if (item.element_bid !== elementBid) {
       return item;
     }
 
@@ -371,7 +364,7 @@ export const upsertAudioComplete = <T extends AudioItem>(
       item.audioDurationMs === targetTrack?.durationMs &&
       Boolean(item.isAudioStreaming) === Boolean(nextIsAudioStreaming);
     logAudioUtilsDebug('audio-utils-upsert-complete', {
-      blockId,
+      elementBid,
       position,
       hasAudioUrl: Boolean(targetTrack?.audioUrl),
       durationMs: targetTrack?.durationMs ?? 0,

@@ -41,7 +41,7 @@ interface ListenModeSlideRendererProps {
   lessonId?: string;
   lessonStatus?: string;
   previewMode?: boolean;
-  onRequestAudioForBlock?: (generatedBlockBid: string) => Promise<any>;
+  onRequestAudioForBlock?: (elementBid: string) => Promise<any>;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
   onPlayerVisibilityChange?: (visible: boolean) => void;
 }
@@ -139,7 +139,7 @@ const buildSlideElementList = ({
                 }),
               )
             : undefined,
-          blockBid: item.generated_block_bid,
+          blockBid: item.element_bid,
           page,
         });
 
@@ -166,7 +166,7 @@ const buildSlideElementList = ({
                 av_contract: audioSegment.avContract ?? null,
               }),
             ),
-            blockBid: item.generated_block_bid,
+            blockBid: item.element_bid,
             page,
           });
         });
@@ -186,9 +186,9 @@ const buildSlideElementList = ({
 
     // Prefer in-memory interaction state, then fall back to persisted user_input.
     const currentUserInput =
-      interactionInputMap[item.generated_block_bid] ?? item.user_input ?? '';
+      interactionInputMap[item.element_bid] ?? item.user_input ?? '';
     const isLatestEditable =
-      lastItemIsInteraction && item.generated_block_bid === lastInteractionBid;
+      lastItemIsInteraction && item.element_bid === lastInteractionBid;
 
     sequenceNumber += 1;
     elementList.push({
@@ -198,7 +198,7 @@ const buildSlideElementList = ({
       is_marker: true,
       is_renderable: true,
       is_new: true,
-      blockBid: item.generated_block_bid,
+      blockBid: item.element_bid,
       page: Math.max(pageCursor - 1, 0),
       user_input: currentUserInput,
       readonly: Boolean(item.readonly) || Boolean(currentUserInput) || !isLatestEditable,
@@ -228,7 +228,7 @@ const ListenModeSlideRenderer = ({
   const [interactionInputMap, setInteractionInputMap] = useState<
     Record<string, string>
   >({});
-  const { ttsReadyBlockBids, lastInteractionBid, lastItemIsInteraction } =
+  const { ttsReadyElementBids, lastInteractionBid, lastItemIsInteraction } =
     useListenContentData(items);
 
   const elementList = useMemo(
@@ -261,7 +261,7 @@ const ListenModeSlideRenderer = ({
         !blockBid ||
         !onRequestAudioForBlock ||
         requestedAudioBlockBidsRef.current.has(blockBid) ||
-        !ttsReadyBlockBids.has(blockBid)
+        !ttsReadyElementBids.has(blockBid)
       ) {
         return;
       }
@@ -278,7 +278,7 @@ const ListenModeSlideRenderer = ({
         requestedAudioBlockBidsRef.current.delete(blockBid);
       });
     },
-    [onRequestAudioForBlock, previewMode, ttsReadyBlockBids],
+    [onRequestAudioForBlock, previewMode, ttsReadyElementBids],
   );
 
   const handleInteractionSend = useCallback(

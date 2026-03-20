@@ -105,10 +105,10 @@ export interface StudyRecordItem {
   content: string;
   is_marker: boolean;
   is_new: boolean;
-  is_renderable: boolean; 
+  is_renderable: boolean;
   is_speakable: boolean;
   like_status?: LikeStatus;
-  generated_block_bid: string;
+  generated_block_bid?: string;
   user_input?: string;
   isHistory?: boolean;
   audio_url?: string;
@@ -184,7 +184,9 @@ export interface AudioCompleteData {
 
 export interface ListenSlideData {
   slide_id: string;
-  generated_block_bid: string;
+  element_bid?: string;
+  target_element_bid?: string;
+  generated_block_bid?: string;
   slide_index: number;
   audio_position: number;
   visual_kind: string;
