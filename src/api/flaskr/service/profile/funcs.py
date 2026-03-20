@@ -74,45 +74,35 @@ def _get_latest_variable_value(
     Return the newest variable value row from a pre-fetched, id-desc sorted
     collection.
 
+    Matching is by key only (not variable_bid) to ensure the newest record
+    always wins regardless of which Variable definition it was saved against.
+    ``variable_bid`` is kept in the signature for backward compatibility but
+    is no longer used for lookup.
+
     Precedence:
-    1) shifu scope + variable_bid (when provided)
-    2) shifu scope + key
-    3) global/system scope + variable_bid (when provided)
-    4) global/system scope + key
+    1) shifu scope (shifu_bid) - newest record matching key
+    2) global/system scope (empty shifu_bid) - newest record matching key
     """
     target_shifu = shifu_bid or ""
 
-    def _pick(scope_shifu_bid: str) -> Optional[VariableValue]:
-        if variable_bid:
-            by_bid = next(
-                (
-                    item
-                    for item in values
-                    if item.shifu_bid == scope_shifu_bid
-                    and item.variable_bid == variable_bid
-                ),
-                None,
-            )
-            if by_bid:
-                return by_bid
-
-        return next(
-            (
-                item
-                for item in values
-                if item.shifu_bid == scope_shifu_bid and item.key == variable_key
-            ),
-            None,
-        )
-
-    scoped = _pick(target_shifu)
+    scoped = next(
+        (
+            item
+            for item in values
+            if item.key == variable_key and item.shifu_bid == target_shifu
+        ),
+        None,
+    )
     if scoped:
         return scoped
 
-    if target_shifu:
-        return _pick("")
+    if not target_shifu:
+        return None
 
-    return None
+    return next(
+        (item for item in values if item.key == variable_key and item.shifu_bid == ""),
+        None,
+    )
 
 
 def _fetch_latest_variable_value(
