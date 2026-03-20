@@ -1,5 +1,6 @@
 export const PAY_CHANNEL_WECHAT = 'wx_pub_qr';
 export const PAY_CHANNEL_ZHIFUBAO = 'alipay_qr';
+export const PAY_CHANNEL_ALIPAY_WAP = 'alipay_wap';
 export const PAY_CHANNEL_WECHAT_JSAPI = 'wx_pub';
 export const PAY_CHANNEL_WECHAT_WAP = 'wx_wap';
 export const PAY_CHANNEL_STRIPE = 'stripe:checkout_session';
