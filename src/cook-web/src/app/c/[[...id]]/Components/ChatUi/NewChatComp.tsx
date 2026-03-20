@@ -596,7 +596,7 @@ export const NewChatComponents = ({
             <div className='w-full h-full flex items-center justify-center'>
               <Loader2 className='animate-spin size-6 text-primary' />
             </div>
-          ) : 
+          ) : (
             <ListenModeSlideRenderer
               items={listenModeItems}
               mobileStyle={mobileStyle}
@@ -610,6 +610,7 @@ export const NewChatComponents = ({
               onSend={memoizedOnSend}
               onPlayerVisibilityChange={onListenPlayerVisibilityChange}
             />
+          )
         ) : (
           <div
             className={cn(
