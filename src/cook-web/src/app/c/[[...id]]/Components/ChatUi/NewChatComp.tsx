@@ -667,8 +667,7 @@ export const NewChatComponents = ({
                   item.audioTracks ?? [],
                 );
                 const canRequestAudio = !previewMode && Boolean(elementBid);
-                const hasAudioForElement =
-                  hasAudioContentInTrack(primaryTrack);
+                const hasAudioForElement = hasAudioContentInTrack(primaryTrack);
                 const shouldAutoPlayElement =
                   autoPlayTargetBlockBid === elementBid;
                 const shouldRenderElementInteraction =
