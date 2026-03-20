@@ -596,21 +596,7 @@ export const NewChatComponents = ({
             <div className='w-full h-full flex items-center justify-center'>
               <Loader2 className='animate-spin size-6 text-primary' />
             </div>
-          ) : previewMode ? (
-            <ListenModeRenderer
-              items={listenModeItems}
-              mobileStyle={mobileStyle}
-              chatRef={chatRef as React.RefObject<HTMLDivElement>}
-              isLoading={isLoading}
-              sectionTitle={lessonTitle}
-              lessonId={lessonId}
-              lessonStatus={lessonStatus}
-              previewMode={previewMode}
-              onRequestAudioForBlock={requestAudioForBlock}
-              onSend={memoizedOnSend}
-              onPlayerVisibilityChange={onListenPlayerVisibilityChange}
-            />
-          ) : (
+          ) : 
             <ListenModeSlideRenderer
               items={listenModeItems}
               mobileStyle={mobileStyle}
@@ -624,7 +610,6 @@ export const NewChatComponents = ({
               onSend={memoizedOnSend}
               onPlayerVisibilityChange={onListenPlayerVisibilityChange}
             />
-          )
         ) : (
           <div
             className={cn(
@@ -743,7 +728,6 @@ export const NewChatComponents = ({
                         style={{
                           margin: '0 auto',
                           maxWidth: mobileStyle ? '100%' : '1000px',
-                          padding: '0 20px',
                         }}
                       >
                         <InteractionBlock
