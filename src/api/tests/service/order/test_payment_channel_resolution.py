@@ -174,4 +174,6 @@ class TestResolvePaymentChannel:
             "/api/order/reqiure-to-pay",
             base_url="https://api.example.com/",
         ):
-            assert order_route.build_pingxx_allowed_origins() == []
+            assert order_route.build_pingxx_allowed_origins() == [
+                "https://api.example.com"
+            ]

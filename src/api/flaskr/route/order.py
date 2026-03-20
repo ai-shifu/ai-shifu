@@ -33,7 +33,16 @@ def build_pingxx_allowed_origins() -> list[str]:
     """Build trusted origins for Ping++ WAP return URLs."""
 
     origins: list[str] = []
-    candidates = [get_config("HOME_URL", "")]
+    home_url = get_config("HOME_URL", "")
+    candidates = [home_url]
+
+    # Some deployments still use a relative HOME_URL (for in-site redirects).
+    # In that same-origin setup, fall back to the current request origin so
+    # mobile WAP payments can complete. Split-origin deployments should set an
+    # absolute HOME_URL to avoid relying on request host headers.
+    home_split = urlsplit(str(home_url or "").strip())
+    if not home_split.scheme or not home_split.netloc:
+        candidates.extend([request.host_url, request.url_root])
 
     for candidate in candidates:
         split = urlsplit(str(candidate or "").strip())
