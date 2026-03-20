@@ -258,23 +258,6 @@ def upgrade():
 
 
 def downgrade():
-    if _table_exists("var_variable_values"):
-        with op.batch_alter_table("var_variable_values", schema=None) as batch_op:
-            batch_op.drop_index(batch_op.f("ix_var_variable_values_variable_value_bid"))
-            batch_op.drop_index(batch_op.f("ix_var_variable_values_variable_bid"))
-            batch_op.drop_index(batch_op.f("ix_var_variable_values_user_bid"))
-            batch_op.drop_index(batch_op.f("ix_var_variable_values_shifu_bid"))
-            batch_op.drop_index(batch_op.f("ix_var_variable_values_key"))
-            batch_op.drop_index(batch_op.f("ix_var_variable_values_deleted"))
-        op.drop_table("var_variable_values")
-
-    if _table_exists("var_variables"):
-        with op.batch_alter_table("var_variables", schema=None) as batch_op:
-            batch_op.drop_index(batch_op.f("ix_var_variables_variable_bid"))
-            batch_op.drop_index(batch_op.f("ix_var_variables_updated_user_bid"))
-            batch_op.drop_index(batch_op.f("ix_var_variables_shifu_bid"))
-            batch_op.drop_index(batch_op.f("ix_var_variables_key"))
-            batch_op.drop_index(batch_op.f("ix_var_variables_is_hidden"))
-            batch_op.drop_index(batch_op.f("ix_var_variables_deleted"))
-            batch_op.drop_index(batch_op.f("ix_var_variables_created_user_bid"))
-        op.drop_table("var_variables")
+    # upgrade() may no-op when these tables already exist in a restored database,
+    # so dropping them automatically during downgrade is not safe.
+    return

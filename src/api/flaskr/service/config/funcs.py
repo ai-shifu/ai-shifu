@@ -18,6 +18,10 @@ class ConfigCache(BaseModel):
     value: str = Field(default="")
 
 
+def _is_redis_available() -> bool:
+    return redis is not None
+
+
 def _get_fernet_key(app: Flask) -> bytes:
     """
     Generate Fernet key from SECRET_KEY.
@@ -114,6 +118,21 @@ def get_config(key: str, default: str = None) -> str:
             return env_value
         try:
             cache_key = _get_config_cache_key(app, key)
+            if not _is_redis_available():
+                config = (
+                    Config.query.filter(
+                        Config.key == key,
+                        Config.deleted == 0,
+                    )
+                    .order_by(Config.created_at.desc())
+                    .first()
+                )
+                if not config:
+                    return default
+                raw_value = config.value
+                if bool(config.is_encrypted):
+                    return _decrypt_config(app, raw_value)
+                return raw_value
             cache = redis.get(cache_key)
             if cache:
                 cache_config = ConfigCache.model_validate_json(cache)
@@ -187,12 +206,13 @@ def add_config(
             existing_config.remark = remark
             existing_config.updated_by = "system"
             db.session.commit()
-            cache_key = _get_config_cache_key(app, key)
-            redis.set(
-                cache_key,
-                ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
-                ex=86400 + random.randint(0, 3600),
-            )
+            if _is_redis_available():
+                cache_key = _get_config_cache_key(app, key)
+                redis.set(
+                    cache_key,
+                    ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
+                    ex=86400 + random.randint(0, 3600),
+                )
             return True
         # Config doesn't exist, add new one
         if value:
@@ -209,12 +229,13 @@ def add_config(
             )
             db.session.add(config)
             db.session.commit()
-            cache_key = _get_config_cache_key(app, key)
-            redis.set(
-                cache_key,
-                ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
-                ex=86400 + random.randint(0, 3600),
-            )
+            if _is_redis_available():
+                cache_key = _get_config_cache_key(app, key)
+                redis.set(
+                    cache_key,
+                    ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
+                    ex=86400 + random.randint(0, 3600),
+                )
             return True
         return False
 
@@ -230,7 +251,7 @@ def update_config(
         if env_value:
             return False
         cache_key = _get_config_cache_key(app, key)
-        cache = redis.get(cache_key)
+        cache = redis.get(cache_key) if _is_redis_available() else None
         if cache:
             cache_config = ConfigCache.model_validate_json(cache)
             if cache_config.is_encrypted:
@@ -265,10 +286,11 @@ def update_config(
                 config.remark = remark
                 config.updated_by = "system"
             db.session.commit()
-            redis.set(
-                cache_key,
-                ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
-                ex=86400 + random.randint(0, 3600),
-            )
+            if _is_redis_available():
+                redis.set(
+                    cache_key,
+                    ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
+                    ex=86400 + random.randint(0, 3600),
+                )
             return True
         return False

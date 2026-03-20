@@ -8,6 +8,7 @@ from flaskr.service.order import (
     init_buy_record,
     handle_stripe_webhook,
     get_payment_details,
+    normalize_pingxx_return_url,
     sync_stripe_checkout_session,
 )
 from flaskr.service.order.admin import (
@@ -53,6 +54,9 @@ def register_order_handler(app: Flask, path_prefix: str):
                     payment_channel:
                         type: string
                         description: 目标支付提供方，可选值为pingxx或stripe（不填则沿用订单记录）
+                    return_url:
+                        type: string
+                        description: Ping++ H5支付完成后的回跳地址，仅允许当前站点同源地址
         responses:
             200:
                 description: 请求支付成功
@@ -74,6 +78,16 @@ def register_order_handler(app: Flask, path_prefix: str):
         order_id = payload.get("order_id", "")
         channel = payload.get("channel", "")
         payment_channel = payload.get("payment_channel")
+        raw_return_url = payload.get("return_url", "")
+        return_url = normalize_pingxx_return_url(
+            raw_return_url,
+            allowed_origins=[
+                request.host_url,
+                request.url_root,
+            ],
+        )
+        if raw_return_url and not return_url:
+            raise_param_error("return_url")
         client_ip = request.client_ip
         return make_common_response(
             generate_charge(
@@ -82,6 +96,7 @@ def register_order_handler(app: Flask, path_prefix: str):
                 channel,
                 client_ip,
                 payment_channel=payment_channel,
+                return_url=return_url,
             )
         )
 

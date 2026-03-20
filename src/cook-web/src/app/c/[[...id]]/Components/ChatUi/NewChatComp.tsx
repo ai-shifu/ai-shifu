@@ -29,6 +29,7 @@ import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
 import ListenModeRenderer from './ListenModeRenderer';
 import LessonFeedbackInteraction from './LessonFeedbackInteraction';
+import LoadingBar from './LoadingBar';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import {
   getAudioTrackByPosition,
@@ -145,12 +146,18 @@ export const NewChatComponents = ({
     });
   }, [isNearBottom, mobileStyle]);
 
-  const { openPayModal, payModalResult } = useCourseStore(
-    useShallow(state => ({
-      openPayModal: state.openPayModal,
-      payModalResult: state.payModalResult,
-    })),
-  );
+  const { openPayModal, payModalResult, resetedLessonId, resettingLessonId } =
+    useCourseStore(
+      useShallow(state => ({
+        openPayModal: state.openPayModal,
+        payModalResult: state.payModalResult,
+        resetedLessonId: state.resetedLessonId,
+        resettingLessonId: state.resettingLessonId,
+      })),
+    );
+  const shouldShowResetLoading =
+    mobileStyle &&
+    (resettingLessonId === lessonId || resetedLessonId === lessonId);
   const learningMode = useSystemStore(state => state.learningMode);
   const isListenMode = learningMode === 'listen';
   const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
@@ -608,7 +615,17 @@ export const NewChatComponents = ({
           style={{ width: '100%', height: '100%', overflowY: 'auto' }}
         >
           <div>
-            {isLoading ? (
+            {shouldShowResetLoading ? (
+              <div
+                style={{
+                  margin: '0 auto',
+                  maxWidth: '1000px',
+                  padding: '24px 20px 0',
+                }}
+              >
+                <LoadingBar />
+              </div>
+            ) : isLoading ? (
               <></>
             ) : (
               items.map((item, idx) => {

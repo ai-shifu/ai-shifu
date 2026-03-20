@@ -2,51 +2,64 @@
 import { inWechat } from '@/c-constants/uiConstants';
 
 export const useWechat = () => {
-  const jsBridegetReady = Promise.resolve((resolve, reject) => {
+  let jsBridgeReady: Promise<void> | null = null;
+
+  const ensureJsBridgeReady = () => {
     if (!inWechat()) {
-      reject('not in wechat');
+      return Promise.reject(new Error('not in wechat'));
     }
-    function onBridgeReady() {
-      resolve();
+    if (jsBridgeReady) {
+      return jsBridgeReady;
     }
-    // @ts-expect-error EXPECT
-    if (typeof WeixinJSBridge == 'undefined') {
-      if (document.addEventListener) {
-        document.addEventListener('WeixinJSBridgeReady', onBridgeReady, false);
-        // @ts-expect-error EXPECT
-      } else if (document.attachEvent) {
-        // @ts-expect-error EXPECT
-        document.attachEvent('WeixinJSBridgeReady', onBridgeReady);
-        // @ts-expect-error EXPECT
-        document.attachEvent('onWeixinJSBridgeReady', onBridgeReady);
+    jsBridgeReady = new Promise<void>(resolve => {
+      function onBridgeReady() {
+        resolve();
       }
-    } else {
-      onBridgeReady();
-    }
-  });
+      // @ts-expect-error EXPECT
+      if (typeof WeixinJSBridge == 'undefined') {
+        if (document.addEventListener) {
+          document.addEventListener(
+            'WeixinJSBridgeReady',
+            onBridgeReady,
+            false,
+          );
+          // @ts-expect-error EXPECT
+        } else if (document.attachEvent) {
+          // @ts-expect-error EXPECT
+          document.attachEvent('WeixinJSBridgeReady', onBridgeReady);
+          // @ts-expect-error EXPECT
+          document.attachEvent('onWeixinJSBridgeReady', onBridgeReady);
+        }
+      } else {
+        onBridgeReady();
+      }
+    });
+    return jsBridgeReady;
+  };
 
-  const runInJsBridge = callback => {
-    if (!inWechat()) {
-      return;
-    }
-
-    jsBridegetReady.then(callback);
+  const runInJsBridge = async callback => {
+    await ensureJsBridgeReady();
+    return callback();
   };
 
   const payByJsApi = async payData => {
-    return new Promise((resolve, reject) => {
-      runInJsBridge(() => {
-        // @ts-expect-error EXPECT
-        WeixinJSBridge.invoke('getBrandWCPayRequest', payData, function (res) {
-          if (res.err_msg === 'get_brand_wcpay_request:ok') {
-            // @ts-expect-error EXPECT
-            resolve();
-          } else {
-            reject(res.err_msg);
-          }
-        });
-      });
-    });
+    await runInJsBridge(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          // @ts-expect-error EXPECT
+          WeixinJSBridge.invoke(
+            'getBrandWCPayRequest',
+            payData,
+            function (res) {
+              if (res.err_msg === 'get_brand_wcpay_request:ok') {
+                resolve();
+              } else {
+                reject(res.err_msg);
+              }
+            },
+          );
+        }),
+    );
   };
 
   return { runInJsBridge, payByJsApi };

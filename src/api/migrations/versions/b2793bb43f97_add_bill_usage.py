@@ -195,6 +195,7 @@ def upgrade():
             "deleted",
             sa.SmallInteger(),
             nullable=False,
+            server_default=sa.text("0"),
             comment="Deletion flag: 0=active, 1=deleted",
         ),
         sa.Column(

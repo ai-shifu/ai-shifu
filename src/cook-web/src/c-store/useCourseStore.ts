@@ -30,14 +30,22 @@ export const useCourseStore = create<
     changePurchased: purchased => set(() => ({ purchased })),
     // Used for resetting a chapter
     resetedChapterId: null,
+    resettingLessonId: '',
     resetedLessonId: '',
+    updateResettingLessonId: resettingLessonId =>
+      set(() => ({ resettingLessonId })),
     updateResetedLessonId: resetedLessonId => set(() => ({ resetedLessonId })),
     updateResetedChapterId: resetedChapterId =>
       set(() => ({ resetedChapterId })),
     resetChapter: async lid => {
-      await apiResetChapter({ lessonId: lid });
-      // set({ chapterId: resetedChapterId });
-      set({ resetedLessonId: lid, lessonId: lid });
+      set({ resettingLessonId: lid });
+      try {
+        await apiResetChapter({ lessonId: lid });
+        // set({ chapterId: resetedChapterId });
+        set({ resetedLessonId: lid, lessonId: lid });
+      } finally {
+        set({ resettingLessonId: '' });
+      }
     },
     payModalOpen: false,
     payModalState: {
