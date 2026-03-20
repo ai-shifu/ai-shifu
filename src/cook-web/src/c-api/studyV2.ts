@@ -98,17 +98,21 @@ export interface StudyRecordItem {
   element_type: ElementType;
   content_text: string;
   element_bid: string;
-  // like_status?: LikeStatus;
+  content: string;
+  is_marker: boolean;
+  is_new: boolean;
+  is_renderable: boolean; 
+  is_speakable: boolean;
+  like_status?: LikeStatus;
+  generated_block_bid: string;
   user_input?: string;
-  // isHistory?: boolean;
+  isHistory?: boolean;
   audio_url?: string;
   audio_segments?: AudioSegmentData[];
 }
 
 export interface LessonStudyRecords {
-  mdflow: string;
   elements: StudyRecordItem[];
-  slides?: ListenSlideData[];
 }
 
 export interface GetLessonStudyRecordParams {
@@ -165,8 +169,6 @@ export interface AudioSegmentData {
   duration_ms: number;
   is_final: boolean;
   position?: number;
-  slide_id?: string;
-  av_contract?: Record<string, any> | null;
 }
 
 export interface AudioCompleteData {
@@ -174,8 +176,6 @@ export interface AudioCompleteData {
   audio_bid: string;
   duration_ms: number;
   position?: number;
-  slide_id?: string;
-  av_contract?: Record<string, any> | null;
 }
 
 export interface ListenSlideData {
