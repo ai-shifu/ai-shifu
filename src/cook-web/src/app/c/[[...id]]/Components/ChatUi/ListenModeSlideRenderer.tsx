@@ -48,7 +48,7 @@ const createEmptyStateElement = (
   sequence_number: 1,
   type: 'slot',
   content: (
-    <div className='flex h-full w-full items-center justify-center font-bold text-primary'>
+    <div className='flex h-full w-full items-center justify-center text-center text-[40px] font-bold leading-[1.3] text-primary'>
       {sectionTitle}
     </div>
   ),
@@ -305,8 +305,8 @@ const ListenModeSlideRenderer = ({
   return (
     <div
       className={cn(
-        'listen-reveal-wrapper bg-[var(--color-4)]',
-        mobileStyle ? 'mobile' : '',
+        'listen-reveal-wrapper',
+        mobileStyle ? 'mobile bg-white' : 'bg-[var(--color-slide-desktop-bg)]',
       )}
       ref={chatRef}
     >

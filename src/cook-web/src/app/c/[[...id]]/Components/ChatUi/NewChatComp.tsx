@@ -616,8 +616,9 @@ export const NewChatComponents = ({
             className={cn(
               containerClassName,
               'listen-reveal-wrapper',
-              mobileStyle ? 'mobile' : '',
-              'bg-[var(--color-4)]',
+              mobileStyle
+                ? 'mobile bg-white'
+                : 'bg-[var(--color-slide-desktop-bg)]',
             )}
           />
         )

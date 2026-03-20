@@ -121,7 +121,7 @@
 .listen-slide-root {
   min-height: 0;
   flex: 1 1 auto;
-  background: white;
+  background: var(--color-slide-desktop-bg);
 }
 
 .listen-reveal-wrapper.mobile {
@@ -134,6 +134,7 @@
 
   .listen-slide-root {
     min-height: 0;
+    background: var(--color-5);
   }
 
   .listen-slide-root .slide-stage,
