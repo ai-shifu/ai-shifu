@@ -16,11 +16,10 @@ export const ELEMENT_TYPE = {
   TITLE: 'title',
   SVG: 'svg',
   DIFF: 'diff',
-  IMG: 'img'
+  IMG: 'img',
 } as const;
 
 export type ElementType = (typeof ELEMENT_TYPE)[keyof typeof ELEMENT_TYPE];
-
 
 // ===== Constants  Types for shared literals =====
 // record history block type

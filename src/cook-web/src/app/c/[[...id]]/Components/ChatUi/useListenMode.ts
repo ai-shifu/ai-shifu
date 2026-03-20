@@ -422,7 +422,12 @@ export const useListenPpt = ({
       return;
     }
     activeElementBidRef.current = nextBid;
-  }, [activeElementBidRef, deckRef, getBlockBidFromSlide, shouldRenderEmptyPpt]);
+  }, [
+    activeElementBidRef,
+    deckRef,
+    getBlockBidFromSlide,
+    shouldRenderEmptyPpt,
+  ]);
 
   const updateNavState = useCallback(() => {
     const deck = deckRef.current;
@@ -1107,9 +1112,7 @@ export const useListenAudioSequence = ({
       const newItem = audioAndInteractionList[newItemIndex];
       const currentPage =
         deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
-      const newItemSourceBid = resolveContentBid(
-        newItem?.element_bid ?? null,
-      );
+      const newItemSourceBid = resolveContentBid(newItem?.element_bid ?? null);
       const lastPlayedSourceBid = resolveContentBid(
         lastPlayedAudioBidRef.current,
       );
@@ -1183,8 +1186,7 @@ export const useListenAudioSequence = ({
                 hasActiveAudioBid,
                 isSequenceActive,
                 currentSequenceKind: currentSequenceItem?.sequenceKind ?? null,
-                currentSequenceBid:
-                  currentSequenceItem?.element_bid ?? null,
+                currentSequenceBid: currentSequenceItem?.element_bid ?? null,
               },
             );
             return;

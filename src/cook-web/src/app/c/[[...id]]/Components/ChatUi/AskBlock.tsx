@@ -403,7 +403,9 @@ export default function AskBlock({
                   }
                   onSend={() => {}}
                   userInput={''}
-                  interactionDefaultValueOptions={lessonFeedbackInteractionDefaultValueOptions}
+                  interactionDefaultValueOptions={
+                    lessonFeedbackInteractionDefaultValueOptions
+                  }
                   enableTypewriter={false}
                   typingSpeed={20}
                   readonly={true}

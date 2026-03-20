@@ -1,7 +1,9 @@
 import type { ChatContentItem } from './useChatLogicHook';
 import type { AudioSegment, AudioTrack } from '@/c-utils/audio-utils';
 
-export const sortByPosition = <T extends { position?: number }>(list: T[] = []) =>
+export const sortByPosition = <T extends { position?: number }>(
+  list: T[] = [],
+) =>
   [...list].sort((a, b) => Number(a.position ?? 0) - Number(b.position ?? 0));
 
 export const sortSegmentsByIndex = (segments: AudioSegment[] = []) =>
@@ -60,7 +62,8 @@ export const buildSlidePageMapping = (
 
     const samePositionSlide = realSlides.find(
       candidate =>
-        Number(candidate.audio_position ?? 0) === Number(slide.audio_position ?? 0) &&
+        Number(candidate.audio_position ?? 0) ===
+          Number(slide.audio_position ?? 0) &&
         pageBySlideId.has(candidate.slide_id),
     );
     if (samePositionSlide) {

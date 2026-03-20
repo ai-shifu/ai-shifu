@@ -360,8 +360,7 @@ export const NewChatComponents = ({
   const mobileInteractionPrimaryTrack = useMemo(
     () =>
       getAudioTrackByPosition(
-        itemByGeneratedBid.get(mobileInteraction.elementBid)
-          ?.audioTracks ?? [],
+        itemByGeneratedBid.get(mobileInteraction.elementBid)?.audioTracks ?? [],
       ),
     [itemByGeneratedBid, mobileInteraction.elementBid],
   );
@@ -584,36 +583,34 @@ export const NewChatComponents = ({
             <div className='w-full h-full flex items-center justify-center'>
               <Loader2 className='animate-spin size-6 text-primary' />
             </div>
+          ) : previewMode ? (
+            <ListenModeRenderer
+              items={listenModeItems}
+              mobileStyle={mobileStyle}
+              chatRef={chatRef as React.RefObject<HTMLDivElement>}
+              isLoading={isLoading}
+              sectionTitle={lessonTitle}
+              lessonId={lessonId}
+              lessonStatus={lessonStatus}
+              previewMode={previewMode}
+              onRequestAudioForBlock={requestAudioForBlock}
+              onSend={memoizedOnSend}
+              onPlayerVisibilityChange={onListenPlayerVisibilityChange}
+            />
           ) : (
-            previewMode ? (
-              <ListenModeRenderer
-                items={listenModeItems}
-                mobileStyle={mobileStyle}
-                chatRef={chatRef as React.RefObject<HTMLDivElement>}
-                isLoading={isLoading}
-                sectionTitle={lessonTitle}
-                lessonId={lessonId}
-                lessonStatus={lessonStatus}
-                previewMode={previewMode}
-                onRequestAudioForBlock={requestAudioForBlock}
-                onSend={memoizedOnSend}
-                onPlayerVisibilityChange={onListenPlayerVisibilityChange}
-              />
-            ) : (
-              <ListenModeSlideRenderer
-                items={listenModeItems}
-                mobileStyle={mobileStyle}
-                chatRef={chatRef as React.RefObject<HTMLDivElement>}
-                isLoading={isLoading}
-                sectionTitle={lessonTitle}
-                lessonId={lessonId}
-                lessonStatus={lessonStatus}
-                previewMode={previewMode}
-                onRequestAudioForBlock={requestAudioForBlock}
-                onSend={memoizedOnSend}
-                onPlayerVisibilityChange={onListenPlayerVisibilityChange}
-              />
-            )
+            <ListenModeSlideRenderer
+              items={listenModeItems}
+              mobileStyle={mobileStyle}
+              chatRef={chatRef as React.RefObject<HTMLDivElement>}
+              isLoading={isLoading}
+              sectionTitle={lessonTitle}
+              lessonId={lessonId}
+              lessonStatus={lessonStatus}
+              previewMode={previewMode}
+              onRequestAudioForBlock={requestAudioForBlock}
+              onSend={memoizedOnSend}
+              onPlayerVisibilityChange={onListenPlayerVisibilityChange}
+            />
           )
         ) : (
           <div
@@ -646,10 +643,8 @@ export const NewChatComponents = ({
               <></>
             ) : (
               items.map((item, idx) => {
-                const isLongPressed =
-                  longPressedBlockBid === item.element_bid;
-                const baseKey =
-                  item.element_bid || `${item.type}-${idx}`;
+                const isLongPressed = longPressedBlockBid === item.element_bid;
+                const baseKey = item.element_bid || `${item.type}-${idx}`;
                 const parentKey = item.parent_element_bid || baseKey;
                 if (item.type === ChatContentItemType.ASK) {
                   return (

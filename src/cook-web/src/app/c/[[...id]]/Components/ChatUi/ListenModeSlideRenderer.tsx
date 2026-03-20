@@ -1,10 +1,4 @@
-import {
-  memo,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
@@ -25,7 +19,6 @@ import {
 } from './listenModeUtils';
 import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
-
 
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
@@ -201,7 +194,10 @@ const buildSlideElementList = ({
       blockBid: item.element_bid,
       page: Math.max(pageCursor - 1, 0),
       user_input: currentUserInput,
-      readonly: Boolean(item.readonly) || Boolean(currentUserInput) || !isLatestEditable,
+      readonly:
+        Boolean(item.readonly) ||
+        Boolean(currentUserInput) ||
+        !isLatestEditable,
     });
   });
 
@@ -249,7 +245,10 @@ const ListenModeSlideRenderer = ({
     ],
   );
 
-  const shouldRenderEmptyPpt = !isLoading && elementList.length === 1 && elementList[0]?.blockBid === 'empty-ppt';
+  const shouldRenderEmptyPpt =
+    !isLoading &&
+    elementList.length === 1 &&
+    elementList[0]?.blockBid === 'empty-ppt';
 
   const handleStepChange = useCallback(
     (element?: SlideElement) => {
@@ -321,7 +320,9 @@ const ListenModeSlideRenderer = ({
             copiedButtonText: t('module.renderUi.core.copied'),
           }}
           onPlayerVisibilityChange={onPlayerVisibilityChange}
-          interactionDefaultValueOptions={lessonFeedbackInteractionDefaultValueOptions}
+          interactionDefaultValueOptions={
+            lessonFeedbackInteractionDefaultValueOptions
+          }
           onSend={handleInteractionSend}
           onStepChange={handleStepChange}
           playerClassName={mobileStyle ? 'listen-slide-player-mobile' : ''}

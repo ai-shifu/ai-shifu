@@ -91,7 +91,9 @@ const ContentBlock = memo(
           onClickCustomButtonAfterContent={handleClick}
           customRenderBar={item.customRenderBar}
           userInput={item.user_input}
-          interactionDefaultValueOptions={lessonFeedbackInteractionDefaultValueOptions}
+          interactionDefaultValueOptions={
+            lessonFeedbackInteractionDefaultValueOptions
+          }
           readonly={item.readonly}
           confirmButtonText={confirmButtonText}
           copyButtonText={copyButtonText}

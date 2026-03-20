@@ -155,7 +155,9 @@ const ListenPlayer = ({
                 content={effectiveInteraction.content || ''}
                 customRenderBar={effectiveInteraction.customRenderBar}
                 userInput={effectiveInteraction.user_input}
-                interactionDefaultValueOptions={lessonFeedbackInteractionDefaultValueOptions}
+                interactionDefaultValueOptions={
+                  lessonFeedbackInteractionDefaultValueOptions
+                }
                 confirmButtonText={t('module.renderUi.core.confirm')}
                 copyButtonText={t('module.renderUi.core.copyCode')}
                 copiedButtonText={t('module.renderUi.core.copied')}
