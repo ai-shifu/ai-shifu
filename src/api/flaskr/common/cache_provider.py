@@ -62,6 +62,13 @@ class CacheUnavailableError(RuntimeError):
 
 
 class _DynamicRedisCacheProvider:
+    def is_available(self) -> bool:
+        try:
+            self._client()
+            return True
+        except Exception:
+            return False
+
     def _client(self):
         try:
             from flaskr.dao import redis_client
@@ -279,6 +286,15 @@ class FallbackCacheProvider:
     def __init__(self, primary: CacheProvider, fallback: CacheProvider):
         self._primary = primary
         self._fallback = fallback
+
+    def is_available(self) -> bool:
+        checker = getattr(self._primary, "is_available", None)
+        if callable(checker):
+            try:
+                return bool(checker())
+            except Exception:
+                return False
+        return True
 
     def _call(self, method: str, *args, **kwargs):
         primary_fn = getattr(self._primary, method)

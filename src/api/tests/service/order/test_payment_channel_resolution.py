@@ -142,7 +142,7 @@ class TestResolvePaymentChannel:
             == ""
         )
 
-    def test_build_pingxx_allowed_origins_includes_absolute_home_url_origin(
+    def test_build_pingxx_allowed_origins_uses_absolute_home_url_origin_only(
         self, app, monkeypatch
     ):
         monkeypatch.setattr(
@@ -158,6 +158,20 @@ class TestResolvePaymentChannel:
             base_url="https://api.example.com/",
         ):
             assert order_route.build_pingxx_allowed_origins() == [
-                "https://api.example.com",
-                "https://cook.example.com",
+                "https://cook.example.com"
             ]
+
+    def test_build_pingxx_allowed_origins_ignores_relative_home_url(
+        self, app, monkeypatch
+    ):
+        monkeypatch.setattr(
+            order_route,
+            "get_config",
+            lambda key, default="": "/" if key == "HOME_URL" else default,
+        )
+
+        with app.test_request_context(
+            "/api/order/reqiure-to-pay",
+            base_url="https://api.example.com/",
+        ):
+            assert order_route.build_pingxx_allowed_origins() == []

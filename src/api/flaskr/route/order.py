@@ -33,11 +33,7 @@ def build_pingxx_allowed_origins() -> list[str]:
     """Build trusted origins for Ping++ WAP return URLs."""
 
     origins: list[str] = []
-    candidates = [
-        request.host_url,
-        request.url_root,
-        get_config("HOME_URL", ""),
-    ]
+    candidates = [get_config("HOME_URL", "")]
 
     for candidate in candidates:
         split = urlsplit(str(candidate or "").strip())
