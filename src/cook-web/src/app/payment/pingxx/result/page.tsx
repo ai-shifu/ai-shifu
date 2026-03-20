@@ -23,6 +23,11 @@ interface OrderSnapshot {
   status: number;
 }
 
+const PINGXX_PENDING_STATUSES = new Set([
+  ORDER_STATUS.BUY_STATUS_INIT,
+  ORDER_STATUS.BUY_STATUS_TO_BE_PAID,
+]);
+
 const resolveRedirectPath = (
   redirectPath: string,
   courseId?: string,
@@ -80,6 +85,28 @@ export default function PingxxResultPage() {
           setState({
             status: 'success',
             message: t('module.pay.paySuccess'),
+            orderId,
+            courseId,
+            redirectPath: resolveRedirectPath(redirectPath, courseId),
+          });
+          return;
+        }
+
+        if (result?.status === ORDER_STATUS.BUY_STATUS_REFUND) {
+          setState({
+            status: 'error',
+            message: t('module.order.paymentStatus.refunded'),
+            orderId,
+            courseId,
+            redirectPath: resolveRedirectPath(redirectPath, courseId),
+          });
+          return;
+        }
+
+        if (!PINGXX_PENDING_STATUSES.has(result?.status)) {
+          setState({
+            status: 'error',
+            message: t('module.pay.payFailed'),
             orderId,
             courseId,
             redirectPath: resolveRedirectPath(redirectPath, courseId),

@@ -19,7 +19,21 @@ class ConfigCache(BaseModel):
 
 
 def _is_redis_available() -> bool:
-    return redis is not None
+    """
+    Determine whether the Redis-backed cache is available.
+
+    Prefer an explicit availability probe on the cache provider when present.
+    Otherwise keep the historical behavior and assume the wrapper can serve
+    requests via its own fallback path.
+    """
+
+    try:
+        is_available = getattr(redis, "is_available", None)
+        if callable(is_available):
+            return bool(is_available())
+        return True
+    except Exception:
+        return False
 
 
 def _get_fernet_key(app: Flask) -> bytes:

@@ -267,9 +267,23 @@ export const PayModalM = ({
         redirect: `${window.location.pathname}${window.location.search}`,
       });
 
-      return `${window.location.origin}/payment/pingxx/result?${searchParams.toString()}`;
+      return `/payment/pingxx/result?${searchParams.toString()}`;
     },
     [courseId, mobileWechatChannel],
+  );
+
+  const handlePaymentRefreshError = useCallback(
+    (error: unknown) => {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : t('module.pay.payFailed');
+      toast({
+        title: message,
+        variant: 'destructive',
+      });
+    },
+    [t],
   );
 
   const buildPaymentParams = useCallback(
@@ -301,11 +315,14 @@ export const PayModalM = ({
     if (fallbackChannel && fallbackChannel !== payChannel) {
       setPayChannel(fallbackChannel);
       if (orderId) {
-        refreshPayment(buildPaymentParams(fallbackChannel, orderId));
+        void refreshPayment(buildPaymentParams(fallbackChannel, orderId)).catch(
+          handlePaymentRefreshError,
+        );
       }
     }
   }, [
     buildPaymentParams,
+    handlePaymentRefreshError,
     isStripeSelected,
     isStripeAvailable,
     pingxxChannelEnabled,
@@ -334,9 +351,14 @@ export const PayModalM = ({
         setPayChannel(nextChannel);
       }
     }
-    await refreshPayment(buildPaymentParams(nextChannel, nextOrderId));
+    try {
+      await refreshPayment(buildPaymentParams(nextChannel, nextOrderId));
+    } catch (error) {
+      handlePaymentRefreshError(error);
+    }
   }, [
     buildPaymentParams,
+    handlePaymentRefreshError,
     initializeOrder,
     isLoggedIn,
     isStripeAvailable,
@@ -362,9 +384,14 @@ export const PayModalM = ({
     if (isStripeSelected) {
       return;
     }
-    const payload = await refreshPayment(
-      buildPaymentParams(payChannel, orderId),
-    );
+    const payload = await (async () => {
+      try {
+        return await refreshPayment(buildPaymentParams(payChannel, orderId));
+      } catch (error) {
+        handlePaymentRefreshError(error);
+        return null;
+      }
+    })();
     if (!payload) {
       return;
     }
@@ -400,6 +427,7 @@ export const PayModalM = ({
     }
   }, [
     buildPaymentParams,
+    handlePaymentRefreshError,
     isStripeSelected,
     onOk,
     orderId,
@@ -415,9 +443,11 @@ export const PayModalM = ({
       if (!orderId) {
         return;
       }
-      refreshPayment(buildPaymentParams(value, orderId));
+      void refreshPayment(buildPaymentParams(value, orderId)).catch(
+        handlePaymentRefreshError,
+      );
     },
-    [buildPaymentParams, orderId, refreshPayment],
+    [buildPaymentParams, handlePaymentRefreshError, orderId, refreshPayment],
   );
 
   const onPayChannelWechatClick = useCallback(() => {
@@ -505,7 +535,7 @@ export const PayModalM = ({
       return;
     }
     initialPaymentRequestedRef.current = true;
-    loadPayInfo();
+    void loadPayInfo();
   }, [isLoggedIn, loadPayInfo, open]);
 
   useEffect(() => {

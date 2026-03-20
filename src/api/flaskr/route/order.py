@@ -1,6 +1,6 @@
 from urllib.parse import urlsplit
 
-from flask import Flask, request
+from flask import Flask, current_app, request
 from flaskr.service.config.funcs import get_config
 from flaskr.service.common.models import raise_param_error, raise_error
 from flaskr.service.order.coupon_funcs import use_coupon_code
@@ -33,11 +33,24 @@ def build_pingxx_allowed_origins() -> list[str]:
     """Build trusted origins for Ping++ WAP return URLs."""
 
     origins: list[str] = []
-    candidates = [
-        request.host_url,
-        request.url_root,
-        get_config("HOME_URL", ""),
-    ]
+    home_url = get_config("HOME_URL", "")
+    candidates = [home_url]
+
+    server_name_value = current_app.config.get("SERVER_NAME")
+    server_name = (
+        str(server_name_value).strip() if server_name_value not in (None, "") else ""
+    )
+    if server_name:
+        server_split = urlsplit(server_name)
+        if server_split.scheme and server_split.netloc:
+            candidates.append(server_name)
+        else:
+            scheme = (
+                str(current_app.config.get("PREFERRED_URL_SCHEME") or "").strip()
+                or request.scheme
+                or "https"
+            )
+            candidates.append(f"{scheme}://{server_name}")
 
     for candidate in candidates:
         split = urlsplit(str(candidate or "").strip())
@@ -48,6 +61,37 @@ def build_pingxx_allowed_origins() -> list[str]:
             origins.append(origin)
 
     return origins
+
+
+def resolve_pingxx_return_url(raw_return_url: str) -> str:
+    """Resolve Ping++ return URLs without trusting client-controlled hosts."""
+
+    candidate = str(raw_return_url or "").strip()
+    if not candidate:
+        return ""
+
+    allowed_origins = build_pingxx_allowed_origins()
+    if candidate.startswith("/"):
+        if allowed_origins:
+            return normalize_pingxx_return_url(
+                candidate,
+                allowed_origins=allowed_origins,
+            )
+
+        # Some legacy deployments still configure HOME_URL as a relative path.
+        # In that case we only use the current request origin to expand a
+        # same-site relative path, while still refusing attacker-supplied
+        # absolute URLs.
+        request_origin = f"{request.scheme}://{request.host}"
+        return normalize_pingxx_return_url(
+            candidate,
+            allowed_origins=[request_origin],
+        )
+
+    return normalize_pingxx_return_url(
+        candidate,
+        allowed_origins=allowed_origins,
+    )
 
 
 def register_order_handler(app: Flask, path_prefix: str):
@@ -80,7 +124,7 @@ def register_order_handler(app: Flask, path_prefix: str):
                         description: 目标支付提供方，可选值为pingxx或stripe（不填则沿用订单记录）
                     return_url:
                         type: string
-                        description: Ping++ H5支付完成后的回跳地址，仅允许当前站点同源地址
+                        description: Ping++ WAP return URL. Only same-origin URLs or site-relative paths are allowed.
         responses:
             200:
                 description: 请求支付成功
@@ -103,10 +147,7 @@ def register_order_handler(app: Flask, path_prefix: str):
         channel = payload.get("channel", "")
         payment_channel = payload.get("payment_channel")
         raw_return_url = payload.get("return_url", "")
-        return_url = normalize_pingxx_return_url(
-            raw_return_url,
-            allowed_origins=build_pingxx_allowed_origins(),
-        )
+        return_url = resolve_pingxx_return_url(raw_return_url)
         if raw_return_url and not return_url:
             raise_param_error("return_url")
         client_ip = request.client_ip
