@@ -2823,9 +2823,12 @@ class RunScriptContextV2:
                 )
                 generated_block.generated_content = generated_content
                 db.session.add(generated_block)
-                self._can_continue = False
+                next_block_position = run_script_info.block_position + 1
+                # Continue the same run across subsequent blocks until we hit
+                # an interaction block or reach outline completion.
+                self._can_continue = next_block_position < len(block_list)
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                self._current_attend.block_position += 1
+                self._current_attend.block_position = next_block_position
                 db.session.flush()
 
         progress_record = self._current_attend

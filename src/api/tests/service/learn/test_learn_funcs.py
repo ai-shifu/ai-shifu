@@ -35,9 +35,14 @@ if not hasattr(dao, "redis_client"):
     dao.redis_client = None
 
 from flaskr.service.learn.const import LEARN_STATUS_IN_PROGRESS
-from flaskr.service.learn.learn_dtos import BlockType, LikeStatus
+from flaskr.service.learn.learn_dtos import BlockType, GeneratedType, LikeStatus
 from flaskr.service.learn.learn_funcs import get_learn_record
-from flaskr.service.learn.context_v2 import RunScriptContextV2, RunScriptInfo, RunType
+from flaskr.service.learn.context_v2 import (
+    BlockType as MarkdownFlowBlockType,
+    RunScriptContextV2,
+    RunScriptInfo,
+    RunType,
+)
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.shifu.consts import (
@@ -311,6 +316,143 @@ class LearnRecordLoadTests(unittest.TestCase):
             student_block.block_content_conf,
             FakeMarkdownFlow.last_context[1]["content"],
         )
+
+    def test_run_progresses_across_content_blocks_until_interaction(self):
+        """A single run should keep advancing through content blocks and stop at interaction."""
+        progress = LearnProgressRecord(
+            progress_record_bid="progress-run-continue",
+            shifu_bid="shifu-run-continue",
+            outline_item_bid="outline-run-continue",
+            user_bid="user-run-continue",
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        dao.db.session.add(progress)
+        dao.db.session.commit()
+
+        ctx = RunScriptContextV2.__new__(RunScriptContextV2)
+        ctx.app = self.app
+        ctx._trace_args = {}
+        ctx._trace = types.SimpleNamespace(update=lambda **kwargs: None)
+        ctx._outline_item_info = types.SimpleNamespace(
+            bid=progress.outline_item_bid,
+            shifu_bid=progress.shifu_bid,
+            position=0,
+            title="Run Continue",
+        )
+        ctx._shifu_info = types.SimpleNamespace(use_learner_language=False)
+        ctx._user_info = types.SimpleNamespace(user_id=progress.user_bid, mobile="")
+        ctx._preview_mode = False
+        ctx._struct = None
+        ctx._is_paid = True
+        ctx._run_type = RunType.OUTPUT
+        ctx._can_continue = True
+        ctx._input_type = "normal"
+        ctx._input = None
+        ctx._last_position = -1
+        ctx._listen = True
+        ctx._element_index_cursor = 0
+        ctx._current_attend = progress
+        ctx._get_current_attend = types.MethodType(
+            lambda self, outline_bid: progress, ctx
+        )
+        ctx._get_next_outline_item = types.MethodType(lambda self: [], ctx)
+        ctx.get_llm_settings = types.MethodType(
+            lambda self, outline_bid: LLMSettings(model="fake", temperature=0.0), ctx
+        )
+        ctx.get_system_prompt = types.MethodType(lambda self, outline_bid: None, ctx)
+        ctx._get_run_script_info = types.MethodType(
+            lambda self, attend, is_ask=False: RunScriptInfo(
+                attend=attend,
+                outline_bid=attend.outline_item_bid,
+                block_position=attend.block_position,
+                mdflow="doc",
+            ),
+            ctx,
+        )
+
+        class DummyBlock:
+            def __init__(self, block_type, content, index):
+                self.block_type = block_type
+                self.content = content
+                self.index = index
+
+        class DummyLLMResult:
+            def __init__(self, content: str):
+                self.content = content
+
+        class FakeMarkdownFlow:
+            def __init__(self, *args, **kwargs):
+                self.blocks = [
+                    DummyBlock(MarkdownFlowBlockType.CONTENT, "first content", 0),
+                    DummyBlock(MarkdownFlowBlockType.CONTENT, "second content", 1),
+                    DummyBlock(
+                        MarkdownFlowBlockType.INTERACTION,
+                        "?[Continue//continue]",
+                        2,
+                    ),
+                ]
+
+            def set_visual_mode(self, *_args, **_kwargs):
+                pass
+
+            def set_output_language(self, *_args, **_kwargs):
+                return self
+
+            def get_all_blocks(self):
+                return self.blocks
+
+            def get_block(self, block_index):
+                return self.blocks[block_index]
+
+            def process(
+                self, block_index, mode, variables=None, context=None, user_input=None
+            ):
+                block = self.blocks[block_index]
+                if block.block_type == MarkdownFlowBlockType.INTERACTION:
+                    return types.SimpleNamespace(content=block.content)
+
+                def _gen():
+                    yield DummyLLMResult(block.content)
+
+                return _gen()
+
+        with (
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.MarkdownFlow", FakeMarkdownFlow
+            ),
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.get_user_profiles", return_value={}
+            ),
+            unittest.mock.patch(
+                "flaskr.service.learn.context_v2.get_profile_item_definition_list",
+                return_value=[],
+            ),
+            unittest.mock.patch.object(
+                RunScriptContextV2, "_should_stream_tts", return_value=False
+            ),
+        ):
+            events = []
+            while ctx.has_next():
+                events.extend(list(ctx.run(self.app)))
+
+        self.assertEqual(
+            [event.type for event in events],
+            [
+                GeneratedType.CONTENT,
+                GeneratedType.BREAK,
+                GeneratedType.CONTENT,
+                GeneratedType.BREAK,
+                GeneratedType.INTERACTION,
+            ],
+        )
+        self.assertEqual(
+            [event.content for event in events[:4:2]],
+            ["first content", "second content"],
+        )
+        self.assertEqual(events[-1].content, "?[Continue//continue]")
+        self.assertEqual(progress.block_position, 2)
+        self.assertFalse(ctx._can_continue)
 
     def test_run_inner_skips_duplicate_fixed_output_after_interaction_input(self):
         """Avoid replaying an already generated fixed output after interaction submit."""
