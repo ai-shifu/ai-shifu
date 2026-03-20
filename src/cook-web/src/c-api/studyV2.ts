@@ -4,6 +4,24 @@ import { v4 } from 'uuid';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { useUserStore } from '@/store/useUserStore';
 
+export const ELEMENT_TYPE = {
+  INTERACTION: 'interaction',
+  HTML: 'html',
+  TEXT: 'text',
+  TABLES: 'tables',
+  CODE: 'code',
+  LATEX: 'latex',
+  MD_IMG: 'md_img',
+  MERMAID: 'mermaid',
+  TITLE: 'title',
+  SVG: 'svg',
+  DIFF: 'diff',
+  IMG: 'img'
+} as const;
+
+export type ElementType = (typeof ELEMENT_TYPE)[keyof typeof ELEMENT_TYPE];
+
+
 // ===== Constants  Types for shared literals =====
 // record history block type
 export const BLOCK_TYPE = {
@@ -77,20 +95,19 @@ export const LESSON_FEEDBACK_INTERACTION_MARKER =
   `%{{${LESSON_FEEDBACK_VARIABLE_NAME}}}` as const;
 
 export interface StudyRecordItem {
-  block_type: BlockType;
-  content: string;
-  generated_block_bid: string;
-  like_status?: LikeStatus;
+  element_type: ElementType;
+  content_text: string;
+  element_bid: string;
+  // like_status?: LikeStatus;
   user_input?: string;
-  isHistory?: boolean;
+  // isHistory?: boolean;
   audio_url?: string;
-  audios?: AudioCompleteData[];
-  av_contract?: Record<string, any> | null;
+  audio_segments?: AudioSegmentData[];
 }
 
 export interface LessonStudyRecords {
   mdflow: string;
-  records: StudyRecordItem[];
+  elements: StudyRecordItem[];
   slides?: ListenSlideData[];
 }
 
@@ -323,7 +340,7 @@ export const getLessonStudyRecord = async ({
     .catch(error => {
       // when error, return empty records, go run api
       return {
-        records: [],
+        elements: [],
       };
     });
 };
