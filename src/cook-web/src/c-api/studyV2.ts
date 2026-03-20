@@ -96,7 +96,6 @@ export const LESSON_FEEDBACK_INTERACTION_MARKER =
 
 export interface StudyRecordItem {
   element_type: ElementType;
-  content_text: string;
   element_bid: string;
   content: string;
   is_marker: boolean;

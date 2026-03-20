@@ -35,6 +35,8 @@ import {
   checkIsRunning,
   streamGeneratedBlockAudio,
   submitLessonFeedback,
+  ELEMENT_TYPE,
+  ElementType,
 } from '@/c-api/studyV2';
 import {
   getAudioTrackByPosition,
@@ -89,7 +91,7 @@ export interface ChatContentItem {
   ask_generated_block_bid?: string; // use for ask block, because an interaction block gid isn't ask gid
   parent_block_bid?: string; // when like_status is not none, the parent_block_bid is the generated_block_bid of the interaction block
   like_status?: LikeStatus;
-  type: ChatContentItemType | BlockType;
+  type: ChatContentItemType | BlockType | ElementType;
   ask_list?: ChatContentItem[]; // list of ask records for this content block
   isAskExpanded?: boolean; // whether the ask panel is expanded
   generateTime?: number;
@@ -467,7 +469,7 @@ function useChatLogicHook({
 
   const normalizeHistoryAudioTracks = useCallback(
     (record: StudyRecordItem): AudioTrack[] => {
-      const audios = Array.isArray(record.audios) ? record.audios : [];
+      const audios = Array.isArray(record.audio_segments) ? record.audio_segments : [];
       if (!audios.length) {
         if (!record.audio_url) {
           return [];
@@ -486,11 +488,9 @@ function useChatLogicHook({
         .sort((a, b) => Number(a.position ?? 0) - Number(b.position ?? 0))
         .map(audio => ({
           position: Number(audio.position ?? 0),
-          slideId: audio.slide_id,
-          audioUrl: audio.audio_url,
+          audioUrl: audio.audio_data,
           durationMs: Number(audio.duration_ms ?? 0),
           isAudioStreaming: false,
-          avContract: audio.av_contract ?? null,
         }));
     },
     [],
@@ -1027,26 +1027,12 @@ function useChatLogicHook({
    * Transforms persisted study records into chat-friendly content items.
    */
   const mapRecordsToContent = useCallback(
-    (records: StudyRecordItem[], slides: ListenSlideData[] = []) => {
+    (records: StudyRecordItem[]) => {
       const result: ChatContentItem[] = [];
       let buffer: StudyRecordItem[] = []; // cache consecutive ask entries
       let lastContentId: string | null = null;
-      const slidesByBlock = new Map<string, ListenSlideData[]>();
 
-      slides.forEach(slide => {
-        const blockId = slide.generated_block_bid || '';
-        if (!blockId) {
-          return;
-        }
-        const current = slidesByBlock.get(blockId) ?? [];
-        current.push(slide);
-        slidesByBlock.set(blockId, current);
-      });
-
-      slidesByBlock.forEach((blockSlides, blockId) => {
-        slidesByBlock.set(blockId, sortSlidesByTimeline(blockSlides));
-      });
-
+     
       const flushBuffer = () => {
         if (buffer.length > 0) {
           const parentId = lastContentId || '';
@@ -1055,10 +1041,10 @@ function useChatLogicHook({
             type: BLOCK_TYPE.ASK,
             isAskExpanded: !mobileStyle && buffer.length > 0,
             parent_block_bid: parentId,
-            ask_list: buffer.map(item => ({
-              ...item,
-              type: item.block_type,
-            })), // keep the original ask list
+            // ask_list: buffer.map(item => ({
+            //   ...item,
+            //   type: item.element_type,
+            // })), // keep the original ask list
             readonly: false,
             isHistory: true,
             customRenderBar: () => null,
@@ -1069,7 +1055,7 @@ function useChatLogicHook({
       };
 
       records.forEach((item: StudyRecordItem) => {
-        if (item.block_type === BLOCK_TYPE.CONTENT) {
+        if (item.element_type !== ELEMENT_TYPE.INTERACTION) {
           // flush the previously cached ask entries
           flushBuffer();
           const historyTracks = normalizeHistoryAudioTracks(item);
@@ -1084,18 +1070,18 @@ function useChatLogicHook({
                 )
               : normalizedContent;
           result.push({
+            ...item,
             generated_block_bid: item.generated_block_bid,
             content: contentWithButton,
             customRenderBar: () => null,
             user_input: item.user_input || '',
             readonly: false,
             isHistory: true,
-            type: item.block_type,
+            type: item.element_type,
             // Include audio URL from history
-            audioUrl: singleTrack?.audioUrl ?? item.audio_url,
+            audioUrl: item.audio_url,
             audioDurationMs: singleTrack?.durationMs,
             audioTracks: historyTracks,
-            listenSlides: slidesByBlock.get(item.generated_block_bid),
           });
           lastContentId = item.generated_block_bid;
 
@@ -1107,25 +1093,26 @@ function useChatLogicHook({
               type: ChatContentItemType.LIKE_STATUS,
             });
           }
-        } else if (
-          item.block_type === BLOCK_TYPE.ASK ||
-          item.block_type === BLOCK_TYPE.ANSWER
-        ) {
-          // accumulate ask entries
-          buffer.push(item);
+        // } else if (
+        //   item.element_type === BLOCK_TYPE.ASK ||
+        //   item.element_type === BLOCK_TYPE.ANSWER
+        // ) {
+        //   // accumulate ask entries
+        //   buffer.push(item);
         } else {
           // flush and handle other types (including INTERACTION)
           flushBuffer();
 
           // Use markdown-flow-ui default rendering for all interactions
           result.push({
+            ...item,
             generated_block_bid: item.generated_block_bid,
             content: item.content,
             customRenderBar: () => null,
             user_input: item.user_input || '',
             readonly: false,
             isHistory: true,
-            type: item.block_type,
+            type: item.element_type,
           });
         }
       });
@@ -1139,8 +1126,6 @@ function useChatLogicHook({
       isListenMode,
       mobileStyle,
       normalizeHistoryAudioTracks,
-      sortSlidesByTimeline,
-      t,
     ],
   );
 
@@ -1148,12 +1133,6 @@ function useChatLogicHook({
    * Loads the persisted lesson records and primes the chat stream.
    */
   const refreshData = useCallback(async () => {
-    // console.log('listen-refresh-start', {
-    //   lessonId,
-    //   outlineBid,
-    //   isListenMode,
-    //   previewMode: effectivePreviewMode,
-    // });
     setTrackedContentList(() => []);
     pendingSlidesRef.current = {};
     resetLessonFeedbackPopup();
@@ -1172,19 +1151,9 @@ function useChatLogicHook({
         preview_mode: effectivePreviewMode,
       });
 
-      // console.log('listen-refresh-records', {
-      //   lessonId,
-      //   outlineBid,
-      //   recordCount: recordResp?.records?.length ?? 0,
-      //   lastBlockType:
-      //     recordResp?.records?.[recordResp.records.length - 1]?.block_type ??
-      //     null,
-      // });
-
-      if (recordResp?.records?.length > 0) {
+      if (recordResp?.elements?.length > 0) {
         const contentRecords = mapRecordsToContent(
-          recordResp.records,
-          recordResp.slides ?? [],
+          recordResp.elements
         );
         setTrackedContentList(contentRecords);
         const latestFeedbackInteraction =
@@ -1212,18 +1181,12 @@ function useChatLogicHook({
           setLoadedChapterId(chapterId);
         }
         if (
-          recordResp.records[recordResp.records.length - 1].block_type ===
-            BLOCK_TYPE.CONTENT ||
-          recordResp.records[recordResp.records.length - 1].block_type ===
-            BLOCK_TYPE.ERROR
+          recordResp.elements[recordResp.elements.length - 1].element_type !==
+            ELEMENT_TYPE.INTERACTION 
+          //   ||
+          // recordResp.elements[recordResp.elements.length - 1].element_type ===
+          //   BLOCK_TYPE.ERROR
         ) {
-          // console.log(
-          //   '[音频中断排查][SSE] refreshData 命中历史末尾内容，触发 runRef.current',
-          //   {
-          //     outlineBid,
-          //     reason: 'history-tail-content-or-error',
-          //   },
-          // );
           runRef.current?.({
             input: '',
             input_type: SSE_INPUT_TYPE.NORMAL,
@@ -1286,19 +1249,8 @@ function useChatLogicHook({
         if (!curr) {
           return;
         }
-        // console.log('listen-reset-triggered', {
-        //   lessonId,
-        //   resetedLessonId: curr,
-        // });
         setIsLoading(true);
         if (curr === lessonId) {
-          // console.log(
-          //   '[音频中断排查][SSE] resetedLesson 命中当前课时，先关闭旧流再 refresh',
-          //   {
-          //     lessonId,
-          //     resetedLessonId: curr,
-          //   },
-          // );
           sseRef.current?.close();
           await refreshData();
           // updateResetedChapterId(null);
@@ -1338,13 +1290,6 @@ function useChatLogicHook({
   }, [chapterId, refreshData]);
 
   useEffect(() => {
-    // console.log(
-    //   '[音频中断排查][SSE] lessonId/resetedLessonId 变化，先关闭旧流',
-    //   {
-    //     lessonId,
-    //     resetedLessonId,
-    //   },
-    // );
     sseRef.current?.close();
     if (!lessonId || resetedLessonId === lessonId) {
       return;
