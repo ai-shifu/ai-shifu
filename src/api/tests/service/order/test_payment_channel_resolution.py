@@ -1,5 +1,6 @@
 import pytest
 
+from flaskr.route import order as order_route
 from flaskr.service.common.models import AppException
 from flaskr.service.order.funs import (
     _extract_pingxx_redirect_url,
@@ -140,3 +141,23 @@ class TestResolvePaymentChannel:
             )
             == ""
         )
+
+    def test_build_pingxx_allowed_origins_includes_absolute_home_url_origin(
+        self, app, monkeypatch
+    ):
+        monkeypatch.setattr(
+            order_route,
+            "get_config",
+            lambda key, default="": (
+                "https://cook.example.com/c/course-1" if key == "HOME_URL" else default
+            ),
+        )
+
+        with app.test_request_context(
+            "/api/order/reqiure-to-pay",
+            base_url="https://api.example.com/",
+        ):
+            assert order_route.build_pingxx_allowed_origins() == [
+                "https://api.example.com",
+                "https://cook.example.com",
+            ]
