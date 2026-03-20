@@ -418,6 +418,7 @@ def generate_charge(
     client_ip: str,
     payment_channel: Optional[str] = None,
     return_url: str = "",
+    cancel_url: str = "",
 ) -> BuyRecordDTO:
     """
     Generate charge
@@ -500,6 +501,7 @@ def generate_charge(
                 body=body,
                 order_no=order_no,
                 return_url=return_url,
+                cancel_url=cancel_url,
             )
 
         if payment_channel == "stripe":
@@ -729,6 +731,7 @@ def _generate_pingxx_charge(
     body: str,
     order_no: str,
     return_url: str = "",
+    cancel_url: str = "",
 ) -> BuyRecordDTO:
     provider = get_payment_provider("pingxx")
     pingpp_id = get_config("PINGXX_APP_ID")
@@ -749,6 +752,11 @@ def _generate_pingxx_charge(
         qr_url_key = "wx_pub"
     elif channel == "wx_wap":  # wxpay H5
         charge_extra = {"result_url": return_url} if return_url else {}
+    elif channel == "alipay_wap":  # alipay mobile web
+        # Ping++ expects explicit success/cancel URLs for Alipay WAP redirects.
+        charge_extra = {"success_url": return_url}
+        if cancel_url:
+            charge_extra["cancel_url"] = cancel_url
     else:
         app.logger.error("channel:%s not support", channel)
         raise_error("server.pay.payChannelNotSupport")

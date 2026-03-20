@@ -118,13 +118,16 @@ def register_order_handler(app: Flask, path_prefix: str):
                         description: 订单id
                     channel:
                         type: string
-                        description: 支付渠道。Ping++通道请输入wx_pub_qr、alipay_qr等；Stripe通道请输入stripe或stripe:checkout_session等格式
+                        description: 支付渠道。Ping++通道请输入wx_pub_qr、wx_wap、alipay_qr、alipay_wap等；Stripe通道请输入stripe或stripe:checkout_session等格式
                     payment_channel:
                         type: string
                         description: 目标支付提供方，可选值为pingxx或stripe（不填则沿用订单记录）
                     return_url:
                         type: string
                         description: Ping++ WAP return URL. Only same-origin URLs or site-relative paths are allowed.
+                    cancel_url:
+                        type: string
+                        description: Ping++ cancel URL. Only same-origin URLs or site-relative paths are allowed.
         responses:
             200:
                 description: 请求支付成功
@@ -147,8 +150,14 @@ def register_order_handler(app: Flask, path_prefix: str):
         channel = payload.get("channel", "")
         payment_channel = payload.get("payment_channel")
         raw_return_url = payload.get("return_url", "")
+        raw_cancel_url = payload.get("cancel_url", "")
         return_url = resolve_pingxx_return_url(raw_return_url)
+        cancel_url = resolve_pingxx_return_url(raw_cancel_url)
         if raw_return_url and not return_url:
+            raise_param_error("return_url")
+        if raw_cancel_url and not cancel_url:
+            raise_param_error("cancel_url")
+        if channel == "alipay_wap" and not return_url:
             raise_param_error("return_url")
         client_ip = request.client_ip
         return make_common_response(
@@ -159,6 +168,7 @@ def register_order_handler(app: Flask, path_prefix: str):
                 client_ip,
                 payment_channel=payment_channel,
                 return_url=return_url,
+                cancel_url=cancel_url,
             )
         )
 

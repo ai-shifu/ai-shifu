@@ -48,6 +48,7 @@ export interface PaymentActionParams {
   channel: string;
   paymentChannel?: PaymentChannel;
   returnUrl?: string;
+  cancelUrl?: string;
 }
 
 export interface PaymentCouponParams extends PaymentActionParams {
@@ -166,7 +167,12 @@ export const usePaymentFlow = ({
   }, [initOrderUniform, isLoggedIn, updateFromOrder, updateOrderId]);
 
   const refreshPayment = useCallback(
-    async ({ channel, paymentChannel, returnUrl }: PaymentActionParams) => {
+    async ({
+      channel,
+      paymentChannel,
+      returnUrl,
+      cancelUrl,
+    }: PaymentActionParams) => {
       if (!orderIdRef.current) return null;
       setIsLoading(true);
       try {
@@ -190,6 +196,7 @@ export const usePaymentFlow = ({
           orderId: orderIdRef.current,
           paymentChannel,
           returnUrl,
+          cancelUrl,
         } as PayUrlRequest);
         if (!mountedRef.current || !payload) {
           return payload;
@@ -226,6 +233,7 @@ export const usePaymentFlow = ({
       channel,
       paymentChannel,
       returnUrl,
+      cancelUrl,
     }: PaymentCouponParams) => {
       if (!orderIdRef.current) return null;
       const resp = await applyDiscountCode({
@@ -241,7 +249,7 @@ export const usePaymentFlow = ({
         resp.status === ORDER_STATUS.BUY_STATUS_INIT ||
         resp.status === ORDER_STATUS.BUY_STATUS_TO_BE_PAID
       ) {
-        await refreshPayment({ channel, paymentChannel, returnUrl });
+        await refreshPayment({ channel, paymentChannel, returnUrl, cancelUrl });
       }
       return resp;
     },

@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from flaskr.route import order as order_route
@@ -93,6 +95,15 @@ class TestResolvePaymentChannel:
                 {"wx_wap": "https://pay.example.com/wx-wap-session"},
             )
             == "https://pay.example.com/wx-wap-session"
+        )
+
+    def test_extract_pingxx_redirect_url_from_alipay_wap_channel_key(self):
+        assert (
+            _extract_pingxx_redirect_url(
+                "alipay_wap",
+                {"alipay_wap": "https://pay.example.com/alipay-wap-session"},
+            )
+            == "https://pay.example.com/alipay-wap-session"
         )
 
     def test_extract_pingxx_redirect_url_from_fallback_key(self):
@@ -237,3 +248,117 @@ class TestResolvePaymentChannel:
                 )
                 == ""
             )
+
+    def test_require_to_pay_rejects_invalid_cancel_url(self, app, monkeypatch):
+        monkeypatch.setattr(
+            order_route,
+            "get_config",
+            lambda key, default="": (
+                "https://cook.example.com/c/course-1" if key == "HOME_URL" else default
+            ),
+        )
+        reqiure_to_pay = app.view_functions["reqiure_to_pay"]
+
+        with app.test_request_context(
+            "/api/order/reqiure-to-pay",
+            method="POST",
+            json={
+                "order_id": "order-1",
+                "channel": "alipay_wap",
+                "return_url": "/payment/pingxx/result?order_id=1",
+                "cancel_url": "https://evil.example.com/c/course-1",
+            },
+        ):
+            with pytest.raises(AppException) as exc_info:
+                reqiure_to_pay()
+
+        assert "cancel_url" in str(exc_info.value)
+
+    def test_require_to_pay_requires_return_url_for_alipay_wap(self, app, monkeypatch):
+        monkeypatch.setattr(
+            order_route,
+            "get_config",
+            lambda key, default="": (
+                "https://cook.example.com/c/course-1" if key == "HOME_URL" else default
+            ),
+        )
+        reqiure_to_pay = app.view_functions["reqiure_to_pay"]
+
+        with app.test_request_context(
+            "/api/order/reqiure-to-pay",
+            method="POST",
+            json={
+                "order_id": "order-1",
+                "channel": "alipay_wap",
+                "cancel_url": "/c/course-1",
+            },
+        ):
+            with pytest.raises(AppException) as exc_info:
+                reqiure_to_pay()
+
+        assert "return_url" in str(exc_info.value)
+
+    def test_require_to_pay_passes_resolved_urls_to_generate_charge(
+        self, app, monkeypatch
+    ):
+        monkeypatch.setattr(
+            order_route,
+            "get_config",
+            lambda key, default="": (
+                "https://cook.example.com/c/course-1" if key == "HOME_URL" else default
+            ),
+        )
+        captured = {}
+        reqiure_to_pay = app.view_functions["reqiure_to_pay"]
+
+        def fake_generate_charge(
+            app,
+            order_id,
+            channel,
+            client_ip,
+            payment_channel=None,
+            return_url="",
+            cancel_url="",
+        ):
+            _ = app
+            captured.update(
+                {
+                    "order_id": order_id,
+                    "channel": channel,
+                    "client_ip": client_ip,
+                    "payment_channel": payment_channel,
+                    "return_url": return_url,
+                    "cancel_url": cancel_url,
+                }
+            )
+            return {
+                "order_id": order_id,
+                "channel": channel,
+            }
+
+        monkeypatch.setattr(order_route, "generate_charge", fake_generate_charge)
+
+        with app.test_request_context(
+            "/api/order/reqiure-to-pay",
+            method="POST",
+            json={
+                "order_id": "order-1",
+                "channel": "alipay_wap",
+                "payment_channel": "pingxx",
+                "return_url": "/payment/pingxx/result?order_id=1",
+                "cancel_url": "/c/course-1",
+            },
+        ):
+            request = order_route.request._get_current_object()
+            request.client_ip = "127.0.0.1"
+            payload = json.loads(reqiure_to_pay())
+
+        assert payload["code"] == 0
+        assert captured["order_id"] == "order-1"
+        assert captured["channel"] == "alipay_wap"
+        assert captured["payment_channel"] == "pingxx"
+        assert (
+            captured["return_url"]
+            == "https://cook.example.com/payment/pingxx/result?order_id=1"
+        )
+        assert captured["cancel_url"] == "https://cook.example.com/c/course-1"

@@ -20,9 +20,9 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/RadioGroup';
 
 import {
+  PAY_CHANNEL_ALIPAY_WAP,
   PAY_CHANNEL_WECHAT_JSAPI,
   PAY_CHANNEL_WECHAT_WAP,
-  PAY_CHANNEL_ZHIFUBAO,
   PAY_CHANNEL_STRIPE,
 } from './constans';
 import MainButtonM from '@/c-components/m/MainButtonM';
@@ -86,10 +86,14 @@ export const PayModalM = ({
     }
     return typeof wechatBridgeWindow.WeixinJSBridge !== 'undefined';
   });
+  // Keep the in-WeChat JSAPI flow unchanged and only fall back to WAP in
+  // browsers where WeixinJSBridge is unavailable.
   const mobileWechatChannel =
     isWechatBrowser && wechatJsApiReady
       ? PAY_CHANNEL_WECHAT_JSAPI
       : PAY_CHANNEL_WECHAT_WAP;
+  // Keep desktop Alipay on QR while mobile web uses the WAP redirect channel.
+  const mobileAlipayChannel = PAY_CHANNEL_ALIPAY_WAP;
   const [payChannel, setPayChannel] = useState(mobileWechatChannel);
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [previewPrice, setPreviewPrice] = useState('0');
@@ -239,6 +243,8 @@ export const PayModalM = ({
     pingxxPayload.redirect_url ||
     (typeof paymentInfo?.qrUrl === 'string' ? paymentInfo.qrUrl : '');
   const stripeMode = (stripePayload.mode || '').toLowerCase();
+  const isPingxxRedirectChannel =
+    payChannel === PAY_CHANNEL_WECHAT_WAP || payChannel === mobileAlipayChannel;
 
   const resolveDefaultChannel = useCallback(() => {
     if (pingxxChannelEnabled) {
@@ -252,12 +258,7 @@ export const PayModalM = ({
 
   const buildPingxxReturnUrl = useCallback(
     (targetOrderId?: string) => {
-      if (
-        typeof window === 'undefined' ||
-        !targetOrderId ||
-        !courseId ||
-        mobileWechatChannel !== PAY_CHANNEL_WECHAT_WAP
-      ) {
+      if (typeof window === 'undefined' || !targetOrderId || !courseId) {
         return '';
       }
 
@@ -269,8 +270,16 @@ export const PayModalM = ({
 
       return `/payment/pingxx/result?${searchParams.toString()}`;
     },
-    [courseId, mobileWechatChannel],
+    [courseId],
   );
+
+  const buildPingxxCancelUrl = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return '';
+    }
+
+    return `${window.location.pathname}${window.location.search}`;
+  }, []);
 
   const handlePaymentRefreshError = useCallback(
     (error: unknown) => {
@@ -291,17 +300,20 @@ export const PayModalM = ({
       const paymentChannel = channel.startsWith('stripe')
         ? 'stripe'
         : undefined;
+      const needsPingxxRedirect =
+        channel === PAY_CHANNEL_WECHAT_WAP || channel === mobileAlipayChannel;
 
       return {
         channel,
         paymentChannel,
-        returnUrl:
-          channel === PAY_CHANNEL_WECHAT_WAP
-            ? buildPingxxReturnUrl(targetOrderId || orderId)
-            : undefined,
+        returnUrl: needsPingxxRedirect
+          ? buildPingxxReturnUrl(targetOrderId || orderId)
+          : undefined,
+        cancelUrl:
+          channel === mobileAlipayChannel ? buildPingxxCancelUrl() : undefined,
       };
     },
-    [buildPingxxReturnUrl, orderId],
+    [buildPingxxCancelUrl, buildPingxxReturnUrl, mobileAlipayChannel, orderId],
   );
 
   useEffect(() => {
@@ -409,7 +421,7 @@ export const PayModalM = ({
           variant: 'destructive',
         });
       }
-    } else if (payChannel === PAY_CHANNEL_WECHAT_WAP) {
+    } else if (isPingxxRedirectChannel) {
       const redirectUrl =
         (payload.payment_payload as PingxxPaymentPayload | undefined)
           ?.redirect_url ||
@@ -434,6 +446,7 @@ export const PayModalM = ({
     payByJsApi,
     payChannel,
     refreshPayment,
+    isPingxxRedirectChannel,
     t,
   ]);
 
@@ -455,8 +468,8 @@ export const PayModalM = ({
   }, [mobileWechatChannel, onPayChannelChange]);
 
   const onPayChannelZhifubaoClick = useCallback(() => {
-    onPayChannelChange(PAY_CHANNEL_ZHIFUBAO);
-  }, [onPayChannelChange]);
+    onPayChannelChange(mobileAlipayChannel);
+  }, [mobileAlipayChannel, onPayChannelChange]);
 
   const onCouponCodeButtonClick = useCallback(() => {
     onCouponCodeModalOpen();
@@ -663,7 +676,7 @@ export const PayModalM = ({
                                 <div
                                   className={cn(
                                     styles.payChannelRow,
-                                    payChannel === PAY_CHANNEL_ZHIFUBAO &&
+                                    payChannel === mobileAlipayChannel &&
                                       styles.selected,
                                   )}
                                   onClick={onPayChannelZhifubaoClick}
@@ -679,7 +692,7 @@ export const PayModalM = ({
                                     </span>
                                   </div>
                                   <RadioGroupItem
-                                    value={PAY_CHANNEL_ZHIFUBAO}
+                                    value={mobileAlipayChannel}
                                     className={styles.payChannelRadio}
                                   />
                                 </div>
@@ -732,7 +745,7 @@ export const PayModalM = ({
                               className={styles.payButton}
                               onClick={handlePay}
                               disabled={
-                                payChannel === PAY_CHANNEL_WECHAT_WAP &&
+                                isPingxxRedirectChannel &&
                                 !pingxxRedirectUrl &&
                                 Boolean(orderId)
                               }

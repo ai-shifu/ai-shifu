@@ -36,6 +36,7 @@ export type PayUrlRequest = {
   orderId: string;
   paymentChannel?: PaymentChannel;
   returnUrl?: string;
+  cancelUrl?: string;
 };
 
 export interface StripePaymentDetail {
@@ -80,12 +81,14 @@ export const getPayUrl = ({
   orderId,
   paymentChannel,
   returnUrl,
+  cancelUrl,
 }: PayUrlRequest): Promise<PayUrlResponse> => {
   return request.post('/api/order/reqiure-to-pay', {
     channel,
     order_id: orderId,
     payment_channel: paymentChannel,
     return_url: returnUrl,
+    cancel_url: cancelUrl,
   }) as Promise<PayUrlResponse>;
 };
 
