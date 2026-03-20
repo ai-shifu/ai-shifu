@@ -151,6 +151,11 @@ class TestRedisAvailability:
         mock_redis.is_available.return_value = False
         assert _is_redis_available() is False
 
+    @patch("flaskr.service.config.funcs.redis")
+    def test_is_redis_available_handles_probe_errors(self, mock_redis):
+        mock_redis.is_available.side_effect = RuntimeError("redis down")
+        assert _is_redis_available() is False
+
     def test_is_redis_available_falls_back_to_true_without_probe(self):
         with patch("flaskr.service.config.funcs.redis", new=object()):
             assert _is_redis_available() is True

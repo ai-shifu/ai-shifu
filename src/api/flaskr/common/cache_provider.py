@@ -64,8 +64,11 @@ class CacheUnavailableError(RuntimeError):
 class _DynamicRedisCacheProvider:
     def is_available(self) -> bool:
         try:
-            self._client()
-            return True
+            client = self._client()
+        except Exception:
+            return False
+        try:
+            return bool(client.ping())
         except Exception:
             return False
 
