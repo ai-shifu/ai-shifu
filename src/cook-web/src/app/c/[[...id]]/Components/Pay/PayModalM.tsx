@@ -301,6 +301,8 @@ export const PayModalM = ({
       const paymentChannel = channel.startsWith('stripe')
         ? 'stripe'
         : undefined;
+      // Mobile WeChat WAP and Alipay WAP both return through the same
+      // Ping++ result page before navigating back to the course page.
       const needsPingxxRedirect =
         channel === PAY_CHANNEL_WECHAT_WAP || channel === mobileAlipayChannel;
 
