@@ -154,6 +154,7 @@ def handle_input_ask(
     trace: StatefulTraceClient,
     is_preview: bool = False,
     last_position: int = -1,
+    anchor_element_bid: str = "",
 ) -> Generator[str, None, None]:
     """
     Main function to handle user Q&A input
@@ -265,6 +266,22 @@ def handle_input_ask(
         app, outline_item_info, attend_id, user_info.user_id, input, last_position
     )
 
+    # Create answer block early (empty placeholder) so all teacher-side
+    # events can reference the answer block's generated_block_bid.
+    answer_block = _create_answer_block(
+        app, outline_item_info, attend_id, user_info.user_id, "", last_position
+    )
+    db.session.flush()
+
+    # Emit internal ASK event for listen adapter
+    yield RunMarkdownFlowDTO(
+        outline_bid=outline_item_info.bid,
+        generated_block_bid=ask_block.generated_block_bid,
+        type=GeneratedType.ASK,
+        content=input,
+        anchor_element_bid=anchor_element_bid,
+    )
+
     # Create trace span
     span = trace.span(
         name=build_langfuse_span_name(chapter_title, ask_scene, "user_follow_up"),
@@ -289,25 +306,27 @@ def handle_input_ask(
     )
 
     if guardrail_chunks:
+        guardrail_text = "".join(guardrail_chunks)
         for chunk in guardrail_chunks:
             yield RunMarkdownFlowDTO(
                 outline_bid=outline_item_info.bid,
-                generated_block_bid=ask_block.generated_block_bid,
+                generated_block_bid=answer_block.generated_block_bid,
                 type=GeneratedType.CONTENT,
                 content=chunk,
             )
         yield RunMarkdownFlowDTO(
             outline_bid=outline_item_info.bid,
-            generated_block_bid=ask_block.generated_block_bid,
+            generated_block_bid=answer_block.generated_block_bid,
             type=GeneratedType.BREAK,
             content="",
         )
         yield RunMarkdownFlowDTO(
             outline_bid=outline_item_info.bid,
-            generated_block_bid=ask_block.generated_block_bid,
+            generated_block_bid=answer_block.generated_block_bid,
             type=GeneratedType.INTERACTION,
             content=input,
         )
+        answer_block.generated_content = guardrail_text
         db.session.flush()
         return
 
@@ -387,7 +406,7 @@ def handle_input_ask(
                 response_text += current_content
                 yield RunMarkdownFlowDTO(
                     outline_bid=outline_item_info.bid,
-                    generated_block_bid=ask_block.generated_block_bid,
+                    generated_block_bid=answer_block.generated_block_bid,
                     type=GeneratedType.CONTENT,
                     content=current_content,
                 )
@@ -426,7 +445,7 @@ def handle_input_ask(
                 response_text = str(_("server.learn.askProviderUnavailable"))
             yield RunMarkdownFlowDTO(
                 outline_bid=outline_item_info.bid,
-                generated_block_bid=ask_block.generated_block_bid,
+                generated_block_bid=answer_block.generated_block_bid,
                 type=GeneratedType.CONTENT,
                 content=response_text,
             )
@@ -443,15 +462,8 @@ def handle_input_ask(
     if use_llm_fallback:
         yield from _emit_provider_stream(ASK_PROVIDER_LLM)
 
-    # Log AI response to database
-    answer_block = _create_answer_block(
-        app,
-        outline_item_info,
-        attend_id,
-        user_info.user_id,
-        response_text,
-        last_position,
-    )
+    # Backfill answer block content
+    answer_block.generated_content = response_text
 
     # End trace span
     span.end(output=response_text)

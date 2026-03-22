@@ -1896,6 +1896,7 @@ class RunScriptContextV2:
                 self._trace,
                 self._preview_mode,
                 self._last_position,
+                anchor_element_bid=getattr(self, "_anchor_element_bid", ""),
             )
             yield from res
             self._can_continue = False

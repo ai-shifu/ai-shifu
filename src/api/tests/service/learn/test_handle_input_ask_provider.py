@@ -373,3 +373,110 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
         {"role": "system", "content": "COURSE_PROMPT"},
         {"role": "user", "content": "hello"},
     ]
+
+
+# ---------------------------------------------------------------------------
+# Block ownership and ASK event tests
+# ---------------------------------------------------------------------------
+
+
+def _setup_llm_only_patches(monkeypatch, module, llm_chunks):
+    ask_provider_config = {"provider": "llm", "mode": "provider_then_llm", "config": {}}
+    _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config)
+
+    def _fake_stream(**_kwargs):
+        for chunk in llm_chunks:
+            yield types.SimpleNamespace(content=chunk)
+
+    monkeypatch.setattr(module, "stream_ask_provider_response", _fake_stream)
+
+
+def test_answer_content_uses_answer_block_bid(app, monkeypatch):
+    """All teacher-side CONTENT events should use answer block's bid (gb-2)."""
+    from flaskr.service.learn import handle_input_ask as module
+
+    _setup_llm_only_patches(monkeypatch, module, ["chunk1", "chunk2"])
+
+    events = list(
+        module.handle_input_ask(
+            app=app,
+            context=_Context(),
+            user_info=types.SimpleNamespace(user_id="user-1"),
+            attend_id="attend-1",
+            input="question",
+            outline_item_info=types.SimpleNamespace(
+                shifu_bid="s1", bid="o1", title="T", position=1
+            ),
+            trace_args={"output": ""},
+            trace=_DummyTrace(),
+        )
+    )
+
+    content_events = [e for e in events if e.type == GeneratedType.CONTENT]
+    # ask block = gb-1, answer block = gb-2
+    for e in content_events:
+        assert e.generated_block_bid == "gb-2"
+
+
+def test_ask_event_emitted(app, monkeypatch):
+    """An ASK event should be emitted with anchor_element_bid."""
+    from flaskr.service.learn import handle_input_ask as module
+
+    _setup_llm_only_patches(monkeypatch, module, ["reply"])
+
+    events = list(
+        module.handle_input_ask(
+            app=app,
+            context=_Context(),
+            user_info=types.SimpleNamespace(user_id="user-1"),
+            attend_id="attend-1",
+            input="my question",
+            outline_item_info=types.SimpleNamespace(
+                shifu_bid="s1", bid="o1", title="T", position=1
+            ),
+            trace_args={"output": ""},
+            trace=_DummyTrace(),
+            anchor_element_bid="elem_anchor_123",
+        )
+    )
+
+    ask_events = [e for e in events if e.type == GeneratedType.ASK]
+    assert len(ask_events) == 1
+    assert ask_events[0].content == "my question"
+    assert ask_events[0].anchor_element_bid == "elem_anchor_123"
+
+
+def test_guardrail_uses_answer_block_bid(app, monkeypatch):
+    """When guardrail triggers, CONTENT events should still use answer block bid."""
+    from flaskr.service.learn import handle_input_ask as module
+
+    ask_provider_config = {"provider": "llm", "mode": "provider_then_llm", "config": {}}
+    _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config)
+    monkeypatch.setattr(
+        module,
+        "check_text_with_llm_response",
+        lambda *_args, **_kwargs: ["guardrail response"],
+    )
+
+    events = list(
+        module.handle_input_ask(
+            app=app,
+            context=_Context(),
+            user_info=types.SimpleNamespace(user_id="user-1"),
+            attend_id="attend-1",
+            input="bad input",
+            outline_item_info=types.SimpleNamespace(
+                shifu_bid="s1", bid="o1", title="T", position=1
+            ),
+            trace_args={"output": ""},
+            trace=_DummyTrace(),
+        )
+    )
+
+    content_events = [e for e in events if e.type == GeneratedType.CONTENT]
+    assert len(content_events) == 1
+    # answer block = gb-2 (ask block = gb-1)
+    assert content_events[0].generated_block_bid == "gb-2"
+    # ASK event should still be emitted before guardrail
+    ask_events = [e for e in events if e.type == GeneratedType.ASK]
+    assert len(ask_events) == 1
