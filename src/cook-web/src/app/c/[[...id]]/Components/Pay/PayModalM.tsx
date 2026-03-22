@@ -237,8 +237,6 @@ export const PayModalM = ({
   const isStripeSelected = payChannel.startsWith('stripe');
   const stripePayload = (paymentInfo?.paymentPayload ||
     {}) as StripePaymentPayload;
-  const pingxxPayload = (paymentInfo?.paymentPayload ||
-    {}) as PingxxPaymentPayload;
   const stripeCheckoutUrl =
     stripePayload.checkout_session_url || paymentInfo?.qrUrl || '';
   const stripeMode = (stripePayload.mode || '').toLowerCase();
