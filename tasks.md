@@ -113,35 +113,35 @@ Design reference: `docs/learn-generated-elements-design.md`
 
 ### K-Phase 1: 基础设施（可并行）
 
-- [ ] 扩展 `ElementPayloadDTO` 加入 `asks: List[Dict]` 字段及 `__json__` 序列化
-- [ ] 扩展 `GeneratedType` 枚举加入 `ASK = "ask"`
-- [ ] 扩展 `RunMarkdownFlowDTO` 加入 `anchor_element_bid` 可选字段
-- [ ] `routes.py` 新增 `reload_element_bid` 参数解析，传递到 `run_script`/`run_script_inner`
-- [ ] `run_script_inner` 和 `context_v2.reload()` 签名新增 `reload_element_bid` 参数，ask 场景支持 element_bid 入口
-- [ ] 增加服务端反查逻辑：通过 `element_bid` 定位所属 `generated_block_bid/progress_record_bid/outline_item_bid/run_session_bid`
-- [ ] 冻结兼容策略：`GeneratedType.ASK` 仅作为 listen 内部事件，非 listen 原始 run 流默认忽略（`element_adapter is None` 时跳过）
+- [x] 扩展 `ElementPayloadDTO` 加入 `asks: List[Dict]` 字段及 `__json__` 序列化
+- [x] 扩展 `GeneratedType` 枚举加入 `ASK = "ask"`
+- [x] 扩展 `RunMarkdownFlowDTO` 加入 `anchor_element_bid` 可选字段
+- [x] `routes.py` 新增 `reload_element_bid` 参数解析，传递到 `run_script`/`run_script_inner`
+- [x] `run_script_inner` 和 `context_v2.reload()` 签名新增 `reload_element_bid` 参数，ask 场景支持 element_bid 入口
+- [x] 增加服务端反查逻辑：通过 `element_bid` 定位所属 `generated_block_bid/progress_record_bid/outline_item_bid/run_session_bid`
+- [x] 冻结兼容策略：`GeneratedType.ASK` 仅作为 listen 内部事件，非 listen 原始 run 流默认忽略（`element_adapter is None` 时跳过）
 
 ### K-Phase 2: 写链路核心（串行）
 
-- [ ] 重构 `handle_input_ask`（纯 extract method，不改行为）：拆为 `_create_ask_block`/`_create_answer_block`/`_run_guardrail`/`_run_answer_stream`
-- [ ] 修复 block 归属：answer block 提前创建（空占位 + flush），所有老师侧 CONTENT/BREAK 绑定 answer block 的 `generated_block_bid`
-- [ ] 修复 guardrail 路径：命中时也先创建 answer block，用 answer block bid 输出 CONTENT+BREAK，不再特殊早返回
-- [ ] 在 ask 流程中产出 `GeneratedType.ASK` 内部事件（承载追问文本 + `anchor_element_bid`），guardrail/正常路径都产出
-- [ ] 扩展 `ListenElementRunAdapter.process()`：路由 `GeneratedType.ASK` 到新方法 `_handle_ask()`
-- [ ] 实现 `_handle_ask()`：追加 `{role: "student", content}` 到 anchor element 的 `payload.asks` 并 UPDATE，不产出独立 element，不占 `sequence_number`
+- [x] 重构 `handle_input_ask`（纯 extract method，不改行为）：拆为 `_create_ask_block`/`_create_answer_block`/`_run_guardrail`/`_run_answer_stream`
+- [x] 修复 block 归属：answer block 提前创建（空占位 + flush），所有老师侧 CONTENT/BREAK 绑定 answer block 的 `generated_block_bid`
+- [x] 修复 guardrail 路径：命中时也先创建 answer block，用 answer block bid 输出 CONTENT+BREAK，不再特殊早返回
+- [x] 在 ask 流程中产出 `GeneratedType.ASK` 内部事件（承载追问文本 + `anchor_element_bid`），guardrail/正常路径都产出
+- [x] 扩展 `ListenElementRunAdapter.process()`：路由 `GeneratedType.ASK` 到新方法 `_handle_ask()`
+- [x] 实现 `_handle_ask()`：追加 `{role: "student", content}` 到 anchor element 的 `payload.asks` 并 UPDATE，不产出独立 element，不占 `sequence_number`
 - [ ] answer 流式阶段：独立 SSE 事件推送（`is_new=false` + `target_element_bid=anchor`），BREAK 时追加 `{role: "teacher", content}` 到 `payload.asks` 并 UPDATE
-- [ ] answer 侧流式 `CONTENT/AUDIO_COMPLETE/BREAK` 以及 guardrail/provider fallback 文本统一挂到 answer block
+- [x] answer 侧流式 `CONTENT/AUDIO_COMPLETE/BREAK` 以及 guardrail/provider fallback 文本统一挂到 answer block
 
 ### K-Phase 3: 读链路与上下文（依赖 Phase 2）
 
-- [ ] 新增 `_load_ask_context()` 函数：优先从 anchor element 的 `payload.asks` 读取上下文
-- [ ] 实现 `_is_valid_asks()` 校验：至少一对 student+teacher 才算有效
-- [ ] 定义 element 到 ask 历史消息的映射规则：`student → user`，`teacher → assistant`
-- [ ] 锚点 element 本身的 content 作为首条 assistant context message
+- [x] 新增 `_load_ask_context()` 函数：优先从 anchor element 的 `payload.asks` 读取上下文
+- [x] 实现 `_is_valid_asks()` 校验：至少一对 student+teacher 才算有效
+- [x] 定义 element 到 ask 历史消息的映射规则：`student → user`，`teacher → assistant`
+- [x] 锚点 element 本身的 content 作为首条 assistant context message
 - [ ] 定义视觉锚点进入 ask 上下文的归一化规则：聚合后的 `content + previous_visuals` 摘要映射为 assistant anchor message
-- [ ] 裁剪以 asks 条目为单位，与 `ASK_MAX_HISTORY_LEN` 对齐
-- [ ] 仅在 `_is_valid_asks()` 返回 false 时回退到 legacy block 上下文
-- [ ] 更新 records 聚合逻辑：`payload.asks` 随 element 在 records 中直接返回，不需要额外聚合
+- [x] 裁剪以 asks 条目为单位，与 `ASK_MAX_HISTORY_LEN` 对齐
+- [x] 仅在 `_is_valid_asks()` 返回 false 时回退到 legacy block 上下文
+- [x] 更新 records 聚合逻辑：`payload.asks` 随 element 在 records 中直接返回，不需要额外聚合
 
 ### K-Phase 4: 回填与测试（依赖 Phase 2-3）
 
