@@ -1075,3 +1075,55 @@ class TestElementPayloadAsks:
         raw = '{"audio": null, "previous_visuals": [], "asks": "not_a_list"}'
         restored = _deserialize_payload(raw)
         assert restored.asks is None
+
+
+# ---------------------------------------------------------------------------
+# GeneratedType.ASK and RunMarkdownFlowDTO.anchor_element_bid tests
+# ---------------------------------------------------------------------------
+
+
+class TestGeneratedTypeAsk:
+    def test_ask_enum_exists(self):
+        from flaskr.service.learn.learn_dtos import GeneratedType
+
+        assert GeneratedType.ASK.value == "ask"
+
+    def test_ask_not_in_legacy_types(self):
+        from flaskr.service.learn.learn_dtos import GeneratedType
+
+        legacy = {
+            GeneratedType.CONTENT,
+            GeneratedType.BREAK,
+            GeneratedType.INTERACTION,
+            GeneratedType.DONE,
+        }
+        assert GeneratedType.ASK not in legacy
+
+
+class TestRunMarkdownFlowDTOAnchorBid:
+    def test_default_anchor_element_bid_empty(self):
+        from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
+
+        dto = RunMarkdownFlowDTO(
+            outline_bid="o1",
+            generated_block_bid="b1",
+            type=GeneratedType.CONTENT,
+            content="hello",
+        )
+        assert dto.anchor_element_bid == ""
+        serialized = dto.__json__()
+        assert "anchor_element_bid" not in serialized
+
+    def test_anchor_element_bid_set(self):
+        from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
+
+        dto = RunMarkdownFlowDTO(
+            outline_bid="o1",
+            generated_block_bid="b1",
+            type=GeneratedType.ASK,
+            content="user question",
+            anchor_element_bid="elem_abc",
+        )
+        assert dto.anchor_element_bid == "elem_abc"
+        serialized = dto.__json__()
+        assert serialized["anchor_element_bid"] == "elem_abc"

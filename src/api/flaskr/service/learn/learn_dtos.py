@@ -39,6 +39,8 @@ class GeneratedType(Enum):
     # Audio types for TTS
     AUDIO_SEGMENT = "audio_segment"
     AUDIO_COMPLETE = "audio_complete"
+    # Internal ask event (listen adapter only, not exposed to non-listen consumers)
+    ASK = "ask"
 
     def __json__(self):
         return self.value
@@ -651,6 +653,10 @@ class RunMarkdownFlowDTO(BaseModel):
         AudioSegmentDTO,
         AudioCompleteDTO,
     ] = Field(..., description="generated content", required=True)
+    anchor_element_bid: str = Field(
+        default="",
+        description="Anchor element bid for ASK events",
+    )
 
     def __init__(
         self,
@@ -664,12 +670,14 @@ class RunMarkdownFlowDTO(BaseModel):
             AudioSegmentDTO,
             AudioCompleteDTO,
         ],
+        anchor_element_bid: str = "",
     ):
         super().__init__(
             outline_bid=outline_bid,
             generated_block_bid=generated_block_bid,
             type=type,
             content=content,
+            anchor_element_bid=anchor_element_bid,
         )
 
     def set_mdflow_stream_parts(
@@ -696,7 +704,7 @@ class RunMarkdownFlowDTO(BaseModel):
         return list(self._mdflow_stream_parts)
 
     def __json__(self):
-        return {
+        ret = {
             "outline_bid": self.outline_bid,
             "generated_block_bid": self.generated_block_bid,
             "type": self.type.value,
@@ -704,6 +712,9 @@ class RunMarkdownFlowDTO(BaseModel):
             if isinstance(self.content, BaseModel)
             else self.content,
         }
+        if self.anchor_element_bid:
+            ret["anchor_element_bid"] = self.anchor_element_bid
+        return ret
 
 
 @register_schema_to_swagger
