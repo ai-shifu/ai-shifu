@@ -343,11 +343,15 @@ def _deserialize_payload(raw_payload: str) -> ElementPayloadDTO:
     user_input = payload_dict.get("user_input")
     if user_input is not None:
         user_input = str(user_input or "")
+    asks = payload_dict.get("asks")
+    if not isinstance(asks, list):
+        asks = None
     return ElementPayloadDTO(
         audio=audio,
         previous_visuals=visuals,
         user_input=user_input,
         diff_payload=diff_payload,
+        asks=asks,
     )
 
 

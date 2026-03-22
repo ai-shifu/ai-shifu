@@ -463,6 +463,10 @@ class ElementPayloadDTO(BaseModel):
     diff_payload: List[Dict[str, Any]] | None = Field(
         default=None, description="Optional diff payload for incremental updates"
     )
+    asks: List[Dict[str, Any]] | None = Field(
+        default=None,
+        description="Ask Q&A pairs embedded in anchor element",
+    )
 
     def __init__(
         self,
@@ -470,12 +474,14 @@ class ElementPayloadDTO(BaseModel):
         previous_visuals: Optional[List[ElementVisualDTO]] = None,
         user_input: str | None = None,
         diff_payload: List[Dict[str, Any]] | None = None,
+        asks: List[Dict[str, Any]] | None = None,
     ):
         super().__init__(
             audio=audio,
             previous_visuals=previous_visuals or [],
             user_input=user_input,
             diff_payload=diff_payload,
+            asks=asks,
         )
 
     def __json__(self):
@@ -490,6 +496,8 @@ class ElementPayloadDTO(BaseModel):
             ret["diff_payload"] = self.diff_payload
         if self.user_input is not None:
             ret["user_input"] = self.user_input
+        if self.asks is not None:
+            ret["asks"] = self.asks
         return ret
 
 

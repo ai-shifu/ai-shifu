@@ -1012,3 +1012,66 @@ def test_backfill_populates_sequence_number_and_audio_url(app):
     assert row.is_new == 1
     assert row.is_renderable == 0
     assert row.is_marker == 0
+
+
+# ---------------------------------------------------------------------------
+# ElementPayloadDTO.asks tests
+# ---------------------------------------------------------------------------
+
+
+class TestElementPayloadAsks:
+    def test_payload_asks_none_by_default(self):
+        from flaskr.service.learn.learn_dtos import ElementPayloadDTO
+
+        payload = ElementPayloadDTO()
+        assert payload.asks is None
+        serialized = payload.__json__()
+        assert "asks" not in serialized
+
+    def test_payload_asks_serialization(self):
+        from flaskr.service.learn.learn_dtos import ElementPayloadDTO
+
+        asks = [
+            {"role": "student", "content": "what is this?"},
+            {"role": "teacher", "content": "this is a demo"},
+        ]
+        payload = ElementPayloadDTO(asks=asks)
+        serialized = payload.__json__()
+        assert serialized["asks"] == asks
+
+    def test_payload_asks_empty_list_serialization(self):
+        from flaskr.service.learn.learn_dtos import ElementPayloadDTO
+
+        payload = ElementPayloadDTO(asks=[])
+        serialized = payload.__json__()
+        assert serialized["asks"] == []
+
+    def test_payload_asks_deserialization(self):
+        from flaskr.service.learn.listen_elements import (
+            _deserialize_payload,
+            _serialize_payload,
+        )
+        from flaskr.service.learn.learn_dtos import ElementPayloadDTO
+
+        asks = [
+            {"role": "student", "content": "question"},
+            {"role": "teacher", "content": "answer"},
+        ]
+        original = ElementPayloadDTO(asks=asks)
+        raw = _serialize_payload(original)
+        restored = _deserialize_payload(raw)
+        assert restored.asks == asks
+
+    def test_payload_asks_deserialization_missing(self):
+        from flaskr.service.learn.listen_elements import _deserialize_payload
+
+        raw = '{"audio": null, "previous_visuals": []}'
+        restored = _deserialize_payload(raw)
+        assert restored.asks is None
+
+    def test_payload_asks_deserialization_invalid_type(self):
+        from flaskr.service.learn.listen_elements import _deserialize_payload
+
+        raw = '{"audio": null, "previous_visuals": [], "asks": "not_a_list"}'
+        restored = _deserialize_payload(raw)
+        assert restored.asks is None
