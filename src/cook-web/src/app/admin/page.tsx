@@ -506,7 +506,7 @@ const ScriptManagementPage = () => {
             {aiCourseCreatorGuideEnabled && aiCourseCreatorGuideUrl && (
               <Button
                 size='sm'
-                className='h-8 px-3 text-xs font-semibold text-[14px]'
+                className='h-8 px-3 font-semibold'
                 onClick={() => window.open(aiCourseCreatorGuideUrl, '_blank')}
               >
                 <Sparkles className='h-4 w-4' />
