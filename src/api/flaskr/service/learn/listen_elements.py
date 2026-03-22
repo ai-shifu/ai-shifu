@@ -1077,6 +1077,8 @@ class ListenElementRunAdapter:
         self._max_element_index = -1
         # Track current element bid for audio association
         self._current_element_bid: str | None = None
+        # Track anchor element bid during ask flow
+        self._current_ask_anchor_bid: str | None = None
 
     def _next_seq(self) -> int:
         self._run_event_seq += 1
@@ -1862,6 +1864,41 @@ class ListenElementRunAdapter:
         )
         yield self._element_message(element)
 
+    def _handle_ask(self, event: RunMarkdownFlowDTO) -> None:
+        """Append student ask entry to anchor element's payload.asks.
+
+        Does not produce any element or SSE message — the ask is purely
+        persisted as a payload.asks entry on the anchor element.
+        """
+        anchor_bid = getattr(event, "anchor_element_bid", "") or ""
+        ask_content = str(event.content or "")
+        if not anchor_bid:
+            self.app.logger.warning("ASK event without anchor_element_bid, skipping")
+            return
+
+        self._current_ask_anchor_bid = anchor_bid
+
+        anchor_row = LearnGeneratedElement.query.filter(
+            LearnGeneratedElement.element_bid == anchor_bid,
+            LearnGeneratedElement.deleted == 0,
+        ).first()
+        if anchor_row is None:
+            self.app.logger.warning("ASK anchor element not found: %s", anchor_bid)
+            return
+
+        payload_dto = _deserialize_payload(anchor_row.payload or "")
+        asks = payload_dto.asks if payload_dto.asks is not None else []
+        asks.append(
+            {
+                "role": "student",
+                "content": ask_content,
+                "generated_block_bid": event.generated_block_bid or "",
+            }
+        )
+        payload_dto.asks = asks
+        anchor_row.payload = _serialize_payload(payload_dto)
+        db.session.flush()
+
     def process(
         self, events: Iterable[RunMarkdownFlowDTO]
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
@@ -1875,6 +1912,9 @@ class ListenElementRunAdapter:
             if event.type == GeneratedType.AUDIO_COMPLETE:
                 yield from self._handle_audio_complete(event)
                 continue
+            if event.type == GeneratedType.ASK:
+                self._handle_ask(event)
+                continue
             if event.type == GeneratedType.INTERACTION:
                 yield from self._handle_interaction(event)
                 continue
@@ -1883,6 +1923,7 @@ class ListenElementRunAdapter:
                 if not self._state_machine.is_terminated:
                     self._state_machine.feed(TypeInput.BLOCK_BREAK)
                 self._current_element_bid = None
+                self._current_ask_anchor_bid = None
                 yield self._non_element_message(
                     event_type=GeneratedType.BREAK.value,
                     content="",

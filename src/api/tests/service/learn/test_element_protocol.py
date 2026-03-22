@@ -1100,6 +1100,178 @@ class TestGeneratedTypeAsk:
         assert GeneratedType.ASK not in legacy
 
 
+class TestHandleAskAdapter:
+    """Tests for ListenElementRunAdapter._handle_ask()."""
+
+    def test_handle_ask_appends_student_to_payload(self, app):
+        import json
+        from flaskr.service.learn.listen_elements import (
+            ListenElementRunAdapter,
+            _serialize_payload,
+        )
+        from flaskr.service.learn.learn_dtos import (
+            GeneratedType,
+            RunMarkdownFlowDTO,
+            ElementPayloadDTO,
+        )
+        from flaskr.service.learn.models import LearnGeneratedElement
+        from flaskr.dao import db
+
+        with app.app_context():
+            adapter = ListenElementRunAdapter(
+                app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            anchor = LearnGeneratedElement(
+                element_bid="anchor_elem_1",
+                progress_record_bid="pr1",
+                user_bid="u1",
+                generated_block_bid="gb1",
+                outline_item_bid="o1",
+                shifu_bid="s1",
+                run_session_bid="rs1",
+                run_event_seq=1,
+                event_type="element",
+                role="teacher",
+                element_index=0,
+                element_type="text",
+                element_type_code=0,
+                change_type="render",
+                is_final=1,
+                content_text="hello world",
+                payload=_serialize_payload(ElementPayloadDTO()),
+                deleted=0,
+                status=1,
+            )
+            db.session.add(anchor)
+            db.session.flush()
+
+            event = RunMarkdownFlowDTO(
+                outline_bid="o1",
+                generated_block_bid="ask_gb1",
+                type=GeneratedType.ASK,
+                content="user question here",
+                anchor_element_bid="anchor_elem_1",
+            )
+
+            adapter._handle_ask(event)
+
+            refreshed = LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.element_bid == "anchor_elem_1"
+            ).first()
+            payload = json.loads(refreshed.payload or "{}")
+            assert "asks" in payload
+            assert len(payload["asks"]) == 1
+            assert payload["asks"][0]["role"] == "student"
+            assert payload["asks"][0]["content"] == "user question here"
+
+    def test_handle_ask_no_element_emitted(self, app):
+        from flaskr.service.learn.listen_elements import (
+            ListenElementRunAdapter,
+            _serialize_payload,
+        )
+        from flaskr.service.learn.learn_dtos import (
+            GeneratedType,
+            RunMarkdownFlowDTO,
+            ElementPayloadDTO,
+        )
+        from flaskr.service.learn.models import LearnGeneratedElement
+        from flaskr.dao import db
+
+        with app.app_context():
+            adapter = ListenElementRunAdapter(
+                app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            anchor = LearnGeneratedElement(
+                element_bid="anchor_elem_2",
+                progress_record_bid="pr1",
+                user_bid="u1",
+                generated_block_bid="gb1",
+                outline_item_bid="o1",
+                shifu_bid="s1",
+                run_session_bid="rs1",
+                run_event_seq=1,
+                event_type="element",
+                role="teacher",
+                element_index=0,
+                element_type="text",
+                element_type_code=0,
+                change_type="render",
+                is_final=1,
+                content_text="content",
+                payload=_serialize_payload(ElementPayloadDTO()),
+                deleted=0,
+                status=1,
+            )
+            db.session.add(anchor)
+            db.session.flush()
+
+            events = [
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="ask_gb",
+                    type=GeneratedType.ASK,
+                    content="question",
+                    anchor_element_bid="anchor_elem_2",
+                )
+            ]
+            result = list(adapter.process(events))
+            assert len(result) == 0
+
+    def test_handle_ask_sets_anchor_bid_state(self, app):
+        from flaskr.service.learn.listen_elements import (
+            ListenElementRunAdapter,
+            _serialize_payload,
+        )
+        from flaskr.service.learn.learn_dtos import (
+            GeneratedType,
+            RunMarkdownFlowDTO,
+            ElementPayloadDTO,
+        )
+        from flaskr.service.learn.models import LearnGeneratedElement
+        from flaskr.dao import db
+
+        with app.app_context():
+            adapter = ListenElementRunAdapter(
+                app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            anchor = LearnGeneratedElement(
+                element_bid="anchor_elem_3",
+                progress_record_bid="pr1",
+                user_bid="u1",
+                generated_block_bid="gb1",
+                outline_item_bid="o1",
+                shifu_bid="s1",
+                run_session_bid="rs1",
+                run_event_seq=1,
+                event_type="element",
+                role="teacher",
+                element_index=0,
+                element_type="text",
+                element_type_code=0,
+                change_type="render",
+                is_final=1,
+                content_text="content",
+                payload=_serialize_payload(ElementPayloadDTO()),
+                deleted=0,
+                status=1,
+            )
+            db.session.add(anchor)
+            db.session.flush()
+
+            event = RunMarkdownFlowDTO(
+                outline_bid="o1",
+                generated_block_bid="ask_gb",
+                type=GeneratedType.ASK,
+                content="q",
+                anchor_element_bid="anchor_elem_3",
+            )
+            adapter._handle_ask(event)
+            assert adapter._current_ask_anchor_bid == "anchor_elem_3"
+
+
 class TestRunMarkdownFlowDTOAnchorBid:
     def test_default_anchor_element_bid_empty(self):
         from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
