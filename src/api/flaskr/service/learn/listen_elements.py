@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import uuid
 from collections import OrderedDict
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any, Generator, Iterable
 
 from flask import Flask
@@ -123,27 +123,7 @@ class LearnElementsBackfillStats:
     error: str = ""
 
     def as_dict(self) -> dict[str, Any]:
-        return {
-            "progress_record_bid": self.progress_record_bid,
-            "progress_record_id": self.progress_record_id,
-            "shifu_bid": self.shifu_bid,
-            "outline_item_bid": self.outline_item_bid,
-            "user_bid": self.user_bid,
-            "run_session_bid": self.run_session_bid,
-            "generated_blocks_total": self.generated_blocks_total,
-            "audio_records_total": self.audio_records_total,
-            "duplicate_blocks_skipped": self.duplicate_blocks_skipped,
-            "duplicate_audios_skipped": self.duplicate_audios_skipped,
-            "orphan_audios_skipped": self.orphan_audios_skipped,
-            "skipped_empty_blocks": self.skipped_empty_blocks,
-            "existing_active_rows": self.existing_active_rows,
-            "overwritten_rows": self.overwritten_rows,
-            "inserted_rows": self.inserted_rows,
-            "elements_built": self.elements_built,
-            "skipped_existing": self.skipped_existing,
-            "dry_run": self.dry_run,
-            "error": self.error,
-        }
+        return asdict(self)
 
 
 @dataclass
@@ -178,19 +158,7 @@ class LearnElementsBackfillBatchResult:
             self.processed_progress_records += 1
 
     def as_dict(self) -> dict[str, Any]:
-        return {
-            "scanned_progress_records": self.scanned_progress_records,
-            "processed_progress_records": self.processed_progress_records,
-            "skipped_existing_progress_records": self.skipped_existing_progress_records,
-            "failed_progress_records": self.failed_progress_records,
-            "inserted_rows": self.inserted_rows,
-            "overwritten_rows": self.overwritten_rows,
-            "duplicate_blocks_skipped": self.duplicate_blocks_skipped,
-            "duplicate_audios_skipped": self.duplicate_audios_skipped,
-            "orphan_audios_skipped": self.orphan_audios_skipped,
-            "skipped_empty_blocks": self.skipped_empty_blocks,
-            "results": [result.as_dict() for result in self.results],
-        }
+        return asdict(self)
 
 
 def _normalize_bool(raw: Any) -> bool:
@@ -705,11 +673,7 @@ def _build_legacy_record_for_progress(
     )
 
 
-def _element_from_row(row: LearnGeneratedElement) -> ElementDTO:
-    return _element_from_row_with_interaction_input(row, interaction_user_input="")
-
-
-def _element_from_row_with_interaction_input(
+def _element_from_row(
     row: LearnGeneratedElement,
     *,
     interaction_user_input: str = "",
@@ -846,11 +810,7 @@ def _deserialize_event_content(
     return raw_text
 
 
-def _event_from_row(row: LearnGeneratedElement) -> RunElementSSEMessageDTO:
-    return _event_from_row_with_interaction_input(row, interaction_user_input="")
-
-
-def _event_from_row_with_interaction_input(
+def _event_from_row(
     row: LearnGeneratedElement,
     *,
     interaction_user_input: str = "",
@@ -865,7 +825,7 @@ def _event_from_row_with_interaction_input(
     )
     if row.event_type == "element":
         content = _normalize_record_element(
-            _element_from_row_with_interaction_input(
+            _element_from_row(
                 row,
                 interaction_user_input=interaction_user_input,
             )
@@ -978,7 +938,7 @@ def _build_final_elements_from_rows(
     for row in sorted_rows:
         if row.event_type != "element" or not row.element_bid:
             continue
-        dto = _element_from_row_with_interaction_input(
+        dto = _element_from_row(
             row,
             interaction_user_input=interaction_user_input_by_block_bid.get(
                 row.generated_block_bid or "",
@@ -987,25 +947,14 @@ def _build_final_elements_from_rows(
         )
         if not dto.is_new and dto.target_element_bid:
             if dto.target_element_bid in latest_by_bid:
-                target = latest_by_bid[dto.target_element_bid]
-                target.is_renderable = dto.is_renderable
-                target.content_text = dto.content_text
-                target.is_speakable = dto.is_speakable
-                target.audio_url = dto.audio_url
-                target.audio_segments = dto.audio_segments
-                target.payload = dto.payload
-                target.is_navigable = dto.is_navigable
-                target.is_final = dto.is_final
-                target.run_session_bid = dto.run_session_bid
-                target.run_event_seq = dto.run_event_seq
-                target.sequence_number = dto.sequence_number
+                latest_by_bid[dto.target_element_bid].apply_patch(dto)
                 continue
         latest_by_bid[row.element_bid] = dto
 
     events = None
     if include_non_navigable:
         events = [
-            _event_from_row_with_interaction_input(
+            _event_from_row(
                 row,
                 interaction_user_input=interaction_user_input_by_block_bid.get(
                     row.generated_block_bid or "",
@@ -1674,13 +1623,10 @@ class ListenElementRunAdapter:
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         generated_block_bid = event.generated_block_bid or ""
         content = event.content
-        if isinstance(content, AudioSegmentDTO) and isinstance(
-            content.av_contract, dict
-        ):
-            state = self._ensure_block_state(generated_block_bid)
-            state.latest_av_contract = content.av_contract
         if isinstance(content, AudioSegmentDTO):
             state = self._ensure_block_state(generated_block_bid)
+            if isinstance(content.av_contract, dict):
+                state.latest_av_contract = content.av_contract
             position = int(getattr(content, "position", 0) or 0)
             if position not in state.audio_by_position:
                 state.audio_by_position[position] = ElementAudioDTO(
@@ -2249,6 +2195,144 @@ def backfill_learn_generated_elements_batch(
     return batch_result
 
 
+def _query_element_rows(
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    progress_record_bids: list[str],
+) -> tuple[list[LearnGeneratedElement], dict[str, str]]:
+    progress_bid_by_generated_block_bid = _load_progress_bid_by_generated_block_bid(
+        progress_record_bids
+    )
+    relevant_generated_block_bids = list(progress_bid_by_generated_block_bid.keys())
+    progress_row_filter = LearnGeneratedElement.progress_record_bid.in_(
+        progress_record_bids
+    )
+    if relevant_generated_block_bids:
+        progress_row_filter = or_(
+            progress_row_filter,
+            and_(
+                or_(
+                    LearnGeneratedElement.progress_record_bid == "",
+                    LearnGeneratedElement.progress_record_bid.is_(None),
+                ),
+                LearnGeneratedElement.generated_block_bid.in_(
+                    relevant_generated_block_bids
+                ),
+            ),
+        )
+    rows = (
+        LearnGeneratedElement.query.filter(
+            LearnGeneratedElement.user_bid == user_bid,
+            LearnGeneratedElement.shifu_bid == shifu_bid,
+            LearnGeneratedElement.outline_item_bid == outline_bid,
+            progress_row_filter,
+            LearnGeneratedElement.deleted == 0,
+            LearnGeneratedElement.status == 1,
+        )
+        .order_by(
+            LearnGeneratedElement.sequence_number.asc(),
+            LearnGeneratedElement.run_event_seq.asc(),
+            LearnGeneratedElement.id.asc(),
+        )
+        .all()
+    )
+    return rows, progress_bid_by_generated_block_bid
+
+
+def _merge_progress_elements(
+    app: Flask,
+    *,
+    progress_records: list,
+    rows: list[LearnGeneratedElement],
+    progress_bid_by_generated_block_bid: dict[str, str],
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    include_non_navigable: bool,
+) -> tuple[list[ElementDTO], list[RunElementSSEMessageDTO] | None]:
+    rows_by_progress: dict[str, list[LearnGeneratedElement]] = {}
+    for row in rows:
+        progress_bid = (
+            row.progress_record_bid
+            or progress_bid_by_generated_block_bid.get(
+                row.generated_block_bid or "",
+                "",
+            )
+        )
+        if not progress_bid:
+            continue
+        rows_by_progress.setdefault(progress_bid, []).append(row)
+
+    interaction_user_input_by_block_bid = _load_interaction_user_input_by_block_bid(
+        rows
+    )
+
+    collected_elements: list[ElementDTO] = []
+    collected_events: list[RunElementSSEMessageDTO] | None = (
+        [] if include_non_navigable else None
+    )
+
+    for progress_record in progress_records:
+        progress_bid = progress_record.progress_record_bid or ""
+        progress_rows = rows_by_progress.get(progress_bid, [])
+        persisted_elements, persisted_events = _build_final_elements_from_rows(
+            progress_rows,
+            interaction_user_input_by_block_bid=interaction_user_input_by_block_bid,
+            include_non_navigable=include_non_navigable,
+        )
+        persisted_block_bids = {
+            row.generated_block_bid or ""
+            for row in progress_rows
+            if row.event_type == "element" and (row.generated_block_bid or "")
+        }
+
+        legacy_record = build_legacy_record_for_progress(
+            progress_record,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            include_like_status=False,
+            dedupe_blocks_by_bid=True,
+            dedupe_audio_by_block_position=True,
+            skip_empty_content=True,
+        )
+        legacy_records = [
+            record
+            for record in legacy_record.records
+            if (record.generated_block_bid or "") not in persisted_block_bids
+        ]
+        legacy_elements: list[ElementDTO] = []
+        if legacy_records:
+            built_record = build_listen_elements_from_legacy_record(
+                app,
+                LearnRecordDTO(records=legacy_records),
+            )
+            legacy_elements = [
+                _normalize_record_element(element) for element in built_record.elements
+            ]
+            if include_non_navigable and collected_events is not None:
+                for event in built_record.events or []:
+                    collected_events.append(event)
+
+        merged_elements = list(persisted_elements) + legacy_elements
+        merged_elements.sort(
+            key=lambda item: (
+                int(item.element_index or 0),
+                int(item.run_event_seq or 0),
+                item.generated_block_bid or "",
+                item.element_bid or "",
+            )
+        )
+        collected_elements.extend(merged_elements)
+        if include_non_navigable and collected_events is not None:
+            for event in persisted_events or []:
+                collected_events.append(event)
+
+    return collected_elements, collected_events
+
+
 def get_listen_element_record(
     app: Flask,
     shifu_bid: str,
@@ -2269,125 +2353,26 @@ def get_listen_element_record(
         .all()
     )
     progress_record_bids = [
-        progress_record.progress_record_bid
-        for progress_record in progress_records
-        if progress_record.progress_record_bid
+        pr.progress_record_bid for pr in progress_records if pr.progress_record_bid
     ]
-    collected_elements: list[ElementDTO] = []
-    collected_events: list[RunElementSSEMessageDTO] | None = (
-        [] if include_non_navigable else None
-    )
+
     if progress_record_bids:
-        progress_bid_by_generated_block_bid = _load_progress_bid_by_generated_block_bid(
-            progress_record_bids
+        rows, progress_bid_map = _query_element_rows(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            progress_record_bids=progress_record_bids,
         )
-        relevant_generated_block_bids = list(progress_bid_by_generated_block_bid.keys())
-        progress_row_filter = LearnGeneratedElement.progress_record_bid.in_(
-            progress_record_bids
+        collected_elements, collected_events = _merge_progress_elements(
+            app,
+            progress_records=progress_records,
+            rows=rows,
+            progress_bid_by_generated_block_bid=progress_bid_map,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            include_non_navigable=include_non_navigable,
         )
-        if relevant_generated_block_bids:
-            progress_row_filter = or_(
-                progress_row_filter,
-                and_(
-                    or_(
-                        LearnGeneratedElement.progress_record_bid == "",
-                        LearnGeneratedElement.progress_record_bid.is_(None),
-                    ),
-                    LearnGeneratedElement.generated_block_bid.in_(
-                        relevant_generated_block_bids
-                    ),
-                ),
-            )
-        rows = (
-            LearnGeneratedElement.query.filter(
-                LearnGeneratedElement.user_bid == user_bid,
-                LearnGeneratedElement.shifu_bid == shifu_bid,
-                LearnGeneratedElement.outline_item_bid == outline_bid,
-                progress_row_filter,
-                LearnGeneratedElement.deleted == 0,
-                LearnGeneratedElement.status == 1,
-            )
-            .order_by(
-                LearnGeneratedElement.sequence_number.asc(),
-                LearnGeneratedElement.run_event_seq.asc(),
-                LearnGeneratedElement.id.asc(),
-            )
-            .all()
-        )
-        rows_by_progress: dict[str, list[LearnGeneratedElement]] = {}
-        for row in rows:
-            progress_bid = (
-                row.progress_record_bid
-                or progress_bid_by_generated_block_bid.get(
-                    row.generated_block_bid or "",
-                    "",
-                )
-            )
-            if not progress_bid:
-                continue
-            rows_by_progress.setdefault(progress_bid, []).append(row)
-
-        interaction_user_input_by_block_bid = _load_interaction_user_input_by_block_bid(
-            rows
-        )
-
-        for progress_record in progress_records:
-            progress_bid = progress_record.progress_record_bid or ""
-            progress_rows = rows_by_progress.get(progress_bid, [])
-            persisted_elements, persisted_events = _build_final_elements_from_rows(
-                progress_rows,
-                interaction_user_input_by_block_bid=interaction_user_input_by_block_bid,
-                include_non_navigable=include_non_navigable,
-            )
-            persisted_block_bids = {
-                row.generated_block_bid or ""
-                for row in progress_rows
-                if row.event_type == "element" and (row.generated_block_bid or "")
-            }
-
-            legacy_record = build_legacy_record_for_progress(
-                progress_record,
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bid=outline_bid,
-                include_like_status=False,
-                dedupe_blocks_by_bid=True,
-                dedupe_audio_by_block_position=True,
-                skip_empty_content=True,
-            )
-            legacy_records = [
-                record
-                for record in legacy_record.records
-                if (record.generated_block_bid or "") not in persisted_block_bids
-            ]
-            legacy_elements: list[ElementDTO] = []
-            if legacy_records:
-                built_record = build_listen_elements_from_legacy_record(
-                    app,
-                    LearnRecordDTO(records=legacy_records),
-                )
-                legacy_elements = [
-                    _normalize_record_element(element)
-                    for element in built_record.elements
-                ]
-                if include_non_navigable and collected_events is not None:
-                    for event in built_record.events or []:
-                        collected_events.append(event)
-
-            merged_elements = list(persisted_elements) + legacy_elements
-            merged_elements.sort(
-                key=lambda item: (
-                    int(item.element_index or 0),
-                    int(item.run_event_seq or 0),
-                    item.generated_block_bid or "",
-                    item.element_bid or "",
-                )
-            )
-            collected_elements.extend(merged_elements)
-            if include_non_navigable and collected_events is not None:
-                for event in persisted_events or []:
-                    collected_events.append(event)
-
         if collected_elements:
             return LearnElementRecordDTO(
                 elements=collected_elements,

@@ -568,6 +568,24 @@ class ElementDTO(BaseModel):
     def content_text(self, value: str) -> None:
         object.__setattr__(self, "content", value or "")
 
+    _PATCH_FIELDS = (
+        "is_renderable",
+        "content",
+        "is_speakable",
+        "audio_url",
+        "audio_segments",
+        "payload",
+        "is_navigable",
+        "is_final",
+        "run_session_bid",
+        "run_event_seq",
+        "sequence_number",
+    )
+
+    def apply_patch(self, patch: "ElementDTO") -> None:
+        for field_name in self._PATCH_FIELDS:
+            setattr(self, field_name, getattr(patch, field_name))
+
     def __json__(self):
         ret = {
             "event_type": self.event_type,
