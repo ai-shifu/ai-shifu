@@ -123,6 +123,7 @@ export const PayModalM = ({
     priceItems,
     couponCode: appliedCouponCode,
     paymentInfo,
+    isLoading,
     initLoading: hookInitLoading,
     isCompleted,
     initializeOrder,
@@ -240,9 +241,6 @@ export const PayModalM = ({
     {}) as PingxxPaymentPayload;
   const stripeCheckoutUrl =
     stripePayload.checkout_session_url || paymentInfo?.qrUrl || '';
-  const pingxxRedirectUrl =
-    pingxxPayload.redirect_url ||
-    (typeof paymentInfo?.qrUrl === 'string' ? paymentInfo.qrUrl : '');
   const stripeMode = (stripePayload.mode || '').toLowerCase();
   const isPingxxRedirectChannel =
     payChannel === PAY_CHANNEL_WECHAT_WAP || payChannel === mobileAlipayChannel;
@@ -747,11 +745,7 @@ export const PayModalM = ({
                             <MainButtonM
                               className={styles.payButton}
                               onClick={handlePay}
-                              disabled={
-                                isPingxxRedirectChannel &&
-                                !pingxxRedirectUrl &&
-                                Boolean(orderId)
-                              }
+                              disabled={isLoading}
                             >
                               {t('module.pay.pay')}
                             </MainButtonM>
