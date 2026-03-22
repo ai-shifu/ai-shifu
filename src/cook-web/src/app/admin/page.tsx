@@ -511,7 +511,11 @@ const ScriptManagementPage = () => {
                   try {
                     const url = new URL(aiCourseCreatorGuideUrl);
                     if (url.protocol === 'http:' || url.protocol === 'https:') {
-                      window.open(url.toString(), '_blank', 'noopener,noreferrer');
+                      window.open(
+                        url.toString(),
+                        '_blank',
+                        'noopener,noreferrer',
+                      );
                     }
                   } catch {
                     // ignore invalid URL
