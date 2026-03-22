@@ -1100,6 +1100,93 @@ class TestGeneratedTypeAsk:
         assert GeneratedType.ASK not in legacy
 
 
+class TestAskContextLoading:
+    """Tests for _is_valid_asks and _load_ask_context."""
+
+    def test_is_valid_asks_true(self):
+        from flaskr.service.learn.handle_input_ask import _is_valid_asks
+
+        asks = [
+            {"role": "student", "content": "q"},
+            {"role": "teacher", "content": "a"},
+        ]
+        assert _is_valid_asks(asks) is True
+
+    def test_is_valid_asks_empty(self):
+        from flaskr.service.learn.handle_input_ask import _is_valid_asks
+
+        assert _is_valid_asks([]) is False
+        assert _is_valid_asks(None) is False
+
+    def test_is_valid_asks_student_only(self):
+        from flaskr.service.learn.handle_input_ask import _is_valid_asks
+
+        asks = [{"role": "student", "content": "q"}]
+        assert _is_valid_asks(asks) is False
+
+    def test_load_context_from_payload_asks(self):
+        import types
+        from flaskr.service.learn.handle_input_ask import _load_ask_context
+        from flaskr.service.learn.listen_elements import _serialize_payload
+        from flaskr.service.learn.learn_dtos import ElementPayloadDTO
+
+        asks = [
+            {"role": "student", "content": "q1"},
+            {"role": "teacher", "content": "a1"},
+        ]
+        payload = ElementPayloadDTO(asks=asks)
+        anchor = types.SimpleNamespace(
+            content_text="anchor text",
+            payload=_serialize_payload(payload),
+        )
+        result = _load_ask_context(anchor, 10)
+        assert result is not None
+        assert result[0] == {"role": "assistant", "content": "anchor text"}
+        assert result[1] == {"role": "user", "content": "q1"}
+        assert result[2] == {"role": "assistant", "content": "a1"}
+
+    def test_load_context_fallback_to_none(self):
+        import types
+        from flaskr.service.learn.handle_input_ask import _load_ask_context
+        from flaskr.service.learn.listen_elements import _serialize_payload
+        from flaskr.service.learn.learn_dtos import ElementPayloadDTO
+
+        payload = ElementPayloadDTO()
+        anchor = types.SimpleNamespace(
+            content_text="text",
+            payload=_serialize_payload(payload),
+        )
+        result = _load_ask_context(anchor, 10)
+        assert result is None
+
+    def test_load_context_none_element(self):
+        from flaskr.service.learn.handle_input_ask import _load_ask_context
+
+        assert _load_ask_context(None, 10) is None
+
+    def test_load_context_truncation(self):
+        import types
+        from flaskr.service.learn.handle_input_ask import _load_ask_context
+        from flaskr.service.learn.listen_elements import _serialize_payload
+        from flaskr.service.learn.learn_dtos import ElementPayloadDTO
+
+        asks = [
+            {"role": "student", "content": f"q{i}"}
+            if i % 2 == 0
+            else {"role": "teacher", "content": f"a{i}"}
+            for i in range(20)
+        ]
+        payload = ElementPayloadDTO(asks=asks)
+        anchor = types.SimpleNamespace(
+            content_text="anchor",
+            payload=_serialize_payload(payload),
+        )
+        result = _load_ask_context(anchor, 4)
+        assert result is not None
+        # anchor content + last 4 asks entries
+        assert len(result) == 5
+
+
 class TestHandleAskAdapter:
     """Tests for ListenElementRunAdapter._handle_ask()."""
 

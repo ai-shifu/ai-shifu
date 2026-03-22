@@ -36,6 +36,22 @@ class _DummyLearnGeneratedBlockModel:
     query = _DummyQuery()
 
 
+class _DummyNoneQuery:
+    """Query that always returns None for .first()."""
+
+    def filter(self, *_args, **_kwargs):
+        return self
+
+    def first(self):
+        return None
+
+
+class _DummyLearnGeneratedElementModel:
+    element_bid = _DummyColumn()
+    deleted = _DummyColumn()
+    query = _DummyNoneQuery()
+
+
 class _DummyFollowUpInfo:
     def __init__(self, ask_provider_config):
         self.ask_prompt = "ASK_PROMPT::{shifu_system_message}"
@@ -113,6 +129,9 @@ def _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config):
     )
     monkeypatch.setattr(module, "_", lambda key: key)
     monkeypatch.setattr(module, "LearnGeneratedBlock", _DummyLearnGeneratedBlockModel)
+    monkeypatch.setattr(
+        module, "LearnGeneratedElement", _DummyLearnGeneratedElementModel
+    )
     monkeypatch.setattr(
         module,
         "get_effective_ask_provider_config",

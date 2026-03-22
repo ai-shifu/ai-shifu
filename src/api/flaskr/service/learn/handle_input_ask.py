@@ -47,6 +47,51 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
 )
 from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.service.learn.models import LearnGeneratedElement
+from flaskr.service.learn.listen_elements import _deserialize_payload
+
+
+def _is_valid_asks(asks):
+    """Check if asks list has at least one complete student+teacher pair."""
+    if not asks or not isinstance(asks, list):
+        return False
+    has_student = any(a.get("role") == "student" for a in asks if isinstance(a, dict))
+    has_teacher = any(a.get("role") == "teacher" for a in asks if isinstance(a, dict))
+    return has_student and has_teacher
+
+
+def _load_ask_context(anchor_element, ask_max_history_len):
+    """Load ask context from anchor element's payload.asks.
+
+    Returns (llm_messages, provider_messages) or None if fallback to blocks is needed.
+    """
+    if anchor_element is None:
+        return None
+
+    payload_dto = _deserialize_payload(getattr(anchor_element, "payload", "") or "")
+    asks = payload_dto.asks
+
+    if not _is_valid_asks(asks):
+        return None
+
+    messages = []
+    # Anchor element content as first assistant context message
+    anchor_content = getattr(anchor_element, "content_text", "") or ""
+    if anchor_content:
+        messages.append({"role": "assistant", "content": anchor_content})
+
+    # Map asks entries: student -> user, teacher -> assistant
+    for entry in asks[-ask_max_history_len:]:
+        if not isinstance(entry, dict):
+            continue
+        role = entry.get("role", "")
+        content = entry.get("content", "")
+        if role == "student":
+            messages.append({"role": "user", "content": content})
+        elif role == "teacher":
+            messages.append({"role": "assistant", "content": content})
+
+    return messages
 
 
 def _create_ask_block(
@@ -185,19 +230,6 @@ def handle_input_ask(
     except ValueError:
         ask_max_history_len = 10
 
-    # Query historical conversation records, ordered by time
-    history_scripts: list[LearnGeneratedBlock] = (
-        LearnGeneratedBlock.query.filter(
-            LearnGeneratedBlock.progress_record_bid == attend_id,
-            LearnGeneratedBlock.deleted == 0,
-        )
-        .order_by(LearnGeneratedBlock.id.desc())
-        .limit(ask_max_history_len)
-        .all()
-    )
-
-    history_scripts = history_scripts[::-1]
-
     llm_messages = []  # Conversation messages for built-in LLM ask.
     provider_messages = []  # Conversation messages for external ask providers.
     input = input.replace("{", "{{").replace(
@@ -225,19 +257,50 @@ def handle_input_ask(
     llm_messages.append({"role": "system", "content": llm_system_prompt})
     if base_system_prompt:
         provider_messages.append({"role": "system", "content": base_system_prompt})
-    # Add historical conversation records to system messages
-    for script in history_scripts:
-        if script.type in [BLOCK_TYPE_MDASK_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]:
-            history_message = {"role": "user", "content": script.generated_content}
-            llm_messages.append(history_message)
-            provider_messages.append(history_message)
-        elif script.type in [BLOCK_TYPE_MDANSWER_VALUE, BLOCK_TYPE_MDCONTENT_VALUE]:
-            history_message = {
-                "role": "assistant",
-                "content": script.generated_content,
-            }
-            llm_messages.append(history_message)
-            provider_messages.append(history_message)
+
+    # Try loading ask context from anchor element's payload.asks first
+    anchor_element = None
+    if anchor_element_bid:
+        anchor_element = LearnGeneratedElement.query.filter(
+            LearnGeneratedElement.element_bid == anchor_element_bid,
+            LearnGeneratedElement.deleted == 0,
+        ).first()
+
+    element_context = _load_ask_context(anchor_element, ask_max_history_len)
+    if element_context is not None:
+        for msg in element_context:
+            llm_messages.append(msg)
+            provider_messages.append(msg)
+    else:
+        # Fallback: load from LearnGeneratedBlock
+        history_scripts: list[LearnGeneratedBlock] = (
+            LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.progress_record_bid == attend_id,
+                LearnGeneratedBlock.deleted == 0,
+            )
+            .order_by(LearnGeneratedBlock.id.desc())
+            .limit(ask_max_history_len)
+            .all()
+        )
+        history_scripts = history_scripts[::-1]
+        for script in history_scripts:
+            if script.type in [BLOCK_TYPE_MDASK_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]:
+                history_message = {
+                    "role": "user",
+                    "content": script.generated_content,
+                }
+                llm_messages.append(history_message)
+                provider_messages.append(history_message)
+            elif script.type in [
+                BLOCK_TYPE_MDANSWER_VALUE,
+                BLOCK_TYPE_MDCONTENT_VALUE,
+            ]:
+                history_message = {
+                    "role": "assistant",
+                    "content": script.generated_content,
+                }
+                llm_messages.append(history_message)
+                provider_messages.append(history_message)
 
     # RAG retrieval has been removed from this system
 
