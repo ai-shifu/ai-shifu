@@ -507,7 +507,16 @@ const ScriptManagementPage = () => {
               <Button
                 size='sm'
                 className='h-8 px-3 font-semibold'
-                onClick={() => window.open(aiCourseCreatorGuideUrl, '_blank')}
+                onClick={() => {
+                  try {
+                    const url = new URL(aiCourseCreatorGuideUrl);
+                    if (url.protocol === 'http:' || url.protocol === 'https:') {
+                      window.open(url.toString(), '_blank', 'noopener,noreferrer');
+                    }
+                  } catch {
+                    // ignore invalid URL
+                  }
+                }}
               >
                 <Sparkles className='h-4 w-4' />
                 {t('common.core.aiCourseCreator')}
