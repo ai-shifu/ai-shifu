@@ -268,6 +268,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         input = payload.get("input", None)
         input_type = payload.get("input_type", None)
         reload_generated_block_bid = payload.get("reload_generated_block_bid", None)
+        reload_element_bid = payload.get("reload_element_bid", None)
         listen_raw = payload.get("listen", False)
         if isinstance(listen_raw, str):
             listen = listen_raw.strip().lower() == "true"
@@ -291,6 +292,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     input=input,
                     input_type=input_type,
                     reload_generated_block_bid=reload_generated_block_bid,
+                    reload_element_bid=reload_element_bid,
                     listen=listen,
                     preview_mode=preview_mode,
                     shifu_context_snapshot=shifu_context_snapshot,

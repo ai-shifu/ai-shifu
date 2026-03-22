@@ -44,7 +44,11 @@ from flaskr.service.shifu.models import (
     DraftShifu,
     PublishedShifu,
 )
-from flaskr.service.learn.models import LearnProgressRecord, LearnGeneratedBlock
+from flaskr.service.learn.models import (
+    LearnProgressRecord,
+    LearnGeneratedBlock,
+    LearnGeneratedElement,
+)
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from langfuse.client import StatefulTraceClient
 from ...api.langfuse import langfuse_client as langfuse, MockClient
@@ -1752,6 +1756,7 @@ class RunScriptContextV2:
         self._trace_args["input_type"] = input_type
         self._input_type = input_type
         self._input = input
+        self._anchor_element_bid = ""
 
     def _get_outline_struct(self, outline_item_id: str) -> HistoryItem:
         q = queue.Queue()
@@ -3007,15 +3012,41 @@ class RunScriptContextV2:
             )
         return self._get_default_llm_settings()
 
-    def reload(self, app: Flask, reload_generated_block_bid: str):
+    def reload(
+        self,
+        app: Flask,
+        reload_generated_block_bid: str,
+        *,
+        reload_element_bid: str = None,
+    ):
         with app.app_context():
-            generated_block: LearnGeneratedBlock = LearnGeneratedBlock.query.filter(
-                LearnGeneratedBlock.generated_block_bid == reload_generated_block_bid,
-            ).first()
+            # For ask scenarios, prefer element_bid to resolve anchor
+            anchor_element = None
+            if self._input_type == "ask" and reload_element_bid:
+                anchor_element = LearnGeneratedElement.query.filter(
+                    LearnGeneratedElement.element_bid == reload_element_bid,
+                    LearnGeneratedElement.deleted == 0,
+                ).first()
+                if anchor_element:
+                    self._anchor_element_bid = reload_element_bid
+                    # Derive block_bid from element for compatibility
+                    if not reload_generated_block_bid:
+                        reload_generated_block_bid = (
+                            anchor_element.generated_block_bid or ""
+                        )
 
-            current_attend = self._get_current_attend(generated_block.outline_item_bid)
-            self._can_continue = False
+            generated_block: LearnGeneratedBlock = None
+            if reload_generated_block_bid:
+                generated_block = LearnGeneratedBlock.query.filter(
+                    LearnGeneratedBlock.generated_block_bid
+                    == reload_generated_block_bid,
+                ).first()
+
             if generated_block:
+                current_attend = self._get_current_attend(
+                    generated_block.outline_item_bid
+                )
+                self._can_continue = False
                 if self._input_type != "ask":
                     app.logger.info(
                         f"reload generated_block: {generated_block.id},block_position: {generated_block.position}"
@@ -3045,6 +3076,12 @@ class RunScriptContextV2:
                     db.session.commit()
                 else:
                     self._last_position = generated_block.position
+            elif anchor_element:
+                # Element-only reload for ask: set position from element
+                self._can_continue = False
+                self._last_position = int(
+                    getattr(anchor_element, "element_index", 0) or 0
+                )
         with app.app_context():
             yield from self.run(app)
             db.session.commit()

@@ -51,6 +51,7 @@ def run_script_inner(
     input: str | dict = None,
     input_type: str = None,
     reload_generated_block_bid: str = None,
+    reload_element_bid: str = None,
     listen: bool = False,
     preview_mode: bool = False,
     stop_event: threading.Event | None = None,
@@ -131,13 +132,17 @@ def run_script_inner(
                     return
                 yield from element_adapter.process(events)
 
-            if reload_generated_block_bid:
+            if reload_generated_block_bid or reload_element_bid:
                 if stop_event and stop_event.is_set():
                     app.logger.info("run_script_inner cancelled before reload")
                     db.session.rollback()
                     return
                 yield from _iter_run_events(
-                    run_script_context.reload(app, reload_generated_block_bid)
+                    run_script_context.reload(
+                        app,
+                        reload_generated_block_bid,
+                        reload_element_bid=reload_element_bid,
+                    )
                 )
                 db.session.commit()
             while run_script_context.has_next():
@@ -206,6 +211,7 @@ def run_script(
     input: str | dict = None,
     input_type: str = None,
     reload_generated_block_bid: str = None,
+    reload_element_bid: str = None,
     listen: bool = False,
     preview_mode: bool = False,
     shifu_context_snapshot: Optional[dict[str, Any]] = None,
@@ -266,6 +272,7 @@ def run_script(
             input=input,
             input_type=input_type,
             reload_generated_block_bid=reload_generated_block_bid,
+            reload_element_bid=reload_element_bid,
             listen=listen,
             preview_mode=preview_mode,
             stop_event=stop_event,
