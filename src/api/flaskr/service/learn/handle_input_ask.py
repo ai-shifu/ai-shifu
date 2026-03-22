@@ -49,6 +49,99 @@ from flaskr.service.metering.consts import (
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 
 
+def _create_ask_block(
+    app,
+    outline_item_info,
+    attend_id,
+    user_bid,
+    input_text,
+    last_position,
+):
+    ask_block = init_generated_block(
+        app,
+        shifu_bid=outline_item_info.shifu_bid,
+        outline_item_bid=outline_item_info.bid,
+        progress_record_bid=attend_id,
+        user_bid=user_bid,
+        block_type=BLOCK_TYPE_MDASK_VALUE,
+        mdflow=input_text,
+        block_index=outline_item_info.position,
+    )
+    ask_block.generated_content = input_text
+    ask_block.role = ROLE_STUDENT
+    ask_block.type = BLOCK_TYPE_MDASK_VALUE
+    ask_block.position = last_position
+    db.session.add(ask_block)
+    return ask_block
+
+
+def _create_answer_block(
+    app,
+    outline_item_info,
+    attend_id,
+    user_bid,
+    response_text,
+    last_position,
+):
+    answer_block = init_generated_block(
+        app,
+        shifu_bid=outline_item_info.shifu_bid,
+        outline_item_bid=outline_item_info.bid,
+        progress_record_bid=attend_id,
+        user_bid=user_bid,
+        block_type=BLOCK_TYPE_MDANSWER_VALUE,
+        mdflow=response_text,
+        block_index=last_position,
+    )
+    answer_block.generated_content = response_text
+    answer_block.role = ROLE_TEACHER
+    answer_block.position = last_position
+    db.session.add(answer_block)
+    return answer_block
+
+
+def _run_guardrail(
+    app,
+    user_info,
+    ask_block,
+    input_text,
+    span,
+    outline_item_info,
+    last_position,
+    follow_up_model,
+    follow_up_info,
+    attend_id,
+    usage_context,
+    chapter_title,
+    ask_scene,
+):
+    res = check_text_with_llm_response(
+        app,
+        user_info=user_info,
+        log_script=ask_block,
+        input=input_text,
+        span=span,
+        outline_item_bid=outline_item_info.bid,
+        shifu_bid=outline_item_info.shifu_bid,
+        block_position=last_position,
+        llm_settings=LLMSettings(
+            model=follow_up_model,
+            temperature=follow_up_info.model_args["temperature"],
+        ),
+        attend_id=attend_id,
+        fmt_prompt=follow_up_info.ask_prompt,
+        usage_context=usage_context,
+        chapter_title=chapter_title,
+        scene=ask_scene,
+    )
+    chunks = []
+    for i in res:
+        if i is not None and i != "":
+            app.logger.info(f"check_text_with_llm_response: {i}")
+            chunks.append(i)
+    return chunks
+
+
 @extensible_generic
 def handle_input_ask(
     app: Flask,
@@ -167,22 +260,10 @@ def handle_input_ask(
     if not follow_up_model:
         follow_up_model = app.config.get("DEFAULT_LLM_MODEL", "")
 
-    # Log user input to database
-    log_script: LearnGeneratedBlock = init_generated_block(
-        app,
-        shifu_bid=outline_item_info.shifu_bid,
-        outline_item_bid=outline_item_info.bid,
-        progress_record_bid=attend_id,
-        user_bid=user_info.user_id,
-        block_type=BLOCK_TYPE_MDASK_VALUE,
-        mdflow=input,
-        block_index=outline_item_info.position,
+    # Create ask block
+    ask_block = _create_ask_block(
+        app, outline_item_info, attend_id, user_info.user_id, input, last_position
     )
-    log_script.generated_content = input
-    log_script.role = ROLE_STUDENT  # Mark as student role
-    log_script.type = BLOCK_TYPE_MDASK_VALUE  # Mark as Q&A type
-    log_script.position = last_position
-    db.session.add(log_script)
 
     # Create trace span
     span = trace.span(
@@ -190,48 +271,40 @@ def handle_input_ask(
         input=input,
     )
 
-    # Check if user input needs special processing (such as sensitive word filtering, etc.)
-    res = check_text_with_llm_response(
+    # Run guardrail check
+    guardrail_chunks = _run_guardrail(
         app,
-        user_info=user_info,
-        log_script=log_script,
-        input=input,
-        span=span,
-        outline_item_bid=outline_item_info.bid,
-        shifu_bid=outline_item_info.shifu_bid,
-        block_position=last_position,
-        llm_settings=LLMSettings(
-            model=follow_up_model,
-            temperature=follow_up_info.model_args["temperature"],
-        ),
-        attend_id=attend_id,
-        fmt_prompt=follow_up_info.ask_prompt,
-        usage_context=usage_context,
-        chapter_title=chapter_title,
-        scene=ask_scene,
+        user_info,
+        ask_block,
+        input,
+        span,
+        outline_item_info,
+        last_position,
+        follow_up_model,
+        follow_up_info,
+        attend_id,
+        usage_context,
+        chapter_title,
+        ask_scene,
     )
-    has_content = False
-    for i in res:
-        if i is not None and i != "":
-            app.logger.info(f"check_text_with_llm_response: {i}")
-            has_content = True
+
+    if guardrail_chunks:
+        for chunk in guardrail_chunks:
             yield RunMarkdownFlowDTO(
                 outline_bid=outline_item_info.bid,
-                generated_block_bid=log_script.generated_block_bid,
+                generated_block_bid=ask_block.generated_block_bid,
                 type=GeneratedType.CONTENT,
-                content=i,
+                content=chunk,
             )
-
-    if has_content:
         yield RunMarkdownFlowDTO(
             outline_bid=outline_item_info.bid,
-            generated_block_bid=log_script.generated_block_bid,
+            generated_block_bid=ask_block.generated_block_bid,
             type=GeneratedType.BREAK,
             content="",
         )
         yield RunMarkdownFlowDTO(
             outline_bid=outline_item_info.bid,
-            generated_block_bid=log_script.generated_block_bid,
+            generated_block_bid=ask_block.generated_block_bid,
             type=GeneratedType.INTERACTION,
             content=input,
         )
@@ -314,7 +387,7 @@ def handle_input_ask(
                 response_text += current_content
                 yield RunMarkdownFlowDTO(
                     outline_bid=outline_item_info.bid,
-                    generated_block_bid=log_script.generated_block_bid,
+                    generated_block_bid=ask_block.generated_block_bid,
                     type=GeneratedType.CONTENT,
                     content=current_content,
                 )
@@ -353,7 +426,7 @@ def handle_input_ask(
                 response_text = str(_("server.learn.askProviderUnavailable"))
             yield RunMarkdownFlowDTO(
                 outline_bid=outline_item_info.bid,
-                generated_block_bid=log_script.generated_block_bid,
+                generated_block_bid=ask_block.generated_block_bid,
                 type=GeneratedType.CONTENT,
                 content=response_text,
             )
@@ -371,20 +444,14 @@ def handle_input_ask(
         yield from _emit_provider_stream(ASK_PROVIDER_LLM)
 
     # Log AI response to database
-    log_script: LearnGeneratedBlock = init_generated_block(
+    answer_block = _create_answer_block(
         app,
-        shifu_bid=outline_item_info.shifu_bid,
-        outline_item_bid=outline_item_info.bid,
-        progress_record_bid=attend_id,
-        user_bid=user_info.user_id,
-        block_type=BLOCK_TYPE_MDANSWER_VALUE,
-        mdflow=response_text,
-        block_index=last_position,
+        outline_item_info,
+        attend_id,
+        user_info.user_id,
+        response_text,
+        last_position,
     )
-    log_script.generated_content = response_text
-    log_script.role = ROLE_TEACHER  # Mark as teacher role
-    log_script.position = last_position
-    db.session.add(log_script)
 
     # End trace span
     span.end(output=response_text)
@@ -395,7 +462,7 @@ def handle_input_ask(
     # Return end marker
     yield RunMarkdownFlowDTO(
         outline_bid=outline_item_info.bid,
-        generated_block_bid=log_script.generated_block_bid,
+        generated_block_bid=answer_block.generated_block_bid,
         type=GeneratedType.BREAK,
         content="",
     )
