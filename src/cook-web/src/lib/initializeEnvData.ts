@@ -43,6 +43,8 @@ const loadRuntimeConfig = async () => {
     updateLoginMethodsEnabled,
     updateDefaultLoginMethod,
     updateLegalUrls,
+    updateAiCourseCreatorGuideEnabled,
+    updateAiCourseCreatorGuideUrl,
     updateCourseId,
   } = useEnvStore.getState() as EnvStoreState;
 
@@ -204,6 +206,12 @@ const loadRuntimeConfig = async () => {
     runtimeConfig?.legalUrls ??
       (useEnvStore.getState() as EnvStoreState).legalUrls,
   );
+  if (runtimeConfig?.aiCourseCreatorGuideEnabled != null) {
+    await updateAiCourseCreatorGuideEnabled(runtimeConfig.aiCourseCreatorGuideEnabled === true);
+  }
+  if (runtimeConfig?.aiCourseCreatorGuideUrl != null) {
+    await updateAiCourseCreatorGuideUrl(runtimeConfig.aiCourseCreatorGuideUrl);
+  }
 };
 
 export const initializeEnvData = async (): Promise<void> => {

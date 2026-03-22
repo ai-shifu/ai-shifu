@@ -109,6 +109,11 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             "currencySymbol": get_config("CURRENCY_SYMBOL", "¥"),
             # Legal Documents Configuration
             "legalUrls": legal_urls,
+            # AI Course Creator
+            "aiCourseCreatorGuideEnabled": _to_bool(
+                get_config("AI_COURSE_CREATOR_GUIDE_ENABLED", False), False
+            ),
+            "aiCourseCreatorGuideUrl": get_config("AI_COURSE_CREATOR_GUIDE_URL", ""),
             # External API Configuration
             "genMdfApiUrl": get_config("GEN_MDF_API_URL", ""),
         }

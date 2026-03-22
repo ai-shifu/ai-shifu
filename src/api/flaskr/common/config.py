@@ -224,6 +224,18 @@ Default: "phone".""",
         description="Vertical logo URL for Cook Web",
         group="frontend",
     ),
+    "AI_COURSE_CREATOR_GUIDE_ENABLED": EnvVar(
+        name="AI_COURSE_CREATOR_GUIDE_ENABLED",
+        default="false",
+        description="Enable the AI Course Creator button on the course list page",
+        group="frontend",
+    ),
+    "AI_COURSE_CREATOR_GUIDE_URL": EnvVar(
+        name="AI_COURSE_CREATOR_GUIDE_URL",
+        default="",
+        description="URL to navigate to when the AI Course Creator button is clicked",
+        group="frontend",
+    ),
     "GEN_MDF_API_URL": EnvVar(
         name="GEN_MDF_API_URL",
         default="",
