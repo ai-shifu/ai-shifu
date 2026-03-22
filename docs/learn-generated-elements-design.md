@@ -169,9 +169,16 @@
 ]
 ```
 
-asks 条目字段集待冻结（至少 `role` + `content`，可选 `generated_block_bid`/`timestamp`/`audio_url`）。
+asks 条目字段集（冻结）：
 
-asks 数组上限待定义（建议与 `ASK_MAX_HISTORY_LEN=10` 对齐，即最多 5 轮 Q&A，10 条条目）。
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `role` | string | 是 | `student` 或 `teacher` |
+| `content` | string | 是 | 追问或回答文本 |
+| `generated_block_bid` | string | 否 | 对应的 mdask/mdanswer block bid，用于溯源 |
+| `timestamp` | string | 否 | ISO 8601 时间戳 |
+
+asks 数组上限与 `ASK_MAX_HISTORY_LEN=10` 对齐，即最多 5 轮 Q&A，10 条条目。
 
 ---
 
@@ -224,7 +231,11 @@ To-Be 约束：
 4. 锚点 element 本身的 content 作为首条 assistant context message。
 5. 裁剪以 asks 条目为单位，与 `ASK_MAX_HISTORY_LEN` 对齐。
 6. 不再需要 `sequence_number` 截断。
-7. legacy fallback 条件：anchor element payload 中无 `asks` 字段。
+7. legacy fallback 条件（严格定义）：
+   - anchor element 的 payload 中无 `asks` 字段 → fallback
+   - `asks` 为空数组 `[]` → fallback（首次追问，无历史，两条路径结果一致）
+   - `asks` 存在但不包含至少一对 student+teacher → fallback（数据不完整）
+   - `asks` 存在且包含至少一对 student+teacher → 使用 `payload.asks`
 
 ---
 
@@ -331,13 +342,28 @@ To-Be 约束：
 
 ### 6.3.2 handle_input_ask 流程
 
+重构策略：先 extract method 拆分为内部函数（纯重构不改行为），再修复 block 归属。
+
+内部函数拆分：
+
+```
+handle_input_ask()
+  ├── _create_ask_block()          # 创建 mdask block
+  ├── _create_answer_block()       # 创建 mdanswer block（空占位）
+  ├── _run_guardrail()             # 敏感词检测
+  └── _run_answer_stream()         # provider routing + 流式输出
+```
+
+改造后调用流程：
+
 1. 通过 `reload_element_bid` 定位 anchor element（兼容 `reload_generated_block_bid`）。
 2. 创建 `mdask` block。
-3. 产出 `GeneratedType.ASK`（含追问文本 + `anchor_element_bid`）。
-4. **在任何老师侧输出前**创建 `mdanswer` block（含 guardrail 路径）。
-5. 所有老师侧 `CONTENT`/`BREAK` 使用 answer block 的 `generated_block_bid`。
-6. answer block 创建时 content 为空，结束后 UPDATE 回填。
-7. guardrail 路径不再特殊早返回。
+3. 创建 `mdanswer` block（content 为空占位，flush 获取 `generated_block_bid`）。
+4. 产出 `GeneratedType.ASK`（含追问文本 + `anchor_element_bid`）。
+5. 执行 guardrail 检测；命中时用 answer block 的 `generated_block_bid` 输出 CONTENT+BREAK 后结束。
+6. 正常路径：所有老师侧 `CONTENT`/`BREAK` 使用 answer block 的 `generated_block_bid`。
+7. 流式结束后 UPDATE 回填 answer block 的 `generated_content`。
+8. guardrail 路径不再特殊早返回，统一走 answer block 归属。
 
 ### 6.3.3 ListenElementRunAdapter 行为
 
@@ -381,11 +407,16 @@ adapter 新增 `_handle_ask()`：
    - `audio_segments` 无法恢复时置空数组
 3. 回填脚本支持 `dry_run/overwrite`，并输出统计。
 4. 历史 MDASK/MDANSWER blocks → 匹配 anchor element → 回填到 `payload.asks`：
-   - 通过 ask block 的 position 匹配同 progress 下最近的 askable element
+   - 匹配优先级：
+     1. `generated_block_bid` 直接匹配（同一个 block 产生的 element）
+     2. `position` 就近匹配（`sequence_number <= ask_block.position` 的最后一个 askable final element）
+     3. fallback：同 progress 下最后一个 final element
+     4. 全部失败：跳过该 ask block，计入 `skipped` 统计
    - 将 ask block content 作为 `{role: "student", content}` 条目
-   - 将 answer block content 作为 `{role: "teacher", content}` 条目
+   - 将 answer block content 作为 `{role: "teacher", content}` 条目（answer block 缺失时只写 student 条目）
    - 追加到匹配到的 anchor element 的 `payload.asks` 数组
    - 不新增 element 行或表字段
+   - 回填脚本输出统计：`total_asks/matched/skipped` 及 skipped 详情
 
 ---
 

@@ -107,27 +107,54 @@ Design reference: `docs/learn-generated-elements-design.md`
 
 - [x] 更新设计文档，冻结 ask element 的协议语义与 block 归属规则
 - [x] 更新 `tasks.md`，拆分 ask element 化的实现任务
-- [ ] 调整追问入口协议：ask 请求新增 `reload_element_bid`；`reload_generated_block_bid` 仅保留给非 ask regenerate，并在 ask 场景双读兼容
-- [ ] 增加服务端反查逻辑：通过 `element_bid` 定位所属 `generated_block_bid/progress_record_bid/outline_item_bid/run_session_bid/anchor sequence`
-- [ ] 冻结兼容策略：`GeneratedType.ASK` 仅作为 listen 内部事件，非 listen 原始 run 流默认忽略
-- [ ] 调整 `handle_input_ask`：先创建 ask block，再创建 answer block，禁止回答流复用 ask 的 `generated_block_bid`
-- [ ] 在 ask 流程中新增内部 `ASK` 事件，只承载用户追问文本
-- [ ] 扩展 `ListenElementRunAdapter`：新增 `_handle_ask()`，输出终态 `student/text` element
-- [ ] 明确 ask element 默认字段：`is_new=true`、`is_marker=false`、`is_speakable=false`、`is_final=true`、`audio_url=""`、`audio_segments=[]`
-- [ ] 调整 run 转 element 的处理顺序，保证 ask element 的 `sequence_number` 位于 answer elements 之前
-- [ ] 调整 answer 侧流式 `CONTENT/AUDIO_COMPLETE/BREAK` 以及 guardrail/provider fallback 文本统一挂到 answer block
-- [ ] 调整追问历史装载：优先从 `LearnGeneratedElement` 聚合快照装载上下文，不再默认从 `LearnGeneratedBlock` 取
-- [ ] 定义并实现 ask 上下文截止规则：先截断到 anchor element，再做窗口裁剪，且始终保留 anchor
-- [ ] 定义 element 到 ask 历史消息的映射规则：`student/text -> user`，`teacher/text -> assistant`
+- [x] 冻结 asks 条目字段集：`role` + `content`（必填），`generated_block_bid` + `timestamp`（可选）
+- [x] 冻结 legacy fallback 条件：无 `asks` 字段 / 空数组 / 不含至少一对 student+teacher → fallback
+- [x] 冻结回填匹配优先级：block_bid 直接匹配 → position 就近匹配 → 同 progress 最后 final element → 跳过
+
+### K-Phase 1: 基础设施（可并行）
+
+- [ ] 扩展 `ElementPayloadDTO` 加入 `asks: List[Dict]` 字段及 `__json__` 序列化
+- [ ] 扩展 `GeneratedType` 枚举加入 `ASK = "ask"`
+- [ ] 扩展 `RunMarkdownFlowDTO` 加入 `anchor_element_bid` 可选字段
+- [ ] `routes.py` 新增 `reload_element_bid` 参数解析，传递到 `run_script`/`run_script_inner`
+- [ ] `run_script_inner` 和 `context_v2.reload()` 签名新增 `reload_element_bid` 参数，ask 场景支持 element_bid 入口
+- [ ] 增加服务端反查逻辑：通过 `element_bid` 定位所属 `generated_block_bid/progress_record_bid/outline_item_bid/run_session_bid`
+- [ ] 冻结兼容策略：`GeneratedType.ASK` 仅作为 listen 内部事件，非 listen 原始 run 流默认忽略（`element_adapter is None` 时跳过）
+
+### K-Phase 2: 写链路核心（串行）
+
+- [ ] 重构 `handle_input_ask`（纯 extract method，不改行为）：拆为 `_create_ask_block`/`_create_answer_block`/`_run_guardrail`/`_run_answer_stream`
+- [ ] 修复 block 归属：answer block 提前创建（空占位 + flush），所有老师侧 CONTENT/BREAK 绑定 answer block 的 `generated_block_bid`
+- [ ] 修复 guardrail 路径：命中时也先创建 answer block，用 answer block bid 输出 CONTENT+BREAK，不再特殊早返回
+- [ ] 在 ask 流程中产出 `GeneratedType.ASK` 内部事件（承载追问文本 + `anchor_element_bid`），guardrail/正常路径都产出
+- [ ] 扩展 `ListenElementRunAdapter.process()`：路由 `GeneratedType.ASK` 到新方法 `_handle_ask()`
+- [ ] 实现 `_handle_ask()`：追加 `{role: "student", content}` 到 anchor element 的 `payload.asks` 并 UPDATE，不产出独立 element，不占 `sequence_number`
+- [ ] answer 流式阶段：独立 SSE 事件推送（`is_new=false` + `target_element_bid=anchor`），BREAK 时追加 `{role: "teacher", content}` 到 `payload.asks` 并 UPDATE
+- [ ] answer 侧流式 `CONTENT/AUDIO_COMPLETE/BREAK` 以及 guardrail/provider fallback 文本统一挂到 answer block
+
+### K-Phase 3: 读链路与上下文（依赖 Phase 2）
+
+- [ ] 新增 `_load_ask_context()` 函数：优先从 anchor element 的 `payload.asks` 读取上下文
+- [ ] 实现 `_is_valid_asks()` 校验：至少一对 student+teacher 才算有效
+- [ ] 定义 element 到 ask 历史消息的映射规则：`student → user`，`teacher → assistant`
+- [ ] 锚点 element 本身的 content 作为首条 assistant context message
 - [ ] 定义视觉锚点进入 ask 上下文的归一化规则：聚合后的 `content + previous_visuals` 摘要映射为 assistant anchor message
-- [ ] 仅在目标 progress 缺失 element 数据时回退到 legacy block 上下文
-- [ ] 更新 records 聚合逻辑，确保已落库 ask elements 直接参与最终快照，不依赖 legacy fallback
-- [ ] 增加回归测试：一次追问返回 `student ask` + `teacher answer` 两组独立 elements
+- [ ] 裁剪以 asks 条目为单位，与 `ASK_MAX_HISTORY_LEN` 对齐
+- [ ] 仅在 `_is_valid_asks()` 返回 false 时回退到 legacy block 上下文
+- [ ] 更新 records 聚合逻辑：`payload.asks` 随 element 在 records 中直接返回，不需要额外聚合
+
+### K-Phase 4: 回填与测试（依赖 Phase 2-3）
+
+- [ ] 实现 `_backfill_asks_to_anchor_elements()`：按匹配优先级回填历史 mdask/mdanswer 到 `payload.asks`
+- [ ] 回填容错：匹配失败跳过（不报错），answer block 缺失只写 student 条目，payload 解析失败跳过记录 error
+- [ ] 回填统计输出：`total_asks/matched/skipped` 及 skipped 详情
 - [ ] 增加回归测试：ask/answer 使用不同 `generated_block_bid`
 - [ ] 增加回归测试：ask 请求使用 `reload_element_bid` 仍能正确命中原锚点；legacy `reload_generated_block_bid` 在过渡期仍可用
-- [ ] 增加回归测试：ask 上下文来自 elements 快照而不是 blocks
+- [ ] 增加回归测试：ask 上下文来自 `payload.asks` 而不是 blocks
 - [ ] 增加回归测试：追问点击较早 element 时，上下文不会包含锚点之后的内容
 - [ ] 增加回归测试：追问点击视觉 element 时，锚点快照会进入 ask prompt/context
 - [ ] 增加回归测试：非 listen 模式不会额外暴露 `ASK` 事件
-- [ ] 增加回填/修复任务：历史 `mdask` blocks 可按需补生成 `student/text` elements，且 `sequence_number` 位于对应 answer 之前
+- [ ] 增加回归测试：guardrail 命中时 answer block 创建且 `payload.asks` 包含 student+teacher 条目
+- [ ] 增加回归测试：answer SSE 事件携带 `target_element_bid=anchor`
+- [ ] 增加回归测试：回填脚本正确匹配历史 mdask/mdanswer 到 anchor element
 - [ ] 评估并补充 `audio_complete` 在 ask 场景下的 block 归属测试
