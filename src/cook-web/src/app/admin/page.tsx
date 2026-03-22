@@ -156,8 +156,12 @@ const ScriptManagementPage = () => {
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const currentUserId = useUserStore(state => state.userInfo?.user_id || '');
-  const aiCourseCreatorGuideEnabled = useEnvStore(state => state.aiCourseCreatorGuideEnabled);
-  const aiCourseCreatorGuideUrl = useEnvStore(state => state.aiCourseCreatorGuideUrl);
+  const aiCourseCreatorGuideEnabled = useEnvStore(
+    state => state.aiCourseCreatorGuideEnabled,
+  );
+  const aiCourseCreatorGuideUrl = useEnvStore(
+    state => state.aiCourseCreatorGuideUrl,
+  );
   const [adminReady, setAdminReady] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'archived'>('all');
   const [shifus, setShifus] = useState<Shifu[]>([]);

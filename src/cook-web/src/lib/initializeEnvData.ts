@@ -207,7 +207,9 @@ const loadRuntimeConfig = async () => {
       (useEnvStore.getState() as EnvStoreState).legalUrls,
   );
   if (runtimeConfig?.aiCourseCreatorGuideEnabled != null) {
-    await updateAiCourseCreatorGuideEnabled(runtimeConfig.aiCourseCreatorGuideEnabled === true);
+    await updateAiCourseCreatorGuideEnabled(
+      runtimeConfig.aiCourseCreatorGuideEnabled === true,
+    );
   }
   if (runtimeConfig?.aiCourseCreatorGuideUrl != null) {
     await updateAiCourseCreatorGuideUrl(runtimeConfig.aiCourseCreatorGuideUrl);

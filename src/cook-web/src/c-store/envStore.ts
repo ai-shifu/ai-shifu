@@ -62,10 +62,13 @@ export const useEnvStore = create<EnvStoreState>(set => ({
   legalUrls: environment.legalUrls,
   updateLegalUrls: async (legalUrls: EnvStoreState['legalUrls']) =>
     set({ legalUrls }),
-  aiCourseCreatorGuideEnabled: process.env.NEXT_PUBLIC_AI_COURSE_CREATOR_GUIDE_ENABLED === 'true',
-  aiCourseCreatorGuideUrl: process.env.NEXT_PUBLIC_AI_COURSE_CREATOR_GUIDE_URL || '',
-  updateAiCourseCreatorGuideEnabled: async (aiCourseCreatorGuideEnabled: boolean) =>
-    set({ aiCourseCreatorGuideEnabled }),
+  aiCourseCreatorGuideEnabled:
+    process.env.NEXT_PUBLIC_AI_COURSE_CREATOR_GUIDE_ENABLED === 'true',
+  aiCourseCreatorGuideUrl:
+    process.env.NEXT_PUBLIC_AI_COURSE_CREATOR_GUIDE_URL || '',
+  updateAiCourseCreatorGuideEnabled: async (
+    aiCourseCreatorGuideEnabled: boolean,
+  ) => set({ aiCourseCreatorGuideEnabled }),
   updateAiCourseCreatorGuideUrl: async (aiCourseCreatorGuideUrl: string) =>
     set({ aiCourseCreatorGuideUrl }),
   runtimeConfigLoaded: false,
