@@ -3,7 +3,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { PlusIcon } from '@heroicons/react/24/outline';
-import { Sparkles } from 'lucide-react';
 import { TrophyIcon, StarIcon } from '@heroicons/react/24/solid';
 import { MoreHorizontal } from 'lucide-react';
 import api from '@/api';
@@ -36,7 +35,6 @@ import { useTranslation } from 'react-i18next';
 import { ErrorWithCode } from '@/lib/request';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { useUserStore } from '@/store';
-import { useEnvStore } from '@/c-store';
 import { useTracking } from '@/c-common/hooks/useTracking';
 import { canManageArchive as canManageArchiveForShifu } from '@/lib/shifu-permissions';
 interface ShifuCardProps {
@@ -156,12 +154,7 @@ const ScriptManagementPage = () => {
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const currentUserId = useUserStore(state => state.userInfo?.user_id || '');
-  const aiCourseCreatorGuideEnabled = useEnvStore(
-    state => state.aiCourseCreatorGuideEnabled,
-  );
-  const aiCourseCreatorGuideUrl = useEnvStore(
-    state => state.aiCourseCreatorGuideUrl,
-  );
+  const [isCnSite, setIsCnSite] = useState(false);
   const [adminReady, setAdminReady] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'archived'>('all');
   const [shifus, setShifus] = useState<Shifu[]>([]);
@@ -187,6 +180,11 @@ const ScriptManagementPage = () => {
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
+
+  useEffect(() => {
+    const hostname = window.location.hostname;
+    setIsCnSite(hostname.endsWith('.ai-shifu.cn') || hostname === 'localhost');
+  }, []);
 
   const setHasMoreState = useCallback((value: boolean) => {
     hasMoreRef.current = value;
@@ -503,28 +501,19 @@ const ScriptManagementPage = () => {
               <PlusIcon className='w-5 h-5 mr-1' />
               {t('common.core.createBlankShifu')}
             </Button>
-            {aiCourseCreatorGuideEnabled && aiCourseCreatorGuideUrl && (
-              <Button
-                size='sm'
-                className='h-8 px-3 font-semibold'
-                onClick={() => {
-                  try {
-                    const url = new URL(aiCourseCreatorGuideUrl);
-                    if (url.protocol === 'http:' || url.protocol === 'https:') {
-                      window.open(
-                        url.toString(),
-                        '_blank',
-                        'noopener,noreferrer',
-                      );
-                    }
-                  } catch {
-                    // ignore invalid URL
-                  }
-                }}
-              >
-                <Sparkles className='h-4 w-4' />
-                {t('common.core.aiCourseCreator')}
-              </Button>
+            {isCnSite && (
+              <span className='text-xs text-muted-foreground'>
+                {t('common.core.aiCourseCreatorPrefix')}
+                <a
+                  href='https://ai-shifu.cn/educators.html#course-creator-skill'
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='text-muted-foreground underline hover:text-foreground'
+                >
+                  {t('common.core.aiCourseCreatorLink')}
+                </a>
+                {t('common.core.aiCourseCreatorSuffix')}
+              </span>
             )}
             <Tabs
               className='ml-auto'

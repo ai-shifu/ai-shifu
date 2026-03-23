@@ -35,8 +35,6 @@ export interface EnvStoreState {
   loginMethodsEnabled: string[];
   defaultLoginMethod: string;
   legalUrls: LegalUrls;
-  aiCourseCreatorGuideEnabled: boolean;
-  aiCourseCreatorGuideUrl: string;
   runtimeConfigLoaded: boolean;
   updateCourseId: (courseId: string) => Promise<void>;
   updateDefaultLlmModel: (model: string) => Promise<void>;
@@ -61,8 +59,6 @@ export interface EnvStoreState {
   updateLoginMethodsEnabled: (methods: string[]) => Promise<void>;
   updateDefaultLoginMethod: (method: string) => Promise<void>;
   updateLegalUrls: (legalUrls: LegalUrls) => Promise<void>;
-  updateAiCourseCreatorGuideEnabled: (enabled: boolean) => Promise<void>;
-  updateAiCourseCreatorGuideUrl: (url: string) => Promise<void>;
   setRuntimeConfigLoaded: (loaded: boolean) => void;
 }
 

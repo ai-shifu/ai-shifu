@@ -1,7 +1,9 @@
 {
   "__namespace__": "common.core",
   "adminTitle": "管理后台",
-  "aiCourseCreator": "AI 建课",
+  "aiCourseCreatorLink": "安装 Skill",
+  "aiCourseCreatorPrefix": "已有 OpenClaw 龙虾助理? ",
+  "aiCourseCreatorSuffix": " 智能建课",
   "all": "全部",
   "archived": "归档",
   "brandName": "AI 师傅",
