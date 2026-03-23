@@ -27,7 +27,6 @@ import type { ChatContentItem } from './useChatLogicHook';
 import AskBlock from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
-import ListenModeRenderer from './ListenModeRenderer';
 import ListenModeSlideRenderer from './ListenModeSlideRenderer';
 import LessonFeedbackInteraction from './LessonFeedbackInteraction';
 import LoadingBar from './LoadingBar';
@@ -606,9 +605,11 @@ export const NewChatComponents = ({
               lessonId={lessonId}
               lessonStatus={lessonStatus}
               previewMode={previewMode}
-              onRequestAudioForBlock={requestAudioForBlock}
               onSend={memoizedOnSend}
               onPlayerVisibilityChange={onListenPlayerVisibilityChange}
+              toggleAskExpanded={toggleAskExpanded}
+              shifuBid={shifuBid}
+              outlineBid={lessonId}
             />
           )
         ) : (

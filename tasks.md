@@ -1,4 +1,4 @@
-# Tasks (backend-only, updated 2026-03-19)
+# Tasks (updated 2026-03-22)
 
 Design reference: `docs/learn-generated-elements-design.md`
 
@@ -158,3 +158,44 @@ Design reference: `docs/learn-generated-elements-design.md`
 - [ ] 增加回归测试：answer SSE 事件携带 `target_element_bid=anchor`
 - [ ] 增加回归测试：回填脚本正确匹配历史 mdask/mdanswer 到 anchor element
 - [ ] 评估并补充 `audio_complete` 在 ask 场景下的 block 归属测试
+
+## L. 前端 Element 集成（P1）
+
+### L-Phase 1: 数据模型扩展
+- [x] `StudyRecordItem` 添加 `payload` 字段（含 `asks` 数组）
+- [x] `ChatContentItem` 添加 `payload` 字段
+- [x] `SSEParams` 添加 `reload_element_bid` 参数
+
+### L-Phase 2: 追问挂到 Element
+- [x] `buildElementContentItem` 提取 `payload.asks` 到 `ask_list`
+- [x] `mapRecordsToContent` 历史加载时为有 asks 的 element 创建 ASK 项
+- [x] `AskBlock` 改用 `reload_element_bid`（兼容期保留 `reload_generated_block_bid`）
+- [x] `ListenModeSlideRenderer` 集成追问：当前步骤 element 有 ask_list 时显示 AskBlock
+
+### L-Phase 3: 去除 NEW_SLIDE 依赖
+- [x] 删除 `useChatLogicHook` 中 `SSE_OUTPUT_TYPE.NEW_SLIDE` 处理分支
+- [x] 删除 `pendingSlidesRef`、`sortSlidesByTimeline`、`upsertListenSlide`
+- [x] 删除 `ListenSlideData` 接口和 `SSE_OUTPUT_TYPE.NEW_SLIDE` 枚举
+- [x] `ChatContentItem` 移除 `listenSlides` 字段
+- [x] 确认 `buildSlideElementList` 在无 slide 数据后仍正常工作
+
+### L-Phase 4: 清理遗留代码
+- [x] 删除 `ListenModeRenderer.tsx`（Reveal.js legacy）并清理 NewChatComp 导入
+- [x] 简化 `listenModeUtils.ts` 中 `buildSlidePageMapping`（不再依赖 listenSlides）
+- [x] 向 `ListenModeSlideRenderer` 传递追问相关 props（toggleAskExpanded, shifuBid 等）
+- [x] Listen 模式不再调用独立 TTS 接口，直接消费 run SSE 中内嵌的音频数据
+- [x] ELEMENT handler 中 audio_segments 累积合并（后端每个 patch 只发一个 segment）
+- [x] 重写 `buildSlideElementList` 视觉+旁白配对：text(is_renderable=false) 的音频合并到前一个视觉 element
+- [x] interaction 正确挂到最后一个视觉 element 的 page
+- [x] 去掉 `<Slide>` 依赖，用 ContentRender + AudioPlayer 实现步进式渲染器
+- [x] 自动播放：音频播完 → onEnded → currentStepIndex+1 → 显示下一个视觉+音频
+- [x] interaction 在所有视觉步骤播完后显示，等待用户输入
+
+### L-Phase 5: 验证与回归
+- [ ] Read 模式回归：加载有历史记录的课程，确认渲染不受影响
+- [ ] Listen 模式历史加载：确认 element 正确转为 SlideElement 并在 `<Slide>` 中展示
+- [ ] Listen 模式流式消费：新课程从头开始，确认 element SSE 事件正确驱动 `<Slide>` 更新
+- [ ] 追问功能：点击追问按钮，确认 AskBlock 展开、发送问题、收到流式回答
+- [ ] 追问历史：加载有追问历史的课程，确认 `payload.asks` 正确展示
+- [ ] 音频播放：确认 autoplay chain 在 listen 模式下正常工作
+- [ ] `npm run build` 无编译错误
