@@ -1026,6 +1026,8 @@ class ListenElementRunAdapter:
         self._max_element_index = -1
         # Track current element bid for audio association
         self._current_element_bid: str | None = None
+        # Track the last emitted element type for live is_new decisions.
+        self._last_emitted_element_type: ElementType | None = None
         # Track anchor element bid during ask flow
         self._current_ask_anchor_bid: str | None = None
 
@@ -1036,6 +1038,15 @@ class ListenElementRunAdapter:
     def _next_sequence_number(self) -> int:
         self._sequence_number += 1
         return self._sequence_number
+
+    def _resolve_live_is_new(self, element: ElementDTO) -> bool:
+        previous_type = self._last_emitted_element_type
+        current_type = element.element_type
+        if previous_type is None:
+            return True
+        if previous_type == ElementType.TEXT and current_type != ElementType.TEXT:
+            return True
+        return False
 
     def _load_block_meta(self, generated_block_bid: str) -> BlockMeta:
         if generated_block_bid in self._block_meta_cache:
@@ -1146,6 +1157,9 @@ class ListenElementRunAdapter:
 
     def _persist_element(self, element: ElementDTO) -> None:
         seq = self._next_seq()
+        element.is_new = self._resolve_live_is_new(element)
+        if not element.is_new and not element.target_element_bid:
+            element.target_element_bid = element.element_bid
         # Assign sequence_number (element-level counter)
         element.sequence_number = self._next_sequence_number()
         element.run_session_bid = self.run_session_bid
@@ -1159,6 +1173,7 @@ class ListenElementRunAdapter:
             if not element.is_new and element.target_element_bid
             else element.element_bid
         )
+        self._last_emitted_element_type = element.element_type
         self._insert_row(
             generated_block_bid=element.generated_block_bid,
             element_index=element.element_index,

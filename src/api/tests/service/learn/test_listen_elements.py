@@ -1238,7 +1238,7 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
         final_elements = [
             item.content
             for item in streamed
-            if item.type == "element" and item.content.is_final and item.content.is_new
+            if item.type == "element" and item.content.is_final
         ]
         assert [item.element_type.value for item in final_elements] == [
             "svg",
@@ -1246,6 +1246,9 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
             "html",
             "text",
         ]
+        assert [item.is_new for item in final_elements] == [True, False, True, False]
+        assert final_elements[1].target_element_bid == final_elements[1].element_bid
+        assert final_elements[3].target_element_bid == final_elements[3].element_bid
         assert final_elements[0].is_marker is True
         assert final_elements[0].is_renderable is True
         assert final_elements[0].content_text == ""
@@ -1763,6 +1766,119 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
                 },
             ],
         ]
+
+
+def test_listen_adapter_marks_non_text_after_text_as_new_in_stream(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.learn_dtos import (
+        ElementType,
+        GeneratedType,
+        RunMarkdownFlowDTO,
+    )
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-listen-is-new-rule"
+    shifu_bid = "shifu-listen-is-new-rule"
+    outline_bid = "outline-listen-is-new-rule"
+    progress_bid = "progress-listen-is-new-rule"
+    generated_block_bid = "generated-listen-is-new-rule"
+
+    with app.app_context():
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        block = LearnGeneratedBlock(
+            generated_block_bid=generated_block_bid,
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            block_bid="block-listen-is-new-rule",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            type=0,
+            role=ROLE_TEACHER,
+            generated_content="Intro<div>Card</div>Tail",
+            position=0,
+            block_content_conf="",
+            status=1,
+        )
+        db.session.add_all([progress, block])
+        db.session.commit()
+
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+        )
+
+        events = [
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="Intro",
+            ).set_mdflow_stream_parts([("Intro", "text", 0)]),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content=" more",
+            ).set_mdflow_stream_parts([(" more", "text", 0)]),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="<div>",
+            ).set_mdflow_stream_parts([("<div>", "html", 1)]),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="Card</div>",
+            ).set_mdflow_stream_parts([("Card</div>", "html", 1)]),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="Tail",
+            ).set_mdflow_stream_parts([("Tail", "text", 2)]),
+        ]
+
+        streamed = list(adapter.process(events))
+        element_events = [item.content for item in streamed if item.type == "element"]
+
+        assert [item.element_type for item in element_events] == [
+            ElementType.TEXT,
+            ElementType.TEXT,
+            ElementType.HTML,
+            ElementType.HTML,
+            ElementType.TEXT,
+        ]
+        assert [item.is_new for item in element_events] == [
+            True,
+            False,
+            True,
+            False,
+            False,
+        ]
+        assert element_events[1].target_element_bid == element_events[1].element_bid
+        assert element_events[2].target_element_bid in ("", None)
+        assert element_events[3].target_element_bid == element_events[2].element_bid
+        assert element_events[4].target_element_bid == element_events[4].element_bid
 
 
 def test_audio_segments_stick_to_first_target_element_without_av_contract(app):
