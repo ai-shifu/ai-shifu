@@ -1055,6 +1055,7 @@ def _build_final_elements_from_rows(
                 ),
             )
             for row in sorted_rows
+            if row.event_type != GeneratedType.AUDIO_COMPLETE.value
         ]
 
     return (
@@ -1681,41 +1682,52 @@ class ListenElementRunAdapter:
             return None
         return _element_from_row(row)
 
+    def _build_audio_patch_element(
+        self,
+        element_bid: str,
+        audio_segments: list[dict[str, Any]] | None = None,
+    ) -> ElementDTO | None:
+        snapshot = self._load_latest_element_snapshot(element_bid)
+        if snapshot is None:
+            return None
+        return ElementDTO(
+            event_type="element",
+            element_bid=element_bid,
+            generated_block_bid=snapshot.generated_block_bid,
+            element_index=snapshot.element_index,
+            role=snapshot.role,
+            element_type=snapshot.element_type,
+            element_type_code=snapshot.element_type_code,
+            change_type=ElementChangeType.RENDER,
+            target_element_bid=element_bid,
+            is_new=False,
+            is_renderable=snapshot.is_renderable,
+            is_marker=snapshot.is_marker,
+            is_speakable=_normalized_is_speakable(
+                snapshot.element_type,
+                snapshot.content_text,
+                stored_is_speakable=snapshot.is_speakable,
+            ),
+            audio_url=snapshot.audio_url,
+            audio_segments=list(audio_segments or snapshot.audio_segments or []),
+            is_navigable=snapshot.is_navigable,
+            is_final=snapshot.is_final,
+            content_text=snapshot.content_text,
+            payload=snapshot.payload,
+        )
+
     def _build_audio_segment_patch_message(
         self,
         element_bid: str,
         audio_segments: list[dict[str, Any]] | None = None,
     ) -> RunElementSSEMessageDTO | None:
-        snapshot = self._load_latest_element_snapshot(element_bid)
-        if snapshot is None:
-            return None
-        return self._element_message(
-            ElementDTO(
-                event_type="element",
-                element_bid=element_bid,
-                generated_block_bid=snapshot.generated_block_bid,
-                element_index=snapshot.element_index,
-                role=snapshot.role,
-                element_type=snapshot.element_type,
-                element_type_code=snapshot.element_type_code,
-                change_type=ElementChangeType.RENDER,
-                target_element_bid=element_bid,
-                is_new=False,
-                is_renderable=snapshot.is_renderable,
-                is_marker=snapshot.is_marker,
-                is_speakable=_normalized_is_speakable(
-                    snapshot.element_type,
-                    snapshot.content_text,
-                    stored_is_speakable=snapshot.is_speakable,
-                ),
-                audio_url=snapshot.audio_url,
-                audio_segments=list(audio_segments or snapshot.audio_segments or []),
-                is_navigable=snapshot.is_navigable,
-                is_final=snapshot.is_final,
-                content_text=snapshot.content_text,
-                payload=snapshot.payload,
-            )
+        patch_element = self._build_audio_patch_element(
+            element_bid,
+            audio_segments=audio_segments,
         )
+        if patch_element is None:
+            return None
+        return self._element_message(patch_element)
 
     def _backfill_audio_url(self, element_bid: str, audio_url: str) -> None:
         """Set audio_url on the element row."""
@@ -1977,7 +1989,7 @@ class ListenElementRunAdapter:
         if ask_element_bid:
             answer_element = self._build_answer_element_from_state(
                 generated_block_bid,
-                is_final=False,
+                is_final=True,
                 audio=state.audio_by_position.get(position),
                 audio_segments=state.audio_segments_by_position.get(position, []),
             )
@@ -1992,23 +2004,25 @@ class ListenElementRunAdapter:
         )
         if target_element_bid and content.audio_url:
             self._backfill_audio_url(target_element_bid, content.audio_url)
-            # Emit an element patch so the frontend sees audio_url on the
-            # text element directly, instead of relying on a separate
-            # audio_complete event.
             audio_payload = _make_audio_payload(content)
-            patch_msg = self._build_audio_segment_patch_message(
+            patch_element = self._build_audio_patch_element(
                 target_element_bid,
-                audio_segments=[],
             )
-            if patch_msg is not None:
-                # Overwrite with the full audio info on the element
-                patched_element = patch_msg.content
-                if isinstance(patched_element, ElementDTO):
-                    patched_element.audio_url = content.audio_url
-                    payload = patched_element.payload or ElementPayloadDTO()
-                    payload.audio = audio_payload
-                    patched_element.payload = payload
-                yield patch_msg
+            if patch_element is not None:
+                patch_element.audio_url = content.audio_url
+                payload = patch_element.payload or ElementPayloadDTO()
+                payload.audio = audio_payload
+                patch_element.payload = payload
+                if (
+                    patch_element.element_type
+                    in {
+                        ElementType.TEXT,
+                        ElementType.ANSWER,
+                    }
+                    and target_element_bid != state.fallback_element_bid
+                ):
+                    patch_element.is_final = True
+                yield self._element_message(patch_element)
         # Feed state machine
         if not self._state_machine.is_terminated:
             self._state_machine.feed(TypeInput.AUDIO_COMPLETE)

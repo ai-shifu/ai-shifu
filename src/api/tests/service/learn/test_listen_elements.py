@@ -13,7 +13,7 @@ def test_get_listen_element_record_returns_latest_elements_and_events(app):
     _require_app(app)
 
     from flaskr.dao import db
-    from flaskr.service.learn.learn_dtos import AudioCompleteDTO, VariableUpdateDTO
+    from flaskr.service.learn.learn_dtos import VariableUpdateDTO
     from flaskr.service.learn.listen_elements import get_listen_element_record
     from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
@@ -231,17 +231,14 @@ def test_get_listen_element_record_returns_latest_elements_and_events(app):
         assert [event.type for event in result_with_events.events] == [
             "element",
             "element",
-            "audio_complete",
             "variable_update",
             "break",
         ]
         final_event = result_with_events.events[1]
         assert final_event.run_event_seq == 2
         assert final_event.content.is_final is True
-        assert isinstance(result_with_events.events[2].content, AudioCompleteDTO)
-        assert result_with_events.events[2].content.audio_bid == "audio-listen-001"
-        assert isinstance(result_with_events.events[3].content, VariableUpdateDTO)
-        assert result_with_events.events[3].content.variable_name == "sys_user_nickname"
+        assert isinstance(result_with_events.events[2].content, VariableUpdateDTO)
+        assert result_with_events.events[2].content.variable_name == "sys_user_nickname"
 
 
 def test_get_listen_element_record_merges_patch_audio_fields_into_target_snapshot(app):
@@ -1080,11 +1077,20 @@ def test_listen_element_adapter_retires_fallback_once_visual_element_arrives(app
         streamed = list(adapter.process(events))
         assert [item.type for item in streamed] == [
             "element",
-            "audio_complete",
+            "element",
             "element",  # retire notification (is_new=false, is_renderable=false)
             "element",  # final visual element with correct type
             "break",
         ]
+
+        audio_patch_evt = streamed[1]
+        assert audio_patch_evt.content.element_bid == streamed[0].content.element_bid
+        assert (
+            audio_patch_evt.content.target_element_bid
+            == streamed[0].content.element_bid
+        )
+        assert audio_patch_evt.content.audio_url == "https://example.com/audio.mp3"
+        assert audio_patch_evt.content.is_final is False
 
         # Verify the retire notification element
         retire_evt = streamed[2]
@@ -1588,7 +1594,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
             "element",
             "element",
             "element",
-            "audio_complete",
+            "element",
             "break",
         ]
 
@@ -1596,6 +1602,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         patch_element = streamed[1].content
         first_audio_patch_element = streamed[2].content
         second_audio_patch_element = streamed[3].content
+        audio_complete_patch_element = streamed[4].content
         assert first_element.is_new is True
         assert first_element.element_type == ElementType.MD_IMG
         assert "_" not in first_element.element_bid
@@ -1634,6 +1641,16 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
                 "is_final": False,
             }
         ]
+        assert audio_complete_patch_element.is_new is False
+        assert audio_complete_patch_element.element_bid == first_element.element_bid
+        assert (
+            audio_complete_patch_element.target_element_bid == first_element.element_bid
+        )
+        assert (
+            audio_complete_patch_element.audio_url
+            == "https://example.com/stream-audio.mp3"
+        )
+        assert audio_complete_patch_element.is_final is False
         result = get_listen_element_record(
             app,
             shifu_bid=shifu_bid,
@@ -1684,13 +1701,14 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         replay_event_types = [item.type for item in result_with_events.events]
         assert "audio_segment" not in replay_event_types
         assert replay_event_types.count("element") >= 1
-        assert "audio_complete" in replay_event_types
+        assert "audio_complete" not in replay_event_types
         assert "break" in replay_event_types
         replay_audio_patches = [
             item.content
             for item in result_with_events.events
             if item.type == "element"
             and item.content.audio_segments
+            and not item.content.audio_url
             and not item.content.is_final
         ]
         assert [item.audio_segments for item in replay_audio_patches] == [
@@ -2040,6 +2058,14 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(app):
                 "is_final": False,
             }
         ]
+        audio_complete_text = next(
+            item
+            for item in text_elements
+            if item.audio_url == "https://example.com/bound-audio.mp3"
+        )
+        assert audio_complete_text.element_bid == text_element_bid
+        assert audio_complete_text.target_element_bid == text_element_bid
+        assert audio_complete_text.is_final is True
 
         follow_up_html = next(
             item
@@ -2066,7 +2092,7 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(app):
             for row in persisted_text_rows
             if row.audio_segments and row.audio_segments != "[]"
         ]
-        assert len(text_rows_with_audio) == 2
+        assert len(text_rows_with_audio) == 3
         assert all(
             json.loads(row.audio_segments)[0]["audio_data"] == ""
             for row in text_rows_with_audio
@@ -2075,6 +2101,7 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(app):
             row.audio_url == "https://example.com/bound-audio.mp3"
             for row in text_rows_with_audio
         )
+        assert any(row.is_final == 1 for row in text_rows_with_audio)
 
 
 def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(app):

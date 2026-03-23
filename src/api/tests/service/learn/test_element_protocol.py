@@ -700,10 +700,10 @@ def test_include_non_navigable_returns_events(app):
         )
         assert len(result_with.elements) == 1
         assert result_with.events is not None
-        assert len(result_with.events) == 2
+        assert len(result_with.events) == 1
         event_types = [e.type for e in result_with.events]
         assert "element" in event_types
-        assert "audio_complete" in event_types
+        assert "audio_complete" not in event_types
 
 
 def test_legacy_element_type_deserialized_to_new_enum(app):
