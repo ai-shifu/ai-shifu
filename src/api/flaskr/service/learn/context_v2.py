@@ -3,9 +3,10 @@ import inspect
 import json
 import queue
 import threading
+import contextlib
 from decimal import Decimal
 from enum import Enum
-from typing import Generator, Iterable, Optional, Union
+from typing import Any, Callable, Generator, Iterable, Optional, Union
 from flaskr.service.learn.const import (
     ROLE_STUDENT,
     ROLE_TEACHER,
@@ -43,7 +44,11 @@ from flaskr.service.shifu.models import (
     DraftShifu,
     PublishedShifu,
 )
-from flaskr.service.learn.models import LearnProgressRecord, LearnGeneratedBlock
+from flaskr.service.learn.models import (
+    LearnProgressRecord,
+    LearnGeneratedBlock,
+    LearnGeneratedElement,
+)
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from langfuse.client import StatefulTraceClient
 from ...api.langfuse import langfuse_client as langfuse, MockClient
@@ -101,6 +106,10 @@ from flaskr.service.learn.lesson_feedback import build_lesson_feedback_interacti
 from flaskr.service.learn.exceptions import PaidException
 from flaskr.i18n import _, get_current_language, set_language
 from flaskr.service.user.exceptions import UserNotLoginException
+from flaskr.common.shifu_context import (
+    get_shifu_context_snapshot,
+    apply_shifu_context_snapshot,
+)
 
 context_local = threading.local()
 
@@ -1076,7 +1085,7 @@ class RunScriptContextV2:
         self.current_outline_item = None
         self._run_type = RunType.INPUT
         self._can_continue = True
-        self._listen_slide_index_cursor = 0
+        self._element_index_cursor = 0
 
         if preview_mode:
             self._outline_model = DraftOutlineItem
@@ -1121,6 +1130,133 @@ class RunScriptContextV2:
 
     def _should_stream_tts(self) -> bool:
         return (not self._preview_mode) and bool(getattr(self, "_listen", False))
+
+    def _try_create_tts_processor(
+        self, generated_block_bid: str, *, shifu_bid: str = ""
+    ):
+        """Create AVStreamingTTSProcessor if TTS is configured, else return None.
+
+        Shared by normal content flow and ask response flow.
+        """
+        try:
+            from flaskr.common.config import get_config
+            from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
+            from flaskr.service.tts.validation import validate_tts_settings_strict
+
+            effective_shifu_bid = shifu_bid or self._outline_item_info.shifu_bid
+            shifu_record = (
+                self._shifu_model.query.filter(
+                    self._shifu_model.shifu_bid == effective_shifu_bid,
+                    self._shifu_model.deleted == 0,
+                )
+                .order_by(self._shifu_model.id.desc())
+                .first()
+            )
+            if not shifu_record or not getattr(shifu_record, "tts_enabled", False):
+                return None
+
+            provider_name = (
+                (getattr(shifu_record, "tts_provider", "") or "").strip().lower()
+            )
+            if provider_name == "default":
+                provider_name = ""
+
+            try:
+                validated = validate_tts_settings_strict(
+                    provider=provider_name,
+                    model=(getattr(shifu_record, "tts_model", "") or "").strip(),
+                    voice_id=(getattr(shifu_record, "tts_voice_id", "") or "").strip(),
+                    speed=getattr(shifu_record, "tts_speed", None),
+                    pitch=getattr(shifu_record, "tts_pitch", None),
+                    emotion=(getattr(shifu_record, "tts_emotion", "") or "").strip(),
+                )
+            except Exception as exc:
+                self.app.logger.warning(
+                    "TTS settings invalid; skip streaming TTS: %s", exc
+                )
+                return None
+
+            if not validated:
+                return None
+
+            max_segment_chars = get_config("TTS_MAX_SEGMENT_CHARS")
+            if not max_segment_chars:
+                max_segment_chars = 300
+            return AVStreamingTTSProcessor(
+                app=self.app,
+                generated_block_bid=generated_block_bid,
+                outline_bid=self._outline_item_info.bid,
+                progress_record_bid=self._current_attend.progress_record_bid,
+                user_bid=self._user_info.user_id,
+                shifu_bid=effective_shifu_bid,
+                voice_id=validated.voice_id,
+                speed=validated.speed,
+                pitch=validated.pitch,
+                emotion=validated.emotion,
+                max_segment_chars=int(max_segment_chars),
+                tts_provider=validated.provider,
+                tts_model=validated.model,
+                element_index_offset=self._element_index_cursor,
+            )
+        except Exception as exc:
+            self.app.logger.warning(
+                "Create TTS processor failed: %s", exc, exc_info=True
+            )
+            return None
+
+    def _iter_stream_result_with_idle_callback(
+        self,
+        stream_result: Generator[Any, None, None],
+        *,
+        idle_callback: Callable[[], Iterable[Any]] | None = None,
+        idle_poll_interval: float = 0.05,
+    ) -> Generator[tuple[str, Any], None, None]:
+        """Poll a blocking stream generator while allowing idle side-channel output."""
+        result_queue: queue.Queue = queue.Queue()
+        parent_language = get_current_language()
+        parent_shifu_context = get_shifu_context_snapshot()
+        poll_timeout = max(float(idle_poll_interval or 0.0), 0.01)
+
+        def _produce() -> None:
+            with self.app.app_context():
+                set_language(parent_language)
+                apply_shifu_context_snapshot(parent_shifu_context)
+                try:
+                    for item in stream_result:
+                        result_queue.put(("item", item))
+                except Exception as exc:
+                    result_queue.put(("error", exc))
+                finally:
+                    with contextlib.suppress(Exception):
+                        stream_result.close()
+                    result_queue.put(("done", None))
+
+        producer_thread = threading.Thread(
+            target=_produce,
+            name="mdflow_stream_result_producer",
+            daemon=True,
+        )
+        producer_thread.start()
+
+        try:
+            while True:
+                try:
+                    kind, payload = result_queue.get(timeout=poll_timeout)
+                except queue.Empty:
+                    if idle_callback is None:
+                        continue
+                    for idle_item in idle_callback():
+                        yield ("idle", idle_item)
+                    continue
+
+                if kind == "item":
+                    yield ("item", payload)
+                    continue
+                if kind == "error":
+                    raise payload
+                break
+        finally:
+            producer_thread.join(timeout=0.1)
 
     def _get_current_attend(self, outline_bid: str) -> LearnProgressRecord:
         attend_info: LearnProgressRecord = (
@@ -1606,6 +1742,39 @@ class RunScriptContextV2:
             return
         yield from self._emit_lesson_feedback_interaction(latest_completed_progress)
 
+    def _emit_current_progress_gate_interaction(
+        self,
+        content: str,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if not self._current_attend:
+            return
+        outline_bid = self._current_attend.outline_item_bid or getattr(
+            self._outline_item_info, "bid", ""
+        )
+        if not outline_bid:
+            return
+        generated_block: LearnGeneratedBlock = init_generated_block(
+            self.app,
+            shifu_bid=self._current_attend.shifu_bid,
+            outline_item_bid=outline_bid,
+            progress_record_bid=self._current_attend.progress_record_bid,
+            user_bid=self._user_info.user_id,
+            block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+            mdflow=content,
+            block_index=self._current_attend.block_position,
+        )
+        generated_block.role = ROLE_TEACHER
+        generated_block.block_content_conf = content
+        generated_block.generated_content = ""
+        db.session.add(generated_block)
+        db.session.flush()
+        yield RunMarkdownFlowDTO(
+            outline_bid=outline_bid,
+            generated_block_bid=generated_block.generated_block_bid,
+            type=GeneratedType.INTERACTION,
+            content=content,
+        )
+
     def _emit_completion_tail_interactions(
         self,
         *,
@@ -1660,6 +1829,7 @@ class RunScriptContextV2:
         self._trace_args["input_type"] = input_type
         self._input_type = input_type
         self._input = input
+        self._anchor_element_bid = ""
 
     def _get_outline_struct(self, outline_item_id: str) -> HistoryItem:
         q = queue.Queue()
@@ -1767,6 +1937,15 @@ class RunScriptContextV2:
         llm_settings = self.get_llm_settings(run_script_info.outline_bid)
         system_prompt = self.get_system_prompt(run_script_info.outline_bid)
 
+        def _persist_generated_block_for_events(
+            generated_block: LearnGeneratedBlock | None,
+        ) -> None:
+            if generated_block is None:
+                return
+            if not getattr(generated_block, "id", None):
+                db.session.add(generated_block)
+            db.session.flush()
+
         if self._input_type == "ask":
             if self._last_position == -1:
                 self._last_position = run_script_info.block_position
@@ -1790,8 +1969,36 @@ class RunScriptContextV2:
                 self._trace,
                 self._preview_mode,
                 self._last_position,
+                anchor_element_bid=getattr(self, "_anchor_element_bid", ""),
             )
-            yield from res
+
+            if self._should_stream_tts():
+                tts_processor = None
+                for event in res:
+                    if event.type == GeneratedType.CONTENT and isinstance(
+                        event.content, str
+                    ):
+                        if tts_processor is None:
+                            tts_processor = self._try_create_tts_processor(
+                                event.generated_block_bid,
+                            )
+                        yield event
+                        if tts_processor:
+                            yield from tts_processor.process_chunk(event.content)
+                    elif event.type == GeneratedType.BREAK:
+                        if tts_processor:
+                            try:
+                                yield from tts_processor.finalize(commit=False)
+                            except Exception as exc:
+                                app.logger.warning(
+                                    "Ask TTS finalize failed: %s", exc, exc_info=True
+                                )
+                        yield event
+                    else:
+                        yield event
+            else:
+                yield from res
+
             self._can_continue = False
             db.session.flush()
             return
@@ -1944,11 +2151,24 @@ class RunScriptContextV2:
                                 and generated_block.block_content_conf
                                 else block.content
                             )
+                            if not generated_block:
+                                generated_block = init_generated_block(
+                                    app,
+                                    shifu_bid=run_script_info.attend.shifu_bid,
+                                    outline_item_bid=run_script_info.outline_bid,
+                                    progress_record_bid=run_script_info.attend.progress_record_bid,
+                                    user_bid=self._user_info.user_id,
+                                    block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                                    mdflow=block.content,
+                                    block_index=run_script_info.block_position,
+                                )
+                                generated_block.role = ROLE_TEACHER
+                            generated_block.block_content_conf = interaction_content
+                            generated_block.generated_content = ""
+                            _persist_generated_block_for_events(generated_block)
                             yield RunMarkdownFlowDTO(
                                 outline_bid=run_script_info.outline_bid,
-                                generated_block_bid=generated_block.generated_block_bid
-                                if generated_block
-                                else generate_id(app),
+                                generated_block_bid=generated_block.generated_block_bid,
                                 type=GeneratedType.INTERACTION,
                                 content=interaction_content,
                             )
@@ -1982,11 +2202,24 @@ class RunScriptContextV2:
                                 and generated_block.block_content_conf
                                 else block.content
                             )
+                            if not generated_block:
+                                generated_block = init_generated_block(
+                                    app,
+                                    shifu_bid=run_script_info.attend.shifu_bid,
+                                    outline_item_bid=run_script_info.outline_bid,
+                                    progress_record_bid=run_script_info.attend.progress_record_bid,
+                                    user_bid=self._user_info.user_id,
+                                    block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                                    mdflow=block.content,
+                                    block_index=run_script_info.block_position,
+                                )
+                                generated_block.role = ROLE_TEACHER
+                            generated_block.block_content_conf = interaction_content
+                            generated_block.generated_content = ""
+                            _persist_generated_block_for_events(generated_block)
                             yield RunMarkdownFlowDTO(
                                 outline_bid=run_script_info.outline_bid,
-                                generated_block_bid=generated_block.generated_block_bid
-                                if generated_block
-                                else generate_id(app),
+                                generated_block_bid=generated_block.generated_block_bid,
                                 type=GeneratedType.INTERACTION,
                                 content=interaction_content,
                             )
@@ -2024,6 +2257,8 @@ class RunScriptContextV2:
                 generated_block.block_content_conf = rendered_content
                 # Keep generated_content empty, will be filled with user input later
                 generated_block.generated_content = ""
+                generated_block.role = ROLE_TEACHER
+                _persist_generated_block_for_events(generated_block)
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
@@ -2031,8 +2266,6 @@ class RunScriptContextV2:
                     content=rendered_content,
                 )
                 self._can_continue = False
-                db.session.add(generated_block)
-                db.session.flush()
                 return
             expected_variable = (parsed_interaction.get("variable") or "input").strip()
             if not expected_variable:
@@ -2140,14 +2373,13 @@ class RunScriptContextV2:
                 # Keep generated_content empty, will be filled with user input later
                 generated_block.generated_content = ""
                 generated_block.generated_block_bid = generate_id(app)
+                _persist_generated_block_for_events(generated_block)
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
                     type=GeneratedType.INTERACTION,
                     content=rendered_content,
                 )
-
-                db.session.flush()
                 return
             if not parsed_interaction.get("variable"):
                 self._can_continue = True
@@ -2291,6 +2523,7 @@ class RunScriptContextV2:
                 generated_block.block_content_conf = rendered_content
                 # Keep generated_content empty, will be filled with user input later
                 generated_block.generated_content = ""
+                _persist_generated_block_for_events(generated_block)
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
@@ -2299,8 +2532,6 @@ class RunScriptContextV2:
                 )
                 self._can_continue = False
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                db.session.add(generated_block)
-                db.session.flush()
         elif self._run_type == RunType.OUTPUT:
             generated_block: LearnGeneratedBlock = init_generated_block(
                 app,
@@ -2365,6 +2596,7 @@ class RunScriptContextV2:
                 generated_block.block_content_conf = rendered_content
                 # Keep generated_content empty, will be filled with user input later
                 generated_block.generated_content = ""
+                _persist_generated_block_for_events(generated_block)
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
@@ -2373,8 +2605,6 @@ class RunScriptContextV2:
                 )
                 self._can_continue = False
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                db.session.add(generated_block)
-                db.session.flush()
                 # For interaction blocks we should stop here and wait for explicit user action.
                 # Continuing into outline completion fallback may incorrectly append
                 # `_sys_next_chapter` after access-gate interactions such as pay/login.
@@ -2414,138 +2644,180 @@ class RunScriptContextV2:
                         db.session.flush()
                         return
                 generated_block.type = BLOCK_TYPE_MDCONTENT_VALUE
+                _persist_generated_block_for_events(generated_block)
                 generated_content = ""
                 tts_processor = None
-                content_cache = ""
+                content_cache_parts = []
 
                 # Direct synchronous stream processing (markdown-flow 0.2.27+)
                 app.logger.info(f"process_stream: {run_script_info.block_position}")
                 app.logger.info(f"variables: {user_profile}")
 
                 if self._should_stream_tts():
-                    try:
-                        from flaskr.common.config import get_config
-                        from flaskr.service.tts.streaming_tts import (
-                            AVStreamingTTSProcessor,
-                        )
-                        from flaskr.service.tts.validation import (
-                            validate_tts_settings_strict,
-                        )
+                    tts_processor = self._try_create_tts_processor(
+                        generated_block.generated_block_bid,
+                        shifu_bid=run_script_info.attend.shifu_bid,
+                    )
 
-                        shifu_record = (
-                            self._shifu_model.query.filter(
-                                self._shifu_model.shifu_bid
-                                == run_script_info.attend.shifu_bid,
-                                self._shifu_model.deleted == 0,
-                            )
-                            .order_by(self._shifu_model.id.desc())
-                            .first()
-                        )
-
-                        if shifu_record and getattr(shifu_record, "tts_enabled", False):
-                            provider_raw = (
-                                getattr(shifu_record, "tts_provider", "") or ""
-                            )
-                            provider_name = provider_raw.strip().lower()
-                            if provider_name == "default":
-                                provider_name = ""
-
-                            try:
-                                validated = validate_tts_settings_strict(
-                                    provider=provider_name,
-                                    model=(
-                                        getattr(shifu_record, "tts_model", "") or ""
-                                    ).strip(),
-                                    voice_id=(
-                                        getattr(shifu_record, "tts_voice_id", "") or ""
-                                    ).strip(),
-                                    speed=getattr(shifu_record, "tts_speed", None),
-                                    pitch=getattr(shifu_record, "tts_pitch", None),
-                                    emotion=(
-                                        getattr(shifu_record, "tts_emotion", "") or ""
-                                    ).strip(),
-                                )
-                            except Exception as exc:
-                                app.logger.warning(
-                                    "TTS settings invalid; skip streaming TTS: %s",
-                                    exc,
-                                )
-                                validated = None
-
-                            if validated:
-                                max_segment_chars = get_config("TTS_MAX_SEGMENT_CHARS")
-                                if not max_segment_chars:
-                                    max_segment_chars = 300
-                                tts_processor = AVStreamingTTSProcessor(
-                                    app=app,
-                                    generated_block_bid=generated_block.generated_block_bid,
-                                    outline_bid=run_script_info.outline_bid,
-                                    progress_record_bid=run_script_info.attend.progress_record_bid,
-                                    user_bid=self._user_info.user_id,
-                                    shifu_bid=run_script_info.attend.shifu_bid,
-                                    voice_id=validated.voice_id,
-                                    speed=validated.speed,
-                                    pitch=validated.pitch,
-                                    emotion=validated.emotion,
-                                    max_segment_chars=int(max_segment_chars),
-                                    tts_provider=validated.provider,
-                                    tts_model=validated.model,
-                                    slide_index_offset=self._listen_slide_index_cursor,
-                                )
-                                yield from tts_processor.emit_run_start_slide()
-                    except Exception as exc:
-                        app.logger.warning(
-                            "Initialize streaming TTS failed: %s", exc, exc_info=True
-                        )
-
-                def _flush_content_cache(*, keep_tail: int = 0):
-                    nonlocal content_cache
-                    if not content_cache:
-                        return
-                    if keep_tail > 0 and len(content_cache) > keep_tail:
-                        cached = content_cache[:-keep_tail]
-                        content_cache = content_cache[-keep_tail:]
-                    elif keep_tail > 0:
-                        # Keep the whole cache for next chunk to avoid breaking
-                        # partial visual markers like `<svg` / `<div`.
-                        return
-                    else:
-                        cached = content_cache
-                        content_cache = ""
-                    if not cached:
-                        return
-                    yield RunMarkdownFlowDTO(
+                def _build_content_event(
+                    chunk_text: str,
+                    stream_element_type: str | None = None,
+                    stream_element_number: int | None = None,
+                ) -> RunMarkdownFlowDTO:
+                    event = RunMarkdownFlowDTO(
                         outline_bid=run_script_info.outline_bid,
                         generated_block_bid=generated_block.generated_block_bid,
                         type=GeneratedType.CONTENT,
-                        content=cached,
+                        content=chunk_text,
+                    )
+                    if stream_element_type and stream_element_number is not None:
+                        event.set_mdflow_stream_parts(
+                            [(chunk_text, stream_element_type, stream_element_number)]
+                        )
+                    return event
+
+                def _append_content_cache_part(
+                    chunk_text: str,
+                    stream_element_type: str | None = None,
+                    stream_element_number: int | None = None,
+                ) -> None:
+                    nonlocal content_cache_parts
+                    if not chunk_text:
+                        return
+                    if (
+                        content_cache_parts
+                        and content_cache_parts[-1]["stream_element_type"]
+                        == stream_element_type
+                        and content_cache_parts[-1]["stream_element_number"]
+                        == stream_element_number
+                    ):
+                        content_cache_parts[-1]["content"] += chunk_text
+                        return
+                    content_cache_parts.append(
+                        {
+                            "content": chunk_text,
+                            "stream_element_type": stream_element_type,
+                            "stream_element_number": stream_element_number,
+                        }
                     )
 
-                def _process_stream_chunk(chunk_content: str):
-                    nonlocal generated_content, tts_processor, content_cache
+                def _iter_llm_result_parts(result):
+                    formatted_elements = getattr(result, "formatted_elements", None)
+                    if isinstance(formatted_elements, list) and formatted_elements:
+                        for item in formatted_elements:
+                            content = getattr(item, "content", None)
+                            if content is None and isinstance(item, dict):
+                                content = item.get("content")
+                            content = str(content or "")
+                            if not content:
+                                continue
+                            stream_element_type = getattr(item, "type", None)
+                            if stream_element_type is None and isinstance(item, dict):
+                                stream_element_type = item.get("type")
+                            stream_element_type = str(stream_element_type or "") or None
+                            stream_element_number = getattr(item, "number", None)
+                            if stream_element_number is None and isinstance(item, dict):
+                                stream_element_number = item.get("number")
+                            try:
+                                normalized_number = (
+                                    int(stream_element_number)
+                                    if stream_element_number is not None
+                                    else None
+                                )
+                            except (TypeError, ValueError):
+                                normalized_number = None
+                            yield content, stream_element_type, normalized_number
+                        return
+
+                    chunk_content = (
+                        result.content if hasattr(result, "content") else str(result)
+                    )
+                    chunk_content = str(chunk_content or "")
+                    if not chunk_content:
+                        return
+                    stream_element_type = getattr(result, "type", None)
+                    stream_element_type = str(stream_element_type or "") or None
+                    stream_element_number = getattr(result, "number", None)
+                    try:
+                        normalized_number = (
+                            int(stream_element_number)
+                            if stream_element_number is not None
+                            else None
+                        )
+                    except (TypeError, ValueError):
+                        normalized_number = None
+                    yield chunk_content, stream_element_type, normalized_number
+
+                def _flush_content_cache(*, keep_tail: int = 0):
+                    nonlocal content_cache_parts
+                    total_length = sum(
+                        len(part.get("content", "")) for part in content_cache_parts
+                    )
+                    if total_length <= 0:
+                        return
+                    if keep_tail > 0 and total_length <= keep_tail:
+                        # Keep the whole cache for next chunk to avoid breaking
+                        # partial visual markers like `<svg` / `<div`.
+                        return
+                    flush_length = total_length - max(keep_tail, 0)
+                    next_parts = []
+                    for part in content_cache_parts:
+                        part_content = str(part.get("content", "") or "")
+                        if not part_content:
+                            continue
+                        if flush_length <= 0:
+                            next_parts.append(part)
+                            continue
+                        if len(part_content) <= flush_length:
+                            yield _build_content_event(
+                                part_content,
+                                stream_element_type=part.get("stream_element_type"),
+                                stream_element_number=part.get("stream_element_number"),
+                            )
+                            flush_length -= len(part_content)
+                            continue
+                        emit_content = part_content[:flush_length]
+                        keep_content = part_content[flush_length:]
+                        if emit_content:
+                            yield _build_content_event(
+                                emit_content,
+                                stream_element_type=part.get("stream_element_type"),
+                                stream_element_number=part.get("stream_element_number"),
+                            )
+                        next_parts.append(
+                            {
+                                **part,
+                                "content": keep_content,
+                            }
+                        )
+                        flush_length = 0
+                    content_cache_parts = next_parts
+
+                def _process_stream_chunk(
+                    chunk_content: str,
+                    stream_element_type: str | None = None,
+                    stream_element_number: int | None = None,
+                ):
+                    nonlocal generated_content, tts_processor, content_cache_parts
                     if not chunk_content:
                         return
                     generated_content += chunk_content
                     if not tts_processor:
-                        yield RunMarkdownFlowDTO(
-                            outline_bid=run_script_info.outline_bid,
-                            generated_block_bid=generated_block.generated_block_bid,
-                            type=GeneratedType.CONTENT,
-                            content=chunk_content,
+                        yield _build_content_event(
+                            chunk_content,
+                            stream_element_type=stream_element_type,
+                            stream_element_number=stream_element_number,
                         )
                         return
 
-                    # Cache content until AV validation confirms slide boundaries,
-                    # then emit NEW_SLIDE before the cached content.
-                    content_cache += chunk_content
+                    # Cache content and flush on visual boundaries to avoid splitting markers.
+                    _append_content_cache_part(
+                        chunk_content,
+                        stream_element_type=stream_element_type,
+                        stream_element_number=stream_element_number,
+                    )
                     try:
-                        new_slide_events = []
-                        other_events = []
-                        for event in tts_processor.process_chunk(chunk_content):
-                            if event.type == GeneratedType.NEW_SLIDE:
-                                new_slide_events.append(event)
-                            else:
-                                other_events.append(event)
+                        other_events = list(tts_processor.process_chunk(chunk_content))
                     except Exception as exc:
                         app.logger.warning(
                             "Streaming TTS failed; disable for this block: %s",
@@ -2556,22 +2828,33 @@ class RunScriptContextV2:
                         yield from _flush_content_cache()
                         return
 
-                    if new_slide_events:
-                        yield from new_slide_events
                     has_pending_visual_boundary = bool(
                         getattr(tts_processor, "has_pending_visual_boundary", False)
                     )
                     # Stream-through policy:
-                    # 1) any NEW_SLIDE -> flush immediately (after NEW_SLIDE),
-                    # 2) boundary pending -> keep streaming immediately,
-                    # 3) otherwise keep only a tiny guard tail to avoid emitting
+                    # 1) boundary pending -> flush immediately,
+                    # 2) otherwise keep only a tiny guard tail to avoid emitting
                     #    split visual markers (e.g. `<sv`, `<di`) too early.
-                    if new_slide_events or has_pending_visual_boundary:
+                    if has_pending_visual_boundary:
                         yield from _flush_content_cache()
                     else:
                         yield from _flush_content_cache(keep_tail=12)
 
                     yield from other_events
+
+                def _drain_tts_ready_events():
+                    nonlocal tts_processor
+                    if not tts_processor:
+                        return
+                    try:
+                        yield from tts_processor.drain_ready_segments()
+                    except Exception as exc:
+                        app.logger.warning(
+                            "Idle streaming TTS drain failed; disable for this block: %s",
+                            exc,
+                            exc_info=True,
+                        )
+                        tts_processor = None
 
                 stream_result = mdflow_context.process(
                     block_index=run_script_info.block_position,
@@ -2583,34 +2866,52 @@ class RunScriptContextV2:
                 # Handle both Generator and single LLMResult (markdown-flow 0.2.27+)
                 # In some edge cases (e.g., no LLM provider), returns a single LLMResult instead of Generator
                 if inspect.isgenerator(stream_result):
-                    # It's a generator, iterate normally
-                    for llm_result in stream_result:
-                        chunk_content = (
-                            llm_result.content
-                            if hasattr(llm_result, "content")
-                            else str(llm_result)
-                        )
-                        if chunk_content:
-                            yield from _process_stream_chunk(chunk_content)
+                    idle_poll_interval = float(
+                        app.config.get("STREAM_TTS_IDLE_DRAIN_INTERVAL", 0.05)
+                    )
+                    for source, payload in self._iter_stream_result_with_idle_callback(
+                        stream_result,
+                        idle_callback=_drain_tts_ready_events
+                        if tts_processor
+                        else None,
+                        idle_poll_interval=idle_poll_interval,
+                    ):
+                        if source == "idle":
+                            yield payload
+                            continue
+                        llm_result = payload
+                        for (
+                            chunk_content,
+                            stream_element_type,
+                            stream_element_number,
+                        ) in _iter_llm_result_parts(llm_result):
+                            yield from _process_stream_chunk(
+                                chunk_content,
+                                stream_element_type=stream_element_type,
+                                stream_element_number=stream_element_number,
+                            )
                 else:
                     # It's a single LLMResult object (edge case)
-                    chunk_content = (
-                        stream_result.content
-                        if hasattr(stream_result, "content")
-                        else str(stream_result)
-                    )
-                    if chunk_content:
-                        yield from _process_stream_chunk(chunk_content)
+                    for (
+                        chunk_content,
+                        stream_element_type,
+                        stream_element_number,
+                    ) in _iter_llm_result_parts(stream_result):
+                        yield from _process_stream_chunk(
+                            chunk_content,
+                            stream_element_type=stream_element_type,
+                            stream_element_number=stream_element_number,
+                        )
 
-                if content_cache:
+                if content_cache_parts:
                     yield from _flush_content_cache()
 
                 if tts_processor:
                     try:
                         yield from tts_processor.finalize(commit=False)
-                        self._listen_slide_index_cursor = max(
-                            self._listen_slide_index_cursor,
-                            int(getattr(tts_processor, "next_slide_index", 0) or 0),
+                        self._element_index_cursor = max(
+                            self._element_index_cursor,
+                            int(getattr(tts_processor, "next_element_index", 0) or 0),
                         )
                     except Exception as exc:
                         app.logger.warning(
@@ -2625,9 +2926,12 @@ class RunScriptContextV2:
                 )
                 generated_block.generated_content = generated_content
                 db.session.add(generated_block)
-                self._can_continue = False
+                next_block_position = run_script_info.block_position + 1
+                # Continue the same run across subsequent blocks until we hit
+                # an interaction block or reach outline completion.
+                self._can_continue = next_block_position < len(block_list)
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                self._current_attend.block_position += 1
+                self._current_attend.block_position = next_block_position
                 db.session.flush()
 
         progress_record = self._current_attend
@@ -2654,21 +2958,15 @@ class RunScriptContextV2:
             app.logger.info("PaidException")
             self._can_continue = False
             yield from self._emit_feedback_before_exception_gate()
-            yield RunMarkdownFlowDTO(
-                outline_bid=self._outline_item_info.bid,
-                generated_block_bid=generate_id(self.app),
-                type=GeneratedType.INTERACTION,
-                content=f"?[{_('server.order.checkout')}//_sys_pay]",
+            yield from self._emit_current_progress_gate_interaction(
+                f"?[{_('server.order.checkout')}//_sys_pay]"
             )
         except UserNotLoginException:
             app.logger.info("UserNotLoginException")
             self._can_continue = False
             yield from self._emit_feedback_before_exception_gate()
-            yield RunMarkdownFlowDTO(
-                outline_bid=self._outline_item_info.bid,
-                generated_block_bid=generate_id(self.app),
-                type=GeneratedType.INTERACTION,
-                content=f"?[{_('server.user.login')}//_sys_login]",
+            yield from self._emit_current_progress_gate_interaction(
+                f"?[{_('server.user.login')}//_sys_login]"
             )
 
     def has_next(self) -> bool:
@@ -2746,15 +3044,41 @@ class RunScriptContextV2:
             )
         return self._get_default_llm_settings()
 
-    def reload(self, app: Flask, reload_generated_block_bid: str):
+    def reload(
+        self,
+        app: Flask,
+        reload_generated_block_bid: str,
+        *,
+        reload_element_bid: str = None,
+    ):
         with app.app_context():
-            generated_block: LearnGeneratedBlock = LearnGeneratedBlock.query.filter(
-                LearnGeneratedBlock.generated_block_bid == reload_generated_block_bid,
-            ).first()
+            # For ask scenarios, prefer element_bid to resolve anchor
+            anchor_element = None
+            if self._input_type == "ask" and reload_element_bid:
+                anchor_element = LearnGeneratedElement.query.filter(
+                    LearnGeneratedElement.element_bid == reload_element_bid,
+                    LearnGeneratedElement.deleted == 0,
+                ).first()
+                if anchor_element:
+                    self._anchor_element_bid = reload_element_bid
+                    # Derive block_bid from element for compatibility
+                    if not reload_generated_block_bid:
+                        reload_generated_block_bid = (
+                            anchor_element.generated_block_bid or ""
+                        )
 
-            current_attend = self._get_current_attend(generated_block.outline_item_bid)
-            self._can_continue = False
+            generated_block: LearnGeneratedBlock = None
+            if reload_generated_block_bid:
+                generated_block = LearnGeneratedBlock.query.filter(
+                    LearnGeneratedBlock.generated_block_bid
+                    == reload_generated_block_bid,
+                ).first()
+
             if generated_block:
+                current_attend = self._get_current_attend(
+                    generated_block.outline_item_bid
+                )
+                self._can_continue = False
                 if self._input_type != "ask":
                     app.logger.info(
                         f"reload generated_block: {generated_block.id},block_position: {generated_block.position}"
@@ -2784,6 +3108,12 @@ class RunScriptContextV2:
                     db.session.commit()
                 else:
                     self._last_position = generated_block.position
+            elif anchor_element:
+                # Element-only reload for ask: set position from element
+                self._can_continue = False
+                self._last_position = int(
+                    getattr(anchor_element, "element_index", 0) or 0
+                )
         with app.app_context():
             yield from self.run(app)
             db.session.commit()

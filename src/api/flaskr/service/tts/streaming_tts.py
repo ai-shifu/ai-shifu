@@ -46,9 +46,8 @@ from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     AudioSegmentDTO,
     AudioCompleteDTO,
-    NewSlideDTO,
 )
-from flaskr.service.learn.listen_slide_builder import build_listen_slides_for_block
+from flaskr.service.learn.listen_slide_builder import build_visual_segments_for_block
 from flaskr.service.tts.boundary_strategies import find_boundary_end
 from flaskr.service.tts.patterns import (
     SENTENCE_ENDINGS,
@@ -86,10 +85,15 @@ _VISUAL_SKIP_KINDS = frozenset(
         "html_table",
         "md_table",
         "sandbox",
+        "img",
         "md_img",
     }
 )
-_SANDBOX_VISUAL_KINDS = frozenset({"iframe", "sandbox", "html_table"})
+
+# Keep only a short tail when no visual boundary is detected so partial markers
+# like `<div`, `<svg`, `![` or fenced code openers can span across chunks
+# without delaying speakable text submission more than necessary.
+_STREAM_BOUNDARY_GUARD_TAIL_CHARS = 12
 
 
 @dataclass
@@ -208,6 +212,10 @@ class StreamingTTSProcessor:
         self._try_submit_tts_task()
 
         # Yield any segments that are ready
+        yield from self._yield_ready_segments()
+
+    def drain_ready_segments(self) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Yield already-synthesized segments without submitting new text."""
         yield from self._yield_ready_segments()
 
     def _try_submit_tts_task(self):
@@ -659,7 +667,7 @@ class AVStreamingTTSProcessor:
         tts_provider: str = "",
         tts_model: str = "",
         usage_scene: int = BILL_USAGE_SCENE_PROD,
-        slide_index_offset: int = 0,
+        element_index_offset: int = 0,
     ):
         self.app = app
         self.generated_block_bid = generated_block_bid
@@ -675,21 +683,15 @@ class AVStreamingTTSProcessor:
         self.tts_provider = tts_provider
         self.tts_model = tts_model
         self.usage_scene = usage_scene
-        self.slide_index_offset = int(slide_index_offset or 0)
+        self.element_index_offset = int(element_index_offset or 0)
 
         self._position_cursor = 0
         self._current_processor: Optional[StreamingTTSProcessor] = None
         self._raw_buffer = ""
         self._raw_full_content = ""
         self._av_contract: Optional[Dict[str, Any]] = None
-        self._slide_id_by_position: Dict[int, str] = {}
-        self._slides_by_id: Dict[str, NewSlideDTO] = {}
-        self._emitted_slide_ids: set[str] = set()
-        self._audio_bound_positions: set[int] = set()
-        self._next_slide_index = self.slide_index_offset
+        self._next_element_index = self.element_index_offset
         self._current_segment_has_speakable_text = False
-        self._run_start_slide_emitted = False
-        self._pending_visual_slide: Optional[NewSlideDTO] = None
 
         # When we hit a non-speakable block boundary (e.g. `<svg>`), we may need to
         # wait for its closing marker before resuming segmentation.
@@ -735,226 +737,31 @@ class AVStreamingTTSProcessor:
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         if (chunk or "").strip():
             self._current_segment_has_speakable_text = True
-        yield from self._emit_with_slide_binding(processor.process_chunk(chunk))
+        for event in processor.process_chunk(chunk):
+            yield event
 
     @property
-    def next_slide_index(self) -> int:
-        return int(self._next_slide_index or self.slide_index_offset)
+    def next_element_index(self) -> int:
+        return int(self._next_element_index or self.element_index_offset)
 
     @property
     def has_pending_visual_boundary(self) -> bool:
         return bool(self._skip_mode)
 
-    def _segment_type_for_visual_kind(self, visual_kind: str) -> str:
-        if visual_kind in _SANDBOX_VISUAL_KINDS:
-            return "sandbox"
-        return "markdown"
-
-    def _create_slide(
-        self,
-        *,
-        position: int,
-        visual_kind: str,
-        segment_type: str,
-        is_placeholder: bool,
-        slide_id: str | None = None,
-        slide_index: int | None = None,
-        source_span: list[int] | None = None,
-    ) -> NewSlideDTO:
-        return NewSlideDTO(
-            slide_id=slide_id or uuid.uuid4().hex,
-            generated_block_bid=self.generated_block_bid,
-            slide_index=(
-                int(slide_index)
-                if slide_index is not None
-                else int(self._next_slide_index or 0)
-            ),
-            audio_position=int(position or 0),
-            visual_kind=visual_kind,
-            segment_type=segment_type,
-            # Keep NEW_SLIDE payload lightweight; frontend renders from stream content.
-            segment_content="",
-            source_span=list(source_span or []),
-            is_placeholder=bool(is_placeholder),
-        )
-
-    def _register_slide(self, slide: NewSlideDTO):
-        position = int(slide.audio_position or 0)
-        self._slide_id_by_position[position] = slide.slide_id
-        self._slides_by_id[slide.slide_id] = slide
-        self._next_slide_index = max(
-            self._next_slide_index,
-            int(slide.slide_index or 0) + 1,
-        )
-
-    def _emit_new_slide_event(
-        self, slide: NewSlideDTO, *, force: bool = False
-    ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        # NEW_SLIDE is a timeline signal only. The frontend renders visuals from
-        # streamed CONTENT chunks, so never include full segment payload here.
-        if (slide.segment_content or "") != "":
-            slide.segment_content = ""
-        if not force and slide.slide_id in self._emitted_slide_ids:
-            return
-        self._emitted_slide_ids.add(slide.slide_id)
-        self.app.logger.debug(f"emit new slide: {slide.slide_id}")
-        yield RunMarkdownFlowDTO(
-            outline_bid=self.outline_bid,
-            generated_block_bid=self.generated_block_bid,
-            type=GeneratedType.NEW_SLIDE,
-            content=slide,
-        )
-
-    def emit_run_start_slide(self) -> Generator[RunMarkdownFlowDTO, None, None]:
-        if self._run_start_slide_emitted:
-            return
-        self._run_start_slide_emitted = True
-        # Emit a deterministic initial placeholder slide so the frontend has a
-        # timeline anchor before the first content chunk/audio event arrives.
-        slide = self._build_fallback_slide(self._position_cursor)
-        yield from self._emit_new_slide_event(slide)
-
-    def _emit_visual_slide_for_current_position(
-        self, *, visual_kind: str
-    ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        position = int(self._position_cursor or 0)
-        slide = self._create_slide(
-            position=position,
-            visual_kind=visual_kind,
-            segment_type=self._segment_type_for_visual_kind(visual_kind),
-            is_placeholder=False,
-        )
-        self._register_slide(slide)
-        yield from self._emit_new_slide_event(slide)
-
-    def _emit_visual_slide_head_for_current_position(
-        self, *, visual_kind: str
-    ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        position = int(self._position_cursor or 0)
-        existing = self._pending_visual_slide
-        if (
-            existing is not None
-            and int(existing.audio_position or 0) == position
-            and (existing.visual_kind or "") == (visual_kind or "")
-        ):
-            return
-
-        slide = self._create_slide(
-            position=position,
-            visual_kind=visual_kind,
-            segment_type="placeholder",
-            is_placeholder=True,
-        )
-        self._register_slide(slide)
-        self._pending_visual_slide = slide
-        yield from self._emit_new_slide_event(slide)
-
-    def _finalize_pending_visual_slide(
-        self, *, visual_kind: str
-    ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        position = int(self._position_cursor or 0)
-        pending = self._pending_visual_slide
-        if (
-            pending is None
-            or int(pending.audio_position or 0) != position
-            or (pending.visual_kind or "") != (visual_kind or "")
-        ):
-            yield from self._emit_visual_slide_for_current_position(
-                visual_kind=visual_kind
-            )
-            return
-
-        completed = self._create_slide(
-            position=int(pending.audio_position or 0),
-            slide_id=pending.slide_id,
-            slide_index=int(pending.slide_index or 0),
-            source_span=list(pending.source_span or []),
-            is_placeholder=False,
-            visual_kind=visual_kind,
-            segment_type=self._segment_type_for_visual_kind(visual_kind),
-        )
-        self._slides_by_id[completed.slide_id] = completed
-        self._pending_visual_slide = None
-        yield from self._emit_new_slide_event(completed, force=True)
-
-    def _sync_slide_registry_from_contract(self):
-        slides, mapping = build_listen_slides_for_block(
+    def _refresh_next_element_index_from_contract(self):
+        segments, _ = build_visual_segments_for_block(
+            app=self.app,
             raw_content=self._raw_full_content,
             generated_block_bid=self.generated_block_bid,
             av_contract=self._av_contract,
-            slide_index_offset=self.slide_index_offset,
+            element_index_offset=self.element_index_offset,
         )
-        if not slides or not mapping:
+        if not segments:
             return
-
-        slide_by_id = {slide.slide_id: slide for slide in slides}
-        for position, candidate_slide_id in sorted(mapping.items()):
-            # Allow replacing placeholder slides with finalized slides from contract
-            existing_slide_id = self._slide_id_by_position.get(position)
-            if existing_slide_id:
-                existing_slide = self._slides_by_id.get(existing_slide_id)
-                # Skip if we already have a finalized slide for this position
-                if existing_slide and not existing_slide.is_placeholder:
-                    continue
-
-            slide = slide_by_id.get(candidate_slide_id)
-            if slide is None:
-                continue
-            self._slide_id_by_position[position] = candidate_slide_id
-            self._slides_by_id[candidate_slide_id] = slide
-            self._next_slide_index = max(
-                self._next_slide_index, int(slide.slide_index or 0) + 1
-            )
-
-    def _build_fallback_slide(self, position: int) -> NewSlideDTO:
-        slide = self._create_slide(
-            position=position,
-            visual_kind="placeholder",
-            segment_type="placeholder",
-            is_placeholder=True,
+        self._next_element_index = max(
+            self._next_element_index,
+            max(seg.element_index + 1 for seg in segments),
         )
-        self._register_slide(slide)
-        return slide
-
-    def _ensure_slide_for_position(self, position: int) -> NewSlideDTO:
-        self._sync_slide_registry_from_contract()
-
-        existing_slide_id = self._slide_id_by_position.get(position)
-        if existing_slide_id:
-            existing_slide = self._slides_by_id.get(existing_slide_id)
-            if existing_slide is not None:
-                return existing_slide
-
-        return self._build_fallback_slide(position)
-
-    def _bind_slide_for_audio_event(
-        self, event: RunMarkdownFlowDTO
-    ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        if event.type not in {
-            GeneratedType.AUDIO_SEGMENT,
-            GeneratedType.AUDIO_COMPLETE,
-        }:
-            yield event
-            return
-
-        content = event.content
-        position = int(getattr(content, "position", 0) or 0)
-        self._audio_bound_positions.add(position)
-        slide = self._ensure_slide_for_position(position)
-
-        if hasattr(content, "slide_id"):
-            content.slide_id = slide.slide_id
-
-        if slide.slide_id not in self._emitted_slide_ids:
-            yield from self._emit_new_slide_event(slide)
-
-        yield event
-
-    def _emit_with_slide_binding(
-        self, events: Generator[RunMarkdownFlowDTO, None, None]
-    ) -> Generator[RunMarkdownFlowDTO, None, None]:
-        for event in events:
-            yield from self._bind_slide_for_audio_event(event)
 
     def _finalize_current(
         self, *, commit: bool
@@ -962,9 +769,7 @@ class AVStreamingTTSProcessor:
         if self._current_processor is None:
             return
         did_complete = False
-        for event in self._emit_with_slide_binding(
-            self._current_processor.finalize(commit=commit)
-        ):
+        for event in self._current_processor.finalize(commit=commit):
             if event.type == GeneratedType.AUDIO_COMPLETE:
                 did_complete = True
             yield event
@@ -979,8 +784,7 @@ class AVStreamingTTSProcessor:
 
     def process_chunk(self, chunk: str) -> Generator[RunMarkdownFlowDTO, None, None]:
         if not chunk:
-            if self._current_processor is not None:
-                yield from self._process_processor_chunk(self._current_processor, "")
+            yield from self.drain_ready_segments()
             return
 
         self._raw_full_content += chunk
@@ -998,16 +802,14 @@ class AVStreamingTTSProcessor:
                 self._raw_buffer = self._raw_buffer[skip_end:]
                 self._skip_mode = None
                 if skip_kind in _VISUAL_SKIP_KINDS:
-                    yield from self._finalize_pending_visual_slide(
-                        visual_kind=skip_kind,
-                    )
+                    self._next_element_index += 1
                 continue
 
             boundary = self._find_next_boundary(self._raw_buffer)
             if boundary is None:
                 # Keep a small tail so we don't lose boundary markers split across chunks,
                 # e.g. `<di` + `v ...>` or partial fences/backticks.
-                tail_len = 32
+                tail_len = _STREAM_BOUNDARY_GUARD_TAIL_CHARS
                 if len(self._raw_buffer) <= tail_len:
                     break
 
@@ -1030,19 +832,20 @@ class AVStreamingTTSProcessor:
             # Boundary encountered: finalize the current speakable segment.
             yield from self._finalize_current(commit=False)
             if kind in _VISUAL_SLIDE_KINDS and complete and boundary_len > 0:
-                yield from self._finalize_pending_visual_slide(
-                    visual_kind=kind,
-                )
+                self._next_element_index += 1
 
             # Consume the boundary itself.
             self._raw_buffer = remainder
             if kind in _VISUAL_SKIP_KINDS and not complete:
-                yield from self._emit_visual_slide_head_for_current_position(
-                    visual_kind=kind
-                )
                 self._skip_mode = kind
                 break
             self._raw_buffer = self._raw_buffer[boundary_len:]
+
+    def drain_ready_segments(self) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Yield already-ready audio events for the current speakable segment."""
+        if self._current_processor is None:
+            return
+        yield from self._current_processor.drain_ready_segments()
 
     def finalize(
         self, *, commit: bool = True
@@ -1059,16 +862,5 @@ class AVStreamingTTSProcessor:
 
         yield from self._finalize_current(commit=commit)
 
-        # After finalizing all content, re-sync slides from the complete AV contract
-        # and emit finalized versions of any placeholder slides.
-        self._sync_slide_registry_from_contract()
-        for position, slide_id in sorted(self._slide_id_by_position.items()):
-            slide = self._slides_by_id.get(slide_id)
-            if slide is None:
-                continue
-            if position not in self._audio_bound_positions:
-                continue
-            # Emit finalized slides that were created from contract (is_placeholder=False).
-            # Skip slides that are still placeholders (no contract data for this position).
-            if not slide.is_placeholder and slide_id not in self._emitted_slide_ids:
-                yield from self._emit_new_slide_event(slide)
+        # Refresh cursor from the full contract so next block can continue element index.
+        self._refresh_next_element_index_from_contract()

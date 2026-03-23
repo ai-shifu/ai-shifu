@@ -12,7 +12,12 @@ from flaskr.i18n import _
 import json
 
 
-from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO, RunStatusDTO
+from flaskr.service.learn.learn_dtos import (
+    GeneratedType,
+    RunElementSSEMessageDTO,
+    RunMarkdownFlowDTO,
+    RunStatusDTO,
+)
 from flaskr.common.cache_provider import cache as cache_provider
 from flaskr.dao import db
 from flaskr.service.shifu.shifu_struct_manager import (
@@ -27,7 +32,7 @@ from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.order.models import Order
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.learn.context_v2 import RunScriptContextV2
-from flaskr.service.learn.learn_dtos import GeneratedType
+from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 import datetime
 from flaskr.common.log import thread_local as log_thread_local
 from flaskr.service.learn.exceptions import BreakException
@@ -46,10 +51,12 @@ def run_script_inner(
     input: str | dict = None,
     input_type: str = None,
     reload_generated_block_bid: str = None,
+    reload_element_bid: str = None,
     listen: bool = False,
     preview_mode: bool = False,
     stop_event: threading.Event | None = None,
-) -> Generator[RunMarkdownFlowDTO, None, None]:
+    element_adapter: ListenElementRunAdapter | None = None,
+) -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
     """
     Core function for running course scripts
     """
@@ -118,12 +125,25 @@ def run_script_inner(
             )
 
             run_script_context.set_input(input, input_type)
-            if reload_generated_block_bid:
+
+            def _iter_run_events(events):
+                if element_adapter is None:
+                    yield from events
+                    return
+                yield from element_adapter.process(events)
+
+            if reload_generated_block_bid or reload_element_bid:
                 if stop_event and stop_event.is_set():
                     app.logger.info("run_script_inner cancelled before reload")
                     db.session.rollback()
                     return
-                yield from run_script_context.reload(app, reload_generated_block_bid)
+                yield from _iter_run_events(
+                    run_script_context.reload(
+                        app,
+                        reload_generated_block_bid,
+                        reload_element_bid=reload_element_bid,
+                    )
+                )
                 db.session.commit()
             while run_script_context.has_next():
                 app.logger.warning(
@@ -134,7 +154,7 @@ def run_script_inner(
                     db.session.rollback()
                     return
                 app.logger.info("run_script_context.run")
-                yield from run_script_context.run(app)
+                yield from _iter_run_events(run_script_context.run(app))
             db.session.commit()
         except BreakException:
             db.session.commit()
@@ -151,6 +171,38 @@ def fmt(o):
         return o.__json__()
 
 
+def _to_sse_chunk(payload: object) -> str:
+    return (
+        "data: "
+        + json.dumps(payload, default=fmt, ensure_ascii=False)
+        + "\n\n".encode("utf-8").decode("utf-8")
+    )
+
+
+def _make_terminal_event(
+    *,
+    outline_bid: str,
+    event_type: str,
+    content: str,
+    element_adapter: ListenElementRunAdapter | None,
+) -> RunMarkdownFlowDTO | RunElementSSEMessageDTO:
+    if element_adapter is not None:
+        return element_adapter.make_ephemeral_message(
+            event_type=event_type,
+            content=content,
+        )
+
+    legacy_type = (
+        GeneratedType.CONTENT if event_type == "error" else GeneratedType(event_type)
+    )
+    return RunMarkdownFlowDTO(
+        outline_bid=outline_bid,
+        generated_block_bid="",
+        type=legacy_type,
+        content=content,
+    )
+
+
 def run_script(
     app: Flask,
     shifu_bid: str,
@@ -159,6 +211,7 @@ def run_script(
     input: str | dict = None,
     input_type: str = None,
     reload_generated_block_bid: str = None,
+    reload_element_bid: str = None,
     listen: bool = False,
     preview_mode: bool = False,
     shifu_context_snapshot: Optional[dict[str, Any]] = None,
@@ -174,6 +227,12 @@ def run_script(
         + user_bid
         + ":"
         + outline_bid
+    )
+    element_adapter = ListenElementRunAdapter(
+        app,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        user_bid=user_bid,
     )
     lock = cache_provider.lock(
         lock_key, timeout=timeout, blocking_timeout=blocking_timeout
@@ -213,9 +272,11 @@ def run_script(
             input=input,
             input_type=input_type,
             reload_generated_block_bid=reload_generated_block_bid,
+            reload_element_bid=reload_element_bid,
             listen=listen,
             preview_mode=preview_mode,
             stop_event=stop_event,
+            element_adapter=element_adapter,
         )
 
         def producer():
@@ -268,19 +329,23 @@ def run_script(
                     if heartbeat_interval > 0:
                         # Keep waiting cooperative under gevent while polling a thread-safe queue.
                         time.sleep(heartbeat_interval)
+                    else:
+                        time.sleep(0.01)
                     try:
                         kind, payload = output_queue.get_nowait()
                     except queue.Empty:
+                        if heartbeat_interval <= 0:
+                            continue
                         try:
-                            yield (
-                                "data: "
-                                + json.dumps(
-                                    {"type": "heartbeat"},
-                                    default=fmt,
-                                    ensure_ascii=False,
+                            heartbeat_payload = (
+                                element_adapter.make_ephemeral_message(
+                                    event_type="heartbeat",
+                                    content="",
                                 )
-                                + "\n\n".encode("utf-8").decode("utf-8")
+                                if element_adapter is not None
+                                else {"type": "heartbeat"}
                             )
+                            yield _to_sse_chunk(heartbeat_payload)
                         except GeneratorExit:
                             client_disconnected = True
                             stop_event.set()
@@ -355,64 +420,34 @@ def run_script(
 
                 if isinstance(stream_error, AppException):
                     app.logger.info(error_info)
-                    yield (
-                        "data: "
-                        + json.dumps(
-                            RunMarkdownFlowDTO(
-                                outline_bid=outline_bid,
-                                generated_block_bid="",
-                                type=GeneratedType.CONTENT,
-                                content=str(stream_error),
-                            ),
-                            default=fmt,
-                            ensure_ascii=False,
-                        )
-                        + "\n\n".encode("utf-8").decode("utf-8")
-                    )
+                    error_content = str(stream_error)
                 else:
                     app.logger.error(error_info)
-                    yield (
-                        "data: "
-                        + json.dumps(
-                            RunMarkdownFlowDTO(
-                                outline_bid=outline_bid,
-                                generated_block_bid="",
-                                type=GeneratedType.CONTENT,
-                                content=str(_("server.common.unknownError")),
-                            ),
-                            default=fmt,
-                            ensure_ascii=False,
-                        )
-                        + "\n\n".encode("utf-8").decode("utf-8")
+                    error_content = str(_("server.common.unknownError"))
+                yield _to_sse_chunk(
+                    _make_terminal_event(
+                        outline_bid=outline_bid,
+                        event_type="error",
+                        content=error_content,
+                        element_adapter=element_adapter,
                     )
-                yield (
-                    "data: "
-                    + json.dumps(
-                        RunMarkdownFlowDTO(
-                            outline_bid=outline_bid,
-                            generated_block_bid="",
-                            type=GeneratedType.BREAK,
-                            content="",
-                        ),
-                        default=fmt,
-                        ensure_ascii=False,
+                )
+                yield _to_sse_chunk(
+                    _make_terminal_event(
+                        outline_bid=outline_bid,
+                        event_type=GeneratedType.BREAK.value,
+                        content="",
+                        element_adapter=element_adapter,
                     )
-                    + "\n\n".encode("utf-8").decode("utf-8")
                 )
 
-        yield (
-            "data: "
-            + json.dumps(
-                RunMarkdownFlowDTO(
-                    outline_bid=outline_bid,
-                    generated_block_bid="",
-                    type=GeneratedType.DONE,
-                    content="",
-                ),
-                default=fmt,
-                ensure_ascii=False,
+        yield _to_sse_chunk(
+            _make_terminal_event(
+                outline_bid=outline_bid,
+                event_type=GeneratedType.DONE.value,
+                content="",
+                element_adapter=element_adapter,
             )
-            + "\n\n".encode("utf-8").decode("utf-8")
         )
     else:
         app.logger.warning(
@@ -420,48 +455,20 @@ def run_script(
             user_bid,
             outline_bid,
         )
-        yield (
-            "data: "
-            + json.dumps(
-                RunMarkdownFlowDTO(
+        busy_content = str(_("server.learn.outputInProgress"))
+        for event_type, content in [
+            ("error", busy_content),
+            (GeneratedType.BREAK.value, ""),
+            (GeneratedType.DONE.value, ""),
+        ]:
+            yield _to_sse_chunk(
+                _make_terminal_event(
                     outline_bid=outline_bid,
-                    generated_block_bid="",
-                    type=GeneratedType.CONTENT,
-                    content=str(_("server.learn.outputInProgress")),
-                ),
-                default=fmt,
-                ensure_ascii=False,
+                    event_type=event_type,
+                    content=content,
+                    element_adapter=element_adapter,
+                )
             )
-            + "\n\n".encode("utf-8").decode("utf-8")
-        )
-        yield (
-            "data: "
-            + json.dumps(
-                RunMarkdownFlowDTO(
-                    outline_bid=outline_bid,
-                    generated_block_bid="",
-                    type=GeneratedType.BREAK,
-                    content="",
-                ),
-                default=fmt,
-                ensure_ascii=False,
-            )
-            + "\n\n".encode("utf-8").decode("utf-8")
-        )
-        yield (
-            "data: "
-            + json.dumps(
-                RunMarkdownFlowDTO(
-                    outline_bid=outline_bid,
-                    generated_block_bid="",
-                    type=GeneratedType.DONE,
-                    content="",
-                ),
-                default=fmt,
-                ensure_ascii=False,
-            )
-            + "\n\n".encode("utf-8").decode("utf-8")
-        )
 
 
 def get_run_status(

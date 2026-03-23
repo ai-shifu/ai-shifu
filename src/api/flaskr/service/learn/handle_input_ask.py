@@ -47,6 +47,144 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
 )
 from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.service.learn.models import LearnGeneratedElement
+from flaskr.service.learn.listen_elements import _deserialize_payload
+
+
+def _is_valid_asks(asks):
+    """Check if asks list has at least one complete student+teacher pair."""
+    if not asks or not isinstance(asks, list):
+        return False
+    has_student = any(a.get("role") == "student" for a in asks if isinstance(a, dict))
+    has_teacher = any(a.get("role") == "teacher" for a in asks if isinstance(a, dict))
+    return has_student and has_teacher
+
+
+def _load_ask_context(anchor_element, ask_max_history_len):
+    """Load ask context from anchor element's payload.asks.
+
+    Returns (llm_messages, provider_messages) or None if fallback to blocks is needed.
+    """
+    if anchor_element is None:
+        return None
+
+    payload_dto = _deserialize_payload(getattr(anchor_element, "payload", "") or "")
+    asks = payload_dto.asks
+
+    if not _is_valid_asks(asks):
+        return None
+
+    messages = []
+    # Anchor element content as first assistant context message
+    anchor_content = getattr(anchor_element, "content_text", "") or ""
+    if anchor_content:
+        messages.append({"role": "assistant", "content": anchor_content})
+
+    # Map asks entries: student -> user, teacher -> assistant
+    for entry in asks[-ask_max_history_len:]:
+        if not isinstance(entry, dict):
+            continue
+        role = entry.get("role", "")
+        content = entry.get("content", "")
+        if role == "student":
+            messages.append({"role": "user", "content": content})
+        elif role == "teacher":
+            messages.append({"role": "assistant", "content": content})
+
+    return messages
+
+
+def _create_ask_block(
+    app,
+    outline_item_info,
+    attend_id,
+    user_bid,
+    input_text,
+    last_position,
+):
+    ask_block = init_generated_block(
+        app,
+        shifu_bid=outline_item_info.shifu_bid,
+        outline_item_bid=outline_item_info.bid,
+        progress_record_bid=attend_id,
+        user_bid=user_bid,
+        block_type=BLOCK_TYPE_MDASK_VALUE,
+        mdflow=input_text,
+        block_index=outline_item_info.position,
+    )
+    ask_block.generated_content = input_text
+    ask_block.role = ROLE_STUDENT
+    ask_block.type = BLOCK_TYPE_MDASK_VALUE
+    ask_block.position = last_position
+    db.session.add(ask_block)
+    return ask_block
+
+
+def _create_answer_block(
+    app,
+    outline_item_info,
+    attend_id,
+    user_bid,
+    response_text,
+    last_position,
+):
+    answer_block = init_generated_block(
+        app,
+        shifu_bid=outline_item_info.shifu_bid,
+        outline_item_bid=outline_item_info.bid,
+        progress_record_bid=attend_id,
+        user_bid=user_bid,
+        block_type=BLOCK_TYPE_MDANSWER_VALUE,
+        mdflow=response_text,
+        block_index=last_position,
+    )
+    answer_block.generated_content = response_text
+    answer_block.role = ROLE_TEACHER
+    answer_block.position = last_position
+    db.session.add(answer_block)
+    return answer_block
+
+
+def _run_guardrail(
+    app,
+    user_info,
+    ask_block,
+    input_text,
+    span,
+    outline_item_info,
+    last_position,
+    follow_up_model,
+    follow_up_info,
+    attend_id,
+    usage_context,
+    chapter_title,
+    ask_scene,
+):
+    res = check_text_with_llm_response(
+        app,
+        user_info=user_info,
+        log_script=ask_block,
+        input=input_text,
+        span=span,
+        outline_item_bid=outline_item_info.bid,
+        shifu_bid=outline_item_info.shifu_bid,
+        block_position=last_position,
+        llm_settings=LLMSettings(
+            model=follow_up_model,
+            temperature=follow_up_info.model_args["temperature"],
+        ),
+        attend_id=attend_id,
+        fmt_prompt=follow_up_info.ask_prompt,
+        usage_context=usage_context,
+        chapter_title=chapter_title,
+        scene=ask_scene,
+    )
+    chunks = []
+    for i in res:
+        if i is not None and i != "":
+            app.logger.info(f"check_text_with_llm_response: {i}")
+            chunks.append(i)
+    return chunks
 
 
 @extensible_generic
@@ -61,6 +199,7 @@ def handle_input_ask(
     trace: StatefulTraceClient,
     is_preview: bool = False,
     last_position: int = -1,
+    anchor_element_bid: str = "",
 ) -> Generator[str, None, None]:
     """
     Main function to handle user Q&A input
@@ -91,19 +230,6 @@ def handle_input_ask(
     except ValueError:
         ask_max_history_len = 10
 
-    # Query historical conversation records, ordered by time
-    history_scripts: list[LearnGeneratedBlock] = (
-        LearnGeneratedBlock.query.filter(
-            LearnGeneratedBlock.progress_record_bid == attend_id,
-            LearnGeneratedBlock.deleted == 0,
-        )
-        .order_by(LearnGeneratedBlock.id.desc())
-        .limit(ask_max_history_len)
-        .all()
-    )
-
-    history_scripts = history_scripts[::-1]
-
     llm_messages = []  # Conversation messages for built-in LLM ask.
     provider_messages = []  # Conversation messages for external ask providers.
     input = input.replace("{", "{{").replace(
@@ -131,19 +257,50 @@ def handle_input_ask(
     llm_messages.append({"role": "system", "content": llm_system_prompt})
     if base_system_prompt:
         provider_messages.append({"role": "system", "content": base_system_prompt})
-    # Add historical conversation records to system messages
-    for script in history_scripts:
-        if script.type in [BLOCK_TYPE_MDASK_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]:
-            history_message = {"role": "user", "content": script.generated_content}
-            llm_messages.append(history_message)
-            provider_messages.append(history_message)
-        elif script.type in [BLOCK_TYPE_MDANSWER_VALUE, BLOCK_TYPE_MDCONTENT_VALUE]:
-            history_message = {
-                "role": "assistant",
-                "content": script.generated_content,
-            }
-            llm_messages.append(history_message)
-            provider_messages.append(history_message)
+
+    # Try loading ask context from anchor element's payload.asks first
+    anchor_element = None
+    if anchor_element_bid:
+        anchor_element = LearnGeneratedElement.query.filter(
+            LearnGeneratedElement.element_bid == anchor_element_bid,
+            LearnGeneratedElement.deleted == 0,
+        ).first()
+
+    element_context = _load_ask_context(anchor_element, ask_max_history_len)
+    if element_context is not None:
+        for msg in element_context:
+            llm_messages.append(msg)
+            provider_messages.append(msg)
+    else:
+        # Fallback: load from LearnGeneratedBlock
+        history_scripts: list[LearnGeneratedBlock] = (
+            LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.progress_record_bid == attend_id,
+                LearnGeneratedBlock.deleted == 0,
+            )
+            .order_by(LearnGeneratedBlock.id.desc())
+            .limit(ask_max_history_len)
+            .all()
+        )
+        history_scripts = history_scripts[::-1]
+        for script in history_scripts:
+            if script.type in [BLOCK_TYPE_MDASK_VALUE, BLOCK_TYPE_MDINTERACTION_VALUE]:
+                history_message = {
+                    "role": "user",
+                    "content": script.generated_content,
+                }
+                llm_messages.append(history_message)
+                provider_messages.append(history_message)
+            elif script.type in [
+                BLOCK_TYPE_MDANSWER_VALUE,
+                BLOCK_TYPE_MDCONTENT_VALUE,
+            ]:
+                history_message = {
+                    "role": "assistant",
+                    "content": script.generated_content,
+                }
+                llm_messages.append(history_message)
+                provider_messages.append(history_message)
 
     # RAG retrieval has been removed from this system
 
@@ -167,22 +324,26 @@ def handle_input_ask(
     if not follow_up_model:
         follow_up_model = app.config.get("DEFAULT_LLM_MODEL", "")
 
-    # Log user input to database
-    log_script: LearnGeneratedBlock = init_generated_block(
-        app,
-        shifu_bid=outline_item_info.shifu_bid,
-        outline_item_bid=outline_item_info.bid,
-        progress_record_bid=attend_id,
-        user_bid=user_info.user_id,
-        block_type=BLOCK_TYPE_MDASK_VALUE,
-        mdflow=input,
-        block_index=outline_item_info.position,
+    # Create ask block
+    ask_block = _create_ask_block(
+        app, outline_item_info, attend_id, user_info.user_id, input, last_position
     )
-    log_script.generated_content = input
-    log_script.role = ROLE_STUDENT  # Mark as student role
-    log_script.type = BLOCK_TYPE_MDASK_VALUE  # Mark as Q&A type
-    log_script.position = last_position
-    db.session.add(log_script)
+
+    # Create answer block early (empty placeholder) so all teacher-side
+    # events can reference the answer block's generated_block_bid.
+    answer_block = _create_answer_block(
+        app, outline_item_info, attend_id, user_info.user_id, "", last_position
+    )
+    db.session.flush()
+
+    # Emit internal ASK event for listen adapter
+    yield RunMarkdownFlowDTO(
+        outline_bid=outline_item_info.bid,
+        generated_block_bid=ask_block.generated_block_bid,
+        type=GeneratedType.ASK,
+        content=input,
+        anchor_element_bid=anchor_element_bid,
+    )
 
     # Create trace span
     span = trace.span(
@@ -190,51 +351,45 @@ def handle_input_ask(
         input=input,
     )
 
-    # Check if user input needs special processing (such as sensitive word filtering, etc.)
-    res = check_text_with_llm_response(
+    # Run guardrail check
+    guardrail_chunks = _run_guardrail(
         app,
-        user_info=user_info,
-        log_script=log_script,
-        input=input,
-        span=span,
-        outline_item_bid=outline_item_info.bid,
-        shifu_bid=outline_item_info.shifu_bid,
-        block_position=last_position,
-        llm_settings=LLMSettings(
-            model=follow_up_model,
-            temperature=follow_up_info.model_args["temperature"],
-        ),
-        attend_id=attend_id,
-        fmt_prompt=follow_up_info.ask_prompt,
-        usage_context=usage_context,
-        chapter_title=chapter_title,
-        scene=ask_scene,
+        user_info,
+        ask_block,
+        input,
+        span,
+        outline_item_info,
+        last_position,
+        follow_up_model,
+        follow_up_info,
+        attend_id,
+        usage_context,
+        chapter_title,
+        ask_scene,
     )
-    has_content = False
-    for i in res:
-        if i is not None and i != "":
-            app.logger.info(f"check_text_with_llm_response: {i}")
-            has_content = True
+
+    if guardrail_chunks:
+        guardrail_text = "".join(guardrail_chunks)
+        for chunk in guardrail_chunks:
             yield RunMarkdownFlowDTO(
                 outline_bid=outline_item_info.bid,
-                generated_block_bid=log_script.generated_block_bid,
+                generated_block_bid=answer_block.generated_block_bid,
                 type=GeneratedType.CONTENT,
-                content=i,
+                content=chunk,
             )
-
-    if has_content:
         yield RunMarkdownFlowDTO(
             outline_bid=outline_item_info.bid,
-            generated_block_bid=log_script.generated_block_bid,
+            generated_block_bid=answer_block.generated_block_bid,
             type=GeneratedType.BREAK,
             content="",
         )
         yield RunMarkdownFlowDTO(
             outline_bid=outline_item_info.bid,
-            generated_block_bid=log_script.generated_block_bid,
+            generated_block_bid=answer_block.generated_block_bid,
             type=GeneratedType.INTERACTION,
             content=input,
         )
+        answer_block.generated_content = guardrail_text
         db.session.flush()
         return
 
@@ -314,7 +469,7 @@ def handle_input_ask(
                 response_text += current_content
                 yield RunMarkdownFlowDTO(
                     outline_bid=outline_item_info.bid,
-                    generated_block_bid=log_script.generated_block_bid,
+                    generated_block_bid=answer_block.generated_block_bid,
                     type=GeneratedType.CONTENT,
                     content=current_content,
                 )
@@ -353,7 +508,7 @@ def handle_input_ask(
                 response_text = str(_("server.learn.askProviderUnavailable"))
             yield RunMarkdownFlowDTO(
                 outline_bid=outline_item_info.bid,
-                generated_block_bid=log_script.generated_block_bid,
+                generated_block_bid=answer_block.generated_block_bid,
                 type=GeneratedType.CONTENT,
                 content=response_text,
             )
@@ -370,21 +525,8 @@ def handle_input_ask(
     if use_llm_fallback:
         yield from _emit_provider_stream(ASK_PROVIDER_LLM)
 
-    # Log AI response to database
-    log_script: LearnGeneratedBlock = init_generated_block(
-        app,
-        shifu_bid=outline_item_info.shifu_bid,
-        outline_item_bid=outline_item_info.bid,
-        progress_record_bid=attend_id,
-        user_bid=user_info.user_id,
-        block_type=BLOCK_TYPE_MDANSWER_VALUE,
-        mdflow=response_text,
-        block_index=last_position,
-    )
-    log_script.generated_content = response_text
-    log_script.role = ROLE_TEACHER  # Mark as teacher role
-    log_script.position = last_position
-    db.session.add(log_script)
+    # Backfill answer block content
+    answer_block.generated_content = response_text
 
     # End trace span
     span.end(output=response_text)
@@ -395,7 +537,7 @@ def handle_input_ask(
     # Return end marker
     yield RunMarkdownFlowDTO(
         outline_bid=outline_item_info.bid,
-        generated_block_bid=log_script.generated_block_bid,
+        generated_block_bid=answer_block.generated_block_bid,
         type=GeneratedType.BREAK,
         content="",
     )

@@ -12,6 +12,7 @@ import {
 } from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
 import { LIKE_STATUS } from '@/c-api/studyV2';
 import { getStringEnv } from '@/c-utils/envUtils';
+import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import {
   fixMarkdownStream,
   maskIncompleteMermaidBlock,
@@ -362,6 +363,7 @@ export function usePreviewChat() {
       setTrackedContentList(prev => [
         ...prev.filter(item => item.generated_block_bid !== 'loading'),
         {
+          element_bid: blockId,
           generated_block_bid: blockId,
           content: '',
           readonly: false,
@@ -389,6 +391,7 @@ export function usePreviewChat() {
       return [
         ...items.filter(item => item.generated_block_bid !== 'loading'),
         {
+          element_bid: blockId,
           generated_block_bid: blockId,
           content: '',
           readonly: false,
@@ -431,12 +434,13 @@ export function usePreviewChat() {
 
           setTrackedContentList((prev: ChatContentItem[]) => {
             const interactionBlock: ChatContentItem = {
+              element_bid: blockId,
               generated_block_bid: blockId,
               content: interactionContent,
               readonly: false,
-              defaultButtonText: autoParams?.buttonText || '',
-              defaultInputText: autoParams?.inputText || '',
-              defaultSelectedValues: autoParams?.selectedValues,
+              user_input: autoParams
+                ? resolveInteractionSubmission(autoParams).userInput
+                : '',
               type: ChatContentItemType.INTERACTION,
             };
             const lastContent = prev[prev.length - 1];
@@ -447,6 +451,7 @@ export function usePreviewChat() {
               return [
                 ...prev,
                 {
+                  element_bid: `${lastContent.generated_block_bid}-feedback`,
                   parent_block_bid: lastContent.generated_block_bid,
                   generated_block_bid: `${lastContent.generated_block_bid}-feedback`,
                   like_status: LIKE_STATUS.NONE,
@@ -490,6 +495,7 @@ export function usePreviewChat() {
             const gid = lastItem?.generated_block_bid || '';
             if (lastItem && lastItem.type === ChatContentItemType.CONTENT) {
               updatedList.push({
+                element_bid: `${gid}-feedback`,
                 parent_block_bid: gid,
                 generated_block_bid: '',
                 content: '',
@@ -637,6 +643,7 @@ export function usePreviewChat() {
       setTrackedContentList(prev => [
         ...prev.filter(item => item.generated_block_bid !== 'loading'),
         {
+          element_bid: 'loading',
           generated_block_bid: 'loading',
           content: '',
           customRenderBar: () => <LoadingBar />,
@@ -723,9 +730,7 @@ export function usePreviewChat() {
         newList[needChangeItemIndex] = {
           ...newList[needChangeItemIndex],
           readonly: false,
-          defaultButtonText: params.buttonText || '',
-          defaultInputText: params.inputText || '',
-          defaultSelectedValues: params.selectedValues,
+          user_input: resolveInteractionSubmission(params).userInput,
         };
         newList.length = needChangeItemIndex + 1;
         setTrackedContentList(newList);
@@ -744,9 +749,7 @@ export function usePreviewChat() {
             ? {
                 ...item,
                 readonly: false,
-                defaultButtonText: params.buttonText || '',
-                defaultInputText: params.inputText || '',
-                defaultSelectedValues: params.selectedValues,
+                user_input: resolveInteractionSubmission(params).userInput,
               }
             : item,
         ),
@@ -800,17 +803,7 @@ export function usePreviewChat() {
         prefillInteractionBlock(blockBid, content);
       }
 
-      let values: string[] = [];
-      if (content.selectedValues && content.selectedValues.length > 0) {
-        values = [...content.selectedValues];
-        if (inputText) {
-          values.push(inputText);
-        }
-      } else if (inputText) {
-        values = [inputText];
-      } else if (buttonText) {
-        values = [buttonText];
-      }
+      const { values } = resolveInteractionSubmission(content);
 
       if (!values.length) {
         return false;
@@ -841,7 +834,7 @@ export function usePreviewChat() {
         const removedBlockIds = currentList
           .slice(needChangeItemIndex)
           .map(item => item.generated_block_bid)
-          .filter(Boolean);
+          .filter((id): id is string => Boolean(id));
         if (removedBlockIds.length) {
           removeAutoSubmittedBlocks(removedBlockIds);
         }
@@ -895,7 +888,7 @@ export function usePreviewChat() {
       const removedBlockIds = originalList
         .slice(needChangeItemIndex)
         .map(item => item.generated_block_bid)
-        .filter(Boolean);
+        .filter((id): id is string => Boolean(id));
       if (removedBlockIds.length) {
         removeAutoSubmittedBlocks(removedBlockIds);
       }
