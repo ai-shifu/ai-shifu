@@ -230,7 +230,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   >
                     <InteractionBlock
                       shifu_bid={shifuBid}
-                      generated_block_bid={parentBlockBid}
+                      element_bid={parentBlockBid}
                       like_status={item.like_status}
                       onRefresh={onRefresh}
                       onToggleAskExpanded={noop}
@@ -275,7 +275,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   <ContentBlock
                     item={item}
                     mobileStyle={false}
-                    blockBid={item.generated_block_bid}
+                    blockBid={item.generated_block_bid || ''}
                     confirmButtonText={confirmButtonText}
                     copyButtonText={copyButtonText}
                     copiedButtonText={copiedButtonText}

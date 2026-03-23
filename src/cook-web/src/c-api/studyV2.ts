@@ -176,6 +176,18 @@ export interface SubmitLessonFeedbackResult {
   mode: 'read' | 'listen';
 }
 
+// Listen-mode slide descriptor returned by backend
+export interface ListenSlideData {
+  slide_id: string;
+  slide_index: number;
+  generated_block_bid: string;
+  segment_type?: string;
+  segment_content?: string;
+  is_placeholder?: boolean;
+  audio_position?: number;
+  visual_kind?: string;
+}
+
 // Audio types for TTS
 export interface AudioSegmentData {
   segment_index: number;
@@ -183,6 +195,8 @@ export interface AudioSegmentData {
   duration_ms: number;
   is_final: boolean;
   position?: number;
+  slide_id?: string;
+  av_contract?: Record<string, any> | null;
 }
 
 export interface AudioCompleteData {
@@ -190,6 +204,8 @@ export interface AudioCompleteData {
   audio_bid: string;
   duration_ms: number;
   position?: number;
+  slide_id?: string;
+  av_contract?: Record<string, any> | null;
 }
 
 export interface StreamGeneratedBlockAudioParams {

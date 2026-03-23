@@ -21,7 +21,6 @@ import {
   LikeStatus,
   AudioCompleteData,
   type AudioSegmentData,
-  type ElementType,
   getRunMessage,
   SSE_INPUT_TYPE,
   getLessonStudyRecord,
@@ -93,6 +92,7 @@ export interface ChatContentItem {
   generated_block_bid?: string;
   ask_element_bid?: string; // use for ask block, because an interaction block gid isn't ask gid
   parent_element_bid?: string; // when like_status is not none, the parent_element_bid is the element_bid of the interaction block
+  parent_block_bid?: string;
   like_status?: LikeStatus;
   type: ChatContentItemType | BlockType | ElementType;
   ask_list?: ChatContentItem[]; // list of ask records for this content block
