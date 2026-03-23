@@ -1131,6 +1131,79 @@ class RunScriptContextV2:
     def _should_stream_tts(self) -> bool:
         return (not self._preview_mode) and bool(getattr(self, "_listen", False))
 
+    def _try_create_tts_processor(
+        self, generated_block_bid: str, *, shifu_bid: str = ""
+    ):
+        """Create AVStreamingTTSProcessor if TTS is configured, else return None.
+
+        Shared by normal content flow and ask response flow.
+        """
+        try:
+            from flaskr.common.config import get_config
+            from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
+            from flaskr.service.tts.validation import validate_tts_settings_strict
+
+            effective_shifu_bid = shifu_bid or self._outline_item_info.shifu_bid
+            shifu_record = (
+                self._shifu_model.query.filter(
+                    self._shifu_model.shifu_bid == effective_shifu_bid,
+                    self._shifu_model.deleted == 0,
+                )
+                .order_by(self._shifu_model.id.desc())
+                .first()
+            )
+            if not shifu_record or not getattr(shifu_record, "tts_enabled", False):
+                return None
+
+            provider_name = (
+                (getattr(shifu_record, "tts_provider", "") or "").strip().lower()
+            )
+            if provider_name == "default":
+                provider_name = ""
+
+            try:
+                validated = validate_tts_settings_strict(
+                    provider=provider_name,
+                    model=(getattr(shifu_record, "tts_model", "") or "").strip(),
+                    voice_id=(getattr(shifu_record, "tts_voice_id", "") or "").strip(),
+                    speed=getattr(shifu_record, "tts_speed", None),
+                    pitch=getattr(shifu_record, "tts_pitch", None),
+                    emotion=(getattr(shifu_record, "tts_emotion", "") or "").strip(),
+                )
+            except Exception as exc:
+                self.app.logger.warning(
+                    "TTS settings invalid; skip streaming TTS: %s", exc
+                )
+                return None
+
+            if not validated:
+                return None
+
+            max_segment_chars = get_config("TTS_MAX_SEGMENT_CHARS")
+            if not max_segment_chars:
+                max_segment_chars = 300
+            return AVStreamingTTSProcessor(
+                app=self.app,
+                generated_block_bid=generated_block_bid,
+                outline_bid=self._outline_item_info.bid,
+                progress_record_bid=self._current_attend.progress_record_bid,
+                user_bid=self._user_info.user_id,
+                shifu_bid=effective_shifu_bid,
+                voice_id=validated.voice_id,
+                speed=validated.speed,
+                pitch=validated.pitch,
+                emotion=validated.emotion,
+                max_segment_chars=int(max_segment_chars),
+                tts_provider=validated.provider,
+                tts_model=validated.model,
+                element_index_offset=self._element_index_cursor,
+            )
+        except Exception as exc:
+            self.app.logger.warning(
+                "Create TTS processor failed: %s", exc, exc_info=True
+            )
+            return None
+
     def _iter_stream_result_with_idle_callback(
         self,
         stream_result: Generator[Any, None, None],
@@ -1898,7 +1971,34 @@ class RunScriptContextV2:
                 self._last_position,
                 anchor_element_bid=getattr(self, "_anchor_element_bid", ""),
             )
-            yield from res
+
+            if self._should_stream_tts():
+                tts_processor = None
+                for event in res:
+                    if event.type == GeneratedType.CONTENT and isinstance(
+                        event.content, str
+                    ):
+                        if tts_processor is None:
+                            tts_processor = self._try_create_tts_processor(
+                                event.generated_block_bid,
+                            )
+                        yield event
+                        if tts_processor:
+                            yield from tts_processor.process_chunk(event.content)
+                    elif event.type == GeneratedType.BREAK:
+                        if tts_processor:
+                            try:
+                                yield from tts_processor.finalize(commit=False)
+                            except Exception as exc:
+                                app.logger.warning(
+                                    "Ask TTS finalize failed: %s", exc, exc_info=True
+                                )
+                        yield event
+                    else:
+                        yield event
+            else:
+                yield from res
+
             self._can_continue = False
             db.session.flush()
             return
@@ -2554,79 +2654,10 @@ class RunScriptContextV2:
                 app.logger.info(f"variables: {user_profile}")
 
                 if self._should_stream_tts():
-                    try:
-                        from flaskr.common.config import get_config
-                        from flaskr.service.tts.streaming_tts import (
-                            AVStreamingTTSProcessor,
-                        )
-                        from flaskr.service.tts.validation import (
-                            validate_tts_settings_strict,
-                        )
-
-                        shifu_record = (
-                            self._shifu_model.query.filter(
-                                self._shifu_model.shifu_bid
-                                == run_script_info.attend.shifu_bid,
-                                self._shifu_model.deleted == 0,
-                            )
-                            .order_by(self._shifu_model.id.desc())
-                            .first()
-                        )
-
-                        if shifu_record and getattr(shifu_record, "tts_enabled", False):
-                            provider_raw = (
-                                getattr(shifu_record, "tts_provider", "") or ""
-                            )
-                            provider_name = provider_raw.strip().lower()
-                            if provider_name == "default":
-                                provider_name = ""
-
-                            try:
-                                validated = validate_tts_settings_strict(
-                                    provider=provider_name,
-                                    model=(
-                                        getattr(shifu_record, "tts_model", "") or ""
-                                    ).strip(),
-                                    voice_id=(
-                                        getattr(shifu_record, "tts_voice_id", "") or ""
-                                    ).strip(),
-                                    speed=getattr(shifu_record, "tts_speed", None),
-                                    pitch=getattr(shifu_record, "tts_pitch", None),
-                                    emotion=(
-                                        getattr(shifu_record, "tts_emotion", "") or ""
-                                    ).strip(),
-                                )
-                            except Exception as exc:
-                                app.logger.warning(
-                                    "TTS settings invalid; skip streaming TTS: %s",
-                                    exc,
-                                )
-                                validated = None
-
-                            if validated:
-                                max_segment_chars = get_config("TTS_MAX_SEGMENT_CHARS")
-                                if not max_segment_chars:
-                                    max_segment_chars = 300
-                                tts_processor = AVStreamingTTSProcessor(
-                                    app=app,
-                                    generated_block_bid=generated_block.generated_block_bid,
-                                    outline_bid=run_script_info.outline_bid,
-                                    progress_record_bid=run_script_info.attend.progress_record_bid,
-                                    user_bid=self._user_info.user_id,
-                                    shifu_bid=run_script_info.attend.shifu_bid,
-                                    voice_id=validated.voice_id,
-                                    speed=validated.speed,
-                                    pitch=validated.pitch,
-                                    emotion=validated.emotion,
-                                    max_segment_chars=int(max_segment_chars),
-                                    tts_provider=validated.provider,
-                                    tts_model=validated.model,
-                                    element_index_offset=self._element_index_cursor,
-                                )
-                    except Exception as exc:
-                        app.logger.warning(
-                            "Initialize streaming TTS failed: %s", exc, exc_info=True
-                        )
+                    tts_processor = self._try_create_tts_processor(
+                        generated_block.generated_block_bid,
+                        shifu_bid=run_script_info.attend.shifu_bid,
+                    )
 
                 def _build_content_event(
                     chunk_text: str,
