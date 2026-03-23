@@ -69,7 +69,7 @@
     "confirmDescription": "{mobiles}，共导入 {count} 个手机号，确认导入？",
     "confirmTitle": "确认导入手机号",
     "courseLabel": "课程",
-    "coursePlaceholder": "请选择课程",
+    "coursePlaceholder": "请选择已发布课程",
     "courseRequired": "请选择课程",
     "description": "创建 0 元订单并开通课程。",
     "emailConfirmDescription": "{mobiles}，共导入 {count} 个邮箱，确认导入？",
