@@ -300,7 +300,7 @@ const ListenModeSlideRenderer = ({
   const nextDisabled = isHistoryMode
     ? clampedIndex >= (markerIndices[markerIndices.length - 1] ?? 0) &&
       !interaction
-    : showInteraction;
+    : Boolean(showInteraction);
 
   // ── Empty state ──
 
