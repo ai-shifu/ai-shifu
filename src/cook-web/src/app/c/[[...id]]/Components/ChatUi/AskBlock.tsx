@@ -161,13 +161,12 @@ export default function AskBlock({
             return;
           }
           if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
-            // Streaming content
+            // Streaming content (non-listen mode)
             const prevText = currentContentRef.current || '';
             const delta = fixMarkdownStream(prevText, response.content || '');
             const nextText = prevText + delta;
             currentContentRef.current = nextText;
 
-            // Update the content of the last teacher message
             setDisplayList(prev => {
               const newList = [...prev];
               const lastIndex = newList.length - 1;
@@ -183,13 +182,60 @@ export default function AskBlock({
               }
               return newList;
             });
+          } else if (response.type === SSE_OUTPUT_TYPE.ELEMENT) {
+            // Listen mode: text content + audio in element patches
+            const elementContent = response.content;
+            if (elementContent && typeof elementContent === 'object') {
+              // Extract text content from element patch
+              const textContent = elementContent.content;
+              if (typeof textContent === 'string' && textContent) {
+                currentContentRef.current = textContent;
+                setDisplayList(prev => {
+                  const newList = [...prev];
+                  const lastIndex = newList.length - 1;
+                  if (
+                    lastIndex >= 0 &&
+                    newList[lastIndex].type === BLOCK_TYPE.ANSWER
+                  ) {
+                    newList[lastIndex] = {
+                      ...newList[lastIndex],
+                      content: textContent,
+                      isStreaming: true,
+                    };
+                  }
+                  return newList;
+                });
+              }
+              // Extract audio segments from element patch
+              const segments = elementContent.audio_segments;
+              if (Array.isArray(segments) && segments.length > 0) {
+                setIsAskAudioStreaming(true);
+                for (const seg of segments) {
+                  const normalized = normalizeAudioSegmentPayload(seg);
+                  if (normalized) {
+                    setAskAudioSegments(prev =>
+                      mergeAudioSegmentByUniqueKey(
+                        element_bid,
+                        prev,
+                        normalized,
+                      ),
+                    );
+                  }
+                }
+              }
+              // Extract audio_url from element patch
+              if (elementContent.audio_url) {
+                setAskAudioUrl(elementContent.audio_url);
+                setIsAskAudioStreaming(false);
+              }
+            }
           } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
             const payload = response.content ?? response.data;
             const segment = normalizeAudioSegmentPayload(payload);
             if (segment) {
               setIsAskAudioStreaming(true);
               setAskAudioSegments(prev =>
-                mergeAudioSegmentByUniqueKey(prev, segment),
+                mergeAudioSegmentByUniqueKey(element_bid, prev, segment),
               );
             }
           } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {

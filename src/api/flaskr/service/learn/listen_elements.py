@@ -1845,6 +1845,36 @@ class ListenElementRunAdapter:
         anchor_row.payload = _serialize_payload(payload_dto)
         db.session.flush()
 
+    def _append_teacher_answer_to_asks(self, generated_block_bid: str) -> None:
+        """Append teacher answer to anchor element's payload.asks on BREAK."""
+        anchor_bid = self._current_ask_anchor_bid
+        if not anchor_bid:
+            return
+        state = self._block_states.get(generated_block_bid)
+        answer_content = state.raw_content if state else ""
+        if not answer_content:
+            return
+
+        anchor_row = LearnGeneratedElement.query.filter(
+            LearnGeneratedElement.element_bid == anchor_bid,
+            LearnGeneratedElement.deleted == 0,
+        ).first()
+        if anchor_row is None:
+            return
+
+        payload_dto = _deserialize_payload(anchor_row.payload or "")
+        asks = payload_dto.asks if payload_dto.asks is not None else []
+        asks.append(
+            {
+                "role": "teacher",
+                "content": answer_content,
+                "generated_block_bid": generated_block_bid,
+            }
+        )
+        payload_dto.asks = asks
+        anchor_row.payload = _serialize_payload(payload_dto)
+        db.session.flush()
+
     def process(
         self, events: Iterable[RunMarkdownFlowDTO]
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
@@ -1866,6 +1896,11 @@ class ListenElementRunAdapter:
                 continue
             if event.type == GeneratedType.BREAK:
                 yield from self._finalize_block(event.generated_block_bid or "")
+                # Append teacher answer to anchor element's payload.asks
+                if self._current_ask_anchor_bid:
+                    self._append_teacher_answer_to_asks(
+                        event.generated_block_bid or "",
+                    )
                 if not self._state_machine.is_terminated:
                     self._state_machine.feed(TypeInput.BLOCK_BREAK)
                 self._current_element_bid = None

@@ -129,7 +129,7 @@ Design reference: `docs/learn-generated-elements-design.md`
 - [x] 在 ask 流程中产出 `GeneratedType.ASK` 内部事件（承载追问文本 + `anchor_element_bid`），guardrail/正常路径都产出
 - [x] 扩展 `ListenElementRunAdapter.process()`：路由 `GeneratedType.ASK` 到新方法 `_handle_ask()`
 - [x] 实现 `_handle_ask()`：追加 `{role: "student", content}` 到 anchor element 的 `payload.asks` 并 UPDATE，不产出独立 element，不占 `sequence_number`
-- [ ] answer 流式阶段：独立 SSE 事件推送（`is_new=false` + `target_element_bid=anchor`），BREAK 时追加 `{role: "teacher", content}` 到 `payload.asks` 并 UPDATE
+- [x] answer 流式阶段：BREAK 时追加 `{role: "teacher", content}` 到 `payload.asks` 并 UPDATE（`_append_teacher_answer_to_asks`）
 - [x] answer 侧流式 `CONTENT/AUDIO_COMPLETE/BREAK` 以及 guardrail/provider fallback 文本统一挂到 answer block
 
 ### K-Phase 3: 读链路与上下文（依赖 Phase 2）

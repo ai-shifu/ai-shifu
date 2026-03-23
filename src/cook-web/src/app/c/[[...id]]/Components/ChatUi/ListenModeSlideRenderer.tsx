@@ -89,7 +89,7 @@ const buildSteps = (
           isMarker: item.is_marker ?? true,
         });
       } else {
-        // Narration → merge audio into previous visual step
+        // Narration → merge audio + asks into previous visual step
         const audioSegments = resolveItemAudioSegments(item);
         const audioUrl = resolveItemAudioUrl(item);
         const last = steps[steps.length - 1];
@@ -102,6 +102,10 @@ const buildSteps = (
           }
           if (audioUrl) last.audioUrl = audioUrl;
           last.isAudioStreaming = item.isAudioStreaming;
+          // Merge ask history from narration element if visual has none
+          if (!last.askList?.length && item.ask_list?.length) {
+            last.askList = item.ask_list;
+          }
         }
       }
       return;
@@ -370,18 +374,21 @@ const ListenModeSlideRenderer = ({
         )}
       </div>
 
-      {/* Ask panel — slides up from player bar when open */}
+      {/* Ask panel — positioned above the player bar */}
       {isAskOpen && currentStep && shifuBid && outlineBid && (
-        <AskBlock
-          askList={(currentStep.askList || []) as any[]}
-          isExpanded={true}
-          shifu_bid={shifuBid}
-          outline_bid={outlineBid}
-          preview_mode={previewMode}
-          element_bid={currentStep.bid}
-          isListenMode={true}
-          onToggleAskExpanded={handleToggleAsk}
-        />
+        <div className='absolute left-0 right-0 bottom-[72px] z-10 max-h-[50%] overflow-y-auto bg-white rounded-t-xl shadow-lg'>
+          <AskBlock
+            key={currentStep.bid}
+            askList={(currentStep.askList || []) as any[]}
+            isExpanded={true}
+            shifu_bid={shifuBid}
+            outline_bid={outlineBid}
+            preview_mode={previewMode}
+            element_bid={currentStep.bid}
+            isListenMode={true}
+            onToggleAskExpanded={handleToggleAsk}
+          />
+        </div>
       )}
 
       {/* Player bar */}
