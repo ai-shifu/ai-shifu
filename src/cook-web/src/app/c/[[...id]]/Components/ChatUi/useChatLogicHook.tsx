@@ -117,7 +117,8 @@ export interface ChatContentItem {
 interface SSEParams {
   input: string | Record<string, any>;
   input_type: SSE_INPUT_TYPE;
-  reload_generated_block_bid?: string;
+  reload_generated_block_bid?: string; 
+  reload_element_bid?: string;
 }
 
 export interface UseChatSessionParams {
@@ -1521,6 +1522,7 @@ function useChatLogicHook({
         input: '',
         input_type: SSE_INPUT_TYPE.NORMAL,
         reload_generated_block_bid: sourceBlockBid,
+        reload_element_bid: sourceBlockBid,
       });
     },
     [
@@ -1725,18 +1727,19 @@ function useChatLogicHook({
       // scrollToBottom();
 
       const { values } = resolveInteractionSubmission(content);
-
+      const reload_generated_block_bid =   isReGenerate && needChangeItemIndex !== -1
+      ? resolveSourceGeneratedBlockBid(
+          newList[needChangeItemIndex].element_bid,
+        )
+      : undefined
       runRef.current?.({
         input: {
           [variableName as string]: values,
         },
         input_type: SSE_INPUT_TYPE.NORMAL,
-        reload_generated_block_bid:
-          isReGenerate && needChangeItemIndex !== -1
-            ? resolveSourceGeneratedBlockBid(
-                newList[needChangeItemIndex].element_bid,
-              )
-            : undefined,
+        reload_element_bid: reload_generated_block_bid,
+        reload_generated_block_bid
+          
       });
       // console.log('[音频中断排查][SSE] onSend 触发 runRef.current', {
       //   lessonId,

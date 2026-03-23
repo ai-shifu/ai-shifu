@@ -138,6 +138,7 @@ export default function AskBlock({
         input: question,
         input_type: SSE_INPUT_TYPE.ASK,
         reload_generated_block_bid: element_bid,
+        reload_element_bid: element_bid,
         listen: false,
       },
       async response => {
