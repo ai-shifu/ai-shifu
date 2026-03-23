@@ -36,7 +36,6 @@ export interface Shifu {
     mode?: string;
     config?: Record<string, any>;
   };
-  tts_enabled?: boolean;
 }
 
 export interface Outline {

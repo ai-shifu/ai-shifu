@@ -21,8 +21,6 @@ import {
   LikeStatus,
   AudioCompleteData,
   type AudioSegmentData,
-  type ListenSlideData,
-  type ElementType,
   getRunMessage,
   SSE_INPUT_TYPE,
   getLessonStudyRecord,
@@ -41,6 +39,8 @@ import {
 } from '@/c-api/studyV2';
 import {
   getAudioTrackByPosition,
+  mergeAudioCompleteIntoTracks,
+  mergeAudioSegmentsIntoTracks,
   upsertAudioComplete,
   upsertAudioSegment,
   type AudioTrack,
@@ -89,8 +89,10 @@ export interface ChatContentItem {
   readonly?: boolean;
   isHistory?: boolean;
   element_bid: string;
+  generated_block_bid?: string;
   ask_element_bid?: string; // use for ask block, because an interaction block gid isn't ask gid
   parent_element_bid?: string; // when like_status is not none, the parent_element_bid is the element_bid of the interaction block
+  parent_block_bid?: string;
   like_status?: LikeStatus;
   type: ChatContentItemType | BlockType | ElementType;
   ask_list?: ChatContentItem[]; // list of ask records for this content block
@@ -102,7 +104,6 @@ export interface ChatContentItem {
   audioTracks?: AudioTrack[];
   isAudioStreaming?: boolean;
   audioDurationMs?: number;
-  listenSlides?: ListenSlideData[];
   // Preserve element-level fields from backend records for listen-mode rendering.
   element_type?: ElementType;
   sequence_number?: number;
@@ -112,12 +113,14 @@ export interface ChatContentItem {
   is_speakable?: boolean;
   audio_url?: string;
   audio_segments?: AudioSegmentData[];
+  payload?: StudyRecordItem['payload'];
 }
 
 interface SSEParams {
   input: string | Record<string, any>;
   input_type: SSE_INPUT_TYPE;
   reload_generated_block_bid?: string;
+  reload_element_bid?: string;
 }
 
 export interface UseChatSessionParams {
@@ -219,11 +222,11 @@ function useChatLogicHook({
   const contentListRef = useRef<ChatContentItem[]>([]);
   const currentContentRef = useRef<string>('');
   const currentBlockIdRef = useRef<string | null>(null);
+  const audioTargetElementBidRef = useRef<Record<string, string>>({});
   const runRef = useRef<((params: SSEParams) => void) | null>(null);
   const sseRef = useRef<any>(null);
   const sseRunSerialRef = useRef(0);
   const ttsSseRef = useRef<Record<string, any>>({});
-  const pendingSlidesRef = useRef<Record<string, ListenSlideData[]>>({});
   const lastInteractionBlockRef = useRef<ChatContentItem | null>(null);
   const hasScrolledToBottomRef = useRef<boolean>(false);
   const [pendingRegenerate, setPendingRegenerate] = useState<{
@@ -277,41 +280,130 @@ function useChatLogicHook({
     return item.element_bid === bid;
   }, []);
 
-  const resolveSourceGeneratedBlockBid = useCallback((bid: string) => bid, []);
+  const buildAudioTargetKey = useCallback(
+    (generatedBlockBid?: string | null, position?: number | null) => {
+      if (!generatedBlockBid) {
+        return '';
+      }
+      return `${generatedBlockBid}:${Number(position ?? 0)}`;
+    },
+    [],
+  );
+
+  const resolveSourceGeneratedBlockBid = useCallback((bid: string) => {
+    if (!bid) {
+      return '';
+    }
+    const matchedItem = contentListRef.current.find(
+      item => item.element_bid === bid,
+    );
+    return matchedItem?.generated_block_bid || bid;
+  }, []);
+
+  const rememberAudioTargetElementBid = useCallback(
+    (record: StudyRecordItem, elementBid: string) => {
+      if (!record.generated_block_bid || !elementBid) {
+        return;
+      }
+
+      const positions = new Set<number>();
+      const segments = Array.isArray(record.audio_segments)
+        ? record.audio_segments
+        : [];
+
+      segments.forEach(segment => {
+        positions.add(Number(segment.position ?? 0));
+      });
+
+      if (!positions.size && record.audio_url) {
+        positions.add(0);
+      }
+
+      positions.forEach(position => {
+        const targetKey = buildAudioTargetKey(
+          record.generated_block_bid,
+          position,
+        );
+        if (!targetKey) {
+          return;
+        }
+        audioTargetElementBidRef.current[targetKey] = elementBid;
+      });
+    },
+    [buildAudioTargetKey],
+  );
+
+  const resolveAudioStreamTargetBid = useCallback(
+    (
+      response?: {
+        content?: {
+          element_bid?: string;
+          position?: number;
+        } | null;
+        element_bid?: string;
+        generated_block_bid?: string;
+      } | null,
+    ) => {
+      const directElementBid =
+        response?.content?.element_bid || response?.element_bid || '';
+      if (directElementBid) {
+        return directElementBid;
+      }
+
+      const generatedBlockBid = response?.generated_block_bid || '';
+      if (generatedBlockBid) {
+        const position = Number(response?.content?.position ?? 0);
+        const mappedElementBid =
+          audioTargetElementBidRef.current[
+            buildAudioTargetKey(generatedBlockBid, position)
+          ] ||
+          audioTargetElementBidRef.current[
+            buildAudioTargetKey(generatedBlockBid, 0)
+          ];
+        if (mappedElementBid) {
+          return mappedElementBid;
+        }
+      }
+
+      return currentBlockIdRef.current || generatedBlockBid || '';
+    },
+    [buildAudioTargetKey],
+  );
 
   const isLessonFeedbackContent = useCallback((content?: string | null) => {
     return Boolean(content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER));
   }, []);
 
   const normalizeHistoryAudioTracks = useCallback(
-    (record: StudyRecordItem): AudioTrack[] => {
+    (
+      record: StudyRecordItem,
+      previousItem?: Pick<
+        ChatContentItem,
+        'audioTracks' | 'audioDurationMs'
+      > | null,
+    ): AudioTrack[] => {
       const audios = Array.isArray(record.audio_segments)
         ? record.audio_segments
         : [];
-      if (!audios.length) {
-        if (!record.audio_url) {
-          return [];
-        }
-        return [
-          {
-            position: 0,
-            audioUrl: record.audio_url,
-            durationMs: 0,
-            isAudioStreaming: false,
-          },
-        ];
+
+      const itemBid =
+        resolveElementItemBid(record) || record.generated_block_bid || '';
+      let nextTracks = previousItem?.audioTracks ?? [];
+
+      if (audios.length && itemBid) {
+        nextTracks = mergeAudioSegmentsIntoTracks(itemBid, nextTracks, audios);
       }
 
-      return [...audios]
-        .sort((a, b) => Number(a.position ?? 0) - Number(b.position ?? 0))
-        .map(audio => ({
-          position: Number(audio.position ?? 0),
-          audioUrl: audio.audio_data,
-          durationMs: Number(audio.duration_ms ?? 0),
-          isAudioStreaming: false,
-        }));
+      if (record.audio_url) {
+        nextTracks = mergeAudioCompleteIntoTracks(nextTracks, {
+          audio_url: record.audio_url,
+          duration_ms: previousItem?.audioDurationMs ?? 0,
+        });
+      }
+
+      return nextTracks;
     },
-    [],
+    [resolveElementItemBid],
   );
 
   const buildElementContentItem = useCallback(
@@ -320,12 +412,14 @@ function useChatLogicHook({
       options?: {
         appendAskButton?: boolean;
         isHistory?: boolean;
-        listenSlides?: ListenSlideData[];
         previousItem?: ChatContentItem;
       },
     ): ChatContentItem => {
-      const historyTracks = normalizeHistoryAudioTracks(record);
-      const singleTrack = historyTracks.length === 1 ? historyTracks[0] : null;
+      const historyTracks = normalizeHistoryAudioTracks(
+        record,
+        options?.previousItem,
+      );
+      const primaryTrack = getAudioTrackByPosition(historyTracks);
       const itemBid = resolveElementItemBid(record);
       const isInteractionElement =
         record.element_type === ELEMENT_TYPE.INTERACTION;
@@ -337,6 +431,25 @@ function useChatLogicHook({
         !isInteractionElement
           ? appendCustomButtonAfterContent(rawContent, getAskButtonMarkup())
           : rawContent;
+
+      const asks = record.payload?.asks;
+      const askList =
+        asks && asks.length > 0
+          ? asks.map((a, idx) => ({
+              element_bid: `${itemBid}-ask-${idx}`,
+              type:
+                a.role === 'student'
+                  ? (BLOCK_TYPE.ASK as
+                      | ChatContentItemType
+                      | BlockType
+                      | ElementType)
+                  : (BLOCK_TYPE.ANSWER as
+                      | ChatContentItemType
+                      | BlockType
+                      | ElementType),
+              content: a.content,
+            }))
+          : options?.previousItem?.ask_list;
 
       return {
         ...options?.previousItem,
@@ -352,17 +465,21 @@ function useChatLogicHook({
           ? ChatContentItemType.INTERACTION
           : ChatContentItemType.CONTENT,
         audioUrl:
-          singleTrack?.audioUrl ??
+          primaryTrack?.audioUrl ??
           record.audio_url ??
           options?.previousItem?.audioUrl,
         audioDurationMs:
-          singleTrack?.durationMs ?? options?.previousItem?.audioDurationMs,
+          primaryTrack?.durationMs ?? options?.previousItem?.audioDurationMs,
         audioTracks:
           historyTracks.length > 0
             ? historyTracks
             : options?.previousItem?.audioTracks,
-        listenSlides:
-          options?.listenSlides ?? options?.previousItem?.listenSlides,
+        isAudioStreaming:
+          historyTracks.length > 0
+            ? historyTracks.some(track => Boolean(track.isAudioStreaming))
+            : options?.previousItem?.isAudioStreaming,
+        ask_list: askList,
+        payload: record.payload ?? options?.previousItem?.payload,
       };
     },
     [
@@ -558,33 +675,6 @@ function useChatLogicHook({
     [setTrackedContentList],
   );
 
-  const sortSlidesByTimeline = useCallback((slides: ListenSlideData[] = []) => {
-    return [...slides].sort(
-      (a, b) =>
-        Number(a.slide_index ?? 0) - Number(b.slide_index ?? 0) ||
-        Number(a.audio_position ?? 0) - Number(b.audio_position ?? 0),
-    );
-  }, []);
-
-  const upsertListenSlide = useCallback(
-    (slides: ListenSlideData[] = [], incoming: ListenSlideData) => {
-      const nextSlides = [...slides];
-      const hitIndex = nextSlides.findIndex(
-        slide => slide.slide_id === incoming.slide_id,
-      );
-      if (hitIndex >= 0) {
-        nextSlides[hitIndex] = {
-          ...nextSlides[hitIndex],
-          ...incoming,
-        };
-      } else {
-        nextSlides.push(incoming);
-      }
-      return sortSlidesByTimeline(nextSlides);
-    },
-    [sortSlidesByTimeline],
-  );
-
   const ensureContentItem = useCallback(
     (items: ChatContentItem[], blockId: string): ChatContentItem[] => {
       if (!blockId || blockId === 'loading') {
@@ -737,7 +827,7 @@ function useChatLogicHook({
           //   return;
           // }
           try {
-            const nid =
+            const directBid =
               response?.content?.element_bid ||
               response?.element_bid ||
               response?.generated_block_bid ||
@@ -762,7 +852,11 @@ function useChatLogicHook({
                 });
               }
             }
-            const blockId = nid;
+            const blockId =
+              response.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT ||
+              response.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE
+                ? resolveAudioStreamTargetBid(response)
+                : directBid;
             // const blockId = currentBlockIdRef.current;
 
             if (blockId && [SSE_OUTPUT_TYPE.BREAK].includes(response.type)) {
@@ -782,12 +876,12 @@ function useChatLogicHook({
               }
 
               currentBlockIdRef.current = itemBid;
+              rememberAudioTargetElementBid(elementRecord, itemBid);
 
               const nextItem = buildElementContentItem(elementRecord, {
                 previousItem: contentListRef.current.find(
                   item => item.element_bid === itemBid,
                 ),
-                listenSlides: pendingSlidesRef.current[itemBid],
               });
               const isLessonFeedbackInteraction = isLessonFeedbackContent(
                 nextItem.content,
@@ -800,11 +894,19 @@ function useChatLogicHook({
 
                 if (hitIndex >= 0) {
                   const nextList = [...prevState];
+                  const existing = nextList[hitIndex];
+                  // Accumulate audio_segments from element patches
+                  // (backend sends one segment per patch, not cumulative)
+                  const mergedAudioSegments = nextItem.audio_segments?.length
+                    ? [
+                        ...(existing.audio_segments ?? []),
+                        ...nextItem.audio_segments,
+                      ]
+                    : existing.audio_segments;
                   nextList[hitIndex] = {
-                    ...nextList[hitIndex],
+                    ...existing,
                     ...nextItem,
-                    listenSlides:
-                      nextItem.listenSlides ?? nextList[hitIndex].listenSlides,
+                    audio_segments: mergedAudioSegments,
                   };
                   return nextList;
                 }
@@ -833,10 +935,6 @@ function useChatLogicHook({
                 return [...prevState, nextItem];
               });
 
-              if (pendingSlidesRef.current[itemBid]) {
-                delete pendingSlidesRef.current[itemBid];
-              }
-
               if (isLessonFeedbackInteraction && nextItem.element_bid) {
                 openLessonFeedbackPopup({
                   elementBid: nextItem.element_bid,
@@ -849,7 +947,7 @@ function useChatLogicHook({
               setTrackedContentList((prev: ChatContentItem[]) => {
                 // Use markdown-flow-ui default rendering for all interactions
                 const interactionBlock: ChatContentItem = {
-                  element_bid: nid,
+                  element_bid: directBid,
                   content: response.content,
                   customRenderBar: () => null,
                   user_input: '',
@@ -873,9 +971,9 @@ function useChatLogicHook({
                   return [...prev, interactionBlock];
                 }
               });
-              if (isLessonFeedbackInteraction && nid) {
+              if (isLessonFeedbackInteraction && directBid) {
                 openLessonFeedbackPopup({
-                  elementBid: nid,
+                  elementBid: directBid,
                 });
               }
             } else if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
@@ -898,10 +996,6 @@ function useChatLogicHook({
                         ...item,
                         content: displayText,
                         customRenderBar: () => null,
-                        listenSlides:
-                          item.listenSlides ??
-                          pendingSlidesRef.current[blockId] ??
-                          item.listenSlides,
                       };
                     }
                     return item;
@@ -914,14 +1008,10 @@ function useChatLogicHook({
                       readonly: false,
                       customRenderBar: () => null,
                       type: ChatContentItemType.CONTENT,
-                      listenSlides: pendingSlidesRef.current[blockId],
                     });
                   }
                   return updatedList;
                 });
-                if (pendingSlidesRef.current[blockId]) {
-                  delete pendingSlidesRef.current[blockId];
-                }
               }
             } else if (response.type === SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE) {
               const { status, outline_bid } = response.content;
@@ -1008,50 +1098,6 @@ function useChatLogicHook({
                   name: response.content.variable_value,
                 });
               }
-            } else if (response.type === SSE_OUTPUT_TYPE.NEW_SLIDE) {
-              const incomingSlide = response.content as ListenSlideData;
-              const slideElementBid =
-                incomingSlide?.element_bid ||
-                incomingSlide?.target_element_bid ||
-                currentBlockIdRef.current ||
-                blockId ||
-                '';
-              if (!slideElementBid || !incomingSlide?.slide_id) {
-                return;
-              }
-
-              const nextSlide = {
-                ...incomingSlide,
-                element_bid: slideElementBid,
-              };
-
-              setTrackedContentList(prevState => {
-                const hasContentBlock = prevState.some(item =>
-                  matchItemBid(item, slideElementBid),
-                );
-                if (!hasContentBlock) {
-                  const pending =
-                    pendingSlidesRef.current[slideElementBid] ?? [];
-                  pendingSlidesRef.current[slideElementBid] = upsertListenSlide(
-                    pending,
-                    nextSlide,
-                  );
-                  return prevState;
-                }
-
-                return prevState.map(item => {
-                  if (!matchItemBid(item, slideElementBid)) {
-                    return item;
-                  }
-                  return {
-                    ...item,
-                    listenSlides: upsertListenSlide(
-                      item.listenSlides ?? [],
-                      nextSlide,
-                    ),
-                  };
-                });
-              });
             } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
               if (!allowTtsStreaming) {
                 return;
@@ -1171,8 +1217,9 @@ function useChatLogicHook({
       logAudioDebug,
       matchItemBid,
       openLessonFeedbackPopup,
+      rememberAudioTargetElementBid,
       resolveElementItemBid,
-      upsertListenSlide,
+      resolveAudioStreamTargetBid,
       updateUserInfo,
     ],
   );
@@ -1205,11 +1252,12 @@ function useChatLogicHook({
           return;
         }
 
+        const hitIndex = indexByElementBid.get(itemBid);
         const nextItem = buildElementContentItem(item, {
           appendAskButton: true,
           isHistory: true,
+          previousItem: hitIndex === undefined ? undefined : result[hitIndex],
         });
-        const hitIndex = indexByElementBid.get(itemBid);
 
         if (hitIndex === undefined) {
           indexByElementBid.set(itemBid, result.length);
@@ -1240,6 +1288,42 @@ function useChatLogicHook({
             result[likeStatusIndex] = likeStatusItem;
           }
         }
+
+        // Create ASK item for elements with payload.asks history
+        const asks = item.payload?.asks;
+        if (asks && asks.length > 0) {
+          const askIndex = result.findIndex(
+            contentItem =>
+              contentItem.type === ChatContentItemType.ASK &&
+              contentItem.parent_element_bid === itemBid,
+          );
+          const askItem: ChatContentItem = {
+            element_bid: `ask-${itemBid}`,
+            parent_element_bid: itemBid,
+            type: ChatContentItemType.ASK,
+            isAskExpanded: false,
+            ask_list: asks.map((a, idx) => ({
+              element_bid: `${itemBid}-ask-${idx}`,
+              type:
+                a.role === 'student'
+                  ? (BLOCK_TYPE.ASK as
+                      | ChatContentItemType
+                      | BlockType
+                      | ElementType)
+                  : (BLOCK_TYPE.ANSWER as
+                      | ChatContentItemType
+                      | BlockType
+                      | ElementType),
+              content: a.content,
+            })),
+          };
+
+          if (askIndex === -1) {
+            result.push(askItem);
+          } else {
+            result[askIndex] = askItem;
+          }
+        }
       });
 
       return result;
@@ -1252,7 +1336,6 @@ function useChatLogicHook({
    */
   const refreshData = useCallback(async () => {
     setTrackedContentList(() => []);
-    pendingSlidesRef.current = {};
     resetLessonFeedbackPopup();
 
     // setIsTypeFinished(true);
@@ -1884,11 +1967,13 @@ function useChatLogicHook({
         return null;
       }
 
-      const sourceBlockBid = resolveSourceGeneratedBlockBid(elementBid);
+      const sourceGeneratedBlockBid =
+        resolveSourceGeneratedBlockBid(elementBid);
 
       if (!allowTtsStreaming) {
         logAudioDebug('tts-request-skip-disabled', {
-          elementBid: sourceBlockBid,
+          elementBid,
+          generatedBlockBid: sourceGeneratedBlockBid,
         });
         return null;
       }
@@ -1913,23 +1998,25 @@ function useChatLogicHook({
         };
       }
 
-      if (ttsSseRef.current[sourceBlockBid]) {
+      if (ttsSseRef.current[sourceGeneratedBlockBid]) {
         logAudioDebug('tts-request-skip-existing-stream', {
-          elementBid: sourceBlockBid,
+          elementBid,
+          generatedBlockBid: sourceGeneratedBlockBid,
         });
         return null;
       }
-      const requestTraceId = `${sourceBlockBid}:${Date.now()}`;
+      const requestTraceId = `${sourceGeneratedBlockBid}:${Date.now()}`;
       logAudioDebug('tts-request-start', {
         requestTraceId,
-        elementBid: sourceBlockBid,
+        elementBid,
+        generatedBlockBid: sourceGeneratedBlockBid,
         isListenMode,
         previewMode: effectivePreviewMode,
       });
 
       setTrackedContentList(prev =>
         prev.map(item => {
-          if (!matchItemBid(item, sourceBlockBid)) {
+          if (!matchItemBid(item, elementBid)) {
             return item;
           }
 
@@ -1948,7 +2035,7 @@ function useChatLogicHook({
         let latestComplete: AudioCompleteData | null = null;
         const source = streamGeneratedBlockAudio({
           shifu_bid: shifuBid,
-          generated_block_bid: sourceBlockBid,
+          generated_block_bid: sourceGeneratedBlockBid,
           preview_mode: effectivePreviewMode,
           listen: isListenMode,
           onMessage: response => {
@@ -1956,7 +2043,8 @@ function useChatLogicHook({
               const audioPayload = response.content ?? response.data;
               logAudioDebug('tts-request-segment', {
                 requestTraceId,
-                elementBid: sourceBlockBid,
+                elementBid,
+                generatedBlockBid: sourceGeneratedBlockBid,
                 segmentIndex:
                   audioPayload?.segment_index ??
                   audioPayload?.segmentIndex ??
@@ -1970,7 +2058,7 @@ function useChatLogicHook({
               setTrackedContentList(prevState =>
                 upsertAudioSegment(
                   prevState,
-                  sourceBlockBid,
+                  elementBid,
                   audioPayload as AudioSegmentData,
                 ),
               );
@@ -1983,13 +2071,14 @@ function useChatLogicHook({
               latestComplete = audioComplete ?? latestComplete;
               logAudioDebug('tts-request-complete', {
                 requestTraceId,
-                elementBid: sourceBlockBid,
+                elementBid,
+                generatedBlockBid: sourceGeneratedBlockBid,
                 position: audioComplete?.position ?? 0,
                 hasAudioUrl: Boolean(audioComplete?.audio_url),
                 durationMs: audioComplete?.duration_ms ?? 0,
               });
               setTrackedContentList(prevState =>
-                upsertAudioComplete(prevState, sourceBlockBid, audioComplete),
+                upsertAudioComplete(prevState, elementBid, audioComplete),
               );
               if (finalizeTimer) {
                 clearTimeout(finalizeTimer);
@@ -1997,16 +2086,18 @@ function useChatLogicHook({
               const delayMs = isListenMode ? 500 : 0;
               logAudioDebug('tts-request-finalize-scheduled', {
                 requestTraceId,
-                elementBid: sourceBlockBid,
+                elementBid,
+                generatedBlockBid: sourceGeneratedBlockBid,
                 delayMs,
               });
               finalizeTimer = setTimeout(() => {
                 logAudioDebug('tts-request-finalize-run', {
                   requestTraceId,
-                  elementBid: sourceBlockBid,
+                  elementBid,
+                  generatedBlockBid: sourceGeneratedBlockBid,
                   hasComplete: Boolean(latestComplete),
                 });
-                closeTtsStream(sourceBlockBid);
+                closeTtsStream(sourceGeneratedBlockBid);
                 resolve(latestComplete ?? null);
               }, delayMs);
             }
@@ -2017,11 +2108,12 @@ function useChatLogicHook({
             }
             logAudioDebug('tts-request-error', {
               requestTraceId,
-              elementBid: sourceBlockBid,
+              elementBid,
+              generatedBlockBid: sourceGeneratedBlockBid,
             });
             setTrackedContentList(prev =>
               prev.map(item => {
-                if (!matchItemBid(item, sourceBlockBid)) {
+                if (!matchItemBid(item, elementBid)) {
                   return item;
                 }
                 return {
@@ -2030,15 +2122,16 @@ function useChatLogicHook({
                 };
               }),
             );
-            closeTtsStream(sourceBlockBid);
+            closeTtsStream(sourceGeneratedBlockBid);
             reject(new Error('TTS stream failed'));
           },
         });
 
-        ttsSseRef.current[sourceBlockBid] = source;
+        ttsSseRef.current[sourceGeneratedBlockBid] = source;
         logAudioDebug('tts-request-stream-opened', {
           requestTraceId,
-          elementBid: sourceBlockBid,
+          elementBid,
+          generatedBlockBid: sourceGeneratedBlockBid,
         });
       });
     },
