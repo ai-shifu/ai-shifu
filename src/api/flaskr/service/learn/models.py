@@ -269,7 +269,7 @@ class LearnGeneratedElement(db.Model):
         String(32),
         nullable=False,
         default="",
-        comment="Element type: html/svg/diff/img/interaction/tables/code/latex/md_img/mermaid/title/text",
+        comment="Element type: html/svg/diff/img/interaction/ask/tables/code/latex/md_img/mermaid/title/text",
         index=True,
     )
     element_type_code = Column(

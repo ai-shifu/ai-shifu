@@ -55,13 +55,14 @@ ELEMENT_TYPE_CODES = {
     ElementType.DIFF: 203,
     ElementType.IMG: 204,
     ElementType.INTERACTION: 205,
-    ElementType.TABLES: 206,
-    ElementType.CODE: 207,
-    ElementType.LATEX: 208,
-    ElementType.MD_IMG: 209,
-    ElementType.MERMAID: 210,
-    ElementType.TITLE: 211,
-    ElementType.TEXT: 212,
+    ElementType.ASK: 206,
+    ElementType.TABLES: 207,
+    ElementType.CODE: 208,
+    ElementType.LATEX: 209,
+    ElementType.MD_IMG: 210,
+    ElementType.MERMAID: 211,
+    ElementType.TITLE: 212,
+    ElementType.TEXT: 213,
     # Legacy codes kept for backfill compatibility
     ElementType._SANDBOX: 102,
     ElementType._PICTURE: 103,
@@ -96,7 +97,13 @@ MDFLOW_DIRECT_ELEMENT_TYPES = {
     element.value: element
     for element in ElementType
     if not element.name.startswith("_")
-    and element not in {ElementType.HTML, ElementType.IMG, ElementType.MD_IMG}
+    and element
+    not in {
+        ElementType.HTML,
+        ElementType.IMG,
+        ElementType.MD_IMG,
+        ElementType.ASK,
+    }
 }
 
 
@@ -185,15 +192,15 @@ def _element_type_code(element_type: ElementType) -> int:
 
 
 def _default_is_marker(element_type: ElementType) -> bool:
-    return element_type != ElementType.TEXT
+    return element_type not in {ElementType.TEXT, ElementType.ASK}
 
 
 def _default_is_renderable(element_type: ElementType) -> bool:
-    return element_type != ElementType.TEXT
+    return element_type not in {ElementType.TEXT, ElementType.ASK}
 
 
 def _default_is_speakable(element_type: ElementType, content_text: str = "") -> bool:
-    return element_type == ElementType.TEXT and bool(content_text)
+    return element_type in {ElementType.TEXT, ElementType.ASK} and bool(content_text)
 
 
 def _normalized_is_speakable(
@@ -202,7 +209,7 @@ def _normalized_is_speakable(
     *,
     stored_is_speakable: bool = False,
 ) -> bool:
-    if element_type != ElementType.TEXT:
+    if element_type not in {ElementType.TEXT, ElementType.ASK}:
         return False
     return bool(
         stored_is_speakable or _default_is_speakable(element_type, content_text)
@@ -308,6 +315,9 @@ def _deserialize_payload(raw_payload: str) -> ElementPayloadDTO:
     diff_payload = payload_dict.get("diff_payload")
     if not isinstance(diff_payload, list):
         diff_payload = None
+    anchor_element_bid = payload_dict.get("anchor_element_bid")
+    if anchor_element_bid is not None:
+        anchor_element_bid = str(anchor_element_bid or "")
     user_input = payload_dict.get("user_input")
     if user_input is not None:
         user_input = str(user_input or "")
@@ -317,10 +327,60 @@ def _deserialize_payload(raw_payload: str) -> ElementPayloadDTO:
     return ElementPayloadDTO(
         audio=audio,
         previous_visuals=visuals,
+        anchor_element_bid=anchor_element_bid,
         user_input=user_input,
         diff_payload=diff_payload,
         asks=asks,
     )
+
+
+def _load_latest_active_element_row(
+    element_bid: str,
+) -> LearnGeneratedElement | None:
+    if not element_bid:
+        return None
+    return (
+        LearnGeneratedElement.query.filter(
+            LearnGeneratedElement.event_type == "element",
+            LearnGeneratedElement.element_bid == element_bid,
+            LearnGeneratedElement.deleted == 0,
+            LearnGeneratedElement.status == 1,
+        )
+        .order_by(
+            LearnGeneratedElement.sequence_number.desc(),
+            LearnGeneratedElement.run_event_seq.desc(),
+            LearnGeneratedElement.id.desc(),
+        )
+        .first()
+    )
+
+
+def find_latest_ask_element_row(
+    progress_record_bid: str,
+    anchor_element_bid: str,
+) -> LearnGeneratedElement | None:
+    if not progress_record_bid or not anchor_element_bid:
+        return None
+    rows = (
+        LearnGeneratedElement.query.filter(
+            LearnGeneratedElement.progress_record_bid == progress_record_bid,
+            LearnGeneratedElement.event_type == "element",
+            LearnGeneratedElement.element_type == ElementType.ASK.value,
+            LearnGeneratedElement.deleted == 0,
+            LearnGeneratedElement.status == 1,
+        )
+        .order_by(
+            LearnGeneratedElement.sequence_number.desc(),
+            LearnGeneratedElement.run_event_seq.desc(),
+            LearnGeneratedElement.id.desc(),
+        )
+        .all()
+    )
+    for row in rows:
+        payload = _deserialize_payload(row.payload or "")
+        if (payload.anchor_element_bid or "") == anchor_element_bid:
+            return row
+    return None
 
 
 def _visuals_from_segment(
@@ -1030,6 +1090,8 @@ class ListenElementRunAdapter:
         self._last_emitted_element_type: ElementType | None = None
         # Track anchor element bid during ask flow
         self._current_ask_anchor_bid: str | None = None
+        self._current_ask_element_bid: str | None = None
+        self._ask_element_bid_by_block_bid: dict[str, str] = {}
 
     def _next_seq(self) -> int:
         self._run_event_seq += 1
@@ -1075,6 +1137,118 @@ class ListenElementRunAdapter:
             state = BlockState(generated_block_bid=generated_block_bid)
             self._block_states[generated_block_bid] = state
         return state
+
+    def _resolve_ask_element_bid_for_block(
+        self,
+        generated_block_bid: str,
+        *,
+        bind_current: bool = False,
+    ) -> str:
+        ask_element_bid = self._ask_element_bid_by_block_bid.get(
+            generated_block_bid, ""
+        )
+        if ask_element_bid:
+            return ask_element_bid
+        if bind_current and self._current_ask_element_bid:
+            self._ask_element_bid_by_block_bid[generated_block_bid] = (
+                self._current_ask_element_bid
+            )
+            return self._current_ask_element_bid
+        return ""
+
+    def _build_ask_payload(
+        self,
+        *,
+        anchor_element_bid: str,
+        asks: list[dict[str, Any]] | None = None,
+        base_payload: ElementPayloadDTO | None = None,
+        audio: ElementAudioDTO | None = None,
+    ) -> ElementPayloadDTO:
+        payload = base_payload or ElementPayloadDTO()
+        payload.audio = audio
+        payload.previous_visuals = []
+        payload.anchor_element_bid = anchor_element_bid
+        if asks is not None:
+            payload.asks = asks
+        return payload
+
+    def _build_ask_element(
+        self,
+        *,
+        generated_block_bid: str,
+        ask_element_bid: str,
+        anchor_element_bid: str,
+        asks: list[dict[str, Any]] | None = None,
+        content_text: str,
+        element_index: int,
+        is_new: bool,
+        is_final: bool,
+        audio: ElementAudioDTO | None = None,
+        audio_segments: list[dict[str, Any]] | None = None,
+        base_payload: ElementPayloadDTO | None = None,
+    ) -> ElementDTO:
+        return ElementDTO(
+            event_type="element",
+            element_bid=ask_element_bid,
+            generated_block_bid=generated_block_bid,
+            element_index=element_index,
+            role="teacher",
+            element_type=ElementType.ASK,
+            element_type_code=_element_type_code(ElementType.ASK),
+            change_type=ElementChangeType.RENDER,
+            target_element_bid=ask_element_bid if not is_new else None,
+            is_new=is_new,
+            is_renderable=False,
+            is_marker=False,
+            is_speakable=_normalized_is_speakable(
+                ElementType.ASK,
+                content_text,
+                stored_is_speakable=bool(audio is not None or audio_segments),
+            ),
+            audio_url=audio.audio_url if audio is not None else "",
+            audio_segments=list(audio_segments or []),
+            is_navigable=0,
+            is_final=is_final,
+            content_text=content_text,
+            payload=self._build_ask_payload(
+                anchor_element_bid=anchor_element_bid,
+                asks=asks,
+                base_payload=base_payload,
+                audio=audio,
+            ),
+        )
+
+    def _build_ask_element_patch(
+        self,
+        *,
+        generated_block_bid: str,
+        ask_element_bid: str,
+        anchor_element_bid: str,
+        asks: list[dict[str, Any]] | None = None,
+        content_text: str,
+        is_final: bool,
+        audio: ElementAudioDTO | None = None,
+        audio_segments: list[dict[str, Any]] | None = None,
+    ) -> ElementDTO | None:
+        snapshot = self._load_latest_element_snapshot(ask_element_bid)
+        if snapshot is None:
+            snapshot_row = _load_latest_active_element_row(ask_element_bid)
+            if snapshot_row is None:
+                return None
+            snapshot = _element_from_row(snapshot_row)
+        return self._build_ask_element(
+            generated_block_bid=generated_block_bid,
+            ask_element_bid=ask_element_bid,
+            anchor_element_bid=anchor_element_bid,
+            asks=asks,
+            content_text=content_text,
+            element_index=snapshot.element_index,
+            is_new=False,
+            is_final=is_final,
+            audio=audio,
+            audio_segments=audio_segments,
+            base_payload=snapshot.payload,
+        )
 
     def _formatted_parts_from_event(
         self, event: RunMarkdownFlowDTO
@@ -1157,7 +1331,12 @@ class ListenElementRunAdapter:
 
     def _persist_element(self, element: ElementDTO) -> None:
         seq = self._next_seq()
-        element.is_new = self._resolve_live_is_new(element)
+        if element.target_element_bid:
+            element.is_new = False
+        elif element.element_type == ElementType.ASK:
+            element.is_new = bool(element.is_new)
+        else:
+            element.is_new = self._resolve_live_is_new(element)
         if not element.is_new and not element.target_element_bid:
             element.target_element_bid = element.element_bid
         # Assign sequence_number (element-level counter)
@@ -1590,11 +1769,33 @@ class ListenElementRunAdapter:
     def _handle_content(
         self, event: RunMarkdownFlowDTO
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
+        generated_block_bid = event.generated_block_bid or ""
+        ask_element_bid = self._resolve_ask_element_bid_for_block(
+            generated_block_bid,
+            bind_current=True,
+        )
+        if ask_element_bid:
+            state = self._ensure_block_state(generated_block_bid)
+            state.raw_content += str(event.content or "")
+            audio = state.audio_by_position.get(0)
+            audio_segments = state.audio_segments_by_position.get(0, [])
+            ask_element = self._build_ask_element_patch(
+                generated_block_bid=generated_block_bid,
+                ask_element_bid=ask_element_bid,
+                anchor_element_bid=self._current_ask_anchor_bid or "",
+                content_text=state.raw_content,
+                is_final=False,
+                audio=audio,
+                audio_segments=audio_segments,
+            )
+            if ask_element is not None:
+                yield self._element_message(ask_element)
+            return
+
         formatted_parts = self._formatted_parts_from_event(event)
         if formatted_parts:
             yield from self._handle_formatted_content(event, formatted_parts)
             return
-        generated_block_bid = event.generated_block_bid or ""
         state = self._ensure_block_state(generated_block_bid)
         state.raw_content += str(event.content or "")
         meta = self._load_block_meta(generated_block_bid)
@@ -1618,6 +1819,25 @@ class ListenElementRunAdapter:
             state.latest_av_contract = content.av_contract
         position = int(getattr(content, "position", 0) or 0)
         state.audio_by_position[position] = _make_audio_payload(content)
+        ask_element_bid = self._resolve_ask_element_bid_for_block(
+            generated_block_bid,
+            bind_current=True,
+        )
+        if ask_element_bid:
+            ask_element = self._build_ask_element_patch(
+                generated_block_bid=generated_block_bid,
+                ask_element_bid=ask_element_bid,
+                anchor_element_bid=self._current_ask_anchor_bid or "",
+                content_text=state.raw_content,
+                is_final=False,
+                audio=state.audio_by_position.get(position),
+                audio_segments=state.audio_segments_by_position.get(position, []),
+            )
+            if ask_element is not None:
+                yield self._element_message(ask_element)
+            if not self._state_machine.is_terminated:
+                self._state_machine.feed(TypeInput.AUDIO_COMPLETE)
+            return
         target_element_bid = (
             state.audio_target_element_bid_by_position.get(position)
             or self._current_element_bid
@@ -1637,14 +1857,9 @@ class ListenElementRunAdapter:
                 patched_element = patch_msg.content
                 if isinstance(patched_element, ElementDTO):
                     patched_element.audio_url = content.audio_url
-                    patched_element.payload = ElementPayloadDTO(
-                        audio=audio_payload,
-                        previous_visuals=(
-                            patched_element.payload.previous_visuals
-                            if patched_element.payload
-                            else []
-                        ),
-                    )
+                    payload = patched_element.payload or ElementPayloadDTO()
+                    payload.audio = audio_payload
+                    patched_element.payload = payload
                 yield patch_msg
         # Feed state machine
         if not self._state_machine.is_terminated:
@@ -1671,6 +1886,25 @@ class ListenElementRunAdapter:
             state.audio_segments_by_position.setdefault(position, []).append(
                 segment_data
             )
+            ask_element_bid = self._resolve_ask_element_bid_for_block(
+                generated_block_bid,
+                bind_current=True,
+            )
+            if ask_element_bid:
+                ask_element = self._build_ask_element_patch(
+                    generated_block_bid=generated_block_bid,
+                    ask_element_bid=ask_element_bid,
+                    anchor_element_bid=self._current_ask_anchor_bid or "",
+                    content_text=state.raw_content,
+                    is_final=False,
+                    audio=state.audio_by_position.get(position),
+                    audio_segments=state.audio_segments_by_position.get(position, []),
+                )
+                if ask_element is not None:
+                    yield self._element_message(ask_element)
+                if not self._state_machine.is_terminated:
+                    self._state_machine.feed(TypeInput.AUDIO_SEGMENT)
+                return
             target_element_bid = state.audio_target_element_bid_by_position.get(
                 position
             )
@@ -1842,12 +2076,10 @@ class ListenElementRunAdapter:
         )
         yield self._element_message(element)
 
-    def _handle_ask(self, event: RunMarkdownFlowDTO) -> None:
-        """Append student ask entry to anchor element's payload.asks.
-
-        Does not produce any element or SSE message — the ask is purely
-        persisted as a payload.asks entry on the anchor element.
-        """
+    def _handle_ask(
+        self, event: RunMarkdownFlowDTO
+    ) -> Generator[RunElementSSEMessageDTO, None, None]:
+        """Create or patch the ask sidecar element for the anchor."""
         anchor_bid = getattr(event, "anchor_element_bid", "") or ""
         ask_content = str(event.content or "")
         if not anchor_bid:
@@ -1855,47 +2087,69 @@ class ListenElementRunAdapter:
             return
 
         self._current_ask_anchor_bid = anchor_bid
-
-        anchor_row = LearnGeneratedElement.query.filter(
-            LearnGeneratedElement.element_bid == anchor_bid,
-            LearnGeneratedElement.deleted == 0,
-        ).first()
+        generated_block_bid = event.generated_block_bid or ""
+        meta = self._load_block_meta(generated_block_bid)
+        anchor_row = _load_latest_active_element_row(anchor_bid)
         if anchor_row is None:
             self.app.logger.warning("ASK anchor element not found: %s", anchor_bid)
             return
+        if not meta.progress_record_bid:
+            meta.progress_record_bid = anchor_row.progress_record_bid or ""
+            self._block_meta_cache[generated_block_bid] = meta
 
-        payload_dto = _deserialize_payload(anchor_row.payload or "")
-        asks = payload_dto.asks if payload_dto.asks is not None else []
+        ask_row = find_latest_ask_element_row(meta.progress_record_bid, anchor_bid)
+        ask_element_bid = (
+            ask_row.element_bid if ask_row is not None else _new_element_bid(self.app)
+        )
+        payload_dto = (
+            _deserialize_payload(ask_row.payload or "")
+            if ask_row is not None
+            else ElementPayloadDTO(anchor_element_bid=anchor_bid, asks=[])
+        )
+        asks = list(payload_dto.asks or [])
         asks.append(
             {
                 "role": "student",
                 "content": ask_content,
-                "generated_block_bid": event.generated_block_bid or "",
+                "generated_block_bid": generated_block_bid,
             }
         )
-        payload_dto.asks = asks
-        anchor_row.payload = _serialize_payload(payload_dto)
-        db.session.flush()
+        self._current_ask_element_bid = ask_element_bid
+        self._ask_element_bid_by_block_bid[generated_block_bid] = ask_element_bid
 
-    def _append_teacher_answer_to_asks(self, generated_block_bid: str) -> None:
-        """Append teacher answer to anchor element's payload.asks on BREAK."""
-        anchor_bid = self._current_ask_anchor_bid
-        if not anchor_bid:
-            return
+        ask_element = self._build_ask_element(
+            generated_block_bid=generated_block_bid,
+            ask_element_bid=ask_element_bid,
+            anchor_element_bid=anchor_bid,
+            asks=asks,
+            content_text="",
+            element_index=int(anchor_row.element_index or 0),
+            is_new=ask_row is None,
+            is_final=False,
+            audio=None,
+            audio_segments=[],
+            base_payload=payload_dto,
+        )
+        yield self._element_message(ask_element)
+
+    def _append_teacher_answer_to_asks(
+        self, generated_block_bid: str
+    ) -> RunElementSSEMessageDTO | None:
+        """Append teacher answer to ask element payload.asks on BREAK."""
+        anchor_bid = self._current_ask_anchor_bid or ""
+        ask_element_bid = self._resolve_ask_element_bid_for_block(generated_block_bid)
+        if not anchor_bid or not ask_element_bid:
+            return None
         state = self._block_states.get(generated_block_bid)
         answer_content = state.raw_content if state else ""
-        if not answer_content:
-            return
-
-        anchor_row = LearnGeneratedElement.query.filter(
-            LearnGeneratedElement.element_bid == anchor_bid,
-            LearnGeneratedElement.deleted == 0,
-        ).first()
-        if anchor_row is None:
-            return
-
-        payload_dto = _deserialize_payload(anchor_row.payload or "")
-        asks = payload_dto.asks if payload_dto.asks is not None else []
+        snapshot = self._load_latest_element_snapshot(ask_element_bid)
+        if snapshot is None:
+            snapshot_row = _load_latest_active_element_row(ask_element_bid)
+            if snapshot_row is None:
+                return None
+            snapshot = _element_from_row(snapshot_row)
+        payload_dto = snapshot.payload or ElementPayloadDTO()
+        asks = list(payload_dto.asks or [])
         asks.append(
             {
                 "role": "teacher",
@@ -1903,9 +2157,21 @@ class ListenElementRunAdapter:
                 "generated_block_bid": generated_block_bid,
             }
         )
-        payload_dto.asks = asks
-        anchor_row.payload = _serialize_payload(payload_dto)
-        db.session.flush()
+        audio = state.audio_by_position.get(0) if state else None
+        audio_segments = state.audio_segments_by_position.get(0, []) if state else []
+        ask_element = self._build_ask_element_patch(
+            generated_block_bid=generated_block_bid,
+            ask_element_bid=ask_element_bid,
+            anchor_element_bid=anchor_bid,
+            asks=asks,
+            content_text=answer_content,
+            is_final=True,
+            audio=audio,
+            audio_segments=audio_segments,
+        )
+        if ask_element is None:
+            return None
+        return self._element_message(ask_element)
 
     def process(
         self, events: Iterable[RunMarkdownFlowDTO]
@@ -1921,26 +2187,34 @@ class ListenElementRunAdapter:
                 yield from self._handle_audio_complete(event)
                 continue
             if event.type == GeneratedType.ASK:
-                self._handle_ask(event)
+                yield from self._handle_ask(event)
                 continue
             if event.type == GeneratedType.INTERACTION:
                 yield from self._handle_interaction(event)
                 continue
             if event.type == GeneratedType.BREAK:
-                yield from self._finalize_block(event.generated_block_bid or "")
-                # Append teacher answer to anchor element's payload.asks
-                if self._current_ask_anchor_bid:
-                    self._append_teacher_answer_to_asks(
-                        event.generated_block_bid or "",
+                generated_block_bid = event.generated_block_bid or ""
+                ask_element_bid = self._resolve_ask_element_bid_for_block(
+                    generated_block_bid
+                )
+                if ask_element_bid:
+                    ask_patch = self._append_teacher_answer_to_asks(
+                        generated_block_bid,
                     )
+                    if ask_patch is not None:
+                        yield ask_patch
+                    self._block_states.pop(generated_block_bid, None)
+                else:
+                    yield from self._finalize_block(generated_block_bid)
                 if not self._state_machine.is_terminated:
                     self._state_machine.feed(TypeInput.BLOCK_BREAK)
                 self._current_element_bid = None
                 self._current_ask_anchor_bid = None
+                self._current_ask_element_bid = None
                 yield self._non_element_message(
                     event_type=GeneratedType.BREAK.value,
                     content="",
-                    generated_block_bid=event.generated_block_bid or "",
+                    generated_block_bid=generated_block_bid,
                 )
                 continue
             if event.type == GeneratedType.DONE:

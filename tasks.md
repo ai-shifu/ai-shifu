@@ -1,6 +1,8 @@
-# Tasks (updated 2026-03-22)
+# Tasks (updated 2026-03-23)
 
 Design reference: `docs/learn-generated-elements-design.md`
+
+Superseded note: 2026-03-23 起，旧的“ask 内嵌 anchor payload.asks、不产生独立 element”方案被废弃，改为独立 `ask` element。K/L 中与旧 ask 设计相关的已完成项仅保留历史记录，不代表当前终态。
 
 ## 0. 现状核对（已完成）
 
@@ -199,3 +201,49 @@ Design reference: `docs/learn-generated-elements-design.md`
 - [ ] 追问历史：加载有追问历史的课程，确认 `payload.asks` 正确展示
 - [ ] 音频播放：确认 autoplay chain 在 listen 模式下正常工作
 - [ ] `npm run build` 无编译错误
+
+## M. ask 独立 Element 重构（P0）
+
+### M-Phase 0: 设计与协议冻结
+- [x] 设计文档改为独立 `ask` element 模型，移除“ask 不产生 element”约束
+- [x] 冻结 `ElementType.ASK` 语义：sidecar、`is_renderable=false`、`is_marker=false`、`is_navigable=0`
+- [x] 冻结 ask element payload：`anchor_element_bid` + `asks`
+- [x] 冻结 teacher answer live patch 目标：`target_element_bid=ask_element_bid`
+
+### M-Phase 1: 后端协议与 DTO
+- [x] `ElementType` 枚举新增 `ASK`
+- [x] `ELEMENT_TYPE_CODES` 与前端 `ELEMENT_TYPE` 同步新增 `ask`
+- [x] `ElementPayloadDTO` 新增 `anchor_element_bid`
+- [x] 更新 `is_renderable/is_marker/is_speakable` 推导规则以覆盖 `ask`
+- [x] 更新 swagger/schema 与序列化输出
+
+### M-Phase 2: 后端写链路
+- [x] `ListenElementRunAdapter` 为每个 anchor 查找或创建 ask element
+- [x] `_handle_ask()` 改为写 ask element，而不是写 anchor payload
+- [x] ask 的 teacher `CONTENT/AUDIO_SEGMENT/AUDIO_COMPLETE/BREAK` 全部 patch 到 ask element
+- [x] ask answer 封口后，把最近回答快照写回 ask element `content/audio_*`
+- [x] 兼容期保留或移除 anchor `payload.asks` 冗余写入策略，并在代码中统一单一 source of truth
+
+### M-Phase 3: 后端读链路与上下文
+- [x] `_load_ask_context()` 优先从 ask element 读取 `payload.asks`
+- [x] `reload_element_bid` 解析 anchor 后可定位已有 ask element
+- [x] records 聚合直接返回 ask element，不再要求前端从 anchor 派生 ASK 项
+- [x] legacy fallback 仅在 ask element 不存在或 asks 无效时回退 blocks
+
+### M-Phase 4: 回填
+- [ ] 回填脚本把历史 mdask/mdanswer 聚合成 ask element
+- [ ] ask element payload 回填 `anchor_element_bid`
+- [ ] 回填统计输出 `ask_elements_created/asks_matched/asks_skipped`
+
+### M-Phase 5: 前端消费
+- [x] `studyV2.ts` 新增 `ELEMENT_TYPE.ASK`
+- [x] `useChatLogicHook` 直接把 `element_type=ask` 映射为 ASK item
+- [x] 移除“从 anchor.payload.asks 派生 ASK item”旧逻辑
+- [x] `ListenModeSlideRenderer` 忽略 ask element 的 slide 参与，但能按 anchor 渲染 AskBlock
+- [ ] `AskBlock` 改为消费 ask element 的历史与流式 patch，而不是依赖本地影子状态作为主数据源
+
+### M-Phase 6: 验证
+- [ ] 后端 ask element 相关 pytest 通过
+- [ ] 前端 listen + ask 历史/流式回归通过
+- [ ] `npm run build` 通过
+- [ ] pre-commit 通过

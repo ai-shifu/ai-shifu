@@ -26,6 +26,7 @@ class TestElementType:
             "diff",
             "img",
             "interaction",
+            "ask",
             "tables",
             "code",
             "latex",
@@ -98,7 +99,7 @@ class TestElementDTONewFields:
             "element_index": 0,
             "role": "teacher",
             "element_type": ElementType.TEXT,
-            "element_type_code": 212,
+            "element_type_code": 213,
         }
         defaults.update(overrides)
         return ElementDTO(**defaults)
@@ -411,7 +412,7 @@ def test_is_new_false_applies_to_target_element_in_records(app):
             role="teacher",
             element_index=0,
             element_type="text",
-            element_type_code=212,
+            element_type_code=213,
             change_type="render",
             target_element_bid="",
             is_renderable=1,
@@ -441,7 +442,7 @@ def test_is_new_false_applies_to_target_element_in_records(app):
             role="teacher",
             element_index=0,
             element_type="text",
-            element_type_code=212,
+            element_type_code=213,
             change_type="render",
             target_element_bid="el-original",
             is_renderable=1,
@@ -522,7 +523,7 @@ def test_records_ordered_by_sequence_number(app):
                     role="teacher",
                     element_index=seq_num - 1,
                     element_type="text",
-                    element_type_code=212,
+                    element_type_code=213,
                     change_type="render",
                     target_element_bid="",
                     is_renderable=1,
@@ -597,7 +598,7 @@ def test_include_non_navigable_returns_events(app):
             role="teacher",
             element_index=0,
             element_type="text",
-            element_type_code=212,
+            element_type_code=213,
             change_type="render",
             target_element_bid="",
             is_renderable=1,
@@ -888,7 +889,7 @@ def test_interaction_elements_backfill_user_input_from_generated_blocks(app):
             role="ui",
             element_index=0,
             element_type="interaction",
-            element_type_code=211,
+            element_type_code=205,
             change_type="render",
             target_element_bid="",
             is_renderable=1,
@@ -1134,12 +1135,15 @@ class TestAskContextLoading:
             {"role": "student", "content": "q1"},
             {"role": "teacher", "content": "a1"},
         ]
-        payload = ElementPayloadDTO(asks=asks)
+        payload = ElementPayloadDTO()
         anchor = types.SimpleNamespace(
             content_text="anchor text",
             payload=_serialize_payload(payload),
         )
-        result = _load_ask_context(anchor, 10)
+        ask_element = types.SimpleNamespace(
+            payload=_serialize_payload(ElementPayloadDTO(asks=asks)),
+        )
+        result = _load_ask_context(anchor, ask_element, 10)
         assert result is not None
         assert result[0] == {"role": "assistant", "content": "anchor text"}
         assert result[1] == {"role": "user", "content": "q1"}
@@ -1156,13 +1160,16 @@ class TestAskContextLoading:
             content_text="text",
             payload=_serialize_payload(payload),
         )
-        result = _load_ask_context(anchor, 10)
+        ask_element = types.SimpleNamespace(
+            payload=_serialize_payload(ElementPayloadDTO()),
+        )
+        result = _load_ask_context(anchor, ask_element, 10)
         assert result is None
 
     def test_load_context_none_element(self):
         from flaskr.service.learn.handle_input_ask import _load_ask_context
 
-        assert _load_ask_context(None, 10) is None
+        assert _load_ask_context(None, None, 10) is None
 
     def test_load_context_truncation(self):
         import types
@@ -1176,12 +1183,15 @@ class TestAskContextLoading:
             else {"role": "teacher", "content": f"a{i}"}
             for i in range(20)
         ]
-        payload = ElementPayloadDTO(asks=asks)
+        payload = ElementPayloadDTO()
         anchor = types.SimpleNamespace(
             content_text="anchor",
             payload=_serialize_payload(payload),
         )
-        result = _load_ask_context(anchor, 4)
+        ask_element = types.SimpleNamespace(
+            payload=_serialize_payload(ElementPayloadDTO(asks=asks)),
+        )
+        result = _load_ask_context(anchor, ask_element, 4)
         assert result is not None
         # anchor content + last 4 asks entries
         assert len(result) == 5
@@ -1241,23 +1251,27 @@ class TestHandleAskAdapter:
                 anchor_element_bid="anchor_elem_1",
             )
 
-            adapter._handle_ask(event)
+            emitted = list(adapter._handle_ask(event))
+            assert len(emitted) == 1
 
-            refreshed = LearnGeneratedElement.query.filter(
-                LearnGeneratedElement.element_bid == "anchor_elem_1"
-            ).first()
-            payload = json.loads(refreshed.payload or "{}")
+            ask_rows = LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.element_type == "ask"
+            ).all()
+            assert len(ask_rows) == 1
+            payload = json.loads(ask_rows[0].payload or "{}")
+            assert payload["anchor_element_bid"] == "anchor_elem_1"
             assert "asks" in payload
             assert len(payload["asks"]) == 1
             assert payload["asks"][0]["role"] == "student"
             assert payload["asks"][0]["content"] == "user question here"
 
-    def test_handle_ask_no_element_emitted(self, app):
+    def test_handle_ask_emits_ask_element(self, app):
         from flaskr.service.learn.listen_elements import (
             ListenElementRunAdapter,
             _serialize_payload,
         )
         from flaskr.service.learn.learn_dtos import (
+            ElementType,
             GeneratedType,
             RunMarkdownFlowDTO,
             ElementPayloadDTO,
@@ -1304,7 +1318,9 @@ class TestHandleAskAdapter:
                 )
             ]
             result = list(adapter.process(events))
-            assert len(result) == 0
+            assert len(result) == 1
+            assert result[0].content.element_type == ElementType.ASK
+            assert result[0].content.payload.anchor_element_bid == "anchor_elem_2"
 
     def test_handle_ask_sets_anchor_bid_state(self, app):
         from flaskr.service.learn.listen_elements import (
@@ -1355,8 +1371,9 @@ class TestHandleAskAdapter:
                 content="q",
                 anchor_element_bid="anchor_elem_3",
             )
-            adapter._handle_ask(event)
+            list(adapter._handle_ask(event))
             assert adapter._current_ask_anchor_bid == "anchor_elem_3"
+            assert adapter._current_ask_element_bid
 
 
 class TestRunMarkdownFlowDTOAnchorBid:

@@ -1,13 +1,11 @@
 from typing import Generator
 from flask import Flask
-from flaskr.api.llm import chat_llm
 from flaskr.i18n import _
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 
 from flaskr.service.learn.models import LearnGeneratedBlock
 from flaskr.framework.plugin.plugin_manager import extensible_generic
 from flaskr.dao import db
-from flaskr.service.learn.check_text import check_text_with_llm_response
 from flaskr.service.user.repository import UserAggregate
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from langfuse.client import StatefulTraceClient
@@ -23,18 +21,11 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDINTERACTION_VALUE,
 )
 from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO, GeneratedType
-from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_generation_name,
     build_langfuse_span_name,
 )
 from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
-from flaskr.service.learn.ask_provider_adapters import (
-    AskProviderError,
-    AskProviderRuntime,
-    AskProviderTimeoutError,
-    stream_ask_provider_response,
-)
 from flaskr.service.shifu.ask_provider_registry import get_effective_ask_provider_config
 from flaskr.service.shifu.shifu_draft_funcs import (
     ASK_PROVIDER_LLM,
@@ -48,7 +39,18 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.service.learn.models import LearnGeneratedElement
-from flaskr.service.learn.listen_elements import _deserialize_payload
+from flaskr.service.learn.listen_elements import (
+    _deserialize_payload,
+    find_latest_ask_element_row,
+)
+
+check_text_with_llm_response = None
+LLMSettings = None
+AskProviderError = None
+AskProviderRuntime = None
+AskProviderTimeoutError = None
+stream_ask_provider_response = None
+chat_llm = None
 
 
 def _is_valid_asks(asks):
@@ -60,15 +62,18 @@ def _is_valid_asks(asks):
     return has_student and has_teacher
 
 
-def _load_ask_context(anchor_element, ask_max_history_len):
-    """Load ask context from anchor element's payload.asks.
+def _load_ask_context(anchor_element, ask_element, ask_max_history_len):
+    """Load ask context from ask element payload first.
 
     Returns (llm_messages, provider_messages) or None if fallback to blocks is needed.
     """
     if anchor_element is None:
         return None
 
-    payload_dto = _deserialize_payload(getattr(anchor_element, "payload", "") or "")
+    if ask_element is None:
+        return None
+
+    payload_dto = _deserialize_payload(getattr(ask_element, "payload", "") or "")
     asks = payload_dto.asks
 
     if not _is_valid_asks(asks):
@@ -160,7 +165,15 @@ def _run_guardrail(
     chapter_title,
     ask_scene,
 ):
-    res = check_text_with_llm_response(
+    check_text_func = globals().get("check_text_with_llm_response")
+    llm_settings_cls = globals().get("LLMSettings")
+    if check_text_func is None or llm_settings_cls is None:
+        from flaskr.service.learn.check_text import (
+            check_text_with_llm_response as check_text_func,
+        )
+        from flaskr.service.learn.llmsetting import LLMSettings as llm_settings_cls
+
+    res = check_text_func(
         app,
         user_info=user_info,
         log_script=ask_block,
@@ -169,7 +182,7 @@ def _run_guardrail(
         outline_item_bid=outline_item_info.bid,
         shifu_bid=outline_item_info.shifu_bid,
         block_position=last_position,
-        llm_settings=LLMSettings(
+        llm_settings=llm_settings_cls(
             model=follow_up_model,
             temperature=follow_up_info.model_args["temperature"],
         ),
@@ -258,15 +271,22 @@ def handle_input_ask(
     if base_system_prompt:
         provider_messages.append({"role": "system", "content": base_system_prompt})
 
-    # Try loading ask context from anchor element's payload.asks first
+    # Try loading ask context from ask sidecar element first
     anchor_element = None
+    ask_element = None
     if anchor_element_bid:
         anchor_element = LearnGeneratedElement.query.filter(
             LearnGeneratedElement.element_bid == anchor_element_bid,
             LearnGeneratedElement.deleted == 0,
         ).first()
+        if anchor_element is not None:
+            ask_element = find_latest_ask_element_row(attend_id, anchor_element_bid)
 
-    element_context = _load_ask_context(anchor_element, ask_max_history_len)
+    element_context = _load_ask_context(
+        anchor_element,
+        ask_element,
+        ask_max_history_len,
+    )
     if element_context is not None:
         for msg in element_context:
             llm_messages.append(msg)
@@ -415,8 +435,32 @@ def handle_input_ask(
 
     response_text = ""  # Store complete response text
     provider_error: Exception | None = None
-    llm_runtime = AskProviderRuntime(
-        llm_stream_factory=lambda: chat_llm(
+    stream_provider_response_func = globals().get("stream_ask_provider_response")
+    ask_provider_runtime_cls = globals().get("AskProviderRuntime")
+    ask_provider_error_cls = globals().get("AskProviderError")
+    ask_provider_timeout_error_cls = globals().get("AskProviderTimeoutError")
+    if (
+        stream_provider_response_func is None
+        or ask_provider_runtime_cls is None
+        or ask_provider_error_cls is None
+        or ask_provider_timeout_error_cls is None
+    ):
+        from flaskr.service.learn.ask_provider_adapters import (
+            AskProviderError as ask_provider_error_cls,
+            AskProviderRuntime as ask_provider_runtime_cls,
+            AskProviderTimeoutError as ask_provider_timeout_error_cls,
+            stream_ask_provider_response as stream_provider_response_func,
+        )
+
+    chat_llm_func = globals().get("chat_llm")
+    if chat_llm_func is None:
+        chat_llm_func = __import__(
+            "flaskr.api.llm",
+            fromlist=["chat_llm"],
+        ).chat_llm
+
+    llm_runtime = ask_provider_runtime_cls(
+        llm_stream_factory=lambda: chat_llm_func(
             app,
             user_info.user_id,
             span,
@@ -440,7 +484,7 @@ def handle_input_ask(
         provider_input_messages = (
             llm_messages if provider_name == ASK_PROVIDER_LLM else provider_messages
         )
-        provider_resp = stream_ask_provider_response(
+        provider_resp = stream_provider_response_func(
             app=app,
             provider=provider_name,
             user_id=user_info.user_id,
@@ -479,7 +523,7 @@ def handle_input_ask(
     else:
         try:
             yield from _emit_provider_stream(ask_provider)
-        except AskProviderTimeoutError as exc:
+        except ask_provider_timeout_error_cls as exc:
             provider_error = exc
             app.logger.warning(
                 "ask provider timeout, provider=%s, mode=%s, shifu_bid=%s, outline_bid=%s",
@@ -488,7 +532,7 @@ def handle_input_ask(
                 outline_item_info.shifu_bid,
                 outline_item_info.bid,
             )
-        except AskProviderError as exc:
+        except ask_provider_error_cls as exc:
             provider_error = exc
             app.logger.warning(
                 "ask provider failed, provider=%s, mode=%s, shifu_bid=%s, outline_bid=%s, error=%s",
@@ -502,7 +546,7 @@ def handle_input_ask(
     use_llm_fallback = False
     if ask_provider != ASK_PROVIDER_LLM and not response_text:
         if ask_provider_mode == ASK_PROVIDER_MODE_PROVIDER_ONLY:
-            if isinstance(provider_error, AskProviderTimeoutError):
+            if isinstance(provider_error, ask_provider_timeout_error_cls):
                 response_text = str(_("server.learn.askProviderTimeout"))
             else:
                 response_text = str(_("server.learn.askProviderUnavailable"))

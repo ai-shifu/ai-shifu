@@ -33,7 +33,7 @@ interface ListenStep {
   audioSegments?: AudioSegmentData[];
   audioUrl?: string;
   isAudioStreaming?: boolean;
-  /** Pre-loaded ask history from payload.asks */
+  /** Ask history associated to the current anchor element */
   askList?: ChatContentItem[];
   isMarker?: boolean;
 }
@@ -73,6 +73,13 @@ const resolveItemAudioUrl = (item: ChatContentItem): string | undefined => {
 const buildSteps = (
   items: ChatContentItem[],
 ): { steps: ListenStep[]; interaction: ChatContentItem | null } => {
+  const askListByAnchor = new Map<string, ChatContentItem[]>();
+  items.forEach(item => {
+    if (item.type === ChatContentItemType.ASK && item.parent_element_bid) {
+      askListByAnchor.set(item.parent_element_bid, item.ask_list ?? []);
+    }
+  });
+
   const steps: ListenStep[] = [];
   let interaction: ChatContentItem | null = null;
 
@@ -85,11 +92,11 @@ const buildSteps = (
           bid: item.element_bid,
           content: item.content || '',
           elementType: item.element_type || ELEMENT_TYPE.HTML,
-          askList: item.ask_list,
+          askList: askListByAnchor.get(item.element_bid) ?? [],
           isMarker: item.is_marker ?? true,
         });
       } else {
-        // Narration → merge audio + asks into previous visual step
+        // Narration -> merge audio into previous visual step
         const audioSegments = resolveItemAudioSegments(item);
         const audioUrl = resolveItemAudioUrl(item);
         const last = steps[steps.length - 1];
@@ -102,10 +109,6 @@ const buildSteps = (
           }
           if (audioUrl) last.audioUrl = audioUrl;
           last.isAudioStreaming = item.isAudioStreaming;
-          // Merge ask history from narration element if visual has none
-          if (!last.askList?.length && item.ask_list?.length) {
-            last.askList = item.ask_list;
-          }
         }
       }
       return;

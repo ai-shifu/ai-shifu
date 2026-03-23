@@ -95,7 +95,7 @@ export interface ChatContentItem {
   parent_block_bid?: string;
   like_status?: LikeStatus;
   type: ChatContentItemType | BlockType | ElementType;
-  ask_list?: ChatContentItem[]; // list of ask records for this content block
+  ask_list?: ChatContentItem[]; // list of ask/answer records rendered for this ask block
   isAskExpanded?: boolean; // whether the ask panel is expanded
   generateTime?: number;
   variables?: PreviewVariablesMap;
@@ -423,18 +423,24 @@ function useChatLogicHook({
       const itemBid = resolveElementItemBid(record);
       const isInteractionElement =
         record.element_type === ELEMENT_TYPE.INTERACTION;
+      const isAskElement = record.element_type === ELEMENT_TYPE.ASK;
+      const anchorElementBid =
+        record.payload?.anchor_element_bid ||
+        options?.previousItem?.parent_element_bid ||
+        '';
       const rawContent = record.content ?? '';
       const content =
         options?.appendAskButton &&
         mobileStyle &&
         !isListenMode &&
-        !isInteractionElement
+        !isInteractionElement &&
+        !isAskElement
           ? appendCustomButtonAfterContent(rawContent, getAskButtonMarkup())
           : rawContent;
 
       const asks = record.payload?.asks;
       const askList =
-        asks && asks.length > 0
+        isAskElement && asks && asks.length > 0
           ? asks.map((a, idx) => ({
               element_bid: `${itemBid}-ask-${idx}`,
               type:
@@ -455,15 +461,20 @@ function useChatLogicHook({
         ...options?.previousItem,
         ...record,
         element_bid: itemBid,
+        parent_element_bid: isAskElement
+          ? anchorElementBid
+          : options?.previousItem?.parent_element_bid,
         content,
         customRenderBar: () => null,
         user_input:
           record.user_input || options?.previousItem?.user_input || '',
         readonly: options?.previousItem?.readonly ?? false,
         isHistory: options?.isHistory,
-        type: isInteractionElement
-          ? ChatContentItemType.INTERACTION
-          : ChatContentItemType.CONTENT,
+        type: isAskElement
+          ? ChatContentItemType.ASK
+          : isInteractionElement
+            ? ChatContentItemType.INTERACTION
+            : ChatContentItemType.CONTENT,
         audioUrl:
           primaryTrack?.audioUrl ??
           record.audio_url ??
@@ -478,7 +489,7 @@ function useChatLogicHook({
           historyTracks.length > 0
             ? historyTracks.some(track => Boolean(track.isAudioStreaming))
             : options?.previousItem?.isAudioStreaming,
-        ask_list: askList,
+        ask_list: isAskElement ? askList : options?.previousItem?.ask_list,
         payload: record.payload ?? options?.previousItem?.payload,
       };
     },
@@ -911,6 +922,33 @@ function useChatLogicHook({
                   return nextList;
                 }
 
+                if (nextItem.type === ChatContentItemType.ASK) {
+                  const anchorBid = nextItem.parent_element_bid || '';
+                  if (!anchorBid) {
+                    return [...prevState, nextItem];
+                  }
+
+                  const likeStatusIndex = prevState.findIndex(
+                    item =>
+                      item.type === ChatContentItemType.LIKE_STATUS &&
+                      item.parent_element_bid === anchorBid,
+                  );
+                  if (likeStatusIndex !== -1) {
+                    const nextList = [...prevState];
+                    nextList.splice(likeStatusIndex + 1, 0, nextItem);
+                    return nextList;
+                  }
+
+                  const anchorIndex = prevState.findIndex(
+                    item => item.element_bid === anchorBid,
+                  );
+                  if (anchorIndex !== -1) {
+                    const nextList = [...prevState];
+                    nextList.splice(anchorIndex + 1, 0, nextItem);
+                    return nextList;
+                  }
+                }
+
                 if (nextItem.type === ChatContentItemType.INTERACTION) {
                   const lastContent = prevState[prevState.length - 1];
 
@@ -1245,6 +1283,44 @@ function useChatLogicHook({
       const result: ChatContentItem[] = [];
       const indexByElementBid = new Map<string, number>();
 
+      const insertAskItemNearAnchor = (askItem: ChatContentItem) => {
+        const anchorBid = askItem.parent_element_bid || '';
+        if (!anchorBid) {
+          result.push(askItem);
+          return;
+        }
+
+        const existingAskIndex = result.findIndex(
+          contentItem =>
+            contentItem.type === ChatContentItemType.ASK &&
+            contentItem.parent_element_bid === anchorBid,
+        );
+        if (existingAskIndex !== -1) {
+          result[existingAskIndex] = askItem;
+          return;
+        }
+
+        const likeStatusIndex = result.findIndex(
+          contentItem =>
+            contentItem.type === ChatContentItemType.LIKE_STATUS &&
+            contentItem.parent_element_bid === anchorBid,
+        );
+        if (likeStatusIndex !== -1) {
+          result.splice(likeStatusIndex + 1, 0, askItem);
+          return;
+        }
+
+        const anchorIndex = result.findIndex(
+          contentItem => contentItem.element_bid === anchorBid,
+        );
+        if (anchorIndex !== -1) {
+          result.splice(anchorIndex + 1, 0, askItem);
+          return;
+        }
+
+        result.push(askItem);
+      };
+
       records.forEach((item: StudyRecordItem) => {
         const itemBid = resolveElementItemBid(item);
 
@@ -1258,6 +1334,11 @@ function useChatLogicHook({
           isHistory: true,
           previousItem: hitIndex === undefined ? undefined : result[hitIndex],
         });
+
+        if (nextItem.type === ChatContentItemType.ASK) {
+          insertAskItemNearAnchor(nextItem);
+          return;
+        }
 
         if (hitIndex === undefined) {
           indexByElementBid.set(itemBid, result.length);
@@ -1286,42 +1367,6 @@ function useChatLogicHook({
             result.push(likeStatusItem);
           } else {
             result[likeStatusIndex] = likeStatusItem;
-          }
-        }
-
-        // Create ASK item for elements with payload.asks history
-        const asks = item.payload?.asks;
-        if (asks && asks.length > 0) {
-          const askIndex = result.findIndex(
-            contentItem =>
-              contentItem.type === ChatContentItemType.ASK &&
-              contentItem.parent_element_bid === itemBid,
-          );
-          const askItem: ChatContentItem = {
-            element_bid: `ask-${itemBid}`,
-            parent_element_bid: itemBid,
-            type: ChatContentItemType.ASK,
-            isAskExpanded: false,
-            ask_list: asks.map((a, idx) => ({
-              element_bid: `${itemBid}-ask-${idx}`,
-              type:
-                a.role === 'student'
-                  ? (BLOCK_TYPE.ASK as
-                      | ChatContentItemType
-                      | BlockType
-                      | ElementType)
-                  : (BLOCK_TYPE.ANSWER as
-                      | ChatContentItemType
-                      | BlockType
-                      | ElementType),
-              content: a.content,
-            })),
-          };
-
-          if (askIndex === -1) {
-            result.push(askItem);
-          } else {
-            result[askIndex] = askItem;
           }
         }
       });
