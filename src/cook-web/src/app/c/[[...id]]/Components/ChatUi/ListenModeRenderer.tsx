@@ -59,7 +59,7 @@ interface ListenModeRendererProps {
   lessonId?: string;
   lessonStatus?: string;
   previewMode?: boolean;
-  onRequestAudioForBlock?: (generatedBlockBid: string) => Promise<any>;
+  onRequestAudioForBlock?: (elementBid: string) => Promise<any>;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
   onPlayerVisibilityChange?: (visible: boolean) => void;
 }
@@ -79,7 +79,7 @@ const ListenModeRenderer = ({
 }: ListenModeRendererProps) => {
   const deckRef = useRef<Reveal.Api | null>(null);
   const currentPptPageRef = useRef<number>(0);
-  const activeBlockBidRef = useRef<string | null>(null);
+  const activeElementBidRef = useRef<string | null>(null);
   const pendingAutoNextRef = useRef(false);
   const shouldStartSequenceRef = useRef(false);
   const [sequenceStartSignal, setSequenceStartSignal] = useState(0);
@@ -94,13 +94,13 @@ const ListenModeRenderer = ({
   const [isListenPlayerVisible, setIsListenPlayerVisible] = useState(true);
 
   const {
-    orderedContentBlockBids,
+    orderedContentElementBids,
     slideItems,
     interactionByPage,
     audioAndInteractionList,
     contentByBid,
     audioContentByBid,
-    ttsReadyBlockBids,
+    ttsReadyElementBids,
     lastInteractionBid,
     lastItemIsInteraction,
     firstContentItem,
@@ -127,17 +127,17 @@ const ListenModeRenderer = ({
       if (!currentBid) {
         return null;
       }
-      const currentIndex = orderedContentBlockBids.indexOf(currentBid);
+      const currentIndex = orderedContentElementBids.indexOf(currentBid);
       if (currentIndex < 0) {
         return null;
       }
 
       for (
         let i = currentIndex + 1;
-        i < orderedContentBlockBids.length;
+        i < orderedContentElementBids.length;
         i += 1
       ) {
-        const nextBid = orderedContentBlockBids[i];
+        const nextBid = orderedContentElementBids[i];
         if (!nextBid || nextBid === 'loading') {
           continue;
         }
@@ -145,7 +145,7 @@ const ListenModeRenderer = ({
       }
       return null;
     },
-    [orderedContentBlockBids],
+    [orderedContentElementBids],
   );
 
   const goToBlock = useCallback(
@@ -157,10 +157,10 @@ const ListenModeRenderer = ({
 
       const section =
         (chatRef.current.querySelector(
-          `section[data-generated-block-bid="${blockBid}"]`,
+          `section[data-element-bid="${blockBid}"]`,
         ) as HTMLElement | null) ||
         (chatRef.current.querySelector(
-          `section[data-generated-block-bid="empty-ppt-${blockBid}"]`,
+          `section[data-element-bid="empty-ppt-${blockBid}"]`,
         ) as HTMLElement | null);
       if (!section) {
         return false;
@@ -175,8 +175,8 @@ const ListenModeRenderer = ({
 
   const emptySlideBlockBid = useMemo(
     () =>
-      firstContentItem?.generated_block_bid
-        ? `empty-ppt-${firstContentItem.generated_block_bid}`
+      firstContentItem?.element_bid
+        ? `empty-ppt-${firstContentItem.element_bid}`
         : 'empty-ppt',
     [firstContentItem],
   );
@@ -298,8 +298,8 @@ const ListenModeRenderer = ({
   const {
     audioPlayerRef,
     activeContentItem,
-    activeSequenceBlockBid,
-    activeAudioBlockBid,
+    activeSequenceElementBid,
+    activeAudioElementBid,
     sequenceInteraction,
     isAudioSequenceActive,
     handleAudioEnded,
@@ -310,13 +310,13 @@ const ListenModeRenderer = ({
     audioAndInteractionList,
     deckRef,
     currentPptPageRef,
-    activeBlockBidRef,
+    activeElementBidRef,
     pendingAutoNextRef,
     shouldStartSequenceRef,
     sequenceStartSignal,
     contentByBid,
     audioContentByBid,
-    ttsReadyBlockBids,
+    ttsReadyElementBids,
     onRequestAudioForBlock,
     previewMode,
     shouldRenderEmptyPpt,
@@ -332,7 +332,7 @@ const ListenModeRenderer = ({
     chatRef,
     deckRef,
     currentPptPageRef,
-    activeBlockBidRef,
+    activeElementBidRef,
     pendingAutoNextRef,
     slideItems,
     interactionByPage,
@@ -395,10 +395,10 @@ const ListenModeRenderer = ({
 
   const listenPlayerInteraction = sequenceInteraction;
   const isLatestInteractionEditable = Boolean(
-    listenPlayerInteraction?.generated_block_bid &&
+    listenPlayerInteraction?.element_bid &&
     lastItemIsInteraction &&
     lastInteractionBid &&
-    listenPlayerInteraction.generated_block_bid === lastInteractionBid,
+    listenPlayerInteraction.element_bid === lastInteractionBid,
   );
   const interactionReadonly = listenPlayerInteraction
     ? !isLatestInteractionEditable
@@ -417,7 +417,7 @@ const ListenModeRenderer = ({
         <div className='slides'>
           {!isLoading &&
             slideItems.map(({ item, segments }, idx) => {
-              const baseKey = item.generated_block_bid || `${item.type}-${idx}`;
+              const baseKey = item.element_bid || `${item.type}-${idx}`;
               // console.log('segments', baseKey, segments);
               return (
                 <ContentIframe
@@ -425,7 +425,7 @@ const ListenModeRenderer = ({
                   // item={item}
                   segments={segments}
                   mobileStyle={mobileStyle}
-                  blockBid={item.generated_block_bid}
+                  blockBid={item.element_bid}
                   sectionTitle={sectionTitle}
                 />
               );
@@ -436,7 +436,7 @@ const ListenModeRenderer = ({
                 'present text-center',
                 mobileStyle ? 'mobile-empty-slide' : '',
               )}
-              data-generated-block-bid={emptySlideBlockBid}
+              data-element-bid={emptySlideBlockBid}
             >
               <div className='w-full h-full font-bold flex items-center justify-center text-primary '>
                 {sectionTitle}
@@ -450,12 +450,12 @@ const ListenModeRenderer = ({
           <AudioPlayerList
             ref={audioPlayerRef}
             audioList={audioList}
-            sequenceBlockBid={activeSequenceBlockBid}
+            sequenceBlockBid={activeSequenceElementBid}
             isSequenceActive={isAudioSequenceActive}
             disabled={previewMode}
             onRequestAudio={
-              !previewMode && onRequestAudioForBlock && activeAudioBlockBid
-                ? () => onRequestAudioForBlock(activeAudioBlockBid)
+              !previewMode && onRequestAudioForBlock && activeAudioElementBid
+                ? () => onRequestAudioForBlock(activeAudioElementBid)
                 : undefined
             }
             autoPlay={!previewMode}

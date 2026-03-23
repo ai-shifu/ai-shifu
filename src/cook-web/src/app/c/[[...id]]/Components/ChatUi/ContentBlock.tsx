@@ -1,7 +1,7 @@
 import { memo, useCallback } from 'react';
 import { useLongPress } from 'react-use';
-import { isEqual } from 'lodash';
 import { ContentRender } from 'markdown-flow-ui/renderer';
+import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { cn } from '@/lib/utils';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
@@ -90,9 +90,10 @@ const ContentBlock = memo(
           content={item.content || ''}
           onClickCustomButtonAfterContent={handleClick}
           customRenderBar={item.customRenderBar}
-          defaultButtonText={item.defaultButtonText}
-          defaultInputText={item.defaultInputText}
-          defaultSelectedValues={item.defaultSelectedValues}
+          userInput={item.user_input}
+          interactionDefaultValueOptions={
+            lessonFeedbackInteractionDefaultValueOptions
+          }
           readonly={item.readonly}
           confirmButtonText={confirmButtonText}
           copyButtonText={copyButtonText}
@@ -128,12 +129,7 @@ const ContentBlock = memo(
     );
     // Only re-render when content, layout, or i18n-driven button texts actually change
     return (
-      prevProps.item.defaultButtonText === nextProps.item.defaultButtonText &&
-      prevProps.item.defaultInputText === nextProps.item.defaultInputText &&
-      isEqual(
-        prevProps.item.defaultSelectedValues,
-        nextProps.item.defaultSelectedValues,
-      ) &&
+      prevProps.item.user_input === nextProps.item.user_input &&
       prevProps.item.readonly === nextProps.item.readonly &&
       prevProps.item.content === nextProps.item.content &&
       prevProps.mobileStyle === nextProps.mobileStyle &&

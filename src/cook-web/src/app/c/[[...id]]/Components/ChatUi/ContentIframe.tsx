@@ -25,7 +25,7 @@ const ContentIframe = memo(
             return (
               <section
                 key={'text' + index}
-                data-generated-block-bid={blockBid}
+                data-element-bid={blockBid}
                 //   className='w-full h-full'
               >
                 <div className='w-full h-full font-bold flex items-center justify-center text-primary'>
@@ -49,7 +49,7 @@ const ContentIframe = memo(
             <section
               key={'sandbox' + index}
               // data-auto-animate
-              data-generated-block-bid={blockBid}
+              data-element-bid={blockBid}
               // className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
               //   className='w-full h-full'
             >
