@@ -14,6 +14,7 @@ import type { AudioItem, AudioSegment } from '@/c-utils/audio-utils';
 import {
   getNextIndex,
   normalizeAudioItemList,
+  resolveAudioItemKey,
   sortAudioSegments,
 } from '@/c-utils/audio-playlist';
 import useExclusiveAudio from '@/hooks/useExclusiveAudio';
@@ -99,7 +100,7 @@ const AudioPlayerListBase = (
       // }
       console.log(`[音频中断排查][AudioPlayerList] ${event}`, {
         playerId: playerDebugIdRef.current,
-        currentTrackBid: currentTrackRef.current?.generated_block_bid ?? null,
+        currentTrackBid: resolveAudioItemKey(currentTrackRef.current),
         sequenceBlockBid,
         isSequenceActive,
         isPlaying: isPlayingRef.current,
@@ -163,19 +164,26 @@ const AudioPlayerListBase = (
     currentSegmentIndexRef.current = 0;
   }, []);
 
-  const resolveTrackUrl = useCallback((track: AudioItem | null) => {
-    if (!track) {
-      return undefined;
-    }
-    if (track.audioUrl) {
-      return track.audioUrl;
-    }
-    const bid = track.generated_block_bid;
-    if (!bid) {
-      return undefined;
-    }
-    return localAudioUrlMapRef.current.get(bid);
+  const getTrackKey = useCallback((track: AudioItem | null) => {
+    return resolveAudioItemKey(track);
   }, []);
+
+  const resolveTrackUrl = useCallback(
+    (track: AudioItem | null) => {
+      if (!track) {
+        return undefined;
+      }
+      if (track.audioUrl) {
+        return track.audioUrl;
+      }
+      const trackKey = getTrackKey(track);
+      if (!trackKey) {
+        return undefined;
+      }
+      return localAudioUrlMapRef.current.get(trackKey);
+    },
+    [getTrackKey],
+  );
 
   const shouldUseUrl = useCallback(
     (track: AudioItem | null) => {
@@ -394,7 +402,7 @@ const AudioPlayerListBase = (
             ? audioRef.current.currentTime
             : 0;
         logAudioDebug('audio-player-start-url', {
-          bid: track.generated_block_bid,
+          bid: getTrackKey(track),
           resume: Boolean(options?.resume),
           startAtSeconds,
           hasUrl: Boolean(url),
@@ -405,7 +413,7 @@ const AudioPlayerListBase = (
         const index = options?.resume ? currentSegmentIndexRef.current : 0;
         const offset = options?.resume ? segmentOffsetRef.current : 0;
         logAudioDebug('audio-player-start-segment', {
-          bid: track.generated_block_bid,
+          bid: getTrackKey(track),
           resume: Boolean(options?.resume),
           segmentIndex: index,
           segmentOffset: offset,
@@ -415,7 +423,7 @@ const AudioPlayerListBase = (
         return startSegmentPlayback(index, offset);
       }
       logAudioDebug('audio-player-start-miss-source', {
-        bid: track.generated_block_bid,
+        bid: getTrackKey(track),
         hasTrackUrl: Boolean(track.audioUrl),
         localUrl: Boolean(url),
         segments: segmentsRef.current.length,
@@ -444,20 +452,20 @@ const AudioPlayerListBase = (
         return;
       }
       logAudioDebug('audio-player-play-current', {
-        bid: track.generated_block_bid,
+        bid: getTrackKey(track),
         resume: Boolean(options?.resume),
       });
       if (startPlaybackForTrack(options)) {
         return;
       }
-      if (!onRequestAudio || !track.generated_block_bid) {
+      const requestBid = getTrackKey(track);
+      if (!onRequestAudio || !requestBid) {
         logAudioDebug('audio-player-request-skip', {
-          bid: track.generated_block_bid ?? null,
+          bid: requestBid,
           hasOnRequestAudio: Boolean(onRequestAudio),
         });
         return;
       }
-      const requestBid = track.generated_block_bid;
       if (pendingRequestRef.current.has(requestBid)) {
         logAudioDebug('audio-player-request-skip-pending', {
           bid: requestBid,
@@ -480,10 +488,10 @@ const AudioPlayerListBase = (
       });
       onRequestAudio()
         .then(result => {
-          if (currentTrackRef.current?.generated_block_bid !== requestBid) {
+          if (getTrackKey(currentTrackRef.current) !== requestBid) {
             logAudioDebug('audio-player-request-stale-result', {
               bid: requestBid,
-              currentBid: currentTrackRef.current?.generated_block_bid ?? null,
+              currentBid: getTrackKey(currentTrackRef.current),
             });
             return;
           }
@@ -503,7 +511,7 @@ const AudioPlayerListBase = (
           }
         })
         .catch(() => {
-          if (currentTrackRef.current?.generated_block_bid !== requestBid) {
+          if (getTrackKey(currentTrackRef.current) !== requestBid) {
             return;
           }
           logAudioDebug('audio-player-request-error', {
@@ -523,6 +531,7 @@ const AudioPlayerListBase = (
     },
     [
       disabled,
+      getTrackKey,
       onRequestAudio,
       releaseExclusive,
       requestExclusive,
@@ -558,7 +567,7 @@ const AudioPlayerListBase = (
   );
 
   const finishTrack = useCallback(() => {
-    const trackBid = currentTrackRef.current?.generated_block_bid ?? null;
+    const trackBid = getTrackKey(currentTrackRef.current);
     const now = Date.now();
     const recentFinished = recentFinishTrackRef.current;
     if (
@@ -604,6 +613,7 @@ const AudioPlayerListBase = (
     shouldResumeRef.current = true;
     setCurrentIndex(nextIndex);
   }, [
+    getTrackKey,
     isSequenceActive,
     logAudioInterrupt,
     playlist.length,
@@ -636,7 +646,7 @@ const AudioPlayerListBase = (
         segmentIndex: index,
         nextSegmentIndex: nextIndex,
         loadedSegments: segments.length,
-        trackBid: track.generated_block_bid ?? null,
+        trackBid: getTrackKey(track),
       });
       currentSegmentIndexRef.current = nextIndex;
       isSegmentsPlaybackRef.current = true;
@@ -662,7 +672,7 @@ const AudioPlayerListBase = (
         remainingSeconds <= AUDIO_PLAYER_URL_FALLBACK_REMAINING_SECONDS)
     ) {
       logAudioInterrupt('segment-ended-skip-url-fallback', {
-        trackBid: track?.generated_block_bid ?? null,
+        trackBid: getTrackKey(track ?? null),
         hasFinalSegment,
         totalDurationSeconds,
         playedSeconds: playedSecondsRef.current,
@@ -680,6 +690,7 @@ const AudioPlayerListBase = (
     finishTrack();
   }, [
     finishTrack,
+    getTrackKey,
     logAudioInterrupt,
     resolveTrackUrl,
     resetSegmentState,
@@ -718,7 +729,7 @@ const AudioPlayerListBase = (
   }, [logAudioInterrupt, releaseExclusive, setPlayingState]);
 
   const handleAudioEnded = useCallback(() => {
-    const currentBid = currentTrackRef.current?.generated_block_bid ?? null;
+    const currentBid = getTrackKey(currentTrackRef.current);
     const currentSrc = currentSrcRef.current;
     const now = Date.now();
     const recentEnded = recentAudioEndedRef.current;
@@ -753,6 +764,7 @@ const AudioPlayerListBase = (
     finishTrack();
   }, [
     finishTrack,
+    getTrackKey,
     handleSegmentEnded,
     isSequenceActive,
     logAudioInterrupt,
@@ -858,7 +870,7 @@ const AudioPlayerListBase = (
   ]);
 
   useEffect(() => {
-    const nextBid = currentTrack?.generated_block_bid ?? null;
+    const nextBid = getTrackKey(currentTrack);
     const isTrackChanged = currentTrackBidRef.current !== nextBid;
     if (!isTrackChanged) {
       return;
@@ -888,13 +900,19 @@ const AudioPlayerListBase = (
       audio.load();
     }
     currentSrcRef.current = null;
-  }, [currentTrack, logAudioInterrupt, resetSegmentState, sequenceBlockBid]);
+  }, [
+    currentTrack,
+    getTrackKey,
+    logAudioInterrupt,
+    resetSegmentState,
+    sequenceBlockBid,
+  ]);
 
   useEffect(() => {
     if (!currentTrack || disabled) {
       return;
     }
-    const bid = currentTrack.generated_block_bid ?? null;
+    const bid = getTrackKey(currentTrack);
     if (sequenceBlockBid === null) {
       // High-frequency skip branch; keep silent to reduce noisy debug output.
       return;
@@ -943,6 +961,7 @@ const AudioPlayerListBase = (
     currentTrack?.audioUrl,
     currentTrack?.isAudioStreaming,
     disabled,
+    getTrackKey,
     isSequenceActive,
     sequenceBlockBid,
     startPlaybackForTrack,
@@ -953,7 +972,7 @@ const AudioPlayerListBase = (
       return;
     }
     const nextIndex = playlist.findIndex(
-      item => item.generated_block_bid === sequenceBlockBid,
+      item => getTrackKey(item) === sequenceBlockBid,
     );
     if (nextIndex < 0 || nextIndex === currentIndexRef.current) {
       return;
@@ -966,7 +985,7 @@ const AudioPlayerListBase = (
     });
     shouldResumeRef.current = isSequenceActive && !isPausedRef.current;
     setCurrentIndex(nextIndex);
-  }, [isSequenceActive, playlist, sequenceBlockBid]);
+  }, [getTrackKey, isSequenceActive, playlist, sequenceBlockBid]);
 
   useEffect(() => {
     if (sequenceBlockBid !== null) {

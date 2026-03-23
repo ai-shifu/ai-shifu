@@ -26,6 +26,12 @@ import ShifuIcon from '@/c-assets/newchat/light/icon_shifu.svg';
 import { BLOCK_TYPE } from '@/c-api/studyV2';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { useCourseStore } from '@/c-store/useCourseStore';
+import { AudioPlayer } from '@/components/audio/AudioPlayer';
+import {
+  normalizeAudioSegmentPayload,
+  mergeAudioSegmentByUniqueKey,
+  type AudioSegment,
+} from '@/c-utils/audio-utils';
 export interface AskMessage {
   type: typeof BLOCK_TYPE.ASK | typeof BLOCK_TYPE.ANSWER;
   content: string;
@@ -40,6 +46,7 @@ export interface AskBlockProps {
   outline_bid: string;
   preview_mode?: boolean;
   element_bid: string;
+  isListenMode?: boolean;
   onToggleAskExpanded?: (element_bid: string) => void;
 }
 
@@ -55,6 +62,7 @@ export default function AskBlock({
   outline_bid,
   preview_mode = false,
   element_bid,
+  isListenMode = false,
   onToggleAskExpanded,
 }: AskBlockProps) {
   const { t } = useTranslation();
@@ -62,6 +70,9 @@ export default function AskBlock({
   const copiedButtonText = t('module.renderUi.core.copied');
   const { mobileStyle } = useContext(AppContext);
   const courseAvatar = useCourseStore(state => state.courseAvatar);
+  const [askAudioSegments, setAskAudioSegments] = useState<AudioSegment[]>([]);
+  const [askAudioUrl, setAskAudioUrl] = useState<string>('');
+  const [isAskAudioStreaming, setIsAskAudioStreaming] = useState(false);
   const [displayList, setDisplayList] = useState<AskMessage[]>(() => {
     return askList.map(item => ({
       content: item.content || '',
@@ -94,6 +105,9 @@ export default function AskBlock({
     if (!question) {
       return;
     }
+    setAskAudioSegments([]);
+    setAskAudioUrl('');
+    setIsAskAudioStreaming(false);
     const runningRes = await checkIsRunning(shifu_bid, outline_bid);
     if (runningRes.is_running) {
       showOutputInProgressToast();
@@ -137,8 +151,9 @@ export default function AskBlock({
       {
         input: question,
         input_type: SSE_INPUT_TYPE.ASK,
+        reload_element_bid: element_bid,
         reload_generated_block_bid: element_bid,
-        listen: false,
+        listen: isListenMode,
       },
       async response => {
         try {
@@ -146,13 +161,12 @@ export default function AskBlock({
             return;
           }
           if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
-            // Streaming content
+            // Streaming content (non-listen mode)
             const prevText = currentContentRef.current || '';
             const delta = fixMarkdownStream(prevText, response.content || '');
             const nextText = prevText + delta;
             currentContentRef.current = nextText;
 
-            // Update the content of the last teacher message
             setDisplayList(prev => {
               const newList = [...prev];
               const lastIndex = newList.length - 1;
@@ -168,9 +182,73 @@ export default function AskBlock({
               }
               return newList;
             });
-          } else {
+          } else if (response.type === SSE_OUTPUT_TYPE.ELEMENT) {
+            // Listen mode: text content + audio in element patches
+            const elementContent = response.content;
+            if (elementContent && typeof elementContent === 'object') {
+              // Extract text content from element patch
+              const textContent = elementContent.content;
+              if (typeof textContent === 'string' && textContent) {
+                currentContentRef.current = textContent;
+                setDisplayList(prev => {
+                  const newList = [...prev];
+                  const lastIndex = newList.length - 1;
+                  if (
+                    lastIndex >= 0 &&
+                    newList[lastIndex].type === BLOCK_TYPE.ANSWER
+                  ) {
+                    newList[lastIndex] = {
+                      ...newList[lastIndex],
+                      content: textContent,
+                      isStreaming: true,
+                    };
+                  }
+                  return newList;
+                });
+              }
+              // Extract audio segments from element patch
+              const segments = elementContent.audio_segments;
+              if (Array.isArray(segments) && segments.length > 0) {
+                setIsAskAudioStreaming(true);
+                for (const seg of segments) {
+                  const normalized = normalizeAudioSegmentPayload(seg);
+                  if (normalized) {
+                    setAskAudioSegments(prev =>
+                      mergeAudioSegmentByUniqueKey(
+                        element_bid,
+                        prev,
+                        normalized,
+                      ),
+                    );
+                  }
+                }
+              }
+              // Extract audio_url from element patch
+              if (elementContent.audio_url) {
+                setAskAudioUrl(elementContent.audio_url);
+                setIsAskAudioStreaming(false);
+              }
+            }
+          } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+            const payload = response.content ?? response.data;
+            const segment = normalizeAudioSegmentPayload(payload);
+            if (segment) {
+              setIsAskAudioStreaming(true);
+              setAskAudioSegments(prev =>
+                mergeAudioSegmentByUniqueKey(element_bid, prev, segment),
+              );
+            }
+          } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+            const payload = response.content ?? response.data;
+            setAskAudioUrl(payload?.audio_url || '');
+            setIsAskAudioStreaming(false);
+          } else if (
+            response.type === SSE_OUTPUT_TYPE.TEXT_END ||
+            response.type === SSE_OUTPUT_TYPE.BREAK
+          ) {
             // Streaming finished
             isStreamingRef.current = false;
+            setIsAskAudioStreaming(false);
             setDisplayList(prev => {
               const newList = [...prev];
               const lastIndex = newList.length - 1;
@@ -236,6 +314,7 @@ export default function AskBlock({
     preview_mode,
     element_bid,
     inputValue,
+    isListenMode,
     showOutputInProgressToast,
   ]);
   const handleInputChange = useCallback(
@@ -412,6 +491,17 @@ export default function AskBlock({
                   copyButtonText={copyButtonText}
                   copiedButtonText={copiedButtonText}
                 />
+                {isListenMode &&
+                  index === messagesToShow.length - 1 &&
+                  (askAudioSegments.length > 0 || askAudioUrl) && (
+                    <AudioPlayer
+                      audioUrl={askAudioUrl}
+                      streamingSegments={askAudioSegments}
+                      isStreaming={isAskAudioStreaming}
+                      autoPlay={true}
+                      size={14}
+                    />
+                  )}
               </div>
             )}
           </div>

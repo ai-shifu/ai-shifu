@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
@@ -7,21 +7,120 @@ import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import {
   ELEMENT_TYPE,
   LESSON_FEEDBACK_INTERACTION_MARKER,
+  type AudioSegmentData,
 } from '@/c-api/studyV2';
 import {
+  ContentRender,
   type OnSendContentParams,
-  Slide,
-  type Element as SlideElement,
 } from 'markdown-flow-ui/renderer';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import { normalizeAudioTracks, sortSegmentsByIndex } from './listenModeUtils';
+import {
+  AudioPlayer,
+  type AudioPlayerHandle,
+} from '@/components/audio/AudioPlayer';
+import type { AudioSegment } from '@/c-utils/audio-utils';
 import './ListenModeRenderer.scss';
-import { useListenContentData } from './useListenMode';
+import AskBlock from './AskBlock';
+import ListenPlayer from './ListenPlayer';
 
-type ListenSlideElement = SlideElement & {
-  blockBid?: string;
-  page?: number;
+// ── Step data model ──
+
+interface ListenStep {
+  bid: string;
+  content: string;
+  elementType: string;
+  audioSegments?: AudioSegmentData[];
+  audioUrl?: string;
+  isAudioStreaming?: boolean;
+  /** Pre-loaded ask history from payload.asks */
+  askList?: ChatContentItem[];
+  isMarker?: boolean;
+}
+
+// ── Helpers ──
+
+const resolveItemAudioSegments = (
+  item: ChatContentItem,
+): AudioSegmentData[] | undefined => {
+  if (item.audio_segments?.length) return item.audio_segments;
+  const primaryTrack = normalizeAudioTracks(item).find(track =>
+    hasAudioContentInTrack(track),
+  );
+  if (!primaryTrack) return undefined;
+  return sortSegmentsByIndex(primaryTrack.audioSegments ?? []).map(seg => ({
+    segment_index: seg.segmentIndex,
+    audio_data: seg.audioData,
+    duration_ms: seg.durationMs,
+    is_final: seg.isFinal,
+    position: seg.position,
+  }));
 };
+
+const resolveItemAudioUrl = (item: ChatContentItem): string | undefined => {
+  if (item.audio_url || item.audioUrl) return item.audio_url ?? item.audioUrl;
+  return normalizeAudioTracks(item).find(track => hasAudioContentInTrack(track))
+    ?.audioUrl;
+};
+
+/**
+ * Build ordered visual steps + optional trailing interaction.
+ *
+ * - is_renderable=true  → visual step
+ * - is_renderable=false, is_speakable=true → narration audio for previous visual
+ * - interaction → trailing interaction
+ */
+const buildSteps = (
+  items: ChatContentItem[],
+): { steps: ListenStep[]; interaction: ChatContentItem | null } => {
+  const steps: ListenStep[] = [];
+  let interaction: ChatContentItem | null = null;
+
+  items.forEach(item => {
+    if (item.type === ChatContentItemType.CONTENT) {
+      const isRenderable = item.is_renderable !== false;
+
+      if (isRenderable) {
+        steps.push({
+          bid: item.element_bid,
+          content: item.content || '',
+          elementType: item.element_type || ELEMENT_TYPE.HTML,
+          askList: item.ask_list,
+          isMarker: item.is_marker ?? true,
+        });
+      } else {
+        // Narration → merge audio + asks into previous visual step
+        const audioSegments = resolveItemAudioSegments(item);
+        const audioUrl = resolveItemAudioUrl(item);
+        const last = steps[steps.length - 1];
+        if (last) {
+          if (audioSegments?.length) {
+            last.audioSegments = [
+              ...(last.audioSegments ?? []),
+              ...audioSegments,
+            ];
+          }
+          if (audioUrl) last.audioUrl = audioUrl;
+          last.isAudioStreaming = item.isAudioStreaming;
+          // Merge ask history from narration element if visual has none
+          if (!last.askList?.length && item.ask_list?.length) {
+            last.askList = item.ask_list;
+          }
+        }
+      }
+      return;
+    }
+
+    if (item.type !== ChatContentItemType.INTERACTION) return;
+    if (item.content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER)) return;
+
+    interaction = item;
+  });
+
+  return { steps, interaction };
+};
+
+// ── Props ──
 
 interface ListenModeSlideRendererProps {
   items: ChatContentItem[];
@@ -32,151 +131,14 @@ interface ListenModeSlideRendererProps {
   lessonId?: string;
   lessonStatus?: string;
   previewMode?: boolean;
-  onRequestAudioForBlock?: (elementBid: string) => Promise<any>;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
   onPlayerVisibilityChange?: (visible: boolean) => void;
+  toggleAskExpanded?: (parentElementBid: string) => void;
+  shifuBid?: string;
+  outlineBid?: string;
 }
 
-const createEmptyStateElement = (
-  sectionTitle: string | undefined,
-): ListenSlideElement => ({
-  sequence_number: 1,
-  type: 'slot',
-  content: (
-    <div className='flex h-full w-full items-center justify-center text-center text-[40px] font-bold leading-[1.3] text-primary'>
-      {sectionTitle}
-    </div>
-  ),
-  is_marker: true,
-  is_renderable: true,
-  is_new: true,
-  blockBid: 'empty-ppt',
-  page: 0,
-});
-
-const resolveItemAudioSegments = (item: ChatContentItem) => {
-  if (item.audio_segments?.length) {
-    return item.audio_segments;
-  }
-
-  const primaryTrack = normalizeAudioTracks(item).find(track =>
-    hasAudioContentInTrack(track),
-  );
-
-  if (!primaryTrack) {
-    return undefined;
-  }
-
-  return sortSegmentsByIndex(primaryTrack.audioSegments ?? []).map(
-    audioSegment => ({
-      segment_index: audioSegment.segmentIndex,
-      audio_data: audioSegment.audioData,
-      duration_ms: audioSegment.durationMs,
-      is_final: audioSegment.isFinal,
-      position: audioSegment.position,
-      slide_id: audioSegment.slideId,
-      av_contract: audioSegment.avContract ?? null,
-    }),
-  );
-};
-
-const resolveItemAudioUrl = (item: ChatContentItem) => {
-  if (item.audio_url || item.audioUrl) {
-    return item.audio_url ?? item.audioUrl;
-  }
-
-  return normalizeAudioTracks(item).find(track => hasAudioContentInTrack(track))
-    ?.audioUrl;
-};
-
-const resolveContentElementType = (item: ChatContentItem) => {
-  if (item.element_type && item.element_type !== ChatContentItemType.CONTENT) {
-    return item.element_type;
-  }
-
-  return ELEMENT_TYPE.TEXT;
-};
-
-const buildSlideElementList = ({
-  items,
-  sectionTitle,
-  interactionInputMap,
-  lastInteractionBid,
-  lastItemIsInteraction,
-}: {
-  items: ChatContentItem[];
-  sectionTitle?: string;
-  interactionInputMap: Record<string, string>;
-  lastInteractionBid: string | null;
-  lastItemIsInteraction: boolean;
-}) => {
-  let pageCursor = 0;
-  let sequenceNumber = 0;
-  const elementList: ListenSlideElement[] = [];
-
-  items.forEach(item => {
-    if (item.type === ChatContentItemType.CONTENT) {
-      const audioSegments = resolveItemAudioSegments(item);
-      const audioUrl = resolveItemAudioUrl(item);
-
-      sequenceNumber += 1;
-      elementList.push({
-        sequence_number: item.sequence_number ?? sequenceNumber,
-        type: resolveContentElementType(item),
-        content: item.content || '',
-        is_marker: item.is_marker ?? true,
-        is_renderable: item.is_renderable ?? true,
-        is_new: item.is_new ?? true,
-        is_speakable:
-          item.is_speakable ?? Boolean(audioUrl || audioSegments?.length),
-        audio_url: audioUrl,
-        audio_segments: audioSegments,
-        blockBid: item.element_bid,
-        page: pageCursor,
-      });
-
-      pageCursor += 1;
-      return;
-    }
-
-    if (item.type !== ChatContentItemType.INTERACTION) {
-      return;
-    }
-
-    if (item.content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER)) {
-      return;
-    }
-
-    // Prefer in-memory interaction state, then fall back to persisted user_input.
-    const currentUserInput =
-      interactionInputMap[item.element_bid] ?? item.user_input ?? '';
-    const isLatestEditable =
-      lastItemIsInteraction && item.element_bid === lastInteractionBid;
-
-    sequenceNumber += 1;
-    elementList.push({
-      sequence_number: item.sequence_number ?? sequenceNumber,
-      type: 'interaction',
-      content: item.content || '',
-      is_marker: item.is_marker ?? true,
-      is_renderable: item.is_renderable ?? true,
-      is_new: item.is_new ?? true,
-      blockBid: item.element_bid,
-      page: Math.max(pageCursor - 1, 0),
-      user_input: currentUserInput,
-      readonly:
-        Boolean(item.readonly) ||
-        Boolean(currentUserInput) ||
-        !isLatestEditable,
-    });
-  });
-
-  if (!elementList.length) {
-    return [createEmptyStateElement(sectionTitle)];
-  }
-
-  return elementList;
-};
+// ── Component ──
 
 const ListenModeSlideRenderer = ({
   items,
@@ -185,92 +147,185 @@ const ListenModeSlideRenderer = ({
   isLoading = false,
   sectionTitle,
   previewMode = false,
-  onRequestAudioForBlock,
   onSend,
-  onPlayerVisibilityChange,
+  shifuBid = '',
+  outlineBid = '',
 }: ListenModeSlideRendererProps) => {
   const { t } = useTranslation();
-  const requestedAudioBlockBidsRef = useRef<Set<string>>(new Set());
-  const [interactionInputMap, setInteractionInputMap] = useState<
-    Record<string, string>
-  >({});
-  const { ttsReadyElementBids, lastInteractionBid, lastItemIsInteraction } =
-    useListenContentData(items);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [isAskOpen, setIsAskOpen] = useState(false);
+  const audioPlayerRef = useRef<AudioPlayerHandle | null>(null);
 
-  const elementList = useMemo(
-    () =>
-      buildSlideElementList({
-        items,
-        sectionTitle,
-        interactionInputMap,
-        lastInteractionBid,
-        lastItemIsInteraction,
-      }),
-    [
-      interactionInputMap,
-      items,
-      lastInteractionBid,
-      lastItemIsInteraction,
-      sectionTitle,
-    ],
+  // ── Build steps ──
+
+  const { steps, interaction } = useMemo(() => buildSteps(items), [items]);
+
+  // History vs run mode
+  const isHistoryMode = useMemo(() => {
+    if (items.length === 0) return false;
+    return items.every(
+      item =>
+        item.isHistory ||
+        item.type === ChatContentItemType.LIKE_STATUS ||
+        item.type === ChatContentItemType.ASK,
+    );
+  }, [items]);
+
+  // Marker indices for history navigation
+  const markerIndices = useMemo(() => {
+    const indices: number[] = [];
+    steps.forEach((step, idx) => {
+      if (step.isMarker) indices.push(idx);
+    });
+    return indices;
+  }, [steps]);
+
+  // ── Auto-advance in run mode ──
+
+  const prevStepCountRef = useRef(steps.length);
+  useEffect(() => {
+    if (isHistoryMode) {
+      prevStepCountRef.current = steps.length;
+      return;
+    }
+    const prevCount = prevStepCountRef.current;
+    prevStepCountRef.current = steps.length;
+    if (prevCount === 0 && steps.length > 0) {
+      setCurrentStepIndex(0);
+    }
+  }, [steps.length, isHistoryMode]);
+
+  // ── Current step ──
+
+  const clampedIndex = Math.min(
+    currentStepIndex,
+    Math.max(steps.length - 1, 0),
   );
+  const currentStep = steps[clampedIndex] ?? null;
 
-  const shouldRenderEmptyPpt =
-    !isLoading &&
-    elementList.length === 1 &&
-    elementList[0]?.blockBid === 'empty-ppt';
+  const showInteraction =
+    interaction && (steps.length === 0 || currentStepIndex >= steps.length);
 
-  const handleStepChange = useCallback(
-    (element?: SlideElement) => {
-      const currentElement = element as ListenSlideElement | undefined;
-      const blockBid = currentElement?.blockBid;
+  // Close ask panel when step changes
+  useEffect(() => {
+    setIsAskOpen(false);
+  }, [clampedIndex]);
 
-      if (
-        previewMode ||
-        !blockBid ||
-        !onRequestAudioForBlock ||
-        requestedAudioBlockBidsRef.current.has(blockBid) ||
-        !ttsReadyElementBids.has(blockBid)
-      ) {
-        return;
-      }
+  // ── Audio segments for player ──
 
-      const hasAudio = Boolean(
-        currentElement?.audio_url || currentElement?.audio_segments?.length,
+  const playerSegments: AudioSegment[] = useMemo(() => {
+    if (!currentStep?.audioSegments?.length) return [];
+    return currentStep.audioSegments.map(seg => ({
+      segmentIndex: seg.segment_index,
+      audioData: seg.audio_data,
+      durationMs: seg.duration_ms,
+      isFinal: seg.is_final,
+      position: seg.position,
+    }));
+  }, [currentStep?.audioSegments]);
+
+  // ── Player controls ──
+
+  const handlePlay = useCallback(() => {
+    audioPlayerRef.current?.play();
+  }, []);
+
+  const handlePause = useCallback((traceId?: string) => {
+    audioPlayerRef.current?.pause({ traceId });
+  }, []);
+
+  const handlePrev = useCallback(() => {
+    if (isHistoryMode) {
+      const currentMarkerPos = markerIndices.findIndex(
+        idx => idx >= clampedIndex,
       );
-      if (currentElement?.type === 'interaction' || hasAudio) {
-        return;
-      }
+      const prevMarkerIdx =
+        currentMarkerPos > 0
+          ? markerIndices[currentMarkerPos - 1]
+          : (markerIndices[0] ?? 0);
+      setCurrentStepIndex(prevMarkerIdx);
+    } else {
+      setCurrentStepIndex(prev => Math.max(prev - 1, 0));
+    }
+  }, [isHistoryMode, markerIndices, clampedIndex]);
 
-      requestedAudioBlockBidsRef.current.add(blockBid);
-      void onRequestAudioForBlock(blockBid).catch(() => {
-        requestedAudioBlockBidsRef.current.delete(blockBid);
-      });
-    },
-    [onRequestAudioForBlock, previewMode, ttsReadyElementBids],
-  );
+  const handleNext = useCallback(() => {
+    if (isHistoryMode) {
+      const currentMarkerPos = markerIndices.findIndex(
+        idx => idx > clampedIndex,
+      );
+      if (currentMarkerPos >= 0) {
+        setCurrentStepIndex(markerIndices[currentMarkerPos]);
+      } else if (interaction) {
+        setCurrentStepIndex(steps.length);
+      }
+    } else {
+      setCurrentStepIndex(prev => prev + 1);
+    }
+  }, [isHistoryMode, markerIndices, clampedIndex, interaction, steps.length]);
+
+  const handleAudioEnded = useCallback(() => {
+    setIsAudioPlaying(false);
+    if (!isHistoryMode) {
+      setCurrentStepIndex(prev => prev + 1);
+    }
+  }, [isHistoryMode]);
+
+  const handlePlayStateChange = useCallback((playing: boolean) => {
+    setIsAudioPlaying(playing);
+  }, []);
+
+  // ── Interaction send ──
 
   const handleInteractionSend = useCallback(
-    (content: OnSendContentParams, element?: SlideElement) => {
-      const blockBid = (element as ListenSlideElement | undefined)?.blockBid;
-      if (!blockBid) {
-        return;
-      }
-
-      const submittedValue = resolveInteractionSubmission(content).userInput;
-      if (submittedValue) {
-        setInteractionInputMap(prev => ({
-          ...prev,
-          [blockBid]: submittedValue,
-        }));
-      }
-
+    (content: OnSendContentParams, blockBid: string) => {
       onSend?.(content, blockBid);
     },
     [onSend],
   );
 
-  console.log('elementList', items, elementList);
+  // ── Ask toggle (笔记/追问 button in ListenPlayer) ──
+
+  const handleToggleAsk = useCallback(() => {
+    setIsAskOpen(prev => !prev);
+  }, []);
+
+  // ── Disabled states ──
+
+  const prevDisabled = isHistoryMode
+    ? clampedIndex <= (markerIndices[0] ?? 0)
+    : currentStepIndex <= 0;
+
+  const nextDisabled = isHistoryMode
+    ? clampedIndex >= (markerIndices[markerIndices.length - 1] ?? 0) &&
+      !interaction
+    : Boolean(showInteraction);
+
+  // ── Empty state ──
+
+  if (!isLoading && steps.length === 0 && !interaction) {
+    return (
+      <div
+        className={cn(
+          'listen-reveal-wrapper',
+          mobileStyle
+            ? 'mobile bg-white'
+            : 'bg-[var(--color-slide-desktop-bg)]',
+        )}
+        ref={chatRef}
+      >
+        <div className='flex h-full w-full items-center justify-center text-center text-[40px] font-bold leading-[1.3] text-primary'>
+          {sectionTitle}
+        </div>
+      </div>
+    );
+  }
+
+  const confirmButtonText = t('module.renderUi.core.confirm');
+  const copyButtonText = t('module.renderUi.core.copyCode');
+  const copiedButtonText = t('module.renderUi.core.copied');
+  const shouldAutoPlay = !isHistoryMode;
 
   return (
     <div
@@ -280,27 +335,82 @@ const ListenModeSlideRenderer = ({
       )}
       ref={chatRef}
     >
+      {/* Visual content area */}
       <div className='listen-slide-shell'>
-        <Slide
-          // playerAlwaysVisible={true}
-          className='h-full w-full listen-slide-root'
-          elementList={elementList}
-          interactionTexts={{
-            title: t('module.chat.listenInteractionHint'),
-            confirmButtonText: t('module.renderUi.core.confirm'),
-            copyButtonText: t('module.renderUi.core.copyCode'),
-            copiedButtonText: t('module.renderUi.core.copied'),
-          }}
-          onPlayerVisibilityChange={onPlayerVisibilityChange}
-          interactionDefaultValueOptions={
-            lessonFeedbackInteractionDefaultValueOptions
-          }
-          onSend={handleInteractionSend}
-          onStepChange={handleStepChange}
-          playerClassName={mobileStyle ? 'listen-slide-player-mobile' : ''}
-          showPlayer={!shouldRenderEmptyPpt}
-        />
+        {currentStep && !showInteraction && (
+          <div className='h-full w-full overflow-auto p-6'>
+            <ContentRender
+              content={currentStep.content}
+              enableTypewriter={false}
+              readonly={true}
+              confirmButtonText={confirmButtonText}
+              copyButtonText={copyButtonText}
+              copiedButtonText={copiedButtonText}
+              onSend={() => {}}
+              interactionDefaultValueOptions={
+                lessonFeedbackInteractionDefaultValueOptions
+              }
+            />
+            {/* Audio engine — hidden, controlled via ref */}
+            <AudioPlayer
+              ref={audioPlayerRef}
+              key={currentStep.bid}
+              audioUrl={currentStep.audioUrl}
+              streamingSegments={playerSegments}
+              isStreaming={Boolean(currentStep.isAudioStreaming)}
+              autoPlay={shouldAutoPlay}
+              onEnded={handleAudioEnded}
+              onPlayStateChange={handlePlayStateChange}
+              alwaysVisible={false}
+              className='hidden'
+            />
+          </div>
+        )}
+
+        {showInteraction && (
+          <div className='h-full w-full overflow-auto p-6'>
+            {/* Interaction is rendered via ListenPlayer overlay */}
+          </div>
+        )}
       </div>
+
+      {/* Ask panel — positioned above the player bar */}
+      {isAskOpen && currentStep && shifuBid && outlineBid && (
+        <div className='absolute left-0 right-0 bottom-[72px] z-10 max-h-[50%] overflow-y-auto bg-white rounded-t-xl shadow-lg'>
+          <AskBlock
+            key={currentStep.bid}
+            askList={(currentStep.askList || []) as any[]}
+            isExpanded={true}
+            shifu_bid={shifuBid}
+            outline_bid={outlineBid}
+            preview_mode={previewMode}
+            element_bid={currentStep.bid}
+            isListenMode={true}
+            onToggleAskExpanded={handleToggleAsk}
+          />
+        </div>
+      )}
+
+      {/* Player bar */}
+      <ListenPlayer
+        mobileStyle={mobileStyle}
+        isAudioPlaying={isAudioPlaying}
+        onPlay={handlePlay}
+        onPause={handlePause}
+        onPrev={handlePrev}
+        onNext={handleNext}
+        prevDisabled={prevDisabled}
+        nextDisabled={nextDisabled}
+        interaction={showInteraction ? interaction : null}
+        interactionReadonly={
+          interaction
+            ? Boolean(interaction.readonly) || Boolean(interaction.user_input)
+            : undefined
+        }
+        onSend={handleInteractionSend}
+        onNotes={handleToggleAsk}
+        showControls={steps.length > 0 || Boolean(interaction)}
+      />
     </div>
   );
 };

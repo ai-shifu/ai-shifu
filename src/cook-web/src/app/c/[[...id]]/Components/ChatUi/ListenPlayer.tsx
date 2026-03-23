@@ -91,12 +91,8 @@ const ListenPlayer = ({
   }, [effectiveInteraction]);
 
   const handleNotesClick = useCallback(() => {
-    if (!effectiveInteraction) {
-      return;
-    }
-    setIsInteractionOpen(prev => !prev);
     onNotes?.();
-  }, [effectiveInteraction, onNotes]);
+  }, [onNotes]);
 
   const _onSend = useCallback(
     (content: OnSendContentParams) => {
@@ -290,8 +286,7 @@ const ListenPlayer = ({
               type='button'
               aria-label='Notes'
               onClick={handleNotesClick}
-              disabled={!interaction}
-              className={cn(interaction ? '!text-primary' : disabledClassName)}
+              className='!text-primary'
             >
               <SquarePen size={32} />
             </button>

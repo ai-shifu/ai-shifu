@@ -363,6 +363,7 @@ export function usePreviewChat() {
       setTrackedContentList(prev => [
         ...prev.filter(item => item.generated_block_bid !== 'loading'),
         {
+          element_bid: blockId,
           generated_block_bid: blockId,
           content: '',
           readonly: false,
@@ -390,6 +391,7 @@ export function usePreviewChat() {
       return [
         ...items.filter(item => item.generated_block_bid !== 'loading'),
         {
+          element_bid: blockId,
           generated_block_bid: blockId,
           content: '',
           readonly: false,
@@ -432,6 +434,7 @@ export function usePreviewChat() {
 
           setTrackedContentList((prev: ChatContentItem[]) => {
             const interactionBlock: ChatContentItem = {
+              element_bid: blockId,
               generated_block_bid: blockId,
               content: interactionContent,
               readonly: false,
@@ -448,6 +451,7 @@ export function usePreviewChat() {
               return [
                 ...prev,
                 {
+                  element_bid: `${lastContent.generated_block_bid}-feedback`,
                   parent_block_bid: lastContent.generated_block_bid,
                   generated_block_bid: `${lastContent.generated_block_bid}-feedback`,
                   like_status: LIKE_STATUS.NONE,
@@ -491,6 +495,7 @@ export function usePreviewChat() {
             const gid = lastItem?.generated_block_bid || '';
             if (lastItem && lastItem.type === ChatContentItemType.CONTENT) {
               updatedList.push({
+                element_bid: `${gid}-feedback`,
                 parent_block_bid: gid,
                 generated_block_bid: '',
                 content: '',
@@ -638,6 +643,7 @@ export function usePreviewChat() {
       setTrackedContentList(prev => [
         ...prev.filter(item => item.generated_block_bid !== 'loading'),
         {
+          element_bid: 'loading',
           generated_block_bid: 'loading',
           content: '',
           customRenderBar: () => <LoadingBar />,
@@ -828,7 +834,7 @@ export function usePreviewChat() {
         const removedBlockIds = currentList
           .slice(needChangeItemIndex)
           .map(item => item.generated_block_bid)
-          .filter(Boolean);
+          .filter((id): id is string => Boolean(id));
         if (removedBlockIds.length) {
           removeAutoSubmittedBlocks(removedBlockIds);
         }
@@ -882,7 +888,7 @@ export function usePreviewChat() {
       const removedBlockIds = originalList
         .slice(needChangeItemIndex)
         .map(item => item.generated_block_bid)
-        .filter(Boolean);
+        .filter((id): id is string => Boolean(id));
       if (removedBlockIds.length) {
         removeAutoSubmittedBlocks(removedBlockIds);
       }

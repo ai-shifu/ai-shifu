@@ -1255,11 +1255,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   onSend={onSend}
                   onVariableChange={onVariableChange}
                   variableOrder={variableOrder}
-                  onRequestAudioForBlock={
-                    currentShifu?.tts_enabled
-                      ? requestPreviewAudioForBlock
-                      : undefined
-                  }
+                  onRequestAudioForBlock={requestPreviewAudioForBlock}
                   reGenerateConfirm={reGenerateConfirm}
                   customVariableKeys={variables}
                   unusedVariableKeys={unusedVisibleVariables}
