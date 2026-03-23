@@ -50,6 +50,31 @@ export interface AskBlockProps {
   onToggleAskExpanded?: (element_bid: string) => void;
 }
 
+const normalizeAskMessages = (askMessages: AskMessage[]): AskMessage[] =>
+  askMessages.map(item => ({
+    content: item.content || '',
+    type: item.type,
+    isStreaming: item.isStreaming,
+  }));
+
+const isSameAskMessages = (
+  left: AskMessage[],
+  right: AskMessage[],
+): boolean => {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((item, index) => {
+    const nextItem = right[index];
+    return (
+      item.type === nextItem?.type &&
+      item.content === nextItem?.content &&
+      Boolean(item.isStreaming) === Boolean(nextItem?.isStreaming)
+    );
+  });
+};
+
 /**
  * AskBlock
  * Follow-up area component that contains the Q&A list and custom input box with streaming support
@@ -73,12 +98,9 @@ export default function AskBlock({
   const [askAudioSegments, setAskAudioSegments] = useState<AudioSegment[]>([]);
   const [askAudioUrl, setAskAudioUrl] = useState<string>('');
   const [isAskAudioStreaming, setIsAskAudioStreaming] = useState(false);
-  const [displayList, setDisplayList] = useState<AskMessage[]>(() => {
-    return askList.map(item => ({
-      content: item.content || '',
-      type: item.type,
-    }));
-  });
+  const [displayList, setDisplayList] = useState<AskMessage[]>(() =>
+    normalizeAskMessages(askList),
+  );
 
   const [inputValue, setInputValue] = useState('');
   const sseRef = useRef<any>(null);
@@ -344,6 +366,17 @@ export default function AskBlock({
       setShowMobileDialog(true);
     }
   }, [askList.length]);
+
+  useEffect(() => {
+    if (isStreamingRef.current) {
+      return;
+    }
+
+    const nextDisplayList = normalizeAskMessages(askList);
+    setDisplayList(prev =>
+      isSameAskMessages(prev, nextDisplayList) ? prev : nextDisplayList,
+    );
+  }, [askList]);
 
   useEffect(() => {
     if (!mobileStyle || !expanded) {

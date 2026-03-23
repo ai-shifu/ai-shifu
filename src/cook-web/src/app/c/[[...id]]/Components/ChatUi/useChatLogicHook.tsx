@@ -424,6 +424,8 @@ function useChatLogicHook({
       const isInteractionElement =
         record.element_type === ELEMENT_TYPE.INTERACTION;
       const isAskElement = record.element_type === ELEMENT_TYPE.ASK;
+      const isAnswerElement = record.element_type === ELEMENT_TYPE.ANSWER;
+      const isAskThreadElement = isAskElement || isAnswerElement;
       const anchorElementBid =
         record.payload?.anchor_element_bid ||
         options?.previousItem?.parent_element_bid ||
@@ -434,43 +436,61 @@ function useChatLogicHook({
         mobileStyle &&
         !isListenMode &&
         !isInteractionElement &&
-        !isAskElement
+        !isAskThreadElement
           ? appendCustomButtonAfterContent(rawContent, getAskButtonMarkup())
           : rawContent;
 
-      const asks = record.payload?.asks;
-      const askList =
-        isAskElement && asks && asks.length > 0
-          ? asks.map((a, idx) => ({
-              element_bid: `${itemBid}-ask-${idx}`,
-              type:
-                a.role === 'student'
-                  ? (BLOCK_TYPE.ASK as
-                      | ChatContentItemType
-                      | BlockType
-                      | ElementType)
-                  : (BLOCK_TYPE.ANSWER as
-                      | ChatContentItemType
-                      | BlockType
-                      | ElementType),
-              content: a.content,
-            }))
-          : options?.previousItem?.ask_list;
+      const askList = isAskThreadElement
+        ? [
+            {
+              ...record,
+              element_bid: itemBid,
+              parent_element_bid: anchorElementBid,
+              type: (isAnswerElement ? BLOCK_TYPE.ANSWER : BLOCK_TYPE.ASK) as
+                | ChatContentItemType
+                | BlockType
+                | ElementType,
+              content: rawContent,
+              audioUrl:
+                primaryTrack?.audioUrl ??
+                record.audio_url ??
+                options?.previousItem?.audioUrl,
+              audioDurationMs:
+                primaryTrack?.durationMs ??
+                options?.previousItem?.audioDurationMs,
+              audioTracks:
+                historyTracks.length > 0
+                  ? historyTracks
+                  : options?.previousItem?.audioTracks,
+              isAudioStreaming:
+                historyTracks.length > 0
+                  ? historyTracks.some(track => Boolean(track.isAudioStreaming))
+                  : options?.previousItem?.isAudioStreaming,
+              payload: record.payload ?? options?.previousItem?.payload,
+            } as ChatContentItem,
+          ]
+        : options?.previousItem?.ask_list;
 
       return {
         ...options?.previousItem,
         ...record,
-        element_bid: itemBid,
-        parent_element_bid: isAskElement
+        element_bid:
+          isAskThreadElement && anchorElementBid
+            ? `${anchorElementBid}-ask-thread`
+            : itemBid,
+        ask_element_bid: isAskThreadElement
+          ? itemBid
+          : options?.previousItem?.ask_element_bid,
+        parent_element_bid: isAskThreadElement
           ? anchorElementBid
           : options?.previousItem?.parent_element_bid,
-        content,
+        content: isAskThreadElement ? '' : content,
         customRenderBar: () => null,
         user_input:
           record.user_input || options?.previousItem?.user_input || '',
         readonly: options?.previousItem?.readonly ?? false,
         isHistory: options?.isHistory,
-        type: isAskElement
+        type: isAskThreadElement
           ? ChatContentItemType.ASK
           : isInteractionElement
             ? ChatContentItemType.INTERACTION
@@ -489,7 +509,9 @@ function useChatLogicHook({
           historyTracks.length > 0
             ? historyTracks.some(track => Boolean(track.isAudioStreaming))
             : options?.previousItem?.isAudioStreaming,
-        ask_list: isAskElement ? askList : options?.previousItem?.ask_list,
+        ask_list: isAskThreadElement
+          ? askList
+          : options?.previousItem?.ask_list,
         payload: record.payload ?? options?.previousItem?.payload,
       };
     },
@@ -500,6 +522,56 @@ function useChatLogicHook({
       normalizeHistoryAudioTracks,
       resolveElementItemBid,
     ],
+  );
+
+  const mergeAskThreadMessages = useCallback(
+    (
+      existingMessages: ChatContentItem[] = [],
+      incomingMessages: ChatContentItem[] = [],
+    ) => {
+      const mergedByBid = new Map<string, ChatContentItem>();
+
+      [...existingMessages, ...incomingMessages].forEach((message, index) => {
+        const key = message.element_bid || `${message.type}-${index}`;
+        const previous = mergedByBid.get(key);
+        mergedByBid.set(
+          key,
+          previous
+            ? {
+                ...previous,
+                ...message,
+                element_bid: previous.element_bid || message.element_bid,
+              }
+            : message,
+        );
+      });
+
+      return Array.from(mergedByBid.values()).sort((left, right) => {
+        const leftSeq = left.sequence_number ?? Number.MAX_SAFE_INTEGER;
+        const rightSeq = right.sequence_number ?? Number.MAX_SAFE_INTEGER;
+        if (leftSeq !== rightSeq) {
+          return leftSeq - rightSeq;
+        }
+        const leftTime = left.generateTime ?? 0;
+        const rightTime = right.generateTime ?? 0;
+        return leftTime - rightTime;
+      });
+    },
+    [],
+  );
+
+  const mergeAskThreadItem = useCallback(
+    (existingItem: ChatContentItem, incomingItem: ChatContentItem) => ({
+      ...existingItem,
+      ...incomingItem,
+      element_bid: existingItem.element_bid || incomingItem.element_bid,
+      ask_list: mergeAskThreadMessages(
+        existingItem.ask_list ?? [],
+        incomingItem.ask_list ?? [],
+      ),
+      isAskExpanded: existingItem.isAskExpanded ?? incomingItem.isAskExpanded,
+    }),
+    [mergeAskThreadMessages],
   );
 
   const markLessonFeedbackPopupDismissed = useCallback((blockBid: string) => {
@@ -899,33 +971,24 @@ function useChatLogicHook({
               );
 
               setTrackedContentList(prevState => {
-                const hitIndex = prevState.findIndex(
-                  item => item.element_bid === itemBid,
-                );
-
-                if (hitIndex >= 0) {
-                  const nextList = [...prevState];
-                  const existing = nextList[hitIndex];
-                  // Accumulate audio_segments from element patches
-                  // (backend sends one segment per patch, not cumulative)
-                  const mergedAudioSegments = nextItem.audio_segments?.length
-                    ? [
-                        ...(existing.audio_segments ?? []),
-                        ...nextItem.audio_segments,
-                      ]
-                    : existing.audio_segments;
-                  nextList[hitIndex] = {
-                    ...existing,
-                    ...nextItem,
-                    audio_segments: mergedAudioSegments,
-                  };
-                  return nextList;
-                }
-
                 if (nextItem.type === ChatContentItemType.ASK) {
                   const anchorBid = nextItem.parent_element_bid || '';
                   if (!anchorBid) {
                     return [...prevState, nextItem];
+                  }
+
+                  const existingAskIndex = prevState.findIndex(
+                    item =>
+                      item.type === ChatContentItemType.ASK &&
+                      item.parent_element_bid === anchorBid,
+                  );
+                  if (existingAskIndex !== -1) {
+                    const nextList = [...prevState];
+                    nextList[existingAskIndex] = mergeAskThreadItem(
+                      nextList[existingAskIndex],
+                      nextItem,
+                    );
+                    return nextList;
                   }
 
                   const likeStatusIndex = prevState.findIndex(
@@ -947,6 +1010,31 @@ function useChatLogicHook({
                     nextList.splice(anchorIndex + 1, 0, nextItem);
                     return nextList;
                   }
+
+                  return [...prevState, nextItem];
+                }
+
+                const hitIndex = prevState.findIndex(
+                  item => item.element_bid === itemBid,
+                );
+
+                if (hitIndex >= 0) {
+                  const nextList = [...prevState];
+                  const existing = nextList[hitIndex];
+                  // Accumulate audio_segments from element patches
+                  // (backend sends one segment per patch, not cumulative)
+                  const mergedAudioSegments = nextItem.audio_segments?.length
+                    ? [
+                        ...(existing.audio_segments ?? []),
+                        ...nextItem.audio_segments,
+                      ]
+                    : existing.audio_segments;
+                  nextList[hitIndex] = {
+                    ...existing,
+                    ...nextItem,
+                    audio_segments: mergedAudioSegments,
+                  };
+                  return nextList;
                 }
 
                 if (nextItem.type === ChatContentItemType.INTERACTION) {
@@ -1247,6 +1335,7 @@ function useChatLogicHook({
       shifuBid,
       lessonId,
       mobileStyle,
+      mergeAskThreadItem,
       trackTrailProgress,
       allowTtsStreaming,
       ensureContentItem,
@@ -1296,7 +1385,10 @@ function useChatLogicHook({
             contentItem.parent_element_bid === anchorBid,
         );
         if (existingAskIndex !== -1) {
-          result[existingAskIndex] = askItem;
+          result[existingAskIndex] = mergeAskThreadItem(
+            result[existingAskIndex],
+            askItem,
+          );
           return;
         }
 
@@ -1373,7 +1465,7 @@ function useChatLogicHook({
 
       return result;
     },
-    [buildElementContentItem, resolveElementItemBid],
+    [buildElementContentItem, mergeAskThreadItem, resolveElementItemBid],
   );
 
   /**

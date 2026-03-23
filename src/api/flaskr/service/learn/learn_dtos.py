@@ -54,6 +54,7 @@ class ElementType(Enum):
     IMG = "img"
     INTERACTION = "interaction"
     ASK = "ask"
+    ANSWER = "answer"
     TABLES = "tables"
     CODE = "code"
     LATEX = "latex"
@@ -463,6 +464,10 @@ class ElementPayloadDTO(BaseModel):
         default=None,
         description="Anchor element bid for ask sidecar elements",
     )
+    ask_element_bid: str | None = Field(
+        default=None,
+        description="Ask element bid referenced by answer sidecar elements",
+    )
     user_input: str | None = Field(
         default=None,
         description="Interaction user input when available",
@@ -480,6 +485,7 @@ class ElementPayloadDTO(BaseModel):
         audio: ElementAudioDTO | None = None,
         previous_visuals: Optional[List[ElementVisualDTO]] = None,
         anchor_element_bid: str | None = None,
+        ask_element_bid: str | None = None,
         user_input: str | None = None,
         diff_payload: List[Dict[str, Any]] | None = None,
         asks: List[Dict[str, Any]] | None = None,
@@ -488,6 +494,7 @@ class ElementPayloadDTO(BaseModel):
             audio=audio,
             previous_visuals=previous_visuals or [],
             anchor_element_bid=anchor_element_bid,
+            ask_element_bid=ask_element_bid,
             user_input=user_input,
             diff_payload=diff_payload,
             asks=asks,
@@ -503,6 +510,8 @@ class ElementPayloadDTO(BaseModel):
         }
         if self.anchor_element_bid is not None:
             ret["anchor_element_bid"] = self.anchor_element_bid
+        if self.ask_element_bid is not None:
+            ret["ask_element_bid"] = self.ask_element_bid
         if self.diff_payload is not None:
             ret["diff_payload"] = self.diff_payload
         if self.user_input is not None:

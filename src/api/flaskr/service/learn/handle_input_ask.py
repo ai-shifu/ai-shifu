@@ -20,7 +20,11 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDINTERACTION_VALUE,
 )
-from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO, GeneratedType
+from flaskr.service.learn.learn_dtos import (
+    ElementType,
+    GeneratedType,
+    RunMarkdownFlowDTO,
+)
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_generation_name,
     build_langfuse_span_name,
@@ -41,7 +45,7 @@ from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.service.learn.models import LearnGeneratedElement
 from flaskr.service.learn.listen_elements import (
     _deserialize_payload,
-    find_latest_ask_element_row,
+    find_follow_up_element_rows,
 )
 
 check_text_with_llm_response = None
@@ -62,15 +66,8 @@ def _is_valid_asks(asks):
     return has_student and has_teacher
 
 
-def _load_ask_context(anchor_element, ask_element, ask_max_history_len):
-    """Load ask context from ask element payload first.
-
-    Returns (llm_messages, provider_messages) or None if fallback to blocks is needed.
-    """
-    if anchor_element is None:
-        return None
-
-    if ask_element is None:
+def _load_legacy_ask_context(anchor_element, ask_element, ask_max_history_len):
+    if anchor_element is None or ask_element is None:
         return None
 
     payload_dto = _deserialize_payload(getattr(ask_element, "payload", "") or "")
@@ -97,6 +94,52 @@ def _load_ask_context(anchor_element, ask_element, ask_max_history_len):
             messages.append({"role": "assistant", "content": content})
 
     return messages
+
+
+def _load_ask_context(anchor_element, follow_up_elements, ask_max_history_len):
+    """Load ask context from ask/answer sidecar elements first."""
+    if anchor_element is None or not follow_up_elements:
+        return None
+
+    messages = []
+    anchor_content = getattr(anchor_element, "content_text", "") or ""
+    if anchor_content:
+        messages.append({"role": "assistant", "content": anchor_content})
+
+    row_messages = []
+    legacy_ask_element = None
+    has_new_follow_up_elements = False
+
+    for row in follow_up_elements:
+        element_type = str(getattr(row, "element_type", "") or "")
+        payload_dto = _deserialize_payload(getattr(row, "payload", "") or "")
+        if element_type == ElementType.ASK.value and _is_valid_asks(payload_dto.asks):
+            legacy_ask_element = row
+            continue
+
+        content = getattr(row, "content_text", "") or ""
+        if not content:
+            continue
+
+        if element_type == ElementType.ASK.value:
+            has_new_follow_up_elements = True
+            row_messages.append({"role": "user", "content": content})
+        elif element_type == ElementType.ANSWER.value:
+            has_new_follow_up_elements = True
+            row_messages.append({"role": "assistant", "content": content})
+
+    if has_new_follow_up_elements and row_messages:
+        messages.extend(row_messages[-ask_max_history_len:])
+        return messages
+
+    if legacy_ask_element is not None:
+        return _load_legacy_ask_context(
+            anchor_element,
+            legacy_ask_element,
+            ask_max_history_len,
+        )
+
+    return None
 
 
 def _create_ask_block(
@@ -271,20 +314,23 @@ def handle_input_ask(
     if base_system_prompt:
         provider_messages.append({"role": "system", "content": base_system_prompt})
 
-    # Try loading ask context from ask sidecar element first
+    # Try loading ask context from ask/answer sidecar elements first
     anchor_element = None
-    ask_element = None
+    follow_up_elements = []
     if anchor_element_bid:
         anchor_element = LearnGeneratedElement.query.filter(
             LearnGeneratedElement.element_bid == anchor_element_bid,
             LearnGeneratedElement.deleted == 0,
         ).first()
         if anchor_element is not None:
-            ask_element = find_latest_ask_element_row(attend_id, anchor_element_bid)
+            follow_up_elements = find_follow_up_element_rows(
+                attend_id,
+                anchor_element_bid,
+            )
 
     element_context = _load_ask_context(
         anchor_element,
-        ask_element,
+        follow_up_elements,
         ask_max_history_len,
     )
     if element_context is not None:

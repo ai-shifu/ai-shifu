@@ -7,6 +7,7 @@ import { useUserStore } from '@/store/useUserStore';
 export const ELEMENT_TYPE = {
   INTERACTION: 'interaction',
   ASK: 'ask',
+  ANSWER: 'answer',
   HTML: 'html',
   TEXT: 'text',
   TABLES: 'tables',
@@ -114,6 +115,7 @@ export interface StudyRecordItem {
   audio_segments?: AudioSegmentData[];
   payload?: {
     anchor_element_bid?: string;
+    ask_element_bid?: string;
     asks?: Array<{
       role: 'student' | 'teacher';
       content: string;

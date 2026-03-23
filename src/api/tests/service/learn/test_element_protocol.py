@@ -11,6 +11,30 @@ Covers:
 import pytest
 
 
+@pytest.fixture
+def adapter_app():
+    from flask import Flask
+    import flaskr.dao as dao
+    import flaskr.service.learn.models  # noqa: F401
+
+    app = Flask("test-handle-ask-adapter")
+    app.config.update(
+        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+        SQLALCHEMY_BINDS={
+            "ai_shifu_saas": "sqlite:///:memory:",
+            "ai_shifu_admin": "sqlite:///:memory:",
+        },
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+    )
+
+    dao.db.init_app(app)
+    with app.app_context():
+        dao.db.create_all()
+        yield app
+        dao.db.session.remove()
+        dao.db.drop_all()
+
+
 # ---------------------------------------------------------------------------
 # ElementType enum tests
 # ---------------------------------------------------------------------------
@@ -27,6 +51,7 @@ class TestElementType:
             "img",
             "interaction",
             "ask",
+            "answer",
             "tables",
             "code",
             "latex",
@@ -1125,7 +1150,43 @@ class TestAskContextLoading:
         asks = [{"role": "student", "content": "q"}]
         assert _is_valid_asks(asks) is False
 
-    def test_load_context_from_payload_asks(self):
+    def test_load_context_from_follow_up_elements(self):
+        import types
+        from flaskr.service.learn.handle_input_ask import _load_ask_context
+        from flaskr.service.learn.listen_elements import _serialize_payload
+        from flaskr.service.learn.learn_dtos import ElementPayloadDTO
+
+        payload = ElementPayloadDTO()
+        anchor = types.SimpleNamespace(
+            content_text="anchor text",
+            payload=_serialize_payload(payload),
+        )
+        follow_up_elements = [
+            types.SimpleNamespace(
+                element_type="ask",
+                content_text="q1",
+                payload=_serialize_payload(
+                    ElementPayloadDTO(anchor_element_bid="anchor_elem_1"),
+                ),
+            ),
+            types.SimpleNamespace(
+                element_type="answer",
+                content_text="a1",
+                payload=_serialize_payload(
+                    ElementPayloadDTO(
+                        anchor_element_bid="anchor_elem_1",
+                        ask_element_bid="ask_elem_1",
+                    ),
+                ),
+            ),
+        ]
+        result = _load_ask_context(anchor, follow_up_elements, 10)
+        assert result is not None
+        assert result[0] == {"role": "assistant", "content": "anchor text"}
+        assert result[1] == {"role": "user", "content": "q1"}
+        assert result[2] == {"role": "assistant", "content": "a1"}
+
+    def test_load_context_fallback_to_legacy_payload_asks(self):
         import types
         from flaskr.service.learn.handle_input_ask import _load_ask_context
         from flaskr.service.learn.listen_elements import _serialize_payload
@@ -1137,15 +1198,19 @@ class TestAskContextLoading:
         ]
         payload = ElementPayloadDTO()
         anchor = types.SimpleNamespace(
-            content_text="anchor text",
+            content_text="text",
             payload=_serialize_payload(payload),
         )
-        ask_element = types.SimpleNamespace(
-            payload=_serialize_payload(ElementPayloadDTO(asks=asks)),
-        )
-        result = _load_ask_context(anchor, ask_element, 10)
+        follow_up_elements = [
+            types.SimpleNamespace(
+                element_type="ask",
+                content_text="",
+                payload=_serialize_payload(ElementPayloadDTO(asks=asks)),
+            )
+        ]
+        result = _load_ask_context(anchor, follow_up_elements, 10)
         assert result is not None
-        assert result[0] == {"role": "assistant", "content": "anchor text"}
+        assert result[0] == {"role": "assistant", "content": "text"}
         assert result[1] == {"role": "user", "content": "q1"}
         assert result[2] == {"role": "assistant", "content": "a1"}
 
@@ -1160,16 +1225,13 @@ class TestAskContextLoading:
             content_text="text",
             payload=_serialize_payload(payload),
         )
-        ask_element = types.SimpleNamespace(
-            payload=_serialize_payload(ElementPayloadDTO()),
-        )
-        result = _load_ask_context(anchor, ask_element, 10)
+        result = _load_ask_context(anchor, [], 10)
         assert result is None
 
     def test_load_context_none_element(self):
         from flaskr.service.learn.handle_input_ask import _load_ask_context
 
-        assert _load_ask_context(None, None, 10) is None
+        assert _load_ask_context(None, [], 10) is None
 
     def test_load_context_truncation(self):
         import types
@@ -1177,10 +1239,14 @@ class TestAskContextLoading:
         from flaskr.service.learn.listen_elements import _serialize_payload
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
 
-        asks = [
-            {"role": "student", "content": f"q{i}"}
-            if i % 2 == 0
-            else {"role": "teacher", "content": f"a{i}"}
+        follow_up_elements = [
+            types.SimpleNamespace(
+                element_type="ask" if i % 2 == 0 else "answer",
+                content_text=f"m{i}",
+                payload=_serialize_payload(
+                    ElementPayloadDTO(anchor_element_bid="anchor")
+                ),
+            )
             for i in range(20)
         ]
         payload = ElementPayloadDTO()
@@ -1188,19 +1254,16 @@ class TestAskContextLoading:
             content_text="anchor",
             payload=_serialize_payload(payload),
         )
-        ask_element = types.SimpleNamespace(
-            payload=_serialize_payload(ElementPayloadDTO(asks=asks)),
-        )
-        result = _load_ask_context(anchor, ask_element, 4)
+        result = _load_ask_context(anchor, follow_up_elements, 4)
         assert result is not None
-        # anchor content + last 4 asks entries
+        # anchor content + last 4 follow-up messages
         assert len(result) == 5
 
 
 class TestHandleAskAdapter:
     """Tests for ListenElementRunAdapter._handle_ask()."""
 
-    def test_handle_ask_appends_student_to_payload(self, app):
+    def test_handle_ask_creates_standalone_question_element(self, adapter_app):
         import json
         from flaskr.service.learn.listen_elements import (
             ListenElementRunAdapter,
@@ -1214,9 +1277,9 @@ class TestHandleAskAdapter:
         from flaskr.service.learn.models import LearnGeneratedElement
         from flaskr.dao import db
 
-        with app.app_context():
+        with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
-                app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
             )
 
             anchor = LearnGeneratedElement(
@@ -1260,12 +1323,11 @@ class TestHandleAskAdapter:
             assert len(ask_rows) == 1
             payload = json.loads(ask_rows[0].payload or "{}")
             assert payload["anchor_element_bid"] == "anchor_elem_1"
-            assert "asks" in payload
-            assert len(payload["asks"]) == 1
-            assert payload["asks"][0]["role"] == "student"
-            assert payload["asks"][0]["content"] == "user question here"
+            assert "asks" not in payload
+            assert ask_rows[0].content_text == "user question here"
+            assert ask_rows[0].role == "student"
 
-    def test_handle_ask_emits_ask_element(self, app):
+    def test_handle_ask_emits_ask_element(self, adapter_app):
         from flaskr.service.learn.listen_elements import (
             ListenElementRunAdapter,
             _serialize_payload,
@@ -1279,9 +1341,9 @@ class TestHandleAskAdapter:
         from flaskr.service.learn.models import LearnGeneratedElement
         from flaskr.dao import db
 
-        with app.app_context():
+        with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
-                app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
             )
 
             anchor = LearnGeneratedElement(
@@ -1320,9 +1382,11 @@ class TestHandleAskAdapter:
             result = list(adapter.process(events))
             assert len(result) == 1
             assert result[0].content.element_type == ElementType.ASK
+            assert result[0].content.content_text == "question"
+            assert result[0].content.role == "student"
             assert result[0].content.payload.anchor_element_bid == "anchor_elem_2"
 
-    def test_handle_ask_sets_anchor_bid_state(self, app):
+    def test_handle_ask_sets_anchor_bid_state(self, adapter_app):
         from flaskr.service.learn.listen_elements import (
             ListenElementRunAdapter,
             _serialize_payload,
@@ -1335,9 +1399,9 @@ class TestHandleAskAdapter:
         from flaskr.service.learn.models import LearnGeneratedElement
         from flaskr.dao import db
 
-        with app.app_context():
+        with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
-                app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
             )
 
             anchor = LearnGeneratedElement(
@@ -1374,6 +1438,111 @@ class TestHandleAskAdapter:
             list(adapter._handle_ask(event))
             assert adapter._current_ask_anchor_bid == "anchor_elem_3"
             assert adapter._current_ask_element_bid
+
+    def test_process_creates_standalone_answer_element(self, adapter_app):
+        import json
+        from flaskr.service.learn.listen_elements import (
+            ListenElementRunAdapter,
+            _serialize_payload,
+        )
+        from flaskr.service.learn.learn_dtos import (
+            ElementPayloadDTO,
+            ElementType,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.models import LearnGeneratedElement
+        from flaskr.dao import db
+
+        with adapter_app.app_context():
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            anchor = LearnGeneratedElement(
+                element_bid="anchor_elem_4",
+                progress_record_bid="pr1",
+                user_bid="u1",
+                generated_block_bid="gb1",
+                outline_item_bid="o1",
+                shifu_bid="s1",
+                run_session_bid="rs1",
+                run_event_seq=1,
+                event_type="element",
+                role="teacher",
+                element_index=0,
+                element_type="text",
+                element_type_code=0,
+                change_type="render",
+                is_final=1,
+                content_text="anchor content",
+                payload=_serialize_payload(ElementPayloadDTO()),
+                deleted=0,
+                status=1,
+            )
+            db.session.add(anchor)
+            db.session.flush()
+
+            events = [
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="ask_gb_answer",
+                    type=GeneratedType.ASK,
+                    content="question",
+                    anchor_element_bid="anchor_elem_4",
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="ask_gb_answer",
+                    type=GeneratedType.CONTENT,
+                    content="answer",
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="ask_gb_answer",
+                    type=GeneratedType.BREAK,
+                    content="",
+                ),
+            ]
+
+            streamed = list(adapter.process(events))
+            ask_message = next(
+                message.content
+                for message in streamed
+                if message.type == "element"
+                and message.content.element_type == ElementType.ASK
+            )
+            answer_messages = [
+                message.content
+                for message in streamed
+                if message.type == "element"
+                and message.content.element_type == ElementType.ANSWER
+            ]
+
+            assert answer_messages
+            final_answer = answer_messages[-1]
+            assert final_answer.content_text == "answer"
+            assert final_answer.role == "teacher"
+            assert final_answer.payload.anchor_element_bid == "anchor_elem_4"
+            assert final_answer.payload.ask_element_bid == ask_message.element_bid
+
+            answer_row = (
+                LearnGeneratedElement.query.filter(
+                    LearnGeneratedElement.element_type == "answer"
+                )
+                .order_by(
+                    LearnGeneratedElement.run_event_seq.desc(),
+                    LearnGeneratedElement.id.desc(),
+                )
+                .first()
+            )
+            assert answer_row is not None
+            payload = json.loads(answer_row.payload or "{}")
+            assert answer_row.content_text == "answer"
+            assert answer_row.role == "teacher"
+            assert payload["anchor_element_bid"] == "anchor_elem_4"
+            assert payload["ask_element_bid"] == ask_message.element_bid
+            assert "asks" not in payload
 
 
 class TestRunMarkdownFlowDTOAnchorBid:
