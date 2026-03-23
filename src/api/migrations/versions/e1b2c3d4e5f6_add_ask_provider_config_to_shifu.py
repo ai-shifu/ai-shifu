@@ -8,6 +8,7 @@ Create Date: 2026-03-04 15:30:00.000000
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.sql import column, table
 
 
 # revision identifiers, used by Alembic.
@@ -52,8 +53,11 @@ def upgrade():
                         ),
                     )
                 )
+        target_table = table(table_name, column(COLUMN_NAME))
         op.execute(
-            f"UPDATE {table_name} SET {COLUMN_NAME} = '{DEFAULT_VALUE}' WHERE {COLUMN_NAME} IS NULL"
+            target_table.update()
+            .where(target_table.c[COLUMN_NAME].is_(None))
+            .values({COLUMN_NAME: DEFAULT_VALUE})
         )
         with op.batch_alter_table(table_name, schema=None) as batch_op:
             batch_op.alter_column(COLUMN_NAME, existing_type=sa.Text(), nullable=False)

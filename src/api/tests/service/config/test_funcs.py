@@ -6,6 +6,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 from datetime import datetime
 from sqlalchemy.exc import SQLAlchemyError
+from flaskr.service.config import funcs as config_funcs
 from flaskr.service.config.funcs import (
     _get_fernet_key,
     _get_fernet,
@@ -13,11 +14,21 @@ from flaskr.service.config.funcs import (
     _decrypt_config,
     _get_config_cache_key,
     _get_config_lock_key,
+    _is_redis_available,
     get_config,
     add_config,
     update_config,
     ConfigCache,
 )
+
+
+@pytest.fixture(autouse=True)
+def reset_redis_availability_cache():
+    config_funcs._redis_availability_cached = None
+    config_funcs._redis_availability_checked_at = 0.0
+    yield
+    config_funcs._redis_availability_cached = None
+    config_funcs._redis_availability_checked_at = 0.0
 
 
 class TestFernetKeyGeneration:
@@ -140,6 +151,44 @@ class TestCacheKeyGeneration:
             app.config["REDIS_KEY_PREFIX"] = "test:"
             key = _get_config_lock_key(app, "test_key")
             assert key == "test:sys:config:lock:test_key"
+
+
+class TestRedisAvailability:
+    """Test redis availability detection."""
+
+    @patch("flaskr.service.config.funcs.redis")
+    def test_is_redis_available_uses_wrapper_probe(self, mock_redis):
+        mock_redis.is_available.return_value = False
+        assert _is_redis_available() is False
+
+    @patch("flaskr.service.config.funcs.redis")
+    def test_is_redis_available_handles_probe_errors(self, mock_redis):
+        mock_redis.is_available.side_effect = RuntimeError("redis down")
+        assert _is_redis_available() is False
+
+    def test_is_redis_available_falls_back_to_true_without_probe(self):
+        with patch("flaskr.service.config.funcs.redis", new=object()):
+            assert _is_redis_available() is True
+
+    @patch("flaskr.service.config.funcs.time.monotonic")
+    @patch("flaskr.service.config.funcs.redis")
+    def test_is_redis_available_uses_short_ttl_cache(self, mock_redis, mock_monotonic):
+        mock_monotonic.side_effect = [10.0, 10.2]
+        mock_redis.is_available.return_value = True
+
+        assert _is_redis_available() is True
+        assert _is_redis_available() is True
+        mock_redis.is_available.assert_called_once()
+
+    @patch("flaskr.service.config.funcs.time.monotonic")
+    @patch("flaskr.service.config.funcs.redis")
+    def test_is_redis_available_refreshes_after_ttl(self, mock_redis, mock_monotonic):
+        mock_monotonic.side_effect = [10.0, 11.5]
+        mock_redis.is_available.side_effect = [True, False]
+
+        assert _is_redis_available() is True
+        assert _is_redis_available() is False
+        assert mock_redis.is_available.call_count == 2
 
 
 class TestGetConfig:

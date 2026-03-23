@@ -7,7 +7,6 @@ import {
   initOrder,
   queryOrder,
   type PayUrlRequest,
-  type PayUrlResponse,
   type PaymentChannel,
 } from '@/c-api/order';
 import { ORDER_STATUS } from '../constans';
@@ -48,6 +47,8 @@ interface OrderSnapshot {
 export interface PaymentActionParams {
   channel: string;
   paymentChannel?: PaymentChannel;
+  returnUrl?: string;
+  cancelUrl?: string;
 }
 
 export interface PaymentCouponParams extends PaymentActionParams {
@@ -166,7 +167,12 @@ export const usePaymentFlow = ({
   }, [initOrderUniform, isLoggedIn, updateFromOrder, updateOrderId]);
 
   const refreshPayment = useCallback(
-    async ({ channel, paymentChannel }: PaymentActionParams) => {
+    async ({
+      channel,
+      paymentChannel,
+      returnUrl,
+      cancelUrl,
+    }: PaymentActionParams) => {
       if (!orderIdRef.current) return null;
       setIsLoading(true);
       try {
@@ -189,6 +195,8 @@ export const usePaymentFlow = ({
           channel,
           orderId: orderIdRef.current,
           paymentChannel,
+          returnUrl,
+          cancelUrl,
         } as PayUrlRequest);
         if (!mountedRef.current || !payload) {
           return payload;
@@ -216,11 +224,17 @@ export const usePaymentFlow = ({
         }
       }
     },
-    [onOrderPaid],
+    [onOrderPaid, updateFromOrder],
   );
 
   const applyCoupon = useCallback(
-    async ({ code, channel, paymentChannel }: PaymentCouponParams) => {
+    async ({
+      code,
+      channel,
+      paymentChannel,
+      returnUrl,
+      cancelUrl,
+    }: PaymentCouponParams) => {
       if (!orderIdRef.current) return null;
       const resp = await applyDiscountCode({
         orderId: orderIdRef.current,
@@ -235,7 +249,7 @@ export const usePaymentFlow = ({
         resp.status === ORDER_STATUS.BUY_STATUS_INIT ||
         resp.status === ORDER_STATUS.BUY_STATUS_TO_BE_PAID
       ) {
-        await refreshPayment({ channel, paymentChannel });
+        await refreshPayment({ channel, paymentChannel, returnUrl, cancelUrl });
       }
       return resp;
     },
