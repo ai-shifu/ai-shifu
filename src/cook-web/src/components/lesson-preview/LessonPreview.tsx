@@ -230,33 +230,34 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   >
                     <InteractionBlock
                       shifu_bid={shifuBid}
-                      element_bid={parentBlockBid}
+                      generated_block_bid={parentBlockBid}
                       like_status={item.like_status}
                       onRefresh={onRefresh}
                       onToggleAskExpanded={noop}
                       disableAskButton
                       disableInteractionButtons
                       extraActions={
-                        <AudioPlayer
-                          audioUrl={parentPrimaryTrack?.audioUrl}
-                          streamingSegments={parentPrimaryTrack?.audioSegments}
-                          isStreaming={Boolean(
-                            parentPrimaryTrack?.isAudioStreaming,
-                          )}
-                          alwaysVisible={true}
-                          onRequestAudio={
-                            onRequestAudioForBlock
-                              ? () =>
-                                  onRequestAudioForBlock({
-                                    shifuBid,
-                                    blockId: parentBlockBid,
-                                    text: parentContentItem?.content || '',
-                                  })
-                              : undefined
-                          }
-                          className='interaction-icon-btn'
-                          size={16}
-                        />
+                        onRequestAudioForBlock ? (
+                          <AudioPlayer
+                            audioUrl={parentPrimaryTrack?.audioUrl}
+                            streamingSegments={
+                              parentPrimaryTrack?.audioSegments
+                            }
+                            isStreaming={Boolean(
+                              parentPrimaryTrack?.isAudioStreaming,
+                            )}
+                            alwaysVisible={true}
+                            onRequestAudio={() =>
+                              onRequestAudioForBlock({
+                                shifuBid,
+                                blockId: parentBlockBid,
+                                text: parentContentItem?.content || '',
+                              })
+                            }
+                            className='interaction-icon-btn'
+                            size={16}
+                          />
+                        ) : undefined
                       }
                     />
                   </div>
@@ -275,7 +276,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   <ContentBlock
                     item={item}
                     mobileStyle={false}
-                    blockBid={item.generated_block_bid || ''}
+                    blockBid={item.generated_block_bid}
                     confirmButtonText={confirmButtonText}
                     copyButtonText={copyButtonText}
                     copiedButtonText={copiedButtonText}

@@ -76,6 +76,7 @@ export const SSE_OUTPUT_TYPE = {
   // Audio types for TTS
   AUDIO_SEGMENT: 'audio_segment',
   AUDIO_COMPLETE: 'audio_complete',
+  NEW_SLIDE: 'new_slide',
 } as const;
 export type SSE_OUTPUT_TYPE =
   (typeof SSE_OUTPUT_TYPE)[keyof typeof SSE_OUTPUT_TYPE];
@@ -111,18 +112,6 @@ export interface StudyRecordItem {
   isHistory?: boolean;
   audio_url?: string;
   audio_segments?: AudioSegmentData[];
-  payload?: {
-    asks?: Array<{
-      role: 'student' | 'teacher';
-      content: string;
-      generated_block_bid?: string;
-      timestamp?: string;
-    }>;
-    audio?: { audio_url?: string; duration_ms?: number };
-    previous_visuals?: any[];
-    diff_payload?: any;
-    user_input?: string;
-  } | null;
 }
 
 export interface LessonStudyRecords {
@@ -176,18 +165,6 @@ export interface SubmitLessonFeedbackResult {
   mode: 'read' | 'listen';
 }
 
-// Listen-mode slide descriptor returned by backend
-export interface ListenSlideData {
-  slide_id: string;
-  slide_index: number;
-  generated_block_bid: string;
-  segment_type?: string;
-  segment_content?: string;
-  is_placeholder?: boolean;
-  audio_position?: number;
-  visual_kind?: string;
-}
-
 // Audio types for TTS
 export interface AudioSegmentData {
   segment_index: number;
@@ -195,8 +172,6 @@ export interface AudioSegmentData {
   duration_ms: number;
   is_final: boolean;
   position?: number;
-  slide_id?: string;
-  av_contract?: Record<string, any> | null;
 }
 
 export interface AudioCompleteData {
@@ -204,8 +179,20 @@ export interface AudioCompleteData {
   audio_bid: string;
   duration_ms: number;
   position?: number;
-  slide_id?: string;
-  av_contract?: Record<string, any> | null;
+}
+
+export interface ListenSlideData {
+  slide_id: string;
+  element_bid?: string;
+  target_element_bid?: string;
+  generated_block_bid?: string;
+  slide_index: number;
+  audio_position: number;
+  visual_kind: string;
+  segment_type: string;
+  segment_content: string;
+  source_span: number[];
+  is_placeholder: boolean;
 }
 
 export interface StreamGeneratedBlockAudioParams {
