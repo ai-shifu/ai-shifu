@@ -1609,14 +1609,31 @@ class ListenElementRunAdapter:
         )
         if target_element_bid and content.audio_url:
             self._backfill_audio_url(target_element_bid, content.audio_url)
+            # Emit an element patch so the frontend sees audio_url on the
+            # text element directly, instead of relying on a separate
+            # audio_complete event.
+            audio_payload = _make_audio_payload(content)
+            patch_msg = self._build_audio_segment_patch_message(
+                target_element_bid,
+                audio_segments=[],
+            )
+            if patch_msg is not None:
+                # Overwrite with the full audio info on the element
+                patched_element = patch_msg.content
+                if isinstance(patched_element, ElementDTO):
+                    patched_element.audio_url = content.audio_url
+                    patched_element.payload = ElementPayloadDTO(
+                        audio=audio_payload,
+                        previous_visuals=(
+                            patched_element.payload.previous_visuals
+                            if patched_element.payload
+                            else []
+                        ),
+                    )
+                yield patch_msg
         # Feed state machine
         if not self._state_machine.is_terminated:
             self._state_machine.feed(TypeInput.AUDIO_COMPLETE)
-        yield self._non_element_message(
-            event_type=GeneratedType.AUDIO_COMPLETE.value,
-            content=content,
-            generated_block_bid=generated_block_bid,
-        )
 
     def _handle_audio_segment(
         self, event: RunMarkdownFlowDTO
@@ -1747,7 +1764,7 @@ class ListenElementRunAdapter:
                     yield self._element_message(element)
         elif state.stream_elements:
             yield from self._retire_fallback_element(state, emit_notification=False)
-            yield from self._finalize_stream_elements(state, emit=False)
+            yield from self._finalize_stream_elements(state, emit=True)
         elif state.fallback_element_bid:
             default_audio_position = _pick_default_audio_position(
                 state.audio_by_position,
