@@ -2475,6 +2475,239 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(app):
         assert any(row.is_final == 1 for row in text_rows_with_audio)
 
 
+def test_late_audio_positions_bind_to_latest_text_without_av_contract(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.learn_dtos import (
+        AudioCompleteDTO,
+        AudioSegmentDTO,
+        ElementType,
+        GeneratedType,
+        RunMarkdownFlowDTO,
+    )
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.models import (
+        LearnGeneratedBlock,
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-latest-audio-target-binding"
+    shifu_bid = "shifu-latest-audio-target-binding"
+    outline_bid = "outline-latest-audio-target-binding"
+    progress_bid = "progress-latest-audio-target-binding"
+    generated_block_bid = "generated-latest-audio-target-binding"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        block = LearnGeneratedBlock(
+            generated_block_bid=generated_block_bid,
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            block_bid="block-latest-audio-target-binding",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            type=0,
+            role=ROLE_TEACHER,
+            generated_content="",
+            position=0,
+            block_content_conf="",
+            status=1,
+        )
+        db.session.add_all([progress, block])
+        db.session.commit()
+
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+        )
+
+        events = [
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="First narration.\n",
+            ).set_mdflow_stream_parts([("First narration.\n", "text", 0)]),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_SEGMENT,
+                content=AudioSegmentDTO(
+                    position=0,
+                    segment_index=0,
+                    audio_data="first-segment-0",
+                    duration_ms=180,
+                    is_final=False,
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_COMPLETE,
+                content=AudioCompleteDTO(
+                    audio_url="https://example.com/first-audio.mp3",
+                    audio_bid="first-audio-0",
+                    duration_ms=180,
+                    position=0,
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="<div>Visual gap</div>\n",
+            ).set_mdflow_stream_parts([("<div>Visual gap</div>\n", "html", 1)]),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="Second narration.\n",
+            ).set_mdflow_stream_parts([("Second narration.\n", "text", 2)]),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_SEGMENT,
+                content=AudioSegmentDTO(
+                    position=1,
+                    segment_index=0,
+                    audio_data="second-segment-0",
+                    duration_ms=210,
+                    is_final=False,
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_COMPLETE,
+                content=AudioCompleteDTO(
+                    audio_url="https://example.com/second-audio.mp3",
+                    audio_bid="second-audio-1",
+                    duration_ms=210,
+                    position=1,
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.BREAK,
+                content="",
+            ),
+        ]
+
+        streamed = list(adapter.process(events))
+        element_events = [item.content for item in streamed if item.type == "element"]
+
+        rendered_texts = [
+            item
+            for item in element_events
+            if item.element_type == ElementType.TEXT and item.is_new
+        ]
+        assert len(rendered_texts) == 2
+
+        first_text_bid = rendered_texts[0].element_bid
+        second_text_bid = rendered_texts[1].element_bid
+        assert first_text_bid != second_text_bid
+
+        first_audio_complete = next(
+            item
+            for item in element_events
+            if item.element_type == ElementType.TEXT
+            and item.audio_url == "https://example.com/first-audio.mp3"
+        )
+        assert first_audio_complete.element_bid == first_text_bid
+        assert first_audio_complete.target_element_bid == first_text_bid
+
+        second_audio_segment = next(
+            item
+            for item in element_events
+            if item.element_type == ElementType.TEXT
+            and item.audio_segments
+            and item.audio_segments[0]["position"] == 1
+        )
+        assert second_audio_segment.element_bid == second_text_bid
+        assert second_audio_segment.target_element_bid == second_text_bid
+        assert second_audio_segment.audio_segments == [
+            {
+                "position": 1,
+                "segment_index": 0,
+                "audio_data": "second-segment-0",
+                "duration_ms": 210,
+                "is_final": False,
+            }
+        ]
+
+        second_audio_complete = next(
+            item
+            for item in element_events
+            if item.element_type == ElementType.TEXT
+            and item.audio_url == "https://example.com/second-audio.mp3"
+        )
+        assert second_audio_complete.element_bid == second_text_bid
+        assert second_audio_complete.target_element_bid == second_text_bid
+        assert second_audio_complete.audio_segments == [
+            {
+                "position": 1,
+                "segment_index": 0,
+                "audio_data": "second-segment-0",
+                "duration_ms": 210,
+                "is_final": True,
+            }
+        ]
+
+        assert not any(
+            item.element_bid == first_text_bid
+            and any(segment["position"] == 1 for segment in (item.audio_segments or []))
+            for item in element_events
+            if item.element_type == ElementType.TEXT
+        )
+
+        persisted_text_rows = (
+            LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.generated_block_bid == generated_block_bid,
+                LearnGeneratedElement.event_type == "element",
+                LearnGeneratedElement.element_type == ElementType.TEXT.value,
+                LearnGeneratedElement.deleted == 0,
+                LearnGeneratedElement.status == 1,
+            )
+            .order_by(LearnGeneratedElement.run_event_seq.asc())
+            .all()
+        )
+        second_text_rows_with_audio = [
+            row
+            for row in persisted_text_rows
+            if row.element_bid == second_text_bid
+            and row.audio_segments
+            and row.audio_segments != "[]"
+        ]
+        assert second_text_rows_with_audio
+        assert all(
+            json.loads(row.audio_segments)[0]["position"] == 1
+            for row in second_text_rows_with_audio
+        )
+        assert all(
+            row.audio_url == "https://example.com/second-audio.mp3"
+            for row in second_text_rows_with_audio
+        )
+
+
 def test_listen_adapter_binds_buffered_audio_to_text_after_html(app):
     _require_app(app)
 

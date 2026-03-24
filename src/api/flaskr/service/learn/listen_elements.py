@@ -1907,7 +1907,7 @@ class ListenElementRunAdapter:
         if existing_target:
             return existing_target
 
-        for stream_state in state.stream_elements.values():
+        for stream_state in reversed(list(state.stream_elements.values())):
             if stream_state.element_type != ElementType.TEXT:
                 continue
             if not (stream_state.content_text or "").strip():
