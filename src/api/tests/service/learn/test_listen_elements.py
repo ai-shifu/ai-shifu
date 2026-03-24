@@ -493,6 +493,127 @@ def test_get_listen_element_record_returns_all_persisted_elements_across_progres
         assert result.elements[1].is_renderable is False
 
 
+def test_get_listen_element_record_dedupes_older_progress_records_with_same_block_position(
+    app, monkeypatch
+):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-listen-dedupe-progress"
+    shifu_bid = "shifu-listen-dedupe-progress"
+    outline_bid = "outline-listen-dedupe-progress"
+    older_progress_bid = "progress-listen-older"
+    latest_progress_bid = "progress-listen-latest"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        monkeypatch.setattr(
+            "flaskr.service.learn.listen_elements.get_learn_record",
+            lambda *args, **kwargs: pytest.fail(
+                "persisted element query should not fall back to legacy records"
+            ),
+        )
+
+        older_progress = LearnProgressRecord(
+            progress_record_bid=older_progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        latest_progress = LearnProgressRecord(
+            progress_record_bid=latest_progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        db.session.add_all([older_progress, latest_progress])
+        db.session.flush()
+
+        older_element = LearnGeneratedElement(
+            element_bid="el_progress_older",
+            progress_record_bid=older_progress_bid,
+            user_bid=user_bid,
+            generated_block_bid="generated-progress-older",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            run_session_bid="run-progress-older",
+            run_event_seq=1,
+            event_type="element",
+            role="teacher",
+            element_index=0,
+            element_type="text",
+            element_type_code=112,
+            change_type="render",
+            target_element_bid="",
+            is_renderable=1,
+            is_new=1,
+            is_marker=0,
+            sequence_number=1,
+            is_speakable=0,
+            audio_url="",
+            audio_segments="[]",
+            is_navigable=1,
+            is_final=1,
+            content_text="Older content should be hidden",
+            payload=json.dumps({"audio": None, "previous_visuals": []}),
+            status=1,
+        )
+        latest_element = LearnGeneratedElement(
+            element_bid="el_progress_latest",
+            progress_record_bid=latest_progress_bid,
+            user_bid=user_bid,
+            generated_block_bid="generated-progress-latest",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            run_session_bid="run-progress-latest",
+            run_event_seq=1,
+            event_type="element",
+            role="teacher",
+            element_index=0,
+            element_type="text",
+            element_type_code=112,
+            change_type="render",
+            target_element_bid="",
+            is_renderable=1,
+            is_new=1,
+            is_marker=0,
+            sequence_number=1,
+            is_speakable=0,
+            audio_url="",
+            audio_segments="[]",
+            is_navigable=1,
+            is_final=1,
+            content_text="Latest content should remain",
+            payload=json.dumps({"audio": None, "previous_visuals": []}),
+            status=1,
+        )
+        db.session.add_all([older_element, latest_element])
+        db.session.commit()
+
+        result = get_listen_element_record(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            preview_mode=False,
+        )
+
+        assert len(result.elements) == 1
+        assert result.elements[0].content_text == "Latest content should remain"
+        assert result.elements[0].generated_block_bid == "generated-progress-latest"
+
+
 def test_get_listen_element_record_includes_persisted_rows_missing_progress_bid(
     app, monkeypatch
 ):

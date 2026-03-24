@@ -2819,6 +2819,28 @@ def _query_element_rows(
     return rows, progress_bid_by_generated_block_bid
 
 
+def _dedupe_progress_records_by_block_position(progress_records: list) -> list:
+    latest_by_key: dict[tuple[str, str], Any] = {}
+    for progress_record in progress_records:
+        if progress_record is None:
+            continue
+        block_position = getattr(progress_record, "block_position", None)
+        if block_position is None:
+            key = ("bid", str(progress_record.progress_record_bid or ""))
+        else:
+            key = ("position", str(int(block_position)))
+        current = latest_by_key.get(key)
+        if current is None or int(progress_record.id or 0) >= int(current.id or 0):
+            latest_by_key[key] = progress_record
+    return sorted(
+        latest_by_key.values(),
+        key=lambda item: (
+            int(getattr(item, "block_position", 0) or 0),
+            int(item.id or 0),
+        ),
+    )
+
+
 def _merge_progress_elements(
     app: Flask,
     *,
@@ -2930,6 +2952,7 @@ def get_listen_element_record(
         .order_by(LearnProgressRecord.id.asc())
         .all()
     )
+    progress_records = _dedupe_progress_records_by_block_position(progress_records)
     progress_record_bids = [
         pr.progress_record_bid for pr in progress_records if pr.progress_record_bid
     ]
