@@ -90,7 +90,6 @@ export default function InteractionBlock({
   void shifu_bid;
   void disableInteractionButtons;
 
-
   return (
     <div className={cn(['interaction-block'], className)}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -158,7 +157,9 @@ export default function InteractionBlock({
         >
           <DialogContent className='sm:max-w-md'>
             <DialogHeader>
-              <DialogTitle>{t('module.chat.regenerateConfirmTitle')}</DialogTitle>
+              <DialogTitle>
+                {t('module.chat.regenerateConfirmTitle')}
+              </DialogTitle>
               <DialogDescription>
                 {t('module.chat.regenerateConfirmDescription')}
               </DialogDescription>

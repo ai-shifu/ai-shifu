@@ -140,7 +140,9 @@ export default function InteractionBlockM({
         >
           <DialogContent className='sm:max-w-md'>
             <DialogHeader>
-              <DialogTitle>{t('module.chat.regenerateConfirmTitle')}</DialogTitle>
+              <DialogTitle>
+                {t('module.chat.regenerateConfirmTitle')}
+              </DialogTitle>
               <DialogDescription>
                 {t('module.chat.regenerateConfirmDescription')}
               </DialogDescription>
