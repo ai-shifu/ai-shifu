@@ -39,11 +39,11 @@ export const canRequestListenModeTtsForItem = (
 
   return Boolean(
     item.is_speakable ||
-      item.audio_url ||
-      item.audioUrl ||
-      item.isAudioStreaming ||
-      item.audio_segments?.length ||
-      hasAudioContentInTracks(item.audioTracks ?? []),
+    item.audio_url ||
+    item.audioUrl ||
+    item.isAudioStreaming ||
+    item.audio_segments?.length ||
+    hasAudioContentInTracks(item.audioTracks ?? []),
   );
 };
 
