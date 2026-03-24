@@ -1252,9 +1252,9 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
             "html",
             "text",
         ]
-        assert [item.is_new for item in final_elements] == [True, False, True, False]
-        assert final_elements[1].target_element_bid == final_elements[1].element_bid
-        assert final_elements[3].target_element_bid == final_elements[3].element_bid
+        assert [item.is_new for item in final_elements] == [True, True, True, True]
+        assert final_elements[1].target_element_bid in ("", None)
+        assert final_elements[3].target_element_bid in ("", None)
         assert final_elements[0].is_marker is True
         assert final_elements[0].is_renderable is True
         assert final_elements[0].content_text == ""

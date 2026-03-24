@@ -1120,8 +1120,6 @@ class ListenElementRunAdapter:
         self._max_element_index = -1
         # Track current element bid for audio association
         self._current_element_bid: str | None = None
-        # Track the last emitted element type for live is_new decisions.
-        self._last_emitted_element_type: ElementType | None = None
         # Track anchor element bid during ask flow
         self._current_ask_anchor_bid: str | None = None
         self._current_ask_element_bid: str | None = None
@@ -1137,14 +1135,10 @@ class ListenElementRunAdapter:
         self._sequence_number += 1
         return self._sequence_number
 
-    def _resolve_live_is_new(self, element: ElementDTO) -> bool:
-        previous_type = self._last_emitted_element_type
-        current_type = element.element_type
-        if previous_type is None:
-            return True
-        if previous_type == ElementType.TEXT and current_type != ElementType.TEXT:
-            return True
-        return False
+    def _resolve_persisted_is_new(self, element: ElementDTO) -> bool:
+        if element.change_type == ElementChangeType.DIFF or element.target_element_bid:
+            return False
+        return True
 
     def _load_block_meta(self, generated_block_bid: str) -> BlockMeta:
         if generated_block_bid in self._block_meta_cache:
@@ -1231,7 +1225,7 @@ class ListenElementRunAdapter:
             role="student",
             element_type=ElementType.ASK,
             element_type_code=_element_type_code(ElementType.ASK),
-            change_type=ElementChangeType.RENDER,
+            change_type=ElementChangeType.RENDER if is_new else ElementChangeType.DIFF,
             target_element_bid=ask_element_bid if not is_new else None,
             is_new=is_new,
             is_renderable=False,
@@ -1272,7 +1266,7 @@ class ListenElementRunAdapter:
             role="teacher",
             element_type=ElementType.ANSWER,
             element_type_code=_element_type_code(ElementType.ANSWER),
-            change_type=ElementChangeType.RENDER,
+            change_type=ElementChangeType.RENDER if is_new else ElementChangeType.DIFF,
             target_element_bid=answer_element_bid if not is_new else None,
             is_new=is_new,
             is_renderable=False,
@@ -1486,12 +1480,10 @@ class ListenElementRunAdapter:
 
     def _persist_element(self, element: ElementDTO) -> None:
         seq = self._next_seq()
-        if element.target_element_bid:
-            element.is_new = False
-        elif element.element_type in {ElementType.ASK, ElementType.ANSWER}:
+        if element.element_type in {ElementType.ASK, ElementType.ANSWER}:
             element.is_new = bool(element.is_new)
         else:
-            element.is_new = self._resolve_live_is_new(element)
+            element.is_new = self._resolve_persisted_is_new(element)
         if not element.is_new and not element.target_element_bid:
             element.target_element_bid = element.element_bid
         # Assign sequence_number (element-level counter)
@@ -1507,7 +1499,6 @@ class ListenElementRunAdapter:
             if not element.is_new and element.target_element_bid
             else element.element_bid
         )
-        self._last_emitted_element_type = element.element_type
         self._insert_row(
             generated_block_bid=element.generated_block_bid,
             element_index=element.element_index,
@@ -1642,7 +1633,8 @@ class ListenElementRunAdapter:
             role=meta.role,
             element_type=ElementType.TEXT,
             element_type_code=_element_type_code(ElementType.TEXT),
-            change_type=ElementChangeType.RENDER,
+            change_type=ElementChangeType.DIFF,
+            target_element_bid=state.fallback_element_bid,
             is_new=False,
             is_marker=False,
             is_renderable=False,
@@ -1698,7 +1690,7 @@ class ListenElementRunAdapter:
             role=snapshot.role,
             element_type=snapshot.element_type,
             element_type_code=snapshot.element_type_code,
-            change_type=ElementChangeType.RENDER,
+            change_type=ElementChangeType.DIFF,
             target_element_bid=element_bid,
             is_new=False,
             is_renderable=snapshot.is_renderable,
@@ -1788,7 +1780,7 @@ class ListenElementRunAdapter:
             role=role,
             element_type=stream_state.element_type,
             element_type_code=_element_type_code(stream_state.element_type),
-            change_type=ElementChangeType.RENDER,
+            change_type=ElementChangeType.RENDER if is_new else ElementChangeType.DIFF,
             target_element_bid=None if is_new else stream_state.element_bid,
             is_new=is_new,
             is_renderable=_default_is_renderable(stream_state.element_type),
@@ -1878,7 +1870,8 @@ class ListenElementRunAdapter:
                 role=meta.role,
                 element_type=stream_state.element_type,
                 element_type_code=_element_type_code(stream_state.element_type),
-                change_type=ElementChangeType.RENDER,
+                change_type=ElementChangeType.DIFF,
+                target_element_bid=stream_state.element_bid,
                 is_new=False,
                 is_marker=_default_is_marker(stream_state.element_type),
                 is_renderable=False,
@@ -2183,7 +2176,9 @@ class ListenElementRunAdapter:
                 role=meta.role,
                 element_type=ElementType.TEXT,
                 element_type_code=_element_type_code(ElementType.TEXT),
-                change_type=ElementChangeType.RENDER,
+                change_type=ElementChangeType.DIFF,
+                target_element_bid=state.fallback_element_bid,
+                is_new=False,
                 is_renderable=False,
                 is_marker=False,
                 is_navigable=1,
