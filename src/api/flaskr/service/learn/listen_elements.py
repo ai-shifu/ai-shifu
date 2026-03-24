@@ -2040,9 +2040,7 @@ class ListenElementRunAdapter:
                 state=state,
                 role=meta.role,
                 stream_state=stream_state,
-                # Final stream snapshots should stay as standalone elements instead
-                # of regressing to diff patches during BREAK finalization.
-                is_new=True,
+                is_new=False,
                 is_final=True,
                 audio=(
                     state.audio_by_position.get(default_audio_position)

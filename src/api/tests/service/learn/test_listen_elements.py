@@ -2041,7 +2041,7 @@ def test_listen_adapter_marks_non_text_after_text_as_new_in_stream(app):
         assert element_events[4].target_element_bid in ("", None)
 
 
-def test_listen_adapter_finalizes_image_after_text_as_new(app):
+def test_listen_adapter_keeps_html_stream_as_single_element_on_break(app):
     _require_app(app)
 
     from flaskr.dao import db
@@ -2062,11 +2062,11 @@ def test_listen_adapter_finalizes_image_after_text_as_new(app):
     )
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
-    user_bid = "user-listen-finalize-image-after-text"
-    shifu_bid = "shifu-listen-finalize-image-after-text"
-    outline_bid = "outline-listen-finalize-image-after-text"
-    progress_bid = "progress-listen-finalize-image-after-text"
-    generated_block_bid = "generated-listen-finalize-image-after-text"
+    user_bid = "user-listen-html-single-on-break"
+    shifu_bid = "shifu-listen-html-single-on-break"
+    outline_bid = "outline-listen-html-single-on-break"
+    progress_bid = "progress-listen-html-single-on-break"
+    generated_block_bid = "generated-listen-html-single-on-break"
 
     with app.app_context():
         LearnGeneratedElement.query.delete()
@@ -2086,7 +2086,7 @@ def test_listen_adapter_finalizes_image_after_text_as_new(app):
             generated_block_bid=generated_block_bid,
             progress_record_bid=progress_bid,
             user_bid=user_bid,
-            block_bid="block-listen-finalize-image-after-text",
+            block_bid="block-listen-html-single-on-break",
             outline_item_bid=outline_bid,
             shifu_bid=shifu_bid,
             type=0,
@@ -2111,16 +2111,14 @@ def test_listen_adapter_finalizes_image_after_text_as_new(app):
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
                 type=GeneratedType.CONTENT,
-                content="Before image",
-            ).set_mdflow_stream_parts([("Before image", "text", 0)]),
+                content="<div>",
+            ).set_mdflow_stream_parts([("<div>", "html", 0)]),
             RunMarkdownFlowDTO(
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
                 type=GeneratedType.CONTENT,
-                content="https://example.com/final-step.png",
-            ).set_mdflow_stream_parts(
-                [("https://example.com/final-step.png", "img", 1)]
-            ),
+                content="Card</div>",
+            ).set_mdflow_stream_parts([("Card</div>", "html", 0)]),
             RunMarkdownFlowDTO(
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
@@ -2130,18 +2128,18 @@ def test_listen_adapter_finalizes_image_after_text_as_new(app):
         ]
 
         streamed = list(adapter.process(events))
-        final_elements = [
+        html_events = [
             item.content
             for item in streamed
-            if item.type == "element" and item.content.is_final
+            if item.type == "element" and item.content.element_type == ElementType.HTML
         ]
 
-        assert [item.element_type for item in final_elements] == [
-            ElementType.TEXT,
-            ElementType.IMG,
-        ]
-        assert [item.is_new for item in final_elements] == [True, True]
-        assert [item.target_element_bid for item in final_elements] == [None, None]
+        assert len(html_events) == 3
+        assert [item.is_new for item in html_events] == [True, False, False]
+        assert html_events[0].target_element_bid in ("", None)
+        assert html_events[1].target_element_bid == html_events[0].element_bid
+        assert html_events[2].target_element_bid == html_events[0].element_bid
+        assert len({item.element_bid for item in html_events}) == 1
 
         result = get_listen_element_record(
             app,
@@ -2151,12 +2149,9 @@ def test_listen_adapter_finalizes_image_after_text_as_new(app):
             preview_mode=False,
         )
 
-        assert [item.element_type for item in result.elements] == [
-            ElementType.TEXT,
-            ElementType.IMG,
-        ]
-        assert [item.is_new for item in result.elements] == [True, True]
-        assert [item.target_element_bid for item in result.elements] == [None, None]
+        assert len(result.elements) == 1
+        assert result.elements[0].element_type == ElementType.HTML
+        assert result.elements[0].is_new is True
 
 
 def test_listen_adapter_marks_type_switch_as_new_when_stream_number_reused(app):
