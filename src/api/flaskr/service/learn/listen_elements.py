@@ -1567,6 +1567,45 @@ class ListenElementRunAdapter:
             content=content,
         )
 
+    def _stream_non_element_message(
+        self,
+        *,
+        stored_event_type: str,
+        emitted_event_type: str,
+        content: str
+        | VariableUpdateDTO
+        | OutlineItemUpdateDTO
+        | AudioSegmentDTO
+        | AudioCompleteDTO,
+        generated_block_bid: str = "",
+    ) -> RunElementSSEMessageDTO:
+        seq = self._next_seq()
+        serialized_text = (
+            content
+            if isinstance(content, str)
+            else json.dumps(content.__json__(), ensure_ascii=False)
+        )
+        meta = self._load_block_meta(generated_block_bid)
+        self._insert_row(
+            generated_block_bid=generated_block_bid,
+            element_index=max(self._max_element_index, 0),
+            event_type=stored_event_type,
+            role=meta.role,
+            is_navigable=0,
+            is_final=1,
+            content_text=serialized_text,
+            payload=None,
+            run_event_seq=seq,
+        )
+        return RunElementSSEMessageDTO(
+            type=emitted_event_type,
+            event_type=emitted_event_type,
+            generated_block_bid=generated_block_bid or None,
+            run_session_bid=self.run_session_bid,
+            run_event_seq=seq,
+            content=content,
+        )
+
     def make_ephemeral_message(
         self,
         *,
@@ -1575,9 +1614,14 @@ class ListenElementRunAdapter:
         generated_block_bid: str = "",
     ) -> RunElementSSEMessageDTO:
         seq = self._next_seq()
+        emitted_event_type = (
+            GeneratedType.DONE.value
+            if event_type == GeneratedType.BREAK.value
+            else event_type
+        )
         return RunElementSSEMessageDTO(
-            type=event_type,
-            event_type=event_type,
+            type=emitted_event_type,
+            event_type=emitted_event_type,
             generated_block_bid=generated_block_bid or None,
             run_session_bid=self.run_session_bid,
             run_event_seq=seq,
@@ -2402,8 +2446,9 @@ class ListenElementRunAdapter:
                 self._current_ask_anchor_bid = None
                 self._current_ask_element_bid = None
                 self._current_answer_element_bid = None
-                yield self._non_element_message(
-                    event_type=GeneratedType.BREAK.value,
+                yield self._stream_non_element_message(
+                    stored_event_type=GeneratedType.BREAK.value,
+                    emitted_event_type=GeneratedType.DONE.value,
                     content="",
                     generated_block_bid=generated_block_bid,
                 )

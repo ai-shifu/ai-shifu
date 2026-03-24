@@ -82,12 +82,7 @@ def test_run_script_retries_lock_then_streams(app, monkeypatch):
 
         assert lock.acquire_calls == 2
         assert lock.release_calls == 1
-        assert [event["type"] for event in events] == [
-            "element",
-            "element",
-            "break",
-            "done",
-        ]
+        assert [event["type"] for event in events] == ["element", "element", "done"]
         assert events[0]["event_type"] == "element"
         assert events[0]["content"]["is_final"] is False
         assert events[1]["content"]["is_final"] is True
@@ -153,14 +148,12 @@ def test_run_script_listen_lock_busy_returns_element_protocol(app, monkeypatch):
 
         assert lock.acquire_calls == 6
         assert lock.release_calls == 0
-        assert [event["type"] for event in events] == ["error", "break", "done"]
-        assert [event["event_type"] for event in events] == ["error", "break", "done"]
+        assert [event["type"] for event in events] == ["error", "done"]
+        assert [event["event_type"] for event in events] == ["error", "done"]
         assert events[0]["content"] == "translated:server.learn.outputInProgress"
         assert events[0]["run_event_seq"] == 1
         assert events[1]["run_event_seq"] == 2
-        assert events[2]["run_event_seq"] == 3
         assert events[0]["run_session_bid"] == events[1]["run_session_bid"]
-        assert events[1]["run_session_bid"] == events[2]["run_session_bid"]
 
 
 def test_run_script_listen_done_uses_element_protocol(app, monkeypatch):

@@ -826,7 +826,7 @@ def test_listen_run_persists_content_block_before_element_rows(app):
             .all()
         )
 
-    assert [item.type for item in streamed] == ["element", "break"]
+    assert [item.type for item in streamed] == ["element", "done"]
     assert rows
     assert {row.progress_record_bid for row in rows} == {progress_bid}
     assert {row.content_text for row in rows} == {"Persisted content block"}

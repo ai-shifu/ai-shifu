@@ -317,6 +317,7 @@ def run_script(
         stream_error: Exception | None = None
         client_disconnected = False
         done_received = False
+        last_stream_type: str | None = None
         try:
             while True:
                 kind: str
@@ -365,11 +366,16 @@ def run_script(
 
                 if kind == "data":
                     try:
+                        payload_type = getattr(payload, "type", None)
+                        if hasattr(payload_type, "value"):
+                            payload_type = payload_type.value
                         yield (
                             "data: "
                             + json.dumps(payload, default=fmt, ensure_ascii=False)
                             + "\n\n".encode("utf-8").decode("utf-8")
                         )
+                        if isinstance(payload_type, str):
+                            last_stream_type = payload_type
                     except GeneratorExit:
                         client_disconnected = True
                         stop_event.set()
@@ -432,6 +438,7 @@ def run_script(
                         element_adapter=element_adapter,
                     )
                 )
+                last_stream_type = "error"
                 yield _to_sse_chunk(
                     _make_terminal_event(
                         outline_bid=outline_bid,
@@ -440,15 +447,20 @@ def run_script(
                         element_adapter=element_adapter,
                     )
                 )
+                last_stream_type = (
+                    GeneratedType.DONE.value if listen else GeneratedType.BREAK.value
+                )
 
-        yield _to_sse_chunk(
-            _make_terminal_event(
-                outline_bid=outline_bid,
-                event_type=GeneratedType.DONE.value,
-                content="",
-                element_adapter=element_adapter,
+        if not (listen and last_stream_type == GeneratedType.DONE.value):
+            yield _to_sse_chunk(
+                _make_terminal_event(
+                    outline_bid=outline_bid,
+                    event_type=GeneratedType.DONE.value,
+                    content="",
+                    element_adapter=element_adapter,
+                )
             )
-        )
+            last_stream_type = GeneratedType.DONE.value
     else:
         app.logger.warning(
             "run_script lock acquisition failed: user_bid=%s outline_bid=%s",
@@ -456,11 +468,20 @@ def run_script(
             outline_bid,
         )
         busy_content = str(_("server.learn.outputInProgress"))
+        last_terminal_event_type: str | None = None
         for event_type, content in [
             ("error", busy_content),
             (GeneratedType.BREAK.value, ""),
             (GeneratedType.DONE.value, ""),
         ]:
+            emitted_event_type = (
+                GeneratedType.DONE.value
+                if listen and event_type == GeneratedType.BREAK.value
+                else event_type
+            )
+            if listen and emitted_event_type == GeneratedType.DONE.value:
+                if last_terminal_event_type == GeneratedType.DONE.value:
+                    continue
             yield _to_sse_chunk(
                 _make_terminal_event(
                     outline_bid=outline_bid,
@@ -469,6 +490,7 @@ def run_script(
                     element_adapter=element_adapter,
                 )
             )
+            last_terminal_event_type = emitted_event_type
 
 
 def get_run_status(

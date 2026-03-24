@@ -247,13 +247,13 @@ class TestSSEElementSplitFromDB:
                 )
                 continue
 
-            # Must have exactly one break and one done
-            if len(break_events) != 1:
+            # Direct adapter simulation emits block-finish done plus terminal done.
+            if break_events:
                 failures.append(
-                    f"Block {bid}: expected 1 break, got {len(break_events)}"
+                    f"Block {bid}: expected 0 break, got {len(break_events)}"
                 )
-            if len(done_events) != 1:
-                failures.append(f"Block {bid}: expected 1 done, got {len(done_events)}")
+            if len(done_events) != 2:
+                failures.append(f"Block {bid}: expected 2 done, got {len(done_events)}")
 
             # Validate each element event
             for evt in element_events:
