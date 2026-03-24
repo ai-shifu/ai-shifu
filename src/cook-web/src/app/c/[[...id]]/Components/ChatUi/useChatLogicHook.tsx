@@ -64,7 +64,10 @@ import { useTranslation } from 'react-i18next';
 import { show as showToast, toast } from '@/hooks/useToast';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import { AppContext } from '../AppContext';
-import { appendCustomButtonAfterContent } from './chatUiUtils';
+import {
+  appendCustomButtonAfterContent,
+  normalizeLegacyBlockCompatList,
+} from './chatUiUtils';
 
 interface LessonFeedbackPopupState {
   open: boolean;
@@ -90,8 +93,10 @@ export interface ChatContentItem {
   readonly?: boolean;
   isHistory?: boolean;
   element_bid: string;
+  generated_block_bid?: string; // legacy block-level compatibility field
   ask_element_bid?: string; // use for ask block, because an interaction block gid isn't ask gid
   parent_element_bid?: string; // when like_status is not none, the parent_element_bid is the element_bid of the interaction block
+  parent_block_bid?: string; // legacy parent block compatibility field
   like_status?: LikeStatus;
   type: ChatContentItemType | BlockType | ElementType;
   ask_list?: ChatContentItem[]; // list of ask records for this content block
@@ -397,6 +402,7 @@ function useChatLogicHook({
         ...options?.previousItem,
         ...record,
         element_bid: itemBid,
+        generated_block_bid: record.generated_block_bid || itemBid,
         content,
         customRenderBar: () => null,
         user_input:
@@ -585,8 +591,9 @@ function useChatLogicHook({
           typeof updater === 'function'
             ? (updater as (prev: ChatContentItem[]) => ChatContentItem[])(prev)
             : updater;
-        contentListRef.current = next;
-        return next;
+        const normalizedNext = normalizeLegacyBlockCompatList(next);
+        contentListRef.current = normalizedNext;
+        return normalizedNext;
       });
     },
     [],

@@ -119,8 +119,9 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   const itemByGeneratedBid = React.useMemo(() => {
     const map = new Map<string, ChatContentItem>();
     items.forEach(item => {
-      if (item.generated_block_bid) {
-        map.set(item.generated_block_bid, item);
+      const generatedBlockBid = item.generated_block_bid || item.element_bid;
+      if (generatedBlockBid) {
+        map.set(generatedBlockBid, item);
       }
     });
     return map;
@@ -217,7 +218,8 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           {!showEmpty &&
             items.map((item, idx) => {
               if (item.type === ChatContentItemType.LIKE_STATUS) {
-                const parentBlockBid = item.parent_block_bid || '';
+                const parentBlockBid =
+                  item.parent_block_bid || item.parent_element_bid || '';
                 const parentContentItem = parentBlockBid
                   ? itemByGeneratedBid.get(parentBlockBid)
                   : undefined;
@@ -232,8 +234,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   >
                     <InteractionBlock
                       shifu_bid={shifuBid}
-                      generated_block_bid={parentBlockBid}
-                      like_status={item.like_status}
+                      element_bid={parentBlockBid}
                       onRefresh={onRefresh}
                       onToggleAskExpanded={noop}
                       disableAskButton
@@ -278,7 +279,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   <ContentBlock
                     item={item}
                     mobileStyle={false}
-                    blockBid={item.generated_block_bid}
+                    blockBid={item.generated_block_bid || item.element_bid}
                     confirmButtonText={confirmButtonText}
                     copyButtonText={copyButtonText}
                     copiedButtonText={copiedButtonText}

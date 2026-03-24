@@ -190,6 +190,8 @@ export interface AudioCompleteData {
   audio_bid: string;
   duration_ms: number;
   position?: number;
+  slide_id?: string;
+  av_contract?: Record<string, any> | null;
 }
 
 export interface ListenSlideData {

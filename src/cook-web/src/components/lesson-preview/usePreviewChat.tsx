@@ -28,6 +28,7 @@ import { toast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
 import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
 import type { AudioCompleteData, AudioSegmentData } from '@/c-api/studyV2';
+import { normalizeLegacyBlockCompatList } from '@/app/c/[[...id]]/Components/ChatUi/chatUiUtils';
 
 interface InteractionParseResult {
   variableName?: string;
@@ -152,8 +153,9 @@ export function usePreviewChat() {
           typeof updater === 'function'
             ? (updater as (prev: ChatContentItem[]) => ChatContentItem[])(prev)
             : updater;
-        contentListRef.current = next;
-        return next;
+        const normalizedNext = normalizeLegacyBlockCompatList(next);
+        contentListRef.current = normalizedNext;
+        return normalizedNext;
       });
     },
     [],
@@ -363,6 +365,7 @@ export function usePreviewChat() {
       setTrackedContentList(prev => [
         ...prev.filter(item => item.generated_block_bid !== 'loading'),
         {
+          element_bid: blockId,
           generated_block_bid: blockId,
           content: '',
           readonly: false,
@@ -390,6 +393,7 @@ export function usePreviewChat() {
       return [
         ...items.filter(item => item.generated_block_bid !== 'loading'),
         {
+          element_bid: blockId,
           generated_block_bid: blockId,
           content: '',
           readonly: false,
@@ -432,6 +436,7 @@ export function usePreviewChat() {
 
           setTrackedContentList((prev: ChatContentItem[]) => {
             const interactionBlock: ChatContentItem = {
+              element_bid: blockId,
               generated_block_bid: blockId,
               content: interactionContent,
               readonly: false,
@@ -448,6 +453,8 @@ export function usePreviewChat() {
               return [
                 ...prev,
                 {
+                  element_bid: `${lastContent.generated_block_bid}-feedback`,
+                  parent_element_bid: lastContent.generated_block_bid,
                   parent_block_bid: lastContent.generated_block_bid,
                   generated_block_bid: `${lastContent.generated_block_bid}-feedback`,
                   like_status: LIKE_STATUS.NONE,
@@ -491,6 +498,8 @@ export function usePreviewChat() {
             const gid = lastItem?.generated_block_bid || '';
             if (lastItem && lastItem.type === ChatContentItemType.CONTENT) {
               updatedList.push({
+                element_bid: '',
+                parent_element_bid: gid,
                 parent_block_bid: gid,
                 generated_block_bid: '',
                 content: '',
@@ -638,6 +647,7 @@ export function usePreviewChat() {
       setTrackedContentList(prev => [
         ...prev.filter(item => item.generated_block_bid !== 'loading'),
         {
+          element_bid: 'loading',
           generated_block_bid: 'loading',
           content: '',
           customRenderBar: () => <LoadingBar />,
@@ -828,7 +838,7 @@ export function usePreviewChat() {
         const removedBlockIds = currentList
           .slice(needChangeItemIndex)
           .map(item => item.generated_block_bid)
-          .filter(Boolean);
+          .filter((item): item is string => Boolean(item));
         if (removedBlockIds.length) {
           removeAutoSubmittedBlocks(removedBlockIds);
         }
@@ -882,7 +892,7 @@ export function usePreviewChat() {
       const removedBlockIds = originalList
         .slice(needChangeItemIndex)
         .map(item => item.generated_block_bid)
-        .filter(Boolean);
+        .filter((item): item is string => Boolean(item));
       if (removedBlockIds.length) {
         removeAutoSubmittedBlocks(removedBlockIds);
       }

@@ -37,3 +37,8 @@
 - 当学习页、预览、调试共用同一套聊天交互组件时，优先把按钮显隐收敛成统一的组件配置，比如 `showGenerateBtn`，再从入口层按场景透传，避免分散写死。
 - 当某个操作按钮依赖 `LIKE_STATUS` 这类中间态项承载展示时，删除按钮展示的同时也要停掉对应的数据注入，否则页面里容易残留空白操作栏或无意义占位。
 - 当移动端长按菜单依赖桌面端交互状态时，移除某类操作后要同步重算“是否还有可展示动作”，避免弹出空菜单。
+
+## 旧字段兼容回填
+
+- 当聊天数据从 `generated_block_bid` 迁移到 `element_bid` 后，`ChatContentItem` 仍要保留 `generated_block_bid` 和 `parent_block_bid` 这类旧字段，避免预览、音频、历史回放中的遗留调用直接报警。
+- 当新旧字段需要长期并存时，优先在统一的 list 更新入口做 normalize，把 `generated_block_bid` 回填为 `element_bid`，把 `parent_block_bid` 回填为 `parent_element_bid`，不要把兼容逻辑散落到每个渲染点。
