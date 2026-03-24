@@ -231,6 +231,7 @@ export const NewChatComponents = ({
   const {
     items,
     isLoading,
+    currentStreamingElementBid,
     onSend,
     onRefresh,
     toggleAskExpanded,
@@ -385,6 +386,12 @@ export const NewChatComponents = ({
       if (currentBlock.type !== ChatContentItemType.CONTENT) {
         return;
       }
+      if (
+        currentStreamingElementBid &&
+        currentBlock.element_bid === currentStreamingElementBid
+      ) {
+        return;
+      }
       const primaryTrack = getAudioTrackByPosition(
         currentBlock.audioTracks ?? [],
       );
@@ -411,7 +418,12 @@ export const NewChatComponents = ({
         });
       });
     },
-    [previewMode, shouldShowAudioAction, showGenerateBtn],
+    [
+      currentStreamingElementBid,
+      previewMode,
+      shouldShowAudioAction,
+      showGenerateBtn,
+    ],
   );
 
   useEffect(() => {
@@ -666,6 +678,7 @@ export const NewChatComponents = ({
                   !mobileStyle &&
                   Boolean(elementBid) &&
                   elementBid !== 'loading' &&
+                  elementBid !== currentStreamingElementBid &&
                   (item.type === ChatContentItemType.CONTENT ||
                     item.type === ChatContentItemType.INTERACTION);
                 if (item.type === ChatContentItemType.ASK) {

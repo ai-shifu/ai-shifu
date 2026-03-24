@@ -151,6 +151,7 @@ export interface UseChatSessionParams {
 export interface UseChatSessionResult {
   items: ChatContentItem[];
   isLoading: boolean;
+  currentStreamingElementBid: string;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onRefresh: (elementBid: string) => void;
   toggleAskExpanded: (parentElementBid: string) => void;
@@ -215,6 +216,8 @@ function useChatLogicHook({
     );
 
   const [contentList, setContentList] = useState<ChatContentItem[]>([]);
+  const [currentStreamingElementBid, setCurrentStreamingElementBid] =
+    useState('');
   // const [isTypeFinished, setIsTypeFinished] = useState(false);
   const isTypeFinishedRef = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -739,6 +742,7 @@ function useChatLogicHook({
       isTypeFinishedRef.current = false;
       isInitHistoryRef.current = false;
       // currentBlockIdRef.current = 'loading';
+      setCurrentStreamingElementBid('');
       currentContentRef.current = '';
       // setLastInteractionBlock(null);
       lastInteractionBlockRef.current = null;
@@ -851,6 +855,7 @@ function useChatLogicHook({
               }
 
               currentBlockIdRef.current = itemBid;
+              setCurrentStreamingElementBid(itemBid);
 
               const nextItem = buildElementContentItem(elementRecord, {
                 previousItem: contentListRef.current.find(
@@ -1016,6 +1021,7 @@ function useChatLogicHook({
               // response.type === SSE_OUTPUT_TYPE.BREAK ||
               response.type === SSE_OUTPUT_TYPE.TEXT_END
             ) {
+              setCurrentStreamingElementBid('');
               setTrackedContentList((prev: ChatContentItem[]) => {
                 const updatedList = [...prev].filter(
                   item => item.element_bid !== 'loading',
@@ -1178,6 +1184,7 @@ function useChatLogicHook({
           clearLoadingPlaceholder();
           isStreamingRef.current = false;
           sseRef.current = null;
+          setCurrentStreamingElementBid('');
         },
       );
       sseRef.current = source;
@@ -1215,6 +1222,7 @@ function useChatLogicHook({
             clearLoadingPlaceholder();
             isStreamingRef.current = false;
             sseRef.current = null;
+            setCurrentStreamingElementBid('');
           }
         }
       });
@@ -2164,6 +2172,7 @@ function useChatLogicHook({
   return {
     items,
     isLoading,
+    currentStreamingElementBid,
     onSend,
     onRefresh,
     toggleAskExpanded,
