@@ -65,6 +65,7 @@ export type LearningPermission =
 export const SSE_OUTPUT_TYPE = {
   ELEMENT: 'element',
   CONTENT: 'content',
+  ERROR: 'error',
   BREAK: 'break',
   ASK: 'ask',
   TEXT_END: 'done',

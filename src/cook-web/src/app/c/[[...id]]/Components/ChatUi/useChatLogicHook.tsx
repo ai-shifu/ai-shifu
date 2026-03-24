@@ -810,6 +810,26 @@ function useChatLogicHook({
           //   return;
           // }
           try {
+            if (response?.type === SSE_OUTPUT_TYPE.ERROR) {
+              const rawContent = response?.content;
+              const errorContent =
+                typeof rawContent === 'string'
+                  ? rawContent
+                  : typeof rawContent?.content === 'string'
+                    ? rawContent.content
+                    : typeof rawContent?.message === 'string'
+                      ? rawContent.message
+                      : typeof response?.message === 'string'
+                        ? response.message
+                        : '';
+
+              toast({
+                title: errorContent || 'Request failed',
+                variant: 'destructive',
+              });
+              return;
+            }
+
             const nid =
               response?.content?.element_bid ||
               response?.element_bid ||

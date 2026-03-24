@@ -34,6 +34,7 @@
 - 当听课模式依赖 `LIKE_STATUS` 作为内容块“流结束”的信号时，不要直接把它等同于“可发起 TTS”；还要再校验对应内容块是否 `is_speakable`，或是否已经带有可播放音频。
 - 当后端 AV 分段会把纯视觉 block 识别为“无可朗读文本”时，前端的 `ttsReadyElementBids` 之类请求门禁必须和这条规则对齐，避免 slide 切换时对纯视觉内容重复打 `generated-blocks/:id/tts` 并触发 500。
 - 当产品要求“仅点击播放按钮才发起 TTS”时，听课模式必须移除 `onStepChange`、序列切换等自动补拉请求逻辑，`generated-blocks/:id/tts` 只能由 `AudioPlayer` 的 `onRequestAudio` 点击行为触发。
+- 当 run SSE 可能返回 `type/error` 或 `event_type/error` 事件时，前端要在统一消息分发层立即弹出 `destructive toast`，并优先使用事件 `content` 作为错误文案，避免错误被静默吞掉。
 
 ## 聊天操作栏裁剪
 
