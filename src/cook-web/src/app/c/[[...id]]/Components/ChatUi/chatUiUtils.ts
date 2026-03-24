@@ -46,9 +46,7 @@ export const stripCustomButtonAfterContent = (
   return content.replace(CUSTOM_BUTTON_AFTER_CONTENT_REGEX, '').trimEnd();
 };
 
-export const normalizeLegacyBlockCompatItem = <
-  T extends LegacyBlockCompatItem,
->(
+export const normalizeLegacyBlockCompatItem = <T extends LegacyBlockCompatItem>(
   item: T,
 ): T => {
   const elementBid = item.element_bid || item.generated_block_bid || '';
@@ -81,8 +79,6 @@ export const normalizeLegacyBlockCompatItem = <
   };
 };
 
-export const normalizeLegacyBlockCompatList = <
-  T extends LegacyBlockCompatItem,
->(
+export const normalizeLegacyBlockCompatList = <T extends LegacyBlockCompatItem>(
   items: T[],
 ): T[] => items.map(normalizeLegacyBlockCompatItem);
