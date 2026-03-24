@@ -26,6 +26,7 @@ from flaskr.service.learn.context_v2 import (
     MdflowContextV2,
     RunScriptContextV2,
     RunScriptPreviewContextV2,
+    _split_incomplete_visual_tail,
 )
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import GeneratedType, PlaygroundPreviewRequest
@@ -189,6 +190,31 @@ class AccessGateFeedbackHelperTests(unittest.TestCase):
                 {"buttons": [{"value": "_sys_pay"}, {"value": "_sys_login"}]}
             )
         )
+
+
+class StreamingVisualTailTests(unittest.TestCase):
+    def test_keeps_incomplete_markdown_image_in_tail(self):
+        safe_text, pending_tail = _split_incomplete_visual_tail(
+            "Intro text ![cover](https://example.com/image"
+        )
+
+        self.assertEqual(safe_text, "Intro text ")
+        self.assertEqual(pending_tail, "![cover](https://example.com/image")
+
+    def test_keeps_incomplete_html_image_in_tail(self):
+        safe_text, pending_tail = _split_incomplete_visual_tail(
+            'Intro text <img src="https://example.com/image'
+        )
+
+        self.assertEqual(safe_text, "Intro text ")
+        self.assertEqual(pending_tail, '<img src="https://example.com/image')
+
+    def test_returns_full_text_when_visual_token_is_complete(self):
+        text = "Intro text ![cover](https://example.com/image.png)"
+        safe_text, pending_tail = _split_incomplete_visual_tail(text)
+
+        self.assertEqual(safe_text, text)
+        self.assertEqual(pending_tail, "")
 
 
 class CompletionTailInteractionTests(unittest.TestCase):

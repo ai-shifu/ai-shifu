@@ -2,6 +2,7 @@ import hashlib
 import inspect
 import json
 import queue
+import re
 import threading
 from decimal import Decimal
 from enum import Enum
@@ -103,6 +104,35 @@ from flaskr.i18n import _, get_current_language, set_language
 from flaskr.service.user.exceptions import UserNotLoginException
 
 context_local = threading.local()
+
+_STREAMING_MD_IMAGE_START_RE = re.compile(r"!\[[^\]]*$|!\[[^\]]*]\([^)\n]*$")
+_STREAMING_HTML_IMG_START_RE = re.compile(r"<img\b[^>]*$", re.IGNORECASE)
+
+
+def _split_incomplete_visual_tail(text: str) -> tuple[str, str]:
+    """
+    Split a streaming buffer into a safe-to-render prefix and an incomplete
+    visual tail that should wait for more content.
+
+    Fixed-output blocks may start with images, and markdown/html image tokens
+    are commonly split across SSE chunks. When that happens, the learner page
+    can receive invalid markdown/html on first load and fail to render until a
+    refresh replays the persisted full content.
+    """
+    if not text:
+        return "", ""
+
+    md_matches = list(_STREAMING_MD_IMAGE_START_RE.finditer(text))
+    if md_matches:
+        start = md_matches[-1].start()
+        return text[:start], text[start:]
+
+    html_matches = list(_STREAMING_HTML_IMG_START_RE.finditer(text))
+    if html_matches:
+        start = html_matches[-1].start()
+        return text[:start], text[start:]
+
+    return text, ""
 
 
 class RunType(Enum):
@@ -2417,6 +2447,10 @@ class RunScriptContextV2:
                 generated_content = ""
                 tts_processor = None
                 content_cache = ""
+                should_buffer_visual_chunks = bool(
+                    block.content
+                    and ("<img" in block.content.lower() or "![" in block.content)
+                )
 
                 # Direct synchronous stream processing (markdown-flow 0.2.27+)
                 app.logger.info(f"process_stream: {run_script_info.block_position}")
@@ -2527,6 +2561,21 @@ class RunScriptContextV2:
                         return
                     generated_content += chunk_content
                     if not tts_processor:
+                        if should_buffer_visual_chunks:
+                            content_cache += chunk_content
+                            safe_content, pending_tail = _split_incomplete_visual_tail(
+                                content_cache
+                            )
+                            content_cache = pending_tail
+                            if safe_content:
+                                yield RunMarkdownFlowDTO(
+                                    outline_bid=run_script_info.outline_bid,
+                                    generated_block_bid=generated_block.generated_block_bid,
+                                    type=GeneratedType.CONTENT,
+                                    content=safe_content,
+                                )
+                            return
+
                         yield RunMarkdownFlowDTO(
                             outline_bid=run_script_info.outline_bid,
                             generated_block_bid=generated_block.generated_block_bid,

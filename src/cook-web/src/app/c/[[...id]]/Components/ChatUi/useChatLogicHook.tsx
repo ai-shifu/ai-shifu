@@ -11,7 +11,7 @@ import React from 'react';
 import { useLatest, useMountedState } from 'react-use';
 import {
   fixMarkdownStream,
-  maskIncompleteMermaidBlock,
+  maskIncompleteVisualTokens,
 } from '@/c-utils/markdownUtils';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { useUserStore } from '@/store';
@@ -899,7 +899,7 @@ function useChatLogicHook({
               const delta = fixMarkdownStream(prevText, response.content || '');
               const nextText = prevText + delta;
               currentContentRef.current = nextText;
-              const displayText = maskIncompleteMermaidBlock(nextText);
+              const displayText = maskIncompleteVisualTokens(nextText);
               if (blockId) {
                 setTrackedContentList(prevState => {
                   let hasItem = false;

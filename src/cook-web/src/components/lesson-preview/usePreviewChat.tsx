@@ -14,7 +14,7 @@ import { LIKE_STATUS } from '@/c-api/studyV2';
 import { getStringEnv } from '@/c-utils/envUtils';
 import {
   fixMarkdownStream,
-  maskIncompleteMermaidBlock,
+  maskIncompleteVisualTokens,
 } from '@/c-utils/markdownUtils';
 import {
   getAudioTrackByPosition,
@@ -467,7 +467,7 @@ export function usePreviewChat() {
           );
           const nextText = prevText + delta;
           currentContentRef.current = nextText;
-          const displayText = maskIncompleteMermaidBlock(nextText);
+          const displayText = maskIncompleteVisualTokens(nextText);
           setTrackedContentList(prev =>
             prev.map(item =>
               item.generated_block_bid === contentId

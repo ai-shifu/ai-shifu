@@ -22,6 +22,58 @@ export const fixCodeStream = (text, curr) => {
   return curr;
 };
 
+const findIncompleteMarkdownImageStart = (text: string): number => {
+  const imageStart = text.lastIndexOf('![');
+  if (imageStart === -1) {
+    return -1;
+  }
+
+  const imageOpen = text.indexOf('](', imageStart + 2);
+  if (imageOpen === -1) {
+    return imageStart;
+  }
+
+  const imageClose = text.indexOf(')', imageOpen + 2);
+  if (imageClose === -1) {
+    return imageStart;
+  }
+
+  return -1;
+};
+
+const findIncompleteHtmlImageStart = (text: string): number => {
+  const lowerText = text.toLowerCase();
+  const imageStart = lowerText.lastIndexOf('<img');
+  if (imageStart === -1) {
+    return -1;
+  }
+
+  const imageClose = lowerText.indexOf('>', imageStart + 4);
+  if (imageClose === -1) {
+    return imageStart;
+  }
+
+  return -1;
+};
+
+export const maskIncompleteImageToken = (text: string): string => {
+  if (!text) {
+    return text;
+  }
+
+  const markdownImageStart = findIncompleteMarkdownImageStart(text);
+  const htmlImageStart = findIncompleteHtmlImageStart(text);
+  const cutoff = [markdownImageStart, htmlImageStart]
+    .filter(index => index >= 0)
+    .sort((a, b) => a - b)[0];
+
+  if (typeof cutoff !== 'number') {
+    return text;
+  }
+
+  return text.slice(0, cutoff);
+};
+
 const MERMAID_FENCE = '```mermaid';
 const STREAMING_MARKER_REGEX = /```mermaid\s*_streaming\s*/gi;
 
@@ -62,4 +114,9 @@ export const maskIncompleteMermaidBlock = (text: string): string => {
   }
 
   return stripStreamingMarker(text);
+};
+
+export const maskIncompleteVisualTokens = (text: string): string => {
+  const mermaidSafeText = maskIncompleteMermaidBlock(text);
+  return maskIncompleteImageToken(mermaidSafeText);
 };
