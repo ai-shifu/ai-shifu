@@ -638,7 +638,6 @@ def test_get_listen_element_record_includes_persisted_rows_missing_progress_bid(
     attached_block_bid = "generated-attached-persisted"
 
     with app.app_context():
-        LearnGeneratedElement.query.delete()
         LearnGeneratedBlock.query.delete()
         LearnProgressRecord.query.delete()
         db.session.commit()
@@ -1935,7 +1934,11 @@ def test_listen_adapter_marks_non_text_after_text_as_new_in_stream(app):
         RunMarkdownFlowDTO,
     )
     from flaskr.service.learn.listen_elements import ListenElementRunAdapter
-    from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+    from flaskr.service.learn.models import (
+        LearnGeneratedBlock,
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
     user_bid = "user-listen-is-new-rule"
@@ -1945,6 +1948,7 @@ def test_listen_adapter_marks_non_text_after_text_as_new_in_stream(app):
     generated_block_bid = "generated-listen-is-new-rule"
 
     with app.app_context():
+        LearnGeneratedElement.query.delete()
         LearnGeneratedBlock.query.delete()
         LearnProgressRecord.query.delete()
         db.session.commit()
@@ -2029,12 +2033,130 @@ def test_listen_adapter_marks_non_text_after_text_as_new_in_stream(app):
             False,
             True,
             False,
-            False,
+            True,
         ]
         assert element_events[1].target_element_bid == element_events[1].element_bid
         assert element_events[2].target_element_bid in ("", None)
         assert element_events[3].target_element_bid == element_events[2].element_bid
-        assert element_events[4].target_element_bid == element_events[4].element_bid
+        assert element_events[4].target_element_bid in ("", None)
+
+
+def test_listen_adapter_finalizes_image_after_text_as_new(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.learn_dtos import (
+        ElementType,
+        GeneratedType,
+        RunMarkdownFlowDTO,
+    )
+    from flaskr.service.learn.listen_elements import (
+        ListenElementRunAdapter,
+        get_listen_element_record,
+    )
+    from flaskr.service.learn.models import (
+        LearnGeneratedBlock,
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-listen-finalize-image-after-text"
+    shifu_bid = "shifu-listen-finalize-image-after-text"
+    outline_bid = "outline-listen-finalize-image-after-text"
+    progress_bid = "progress-listen-finalize-image-after-text"
+    generated_block_bid = "generated-listen-finalize-image-after-text"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        block = LearnGeneratedBlock(
+            generated_block_bid=generated_block_bid,
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            block_bid="block-listen-finalize-image-after-text",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            type=0,
+            role=ROLE_TEACHER,
+            generated_content="",
+            position=0,
+            block_content_conf="",
+            status=1,
+        )
+        db.session.add_all([progress, block])
+        db.session.commit()
+
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+        )
+
+        events = [
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="Before image",
+            ).set_mdflow_stream_parts([("Before image", "text", 0)]),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="https://example.com/final-step.png",
+            ).set_mdflow_stream_parts(
+                [("https://example.com/final-step.png", "img", 1)]
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.BREAK,
+                content="",
+            ),
+        ]
+
+        streamed = list(adapter.process(events))
+        final_elements = [
+            item.content
+            for item in streamed
+            if item.type == "element" and item.content.is_final
+        ]
+
+        assert [item.element_type for item in final_elements] == [
+            ElementType.TEXT,
+            ElementType.IMG,
+        ]
+        assert [item.is_new for item in final_elements] == [True, True]
+        assert [item.target_element_bid for item in final_elements] == [None, None]
+
+        result = get_listen_element_record(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            preview_mode=False,
+        )
+
+        assert [item.element_type for item in result.elements] == [
+            ElementType.TEXT,
+            ElementType.IMG,
+        ]
+        assert [item.is_new for item in result.elements] == [True, True]
+        assert [item.target_element_bid for item in result.elements] == [None, None]
 
 
 def test_listen_adapter_marks_type_switch_as_new_when_stream_number_reused(app):
