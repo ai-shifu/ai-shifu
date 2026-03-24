@@ -21,7 +21,7 @@ export interface AudioTrack {
 }
 
 export interface AudioItem {
-  element_bid: string;
+  generated_block_bid: string;
   audioSegments?: AudioSegment[];
   audioTracks?: AudioTrack[];
   audioUrl?: string;
@@ -29,7 +29,7 @@ export interface AudioItem {
   audioDurationMs?: number;
 }
 
-type EnsureItem<T> = (items: T[], elementBid: string) => T[];
+type EnsureItem<T> = (items: T[], blockId: string) => T[];
 type SegmentKeyParams = {
   segmentIndex: number;
   position?: number | null;
@@ -94,10 +94,10 @@ export const hasAudioContentInTracks = (
 ) => tracks.some(track => hasAudioContentInTrack(track));
 
 export const buildAudioSegmentUniqueKey = (
-  elementBid: string,
+  blockId: string,
   params: SegmentKeyParams,
 ) =>
-  `${elementBid}:${normalizeAudioPosition(params.position)}:${params.segmentIndex}`;
+  `${blockId}:${normalizeAudioPosition(params.position)}:${params.segmentIndex}`;
 
 export interface AudioSegmentPayload {
   segment_index?: number;
@@ -222,22 +222,6 @@ const upsertAudioTrackSegment = (
   return sortAudioTracksByPosition([...tracks, nextTrack]);
 };
 
-export const mergeAudioSegmentsIntoTracks = (
-  elementBid: string,
-  tracks: AudioTrack[] = [],
-  segments: AudioSegmentData[] = [],
-): AudioTrack[] => {
-  if (!segments.length) {
-    return tracks;
-  }
-
-  return segments.reduce(
-    (nextTracks, segment) =>
-      upsertAudioTrackSegment(elementBid, nextTracks, toAudioSegment(segment)),
-    tracks,
-  );
-};
-
 const normalizeTrackForUpsert = (
   complete: Partial<AudioCompleteData>,
 ): {
@@ -305,28 +289,23 @@ const upsertAudioTrackComplete = (
   return sortAudioTracksByPosition([...tracks, nextTrack]);
 };
 
-export const mergeAudioCompleteIntoTracks = (
-  tracks: AudioTrack[] = [],
-  complete: Partial<AudioCompleteData>,
-): AudioTrack[] => upsertAudioTrackComplete(tracks, complete);
-
 export const upsertAudioSegment = <T extends AudioItem>(
   items: T[],
-  elementBid: string,
+  blockId: string,
   segment: AudioSegmentData,
   ensureItem?: EnsureItem<T>,
 ): T[] => {
-  const nextItems = ensureItem ? ensureItem(items, elementBid) : items;
+  const nextItems = ensureItem ? ensureItem(items, blockId) : items;
   const mappedSegment = toAudioSegment(segment);
 
   return nextItems.map(item => {
-    if (item.element_bid !== elementBid) {
+    if (item.generated_block_bid !== blockId) {
       return item;
     }
 
     const existingTracks = item.audioTracks ?? [];
     const updatedTracks = upsertAudioTrackSegment(
-      elementBid,
+      blockId,
       existingTracks,
       mappedSegment,
     );
@@ -336,9 +315,9 @@ export const upsertAudioSegment = <T extends AudioItem>(
 
     const hasNoChanges = updatedTracks === existingTracks;
     logAudioUtilsDebug('audio-utils-upsert-segment', {
-      elementBid,
+      blockId,
       segmentIndex: mappedSegment.segmentIndex,
-      dedupeKey: buildAudioSegmentUniqueKey(elementBid, mappedSegment),
+      dedupeKey: buildAudioSegmentUniqueKey(blockId, mappedSegment),
       position: normalizeAudioPosition(mappedSegment.position),
       existingTracks: item.audioTracks?.length ?? 0,
       mergedTracks: updatedTracks.length,
@@ -359,14 +338,14 @@ export const upsertAudioSegment = <T extends AudioItem>(
 
 export const upsertAudioComplete = <T extends AudioItem>(
   items: T[],
-  elementBid: string,
+  blockId: string,
   complete: Partial<AudioCompleteData>,
   ensureItem?: EnsureItem<T>,
 ): T[] => {
-  const nextItems = ensureItem ? ensureItem(items, elementBid) : items;
+  const nextItems = ensureItem ? ensureItem(items, blockId) : items;
 
   return nextItems.map(item => {
-    if (item.element_bid !== elementBid) {
+    if (item.generated_block_bid !== blockId) {
       return item;
     }
 
@@ -385,7 +364,7 @@ export const upsertAudioComplete = <T extends AudioItem>(
       item.audioDurationMs === targetTrack?.durationMs &&
       Boolean(item.isAudioStreaming) === Boolean(nextIsAudioStreaming);
     logAudioUtilsDebug('audio-utils-upsert-complete', {
-      elementBid,
+      blockId,
       position,
       hasAudioUrl: Boolean(targetTrack?.audioUrl),
       durationMs: targetTrack?.durationMs ?? 0,

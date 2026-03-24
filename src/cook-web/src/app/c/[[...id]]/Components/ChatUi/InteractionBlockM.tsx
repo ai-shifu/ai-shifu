@@ -25,11 +25,11 @@ export interface InteractionBlockMProps {
   onOpenChange: (open: boolean) => void;
   position: { x: number; y: number };
   shifu_bid: string;
-  element_bid: string;
+  generated_block_bid: string;
   like_status?: LikeStatus | null;
   readonly?: boolean;
   disabled?: boolean;
-  onRefresh?: (elementBid: string) => void;
+  onRefresh?: (generatedBlockBid: string) => void;
   audioUrl?: string;
   streamingSegments?: AudioSegment[];
   isStreaming?: boolean;
@@ -46,7 +46,7 @@ export default function InteractionBlockM({
   onOpenChange,
   position,
   shifu_bid,
-  element_bid,
+  generated_block_bid,
   like_status = LIKE_STATUS.NONE,
   readonly = false,
   disabled = false,
@@ -74,12 +74,12 @@ export default function InteractionBlockM({
 
   useEffect(() => {
     setStatus((like_status as LikeStatus) ?? LIKE_STATUS.NONE);
-  }, [like_status, element_bid]);
+  }, [like_status, generated_block_bid]);
 
   const send = (action: LikeStatus) => {
     postGeneratedContentAction({
       shifu_bid,
-      generated_block_bid: element_bid,
+      generated_block_bid,
       action,
     }).catch(() => {
       // errors handled by request layer toast; ignore here
@@ -94,7 +94,7 @@ export default function InteractionBlockM({
 
   const handleConfirmRegenerate = () => {
     setShowRegenerateDialog(false);
-    onRefresh?.(element_bid);
+    onRefresh?.(generated_block_bid);
   };
 
   const handleLike = () => {

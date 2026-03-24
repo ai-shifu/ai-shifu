@@ -26,14 +26,14 @@ type Size = 'sm' | 'md' | 'lg';
 
 export interface InteractionBlockProps {
   shifu_bid: string;
-  element_bid: string;
+  generated_block_bid: string;
   like_status?: LikeStatus | null; // initial status
   readonly?: boolean;
   disabled?: boolean;
   size?: Size;
   className?: string;
-  onToggleAskExpanded?: (element_bid: string) => void;
-  onRefresh?: (element_bid: string) => void;
+  onToggleAskExpanded?: (generated_block_bid: string) => void;
+  onRefresh?: (generated_block_bid: string) => void;
   disableAskButton?: boolean;
   disableInteractionButtons?: boolean;
   extraActions?: React.ReactNode;
@@ -45,7 +45,7 @@ export interface InteractionBlockProps {
  */
 export default function InteractionBlock({
   shifu_bid,
-  element_bid,
+  generated_block_bid,
   like_status = LIKE_STATUS.NONE,
   readonly = false,
   disabled = false,
@@ -113,7 +113,7 @@ export default function InteractionBlock({
   const send = (action: LikeStatus) => {
     postGeneratedContentAction({
       shifu_bid,
-      generated_block_bid: element_bid,
+      generated_block_bid,
       action,
     }).catch(() => {
       // errors handled by request layer toast; ignore here
@@ -140,7 +140,7 @@ export default function InteractionBlock({
   };
 
   const handleChangeAskPanel = () => {
-    onToggleAskExpanded?.(element_bid);
+    onToggleAskExpanded?.(generated_block_bid);
   };
 
   const handleRefreshClick = () => {
@@ -150,7 +150,7 @@ export default function InteractionBlock({
 
   const handleConfirmRegenerate = () => {
     setShowRegenerateDialog(false);
-    onRefresh?.(element_bid);
+    onRefresh?.(generated_block_bid);
   };
 
   const canHover = !(disabled || readonly);

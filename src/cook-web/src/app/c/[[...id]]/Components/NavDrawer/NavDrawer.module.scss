@@ -55,15 +55,14 @@
 
   &.mobile {
     position: fixed;
-    top: 76px;
+    top: 0;
     left: 0;
     width: 100%;
-    height: calc(100dvh - 76px);
+    height: 100%;
     display: block;
-    z-index: 40;
-
+    z-index: 2;
     .navHeader {
-      display: none;
+      visibility: hidden;
     }
 
     .navDrawer {

@@ -14,8 +14,6 @@
 .listen-reveal-wrapper.mobile {
   padding: 0 !important;
   height: 100%;
-  min-height: 0;
-  flex: 1 1 auto;
   overflow: hidden;
   overflow-y: hidden !important;
 }
@@ -32,10 +30,10 @@
   min-height: 100%;
 }
 .listen-reveal-wrapper.mobile .content-render-iframe-sandbox {
-  padding: 0 20px;
+  padding: 0 16px;
 }
 .listen-reveal-wrapper.mobile .mobile-empty-slide {
-  padding: 0 20px !important;
+  padding: 0 16px !important;
 }
 .listen-reveal {
   width: 100%;
@@ -92,78 +90,4 @@
     opacity: 1;
     transform: scale(1);
   }
-}
-.listen-slide-shell {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  flex-direction: column;
-}
-.listen-slide-root {
-  min-height: 0;
-  flex: 1 1 auto;
-  background: #fff;
-}
-.listen-reveal-wrapper.mobile .listen-slide-shell {
-  display: flex;
-  min-height: 0;
-  flex: 1 1 auto;
-  box-sizing: border-box;
-}
-.listen-reveal-wrapper.mobile .listen-slide-root {
-  min-height: 0;
-}
-.listen-reveal-wrapper.mobile .listen-slide-root .slide-stage,
-.listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__layer,
-.listen-reveal-wrapper.mobile .listen-slide-root .slide-content--single {
-  min-height: 0;
-  height: 100%;
-}
-.listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__content {
-  min-height: calc(100% - 40px);
-}
-.listen-reveal-wrapper.mobile
-  .listen-slide-root
-  .slide-stage__content:has(.slide-element--single) {
-  flex: 1 1 auto;
-}
-.listen-reveal-wrapper.mobile
-  .listen-slide-root
-  .slide-stage__content:has(.slide-element--single)
-  .slide-element--single {
-  min-height: 100%;
-  flex: 1 1 auto;
-}
-.listen-reveal-wrapper.mobile .listen-slide-root .slide-stage__layer {
-  box-sizing: border-box;
-}
-.listen-reveal-wrapper.mobile .listen-slide-root .slide-element--single {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.listen-reveal-wrapper.mobile
-  .listen-slide-root
-  .slide-element--single
-  > .content-render-iframe-sandbox {
-  width: 100%;
-  align-self: center;
-  justify-content: center !important;
-}
-.listen-reveal-wrapper.mobile
-  .listen-slide-player-mobile
-  .slide-player__controls {
-  width: 100%;
-  min-height: 80px;
-  height: 80px;
-  border-radius: 0 !important;
-  border-left: 0 !important;
-  border-right: 0 !important;
-  box-shadow: none !important;
-}
-.listen-reveal-wrapper.mobile
-  .listen-slide-root
-  .slide-interaction-overlay--standalone {
-  bottom: 52px;
 }

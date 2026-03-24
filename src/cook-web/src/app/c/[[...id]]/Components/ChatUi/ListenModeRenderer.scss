@@ -15,8 +15,6 @@
   &.mobile {
     padding: 0 !important;
     height: 100%;
-    min-height: 0;
-    flex: 1 1 auto;
     overflow: hidden;
     overflow-y: hidden !important;
 
@@ -34,13 +32,11 @@
       height: 100% !important;
       min-height: 100%;
     }
-
     .content-render-iframe-sandbox {
-      padding: 0 20px;
+      padding: 0 16px;
     }
-
     .mobile-empty-slide {
-      padding: 0 20px !important;
+      padding: 0 16px !important;
     }
   }
 }
@@ -103,95 +99,8 @@
     opacity: 0;
     transform: scale(0.96);
   }
-
   to {
     opacity: 1;
     transform: scale(1);
-  }
-}
-
-.listen-slide-shell {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  flex-direction: column;
-}
-
-.listen-slide-root {
-  min-height: 0;
-  flex: 1 1 auto;
-  background: var(--color-slide-desktop-bg);
-}
-
-.listen-reveal-wrapper.mobile {
-  .listen-slide-shell {
-    display: flex;
-    min-height: 0;
-    flex: 1 1 auto;
-    box-sizing: border-box;
-  }
-
-  .listen-slide-root {
-    min-height: 0;
-    background: var(--color-5);
-  }
-
-  .listen-slide-root .slide-stage,
-  .listen-slide-root .slide-stage__layer,
-  .listen-slide-root .slide-content--single {
-    min-height: 0;
-    height: 100%;
-  }
-
-  .listen-slide-root .slide-stage__content {
-    min-height: calc(100% - 40px);
-  }
-
-  .listen-slide-root .slide-stage__content:has(.slide-element--single) {
-    flex: 1 1 auto;
-  }
-
-  .listen-slide-root
-    .slide-stage__content:has(.slide-element--single)
-    .slide-element--single {
-    min-height: 100%;
-    flex: 1 1 auto;
-  }
-
-  .listen-slide-root .slide-stage__layer {
-    box-sizing: border-box;
-  }
-
-  .listen-slide-root .slide-element--single {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .listen-slide-root .slide-element--single > .content-render-iframe-sandbox {
-    width: 100%;
-    align-self: center;
-    justify-content: center !important;
-  }
-
-  .listen-slide-player-mobile {
-  }
-
-  .listen-slide-player-mobile .slide-player__controls {
-    width: 100%;
-    min-height: 80px;
-    height: 80px;
-    border-radius: 0 !important;
-    border-left: 0 !important;
-    border-right: 0 !important;
-    box-shadow: none !important;
-  }
-
-  .listen-slide-root .slide-interaction-overlay--with-player {
-  }
-
-  .listen-slide-root .slide-interaction-overlay--standalone {
-    bottom: 52px;
   }
 }

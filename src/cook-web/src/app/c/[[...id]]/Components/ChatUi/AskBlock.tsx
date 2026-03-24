@@ -6,7 +6,6 @@ import React, {
   useEffect,
 } from 'react';
 import { cn } from '@/lib/utils';
-import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { useTranslation } from 'react-i18next';
 import { Maximize2, Minimize2, X } from 'lucide-react';
 import { ContentRender, MarkdownFlowInput } from 'markdown-flow-ui/renderer';
@@ -26,12 +25,6 @@ import ShifuIcon from '@/c-assets/newchat/light/icon_shifu.svg';
 import { BLOCK_TYPE } from '@/c-api/studyV2';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { useCourseStore } from '@/c-store/useCourseStore';
-import { AudioPlayer } from '@/components/audio/AudioPlayer';
-import {
-  normalizeAudioSegmentPayload,
-  mergeAudioSegmentByUniqueKey,
-  type AudioSegment,
-} from '@/c-utils/audio-utils';
 export interface AskMessage {
   type: typeof BLOCK_TYPE.ASK | typeof BLOCK_TYPE.ANSWER;
   content: string;
@@ -45,35 +38,9 @@ export interface AskBlockProps {
   shifu_bid: string;
   outline_bid: string;
   preview_mode?: boolean;
-  element_bid: string;
-  isListenMode?: boolean;
-  onToggleAskExpanded?: (element_bid: string) => void;
+  generated_block_bid: string;
+  onToggleAskExpanded?: (generated_block_bid: string) => void;
 }
-
-const normalizeAskMessages = (askMessages: AskMessage[]): AskMessage[] =>
-  askMessages.map(item => ({
-    content: item.content || '',
-    type: item.type,
-    isStreaming: item.isStreaming,
-  }));
-
-const isSameAskMessages = (
-  left: AskMessage[],
-  right: AskMessage[],
-): boolean => {
-  if (left.length !== right.length) {
-    return false;
-  }
-
-  return left.every((item, index) => {
-    const nextItem = right[index];
-    return (
-      item.type === nextItem?.type &&
-      item.content === nextItem?.content &&
-      Boolean(item.isStreaming) === Boolean(nextItem?.isStreaming)
-    );
-  });
-};
 
 /**
  * AskBlock
@@ -86,8 +53,7 @@ export default function AskBlock({
   shifu_bid,
   outline_bid,
   preview_mode = false,
-  element_bid,
-  isListenMode = false,
+  generated_block_bid,
   onToggleAskExpanded,
 }: AskBlockProps) {
   const { t } = useTranslation();
@@ -95,12 +61,12 @@ export default function AskBlock({
   const copiedButtonText = t('module.renderUi.core.copied');
   const { mobileStyle } = useContext(AppContext);
   const courseAvatar = useCourseStore(state => state.courseAvatar);
-  const [askAudioSegments, setAskAudioSegments] = useState<AudioSegment[]>([]);
-  const [askAudioUrl, setAskAudioUrl] = useState<string>('');
-  const [isAskAudioStreaming, setIsAskAudioStreaming] = useState(false);
-  const [displayList, setDisplayList] = useState<AskMessage[]>(() =>
-    normalizeAskMessages(askList),
-  );
+  const [displayList, setDisplayList] = useState<AskMessage[]>(() => {
+    return askList.map(item => ({
+      content: item.content || '',
+      type: item.type,
+    }));
+  });
 
   const [inputValue, setInputValue] = useState('');
   const sseRef = useRef<any>(null);
@@ -127,9 +93,6 @@ export default function AskBlock({
     if (!question) {
       return;
     }
-    setAskAudioSegments([]);
-    setAskAudioUrl('');
-    setIsAskAudioStreaming(false);
     const runningRes = await checkIsRunning(shifu_bid, outline_bid);
     if (runningRes.is_running) {
       showOutputInProgressToast();
@@ -173,9 +136,8 @@ export default function AskBlock({
       {
         input: question,
         input_type: SSE_INPUT_TYPE.ASK,
-        reload_element_bid: element_bid,
-        reload_generated_block_bid: element_bid,
-        listen: isListenMode,
+        reload_generated_block_bid: generated_block_bid,
+        listen: false,
       },
       async response => {
         try {
@@ -183,12 +145,13 @@ export default function AskBlock({
             return;
           }
           if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
-            // Streaming content (non-listen mode)
+            // Streaming content
             const prevText = currentContentRef.current || '';
             const delta = fixMarkdownStream(prevText, response.content || '');
             const nextText = prevText + delta;
             currentContentRef.current = nextText;
 
+            // Update the content of the last teacher message
             setDisplayList(prev => {
               const newList = [...prev];
               const lastIndex = newList.length - 1;
@@ -204,73 +167,9 @@ export default function AskBlock({
               }
               return newList;
             });
-          } else if (response.type === SSE_OUTPUT_TYPE.ELEMENT) {
-            // Listen mode: text content + audio in element patches
-            const elementContent = response.content;
-            if (elementContent && typeof elementContent === 'object') {
-              // Extract text content from element patch
-              const textContent = elementContent.content;
-              if (typeof textContent === 'string' && textContent) {
-                currentContentRef.current = textContent;
-                setDisplayList(prev => {
-                  const newList = [...prev];
-                  const lastIndex = newList.length - 1;
-                  if (
-                    lastIndex >= 0 &&
-                    newList[lastIndex].type === BLOCK_TYPE.ANSWER
-                  ) {
-                    newList[lastIndex] = {
-                      ...newList[lastIndex],
-                      content: textContent,
-                      isStreaming: true,
-                    };
-                  }
-                  return newList;
-                });
-              }
-              // Extract audio segments from element patch
-              const segments = elementContent.audio_segments;
-              if (Array.isArray(segments) && segments.length > 0) {
-                setIsAskAudioStreaming(true);
-                for (const seg of segments) {
-                  const normalized = normalizeAudioSegmentPayload(seg);
-                  if (normalized) {
-                    setAskAudioSegments(prev =>
-                      mergeAudioSegmentByUniqueKey(
-                        element_bid,
-                        prev,
-                        normalized,
-                      ),
-                    );
-                  }
-                }
-              }
-              // Extract audio_url from element patch
-              if (elementContent.audio_url) {
-                setAskAudioUrl(elementContent.audio_url);
-                setIsAskAudioStreaming(false);
-              }
-            }
-          } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
-            const payload = response.content ?? response.data;
-            const segment = normalizeAudioSegmentPayload(payload);
-            if (segment) {
-              setIsAskAudioStreaming(true);
-              setAskAudioSegments(prev =>
-                mergeAudioSegmentByUniqueKey(element_bid, prev, segment),
-              );
-            }
-          } else if (response.type === SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
-            const payload = response.content ?? response.data;
-            setAskAudioUrl(payload?.audio_url || '');
-            setIsAskAudioStreaming(false);
-          } else if (
-            response.type === SSE_OUTPUT_TYPE.TEXT_END ||
-            response.type === SSE_OUTPUT_TYPE.BREAK
-          ) {
+          } else {
             // Streaming finished
             isStreamingRef.current = false;
-            setIsAskAudioStreaming(false);
             setDisplayList(prev => {
               const newList = [...prev];
               const lastIndex = newList.length - 1;
@@ -334,9 +233,8 @@ export default function AskBlock({
     shifu_bid,
     outline_bid,
     preview_mode,
-    element_bid,
+    generated_block_bid,
     inputValue,
-    isListenMode,
     showOutputInProgressToast,
   ]);
   const handleInputChange = useCallback(
@@ -366,17 +264,6 @@ export default function AskBlock({
       setShowMobileDialog(true);
     }
   }, [askList.length]);
-
-  useEffect(() => {
-    if (isStreamingRef.current) {
-      return;
-    }
-
-    const nextDisplayList = normalizeAskMessages(askList);
-    setDisplayList(prev =>
-      isSameAskMessages(prev, nextDisplayList) ? prev : nextDisplayList,
-    );
-  }, [askList]);
 
   useEffect(() => {
     if (!mobileStyle || !expanded) {
@@ -417,8 +304,8 @@ export default function AskBlock({
   const handleClose = useCallback(() => {
     setIsFullscreen(false);
     // onClose?.();
-    onToggleAskExpanded?.(element_bid);
-  }, [onToggleAskExpanded, element_bid]);
+    onToggleAskExpanded?.(generated_block_bid);
+  }, [onToggleAskExpanded, generated_block_bid]);
 
   const handleToggleFullscreen = useCallback(() => {
     setIsFullscreen(prev => !prev);
@@ -458,9 +345,9 @@ export default function AskBlock({
       if (index !== 0 || expanded || !mobileStyle) {
         return;
       }
-      onToggleAskExpanded?.(element_bid);
+      onToggleAskExpanded?.(generated_block_bid);
     },
-    [onToggleAskExpanded, element_bid, expanded, mobileStyle],
+    [onToggleAskExpanded, generated_block_bid, expanded, mobileStyle],
   );
 
   const renderMessages = ({
@@ -514,27 +401,14 @@ export default function AskBlock({
                       : () => null
                   }
                   onSend={() => {}}
-                  userInput={''}
-                  interactionDefaultValueOptions={
-                    lessonFeedbackInteractionDefaultValueOptions
-                  }
+                  defaultButtonText={''}
+                  defaultInputText={''}
                   enableTypewriter={false}
                   typingSpeed={20}
                   readonly={true}
                   copyButtonText={copyButtonText}
                   copiedButtonText={copiedButtonText}
                 />
-                {isListenMode &&
-                  index === messagesToShow.length - 1 &&
-                  (askAudioSegments.length > 0 || askAudioUrl) && (
-                    <AudioPlayer
-                      audioUrl={askAudioUrl}
-                      streamingSegments={askAudioSegments}
-                      isStreaming={isAskAudioStreaming}
-                      autoPlay={true}
-                      size={14}
-                    />
-                  )}
               </div>
             )}
           </div>

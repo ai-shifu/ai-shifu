@@ -1,28 +1,21 @@
-type AudioIdentityItem = {
-  element_bid?: string;
-  generated_block_bid?: string;
-};
-
-export const resolveAudioItemKey = <T extends AudioIdentityItem>(
-  item?: T | null,
-) => item?.element_bid || item?.generated_block_bid || null;
-
-export const normalizeAudioItemList = <T extends AudioIdentityItem>(
+export const normalizeAudioItemList = <
+  T extends { generated_block_bid?: string },
+>(
   items: T[],
 ): T[] => {
   const order: string[] = [];
   const mapping = new Map<string, T>();
   items.forEach(item => {
-    const itemKey = resolveAudioItemKey(item);
-    if (!itemKey) {
+    const bid = item.generated_block_bid;
+    if (!bid) {
       return;
     }
-    if (!mapping.has(itemKey)) {
-      order.push(itemKey);
+    if (!mapping.has(bid)) {
+      order.push(bid);
     }
-    mapping.set(itemKey, item);
+    mapping.set(bid, item);
   });
-  return order.map(itemKey => mapping.get(itemKey)!).filter(Boolean);
+  return order.map(bid => mapping.get(bid)!).filter(Boolean);
 };
 
 export const getNextIndex = (currentIndex: number, listLength: number) => {

@@ -16,13 +16,9 @@ import type { AudioPlayerHandle } from '@/components/audio/AudioPlayer';
 import {
   hasAudioContentInTracks,
   type AudioSegment,
+  type AudioTrack,
 } from '@/c-utils/audio-utils';
 import { LESSON_FEEDBACK_INTERACTION_MARKER } from '@/c-api/studyV2';
-import {
-  buildSlidePageMapping,
-  normalizeAudioTracks,
-  sortSegmentsByIndex,
-} from './listenModeUtils';
 
 export type AudioInteractionItem = ChatContentItem & {
   page: number;
@@ -41,9 +37,9 @@ export const LISTEN_AUDIO_BID_DELIMITER = '::listen-audio-pos::';
 const AUDIO_END_TRANSITION_DEDUP_WINDOW_MS = 1200;
 
 export const buildListenAudioSequenceBid = (
-  elementBid: string,
+  generatedBlockBid: string,
   position: number,
-) => `${elementBid}${LISTEN_AUDIO_BID_DELIMITER}${position}`;
+) => `${generatedBlockBid}${LISTEN_AUDIO_BID_DELIMITER}${position}`;
 
 export const resolveListenAudioSourceBid = (bid: string | null) => {
   if (!bid) {
@@ -56,6 +52,14 @@ export const resolveListenAudioSourceBid = (bid: string | null) => {
   return bid.slice(0, hit) || null;
 };
 
+const sortByPosition = <T extends { position?: number }>(list: T[] = []) =>
+  [...list].sort((a, b) => Number(a.position ?? 0) - Number(b.position ?? 0));
+
+const sortSegmentsByIndex = (segments: AudioSegment[] = []) =>
+  [...segments].sort(
+    (a, b) => Number(a.segmentIndex ?? 0) - Number(b.segmentIndex ?? 0),
+  );
+
 export const isLessonFeedbackInteractionItem = (
   item?: ChatContentItem | null,
 ) =>
@@ -64,15 +68,131 @@ export const isLessonFeedbackInteractionItem = (
     item.content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER),
   );
 
+const normalizeAudioTracks = (item: ChatContentItem): AudioTrack[] => {
+  const trackByPosition = new Map<number, AudioTrack>();
+
+  (item.audioTracks ?? []).forEach(track => {
+    const position = Number(track.position ?? 0);
+    trackByPosition.set(position, {
+      ...track,
+      position,
+      audioSegments: sortSegmentsByIndex(track.audioSegments ?? []),
+    });
+  });
+
+  return sortByPosition(Array.from(trackByPosition.values()));
+};
+
+const buildSlidePageMapping = (
+  item: ChatContentItem,
+  pageIndices: number[],
+  fallbackPage: number,
+) => {
+  const blockSlides = [...(item.listenSlides ?? [])]
+    .filter(slide => slide.generated_block_bid === item.generated_block_bid)
+    .sort(
+      (a, b) =>
+        Number(a.slide_index ?? 0) - Number(b.slide_index ?? 0) ||
+        Number(a.audio_position ?? 0) - Number(b.audio_position ?? 0),
+    );
+  const pageBySlideId = new Map<string, number>();
+  const pageByAudioPosition = new Map<number, number>();
+  const realSlides = blockSlides.filter(slide => !slide.is_placeholder);
+
+  if (pageIndices.length > 0 && realSlides.length > 0) {
+    realSlides.forEach((slide, index) => {
+      const page = pageIndices[Math.min(index, pageIndices.length - 1)];
+      pageBySlideId.set(slide.slide_id, page);
+    });
+  }
+
+  blockSlides.forEach((slide, index) => {
+    if (pageBySlideId.has(slide.slide_id)) {
+      return;
+    }
+
+    const samePositionSlide = realSlides.find(
+      candidate =>
+        Number(candidate.audio_position ?? 0) ===
+          Number(slide.audio_position ?? 0) &&
+        pageBySlideId.has(candidate.slide_id),
+    );
+    if (samePositionSlide) {
+      pageBySlideId.set(
+        slide.slide_id,
+        pageBySlideId.get(samePositionSlide.slide_id)!,
+      );
+      return;
+    }
+
+    for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+      const previous = blockSlides[cursor];
+      const previousPage = pageBySlideId.get(previous.slide_id);
+      if (previousPage !== undefined) {
+        pageBySlideId.set(slide.slide_id, previousPage);
+        return;
+      }
+    }
+
+    const firstPage = pageIndices[0];
+    if (firstPage !== undefined) {
+      pageBySlideId.set(slide.slide_id, firstPage);
+      return;
+    }
+
+    pageBySlideId.set(slide.slide_id, fallbackPage);
+  });
+
+  blockSlides.forEach(slide => {
+    const page = pageBySlideId.get(slide.slide_id);
+    if (page === undefined) {
+      return;
+    }
+    const position = Number(slide.audio_position ?? 0);
+    const hasCurrent = pageByAudioPosition.has(position);
+    if (!hasCurrent || !slide.is_placeholder) {
+      pageByAudioPosition.set(position, page);
+    }
+  });
+
+  const resolvePageByPosition = (position: number) => {
+    if (pageByAudioPosition.has(position)) {
+      return pageByAudioPosition.get(position)!;
+    }
+    const orderedPositions = [...pageByAudioPosition.keys()].sort(
+      (a, b) => a - b,
+    );
+    let nearestLower: number | null = null;
+    orderedPositions.forEach(candidate => {
+      if (candidate <= position) {
+        nearestLower = candidate;
+      }
+    });
+    if (nearestLower !== null) {
+      return pageByAudioPosition.get(nearestLower)!;
+    }
+    if (pageIndices.length > 0) {
+      return pageIndices[0];
+    }
+    return fallbackPage;
+  };
+
+  return {
+    blockSlides,
+    pageBySlideId,
+    resolvePageByPosition,
+  };
+};
+
 export const useListenContentData = (items: ChatContentItem[]) => {
-  const orderedContentElementBids = useMemo(() => {
+  const orderedContentBlockBids = useMemo(() => {
     const seen = new Set<string>();
     const bids: string[] = [];
     for (const item of items) {
       if (item.type !== ChatContentItemType.CONTENT) {
         continue;
       }
-      const bid = item.element_bid;
+      const bid = item.generated_block_bid;
       if (!bid || bid === 'loading') {
         continue;
       }
@@ -122,17 +242,18 @@ export const useListenContentData = (items: ChatContentItem[]) => {
 
           if (
             tracks.length === 0 &&
-            item.element_bid &&
-            item.element_bid !== 'loading'
+            item.generated_block_bid &&
+            item.generated_block_bid !== 'loading'
           ) {
             const defaultPosition = 0;
             const sequenceBid = buildListenAudioSequenceBid(
-              item.element_bid,
+              item.generated_block_bid,
               defaultPosition,
             );
             nextAudioAndInteractionList.push({
               ...item,
-              element_bid: sequenceBid,
+              generated_block_bid: sequenceBid,
+              sourceGeneratedBlockBid: item.generated_block_bid,
               page: resolvePageByPosition(defaultPosition),
               sequenceKind: 'audio',
               audioPosition: defaultPosition,
@@ -151,13 +272,14 @@ export const useListenContentData = (items: ChatContentItem[]) => {
               (track.slideId ? pageBySlideId.get(track.slideId) : undefined) ??
               resolvePageByPosition(position);
             const sequenceBid = buildListenAudioSequenceBid(
-              item.element_bid,
+              item.generated_block_bid,
               position,
             );
 
             nextAudioAndInteractionList.push({
               ...item,
-              element_bid: sequenceBid,
+              generated_block_bid: sequenceBid,
+              sourceGeneratedBlockBid: item.generated_block_bid,
               page,
               sequenceKind: 'audio',
               audioPosition: position,
@@ -192,7 +314,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
     let latestInteractionBid: string | null = null;
     for (let i = audioAndInteractionList.length - 1; i >= 0; i -= 1) {
       if (audioAndInteractionList[i].type === ChatContentItemType.INTERACTION) {
-        latestInteractionBid = audioAndInteractionList[i].element_bid;
+        latestInteractionBid = audioAndInteractionList[i].generated_block_bid;
         break;
       }
     }
@@ -210,7 +332,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
       if (item.type !== ChatContentItemType.CONTENT) {
         continue;
       }
-      const bid = item.element_bid;
+      const bid = item.generated_block_bid;
       if (!bid || bid === 'loading') {
         continue;
       }
@@ -225,7 +347,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
       if (item.type !== ChatContentItemType.CONTENT) {
         continue;
       }
-      const bid = item.element_bid;
+      const bid = item.generated_block_bid;
       if (!bid || bid === 'loading') {
         continue;
       }
@@ -234,13 +356,13 @@ export const useListenContentData = (items: ChatContentItem[]) => {
     return mapping;
   }, [audioAndInteractionList]);
 
-  const ttsReadyElementBids = useMemo(() => {
+  const ttsReadyBlockBids = useMemo(() => {
     const ready = new Set<string>();
     for (const item of items) {
       if (item.type !== ChatContentItemType.LIKE_STATUS) {
         continue;
       }
-      const parentBid = item.parent_element_bid;
+      const parentBid = item.parent_block_bid;
       if (!parentBid) {
         continue;
       }
@@ -254,8 +376,8 @@ export const useListenContentData = (items: ChatContentItem[]) => {
       const item = items[i];
       if (
         item.type === ChatContentItemType.CONTENT &&
-        item.element_bid &&
-        item.element_bid !== 'loading'
+        item.generated_block_bid &&
+        item.generated_block_bid !== 'loading'
       ) {
         return item;
       }
@@ -264,13 +386,13 @@ export const useListenContentData = (items: ChatContentItem[]) => {
   }, [items]);
 
   return {
-    orderedContentElementBids,
+    orderedContentBlockBids,
     slideItems,
     interactionByPage,
     audioAndInteractionList,
     contentByBid,
     audioContentByBid,
-    ttsReadyElementBids,
+    ttsReadyBlockBids,
     lastInteractionBid,
     lastItemIsInteraction,
     firstContentItem,
@@ -281,7 +403,7 @@ interface UseListenPptParams {
   chatRef: React.RefObject<HTMLDivElement>;
   deckRef: React.MutableRefObject<Reveal.Api | null>;
   currentPptPageRef: React.MutableRefObject<number>;
-  activeElementBidRef: React.MutableRefObject<string | null>;
+  activeBlockBidRef: React.MutableRefObject<string | null>;
   pendingAutoNextRef: React.MutableRefObject<boolean>;
   slideItems: ListenSlideItem[];
   interactionByPage: Map<number, ChatContentItem>;
@@ -302,7 +424,7 @@ export const useListenPpt = ({
   chatRef,
   deckRef,
   currentPptPageRef,
-  activeElementBidRef,
+  activeBlockBidRef,
   pendingAutoNextRef,
   slideItems,
   interactionByPage,
@@ -329,7 +451,7 @@ export const useListenPpt = ({
   const [isNextDisabled, setIsNextDisabled] = useState(true);
 
   const firstSlideBid = useMemo(
-    () => slideItems[0]?.item.element_bid ?? null,
+    () => slideItems[0]?.item.generated_block_bid ?? null,
     [slideItems],
   );
 
@@ -402,7 +524,7 @@ export const useListenPpt = ({
     if (!slide) {
       return null;
     }
-    return slide.getAttribute('data-element-bid') || null;
+    return slide.getAttribute('data-generated-block-bid') || null;
   }, []);
 
   const syncActiveBlockFromDeck = useCallback(() => {
@@ -412,22 +534,17 @@ export const useListenPpt = ({
     }
     const slide = deck.getCurrentSlide?.() as HTMLElement | undefined;
     const nextBid = getBlockBidFromSlide(slide ?? null);
-    if (!nextBid || nextBid === activeElementBidRef.current) {
+    if (!nextBid || nextBid === activeBlockBidRef.current) {
       return;
     }
     if (shouldRenderEmptyPpt) {
-      if (!activeElementBidRef.current?.startsWith('empty-ppt-')) {
-        activeElementBidRef.current = nextBid;
+      if (!activeBlockBidRef.current?.startsWith('empty-ppt-')) {
+        activeBlockBidRef.current = nextBid;
       }
       return;
     }
-    activeElementBidRef.current = nextBid;
-  }, [
-    activeElementBidRef,
-    deckRef,
-    getBlockBidFromSlide,
-    shouldRenderEmptyPpt,
-  ]);
+    activeBlockBidRef.current = nextBid;
+  }, [activeBlockBidRef, deckRef, getBlockBidFromSlide, shouldRenderEmptyPpt]);
 
   const updateNavState = useCallback(() => {
     const deck = deckRef.current;
@@ -453,13 +570,13 @@ export const useListenPpt = ({
   }, [deckRef]);
 
   const goToNextBlock = useCallback(() => {
-    const currentBid = resolveContentBid(activeElementBidRef.current);
+    const currentBid = resolveContentBid(activeBlockBidRef.current);
     const nextBid = getNextContentBid(currentBid);
     if (!nextBid) {
       return false;
     }
     return goToBlock(nextBid);
-  }, [activeElementBidRef, getNextContentBid, goToBlock, resolveContentBid]);
+  }, [activeBlockBidRef, getNextContentBid, goToBlock, resolveContentBid]);
 
   useEffect(() => {
     if (!chatRef.current || deckRef.current || isLoading) {
@@ -626,9 +743,9 @@ export const useListenPpt = ({
           ),
         );
       const resolvedActiveBid = resolveContentBid(
-        activeContentItem?.element_bid ?? null,
+        activeContentItem?.generated_block_bid ?? null,
       );
-      const resolvedCurrentBid = resolveContentBid(activeElementBidRef.current);
+      const resolvedCurrentBid = resolveContentBid(activeBlockBidRef.current);
       if (resolvedActiveBid && resolvedActiveBid !== resolvedCurrentBid) {
         const moved = goToBlock(resolvedActiveBid);
         if (moved) {
@@ -679,7 +796,7 @@ export const useListenPpt = ({
     goToBlock,
     chatRef,
     updateNavState,
-    activeContentItem?.element_bid,
+    activeContentItem?.generated_block_bid,
     activeContentItem?.audioTracks,
     deckRef,
     pendingAutoNextRef,
@@ -739,14 +856,14 @@ interface UseListenAudioSequenceParams {
   audioAndInteractionList: AudioInteractionItem[];
   deckRef: React.MutableRefObject<Reveal.Api | null>;
   currentPptPageRef: React.MutableRefObject<number>;
-  activeElementBidRef: React.MutableRefObject<string | null>;
+  activeBlockBidRef: React.MutableRefObject<string | null>;
   pendingAutoNextRef: React.MutableRefObject<boolean>;
   shouldStartSequenceRef: React.MutableRefObject<boolean>;
   sequenceStartSignal: number;
   contentByBid: Map<string, ChatContentItem>;
   audioContentByBid: Map<string, ChatContentItem>;
-  ttsReadyElementBids: Set<string>;
-  onRequestAudioForBlock?: (elementBid: string) => Promise<any>;
+  ttsReadyBlockBids: Set<string>;
+  onRequestAudioForBlock?: (generatedBlockBid: string) => Promise<any>;
   previewMode: boolean;
   shouldRenderEmptyPpt: boolean;
   getNextContentBid: (currentBid: string | null) => string | null;
@@ -761,13 +878,13 @@ export const useListenAudioSequence = ({
   audioAndInteractionList,
   deckRef,
   currentPptPageRef,
-  activeElementBidRef,
+  activeBlockBidRef,
   pendingAutoNextRef,
   shouldStartSequenceRef,
   sequenceStartSignal,
   contentByBid,
   audioContentByBid,
-  ttsReadyElementBids,
+  ttsReadyBlockBids,
   onRequestAudioForBlock,
   previewMode,
   shouldRenderEmptyPpt,
@@ -980,7 +1097,7 @@ export const useListenAudioSequence = ({
         index,
         page: nextItem.page,
         type: nextItem.type,
-        elementBid: nextItem.element_bid ?? null,
+        generatedBlockBid: nextItem.generated_block_bid ?? null,
         sequenceKind: nextItem.sequenceKind,
         audioPosition: nextItem.audioPosition ?? null,
       });
@@ -988,7 +1105,7 @@ export const useListenAudioSequence = ({
       //   index,
       //   page: nextItem.page,
       //   type: nextItem.type,
-      //   blockBid: nextItem.element_bid ?? null,
+      //   blockBid: nextItem.generated_block_bid ?? null,
       // });
       syncToSequencePage(nextItem.page);
       audioSequenceIndexRef.current = index;
@@ -997,11 +1114,11 @@ export const useListenAudioSequence = ({
       logAudioInterrupt('切换到新的序列项，可能触发当前音频切换', {
         index,
         sequenceKind: nextItem.sequenceKind,
-        blockBid: nextItem.element_bid ?? null,
+        blockBid: nextItem.generated_block_bid ?? null,
         page: nextItem.page,
       });
-      if (nextItem.element_bid) {
-        lastPlayedAudioBidRef.current = nextItem.element_bid;
+      if (nextItem.generated_block_bid) {
+        lastPlayedAudioBidRef.current = nextItem.generated_block_bid;
       }
 
       if (nextItem.type === ChatContentItemType.INTERACTION) {
@@ -1009,7 +1126,7 @@ export const useListenAudioSequence = ({
           '进入交互项，主动清空 activeAudioBid（可能导致当前音频暂停）',
           {
             index,
-            interactionBid: nextItem.element_bid ?? null,
+            interactionBid: nextItem.generated_block_bid ?? null,
             previousActiveAudioBid: activeAudioBidRef.current,
             isAudioPlaying: isAudioPlayingRef.current,
           },
@@ -1040,11 +1157,11 @@ export const useListenAudioSequence = ({
         return;
       }
       setSequenceInteraction(null);
-      setActiveAudioBid(nextItem.element_bid);
-      activeAudioBidRef.current = nextItem.element_bid;
+      setActiveAudioBid(nextItem.generated_block_bid);
+      activeAudioBidRef.current = nextItem.generated_block_bid;
       logAudioInterrupt('设置 activeAudioBid，AudioPlayerList 将切换到该音频', {
         index,
-        activeAudioBid: nextItem.element_bid ?? null,
+        activeAudioBid: nextItem.generated_block_bid ?? null,
       });
       setAudioSequenceToken(prev => prev + 1);
     },
@@ -1112,7 +1229,9 @@ export const useListenAudioSequence = ({
       const newItem = audioAndInteractionList[newItemIndex];
       const currentPage =
         deckRef.current?.getIndices?.().h ?? currentPptPageRef.current;
-      const newItemSourceBid = resolveContentBid(newItem?.element_bid ?? null);
+      const newItemSourceBid = resolveContentBid(
+        newItem?.generated_block_bid ?? null,
+      );
       const lastPlayedSourceBid = resolveContentBid(
         lastPlayedAudioBidRef.current,
       );
@@ -1136,7 +1255,7 @@ export const useListenAudioSequence = ({
           const lastBid = lastPlayedAudioBidRef.current;
           const resumeIndex = lastBid
             ? audioAndInteractionList.findIndex(
-                item => item.element_bid === lastBid,
+                item => item.generated_block_bid === lastBid,
               )
             : -1;
 
@@ -1186,7 +1305,8 @@ export const useListenAudioSequence = ({
                 hasActiveAudioBid,
                 isSequenceActive,
                 currentSequenceKind: currentSequenceItem?.sequenceKind ?? null,
-                currentSequenceBid: currentSequenceItem?.element_bid ?? null,
+                currentSequenceBid:
+                  currentSequenceItem?.generated_block_bid ?? null,
               },
             );
             return;
@@ -1207,7 +1327,7 @@ export const useListenAudioSequence = ({
               isIdleAtTail,
               currentPage,
               newItemPage: newItem?.page ?? null,
-              newItemBid: newItem?.element_bid ?? null,
+              newItemBid: newItem?.generated_block_bid ?? null,
             });
             if (shouldSkipAppendAutoPlayFromRecentEnded(newItemIndex)) {
               return;
@@ -1236,7 +1356,7 @@ export const useListenAudioSequence = ({
             newItemIndex,
             currentPage,
             newItemPage: newItem?.page ?? null,
-            newItemBid: newItem?.element_bid ?? null,
+            newItemBid: newItem?.generated_block_bid ?? null,
             newItemSourceBid,
             lastPlayedSourceBid,
             isAudioSequenceActive: isSequenceActive,
@@ -1372,7 +1492,7 @@ export const useListenAudioSequence = ({
     // Check if we can resume from the last played block (e.g. after a list flash/refresh)
     if (lastPlayedAudioBidRef.current) {
       const resumeIndex = audioAndInteractionList.findIndex(
-        item => item.element_bid === lastPlayedAudioBidRef.current,
+        item => item.generated_block_bid === lastPlayedAudioBidRef.current,
       );
       if (resumeIndex >= 0) {
         // We found the last played item, so we are likely just recovering from a refresh.
@@ -1407,14 +1527,14 @@ export const useListenAudioSequence = ({
     allowAutoPlayback,
   ]);
 
-  const activeSequenceElementBid = useMemo(() => {
+  const activeSequenceBlockBid = useMemo(() => {
     if (!activeAudioBid) {
       return null;
     }
     return activeAudioBid;
   }, [activeAudioBid]);
 
-  const activeAudioElementBid = useMemo(() => {
+  const activeAudioBlockBid = useMemo(() => {
     if (!activeAudioBid) {
       return null;
     }
@@ -1424,37 +1544,37 @@ export const useListenAudioSequence = ({
   useEffect(() => {
     logAudioDebug('listen-sequence-active-bid-change', {
       activeAudioBid,
-      activeSequenceElementBid,
-      activeAudioElementBid,
+      activeSequenceBlockBid,
+      activeAudioBlockBid,
       audioSequenceToken,
       isAudioSequenceActive,
     });
   }, [
     activeAudioBid,
-    activeAudioElementBid,
-    activeSequenceElementBid,
+    activeAudioBlockBid,
+    activeSequenceBlockBid,
     audioSequenceToken,
     isAudioSequenceActive,
     logAudioDebug,
   ]);
 
   const activeContentItem = useMemo(() => {
-    if (!activeAudioElementBid) {
+    if (!activeAudioBlockBid) {
       return undefined;
     }
     return (
-      audioContentByBid.get(activeAudioElementBid) ??
-      contentByBid.get(activeAudioElementBid)
+      audioContentByBid.get(activeAudioBlockBid) ??
+      contentByBid.get(activeAudioBlockBid)
     );
-  }, [activeAudioElementBid, audioContentByBid, contentByBid]);
+  }, [activeAudioBlockBid, audioContentByBid, contentByBid]);
 
   const tryAdvanceToNextBlock = useCallback(() => {
-    const currentBid = resolveContentBid(activeElementBidRef.current);
+    const currentBid = resolveContentBid(activeBlockBidRef.current);
     const nextBid = getNextContentBid(currentBid);
     if (!nextBid) {
       logAudioInterrupt('sequence-advance-next-bid-missing', {
         currentBid,
-        activeBlockBid: activeElementBidRef.current,
+        activeBlockBid: activeBlockBidRef.current,
       });
       // console.log('listen-sequence-advance-miss', { currentBid });
       return false;
@@ -1474,11 +1594,11 @@ export const useListenAudioSequence = ({
     }
 
     if (shouldRenderEmptyPpt) {
-      activeElementBidRef.current = `empty-ppt-${nextBid}`;
+      activeBlockBidRef.current = `empty-ppt-${nextBid}`;
       logAudioInterrupt('sequence-advance-empty-ppt-fallback', {
         currentBid,
         nextBid,
-        activeBlockBid: activeElementBidRef.current,
+        activeBlockBid: activeBlockBidRef.current,
       });
       // console.log('listen-sequence-advance-empty-ppt', { nextBid });
       return true;
@@ -1493,7 +1613,7 @@ export const useListenAudioSequence = ({
     // console.log('listen-sequence-advance-pending', { nextBid });
     return true;
   }, [
-    activeElementBidRef,
+    activeBlockBidRef,
     getNextContentBid,
     goToBlock,
     logAudioInterrupt,
@@ -1503,16 +1623,16 @@ export const useListenAudioSequence = ({
   ]);
 
   useEffect(() => {
-    if (!activeAudioElementBid) {
+    if (!activeAudioBlockBid) {
       return;
     }
-    const item = contentByBid.get(activeAudioElementBid);
+    const item = contentByBid.get(activeAudioBlockBid);
     if (!item) {
       return;
     }
 
     const isBlockReadyForTts =
-      Boolean(item.isHistory) || ttsReadyElementBids.has(activeAudioElementBid);
+      Boolean(item.isHistory) || ttsReadyBlockBids.has(activeAudioBlockBid);
     if (!isBlockReadyForTts) {
       return;
     }
@@ -1523,26 +1643,26 @@ export const useListenAudioSequence = ({
       !hasAudio &&
       onRequestAudioForBlock &&
       !previewMode &&
-      !requestedAudioBlockBidsRef.current.has(activeAudioElementBid)
+      !requestedAudioBlockBidsRef.current.has(activeAudioBlockBid)
     ) {
-      requestedAudioBlockBidsRef.current.add(activeAudioElementBid);
+      requestedAudioBlockBidsRef.current.add(activeAudioBlockBid);
       logAudioDebug('listen-sequence-request-audio', {
-        activeAudioElementBid,
+        activeAudioBlockBid,
         hasAudio,
         isBlockReadyForTts,
         isHistory: Boolean(item.isHistory),
         hasTracks: item.audioTracks?.length ?? 0,
       });
-      onRequestAudioForBlock(activeAudioElementBid).catch(() => {
+      onRequestAudioForBlock(activeAudioBlockBid).catch(() => {
         // errors handled by request layer toast; ignore here
       });
     }
   }, [
-    activeAudioElementBid,
+    activeAudioBlockBid,
     contentByBid,
     onRequestAudioForBlock,
     previewMode,
-    ttsReadyElementBids,
+    ttsReadyBlockBids,
     logAudioDebug,
   ]);
 
@@ -1552,7 +1672,7 @@ export const useListenAudioSequence = ({
       listLength: audioSequenceListRef.current.length,
       currentIndex: audioSequenceIndexRef.current,
       activeAudioBid: activeAudioBidRef.current,
-      activeBlockBid: activeElementBidRef.current,
+      activeBlockBid: activeBlockBidRef.current,
       currentPptPage: currentPptPageRef.current,
     });
     if (isSequencePausedRef.current) {
@@ -1636,7 +1756,7 @@ export const useListenAudioSequence = ({
     (action: 'play' | 'pause') => {
       // console.log(`listen-audio-${action}`, {
       //   activeAudioBid,
-      //   activeAudioElementBid,
+      //   activeAudioBlockBid,
       //   audioUrl: activeContentItem?.audioUrl,
       //   content: activeContentItem?.content,
       //   listLength: audioSequenceListRef.current.length,
@@ -1646,7 +1766,7 @@ export const useListenAudioSequence = ({
     },
     [
       activeAudioBid,
-      activeAudioElementBid,
+      activeAudioBlockBid,
       activeContentItem?.audioUrl,
       activeContentItem?.content,
       isAudioSequenceActive,
@@ -1706,7 +1826,7 @@ export const useListenAudioSequence = ({
       // console.log('listen-mode-handle-pause', {
       //   traceId,
       //   activeAudioBid,
-      //   activeAudioElementBid,
+      //   activeAudioBlockBid,
       //   audioUrl: activeContentItem?.audioUrl,
       //   content: activeContentItem?.content,
       //   isAudioSequenceActive,
@@ -1720,13 +1840,13 @@ export const useListenAudioSequence = ({
       // console.log('listen-mode-handle-pause-end', {
       //   traceId,
       //   activeAudioBid,
-      //   activeAudioElementBid,
+      //   activeAudioBlockBid,
       // });
     },
     [
       previewMode,
       activeAudioBid,
-      activeAudioElementBid,
+      activeAudioBlockBid,
       activeContentItem?.audioUrl,
       activeContentItem?.content,
       isAudioSequenceActive,
@@ -1746,8 +1866,8 @@ export const useListenAudioSequence = ({
   return {
     audioPlayerRef,
     activeContentItem,
-    activeSequenceElementBid,
-    activeAudioElementBid,
+    activeSequenceBlockBid,
+    activeAudioBlockBid,
     sequenceInteraction,
     isAudioSequenceActive,
     audioSequenceToken,
