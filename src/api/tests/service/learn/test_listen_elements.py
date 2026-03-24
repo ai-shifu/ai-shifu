@@ -1090,7 +1090,7 @@ def test_listen_element_adapter_retires_fallback_once_visual_element_arrives(app
             == streamed[0].content.element_bid
         )
         assert audio_patch_evt.content.audio_url == "https://example.com/audio.mp3"
-        assert audio_patch_evt.content.is_final is False
+        assert audio_patch_evt.content.is_final is True
 
         # Verify the retire notification element
         retire_evt = streamed[2]
@@ -1650,7 +1650,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
             audio_complete_patch_element.audio_url
             == "https://example.com/stream-audio.mp3"
         )
-        assert audio_complete_patch_element.is_final is False
+        assert audio_complete_patch_element.is_final is True
         result = get_listen_element_record(
             app,
             shifu_bid=shifu_bid,

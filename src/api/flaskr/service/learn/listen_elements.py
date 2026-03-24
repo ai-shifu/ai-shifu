@@ -2013,15 +2013,7 @@ class ListenElementRunAdapter:
                 payload = patch_element.payload or ElementPayloadDTO()
                 payload.audio = audio_payload
                 patch_element.payload = payload
-                if (
-                    patch_element.element_type
-                    in {
-                        ElementType.TEXT,
-                        ElementType.ANSWER,
-                    }
-                    and target_element_bid != state.fallback_element_bid
-                ):
-                    patch_element.is_final = True
+                patch_element.is_final = True
                 yield self._element_message(patch_element)
         # Feed state machine
         if not self._state_machine.is_terminated:
