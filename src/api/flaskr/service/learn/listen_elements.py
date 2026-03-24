@@ -670,7 +670,8 @@ def _audio_segment_payload(audio_segment: AudioSegmentDTO) -> dict[str, Any]:
         "segment_index": int(audio_segment.segment_index or 0),
         "audio_data": str(audio_segment.audio_data or ""),
         "duration_ms": int(audio_segment.duration_ms or 0),
-        "is_final": bool(audio_segment.is_final),
+        # Listen-mode uses AUDIO_COMPLETE as the only completion signal.
+        "is_final": False,
     }
 
 
@@ -1095,9 +1096,10 @@ class BlockState:
     audio_target_element_bid_by_position: dict[int, str] = field(default_factory=dict)
     fallback_element_bid: str | None = None
     latest_av_contract: dict[str, Any] | None = None
-    stream_elements: OrderedDict[int, StreamElementState] = field(
+    stream_elements: OrderedDict[str, StreamElementState] = field(
         default_factory=OrderedDict
     )
+    active_stream_element_key_by_number: dict[int, str] = field(default_factory=dict)
 
 
 class ListenElementRunAdapter:
@@ -1803,6 +1805,56 @@ class ListenElementRunAdapter:
             payload=payload,
         )
 
+    def _resolve_pending_audio_for_text_stream(
+        self,
+        state: BlockState,
+        stream_state: StreamElementState,
+    ) -> tuple[ElementAudioDTO | None, list[dict[str, Any]] | None]:
+        if stream_state.element_type != ElementType.TEXT:
+            return None, None
+        default_audio_position = _pick_default_audio_position(
+            state.audio_by_position,
+            state.audio_segments_by_position,
+        )
+        if default_audio_position is None:
+            return None, None
+        if default_audio_position in state.audio_target_element_bid_by_position:
+            return None, None
+        has_pending_audio = bool(
+            state.audio_by_position.get(default_audio_position)
+            or state.audio_segments_by_position.get(default_audio_position)
+        )
+        if not has_pending_audio:
+            return None, None
+        state.audio_target_element_bid_by_position[default_audio_position] = (
+            stream_state.element_bid
+        )
+        return (
+            state.audio_by_position.get(default_audio_position),
+            state.audio_segments_by_position.get(default_audio_position, []),
+        )
+
+    def _resolve_audio_target_element_bid(
+        self,
+        state: BlockState,
+        position: int,
+    ) -> str | None:
+        existing_target = state.audio_target_element_bid_by_position.get(position)
+        if existing_target:
+            return existing_target
+
+        for stream_state in state.stream_elements.values():
+            if stream_state.element_type != ElementType.TEXT:
+                continue
+            if not (stream_state.content_text or "").strip():
+                continue
+            return stream_state.element_bid
+
+        if state.fallback_element_bid and (state.raw_content or "").strip():
+            return state.fallback_element_bid
+
+        return None
+
     def _handle_formatted_content(
         self, event: RunMarkdownFlowDTO, parts: list[tuple[str, str, int]]
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
@@ -1813,29 +1865,48 @@ class ListenElementRunAdapter:
             if not chunk_content:
                 continue
             state.raw_content += chunk_content
-            stream_state = state.stream_elements.get(stream_number)
-            if stream_state is None:
+            stream_element_type = _element_type_from_mdflow_stream(
+                stream_type,
+                chunk_content,
+            )
+            active_key = state.active_stream_element_key_by_number.get(stream_number)
+            stream_state = (
+                state.stream_elements.get(active_key)
+                if active_key is not None
+                else None
+            )
+            if stream_state is None or stream_state.element_type != stream_element_type:
                 self._max_element_index += 1
                 stream_state = StreamElementState(
                     number=stream_number,
                     element_bid=_new_element_bid(self.app),
                     element_index=max(self._max_element_index, 0),
-                    element_type=_element_type_from_mdflow_stream(
-                        stream_type,
-                        chunk_content,
-                    ),
+                    element_type=stream_element_type,
                 )
-                state.stream_elements[stream_number] = stream_state
+                stream_key = f"{stream_number}:{len(state.stream_elements)}"
+                state.stream_elements[stream_key] = stream_state
+                state.active_stream_element_key_by_number[stream_number] = stream_key
                 is_new = True
             else:
                 is_new = False
             stream_state.content_text += chunk_content
+            pending_audio = None
+            pending_audio_segments = None
+            if is_new:
+                pending_audio, pending_audio_segments = (
+                    self._resolve_pending_audio_for_text_stream(
+                        state,
+                        stream_state,
+                    )
+                )
             yield self._build_stream_element_message(
                 state=state,
                 role=meta.role,
                 stream_state=stream_state,
                 is_new=is_new,
                 is_final=False,
+                audio=pending_audio,
+                audio_segments=pending_audio_segments,
             )
 
     def _retire_stream_elements(
@@ -1996,10 +2067,9 @@ class ListenElementRunAdapter:
             if not self._state_machine.is_terminated:
                 self._state_machine.feed(TypeInput.AUDIO_COMPLETE)
             return
-        target_element_bid = (
-            state.audio_target_element_bid_by_position.get(position)
-            or self._current_element_bid
-        )
+        target_element_bid = self._resolve_audio_target_element_bid(state, position)
+        if target_element_bid:
+            state.audio_target_element_bid_by_position[position] = target_element_bid
         if target_element_bid and content.audio_url:
             self._backfill_audio_url(target_element_bid, content.audio_url)
             audio_payload = _make_audio_payload(content)
@@ -2054,15 +2124,11 @@ class ListenElementRunAdapter:
                 if not self._state_machine.is_terminated:
                     self._state_machine.feed(TypeInput.AUDIO_SEGMENT)
                 return
-            target_element_bid = state.audio_target_element_bid_by_position.get(
-                position
-            )
-            if not target_element_bid and self._current_element_bid:
-                target_element_bid = self._current_element_bid
+            target_element_bid = self._resolve_audio_target_element_bid(state, position)
+            if target_element_bid:
                 state.audio_target_element_bid_by_position[position] = (
                     target_element_bid
                 )
-            if target_element_bid:
                 patch_message = self._build_audio_segment_patch_message(
                     target_element_bid,
                     audio_segments=[segment_data],
