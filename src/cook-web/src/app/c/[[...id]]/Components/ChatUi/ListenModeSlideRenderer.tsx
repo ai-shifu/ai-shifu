@@ -103,17 +103,25 @@ const buildSlideElementList = ({
 }) => {
   let pageCursor = 0;
   let sequenceNumber = 0;
+  let hasResolvedFirstContentType = false;
+  let hasLeadingTextContentElement = false;
   const elementList: ListenSlideElement[] = [];
 
   items.forEach(item => {
     if (item.type === ChatContentItemType.CONTENT) {
       const audioSegments = resolveItemAudioSegments(item);
       const audioUrl = resolveItemAudioUrl(item);
+      const contentType = resolveContentElementType(item);
+
+      if (!hasResolvedFirstContentType) {
+        hasResolvedFirstContentType = true;
+        hasLeadingTextContentElement = contentType === ELEMENT_TYPE.TEXT;
+      }
 
       sequenceNumber += 1;
       elementList.push({
         sequence_number: item.sequence_number ?? sequenceNumber,
-        type: resolveContentElementType(item),
+        type: contentType,
         content: item.content || '',
         is_marker: item.is_marker ?? true,
         is_renderable: item.is_renderable ?? true,
@@ -164,6 +172,15 @@ const buildSlideElementList = ({
 
   if (!elementList.length) {
     return [createEmptyStateElement(sectionTitle)];
+  }
+
+  // Keep a leading placeholder when the first content payload is text.
+  if (hasLeadingTextContentElement) {
+    const firstSequenceNumber = Number(elementList[0]?.sequence_number ?? 1);
+    elementList.unshift({
+      ...createEmptyStateElement(sectionTitle),
+      sequence_number: Math.max(firstSequenceNumber - 1, 0),
+    });
   }
 
   return elementList;

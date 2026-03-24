@@ -19,6 +19,7 @@
 - When users switch markers manually during buffering, clear the current buffering state immediately and let the next step recompute its own playback status.
 - When a Storybook demo only needs to surface Slide buffering UI clearly, prefer a streamed `is_speakable` step without audio payloads over a more complex fake audio simulator.
 - When a Storybook demo needs to show buffering first and autoplay after audio arrives, add a story-only audio start delay on top of `StreamingSlidePreview` instead of changing production Slide contracts.
+- When an interaction step has already been answered, do not keep treating that marker as a playback blocker; close the overlay and let newly streamed follow-up audio start immediately on the same step.
 
 ## Incremental Audio Segment Merge
 
