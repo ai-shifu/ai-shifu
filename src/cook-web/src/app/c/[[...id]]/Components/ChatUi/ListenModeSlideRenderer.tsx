@@ -35,8 +35,6 @@ interface ListenModeSlideRendererProps {
   sectionTitle?: string;
   lessonId?: string;
   lessonStatus?: string;
-  previewMode?: boolean;
-  onRequestAudioForBlock?: (elementBid: string) => Promise<any>;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
   onPlayerVisibilityChange?: (visible: boolean) => void;
 }
@@ -211,18 +209,15 @@ const ListenModeSlideRenderer = ({
   chatRef,
   isLoading = false,
   sectionTitle,
-  previewMode = false,
-  onRequestAudioForBlock,
   onSend,
   onPlayerVisibilityChange,
 }: ListenModeSlideRendererProps) => {
   const { t } = useTranslation();
-  const requestedAudioBlockBidsRef = useRef<Set<string>>(new Set());
   const renderSequenceByStreamKeyRef = useRef<Map<string, number>>(new Map());
   const [interactionInputMap, setInteractionInputMap] = useState<
     Record<string, string>
   >({});
-  const { ttsReadyElementBids, lastInteractionBid, lastItemIsInteraction } =
+  const { lastInteractionBid, lastItemIsInteraction } =
     useListenContentData(items);
 
   const elementList = useMemo(() => {
@@ -314,36 +309,6 @@ const ListenModeSlideRenderer = ({
     elementList.length === 1 &&
     elementList[0]?.blockBid === 'empty-ppt';
 
-  const handleStepChange = useCallback(
-    (element?: SlideElement) => {
-      const currentElement = element as ListenSlideElement | undefined;
-      const blockBid = currentElement?.blockBid;
-
-      if (
-        previewMode ||
-        !blockBid ||
-        !onRequestAudioForBlock ||
-        requestedAudioBlockBidsRef.current.has(blockBid) ||
-        !ttsReadyElementBids.has(blockBid)
-      ) {
-        return;
-      }
-
-      const hasAudio = Boolean(
-        currentElement?.audio_url || currentElement?.audio_segments?.length,
-      );
-      if (currentElement?.type === 'interaction' || hasAudio) {
-        return;
-      }
-
-      requestedAudioBlockBidsRef.current.add(blockBid);
-      void onRequestAudioForBlock(blockBid).catch(() => {
-        requestedAudioBlockBidsRef.current.delete(blockBid);
-      });
-    },
-    [onRequestAudioForBlock, previewMode, ttsReadyElementBids],
-  );
-
   const handleInteractionSend = useCallback(
     (content: OnSendContentParams, element?: SlideElement) => {
       const blockBid = (element as ListenSlideElement | undefined)?.blockBid;
@@ -391,7 +356,6 @@ const ListenModeSlideRenderer = ({
             lessonFeedbackInteractionDefaultValueOptions
           }
           onSend={handleInteractionSend}
-          onStepChange={handleStepChange}
           playerClassName={mobileStyle ? 'listen-slide-player-mobile' : ''}
           showPlayer={!shouldRenderEmptyPpt}
         />

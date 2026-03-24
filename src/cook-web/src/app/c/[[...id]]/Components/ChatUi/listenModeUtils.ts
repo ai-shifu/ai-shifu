@@ -1,5 +1,9 @@
 import type { ChatContentItem } from './useChatLogicHook';
-import type { AudioSegment, AudioTrack } from '@/c-utils/audio-utils';
+import {
+  hasAudioContentInTracks,
+  type AudioSegment,
+  type AudioTrack,
+} from '@/c-utils/audio-utils';
 
 export const sortByPosition = <T extends { position?: number }>(
   list: T[] = [],
@@ -24,6 +28,59 @@ export const normalizeAudioTracks = (item: ChatContentItem): AudioTrack[] => {
   });
 
   return sortByPosition(Array.from(trackByPosition.values()));
+};
+
+export const canRequestListenModeTtsForItem = (
+  item?: ChatContentItem | null,
+) => {
+  if (!item || item.type !== 'content') {
+    return false;
+  }
+
+  return Boolean(
+    item.is_speakable ||
+      item.audio_url ||
+      item.audioUrl ||
+      item.isAudioStreaming ||
+      item.audio_segments?.length ||
+      hasAudioContentInTracks(item.audioTracks ?? []),
+  );
+};
+
+export const resolveListenModeTtsReadyElementBids = (
+  items: ChatContentItem[],
+) => {
+  const speakableContentBids = new Set<string>();
+
+  items.forEach(item => {
+    if (!canRequestListenModeTtsForItem(item)) {
+      return;
+    }
+
+    const bid = item.element_bid;
+    if (!bid || bid === 'loading') {
+      return;
+    }
+
+    speakableContentBids.add(bid);
+  });
+
+  const ready = new Set<string>();
+
+  items.forEach(item => {
+    if (item.type !== 'likeStatus') {
+      return;
+    }
+
+    const parentBid = item.parent_element_bid;
+    if (!parentBid || !speakableContentBids.has(parentBid)) {
+      return;
+    }
+
+    ready.add(parentBid);
+  });
+
+  return ready;
 };
 
 export interface ListenSlidePageMapping {

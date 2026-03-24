@@ -621,8 +621,6 @@ export const NewChatComponents = ({
               sectionTitle={lessonTitle}
               lessonId={lessonId}
               lessonStatus={lessonStatus}
-              previewMode={previewMode}
-              onRequestAudioForBlock={requestAudioForBlock}
               onSend={memoizedOnSend}
               onPlayerVisibilityChange={onListenPlayerVisibilityChange}
             />

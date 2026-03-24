@@ -13,13 +13,11 @@ import {
 } from 'markdown-flow-ui/renderer';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import type { AudioPlayerHandle } from '@/components/audio/AudioPlayer';
-import {
-  hasAudioContentInTracks,
-  type AudioSegment,
-} from '@/c-utils/audio-utils';
+import { type AudioSegment } from '@/c-utils/audio-utils';
 import { LESSON_FEEDBACK_INTERACTION_MARKER } from '@/c-api/studyV2';
 import {
   buildSlidePageMapping,
+  resolveListenModeTtsReadyElementBids,
   normalizeAudioTracks,
   sortSegmentsByIndex,
 } from './listenModeUtils';
@@ -235,18 +233,7 @@ export const useListenContentData = (items: ChatContentItem[]) => {
   }, [audioAndInteractionList]);
 
   const ttsReadyElementBids = useMemo(() => {
-    const ready = new Set<string>();
-    for (const item of items) {
-      if (item.type !== ChatContentItemType.LIKE_STATUS) {
-        continue;
-      }
-      const parentBid = item.parent_element_bid;
-      if (!parentBid) {
-        continue;
-      }
-      ready.add(parentBid);
-    }
-    return ready;
+    return resolveListenModeTtsReadyElementBids(items);
   }, [items]);
 
   const firstContentItem = useMemo(() => {
@@ -745,8 +732,6 @@ interface UseListenAudioSequenceParams {
   sequenceStartSignal: number;
   contentByBid: Map<string, ChatContentItem>;
   audioContentByBid: Map<string, ChatContentItem>;
-  ttsReadyElementBids: Set<string>;
-  onRequestAudioForBlock?: (elementBid: string) => Promise<any>;
   previewMode: boolean;
   shouldRenderEmptyPpt: boolean;
   getNextContentBid: (currentBid: string | null) => string | null;
@@ -767,8 +752,6 @@ export const useListenAudioSequence = ({
   sequenceStartSignal,
   contentByBid,
   audioContentByBid,
-  ttsReadyElementBids,
-  onRequestAudioForBlock,
   previewMode,
   shouldRenderEmptyPpt,
   getNextContentBid,
@@ -798,7 +781,6 @@ export const useListenAudioSequence = ({
     [isAudioDebugEnabled],
   );
   const audioPlayerRef = useRef<AudioPlayerHandle | null>(null);
-  const requestedAudioBlockBidsRef = useRef<Set<string>>(new Set());
   const audioSequenceIndexRef = useRef(-1);
   const audioSequenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -1500,50 +1482,6 @@ export const useListenAudioSequence = ({
     pendingAutoNextRef,
     resolveContentBid,
     shouldRenderEmptyPpt,
-  ]);
-
-  useEffect(() => {
-    if (!activeAudioElementBid) {
-      return;
-    }
-    const item = contentByBid.get(activeAudioElementBid);
-    if (!item) {
-      return;
-    }
-
-    const isBlockReadyForTts =
-      Boolean(item.isHistory) || ttsReadyElementBids.has(activeAudioElementBid);
-    if (!isBlockReadyForTts) {
-      return;
-    }
-
-    const hasAudio = Boolean(hasAudioContentInTracks(item.audioTracks ?? []));
-
-    if (
-      !hasAudio &&
-      onRequestAudioForBlock &&
-      !previewMode &&
-      !requestedAudioBlockBidsRef.current.has(activeAudioElementBid)
-    ) {
-      requestedAudioBlockBidsRef.current.add(activeAudioElementBid);
-      logAudioDebug('listen-sequence-request-audio', {
-        activeAudioElementBid,
-        hasAudio,
-        isBlockReadyForTts,
-        isHistory: Boolean(item.isHistory),
-        hasTracks: item.audioTracks?.length ?? 0,
-      });
-      onRequestAudioForBlock(activeAudioElementBid).catch(() => {
-        // errors handled by request layer toast; ignore here
-      });
-    }
-  }, [
-    activeAudioElementBid,
-    contentByBid,
-    onRequestAudioForBlock,
-    previewMode,
-    ttsReadyElementBids,
-    logAudioDebug,
   ]);
 
   const handleAudioEnded = useCallback(() => {
