@@ -154,7 +154,7 @@ const ScriptManagementPage = () => {
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const currentUserId = useUserStore(state => state.userInfo?.user_id || '');
-  const [isCnSite, setIsCnSite] = useState(false);
+  const [courseCreatorUrl, setCourseCreatorUrl] = useState<string | null>(null);
   const [adminReady, setAdminReady] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'archived'>('all');
   const [shifus, setShifus] = useState<Shifu[]>([]);
@@ -183,7 +183,12 @@ const ScriptManagementPage = () => {
 
   useEffect(() => {
     const hostname = window.location.hostname;
-    setIsCnSite(hostname.endsWith('.ai-shifu.cn') || hostname === 'localhost');
+    const basePath = '/educators.html#course-creator-skill';
+    if (hostname.endsWith('.ai-shifu.cn') || hostname === 'localhost') {
+      setCourseCreatorUrl(`https://ai-shifu.cn${basePath}`);
+    } else if (hostname.endsWith('.ai-shifu.com')) {
+      setCourseCreatorUrl(`https://ai-shifu.com${basePath}`);
+    }
   }, []);
 
   const setHasMoreState = useCallback((value: boolean) => {
@@ -501,11 +506,11 @@ const ScriptManagementPage = () => {
               <PlusIcon className='w-5 h-5 mr-1' />
               {t('common.core.createBlankShifu')}
             </Button>
-            {isCnSite && (
+            {courseCreatorUrl && (
               <span className='text-xs text-muted-foreground'>
                 {t('common.core.aiCourseCreatorPrefix')}
                 <a
-                  href='https://ai-shifu.cn/educators.html#course-creator-skill'
+                  href={courseCreatorUrl}
                   target='_blank'
                   rel='noopener noreferrer'
                   className='text-muted-foreground underline hover:text-foreground'
