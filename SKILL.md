@@ -10,6 +10,7 @@
 
 - When a package subpath export appears to lose members in TypeScript, verify the published `node_modules` declaration file before changing the upstream package.
 - Prefer module augmentation files with a top-level `import "package/subpath";` plus `export {};` so local declarations merge with upstream types instead of replacing the module shape.
+- When augmenting `markdown-flow-ui/renderer`, explicitly import dependent upstream types like `InteractionDefaultValueOptions`; otherwise the local `.d.ts` can both hide the real exports and leave augmentation fields unresolved.
 - Only augment exported interfaces; if upstream props are not interface-based, avoid ambient overrides and use local wrapper types instead.
 
 ## Slide Audio Buffering State

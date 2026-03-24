@@ -1,3 +1,8 @@
+import 'markdown-flow-ui/renderer';
+import type { InteractionDefaultValueOptions } from 'markdown-flow-ui/renderer';
+
+export {};
+
 declare module 'markdown-flow-ui/renderer' {
   interface ContentRenderProps {
     userInput?: string;
