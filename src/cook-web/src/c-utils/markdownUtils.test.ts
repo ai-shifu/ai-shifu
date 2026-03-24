@@ -27,6 +27,14 @@ describe('markdownUtils visual token masking', () => {
     ).toBe('Before image ');
   });
 
+  it('masks an incomplete html image tag when quoted attrs contain >', () => {
+    expect(
+      maskIncompleteImageToken(
+        'Before image <img alt="1 > 2" src="https://example.com/assets/cover',
+      ),
+    ).toBe('Before image ');
+  });
+
   it('preserves a complete image token', () => {
     const text = 'Before image ![cover](https://example.com/assets/cover.png)';
 

@@ -62,12 +62,29 @@ const findIncompleteHtmlImageStart = (text: string): number => {
     return -1;
   }
 
-  const imageClose = lowerText.indexOf('>', imageStart + 4);
-  if (imageClose === -1) {
-    return imageStart;
+  let quote: '"' | "'" | null = null;
+  for (let i = imageStart + 4; i < text.length; i += 1) {
+    const char = text[i];
+    if (char === '\\') {
+      i += 1;
+      continue;
+    }
+    if (quote) {
+      if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+    if (char === '>') {
+      return -1;
+    }
   }
 
-  return -1;
+  return imageStart;
 };
 
 export const maskIncompleteImageToken = (text: string): string => {

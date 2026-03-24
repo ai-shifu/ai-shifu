@@ -219,6 +219,26 @@ def test_keeps_incomplete_html_image_in_tail():
     assert pending_tail == '<img src="https://example.com/image'
 
 
+def test_keeps_incomplete_html_image_with_quoted_gt_in_tail():
+    safe_text, pending_tail = _split_incomplete_visual_tail(
+        'Intro text <img alt="1 > 2" src="https://example.com/image'
+    )
+
+    assert safe_text == "Intro text "
+    assert pending_tail == '<img alt="1 > 2" src="https://example.com/image'
+
+
+def test_splits_from_earliest_incomplete_visual_token():
+    safe_text, pending_tail = _split_incomplete_visual_tail(
+        'Intro text <img alt="1 > 2" src="https://example.com/image ![cover](tail'
+    )
+
+    assert safe_text == "Intro text "
+    assert (
+        pending_tail == '<img alt="1 > 2" src="https://example.com/image ![cover](tail'
+    )
+
+
 def test_returns_full_text_when_visual_token_is_complete():
     text = "Intro text ![cover](https://example.com/image.png)"
     safe_text, pending_tail = _split_incomplete_visual_tail(text)

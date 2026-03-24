@@ -105,7 +105,7 @@ from flaskr.service.user.exceptions import UserNotLoginException
 
 context_local = threading.local()
 
-_STREAMING_HTML_IMG_START_RE = re.compile(r"<img\b[^>]*$", re.IGNORECASE)
+_STREAMING_HTML_IMG_START_RE = re.compile(r"<img\b", re.IGNORECASE)
 
 
 def _find_incomplete_markdown_image_start(text: str) -> int:
@@ -142,6 +142,32 @@ def _find_last_match_start(pattern: re.Pattern[str], text: str) -> int:
     return last_start
 
 
+def _find_incomplete_html_image_start(text: str) -> int:
+    image_start = _find_last_match_start(_STREAMING_HTML_IMG_START_RE, text)
+    if image_start == -1:
+        return -1
+
+    quote: str | None = None
+    index = image_start + 4
+    while index < len(text):
+        char = text[index]
+        if char == "\\":
+            index += 2
+            continue
+        if quote is not None:
+            if char == quote:
+                quote = None
+            index += 1
+            continue
+        if char in {'"', "'"}:
+            quote = char
+        elif char == ">":
+            return -1
+        index += 1
+
+    return image_start
+
+
 def _split_incomplete_visual_tail(text: str) -> tuple[str, str]:
     """
     Split a streaming buffer into a safe-to-render prefix and an incomplete
@@ -156,12 +182,10 @@ def _split_incomplete_visual_tail(text: str) -> tuple[str, str]:
         return "", ""
 
     markdown_start = _find_incomplete_markdown_image_start(text)
-    if markdown_start >= 0:
-        return text[:markdown_start], text[markdown_start:]
-
-    html_start = _find_last_match_start(_STREAMING_HTML_IMG_START_RE, text)
-    if html_start >= 0:
-        start = html_start
+    html_start = _find_incomplete_html_image_start(text)
+    starts = [start for start in (markdown_start, html_start) if start >= 0]
+    if starts:
+        start = min(starts)
         return text[:start], text[start:]
 
     return text, ""
