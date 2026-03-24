@@ -184,10 +184,14 @@ const ScriptManagementPage = () => {
   useEffect(() => {
     const hostname = window.location.hostname;
     const basePath = '/educators.html#course-creator-skill';
+    let domain: string | null = null;
     if (hostname.endsWith('.ai-shifu.cn') || hostname === 'localhost') {
-      setCourseCreatorUrl(`https://ai-shifu.cn${basePath}`);
+      domain = 'ai-shifu.cn';
     } else if (hostname.endsWith('.ai-shifu.com')) {
-      setCourseCreatorUrl(`https://ai-shifu.com${basePath}`);
+      domain = 'ai-shifu.com';
+    }
+    if (domain) {
+      setCourseCreatorUrl(`https://${domain}${basePath}`);
     }
   }, []);
 
