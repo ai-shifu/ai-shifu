@@ -63,10 +63,10 @@ const resolveItemAudioSegments = (item: ChatContentItem) => {
   const trackAudioSegments = getAudioSegmentDataListFromTracks(
     normalizedTracks.filter(track => hasAudioContentInTrack(track)),
   );
-  const mergedAudioSegments = mergeAudioSegmentDataList(
-    item.element_bid,
-    [...(item.audio_segments ?? []), ...trackAudioSegments],
-  );
+  const mergedAudioSegments = mergeAudioSegmentDataList(item.element_bid, [
+    ...(item.audio_segments ?? []),
+    ...trackAudioSegments,
+  ]);
 
   return mergedAudioSegments.length > 0 ? mergedAudioSegments : undefined;
 };

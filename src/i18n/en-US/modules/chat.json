@@ -24,7 +24,7 @@
   "regenerate": "Regenerate",
   "regenerateConfirmDescription": "Regenerating will replace this content and all subsequent content. The current content will be cleared.",
   "regenerateConfirmTitle": "Confirm regenerate this content?",
+  "slideAudioBuffering": "Buffering...",
   "thinking": "Thinking...",
-  "ttsSynthesisPreview": "Text-to-Speech (Preview)",
-  "slideAudioBuffering": "Buffering..."
+  "ttsSynthesisPreview": "Text-to-Speech (Preview)"
 }
