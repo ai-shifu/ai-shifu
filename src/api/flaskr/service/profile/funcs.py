@@ -78,6 +78,9 @@ def _get_latest_variable_value(
     logical profile field wins even if the underlying Variable definition was
     recreated and now has a different variable_bid.
 
+    The ``variable_bid`` parameter is accepted for backward compatibility only
+    and is intentionally ignored by the matching logic.
+
     Precedence:
     1) shifu scope (shifu_bid) - newest record matching key
     2) global/system scope (empty shifu_bid) - newest record matching key
@@ -115,6 +118,9 @@ def _fetch_latest_variable_value(
 
     Fetch by key only so append-only rows still resolve to the newest logical
     profile field value when variable definitions are recreated.
+
+    The ``variable_bid`` parameter is accepted for backward compatibility only
+    and is intentionally ignored by this query helper.
     """
     target_shifu = shifu_bid or ""
     try:
