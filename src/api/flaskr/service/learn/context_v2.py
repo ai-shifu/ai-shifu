@@ -109,30 +109,35 @@ _STREAMING_HTML_IMG_START_RE = re.compile(r"<img\b", re.IGNORECASE)
 
 
 def _find_incomplete_markdown_image_start(text: str) -> int:
-    image_start = text.rfind("![")
-    if image_start == -1:
-        return -1
+    search_pos = 0
 
-    image_open = text.find("](", image_start + 2)
-    if image_open == -1:
-        return image_start
+    while True:
+        image_start = text.find("![", search_pos)
+        if image_start == -1:
+            return -1
 
-    depth = 1
-    index = image_open + 2
-    while index < len(text):
-        char = text[index]
-        if char == "\\":
-            index += 2
-            continue
-        if char == "(":
-            depth += 1
-        elif char == ")":
-            depth -= 1
-            if depth == 0:
-                return -1
-        index += 1
+        image_open = text.find("](", image_start + 2)
+        if image_open == -1:
+            return image_start
 
-    return image_start
+        depth = 1
+        index = image_open + 2
+        while index < len(text):
+            char = text[index]
+            if char == "\\":
+                index += 2
+                continue
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0:
+                    search_pos = index + 1
+                    break
+            index += 1
+
+        if depth != 0:
+            return image_start
 
 
 def _find_last_match_start(pattern: re.Pattern[str], text: str) -> int:
@@ -189,6 +194,37 @@ def _split_incomplete_visual_tail(text: str) -> tuple[str, str]:
         return text[:start], text[start:]
 
     return text, ""
+
+
+def _split_streamable_content(
+    text: str,
+    *,
+    keep_tail: int = 0,
+    should_buffer_visual_chunks: bool = False,
+) -> tuple[str, str]:
+    """
+    Split cached streaming text into an emit-safe chunk and the pending remainder.
+
+    This centralizes the visual-tail guard so normal streaming, TTS flushes, and
+    EOF flushes all preserve the same no-partial-image-token invariant.
+    """
+    if not text:
+        return "", ""
+
+    if keep_tail > 0:
+        if len(text) <= keep_tail:
+            return "", text
+        cached = text[:-keep_tail]
+        pending = text[-keep_tail:]
+    else:
+        cached = text
+        pending = ""
+
+    if should_buffer_visual_chunks:
+        safe_cached, visual_tail = _split_incomplete_visual_tail(cached)
+        return safe_cached, visual_tail + pending
+
+    return cached, pending
 
 
 class RunType(Enum):
@@ -2592,16 +2628,11 @@ class RunScriptContextV2:
                     nonlocal content_cache
                     if not content_cache:
                         return
-                    if keep_tail > 0 and len(content_cache) > keep_tail:
-                        cached = content_cache[:-keep_tail]
-                        content_cache = content_cache[-keep_tail:]
-                    elif keep_tail > 0:
-                        # Keep the whole cache for next chunk to avoid breaking
-                        # partial visual markers like `<svg` / `<div`.
-                        return
-                    else:
-                        cached = content_cache
-                        content_cache = ""
+                    cached, content_cache = _split_streamable_content(
+                        content_cache,
+                        keep_tail=keep_tail,
+                        should_buffer_visual_chunks=should_buffer_visual_chunks,
+                    )
                     if not cached:
                         return
                     yield RunMarkdownFlowDTO(
@@ -2619,10 +2650,10 @@ class RunScriptContextV2:
                     if not tts_processor:
                         if should_buffer_visual_chunks:
                             content_cache += chunk_content
-                            safe_content, pending_tail = _split_incomplete_visual_tail(
-                                content_cache
+                            safe_content, content_cache = _split_streamable_content(
+                                content_cache,
+                                should_buffer_visual_chunks=True,
                             )
-                            content_cache = pending_tail
                             if safe_content:
                                 yield RunMarkdownFlowDTO(
                                     outline_bid=run_script_info.outline_bid,

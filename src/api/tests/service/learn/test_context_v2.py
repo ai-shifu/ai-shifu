@@ -27,6 +27,7 @@ from flaskr.service.learn.context_v2 import (
     RunScriptContextV2,
     RunScriptPreviewContextV2,
     _split_incomplete_visual_tail,
+    _split_streamable_content,
 )
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import GeneratedType, PlaygroundPreviewRequest
@@ -245,6 +246,44 @@ def test_returns_full_text_when_visual_token_is_complete():
 
     assert safe_text == text
     assert pending_tail == ""
+
+
+def test_keeps_earliest_incomplete_markdown_image_in_tail():
+    safe_text, pending_tail = _split_incomplete_visual_tail(
+        "Intro text ![a](url ![b](tail"
+    )
+
+    assert safe_text == "Intro text "
+    assert pending_tail == "![a](url ![b](tail"
+
+
+def test_ignores_img_like_words_when_splitting_visual_tail():
+    text = 'Intro text <imgur src="https://example.com/image'
+    safe_text, pending_tail = _split_incomplete_visual_tail(text)
+
+    assert safe_text == text
+    assert pending_tail == ""
+
+
+def test_split_streamable_content_keeps_visual_tail_during_flush():
+    emitted, pending = _split_streamable_content(
+        'Intro text <img alt="1 > 2" src="https://example.com/image',
+        should_buffer_visual_chunks=True,
+    )
+
+    assert emitted == "Intro text "
+    assert pending == '<img alt="1 > 2" src="https://example.com/image'
+
+
+def test_split_streamable_content_preserves_visual_tail_with_keep_tail():
+    emitted, pending = _split_streamable_content(
+        "Intro text ![cover](https://example.com/image.png more",
+        keep_tail=5,
+        should_buffer_visual_chunks=True,
+    )
+
+    assert emitted == "Intro text ![cover](https://example.com/image.png"
+    assert pending == " more"
 
 
 class CompletionTailInteractionTests(unittest.TestCase):

@@ -23,41 +23,59 @@ export const fixCodeStream = (text, curr) => {
 };
 
 const findIncompleteMarkdownImageStart = (text: string): number => {
-  const imageStart = text.lastIndexOf('![');
-  if (imageStart === -1) {
-    return -1;
-  }
+  let searchIndex = 0;
 
-  const imageOpen = text.indexOf('](', imageStart + 2);
-  if (imageOpen === -1) {
-    return imageStart;
-  }
+  while (searchIndex < text.length) {
+    const imageStart = text.indexOf('![', searchIndex);
+    if (imageStart === -1) {
+      return -1;
+    }
 
-  let depth = 1;
-  for (let i = imageOpen + 2; i < text.length; i += 1) {
-    const char = text[i];
-    if (char === '\\') {
-      i += 1;
-      continue;
+    const imageOpen = text.indexOf('](', imageStart + 2);
+    if (imageOpen === -1) {
+      return imageStart;
     }
-    if (char === '(') {
-      depth += 1;
-      continue;
-    }
-    if (char === ')') {
-      depth -= 1;
-      if (depth === 0) {
-        return -1;
+
+    let depth = 1;
+    let closed = false;
+    for (let i = imageOpen + 2; i < text.length; i += 1) {
+      const char = text[i];
+      if (char === '\\') {
+        i += 1;
+        continue;
+      }
+      if (char === '(') {
+        depth += 1;
+        continue;
+      }
+      if (char === ')') {
+        depth -= 1;
+        if (depth === 0) {
+          searchIndex = i + 1;
+          closed = true;
+          break;
+        }
       }
     }
+
+    if (!closed) {
+      return imageStart;
+    }
   }
 
-  return imageStart;
+  return -1;
 };
 
 const findIncompleteHtmlImageStart = (text: string): number => {
   const lowerText = text.toLowerCase();
-  const imageStart = lowerText.lastIndexOf('<img');
+  const imgTagRegex = /<img\b/gi;
+  let imageStart = -1;
+  let match: RegExpExecArray | null;
+
+  while ((match = imgTagRegex.exec(lowerText)) !== null) {
+    imageStart = match.index;
+  }
+
   if (imageStart === -1) {
     return -1;
   }

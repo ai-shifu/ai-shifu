@@ -49,6 +49,18 @@ describe('markdownUtils visual token masking', () => {
     ).toBe('Before image ');
   });
 
+  it('masks from the earliest incomplete markdown image token', () => {
+    expect(maskIncompleteImageToken('Before ![a](url ![b](tail')).toBe(
+      'Before ',
+    );
+  });
+
+  it('does not treat img-like words as html image tags', () => {
+    const text = 'Before image <imgur src="https://example.com/assets/cover';
+
+    expect(maskIncompleteImageToken(text)).toBe(text);
+  });
+
   it('keeps mermaid masking behavior before image masking', () => {
     const text = '```mermaid\nA-->B';
 
