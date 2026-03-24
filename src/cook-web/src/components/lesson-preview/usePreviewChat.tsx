@@ -410,7 +410,7 @@ export function usePreviewChat() {
       try {
         const response = JSON.parse(payload);
         const blockId = String(response.generated_block_bid ?? '');
-        console.log('response',response)
+        console.log('response', response);
         if (
           response.type === PREVIEW_SSE_OUTPUT_TYPE.INTERACTION ||
           response.type === PREVIEW_SSE_OUTPUT_TYPE.CONTENT
