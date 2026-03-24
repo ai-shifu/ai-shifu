@@ -237,26 +237,27 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                       disableAskButton
                       disableInteractionButtons
                       extraActions={
-                        <AudioPlayer
-                          audioUrl={parentPrimaryTrack?.audioUrl}
-                          streamingSegments={parentPrimaryTrack?.audioSegments}
-                          isStreaming={Boolean(
-                            parentPrimaryTrack?.isAudioStreaming,
-                          )}
-                          alwaysVisible={true}
-                          onRequestAudio={
-                            onRequestAudioForBlock
-                              ? () =>
-                                  onRequestAudioForBlock({
-                                    shifuBid,
-                                    blockId: parentBlockBid,
-                                    text: parentContentItem?.content || '',
-                                  })
-                              : undefined
-                          }
-                          className='interaction-icon-btn'
-                          size={16}
-                        />
+                        onRequestAudioForBlock ? (
+                          <AudioPlayer
+                            audioUrl={parentPrimaryTrack?.audioUrl}
+                            streamingSegments={
+                              parentPrimaryTrack?.audioSegments
+                            }
+                            isStreaming={Boolean(
+                              parentPrimaryTrack?.isAudioStreaming,
+                            )}
+                            alwaysVisible={true}
+                            onRequestAudio={() =>
+                              onRequestAudioForBlock({
+                                shifuBid,
+                                blockId: parentBlockBid,
+                                text: parentContentItem?.content || '',
+                              })
+                            }
+                            className='interaction-icon-btn'
+                            size={16}
+                          />
+                        ) : undefined
                       }
                     />
                   </div>

@@ -154,6 +154,7 @@ const ScriptManagementPage = () => {
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const currentUserId = useUserStore(state => state.userInfo?.user_id || '');
+  const [isCnSite, setIsCnSite] = useState(false);
   const [adminReady, setAdminReady] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'archived'>('all');
   const [shifus, setShifus] = useState<Shifu[]>([]);
@@ -179,6 +180,11 @@ const ScriptManagementPage = () => {
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
+
+  useEffect(() => {
+    const hostname = window.location.hostname;
+    setIsCnSite(hostname.endsWith('.ai-shifu.cn') || hostname === 'localhost');
+  }, []);
 
   const setHasMoreState = useCallback((value: boolean) => {
     hasMoreRef.current = value;
@@ -495,7 +501,22 @@ const ScriptManagementPage = () => {
               <PlusIcon className='w-5 h-5 mr-1' />
               {t('common.core.createBlankShifu')}
             </Button>
+            {isCnSite && (
+              <span className='text-xs text-muted-foreground'>
+                {t('common.core.aiCourseCreatorPrefix')}
+                <a
+                  href='https://ai-shifu.cn/educators.html#course-creator-skill'
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='text-muted-foreground underline hover:text-foreground'
+                >
+                  {t('common.core.aiCourseCreatorLink')}
+                </a>
+                {t('common.core.aiCourseCreatorSuffix')}
+              </span>
+            )}
             <Tabs
+              className='ml-auto'
               value={activeTab}
               onValueChange={value => setActiveTab(value as 'all' | 'archived')}
             >
