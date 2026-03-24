@@ -40,7 +40,9 @@ import {
   ElementType,
 } from '@/c-api/studyV2';
 import {
+  getAudioSegmentDataListFromTracks,
   getAudioTrackByPosition,
+  mergeAudioSegmentDataList,
   upsertAudioComplete,
   upsertAudioSegment,
   type AudioTrack,
@@ -285,32 +287,48 @@ function useChatLogicHook({
   }, []);
 
   const normalizeHistoryAudioTracks = useCallback(
-    (record: StudyRecordItem): AudioTrack[] => {
-      const audios = Array.isArray(record.audio_segments)
-        ? record.audio_segments
-        : [];
+    (audios: AudioSegmentData[] = []): AudioTrack[] => {
       if (!audios.length) {
-        if (!record.audio_url) {
-          return [];
-        }
-        return [
-          {
-            position: 0,
-            audioUrl: record.audio_url,
-            durationMs: 0,
-            isAudioStreaming: false,
-          },
-        ];
+        return [];
       }
 
-      return [...audios]
-        .sort((a, b) => Number(a.position ?? 0) - Number(b.position ?? 0))
-        .map(audio => ({
-          position: Number(audio.position ?? 0),
-          audioUrl: audio.audio_data,
-          durationMs: Number(audio.duration_ms ?? 0),
-          isAudioStreaming: false,
-        }));
+      const trackByPosition = new Map<number, AudioTrack>();
+
+      [...audios]
+        .sort(
+          (a, b) =>
+            Number(a.position ?? 0) - Number(b.position ?? 0) ||
+            Number(a.segment_index ?? 0) - Number(b.segment_index ?? 0),
+        )
+        .forEach(audio => {
+          const position = Number(audio.position ?? 0);
+          const track = trackByPosition.get(position) ?? {
+            position,
+            audioSegments: [],
+            isAudioStreaming: false,
+          };
+
+          track.audioSegments = [
+            ...(track.audioSegments ?? []),
+            {
+              segmentIndex: Number(audio.segment_index ?? 0),
+              audioData: audio.audio_data,
+              durationMs: Number(audio.duration_ms ?? 0),
+              isFinal: Boolean(audio.is_final),
+              position,
+              elementId: audio.element_id,
+              slideId: audio.slide_id,
+              avContract: audio.av_contract ?? null,
+            },
+          ];
+          track.isAudioStreaming = Boolean(
+            track.audioSegments?.some(segment => !segment.isFinal),
+          );
+
+          trackByPosition.set(position, track);
+        });
+
+      return [...trackByPosition.values()];
     },
     [],
   );
@@ -325,9 +343,25 @@ function useChatLogicHook({
         previousItem?: ChatContentItem;
       },
     ): ChatContentItem => {
-      const historyTracks = normalizeHistoryAudioTracks(record);
-      const singleTrack = historyTracks.length === 1 ? historyTracks[0] : null;
       const itemBid = resolveElementItemBid(record);
+      const previousAudioSegments = Array.isArray(
+        options?.previousItem?.audio_segments,
+      )
+        ? options?.previousItem?.audio_segments
+        : [];
+      const previousTrackAudioSegments = getAudioSegmentDataListFromTracks(
+        options?.previousItem?.audioTracks ?? [],
+      );
+      const incomingAudioSegments = Array.isArray(record.audio_segments)
+        ? record.audio_segments
+        : [];
+      const mergedAudioSegments = mergeAudioSegmentDataList(itemBid, [
+        ...previousAudioSegments,
+        ...previousTrackAudioSegments,
+        ...incomingAudioSegments,
+      ]);
+      const historyTracks = normalizeHistoryAudioTracks(mergedAudioSegments);
+      const singleTrack = historyTracks.length === 1 ? historyTracks[0] : null;
       const isInteractionElement =
         record.element_type === ELEMENT_TYPE.INTERACTION;
       const rawContent = record.content ?? '';
@@ -362,6 +396,10 @@ function useChatLogicHook({
           historyTracks.length > 0
             ? historyTracks
             : options?.previousItem?.audioTracks,
+        audio_segments:
+          mergedAudioSegments.length > 0
+            ? mergedAudioSegments
+            : options?.previousItem?.audio_segments,
         listenSlides:
           options?.listenSlides ?? options?.previousItem?.listenSlides,
       };

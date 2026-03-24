@@ -172,6 +172,9 @@ export interface AudioSegmentData {
   duration_ms: number;
   is_final: boolean;
   position?: number;
+  element_id?: string;
+  slide_id?: string;
+  av_contract?: Record<string, any> | null;
 }
 
 export interface AudioCompleteData {

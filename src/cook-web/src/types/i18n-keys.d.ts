@@ -226,6 +226,7 @@ export type I18nKey =
   | 'module.chat.regenerate'
   | 'module.chat.regenerateConfirmDescription'
   | 'module.chat.regenerateConfirmTitle'
+  | 'module.chat.slideAudioBuffering'
   | 'module.chat.thinking'
   | 'module.chat.ttsSynthesisPreview'
   | 'module.dashboard.detail.basicInfo.chapterCount'

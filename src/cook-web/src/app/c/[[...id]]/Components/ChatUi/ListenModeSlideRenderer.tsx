@@ -2,7 +2,11 @@ import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
-import { hasAudioContentInTrack } from '@/c-utils/audio-utils';
+import {
+  getAudioSegmentDataListFromTracks,
+  hasAudioContentInTrack,
+  mergeAudioSegmentDataList,
+} from '@/c-utils/audio-utils';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import {
   ELEMENT_TYPE,
@@ -14,7 +18,7 @@ import {
   type Element as SlideElement,
 } from 'markdown-flow-ui/renderer';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
-import { normalizeAudioTracks, sortSegmentsByIndex } from './listenModeUtils';
+import { normalizeAudioTracks } from './listenModeUtils';
 import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
 
@@ -55,29 +59,16 @@ const createEmptyStateElement = (
 });
 
 const resolveItemAudioSegments = (item: ChatContentItem) => {
-  if (item.audio_segments?.length) {
-    return item.audio_segments;
-  }
-
-  const primaryTrack = normalizeAudioTracks(item).find(track =>
-    hasAudioContentInTrack(track),
+  const normalizedTracks = normalizeAudioTracks(item);
+  const trackAudioSegments = getAudioSegmentDataListFromTracks(
+    normalizedTracks.filter(track => hasAudioContentInTrack(track)),
+  );
+  const mergedAudioSegments = mergeAudioSegmentDataList(
+    item.element_bid,
+    [...(item.audio_segments ?? []), ...trackAudioSegments],
   );
 
-  if (!primaryTrack) {
-    return undefined;
-  }
-
-  return sortSegmentsByIndex(primaryTrack.audioSegments ?? []).map(
-    audioSegment => ({
-      segment_index: audioSegment.segmentIndex,
-      audio_data: audioSegment.audioData,
-      duration_ms: audioSegment.durationMs,
-      is_final: audioSegment.isFinal,
-      position: audioSegment.position,
-      slide_id: audioSegment.slideId,
-      av_contract: audioSegment.avContract ?? null,
-    }),
-  );
+  return mergedAudioSegments.length > 0 ? mergedAudioSegments : undefined;
 };
 
 const resolveItemAudioUrl = (item: ChatContentItem) => {
@@ -291,6 +282,7 @@ const ListenModeSlideRenderer = ({
             copyButtonText: t('module.renderUi.core.copyCode'),
             copiedButtonText: t('module.renderUi.core.copied'),
           }}
+          bufferingText={t('module.chat.slideAudioBuffering')}
           onPlayerVisibilityChange={onPlayerVisibilityChange}
           interactionDefaultValueOptions={
             lessonFeedbackInteractionDefaultValueOptions
