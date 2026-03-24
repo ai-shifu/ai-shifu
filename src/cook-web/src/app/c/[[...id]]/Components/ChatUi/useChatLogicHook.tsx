@@ -37,7 +37,6 @@ import {
   streamGeneratedBlockAudio,
   submitLessonFeedback,
   ELEMENT_TYPE,
-  ElementType,
 } from '@/c-api/studyV2';
 import {
   getAudioSegmentDataListFromTracks,
