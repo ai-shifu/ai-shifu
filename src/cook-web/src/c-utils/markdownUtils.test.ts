@@ -33,6 +33,14 @@ describe('markdownUtils visual token masking', () => {
     expect(maskIncompleteImageToken(text)).toBe(text);
   });
 
+  it('masks an incomplete markdown image token when the url contains parentheses', () => {
+    expect(
+      maskIncompleteImageToken(
+        'Before image ![cover](https://example.com/assets/cover_(1).png',
+      ),
+    ).toBe('Before image ');
+  });
+
   it('keeps mermaid masking behavior before image masking', () => {
     const text = '```mermaid\nA-->B';
 

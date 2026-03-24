@@ -105,8 +105,41 @@ from flaskr.service.user.exceptions import UserNotLoginException
 
 context_local = threading.local()
 
-_STREAMING_MD_IMAGE_START_RE = re.compile(r"!\[[^\]]*$|!\[[^\]]*]\([^)\n]*$")
 _STREAMING_HTML_IMG_START_RE = re.compile(r"<img\b[^>]*$", re.IGNORECASE)
+
+
+def _find_incomplete_markdown_image_start(text: str) -> int:
+    image_start = text.rfind("![")
+    if image_start == -1:
+        return -1
+
+    image_open = text.find("](", image_start + 2)
+    if image_open == -1:
+        return image_start
+
+    depth = 1
+    index = image_open + 2
+    while index < len(text):
+        char = text[index]
+        if char == "\\":
+            index += 2
+            continue
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return -1
+        index += 1
+
+    return image_start
+
+
+def _find_last_match_start(pattern: re.Pattern[str], text: str) -> int:
+    last_start = -1
+    for match in pattern.finditer(text):
+        last_start = match.start()
+    return last_start
 
 
 def _split_incomplete_visual_tail(text: str) -> tuple[str, str]:
@@ -122,14 +155,13 @@ def _split_incomplete_visual_tail(text: str) -> tuple[str, str]:
     if not text:
         return "", ""
 
-    md_matches = list(_STREAMING_MD_IMAGE_START_RE.finditer(text))
-    if md_matches:
-        start = md_matches[-1].start()
-        return text[:start], text[start:]
+    markdown_start = _find_incomplete_markdown_image_start(text)
+    if markdown_start >= 0:
+        return text[:markdown_start], text[markdown_start:]
 
-    html_matches = list(_STREAMING_HTML_IMG_START_RE.finditer(text))
-    if html_matches:
-        start = html_matches[-1].start()
+    html_start = _find_last_match_start(_STREAMING_HTML_IMG_START_RE, text)
+    if html_start >= 0:
+        start = html_start
         return text[:start], text[start:]
 
     return text, ""

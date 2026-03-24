@@ -33,12 +33,26 @@ const findIncompleteMarkdownImageStart = (text: string): number => {
     return imageStart;
   }
 
-  const imageClose = text.indexOf(')', imageOpen + 2);
-  if (imageClose === -1) {
-    return imageStart;
+  let depth = 1;
+  for (let i = imageOpen + 2; i < text.length; i += 1) {
+    const char = text[i];
+    if (char === '\\') {
+      i += 1;
+      continue;
+    }
+    if (char === '(') {
+      depth += 1;
+      continue;
+    }
+    if (char === ')') {
+      depth -= 1;
+      if (depth === 0) {
+        return -1;
+      }
+    }
   }
 
-  return -1;
+  return imageStart;
 };
 
 const findIncompleteHtmlImageStart = (text: string): number => {

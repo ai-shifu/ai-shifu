@@ -192,29 +192,39 @@ class AccessGateFeedbackHelperTests(unittest.TestCase):
         )
 
 
-class StreamingVisualTailTests(unittest.TestCase):
-    def test_keeps_incomplete_markdown_image_in_tail(self):
-        safe_text, pending_tail = _split_incomplete_visual_tail(
-            "Intro text ![cover](https://example.com/image"
-        )
+def test_keeps_incomplete_markdown_image_in_tail():
+    safe_text, pending_tail = _split_incomplete_visual_tail(
+        "Intro text ![cover](https://example.com/image"
+    )
 
-        self.assertEqual(safe_text, "Intro text ")
-        self.assertEqual(pending_tail, "![cover](https://example.com/image")
+    assert safe_text == "Intro text "
+    assert pending_tail == "![cover](https://example.com/image"
 
-    def test_keeps_incomplete_html_image_in_tail(self):
-        safe_text, pending_tail = _split_incomplete_visual_tail(
-            'Intro text <img src="https://example.com/image'
-        )
 
-        self.assertEqual(safe_text, "Intro text ")
-        self.assertEqual(pending_tail, '<img src="https://example.com/image')
+def test_keeps_markdown_image_with_url_parentheses_in_tail():
+    safe_text, pending_tail = _split_incomplete_visual_tail(
+        "Intro text ![cover](https://example.com/image_(1).png"
+    )
 
-    def test_returns_full_text_when_visual_token_is_complete(self):
-        text = "Intro text ![cover](https://example.com/image.png)"
-        safe_text, pending_tail = _split_incomplete_visual_tail(text)
+    assert safe_text == "Intro text "
+    assert pending_tail == "![cover](https://example.com/image_(1).png"
 
-        self.assertEqual(safe_text, text)
-        self.assertEqual(pending_tail, "")
+
+def test_keeps_incomplete_html_image_in_tail():
+    safe_text, pending_tail = _split_incomplete_visual_tail(
+        'Intro text <img src="https://example.com/image'
+    )
+
+    assert safe_text == "Intro text "
+    assert pending_tail == '<img src="https://example.com/image'
+
+
+def test_returns_full_text_when_visual_token_is_complete():
+    text = "Intro text ![cover](https://example.com/image.png)"
+    safe_text, pending_tail = _split_incomplete_visual_tail(text)
+
+    assert safe_text == text
+    assert pending_tail == ""
 
 
 class CompletionTailInteractionTests(unittest.TestCase):
