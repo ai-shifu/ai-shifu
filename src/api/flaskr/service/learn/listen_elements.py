@@ -670,9 +670,22 @@ def _audio_segment_payload(audio_segment: AudioSegmentDTO) -> dict[str, Any]:
         "segment_index": int(audio_segment.segment_index or 0),
         "audio_data": str(audio_segment.audio_data or ""),
         "duration_ms": int(audio_segment.duration_ms or 0),
-        # Listen-mode uses AUDIO_COMPLETE as the only completion signal.
+        # Listen-mode flips the last segment to final only after AUDIO_COMPLETE.
         "is_final": False,
     }
+
+
+def _mark_last_audio_segment_final(
+    audio_segments_by_position: dict[int, list[dict[str, Any]]],
+    position: int,
+) -> list[dict[str, Any]]:
+    segments = audio_segments_by_position.get(position, [])
+    if not segments:
+        return []
+    finalized_segments = [dict(item) for item in segments]
+    finalized_segments[-1]["is_final"] = True
+    audio_segments_by_position[position] = finalized_segments
+    return finalized_segments
 
 
 def _sanitize_audio_segments_for_storage(
@@ -2095,6 +2108,10 @@ class ListenElementRunAdapter:
             state.latest_av_contract = content.av_contract
         position = int(getattr(content, "position", 0) or 0)
         state.audio_by_position[position] = _make_audio_payload(content)
+        finalized_audio_segments = _mark_last_audio_segment_final(
+            state.audio_segments_by_position,
+            position,
+        )
         ask_element_bid = self._resolve_ask_element_bid_for_block(
             generated_block_bid,
             bind_current=True,
@@ -2104,7 +2121,7 @@ class ListenElementRunAdapter:
                 generated_block_bid,
                 is_final=True,
                 audio=state.audio_by_position.get(position),
-                audio_segments=state.audio_segments_by_position.get(position, []),
+                audio_segments=finalized_audio_segments,
             )
             if answer_element is not None:
                 yield self._element_message(answer_element)
@@ -2119,6 +2136,7 @@ class ListenElementRunAdapter:
             audio_payload = _make_audio_payload(content)
             patch_element = self._build_audio_patch_element(
                 target_element_bid,
+                audio_segments=finalized_audio_segments,
             )
             if patch_element is not None:
                 patch_element.audio_url = content.audio_url

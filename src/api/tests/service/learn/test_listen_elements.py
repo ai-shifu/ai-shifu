@@ -1391,7 +1391,7 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
                 "segment_index": 0,
                 "audio_data": "segment-0",
                 "duration_ms": 350,
-                "is_final": False,
+                "is_final": True,
             }
         ]
         assert final_elements[2].is_marker is True
@@ -1408,7 +1408,7 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
                 "segment_index": 0,
                 "audio_data": "segment-1",
                 "duration_ms": 400,
-                "is_final": False,
+                "is_final": True,
             }
         ]
         assert final_elements[0].payload is not None
@@ -1449,7 +1449,7 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
                 "segment_index": 0,
                 "audio_data": "",
                 "duration_ms": 350,
-                "is_final": False,
+                "is_final": True,
             }
         ]
         assert persisted_rows[2].is_marker == 1
@@ -1466,7 +1466,7 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
                 "segment_index": 0,
                 "audio_data": "",
                 "duration_ms": 400,
-                "is_final": False,
+                "is_final": True,
             }
         ]
         assert (
@@ -1574,7 +1574,7 @@ def test_listen_adapter_finalizes_fallback_text_with_embedded_audio(app):
                 "segment_index": 0,
                 "audio_data": "",
                 "duration_ms": 280,
-                "is_final": False,
+                "is_final": True,
             }
         ]
         payload = json.loads(final_row.payload)
@@ -1773,6 +1773,22 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
             == "https://example.com/stream-audio.mp3"
         )
         assert audio_complete_patch_element.is_final is True
+        assert audio_complete_patch_element.audio_segments == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "stream-segment-0",
+                "duration_ms": 240,
+                "is_final": False,
+            },
+            {
+                "position": 0,
+                "segment_index": 1,
+                "audio_data": "stream-segment-1",
+                "duration_ms": 260,
+                "is_final": True,
+            },
+        ]
         result = get_listen_element_record(
             app,
             shifu_bid=shifu_bid,
@@ -1801,7 +1817,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
                 "segment_index": 1,
                 "audio_data": "",
                 "duration_ms": 260,
-                "is_final": False,
+                "is_final": True,
             },
         ]
         assert element.content_text.endswith("caption line\n")
@@ -1902,7 +1918,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
                     "segment_index": 1,
                     "audio_data": "",
                     "duration_ms": 260,
-                    "is_final": False,
+                    "is_final": True,
                 },
             ],
         ]
@@ -2283,6 +2299,22 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(app):
         assert audio_complete_text.element_bid == text_element_bid
         assert audio_complete_text.target_element_bid == text_element_bid
         assert audio_complete_text.is_final is True
+        assert audio_complete_text.audio_segments == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "bound-segment-0",
+                "duration_ms": 180,
+                "is_final": False,
+            },
+            {
+                "position": 0,
+                "segment_index": 1,
+                "audio_data": "bound-segment-1",
+                "duration_ms": 190,
+                "is_final": True,
+            },
+        ]
 
         follow_up_html = next(
             item
@@ -2477,7 +2509,7 @@ def test_listen_adapter_binds_buffered_audio_to_text_after_html(app):
                 "segment_index": 0,
                 "audio_data": "late-text-segment",
                 "duration_ms": 210,
-                "is_final": False,
+                "is_final": True,
             }
         ]
 
@@ -2511,7 +2543,7 @@ def test_listen_adapter_binds_buffered_audio_to_text_after_html(app):
                     "segment_index": 0,
                     "audio_data": "",
                     "duration_ms": 210,
-                    "is_final": False,
+                    "is_final": True,
                 }
             ]
             for row in persisted_text_rows
