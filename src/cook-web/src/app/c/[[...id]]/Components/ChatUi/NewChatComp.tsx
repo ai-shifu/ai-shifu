@@ -27,7 +27,6 @@ import type { ChatContentItem } from './useChatLogicHook';
 import AskBlock from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
-import ListenModeRenderer from './ListenModeRenderer';
 import ListenModeSlideRenderer from './ListenModeSlideRenderer';
 import LessonFeedbackInteraction from './LessonFeedbackInteraction';
 import LoadingBar from './LoadingBar';
@@ -62,6 +61,7 @@ export const NewChatComponents = ({
   previewMode = false,
   isNavOpen = false,
   onListenPlayerVisibilityChange,
+  showGenerateBtn = false,
 }) => {
   const { trackEvent, trackTrailProgress } = useTracking();
   const { t } = useTranslation();
@@ -182,7 +182,6 @@ export const NewChatComponents = ({
     open: false,
     position: { x: 0, y: 0 },
     elementBid: '',
-    likeStatus: null as any,
   });
   const [longPressedBlockBid, setLongPressedBlockBid] = useState<string>('');
   const dismissMobileInteraction = useCallback(() => {
@@ -386,13 +385,19 @@ export const NewChatComponents = ({
       if (currentBlock.type !== ChatContentItemType.CONTENT) {
         return;
       }
+      const primaryTrack = getAudioTrackByPosition(
+        currentBlock.audioTracks ?? [],
+      );
+      const hasMobileAudioAction =
+        shouldShowAudioAction &&
+        (hasAudioContentInTrack(primaryTrack) ||
+          Boolean(primaryTrack?.isAudioStreaming) ||
+          (!previewMode && Boolean(currentBlock.element_bid)));
+      if (!showGenerateBtn && !hasMobileAudioAction) {
+        return;
+      }
       const target = event.target as HTMLElement;
       const rect = target.getBoundingClientRect();
-      const interactionItem = items.find(
-        item =>
-          item.type === ChatContentItemType.LIKE_STATUS &&
-          item.parent_element_bid === currentBlock.element_bid,
-      );
       // Use requestAnimationFrame to avoid blocking rendering
       requestAnimationFrame(() => {
         setLongPressedBlockBid(currentBlock.element_bid);
@@ -402,12 +407,11 @@ export const NewChatComponents = ({
             x: rect.left + rect.width / 2,
             y: rect.top + rect.height / 2,
           },
-          elementBid: interactionItem?.parent_element_bid || '',
-          likeStatus: interactionItem?.like_status,
+          elementBid: currentBlock.element_bid || '',
         });
       });
     },
-    [items],
+    [previewMode, shouldShowAudioAction, showGenerateBtn],
   );
 
   useEffect(() => {
@@ -735,10 +739,10 @@ export const NewChatComponents = ({
                         <InteractionBlock
                           shifu_bid={shifuBid}
                           element_bid={elementBid}
-                          like_status={interactionState?.like_status}
                           readonly={interactionState?.readonly ?? item.readonly}
                           onRefresh={onRefresh}
                           onToggleAskExpanded={toggleAskExpanded}
+                          showGenerateBtn={showGenerateBtn}
                           extraActions={
                             shouldShowAudioAction &&
                             (canRequestAudio || hasAudioForElement) ? (
@@ -798,7 +802,6 @@ export const NewChatComponents = ({
           position={mobileInteraction.position}
           shifu_bid={shifuBid}
           element_bid={mobileInteraction.elementBid}
-          like_status={mobileInteraction.likeStatus}
           onRefresh={onRefresh}
           audioUrl={mobileInteractionPrimaryTrack?.audioUrl}
           streamingSegments={mobileInteractionPrimaryTrack?.audioSegments}
@@ -809,6 +812,7 @@ export const NewChatComponents = ({
               : undefined
           }
           showAudioAction={shouldShowAudioAction}
+          showGenerateBtn={showGenerateBtn}
         />
       )}
       {lessonFeedbackPopup.open && !(mobileStyle && isNavOpen) ? (
@@ -817,8 +821,8 @@ export const NewChatComponents = ({
             'pointer-events-none z-20',
             mobileStyle
               ? isListenModeActive
-                ? 'fixed left-3 right-3 bottom-[calc(env(safe-area-inset-bottom)+88px)]'
-                : 'fixed left-3 right-3 bottom-[calc(env(safe-area-inset-bottom)+56px)]'
+                ? 'fixed left-3 right-3 bottom-[88px]'
+                : 'fixed left-3 right-3 bottom-[56px]'
               : 'absolute right-6 w-[260px] max-w-[calc(100%-48px)] bottom-6',
           )}
         >

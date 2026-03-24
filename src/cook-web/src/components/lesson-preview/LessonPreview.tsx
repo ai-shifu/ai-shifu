@@ -56,6 +56,7 @@ interface LessonPreviewProps {
   customVariableKeys?: string[];
   unusedVariableKeys?: string[];
   onHideVariable?: (name: string) => void;
+  showGenerateBtn?: boolean;
 }
 
 const noop = () => {};
@@ -78,6 +79,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   customVariableKeys,
   unusedVariableKeys,
   onHideVariable,
+  showGenerateBtn = false,
 }) => {
   const { t } = useTranslation();
   const confirmButtonText = t('module.renderUi.core.confirm');

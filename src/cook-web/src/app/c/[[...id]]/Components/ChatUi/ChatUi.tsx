@@ -33,6 +33,7 @@ export const ChatUi = ({
   updateSelectedLesson,
   getNextLessonId,
   isNavOpen = false,
+  showGenerateBtn = false,
 }) => {
   const { t } = useTranslation();
   const { frameLayout } = useUiLayoutStore(state => state);
@@ -138,6 +139,7 @@ export const ChatUi = ({
           getNextLessonId={getNextLessonId}
           isNavOpen={isNavOpen}
           onListenPlayerVisibilityChange={setIsListenPlayerVisible}
+          showGenerateBtn={showGenerateBtn}
         />
       }
       {showUserSettings && (

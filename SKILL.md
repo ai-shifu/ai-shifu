@@ -31,3 +31,9 @@
 - When new streamed audio segments only extend the current step's playable media, do not reset Slide playback state from the beginning; only restart when the step structure, interaction target, or audio sequence membership actually changes.
 - When a Slide playback regression is hard to reproduce from a final `elementList`, replay the raw ai-shifu `run` fixture in Storybook so each `data:` payload applies as a live SSE-style update.
 - When wiring new Slide UI copy from ai-shifu into markdown-flow-ui props, add a dedicated `module.chat` translation key and pass the localized text from the renderer instead of hardcoding fallback strings.
+
+## 聊天操作栏裁剪
+
+- 当学习页、预览、调试共用同一套聊天交互组件时，优先把按钮显隐收敛成统一的组件配置，比如 `showGenerateBtn`，再从入口层按场景透传，避免分散写死。
+- 当某个操作按钮依赖 `LIKE_STATUS` 这类中间态项承载展示时，删除按钮展示的同时也要停掉对应的数据注入，否则页面里容易残留空白操作栏或无意义占位。
+- 当移动端长按菜单依赖桌面端交互状态时，移除某类操作后要同步重算“是否还有可展示动作”，避免弹出空菜单。

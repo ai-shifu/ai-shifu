@@ -536,6 +536,7 @@ export default function ChatPage() {
             updateSelectedLesson={updateSelectedLesson}
             getNextLessonId={getNextLessonId}
             isNavOpen={navOpen}
+            showGenerateBtn={false}
           />
         ) : null}
 
