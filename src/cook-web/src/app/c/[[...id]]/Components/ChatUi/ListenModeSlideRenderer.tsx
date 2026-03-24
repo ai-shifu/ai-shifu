@@ -87,7 +87,10 @@ const resolveItemAudioUrl = (item: ChatContentItem) => {
 };
 
 const resolveContentElementType = (item: ChatContentItem) => {
-  if (item.element_type && item.element_type !== ChatContentItemType.CONTENT) {
+  // `element_type` comes from backend `ElementType` (e.g. text/tables/code).
+  // `ChatContentItemType.CONTENT` is a different "content item kind" enum,
+  // so we should not compare them directly.
+  if (item.element_type) {
     return item.element_type;
   }
 
