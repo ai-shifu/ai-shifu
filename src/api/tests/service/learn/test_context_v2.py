@@ -282,8 +282,8 @@ def test_split_streamable_content_preserves_visual_tail_with_keep_tail():
         should_buffer_visual_chunks=True,
     )
 
-    assert emitted == "Intro text ![cover](https://example.com/image.png"
-    assert pending == " more"
+    assert emitted == "Intro text "
+    assert pending == "![cover](https://example.com/image.png more"
 
 
 class CompletionTailInteractionTests(unittest.TestCase):
