@@ -24,6 +24,7 @@
 
 - When backend `element.audio_segments` arrive as incremental updates instead of full snapshots, merge them with the existing item state before replacing `audio_segments` or `audioTracks`.
 - When listen-mode data can carry audio in both `audio_segments` and `audioTracks`, always merge both sources before rendering so stale partial `audio_segments` never mask complete track-level segments.
+- When backend moves interaction answers into `payload.user_input`, normalize that value at the record boundary back onto `element.user_input` so history and SSE rendering keep using the same field.
 - Deduplicate streamed audio segments with a stable key that includes `element_id`, `position`, and `segment_index` so repeated chunks do not overwrite or collapse adjacent segments incorrectly.
 - When new streamed audio segments only extend the current step's playable media, do not reset Slide playback state from the beginning; only restart when the step structure, interaction target, or audio sequence membership actually changes.
 - When a Slide playback regression is hard to reproduce from a final `elementList`, replay the raw ai-shifu `run` fixture in Storybook so each `data:` payload applies as a live SSE-style update.

@@ -94,6 +94,13 @@ export const LESSON_FEEDBACK_VARIABLE_NAME =
 export const LESSON_FEEDBACK_INTERACTION_MARKER =
   `%{{${LESSON_FEEDBACK_VARIABLE_NAME}}}` as const;
 
+export interface StudyRecordPayload {
+  audio?: unknown;
+  previous_visuals?: unknown[];
+  user_input?: string;
+  [key: string]: unknown;
+}
+
 export interface StudyRecordItem {
   element_type: ElementType;
   element_bid: string;
@@ -109,6 +116,7 @@ export interface StudyRecordItem {
   like_status?: LikeStatus;
   generated_block_bid?: string;
   user_input?: string;
+  payload?: StudyRecordPayload;
   isHistory?: boolean;
   audio_url?: string;
   audio_segments?: AudioSegmentData[];

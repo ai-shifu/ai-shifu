@@ -286,6 +286,22 @@ function useChatLogicHook({
     return Boolean(content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER));
   }, []);
 
+  const resolveRecordUserInput = useCallback(
+    (record?: Pick<StudyRecordItem, 'user_input' | 'payload'> | null) => {
+      if (!record) {
+        return undefined;
+      }
+
+      const payloadUserInput =
+        typeof record.payload?.user_input === 'string'
+          ? record.payload.user_input
+          : undefined;
+
+      return record.user_input ?? payloadUserInput;
+    },
+    [],
+  );
+
   const normalizeHistoryAudioTracks = useCallback(
     (audios: AudioSegmentData[] = []): AudioTrack[] => {
       if (!audios.length) {
@@ -380,7 +396,9 @@ function useChatLogicHook({
         content,
         customRenderBar: () => null,
         user_input:
-          record.user_input || options?.previousItem?.user_input || '',
+          resolveRecordUserInput(record) ??
+          options?.previousItem?.user_input ??
+          '',
         readonly: options?.previousItem?.readonly ?? false,
         isHistory: options?.isHistory,
         type: isInteractionElement
@@ -410,6 +428,7 @@ function useChatLogicHook({
       mobileStyle,
       normalizeHistoryAudioTracks,
       resolveElementItemBid,
+      resolveRecordUserInput,
     ],
   );
 
