@@ -41,6 +41,12 @@ interface ListenModeSlideRendererProps {
   onPlayerVisibilityChange?: (visible: boolean) => void;
 }
 
+type ResolveRenderSequence = (params: {
+  item: ChatContentItem;
+  itemType: 'content' | 'interaction';
+  fallbackSequence: number;
+}) => number;
+
 const createEmptyStateElement = (
   sectionTitle: string | undefined,
 ): ListenSlideElement => ({
@@ -94,12 +100,14 @@ const buildSlideElementList = ({
   interactionInputMap,
   lastInteractionBid,
   lastItemIsInteraction,
+  resolveRenderSequence,
 }: {
   items: ChatContentItem[];
   sectionTitle?: string;
   interactionInputMap: Record<string, string>;
   lastInteractionBid: string | null;
   lastItemIsInteraction: boolean;
+  resolveRenderSequence: ResolveRenderSequence;
 }) => {
   let pageCursor = 0;
   let sequenceNumber = 0;
@@ -120,7 +128,11 @@ const buildSlideElementList = ({
 
       sequenceNumber += 1;
       elementList.push({
-        sequence_number: item.sequence_number ?? sequenceNumber,
+        sequence_number: resolveRenderSequence({
+          item,
+          itemType: 'content',
+          fallbackSequence: sequenceNumber,
+        }),
         type: contentType,
         content: item.content || '',
         is_marker: item.is_marker ?? true,
@@ -154,7 +166,11 @@ const buildSlideElementList = ({
 
     sequenceNumber += 1;
     elementList.push({
-      sequence_number: item.sequence_number ?? sequenceNumber,
+      sequence_number: resolveRenderSequence({
+        item,
+        itemType: 'interaction',
+        fallbackSequence: sequenceNumber,
+      }),
       type: 'interaction',
       content: item.content || '',
       is_marker: item.is_marker ?? true,
@@ -199,29 +215,96 @@ const ListenModeSlideRenderer = ({
 }: ListenModeSlideRendererProps) => {
   const { t } = useTranslation();
   const requestedAudioBlockBidsRef = useRef<Set<string>>(new Set());
+  const renderSequenceByStreamKeyRef = useRef<Map<string, number>>(new Map());
   const [interactionInputMap, setInteractionInputMap] = useState<
     Record<string, string>
   >({});
   const { ttsReadyElementBids, lastInteractionBid, lastItemIsInteraction } =
     useListenContentData(items);
 
-  const elementList = useMemo(
-    () =>
-      buildSlideElementList({
-        items,
-        sectionTitle,
-        interactionInputMap,
-        lastInteractionBid,
-        lastItemIsInteraction,
-      }),
-    [
-      interactionInputMap,
+  const elementList = useMemo(() => {
+    const sequenceMap = renderSequenceByStreamKeyRef.current;
+    const activeStreamKeys = new Set<string>();
+    const activeSequenceNumbers = new Set<number>();
+
+    const hasOccupiedSequenceNumber = (
+      nextSequenceNumber: number,
+      currentStreamKey: string,
+    ) => {
+      if (activeSequenceNumbers.has(nextSequenceNumber)) {
+        return true;
+      }
+
+      for (const [streamKey, sequenceNumber] of sequenceMap.entries()) {
+        if (streamKey === currentStreamKey) {
+          continue;
+        }
+        if (sequenceNumber === nextSequenceNumber) {
+          return true;
+        }
+      }
+
+      return false;
+    };
+
+    const resolveRenderSequence: ResolveRenderSequence = ({
+      item,
+      itemType,
+      fallbackSequence,
+    }) => {
+      const streamBid = item.element_bid || '';
+      const streamKey = streamBid
+        ? `${itemType}:${streamBid}`
+        : `${itemType}:fallback-${fallbackSequence}`;
+      activeStreamKeys.add(streamKey);
+
+      const existingSequence = sequenceMap.get(streamKey);
+      if (typeof existingSequence === 'number') {
+        activeSequenceNumbers.add(existingSequence);
+        return existingSequence;
+      }
+
+      const incomingSequence = Number(item.sequence_number);
+      const hasIncomingSequence =
+        Number.isFinite(incomingSequence) && incomingSequence > 0;
+      let nextSequence = hasIncomingSequence
+        ? incomingSequence
+        : fallbackSequence;
+
+      while (hasOccupiedSequenceNumber(nextSequence, streamKey)) {
+        nextSequence += 1;
+      }
+
+      sequenceMap.set(streamKey, nextSequence);
+      activeSequenceNumbers.add(nextSequence);
+
+      return nextSequence;
+    };
+
+    const nextElementList = buildSlideElementList({
       items,
+      sectionTitle,
+      interactionInputMap,
       lastInteractionBid,
       lastItemIsInteraction,
-      sectionTitle,
-    ],
-  );
+      resolveRenderSequence,
+    });
+
+    for (const streamKey of Array.from(sequenceMap.keys())) {
+      if (activeStreamKeys.has(streamKey)) {
+        continue;
+      }
+      sequenceMap.delete(streamKey);
+    }
+
+    return nextElementList;
+  }, [
+    interactionInputMap,
+    items,
+    lastInteractionBid,
+    lastItemIsInteraction,
+    sectionTitle,
+  ]);
 
   const shouldRenderEmptyPpt =
     !isLoading &&

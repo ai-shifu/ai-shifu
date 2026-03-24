@@ -266,9 +266,14 @@ function useChatLogicHook({
     (
       record?: Pick<
         StudyRecordItem,
-        'element_bid' | 'generated_block_bid'
+        'element_bid' | 'generated_block_bid' | 'target_element_bid'
       > | null,
-    ) => record?.element_bid || record?.generated_block_bid || '',
+    ) =>
+      // Normalize streamed updates to the logical source element to avoid duplicate visual blocks.
+      record?.target_element_bid ||
+      record?.element_bid ||
+      record?.generated_block_bid ||
+      '',
     [],
   );
 
