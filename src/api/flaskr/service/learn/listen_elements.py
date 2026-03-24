@@ -198,7 +198,12 @@ def _default_is_marker(element_type: ElementType) -> bool:
 
 
 def _default_is_renderable(element_type: ElementType) -> bool:
-    return element_type not in {ElementType.TEXT, ElementType.ASK, ElementType.ANSWER}
+    return element_type not in {
+        ElementType.TEXT,
+        ElementType.ASK,
+        ElementType.ANSWER,
+        ElementType.INTERACTION,
+    }
 
 
 def _default_is_speakable(element_type: ElementType, content_text: str = "") -> bool:
@@ -2214,6 +2219,7 @@ class ListenElementRunAdapter:
             element_type=ElementType.INTERACTION,
             element_type_code=_element_type_code(ElementType.INTERACTION),
             change_type=ElementChangeType.RENDER,
+            is_renderable=False,
             is_marker=True,
             is_navigable=0,
             is_final=True,
@@ -2382,6 +2388,7 @@ def _interaction_element_from_record(
         element_type=ElementType.INTERACTION,
         element_type_code=_element_type_code(ElementType.INTERACTION),
         change_type=ElementChangeType.RENDER,
+        is_renderable=False,
         is_marker=True,
         is_navigable=0,
         is_final=True,

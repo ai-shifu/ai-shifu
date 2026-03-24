@@ -490,6 +490,7 @@ def test_get_listen_element_record_returns_all_persisted_elements_across_progres
         assert result.elements[0].content_text == "Lesson content"
         assert result.elements[1].element_type == ElementType.INTERACTION
         assert result.elements[1].content_text == "Choose one"
+        assert result.elements[1].is_renderable is False
 
 
 def test_get_listen_element_record_includes_persisted_rows_missing_progress_bid(
@@ -2226,6 +2227,7 @@ def test_build_listen_elements_from_legacy_record_keeps_interaction_user_input(a
 
     assert len(result.elements) == 1
     element = result.elements[0]
+    assert element.is_renderable is False
     assert element.payload is not None
     assert element.payload.user_input == "agree"
 
