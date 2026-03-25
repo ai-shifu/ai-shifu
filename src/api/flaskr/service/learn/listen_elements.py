@@ -246,13 +246,6 @@ def _element_type_from_mdflow_stream(
     return MDFLOW_DIRECT_ELEMENT_TYPES.get(normalized, ElementType.TEXT)
 
 
-def _can_reuse_stream_visual_slot(element_type: ElementType) -> bool:
-    return element_type in {
-        ElementType.HTML,
-        ElementType.TABLES,
-    }
-
-
 def _visual_type_for_element(
     element_type: ElementType,
     content: str = "",
@@ -2007,11 +2000,9 @@ class ListenElementRunAdapter:
                 if active_key is not None
                 else None
             )
-            slot_was_interrupted = (
-                stream_state is not None
-                and stream_state.element_type == stream_element_type
-                and active_key not in (None, state.last_stream_element_key)
-                and not _can_reuse_stream_visual_slot(stream_element_type)
+            slot_was_interrupted = stream_state is not None and active_key not in (
+                None,
+                state.last_stream_element_key,
             )
             if (
                 stream_state is None
@@ -2021,42 +2012,18 @@ class ListenElementRunAdapter:
                 if slot_was_interrupted:
                     stream_state = None
                     active_key = None
-                reusable_key = None
-                if _can_reuse_stream_visual_slot(stream_element_type):
-                    for existing_key, existing_state in reversed(
-                        list(state.stream_elements.items())
-                    ):
-                        if existing_state.element_type == stream_element_type:
-                            reusable_key = existing_key
-                            break
-                if reusable_key is not None:
-                    stream_state = state.stream_elements[reusable_key]
-                    stream_state.number = stream_number
-                    stream_state.content_text = ""
-                    for mapped_number, mapped_key in list(
-                        state.active_stream_element_key_by_number.items()
-                    ):
-                        if mapped_key == reusable_key:
-                            del state.active_stream_element_key_by_number[mapped_number]
-                    state.active_stream_element_key_by_number[stream_number] = (
-                        reusable_key
-                    )
-                    is_new = False
-                else:
-                    self._max_element_index += 1
-                    stream_state = StreamElementState(
-                        number=stream_number,
-                        element_bid=_new_element_bid(self.app),
-                        element_index=max(self._max_element_index, 0),
-                        element_type=stream_element_type,
-                    )
-                    stream_key = f"{stream_number}:{len(state.stream_elements)}"
-                    state.stream_elements[stream_key] = stream_state
-                    state.active_stream_element_key_by_number[stream_number] = (
-                        stream_key
-                    )
-                    active_key = stream_key
-                    is_new = True
+                self._max_element_index += 1
+                stream_state = StreamElementState(
+                    number=stream_number,
+                    element_bid=_new_element_bid(self.app),
+                    element_index=max(self._max_element_index, 0),
+                    element_type=stream_element_type,
+                )
+                stream_key = f"{stream_number}:{len(state.stream_elements)}"
+                state.stream_elements[stream_key] = stream_state
+                state.active_stream_element_key_by_number[stream_number] = stream_key
+                active_key = stream_key
+                is_new = True
             else:
                 is_new = False
             stream_state.content_text += chunk_content

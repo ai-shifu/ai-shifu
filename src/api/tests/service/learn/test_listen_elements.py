@@ -2767,19 +2767,37 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(app):
             },
         ]
 
+        intro_html = next(
+            item
+            for item in html_elements
+            if item.is_new and "Intro visual" in (item.content_text or "")
+        )
         follow_up_html = next(
             item
             for item in html_elements
-            if "Follow-up visual" in (item.content_text or "")
+            if item.is_new and "Follow-up visual" in (item.content_text or "")
         )
-        assert len({item.element_bid for item in html_elements}) == 1
-        assert [item.is_new for item in html_elements] == [True, False, False]
-        assert follow_up_html.element_bid == html_elements[0].element_bid
-        assert follow_up_html.target_element_bid == html_elements[0].element_bid
+        assert len({item.element_bid for item in html_elements}) == 2
+        assert [item.is_new for item in html_elements] == [True, True, False, False]
+        assert intro_html.target_element_bid in ("", None)
+        assert follow_up_html.target_element_bid in ("", None)
+        assert follow_up_html.element_bid != intro_html.element_bid
         assert "Intro visual" not in (follow_up_html.content_text or "")
         assert follow_up_html.audio_segments == []
         assert follow_up_html.audio_url == ""
         assert follow_up_html.is_speakable is False
+        assert any(
+            (not item.is_new)
+            and item.target_element_bid == intro_html.element_bid
+            and "Intro visual" in (item.content_text or "")
+            for item in html_elements
+        )
+        assert any(
+            (not item.is_new)
+            and item.target_element_bid == follow_up_html.element_bid
+            and "Follow-up visual" in (item.content_text or "")
+            for item in html_elements
+        )
 
         persisted_text_rows = (
             LearnGeneratedElement.query.filter(

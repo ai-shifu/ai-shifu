@@ -1668,3 +1668,53 @@ class TestElementChangeTypeSemantics:
             ]
             assert diff_events[0].target_element_bid in ("", None)
             assert diff_events[1].target_element_bid == diff_events[0].element_bid
+
+    def test_html_after_text_creates_new_element(self, adapter_app):
+        from flaskr.service.learn.learn_dtos import (
+            ElementType,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+
+        with adapter_app.app_context():
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            events = [
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-html",
+                    type=GeneratedType.CONTENT,
+                    content="<div>Intro visual</div>\n",
+                ).set_mdflow_stream_parts([("<div>Intro visual</div>\n", "html", 0)]),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-html",
+                    type=GeneratedType.CONTENT,
+                    content="Narration\n",
+                ).set_mdflow_stream_parts([("Narration\n", "text", 1)]),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-html",
+                    type=GeneratedType.CONTENT,
+                    content="<div>Follow-up visual</div>\n",
+                ).set_mdflow_stream_parts(
+                    [("<div>Follow-up visual</div>\n", "html", 2)]
+                ),
+            ]
+
+            streamed = list(adapter.process(events))
+            html_events = [
+                message.content
+                for message in streamed
+                if message.type == "element"
+                and message.content.element_type == ElementType.HTML
+            ]
+
+            assert len(html_events) == 2
+            assert [item.is_new for item in html_events] == [True, True]
+            assert html_events[0].target_element_bid in ("", None)
+            assert html_events[1].target_element_bid in ("", None)
+            assert html_events[0].element_bid != html_events[1].element_bid
