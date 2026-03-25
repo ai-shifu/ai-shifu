@@ -1572,3 +1572,99 @@ class TestRunMarkdownFlowDTOAnchorBid:
         assert dto.anchor_element_bid == "elem_abc"
         serialized = dto.__json__()
         assert serialized["anchor_element_bid"] == "elem_abc"
+
+
+class TestElementChangeTypeSemantics:
+    def test_text_patch_keeps_render_change_type(self, adapter_app):
+        from flaskr.service.learn.learn_dtos import (
+            ElementChangeType,
+            ElementType,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+
+        with adapter_app.app_context():
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            events = [
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-text",
+                    type=GeneratedType.CONTENT,
+                    content="Hello",
+                ).set_mdflow_stream_parts([("Hello", "text", 0)]),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-text",
+                    type=GeneratedType.CONTENT,
+                    content=" world",
+                ).set_mdflow_stream_parts([(" world", "text", 0)]),
+            ]
+
+            streamed = list(adapter.process(events))
+            text_events = [
+                message.content
+                for message in streamed
+                if message.type == "element"
+                and message.content.element_type == ElementType.TEXT
+            ]
+
+            assert len(text_events) == 2
+            assert [item.is_new for item in text_events] == [True, False]
+            assert [item.change_type for item in text_events] == [
+                ElementChangeType.RENDER,
+                ElementChangeType.RENDER,
+            ]
+            assert text_events[0].target_element_bid in ("", None)
+            assert text_events[1].target_element_bid == text_events[0].element_bid
+
+    def test_gitdiff_element_uses_diff_change_type_without_forcing_patch(
+        self, adapter_app
+    ):
+        from flaskr.service.learn.learn_dtos import (
+            ElementChangeType,
+            ElementType,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+
+        with adapter_app.app_context():
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            events = [
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-diff",
+                    type=GeneratedType.CONTENT,
+                    content="@@ -1 +1 @@\n-old\n+new\n",
+                ).set_mdflow_stream_parts([("@@ -1 +1 @@\n-old\n+new\n", "diff", 0)]),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-diff",
+                    type=GeneratedType.CONTENT,
+                    content="+tail\n",
+                ).set_mdflow_stream_parts([("+tail\n", "diff", 0)]),
+            ]
+
+            streamed = list(adapter.process(events))
+            diff_events = [
+                message.content
+                for message in streamed
+                if message.type == "element"
+                and message.content.element_type == ElementType.DIFF
+            ]
+
+            assert len(diff_events) == 2
+            assert [item.is_new for item in diff_events] == [True, False]
+            assert [item.change_type for item in diff_events] == [
+                ElementChangeType.DIFF,
+                ElementChangeType.DIFF,
+            ]
+            assert diff_events[0].target_element_bid in ("", None)
+            assert diff_events[1].target_element_bid == diff_events[0].element_bid
