@@ -1366,6 +1366,51 @@ class RunScriptContextV2:
             return True
         return False
 
+    def _get_current_outline_block_count(self) -> int:
+        """
+        Determine the completion threshold for the current outline.
+
+        History metadata (`child_count` / block children) can lag behind the
+        latest mdflow document. When that happens, relying on the history tree
+        alone may prematurely mark the outline as completed before runtime
+        reaches a later interaction block.
+        """
+        if not self._current_outline_item:
+            return 0
+
+        history_block_count = max(
+            len(self._current_outline_item.children),
+            self._current_outline_item.child_count,
+        )
+        if not self._is_leaf_outline_item(self._current_outline_item):
+            return history_block_count
+
+        outline_bid = self._current_outline_item.bid
+        block_count_cache = getattr(self, "_outline_block_count_cache", None)
+        if not isinstance(block_count_cache, dict):
+            block_count_cache = {}
+            self._outline_block_count_cache = block_count_cache
+        if outline_bid in block_count_cache:
+            return block_count_cache[outline_bid]
+
+        try:
+            outline_item_info = get_outline_item_dto_with_mdflow(
+                self.app, outline_bid, self._preview_mode
+            )
+            block_count = len(
+                MdflowContextV2(document=outline_item_info.mdflow).get_all_blocks()
+            )
+            block_count_cache[outline_bid] = block_count
+            return block_count
+        except Exception as exc:
+            self.app.logger.warning(
+                "Load runtime block count failed for outline %s: %s",
+                outline_bid,
+                exc,
+                exc_info=True,
+            )
+            return history_block_count
+
     # get the outline items to start or complete
     def _get_next_outline_item(self) -> list[OutlineItemUpdateDTO]:
         res = []
@@ -1490,9 +1535,9 @@ class RunScriptContextV2:
                             )
                         )
 
-        if self._current_attend.block_position >= max(
-            len(self._current_outline_item.children),
-            self._current_outline_item.child_count,
+        if (
+            self._current_attend.block_position
+            >= self._get_current_outline_block_count()
         ):
             _mark_sub_node_completed(self._current_outline_item, res)
         if self._current_attend.status == LEARN_STATUS_NOT_STARTED:

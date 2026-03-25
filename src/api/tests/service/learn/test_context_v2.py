@@ -31,7 +31,11 @@ from flaskr.service.learn.context_v2 import (
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import GeneratedType, PlaygroundPreviewRequest
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
-from flaskr.service.order.consts import LEARN_STATUS_COMPLETED
+from flaskr.service.order.consts import (
+    LEARN_STATUS_COMPLETED,
+    LEARN_STATUS_IN_PROGRESS,
+)
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
 from flaskr.util import generate_id
 
@@ -270,6 +274,73 @@ class CompletionTailInteractionTests(unittest.TestCase):
 
         self.assertEqual(calls, ["next"])
         self.assertEqual(events, ["next-event"])
+
+
+class RuntimeOutlineBlockCountTests(unittest.TestCase):
+    def test_get_next_outline_item_uses_runtime_block_count_for_leaf_outline(self):
+        ctx = _make_context()
+        ctx.app = Flask("runtime-outline-block-count-tests")
+        ctx._preview_mode = False
+
+        class _Column:
+            def in_(self, _values):
+                return self
+
+            def __eq__(self, _other):
+                return self
+
+        class _OutlineModel:
+            outline_item_bid = _Column()
+            hidden = _Column()
+            title = _Column()
+            deleted = _Column()
+
+        class _FakeQuery:
+            def filter(self, *_args, **_kwargs):
+                return self
+
+            def all(self):
+                return [("outline-1", False, "Outline 1")]
+
+        class _FakeMarkdownFlow:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def get_all_blocks(self):
+                return [object(), object()]
+
+        outline_item = HistoryItem(
+            bid="outline-1",
+            id=1,
+            type="outline",
+            children=[],
+            child_count=1,
+        )
+        ctx._struct = HistoryItem(
+            bid="shifu-1",
+            id=10,
+            type="shifu",
+            children=[outline_item],
+        )
+        ctx._current_outline_item = outline_item
+        ctx._current_attend = types.SimpleNamespace(
+            block_position=1,
+            status=LEARN_STATUS_IN_PROGRESS,
+        )
+        ctx._outline_model = _OutlineModel
+
+        with (
+            patch.object(dao.db.session, "query", return_value=_FakeQuery()),
+            patch(
+                "flaskr.service.learn.context_v2.get_outline_item_dto_with_mdflow",
+                return_value=types.SimpleNamespace(mdflow="doc"),
+            ),
+            patch(
+                "flaskr.service.learn.context_v2.MarkdownFlow",
+                _FakeMarkdownFlow,
+            ),
+        ):
+            self.assertEqual(ctx._get_next_outline_item(), [])
 
 
 class ExceptionGateFeedbackTests(unittest.TestCase):
