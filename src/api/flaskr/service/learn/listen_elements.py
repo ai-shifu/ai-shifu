@@ -1099,7 +1099,13 @@ def _build_final_elements_from_rows(
             if dto.target_element_bid in latest_by_bid:
                 latest_by_bid[dto.target_element_bid].apply_patch(dto)
                 continue
-        latest_by_bid[row.element_bid] = dto
+            # Final snapshot queries only keep the latest active row. When the
+            # original create row has already been retired, materialize the
+            # patch row back into a standalone final element.
+            dto.element_bid = dto.target_element_bid
+            dto.target_element_bid = None
+            dto.is_new = True
+        latest_by_bid[dto.element_bid] = dto
 
     events = None
     if include_non_navigable:
@@ -2716,6 +2722,43 @@ def build_listen_elements_from_legacy_record(
         for audio in record.audios or []:
             audio_payload = _make_audio_payload(audio)
             audio_by_position[int(getattr(audio, "position", 0) or 0)] = audio_payload
+
+        persisted_final_elements: list[ElementDTO] = []
+        if record.generated_block_bid:
+            with app.app_context():
+                persisted_final_elements = get_final_elements_for_generated_block(
+                    generated_block_bid=record.generated_block_bid,
+                )
+        if persisted_final_elements:
+            text_elements = [
+                element
+                for element in persisted_final_elements
+                if element.element_type == ElementType.TEXT
+            ]
+            can_bind_audio_to_persisted = True
+            for position, audio_payload in audio_by_position.items():
+                if position < 0 or position >= len(text_elements):
+                    can_bind_audio_to_persisted = False
+                    break
+                target = text_elements[position]
+                target.audio_url = audio_payload.audio_url or ""
+                target.audio_segments = []
+                target.is_speakable = _default_is_speakable(
+                    ElementType.TEXT,
+                    target.content_text or "",
+                )
+                payload = target.payload or ElementPayloadDTO(previous_visuals=[])
+                payload.audio = audio_payload
+                target.payload = payload
+
+            if can_bind_audio_to_persisted:
+                next_index = max_index + 1
+                for element in persisted_final_elements:
+                    element.element_index = next_index
+                    next_index += 1
+                    max_index = max(max_index, element.element_index)
+                    elements.append(element)
+                continue
 
         if isinstance(record.av_contract, dict) and (record.content or "").strip():
             visual_segments, pos_to_seg_id = build_visual_segments_for_block(

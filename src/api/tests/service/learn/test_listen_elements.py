@@ -2037,6 +2037,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         element = result.elements[0]
         assert element.element_bid == first_element.element_bid
         assert element.element_type == ElementType.IMG
+        assert element.is_new is True
         assert element.is_final is True
         assert element.is_marker is True
         assert element.audio_url == "https://example.com/stream-audio.mp3"
@@ -3618,6 +3619,223 @@ def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(a
     assert third.is_marker is False
     assert third.audio_url == "https://example.com/audio-1.mp3"
     assert third.audio_segments == []
+
+
+def test_build_listen_elements_from_legacy_record_prefers_persisted_visual_elements(
+    app,
+):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.learn_dtos import (
+        AudioCompleteDTO,
+        BlockType,
+        ElementType,
+        GeneratedBlockDTO,
+        LearnRecordDTO,
+        LikeStatus,
+    )
+    from flaskr.service.learn.listen_elements import (
+        build_listen_elements_from_legacy_record,
+    )
+    from flaskr.service.learn.models import LearnGeneratedElement
+
+    generated_block_bid = "generated-legacy-persisted-visual"
+    visual_markdown = "![img](https://example.com/visual.png)"
+    visual_payload = json.dumps(
+        {
+            "audio": None,
+            "previous_visuals": [
+                {
+                    "visual_type": "img",
+                    "content": visual_markdown,
+                }
+            ],
+        }
+    )
+
+    with app.app_context():
+        LearnGeneratedElement.query.filter(
+            LearnGeneratedElement.generated_block_bid == generated_block_bid
+        ).delete()
+        db.session.commit()
+
+        db.session.add_all(
+            [
+                LearnGeneratedElement(
+                    element_bid="el-legacy-visual-text-1",
+                    progress_record_bid="progress-legacy-visual",
+                    user_bid="user-legacy-visual",
+                    generated_block_bid=generated_block_bid,
+                    outline_item_bid="outline-legacy-visual",
+                    shifu_bid="shifu-legacy-visual",
+                    run_session_bid="run-legacy-visual",
+                    run_event_seq=1,
+                    event_type="element",
+                    role="teacher",
+                    element_index=0,
+                    element_type="text",
+                    element_type_code=213,
+                    change_type="render",
+                    target_element_bid="",
+                    is_renderable=0,
+                    is_new=1,
+                    is_marker=0,
+                    sequence_number=1,
+                    is_speakable=1,
+                    audio_url="",
+                    audio_segments="[]",
+                    is_navigable=1,
+                    is_final=1,
+                    content_text="Before image.",
+                    payload='{"audio": null, "previous_visuals": []}',
+                    deleted=0,
+                    status=1,
+                ),
+                LearnGeneratedElement(
+                    element_bid="el-legacy-visual-marker",
+                    progress_record_bid="progress-legacy-visual",
+                    user_bid="user-legacy-visual",
+                    generated_block_bid=generated_block_bid,
+                    outline_item_bid="outline-legacy-visual",
+                    shifu_bid="shifu-legacy-visual",
+                    run_session_bid="run-legacy-visual",
+                    run_event_seq=2,
+                    event_type="element",
+                    role="teacher",
+                    element_index=1,
+                    element_type="img",
+                    element_type_code=204,
+                    change_type="render",
+                    target_element_bid="",
+                    is_renderable=1,
+                    is_new=1,
+                    is_marker=1,
+                    sequence_number=2,
+                    is_speakable=0,
+                    audio_url="",
+                    audio_segments="[]",
+                    is_navigable=1,
+                    is_final=1,
+                    content_text="",
+                    payload=visual_payload,
+                    deleted=0,
+                    status=0,
+                ),
+                LearnGeneratedElement(
+                    element_bid="el-legacy-visual-marker",
+                    progress_record_bid="progress-legacy-visual",
+                    user_bid="user-legacy-visual",
+                    generated_block_bid=generated_block_bid,
+                    outline_item_bid="outline-legacy-visual",
+                    shifu_bid="shifu-legacy-visual",
+                    run_session_bid="run-legacy-visual",
+                    run_event_seq=3,
+                    event_type="element",
+                    role="teacher",
+                    element_index=1,
+                    element_type="img",
+                    element_type_code=204,
+                    change_type="render",
+                    target_element_bid="el-legacy-visual-marker",
+                    is_renderable=1,
+                    is_new=0,
+                    is_marker=1,
+                    sequence_number=3,
+                    is_speakable=0,
+                    audio_url="",
+                    audio_segments="[]",
+                    is_navigable=1,
+                    is_final=1,
+                    content_text="",
+                    payload=visual_payload,
+                    deleted=0,
+                    status=1,
+                ),
+                LearnGeneratedElement(
+                    element_bid="el-legacy-visual-text-2",
+                    progress_record_bid="progress-legacy-visual",
+                    user_bid="user-legacy-visual",
+                    generated_block_bid=generated_block_bid,
+                    outline_item_bid="outline-legacy-visual",
+                    shifu_bid="shifu-legacy-visual",
+                    run_session_bid="run-legacy-visual",
+                    run_event_seq=4,
+                    event_type="element",
+                    role="teacher",
+                    element_index=2,
+                    element_type="text",
+                    element_type_code=213,
+                    change_type="render",
+                    target_element_bid="",
+                    is_renderable=0,
+                    is_new=1,
+                    is_marker=0,
+                    sequence_number=4,
+                    is_speakable=1,
+                    audio_url="",
+                    audio_segments="[]",
+                    is_navigable=1,
+                    is_final=1,
+                    content_text="After image.",
+                    payload='{"audio": null, "previous_visuals": []}',
+                    deleted=0,
+                    status=1,
+                ),
+            ]
+        )
+        db.session.commit()
+
+    legacy_record = LearnRecordDTO(
+        records=[
+            GeneratedBlockDTO(
+                generated_block_bid=generated_block_bid,
+                content=f"Before image.\n\n{visual_markdown}\n\nAfter image.",
+                like_status=LikeStatus.NONE,
+                block_type=BlockType.CONTENT,
+                user_input="",
+                audios=[
+                    AudioCompleteDTO(
+                        position=0,
+                        audio_url="https://example.com/legacy-visual-0.mp3",
+                        audio_bid="audio-legacy-visual-0",
+                        duration_ms=320,
+                    ),
+                    AudioCompleteDTO(
+                        position=1,
+                        audio_url="https://example.com/legacy-visual-1.mp3",
+                        audio_bid="audio-legacy-visual-1",
+                        duration_ms=410,
+                    ),
+                ],
+            )
+        ]
+    )
+
+    result = build_listen_elements_from_legacy_record(app, legacy_record)
+
+    assert len(result.elements) == 3
+    assert [element.element_type for element in result.elements] == [
+        ElementType.TEXT,
+        ElementType.IMG,
+        ElementType.TEXT,
+    ]
+    assert [element.content_text for element in result.elements] == [
+        "Before image.",
+        "",
+        "After image.",
+    ]
+    assert [element.is_new for element in result.elements] == [True, True, True]
+    assert [element.element_index for element in result.elements] == [0, 1, 2]
+    assert result.elements[1].target_element_bid in ("", None)
+    assert result.elements[1].payload is not None
+    assert result.elements[1].payload.previous_visuals[0].visual_type == "img"
+    assert result.elements[1].payload.previous_visuals[0].content == visual_markdown
+    assert [element.audio_url for element in result.elements] == [
+        "https://example.com/legacy-visual-0.mp3",
+        "",
+        "https://example.com/legacy-visual-1.mp3",
+    ]
 
 
 def test_build_listen_elements_from_legacy_record_keeps_interaction_user_input(app):
