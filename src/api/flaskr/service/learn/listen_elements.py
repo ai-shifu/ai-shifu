@@ -524,7 +524,7 @@ def _build_text_element(
     audio: ElementAudioDTO | None = None,
     audio_segments: list[dict[str, Any]] | None = None,
 ) -> ElementDTO:
-    audio_segments = list(audio_segments or [])
+    audio_segments = _normalize_audio_segments_for_element(audio_segments)
     return ElementDTO(
         event_type="element",
         element_bid=_new_element_bid(app),
@@ -676,9 +676,24 @@ def _audio_segment_payload(audio_segment: AudioSegmentDTO) -> dict[str, Any]:
         "segment_index": int(audio_segment.segment_index or 0),
         "audio_data": str(audio_segment.audio_data or ""),
         "duration_ms": int(audio_segment.duration_ms or 0),
-        # Listen-mode flips the last segment to final only after AUDIO_COMPLETE.
+        # Raw segment state stays open; element snapshots normalize the current
+        # trailing segment to final when emitted.
         "is_final": False,
     }
+
+
+def _normalize_audio_segments_for_element(
+    audio_segments: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    normalized = [
+        dict(item) for item in list(audio_segments or []) if isinstance(item, dict)
+    ]
+    if not normalized:
+        return []
+    for item in normalized:
+        item["is_final"] = False
+    normalized[-1]["is_final"] = True
+    return normalized
 
 
 def _mark_last_audio_segment_final(
@@ -698,9 +713,7 @@ def _sanitize_audio_segments_for_storage(
     audio_segments: list[dict[str, Any]] | None,
 ) -> list[dict[str, Any]]:
     sanitized: list[dict[str, Any]] = []
-    for item in list(audio_segments or []):
-        if not isinstance(item, dict):
-            continue
+    for item in _normalize_audio_segments_for_element(audio_segments):
         sanitized.append(
             {
                 "position": int(item.get("position", 0) or 0),
@@ -817,6 +830,7 @@ def _element_from_row(
             audio_segments = []
     except Exception:
         audio_segments = []
+    audio_segments = _normalize_audio_segments_for_element(audio_segments)
     default_is_renderable = _default_is_renderable(element_type)
     stored_is_renderable = bool(
         getattr(row, "is_renderable", 1 if default_is_renderable else 0)
@@ -1322,7 +1336,7 @@ class ListenElementRunAdapter:
                 stored_is_speakable=bool(audio is not None or audio_segments),
             ),
             audio_url=audio.audio_url if audio is not None else "",
-            audio_segments=list(audio_segments or []),
+            audio_segments=_normalize_audio_segments_for_element(audio_segments),
             is_navigable=0,
             is_final=is_final,
             content_text=content_text,
@@ -1694,6 +1708,16 @@ class ListenElementRunAdapter:
             content=content,
         )
 
+    def _make_inter_element_done_message(
+        self, generated_block_bid: str
+    ) -> RunElementSSEMessageDTO:
+        return self.make_ephemeral_message(
+            event_type=GeneratedType.DONE.value,
+            content="",
+            generated_block_bid=generated_block_bid,
+            is_terminal=False,
+        )
+
     def _build_fallback_element(self, state: BlockState, role: str) -> ElementDTO:
         if not state.fallback_element_bid:
             state.fallback_element_bid = _new_element_bid(self.app)
@@ -1820,7 +1844,9 @@ class ListenElementRunAdapter:
                 stored_is_speakable=snapshot.is_speakable,
             ),
             audio_url=snapshot.audio_url,
-            audio_segments=list(audio_segments or snapshot.audio_segments or []),
+            audio_segments=_normalize_audio_segments_for_element(
+                audio_segments or snapshot.audio_segments or []
+            ),
             is_navigable=snapshot.is_navigable,
             is_final=snapshot.is_final if is_final is None else bool(is_final),
             content_text=snapshot.content_text,
@@ -1910,7 +1936,7 @@ class ListenElementRunAdapter:
                 stored_is_speakable=bool(audio is not None or audio_segments),
             ),
             audio_url=audio.audio_url if audio is not None else "",
-            audio_segments=list(audio_segments or []),
+            audio_segments=_normalize_audio_segments_for_element(audio_segments),
             is_navigable=1,
             is_final=is_final,
             content_text=stream_state.content_text,
@@ -2010,6 +2036,7 @@ class ListenElementRunAdapter:
             if not chunk_content:
                 continue
             state.raw_content += chunk_content
+            previous_active_key = state.last_stream_element_key
             stream_element_type = _element_type_from_mdflow_stream(
                 stream_type,
                 chunk_content,
@@ -2056,6 +2083,11 @@ class ListenElementRunAdapter:
                         stream_state,
                     )
                 )
+                if (
+                    previous_active_key is not None
+                    and previous_active_key != active_key
+                ):
+                    yield self._make_inter_element_done_message(generated_block_bid)
             state.last_stream_element_key = active_key
             yield self._build_stream_element_message(
                 state=state,
