@@ -70,21 +70,14 @@ ELEMENT_TYPE_CODES = {
     ElementType._VIDEO: 104,
 }
 
-VISUAL_KIND_TO_ELEMENT_TYPE = {
+VISUAL_KIND_ELEMENT_TYPE_ALIASES = {
     "video": ElementType.HTML,
-    "img": ElementType.IMG,
-    "md_img": ElementType.MD_IMG,
-    "svg": ElementType.SVG,
     "iframe": ElementType.HTML,
     "sandbox": ElementType.HTML,
-    "html_table": ElementType.TABLES,
+    "html_table": ElementType.HTML,
     "md_table": ElementType.TABLES,
     "fence": ElementType.CODE,
-    "diff": ElementType.DIFF,
-    "mermaid": ElementType.MERMAID,
-    "latex": ElementType.LATEX,
-    "title": ElementType.TITLE,
-    "text": ElementType.TEXT,
+    "md_img": ElementType.MD_IMG,
 }
 
 # Mapping from legacy element_type values to new enum values
@@ -92,20 +85,6 @@ LEGACY_ELEMENT_TYPE_MAP = {
     ElementType._SANDBOX: ElementType.HTML,
     ElementType._PICTURE: ElementType.IMG,
     ElementType._VIDEO: ElementType.HTML,
-}
-
-MDFLOW_DIRECT_ELEMENT_TYPES = {
-    element.value: element
-    for element in ElementType
-    if not element.name.startswith("_")
-    and element
-    not in {
-        ElementType.HTML,
-        ElementType.IMG,
-        ElementType.MD_IMG,
-        ElementType.ASK,
-        ElementType.ANSWER,
-    }
 }
 
 
@@ -186,7 +165,10 @@ def _role_value_to_name(role_value: Any) -> str:
 
 def _element_type_for_visual_kind(visual_kind: str) -> ElementType:
     normalized = (visual_kind or "").strip().lower()
-    return VISUAL_KIND_TO_ELEMENT_TYPE.get(normalized, ElementType.TEXT)
+    try:
+        return ElementType(normalized)
+    except ValueError:
+        return VISUAL_KIND_ELEMENT_TYPE_ALIASES.get(normalized, ElementType.TEXT)
 
 
 def _element_type_code(element_type: ElementType) -> int:
@@ -223,52 +205,42 @@ def _normalized_is_speakable(
     )
 
 
+def _stream_element_accepts_audio_target(element_type: ElementType) -> bool:
+    return element_type in {
+        ElementType.TEXT,
+        ElementType.IMG,
+        ElementType.MD_IMG,
+    }
+
+
 def _new_element_bid(app: Flask) -> str:
     return generate_id(app)
 
 
-def _element_type_from_mdflow_stream(
-    stream_element_type: str,
-    content: str = "",
-) -> ElementType:
+def _element_type_from_mdflow_stream(stream_element_type: str) -> ElementType:
     normalized = (stream_element_type or "").strip().lower()
-    if normalized == "img":
-        return (
-            ElementType.MD_IMG
-            if (content or "").lstrip().startswith("![")
-            else ElementType.IMG
-        )
-    if normalized == "html":
-        lowered = (content or "").lower()
-        if "<table" in lowered or lowered.lstrip().startswith(("<tr", "<td", "<th")):
-            return ElementType.TABLES
-        return ElementType.HTML
-    return MDFLOW_DIRECT_ELEMENT_TYPES.get(normalized, ElementType.TEXT)
+    try:
+        return ElementType(normalized)
+    except ValueError:
+        return ElementType.TEXT
 
 
-def _visual_type_for_element(
-    element_type: ElementType,
-    content: str = "",
-) -> str:
-    if element_type == ElementType.HTML:
-        return "html"
-    if element_type == ElementType.SVG:
-        return "svg"
-    if element_type == ElementType.DIFF:
-        return "diff"
-    if element_type == ElementType.IMG:
-        return "img"
+def _visual_type_for_element(element_type: ElementType) -> str:
     if element_type == ElementType.TABLES:
-        lowered = (content or "").lower()
-        return "html_table" if "<table" in lowered else "md_table"
+        return "md_table"
     if element_type == ElementType.CODE:
         return "fence"
-    if element_type == ElementType.LATEX:
-        return "latex"
     if element_type == ElementType.MD_IMG:
         return "md_img"
-    if element_type == ElementType.MERMAID:
-        return "mermaid"
+    if element_type in {
+        ElementType.HTML,
+        ElementType.SVG,
+        ElementType.DIFF,
+        ElementType.IMG,
+        ElementType.LATEX,
+        ElementType.MERMAID,
+    }:
+        return element_type.value
     return ""
 
 
@@ -284,7 +256,7 @@ def _payload_from_stream_element(
     *,
     audio: ElementAudioDTO | None = None,
 ) -> ElementPayloadDTO:
-    visual_type = _visual_type_for_element(element_type, content)
+    visual_type = _visual_type_for_element(element_type)
     previous_visuals = []
     if visual_type and content:
         previous_visuals.append(
@@ -1133,6 +1105,7 @@ class StreamElementState:
     element_bid: str
     element_index: int
     element_type: ElementType
+    stream_type: str = ""
     content_text: str = ""
 
 
@@ -1943,12 +1916,12 @@ class ListenElementRunAdapter:
             payload=payload,
         )
 
-    def _resolve_pending_audio_for_text_stream(
+    def _resolve_pending_audio_for_stream_element(
         self,
         state: BlockState,
         stream_state: StreamElementState,
     ) -> tuple[ElementAudioDTO | None, list[dict[str, Any]] | None]:
-        if stream_state.element_type != ElementType.TEXT:
+        if not _stream_element_accepts_audio_target(stream_state.element_type):
             return None, None
         default_audio_position = _pick_default_audio_position(
             state.audio_by_position,
@@ -1996,7 +1969,7 @@ class ListenElementRunAdapter:
         lone_stream_state = next(iter(state.stream_elements.values()))
         if (
             lone_stream_state.element_bid != element_bid
-            or lone_stream_state.element_type != ElementType.TEXT
+            or not _stream_element_accepts_audio_target(lone_stream_state.element_type)
         ):
             return None, []
 
@@ -2021,7 +1994,7 @@ class ListenElementRunAdapter:
             return existing_target
 
         for stream_state in reversed(list(state.stream_elements.values())):
-            if stream_state.element_type != ElementType.TEXT:
+            if not _stream_element_accepts_audio_target(stream_state.element_type):
                 continue
             if not (stream_state.content_text or "").strip():
                 continue
@@ -2043,10 +2016,7 @@ class ListenElementRunAdapter:
                 continue
             state.raw_content += chunk_content
             previous_active_key = state.last_stream_element_key
-            stream_element_type = _element_type_from_mdflow_stream(
-                stream_type,
-                chunk_content,
-            )
+            normalized_stream_type = (stream_type or "").strip().lower()
             active_key = state.active_stream_element_key_by_number.get(stream_number)
             stream_state = (
                 state.stream_elements.get(active_key)
@@ -2057,11 +2027,20 @@ class ListenElementRunAdapter:
                 None,
                 state.last_stream_element_key,
             )
-            if (
-                stream_state is None
-                or stream_state.element_type != stream_element_type
-                or slot_was_interrupted
-            ):
+            # mdflow already decides stream boundaries. Keep continuity keyed by
+            # its original number/type pair and only project custom element
+            # semantics once when a new stream element starts.
+            same_mdflow_stream = (
+                stream_state is not None
+                and not slot_was_interrupted
+                and stream_state.stream_type == normalized_stream_type
+            )
+            stream_element_type = (
+                stream_state.element_type
+                if same_mdflow_stream
+                else _element_type_from_mdflow_stream(stream_type)
+            )
+            if stream_state is None or slot_was_interrupted or not same_mdflow_stream:
                 if slot_was_interrupted:
                     stream_state = None
                     active_key = None
@@ -2071,6 +2050,7 @@ class ListenElementRunAdapter:
                     element_bid=_new_element_bid(self.app),
                     element_index=max(self._max_element_index, 0),
                     element_type=stream_element_type,
+                    stream_type=normalized_stream_type,
                 )
                 stream_key = f"{stream_number}:{len(state.stream_elements)}"
                 state.stream_elements[stream_key] = stream_state
@@ -2084,7 +2064,7 @@ class ListenElementRunAdapter:
             pending_audio_segments = None
             if is_new:
                 pending_audio, pending_audio_segments = (
-                    self._resolve_pending_audio_for_text_stream(
+                    self._resolve_pending_audio_for_stream_element(
                         state,
                         stream_state,
                     )

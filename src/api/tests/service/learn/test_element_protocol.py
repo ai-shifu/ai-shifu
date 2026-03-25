@@ -94,20 +94,18 @@ class TestElementType:
         assert LEGACY_ELEMENT_TYPE_MAP[ElementType._PICTURE] == ElementType.IMG
         assert LEGACY_ELEMENT_TYPE_MAP[ElementType._VIDEO] == ElementType.HTML
 
-    def test_mdflow_stream_mapping_keeps_only_compat_special_cases(self):
+    def test_mdflow_stream_mapping_uses_mdflow_types_directly(self):
         from flaskr.service.learn.learn_dtos import ElementType
         from flaskr.service.learn.listen_elements import (
             _element_type_from_mdflow_stream,
         )
 
-        assert _element_type_from_mdflow_stream("text", "hello") == ElementType.TEXT
-        assert _element_type_from_mdflow_stream("code", "```py\nprint(1)\n```") == (
-            ElementType.CODE
-        )
-        assert _element_type_from_mdflow_stream("img", "![x](y)") == ElementType.MD_IMG
-        assert _element_type_from_mdflow_stream(
-            "html", "<table><tr><td>x</td></tr></table>"
-        ) == (ElementType.TABLES)
+        assert _element_type_from_mdflow_stream("text") == ElementType.TEXT
+        assert _element_type_from_mdflow_stream("code") == ElementType.CODE
+        assert _element_type_from_mdflow_stream("img") == ElementType.IMG
+        assert _element_type_from_mdflow_stream("html") == ElementType.HTML
+        assert _element_type_from_mdflow_stream("tables") == ElementType.TABLES
+        assert _element_type_from_mdflow_stream("unknown") == ElementType.TEXT
 
 
 # ---------------------------------------------------------------------------
@@ -369,7 +367,7 @@ class TestVisualKindMapping:
         assert _element_type_for_visual_kind("svg") == ElementType.SVG
         assert _element_type_for_visual_kind("iframe") == ElementType.HTML
         assert _element_type_for_visual_kind("sandbox") == ElementType.HTML
-        assert _element_type_for_visual_kind("html_table") == ElementType.TABLES
+        assert _element_type_for_visual_kind("html_table") == ElementType.HTML
         assert _element_type_for_visual_kind("md_table") == ElementType.TABLES
         assert _element_type_for_visual_kind("fence") == ElementType.CODE
         assert _element_type_for_visual_kind("mermaid") == ElementType.MERMAID
@@ -1960,3 +1958,167 @@ class TestElementChangeTypeSemantics:
             assert all(item.audio_segments == [] for item in html_events)
             assert all(item.audio_url == "" for item in html_events)
             assert all(item.is_speakable is False for item in html_events)
+
+    def test_chunked_html_table_stream_stays_single_html_element(self, adapter_app):
+        from flaskr.service.learn.learn_dtos import (
+            ElementType,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+
+        with adapter_app.app_context():
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            events = [
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-table",
+                    type=GeneratedType.CONTENT,
+                    content="<table><tbody><tr><td>North",
+                ).set_mdflow_stream_parts([("<table><tbody><tr><td>North", "html", 0)]),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-table",
+                    type=GeneratedType.CONTENT,
+                    content=" middle ",
+                ).set_mdflow_stream_parts([(" middle ", "html", 0)]),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-table",
+                    type=GeneratedType.CONTENT,
+                    content="</td></tr></tbody></table>",
+                ).set_mdflow_stream_parts([("</td></tr></tbody></table>", "html", 0)]),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-table",
+                    type=GeneratedType.BREAK,
+                    content="",
+                ),
+            ]
+
+            streamed = list(adapter.process(events))
+            html_events = [
+                message.content
+                for message in streamed
+                if message.type == "element"
+                and message.content.element_type == ElementType.HTML
+            ]
+
+            assert len(html_events) == 4
+            assert [item.is_new for item in html_events] == [True, False, False, False]
+            assert html_events[0].target_element_bid in ("", None)
+            assert html_events[1].target_element_bid == html_events[0].element_bid
+            assert html_events[2].target_element_bid == html_events[0].element_bid
+            assert html_events[3].target_element_bid == html_events[0].element_bid
+            assert len({item.element_bid for item in html_events}) == 1
+
+    def test_image_stream_uses_img_type_and_attaches_audio(self, adapter_app):
+        from flaskr.service.learn.learn_dtos import (
+            AudioCompleteDTO,
+            AudioSegmentDTO,
+            ElementType,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+
+        with adapter_app.app_context():
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            events = [
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-img-audio",
+                    type=GeneratedType.CONTENT,
+                    content="![img](https://example.com/visual.png)\n",
+                ).set_mdflow_stream_parts(
+                    [("![img](https://example.com/visual.png)\n", "img", 0)]
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-img-audio",
+                    type=GeneratedType.CONTENT,
+                    content="caption line\n",
+                ).set_mdflow_stream_parts([("caption line\n", "img", 0)]),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-img-audio",
+                    type=GeneratedType.AUDIO_SEGMENT,
+                    content=AudioSegmentDTO(
+                        position=0,
+                        segment_index=0,
+                        audio_data="img-only-segment",
+                        duration_ms=210,
+                        is_final=False,
+                    ),
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-img-audio",
+                    type=GeneratedType.AUDIO_COMPLETE,
+                    content=AudioCompleteDTO(
+                        audio_url="https://example.com/img-only.mp3",
+                        audio_bid="img-only-audio-0",
+                        duration_ms=210,
+                        position=0,
+                    ),
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-img-audio",
+                    type=GeneratedType.BREAK,
+                    content="",
+                ),
+            ]
+
+            streamed = list(adapter.process(events))
+            image_events = [
+                message.content
+                for message in streamed
+                if message.type == "element"
+                and message.content.element_type == ElementType.IMG
+            ]
+
+            assert [message.type for message in streamed] == [
+                "element",
+                "element",
+                "element",
+                "element",
+                "element",
+                "done",
+            ]
+            assert len(image_events) == 5
+            assert [item.is_new for item in image_events] == [
+                True,
+                False,
+                False,
+                False,
+                False,
+            ]
+            assert image_events[-1].is_final is True
+            assert image_events[2].audio_segments == [
+                {
+                    "position": 0,
+                    "segment_index": 0,
+                    "audio_data": "img-only-segment",
+                    "duration_ms": 210,
+                    "is_final": True,
+                }
+            ]
+            assert image_events[3].audio_url == "https://example.com/img-only.mp3"
+            assert image_events[4].audio_url == "https://example.com/img-only.mp3"
+            assert image_events[4].audio_segments == [
+                {
+                    "position": 0,
+                    "segment_index": 0,
+                    "audio_data": "img-only-segment",
+                    "duration_ms": 210,
+                    "is_final": True,
+                }
+            ]
+            assert all(item.is_speakable is False for item in image_events)

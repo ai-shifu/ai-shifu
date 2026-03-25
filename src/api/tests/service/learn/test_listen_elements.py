@@ -1953,7 +1953,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
             "element",
             "element",
             "element",
-            "break",
+            "done",
         ]
 
         first_element = streamed[0].content
@@ -1962,7 +1962,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         second_audio_patch_element = streamed[3].content
         audio_complete_patch_element = streamed[4].content
         assert first_element.is_new is True
-        assert first_element.element_type == ElementType.MD_IMG
+        assert first_element.element_type == ElementType.IMG
         assert "_" not in first_element.element_bid
         assert patch_element.is_new is False
         assert len(patch_element.element_bid) <= 64
@@ -2036,7 +2036,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         assert len(result.elements) == 1
         element = result.elements[0]
         assert element.element_bid == first_element.element_bid
-        assert element.element_type == ElementType.MD_IMG
+        assert element.element_type == ElementType.IMG
         assert element.is_final is True
         assert element.is_marker is True
         assert element.audio_url == "https://example.com/stream-audio.mp3"
@@ -2059,8 +2059,8 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         assert element.content_text.endswith("caption line\n")
         assert element.payload is not None
         assert len(element.payload.previous_visuals) == 1
-        assert element.payload.previous_visuals[0].visual_type == "md_img"
-        assert element.payload.previous_visuals[0].content == ""
+        assert element.payload.previous_visuals[0].visual_type == "img"
+        assert element.payload.previous_visuals[0].content == element.content_text
 
         result_with_events = get_listen_element_record(
             app,
@@ -2076,7 +2076,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         assert "audio_segment" not in replay_event_types
         assert replay_event_types.count("element") >= 1
         assert "audio_complete" not in replay_event_types
-        assert "break" in replay_event_types
+        assert "done" in replay_event_types
         replay_audio_patches = [
             item.content
             for item in result_with_events.events
@@ -2588,9 +2588,9 @@ def test_listen_adapter_marks_reentered_image_slot_as_new_after_text(app):
         element_events = [item.content for item in streamed if item.type == "element"]
 
         assert [item.element_type for item in element_events] == [
-            ElementType.MD_IMG,
+            ElementType.IMG,
             ElementType.TEXT,
-            ElementType.MD_IMG,
+            ElementType.IMG,
         ]
         assert [item.is_new for item in element_events] == [True, True, True]
         assert element_events[0].target_element_bid in ("", None)
