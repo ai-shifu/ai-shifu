@@ -321,6 +321,17 @@ def run_script(
         done_received = False
         last_stream_type: str | None = None
         last_stream_done_is_terminal: bool | None = None
+
+        def _should_suppress_live_payload(payload_obj: object) -> bool:
+            payload_type = getattr(payload_obj, "type", None)
+            if hasattr(payload_type, "value"):
+                payload_type = payload_type.value
+            return bool(
+                listen
+                and payload_type == GeneratedType.DONE.value
+                and not bool(getattr(payload_obj, "is_terminal", False))
+            )
+
         try:
             while True:
                 kind: str
@@ -369,6 +380,8 @@ def run_script(
 
                 if kind == "data":
                     try:
+                        if _should_suppress_live_payload(payload):
+                            continue
                         payload_type = getattr(payload, "type", None)
                         if hasattr(payload_type, "value"):
                             payload_type = payload_type.value
@@ -448,19 +461,21 @@ def run_script(
                     )
                 )
                 last_stream_type = "error"
-                yield _to_sse_chunk(
-                    _make_terminal_event(
-                        outline_bid=outline_bid,
-                        event_type=GeneratedType.BREAK.value,
-                        content="",
-                        element_adapter=element_adapter,
-                        is_terminal=False if listen else None,
+                block_end_event = _make_terminal_event(
+                    outline_bid=outline_bid,
+                    event_type=GeneratedType.BREAK.value,
+                    content="",
+                    element_adapter=element_adapter,
+                    is_terminal=False if listen else None,
+                )
+                if not _should_suppress_live_payload(block_end_event):
+                    yield _to_sse_chunk(block_end_event)
+                    last_stream_type = (
+                        GeneratedType.DONE.value
+                        if listen
+                        else GeneratedType.BREAK.value
                     )
-                )
-                last_stream_type = (
-                    GeneratedType.DONE.value if listen else GeneratedType.BREAK.value
-                )
-                last_stream_done_is_terminal = False if listen else None
+                    last_stream_done_is_terminal = False if listen else None
 
         if not (
             listen

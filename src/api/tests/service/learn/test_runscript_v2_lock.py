@@ -86,14 +86,77 @@ def test_run_script_retries_lock_then_streams(app, monkeypatch):
             "element",
             "element",
             "done",
-            "done",
         ]
         assert events[0]["event_type"] == "element"
         assert events[0]["content"]["is_final"] is False
         assert events[1]["content"]["is_final"] is True
         assert events[1]["content"]["content"] == "hello"
         assert events[-1]["type"] == "done"
-        assert events[2]["is_terminal"] is False
+        assert events[2]["is_terminal"] is True
+
+
+def test_run_script_listen_keeps_interaction_after_block_done(app, monkeypatch):
+    with app.app_context():
+        app.config["REDIS_KEY_PREFIX"] = "test"
+        monkeypatch.setitem(app.config, "SSE_HEARTBEAT_INTERVAL", 0)
+        lock = FakeLock([True])
+        monkeypatch.setattr(
+            runscript_v2,
+            "cache_provider",
+            SimpleNamespace(lock=lambda *_args, **_kwargs: lock),
+        )
+
+        def fake_run_script_inner(**_kwargs):
+            with app.app_context():
+                element_adapter = _kwargs["element_adapter"]
+                yield from element_adapter.process(
+                    [
+                        RunMarkdownFlowDTO(
+                            outline_bid="outline-1",
+                            generated_block_bid="generated-1",
+                            type=GeneratedType.CONTENT,
+                            content="hello",
+                        ),
+                        RunMarkdownFlowDTO(
+                            outline_bid="outline-1",
+                            generated_block_bid="generated-1",
+                            type=GeneratedType.BREAK,
+                            content="",
+                        ),
+                        RunMarkdownFlowDTO(
+                            outline_bid="outline-1",
+                            generated_block_bid="generated-2",
+                            type=GeneratedType.INTERACTION,
+                            content="?[%{{name}}...How should I call you?]",
+                        ),
+                    ]
+                )
+
+        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+
+        chunks = list(
+            runscript_v2.run_script(
+                app=app,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+                input={"input": ["x"]},
+                input_type="normal",
+                listen=True,
+            )
+        )
+        events = _parse_sse_events(chunks)
+
+        assert [event["type"] for event in events] == [
+            "element",
+            "element",
+            "element",
+            "done",
+        ]
+        assert events[2]["content"]["element_type"] == "interaction"
+        assert (
+            events[2]["content"]["content"] == "?[%{{name}}...How should I call you?]"
+        )
         assert events[3]["is_terminal"] is True
 
 
