@@ -24,6 +24,7 @@ from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     AudioSegmentDTO,
     AudioCompleteDTO,
+    ElementType,
 )
 from flaskr.service.shifu.models import (
     DraftShifu,
@@ -46,7 +47,6 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.service.tts.pipeline import (
     split_text_for_tts,
-    build_av_segmentation_contract,
 )
 from flaskr.api.tts import (
     get_default_audio_settings,
@@ -1050,15 +1050,25 @@ def stream_generated_block_audio(
 
         raw_text = generated_block.generated_content or ""
         if listen:
-            av_contract = build_av_segmentation_contract(raw_text, generated_block_bid)
+            from flaskr.service.learn.listen_elements import (
+                get_final_elements_for_generated_block,
+            )
+
+            final_elements = get_final_elements_for_generated_block(
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+            )
             speakable_segments = [
-                segment.get("text", "")
-                for segment in av_contract.get("speakable_segments", [])
+                str(element.content_text or "")
+                for element in final_elements
+                if getattr(element, "element_type", None) == ElementType.TEXT
+                and (element.content_text or "").strip()
             ]
             if not speakable_segments:
                 raise_error_with_args(
                     "server.common.paramsError",
-                    param_message="No speakable text available for TTS synthesis",
+                    param_message="No speakable text elements available for TTS synthesis",
                 )
 
             expected_segment_count = len(speakable_segments)
@@ -1103,7 +1113,6 @@ def stream_generated_block_audio(
                         audio_bid=record.audio_bid,
                         duration_ms=int(record.duration_ms or 0),
                         position=pos,
-                        av_contract=av_contract,
                     )
                 return
 
@@ -1126,7 +1135,6 @@ def stream_generated_block_audio(
                             audio_bid=record.audio_bid,
                             duration_ms=int(record.duration_ms or 0),
                             position=position,
-                            av_contract=av_contract,
                         )
                         continue
 
@@ -1163,7 +1171,6 @@ def stream_generated_block_audio(
                         audio_parts=audio_parts,
                         stats=stats,
                         position=position,
-                        av_contract=av_contract,
                     )
                     segment_count = int(stats.get("segment_count", 0))
                     total_word_count = int(stats.get("total_word_count", 0))
@@ -1206,7 +1213,6 @@ def stream_generated_block_audio(
                         audio_bid=audio_bid,
                         duration_ms=int(duration_ms or 0),
                         position=position,
-                        av_contract=av_contract,
                     )
 
             yield from _yield_with_tts_error_mapping(

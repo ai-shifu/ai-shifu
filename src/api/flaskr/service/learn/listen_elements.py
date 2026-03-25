@@ -3002,6 +3002,50 @@ def _query_element_rows(
     return rows, progress_bid_by_generated_block_bid
 
 
+def get_final_elements_for_generated_block(
+    *,
+    generated_block_bid: str,
+    user_bid: str = "",
+    shifu_bid: str = "",
+    include_non_navigable: bool = False,
+) -> list[ElementDTO]:
+    if not generated_block_bid:
+        return []
+
+    filters = [
+        LearnGeneratedElement.generated_block_bid == generated_block_bid,
+        LearnGeneratedElement.event_type == "element",
+        LearnGeneratedElement.deleted == 0,
+        LearnGeneratedElement.status == 1,
+    ]
+    if user_bid:
+        filters.append(LearnGeneratedElement.user_bid == user_bid)
+    if shifu_bid:
+        filters.append(LearnGeneratedElement.shifu_bid == shifu_bid)
+
+    rows = (
+        LearnGeneratedElement.query.filter(*filters)
+        .order_by(
+            LearnGeneratedElement.sequence_number.asc(),
+            LearnGeneratedElement.run_event_seq.asc(),
+            LearnGeneratedElement.id.asc(),
+        )
+        .all()
+    )
+    if not rows:
+        return []
+
+    interaction_user_input_by_block_bid = _load_interaction_user_input_by_block_bid(
+        rows
+    )
+    final_elements, _ = _build_final_elements_from_rows(
+        rows,
+        interaction_user_input_by_block_bid=interaction_user_input_by_block_bid,
+        include_non_navigable=include_non_navigable,
+    )
+    return final_elements
+
+
 def _dedupe_progress_records_by_block_position(progress_records: list) -> list:
     latest_by_key: dict[tuple[str, str], Any] = {}
     for progress_record in progress_records:
