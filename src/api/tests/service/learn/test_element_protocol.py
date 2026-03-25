@@ -2094,7 +2094,7 @@ class TestElementChangeTypeSemantics:
                     "segment_index": 0,
                     "audio_data": "img-only-segment",
                     "duration_ms": 210,
-                    "is_final": True,
+                    "is_final": False,
                 }
             ]
             assert image_events[3].audio_url == "https://example.com/img-only.mp3"

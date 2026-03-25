@@ -1980,7 +1980,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
                 "segment_index": 0,
                 "audio_data": "stream-segment-0",
                 "duration_ms": 240,
-                "is_final": True,
+                "is_final": False,
             }
         ]
         assert second_audio_patch_element.is_new is False
@@ -1996,7 +1996,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
                 "segment_index": 1,
                 "audio_data": "stream-segment-1",
                 "duration_ms": 260,
-                "is_final": True,
+                "is_final": False,
             }
         ]
         assert audio_complete_patch_element.is_new is False
@@ -2092,7 +2092,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
                     "segment_index": 0,
                     "audio_data": "",
                     "duration_ms": 240,
-                    "is_final": True,
+                    "is_final": False,
                 }
             ],
             [
@@ -2101,7 +2101,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
                     "segment_index": 1,
                     "audio_data": "",
                     "duration_ms": 260,
-                    "is_final": True,
+                    "is_final": False,
                 }
             ],
         ]
@@ -2129,7 +2129,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
                     "segment_index": 0,
                     "audio_data": "",
                     "duration_ms": 240,
-                    "is_final": True,
+                    "is_final": False,
                 }
             ],
             [
@@ -2138,7 +2138,7 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
                     "segment_index": 1,
                     "audio_data": "",
                     "duration_ms": 260,
-                    "is_final": True,
+                    "is_final": False,
                 }
             ],
             [
@@ -2744,7 +2744,7 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(app):
                 "segment_index": 0,
                 "audio_data": "bound-segment-0",
                 "duration_ms": 180,
-                "is_final": True,
+                "is_final": False,
             }
         ]
         assert text_elements[2].element_bid == text_element_bid
@@ -2754,7 +2754,7 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(app):
                 "segment_index": 1,
                 "audio_data": "bound-segment-1",
                 "duration_ms": 190,
-                "is_final": True,
+                "is_final": False,
             }
         ]
         audio_complete_text = next(
@@ -3061,7 +3061,7 @@ def test_late_audio_positions_bind_to_latest_text_without_av_contract(app):
                     "segment_index": 0,
                     "audio_data": "second-segment-0",
                     "duration_ms": 210,
-                    "is_final": True,
+                    "is_final": False,
                 }
             ],
             [
@@ -3070,7 +3070,7 @@ def test_late_audio_positions_bind_to_latest_text_without_av_contract(app):
                     "segment_index": 1,
                     "audio_data": "second-segment-1",
                     "duration_ms": 220,
-                    "is_final": True,
+                    "is_final": False,
                 }
             ],
             [
@@ -3079,7 +3079,7 @@ def test_late_audio_positions_bind_to_latest_text_without_av_contract(app):
                     "segment_index": 2,
                     "audio_data": "second-segment-2",
                     "duration_ms": 230,
-                    "is_final": True,
+                    "is_final": False,
                 }
             ],
         ]
@@ -3319,7 +3319,7 @@ def test_listen_adapter_binds_buffered_audio_to_text_after_html(app):
                 "segment_index": 0,
                 "audio_data": "late-text-segment",
                 "duration_ms": 210,
-                "is_final": True,
+                "is_final": False,
             }
         ]
         assert initial_text.audio_url == ""
