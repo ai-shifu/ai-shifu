@@ -1443,16 +1443,13 @@ def test_listen_element_adapter_retires_fallback_once_visual_element_arrives(app
 
         audio_patch_evt = streamed[1]
         assert audio_patch_evt.content.element_bid == streamed[0].content.element_bid
-        assert (
-            audio_patch_evt.content.target_element_bid
-            == streamed[0].content.element_bid
-        )
+        assert audio_patch_evt.content.target_element_bid in ("", None)
         assert audio_patch_evt.content.audio_url == "https://example.com/audio.mp3"
         assert audio_patch_evt.content.is_final is True
 
         # Verify the retire notification element
         retire_evt = streamed[2]
-        assert retire_evt.content.is_new is False
+        assert retire_evt.content.is_new is True
         assert retire_evt.content.is_renderable is False
         assert retire_evt.content.is_final is True
         fallback_element_bid = streamed[0].content.element_bid
@@ -1782,7 +1779,8 @@ def test_listen_adapter_finalizes_fallback_text_with_embedded_audio(app):
             for item in streamed
             if item.type == "element" and item.content.is_final and item.content.is_new
         ]
-        assert final_elements == []
+        assert len(final_elements) == 1
+        assert final_elements[0].content_text == "Fallback narration."
 
         persisted_rows = (
             LearnGeneratedElement.query.filter(
@@ -1964,16 +1962,16 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
         assert first_element.is_new is True
         assert first_element.element_type == ElementType.IMG
         assert "_" not in first_element.element_bid
-        assert patch_element.is_new is False
+        assert patch_element.is_new is True
         assert len(patch_element.element_bid) <= 64
         assert patch_element.element_bid == first_element.element_bid
         assert "_" not in patch_element.element_bid
-        assert patch_element.target_element_bid == first_element.element_bid
-        assert first_audio_patch_element.is_new is False
+        assert patch_element.target_element_bid in ("", None)
+        assert first_audio_patch_element.is_new is True
         assert len(first_audio_patch_element.element_bid) <= 64
         assert first_audio_patch_element.element_bid == first_element.element_bid
         assert "_" not in first_audio_patch_element.element_bid
-        assert first_audio_patch_element.target_element_bid == first_element.element_bid
+        assert first_audio_patch_element.target_element_bid in ("", None)
         assert first_audio_patch_element.audio_segments == [
             {
                 "position": 0,
@@ -1983,13 +1981,11 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
                 "is_final": False,
             }
         ]
-        assert second_audio_patch_element.is_new is False
+        assert second_audio_patch_element.is_new is True
         assert len(second_audio_patch_element.element_bid) <= 64
         assert second_audio_patch_element.element_bid == first_element.element_bid
         assert "_" not in second_audio_patch_element.element_bid
-        assert (
-            second_audio_patch_element.target_element_bid == first_element.element_bid
-        )
+        assert second_audio_patch_element.target_element_bid in ("", None)
         assert second_audio_patch_element.audio_segments == [
             {
                 "position": 0,
@@ -1999,11 +1995,9 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(app):
                 "is_final": False,
             }
         ]
-        assert audio_complete_patch_element.is_new is False
+        assert audio_complete_patch_element.is_new is True
         assert audio_complete_patch_element.element_bid == first_element.element_bid
-        assert (
-            audio_complete_patch_element.target_element_bid == first_element.element_bid
-        )
+        assert audio_complete_patch_element.target_element_bid in ("", None)
         assert (
             audio_complete_patch_element.audio_url
             == "https://example.com/stream-audio.mp3"
@@ -2277,14 +2271,14 @@ def test_listen_adapter_marks_non_text_after_text_as_new_in_stream(app):
         ]
         assert [item.is_new for item in element_events] == [
             True,
-            False,
             True,
-            False,
+            True,
+            True,
             True,
         ]
-        assert element_events[1].target_element_bid == element_events[1].element_bid
+        assert element_events[1].target_element_bid in ("", None)
         assert element_events[2].target_element_bid in ("", None)
-        assert element_events[3].target_element_bid == element_events[2].element_bid
+        assert element_events[3].target_element_bid in ("", None)
         assert element_events[4].target_element_bid in ("", None)
 
 
@@ -2382,10 +2376,10 @@ def test_listen_adapter_keeps_html_stream_as_single_element_on_break(app):
         ]
 
         assert len(html_events) == 3
-        assert [item.is_new for item in html_events] == [True, False, False]
+        assert [item.is_new for item in html_events] == [True, True, True]
         assert html_events[0].target_element_bid in ("", None)
-        assert html_events[1].target_element_bid == html_events[0].element_bid
-        assert html_events[2].target_element_bid == html_events[0].element_bid
+        assert html_events[1].target_element_bid in ("", None)
+        assert html_events[2].target_element_bid in ("", None)
         assert len({item.element_bid for item in html_events}) == 1
 
         result = get_listen_element_record(
@@ -2762,10 +2756,10 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(app):
             item
             for item in text_elements
             if item.audio_url == "https://example.com/bound-audio.mp3"
-            and item.target_element_bid == text_element_bid
+            and item.element_bid == text_element_bid
         )
         assert audio_complete_text.element_bid == text_element_bid
-        assert audio_complete_text.target_element_bid == text_element_bid
+        assert audio_complete_text.target_element_bid in ("", None)
         assert audio_complete_text.is_final is True
         assert audio_complete_text.audio_segments == [
             {
@@ -2795,7 +2789,7 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(app):
             if item.is_new and "Follow-up visual" in (item.content_text or "")
         )
         assert len({item.element_bid for item in html_elements}) == 2
-        assert [item.is_new for item in html_elements] == [True, True, False, False]
+        assert [item.is_new for item in html_elements] == [True, True, True, True]
         assert intro_html.target_element_bid in ("", None)
         assert follow_up_html.target_element_bid in ("", None)
         assert follow_up_html.element_bid != intro_html.element_bid
@@ -2804,14 +2798,14 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(app):
         assert follow_up_html.audio_url == ""
         assert follow_up_html.is_speakable is False
         assert any(
-            (not item.is_new)
-            and item.target_element_bid == intro_html.element_bid
+            item.is_new
+            and item.element_bid == intro_html.element_bid
             and "Intro visual" in (item.content_text or "")
             for item in html_elements
         )
         assert any(
-            (not item.is_new)
-            and item.target_element_bid == follow_up_html.element_bid
+            item.is_new
+            and item.element_bid == follow_up_html.element_bid
             and "Follow-up visual" in (item.content_text or "")
             for item in html_elements
         )
@@ -3333,7 +3327,7 @@ def test_listen_adapter_binds_buffered_audio_to_text_after_html(app):
             and item.is_final is True
         )
         assert final_text.element_bid == initial_text.element_bid
-        assert final_text.target_element_bid == initial_text.element_bid
+        assert final_text.target_element_bid in ("", None)
         assert final_text.is_final is True
         assert final_text.audio_segments == [
             {

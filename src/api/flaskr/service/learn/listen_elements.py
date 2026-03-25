@@ -1568,7 +1568,8 @@ class ListenElementRunAdapter:
             if not element.is_new and element.target_element_bid
             else element.element_bid
         )
-        if not element.is_new:
+        replace_same_element_bid = bool(element.is_new and element.element_bid)
+        if (not element.is_new) or replace_same_element_bid:
             base_element_bid = (
                 element.target_element_bid
                 if not element.is_new and element.target_element_bid
@@ -1789,8 +1790,8 @@ class ListenElementRunAdapter:
             element_type=ElementType.TEXT,
             element_type_code=_element_type_code(ElementType.TEXT),
             change_type=_change_type_for_element(ElementType.TEXT),
-            target_element_bid=state.fallback_element_bid,
-            is_new=False,
+            target_element_bid=None,
+            is_new=True,
             is_marker=False,
             is_renderable=False,
             is_navigable=0,
@@ -1840,6 +1841,7 @@ class ListenElementRunAdapter:
         if snapshot is None:
             return None
         element_is_final = snapshot.is_final if is_final is None else bool(is_final)
+        fixed_is_new = bool(snapshot.is_new)
         return ElementDTO(
             event_type="element",
             element_bid=element_bid,
@@ -1849,8 +1851,8 @@ class ListenElementRunAdapter:
             element_type=snapshot.element_type,
             element_type_code=snapshot.element_type_code,
             change_type=_change_type_for_element(snapshot.element_type),
-            target_element_bid=element_bid,
-            is_new=False,
+            target_element_bid=None if fixed_is_new else element_bid,
+            is_new=fixed_is_new,
             is_renderable=snapshot.is_renderable,
             is_marker=snapshot.is_marker,
             is_speakable=_normalized_is_speakable(
@@ -2106,9 +2108,7 @@ class ListenElementRunAdapter:
                 state.stream_elements[stream_key] = stream_state
                 state.active_stream_element_key_by_number[stream_number] = stream_key
                 active_key = stream_key
-                is_new = _mdflow_new_stream_is_new(stream_element_type)
-            else:
-                is_new = False
+            is_new = _mdflow_new_stream_is_new(stream_element_type)
             stream_state.content_text += chunk_content
             pending_audio = None
             pending_audio_segments = None
@@ -2164,6 +2164,7 @@ class ListenElementRunAdapter:
         meta = self._load_block_meta(state.generated_block_bid)
         for stream_state in state.stream_elements.values():
             seq = self._next_seq()
+            fixed_is_new = _mdflow_new_stream_is_new(stream_state.element_type)
             retire_element = ElementDTO(
                 event_type="element",
                 element_bid=stream_state.element_bid,
@@ -2173,8 +2174,8 @@ class ListenElementRunAdapter:
                 element_type=stream_state.element_type,
                 element_type_code=_element_type_code(stream_state.element_type),
                 change_type=_change_type_for_element(stream_state.element_type),
-                target_element_bid=stream_state.element_bid,
-                is_new=False,
+                target_element_bid=None if fixed_is_new else stream_state.element_bid,
+                is_new=fixed_is_new,
                 is_marker=_default_is_marker(stream_state.element_type),
                 is_renderable=False,
                 is_navigable=0,
@@ -2207,7 +2208,7 @@ class ListenElementRunAdapter:
                 state=state,
                 role=meta.role,
                 stream_state=stream_state,
-                is_new=False,
+                is_new=_mdflow_new_stream_is_new(stream_state.element_type),
                 is_final=True,
                 audio=audio,
                 audio_segments=audio_segments,
@@ -2445,8 +2446,8 @@ class ListenElementRunAdapter:
                     element_type=ElementType.TEXT,
                     element_type_code=_element_type_code(ElementType.TEXT),
                     change_type=_change_type_for_element(ElementType.TEXT),
-                    target_element_bid=state.fallback_element_bid,
-                    is_new=False,
+                    target_element_bid=None,
+                    is_new=True,
                     is_renderable=False,
                     is_marker=False,
                     is_navigable=1,

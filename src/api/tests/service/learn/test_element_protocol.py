@@ -1766,13 +1766,13 @@ class TestElementChangeTypeSemantics:
             ]
 
             assert len(text_events) == 2
-            assert [item.is_new for item in text_events] == [True, False]
+            assert [item.is_new for item in text_events] == [True, True]
             assert [item.change_type for item in text_events] == [
                 ElementChangeType.RENDER,
                 ElementChangeType.RENDER,
             ]
             assert text_events[0].target_element_bid in ("", None)
-            assert text_events[1].target_element_bid == text_events[0].element_bid
+            assert text_events[1].target_element_bid in ("", None)
 
     def test_gitdiff_element_uses_diff_change_type_without_forcing_patch(
         self, adapter_app
@@ -1996,11 +1996,11 @@ class TestElementChangeTypeSemantics:
             ]
 
             assert len(html_events) == 4
-            assert [item.is_new for item in html_events] == [True, False, False, False]
+            assert [item.is_new for item in html_events] == [True, True, True, True]
             assert html_events[0].target_element_bid in ("", None)
-            assert html_events[1].target_element_bid == html_events[0].element_bid
-            assert html_events[2].target_element_bid == html_events[0].element_bid
-            assert html_events[3].target_element_bid == html_events[0].element_bid
+            assert html_events[1].target_element_bid in ("", None)
+            assert html_events[2].target_element_bid in ("", None)
+            assert html_events[3].target_element_bid in ("", None)
             assert len({item.element_bid for item in html_events}) == 1
 
     def test_mdflow_stream_elements_are_not_rebuilt_from_av_contract(self, adapter_app):
