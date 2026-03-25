@@ -2596,6 +2596,30 @@ def test_late_audio_positions_bind_to_latest_text_without_av_contract(app):
             RunMarkdownFlowDTO(
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_SEGMENT,
+                content=AudioSegmentDTO(
+                    position=1,
+                    segment_index=1,
+                    audio_data="second-segment-1",
+                    duration_ms=220,
+                    is_final=False,
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_SEGMENT,
+                content=AudioSegmentDTO(
+                    position=1,
+                    segment_index=2,
+                    audio_data="second-segment-2",
+                    duration_ms=230,
+                    is_final=False,
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
                 type=GeneratedType.AUDIO_COMPLETE,
                 content=AudioCompleteDTO(
                     audio_url="https://example.com/second-audio.mp3",
@@ -2613,6 +2637,7 @@ def test_late_audio_positions_bind_to_latest_text_without_av_contract(app):
         ]
 
         streamed = list(adapter.process(events))
+        assert streamed[-1].type == "done"
         element_events = [item.content for item in streamed if item.type == "element"]
 
         rendered_texts = [
@@ -2635,23 +2660,48 @@ def test_late_audio_positions_bind_to_latest_text_without_av_contract(app):
         assert first_audio_complete.element_bid == first_text_bid
         assert first_audio_complete.target_element_bid == first_text_bid
 
-        second_audio_segment = next(
+        second_audio_segments = [
             item
             for item in element_events
             if item.element_type == ElementType.TEXT
+            and item.element_bid == second_text_bid
             and item.audio_segments
+            and not item.audio_url
             and item.audio_segments[0]["position"] == 1
-        )
-        assert second_audio_segment.element_bid == second_text_bid
-        assert second_audio_segment.target_element_bid == second_text_bid
-        assert second_audio_segment.audio_segments == [
-            {
-                "position": 1,
-                "segment_index": 0,
-                "audio_data": "second-segment-0",
-                "duration_ms": 210,
-                "is_final": False,
-            }
+        ]
+        assert [item.target_element_bid for item in second_audio_segments] == [
+            second_text_bid,
+            second_text_bid,
+            second_text_bid,
+        ]
+        assert [item.audio_segments for item in second_audio_segments] == [
+            [
+                {
+                    "position": 1,
+                    "segment_index": 0,
+                    "audio_data": "second-segment-0",
+                    "duration_ms": 210,
+                    "is_final": False,
+                }
+            ],
+            [
+                {
+                    "position": 1,
+                    "segment_index": 1,
+                    "audio_data": "second-segment-1",
+                    "duration_ms": 220,
+                    "is_final": False,
+                }
+            ],
+            [
+                {
+                    "position": 1,
+                    "segment_index": 2,
+                    "audio_data": "second-segment-2",
+                    "duration_ms": 230,
+                    "is_final": False,
+                }
+            ],
         ]
 
         second_audio_complete = next(
@@ -2668,8 +2718,22 @@ def test_late_audio_positions_bind_to_latest_text_without_av_contract(app):
                 "segment_index": 0,
                 "audio_data": "second-segment-0",
                 "duration_ms": 210,
+                "is_final": False,
+            },
+            {
+                "position": 1,
+                "segment_index": 1,
+                "audio_data": "second-segment-1",
+                "duration_ms": 220,
+                "is_final": False,
+            },
+            {
+                "position": 1,
+                "segment_index": 2,
+                "audio_data": "second-segment-2",
+                "duration_ms": 230,
                 "is_final": True,
-            }
+            },
         ]
 
         assert not any(
@@ -2706,6 +2770,34 @@ def test_late_audio_positions_bind_to_latest_text_without_av_contract(app):
             row.audio_url == "https://example.com/second-audio.mp3"
             for row in second_text_rows_with_audio
         )
+        final_second_text_row = next(
+            row
+            for row in reversed(second_text_rows_with_audio)
+            if row.audio_url == "https://example.com/second-audio.mp3"
+        )
+        assert json.loads(final_second_text_row.audio_segments) == [
+            {
+                "position": 1,
+                "segment_index": 0,
+                "audio_data": "",
+                "duration_ms": 210,
+                "is_final": False,
+            },
+            {
+                "position": 1,
+                "segment_index": 1,
+                "audio_data": "",
+                "duration_ms": 220,
+                "is_final": False,
+            },
+            {
+                "position": 1,
+                "segment_index": 2,
+                "audio_data": "",
+                "duration_ms": 230,
+                "is_final": True,
+            },
+        ]
 
 
 def test_listen_adapter_binds_buffered_audio_to_text_after_html(app):
