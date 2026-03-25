@@ -1395,7 +1395,10 @@ class RunScriptContextV2:
 
         try:
             outline_item_info = get_outline_item_dto_with_mdflow(
-                self.app, outline_bid, self._preview_mode
+                self.app,
+                outline_bid,
+                self._preview_mode,
+                outline_item_id=int(self._current_outline_item.id or 0),
             )
             block_count = len(
                 MdflowContextV2(document=outline_item_info.mdflow).get_all_blocks()
@@ -1932,12 +1935,30 @@ class RunScriptContextV2:
                     q.put(child)
         return outline_struct
 
+    def _get_outline_row_id(self, outline_item_bid: str) -> int | None:
+        if not outline_item_bid:
+            return None
+        if (
+            self._current_outline_item
+            and self._current_outline_item.bid == outline_item_bid
+            and getattr(self._current_outline_item, "id", None)
+        ):
+            return int(self._current_outline_item.id)
+        outline_struct = self._get_outline_struct(outline_item_bid)
+        if outline_struct and getattr(outline_struct, "id", None):
+            return int(outline_struct.id)
+        return None
+
     def _get_run_script_info(
         self, attend: LearnProgressRecord, is_ask: bool = False
     ) -> RunScriptInfo:
         outline_item_id = attend.outline_item_bid
+        outline_row_id = self._get_outline_row_id(outline_item_id)
         outline_item_info: OutlineItemDtoWithMdflow = get_outline_item_dto_with_mdflow(
-            self.app, outline_item_id, self._preview_mode
+            self.app,
+            outline_item_id,
+            self._preview_mode,
+            outline_item_id=outline_row_id,
         )
 
         mdflow_context = MdflowContextV2(document=outline_item_info.mdflow)
@@ -1961,8 +1982,12 @@ class RunScriptContextV2:
         ).first()
         if not generate_block:
             raise_error("server.shifu.lessonNotFoundInCourse")
+        outline_row_id = self._get_outline_row_id(generate_block.outline_item_bid)
         outline_item_info: OutlineItemDtoWithMdflow = get_outline_item_dto_with_mdflow(
-            self.app, generate_block.outline_item_bid, self._preview_mode
+            self.app,
+            generate_block.outline_item_bid,
+            self._preview_mode,
+            outline_item_id=outline_row_id,
         )
         attend: LearnProgressRecord = LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == self._user_info.user_id,

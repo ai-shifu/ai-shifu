@@ -334,13 +334,67 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
             patch(
                 "flaskr.service.learn.context_v2.get_outline_item_dto_with_mdflow",
                 return_value=types.SimpleNamespace(mdflow="doc"),
-            ),
+            ) as get_outline_item_mock,
             patch(
                 "flaskr.service.learn.context_v2.MarkdownFlow",
                 _FakeMarkdownFlow,
             ),
         ):
             self.assertEqual(ctx._get_next_outline_item(), [])
+
+        self.assertEqual(
+            get_outline_item_mock.call_args.kwargs.get("outline_item_id"),
+            1,
+        )
+
+    def test_get_run_script_info_uses_outline_row_id_from_struct(self):
+        ctx = _make_context()
+        ctx.app = Flask("runtime-outline-row-id-tests")
+        ctx._preview_mode = False
+        ctx._current_outline_item = HistoryItem(
+            bid="outline-1",
+            id=42,
+            type="outline",
+            children=[],
+            child_count=2,
+        )
+        ctx._struct = HistoryItem(
+            bid="shifu-1",
+            id=1,
+            type="shifu",
+            children=[ctx._current_outline_item],
+        )
+
+        attend = types.SimpleNamespace(outline_item_bid="outline-1", block_position=0)
+
+        class _FakeMarkdownFlow:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def get_all_blocks(self):
+                return [object(), object()]
+
+        with (
+            patch(
+                "flaskr.service.learn.context_v2.get_outline_item_dto_with_mdflow",
+                return_value=types.SimpleNamespace(
+                    mdflow="doc",
+                    outline_bid="outline-1",
+                    title="Outline 1",
+                ),
+            ) as get_outline_item_mock,
+            patch(
+                "flaskr.service.learn.context_v2.MarkdownFlow",
+                _FakeMarkdownFlow,
+            ),
+        ):
+            run_info = ctx._get_run_script_info(attend)
+
+        self.assertIsNotNone(run_info)
+        self.assertEqual(
+            get_outline_item_mock.call_args.kwargs.get("outline_item_id"),
+            42,
+        )
 
 
 class ExceptionGateFeedbackTests(unittest.TestCase):

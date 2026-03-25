@@ -299,7 +299,10 @@ class OutlineItemDtoWithMdflow(BaseModel):
 
 
 def get_outline_item_dto_with_mdflow(
-    app: Flask, outline_item_bid: str, is_preview: bool = False
+    app: Flask,
+    outline_item_bid: str,
+    is_preview: bool = False,
+    outline_item_id: int | None = None,
 ) -> OutlineItemDtoWithMdflow:
     """
     Get outline item dto with mdflow
@@ -308,16 +311,40 @@ def get_outline_item_dto_with_mdflow(
         outline_item_model = DraftOutlineItem
     else:
         outline_item_model = PublishedOutlineItem
-    outline_item: Union[DraftOutlineItem, PublishedOutlineItem] = (
-        outline_item_model.query.filter(
-            outline_item_model.outline_item_bid == outline_item_bid,
-            outline_item_model.deleted == 0,
+    outline_item: Union[DraftOutlineItem, PublishedOutlineItem, None] = None
+    if outline_item_id:
+        outline_item = (
+            outline_item_model.query.filter(
+                outline_item_model.id == int(outline_item_id),
+                outline_item_model.deleted == 0,
+            )
+            .order_by(
+                outline_item_model.id.desc(),
+            )
+            .first()
         )
-        .order_by(
-            outline_item_model.id.desc(),
+        if (
+            outline_item is not None
+            and outline_item.outline_item_bid != outline_item_bid
+        ):
+            app.logger.warning(
+                "Outline row mismatch for bid %s: row_id=%s actual_bid=%s",
+                outline_item_bid,
+                outline_item_id,
+                outline_item.outline_item_bid,
+            )
+            outline_item = None
+    if outline_item is None:
+        outline_item = (
+            outline_item_model.query.filter(
+                outline_item_model.outline_item_bid == outline_item_bid,
+                outline_item_model.deleted == 0,
+            )
+            .order_by(
+                outline_item_model.id.desc(),
+            )
+            .first()
         )
-        .first()
-    )
     if not outline_item:
         raise_error("server.shifu.outlineItemNotFound")
 
