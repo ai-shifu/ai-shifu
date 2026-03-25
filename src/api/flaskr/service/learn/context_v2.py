@@ -1204,6 +1204,48 @@ class RunScriptContextV2:
             )
             return None
 
+    def _finalize_stream_tts_processor(
+        self,
+        tts_processor,
+        *,
+        log_prefix: str,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if not tts_processor:
+            return
+        try:
+            yield from tts_processor.finalize(commit=False)
+            self._element_index_cursor = max(
+                int(getattr(self, "_element_index_cursor", 0) or 0),
+                int(getattr(tts_processor, "next_element_index", 0) or 0),
+            )
+        except Exception as exc:
+            self.app.logger.warning("%s: %s", log_prefix, exc, exc_info=True)
+
+    def _teardown_stream_tts_state(
+        self,
+        *,
+        tts_processor=None,
+        flush_content_cache: Callable[[], Iterable[RunMarkdownFlowDTO]] | None = None,
+        log_prefix: str,
+        skip_emit: bool = False,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        if skip_emit:
+            return
+        if flush_content_cache is not None:
+            try:
+                yield from flush_content_cache()
+            except Exception as exc:
+                self.app.logger.warning(
+                    "Flush streaming content cache failed: %s",
+                    exc,
+                    exc_info=True,
+                )
+        if tts_processor:
+            yield from self._finalize_stream_tts_processor(
+                tts_processor,
+                log_prefix=log_prefix,
+            )
+
     def _iter_stream_result_with_idle_callback(
         self,
         stream_result: Generator[Any, None, None],
@@ -1974,28 +2016,39 @@ class RunScriptContextV2:
 
             if self._should_stream_tts():
                 tts_processor = None
-                for event in res:
-                    if event.type == GeneratedType.CONTENT and isinstance(
-                        event.content, str
-                    ):
-                        if tts_processor is None:
-                            tts_processor = self._try_create_tts_processor(
-                                event.generated_block_bid,
-                            )
-                        yield event
-                        if tts_processor:
-                            yield from tts_processor.process_chunk(event.content)
-                    elif event.type == GeneratedType.BREAK:
-                        if tts_processor:
-                            try:
-                                yield from tts_processor.finalize(commit=False)
-                            except Exception as exc:
-                                app.logger.warning(
-                                    "Ask TTS finalize failed: %s", exc, exc_info=True
+                ask_stream_exc: BaseException | None = None
+                try:
+                    for event in res:
+                        if event.type == GeneratedType.CONTENT and isinstance(
+                            event.content, str
+                        ):
+                            if tts_processor is None:
+                                tts_processor = self._try_create_tts_processor(
+                                    event.generated_block_bid,
                                 )
-                        yield event
-                    else:
-                        yield event
+                            yield event
+                            if tts_processor:
+                                yield from tts_processor.process_chunk(event.content)
+                        elif event.type == GeneratedType.BREAK:
+                            if tts_processor:
+                                yield from self._finalize_stream_tts_processor(
+                                    tts_processor,
+                                    log_prefix="Ask TTS finalize failed",
+                                )
+                                tts_processor = None
+                            yield event
+                        else:
+                            yield event
+                except BaseException as exc:
+                    ask_stream_exc = exc
+                    raise
+                finally:
+                    if tts_processor:
+                        yield from self._teardown_stream_tts_state(
+                            tts_processor=tts_processor,
+                            log_prefix="Ask TTS finalize failed",
+                            skip_emit=isinstance(ask_stream_exc, GeneratorExit),
+                        )
             else:
                 yield from res
 
@@ -2856,67 +2909,72 @@ class RunScriptContextV2:
                         )
                         tts_processor = None
 
-                stream_result = mdflow_context.process(
-                    block_index=run_script_info.block_position,
-                    mode=ProcessMode.STREAM,
-                    variables=user_profile,
-                    context=message_list,
-                )
-
-                # Handle both Generator and single LLMResult (markdown-flow 0.2.27+)
-                # In some edge cases (e.g., no LLM provider), returns a single LLMResult instead of Generator
-                if inspect.isgenerator(stream_result):
-                    idle_poll_interval = float(
-                        app.config.get("STREAM_TTS_IDLE_DRAIN_INTERVAL", 0.05)
+                stream_exc: BaseException | None = None
+                try:
+                    stream_result = mdflow_context.process(
+                        block_index=run_script_info.block_position,
+                        mode=ProcessMode.STREAM,
+                        variables=user_profile,
+                        context=message_list,
                     )
-                    for source, payload in self._iter_stream_result_with_idle_callback(
-                        stream_result,
-                        idle_callback=_drain_tts_ready_events
-                        if tts_processor
-                        else None,
-                        idle_poll_interval=idle_poll_interval,
-                    ):
-                        if source == "idle":
-                            yield payload
-                            continue
-                        llm_result = payload
+
+                    # Handle both Generator and single LLMResult (markdown-flow 0.2.27+)
+                    # In some edge cases (e.g., no LLM provider), returns a single LLMResult instead of Generator
+                    if inspect.isgenerator(stream_result):
+                        idle_poll_interval = float(
+                            app.config.get("STREAM_TTS_IDLE_DRAIN_INTERVAL", 0.05)
+                        )
+                        for (
+                            source,
+                            payload,
+                        ) in self._iter_stream_result_with_idle_callback(
+                            stream_result,
+                            idle_callback=_drain_tts_ready_events
+                            if tts_processor
+                            else None,
+                            idle_poll_interval=idle_poll_interval,
+                        ):
+                            if source == "idle":
+                                yield payload
+                                continue
+                            llm_result = payload
+                            for (
+                                chunk_content,
+                                stream_element_type,
+                                stream_element_number,
+                            ) in _iter_llm_result_parts(llm_result):
+                                yield from _process_stream_chunk(
+                                    chunk_content,
+                                    stream_element_type=stream_element_type,
+                                    stream_element_number=stream_element_number,
+                                )
+                    else:
+                        # It's a single LLMResult object (edge case)
                         for (
                             chunk_content,
                             stream_element_type,
                             stream_element_number,
-                        ) in _iter_llm_result_parts(llm_result):
+                        ) in _iter_llm_result_parts(stream_result):
                             yield from _process_stream_chunk(
                                 chunk_content,
                                 stream_element_type=stream_element_type,
                                 stream_element_number=stream_element_number,
                             )
-                else:
-                    # It's a single LLMResult object (edge case)
-                    for (
-                        chunk_content,
-                        stream_element_type,
-                        stream_element_number,
-                    ) in _iter_llm_result_parts(stream_result):
-                        yield from _process_stream_chunk(
-                            chunk_content,
-                            stream_element_type=stream_element_type,
-                            stream_element_number=stream_element_number,
-                        )
-
-                if content_cache_parts:
-                    yield from _flush_content_cache()
-
-                if tts_processor:
-                    try:
-                        yield from tts_processor.finalize(commit=False)
-                        self._element_index_cursor = max(
-                            self._element_index_cursor,
-                            int(getattr(tts_processor, "next_element_index", 0) or 0),
-                        )
-                    except Exception as exc:
-                        app.logger.warning(
-                            "Finalize streaming TTS failed: %s", exc, exc_info=True
-                        )
+                except BaseException as exc:
+                    stream_exc = exc
+                    raise
+                finally:
+                    pending_flush = (
+                        _flush_content_cache if content_cache_parts else None
+                    )
+                    yield from self._teardown_stream_tts_state(
+                        tts_processor=tts_processor,
+                        flush_content_cache=pending_flush,
+                        log_prefix="Finalize streaming TTS failed",
+                        skip_emit=isinstance(stream_exc, GeneratorExit),
+                    )
+                    content_cache_parts = []
+                    tts_processor = None
 
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,

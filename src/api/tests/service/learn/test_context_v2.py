@@ -398,6 +398,83 @@ class StreamTtsGateTests(unittest.TestCase):
         assert idle_ticks
 
 
+class StreamTtsTeardownTests(unittest.TestCase):
+    def test_teardown_flushes_content_then_finalizes_tts(self):
+        app = Flask("stream-tts-teardown")
+        ctx = _make_context()
+        ctx.app = app
+        ctx._element_index_cursor = 2
+
+        class _FakeProcessor:
+            next_element_index = 5
+
+            def __init__(self):
+                self.finalize_calls = []
+
+            def finalize(self, *, commit=True):
+                self.finalize_calls.append(commit)
+                yield "audio-complete"
+
+        flush_calls: list[str] = []
+        processor = _FakeProcessor()
+
+        def _flush_content_cache():
+            flush_calls.append("flush")
+            yield "content-flush"
+
+        with app.app_context():
+            events = list(
+                ctx._teardown_stream_tts_state(
+                    tts_processor=processor,
+                    flush_content_cache=_flush_content_cache,
+                    log_prefix="test finalize",
+                )
+            )
+
+        self.assertEqual(events, ["content-flush", "audio-complete"])
+        self.assertEqual(flush_calls, ["flush"])
+        self.assertEqual(processor.finalize_calls, [False])
+        self.assertEqual(ctx._element_index_cursor, 5)
+
+    def test_teardown_skips_emit_on_generator_exit(self):
+        app = Flask("stream-tts-teardown-generator-exit")
+        ctx = _make_context()
+        ctx.app = app
+        ctx._element_index_cursor = 1
+
+        class _FakeProcessor:
+            next_element_index = 9
+
+            def __init__(self):
+                self.finalize_calls = 0
+
+            def finalize(self, *, commit=True):
+                self.finalize_calls += 1
+                yield "audio-complete"
+
+        flush_calls: list[str] = []
+        processor = _FakeProcessor()
+
+        def _flush_content_cache():
+            flush_calls.append("flush")
+            yield "content-flush"
+
+        with app.app_context():
+            events = list(
+                ctx._teardown_stream_tts_state(
+                    tts_processor=processor,
+                    flush_content_cache=_flush_content_cache,
+                    log_prefix="test finalize",
+                    skip_emit=True,
+                )
+            )
+
+        self.assertEqual(events, [])
+        self.assertEqual(flush_calls, [])
+        self.assertEqual(processor.finalize_calls, 0)
+        self.assertEqual(ctx._element_index_cursor, 1)
+
+
 class MdflowContextCompatibilityTests(unittest.TestCase):
     def test_init_ignores_visual_mode_when_api_missing(self):
         class FakeMarkdownFlow:
