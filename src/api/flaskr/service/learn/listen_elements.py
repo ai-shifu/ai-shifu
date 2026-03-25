@@ -1580,6 +1580,7 @@ class ListenElementRunAdapter:
         | AudioSegmentDTO
         | AudioCompleteDTO,
         generated_block_bid: str = "",
+        is_terminal: bool | None = None,
     ) -> RunElementSSEMessageDTO:
         seq = self._next_seq()
         serialized_text = (
@@ -1605,6 +1606,7 @@ class ListenElementRunAdapter:
             generated_block_bid=generated_block_bid or None,
             run_session_bid=self.run_session_bid,
             run_event_seq=seq,
+            is_terminal=is_terminal,
             content=content,
         )
 
@@ -1619,6 +1621,7 @@ class ListenElementRunAdapter:
         | AudioSegmentDTO
         | AudioCompleteDTO,
         generated_block_bid: str = "",
+        is_terminal: bool | None = None,
     ) -> RunElementSSEMessageDTO:
         seq = self._next_seq()
         serialized_text = (
@@ -1644,6 +1647,7 @@ class ListenElementRunAdapter:
             generated_block_bid=generated_block_bid or None,
             run_session_bid=self.run_session_bid,
             run_event_seq=seq,
+            is_terminal=is_terminal,
             content=content,
         )
 
@@ -1653,6 +1657,7 @@ class ListenElementRunAdapter:
         event_type: str,
         content: str = "",
         generated_block_bid: str = "",
+        is_terminal: bool | None = None,
     ) -> RunElementSSEMessageDTO:
         seq = self._next_seq()
         emitted_event_type = (
@@ -1660,12 +1665,15 @@ class ListenElementRunAdapter:
             if event_type == GeneratedType.BREAK.value
             else event_type
         )
+        if is_terminal is None and emitted_event_type == GeneratedType.DONE.value:
+            is_terminal = event_type == GeneratedType.DONE.value
         return RunElementSSEMessageDTO(
             type=emitted_event_type,
             event_type=emitted_event_type,
             generated_block_bid=generated_block_bid or None,
             run_session_bid=self.run_session_bid,
             run_event_seq=seq,
+            is_terminal=is_terminal,
             content=content,
         )
 
@@ -2558,6 +2566,7 @@ class ListenElementRunAdapter:
                     emitted_event_type=GeneratedType.DONE.value,
                     content="",
                     generated_block_bid=generated_block_bid,
+                    is_terminal=False,
                 )
                 continue
             if event.type == GeneratedType.DONE:
@@ -2570,6 +2579,7 @@ class ListenElementRunAdapter:
                     event_type=GeneratedType.DONE.value,
                     content="",
                     generated_block_bid=event.generated_block_bid or "",
+                    is_terminal=True,
                 )
                 continue
             if event.type == GeneratedType.VARIABLE_UPDATE:

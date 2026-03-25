@@ -185,11 +185,13 @@ def _make_terminal_event(
     event_type: str,
     content: str,
     element_adapter: ListenElementRunAdapter | None,
+    is_terminal: bool | None = None,
 ) -> RunMarkdownFlowDTO | RunElementSSEMessageDTO:
     if element_adapter is not None:
         return element_adapter.make_ephemeral_message(
             event_type=event_type,
             content=content,
+            is_terminal=is_terminal,
         )
 
     legacy_type = (
@@ -318,6 +320,7 @@ def run_script(
         client_disconnected = False
         done_received = False
         last_stream_type: str | None = None
+        last_stream_done_is_terminal: bool | None = None
         try:
             while True:
                 kind: str
@@ -376,6 +379,12 @@ def run_script(
                         )
                         if isinstance(payload_type, str):
                             last_stream_type = payload_type
+                            if payload_type == GeneratedType.DONE.value:
+                                last_stream_done_is_terminal = bool(
+                                    getattr(payload, "is_terminal", False)
+                                )
+                            else:
+                                last_stream_done_is_terminal = None
                     except GeneratorExit:
                         client_disconnected = True
                         stop_event.set()
@@ -445,22 +454,30 @@ def run_script(
                         event_type=GeneratedType.BREAK.value,
                         content="",
                         element_adapter=element_adapter,
+                        is_terminal=False if listen else None,
                     )
                 )
                 last_stream_type = (
                     GeneratedType.DONE.value if listen else GeneratedType.BREAK.value
                 )
+                last_stream_done_is_terminal = False if listen else None
 
-        if not (listen and last_stream_type == GeneratedType.DONE.value):
+        if not (
+            listen
+            and last_stream_type == GeneratedType.DONE.value
+            and last_stream_done_is_terminal is True
+        ):
             yield _to_sse_chunk(
                 _make_terminal_event(
                     outline_bid=outline_bid,
                     event_type=GeneratedType.DONE.value,
                     content="",
                     element_adapter=element_adapter,
+                    is_terminal=True if listen else None,
                 )
             )
             last_stream_type = GeneratedType.DONE.value
+            last_stream_done_is_terminal = True if listen else None
     else:
         app.logger.warning(
             "run_script lock acquisition failed: user_bid=%s outline_bid=%s",
@@ -468,29 +485,29 @@ def run_script(
             outline_bid,
         )
         busy_content = str(_("server.learn.outputInProgress"))
-        last_terminal_event_type: str | None = None
-        for event_type, content in [
-            ("error", busy_content),
-            (GeneratedType.BREAK.value, ""),
-            (GeneratedType.DONE.value, ""),
-        ]:
-            emitted_event_type = (
-                GeneratedType.DONE.value
-                if listen and event_type == GeneratedType.BREAK.value
-                else event_type
-            )
-            if listen and emitted_event_type == GeneratedType.DONE.value:
-                if last_terminal_event_type == GeneratedType.DONE.value:
-                    continue
+        terminal_events = (
+            [("error", busy_content), (GeneratedType.DONE.value, "")]
+            if listen
+            else [
+                ("error", busy_content),
+                (GeneratedType.BREAK.value, ""),
+                (GeneratedType.DONE.value, ""),
+            ]
+        )
+        for event_type, content in terminal_events:
             yield _to_sse_chunk(
                 _make_terminal_event(
                     outline_bid=outline_bid,
                     event_type=event_type,
                     content=content,
                     element_adapter=element_adapter,
+                    is_terminal=(
+                        True
+                        if listen and event_type == GeneratedType.DONE.value
+                        else None
+                    ),
                 )
             )
-            last_terminal_event_type = emitted_event_type
 
 
 def get_run_status(

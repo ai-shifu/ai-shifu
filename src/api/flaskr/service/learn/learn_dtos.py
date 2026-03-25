@@ -647,6 +647,10 @@ class RunElementSSEMessageDTO(BaseModel):
         default=None, description="Run session business identifier"
     )
     run_event_seq: int | None = Field(default=None, description="Run event sequence")
+    is_terminal: bool | None = Field(
+        default=None,
+        description="Whether this event marks the terminal end of the run stream",
+    )
     content: Union[
         str,
         ElementDTO,
@@ -670,6 +674,8 @@ class RunElementSSEMessageDTO(BaseModel):
             ret["run_session_bid"] = self.run_session_bid
         if self.run_event_seq is not None:
             ret["run_event_seq"] = int(self.run_event_seq)
+        if self.is_terminal is not None:
+            ret["is_terminal"] = bool(self.is_terminal)
         return ret
 
 
