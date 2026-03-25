@@ -1814,12 +1814,12 @@ class TestElementChangeTypeSemantics:
             ]
 
             assert len(diff_events) == 2
-            assert [item.is_new for item in diff_events] == [True, False]
+            assert [item.is_new for item in diff_events] == [False, False]
             assert [item.change_type for item in diff_events] == [
                 ElementChangeType.DIFF,
                 ElementChangeType.DIFF,
             ]
-            assert diff_events[0].target_element_bid in ("", None)
+            assert diff_events[0].target_element_bid == diff_events[0].element_bid
             assert diff_events[1].target_element_bid == diff_events[0].element_bid
 
     def test_html_after_text_creates_new_element(self, adapter_app):
@@ -2002,6 +2002,127 @@ class TestElementChangeTypeSemantics:
             assert html_events[2].target_element_bid == html_events[0].element_bid
             assert html_events[3].target_element_bid == html_events[0].element_bid
             assert len({item.element_bid for item in html_events}) == 1
+
+    def test_mdflow_stream_elements_are_not_rebuilt_from_av_contract(self, adapter_app):
+        from flaskr.service.learn.learn_dtos import (
+            AudioCompleteDTO,
+            ElementType,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+        from flaskr.service.tts.pipeline import build_av_segmentation_contract
+
+        raw_content = (
+            "Before image.\n\n![img](https://example.com/visual.png)\n\nAfter image."
+        )
+        av_contract = build_av_segmentation_contract(raw_content, "gb-mdflow-av")
+
+        with adapter_app.app_context():
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            events = [
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-mdflow-av",
+                    type=GeneratedType.CONTENT,
+                    content="Before image.\n\n",
+                ).set_mdflow_stream_parts([("Before image.\n\n", "text", 0)]),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-mdflow-av",
+                    type=GeneratedType.CONTENT,
+                    content="![img](https://example.com/visual.png)\n\n",
+                ).set_mdflow_stream_parts(
+                    [("![img](https://example.com/visual.png)\n\n", "img", 1)]
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-mdflow-av",
+                    type=GeneratedType.CONTENT,
+                    content="After image.",
+                ).set_mdflow_stream_parts([("After image.", "text", 2)]),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-mdflow-av",
+                    type=GeneratedType.AUDIO_COMPLETE,
+                    content=AudioCompleteDTO(
+                        audio_url="https://example.com/audio-0.mp3",
+                        audio_bid="audio-0",
+                        duration_ms=320,
+                        position=0,
+                        av_contract=av_contract,
+                    ),
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-mdflow-av",
+                    type=GeneratedType.BREAK,
+                    content="",
+                ),
+            ]
+
+            streamed = list(adapter.process(events))
+            navigable_elements = [
+                message.content
+                for message in streamed
+                if message.type == "element" and message.content.is_navigable == 1
+            ]
+            retire_events = [
+                message.content
+                for message in streamed
+                if message.type == "element" and message.content.is_navigable == 0
+            ]
+            final_navigable_elements = [
+                item for item in navigable_elements if item.is_final is True
+            ]
+            final_snapshots_by_bid = {}
+            for item in final_navigable_elements:
+                final_snapshots_by_bid[item.element_bid] = item
+            final_snapshots = list(final_snapshots_by_bid.values())
+
+            assert retire_events == []
+            assert len(final_snapshots) == 3
+            assert (
+                sum(
+                    1
+                    for item in final_snapshots
+                    if item.element_type == ElementType.TEXT
+                )
+                == 2
+            )
+            assert (
+                sum(
+                    1
+                    for item in final_snapshots
+                    if item.element_type == ElementType.IMG
+                )
+                == 1
+            )
+
+            final_text_events = [
+                item
+                for item in final_snapshots
+                if item.element_type == ElementType.TEXT
+            ]
+            assert sorted(item.content_text for item in final_text_events) == [
+                "After image.",
+                "Before image.\n\n",
+            ]
+            before_text = next(
+                item
+                for item in final_text_events
+                if item.content_text == "Before image.\n\n"
+            )
+            after_text = next(
+                item
+                for item in final_text_events
+                if item.content_text == "After image."
+            )
+            assert before_text.audio_url == "https://example.com/audio-0.mp3"
+            assert after_text.audio_url == ""
 
     def test_pending_audio_skips_image_stream_and_binds_to_following_text(
         self, adapter_app

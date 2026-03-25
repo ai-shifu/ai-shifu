@@ -209,6 +209,19 @@ def _stream_element_accepts_audio_target(element_type: ElementType) -> bool:
     return element_type == ElementType.TEXT
 
 
+def _ordered_stream_audio_targets(state: "BlockState") -> list["StreamElementState"]:
+    return [
+        stream_state
+        for stream_state in state.stream_elements.values()
+        if _stream_element_accepts_audio_target(stream_state.element_type)
+        and (stream_state.content_text or "").strip()
+    ]
+
+
+def _mdflow_new_stream_is_new(element_type: ElementType) -> bool:
+    return element_type != ElementType.DIFF
+
+
 def _new_element_bid(app: Flask) -> str:
     return generate_id(app)
 
@@ -1556,7 +1569,11 @@ class ListenElementRunAdapter:
             else element.element_bid
         )
         if not element.is_new:
-            base_element_bid = element.target_element_bid or element.element_bid
+            base_element_bid = (
+                element.target_element_bid
+                if not element.is_new and element.target_element_bid
+                else element.element_bid
+            )
             (
                 LearnGeneratedElement.query.filter(
                     LearnGeneratedElement.run_session_bid == self.run_session_bid,
@@ -2022,11 +2039,11 @@ class ListenElementRunAdapter:
         if existing_target:
             return existing_target
 
-        for stream_state in reversed(list(state.stream_elements.values())):
-            if not _stream_element_accepts_audio_target(stream_state.element_type):
-                continue
-            if not (stream_state.content_text or "").strip():
-                continue
+        ordered_targets = _ordered_stream_audio_targets(state)
+        if 0 <= position < len(ordered_targets):
+            return ordered_targets[position].element_bid
+
+        for stream_state in reversed(ordered_targets):
             return stream_state.element_bid
 
         if state.fallback_element_bid and (state.raw_content or "").strip():
@@ -2089,7 +2106,7 @@ class ListenElementRunAdapter:
                 state.stream_elements[stream_key] = stream_state
                 state.active_stream_element_key_by_number[stream_number] = stream_key
                 active_key = stream_key
-                is_new = True
+                is_new = _mdflow_new_stream_is_new(stream_element_type)
             else:
                 is_new = False
             stream_state.content_text += chunk_content
@@ -2337,125 +2354,119 @@ class ListenElementRunAdapter:
         if state is None:
             return
         meta = self._load_block_meta(generated_block_bid)
-        visual_segments: list[VisualSegment] = []
-        pos_to_seg_id: dict[int, str] = {}
-        if (
-            isinstance(state.latest_av_contract, dict)
-            and (state.raw_content or "").strip()
-        ):
-            visual_segments, pos_to_seg_id = build_visual_segments_for_block(
-                app=self.app,
-                raw_content=state.raw_content or "",
-                generated_block_bid=generated_block_bid,
-                av_contract=state.latest_av_contract,
-                element_index_offset=max(self._max_element_index + 1, 0),
-            )
-            if not visual_segments:
-                visual_boundaries = (
-                    state.latest_av_contract.get("visual_boundaries") or []
-                )
-                next_index = max(self._max_element_index + 1, 0)
-                for boundary in visual_boundaries:
-                    if not isinstance(boundary, dict):
-                        continue
-                    source_span = normalize_source_span(boundary.get("source_span"))
-                    if not source_span:
-                        continue
-                    visual_kind = str(boundary.get("kind", "") or "")
-                    if not visual_kind:
-                        continue
-                    visual_segments.append(
-                        VisualSegment(
-                            segment_id=_new_element_bid(self.app),
-                            generated_block_bid=generated_block_bid,
-                            element_index=next_index,
-                            audio_position=int(boundary.get("position", 0) or 0),
-                            visual_kind=visual_kind,
-                            segment_type="sandbox"
-                            if visual_kind in {"iframe", "sandbox", "html_table"}
-                            else "markdown",
-                            segment_content=slice_source_by_span(
-                                state.raw_content, source_span
-                            ),
-                            source_span=source_span,
-                            is_placeholder=False,
-                        )
-                    )
-                    next_index += 1
-
-        if visual_segments:
-            had_stream_elements = bool(state.stream_elements)
-            if state.stream_elements:
-                yield from self._retire_stream_elements(
-                    state,
-                    emit_notification=False,
-                )
-            yield from self._retire_fallback_element(
-                state,
-                emit_notification=not had_stream_elements,
-            )
-            final_elements = _build_final_elements_for_av_contract(
-                app=self.app,
-                generated_block_bid=generated_block_bid,
-                role=meta.role,
-                raw_content=state.raw_content,
-                av_contract=state.latest_av_contract,
-                visual_segments=visual_segments,
-                audio_by_position=state.audio_by_position,
-                audio_segments_by_position=state.audio_segments_by_position,
-                position_to_segment_id=pos_to_seg_id,
-                element_index_offset=max(self._max_element_index + 1, 0),
-            )
-            for element in final_elements:
-                self._max_element_index = max(
-                    self._max_element_index, element.element_index
-                )
-                if had_stream_elements:
-                    self._persist_element(element)
-                else:
-                    yield self._element_message(element)
-        elif state.stream_elements:
+        if state.stream_elements:
             yield from self._retire_fallback_element(state, emit_notification=False)
             yield from self._finalize_stream_elements(state, emit=True)
-        elif state.fallback_element_bid:
-            default_audio_position = _pick_default_audio_position(
-                state.audio_by_position,
-                state.audio_segments_by_position,
-            )
-            default_audio = (
-                state.audio_by_position.get(default_audio_position)
-                if default_audio_position is not None
-                else None
-            )
-            element = ElementDTO(
-                event_type="element",
-                element_bid=state.fallback_element_bid,
-                generated_block_bid=generated_block_bid,
-                element_index=max(self._max_element_index, 0),
-                role=meta.role,
-                element_type=ElementType.TEXT,
-                element_type_code=_element_type_code(ElementType.TEXT),
-                change_type=_change_type_for_element(ElementType.TEXT),
-                target_element_bid=state.fallback_element_bid,
-                is_new=False,
-                is_renderable=False,
-                is_marker=False,
-                is_navigable=1,
-                is_final=True,
-                is_speakable=_default_is_speakable(
-                    ElementType.TEXT,
-                    state.raw_content,
-                ),
-                audio_url=default_audio.audio_url if default_audio is not None else "",
-                audio_segments=(
-                    state.audio_segments_by_position.get(default_audio_position, [])
+        else:
+            visual_segments: list[VisualSegment] = []
+            pos_to_seg_id: dict[int, str] = {}
+            if (
+                isinstance(state.latest_av_contract, dict)
+                and (state.raw_content or "").strip()
+            ):
+                visual_segments, pos_to_seg_id = build_visual_segments_for_block(
+                    app=self.app,
+                    raw_content=state.raw_content or "",
+                    generated_block_bid=generated_block_bid,
+                    av_contract=state.latest_av_contract,
+                    element_index_offset=max(self._max_element_index + 1, 0),
+                )
+                if not visual_segments:
+                    visual_boundaries = (
+                        state.latest_av_contract.get("visual_boundaries") or []
+                    )
+                    next_index = max(self._max_element_index + 1, 0)
+                    for boundary in visual_boundaries:
+                        if not isinstance(boundary, dict):
+                            continue
+                        source_span = normalize_source_span(boundary.get("source_span"))
+                        if not source_span:
+                            continue
+                        visual_kind = str(boundary.get("kind", "") or "")
+                        if not visual_kind:
+                            continue
+                        visual_segments.append(
+                            VisualSegment(
+                                segment_id=_new_element_bid(self.app),
+                                generated_block_bid=generated_block_bid,
+                                element_index=next_index,
+                                audio_position=int(boundary.get("position", 0) or 0),
+                                visual_kind=visual_kind,
+                                segment_type="sandbox"
+                                if visual_kind in {"iframe", "sandbox", "html_table"}
+                                else "markdown",
+                                segment_content=slice_source_by_span(
+                                    state.raw_content, source_span
+                                ),
+                                source_span=source_span,
+                                is_placeholder=False,
+                            )
+                        )
+                        next_index += 1
+
+            if visual_segments:
+                yield from self._retire_fallback_element(
+                    state,
+                    emit_notification=True,
+                )
+                final_elements = _build_final_elements_for_av_contract(
+                    app=self.app,
+                    generated_block_bid=generated_block_bid,
+                    role=meta.role,
+                    raw_content=state.raw_content,
+                    av_contract=state.latest_av_contract,
+                    visual_segments=visual_segments,
+                    audio_by_position=state.audio_by_position,
+                    audio_segments_by_position=state.audio_segments_by_position,
+                    position_to_segment_id=pos_to_seg_id,
+                    element_index_offset=max(self._max_element_index + 1, 0),
+                )
+                for element in final_elements:
+                    self._max_element_index = max(
+                        self._max_element_index, element.element_index
+                    )
+                    yield self._element_message(element)
+            elif state.fallback_element_bid:
+                default_audio_position = _pick_default_audio_position(
+                    state.audio_by_position,
+                    state.audio_segments_by_position,
+                )
+                default_audio = (
+                    state.audio_by_position.get(default_audio_position)
                     if default_audio_position is not None
-                    else []
-                ),
-                content_text=state.raw_content,
-                payload=ElementPayloadDTO(audio=default_audio, previous_visuals=[]),
-            )
-            self._persist_element(element)
+                    else None
+                )
+                element = ElementDTO(
+                    event_type="element",
+                    element_bid=state.fallback_element_bid,
+                    generated_block_bid=generated_block_bid,
+                    element_index=max(self._max_element_index, 0),
+                    role=meta.role,
+                    element_type=ElementType.TEXT,
+                    element_type_code=_element_type_code(ElementType.TEXT),
+                    change_type=_change_type_for_element(ElementType.TEXT),
+                    target_element_bid=state.fallback_element_bid,
+                    is_new=False,
+                    is_renderable=False,
+                    is_marker=False,
+                    is_navigable=1,
+                    is_final=True,
+                    is_speakable=_default_is_speakable(
+                        ElementType.TEXT,
+                        state.raw_content,
+                    ),
+                    audio_url=default_audio.audio_url
+                    if default_audio is not None
+                    else "",
+                    audio_segments=(
+                        state.audio_segments_by_position.get(default_audio_position, [])
+                        if default_audio_position is not None
+                        else []
+                    ),
+                    content_text=state.raw_content,
+                    payload=ElementPayloadDTO(audio=default_audio, previous_visuals=[]),
+                )
+                self._persist_element(element)
         self._block_states.pop(generated_block_bid, None)
 
     def _handle_interaction(
