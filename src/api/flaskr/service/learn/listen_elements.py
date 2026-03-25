@@ -1795,6 +1795,8 @@ class ListenElementRunAdapter:
         self,
         element_bid: str,
         audio_segments: list[dict[str, Any]] | None = None,
+        *,
+        is_final: bool | None = None,
     ) -> ElementDTO | None:
         snapshot = self._load_latest_element_snapshot(element_bid)
         if snapshot is None:
@@ -1820,7 +1822,7 @@ class ListenElementRunAdapter:
             audio_url=snapshot.audio_url,
             audio_segments=list(audio_segments or snapshot.audio_segments or []),
             is_navigable=snapshot.is_navigable,
-            is_final=snapshot.is_final,
+            is_final=snapshot.is_final if is_final is None else bool(is_final),
             content_text=snapshot.content_text,
             payload=snapshot.payload,
         )
@@ -2208,7 +2210,7 @@ class ListenElementRunAdapter:
         if ask_element_bid:
             answer_element = self._build_answer_element_from_state(
                 generated_block_bid,
-                is_final=False,
+                is_final=True,
                 audio=state.audio_by_position.get(position),
                 audio_segments=finalized_audio_segments,
             )
@@ -2226,6 +2228,7 @@ class ListenElementRunAdapter:
             patch_element = self._build_audio_patch_element(
                 target_element_bid,
                 audio_segments=finalized_audio_segments,
+                is_final=True,
             )
             if patch_element is not None:
                 patch_element.audio_url = content.audio_url

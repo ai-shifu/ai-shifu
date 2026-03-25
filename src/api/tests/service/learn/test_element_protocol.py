@@ -1607,6 +1607,110 @@ class TestHandleAskAdapter:
             assert payload["ask_element_bid"] == ask_message.element_bid
             assert "asks" not in payload
 
+    def test_answer_audio_complete_patch_marks_element_final(self, adapter_app):
+        from flaskr.service.learn.listen_elements import (
+            ListenElementRunAdapter,
+            _serialize_payload,
+        )
+        from flaskr.service.learn.learn_dtos import (
+            AudioCompleteDTO,
+            AudioSegmentDTO,
+            ElementPayloadDTO,
+            ElementType,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.models import LearnGeneratedElement
+        from flaskr.dao import db
+
+        with adapter_app.app_context():
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            anchor = LearnGeneratedElement(
+                element_bid="anchor_elem_audio",
+                progress_record_bid="pr1",
+                user_bid="u1",
+                generated_block_bid="gb1",
+                outline_item_bid="o1",
+                shifu_bid="s1",
+                run_session_bid="rs1",
+                run_event_seq=1,
+                event_type="element",
+                role="teacher",
+                element_index=0,
+                element_type="text",
+                element_type_code=0,
+                change_type="render",
+                is_final=1,
+                content_text="anchor content",
+                payload=_serialize_payload(ElementPayloadDTO()),
+                deleted=0,
+                status=1,
+            )
+            db.session.add(anchor)
+            db.session.flush()
+
+            events = [
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="ask_gb_audio",
+                    type=GeneratedType.ASK,
+                    content="question",
+                    anchor_element_bid="anchor_elem_audio",
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="ask_gb_audio",
+                    type=GeneratedType.CONTENT,
+                    content="answer",
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="ask_gb_audio",
+                    type=GeneratedType.AUDIO_SEGMENT,
+                    content=AudioSegmentDTO(
+                        position=0,
+                        segment_index=0,
+                        audio_data="segment-0",
+                        duration_ms=120,
+                        is_final=False,
+                    ),
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="ask_gb_audio",
+                    type=GeneratedType.AUDIO_COMPLETE,
+                    content=AudioCompleteDTO(
+                        audio_url="https://example.com/answer-audio.mp3",
+                        audio_bid="answer-audio",
+                        duration_ms=120,
+                        position=0,
+                    ),
+                ),
+            ]
+
+            streamed = list(adapter.process(events))
+            audio_complete_answer = next(
+                message.content
+                for message in streamed
+                if message.type == "element"
+                and message.content.element_type == ElementType.ANSWER
+                and message.content.audio_url == "https://example.com/answer-audio.mp3"
+            )
+
+            assert audio_complete_answer.is_final is True
+            assert audio_complete_answer.audio_segments == [
+                {
+                    "position": 0,
+                    "segment_index": 0,
+                    "audio_data": "segment-0",
+                    "duration_ms": 120,
+                    "is_final": True,
+                }
+            ]
+
 
 class TestRunMarkdownFlowDTOAnchorBid:
     def test_default_anchor_element_bid_empty(self):
