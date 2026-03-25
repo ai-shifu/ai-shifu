@@ -2824,7 +2824,7 @@ class RunScriptContextV2:
                         }
                     )
 
-                def _iter_llm_result_parts(result):
+                def _iter_mdflow_fallback_parts(result):
                     formatted_elements = getattr(result, "formatted_elements", None)
                     if isinstance(formatted_elements, list) and formatted_elements:
                         for item in formatted_elements:
@@ -3008,23 +3008,33 @@ class RunScriptContextV2:
                                 yield payload
                                 continue
                             llm_result = payload
-                            for (
+                            chunk_content = str(
+                                getattr(llm_result, "content", "") or ""
+                            )
+                            if not chunk_content:
+                                continue
+                            stream_element_type = str(
+                                getattr(llm_result, "type", "") or ""
+                            )
+                            stream_element_number = getattr(llm_result, "number", None)
+                            if not stream_element_type or stream_element_number is None:
+                                continue
+                            try:
+                                normalized_number = int(stream_element_number)
+                            except (TypeError, ValueError):
+                                continue
+                            yield from _process_stream_chunk(
                                 chunk_content,
-                                stream_element_type,
-                                stream_element_number,
-                            ) in _iter_llm_result_parts(llm_result):
-                                yield from _process_stream_chunk(
-                                    chunk_content,
-                                    stream_element_type=stream_element_type,
-                                    stream_element_number=stream_element_number,
-                                )
+                                stream_element_type=stream_element_type,
+                                stream_element_number=normalized_number,
+                            )
                     else:
                         # It's a single LLMResult object (edge case)
                         for (
                             chunk_content,
                             stream_element_type,
                             stream_element_number,
-                        ) in _iter_llm_result_parts(stream_result):
+                        ) in _iter_mdflow_fallback_parts(stream_result):
                             yield from _process_stream_chunk(
                                 chunk_content,
                                 stream_element_type=stream_element_type,

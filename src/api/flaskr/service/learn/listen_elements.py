@@ -217,14 +217,6 @@ def _new_element_bid(app: Flask) -> str:
     return generate_id(app)
 
 
-def _element_type_from_mdflow_stream(stream_element_type: str) -> ElementType:
-    normalized = (stream_element_type or "").strip().lower()
-    try:
-        return ElementType(normalized)
-    except ValueError:
-        return ElementType.TEXT
-
-
 def _visual_type_for_element(element_type: ElementType) -> str:
     if element_type == ElementType.TABLES:
         return "md_table"
@@ -2035,10 +2027,14 @@ class ListenElementRunAdapter:
                 and not slot_was_interrupted
                 and stream_state.stream_type == normalized_stream_type
             )
+            try:
+                incoming_element_type = ElementType(normalized_stream_type)
+            except ValueError:
+                incoming_element_type = ElementType.TEXT
             stream_element_type = (
                 stream_state.element_type
                 if same_mdflow_stream
-                else _element_type_from_mdflow_stream(stream_type)
+                else incoming_element_type
             )
             if stream_state is None or slot_was_interrupted or not same_mdflow_stream:
                 if slot_was_interrupted:

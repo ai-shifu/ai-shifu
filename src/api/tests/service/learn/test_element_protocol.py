@@ -94,19 +94,6 @@ class TestElementType:
         assert LEGACY_ELEMENT_TYPE_MAP[ElementType._PICTURE] == ElementType.IMG
         assert LEGACY_ELEMENT_TYPE_MAP[ElementType._VIDEO] == ElementType.HTML
 
-    def test_mdflow_stream_mapping_uses_mdflow_types_directly(self):
-        from flaskr.service.learn.learn_dtos import ElementType
-        from flaskr.service.learn.listen_elements import (
-            _element_type_from_mdflow_stream,
-        )
-
-        assert _element_type_from_mdflow_stream("text") == ElementType.TEXT
-        assert _element_type_from_mdflow_stream("code") == ElementType.CODE
-        assert _element_type_from_mdflow_stream("img") == ElementType.IMG
-        assert _element_type_from_mdflow_stream("html") == ElementType.HTML
-        assert _element_type_from_mdflow_stream("tables") == ElementType.TABLES
-        assert _element_type_from_mdflow_stream("unknown") == ElementType.TEXT
-
 
 # ---------------------------------------------------------------------------
 # ElementDTO new fields tests
