@@ -189,7 +189,7 @@ def _default_is_renderable(element_type: ElementType) -> bool:
 
 
 def _default_is_speakable(element_type: ElementType, content_text: str = "") -> bool:
-    return element_type in {ElementType.TEXT, ElementType.ANSWER} and bool(content_text)
+    return element_type == ElementType.TEXT and bool(content_text)
 
 
 def _normalized_is_speakable(
@@ -198,7 +198,7 @@ def _normalized_is_speakable(
     *,
     stored_is_speakable: bool = False,
 ) -> bool:
-    if element_type not in {ElementType.TEXT, ElementType.ANSWER}:
+    if element_type != ElementType.TEXT:
         return False
     return bool(
         stored_is_speakable or _default_is_speakable(element_type, content_text)
@@ -206,11 +206,7 @@ def _normalized_is_speakable(
 
 
 def _stream_element_accepts_audio_target(element_type: ElementType) -> bool:
-    return element_type in {
-        ElementType.TEXT,
-        ElementType.IMG,
-        ElementType.MD_IMG,
-    }
+    return element_type == ElementType.TEXT
 
 
 def _new_element_bid(app: Flask) -> str:
@@ -1337,16 +1333,9 @@ class ListenElementRunAdapter:
             is_new=is_new,
             is_renderable=False,
             is_marker=False,
-            is_speakable=_normalized_is_speakable(
-                ElementType.ANSWER,
-                content_text,
-                stored_is_speakable=bool(audio is not None or audio_segments),
-            ),
-            audio_url=audio.audio_url if audio is not None else "",
-            audio_segments=_prepare_audio_segments_for_element(
-                audio_segments,
-                is_final=is_final,
-            ),
+            is_speakable=False,
+            audio_url="",
+            audio_segments=[],
             is_navigable=0,
             is_final=is_final,
             content_text=content_text,
@@ -1354,7 +1343,7 @@ class ListenElementRunAdapter:
                 anchor_element_bid=anchor_element_bid,
                 ask_element_bid=ask_element_bid,
                 base_payload=base_payload,
-                audio=audio,
+                audio=None,
             ),
         )
 
@@ -1427,12 +1416,7 @@ class ListenElementRunAdapter:
         answer_element_bid = self._resolve_answer_element_bid_for_block(
             generated_block_bid
         )
-        has_answer_signal = bool(
-            (state and state.raw_content)
-            or audio is not None
-            or (audio_segments and len(audio_segments) > 0)
-            or answer_element_bid
-        )
+        has_answer_signal = bool((state and state.raw_content) or answer_element_bid)
         if not has_answer_signal:
             return None
 
@@ -2275,14 +2259,6 @@ class ListenElementRunAdapter:
             bind_current=True,
         )
         if ask_element_bid:
-            answer_element = self._build_answer_element_from_state(
-                generated_block_bid,
-                is_final=True,
-                audio=state.audio_by_position.get(position),
-                audio_segments=finalized_audio_segments,
-            )
-            if answer_element is not None:
-                yield self._element_message(answer_element)
             if not self._state_machine.is_terminated:
                 self._state_machine.feed(TypeInput.AUDIO_COMPLETE)
             return
@@ -2333,14 +2309,6 @@ class ListenElementRunAdapter:
                 bind_current=True,
             )
             if ask_element_bid:
-                answer_element = self._build_answer_element_from_state(
-                    generated_block_bid,
-                    is_final=False,
-                    audio=state.audio_by_position.get(position),
-                    audio_segments=state.audio_segments_by_position.get(position, []),
-                )
-                if answer_element is not None:
-                    yield self._element_message(answer_element)
                 if not self._state_machine.is_terminated:
                     self._state_machine.feed(TypeInput.AUDIO_SEGMENT)
                 return

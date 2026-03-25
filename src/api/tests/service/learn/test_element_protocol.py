@@ -1592,7 +1592,7 @@ class TestHandleAskAdapter:
             assert payload["ask_element_bid"] == ask_message.element_bid
             assert "asks" not in payload
 
-    def test_answer_audio_complete_patch_marks_element_final(self, adapter_app):
+    def test_answer_audio_events_do_not_attach_audio(self, adapter_app):
         from flaskr.service.learn.listen_elements import (
             ListenElementRunAdapter,
             _serialize_payload,
@@ -1674,27 +1674,28 @@ class TestHandleAskAdapter:
                         position=0,
                     ),
                 ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="ask_gb_audio",
+                    type=GeneratedType.BREAK,
+                    content="",
+                ),
             ]
 
             streamed = list(adapter.process(events))
-            audio_complete_answer = next(
+            answer_messages = [
                 message.content
                 for message in streamed
                 if message.type == "element"
                 and message.content.element_type == ElementType.ANSWER
-                and message.content.audio_url == "https://example.com/answer-audio.mp3"
-            )
-
-            assert audio_complete_answer.is_final is True
-            assert audio_complete_answer.audio_segments == [
-                {
-                    "position": 0,
-                    "segment_index": 0,
-                    "audio_data": "segment-0",
-                    "duration_ms": 120,
-                    "is_final": True,
-                }
             ]
+            assert answer_messages
+            final_answer = answer_messages[-1]
+            assert final_answer.is_final is True
+            assert final_answer.audio_url == ""
+            assert final_answer.audio_segments == []
+            assert final_answer.payload is not None
+            assert final_answer.payload.audio is None
 
 
 class TestRunMarkdownFlowDTOAnchorBid:
@@ -2002,7 +2003,9 @@ class TestElementChangeTypeSemantics:
             assert html_events[3].target_element_bid == html_events[0].element_bid
             assert len({item.element_bid for item in html_events}) == 1
 
-    def test_image_stream_uses_img_type_and_attaches_audio(self, adapter_app):
+    def test_pending_audio_skips_image_stream_and_binds_to_following_text(
+        self, adapter_app
+    ):
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             AudioSegmentDTO,
@@ -2029,12 +2032,6 @@ class TestElementChangeTypeSemantics:
                 RunMarkdownFlowDTO(
                     outline_bid="o1",
                     generated_block_bid="gb-img-audio",
-                    type=GeneratedType.CONTENT,
-                    content="caption line\n",
-                ).set_mdflow_stream_parts([("caption line\n", "img", 0)]),
-                RunMarkdownFlowDTO(
-                    outline_bid="o1",
-                    generated_block_bid="gb-img-audio",
                     type=GeneratedType.AUDIO_SEGMENT,
                     content=AudioSegmentDTO(
                         position=0,
@@ -2058,6 +2055,12 @@ class TestElementChangeTypeSemantics:
                 RunMarkdownFlowDTO(
                     outline_bid="o1",
                     generated_block_bid="gb-img-audio",
+                    type=GeneratedType.CONTENT,
+                    content="caption line\n",
+                ).set_mdflow_stream_parts([("caption line\n", "text", 1)]),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-img-audio",
                     type=GeneratedType.BREAK,
                     content="",
                 ),
@@ -2070,36 +2073,25 @@ class TestElementChangeTypeSemantics:
                 if message.type == "element"
                 and message.content.element_type == ElementType.IMG
             ]
+            text_events = [
+                message.content
+                for message in streamed
+                if message.type == "element"
+                and message.content.element_type == ElementType.TEXT
+            ]
 
-            assert [message.type for message in streamed] == [
-                "element",
-                "element",
-                "element",
-                "element",
-                "element",
-                "done",
-            ]
-            assert len(image_events) == 5
-            assert [item.is_new for item in image_events] == [
-                True,
-                False,
-                False,
-                False,
-                False,
-            ]
-            assert image_events[-1].is_final is True
-            assert image_events[2].audio_segments == [
-                {
-                    "position": 0,
-                    "segment_index": 0,
-                    "audio_data": "img-only-segment",
-                    "duration_ms": 210,
-                    "is_final": False,
-                }
-            ]
-            assert image_events[3].audio_url == "https://example.com/img-only.mp3"
-            assert image_events[4].audio_url == "https://example.com/img-only.mp3"
-            assert image_events[4].audio_segments == [
+            assert len(image_events) >= 1
+            assert all(item.audio_url == "" for item in image_events)
+            assert all(item.audio_segments == [] for item in image_events)
+            assert all(item.is_speakable is False for item in image_events)
+
+            assert len(text_events) >= 1
+            assert any(
+                item.audio_url == "https://example.com/img-only.mp3"
+                for item in text_events
+            )
+            assert text_events[0].audio_url == "https://example.com/img-only.mp3"
+            assert text_events[0].audio_segments == [
                 {
                     "position": 0,
                     "segment_index": 0,
@@ -2108,4 +2100,20 @@ class TestElementChangeTypeSemantics:
                     "is_final": True,
                 }
             ]
-            assert all(item.is_speakable is False for item in image_events)
+            final_text_event = next(
+                item
+                for item in text_events
+                if item.audio_url == "https://example.com/img-only.mp3"
+                and item.is_final
+            )
+            assert final_text_event.audio_segments == [
+                {
+                    "position": 0,
+                    "segment_index": 0,
+                    "audio_data": "img-only-segment",
+                    "duration_ms": 210,
+                    "is_final": True,
+                }
+            ]
+            assert final_text_event.is_final is True
+            assert all(item.is_speakable is True for item in text_events)
