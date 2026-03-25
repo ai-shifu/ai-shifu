@@ -1885,3 +1885,78 @@ class TestElementChangeTypeSemantics:
             assert html_events[0].target_element_bid in ("", None)
             assert html_events[1].target_element_bid in ("", None)
             assert html_events[0].element_bid != html_events[1].element_bid
+
+    def test_html_only_stream_does_not_keep_audio_on_finalize(self, adapter_app):
+        from flaskr.service.learn.learn_dtos import (
+            AudioCompleteDTO,
+            AudioSegmentDTO,
+            ElementType,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+
+        with adapter_app.app_context():
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            events = [
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-html-audio",
+                    type=GeneratedType.CONTENT,
+                    content="<div>Narration after click</div>\n",
+                ).set_mdflow_stream_parts(
+                    [("<div>Narration after click</div>\n", "html", 0)]
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-html-audio",
+                    type=GeneratedType.AUDIO_SEGMENT,
+                    content=AudioSegmentDTO(
+                        position=0,
+                        segment_index=0,
+                        audio_data="html-only-segment",
+                        duration_ms=210,
+                        is_final=False,
+                    ),
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-html-audio",
+                    type=GeneratedType.AUDIO_COMPLETE,
+                    content=AudioCompleteDTO(
+                        audio_url="https://example.com/html-only.mp3",
+                        audio_bid="html-only-audio-0",
+                        duration_ms=210,
+                        position=0,
+                    ),
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="gb-html-audio",
+                    type=GeneratedType.BREAK,
+                    content="",
+                ),
+            ]
+
+            streamed = list(adapter.process(events))
+            html_events = [
+                message.content
+                for message in streamed
+                if message.type == "element"
+                and message.content.element_type == ElementType.HTML
+            ]
+            text_events = [
+                message.content
+                for message in streamed
+                if message.type == "element"
+                and message.content.element_type == ElementType.TEXT
+            ]
+
+            assert len(html_events) == 2
+            assert text_events == []
+            assert all(item.audio_segments == [] for item in html_events)
+            assert all(item.audio_url == "" for item in html_events)
+            assert all(item.is_speakable is False for item in html_events)

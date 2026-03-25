@@ -1993,6 +1993,12 @@ class ListenElementRunAdapter:
 
         if len(state.stream_elements) != 1:
             return None, []
+        lone_stream_state = next(iter(state.stream_elements.values()))
+        if (
+            lone_stream_state.element_bid != element_bid
+            or lone_stream_state.element_type != ElementType.TEXT
+        ):
+            return None, []
 
         default_audio_position = _pick_default_audio_position(
             state.audio_by_position,

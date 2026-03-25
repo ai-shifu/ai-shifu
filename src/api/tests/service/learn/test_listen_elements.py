@@ -3386,6 +3386,147 @@ def test_listen_adapter_binds_buffered_audio_to_text_after_html(app):
         )
 
 
+def test_html_only_stream_does_not_absorb_audio_without_av_contract(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.learn_dtos import (
+        AudioCompleteDTO,
+        AudioSegmentDTO,
+        ElementType,
+        GeneratedType,
+        RunMarkdownFlowDTO,
+    )
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.models import (
+        LearnGeneratedBlock,
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-html-only-audio"
+    shifu_bid = "shifu-html-only-audio"
+    outline_bid = "outline-html-only-audio"
+    progress_bid = "progress-html-only-audio"
+    generated_block_bid = "generated-html-only-audio"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        block = LearnGeneratedBlock(
+            generated_block_bid=generated_block_bid,
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            block_bid="block-html-only-audio",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            type=0,
+            role=ROLE_TEACHER,
+            generated_content="",
+            position=0,
+            block_content_conf="",
+            status=1,
+        )
+        db.session.add_all([progress, block])
+        db.session.commit()
+
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+        )
+
+        events = [
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="<div>Narration after click</div>\n",
+            ).set_mdflow_stream_parts(
+                [("<div>Narration after click</div>\n", "html", 0)]
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_SEGMENT,
+                content=AudioSegmentDTO(
+                    position=0,
+                    segment_index=0,
+                    audio_data="html-only-segment",
+                    duration_ms=210,
+                    is_final=False,
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_COMPLETE,
+                content=AudioCompleteDTO(
+                    audio_url="https://example.com/html-only.mp3",
+                    audio_bid="html-only-audio-0",
+                    duration_ms=210,
+                    position=0,
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.BREAK,
+                content="",
+            ),
+        ]
+
+        streamed = list(adapter.process(events))
+        element_events = [item.content for item in streamed if item.type == "element"]
+        html_elements = [
+            item for item in element_events if item.element_type == ElementType.HTML
+        ]
+        text_elements = [
+            item for item in element_events if item.element_type == ElementType.TEXT
+        ]
+
+        assert len(html_elements) == 2
+        assert text_elements == []
+        assert all(item.audio_segments == [] for item in html_elements)
+        assert all(item.audio_url == "" for item in html_elements)
+        assert all(item.is_speakable is False for item in html_elements)
+
+        persisted_rows = (
+            LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.generated_block_bid == generated_block_bid,
+                LearnGeneratedElement.event_type == "element",
+                LearnGeneratedElement.deleted == 0,
+                LearnGeneratedElement.status == 1,
+            )
+            .order_by(LearnGeneratedElement.run_event_seq.asc())
+            .all()
+        )
+        persisted_html_rows = [
+            row for row in persisted_rows if row.element_type == ElementType.HTML.value
+        ]
+
+        assert len(persisted_html_rows) == 2
+        assert all(
+            not row.audio_segments or row.audio_segments == "[]"
+            for row in persisted_html_rows
+        )
+        assert all(row.audio_url == "" for row in persisted_html_rows)
+
+
 def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(app):
     _require_app(app)
 
