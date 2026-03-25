@@ -1120,6 +1120,7 @@ class BlockState:
         default_factory=OrderedDict
     )
     active_stream_element_key_by_number: dict[int, str] = field(default_factory=dict)
+    last_stream_element_key: str | None = None
 
 
 class ListenElementRunAdapter:
@@ -1526,6 +1527,26 @@ class ListenElementRunAdapter:
             if not element.is_new and element.target_element_bid
             else element.element_bid
         )
+        if not element.is_new:
+            base_element_bid = element.target_element_bid or element.element_bid
+            (
+                LearnGeneratedElement.query.filter(
+                    LearnGeneratedElement.run_session_bid == self.run_session_bid,
+                    LearnGeneratedElement.generated_block_bid
+                    == (element.generated_block_bid or ""),
+                    LearnGeneratedElement.event_type == "element",
+                    LearnGeneratedElement.deleted == 0,
+                    LearnGeneratedElement.status == 1,
+                    (LearnGeneratedElement.element_bid == base_element_bid)
+                    | (LearnGeneratedElement.target_element_bid == base_element_bid),
+                ).update(
+                    {
+                        "status": 0,
+                    },
+                    synchronize_session=False,
+                )
+            )
+            db.session.flush()
         self._insert_row(
             generated_block_bid=element.generated_block_bid,
             element_index=element.element_index,
@@ -1898,6 +1919,39 @@ class ListenElementRunAdapter:
             state.audio_segments_by_position.get(default_audio_position, []),
         )
 
+    def _resolve_stream_audio_for_element_bid(
+        self,
+        state: BlockState,
+        element_bid: str,
+    ) -> tuple[ElementAudioDTO | None, list[dict[str, Any]]]:
+        matched_positions = [
+            position
+            for position, target_element_bid in (
+                state.audio_target_element_bid_by_position.items()
+            )
+            if target_element_bid == element_bid
+        ]
+        if matched_positions:
+            position = matched_positions[-1]
+            return (
+                state.audio_by_position.get(position),
+                state.audio_segments_by_position.get(position, []),
+            )
+
+        if len(state.stream_elements) != 1:
+            return None, []
+
+        default_audio_position = _pick_default_audio_position(
+            state.audio_by_position,
+            state.audio_segments_by_position,
+        )
+        if default_audio_position is None:
+            return None, []
+        return (
+            state.audio_by_position.get(default_audio_position),
+            state.audio_segments_by_position.get(default_audio_position, []),
+        )
+
     def _resolve_audio_target_element_bid(
         self,
         state: BlockState,
@@ -1939,7 +1993,20 @@ class ListenElementRunAdapter:
                 if active_key is not None
                 else None
             )
-            if stream_state is None or stream_state.element_type != stream_element_type:
+            slot_was_interrupted = (
+                stream_state is not None
+                and stream_state.element_type == stream_element_type
+                and active_key not in (None, state.last_stream_element_key)
+                and not _can_reuse_stream_visual_slot(stream_element_type)
+            )
+            if (
+                stream_state is None
+                or stream_state.element_type != stream_element_type
+                or slot_was_interrupted
+            ):
+                if slot_was_interrupted:
+                    stream_state = None
+                    active_key = None
                 reusable_key = None
                 if _can_reuse_stream_visual_slot(stream_element_type):
                     for existing_key, existing_state in reversed(
@@ -1974,6 +2041,7 @@ class ListenElementRunAdapter:
                     state.active_stream_element_key_by_number[stream_number] = (
                         stream_key
                     )
+                    active_key = stream_key
                     is_new = True
             else:
                 is_new = False
@@ -1987,6 +2055,7 @@ class ListenElementRunAdapter:
                         stream_state,
                     )
                 )
+            state.last_stream_element_key = active_key
             yield self._build_stream_element_message(
                 state=state,
                 role=meta.role,
@@ -2060,29 +2129,19 @@ class ListenElementRunAdapter:
         if not state.stream_elements:
             return
         meta = self._load_block_meta(state.generated_block_bid)
-        default_audio_position = None
-        if len(state.stream_elements) == 1:
-            default_audio_position = _pick_default_audio_position(
-                state.audio_by_position,
-                state.audio_segments_by_position,
-            )
         for stream_state in state.stream_elements.values():
+            audio, audio_segments = self._resolve_stream_audio_for_element_bid(
+                state,
+                stream_state.element_bid,
+            )
             element = self._build_stream_element(
                 state=state,
                 role=meta.role,
                 stream_state=stream_state,
                 is_new=False,
                 is_final=True,
-                audio=(
-                    state.audio_by_position.get(default_audio_position)
-                    if default_audio_position is not None
-                    else None
-                ),
-                audio_segments=(
-                    state.audio_segments_by_position.get(default_audio_position, [])
-                    if default_audio_position is not None
-                    else []
-                ),
+                audio=audio,
+                audio_segments=audio_segments,
             )
             if emit:
                 yield self._element_message(element)
@@ -2150,7 +2209,7 @@ class ListenElementRunAdapter:
         if ask_element_bid:
             answer_element = self._build_answer_element_from_state(
                 generated_block_bid,
-                is_final=True,
+                is_final=False,
                 audio=state.audio_by_position.get(position),
                 audio_segments=finalized_audio_segments,
             )
@@ -2174,7 +2233,6 @@ class ListenElementRunAdapter:
                 payload = patch_element.payload or ElementPayloadDTO()
                 payload.audio = audio_payload
                 patch_element.payload = payload
-                patch_element.is_final = True
                 yield self._element_message(patch_element)
         # Feed state machine
         if not self._state_machine.is_terminated:
@@ -2865,6 +2923,14 @@ def _query_element_rows(
         )
         .all()
     )
+    active_generated_block_bids = set(progress_bid_by_generated_block_bid.keys())
+    if active_generated_block_bids:
+        rows = [
+            row
+            for row in rows
+            if not (row.generated_block_bid or "")
+            or (row.generated_block_bid or "") in active_generated_block_bids
+        ]
     return rows, progress_bid_by_generated_block_bid
 
 

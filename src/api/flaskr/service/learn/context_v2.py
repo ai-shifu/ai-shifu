@@ -3141,26 +3141,77 @@ class RunScriptContextV2:
                     app.logger.info(
                         f"reload generated_block: {generated_block.id},block_position: {generated_block.position}"
                     )
+
+                    def _deactivate_superseded_generated_rows(
+                        *,
+                        include_current_block: bool,
+                    ) -> None:
+                        affected_blocks = (
+                            LearnGeneratedBlock.query.filter(
+                                LearnGeneratedBlock.progress_record_bid
+                                == generated_block.progress_record_bid,
+                                LearnGeneratedBlock.outline_item_bid
+                                == generated_block.outline_item_bid,
+                                LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                                LearnGeneratedBlock.deleted == 0,
+                                LearnGeneratedBlock.status == 1,
+                                LearnGeneratedBlock.id
+                                >= (
+                                    generated_block.id
+                                    if include_current_block
+                                    else generated_block.id + 1
+                                ),
+                                LearnGeneratedBlock.position
+                                >= (
+                                    generated_block.position
+                                    if include_current_block
+                                    else generated_block.position + 1
+                                ),
+                            )
+                            .order_by(LearnGeneratedBlock.id.asc())
+                            .all()
+                        )
+                        affected_block_bids = [
+                            block.generated_block_bid
+                            for block in affected_blocks
+                            if block.generated_block_bid
+                        ]
+                        if not affected_block_bids:
+                            return
+                        LearnGeneratedBlock.query.filter(
+                            LearnGeneratedBlock.generated_block_bid.in_(
+                                affected_block_bids
+                            ),
+                            LearnGeneratedBlock.deleted == 0,
+                            LearnGeneratedBlock.status == 1,
+                        ).update(
+                            {LearnGeneratedBlock.status: 0},
+                            synchronize_session=False,
+                        )
+                        LearnGeneratedElement.query.filter(
+                            LearnGeneratedElement.progress_record_bid
+                            == generated_block.progress_record_bid,
+                            LearnGeneratedElement.outline_item_bid
+                            == generated_block.outline_item_bid,
+                            LearnGeneratedElement.user_bid == self._user_info.user_id,
+                            LearnGeneratedElement.generated_block_bid.in_(
+                                affected_block_bids
+                            ),
+                            LearnGeneratedElement.deleted == 0,
+                            LearnGeneratedElement.status == 1,
+                        ).update(
+                            {LearnGeneratedElement.status: 0},
+                            synchronize_session=False,
+                        )
+
                     if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
-                        LearnGeneratedBlock.query.filter(
-                            LearnGeneratedBlock.progress_record_bid
-                            == generated_block.progress_record_bid,
-                            LearnGeneratedBlock.outline_item_bid
-                            == generated_block.outline_item_bid,
-                            LearnGeneratedBlock.user_bid == self._user_info.user_id,
-                            LearnGeneratedBlock.id >= generated_block.id,
-                            LearnGeneratedBlock.position >= generated_block.position,
-                        ).update({LearnGeneratedBlock.status: 0})
+                        _deactivate_superseded_generated_rows(
+                            include_current_block=True
+                        )
                     if generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
-                        LearnGeneratedBlock.query.filter(
-                            LearnGeneratedBlock.progress_record_bid
-                            == generated_block.progress_record_bid,
-                            LearnGeneratedBlock.outline_item_bid
-                            == generated_block.outline_item_bid,
-                            LearnGeneratedBlock.user_bid == self._user_info.user_id,
-                            LearnGeneratedBlock.id > generated_block.id,
-                            LearnGeneratedBlock.position > generated_block.position,
-                        ).update({LearnGeneratedBlock.status: 0})
+                        _deactivate_superseded_generated_rows(
+                            include_current_block=False
+                        )
                     current_attend.block_position = generated_block.position
                     current_attend.status = LEARN_STATUS_IN_PROGRESS
                     db.session.commit()
