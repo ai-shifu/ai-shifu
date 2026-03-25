@@ -947,6 +947,69 @@ def test_interaction_elements_backfill_user_input_from_generated_blocks(app):
     assert element.payload.user_input == "agree"
 
 
+def test_live_interaction_events_use_ui_role_and_generated_input(adapter_app):
+    from flaskr.dao import db
+    from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.learn_dtos import (
+        ElementType,
+        GeneratedType,
+        RunMarkdownFlowDTO,
+    )
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
+    from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
+
+    with adapter_app.app_context():
+        block = LearnGeneratedBlock(
+            generated_block_bid="generated-live-interaction",
+            progress_record_bid="progress-live-interaction",
+            user_bid="u1",
+            block_bid="block-live-interaction",
+            outline_item_bid="o1",
+            shifu_bid="s1",
+            type=BLOCK_TYPE_MDINTERACTION_VALUE,
+            role=ROLE_TEACHER,
+            generated_content="agree",
+            position=0,
+            block_content_conf="?[Agree//agree][Disagree//disagree]",
+            status=1,
+            deleted=0,
+        )
+        db.session.add(block)
+        db.session.commit()
+
+        adapter = ListenElementRunAdapter(
+            adapter_app,
+            shifu_bid="s1",
+            outline_bid="o1",
+            user_bid="u1",
+        )
+        streamed = list(
+            adapter.process(
+                [
+                    RunMarkdownFlowDTO(
+                        outline_bid="o1",
+                        generated_block_bid="generated-live-interaction",
+                        type=GeneratedType.INTERACTION,
+                        content="?[Agree//agree][Disagree//disagree]",
+                    )
+                ]
+            )
+        )
+
+        assert len(streamed) == 1
+        assert streamed[0].type == "element"
+
+        interaction_element = streamed[0].content
+        assert interaction_element.element_type == ElementType.INTERACTION
+        assert interaction_element.role == "ui"
+        assert interaction_element.payload is not None
+        assert interaction_element.payload.user_input == "agree"
+
+        persisted = LearnGeneratedElement.query.one()
+        assert persisted.role == "ui"
+
+
 def test_backfill_populates_sequence_number_and_audio_url(app):
     """Backfill should assign sequence_number and extract audio_url from payload."""
     _require_app(app)

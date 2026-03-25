@@ -1010,6 +1010,24 @@ def _load_interaction_user_input_by_block_bid(
     return interaction_user_input_by_block_bid
 
 
+def _load_interaction_user_input(generated_block_bid: str) -> str:
+    if not generated_block_bid:
+        return ""
+
+    interaction_block = (
+        LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.generated_block_bid == generated_block_bid,
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+        )
+        .order_by(LearnGeneratedBlock.id.desc())
+        .first()
+    )
+    if interaction_block is None:
+        return ""
+    return str(interaction_block.generated_content or "")
+
+
 def _load_progress_bid_by_generated_block_bid(
     progress_record_bids: list[str],
 ) -> dict[str, str]:
@@ -2406,14 +2424,17 @@ class ListenElementRunAdapter:
         self, event: RunMarkdownFlowDTO
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         generated_block_bid = event.generated_block_bid or ""
-        meta = self._load_block_meta(generated_block_bid)
+        interaction_user_input = _load_interaction_user_input(generated_block_bid)
+        payload = ElementPayloadDTO(audio=None, previous_visuals=[])
+        if interaction_user_input:
+            payload.user_input = interaction_user_input
         self._max_element_index += 1
         element = ElementDTO(
             event_type="element",
             element_bid=_new_element_bid(self.app),
             generated_block_bid=generated_block_bid,
             element_index=max(self._max_element_index, 0),
-            role=meta.role,
+            role="ui",
             element_type=ElementType.INTERACTION,
             element_type_code=_element_type_code(ElementType.INTERACTION),
             change_type=ElementChangeType.RENDER,
@@ -2422,7 +2443,7 @@ class ListenElementRunAdapter:
             is_navigable=0,
             is_final=True,
             content_text=str(event.content or ""),
-            payload=ElementPayloadDTO(audio=None, previous_visuals=[]),
+            payload=payload,
         )
         yield self._element_message(element)
 
