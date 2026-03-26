@@ -54,3 +54,8 @@
 
 - 当聊天数据从 `generated_block_bid` 迁移到 `element_bid` 后，`ChatContentItem` 仍要保留 `generated_block_bid` 和 `parent_block_bid` 这类旧字段，避免预览、音频、历史回放中的遗留调用直接报警。
 - 当新旧字段需要长期并存时，优先在统一的 list 更新入口做 normalize，把 `generated_block_bid` 回填为 `element_bid`，把 `parent_block_bid` 回填为 `parent_element_bid`，不要把兼容逻辑散落到每个渲染点。
+
+## 音频排查日志清理
+
+- 当需求要求移除“音频排查”日志时，优先按标记词（如 `listen-audio-debug`、`音频中断排查`）全局检索，统一删除日志函数、调用点和仅服务日志的辅助变量，避免只删 `console` 语句却残留无用代码。
+- 清理日志后要同步修正 `useCallback/useEffect` 依赖数组与未使用变量，并对关键文件执行定向 ESLint 或类型检查，确保行为不变且可编译。

@@ -42,13 +42,6 @@ const DEFAULT_AUDIO_POSITION = 0;
 const normalizeAudioPosition = (position?: number | null) =>
   Number(position ?? DEFAULT_AUDIO_POSITION);
 
-const logAudioUtilsDebug = (event: string, payload?: Record<string, any>) => {
-  // if (process.env.NODE_ENV === 'production') {
-  return;
-  // }
-  console.log(`[listen-audio-debug] ${event}`, payload ?? {});
-};
-
 export const sortAudioTracksByPosition = <T extends { position?: number }>(
   tracks: T[] = [],
 ) =>
@@ -216,14 +209,6 @@ export const mergeAudioSegmentByUniqueKey = (
       audioData: incoming.audioData || duplicatedSegment?.audioData || '',
       durationMs: incoming.durationMs ?? duplicatedSegment?.durationMs ?? 0,
     };
-    logAudioUtilsDebug('audio-utils-segment-deduped', {
-      blockId,
-      dedupeKey: incomingKey,
-      segmentIndex: incoming.segmentIndex,
-      position: normalizeAudioPosition(incoming.position),
-      existingSegments: segments.length,
-      mergedIsFinal: mergedDuplicatedSegment.isFinal,
-    });
     const nextSegments = [...segments];
     nextSegments[duplicatedIndex] = mergedDuplicatedSegment;
     return sortAudioSegmentsByIndex(nextSegments);
@@ -377,16 +362,6 @@ export const upsertAudioSegment = <T extends AudioItem>(
     );
 
     const hasNoChanges = updatedTracks === existingTracks;
-    logAudioUtilsDebug('audio-utils-upsert-segment', {
-      elementBid,
-      segmentIndex: mappedSegment.segmentIndex,
-      dedupeKey: buildAudioSegmentUniqueKey(elementBid, mappedSegment),
-      position: normalizeAudioPosition(mappedSegment.position),
-      existingTracks: item.audioTracks?.length ?? 0,
-      mergedTracks: updatedTracks.length,
-      hasNoChanges,
-      isFinal: mappedSegment.isFinal,
-    });
     if (hasNoChanges) {
       return item;
     }
@@ -426,14 +401,6 @@ export const upsertAudioComplete = <T extends AudioItem>(
       item.audioUrl === targetTrack?.audioUrl &&
       item.audioDurationMs === targetTrack?.durationMs &&
       Boolean(item.isAudioStreaming) === Boolean(nextIsAudioStreaming);
-    logAudioUtilsDebug('audio-utils-upsert-complete', {
-      elementBid,
-      position,
-      hasAudioUrl: Boolean(targetTrack?.audioUrl),
-      durationMs: targetTrack?.durationMs ?? 0,
-      trackCount: nextTracks.length,
-      hasNoChanges,
-    });
     if (hasNoChanges) {
       return item;
     }

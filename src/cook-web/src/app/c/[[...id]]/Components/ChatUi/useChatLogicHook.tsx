@@ -253,16 +253,6 @@ function useChatLogicHook({
 
   const effectivePreviewMode = previewMode ?? false;
   const allowTtsStreaming = !effectivePreviewMode;
-  const isAudioDebugEnabled = process.env.NODE_ENV !== 'production';
-  const logAudioDebug = useCallback(
-    (event: string, payload?: Record<string, any>) => {
-      // if (!isAudioDebugEnabled) {
-      return;
-      // }
-      console.log(`[listen-audio-debug] ${event}`, payload ?? {});
-    },
-    [isAudioDebugEnabled],
-  );
   const getAskButtonMarkup = useCallback(
     () =>
       `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
@@ -822,32 +812,10 @@ function useChatLogicHook({
     (sseParams: SSEParams) => {
       const runSerial = sseRunSerialRef.current + 1;
       sseRunSerialRef.current = runSerial;
-      // console.log('[音频中断排查][SSE] 准备启动新流 run()', {
-      //   lessonId,
-      //   outlineBid,
-      //   runSerial,
-      //   isListenMode,
-      //   inputType: sseParams?.input_type ?? null,
-      //   hasExistingSse: Boolean(sseRef.current),
-      // });
       if (sseRef.current) {
-        // console.log('[音频中断排查][SSE] 启动新流时检测到已有 sseRef.current', {
-        //   lessonId,
-        //   outlineBid,
-        //   runSerial,
-        // });
         try {
-          // console.log(
-          //   '[音频中断排查][SSE] 启动新流前主动关闭旧流（避免双流并发）',
-          //   {
-          //     lessonId,
-          //     outlineBid,
-          //     runSerial,
-          //   },
-          // );
           sseRef.current?.close();
-        } catch (error) {
-          // console.warn('[音频中断排查][SSE] 关闭旧流异常', error);
+        } catch {
         } finally {
           sseRef.current = null;
         }
@@ -893,13 +861,6 @@ function useChatLogicHook({
             sseRef.current !== source ||
             runSerial !== sseRunSerialRef.current
           ) {
-            // console.log('[音频中断排查][SSE] 忽略旧流消息（避免串流干扰）', {
-            //   lessonId,
-            //   outlineBid,
-            //   runSerial,
-            //   responseType: response?.type ?? null,
-            //   elementBid: response?.element_bid ?? null,
-            // });
             return;
           }
           // if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
@@ -1268,13 +1229,6 @@ function useChatLogicHook({
               }
               // Handle audio segment during TTS streaming
               const audioSegment = response.content as AudioSegmentData;
-              logAudioDebug('chat-sse-audio-segment', {
-                blockId,
-                segmentIndex: audioSegment?.segment_index,
-                position: audioSegment?.position ?? 0,
-                isFinal: audioSegment?.is_final ?? false,
-                durationMs: audioSegment?.duration_ms ?? 0,
-              });
               if (blockId) {
                 setTrackedContentList(prevState =>
                   upsertAudioSegment(prevState, blockId, audioSegment, items =>
@@ -1288,12 +1242,6 @@ function useChatLogicHook({
               }
               // Handle audio completion with OSS URL
               const audioComplete = response.content as AudioCompleteData;
-              logAudioDebug('chat-sse-audio-complete', {
-                blockId,
-                position: audioComplete?.position ?? 0,
-                hasAudioUrl: Boolean(audioComplete?.audio_url),
-                durationMs: audioComplete?.duration_ms ?? 0,
-              });
               if (blockId) {
                 setTrackedContentList(prevState =>
                   upsertAudioComplete(
@@ -1323,33 +1271,16 @@ function useChatLogicHook({
         },
       );
       sseRef.current = source;
-      // console.log('[音频中断排查][SSE] sseRef.current 指向新流实例', {
-      //   lessonId,
-      //   outlineBid,
-      //   runSerial,
-      // });
       source.addEventListener('readystatechange', () => {
         // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
         const isActiveSource =
           sseRef.current === source && runSerial === sseRunSerialRef.current;
         if (source.readyState === 1) {
-          // console.log('[音频中断排查][SSE] 流状态 OPEN', {
-          //   lessonId,
-          //   outlineBid,
-          //   runSerial,
-          //   isActiveSource,
-          // });
           if (isActiveSource) {
             isStreamingRef.current = true;
           }
         }
         if (source.readyState === 2) {
-          // console.log('[音频中断排查][SSE] 流状态 CLOSED', {
-          //   lessonId,
-          //   outlineBid,
-          //   runSerial,
-          //   isActiveSource,
-          // });
           if (isActiveSource) {
             // Always clear the loading placeholder when the active stream closes.
             // Some interaction flows may only emit control events before closing,
@@ -1380,7 +1311,6 @@ function useChatLogicHook({
       ensureContentItem,
       getAskButtonMarkup,
       isLessonFeedbackContent,
-      logAudioDebug,
       matchItemBid,
       openLessonFeedbackPopup,
       removeLikeStatusByParent,
@@ -1394,9 +1324,6 @@ function useChatLogicHook({
 
   useEffect(() => {
     return () => {
-      // console.log(
-      //   '[音频中断排查][SSE] useChatLogicHook 卸载，关闭当前 sseRef.current',
-      // );
       sseRef.current?.close();
     };
   }, []);
@@ -1528,13 +1455,6 @@ function useChatLogicHook({
           });
         }
       } else {
-        // console.log(
-        //   '[音频中断排查][SSE] refreshData 无历史记录，触发 runRef.current',
-        //   {
-        //     outlineBid,
-        //     reason: 'empty-history',
-        //   },
-        // );
         runRef.current?.({
           input: '',
           input_type: SSE_INPUT_TYPE.NORMAL,
@@ -1959,12 +1879,6 @@ function useChatLogicHook({
         reload_element_bid: reload_generated_block_bid,
         reload_generated_block_bid,
       });
-      // console.log('[音频中断排查][SSE] onSend 触发 runRef.current', {
-      //   lessonId,
-      //   blockBid,
-      //   isReGenerate,
-      //   needChangeItemIndex,
-      // });
     },
     [
       dismissLessonFeedbackPopup,
@@ -2090,13 +2004,10 @@ function useChatLogicHook({
       if (!source) {
         return;
       }
-      logAudioDebug('tts-request-stream-close', {
-        blockId,
-      });
       source.close();
       delete ttsSseRef.current[blockId];
     },
-    [logAudioDebug],
+    [],
   );
 
   const requestAudioForBlock = useCallback(
@@ -2108,9 +2019,6 @@ function useChatLogicHook({
       const sourceBlockBid = resolveSourceGeneratedBlockBid(elementBid);
 
       if (!allowTtsStreaming) {
-        logAudioDebug('tts-request-skip-disabled', {
-          elementBid: sourceBlockBid,
-        });
         return null;
       }
 
@@ -2121,12 +2029,6 @@ function useChatLogicHook({
         existingItem?.audioTracks ?? [],
       );
       if (cachedTrack?.audioUrl && !cachedTrack.isAudioStreaming) {
-        logAudioDebug('tts-request-hit-cache', {
-          elementBid,
-          hasAudioUrl: Boolean(cachedTrack?.audioUrl),
-          isAudioStreaming: Boolean(cachedTrack?.isAudioStreaming),
-          audioTracks: existingItem?.audioTracks?.length ?? 0,
-        });
         return {
           audio_url: cachedTrack.audioUrl,
           audio_bid: '',
@@ -2135,18 +2037,8 @@ function useChatLogicHook({
       }
 
       if (ttsSseRef.current[sourceBlockBid]) {
-        logAudioDebug('tts-request-skip-existing-stream', {
-          elementBid: sourceBlockBid,
-        });
         return null;
       }
-      const requestTraceId = `${sourceBlockBid}:${Date.now()}`;
-      logAudioDebug('tts-request-start', {
-        requestTraceId,
-        elementBid: sourceBlockBid,
-        isListenMode,
-        previewMode: effectivePreviewMode,
-      });
 
       setTrackedContentList(prev =>
         prev.map(item => {
@@ -2175,19 +2067,6 @@ function useChatLogicHook({
           onMessage: response => {
             if (response?.type === SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
               const audioPayload = response.content ?? response.data;
-              logAudioDebug('tts-request-segment', {
-                requestTraceId,
-                elementBid: sourceBlockBid,
-                segmentIndex:
-                  audioPayload?.segment_index ??
-                  audioPayload?.segmentIndex ??
-                  -1,
-                position: audioPayload?.position ?? 0,
-                isFinal:
-                  audioPayload?.is_final ?? audioPayload?.isFinal ?? false,
-                durationMs:
-                  audioPayload?.duration_ms ?? audioPayload?.durationMs ?? 0,
-              });
               setTrackedContentList(prevState =>
                 upsertAudioSegment(
                   prevState,
@@ -2202,13 +2081,6 @@ function useChatLogicHook({
               const audioPayload = response.content ?? response.data;
               const audioComplete = audioPayload as AudioCompleteData;
               latestComplete = audioComplete ?? latestComplete;
-              logAudioDebug('tts-request-complete', {
-                requestTraceId,
-                elementBid: sourceBlockBid,
-                position: audioComplete?.position ?? 0,
-                hasAudioUrl: Boolean(audioComplete?.audio_url),
-                durationMs: audioComplete?.duration_ms ?? 0,
-              });
               setTrackedContentList(prevState =>
                 upsertAudioComplete(prevState, sourceBlockBid, audioComplete),
               );
@@ -2216,17 +2088,7 @@ function useChatLogicHook({
                 clearTimeout(finalizeTimer);
               }
               const delayMs = isListenMode ? 500 : 0;
-              logAudioDebug('tts-request-finalize-scheduled', {
-                requestTraceId,
-                elementBid: sourceBlockBid,
-                delayMs,
-              });
               finalizeTimer = setTimeout(() => {
-                logAudioDebug('tts-request-finalize-run', {
-                  requestTraceId,
-                  elementBid: sourceBlockBid,
-                  hasComplete: Boolean(latestComplete),
-                });
                 closeTtsStream(sourceBlockBid);
                 resolve(latestComplete ?? null);
               }, delayMs);
@@ -2236,10 +2098,6 @@ function useChatLogicHook({
             if (finalizeTimer) {
               clearTimeout(finalizeTimer);
             }
-            logAudioDebug('tts-request-error', {
-              requestTraceId,
-              elementBid: sourceBlockBid,
-            });
             setTrackedContentList(prev =>
               prev.map(item => {
                 if (!matchItemBid(item, sourceBlockBid)) {
@@ -2257,10 +2115,6 @@ function useChatLogicHook({
         });
 
         ttsSseRef.current[sourceBlockBid] = source;
-        logAudioDebug('tts-request-stream-opened', {
-          requestTraceId,
-          elementBid: sourceBlockBid,
-        });
       });
     },
     [
@@ -2268,7 +2122,6 @@ function useChatLogicHook({
       closeTtsStream,
       effectivePreviewMode,
       isListenMode,
-      logAudioDebug,
       matchItemBid,
       resolveSourceGeneratedBlockBid,
       setTrackedContentList,
