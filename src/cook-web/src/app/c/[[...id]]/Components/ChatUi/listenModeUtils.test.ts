@@ -1,6 +1,7 @@
 import type { ChatContentItem } from './useChatLogicHook';
 import {
   canRequestListenModeTtsForItem,
+  resolveListenSlideAudioSource,
   resolveListenModeTtsReadyElementBids,
 } from './listenModeUtils';
 
@@ -75,5 +76,72 @@ describe('listenModeUtils', () => {
 
     expect(ready.has('speakable-block')).toBe(true);
     expect(ready.has('visual-only-block')).toBe(false);
+  });
+
+  it('prefers track-backed audio source when tracks and legacy fields coexist', () => {
+    const resolved = resolveListenSlideAudioSource(
+      createContentItem({
+        element_bid: 'track-priority-block',
+        audio_url: 'https://legacy.example.com/audio.mp3',
+        audio_segments: [
+          {
+            segment_index: 0,
+            audio_data: 'legacy-segment',
+            duration_ms: 1000,
+            is_final: true,
+            position: 0,
+          },
+        ],
+        audioTracks: [
+          {
+            position: 0,
+            audioUrl: 'https://track.example.com/audio.mp3',
+            isAudioStreaming: false,
+            audioSegments: [
+              {
+                segmentIndex: 0,
+                audioData: 'track-segment',
+                durationMs: 1000,
+                isFinal: true,
+                position: 0,
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(resolved.audioUrl).toBe('https://track.example.com/audio.mp3');
+    expect(resolved.audioSegments?.length).toBe(1);
+    expect(resolved.audioSegments?.[0]?.audio_data).toBe('track-segment');
+  });
+
+  it('falls back to legacy audio source when tracks have no playable payload', () => {
+    const resolved = resolveListenSlideAudioSource(
+      createContentItem({
+        element_bid: 'legacy-fallback-block',
+        audio_url: 'https://legacy.example.com/audio.mp3',
+        audio_segments: [
+          {
+            segment_index: 0,
+            audio_data: 'legacy-segment',
+            duration_ms: 800,
+            is_final: true,
+            position: 0,
+          },
+        ],
+        audioTracks: [
+          {
+            position: 0,
+            isAudioStreaming: false,
+            audioSegments: [],
+          },
+        ],
+      }),
+    );
+
+    expect(resolved.audioUrl).toBe('https://legacy.example.com/audio.mp3');
+    expect(resolved.audioSegments?.length).toBe(1);
+    expect(resolved.audioSegments?.[0]?.audio_data).toBe('legacy-segment');
   });
 });

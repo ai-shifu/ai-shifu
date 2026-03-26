@@ -1,6 +1,9 @@
 import type { ChatContentItem } from './useChatLogicHook';
 import {
+  getAudioSegmentDataListFromTracks,
+  hasAudioContentInTrack,
   hasAudioContentInTracks,
+  mergeAudioSegmentDataList,
   type AudioSegment,
   type AudioTrack,
 } from '@/c-utils/audio-utils';
@@ -28,6 +31,43 @@ export const normalizeAudioTracks = (item: ChatContentItem): AudioTrack[] => {
   });
 
   return sortByPosition(Array.from(trackByPosition.values()));
+};
+
+interface ListenSlideAudioSource {
+  audioUrl?: string;
+  audioSegments?: ChatContentItem['audio_segments'];
+}
+
+export const resolveListenSlideAudioSource = (
+  item: ChatContentItem,
+): ListenSlideAudioSource => {
+  const normalizedTracks = normalizeAudioTracks(item);
+  const playableTracks = normalizedTracks.filter(track =>
+    hasAudioContentInTrack(track),
+  );
+
+  // Keep one canonical source in slide playback to avoid duplicated playback.
+  if (playableTracks.length > 0) {
+    const trackAudioSegments = mergeAudioSegmentDataList(
+      item.element_bid,
+      getAudioSegmentDataListFromTracks(playableTracks),
+    );
+    return {
+      audioUrl: playableTracks.find(track => track.audioUrl)?.audioUrl,
+      audioSegments:
+        trackAudioSegments.length > 0 ? trackAudioSegments : undefined,
+    };
+  }
+
+  const legacyAudioSegments = mergeAudioSegmentDataList(
+    item.element_bid,
+    item.audio_segments ?? [],
+  );
+  return {
+    audioUrl: item.audio_url ?? item.audioUrl,
+    audioSegments:
+      legacyAudioSegments.length > 0 ? legacyAudioSegments : undefined,
+  };
 };
 
 export const canRequestListenModeTtsForItem = (

@@ -25,7 +25,7 @@
 ## Incremental Audio Segment Merge
 
 - When backend `element.audio_segments` arrive as incremental updates instead of full snapshots, merge them with the existing item state before replacing `audio_segments` or `audioTracks`.
-- When listen-mode data can carry audio in both `audio_segments` and `audioTracks`, always merge both sources before rendering so stale partial `audio_segments` never mask complete track-level segments.
+- When listen-mode data can carry audio in both `audio_segments` and `audioTracks`, pick one canonical source for rendering (prefer `audioTracks`, fallback to legacy only when tracks are not playable).
 - When backend moves interaction answers into `payload.user_input`, normalize that value at the record boundary back onto `element.user_input` so history and SSE rendering keep using the same field.
 - Deduplicate streamed audio segments with a stable key that includes `element_id`, `position`, and `segment_index` so repeated chunks do not overwrite or collapse adjacent segments incorrectly.
 - When new streamed audio segments only extend the current step's playable media, do not reset Slide playback state from the beginning; only restart when the step structure, interaction target, or audio sequence membership actually changes.
@@ -36,6 +36,7 @@
 - 当产品要求“仅点击播放按钮才发起 TTS”时，听课模式必须移除 `onStepChange`、序列切换等自动补拉请求逻辑，`generated-blocks/:id/tts` 只能由 `AudioPlayer` 的 `onRequestAudio` 点击行为触发。
 - 当 run SSE 可能返回 `type/error` 或 `event_type/error` 事件时，前端要在统一消息分发层立即弹出 `destructive toast`，并优先使用事件 `content` 作为错误文案，避免错误被静默吞掉。
 - 当学习页希望通过 URL 快速切换听课态时，`run` 接口请求体里的 `listen` 必须以页面查询参数 `listen` 为单一真值来源（如 `?listen=true` 强制传 `true`），不要再混用模式状态或组件内部推导值。
+- 当听课模式的 slide 渲染同时拿到 legacy `audio_url/audio_segments` 和新结构 `audioTracks` 时，必须先选定单一音频来源（优先 `audioTracks`，仅在轨道无可播内容时回退 legacy），避免同一步骤出现重复播报。
 
 ## 聊天操作栏裁剪
 

@@ -2,11 +2,6 @@ import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
-import {
-  getAudioSegmentDataListFromTracks,
-  hasAudioContentInTrack,
-  mergeAudioSegmentDataList,
-} from '@/c-utils/audio-utils';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import {
   ELEMENT_TYPE,
@@ -18,7 +13,7 @@ import {
   type Element as SlideElement,
 } from 'markdown-flow-ui/renderer';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
-import { normalizeAudioTracks } from './listenModeUtils';
+import { resolveListenSlideAudioSource } from './listenModeUtils';
 import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
 
@@ -62,28 +57,6 @@ const createEmptyStateElement = (
   page: 0,
 });
 
-const resolveItemAudioSegments = (item: ChatContentItem) => {
-  const normalizedTracks = normalizeAudioTracks(item);
-  const trackAudioSegments = getAudioSegmentDataListFromTracks(
-    normalizedTracks.filter(track => hasAudioContentInTrack(track)),
-  );
-  const mergedAudioSegments = mergeAudioSegmentDataList(item.element_bid, [
-    ...(item.audio_segments ?? []),
-    ...trackAudioSegments,
-  ]);
-
-  return mergedAudioSegments.length > 0 ? mergedAudioSegments : undefined;
-};
-
-const resolveItemAudioUrl = (item: ChatContentItem) => {
-  if (item.audio_url || item.audioUrl) {
-    return item.audio_url ?? item.audioUrl;
-  }
-
-  return normalizeAudioTracks(item).find(track => hasAudioContentInTrack(track))
-    ?.audioUrl;
-};
-
 const resolveContentElementType = (item: ChatContentItem) => {
   // `element_type` comes from backend `ElementType` (e.g. text/tables/code).
   // `ChatContentItemType.CONTENT` is a different "content item kind" enum,
@@ -118,8 +91,7 @@ const buildSlideElementList = ({
 
   items.forEach(item => {
     if (item.type === ChatContentItemType.CONTENT) {
-      const audioSegments = resolveItemAudioSegments(item);
-      const audioUrl = resolveItemAudioUrl(item);
+      const { audioSegments, audioUrl } = resolveListenSlideAudioSource(item);
       const contentType = resolveContentElementType(item);
 
       if (!hasResolvedFirstContentType) {
