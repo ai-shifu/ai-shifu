@@ -1150,6 +1150,7 @@ class StreamElementState:
     element_type: ElementType
     stream_type: str = ""
     content_text: str = ""
+    has_emitted: bool = False
 
 
 @dataclass
@@ -1162,6 +1163,7 @@ class BlockState:
     )
     audio_target_element_bid_by_position: dict[int, str] = field(default_factory=dict)
     fallback_element_bid: str | None = None
+    fallback_emitted: bool = False
     latest_av_contract: dict[str, Any] | None = None
     stream_elements: OrderedDict[str, StreamElementState] = field(
         default_factory=OrderedDict
@@ -1181,12 +1183,14 @@ class ListenElementRunAdapter:
         outline_bid: str,
         user_bid: str,
         run_session_bid: str | None = None,
+        patch_live_updates: bool = False,
     ):
         self.app = app
         self.shifu_bid = shifu_bid
         self.outline_bid = outline_bid
         self.user_bid = user_bid
         self.run_session_bid = run_session_bid or uuid.uuid4().hex
+        self._patch_live_updates = bool(patch_live_updates)
         self._run_event_seq = 0
         self._sequence_number = 0
         self._state_machine = TypeStateMachine()
@@ -1214,6 +1218,18 @@ class ListenElementRunAdapter:
         if element.target_element_bid:
             return False
         return bool(element.is_new)
+
+    def _resolve_live_element_identity(
+        self,
+        *,
+        element_bid: str,
+        base_is_new: bool,
+        has_emitted: bool,
+    ) -> tuple[bool, str | None]:
+        effective_is_new = bool(base_is_new)
+        if self._patch_live_updates and has_emitted and effective_is_new:
+            effective_is_new = False
+        return effective_is_new, None if effective_is_new else element_bid
 
     def _load_block_meta(self, generated_block_bid: str) -> BlockMeta:
         if generated_block_bid in self._block_meta_cache:
@@ -1734,9 +1750,15 @@ class ListenElementRunAdapter:
         )
 
     def _build_fallback_element(self, state: BlockState, role: str) -> ElementDTO:
+        has_emitted = state.fallback_emitted
         if not state.fallback_element_bid:
             state.fallback_element_bid = _new_element_bid(self.app)
             self._max_element_index += 1
+        effective_is_new, target_element_bid = self._resolve_live_element_identity(
+            element_bid=state.fallback_element_bid,
+            base_is_new=True,
+            has_emitted=has_emitted,
+        )
         return ElementDTO(
             event_type="element",
             element_bid=state.fallback_element_bid,
@@ -1746,6 +1768,8 @@ class ListenElementRunAdapter:
             element_type=ElementType.TEXT,
             element_type_code=_element_type_code(ElementType.TEXT),
             change_type=ElementChangeType.RENDER,
+            target_element_bid=target_element_bid,
+            is_new=effective_is_new,
             is_renderable=False,
             is_marker=False,
             is_navigable=1,
@@ -1841,7 +1865,11 @@ class ListenElementRunAdapter:
         if snapshot is None:
             return None
         element_is_final = snapshot.is_final if is_final is None else bool(is_final)
-        fixed_is_new = bool(snapshot.is_new)
+        fixed_is_new, fixed_target_element_bid = self._resolve_live_element_identity(
+            element_bid=element_bid,
+            base_is_new=bool(snapshot.is_new),
+            has_emitted=True,
+        )
         return ElementDTO(
             event_type="element",
             element_bid=element_bid,
@@ -1851,7 +1879,7 @@ class ListenElementRunAdapter:
             element_type=snapshot.element_type,
             element_type_code=snapshot.element_type_code,
             change_type=_change_type_for_element(snapshot.element_type),
-            target_element_bid=None if fixed_is_new else element_bid,
+            target_element_bid=fixed_target_element_bid,
             is_new=fixed_is_new,
             is_renderable=snapshot.is_renderable,
             is_marker=snapshot.is_marker,
@@ -1906,7 +1934,7 @@ class ListenElementRunAdapter:
         audio: ElementAudioDTO | None = None,
         audio_segments: list[dict[str, Any]] | None = None,
     ) -> RunElementSSEMessageDTO:
-        return self._element_message(
+        message = self._element_message(
             self._build_stream_element(
                 state=state,
                 role=role,
@@ -1917,6 +1945,8 @@ class ListenElementRunAdapter:
                 audio_segments=audio_segments,
             )
         )
+        stream_state.has_emitted = True
+        return message
 
     def _build_stream_element(
         self,
@@ -1935,6 +1965,11 @@ class ListenElementRunAdapter:
             audio=audio,
         )
         element_bid = stream_state.element_bid
+        effective_is_new, target_element_bid = self._resolve_live_element_identity(
+            element_bid=element_bid,
+            base_is_new=is_new,
+            has_emitted=stream_state.has_emitted,
+        )
         return ElementDTO(
             event_type="element",
             element_bid=element_bid,
@@ -1944,8 +1979,8 @@ class ListenElementRunAdapter:
             element_type=stream_state.element_type,
             element_type_code=_element_type_code(stream_state.element_type),
             change_type=_change_type_for_element(stream_state.element_type),
-            target_element_bid=None if is_new else stream_state.element_bid,
-            is_new=is_new,
+            target_element_bid=target_element_bid,
+            is_new=effective_is_new,
             is_renderable=_default_is_renderable(stream_state.element_type),
             is_marker=_default_is_marker(stream_state.element_type),
             is_speakable=_normalized_is_speakable(
@@ -2217,6 +2252,7 @@ class ListenElementRunAdapter:
                 yield self._element_message(element)
             else:
                 self._persist_element(element)
+            stream_state.has_emitted = True
 
     def _handle_content(
         self, event: RunMarkdownFlowDTO
@@ -2250,6 +2286,7 @@ class ListenElementRunAdapter:
         meta = self._load_block_meta(generated_block_bid)
         fallback = self._build_fallback_element(state, meta.role)
         yield self._element_message(fallback)
+        state.fallback_emitted = True
 
     def _handle_audio_complete(
         self, event: RunMarkdownFlowDTO
@@ -2437,6 +2474,13 @@ class ListenElementRunAdapter:
                     if default_audio_position is not None
                     else None
                 )
+                effective_is_new, target_element_bid = (
+                    self._resolve_live_element_identity(
+                        element_bid=state.fallback_element_bid,
+                        base_is_new=True,
+                        has_emitted=state.fallback_emitted,
+                    )
+                )
                 element = ElementDTO(
                     event_type="element",
                     element_bid=state.fallback_element_bid,
@@ -2446,8 +2490,8 @@ class ListenElementRunAdapter:
                     element_type=ElementType.TEXT,
                     element_type_code=_element_type_code(ElementType.TEXT),
                     change_type=_change_type_for_element(ElementType.TEXT),
-                    target_element_bid=None,
-                    is_new=True,
+                    target_element_bid=target_element_bid,
+                    is_new=effective_is_new,
                     is_renderable=False,
                     is_marker=False,
                     is_navigable=1,

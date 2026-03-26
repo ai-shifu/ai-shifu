@@ -235,6 +235,7 @@ def run_script(
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
         user_bid=user_bid,
+        patch_live_updates=not listen,
     )
     lock = cache_provider.lock(
         lock_key, timeout=timeout, blocking_timeout=blocking_timeout
