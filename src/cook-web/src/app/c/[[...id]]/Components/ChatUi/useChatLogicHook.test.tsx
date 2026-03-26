@@ -332,6 +332,40 @@ describe('useChatLogicHook stream cleanup', () => {
     );
   });
 
+  it('keeps lesson feedback popup visible after it has opened', async () => {
+    const { result, rerender } = renderHook(
+      ({ shouldPromptLessonFeedback }) =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          shouldPromptLessonFeedback,
+        }),
+      {
+        wrapper,
+        initialProps: {
+          shouldPromptLessonFeedback: true,
+        },
+      },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'feedback-1',
+        type: SSE_OUTPUT_TYPE.INTERACTION,
+        content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+      });
+    });
+
+    await waitFor(() =>
+      expect(result.current.lessonFeedbackPopup.open).toBe(true),
+    );
+
+    rerender({ shouldPromptLessonFeedback: false });
+
+    expect(result.current.lessonFeedbackPopup.open).toBe(true);
+  });
+
   it('does not auto-open lesson feedback popup for an already rated lesson', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',

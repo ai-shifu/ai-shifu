@@ -357,9 +357,13 @@ function useChatLogicHook({
 
   const dismissLessonFeedbackPopup = useCallback(() => {
     markLessonFeedbackPopupDismissed(outlineBid);
-    setLessonFeedbackPopupState(prev =>
-      prev.open ? { ...prev, open: false } : prev,
-    );
+    setLessonFeedbackPopupState({
+      open: false,
+      generatedBlockBid: '',
+      defaultScoreText: '',
+      defaultCommentText: '',
+      readonly: false,
+    });
   }, [markLessonFeedbackPopupDismissed, outlineBid]);
 
   const parseLessonFeedbackScore = useCallback((raw?: string | null) => {
@@ -393,15 +397,33 @@ function useChatLogicHook({
         return;
       }
       setLessonFeedbackPopupState({
-        open: true,
+        open: shouldPromptLessonFeedback,
         generatedBlockBid: interaction.generatedBlockBid,
         defaultScoreText: interaction.defaultScoreText || '',
         defaultCommentText: interaction.defaultCommentText || '',
         readonly: Boolean(interaction.readonly),
       });
     },
-    [outlineBid, parseLessonFeedbackScore],
+    [outlineBid, parseLessonFeedbackScore, shouldPromptLessonFeedback],
   );
+
+  useEffect(() => {
+    if (!shouldPromptLessonFeedback) {
+      return;
+    }
+    setLessonFeedbackPopupState(prev => {
+      if (!prev.generatedBlockBid || prev.open) {
+        return prev;
+      }
+      if (dismissedLessonFeedbackOutlineBidsRef.current.has(outlineBid)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        open: true,
+      };
+    });
+  }, [outlineBid, shouldPromptLessonFeedback]);
 
   const parseLessonFeedbackPersistedValue = useCallback(
     (raw?: string | null): { score?: number; comment?: string } | null => {
@@ -2226,8 +2248,7 @@ function useChatLogicHook({
     lessonFeedbackPopup: {
       open:
         lessonFeedbackPopupState.open &&
-        Boolean(lessonFeedbackPopupState.generatedBlockBid) &&
-        shouldPromptLessonFeedback,
+        Boolean(lessonFeedbackPopupState.generatedBlockBid),
       generatedBlockBid: lessonFeedbackPopupState.generatedBlockBid,
       defaultScoreText: lessonFeedbackPopupState.defaultScoreText,
       defaultCommentText: lessonFeedbackPopupState.defaultCommentText,
