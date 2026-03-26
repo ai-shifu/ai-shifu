@@ -128,6 +128,7 @@ export interface UseChatSessionParams {
   chapterId?: string;
   previewMode?: boolean;
   isListenMode?: boolean;
+  shouldPromptLessonFeedback?: boolean;
   trackEvent: (name: string, payload?: Record<string, any>) => void;
   trackTrailProgress: (courseId: string, generatedBlockBid: string) => void;
   lessonUpdate?: (params: Record<string, any>) => void;
@@ -178,6 +179,7 @@ function useChatLogicHook({
   chapterId,
   previewMode,
   isListenMode = false,
+  shouldPromptLessonFeedback = true,
   trackEvent,
   chatBoxBottomRef,
   trackTrailProgress,
@@ -241,7 +243,7 @@ function useChatLogicHook({
       defaultCommentText: '',
       readonly: false,
     });
-  const dismissedLessonFeedbackBlockBidsRef = useRef<Set<string>>(new Set());
+  const dismissedLessonFeedbackOutlineBidsRef = useRef<Set<string>>(new Set());
 
   const effectivePreviewMode = previewMode ?? false;
   const allowTtsStreaming = !effectivePreviewMode;
@@ -319,24 +321,29 @@ function useChatLogicHook({
     return Boolean(content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER));
   }, []);
 
-  const markLessonFeedbackPopupDismissed = useCallback((blockBid: string) => {
-    if (!blockBid) {
-      return;
-    }
-    const cache = dismissedLessonFeedbackBlockBidsRef.current;
-    if (cache.has(blockBid)) {
-      cache.delete(blockBid);
-    }
-    cache.add(blockBid);
-
-    while (cache.size > LESSON_FEEDBACK_DISMISS_CACHE_LIMIT) {
-      const oldestBid = cache.values().next().value as string | undefined;
-      if (!oldestBid) {
-        break;
+  const markLessonFeedbackPopupDismissed = useCallback(
+    (lessonOutlineBid: string) => {
+      if (!lessonOutlineBid) {
+        return;
       }
-      cache.delete(oldestBid);
-    }
-  }, []);
+      const cache = dismissedLessonFeedbackOutlineBidsRef.current;
+      if (cache.has(lessonOutlineBid)) {
+        cache.delete(lessonOutlineBid);
+      }
+      cache.add(lessonOutlineBid);
+
+      while (cache.size > LESSON_FEEDBACK_DISMISS_CACHE_LIMIT) {
+        const oldestOutlineBid = cache.values().next().value as
+          | string
+          | undefined;
+        if (!oldestOutlineBid) {
+          break;
+        }
+        cache.delete(oldestOutlineBid);
+      }
+    },
+    [],
+  );
 
   const resetLessonFeedbackPopup = useCallback(() => {
     setLessonFeedbackPopupState({
@@ -348,45 +355,12 @@ function useChatLogicHook({
     });
   }, []);
 
-  const dismissLessonFeedbackPopup = useCallback(
-    (blockBid?: string) => {
-      if (blockBid) {
-        markLessonFeedbackPopupDismissed(blockBid);
-      }
-      setLessonFeedbackPopupState(prev =>
-        prev.open ? { ...prev, open: false } : prev,
-      );
-    },
-    [markLessonFeedbackPopupDismissed],
-  );
-
-  const openLessonFeedbackPopup = useCallback(
-    (interaction: {
-      generatedBlockBid: string;
-      defaultScoreText?: string;
-      defaultCommentText?: string;
-      readonly?: boolean;
-    }) => {
-      if (!interaction.generatedBlockBid) {
-        return;
-      }
-      if (
-        dismissedLessonFeedbackBlockBidsRef.current.has(
-          interaction.generatedBlockBid,
-        )
-      ) {
-        return;
-      }
-      setLessonFeedbackPopupState({
-        open: true,
-        generatedBlockBid: interaction.generatedBlockBid,
-        defaultScoreText: interaction.defaultScoreText || '',
-        defaultCommentText: interaction.defaultCommentText || '',
-        readonly: Boolean(interaction.readonly),
-      });
-    },
-    [],
-  );
+  const dismissLessonFeedbackPopup = useCallback(() => {
+    markLessonFeedbackPopupDismissed(outlineBid);
+    setLessonFeedbackPopupState(prev =>
+      prev.open ? { ...prev, open: false } : prev,
+    );
+  }, [markLessonFeedbackPopupDismissed, outlineBid]);
 
   const parseLessonFeedbackScore = useCallback((raw?: string | null) => {
     if (!raw) {
@@ -401,6 +375,33 @@ function useChatLogicHook({
     }
     return normalized;
   }, []);
+
+  const openLessonFeedbackPopup = useCallback(
+    (interaction: {
+      generatedBlockBid: string;
+      defaultScoreText?: string;
+      defaultCommentText?: string;
+      readonly?: boolean;
+    }) => {
+      if (!interaction.generatedBlockBid) {
+        return;
+      }
+      if (dismissedLessonFeedbackOutlineBidsRef.current.has(outlineBid)) {
+        return;
+      }
+      if (parseLessonFeedbackScore(interaction.defaultScoreText)) {
+        return;
+      }
+      setLessonFeedbackPopupState({
+        open: true,
+        generatedBlockBid: interaction.generatedBlockBid,
+        defaultScoreText: interaction.defaultScoreText || '',
+        defaultCommentText: interaction.defaultCommentText || '',
+        readonly: Boolean(interaction.readonly),
+      });
+    },
+    [outlineBid, parseLessonFeedbackScore],
+  );
 
   const parseLessonFeedbackPersistedValue = useCallback(
     (raw?: string | null): { score?: number; comment?: string } | null => {
@@ -1724,7 +1725,7 @@ function useChatLogicHook({
             content.selectedValues?.[0],
             inputText,
           );
-          dismissLessonFeedbackPopup(blockBid);
+          dismissLessonFeedbackPopup();
         } else if (lessonFeedbackPopupState.generatedBlockBid) {
           const pendingFeedbackBlockBid =
             lessonFeedbackPopupState.generatedBlockBid;
@@ -1739,7 +1740,7 @@ function useChatLogicHook({
                 undefined,
                 undefined,
               );
-              dismissLessonFeedbackPopup(pendingFeedbackBlockBid);
+              dismissLessonFeedbackPopup();
             }
           }
         }
@@ -1782,7 +1783,7 @@ function useChatLogicHook({
               String(score),
               comment,
             );
-            dismissLessonFeedbackPopup(blockBid);
+            dismissLessonFeedbackPopup();
             trackEvent(EVENT_NAMES.LESSON_FEEDBACK_SUBMIT, {
               shifu_bid: shifuBid,
               outline_bid: outlineBid,
@@ -2207,7 +2208,7 @@ function useChatLogicHook({
     if (!blockBid) {
       return;
     }
-    dismissLessonFeedbackPopup(blockBid);
+    dismissLessonFeedbackPopup();
   }, [lessonFeedbackPopupState.generatedBlockBid, dismissLessonFeedbackPopup]);
 
   return {
@@ -2225,7 +2226,8 @@ function useChatLogicHook({
     lessonFeedbackPopup: {
       open:
         lessonFeedbackPopupState.open &&
-        Boolean(lessonFeedbackPopupState.generatedBlockBid),
+        Boolean(lessonFeedbackPopupState.generatedBlockBid) &&
+        shouldPromptLessonFeedback,
       generatedBlockBid: lessonFeedbackPopupState.generatedBlockBid,
       defaultScoreText: lessonFeedbackPopupState.defaultScoreText,
       defaultCommentText: lessonFeedbackPopupState.defaultCommentText,

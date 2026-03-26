@@ -1141,10 +1141,15 @@ export const useListenAudioSequence = ({
             audioSequenceTimerRef.current = setTimeout(() => {
               playAudioSequenceFromIndex(index + 1);
             }, 0);
+          } else {
+            setIsAudioSequenceActive(false);
+            isAudioSequenceActiveRef.current = false;
           }
           return;
         }
         if (index >= list.length - 1) {
+          setIsAudioSequenceActive(false);
+          isAudioSequenceActiveRef.current = false;
           return;
         }
         logAudioInterrupt('当前项为交互项，2秒后自动推进下一项', {

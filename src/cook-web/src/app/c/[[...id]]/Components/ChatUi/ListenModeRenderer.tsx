@@ -62,6 +62,10 @@ interface ListenModeRendererProps {
   onRequestAudioForBlock?: (generatedBlockBid: string) => Promise<any>;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
   onPlayerVisibilityChange?: (visible: boolean) => void;
+  onPlaybackStateChange?: (state: {
+    isAudioPlaying: boolean;
+    isAudioSequenceActive: boolean;
+  }) => void;
 }
 
 const ListenModeRenderer = ({
@@ -76,6 +80,7 @@ const ListenModeRenderer = ({
   onRequestAudioForBlock,
   onSend,
   onPlayerVisibilityChange,
+  onPlaybackStateChange,
 }: ListenModeRendererProps) => {
   const deckRef = useRef<Reveal.Api | null>(null);
   const currentPptPageRef = useRef<number>(0);
@@ -327,6 +332,23 @@ const ListenModeRenderer = ({
     isAudioPlaying,
     setIsAudioPlaying,
   });
+
+  useEffect(() => {
+    onPlaybackStateChange?.({
+      isAudioPlaying,
+      isAudioSequenceActive,
+    });
+  }, [isAudioPlaying, isAudioSequenceActive, onPlaybackStateChange]);
+
+  useEffect(
+    () => () => {
+      onPlaybackStateChange?.({
+        isAudioPlaying: false,
+        isAudioSequenceActive: false,
+      });
+    },
+    [onPlaybackStateChange],
+  );
 
   const { isPrevDisabled, isNextDisabled, goPrev, goNext } = useListenPpt({
     chatRef,
