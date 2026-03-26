@@ -1064,11 +1064,15 @@ function useChatLogicHook({
                   readonly: false,
                   type: ChatContentItemType.INTERACTION,
                 };
-                const hitIndex = prev.findIndex(item => item.element_bid === nid);
+                const hitIndex = prev.findIndex(
+                  item => item.element_bid === nid,
+                );
                 let nextList =
                   hitIndex >= 0
                     ? prev.map((item, index) =>
-                        index === hitIndex ? { ...item, ...interactionBlock } : item,
+                        index === hitIndex
+                          ? { ...item, ...interactionBlock }
+                          : item,
                       )
                     : [...prev, interactionBlock];
 
@@ -1078,7 +1082,11 @@ function useChatLogicHook({
                   content: interactionBlock.content,
                 });
 
-                if (!shouldAttachLikeStatus || isLessonFeedbackInteraction || !nid) {
+                if (
+                  !shouldAttachLikeStatus ||
+                  isLessonFeedbackInteraction ||
+                  !nid
+                ) {
                   return removeLikeStatusByParent(nextList, nid);
                 }
 

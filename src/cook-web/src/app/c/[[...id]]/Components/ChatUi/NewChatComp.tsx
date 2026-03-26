@@ -281,7 +281,10 @@ export const NewChatComponents = ({
   }, [lessonId]);
 
   useEffect(() => {
-    if (!currentStreamingElementBid || currentStreamingElementBid === 'loading') {
+    if (
+      !currentStreamingElementBid ||
+      currentStreamingElementBid === 'loading'
+    ) {
       return;
     }
     setReadyElementBids(prev => {
@@ -747,7 +750,9 @@ export const NewChatComponents = ({
                           (canRequestAudio || hasAudioForElement) ? (
                             <AudioPlayer
                               audioUrl={parentPrimaryTrack?.audioUrl}
-                              streamingSegments={parentPrimaryTrack?.audioSegments}
+                              streamingSegments={
+                                parentPrimaryTrack?.audioSegments
+                              }
                               isStreaming={Boolean(
                                 parentPrimaryTrack?.isAudioStreaming,
                               )}
