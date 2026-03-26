@@ -224,7 +224,9 @@ const getListenFlagFromPageUrl = (): boolean => {
   }
 
   const listenParam = new URLSearchParams(window.location.search).get('listen');
-  return typeof listenParam === 'string' && listenParam.toLowerCase() === 'true';
+  return (
+    typeof listenParam === 'string' && listenParam.toLowerCase() === 'true'
+  );
 };
 
 export const getRunMessage = (
