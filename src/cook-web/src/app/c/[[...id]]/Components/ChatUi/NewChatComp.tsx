@@ -35,6 +35,7 @@ import {
   getAudioTrackByPosition,
   hasAudioContentInTrack,
 } from '@/c-utils/audio-utils';
+import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
 import { stripCustomButtonAfterContent } from './chatUiUtils';
 import {
   Dialog,
@@ -671,12 +672,16 @@ export const NewChatComponents = ({
                 const hasAudioForElement = hasAudioContentInTrack(primaryTrack);
                 const shouldAutoPlayElement =
                   autoPlayTargetBlockBid === elementBid;
+                const isLessonFeedbackInteraction =
+                  item.type === ChatContentItemType.INTERACTION &&
+                  isLessonFeedbackInteractionContent(item.content);
                 const shouldRenderElementInteraction =
                   !isListenMode &&
                   !mobileStyle &&
                   Boolean(elementBid) &&
                   elementBid !== 'loading' &&
                   elementBid !== currentStreamingElementBid &&
+                  !isLessonFeedbackInteraction &&
                   (item.type === ChatContentItemType.CONTENT ||
                     item.type === ChatContentItemType.INTERACTION);
                 if (item.type === ChatContentItemType.ASK) {

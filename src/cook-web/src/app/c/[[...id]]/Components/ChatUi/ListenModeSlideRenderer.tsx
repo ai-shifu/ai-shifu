@@ -3,10 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
-import {
-  ELEMENT_TYPE,
-  LESSON_FEEDBACK_INTERACTION_MARKER,
-} from '@/c-api/studyV2';
+import { ELEMENT_TYPE } from '@/c-api/studyV2';
+import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
 import {
   type OnSendContentParams,
   Slide,
@@ -132,7 +130,7 @@ const buildSlideElementList = ({
       return;
     }
 
-    if (item.content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER)) {
+    if (isLessonFeedbackInteractionContent(item.content)) {
       return;
     }
 

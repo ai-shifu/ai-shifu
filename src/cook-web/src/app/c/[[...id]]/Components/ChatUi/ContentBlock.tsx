@@ -10,7 +10,7 @@ import {
   getAudioTrackByPosition,
   hasAudioContentInTrack,
 } from '@/c-utils/audio-utils';
-import { LESSON_FEEDBACK_INTERACTION_MARKER } from '@/c-api/studyV2';
+import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
 
 interface ContentBlockProps {
   item: ChatContentItem;
@@ -74,7 +74,7 @@ const ContentBlock = memo(
     const shouldShowAudioAction = Boolean(showAudioAction);
     const isLessonFeedbackInteraction =
       item.type === ChatContentItemType.INTERACTION &&
-      Boolean(item.content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER));
+      isLessonFeedbackInteractionContent(item.content);
 
     if (isLessonFeedbackInteraction) {
       return null;
