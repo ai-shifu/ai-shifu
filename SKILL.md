@@ -46,6 +46,9 @@
 - 当某个操作按钮依赖 `LIKE_STATUS` 这类中间态项承载展示时，删除按钮展示的同时也要停掉对应的数据注入，否则页面里容易残留空白操作栏或无意义占位。
 - 当移动端长按菜单依赖桌面端交互状态时，移除某类操作后要同步重算“是否还有可展示动作”，避免弹出空菜单。
 - 当某类 `interaction`（例如 `sys_lesson_feedback_score`）需要隐藏内容主体时，操作栏渲染条件也必须同步排除该项，避免出现“内容已隐藏但追问按钮仍显示”的错位交互。
+- 当阅读模式要求“内容与追问入口同步出现”时，桌面端追问操作栏应继续挂在 `LIKE_STATUS` 节点，不要提前挂在 `CONTENT/INTERACTION` 节点后面，避免内容 iframe 尚未完成渲染时按钮先行出现。
+- 当聊天操作栏需要按 element 粒度稳定出现时，`SSE element` 与历史 `records/elements` 都应基于 `element_type` 统一插入 `LIKE_STATUS`，并且显式排除课后反馈交互（`sys_lesson_feedback_score`）以避免无效追问入口。
+- 当桌面阅读模式仍存在“追问先于正文可见”的闪烁时，给 `ContentRender/IframeSandbox` 增加渲染完成回调并向上透传到 `ChatUi`，仅在父元素完成渲染后再展示对应 `LIKE_STATUS` 操作栏。
 
 ## 旧字段兼容回填
 

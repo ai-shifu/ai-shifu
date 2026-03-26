@@ -26,6 +26,7 @@ interface ContentBlockProps {
   onAudioPlayStateChange?: (blockBid: string, isPlaying: boolean) => void;
   onAudioEnded?: (blockBid: string) => void;
   showAudioAction?: boolean;
+  onTypeFinished?: (blockBid: string) => void;
 }
 
 const ContentBlock = memo(
@@ -43,6 +44,7 @@ const ContentBlock = memo(
     onAudioPlayStateChange,
     onAudioEnded,
     showAudioAction = true,
+    onTypeFinished,
   }: ContentBlockProps) => {
     const handleClick = useCallback(() => {
       onClickCustomButtonAfterContent?.(blockBid);
@@ -68,6 +70,9 @@ const ContentBlock = memo(
       },
       [onSend, blockBid],
     );
+    const handleTypeFinished = useCallback(() => {
+      onTypeFinished?.(blockBid);
+    }, [blockBid, onTypeFinished]);
 
     const primaryTrack = getAudioTrackByPosition(item.audioTracks ?? []);
     const hasAudioContent = Boolean(hasAudioContentInTrack(primaryTrack));
@@ -99,6 +104,7 @@ const ContentBlock = memo(
           copyButtonText={copyButtonText}
           copiedButtonText={copiedButtonText}
           onSend={_onSend}
+          onTypeFinished={handleTypeFinished}
         />
         {mobileStyle && hasAudioContent && shouldShowAudioAction ? (
           <div className='mt-2 flex justify-end'>

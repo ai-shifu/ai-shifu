@@ -35,7 +35,6 @@ import {
   getAudioTrackByPosition,
   hasAudioContentInTrack,
 } from '@/c-utils/audio-utils';
-import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
 import { stripCustomButtonAfterContent } from './chatUiUtils';
 import {
   Dialog,
@@ -100,6 +99,9 @@ export const NewChatComponents = ({
 
   const [showScrollDown, setShowScrollDown] = useState(false);
   const listenTtsToastShownRef = useRef(false);
+  const [readyElementBids, setReadyElementBids] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   const scrollToBottom = useCallback(() => {
     chatBoxBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -260,6 +262,38 @@ export const NewChatComponents = ({
     onPayModalOpen,
   });
 
+  const markElementRenderReady = useCallback((elementBid: string) => {
+    if (!elementBid || elementBid === 'loading') {
+      return;
+    }
+    setReadyElementBids(prev => {
+      if (prev.has(elementBid)) {
+        return prev;
+      }
+      const next = new Set(prev);
+      next.add(elementBid);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    setReadyElementBids(new Set<string>());
+  }, [lessonId]);
+
+  useEffect(() => {
+    if (!currentStreamingElementBid || currentStreamingElementBid === 'loading') {
+      return;
+    }
+    setReadyElementBids(prev => {
+      if (!prev.has(currentStreamingElementBid)) {
+        return prev;
+      }
+      const next = new Set(prev);
+      next.delete(currentStreamingElementBid);
+      return next;
+    });
+  }, [currentStreamingElementBid]);
+
   useEffect(() => {
     if (isListenModeActive && !isLoading) {
       return;
@@ -294,19 +328,6 @@ export const NewChatComponents = ({
     items.forEach(item => {
       if (item.element_bid) {
         mapping.set(item.element_bid, item);
-      }
-    });
-    return mapping;
-  }, [items]);
-
-  const interactionStateByElementBid = useMemo(() => {
-    const mapping = new Map<string, ChatContentItem>();
-    items.forEach(item => {
-      if (
-        item.type === ChatContentItemType.LIKE_STATUS &&
-        item.parent_element_bid
-      ) {
-        mapping.set(item.parent_element_bid, item);
       }
     });
     return mapping;
@@ -661,29 +682,6 @@ export const NewChatComponents = ({
                 const isLongPressed = longPressedBlockBid === item.element_bid;
                 const baseKey = item.element_bid || `${item.type}-${idx}`;
                 const parentKey = item.parent_element_bid || baseKey;
-                const elementBid = item.element_bid || '';
-                const interactionState = elementBid
-                  ? interactionStateByElementBid.get(elementBid)
-                  : undefined;
-                const primaryTrack = getAudioTrackByPosition(
-                  item.audioTracks ?? [],
-                );
-                const canRequestAudio = !previewMode && Boolean(elementBid);
-                const hasAudioForElement = hasAudioContentInTrack(primaryTrack);
-                const shouldAutoPlayElement =
-                  autoPlayTargetBlockBid === elementBid;
-                const isLessonFeedbackInteraction =
-                  item.type === ChatContentItemType.INTERACTION &&
-                  isLessonFeedbackInteractionContent(item.content);
-                const shouldRenderElementInteraction =
-                  !isListenMode &&
-                  !mobileStyle &&
-                  Boolean(elementBid) &&
-                  elementBid !== 'loading' &&
-                  elementBid !== currentStreamingElementBid &&
-                  !isLessonFeedbackInteraction &&
-                  (item.type === ChatContentItemType.CONTENT ||
-                    item.type === ChatContentItemType.INTERACTION);
                 if (item.type === ChatContentItemType.ASK) {
                   return (
                     <div
@@ -709,7 +707,72 @@ export const NewChatComponents = ({
                 }
 
                 if (item.type === ChatContentItemType.LIKE_STATUS) {
-                  return null;
+                  const parentElementBid = item.parent_element_bid || '';
+                  if (
+                    !parentElementBid ||
+                    !readyElementBids.has(parentElementBid)
+                  ) {
+                    return null;
+                  }
+                  const parentContentItem = parentElementBid
+                    ? itemByGeneratedBid.get(parentElementBid)
+                    : undefined;
+                  const parentPrimaryTrack = getAudioTrackByPosition(
+                    parentContentItem?.audioTracks ?? [],
+                  );
+                  const canRequestAudio =
+                    !previewMode && Boolean(parentElementBid);
+                  const hasAudioForElement =
+                    hasAudioContentInTrack(parentPrimaryTrack);
+                  const shouldAutoPlayElement =
+                    autoPlayTargetBlockBid === parentElementBid;
+                  return mobileStyle ? null : (
+                    <div
+                      key={`like-${parentKey}`}
+                      style={{
+                        margin: '0 auto',
+                        maxWidth: '1000px',
+                        padding: '0px 20px',
+                      }}
+                    >
+                      <InteractionBlock
+                        shifu_bid={shifuBid}
+                        element_bid={parentElementBid}
+                        readonly={item.readonly}
+                        onRefresh={onRefresh}
+                        onToggleAskExpanded={toggleAskExpanded}
+                        showGenerateBtn={showGenerateBtn}
+                        extraActions={
+                          shouldShowAudioAction &&
+                          (canRequestAudio || hasAudioForElement) ? (
+                            <AudioPlayer
+                              audioUrl={parentPrimaryTrack?.audioUrl}
+                              streamingSegments={parentPrimaryTrack?.audioSegments}
+                              isStreaming={Boolean(
+                                parentPrimaryTrack?.isAudioStreaming,
+                              )}
+                              alwaysVisible={canRequestAudio}
+                              onRequestAudio={
+                                canRequestAudio
+                                  ? () => requestAudioForBlock(parentElementBid)
+                                  : undefined
+                              }
+                              autoPlay={shouldAutoPlayElement}
+                              onPlayStateChange={isPlaying =>
+                                handleAudioPlayStateChange(
+                                  parentElementBid,
+                                  isPlaying,
+                                )
+                              }
+                              onEnded={() => handleAudioEnded(parentElementBid)}
+                              className='interaction-icon-btn'
+                              size={16}
+                            />
+                          ) : null
+                        }
+                      />
+                    </div>
+                  );
                 }
 
                 return (
@@ -744,52 +807,8 @@ export const NewChatComponents = ({
                       showAudioAction={shouldShowAudioAction}
                       onAudioPlayStateChange={handleAudioPlayStateChange}
                       onAudioEnded={handleAudioEnded}
+                      onTypeFinished={markElementRenderReady}
                     />
-                    {shouldRenderElementInteraction ? (
-                      <div
-                        style={{
-                          margin: '0 auto',
-                          maxWidth: mobileStyle ? '100%' : '1000px',
-                        }}
-                      >
-                        <InteractionBlock
-                          shifu_bid={shifuBid}
-                          element_bid={elementBid}
-                          readonly={interactionState?.readonly ?? item.readonly}
-                          onRefresh={onRefresh}
-                          onToggleAskExpanded={toggleAskExpanded}
-                          showGenerateBtn={showGenerateBtn}
-                          extraActions={
-                            shouldShowAudioAction &&
-                            (canRequestAudio || hasAudioForElement) ? (
-                              <AudioPlayer
-                                audioUrl={primaryTrack?.audioUrl}
-                                streamingSegments={primaryTrack?.audioSegments}
-                                isStreaming={Boolean(
-                                  primaryTrack?.isAudioStreaming,
-                                )}
-                                alwaysVisible={canRequestAudio}
-                                onRequestAudio={
-                                  canRequestAudio
-                                    ? () => requestAudioForBlock(elementBid)
-                                    : undefined
-                                }
-                                autoPlay={shouldAutoPlayElement}
-                                onPlayStateChange={isPlaying =>
-                                  handleAudioPlayStateChange(
-                                    elementBid,
-                                    isPlaying,
-                                  )
-                                }
-                                onEnded={() => handleAudioEnded(elementBid)}
-                                className='interaction-icon-btn'
-                                size={16}
-                              />
-                            ) : null
-                          }
-                        />
-                      </div>
-                    ) : null}
                   </div>
                 );
               })

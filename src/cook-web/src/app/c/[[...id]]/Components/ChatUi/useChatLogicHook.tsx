@@ -298,6 +298,120 @@ function useChatLogicHook({
     return Boolean(content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER));
   }, []);
 
+  const createLikeStatusItem = useCallback(
+    (
+      parentElementBid: string,
+      likeStatus: LikeStatus = LIKE_STATUS.NONE,
+    ): ChatContentItem => ({
+      parent_element_bid: parentElementBid,
+      element_bid: '',
+      content: '',
+      like_status: likeStatus,
+      type: ChatContentItemType.LIKE_STATUS,
+    }),
+    [],
+  );
+
+  const shouldAttachLikeStatusByElement = useCallback(
+    ({
+      elementBid,
+      elementType,
+      content,
+    }: {
+      elementBid?: string | null;
+      elementType?: ElementType | null;
+      content?: string | null;
+    }) => {
+      if (!elementBid) {
+        return false;
+      }
+
+      if (!elementType) {
+        return false;
+      }
+
+      return !isLessonFeedbackContent(content);
+    },
+    [isLessonFeedbackContent],
+  );
+
+  const upsertLikeStatusByParent = useCallback(
+    (
+      items: ChatContentItem[],
+      params: {
+        parentElementBid: string;
+        likeStatus?: LikeStatus | null;
+        insertAfterElementBid?: string;
+      },
+    ) => {
+      const { parentElementBid, insertAfterElementBid } = params;
+      if (!parentElementBid) {
+        return items;
+      }
+
+      const resolvedLikeStatus = params.likeStatus ?? LIKE_STATUS.NONE;
+      const hitIndex = items.findIndex(
+        item =>
+          item.type === ChatContentItemType.LIKE_STATUS &&
+          item.parent_element_bid === parentElementBid,
+      );
+
+      if (hitIndex >= 0) {
+        if (items[hitIndex].like_status === resolvedLikeStatus) {
+          return items;
+        }
+        const nextItems = [...items];
+        nextItems[hitIndex] = {
+          ...nextItems[hitIndex],
+          like_status: resolvedLikeStatus,
+        };
+        return nextItems;
+      }
+
+      const nextItems = [...items];
+      const anchorElementBid = insertAfterElementBid || parentElementBid;
+      const anchorIndex = nextItems.findIndex(
+        item => item.element_bid === anchorElementBid,
+      );
+      const nextLikeStatusItem = createLikeStatusItem(
+        parentElementBid,
+        resolvedLikeStatus,
+      );
+
+      if (anchorIndex >= 0) {
+        nextItems.splice(anchorIndex + 1, 0, nextLikeStatusItem);
+        return nextItems;
+      }
+
+      nextItems.push(nextLikeStatusItem);
+      return nextItems;
+    },
+    [createLikeStatusItem],
+  );
+
+  const removeLikeStatusByParent = useCallback(
+    (items: ChatContentItem[], parentElementBid: string) => {
+      if (!parentElementBid) {
+        return items;
+      }
+
+      const hitIndex = items.findIndex(
+        item =>
+          item.type === ChatContentItemType.LIKE_STATUS &&
+          item.parent_element_bid === parentElementBid,
+      );
+
+      if (hitIndex < 0) {
+        return items;
+      }
+
+      const nextItems = [...items];
+      nextItems.splice(hitIndex, 1);
+      return nextItems;
+    },
+    [],
+  );
+
   const resolveRecordUserInput = useCallback(
     (record?: Pick<StudyRecordItem, 'user_input' | 'payload'> | null) => {
       if (!record) {
@@ -891,40 +1005,35 @@ function useChatLogicHook({
                 const hitIndex = prevState.findIndex(
                   item => item.element_bid === itemBid,
                 );
+                let nextList = prevState;
 
                 if (hitIndex >= 0) {
-                  const nextList = [...prevState];
+                  nextList = [...prevState];
                   nextList[hitIndex] = {
                     ...nextList[hitIndex],
                     ...nextItem,
                     listenSlides:
                       nextItem.listenSlides ?? nextList[hitIndex].listenSlides,
                   };
-                  return nextList;
+                } else {
+                  nextList = [...prevState, nextItem];
                 }
 
-                if (nextItem.type === ChatContentItemType.INTERACTION) {
-                  const lastContent = prevState[prevState.length - 1];
+                const shouldAttachLikeStatus = shouldAttachLikeStatusByElement({
+                  elementBid: itemBid,
+                  elementType: elementRecord.element_type,
+                  content: nextItem.content,
+                });
 
-                  if (
-                    lastContent &&
-                    lastContent.type === ChatContentItemType.CONTENT
-                  ) {
-                    return [
-                      ...prevState,
-                      {
-                        parent_element_bid: lastContent.element_bid || '',
-                        element_bid: '',
-                        content: '',
-                        like_status: LIKE_STATUS.NONE,
-                        type: ChatContentItemType.LIKE_STATUS,
-                      },
-                      nextItem,
-                    ];
-                  }
+                if (shouldAttachLikeStatus) {
+                  return upsertLikeStatusByParent(nextList, {
+                    parentElementBid: itemBid,
+                    likeStatus: nextItem.like_status,
+                    insertAfterElementBid: itemBid,
+                  });
                 }
 
-                return [...prevState, nextItem];
+                return removeLikeStatusByParent(nextList, itemBid);
               });
 
               if (pendingSlidesRef.current[itemBid]) {
@@ -940,6 +1049,11 @@ function useChatLogicHook({
               const isLessonFeedbackInteraction = isLessonFeedbackContent(
                 response.content,
               );
+              const interactionElementType =
+                typeof response.content === 'object' && response.content
+                  ? (response.content as { element_type?: ElementType })
+                      .element_type
+                  : undefined;
               setTrackedContentList((prev: ChatContentItem[]) => {
                 // Use markdown-flow-ui default rendering for all interactions
                 const interactionBlock: ChatContentItem = {
@@ -950,22 +1064,29 @@ function useChatLogicHook({
                   readonly: false,
                   type: ChatContentItemType.INTERACTION,
                 };
-                const lastContent = prev[prev.length - 1];
-                if (
-                  lastContent &&
-                  lastContent.type === ChatContentItemType.CONTENT
-                ) {
-                  const likeStatusItem: ChatContentItem = {
-                    parent_element_bid: lastContent.element_bid || '',
-                    element_bid: '',
-                    content: '',
-                    like_status: LIKE_STATUS.NONE,
-                    type: ChatContentItemType.LIKE_STATUS,
-                  };
-                  return [...prev, likeStatusItem, interactionBlock];
-                } else {
-                  return [...prev, interactionBlock];
+                const hitIndex = prev.findIndex(item => item.element_bid === nid);
+                let nextList =
+                  hitIndex >= 0
+                    ? prev.map((item, index) =>
+                        index === hitIndex ? { ...item, ...interactionBlock } : item,
+                      )
+                    : [...prev, interactionBlock];
+
+                const shouldAttachLikeStatus = shouldAttachLikeStatusByElement({
+                  elementBid: nid,
+                  elementType: interactionElementType,
+                  content: interactionBlock.content,
+                });
+
+                if (!shouldAttachLikeStatus || isLessonFeedbackInteraction || !nid) {
+                  return removeLikeStatusByParent(nextList, nid);
                 }
+
+                nextList = upsertLikeStatusByParent(nextList, {
+                  parentElementBid: nid,
+                  insertAfterElementBid: nid,
+                });
+                return nextList;
               });
               if (isLessonFeedbackInteraction && nid) {
                 openLessonFeedbackPopup({
@@ -1069,27 +1190,13 @@ function useChatLogicHook({
                   }
                 }
 
-                // Add interaction blocks - use captured value instead of ref
-                const lastItem = updatedList[updatedList.length - 1];
-                const gid = lastItem?.element_bid || '';
-                if (lastItem && lastItem.type === ChatContentItemType.CONTENT) {
-                  updatedList.push({
-                    parent_element_bid: gid,
-                    element_bid: '',
-                    content: '',
-                    like_status: LIKE_STATUS.NONE,
-                    type: ChatContentItemType.LIKE_STATUS,
-                  });
-                  // sseRef.current?.close();
-                  // console.log(
-                  //   '[音频中断排查][SSE] TEXT_END 后触发下一段 runRef.current',
-                  //   {
-                  //     lessonId,
-                  //     outlineBid,
-                  //     fromType: 'TEXT_END',
-                  //     lastContentBid: gid,
-                  //   },
-                  // );
+                const lastRenderableItem = [...updatedList]
+                  .reverse()
+                  .find(item => item.type !== ChatContentItemType.LIKE_STATUS);
+                if (
+                  lastRenderableItem &&
+                  lastRenderableItem.type === ChatContentItemType.CONTENT
+                ) {
                   runRef.current?.({
                     input: '',
                     input_type: SSE_INPUT_TYPE.NORMAL,
@@ -1268,7 +1375,10 @@ function useChatLogicHook({
       logAudioDebug,
       matchItemBid,
       openLessonFeedbackPopup,
+      removeLikeStatusByParent,
       resolveElementItemBid,
+      shouldAttachLikeStatusByElement,
+      upsertLikeStatusByParent,
       upsertListenSlide,
       updateUserInfo,
     ],
@@ -1293,7 +1403,6 @@ function useChatLogicHook({
   const mapRecordsToContent = useCallback(
     (records: StudyRecordItem[]) => {
       const result: ChatContentItem[] = [];
-      const indexByElementBid = new Map<string, number>();
 
       records.forEach((item: StudyRecordItem) => {
         const itemBid = resolveElementItemBid(item);
@@ -1306,10 +1415,11 @@ function useChatLogicHook({
           appendAskButton: true,
           isHistory: true,
         });
-        const hitIndex = indexByElementBid.get(itemBid);
+        const hitIndex = result.findIndex(
+          contentItem => contentItem.element_bid === itemBid,
+        );
 
-        if (hitIndex === undefined) {
-          indexByElementBid.set(itemBid, result.length);
+        if (hitIndex < 0) {
           result.push(nextItem);
         } else {
           result[hitIndex] = {
@@ -1318,30 +1428,34 @@ function useChatLogicHook({
           };
         }
 
-        if (item.like_status) {
-          const likeStatusIndex = result.findIndex(
-            contentItem =>
-              contentItem.type === ChatContentItemType.LIKE_STATUS &&
-              contentItem.parent_element_bid === itemBid,
-          );
-          const likeStatusItem: ChatContentItem = {
-            element_bid: '',
-            parent_element_bid: itemBid,
-            like_status: item.like_status,
-            type: ChatContentItemType.LIKE_STATUS,
-          };
+        const shouldAttachLikeStatus = shouldAttachLikeStatusByElement({
+          elementBid: itemBid,
+          elementType: item.element_type,
+          content: nextItem.content,
+        });
 
-          if (likeStatusIndex === -1) {
-            result.push(likeStatusItem);
-          } else {
-            result[likeStatusIndex] = likeStatusItem;
-          }
+        if (shouldAttachLikeStatus) {
+          const nextResult = upsertLikeStatusByParent(result, {
+            parentElementBid: itemBid,
+            likeStatus: item.like_status,
+            insertAfterElementBid: itemBid,
+          });
+          result.splice(0, result.length, ...nextResult);
+        } else {
+          const nextResult = removeLikeStatusByParent(result, itemBid);
+          result.splice(0, result.length, ...nextResult);
         }
       });
 
       return result;
     },
-    [buildElementContentItem, resolveElementItemBid],
+    [
+      buildElementContentItem,
+      removeLikeStatusByParent,
+      resolveElementItemBid,
+      shouldAttachLikeStatusByElement,
+      upsertLikeStatusByParent,
+    ],
   );
 
   /**
