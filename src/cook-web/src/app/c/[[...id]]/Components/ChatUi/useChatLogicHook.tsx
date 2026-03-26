@@ -1998,17 +1998,14 @@ function useChatLogicHook({
     [contentList, nullRenderBar],
   );
 
-  const closeTtsStream = useCallback(
-    (blockId: string) => {
-      const source = ttsSseRef.current[blockId];
-      if (!source) {
-        return;
-      }
-      source.close();
-      delete ttsSseRef.current[blockId];
-    },
-    [],
-  );
+  const closeTtsStream = useCallback((blockId: string) => {
+    const source = ttsSseRef.current[blockId];
+    if (!source) {
+      return;
+    }
+    source.close();
+    delete ttsSseRef.current[blockId];
+  }, []);
 
   const requestAudioForBlock = useCallback(
     async (elementBid: string): Promise<AudioCompleteData | null> => {
