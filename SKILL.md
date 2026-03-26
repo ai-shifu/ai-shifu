@@ -35,6 +35,7 @@
 - 当后端 AV 分段会把纯视觉 block 识别为“无可朗读文本”时，前端的 `ttsReadyElementBids` 之类请求门禁必须和这条规则对齐，避免 slide 切换时对纯视觉内容重复打 `generated-blocks/:id/tts` 并触发 500。
 - 当产品要求“仅点击播放按钮才发起 TTS”时，听课模式必须移除 `onStepChange`、序列切换等自动补拉请求逻辑，`generated-blocks/:id/tts` 只能由 `AudioPlayer` 的 `onRequestAudio` 点击行为触发。
 - 当 run SSE 可能返回 `type/error` 或 `event_type/error` 事件时，前端要在统一消息分发层立即弹出 `destructive toast`，并优先使用事件 `content` 作为错误文案，避免错误被静默吞掉。
+- 当学习页希望通过 URL 快速切换听课态时，`run` 接口请求体里的 `listen` 必须以页面查询参数 `listen` 为单一真值来源（如 `?listen=true` 强制传 `true`），不要再混用模式状态或组件内部推导值。
 
 ## 聊天操作栏裁剪
 

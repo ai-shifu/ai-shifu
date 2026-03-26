@@ -218,6 +218,15 @@ export interface StreamGeneratedBlockAudioParams {
   onError?: (error: unknown) => void;
 }
 
+const getListenFlagFromPageUrl = (): boolean => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const listenParam = new URLSearchParams(window.location.search).get('listen');
+  return typeof listenParam === 'string' && listenParam.toLowerCase() === 'true';
+};
+
 export const getRunMessage = (
   shifu_bid: string,
   outline_bid: string,
@@ -232,6 +241,7 @@ export const getRunMessage = (
 ) => {
   const token = useUserStore.getState().getToken();
   const payload = { ...body };
+  payload.listen = getListenFlagFromPageUrl();
 
   const baseURL = getResolvedBaseURL();
 
