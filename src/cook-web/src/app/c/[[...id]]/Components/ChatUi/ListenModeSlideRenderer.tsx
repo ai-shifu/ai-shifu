@@ -20,6 +20,8 @@ import { useListenContentData } from './useListenMode';
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
   page?: number;
+  is_audio_streaming?: boolean;
+  isAudioStreaming?: boolean;
 };
 
 interface ListenModeSlideRendererProps {
@@ -91,7 +93,8 @@ const buildSlideElementList = ({
 
   items.forEach(item => {
     if (item.type === ChatContentItemType.CONTENT) {
-      const { audioSegments, audioUrl } = resolveListenSlideAudioSource(item);
+      const { audioSegments, audioUrl, isAudioStreaming } =
+        resolveListenSlideAudioSource(item);
       const contentType = resolveContentElementType(item);
 
       if (!hasResolvedFirstContentType) {
@@ -114,6 +117,8 @@ const buildSlideElementList = ({
         is_speakable:
           item.is_speakable ?? Boolean(audioUrl || audioSegments?.length),
         audio_url: audioUrl,
+        is_audio_streaming: isAudioStreaming,
+        isAudioStreaming,
         audio_segments: audioSegments,
         blockBid: item.element_bid,
         page: pageCursor,

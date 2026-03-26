@@ -37,6 +37,8 @@
 - 当 run SSE 可能返回 `type/error` 或 `event_type/error` 事件时，前端要在统一消息分发层立即弹出 `destructive toast`，并优先使用事件 `content` 作为错误文案，避免错误被静默吞掉。
 - 当学习页希望通过 URL 快速切换听课态时，`run` 接口请求体里的 `listen` 必须以页面查询参数 `listen` 为单一真值来源（如 `?listen=true` 强制传 `true`），不要再混用模式状态或组件内部推导值。
 - 当听课模式的 slide 渲染同时拿到 legacy `audio_url/audio_segments` 和新结构 `audioTracks` 时，必须先选定单一音频来源（优先 `audioTracks`，仅在轨道无可播内容时回退 legacy），避免同一步骤出现重复播报。
+- 当同一个音频分段 key（`element_id + position + segment_index`）会先到非 final 再到 final 时，去重不能直接丢弃后到分段；必须合并并提升 `isFinal`，否则播放器会误判“仍在流式”而卡在 buffering。
+- 当 listen-mode 把内容项映射为 Slide `elementList` 时，除了 `audio_url/audio_segments`，还要显式透传 `isAudioStreaming`（例如 `is_audio_streaming`）；否则仅靠 segment 的 `is_final` 推断可能在 `audio_complete` 后仍显示 buffering。
 
 ## 聊天操作栏裁剪
 

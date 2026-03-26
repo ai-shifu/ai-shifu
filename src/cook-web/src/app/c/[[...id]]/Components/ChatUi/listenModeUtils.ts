@@ -36,6 +36,7 @@ export const normalizeAudioTracks = (item: ChatContentItem): AudioTrack[] => {
 interface ListenSlideAudioSource {
   audioUrl?: string;
   audioSegments?: ChatContentItem['audio_segments'];
+  isAudioStreaming?: boolean;
 }
 
 export const resolveListenSlideAudioSource = (
@@ -56,6 +57,9 @@ export const resolveListenSlideAudioSource = (
       audioUrl: playableTracks.find(track => track.audioUrl)?.audioUrl,
       audioSegments:
         trackAudioSegments.length > 0 ? trackAudioSegments : undefined,
+      isAudioStreaming: playableTracks.some(track =>
+        Boolean(track.isAudioStreaming),
+      ),
     };
   }
 
@@ -67,6 +71,10 @@ export const resolveListenSlideAudioSource = (
     audioUrl: item.audio_url ?? item.audioUrl,
     audioSegments:
       legacyAudioSegments.length > 0 ? legacyAudioSegments : undefined,
+    isAudioStreaming:
+      typeof item.isAudioStreaming === 'boolean'
+        ? item.isAudioStreaming
+        : legacyAudioSegments.some(segment => !segment.is_final),
   };
 };
 

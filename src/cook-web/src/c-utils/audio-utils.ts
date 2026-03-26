@@ -200,18 +200,33 @@ export const mergeAudioSegmentByUniqueKey = (
   incoming: AudioSegment,
 ): AudioSegment[] => {
   const incomingKey = buildAudioSegmentUniqueKey(blockId, incoming);
-  const isDuplicated = segments.some(
+  const duplicatedIndex = segments.findIndex(
     segment => buildAudioSegmentUniqueKey(blockId, segment) === incomingKey,
   );
-  if (isDuplicated) {
+  if (duplicatedIndex >= 0) {
+    const duplicatedSegment = segments[duplicatedIndex];
+    const mergedDuplicatedSegment: AudioSegment = {
+      ...duplicatedSegment,
+      ...incoming,
+      // Promote final-state segments to avoid waiting forever after playback.
+      isFinal: Boolean(duplicatedSegment?.isFinal || incoming.isFinal),
+      position: normalizeAudioPosition(
+        incoming.position ?? duplicatedSegment?.position,
+      ),
+      audioData: incoming.audioData || duplicatedSegment?.audioData || '',
+      durationMs: incoming.durationMs ?? duplicatedSegment?.durationMs ?? 0,
+    };
     logAudioUtilsDebug('audio-utils-segment-deduped', {
       blockId,
       dedupeKey: incomingKey,
       segmentIndex: incoming.segmentIndex,
       position: normalizeAudioPosition(incoming.position),
       existingSegments: segments.length,
+      mergedIsFinal: mergedDuplicatedSegment.isFinal,
     });
-    return segments;
+    const nextSegments = [...segments];
+    nextSegments[duplicatedIndex] = mergedDuplicatedSegment;
+    return sortAudioSegmentsByIndex(nextSegments);
   }
   return sortAudioSegmentsByIndex([...segments, incoming]);
 };
