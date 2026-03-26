@@ -130,7 +130,15 @@ def run_script_inner(
                 if element_adapter is None:
                     yield from events
                     return
-                yield from element_adapter.process(events)
+                if listen:
+                    yield from element_adapter.process(events)
+                    return
+                for event in events:
+                    # Keep persisting element snapshots for read mode, but do not
+                    # replace the legacy SSE contract with listen-mode element events.
+                    for _ in element_adapter.process([event]):
+                        pass
+                    yield event
 
             if reload_generated_block_bid or reload_element_bid:
                 if stop_event and stop_event.is_set():
@@ -236,6 +244,7 @@ def run_script(
         outline_bid=outline_bid,
         user_bid=user_bid,
     )
+    stream_element_adapter = element_adapter if listen else None
     lock = cache_provider.lock(
         lock_key, timeout=timeout, blocking_timeout=blocking_timeout
     )
@@ -353,11 +362,11 @@ def run_script(
                             continue
                         try:
                             heartbeat_payload = (
-                                element_adapter.make_ephemeral_message(
+                                stream_element_adapter.make_ephemeral_message(
                                     event_type="heartbeat",
                                     content="",
                                 )
-                                if element_adapter is not None
+                                if stream_element_adapter is not None
                                 else {"type": "heartbeat"}
                             )
                             yield _to_sse_chunk(heartbeat_payload)
@@ -457,7 +466,7 @@ def run_script(
                         outline_bid=outline_bid,
                         event_type="error",
                         content=error_content,
-                        element_adapter=element_adapter,
+                        element_adapter=stream_element_adapter,
                     )
                 )
                 last_stream_type = "error"
@@ -465,7 +474,7 @@ def run_script(
                     outline_bid=outline_bid,
                     event_type=GeneratedType.BREAK.value,
                     content="",
-                    element_adapter=element_adapter,
+                    element_adapter=stream_element_adapter,
                     is_terminal=False if listen else None,
                 )
                 if not _should_suppress_live_payload(block_end_event):
@@ -487,7 +496,7 @@ def run_script(
                     outline_bid=outline_bid,
                     event_type=GeneratedType.DONE.value,
                     content="",
-                    element_adapter=element_adapter,
+                    element_adapter=stream_element_adapter,
                     is_terminal=True if listen else None,
                 )
             )
@@ -515,7 +524,7 @@ def run_script(
                     outline_bid=outline_bid,
                     event_type=event_type,
                     content=content,
-                    element_adapter=element_adapter,
+                    element_adapter=stream_element_adapter,
                     is_terminal=(
                         True
                         if listen and event_type == GeneratedType.DONE.value

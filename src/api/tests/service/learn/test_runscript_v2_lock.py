@@ -48,23 +48,20 @@ def test_run_script_retries_lock_then_streams(app, monkeypatch):
 
         def fake_run_script_inner(**_kwargs):
             with app.app_context():
-                element_adapter = _kwargs["element_adapter"]
-                yield from element_adapter.process(
-                    [
-                        RunMarkdownFlowDTO(
-                            outline_bid="outline-1",
-                            generated_block_bid="generated-1",
-                            type=GeneratedType.CONTENT,
-                            content="hello",
-                        ),
-                        RunMarkdownFlowDTO(
-                            outline_bid="outline-1",
-                            generated_block_bid="generated-1",
-                            type=GeneratedType.BREAK,
-                            content="",
-                        ),
-                    ]
-                )
+                yield from [
+                    RunMarkdownFlowDTO(
+                        outline_bid="outline-1",
+                        generated_block_bid="generated-1",
+                        type=GeneratedType.CONTENT,
+                        content="hello",
+                    ),
+                    RunMarkdownFlowDTO(
+                        outline_bid="outline-1",
+                        generated_block_bid="generated-1",
+                        type=GeneratedType.BREAK,
+                        content="",
+                    ),
+                ]
 
         monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
 
@@ -82,17 +79,72 @@ def test_run_script_retries_lock_then_streams(app, monkeypatch):
 
         assert lock.acquire_calls == 2
         assert lock.release_calls == 1
-        assert [event["type"] for event in events] == [
-            "element",
-            "element",
-            "done",
-        ]
-        assert events[0]["event_type"] == "element"
-        assert events[0]["content"]["is_final"] is False
-        assert events[1]["content"]["is_final"] is True
-        assert events[1]["content"]["content"] == "hello"
+        assert [event["type"] for event in events] == ["content", "break", "done"]
+        assert events[0]["event_type"] == "content"
+        assert events[0]["content"] == "hello"
+        assert events[1]["event_type"] == "break"
         assert events[-1]["type"] == "done"
         assert events[2]["is_terminal"] is True
+
+
+def test_run_script_read_mode_keeps_interaction_after_block_break(app, monkeypatch):
+    with app.app_context():
+        app.config["REDIS_KEY_PREFIX"] = "test"
+        monkeypatch.setitem(app.config, "SSE_HEARTBEAT_INTERVAL", 0)
+        lock = FakeLock([True])
+        monkeypatch.setattr(
+            runscript_v2,
+            "cache_provider",
+            SimpleNamespace(lock=lambda *_args, **_kwargs: lock),
+        )
+
+        def fake_run_script_inner(**_kwargs):
+            with app.app_context():
+                yield from [
+                    RunMarkdownFlowDTO(
+                        outline_bid="outline-1",
+                        generated_block_bid="generated-1",
+                        type=GeneratedType.CONTENT,
+                        content="hello",
+                    ),
+                    RunMarkdownFlowDTO(
+                        outline_bid="outline-1",
+                        generated_block_bid="generated-1",
+                        type=GeneratedType.BREAK,
+                        content="",
+                    ),
+                    RunMarkdownFlowDTO(
+                        outline_bid="outline-1",
+                        generated_block_bid="generated-2",
+                        type=GeneratedType.INTERACTION,
+                        content="?[%{{name}}...How should I call you?]",
+                    ),
+                ]
+
+        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+
+        chunks = list(
+            runscript_v2.run_script(
+                app=app,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+                input={"input": ["x"]},
+                input_type="normal",
+                listen=False,
+            )
+        )
+        events = _parse_sse_events(chunks)
+
+        assert [event["type"] for event in events] == [
+            "content",
+            "break",
+            "interaction",
+            "done",
+        ]
+        assert events[2]["event_type"] == "interaction"
+        assert events[2]["content"] == "?[%{{name}}...How should I call you?]"
+        assert events[3]["is_terminal"] is True
 
 
 def test_run_script_listen_keeps_interaction_after_block_done(app, monkeypatch):
