@@ -1,7 +1,5 @@
 from flaskr.common.swagger import register_schema_to_swagger
 import json
-from flaskr.service.common.aidtos import AIDto
-from typing import Any, List
 
 
 @register_schema_to_swagger
@@ -97,103 +95,6 @@ class ProfileValueDto:
 
     def __json__(self):
         return {"name": self.name, "value": self.value}
-
-
-@register_schema_to_swagger
-class ProfileItemDto:
-    profile_id: str
-    profile_key: str
-    profile_value: str
-    profile_type: int
-
-    def __init__(
-        self, profile_id: str, profile_key: str, profile_value: str, profile_type: int
-    ):
-        self.profile_id = profile_id
-        self.profile_key = profile_key
-        self.profile_value = profile_value
-        self.profile_type = profile_type
-
-    def __json__(self):
-        return {
-            "profile_id": self.profile_id,
-            "profile_key": self.profile_key,
-            "profile_value": self.profile_value,
-            "profile_type": self.profile_type,
-        }
-
-
-@register_schema_to_swagger
-class TextProfileDto:
-    profile_key: str
-    profile_value: str
-    profile_prompt: AIDto
-    profile_intro: str
-
-    def __init__(
-        self,
-        profile_key: str,
-        profile_value: str,
-        profile_prompt: AIDto,
-        profile_intro: str,
-    ):
-        self.profile_key = profile_key
-        self.profile_value = profile_value
-        self.profile_prompt = profile_prompt
-        self.profile_intro = profile_intro
-
-    def __json__(self):
-        return {
-            "profile_key": self.profile_key,
-            "profile_value": self.profile_value,
-            "profile_prompt": self.profile_prompt,
-            "profile_intro": self.profile_intro,
-        }
-
-    def __str__(self):
-        return str(self.__json__())
-
-
-@register_schema_to_swagger
-class SelectProfileDto:
-    profile_key: str
-    profile_value: str
-    profile_options: list[ProfileValueDto]
-
-    def __init__(
-        self,
-        profile_key: str,
-        profile_value: str,
-        profile_options: list[ProfileValueDto],
-    ):
-        self.profile_key = profile_key
-        self.profile_value = profile_value
-        self.profile_options = profile_options
-
-    def __json__(self):
-        return {
-            "profile_key": self.profile_key,
-            "profile_value": self.profile_value,
-            "profile_options": self.profile_options,
-        }
-
-    def __str__(self):
-        return str(self.__json__())
-
-
-class ProfileOptionListDto:
-    info: Any
-    list: List[ProfileValueDto]
-
-    def __init__(self, info: Any, list: List[ProfileValueDto]):
-        self.info = info
-        self.list = list
-
-    def __json__(self):
-        return {
-            "info": self.info,
-            "list": self.list,
-        }
 
 
 @register_schema_to_swagger

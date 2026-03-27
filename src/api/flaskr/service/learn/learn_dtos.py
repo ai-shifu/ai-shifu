@@ -83,16 +83,6 @@ class ElementChangeType(Enum):
 
 
 @register_schema_to_swagger
-class PreviewMode(Enum):
-    PREVIEW = "preview"
-    COOK = "cook"
-    NORMAL = "normal"
-
-    def __json__(self):
-        return self.value
-
-
-@register_schema_to_swagger
 class LikeStatus(Enum):
     LIKE = "like"
     DISLIKE = "dislike"
