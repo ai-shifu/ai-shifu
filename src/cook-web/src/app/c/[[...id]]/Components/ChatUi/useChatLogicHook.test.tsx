@@ -502,6 +502,71 @@ describe('useChatLogicHook stream cleanup', () => {
     ).toBe(false);
   });
 
+  it('keeps ask block collapsed by default on mobile when history ask/answer exists', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'content',
+          content: 'course content',
+          generated_block_bid: 'content-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+        {
+          element_type: 'ask',
+          content: 'follow-up ask',
+          generated_block_bid: 'ask-block-1',
+          element_bid: 'ask-element-1',
+          payload: {
+            anchor_element_bid: 'content-1',
+          },
+        },
+        {
+          element_type: 'answer',
+          content: 'follow-up answer',
+          generated_block_bid: 'answer-block-1',
+          element_bid: 'answer-element-1',
+          payload: {
+            anchor_element_bid: 'content-1',
+            ask_element_bid: 'ask-element-1',
+          },
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const mobileWrapper = ({ children }: { children: React.ReactNode }) => (
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: true,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        {children}
+      </AppContext.Provider>
+    );
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper: mobileWrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const askBlock = result.current.items.find(
+      item =>
+        item.type === ChatContentItemType.ASK &&
+        item.parent_element_bid === 'content-1',
+    );
+    expect(askBlock).toBeDefined();
+    expect(askBlock?.isAskExpanded).toBe(false);
+  });
+
   it('keeps ask block position by history sequence order instead of anchor position', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',

@@ -487,6 +487,7 @@ function useChatLogicHook({
       if (!parentElementBid) {
         return items;
       }
+      const shouldAutoExpandAskBlock = !mobileStyle;
 
       const resolvedMessageElementBid =
         params.messageElementBid ||
@@ -531,7 +532,8 @@ function useChatLogicHook({
         nextItems[askBlockIndex] = {
           ...existingAskBlock,
           ask_list: existingAskList,
-          isAskExpanded: existingAskBlock.isAskExpanded ?? true,
+          isAskExpanded:
+            existingAskBlock.isAskExpanded ?? shouldAutoExpandAskBlock,
         };
         return nextItems;
       }
@@ -541,7 +543,7 @@ function useChatLogicHook({
         parent_element_bid: parentElementBid,
         type: ChatContentItemType.ASK,
         content: '',
-        isAskExpanded: true,
+        isAskExpanded: shouldAutoExpandAskBlock,
         ask_list: [nextMessage],
         readonly: false,
         customRenderBar: () => null,
@@ -569,7 +571,7 @@ function useChatLogicHook({
       nextItems.splice(parentContentIndex + 1, 0, nextAskBlock);
       return nextItems;
     },
-    [],
+    [mobileStyle],
   );
 
   const normalizeHistoryAudioTracks = useCallback(
