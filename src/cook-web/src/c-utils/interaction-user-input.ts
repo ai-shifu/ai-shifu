@@ -5,9 +5,7 @@ export interface ResolvedInteractionSubmission {
   userInput: string;
 }
 
-const getUniqueSubmissionValues = (
-  content: OnSendContentParams,
-): string[] => {
+const getUniqueSubmissionValues = (content: OnSendContentParams): string[] => {
   const rawValues = [
     ...(content.selectedValues ?? []),
     content.inputText ?? '',
