@@ -49,6 +49,7 @@
 - 当阅读模式要求“内容与追问入口同步出现”时，桌面端追问操作栏应继续挂在 `LIKE_STATUS` 节点，不要提前挂在 `CONTENT/INTERACTION` 节点后面，避免内容 iframe 尚未完成渲染时按钮先行出现。
 - 当聊天操作栏需要按 element 粒度稳定出现时，`SSE element` 与历史 `records/elements` 都应基于 `element_type` 统一插入 `LIKE_STATUS`，并且显式排除课后反馈交互（`sys_lesson_feedback_score`）以避免无效追问入口。
 - 当桌面阅读模式仍存在“追问先于正文可见”的闪烁时，给 `ContentRender/IframeSandbox` 增加渲染完成回调并向上透传到 `ChatUi`，仅在父元素完成渲染后再展示对应 `LIKE_STATUS` 操作栏。
+- 当 `ContentRender` 同时支持普通 markdown 与 `sandbox/iframe` 渲染时，`onTypeFinished` 的触发逻辑必须覆盖两条路径，不能只在非 sandbox 分支触发，否则 `readyElementBids` 不会落位并导致部分 element 丢失追问入口。
 
 ## 旧字段兼容回填
 
