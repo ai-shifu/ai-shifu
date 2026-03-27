@@ -5,14 +5,33 @@ export interface ResolvedInteractionSubmission {
   userInput: string;
 }
 
+const getUniqueSubmissionValues = (
+  content: OnSendContentParams,
+): string[] => {
+  const rawValues = [
+    ...(content.selectedValues ?? []),
+    content.inputText ?? '',
+    content.buttonText ?? '',
+  ];
+
+  const uniqueValues: string[] = [];
+  const valueSet = new Set<string>();
+  rawValues.forEach(rawValue => {
+    const normalizedValue = `${rawValue ?? ''}`.trim();
+    if (!normalizedValue || valueSet.has(normalizedValue)) {
+      return;
+    }
+    valueSet.add(normalizedValue);
+    uniqueValues.push(normalizedValue);
+  });
+
+  return uniqueValues;
+};
+
 export const resolveInteractionSubmission = (
   content: OnSendContentParams,
 ): ResolvedInteractionSubmission => {
-  const values = [
-    ...(content.selectedValues ?? []),
-    content.inputText?.trim() ?? '',
-    content.buttonText?.trim() ?? '',
-  ].filter(Boolean);
+  const values = getUniqueSubmissionValues(content);
 
   return {
     values,

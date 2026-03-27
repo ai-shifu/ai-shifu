@@ -436,6 +436,36 @@ export function usePreviewChat() {
               : null;
 
           setTrackedContentList((prev: ChatContentItem[]) => {
+            const buildLikeStatusItem = (
+              parentBlockBid: string,
+            ): ChatContentItem => ({
+              element_bid: `${parentBlockBid}-feedback`,
+              parent_element_bid: parentBlockBid,
+              parent_block_bid: parentBlockBid,
+              generated_block_bid: `${parentBlockBid}-feedback`,
+              like_status: LIKE_STATUS.NONE,
+              type: ChatContentItemType.LIKE_STATUS,
+            });
+
+            const appendLikeStatusIfMissing = (
+              list: ChatContentItem[],
+              parentBlockBid: string,
+            ): ChatContentItem[] => {
+              if (!parentBlockBid) {
+                return list;
+              }
+              const hasLikeStatus = list.some(
+                item =>
+                  item.type === ChatContentItemType.LIKE_STATUS &&
+                  (item.parent_block_bid === parentBlockBid ||
+                    item.parent_element_bid === parentBlockBid),
+              );
+              if (hasLikeStatus) {
+                return list;
+              }
+              return [...list, buildLikeStatusItem(parentBlockBid)];
+            };
+
             const interactionBlock: ChatContentItem = {
               element_bid: blockId,
               generated_block_bid: blockId,
@@ -447,24 +477,21 @@ export function usePreviewChat() {
               type: ChatContentItemType.INTERACTION,
             };
             const lastContent = prev[prev.length - 1];
+            let nextList = prev;
+
             if (
               lastContent &&
               lastContent.type === ChatContentItemType.CONTENT
             ) {
-              return [
-                ...prev,
-                {
-                  element_bid: `${lastContent.generated_block_bid}-feedback`,
-                  parent_element_bid: lastContent.generated_block_bid,
-                  parent_block_bid: lastContent.generated_block_bid,
-                  generated_block_bid: `${lastContent.generated_block_bid}-feedback`,
-                  like_status: LIKE_STATUS.NONE,
-                  type: ChatContentItemType.LIKE_STATUS,
-                },
-                interactionBlock,
-              ];
+              const lastContentBid =
+                lastContent.generated_block_bid || lastContent.element_bid;
+              if (lastContentBid) {
+                nextList = appendLikeStatusIfMissing(nextList, lastContentBid);
+              }
             }
-            return [...prev, interactionBlock];
+
+            nextList = [...nextList, interactionBlock];
+            return appendLikeStatusIfMissing(nextList, blockId);
           });
           tryAutoSubmitInteractionRef.current(blockId, interactionContent);
         } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.CONTENT) {
@@ -736,7 +763,18 @@ export function usePreviewChat() {
           readonly: false,
           user_input: resolveInteractionSubmission(params).userInput,
         };
+        const trailingRows = newList.slice(needChangeItemIndex + 1);
+        const preservedHelperRows = trailingRows.filter(
+          item =>
+            (item.parent_block_bid === blockBid ||
+              item.parent_element_bid === blockBid) &&
+            (item.type === ChatContentItemType.LIKE_STATUS ||
+              item.type === ChatContentItemType.ASK),
+        );
         newList.length = needChangeItemIndex + 1;
+        if (preservedHelperRows.length > 0) {
+          newList.push(...preservedHelperRows);
+        }
         setTrackedContentList(newList);
       }
 
@@ -762,6 +800,30 @@ export function usePreviewChat() {
     [setTrackedContentList],
   );
 
+  // Resolve the last actionable block id and skip helper rows.
+  const resolveLastActionableBlockBid = useCallback(
+    (items: ChatContentItem[]) => {
+      const lastActionableItem = [...items].reverse().find(item => {
+        const generatedBlockBid = item.generated_block_bid || item.element_bid;
+        if (!generatedBlockBid || generatedBlockBid === 'loading') {
+          return false;
+        }
+
+        return (
+          item.type !== ChatContentItemType.LIKE_STATUS &&
+          item.type !== ChatContentItemType.ASK
+        );
+      });
+
+      return (
+        lastActionableItem?.generated_block_bid ||
+        lastActionableItem?.element_bid ||
+        ''
+      );
+    },
+    [],
+  );
+
   const performSend = useCallback(
     (
       content: OnSendContentParams,
@@ -785,8 +847,11 @@ export function usePreviewChat() {
       let isReGenerate = false;
       const currentList = contentListRef.current.slice();
       if (currentList.length > 0) {
+        const lastActionableBlockBid =
+          resolveLastActionableBlockBid(currentList);
         isReGenerate =
-          blockBid !== currentList[currentList.length - 1].generated_block_bid;
+          Boolean(lastActionableBlockBid) &&
+          blockBid !== lastActionableBlockBid;
       }
       if (isReGenerate && !options?.skipConfirm) {
         setPendingRegenerate({ content: listUpdateContent, blockBid });
@@ -865,6 +930,7 @@ export function usePreviewChat() {
       startPreview,
       updateContentListWithUserOperate,
       prefillInteractionBlock,
+      resolveLastActionableBlockBid,
     ],
   );
 
