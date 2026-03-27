@@ -551,20 +551,24 @@ function useChatLogicHook({
     ],
   );
 
-  const markLessonFeedbackPopupDismissed = useCallback((blockBid: string) => {
-    if (!blockBid) {
-      return;
+  const parseLessonFeedbackScore = useCallback((raw?: string | null) => {
+    if (!raw) {
+      return null;
     }
-    const cache = dismissedLessonFeedbackBlockBidsRef.current;
-    if (cache.has(blockBid)) {
-      cache.delete(blockBid);
+    const normalized = Number(raw);
+    if (!Number.isInteger(normalized)) {
+      return null;
     }
-    cache.add(blockBid);
+    if (normalized < 1 || normalized > 5) {
+      return null;
+    }
+    return normalized;
+  }, []);
 
-    while (cache.size > LESSON_FEEDBACK_DISMISS_CACHE_LIMIT) {
-      const oldestBid = cache.values().next().value as string | undefined;
-      if (!oldestBid) {
-        break;
+  const markLessonFeedbackPopupDismissed = useCallback(
+    (lessonOutlineBid: string) => {
+      if (!lessonOutlineBid) {
+        return;
       }
       const cache = dismissedLessonFeedbackOutlineBidsRef.current;
       if (cache.has(lessonOutlineBid)) {
@@ -595,17 +599,16 @@ function useChatLogicHook({
     });
   }, []);
 
-  const dismissLessonFeedbackPopup = useCallback(
-    (blockBid?: string) => {
-      if (blockBid) {
-        markLessonFeedbackPopupDismissed(blockBid);
-      }
-      setLessonFeedbackPopupState(prev =>
-        prev.open ? { ...prev, open: false } : prev,
-      );
-    },
-    [markLessonFeedbackPopupDismissed],
-  );
+  const dismissLessonFeedbackPopup = useCallback(() => {
+    markLessonFeedbackPopupDismissed(outlineBid);
+    setLessonFeedbackPopupState({
+      open: false,
+      elementBid: '',
+      defaultScoreText: '',
+      defaultCommentText: '',
+      readonly: false,
+    });
+  }, [markLessonFeedbackPopupDismissed, outlineBid]);
 
   const openLessonFeedbackPopup = useCallback(
     (interaction: {
@@ -617,35 +620,40 @@ function useChatLogicHook({
       if (!interaction.elementBid) {
         return;
       }
-      if (
-        dismissedLessonFeedbackBlockBidsRef.current.has(interaction.elementBid)
-      ) {
+      if (dismissedLessonFeedbackOutlineBidsRef.current.has(outlineBid)) {
+        return;
+      }
+      if (parseLessonFeedbackScore(interaction.defaultScoreText)) {
         return;
       }
       setLessonFeedbackPopupState({
-        open: true,
+        open: shouldPromptLessonFeedback,
         elementBid: interaction.elementBid,
         defaultScoreText: interaction.defaultScoreText || '',
         defaultCommentText: interaction.defaultCommentText || '',
         readonly: Boolean(interaction.readonly),
       });
     },
-    [],
+    [outlineBid, parseLessonFeedbackScore, shouldPromptLessonFeedback],
   );
 
-  const parseLessonFeedbackScore = useCallback((raw?: string | null) => {
-    if (!raw) {
-      return null;
+  useEffect(() => {
+    if (!shouldPromptLessonFeedback) {
+      return;
     }
-    const normalized = Number(raw);
-    if (!Number.isInteger(normalized)) {
-      return null;
-    }
-    if (normalized < 1 || normalized > 5) {
-      return null;
-    }
-    return normalized;
-  }, []);
+    setLessonFeedbackPopupState(prev => {
+      if (!prev.elementBid || prev.open) {
+        return prev;
+      }
+      if (dismissedLessonFeedbackOutlineBidsRef.current.has(outlineBid)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        open: true,
+      };
+    });
+  }, [outlineBid, shouldPromptLessonFeedback]);
 
   const getLessonFeedbackDefaults = useCallback(
     (raw?: string | null) => {
@@ -1764,7 +1772,7 @@ function useChatLogicHook({
             content.selectedValues?.[0],
             inputText,
           );
-          dismissLessonFeedbackPopup(blockBid);
+          dismissLessonFeedbackPopup();
         } else if (lessonFeedbackPopupState.elementBid) {
           const pendingFeedbackBlockBid = lessonFeedbackPopupState.elementBid;
           const pendingFeedbackItem = contentListRef.current.find(
@@ -2175,7 +2183,7 @@ function useChatLogicHook({
     if (!blockBid) {
       return;
     }
-    dismissLessonFeedbackPopup(blockBid);
+    dismissLessonFeedbackPopup();
   }, [lessonFeedbackPopupState.elementBid, dismissLessonFeedbackPopup]);
 
   return {

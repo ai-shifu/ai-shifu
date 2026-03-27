@@ -104,6 +104,13 @@ jest.mock('@/c-api/studyV2', () => {
       ANSWER: 'answer',
       ERROR: 'error_message',
     },
+    ELEMENT_TYPE: {
+      CONTENT: 'content',
+      INTERACTION: 'interaction',
+      ASK: 'ask',
+      ANSWER: 'answer',
+      ERROR: 'error_message',
+    },
     LIKE_STATUS: {
       LIKE: 'like',
       DISLIKE: 'dislike',
@@ -184,6 +191,7 @@ describe('useChatLogicHook stream cleanup', () => {
 
     mockGetLessonStudyRecord.mockResolvedValue({
       mdflow: '',
+      elements: [],
       records: [],
       slides: [],
     });
@@ -327,9 +335,7 @@ describe('useChatLogicHook stream cleanup', () => {
     await waitFor(() =>
       expect(result.current.lessonFeedbackPopup.open).toBe(true),
     );
-    expect(result.current.lessonFeedbackPopup.generatedBlockBid).toBe(
-      'feedback-1',
-    );
+    expect(result.current.lessonFeedbackPopup.elementBid).toBe('feedback-1');
   });
 
   it('keeps lesson feedback popup visible after it has opened', async () => {
@@ -369,12 +375,12 @@ describe('useChatLogicHook stream cleanup', () => {
   it('does not auto-open lesson feedback popup for an already rated lesson', async () => {
     mockGetLessonStudyRecord.mockResolvedValueOnce({
       mdflow: '',
-      slides: [],
-      records: [
+      elements: [
         {
           block_type: 'content',
           content: 'Lesson done',
           generated_block_bid: 'content-1',
+          element_bid: 'content-1',
           like_status: 'none',
           user_input: '',
         },
@@ -382,12 +388,15 @@ describe('useChatLogicHook stream cleanup', () => {
           block_type: 'interaction',
           content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
           generated_block_bid: 'feedback-1',
+          element_bid: 'feedback-1',
           user_input: JSON.stringify({
             score: 4,
             comment: 'Helpful',
           }),
         },
       ],
+      slides: [],
+      records: [],
     });
 
     const { result } = renderHook(

@@ -100,6 +100,12 @@ export const NewChatComponents = ({
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(false);
   const listenTtsToastShownRef = useRef(false);
+  const listenFeedbackReadyTimerRef = useRef<number | null>(null);
+  const [listenPlaybackState, setListenPlaybackState] = useState({
+    isAudioPlaying: false,
+    isAudioSequenceActive: false,
+  });
+  const [isListenFeedbackReady, setIsListenFeedbackReady] = useState(false);
   const [readyElementBids, setReadyElementBids] = useState<Set<string>>(
     () => new Set(),
   );

@@ -1,4 +1,11 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
@@ -32,6 +39,10 @@ interface ListenModeSlideRendererProps {
   lessonStatus?: string;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
   onPlayerVisibilityChange?: (visible: boolean) => void;
+  onPlaybackStateChange?: (state: {
+    isAudioPlaying: boolean;
+    isAudioSequenceActive: boolean;
+  }) => void;
 }
 
 type ResolveRenderSequence = (params: {
@@ -186,6 +197,7 @@ const ListenModeSlideRenderer = ({
   sectionTitle,
   onSend,
   onPlayerVisibilityChange,
+  onPlaybackStateChange,
 }: ListenModeSlideRendererProps) => {
   const { t } = useTranslation();
   const renderSequenceByStreamKeyRef = useRef<Map<string, number>>(new Map());
@@ -304,6 +316,27 @@ const ListenModeSlideRenderer = ({
     [onSend],
   );
 
+  const handlePlayerVisibilityChange = useCallback(
+    (visible: boolean) => {
+      onPlayerVisibilityChange?.(visible);
+      onPlaybackStateChange?.({
+        isAudioPlaying: visible,
+        isAudioSequenceActive: visible,
+      });
+    },
+    [onPlaybackStateChange, onPlayerVisibilityChange],
+  );
+
+  useEffect(
+    () => () => {
+      onPlaybackStateChange?.({
+        isAudioPlaying: false,
+        isAudioSequenceActive: false,
+      });
+    },
+    [onPlaybackStateChange],
+  );
+
   console.log('elementList', items, elementList);
 
   return (
@@ -326,7 +359,7 @@ const ListenModeSlideRenderer = ({
             copiedButtonText: t('module.renderUi.core.copied'),
           }}
           bufferingText={t('module.chat.slideAudioBuffering')}
-          onPlayerVisibilityChange={onPlayerVisibilityChange}
+          onPlayerVisibilityChange={handlePlayerVisibilityChange}
           interactionDefaultValueOptions={
             lessonFeedbackInteractionDefaultValueOptions
           }
