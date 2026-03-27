@@ -513,7 +513,9 @@ describe('useChatLogicHook stream cleanup', () => {
     });
 
     await waitFor(() =>
-      expect(mockGetRunMessage).toHaveBeenCalledTimes(runCallCountBeforeSend + 1),
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(
+        runCallCountBeforeSend + 1,
+      ),
     );
     expect(result.current.reGenerateConfirm.open).toBe(false);
   });

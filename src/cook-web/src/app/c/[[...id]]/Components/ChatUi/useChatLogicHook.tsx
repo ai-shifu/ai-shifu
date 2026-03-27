@@ -1655,18 +1655,16 @@ function useChatLogicHook({
    */
   const resolveLastActionableElementBid = useCallback(
     (items: ChatContentItem[]) => {
-      const lastActionableItem = [...items]
-        .reverse()
-        .find(item => {
-          if (!item?.element_bid || item.element_bid === 'loading') {
-            return false;
-          }
+      const lastActionableItem = [...items].reverse().find(item => {
+        if (!item?.element_bid || item.element_bid === 'loading') {
+          return false;
+        }
 
-          return (
-            item.type !== ChatContentItemType.LIKE_STATUS &&
-            item.type !== ChatContentItemType.ASK
-          );
-        });
+        return (
+          item.type !== ChatContentItemType.LIKE_STATUS &&
+          item.type !== ChatContentItemType.ASK
+        );
+      });
 
       return lastActionableItem?.element_bid || '';
     },
@@ -1892,7 +1890,8 @@ function useChatLogicHook({
       if (currentList.length > 0) {
         const lastActionableElementBid =
           resolveLastActionableElementBid(currentList);
-        isReGenerate = Boolean(lastActionableElementBid) &&
+        isReGenerate =
+          Boolean(lastActionableElementBid) &&
           blockBid !== lastActionableElementBid;
       }
 
