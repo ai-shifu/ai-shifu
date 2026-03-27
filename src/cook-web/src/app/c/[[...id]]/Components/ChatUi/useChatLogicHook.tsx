@@ -420,6 +420,153 @@ function useChatLogicHook({
     [],
   );
 
+  const resolveRecordElementType = useCallback(
+    (record?: Pick<StudyRecordItem, 'element_type'> | null) => {
+      const rawElementType = (record as { element_type?: unknown } | null)
+        ?.element_type;
+      return typeof rawElementType === 'string' ? rawElementType : '';
+    },
+    [],
+  );
+
+  const isAskOrAnswerElementType = useCallback((elementType?: string | null) => {
+    return elementType === BLOCK_TYPE.ASK || elementType === BLOCK_TYPE.ANSWER;
+  }, []);
+
+  const resolveAskAnchorElementBid = useCallback(
+    (record: StudyRecordItem, items: ChatContentItem[] = []) => {
+      const payload = (record.payload ?? {}) as Record<string, unknown>;
+      const payloadAnchorElementBid =
+        typeof payload.anchor_element_bid === 'string'
+          ? payload.anchor_element_bid
+          : '';
+      if (payloadAnchorElementBid) {
+        return payloadAnchorElementBid;
+      }
+
+      const payloadAskElementBid =
+        typeof payload.ask_element_bid === 'string'
+          ? payload.ask_element_bid
+          : '';
+      if (!payloadAskElementBid) {
+        return '';
+      }
+
+      const matchedAskBlock = items.find(
+        item =>
+          item.type === ChatContentItemType.ASK &&
+          Array.isArray(item.ask_list) &&
+          item.ask_list.some(
+            askMessage => askMessage.element_bid === payloadAskElementBid,
+          ),
+      );
+      return matchedAskBlock?.parent_element_bid || '';
+    },
+    [],
+  );
+
+  const upsertAskMessageByParent = useCallback(
+    (
+      items: ChatContentItem[],
+      params: {
+        parentElementBid: string;
+        messageType: typeof BLOCK_TYPE.ASK | typeof BLOCK_TYPE.ANSWER;
+        messageElementBid?: string;
+        messageGeneratedBlockBid?: string;
+        messageContent: string;
+        isHistory?: boolean;
+        insertionMode?: 'anchor' | 'sequence';
+      },
+    ) => {
+      const { parentElementBid, messageType, messageContent } = params;
+      if (!parentElementBid) {
+        return items;
+      }
+
+      const resolvedMessageElementBid =
+        params.messageElementBid ||
+        params.messageGeneratedBlockBid ||
+        `${messageType}-${parentElementBid}`;
+      const nextMessage: ChatContentItem = {
+        element_bid: resolvedMessageElementBid,
+        generated_block_bid:
+          params.messageGeneratedBlockBid || resolvedMessageElementBid,
+        parent_element_bid: parentElementBid,
+        type: messageType,
+        content: messageContent,
+        readonly: true,
+        customRenderBar: () => null,
+        user_input: '',
+        isHistory: params.isHistory,
+      };
+
+      const nextItems = [...items];
+      const askBlockIndex = nextItems.findIndex(
+        item =>
+          item.type === ChatContentItemType.ASK &&
+          item.parent_element_bid === parentElementBid,
+      );
+
+      if (askBlockIndex >= 0) {
+        const existingAskBlock = nextItems[askBlockIndex];
+        const existingAskList = Array.isArray(existingAskBlock.ask_list)
+          ? [...existingAskBlock.ask_list]
+          : [];
+        const existingMessageIndex = existingAskList.findIndex(
+          message => message.element_bid === resolvedMessageElementBid,
+        );
+        if (existingMessageIndex >= 0) {
+          existingAskList[existingMessageIndex] = {
+            ...existingAskList[existingMessageIndex],
+            ...nextMessage,
+          };
+        } else {
+          existingAskList.push(nextMessage);
+        }
+        nextItems[askBlockIndex] = {
+          ...existingAskBlock,
+          ask_list: existingAskList,
+          isAskExpanded: existingAskBlock.isAskExpanded ?? true,
+        };
+        return nextItems;
+      }
+
+      const nextAskBlock: ChatContentItem = {
+        element_bid: '',
+        parent_element_bid: parentElementBid,
+        type: ChatContentItemType.ASK,
+        content: '',
+        isAskExpanded: true,
+        ask_list: [nextMessage],
+        readonly: false,
+        customRenderBar: () => null,
+        user_input: '',
+      };
+      if (params.insertionMode === 'sequence') {
+        nextItems.push(nextAskBlock);
+        return nextItems;
+      }
+      const likeStatusIndex = nextItems.findIndex(
+        item =>
+          item.parent_element_bid === parentElementBid &&
+          item.type === ChatContentItemType.LIKE_STATUS,
+      );
+      const parentContentIndex =
+        likeStatusIndex >= 0
+          ? likeStatusIndex
+          : nextItems.findIndex(item => item.element_bid === parentElementBid);
+
+      if (parentContentIndex < 0) {
+        nextItems.push(nextAskBlock);
+        return nextItems;
+      }
+
+      nextItems.splice(parentContentIndex + 1, 0, nextAskBlock);
+      return nextItems;
+    },
+    [],
+  );
+
   const normalizeHistoryAudioTracks = useCallback(
     (audios: AudioSegmentData[] = []): AudioTrack[] => {
       if (!audios.length) {
@@ -969,8 +1116,33 @@ function useChatLogicHook({
 
               const elementRecord = response.content as StudyRecordItem;
               const itemBid = resolveElementItemBid(elementRecord);
+              const elementType = resolveRecordElementType(elementRecord);
 
               if (!itemBid) {
+                return;
+              }
+
+              if (isAskOrAnswerElementType(elementType)) {
+                const parentElementBid = resolveAskAnchorElementBid(
+                  elementRecord,
+                  contentListRef.current,
+                );
+                if (!parentElementBid) {
+                  return;
+                }
+                setTrackedContentList(prevState =>
+                  upsertAskMessageByParent(prevState, {
+                    parentElementBid,
+                    messageType: elementType as
+                      | typeof BLOCK_TYPE.ASK
+                      | typeof BLOCK_TYPE.ANSWER,
+                    messageElementBid: itemBid,
+                    messageGeneratedBlockBid:
+                      elementRecord.generated_block_bid || itemBid,
+                    messageContent: elementRecord.content || '',
+                    insertionMode: 'sequence',
+                  }),
+                );
                 return;
               }
 
@@ -1335,12 +1507,16 @@ function useChatLogicHook({
       allowTtsStreaming,
       ensureContentItem,
       getAskButtonMarkup,
+      isAskOrAnswerElementType,
       isLessonFeedbackContent,
       matchItemBid,
       openLessonFeedbackPopup,
       removeLikeStatusByParent,
+      resolveAskAnchorElementBid,
       resolveElementItemBid,
+      resolveRecordElementType,
       shouldAttachLikeStatusByElement,
+      upsertAskMessageByParent,
       upsertLikeStatusByParent,
       upsertListenSlide,
       updateUserInfo,
@@ -1366,8 +1542,29 @@ function useChatLogicHook({
 
       records.forEach((item: StudyRecordItem) => {
         const itemBid = resolveElementItemBid(item);
+        const elementType = resolveRecordElementType(item);
 
         if (!itemBid) {
+          return;
+        }
+
+        if (isAskOrAnswerElementType(elementType)) {
+          const parentElementBid = resolveAskAnchorElementBid(item, result);
+          if (!parentElementBid) {
+            return;
+          }
+          const nextResult = upsertAskMessageByParent(result, {
+            parentElementBid,
+            messageType: elementType as
+              | typeof BLOCK_TYPE.ASK
+              | typeof BLOCK_TYPE.ANSWER,
+            messageElementBid: itemBid,
+            messageGeneratedBlockBid: item.generated_block_bid || itemBid,
+            messageContent: item.content || '',
+            isHistory: true,
+            insertionMode: 'sequence',
+          });
+          result.splice(0, result.length, ...nextResult);
           return;
         }
 
@@ -1411,9 +1608,13 @@ function useChatLogicHook({
     },
     [
       buildElementContentItem,
+      isAskOrAnswerElementType,
       removeLikeStatusByParent,
+      resolveAskAnchorElementBid,
       resolveElementItemBid,
+      resolveRecordElementType,
       shouldAttachLikeStatusByElement,
+      upsertAskMessageByParent,
       upsertLikeStatusByParent,
     ],
   );

@@ -121,6 +121,7 @@ jest.mock('@/c-api/studyV2', () => {
       ASK: 'ask',
     },
     SSE_OUTPUT_TYPE: {
+      ELEMENT: 'element',
       CONTENT: 'content',
       BREAK: 'break',
       ASK: 'ask',
@@ -416,6 +417,155 @@ describe('useChatLogicHook stream cleanup', () => {
         item => item.generated_block_bid === 'feedback-1',
       ),
     ).toBe(true);
+  });
+
+  it('maps history ask/answer elements into ask block messages', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'content',
+          content: 'course content',
+          generated_block_bid: 'content-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+        {
+          element_type: 'ask',
+          content: '111',
+          generated_block_bid: 'ask-block-1',
+          element_bid: 'ask-element-1',
+          payload: {
+            anchor_element_bid: 'content-1',
+          },
+        },
+        {
+          element_type: 'ask',
+          content: '1111',
+          generated_block_bid: 'ask-block-1',
+          element_bid: 'ask-element-1',
+          payload: {
+            anchor_element_bid: 'content-1',
+          },
+        },
+        {
+          element_type: 'answer',
+          content: 'hello',
+          generated_block_bid: 'answer-block-1',
+          element_bid: 'answer-element-1',
+          payload: {
+            anchor_element_bid: 'content-1',
+            ask_element_bid: 'ask-element-1',
+          },
+        },
+        {
+          element_type: 'answer',
+          content: 'hello world',
+          generated_block_bid: 'answer-block-1',
+          element_bid: 'answer-element-1',
+          payload: {
+            anchor_element_bid: 'content-1',
+            ask_element_bid: 'ask-element-1',
+          },
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const askBlock = result.current.items.find(
+      item =>
+        item.type === ChatContentItemType.ASK &&
+        item.parent_element_bid === 'content-1',
+    );
+    expect(askBlock).toBeDefined();
+    expect(askBlock?.ask_list).toHaveLength(2);
+    expect(askBlock?.ask_list?.[0]?.type).toBe('ask');
+    expect(askBlock?.ask_list?.[0]?.content).toBe('1111');
+    expect(askBlock?.ask_list?.[1]?.type).toBe('answer');
+    expect(askBlock?.ask_list?.[1]?.content).toBe('hello world');
+
+    expect(
+      result.current.items.some(item => item.element_bid === 'ask-element-1'),
+    ).toBe(false);
+    expect(
+      result.current.items.some(item => item.element_bid === 'answer-element-1'),
+    ).toBe(false);
+  });
+
+  it('keeps ask block position by history sequence order instead of anchor position', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          element_type: 'content',
+          content: 'content-1',
+          generated_block_bid: 'content-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+        {
+          element_type: 'content',
+          content: 'content-2',
+          generated_block_bid: 'content-2',
+          element_bid: 'content-2',
+          like_status: 'none',
+          user_input: '',
+        },
+        {
+          element_type: 'ask',
+          content: 'follow-up ask',
+          generated_block_bid: 'ask-block-1',
+          element_bid: 'ask-element-1',
+          payload: {
+            anchor_element_bid: 'content-1',
+          },
+        },
+        {
+          element_type: 'answer',
+          content: 'follow-up answer',
+          generated_block_bid: 'answer-block-1',
+          element_bid: 'answer-element-1',
+          payload: {
+            anchor_element_bid: 'content-1',
+            ask_element_bid: 'ask-element-1',
+          },
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const askBlockIndex = result.current.items.findIndex(
+      item =>
+        item.type === ChatContentItemType.ASK &&
+        item.parent_element_bid === 'content-1',
+    );
+    const contentTwoIndex = result.current.items.findIndex(
+      item => item.element_bid === 'content-2',
+    );
+    const contentTwoLikeStatusIndex = result.current.items.findIndex(
+      item =>
+        item.type === ChatContentItemType.LIKE_STATUS &&
+        item.parent_element_bid === 'content-2',
+    );
+
+    expect(askBlockIndex).toBeGreaterThan(contentTwoIndex);
+    expect(askBlockIndex).toBeGreaterThan(contentTwoLikeStatusIndex);
   });
 
   it('inserts only one ask block and keeps it under like status', async () => {

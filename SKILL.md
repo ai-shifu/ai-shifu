@@ -7,6 +7,8 @@
 - When history records and live SSE share the same element schema, keep one conversion path so both sources produce the same `contentList` structure.
 - 当追问流返回 `type=element` 且 `element_type=answer` 时，`AskBlock` 需要按答案流更新教师消息，而不是只监听 `type=content`，否则会出现追问问题已发送但回答气泡为空的问题。
 - 当同一个追问答案在 SSE 中以相同 `element_bid` 多次回传（增量渲染快照）时，前端应按 `element_bid` 覆盖更新同一条回答消息，而不是持续拼接，避免同一答案被重复展示。
+- 当学习记录接口返回 `element_type=ask/answer` 时，这两类元素应归并到对应 `anchor_element_bid` 的 `AskBlock.ask_list` 中展示，而不是作为独立内容块渲染在正文流里。
+- 当 `ask/answer` 的 `anchor_element_bid` 指向较早内容，但事件实际出现在更后序位置时，`AskBlock` 的插入位置要按接口返回顺序（sequence）落位，不能固定锚在 `anchor` 内容后面。
 
 ## Module Augmentation Guardrails
 
