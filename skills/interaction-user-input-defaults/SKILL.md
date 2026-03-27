@@ -9,6 +9,7 @@ description: 当 ai-shifu 与 markdown-flow-ui 之间需要同步交互式 markd
 
 在应用层模型中以原始 `user_input` 保存交互状态，并向下传递给 markdown-flow-ui。
 不要在业务代码中重复实现 `user_input -> defaultButtonText/defaultInputText/defaultSelectedValues` 的解析逻辑。
+“是否重新生成”的判定必须基于最后一个真实业务 element（如 content/interaction），不能直接使用列表尾项；需要排除 `LIKE_STATUS`、`ASK`、`loading` 等辅助项。
 
 ## 工作流
 

@@ -1650,6 +1650,30 @@ function useChatLogicHook({
   );
 
   /**
+   * Resolves the last actionable element bid for regenerate checks.
+   * Auxiliary rows (like-status / ask / loading placeholders) are ignored.
+   */
+  const resolveLastActionableElementBid = useCallback(
+    (items: ChatContentItem[]) => {
+      const lastActionableItem = [...items]
+        .reverse()
+        .find(item => {
+          if (!item?.element_bid || item.element_bid === 'loading') {
+            return false;
+          }
+
+          return (
+            item.type !== ChatContentItemType.LIKE_STATUS &&
+            item.type !== ChatContentItemType.ASK
+          );
+        });
+
+      return lastActionableItem?.element_bid || '';
+    },
+    [],
+  );
+
+  /**
    * onRefresh replays a block from the server using the original inputs.
    */
   const onRefresh = useCallback(
@@ -1866,8 +1890,10 @@ function useChatLogicHook({
       let isReGenerate = false;
       const currentList = contentListRef.current;
       if (currentList.length > 0) {
-        isReGenerate =
-          blockBid !== currentList[currentList.length - 1].element_bid;
+        const lastActionableElementBid =
+          resolveLastActionableElementBid(currentList);
+        isReGenerate = Boolean(lastActionableElementBid) &&
+          blockBid !== lastActionableElementBid;
       }
 
       if (isReGenerate && !options?.skipConfirm) {
@@ -1925,6 +1951,7 @@ function useChatLogicHook({
       showOutputInProgressToast,
       trackEvent,
       resolveSourceGeneratedBlockBid,
+      resolveLastActionableElementBid,
       updateContentListWithUserOperate,
       updateSelectedLesson,
       t,

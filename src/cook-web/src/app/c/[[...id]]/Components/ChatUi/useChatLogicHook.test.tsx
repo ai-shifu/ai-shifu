@@ -463,4 +463,58 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(likeStatusIndex).toBeGreaterThan(-1);
     expect(askIndex).toBe(likeStatusIndex + 1);
   });
+
+  it('does not treat the latest interaction as regenerate when helper rows are trailing', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      elements: [
+        {
+          block_type: 'content',
+          element_type: 'content',
+          content: 'intro',
+          generated_block_bid: 'content-1',
+          element_bid: 'content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+        {
+          block_type: 'interaction',
+          element_type: 'interaction',
+          content: '?[%{{knowledge_level}} 完全不了解 | 略知一二 | 比较熟悉]',
+          generated_block_bid: 'interaction-1',
+          element_bid: 'interaction-1',
+          like_status: 'none',
+          user_input: '',
+        },
+      ],
+      slides: [],
+      records: [],
+    });
+
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.items[result.current.items.length - 1]?.type).toBe(
+      ChatContentItemType.LIKE_STATUS,
+    );
+
+    const runCallCountBeforeSend = mockGetRunMessage.mock.calls.length;
+
+    act(() => {
+      result.current.onSend(
+        {
+          variableName: 'knowledge_level',
+          selectedValues: ['比较熟悉'],
+        },
+        'interaction-1',
+      );
+    });
+
+    await waitFor(() =>
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(runCallCountBeforeSend + 1),
+    );
+    expect(result.current.reGenerateConfirm.open).toBe(false);
+  });
 });
