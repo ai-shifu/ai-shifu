@@ -274,9 +274,9 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   }}
                 >
                   {/* Sandbox iframe dynamic height (lesson preview):
-                   * ContentBlock uses ContentRender internally, which supports:
+                   * By default, iframe grows to fit all content (no scrollbar), min height 16:9.
                    * - sandboxMinAspectRatio: min aspect ratio (w/h), default 16/9
-                   * - sandboxMaxAspectRatio: max aspect ratio (w/h), default 4/3
+                   * - sandboxMaxAspectRatio: max aspect ratio (w/h), default: no limit
                    * To customize, pass these props through ContentBlock or use ContentRender directly. */}
                   <ContentBlock
                     item={item}
