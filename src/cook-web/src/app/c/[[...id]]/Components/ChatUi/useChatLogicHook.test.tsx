@@ -214,41 +214,41 @@ describe('useChatLogicHook stream cleanup', () => {
     );
   });
 
-  it('clears loading after a control-only stream closes', async () => {
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <AppContext.Provider
-        value={{
-          isLoggedIn: false,
-          mobileStyle: false,
-          userInfo: null,
-          theme: 'light',
-          frameLayout: 0,
-        }}
-      >
-        {children}
-      </AppContext.Provider>
-    );
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <AppContext.Provider
+      value={{
+        isLoggedIn: false,
+        mobileStyle: false,
+        userInfo: null,
+        theme: 'light',
+        frameLayout: 0,
+      }}
+    >
+      {children}
+    </AppContext.Provider>
+  );
 
-    const { result } = renderHook(
-      () =>
-        useChatLogicHook({
-          shifuBid: 'shifu-1',
-          outlineBid: 'lesson-1',
-          lessonId: 'lesson-1',
-          trackEvent: jest.fn(),
-          trackTrailProgress: jest.fn(),
-          lessonUpdate: jest.fn(),
-          chapterUpdate: jest.fn(),
-          updateSelectedLesson: jest.fn(),
-          getNextLessonId: jest.fn(() => null),
-          scrollToLesson: jest.fn(),
-          showOutputInProgressToast: jest.fn(),
-          onPayModalOpen: jest.fn(),
-          chatBoxBottomRef: { current: document.createElement('div') },
-          onGoChapter: jest.fn(),
-        }),
-      { wrapper },
-    );
+  const buildBaseParams = () => ({
+    shifuBid: 'shifu-1',
+    outlineBid: 'lesson-1',
+    lessonId: 'lesson-1',
+    trackEvent: jest.fn(),
+    trackTrailProgress: jest.fn(),
+    lessonUpdate: jest.fn(),
+    chapterUpdate: jest.fn(),
+    updateSelectedLesson: jest.fn(),
+    getNextLessonId: jest.fn(() => null),
+    scrollToLesson: jest.fn(),
+    showOutputInProgressToast: jest.fn(),
+    onPayModalOpen: jest.fn(),
+    chatBoxBottomRef: { current: document.createElement('div') },
+    onGoChapter: jest.fn(),
+  });
+
+  it('clears loading after a control-only stream closes', async () => {
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
 
     await waitFor(() => expect(activeRun).toBeDefined());
     await waitFor(() =>
@@ -293,5 +293,119 @@ describe('useChatLogicHook stream cleanup', () => {
         ),
       ).toBe(false),
     );
+  });
+
+  it('keeps lesson feedback popup pending until prompting is allowed', async () => {
+    const { result, rerender } = renderHook(
+      ({ shouldPromptLessonFeedback }) =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          shouldPromptLessonFeedback,
+        }),
+      {
+        wrapper,
+        initialProps: {
+          shouldPromptLessonFeedback: false,
+        },
+      },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'feedback-1',
+        type: SSE_OUTPUT_TYPE.INTERACTION,
+        content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+      });
+    });
+
+    expect(result.current.lessonFeedbackPopup.open).toBe(false);
+
+    rerender({ shouldPromptLessonFeedback: true });
+
+    await waitFor(() =>
+      expect(result.current.lessonFeedbackPopup.open).toBe(true),
+    );
+    expect(result.current.lessonFeedbackPopup.generatedBlockBid).toBe(
+      'feedback-1',
+    );
+  });
+
+  it('keeps lesson feedback popup visible after it has opened', async () => {
+    const { result, rerender } = renderHook(
+      ({ shouldPromptLessonFeedback }) =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          shouldPromptLessonFeedback,
+        }),
+      {
+        wrapper,
+        initialProps: {
+          shouldPromptLessonFeedback: true,
+        },
+      },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'feedback-1',
+        type: SSE_OUTPUT_TYPE.INTERACTION,
+        content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+      });
+    });
+
+    await waitFor(() =>
+      expect(result.current.lessonFeedbackPopup.open).toBe(true),
+    );
+
+    rerender({ shouldPromptLessonFeedback: false });
+
+    expect(result.current.lessonFeedbackPopup.open).toBe(true);
+  });
+
+  it('does not auto-open lesson feedback popup for an already rated lesson', async () => {
+    mockGetLessonStudyRecord.mockResolvedValueOnce({
+      mdflow: '',
+      slides: [],
+      records: [
+        {
+          block_type: 'content',
+          content: 'Lesson done',
+          generated_block_bid: 'content-1',
+          like_status: 'none',
+          user_input: '',
+        },
+        {
+          block_type: 'interaction',
+          content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+          generated_block_bid: 'feedback-1',
+          user_input: JSON.stringify({
+            score: 4,
+            comment: 'Helpful',
+          }),
+        },
+      ],
+    });
+
+    const { result } = renderHook(
+      () =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          shouldPromptLessonFeedback: true,
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.lessonFeedbackPopup.open).toBe(false);
+    expect(
+      result.current.items.some(
+        item => item.generated_block_bid === 'feedback-1',
+      ),
+    ).toBe(true);
   });
 });
