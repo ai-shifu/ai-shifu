@@ -2,7 +2,7 @@
 
 import styles from './page.module.scss';
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import clsx from 'clsx';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
@@ -230,25 +230,17 @@ export default function ChatPage() {
   }, [selectedLessonId, updateLessonId]);
 
   const loadData = useCallback(async () => {
-    await loadTree(chapterId, lessonId || urlLessonId);
+    await loadTree(chapterId, urlLessonId || lessonId);
   }, [chapterId, lessonId, loadTree, urlLessonId]);
 
   const [loadedChapterId, setLoadedChapterId] = useState<string | null>(null);
-  const appliedUrlLessonIdRef = useRef('');
 
   useEffect(() => {
     if (!urlLessonId) {
       return;
     }
-    if (appliedUrlLessonIdRef.current === urlLessonId) {
-      return;
-    }
-    if (lessonId !== urlLessonId) {
-      updateLessonId(urlLessonId);
-      setLoadedChapterId(null);
-    }
-    appliedUrlLessonIdRef.current = urlLessonId;
-  }, [lessonId, updateLessonId, urlLessonId]);
+    setLoadedChapterId(null);
+  }, [urlLessonId]);
 
   useEffect(() => {
     if (initialized && loadedChapterId !== chapterId) {
