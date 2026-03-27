@@ -776,9 +776,10 @@ export const NewChatComponents = ({
                     hasAudioContentInTrack(parentPrimaryTrack);
                   const shouldAutoPlayElement =
                     autoPlayTargetBlockBid === parentElementBid;
-                  const shouldRenderMobileAskAction =
-                    mobileStyle &&
+                  const isInteractionFollowUp =
                     parentContentItem?.type === ChatContentItemType.INTERACTION;
+                  const shouldRenderMobileAskAction =
+                    mobileStyle && isInteractionFollowUp;
 
                   if (mobileStyle && !shouldRenderMobileAskAction) {
                     return null;
@@ -796,6 +797,11 @@ export const NewChatComponents = ({
                       <InteractionBlock
                         shifu_bid={shifuBid}
                         element_bid={parentElementBid}
+                        className={
+                          isInteractionFollowUp
+                            ? 'interaction-block--no-padding-top'
+                            : undefined
+                        }
                         readonly={item.readonly}
                         onRefresh={onRefresh}
                         onToggleAskExpanded={toggleAskExpanded}

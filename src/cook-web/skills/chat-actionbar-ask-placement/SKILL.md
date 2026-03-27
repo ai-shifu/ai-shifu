@@ -13,6 +13,7 @@ description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用
 - 移动端自动归并的历史/SSE 追问默认保持折叠，仅在用户主动点击追问入口后展开。
 - 移动端不能把 `LIKE_STATUS` 一刀切隐藏；至少要为 `interaction` 元素保留追问入口，保证与 PC 的追问能力一致。
 - 移动端阅读模式下，`interaction` 的追问按钮样式应与正文 `custom-button-after-content` 的追问按钮保持一致；PC 端维持原有桌面样式。
+- 当追问操作栏挂在 `interaction` 元素后方时，需要移除操作栏顶部额外间距（如 `padding-top`），避免与交互块之间出现空白断层。
 
 ## 工作流
 
