@@ -13,7 +13,10 @@ export default function ShifuRoot({ id, initialLessonId }: ShifuRootProps) {
   return (
     <UserProvider>
       <ShifuProvider>
-        <ShifuEdit id={id} initialLessonId={initialLessonId} />
+        <ShifuEdit
+          id={id}
+          initialLessonId={initialLessonId}
+        />
       </ShifuProvider>
     </UserProvider>
   );

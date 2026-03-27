@@ -11,7 +11,10 @@ type MainRootProps = {
 export default function ShifuRoot({ id, initialLessonId }: MainRootProps) {
   return (
     <UserProvider>
-      <ShifuEdit id={id} initialLessonId={initialLessonId} />
+      <ShifuEdit
+        id={id}
+        initialLessonId={initialLessonId}
+      />
     </UserProvider>
   );
 }

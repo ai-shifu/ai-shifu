@@ -28,7 +28,10 @@ import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { useLessonTree } from './hooks/useLessonTree';
 import { updateWxcode } from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
-import { buildLoginRedirectPath, getLessonIdFromQuery } from '@/c-utils/urlUtils';
+import {
+  buildLoginRedirectPath,
+  getLessonIdFromQuery,
+} from '@/c-utils/urlUtils';
 
 import { Skeleton } from '@/components/ui/Skeleton';
 import { AppContext } from './Components/AppContext';

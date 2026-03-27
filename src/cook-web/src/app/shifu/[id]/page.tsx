@@ -23,7 +23,10 @@ export default function Page({ params }: { params: Promise<ShifuPageParams> }) {
 
   return (
     <div className='h-screen w-full'>
-      <ShifuRoot id={id} initialLessonId={initialLessonId} />
+      <ShifuRoot
+        id={id}
+        initialLessonId={initialLessonId}
+      />
     </div>
   );
 }
