@@ -106,9 +106,6 @@ export const NewChatComponents = ({
     isAudioSequenceActive: false,
   });
   const [isListenFeedbackReady, setIsListenFeedbackReady] = useState(false);
-  const [readyElementBids, setReadyElementBids] = useState<Set<string>>(
-    () => new Set(),
-  );
 
   const scrollToBottom = useCallback(() => {
     chatBoxBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -274,41 +271,6 @@ export const NewChatComponents = ({
     showOutputInProgressToast,
     onPayModalOpen,
   });
-
-  const markElementRenderReady = useCallback((elementBid: string) => {
-    if (!elementBid || elementBid === 'loading') {
-      return;
-    }
-    setReadyElementBids(prev => {
-      if (prev.has(elementBid)) {
-        return prev;
-      }
-      const next = new Set(prev);
-      next.add(elementBid);
-      return next;
-    });
-  }, []);
-
-  useEffect(() => {
-    setReadyElementBids(new Set<string>());
-  }, [lessonId]);
-
-  useEffect(() => {
-    if (
-      !currentStreamingElementBid ||
-      currentStreamingElementBid === 'loading'
-    ) {
-      return;
-    }
-    setReadyElementBids(prev => {
-      if (!prev.has(currentStreamingElementBid)) {
-        return prev;
-      }
-      const next = new Set(prev);
-      next.delete(currentStreamingElementBid);
-      return next;
-    });
-  }, [currentStreamingElementBid]);
 
   useEffect(() => {
     if (isListenModeActive && !isLoading) {
@@ -758,10 +720,7 @@ export const NewChatComponents = ({
 
                 if (item.type === ChatContentItemType.LIKE_STATUS) {
                   const parentElementBid = item.parent_element_bid || '';
-                  if (
-                    !parentElementBid ||
-                    !readyElementBids.has(parentElementBid)
-                  ) {
+                  if (!parentElementBid) {
                     return null;
                   }
                   const parentContentItem = parentElementBid
@@ -877,7 +836,6 @@ export const NewChatComponents = ({
                       showAudioAction={shouldShowAudioAction}
                       onAudioPlayStateChange={handleAudioPlayStateChange}
                       onAudioEnded={handleAudioEnded}
-                      onTypeFinished={markElementRenderReady}
                     />
                   </div>
                 );
