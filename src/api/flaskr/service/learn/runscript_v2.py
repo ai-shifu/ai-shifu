@@ -240,13 +240,14 @@ def run_script(
         + ":"
         + outline_bid
     )
+    use_element_protocol = listen or input_type == "ask"
     element_adapter = ListenElementRunAdapter(
         app,
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
         user_bid=user_bid,
     )
-    stream_element_adapter = element_adapter if listen else None
+    stream_element_adapter = element_adapter if use_element_protocol else None
     lock = cache_provider.lock(
         lock_key, timeout=timeout, blocking_timeout=blocking_timeout
     )
@@ -338,7 +339,7 @@ def run_script(
             if hasattr(payload_type, "value"):
                 payload_type = payload_type.value
             return bool(
-                listen
+                use_element_protocol
                 and payload_type == GeneratedType.DONE.value
                 and not bool(getattr(payload_obj, "is_terminal", False))
             )
@@ -483,13 +484,15 @@ def run_script(
                     yield _to_sse_chunk(block_end_event)
                     last_stream_type = (
                         GeneratedType.DONE.value
-                        if listen
+                        if use_element_protocol
                         else GeneratedType.BREAK.value
                     )
-                    last_stream_done_is_terminal = False if listen else None
+                    last_stream_done_is_terminal = (
+                        False if use_element_protocol else None
+                    )
 
         if not (
-            listen
+            use_element_protocol
             and last_stream_type == GeneratedType.DONE.value
             and last_stream_done_is_terminal is True
         ):
@@ -499,11 +502,11 @@ def run_script(
                     event_type=GeneratedType.DONE.value,
                     content="",
                     element_adapter=stream_element_adapter,
-                    is_terminal=True if listen else None,
+                    is_terminal=True if use_element_protocol else None,
                 )
             )
             last_stream_type = GeneratedType.DONE.value
-            last_stream_done_is_terminal = True if listen else None
+            last_stream_done_is_terminal = True if use_element_protocol else None
     else:
         app.logger.warning(
             "run_script lock acquisition failed: user_bid=%s outline_bid=%s",
@@ -513,7 +516,7 @@ def run_script(
         busy_content = str(_("server.learn.outputInProgress"))
         terminal_events = (
             [("error", busy_content), (GeneratedType.DONE.value, "")]
-            if listen
+            if use_element_protocol
             else [
                 ("error", busy_content),
                 (GeneratedType.BREAK.value, ""),
@@ -529,7 +532,8 @@ def run_script(
                     element_adapter=stream_element_adapter,
                     is_terminal=(
                         True
-                        if listen and event_type == GeneratedType.DONE.value
+                        if use_element_protocol
+                        and event_type == GeneratedType.DONE.value
                         else None
                     ),
                 )

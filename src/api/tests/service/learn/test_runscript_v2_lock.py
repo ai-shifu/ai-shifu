@@ -147,7 +147,7 @@ def test_run_script_read_mode_keeps_interaction_after_block_break(app, monkeypat
         assert events[3]["is_terminal"] is True
 
 
-def test_run_script_read_mode_filters_internal_ask_event(app, monkeypatch):
+def test_run_script_ask_mode_uses_element_protocol(app, monkeypatch):
     with app.app_context():
         app.config["REDIS_KEY_PREFIX"] = "test"
         monkeypatch.setitem(app.config, "SSE_HEARTBEAT_INTERVAL", 0)
@@ -160,27 +160,30 @@ def test_run_script_read_mode_filters_internal_ask_event(app, monkeypatch):
 
         def fake_run_script_inner(**_kwargs):
             with app.app_context():
-                yield from [
-                    RunMarkdownFlowDTO(
-                        outline_bid="outline-1",
-                        generated_block_bid="generated-ask",
-                        type=GeneratedType.ASK,
-                        content="follow-up question",
-                        anchor_element_bid="element-1",
-                    ),
-                    RunMarkdownFlowDTO(
-                        outline_bid="outline-1",
-                        generated_block_bid="generated-answer",
-                        type=GeneratedType.CONTENT,
-                        content="answer chunk",
-                    ),
-                    RunMarkdownFlowDTO(
-                        outline_bid="outline-1",
-                        generated_block_bid="generated-answer",
-                        type=GeneratedType.BREAK,
-                        content="",
-                    ),
-                ]
+                element_adapter = _kwargs["element_adapter"]
+                yield from element_adapter.process(
+                    [
+                        RunMarkdownFlowDTO(
+                            outline_bid="outline-1",
+                            generated_block_bid="generated-ask",
+                            type=GeneratedType.ASK,
+                            content="follow-up question",
+                            anchor_element_bid="element-1",
+                        ),
+                        RunMarkdownFlowDTO(
+                            outline_bid="outline-1",
+                            generated_block_bid="generated-ask",
+                            type=GeneratedType.CONTENT,
+                            content="answer chunk",
+                        ),
+                        RunMarkdownFlowDTO(
+                            outline_bid="outline-1",
+                            generated_block_bid="generated-ask",
+                            type=GeneratedType.BREAK,
+                            content="",
+                        ),
+                    ]
+                )
 
         monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
 
@@ -197,9 +200,21 @@ def test_run_script_read_mode_filters_internal_ask_event(app, monkeypatch):
         )
         events = _parse_sse_events(chunks)
 
-        assert [event["type"] for event in events] == ["content", "break", "done"]
-        assert all(event["type"] != "ask" for event in events)
-        assert events[0]["content"] == "answer chunk"
+        assert [event["type"] for event in events] == [
+            "element",
+            "element",
+            "element",
+            "done",
+        ]
+        assert events[0]["content"]["element_type"] == "ask"
+        assert events[0]["content"]["content"] == "follow-up question"
+        assert events[1]["content"]["element_type"] == "answer"
+        assert events[1]["content"]["content"] == "answer chunk"
+        assert events[1]["content"]["is_final"] is False
+        assert events[2]["content"]["element_type"] == "answer"
+        assert events[2]["content"]["content"] == "answer chunk"
+        assert events[2]["content"]["is_final"] is True
+        assert events[3]["is_terminal"] is True
 
 
 def test_run_script_listen_keeps_interaction_after_block_done(app, monkeypatch):
