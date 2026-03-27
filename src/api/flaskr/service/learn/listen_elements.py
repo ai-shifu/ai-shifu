@@ -3114,6 +3114,45 @@ def _group_elements_by_generated_block_bid(
     return grouped
 
 
+def _merge_follow_up_elements_after_anchor(
+    elements: list[ElementDTO],
+) -> list[ElementDTO]:
+    follow_up_by_anchor_bid: dict[str, list[ElementDTO]] = {}
+    ordered_non_follow_up_elements: list[ElementDTO] = []
+
+    for element in elements:
+        payload = element.payload or ElementPayloadDTO()
+        anchor_element_bid = (payload.anchor_element_bid or "").strip()
+        if (
+            element.element_type in {ElementType.ASK, ElementType.ANSWER}
+            and anchor_element_bid
+        ):
+            follow_up_by_anchor_bid.setdefault(anchor_element_bid, []).append(element)
+            continue
+        ordered_non_follow_up_elements.append(element)
+
+    if not follow_up_by_anchor_bid:
+        return elements
+
+    merged_elements: list[ElementDTO] = []
+    appended_element_ids: set[int] = set()
+
+    for element in ordered_non_follow_up_elements:
+        merged_elements.append(element)
+        appended_element_ids.add(id(element))
+        anchor_element_bid = element.element_bid or ""
+        for follow_up_element in follow_up_by_anchor_bid.get(anchor_element_bid, []):
+            merged_elements.append(follow_up_element)
+            appended_element_ids.add(id(follow_up_element))
+
+    for element in elements:
+        if id(element) in appended_element_ids:
+            continue
+        merged_elements.append(element)
+
+    return merged_elements
+
+
 def _merge_progress_elements(
     app: Flask,
     *,
@@ -3215,7 +3254,9 @@ def _merge_progress_elements(
         for group_key in ordered_group_keys:
             merged_elements.extend(persisted_groups.get(group_key, []))
             merged_elements.extend(legacy_groups.get(group_key, []))
-        collected_elements.extend(merged_elements)
+        collected_elements.extend(
+            _merge_follow_up_elements_after_anchor(merged_elements)
+        )
         if include_non_navigable and collected_events is not None:
             for event in persisted_events or []:
                 collected_events.append(event)

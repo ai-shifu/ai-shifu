@@ -567,6 +567,178 @@ def test_records_ordered_by_sequence_number(app):
     assert bids == ["el-a", "el-b", "el-c"]
 
 
+def test_records_merge_follow_up_history_after_anchor_element(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.learn_dtos import ElementPayloadDTO
+    from flaskr.service.learn.listen_elements import (
+        _serialize_payload,
+        get_listen_element_record,
+    )
+    from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-follow-up-order"
+    shifu_bid = "shifu-follow-up-order"
+    outline_bid = "outline-follow-up-order"
+    progress_bid = "progress-follow-up-order"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        db.session.add(progress)
+        db.session.add_all(
+            [
+                LearnGeneratedElement(
+                    element_bid="anchor-1",
+                    progress_record_bid=progress_bid,
+                    user_bid=user_bid,
+                    generated_block_bid="block-anchor",
+                    outline_item_bid=outline_bid,
+                    shifu_bid=shifu_bid,
+                    run_session_bid="run-follow-up-order",
+                    run_event_seq=1,
+                    event_type="element",
+                    role="teacher",
+                    element_index=0,
+                    element_type="text",
+                    element_type_code=213,
+                    change_type="render",
+                    target_element_bid="",
+                    is_renderable=0,
+                    is_new=1,
+                    is_marker=0,
+                    sequence_number=1,
+                    is_speakable=1,
+                    audio_url="",
+                    audio_segments="[]",
+                    is_navigable=1,
+                    is_final=1,
+                    content_text="anchor content",
+                    payload=_serialize_payload(ElementPayloadDTO()),
+                    status=1,
+                ),
+                LearnGeneratedElement(
+                    element_bid="normal-2",
+                    progress_record_bid=progress_bid,
+                    user_bid=user_bid,
+                    generated_block_bid="block-normal",
+                    outline_item_bid=outline_bid,
+                    shifu_bid=shifu_bid,
+                    run_session_bid="run-follow-up-order",
+                    run_event_seq=2,
+                    event_type="element",
+                    role="teacher",
+                    element_index=1,
+                    element_type="text",
+                    element_type_code=213,
+                    change_type="render",
+                    target_element_bid="",
+                    is_renderable=0,
+                    is_new=1,
+                    is_marker=0,
+                    sequence_number=2,
+                    is_speakable=1,
+                    audio_url="",
+                    audio_segments="[]",
+                    is_navigable=1,
+                    is_final=1,
+                    content_text="normal content",
+                    payload=_serialize_payload(ElementPayloadDTO()),
+                    status=1,
+                ),
+                LearnGeneratedElement(
+                    element_bid="ask-1",
+                    progress_record_bid=progress_bid,
+                    user_bid=user_bid,
+                    generated_block_bid="block-ask",
+                    outline_item_bid=outline_bid,
+                    shifu_bid=shifu_bid,
+                    run_session_bid="run-follow-up-order",
+                    run_event_seq=3,
+                    event_type="element",
+                    role="student",
+                    element_index=0,
+                    element_type="ask",
+                    element_type_code=206,
+                    change_type="render",
+                    target_element_bid="",
+                    is_renderable=0,
+                    is_new=1,
+                    is_marker=0,
+                    sequence_number=3,
+                    is_speakable=0,
+                    audio_url="",
+                    audio_segments="[]",
+                    is_navigable=0,
+                    is_final=1,
+                    content_text="follow up question",
+                    payload=_serialize_payload(
+                        ElementPayloadDTO(anchor_element_bid="anchor-1")
+                    ),
+                    status=1,
+                ),
+                LearnGeneratedElement(
+                    element_bid="answer-1",
+                    progress_record_bid=progress_bid,
+                    user_bid=user_bid,
+                    generated_block_bid="block-answer",
+                    outline_item_bid=outline_bid,
+                    shifu_bid=shifu_bid,
+                    run_session_bid="run-follow-up-order",
+                    run_event_seq=4,
+                    event_type="element",
+                    role="teacher",
+                    element_index=0,
+                    element_type="answer",
+                    element_type_code=214,
+                    change_type="render",
+                    target_element_bid="",
+                    is_renderable=0,
+                    is_new=1,
+                    is_marker=0,
+                    sequence_number=4,
+                    is_speakable=0,
+                    audio_url="",
+                    audio_segments="[]",
+                    is_navigable=0,
+                    is_final=1,
+                    content_text="follow up answer",
+                    payload=_serialize_payload(
+                        ElementPayloadDTO(
+                            anchor_element_bid="anchor-1",
+                            ask_element_bid="ask-1",
+                        )
+                    ),
+                    status=1,
+                ),
+            ]
+        )
+        db.session.commit()
+
+        result = get_listen_element_record(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            preview_mode=False,
+        )
+
+    bids = [element.element_bid for element in result.elements]
+    assert bids == ["anchor-1", "ask-1", "answer-1", "normal-2"]
+
+
 def test_include_non_navigable_returns_events(app):
     """include_non_navigable=true should return full events stream."""
     _require_app(app)
