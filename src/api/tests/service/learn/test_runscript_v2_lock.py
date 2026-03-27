@@ -1,6 +1,8 @@
 import json
 from types import SimpleNamespace
 
+from flask import Flask
+
 from flaskr.service.learn import runscript_v2
 from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
 
@@ -215,6 +217,118 @@ def test_run_script_ask_mode_uses_element_protocol(app, monkeypatch):
         assert events[2]["content"]["content"] == "answer chunk"
         assert events[2]["content"]["is_final"] is True
         assert events[3]["is_terminal"] is True
+
+
+def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeypatch):
+    app = Flask(__name__)
+
+    monkeypatch.setattr(
+        runscript_v2,
+        "db",
+        SimpleNamespace(
+            session=SimpleNamespace(commit=lambda: None, rollback=lambda: None)
+        ),
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "load_user_aggregate",
+        lambda _user_bid: SimpleNamespace(user_id="user-1"),
+    )
+
+    outline_item_info = SimpleNamespace(
+        bid="outline-1",
+        shifu_bid="shifu-1",
+        title="Lesson",
+        __json__=lambda: {"bid": "outline-1"},
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "get_outline_item_dto",
+        lambda *_args, **_kwargs: outline_item_info,
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "get_shifu_dto",
+        lambda *_args, **_kwargs: SimpleNamespace(bid="shifu-1", price=0),
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "get_shifu_struct",
+        lambda *_args, **_kwargs: object(),
+    )
+
+    class FakeRunScriptContext:
+        def __init__(self, **_kwargs):
+            self._has_next = True
+
+        def set_input(self, *_args, **_kwargs):
+            return None
+
+        def reload(self, *_args, **_kwargs):
+            return []
+
+        def has_next(self):
+            if self._has_next:
+                self._has_next = False
+                return True
+            return False
+
+        def run(self, _app):
+            return [
+                RunMarkdownFlowDTO(
+                    outline_bid="outline-1",
+                    generated_block_bid="generated-ask",
+                    type=GeneratedType.ASK,
+                    content="follow-up question",
+                    anchor_element_bid="element-1",
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="outline-1",
+                    generated_block_bid="generated-ask",
+                    type=GeneratedType.CONTENT,
+                    content="answer chunk",
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="outline-1",
+                    generated_block_bid="generated-ask",
+                    type=GeneratedType.BREAK,
+                    content="",
+                ),
+            ]
+
+    monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
+
+    class FakeElementAdapter:
+        def __init__(self):
+            self.calls = []
+
+        def process(self, events):
+            captured = list(events)
+            self.calls.append(captured)
+            return iter([f"converted:{event.type.value}" for event in captured])
+
+    element_adapter = FakeElementAdapter()
+
+    emitted = list(
+        runscript_v2.run_script_inner(
+            app=app,
+            user_bid="user-1",
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            input="follow-up question",
+            input_type="ask",
+            listen=False,
+            element_adapter=element_adapter,
+        )
+    )
+
+    assert emitted == ["converted:ask", "converted:content", "converted:break"]
+    assert len(element_adapter.calls) == 1
+    assert [event.type for event in element_adapter.calls[0]] == [
+        GeneratedType.ASK,
+        GeneratedType.CONTENT,
+        GeneratedType.BREAK,
+    ]
 
 
 def test_run_script_listen_keeps_interaction_after_block_done(app, monkeypatch):

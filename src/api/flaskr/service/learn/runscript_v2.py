@@ -125,12 +125,13 @@ def run_script_inner(
             )
 
             run_script_context.set_input(input, input_type)
+            use_element_protocol = listen or input_type == "ask"
 
             def _iter_run_events(events):
                 if element_adapter is None:
                     yield from events
                     return
-                if listen:
+                if use_element_protocol:
                     yield from element_adapter.process(events)
                     return
                 for event in events:
