@@ -801,52 +801,6 @@ class PlaygroundPreviewRequest(BaseModel):
         return self.content or ""
 
 
-class PreviewSSEMessageType(Enum):
-    CONTENT = "content"
-    INTERACTION = "interaction"
-    TEXT_END = "text_end"
-    ERROR = "error"
-    # Audio types for TTS (same literals as GeneratedType for consistency)
-    AUDIO_SEGMENT = "audio_segment"
-    AUDIO_COMPLETE = "audio_complete"
-
-    def __json__(self):
-        return self.value
-
-
-class PreviewContentSSEData(BaseModel):
-    mdflow: str = Field(..., description="MarkdownFlow content chunk")
-
-
-class PreviewInteractionSSEData(BaseModel):
-    mdflow: str = Field(..., description="Rendered interaction content")
-    variable: str = Field(..., description="Target variable name for interaction")
-
-
-class PreviewTextEndSSEData(BaseModel):
-    mdflow: str = Field(default="", description="Text end marker payload")
-
-
-class PreviewSSEMessage(BaseModel):
-    generated_block_bid: str = Field(
-        ..., description="client-side identifier of the block", required=True
-    )
-    type: PreviewSSEMessageType = Field(..., description="SSE message type")
-    data: (
-        PreviewContentSSEData
-        | PreviewInteractionSSEData
-        | PreviewTextEndSSEData
-        | AudioSegmentDTO
-        | AudioCompleteDTO
-        | str
-    )
-
-    def __json__(self):
-        payload = self.model_dump()
-        payload["type"] = self.type.value
-        return payload
-
-
 @register_schema_to_swagger
 class LearnElementRecordDTO(BaseModel):
     elements: List[ElementDTO] = Field(

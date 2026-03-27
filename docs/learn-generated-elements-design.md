@@ -11,6 +11,7 @@
 3. 将 `type` 产出逻辑收敛到状态机，不再散落在分支中硬编码。
 4. 让学习过程中的 `input_type=ask` 生成独立的 `ask` element，并与被追问的 anchor element 关联。
 5. 让追问入口与上下文装载从 `generated_block_bid` 迁移到 `element_bid`。
+6. 让编辑器调试/预览接口也输出 `elements` 协议，不再单独维护 `content/interaction/text_end` SSE 协议。
 
 ---
 
@@ -259,6 +260,17 @@ To-Be 约束：
    - `asks` 为空数组 `[]` → fallback（首次追问，无历史，两条路径结果一致）
    - `asks` 存在但不包含至少一对 student+teacher → fallback（数据不完整）
    - `asks` 存在且包含至少一对 student+teacher → 使用 `payload.asks`
+
+## 3.8 编辑器调试/预览接口 element 协议
+
+编辑器调试接口（当前为 `preview/<outline_bid>` SSE）也切到 element 协议，约束如下：
+
+1. 预览流输出复用 `RunElementSSEMessageDTO`，事件集合对齐正式 run：`element` / `done` / `error`。
+2. 预览链路不写入 `learn_generated_elements`，仅在内存中维护 element 快照和 patch 状态。
+3. MarkdownFlow 视觉分片仍按现有 stream `type/number` 切分，确保编辑器看到的视觉 element 与 listen run 一致。
+4. 交互块预览输出 `element_type=interaction` 的 element，而不是旧的 `interaction` SSE 包装。
+5. 预览结束后输出终态 `done` 事件，替代旧的 `text_end`。
+6. 预览上下文累计仍基于原始文本 chunk，不依赖数据库或 records 聚合结果。
 
 ---
 

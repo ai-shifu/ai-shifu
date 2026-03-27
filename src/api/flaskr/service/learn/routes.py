@@ -28,7 +28,7 @@ from flaskr.service.common import raise_error
 from flaskr.service.learn.runscript_v2 import run_script, get_run_status
 from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
 from flaskr.service.learn.context_v2 import RunScriptPreviewContextV2
-from flaskr.service.learn.learn_dtos import PreviewSSEMessage, PreviewSSEMessageType
+from flaskr.service.learn.learn_dtos import RunElementSSEMessageDTO
 from flaskr.util import generate_id
 from flaskr.common.shifu_context import with_shifu_context, get_shifu_context_snapshot
 
@@ -381,7 +381,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     text/event-stream:
                         schema:
                             type: string
-                            example: 'data: {"type":"content","data":{"mdflow":"..."}}'
+                            example: 'data: {"type":"element","event_type":"element","content":{"element_type":"text","content":"..."}}'
         """
         payload = request.get_json(silent=True) or {}
         normalized_user_input = payload.get("user_input")
@@ -439,10 +439,12 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             ),
             close_log="client closed preview stream early",
             error_log="preview outline block failed",
-            error_event_factory=lambda exc: PreviewSSEMessage(
+            error_event_factory=lambda exc: RunElementSSEMessageDTO(
+                type="error",
+                event_type="error",
                 generated_block_bid=generate_id(app),
-                type=PreviewSSEMessageType.ERROR,
-                data=str(exc),
+                is_terminal=True,
+                content=str(exc),
             ),
         )
 

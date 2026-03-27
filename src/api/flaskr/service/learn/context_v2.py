@@ -72,11 +72,7 @@ from flaskr.service.profile.funcs import get_user_profiles
 from flaskr.service.profile.constants import SYS_USER_LANGUAGE
 from flaskr.service.learn.learn_dtos import (
     PlaygroundPreviewRequest,
-    PreviewContentSSEData,
-    PreviewInteractionSSEData,
-    PreviewSSEMessage,
-    PreviewSSEMessageType,
-    PreviewTextEndSSEData,
+    RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
     GeneratedType,
     OutlineItemUpdateDTO,
@@ -104,6 +100,7 @@ from flaskr.service.learn.langfuse_naming import (
 from flaskr.service.learn.utils_v2 import init_generated_block
 from flaskr.service.learn.lesson_feedback import build_lesson_feedback_interaction_md
 from flaskr.service.learn.exceptions import PaidException
+from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
 from flaskr.i18n import _, get_current_language, set_language
 from flaskr.service.user.exceptions import UserNotLoginException
 from flaskr.common.shifu_context import (
@@ -505,7 +502,7 @@ class RunScriptPreviewContextV2:
         outline_bid: str,
         user_bid: str,
         session_id: str,
-    ) -> Generator[PreviewSSEMessage, None, None]:
+    ) -> Generator[RunElementSSEMessageDTO, None, None]:
         outline = self._get_outline_record(shifu_bid, outline_bid)
         shifu = self._get_shifu_record(shifu_bid, True)
         document_prompt = self._resolve_document_prompt(
@@ -628,49 +625,23 @@ class RunScriptPreviewContextV2:
                 user_input=user_input,
             )
 
-            if inspect.isgenerator(result):
-                for chunk in result:
-                    message = self._convert_to_sse_message(
-                        chunk,
-                        False,
-                        current_block,
-                        is_user_input_validation,
-                        block_index,
-                    )
-                    if message:
-                        if message.type == PreviewSSEMessageType.CONTENT:
-                            content_chunks.append(message.data.mdflow)
-                        yield message
-                        if message.type == PreviewSSEMessageType.INTERACTION:
-                            break
-
-                yield self._convert_to_sse_message(
-                    LLMResult(content=""),
-                    True,
-                    current_block,
-                    is_user_input_validation,
-                    block_index,
+            preview_adapter = PreviewElementRunAdapter(
+                self.app,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                user_bid=user_bid,
+                run_session_bid=session_id,
+            )
+            yield from preview_adapter.process(
+                self._iter_preview_generated_events(
+                    result=result,
+                    outline_bid=outline_bid,
+                    block_index=block_index,
+                    current_block=current_block,
+                    is_user_input_validation=is_user_input_validation,
+                    content_chunks=content_chunks,
                 )
-            else:
-                message = self._convert_to_sse_message(
-                    result,
-                    False,
-                    current_block,
-                    is_user_input_validation,
-                    block_index,
-                )
-                if message:
-                    if message.type == PreviewSSEMessageType.CONTENT:
-                        content_chunks.append(message.data.mdflow)
-                    yield message
-
-                yield self._convert_to_sse_message(
-                    LLMResult(content=""),
-                    True,
-                    current_block,
-                    is_user_input_validation,
-                    block_index,
-                )
+            )
 
             current_block_content = ""
             if current_block:
@@ -730,27 +701,55 @@ class RunScriptPreviewContextV2:
         )
         return variables
 
-    def _convert_to_sse_message(
+    def _iter_preview_generated_events(
         self,
-        llm_result: Optional[LLMResult],
-        finished: bool,
+        *,
+        result: Optional[LLMResult] | Generator[LLMResult, None, None],
+        outline_bid: str,
+        block_index: int,
         current_block,
         is_user_input_validation: bool,
-        block_index: int,
-    ) -> PreviewSSEMessage | None:
-        if finished:
-            return PreviewSSEMessage(
-                generated_block_bid=str(block_index),
-                type=PreviewSSEMessageType.TEXT_END,
-                data=PreviewTextEndSSEData(),
-            )
+        content_chunks: list[str],
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        generated_block_bid = str(block_index)
+        emitted_interaction = False
+        raw_items = result if inspect.isgenerator(result) else [result]
+        for llm_result in raw_items:
+            for event in self._preview_events_from_result(
+                llm_result=llm_result,
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                current_block=current_block,
+                is_user_input_validation=is_user_input_validation,
+            ):
+                if event.type == GeneratedType.CONTENT:
+                    content_chunks.append(str(event.content or ""))
+                yield event
+                if event.type == GeneratedType.INTERACTION:
+                    emitted_interaction = True
+            if emitted_interaction:
+                break
 
+        yield RunMarkdownFlowDTO(
+            outline_bid=outline_bid,
+            generated_block_bid=generated_block_bid,
+            type=GeneratedType.DONE,
+            content="",
+        )
+
+    def _preview_events_from_result(
+        self,
+        *,
+        llm_result: Optional[LLMResult],
+        outline_bid: str,
+        generated_block_bid: str,
+        current_block,
+        is_user_input_validation: bool,
+    ) -> list[RunMarkdownFlowDTO]:
         content = ""
-        if llm_result is None:
-            content = ""
-        else:
+        if llm_result is not None:
             if hasattr(llm_result, "content"):
-                content = llm_result.content or ""
+                content = str(llm_result.content or "")
             else:
                 content = str(llm_result)
 
@@ -766,35 +765,93 @@ class RunScriptPreviewContextV2:
         if is_interaction_block:
             if is_user_input_validation:
                 if content.strip():
-                    return PreviewSSEMessage(
-                        generated_block_bid=str(block_index),
-                        type=PreviewSSEMessageType.CONTENT,
-                        data=PreviewContentSSEData(mdflow=content),
-                    )
-                return None
+                    return [
+                        self._make_preview_content_event(
+                            outline_bid=outline_bid,
+                            generated_block_bid=generated_block_bid,
+                            content=content,
+                            stream_type=str(getattr(llm_result, "type", "") or ""),
+                            stream_number=getattr(llm_result, "number", None),
+                        )
+                    ]
+                return []
 
             rendered_content = content or getattr(current_block, "content", "")
-            variable_name = (
-                current_block.variables[0]
-                if getattr(current_block, "variables", None)
-                else "user_input"
-            )
-            return PreviewSSEMessage(
-                generated_block_bid=str(block_index),
-                type=PreviewSSEMessageType.INTERACTION,
-                data=PreviewInteractionSSEData(
-                    mdflow=rendered_content,
-                    variable=variable_name,
-                ),
-            )
+            return [
+                RunMarkdownFlowDTO(
+                    outline_bid=outline_bid,
+                    generated_block_bid=generated_block_bid,
+                    type=GeneratedType.INTERACTION,
+                    content=rendered_content,
+                )
+            ]
 
         if not content:
-            return None
+            return []
 
-        return PreviewSSEMessage(
-            generated_block_bid=str(block_index),
-            type=PreviewSSEMessageType.CONTENT,
-            data=PreviewContentSSEData(mdflow=content),
+        formatted_elements = getattr(llm_result, "formatted_elements", None)
+        if isinstance(formatted_elements, list) and formatted_elements:
+            events: list[RunMarkdownFlowDTO] = []
+            for item in formatted_elements:
+                item_content = getattr(item, "content", None)
+                if item_content is None and isinstance(item, dict):
+                    item_content = item.get("content")
+                item_content = str(item_content or "")
+                if not item_content:
+                    continue
+
+                stream_type = getattr(item, "type", None)
+                if stream_type is None and isinstance(item, dict):
+                    stream_type = item.get("type")
+                stream_number = getattr(item, "number", None)
+                if stream_number is None and isinstance(item, dict):
+                    stream_number = item.get("number")
+                events.append(
+                    self._make_preview_content_event(
+                        outline_bid=outline_bid,
+                        generated_block_bid=generated_block_bid,
+                        content=item_content,
+                        stream_type=str(stream_type or ""),
+                        stream_number=stream_number,
+                    )
+                )
+            if events:
+                return events
+
+        return [
+            self._make_preview_content_event(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                content=content,
+                stream_type=str(getattr(llm_result, "type", "") or ""),
+                stream_number=getattr(llm_result, "number", None),
+            )
+        ]
+
+    def _make_preview_content_event(
+        self,
+        *,
+        outline_bid: str,
+        generated_block_bid: str,
+        content: str,
+        stream_type: str,
+        stream_number: Any,
+    ) -> RunMarkdownFlowDTO:
+        event = RunMarkdownFlowDTO(
+            outline_bid=outline_bid,
+            generated_block_bid=generated_block_bid,
+            type=GeneratedType.CONTENT,
+            content=content,
+        )
+        normalized_stream_type = str(stream_type or "").strip().lower()
+        if not normalized_stream_type or stream_number is None:
+            return event
+        try:
+            normalized_stream_number = int(stream_number)
+        except (TypeError, ValueError):
+            return event
+        return event.set_mdflow_stream_parts(
+            [(content, normalized_stream_type, normalized_stream_number)]
         )
 
     def _resolve_document_prompt(

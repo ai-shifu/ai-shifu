@@ -251,3 +251,12 @@ Superseded note: 2026-03-23 当前阶段进一步升级为 ask/answer 双独立 
 - [ ] 前端 listen + ask/answer 历史/流式回归通过
 - [ ] `npm run build` 通过
 - [ ] pre-commit 通过
+
+## N. 编辑器调试预览 elements 化（P1）
+
+- [x] 更新设计文档，明确 `preview/<outline_bid>` SSE 切换到 element 协议
+- [x] 为编辑器预览新增不落库的 preview element adapter
+- [x] 预览链路输出改为 `RunElementSSEMessageDTO`（`element/done/error`）
+- [x] 交互块预览改为输出 `interaction` element，而不是旧 `interaction` SSE 包装
+- [x] 增加后端回归测试：内容块预览可输出 element patch + done
+- [x] 增加后端回归测试：交互块预览输出 interaction element + done

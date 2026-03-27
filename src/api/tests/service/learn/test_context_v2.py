@@ -24,13 +24,19 @@ if not hasattr(dao, "redis_client"):
     dao.redis_client = None
 
 from flaskr.service.learn.context_v2 import (
+    BlockType as PreviewBlockType,
     MdflowContextV2,
     RunScriptContextV2,
     RunScriptPreviewContextV2,
 )
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
-from flaskr.service.learn.learn_dtos import GeneratedType, PlaygroundPreviewRequest
+from flaskr.service.learn.learn_dtos import (
+    ElementType,
+    GeneratedType,
+    PlaygroundPreviewRequest,
+)
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
@@ -702,6 +708,113 @@ class PreviewResolveVariablesTests(unittest.TestCase):
 
         self.assertEqual(variables.get("sys_user_language"), "fr-FR")
         mock_fetch.assert_not_called()
+
+
+class PreviewElementizationTests(unittest.TestCase):
+    def test_preview_content_events_preserve_stream_parts(self):
+        app = Flask("preview-content-events")
+        preview_ctx = RunScriptPreviewContextV2(app)
+
+        events = preview_ctx._preview_events_from_result(
+            llm_result=types.SimpleNamespace(
+                content="Hello preview",
+                type="text",
+                number=0,
+            ),
+            outline_bid="outline-1",
+            generated_block_bid="0",
+            current_block=types.SimpleNamespace(block_type="content"),
+            is_user_input_validation=False,
+        )
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].type, GeneratedType.CONTENT)
+        self.assertEqual(
+            events[0].get_mdflow_stream_parts(),
+            [("Hello preview", "text", 0)],
+        )
+
+    def test_preview_content_stream_emits_element_and_done(self):
+        app = Flask("preview-content-stream")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        adapter = PreviewElementRunAdapter(
+            app,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            user_bid="user-1",
+            run_session_bid="preview-session-1",
+        )
+        content_chunks: list[str] = []
+
+        messages = list(
+            adapter.process(
+                preview_ctx._iter_preview_generated_events(
+                    result=(
+                        chunk
+                        for chunk in [
+                            types.SimpleNamespace(
+                                content="Hello preview",
+                                type="text",
+                                number=0,
+                            )
+                        ]
+                    ),
+                    outline_bid="outline-1",
+                    block_index=0,
+                    current_block=types.SimpleNamespace(block_type="content"),
+                    is_user_input_validation=False,
+                    content_chunks=content_chunks,
+                )
+            )
+        )
+
+        element_messages = [item for item in messages if item.type == "element"]
+        self.assertGreaterEqual(len(element_messages), 2)
+        self.assertEqual(content_chunks, ["Hello preview"])
+        self.assertEqual(element_messages[0].content.element_type, ElementType.TEXT)
+        self.assertFalse(element_messages[0].content.is_final)
+        self.assertEqual(element_messages[-1].content.element_type, ElementType.TEXT)
+        self.assertTrue(element_messages[-1].content.is_final)
+        self.assertEqual(messages[-1].type, GeneratedType.DONE.value)
+        self.assertTrue(messages[-1].is_terminal)
+
+    def test_preview_interaction_stream_emits_interaction_element_and_done(self):
+        app = Flask("preview-interaction-stream")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        adapter = PreviewElementRunAdapter(
+            app,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            user_bid="user-1",
+            run_session_bid="preview-session-2",
+        )
+        content_chunks: list[str] = []
+
+        messages = list(
+            adapter.process(
+                preview_ctx._iter_preview_generated_events(
+                    result=types.SimpleNamespace(content="Please choose one"),
+                    outline_bid="outline-1",
+                    block_index=2,
+                    current_block=types.SimpleNamespace(
+                        block_type=PreviewBlockType.INTERACTION,
+                        content="? [A//a]",
+                    ),
+                    is_user_input_validation=False,
+                    content_chunks=content_chunks,
+                )
+            )
+        )
+
+        element_messages = [item for item in messages if item.type == "element"]
+        self.assertEqual(len(element_messages), 1)
+        interaction = element_messages[0].content
+        self.assertEqual(interaction.element_type, ElementType.INTERACTION)
+        self.assertEqual(interaction.role, "ui")
+        self.assertEqual(interaction.content_text, "Please choose one")
+        self.assertEqual(content_chunks, [])
+        self.assertEqual(messages[-1].type, GeneratedType.DONE.value)
+        self.assertTrue(messages[-1].is_terminal)
 
 
 if __name__ == "__main__":
