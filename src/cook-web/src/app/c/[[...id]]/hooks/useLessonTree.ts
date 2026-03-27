@@ -176,14 +176,26 @@ export const useLessonTree = () => {
   }, [previewMode, updateCourseId]);
 
   const setSelectedState = useCallback((tree, chapterId, lessonId) => {
-    const chapter = tree.catalogs.find(v => v.id === chapterId);
-    if (!chapter) {
-      return false;
+    let chapter = tree.catalogs.find(v => v.id === chapterId);
+    let lesson = null;
+
+    if (chapter && lessonId) {
+      lesson = chapter.lessons.find(v => v.id === lessonId);
     }
 
-    let lesson = null;
-    if (lessonId) {
-      lesson = chapter.lessons.find(v => v.id === lessonId);
+    if (!lesson && lessonId) {
+      for (const catalog of tree.catalogs) {
+        const matchedLesson = catalog.lessons.find(v => v.id === lessonId);
+        if (matchedLesson) {
+          chapter = catalog;
+          lesson = matchedLesson;
+          break;
+        }
+      }
+    }
+
+    if (!chapter) {
+      return false;
     }
 
     if (!lesson) {
