@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/tooltip';
 
 type Size = 'sm' | 'md' | 'lg';
+type AskButtonVariant = 'default' | 'content';
 
 export interface InteractionBlockProps {
   shifu_bid: string;
@@ -35,6 +36,7 @@ export interface InteractionBlockProps {
   disableInteractionButtons?: boolean;
   showGenerateBtn?: boolean;
   extraActions?: React.ReactNode;
+  askButtonVariant?: AskButtonVariant;
 }
 
 /**
@@ -53,6 +55,7 @@ export default function InteractionBlock({
   onRefresh,
   onToggleAskExpanded,
   extraActions,
+  askButtonVariant = 'default',
 }: InteractionBlockProps) {
   const { t } = useTranslation();
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
@@ -98,6 +101,7 @@ export default function InteractionBlock({
           type='button'
           className={cn(
             'ask-button',
+            askButtonVariant === 'content' && 'ask-button--content',
             'inline-flex items-center justify-center',
             'text-white font-medium',
             'transition-colors',

@@ -11,6 +11,8 @@ description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用
 - `ASK` 优先插入 `LIKE_STATUS` 后方，缺失时回退到内容块后方。
 - 追问操作栏显示时机必须和内容可见时机保持同步。
 - 移动端自动归并的历史/SSE 追问默认保持折叠，仅在用户主动点击追问入口后展开。
+- 移动端不能把 `LIKE_STATUS` 一刀切隐藏；至少要为 `interaction` 元素保留追问入口，保证与 PC 的追问能力一致。
+- 移动端阅读模式下，`interaction` 的追问按钮样式应与正文 `custom-button-after-content` 的追问按钮保持一致；PC 端维持原有桌面样式。
 
 ## 工作流
 

@@ -776,12 +776,20 @@ export const NewChatComponents = ({
                     hasAudioContentInTrack(parentPrimaryTrack);
                   const shouldAutoPlayElement =
                     autoPlayTargetBlockBid === parentElementBid;
-                  return mobileStyle ? null : (
+                  const shouldRenderMobileAskAction =
+                    mobileStyle &&
+                    parentContentItem?.type === ChatContentItemType.INTERACTION;
+
+                  if (mobileStyle && !shouldRenderMobileAskAction) {
+                    return null;
+                  }
+
+                  return (
                     <div
                       key={`like-${parentKey}`}
                       style={{
                         margin: '0 auto',
-                        maxWidth: '1000px',
+                        maxWidth: mobileStyle ? '100%' : '1000px',
                         padding: '0px 20px',
                       }}
                     >
@@ -791,8 +799,12 @@ export const NewChatComponents = ({
                         readonly={item.readonly}
                         onRefresh={onRefresh}
                         onToggleAskExpanded={toggleAskExpanded}
-                        showGenerateBtn={showGenerateBtn}
+                        askButtonVariant={
+                          shouldRenderMobileAskAction ? 'content' : 'default'
+                        }
+                        showGenerateBtn={!mobileStyle && showGenerateBtn}
                         extraActions={
+                          !mobileStyle &&
                           shouldShowAudioAction &&
                           (canRequestAudio || hasAudioForElement) ? (
                             <AudioPlayer
