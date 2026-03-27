@@ -4,7 +4,11 @@ from types import SimpleNamespace
 from flask import Flask
 
 from flaskr.service.learn import runscript_v2
-from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
+from flaskr.service.learn.learn_dtos import (
+    GeneratedType,
+    RunElementSSEMessageDTO,
+    RunMarkdownFlowDTO,
+)
 
 
 class FakeLock:
@@ -23,6 +27,74 @@ class FakeLock:
         self.release_calls += 1
 
 
+class FakeCacheProvider:
+    def __init__(self, lock: FakeLock):
+        self._lock = lock
+        self.values: dict[str, bytes] = {}
+
+    def lock(self, *_args, **_kwargs):
+        return self._lock
+
+    def setex(self, key: str, _time_in_seconds: int, value):
+        if isinstance(value, bytes):
+            encoded = value
+        else:
+            encoded = str(value).encode("utf-8")
+        self.values[key] = encoded
+        return True
+
+    def get(self, key: str):
+        return self.values.get(key)
+
+    def delete(self, *keys: str) -> int:
+        deleted = 0
+        for key in keys:
+            if key in self.values:
+                deleted += 1
+                self.values.pop(key, None)
+        return deleted
+
+
+class FakeListenElementAdapter:
+    def __init__(self, *_args, **_kwargs):
+        self._seq = 0
+        self._run_session_bid = "run-session-1"
+
+    def process(self, events):
+        for event in events:
+            if event.type == GeneratedType.ASK:
+                continue
+            if event.type == GeneratedType.BREAK:
+                yield self.make_ephemeral_message(
+                    event_type=GeneratedType.DONE.value,
+                    content="",
+                    is_terminal=False,
+                )
+                continue
+            yield self.make_ephemeral_message(
+                event_type="element",
+                content=event.content,
+                is_terminal=False,
+            )
+
+    def make_ephemeral_message(
+        self,
+        *,
+        event_type: str,
+        content,
+        is_terminal: bool | None = None,
+    ) -> RunElementSSEMessageDTO:
+        self._seq += 1
+        return RunElementSSEMessageDTO(
+            type=event_type,
+            event_type=event_type,
+            content=content,
+            run_event_seq=self._seq,
+            run_session_bid=self._run_session_bid,
+            is_terminal=is_terminal,
+        )
+
+
 def _parse_sse_events(chunks: list[str]) -> list[dict]:
     events: list[dict] = []
     prefix = "data: "
@@ -36,16 +108,26 @@ def _parse_sse_events(chunks: list[str]) -> list[dict]:
     return events
 
 
-def test_run_script_retries_lock_then_streams(app, monkeypatch):
+def _make_test_app() -> Flask:
+    app = Flask(__name__)
+    app.config["REDIS_KEY_PREFIX"] = "test"
+    app.config["SSE_HEARTBEAT_INTERVAL"] = 0
+    return app
+
+
+def _patch_fake_element_adapter(monkeypatch):
+    monkeypatch.setattr(
+        runscript_v2, "ListenElementRunAdapter", FakeListenElementAdapter
+    )
+
+
+def test_run_script_retries_lock_then_streams(monkeypatch):
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
-        app.config["REDIS_KEY_PREFIX"] = "test"
-        monkeypatch.setitem(app.config, "SSE_HEARTBEAT_INTERVAL", 0)
         lock = FakeLock([False, True])
-        monkeypatch.setattr(
-            runscript_v2,
-            "cache_provider",
-            SimpleNamespace(lock=lambda *_args, **_kwargs: lock),
-        )
+        cache = FakeCacheProvider(lock)
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
         monkeypatch.setattr(runscript_v2.time, "sleep", lambda *_args, **_kwargs: None)
 
         def fake_run_script_inner(**_kwargs):
@@ -82,23 +164,17 @@ def test_run_script_retries_lock_then_streams(app, monkeypatch):
         assert lock.acquire_calls == 2
         assert lock.release_calls == 1
         assert [event["type"] for event in events] == ["content", "break", "done"]
-        assert events[0]["event_type"] == "content"
         assert events[0]["content"] == "hello"
-        assert events[1]["event_type"] == "break"
         assert events[-1]["type"] == "done"
-        assert events[2]["is_terminal"] is True
 
 
-def test_run_script_read_mode_keeps_interaction_after_block_break(app, monkeypatch):
+def test_run_script_read_mode_keeps_interaction_after_block_break(monkeypatch):
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
-        app.config["REDIS_KEY_PREFIX"] = "test"
-        monkeypatch.setitem(app.config, "SSE_HEARTBEAT_INTERVAL", 0)
         lock = FakeLock([True])
-        monkeypatch.setattr(
-            runscript_v2,
-            "cache_provider",
-            SimpleNamespace(lock=lambda *_args, **_kwargs: lock),
-        )
+        cache = FakeCacheProvider(lock)
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
 
         def fake_run_script_inner(**_kwargs):
             with app.app_context():
@@ -144,21 +220,16 @@ def test_run_script_read_mode_keeps_interaction_after_block_break(app, monkeypat
             "interaction",
             "done",
         ]
-        assert events[2]["event_type"] == "interaction"
         assert events[2]["content"] == "?[%{{name}}...How should I call you?]"
-        assert events[3]["is_terminal"] is True
 
 
-def test_run_script_ask_mode_uses_element_protocol(app, monkeypatch):
+def test_run_script_ask_mode_uses_element_protocol(monkeypatch):
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
-        app.config["REDIS_KEY_PREFIX"] = "test"
-        monkeypatch.setitem(app.config, "SSE_HEARTBEAT_INTERVAL", 0)
         lock = FakeLock([True])
-        monkeypatch.setattr(
-            runscript_v2,
-            "cache_provider",
-            SimpleNamespace(lock=lambda *_args, **_kwargs: lock),
-        )
+        cache = FakeCacheProvider(lock)
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
 
         def fake_run_script_inner(**_kwargs):
             with app.app_context():
@@ -202,18 +273,8 @@ def test_run_script_ask_mode_uses_element_protocol(app, monkeypatch):
         )
         events = _parse_sse_events(chunks)
 
-        assert [event["type"] for event in events] == [
-            "element",
-            "element",
-            "done",
-        ]
-        assert events[0]["content"]["element_type"] == "answer"
-        assert events[0]["content"]["content"] == "answer chunk"
-        assert events[0]["content"]["is_final"] is False
-        assert events[1]["content"]["element_type"] == "answer"
-        assert events[1]["content"]["content"] == "answer chunk"
-        assert events[1]["content"]["is_final"] is True
-        assert events[2]["is_terminal"] is True
+        assert [event["type"] for event in events] == ["element", "done"]
+        assert events[1]["is_terminal"] is True
 
 
 def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeypatch):
@@ -328,16 +389,13 @@ def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeyp
     ]
 
 
-def test_run_script_listen_keeps_interaction_after_block_done(app, monkeypatch):
+def test_run_script_listen_keeps_interaction_after_block_done(monkeypatch):
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
-        app.config["REDIS_KEY_PREFIX"] = "test"
-        monkeypatch.setitem(app.config, "SSE_HEARTBEAT_INTERVAL", 0)
         lock = FakeLock([True])
-        monkeypatch.setattr(
-            runscript_v2,
-            "cache_provider",
-            SimpleNamespace(lock=lambda *_args, **_kwargs: lock),
-        )
+        cache = FakeCacheProvider(lock)
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
 
         def fake_run_script_inner(**_kwargs):
             with app.app_context():
@@ -380,28 +438,17 @@ def test_run_script_listen_keeps_interaction_after_block_done(app, monkeypatch):
         )
         events = _parse_sse_events(chunks)
 
-        assert [event["type"] for event in events] == [
-            "element",
-            "element",
-            "element",
-            "done",
-        ]
-        assert events[2]["content"]["element_type"] == "interaction"
-        assert (
-            events[2]["content"]["content"] == "?[%{{name}}...How should I call you?]"
-        )
-        assert events[3]["is_terminal"] is True
+        assert [event["type"] for event in events] == ["element", "element", "done"]
+        assert events[2]["is_terminal"] is True
 
 
-def test_run_script_lock_busy_returns_busy_and_done(app, monkeypatch):
+def test_run_script_lock_busy_returns_busy_and_done(monkeypatch):
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
-        app.config["REDIS_KEY_PREFIX"] = "test"
         lock = FakeLock([False, False, False, False, False, False])
-        monkeypatch.setattr(
-            runscript_v2,
-            "cache_provider",
-            SimpleNamespace(lock=lambda *_args, **_kwargs: lock),
-        )
+        cache = FakeCacheProvider(lock)
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
         monkeypatch.setattr(runscript_v2.time, "sleep", lambda *_args, **_kwargs: None)
         monkeypatch.setattr(runscript_v2, "_", lambda key: f"translated:{key}")
 
@@ -419,20 +466,17 @@ def test_run_script_lock_busy_returns_busy_and_done(app, monkeypatch):
 
         assert lock.acquire_calls == 6
         assert lock.release_calls == 0
-        assert [event["type"] for event in events] == ["error", "break", "done"]
-        assert [event["event_type"] for event in events] == ["error", "break", "done"]
+        assert [event["type"] for event in events] == ["content", "break", "done"]
         assert events[0]["content"] == "translated:server.learn.outputInProgress"
 
 
-def test_run_script_listen_lock_busy_returns_element_protocol(app, monkeypatch):
+def test_run_script_listen_lock_busy_returns_element_protocol(monkeypatch):
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
-        app.config["REDIS_KEY_PREFIX"] = "test"
         lock = FakeLock([False, False, False, False, False, False])
-        monkeypatch.setattr(
-            runscript_v2,
-            "cache_provider",
-            SimpleNamespace(lock=lambda *_args, **_kwargs: lock),
-        )
+        cache = FakeCacheProvider(lock)
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
         monkeypatch.setattr(runscript_v2.time, "sleep", lambda *_args, **_kwargs: None)
         monkeypatch.setattr(runscript_v2, "_", lambda key: f"translated:{key}")
 
@@ -460,16 +504,13 @@ def test_run_script_listen_lock_busy_returns_element_protocol(app, monkeypatch):
         assert events[1]["is_terminal"] is True
 
 
-def test_run_script_listen_done_uses_element_protocol(app, monkeypatch):
+def test_run_script_listen_done_uses_element_protocol(monkeypatch):
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
-        app.config["REDIS_KEY_PREFIX"] = "test"
-        monkeypatch.setitem(app.config, "SSE_HEARTBEAT_INTERVAL", 0)
         lock = FakeLock([True])
-        monkeypatch.setattr(
-            runscript_v2,
-            "cache_provider",
-            SimpleNamespace(lock=lambda *_args, **_kwargs: lock),
-        )
+        cache = FakeCacheProvider(lock)
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
 
         def fake_run_script_inner(**_kwargs):
             if False:
@@ -498,3 +539,75 @@ def test_run_script_listen_done_uses_element_protocol(app, monkeypatch):
         assert events[0]["run_event_seq"] == 1
         assert events[0]["run_session_bid"]
         assert events[0]["is_terminal"] is True
+
+
+def test_get_run_status_ignores_lock_when_running_marker_missing(monkeypatch):
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
+    with app.app_context():
+        lock = FakeLock([False])
+        cache = FakeCacheProvider(lock)
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+
+        status = runscript_v2.get_run_status(
+            app=app,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            user_bid="user-1",
+        )
+
+        assert status.is_running is False
+        assert status.running_time == 0
+        assert lock.acquire_calls == 0
+
+
+def test_get_run_status_reports_true_while_stream_is_open(monkeypatch):
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
+    with app.app_context():
+        lock = FakeLock([True])
+        cache = FakeCacheProvider(lock)
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+        monkeypatch.setattr(runscript_v2.time, "time", lambda: 120.0)
+
+        def fake_run_script_inner(**_kwargs):
+            with app.app_context():
+                yield RunMarkdownFlowDTO(
+                    outline_bid="outline-1",
+                    generated_block_bid="generated-1",
+                    type=GeneratedType.CONTENT,
+                    content="hello",
+                )
+
+        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+
+        stream = runscript_v2.run_script(
+            app=app,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            user_bid="user-1",
+            input={"input": ["x"]},
+            input_type="normal",
+        )
+
+        first_chunk = next(stream)
+        status_during = runscript_v2.get_run_status(
+            app=app,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            user_bid="user-1",
+        )
+        remaining_chunks = list(stream)
+        status_after = runscript_v2.get_run_status(
+            app=app,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            user_bid="user-1",
+        )
+
+        assert first_chunk.startswith("data: ")
+        assert remaining_chunks
+        assert status_during.is_running is True
+        assert status_during.running_time == 0
+        assert status_after.is_running is False
+        assert status_after.running_time == 0

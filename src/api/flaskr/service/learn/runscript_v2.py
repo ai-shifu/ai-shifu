@@ -1,16 +1,16 @@
-import traceback
-import threading
-import queue
 import contextlib
+import json
+import queue
+import threading
 import time
+import traceback
 from typing import Any, Generator, Optional
+
 from flask import Flask
 
 from flaskr.service.common.models import AppException, raise_error
 from flaskr.service.user.repository import load_user_aggregate
 from flaskr.i18n import _
-import json
-
 
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
@@ -41,6 +41,83 @@ from flaskr.common.shifu_context import (
     get_shifu_context_snapshot,
     apply_shifu_context_snapshot,
 )
+
+RUN_SCRIPT_TIMEOUT_SECONDS = 5 * 60
+RUN_SCRIPT_STATUS_REFRESH_SECONDS = 30
+
+
+def _get_run_script_lock_key(app: Flask, user_bid: str, outline_bid: str) -> str:
+    return (
+        app.config.get("REDIS_KEY_PREFIX")
+        + ":run_script:"
+        + user_bid
+        + ":"
+        + outline_bid
+    )
+
+
+def _get_run_script_status_key(app: Flask, user_bid: str, outline_bid: str) -> str:
+    return _get_run_script_lock_key(app, user_bid, outline_bid) + ":running"
+
+
+def _set_run_script_status(
+    app: Flask, user_bid: str, outline_bid: str, started_at: int
+) -> None:
+    try:
+        cache_provider.setex(
+            _get_run_script_status_key(app, user_bid, outline_bid),
+            RUN_SCRIPT_TIMEOUT_SECONDS,
+            str(started_at),
+        )
+    except Exception as exc:
+        app.logger.warning(
+            "failed to set run_script status: user_bid=%s outline_bid=%s error=%s",
+            user_bid,
+            outline_bid,
+            repr(exc),
+        )
+
+
+def _clear_run_script_status(app: Flask, user_bid: str, outline_bid: str) -> None:
+    try:
+        cache_provider.delete(_get_run_script_status_key(app, user_bid, outline_bid))
+    except Exception as exc:
+        app.logger.warning(
+            "failed to clear run_script status: user_bid=%s outline_bid=%s error=%s",
+            user_bid,
+            outline_bid,
+            repr(exc),
+        )
+
+
+def _get_run_script_started_at(
+    app: Flask, user_bid: str, outline_bid: str
+) -> Optional[int]:
+    try:
+        raw = cache_provider.get(_get_run_script_status_key(app, user_bid, outline_bid))
+    except Exception as exc:
+        app.logger.warning(
+            "failed to read run_script status: user_bid=%s outline_bid=%s error=%s",
+            user_bid,
+            outline_bid,
+            repr(exc),
+        )
+        return None
+
+    if raw is None:
+        return None
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8", errors="ignore")
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        app.logger.warning(
+            "invalid run_script status payload: user_bid=%s outline_bid=%s payload=%r",
+            user_bid,
+            outline_bid,
+            raw,
+        )
+        return None
 
 
 def run_script_inner(
@@ -229,18 +306,12 @@ def run_script(
     preview_mode: bool = False,
     shifu_context_snapshot: Optional[dict[str, Any]] = None,
 ) -> Generator[str, None, None]:
-    timeout = 5 * 60
+    timeout = RUN_SCRIPT_TIMEOUT_SECONDS
     blocking_timeout = 1
     lock_retry_count = 5
     lock_retry_sleep_seconds = 0.2
     heartbeat_interval = float(app.config.get("SSE_HEARTBEAT_INTERVAL", 0.5))
-    lock_key = (
-        app.config.get("REDIS_KEY_PREFIX")
-        + ":run_script:"
-        + user_bid
-        + ":"
-        + outline_bid
-    )
+    lock_key = _get_run_script_lock_key(app, user_bid, outline_bid)
     use_element_protocol = listen or input_type == "ask"
     element_adapter = ListenElementRunAdapter(
         app,
@@ -329,6 +400,22 @@ def run_script(
         )
         producer_thread.start()
 
+        run_started_at = int(time.time())
+        status_last_refreshed_at = 0.0
+
+        def _refresh_run_script_status(force: bool = False) -> None:
+            nonlocal status_last_refreshed_at
+            now = time.time()
+            if (
+                not force
+                and now - status_last_refreshed_at < RUN_SCRIPT_STATUS_REFRESH_SECONDS
+            ):
+                return
+            _set_run_script_status(app, user_bid, outline_bid, run_started_at)
+            status_last_refreshed_at = now
+
+        _refresh_run_script_status(force=True)
+
         stream_error: Exception | None = None
         client_disconnected = False
         done_received = False
@@ -354,6 +441,7 @@ def run_script(
                 except queue.Empty:
                     if done_received or client_disconnected:
                         break
+                    _refresh_run_script_status()
                     if heartbeat_interval > 0:
                         # Keep waiting cooperative under gevent while polling a thread-safe queue.
                         time.sleep(heartbeat_interval)
@@ -393,6 +481,7 @@ def run_script(
 
                 if kind == "data":
                     try:
+                        _refresh_run_script_status()
                         if _should_suppress_live_payload(payload):
                             continue
                         payload_type = getattr(payload, "type", None)
@@ -440,7 +529,9 @@ def run_script(
             if producer_thread.is_alive():
                 app.logger.warning("run_script producer thread did not stop in time")
 
-            lock.release()
+            with contextlib.suppress(Exception):
+                lock.release()
+            _clear_run_script_status(app, user_bid, outline_bid)
 
         if stream_error and not client_disconnected:
             if isinstance(stream_error, Exception):
@@ -547,19 +638,10 @@ def get_run_status(
     outline_bid: str,
     user_bid: str,
 ) -> RunStatusDTO:
-    lock_key = (
-        app.config.get("REDIS_KEY_PREFIX")
-        + ":run_script:"
-        + user_bid
-        + ":"
-        + outline_bid
-    )
-    lock = cache_provider.lock(lock_key, timeout=300, blocking_timeout=0)
-    if lock.acquire(blocking=False):
-        # Lock acquired successfully, so no other process is running
-        lock.release()
+    started_at = _get_run_script_started_at(app, user_bid, outline_bid)
+    if started_at is None:
         return RunStatusDTO(is_running=False, running_time=0)
-    else:
-        # Lock is held by another process
-        # We can't get the exact running time without additional metadata
-        return RunStatusDTO(is_running=True, running_time=0)
+    return RunStatusDTO(
+        is_running=True,
+        running_time=max(0, int(time.time()) - started_at),
+    )
