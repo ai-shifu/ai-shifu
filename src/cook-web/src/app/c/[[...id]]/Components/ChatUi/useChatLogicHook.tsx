@@ -1961,51 +1961,65 @@ function useChatLogicHook({
   const toggleAskExpanded = useCallback(
     (parentElementBid: string) => {
       setTrackedContentList(prev => {
-        // Check if ASK block already exists
-        const hasAskBlock = prev.some(
+        const askEntries = prev
+          .map((item, index) => ({ item, index }))
+          .filter(
+            ({ item }) =>
+              item.parent_element_bid === parentElementBid &&
+              item.type === ChatContentItemType.ASK,
+          );
+
+        if (askEntries.length > 0) {
+          const primaryAskEntry = askEntries[askEntries.length - 1];
+          const primaryAskIndex = primaryAskEntry.index;
+          const primaryAskItem = primaryAskEntry.item;
+          const toggledExpanded = !prev[primaryAskIndex].isAskExpanded;
+          // Keep one ASK block per parent element to avoid duplicated input boxes.
+          return prev
+            .filter(
+              (item, index) =>
+                !(
+                  index !== primaryAskIndex &&
+                  item.parent_element_bid === parentElementBid &&
+                  item.type === ChatContentItemType.ASK
+                ),
+            )
+            .map(item =>
+              item === primaryAskItem
+                ? { ...item, isAskExpanded: toggledExpanded }
+                : item,
+            );
+        }
+
+        // Create a new ASK block next to the target element when needed.
+        const nextAskBlock: ChatContentItem = {
+          element_bid: '',
+          parent_element_bid: parentElementBid,
+          type: ChatContentItemType.ASK,
+          content: '',
+          isAskExpanded: true,
+          ask_list: [],
+          readonly: false,
+          customRenderBar: () => null,
+          user_input: '',
+        };
+        const likeStatusIndex = prev.findIndex(
           item =>
             item.parent_element_bid === parentElementBid &&
-            item.type === ChatContentItemType.ASK,
+            item.type === ChatContentItemType.LIKE_STATUS,
         );
+        const parentContentIndex =
+          likeStatusIndex >= 0
+            ? likeStatusIndex
+            : prev.findIndex(item => item.element_bid === parentElementBid);
 
-        if (hasAskBlock) {
-          // Toggle existing ASK block's expanded state
-          return prev.map(item =>
-            item.parent_element_bid === parentElementBid &&
-            item.type === ChatContentItemType.ASK
-              ? { ...item, isAskExpanded: !item.isAskExpanded }
-              : item,
-          );
-        } else {
-          // Create a new ASK block next to the target element when needed.
-          const nextAskBlock: ChatContentItem = {
-            element_bid: '',
-            parent_element_bid: parentElementBid,
-            type: BLOCK_TYPE.ASK,
-            content: '',
-            isAskExpanded: true,
-            ask_list: [],
-            readonly: false,
-            customRenderBar: () => null,
-            user_input: '',
-          };
-          let inserted = false;
-          const nextList = prev.flatMap(item => {
-            if (
-              item.parent_element_bid === parentElementBid &&
-              item.type === ChatContentItemType.LIKE_STATUS
-            ) {
-              inserted = true;
-              return [item, nextAskBlock];
-            }
-            if (item.element_bid === parentElementBid) {
-              inserted = true;
-              return [item, nextAskBlock];
-            }
-            return [item];
-          });
-          return inserted ? nextList : [...prev, nextAskBlock];
+        if (parentContentIndex < 0) {
+          return [...prev, nextAskBlock];
         }
+
+        const nextList = [...prev];
+        nextList.splice(parentContentIndex + 1, 0, nextAskBlock);
+        return nextList;
       });
     },
     [setTrackedContentList],

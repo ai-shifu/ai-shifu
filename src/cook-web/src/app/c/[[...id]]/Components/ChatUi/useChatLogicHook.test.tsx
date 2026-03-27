@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import useChatLogicHook from './useChatLogicHook';
+import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import { AppContext } from '../AppContext';
 import { SSE_INPUT_TYPE, SSE_OUTPUT_TYPE } from '@/c-api/studyV2';
 
@@ -416,5 +416,51 @@ describe('useChatLogicHook stream cleanup', () => {
         item => item.generated_block_bid === 'feedback-1',
       ),
     ).toBe(true);
+  });
+
+  it('inserts only one ask block and keeps it under like status', async () => {
+    const { result } = renderHook(() => useChatLogicHook(buildBaseParams()), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'content-1',
+        type: SSE_OUTPUT_TYPE.ELEMENT,
+        content: {
+          element_bid: 'content-1',
+          generated_block_bid: 'content-1',
+          element_type: 'content',
+          content: 'Hello',
+          like_status: 'none',
+        },
+      });
+    });
+
+    act(() => {
+      result.current.toggleAskExpanded('content-1');
+    });
+
+    const askItems = result.current.items.filter(
+      item =>
+        item.type === ChatContentItemType.ASK &&
+        item.parent_element_bid === 'content-1',
+    );
+    const likeStatusIndex = result.current.items.findIndex(
+      item =>
+        item.type === ChatContentItemType.LIKE_STATUS &&
+        item.parent_element_bid === 'content-1',
+    );
+    const askIndex = result.current.items.findIndex(
+      item =>
+        item.type === ChatContentItemType.ASK &&
+        item.parent_element_bid === 'content-1',
+    );
+
+    expect(askItems).toHaveLength(1);
+    expect(likeStatusIndex).toBeGreaterThan(-1);
+    expect(askIndex).toBe(likeStatusIndex + 1);
   });
 });
