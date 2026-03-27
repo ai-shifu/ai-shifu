@@ -1,19 +1,27 @@
-# Skills
+# cook-web Skills
 
-- 深链参数命名规范：学习端和后台端统一使用 `lessonid` 作为 URL 参数名，避免大小写或命名差异导致定位失败。
-- 深链参数解析入口：所有页面都通过同一个 URL 工具函数读取 `lessonid`，禁止在页面中重复手写参数解析逻辑。
-- 学习端路由接入规则：`/c/:courseId` 页面在初始化时优先使用 URL 的 `lessonid` 作为目标课节。
-- 后台端路由接入规则：`/shifu/:courseId` 页面支持读取 `lessonid` 并透传到编辑器或 store 的初始化流程。
-- 选节逻辑下沉规则：课节定位能力优先放在 store 或 hook 内部，不在多个页面组件中复制同一套选择逻辑。
-- 深链选节优先级规则：当 URL 中存在 `lessonid` 时，先按 `lessonid` 尝试定位；不存在时再使用当前 store 的课节状态。
-- 深链重载触发规则：当 `lessonid` 变化时触发课节树重新定位，避免页面保留旧章节缓存导致定位不生效。
-- 权限拦截一致性规则：deep link 命中课节时必须复用目录点击的登录与付费拦截逻辑，保证两种入口行为一致。
-- 登录拦截规则：当目标课节需要登录时，深链流程直接跳转登录页并保留当前 `redirect`。
-- 付费拦截规则：当目标课节为付费未购时，深链流程弹出支付窗，并带上 `chapterId` 与 `lessonId` 作为支付上下文。
-- 深链失败兜底规则：当 `lessonid` 无效或不可定位时，回退到默认可学习课节，保证页面可继续使用。
-- 验收用例模板：至少覆盖已登录未购、未登录、有效 `lessonid`、无效 `lessonid`、学习端与后台端两个路由场景。
-- 追问块插入锚点规则：同一个 `parent_element_bid` 只允许存在一个 `ASK` 项，优先插入到 `LIKE_STATUS` 后方；仅在缺失 `LIKE_STATUS` 时回退到内容块后方。
-- 追问展开幂等规则：`toggleAskExpanded` 先做同父级 `ASK` 去重，再切换展开状态，避免内容块与操作栏双锚点同时插入导致两个追问输入框。
-- 渲染完成回调兜底规则：当聊天操作栏显示依赖 `onTypeFinished/readyElementBids` 时，`sandbox/iframe` 类内容也必须触发完成回调，避免视觉元素长期处于未 ready 状态导致追问按钮缺失。
-- Hook 返回字段一致性规则：当公共 hook 字段从 `*BlockBid*` 重构为 `*ElementBid*` 后，所有消费方解构、索引和依赖数组必须同步改名，避免 TS 报属性不存在。
-- Hook 参数收敛规则：当被调用 hook 删除了某个参数后，调用处对象字面量也必须同步删除该字段，避免出现“对象字面量存在未知属性”的类型错误。
+## 分层规范
+
+- 放到 `SKILL.md`：跨页面、跨模块长期生效的基础约束与技能索引。
+- 放到 `skills/xxx/SKILL.md`：面向具体场景的触发条件、落地步骤、验收要点。
+- `SKILL.md` 不承载冗长排障步骤；步骤化内容必须下沉到专题 skill。
+
+## 项目级通用约束
+
+- URL 参数以单一真值为准：课节定位使用 `lessonid`，听课开关使用查询参数 `listen`。
+- 流式聊天以 `element_bid` 作为渲染稳定键，兼容字段在统一数据归一化入口回填。
+- 同一逻辑被两个以上文件复用时，优先抽离到共享 `utils/constants/hooks`。
+
+## Skills 索引
+
+- `skills/chat-layout-width-detection/SKILL.md`
+- `skills/interaction-user-input-defaults/SKILL.md`
+- `skills/deep-link-lessonid-routing/SKILL.md`
+- `skills/chat-element-streaming/SKILL.md`
+- `skills/chat-actionbar-ask-placement/SKILL.md`
+- `skills/listen-mode-audio-streaming/SKILL.md`
+- `skills/lesson-feedback-popup-timing/SKILL.md`
+- `skills/module-augmentation-guardrails/SKILL.md`
+- `skills/hook-contract-refactor-safety/SKILL.md`
+- `skills/audio-debug-log-cleanup/SKILL.md`
+- `skills/docker-npm-registry-fallback/SKILL.md`
