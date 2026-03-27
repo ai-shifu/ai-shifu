@@ -44,9 +44,11 @@ class TestBuildListenElementsFromLegacyRecord:
             AudioCompleteDTO,
             BlockType,
             ElementType,
-            GeneratedBlockDTO,
-            LearnRecordDTO,
             LikeStatus,
+        )
+        from flaskr.service.learn.legacy_record_builder import (
+            LegacyGeneratedBlockRecord,
+            LegacyLearnRecord,
         )
         from flaskr.service.learn.listen_elements import (
             build_listen_elements_from_legacy_record,
@@ -124,9 +126,9 @@ class TestBuildListenElementsFromLegacyRecord:
             )
             db.session.commit()
 
-        legacy_record = LearnRecordDTO(
+        legacy_record = LegacyLearnRecord(
             records=[
-                GeneratedBlockDTO(
+                LegacyGeneratedBlockRecord(
                     generated_block_bid=generated_block_bid,
                     content="Alpha Beta",
                     like_status=LikeStatus.NONE,

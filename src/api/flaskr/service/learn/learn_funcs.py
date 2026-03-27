@@ -11,9 +11,7 @@ import uuid
 from flaskr.service.learn.learn_dtos import (
     LearnShifuInfoDTO,
     LearnOutlineItemInfoDTO,
-    LearnRecordDTO,
     LearnStatus,
-    GeneratedBlockDTO,
     BlockType,
     LikeStatus,
     LearnOutlineItemsWithBannerInfoDTO,
@@ -87,6 +85,8 @@ from flaskr.service.learn.lesson_feedback import (
     is_lesson_feedback_interaction,
 )
 from flaskr.service.learn.legacy_record_builder import (
+    LegacyGeneratedBlockRecord,
+    LegacyLearnRecord,
     build_legacy_record_for_progress,
 )
 from flaskr.service.shifu.consts import (
@@ -345,7 +345,7 @@ def get_outline_item_tree(
 
 def get_learn_record(
     app: Flask, shifu_bid: str, outline_bid: str, user_bid: str, preview_mode: bool
-) -> LearnRecordDTO:
+) -> LegacyLearnRecord:
     with app.app_context():
         is_paid = preview_mode
         if not is_paid:
@@ -368,7 +368,7 @@ def get_learn_record(
             LearnProgressRecord.status != LEARN_STATUS_RESET,
         ).first()
         if not progress_record:
-            return LearnRecordDTO(
+            return LegacyLearnRecord(
                 records=[],
             )
         app.logger.info(f"progress_record: {progress_record.progress_record_bid}")
@@ -481,12 +481,12 @@ def get_learn_record(
                     ensure_ascii=False,
                 )
             feedback_content = build_lesson_feedback_interaction_md()
-            feedback_record = GeneratedBlockDTO(
-                generate_id(app),
-                feedback_content,
-                LikeStatus.NONE,
-                BlockType.INTERACTION,
-                feedback_generated_content,
+            feedback_record = LegacyGeneratedBlockRecord(
+                generated_block_bid=generate_id(app),
+                content=feedback_content,
+                like_status=LikeStatus.NONE,
+                block_type=BlockType.INTERACTION,
+                user_input=feedback_generated_content,
             )
             next_button_index = next(
                 (
@@ -511,15 +511,15 @@ def get_learn_record(
             button_label = _("server.learn.nextChapterButton")
             fallback_content = f"?[{button_label}//{CONTEXT_INTERACTION_NEXT}]"
             records.append(
-                GeneratedBlockDTO(
-                    generate_id(app),
-                    fallback_content,
-                    LikeStatus.NONE,
-                    BlockType.INTERACTION,
-                    "",
+                LegacyGeneratedBlockRecord(
+                    generated_block_bid=generate_id(app),
+                    content=fallback_content,
+                    like_status=LikeStatus.NONE,
+                    block_type=BlockType.INTERACTION,
+                    user_input="",
                 )
             )
-        return LearnRecordDTO(
+        return LegacyLearnRecord(
             records=records,
         )
 

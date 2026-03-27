@@ -95,7 +95,7 @@ def test_get_learn_record_omits_legacy_fields_and_keeps_audio_positions(app):
     record = result.records[0]
     payload = result.__json__()
     assert "slides" not in payload
-    assert record.av_contract is not None
+    assert not hasattr(record, "av_contract")
     assert record.audio_url is None
     assert record.audios is not None
     assert [audio.position for audio in record.audios] == [0, 1]
@@ -186,6 +186,6 @@ def test_get_learn_record_omits_legacy_fields_for_answer_blocks(app):
 
     assert len(result.records) == 1
     assert "slides" not in result.__json__()
-    assert result.records[0].av_contract is not None
+    assert not hasattr(result.records[0], "av_contract")
     assert result.records[0].audios is not None
     assert all("slide_id" not in audio.__json__() for audio in result.records[0].audios)

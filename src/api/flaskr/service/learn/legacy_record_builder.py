@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from flaskr.service.learn.block_type_mapping import (
@@ -10,13 +11,49 @@ from flaskr.service.learn.block_type_mapping import (
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     BlockType,
-    GeneratedBlockDTO,
-    LearnRecordDTO,
     LikeStatus,
 )
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
-from flaskr.service.tts.pipeline import build_av_segmentation_contract
+
+
+@dataclass
+class LegacyGeneratedBlockRecord:
+    generated_block_bid: str
+    content: str
+    like_status: LikeStatus
+    block_type: BlockType
+    user_input: str
+    audio_url: str | None = None
+    audios: list[AudioCompleteDTO] | None = None
+
+    def __json__(self):
+        ret = {
+            "generated_block_bid": self.generated_block_bid,
+            "content": self.content,
+            "block_type": self.block_type.value,
+            "user_input": self.user_input,
+        }
+        if self.block_type == BlockType.CONTENT:
+            ret["like_status"] = self.like_status.value
+        if self.audio_url:
+            ret["audio_url"] = self.audio_url
+        if self.audios:
+            ret["audios"] = [
+                audio.__json__() if hasattr(audio, "__json__") else audio
+                for audio in self.audios
+            ]
+        return ret
+
+
+@dataclass
+class LegacyLearnRecord:
+    records: list[LegacyGeneratedBlockRecord]
+
+    def __json__(self):
+        return {
+            "records": self.records,
+        }
 
 
 def _set_stat(stats: Any | None, field_name: str, value: int) -> None:
@@ -41,7 +78,7 @@ def build_legacy_record_for_progress(
     dedupe_audio_by_block_position: bool = False,
     skip_empty_content: bool = False,
     stats: Any | None = None,
-) -> LearnRecordDTO:
+) -> LegacyLearnRecord:
     filters = [
         LearnGeneratedBlock.progress_record_bid == progress_record.progress_record_bid,
         LearnGeneratedBlock.deleted == 0,
@@ -151,7 +188,7 @@ def build_legacy_record_for_progress(
                 )
             )
 
-    records: list[GeneratedBlockDTO] = []
+    records: list[LegacyGeneratedBlockRecord] = []
     for generated_block in blocks_for_build:
         block_type = map_generated_block_type(
             generated_block.type,
@@ -167,32 +204,24 @@ def build_legacy_record_for_progress(
             continue
 
         block_audios = block_audios_map.get(generated_block.generated_block_bid) or []
-        av_contract = (
-            build_av_segmentation_contract(
-                content or "",
-                generated_block.generated_block_bid,
-            )
-            if block_type in {BlockType.CONTENT, BlockType.ASK, BlockType.ANSWER}
-            and (content or "").strip()
-            else None
-        )
         records.append(
-            GeneratedBlockDTO(
-                generated_block.generated_block_bid,
-                content,
-                (
+            LegacyGeneratedBlockRecord(
+                generated_block_bid=generated_block.generated_block_bid,
+                content=content,
+                like_status=(
                     LIKE_STATUS_MAP.get(generated_block.liked, LikeStatus.NONE)
                     if include_like_status
                     else LikeStatus.NONE
                 ),
-                block_type,
-                generated_block.generated_content
-                if block_type == BlockType.INTERACTION
-                else "",
+                block_type=block_type,
+                user_input=(
+                    generated_block.generated_content
+                    if block_type == BlockType.INTERACTION
+                    else ""
+                ),
                 audio_url=block_audios[0].audio_url if len(block_audios) == 1 else None,
                 audios=block_audios or None,
-                av_contract=av_contract,
             )
         )
 
-    return LearnRecordDTO(records=records)
+    return LegacyLearnRecord(records=records)

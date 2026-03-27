@@ -501,9 +501,11 @@ def test_get_listen_element_record_keeps_block_order_when_run_sessions_reset_ind
     from flaskr.dao import db
     from flaskr.service.learn.learn_dtos import (
         BlockType,
-        GeneratedBlockDTO,
-        LearnRecordDTO,
         LikeStatus,
+    )
+    from flaskr.service.learn.legacy_record_builder import (
+        LegacyGeneratedBlockRecord,
+        LegacyLearnRecord,
     )
     from flaskr.service.learn.listen_elements import get_listen_element_record
     from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
@@ -521,16 +523,16 @@ def test_get_listen_element_record_keeps_block_order_when_run_sessions_reset_ind
 
         monkeypatch.setattr(
             "flaskr.service.learn.listen_elements.build_legacy_record_for_progress",
-            lambda *args, **kwargs: LearnRecordDTO(
+            lambda *args, **kwargs: LegacyLearnRecord(
                 records=[
-                    GeneratedBlockDTO(
+                    LegacyGeneratedBlockRecord(
                         "generated-block-first",
                         "First block content",
                         LikeStatus.NONE,
                         BlockType.CONTENT,
                         "",
                     ),
-                    GeneratedBlockDTO(
+                    LegacyGeneratedBlockRecord(
                         "generated-block-second",
                         "Second block content",
                         LikeStatus.NONE,
@@ -999,7 +1001,7 @@ def test_get_listen_element_record_includes_persisted_rows_missing_progress_bid(
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
-    from flaskr.service.learn.learn_dtos import LearnRecordDTO
+    from flaskr.service.learn.legacy_record_builder import LegacyLearnRecord
     from flaskr.service.learn.listen_elements import get_listen_element_record
     from flaskr.service.learn.models import (
         LearnGeneratedBlock,
@@ -1127,7 +1129,7 @@ def test_get_listen_element_record_includes_persisted_rows_missing_progress_bid(
 
         monkeypatch.setattr(
             "flaskr.service.learn.listen_elements.build_legacy_record_for_progress",
-            lambda *args, **kwargs: LearnRecordDTO(records=[]),
+            lambda *args, **kwargs: LegacyLearnRecord(records=[]),
         )
         monkeypatch.setattr(
             "flaskr.service.learn.listen_elements.get_learn_record",
@@ -3670,21 +3672,21 @@ def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(a
         AudioCompleteDTO,
         BlockType,
         ElementType,
-        GeneratedBlockDTO,
-        LearnRecordDTO,
         LikeStatus,
+    )
+    from flaskr.service.learn.legacy_record_builder import (
+        LegacyGeneratedBlockRecord,
+        LegacyLearnRecord,
     )
     from flaskr.service.learn.listen_elements import (
         build_listen_elements_from_legacy_record,
     )
-    from flaskr.service.tts.pipeline import build_av_segmentation_contract
 
     raw_content = "Before intro.\n\n<svg><text>Chart</text></svg>\n\nAfter chart."
     generated_block_bid = "generated-legacy-elements"
-    av_contract = build_av_segmentation_contract(raw_content, generated_block_bid)
-    legacy_record = LearnRecordDTO(
+    legacy_record = LegacyLearnRecord(
         records=[
-            GeneratedBlockDTO(
+            LegacyGeneratedBlockRecord(
                 generated_block_bid=generated_block_bid,
                 content=raw_content,
                 like_status=LikeStatus.NONE,
@@ -3704,7 +3706,6 @@ def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(a
                         duration_ms=900,
                     ),
                 ],
-                av_contract=av_contract,
             )
         ]
     )
@@ -3766,9 +3767,11 @@ def test_build_listen_elements_from_legacy_record_prefers_persisted_visual_eleme
         AudioCompleteDTO,
         BlockType,
         ElementType,
-        GeneratedBlockDTO,
-        LearnRecordDTO,
         LikeStatus,
+    )
+    from flaskr.service.learn.legacy_record_builder import (
+        LegacyGeneratedBlockRecord,
+        LegacyLearnRecord,
     )
     from flaskr.service.learn.listen_elements import (
         build_listen_elements_from_legacy_record,
@@ -3921,9 +3924,9 @@ def test_build_listen_elements_from_legacy_record_prefers_persisted_visual_eleme
         )
         db.session.commit()
 
-    legacy_record = LearnRecordDTO(
+    legacy_record = LegacyLearnRecord(
         records=[
-            GeneratedBlockDTO(
+            LegacyGeneratedBlockRecord(
                 generated_block_bid=generated_block_bid,
                 content=f"Before image.\n\n{visual_markdown}\n\nAfter image.",
                 like_status=LikeStatus.NONE,
@@ -3978,17 +3981,19 @@ def test_build_listen_elements_from_legacy_record_keeps_interaction_user_input(a
 
     from flaskr.service.learn.learn_dtos import (
         BlockType,
-        GeneratedBlockDTO,
-        LearnRecordDTO,
         LikeStatus,
+    )
+    from flaskr.service.learn.legacy_record_builder import (
+        LegacyGeneratedBlockRecord,
+        LegacyLearnRecord,
     )
     from flaskr.service.learn.listen_elements import (
         build_listen_elements_from_legacy_record,
     )
 
-    legacy_record = LearnRecordDTO(
+    legacy_record = LegacyLearnRecord(
         records=[
-            GeneratedBlockDTO(
+            LegacyGeneratedBlockRecord(
                 generated_block_bid="generated-interaction-legacy",
                 content="?[Agree//agree][Disagree//disagree]",
                 like_status=LikeStatus.NONE,

@@ -759,68 +759,6 @@ class RunMarkdownFlowDTO(BaseModel):
         return ret
 
 
-@register_schema_to_swagger
-class GeneratedBlockDTO(BaseModel):
-    generated_block_bid: str = Field(
-        ..., description="generated block id", required=False
-    )
-    content: str = Field(..., description="generated content", required=False)
-    like_status: LikeStatus = Field(..., description="like status", required=False)
-    block_type: BlockType = Field(..., description="block type", required=False)
-    user_input: str = Field(..., description="user input", required=False)
-    audio_url: Optional[str] = Field(
-        default=None, description="TTS audio URL for this block"
-    )
-    audios: Optional[List[AudioCompleteDTO]] = Field(
-        default=None, description="TTS audio segments for this block"
-    )
-    av_contract: Dict[str, Any] | None = Field(
-        default=None, description="AV boundary contract metadata"
-    )
-
-    def __init__(
-        self,
-        generated_block_bid: str,
-        content: str,
-        like_status: LikeStatus,
-        block_type: BlockType,
-        user_input: str,
-        audio_url: Optional[str] = None,
-        audios: Optional[List[AudioCompleteDTO]] = None,
-        av_contract: Dict[str, Any] | None = None,
-    ):
-        super().__init__(
-            generated_block_bid=generated_block_bid,
-            content=content,
-            like_status=like_status,
-            block_type=block_type,
-            user_input=user_input,
-            audio_url=audio_url,
-            audios=audios,
-            av_contract=av_contract,
-        )
-
-    def __json__(self):
-        ret = {
-            "generated_block_bid": self.generated_block_bid,
-            "content": self.content,
-            "block_type": self.block_type.value,
-            "user_input": self.user_input,
-        }
-        if self.block_type == BlockType.CONTENT:
-            ret["like_status"] = self.like_status.value
-        if self.audio_url:
-            ret["audio_url"] = self.audio_url
-        if self.audios:
-            ret["audios"] = [
-                audio.__json__() if isinstance(audio, BaseModel) else audio
-                for audio in self.audios
-            ]
-        if self.av_contract:
-            ret["av_contract"] = self.av_contract
-        return ret
-
-
 class PlaygroundPreviewRequest(BaseModel):
     content: Optional[str] = Field(
         default=None, description="Markdown-Flow document content"
@@ -907,24 +845,6 @@ class PreviewSSEMessage(BaseModel):
         payload = self.model_dump()
         payload["type"] = self.type.value
         return payload
-
-
-@register_schema_to_swagger
-class LearnRecordDTO(BaseModel):
-    records: list[GeneratedBlockDTO] = Field(
-        ..., description="generated blocks", required=False
-    )
-
-    def __init__(
-        self,
-        records: list[GeneratedBlockDTO],
-    ):
-        super().__init__(records=records)
-
-    def __json__(self):
-        return {
-            "records": self.records,
-        }
 
 
 @register_schema_to_swagger

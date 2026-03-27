@@ -24,7 +24,6 @@ from flaskr.service.learn.learn_dtos import (
     ElementVisualDTO,
     GeneratedType,
     LearnElementRecordDTO,
-    LearnRecordDTO,
     LearnStatus,
     OutlineItemUpdateDTO,
     RunElementSSEMessageDTO,
@@ -40,7 +39,10 @@ from flaskr.service.learn.listen_source_span_utils import (
     normalize_source_span,
     slice_source_by_span,
 )
-from flaskr.service.learn.legacy_record_builder import build_legacy_record_for_progress
+from flaskr.service.learn.legacy_record_builder import (
+    LegacyLearnRecord,
+    build_legacy_record_for_progress,
+)
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
@@ -48,6 +50,7 @@ from flaskr.service.learn.models import (
 )
 from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.learn.type_state_machine import TypeInput, TypeStateMachine
+from flaskr.service.tts.pipeline import build_av_segmentation_contract
 
 ELEMENT_TYPE_CODES = {
     ElementType.HTML: 201,
@@ -799,7 +802,7 @@ def _serialize_element_row(
 def _build_legacy_record_for_progress(
     progress_record: LearnProgressRecord,
     stats: LearnElementsBackfillStats,
-) -> LearnRecordDTO:
+) -> LegacyLearnRecord:
     return build_legacy_record_for_progress(
         progress_record,
         include_like_status=False,
@@ -2679,7 +2682,7 @@ def _interaction_element_from_record(
 
 def build_listen_elements_from_legacy_record(
     app: Flask,
-    legacy_record: LearnRecordDTO,
+    legacy_record: LegacyLearnRecord,
 ) -> LearnElementRecordDTO:
     elements: list[ElementDTO] = []
     max_index = -1
@@ -2703,6 +2706,7 @@ def build_listen_elements_from_legacy_record(
         role = "student" if block_type == BlockType.ASK else "teacher"
         visual_segments: list[VisualSegment] = []
         audio_by_position: dict[int, ElementAudioDTO] = {}
+        pos_to_seg_id: dict[int, str] = {}
         for audio in record.audios or []:
             audio_payload = _make_audio_payload(audio)
             audio_by_position[int(getattr(audio, "position", 0) or 0)] = audio_payload
@@ -2744,12 +2748,19 @@ def build_listen_elements_from_legacy_record(
                     elements.append(element)
                 continue
 
-        if isinstance(record.av_contract, dict) and (record.content or "").strip():
+        av_contract = None
+        if (record.content or "").strip():
+            av_contract = build_av_segmentation_contract(
+                record.content or "",
+                record.generated_block_bid,
+            )
+
+        if isinstance(av_contract, dict):
             visual_segments, pos_to_seg_id = build_visual_segments_for_block(
                 app=app,
                 raw_content=record.content or "",
                 generated_block_bid=record.generated_block_bid,
-                av_contract=record.av_contract,
+                av_contract=av_contract,
                 element_index_offset=max_index + 1,
             )
 
@@ -2759,9 +2770,7 @@ def build_listen_elements_from_legacy_record(
                 generated_block_bid=record.generated_block_bid,
                 role=role,
                 raw_content=record.content or "",
-                av_contract=record.av_contract
-                if isinstance(record.av_contract, dict)
-                else None,
+                av_contract=av_contract if isinstance(av_contract, dict) else None,
                 visual_segments=visual_segments,
                 audio_by_position=audio_by_position,
                 audio_segments_by_position={},
@@ -3176,7 +3185,7 @@ def _merge_progress_elements(
         if legacy_records:
             built_record = build_listen_elements_from_legacy_record(
                 app,
-                LearnRecordDTO(records=legacy_records),
+                LegacyLearnRecord(records=legacy_records),
             )
             legacy_elements = [
                 _normalize_record_element(element) for element in built_record.elements

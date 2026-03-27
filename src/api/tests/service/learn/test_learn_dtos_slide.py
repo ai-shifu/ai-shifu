@@ -1,11 +1,12 @@
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
-    BlockType,
-    GeneratedBlockDTO,
     GeneratedType,
-    LearnRecordDTO,
-    LikeStatus,
+)
+from flaskr.service.learn.learn_dtos import BlockType, LikeStatus
+from flaskr.service.learn.legacy_record_builder import (
+    LegacyGeneratedBlockRecord,
+    LegacyLearnRecord,
 )
 
 
@@ -39,8 +40,8 @@ def test_audio_complete_dto_payload_has_no_legacy_fields():
     assert "slide_id" not in payload
 
 
-def test_learn_record_dto_payload_has_no_legacy_fields():
-    record = GeneratedBlockDTO(
+def test_legacy_learn_record_payload_has_no_legacy_fields():
+    record = LegacyGeneratedBlockRecord(
         generated_block_bid="gen-1",
         content="hello",
         like_status=LikeStatus.NONE,
@@ -48,7 +49,7 @@ def test_learn_record_dto_payload_has_no_legacy_fields():
         user_input="",
     )
 
-    dto = LearnRecordDTO(records=[record])
+    dto = LegacyLearnRecord(records=[record])
     payload = dto.__json__()
 
     assert "slides" not in payload
