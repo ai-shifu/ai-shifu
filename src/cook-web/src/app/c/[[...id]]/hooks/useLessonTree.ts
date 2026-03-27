@@ -186,47 +186,50 @@ export const useLessonTree = () => {
     return newTree;
   }, [previewMode, updateCourseId]);
 
-  const setSelectedState = useCallback((tree, chapterId, lessonId) => {
-    let chapter = tree.catalogs.find(v => v.id === chapterId);
-    let lesson = null;
+  const setSelectedState = useCallback(
+    (tree, chapterId, lessonId) => {
+      let chapter = tree.catalogs.find(v => v.id === chapterId);
+      let lesson = null;
 
-    if (chapter && lessonId) {
-      lesson = chapter.lessons.find(v => v.id === lessonId);
-    }
+      if (chapter && lessonId) {
+        lesson = chapter.lessons.find(v => v.id === lessonId);
+      }
 
-    if (!lesson && lessonId) {
-      for (const catalog of tree.catalogs) {
-        const matchedLesson = catalog.lessons.find(v => v.id === lessonId);
-        if (matchedLesson) {
-          chapter = catalog;
-          lesson = matchedLesson;
-          break;
+      if (!lesson && lessonId) {
+        for (const catalog of tree.catalogs) {
+          const matchedLesson = catalog.lessons.find(v => v.id === lessonId);
+          if (matchedLesson) {
+            chapter = catalog;
+            lesson = matchedLesson;
+            break;
+          }
         }
       }
-    }
 
-    if (!chapter) {
-      return false;
-    }
-
-    if (!lesson) {
-      lesson = chapter.lessons.find(
-        v =>
-          v.status_value === LESSON_STATUS_VALUE.LEARNING ||
-          v.status === LESSON_STATUS_VALUE.PREPARE_LEARNING,
-      );
-    }
-
-    if (lesson) {
-      if (!ensureLessonAccessible(lesson, chapter.id)) {
+      if (!chapter) {
         return false;
       }
-      const typedLesson = lesson as { id: string };
-      setSelectedLessonId(typedLesson.id);
+
+      if (!lesson) {
+        lesson = chapter.lessons.find(
+          v =>
+            v.status_value === LESSON_STATUS_VALUE.LEARNING ||
+            v.status === LESSON_STATUS_VALUE.PREPARE_LEARNING,
+        );
+      }
+
+      if (lesson) {
+        if (!ensureLessonAccessible(lesson, chapter.id)) {
+          return false;
+        }
+        const typedLesson = lesson as { id: string };
+        setSelectedLessonId(typedLesson.id);
+        return true;
+      }
       return true;
-    }
-    return true;
-  }, [ensureLessonAccessible]);
+    },
+    [ensureLessonAccessible],
+  );
 
   // Reload the course tree while preserving transient state
   const reloadTree = useCallback(
