@@ -737,6 +737,19 @@ def test_records_merge_follow_up_history_after_anchor_element(app):
 
     bids = [element.element_bid for element in result.elements]
     assert bids == ["anchor-1", "ask-1", "answer-1", "normal-2"]
+    assert result.elements[0].payload is not None
+    assert result.elements[0].payload.asks == [
+        {
+            "role": "student",
+            "content": "follow up question",
+            "generated_block_bid": "block-ask",
+        },
+        {
+            "role": "teacher",
+            "content": "follow up answer",
+            "generated_block_bid": "block-answer",
+        },
+    ]
 
 
 def test_include_non_navigable_returns_events(app):

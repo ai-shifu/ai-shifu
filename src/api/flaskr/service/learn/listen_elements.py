@@ -3153,6 +3153,44 @@ def _merge_follow_up_elements_after_anchor(
     return merged_elements
 
 
+def _attach_follow_up_history_to_anchor_payload(
+    elements: list[ElementDTO],
+) -> list[ElementDTO]:
+    ask_history_by_anchor_bid: dict[str, list[dict[str, Any]]] = {}
+
+    for element in elements:
+        payload = element.payload or ElementPayloadDTO()
+        anchor_element_bid = (payload.anchor_element_bid or "").strip()
+        if (
+            element.element_type not in {ElementType.ASK, ElementType.ANSWER}
+            or not anchor_element_bid
+        ):
+            continue
+
+        ask_history_by_anchor_bid.setdefault(anchor_element_bid, []).append(
+            {
+                "role": (
+                    "student" if element.element_type == ElementType.ASK else "teacher"
+                ),
+                "content": element.content_text or "",
+                "generated_block_bid": element.generated_block_bid or "",
+            }
+        )
+
+    if not ask_history_by_anchor_bid:
+        return elements
+
+    for element in elements:
+        anchor_asks = ask_history_by_anchor_bid.get(element.element_bid or "")
+        if not anchor_asks:
+            continue
+        payload = element.payload or ElementPayloadDTO()
+        payload.asks = anchor_asks
+        element.payload = payload
+
+    return elements
+
+
 def _merge_progress_elements(
     app: Flask,
     *,
@@ -3254,6 +3292,7 @@ def _merge_progress_elements(
         for group_key in ordered_group_keys:
             merged_elements.extend(persisted_groups.get(group_key, []))
             merged_elements.extend(legacy_groups.get(group_key, []))
+        merged_elements = _attach_follow_up_history_to_anchor_payload(merged_elements)
         collected_elements.extend(
             _merge_follow_up_elements_after_anchor(merged_elements)
         )
