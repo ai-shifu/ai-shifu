@@ -138,6 +138,8 @@ def run_script_inner(
                     # replace the legacy SSE contract with listen-mode element events.
                     for _ in element_adapter.process([event]):
                         pass
+                    if event.type == GeneratedType.ASK:
+                        continue
                     yield event
 
             if reload_generated_block_bid or reload_element_bid:
