@@ -1,4 +1,0 @@
-# Skills
-
-- 课节深链通用实现：统一使用 `lessonId` 作为 URL 参数，在页面入口解析后注入状态层，并在目录数据加载后按 `lessonId` 自动定位与选中；若定位失败则回退默认课节并保证页面可用。
-- 后台与学习端链路统一：`/shifu/:courseId` 与 `/c/:courseId` 都支持 `lessonId` 深链，并优先把定位能力下沉到 store/action，减少页面层重复逻辑。
