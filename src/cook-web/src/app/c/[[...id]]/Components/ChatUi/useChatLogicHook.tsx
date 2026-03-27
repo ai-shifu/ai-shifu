@@ -134,6 +134,7 @@ export interface UseChatSessionParams {
   chapterId?: string;
   previewMode?: boolean;
   isListenMode?: boolean;
+  shouldPromptLessonFeedback?: boolean;
   trackEvent: (name: string, payload?: Record<string, any>) => void;
   trackTrailProgress: (courseId: string, elementBid: string) => void;
   lessonUpdate?: (params: Record<string, any>) => void;
@@ -185,6 +186,7 @@ function useChatLogicHook({
   chapterId,
   previewMode,
   isListenMode = false,
+  shouldPromptLessonFeedback = true,
   trackEvent,
   chatBoxBottomRef,
   trackTrailProgress,
@@ -249,7 +251,7 @@ function useChatLogicHook({
       defaultCommentText: '',
       readonly: false,
     });
-  const dismissedLessonFeedbackBlockBidsRef = useRef<Set<string>>(new Set());
+  const dismissedLessonFeedbackOutlineBidsRef = useRef<Set<string>>(new Set());
 
   const effectivePreviewMode = previewMode ?? false;
   const allowTtsStreaming = !effectivePreviewMode;
@@ -564,9 +566,24 @@ function useChatLogicHook({
       if (!oldestBid) {
         break;
       }
-      cache.delete(oldestBid);
-    }
-  }, []);
+      const cache = dismissedLessonFeedbackOutlineBidsRef.current;
+      if (cache.has(lessonOutlineBid)) {
+        cache.delete(lessonOutlineBid);
+      }
+      cache.add(lessonOutlineBid);
+
+      while (cache.size > LESSON_FEEDBACK_DISMISS_CACHE_LIMIT) {
+        const oldestOutlineBid = cache.values().next().value as
+          | string
+          | undefined;
+        if (!oldestOutlineBid) {
+          break;
+        }
+        cache.delete(oldestOutlineBid);
+      }
+    },
+    [],
+  );
 
   const resetLessonFeedbackPopup = useCallback(() => {
     setLessonFeedbackPopupState({
@@ -1761,7 +1778,7 @@ function useChatLogicHook({
                 undefined,
                 undefined,
               );
-              dismissLessonFeedbackPopup(pendingFeedbackBlockBid);
+              dismissLessonFeedbackPopup();
             }
           }
         }
@@ -1808,7 +1825,7 @@ function useChatLogicHook({
               String(score),
               comment,
             );
-            dismissLessonFeedbackPopup(blockBid);
+            dismissLessonFeedbackPopup();
             trackEvent(EVENT_NAMES.LESSON_FEEDBACK_SUBMIT, {
               shifu_bid: shifuBid,
               outline_bid: outlineBid,

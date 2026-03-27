@@ -154,6 +154,7 @@ const ScriptManagementPage = () => {
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const currentUserId = useUserStore(state => state.userInfo?.user_id || '');
+  const [courseCreatorUrl, setCourseCreatorUrl] = useState<string | null>(null);
   const [adminReady, setAdminReady] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'archived'>('all');
   const [shifus, setShifus] = useState<Shifu[]>([]);
@@ -179,6 +180,20 @@ const ScriptManagementPage = () => {
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
+
+  useEffect(() => {
+    const hostname = window.location.hostname;
+    const basePath = '/educators.html#course-creator-skill';
+    let domain: string | null = null;
+    if (hostname.endsWith('.ai-shifu.cn') || hostname === 'localhost') {
+      domain = 'ai-shifu.cn';
+    } else if (hostname.endsWith('.ai-shifu.com')) {
+      domain = 'ai-shifu.com';
+    }
+    if (domain) {
+      setCourseCreatorUrl(`https://${domain}${basePath}`);
+    }
+  }, []);
 
   const setHasMoreState = useCallback((value: boolean) => {
     hasMoreRef.current = value;
@@ -495,7 +510,22 @@ const ScriptManagementPage = () => {
               <PlusIcon className='w-5 h-5 mr-1' />
               {t('common.core.createBlankShifu')}
             </Button>
+            {courseCreatorUrl && (
+              <span className='text-xs text-muted-foreground'>
+                {t('common.core.aiCourseCreatorPrefix')}
+                <a
+                  href={courseCreatorUrl}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='text-muted-foreground underline hover:text-foreground'
+                >
+                  {t('common.core.aiCourseCreatorLink')}
+                </a>
+                {t('common.core.aiCourseCreatorSuffix')}
+              </span>
+            )}
             <Tabs
+              className='ml-auto'
               value={activeTab}
               onValueChange={value => setActiveTab(value as 'all' | 'archived')}
             >

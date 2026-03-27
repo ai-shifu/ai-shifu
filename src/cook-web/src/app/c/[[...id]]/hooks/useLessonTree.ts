@@ -55,6 +55,37 @@ export const useLessonTree = () => {
     return { catalog: null, lesson: null };
   }, [selectedLessonId, tree]);
 
+  const ensureLessonAccessible = useCallback(
+    (lesson, chapterId: string) => {
+      const needsLogin =
+        (lesson.type === LEARNING_PERMISSION.TRIAL ||
+          lesson.type === LEARNING_PERMISSION.NORMAL) &&
+        !isLoggedIn;
+      if (!previewMode && needsLogin) {
+        window.location.href = `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`;
+        return false;
+      }
+
+      if (
+        !previewMode &&
+        lesson.type === LEARNING_PERMISSION.NORMAL &&
+        !lesson.is_paid
+      ) {
+        openPayModal({
+          type: lesson.type,
+          payload: {
+            chapterId,
+            lessonId: lesson.id,
+          },
+        });
+        return false;
+      }
+
+      return true;
+    },
+    [isLoggedIn, openPayModal, previewMode],
+  );
+
   const initialSelectedChapter = useCallback(
     tree => {
       let catalog = tree.catalogs.find(
@@ -80,27 +111,7 @@ export const useLessonTree = () => {
         }
       }
       if (lesson) {
-        const needsLogin =
-          (lesson.type === LEARNING_PERMISSION.TRIAL ||
-            lesson.type === LEARNING_PERMISSION.NORMAL) &&
-          !isLoggedIn;
-        if (!previewMode && needsLogin) {
-          window.location.href = `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`;
-          return;
-        }
-
-        if (
-          !previewMode &&
-          lesson.type === LEARNING_PERMISSION.NORMAL &&
-          !lesson.is_paid
-        ) {
-          openPayModal({
-            type: lesson.type,
-            payload: {
-              chapterId: lesson.chapterId,
-              lessonId: lesson.id,
-            },
-          });
+        if (!ensureLessonAccessible(lesson, catalog?.id || '')) {
           return;
         }
         setSelectedLessonId(lesson.id);
@@ -121,7 +132,7 @@ export const useLessonTree = () => {
         }
       }
     },
-    [isLoggedIn, openPayModal, previewMode],
+    [ensureLessonAccessible],
   );
 
   const loadTreeInner = useCallback(async () => {
@@ -175,32 +186,50 @@ export const useLessonTree = () => {
     return newTree;
   }, [previewMode, updateCourseId]);
 
-  const setSelectedState = useCallback((tree, chapterId, lessonId) => {
-    const chapter = tree.catalogs.find(v => v.id === chapterId);
-    if (!chapter) {
-      return false;
-    }
+  const setSelectedState = useCallback(
+    (tree, chapterId, lessonId) => {
+      let chapter = tree.catalogs.find(v => v.id === chapterId);
+      let lesson = null;
 
-    let lesson = null;
-    if (lessonId) {
-      lesson = chapter.lessons.find(v => v.id === lessonId);
-    }
+      if (chapter && lessonId) {
+        lesson = chapter.lessons.find(v => v.id === lessonId);
+      }
 
-    if (!lesson) {
-      lesson = chapter.lessons.find(
-        v =>
-          v.status_value === LESSON_STATUS_VALUE.LEARNING ||
-          v.status === LESSON_STATUS_VALUE.PREPARE_LEARNING,
-      );
-    }
+      if (!lesson && lessonId) {
+        for (const catalog of tree.catalogs) {
+          const matchedLesson = catalog.lessons.find(v => v.id === lessonId);
+          if (matchedLesson) {
+            chapter = catalog;
+            lesson = matchedLesson;
+            break;
+          }
+        }
+      }
 
-    if (lesson) {
-      const typedLesson = lesson as { id: string };
-      setSelectedLessonId(typedLesson.id);
+      if (!chapter) {
+        return false;
+      }
+
+      if (!lesson) {
+        lesson = chapter.lessons.find(
+          v =>
+            v.status_value === LESSON_STATUS_VALUE.LEARNING ||
+            v.status === LESSON_STATUS_VALUE.PREPARE_LEARNING,
+        );
+      }
+
+      if (lesson) {
+        if (!ensureLessonAccessible(lesson, chapter.id)) {
+          return false;
+        }
+        const typedLesson = lesson as { id: string };
+        setSelectedLessonId(typedLesson.id);
+        return true;
+      }
       return true;
-    }
-    return true;
-  }, []);
+    },
+    [ensureLessonAccessible],
+  );
 
   // Reload the course tree while preserving transient state
   const reloadTree = useCallback(

@@ -920,10 +920,15 @@ export const useListenAudioSequence = ({
             audioSequenceTimerRef.current = setTimeout(() => {
               playAudioSequenceFromIndex(index + 1);
             }, 0);
+          } else {
+            setIsAudioSequenceActive(false);
+            isAudioSequenceActiveRef.current = false;
           }
           return;
         }
         if (index >= list.length - 1) {
+          setIsAudioSequenceActive(false);
+          isAudioSequenceActiveRef.current = false;
           return;
         }
         audioSequenceTimerRef.current = setTimeout(() => {
