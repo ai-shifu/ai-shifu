@@ -163,9 +163,10 @@ def test_run_script_retries_lock_then_streams(monkeypatch):
 
         assert lock.acquire_calls == 2
         assert lock.release_calls == 1
-        assert [event["type"] for event in events] == ["content", "break", "done"]
+        assert [event["type"] for event in events] == ["element", "done"]
         assert events[0]["content"] == "hello"
         assert events[-1]["type"] == "done"
+        assert events[-1]["is_terminal"] is True
 
 
 def test_run_script_read_mode_keeps_interaction_after_block_break(monkeypatch):
@@ -215,12 +216,11 @@ def test_run_script_read_mode_keeps_interaction_after_block_break(monkeypatch):
         events = _parse_sse_events(chunks)
 
         assert [event["type"] for event in events] == [
-            "content",
-            "break",
-            "interaction",
+            "element",
+            "element",
             "done",
         ]
-        assert events[2]["content"] == "?[%{{name}}...How should I call you?]"
+        assert events[1]["content"] == "?[%{{name}}...How should I call you?]"
 
 
 def test_run_script_ask_mode_uses_element_protocol(monkeypatch):
@@ -466,8 +466,10 @@ def test_run_script_lock_busy_returns_busy_and_done(monkeypatch):
 
         assert lock.acquire_calls == 6
         assert lock.release_calls == 0
-        assert [event["type"] for event in events] == ["content", "break", "done"]
+        assert [event["type"] for event in events] == ["error", "done"]
+        assert [event["event_type"] for event in events] == ["error", "done"]
         assert events[0]["content"] == "translated:server.learn.outputInProgress"
+        assert events[1]["is_terminal"] is True
 
 
 def test_run_script_listen_lock_busy_returns_element_protocol(monkeypatch):

@@ -202,23 +202,12 @@ def run_script_inner(
             )
 
             run_script_context.set_input(input, input_type)
-            use_element_protocol = listen or input_type == "ask"
 
             def _iter_run_events(events):
                 if element_adapter is None:
                     yield from events
                     return
-                if use_element_protocol:
-                    yield from element_adapter.process(events)
-                    return
-                for event in events:
-                    # Keep persisting element snapshots for read mode, but do not
-                    # replace the legacy SSE contract with listen-mode element events.
-                    for _ in element_adapter.process([event]):
-                        pass
-                    if event.type == GeneratedType.ASK:
-                        continue
-                    yield event
+                yield from element_adapter.process(events)
 
             if reload_generated_block_bid or reload_element_bid:
                 if stop_event and stop_event.is_set():
@@ -312,14 +301,16 @@ def run_script(
     lock_retry_sleep_seconds = 0.2
     heartbeat_interval = float(app.config.get("SSE_HEARTBEAT_INTERVAL", 0.5))
     lock_key = _get_run_script_lock_key(app, user_bid, outline_bid)
-    use_element_protocol = listen or input_type == "ask"
+    # Learner run SSE now always speaks the element protocol. The listen flag
+    # still controls run-time behaviors such as segmented TTS generation.
+    use_element_protocol = True
     element_adapter = ListenElementRunAdapter(
         app,
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
         user_bid=user_bid,
     )
-    stream_element_adapter = element_adapter if use_element_protocol else None
+    stream_element_adapter = element_adapter
     lock = cache_provider.lock(
         lock_key, timeout=timeout, blocking_timeout=blocking_timeout
     )
@@ -381,6 +372,10 @@ def run_script(
                 for item in res:
                     if stop_event.is_set():
                         break
+                    if isinstance(item, RunMarkdownFlowDTO):
+                        for converted_item in element_adapter.process([item]):
+                            output_queue.put(("data", converted_item))
+                        continue
                     output_queue.put(("data", item))
             except Exception as exc:
                 if stop_event.is_set():
