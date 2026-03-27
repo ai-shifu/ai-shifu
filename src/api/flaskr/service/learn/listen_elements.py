@@ -3091,6 +3091,16 @@ def _dedupe_progress_records_by_block_position(progress_records: list) -> list:
     )
 
 
+def _group_elements_by_generated_block_bid(
+    elements: list[ElementDTO],
+) -> "OrderedDict[str, list[ElementDTO]]":
+    grouped: "OrderedDict[str, list[ElementDTO]]" = OrderedDict()
+    for index, element in enumerate(elements):
+        group_key = element.generated_block_bid or f"__ungrouped__:{index}"
+        grouped.setdefault(group_key, []).append(element)
+    return grouped
+
+
 def _merge_progress_elements(
     app: Flask,
     *,
@@ -3148,6 +3158,11 @@ def _merge_progress_elements(
             dedupe_audio_by_block_position=True,
             skip_empty_content=True,
         )
+        block_order_by_generated_block_bid = {
+            record.generated_block_bid or "": index
+            for index, record in enumerate(legacy_record.records)
+            if record.generated_block_bid
+        }
         legacy_records = [
             record
             for record in legacy_record.records
@@ -3166,15 +3181,27 @@ def _merge_progress_elements(
                 for event in built_record.events or []:
                     collected_events.append(event)
 
-        merged_elements = list(persisted_elements) + legacy_elements
-        merged_elements.sort(
-            key=lambda item: (
-                int(item.element_index or 0),
-                int(item.run_event_seq or 0),
-                item.generated_block_bid or "",
-                item.element_bid or "",
+        persisted_groups = _group_elements_by_generated_block_bid(
+            list(persisted_elements)
+        )
+        legacy_groups = _group_elements_by_generated_block_bid(legacy_elements)
+        source_group_order: dict[str, int] = {}
+        for group_key in list(persisted_groups.keys()) + list(legacy_groups.keys()):
+            if group_key not in source_group_order:
+                source_group_order[group_key] = len(source_group_order)
+
+        merged_elements: list[ElementDTO] = []
+        ordered_group_keys = list(source_group_order.keys())
+        ordered_group_keys.sort(
+            key=lambda group_key: (
+                0 if group_key in block_order_by_generated_block_bid else 1,
+                block_order_by_generated_block_bid.get(group_key, 0),
+                source_group_order[group_key],
             )
         )
+        for group_key in ordered_group_keys:
+            merged_elements.extend(persisted_groups.get(group_key, []))
+            merged_elements.extend(legacy_groups.get(group_key, []))
         collected_elements.extend(merged_elements)
         if include_non_navigable and collected_events is not None:
             for event in persisted_events or []:

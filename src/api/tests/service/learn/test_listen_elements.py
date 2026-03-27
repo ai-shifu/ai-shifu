@@ -493,6 +493,147 @@ def test_get_listen_element_record_returns_all_persisted_elements_across_progres
         assert result.elements[1].is_renderable is False
 
 
+def test_get_listen_element_record_keeps_block_order_when_run_sessions_reset_indexes(
+    app, monkeypatch
+):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.learn_dtos import (
+        BlockType,
+        GeneratedBlockDTO,
+        LearnRecordDTO,
+        LikeStatus,
+    )
+    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-listen-block-order"
+    shifu_bid = "shifu-listen-block-order"
+    outline_bid = "outline-listen-block-order"
+    progress_bid = "progress-listen-block-order"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        monkeypatch.setattr(
+            "flaskr.service.learn.listen_elements.build_legacy_record_for_progress",
+            lambda *args, **kwargs: LearnRecordDTO(
+                records=[
+                    GeneratedBlockDTO(
+                        "generated-block-first",
+                        "First block content",
+                        LikeStatus.NONE,
+                        BlockType.CONTENT,
+                        "",
+                    ),
+                    GeneratedBlockDTO(
+                        "generated-block-second",
+                        "Second block content",
+                        LikeStatus.NONE,
+                        BlockType.CONTENT,
+                        "",
+                    ),
+                ]
+            ),
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.listen_elements.get_learn_record",
+            lambda *args, **kwargs: pytest.fail(
+                "persisted element query should not fall back to legacy records"
+            ),
+        )
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        first_element = LearnGeneratedElement(
+            element_bid="element-block-first",
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            generated_block_bid="generated-block-first",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            run_session_bid="run-session-old",
+            run_event_seq=5,
+            event_type="element",
+            role="teacher",
+            element_index=5,
+            element_type="text",
+            element_type_code=213,
+            change_type="render",
+            target_element_bid="",
+            is_renderable=1,
+            is_new=1,
+            is_marker=0,
+            sequence_number=5,
+            is_speakable=0,
+            audio_url="",
+            audio_segments="[]",
+            is_navigable=1,
+            is_final=1,
+            content_text="First block content",
+            payload=json.dumps({"audio": None, "previous_visuals": []}),
+            status=1,
+        )
+        second_element = LearnGeneratedElement(
+            element_bid="element-block-second",
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            generated_block_bid="generated-block-second",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            run_session_bid="run-session-new",
+            run_event_seq=1,
+            event_type="element",
+            role="teacher",
+            element_index=0,
+            element_type="text",
+            element_type_code=213,
+            change_type="render",
+            target_element_bid="",
+            is_renderable=1,
+            is_new=1,
+            is_marker=0,
+            sequence_number=1,
+            is_speakable=0,
+            audio_url="",
+            audio_segments="[]",
+            is_navigable=1,
+            is_final=1,
+            content_text="Second block content",
+            payload=json.dumps({"audio": None, "previous_visuals": []}),
+            status=1,
+        )
+        db.session.add_all([progress, first_element, second_element])
+        db.session.commit()
+
+        result = get_listen_element_record(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            preview_mode=False,
+        )
+
+        assert [item.generated_block_bid for item in result.elements] == [
+            "generated-block-first",
+            "generated-block-second",
+        ]
+        assert [item.content_text for item in result.elements] == [
+            "First block content",
+            "Second block content",
+        ]
+
+
 def test_get_listen_element_record_ignores_rows_from_inactive_generated_blocks(app):
     _require_app(app)
 
