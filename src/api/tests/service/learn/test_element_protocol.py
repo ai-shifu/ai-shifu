@@ -1375,13 +1375,13 @@ class TestHandleAskAdapter:
             assert ask_rows[0].content_text == "user question here"
             assert ask_rows[0].role == "student"
 
-    def test_handle_ask_emits_ask_element(self, adapter_app):
+    def test_process_ask_persists_without_streaming(self, adapter_app):
+        import json
         from flaskr.service.learn.listen_elements import (
             ListenElementRunAdapter,
             _serialize_payload,
         )
         from flaskr.service.learn.learn_dtos import (
-            ElementType,
             GeneratedType,
             RunMarkdownFlowDTO,
             ElementPayloadDTO,
@@ -1428,11 +1428,23 @@ class TestHandleAskAdapter:
                 )
             ]
             result = list(adapter.process(events))
-            assert len(result) == 1
-            assert result[0].content.element_type == ElementType.ASK
-            assert result[0].content.content_text == "question"
-            assert result[0].content.role == "student"
-            assert result[0].content.payload.anchor_element_bid == "anchor_elem_2"
+            assert result == []
+
+            ask_row = (
+                LearnGeneratedElement.query.filter(
+                    LearnGeneratedElement.element_type == "ask"
+                )
+                .order_by(
+                    LearnGeneratedElement.run_event_seq.desc(),
+                    LearnGeneratedElement.id.desc(),
+                )
+                .first()
+            )
+            assert ask_row is not None
+            payload = json.loads(ask_row.payload or "{}")
+            assert ask_row.content_text == "question"
+            assert ask_row.role == "student"
+            assert payload["anchor_element_bid"] == "anchor_elem_2"
 
     def test_handle_ask_sets_anchor_bid_state(self, adapter_app):
         from flaskr.service.learn.listen_elements import (
@@ -1554,12 +1566,17 @@ class TestHandleAskAdapter:
             ]
 
             streamed = list(adapter.process(events))
-            ask_message = next(
-                message.content
-                for message in streamed
-                if message.type == "element"
-                and message.content.element_type == ElementType.ASK
+            ask_row = (
+                LearnGeneratedElement.query.filter(
+                    LearnGeneratedElement.element_type == "ask"
+                )
+                .order_by(
+                    LearnGeneratedElement.run_event_seq.desc(),
+                    LearnGeneratedElement.id.desc(),
+                )
+                .first()
             )
+            assert ask_row is not None
             answer_messages = [
                 message.content
                 for message in streamed
@@ -1572,7 +1589,7 @@ class TestHandleAskAdapter:
             assert final_answer.content_text == "answer"
             assert final_answer.role == "teacher"
             assert final_answer.payload.anchor_element_bid == "anchor_elem_4"
-            assert final_answer.payload.ask_element_bid == ask_message.element_bid
+            assert final_answer.payload.ask_element_bid == ask_row.element_bid
 
             answer_row = (
                 LearnGeneratedElement.query.filter(
@@ -1589,7 +1606,7 @@ class TestHandleAskAdapter:
             assert answer_row.content_text == "answer"
             assert answer_row.role == "teacher"
             assert payload["anchor_element_bid"] == "anchor_elem_4"
-            assert payload["ask_element_bid"] == ask_message.element_bid
+            assert payload["ask_element_bid"] == ask_row.element_bid
             assert "asks" not in payload
 
     def test_answer_audio_events_do_not_attach_audio(self, adapter_app):

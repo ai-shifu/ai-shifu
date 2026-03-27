@@ -205,18 +205,15 @@ def test_run_script_ask_mode_uses_element_protocol(app, monkeypatch):
         assert [event["type"] for event in events] == [
             "element",
             "element",
-            "element",
             "done",
         ]
-        assert events[0]["content"]["element_type"] == "ask"
-        assert events[0]["content"]["content"] == "follow-up question"
+        assert events[0]["content"]["element_type"] == "answer"
+        assert events[0]["content"]["content"] == "answer chunk"
+        assert events[0]["content"]["is_final"] is False
         assert events[1]["content"]["element_type"] == "answer"
         assert events[1]["content"]["content"] == "answer chunk"
-        assert events[1]["content"]["is_final"] is False
-        assert events[2]["content"]["element_type"] == "answer"
-        assert events[2]["content"]["content"] == "answer chunk"
-        assert events[2]["content"]["is_final"] is True
-        assert events[3]["is_terminal"] is True
+        assert events[1]["content"]["is_final"] is True
+        assert events[2]["is_terminal"] is True
 
 
 def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeypatch):

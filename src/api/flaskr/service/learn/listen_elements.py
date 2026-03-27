@@ -2580,7 +2580,11 @@ class ListenElementRunAdapter:
                 yield from self._handle_audio_complete(event)
                 continue
             if event.type == GeneratedType.ASK:
-                yield from self._handle_ask(event)
+                # ASK is an internal follow-up marker. Persist it so history and
+                # answer binding still work, but do not surface a standalone ask
+                # element in the live SSE stream.
+                for _ in self._handle_ask(event):
+                    pass
                 continue
             if event.type == GeneratedType.INTERACTION:
                 yield from self._handle_interaction(event)
