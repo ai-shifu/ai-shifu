@@ -429,9 +429,14 @@ function useChatLogicHook({
     [],
   );
 
-  const isAskOrAnswerElementType = useCallback((elementType?: string | null) => {
-    return elementType === BLOCK_TYPE.ASK || elementType === BLOCK_TYPE.ANSWER;
-  }, []);
+  const isAskOrAnswerElementType = useCallback(
+    (elementType?: string | null) => {
+      return (
+        elementType === BLOCK_TYPE.ASK || elementType === BLOCK_TYPE.ANSWER
+      );
+    },
+    [],
+  );
 
   const resolveAskAnchorElementBid = useCallback(
     (record: StudyRecordItem, items: ChatContentItem[] = []) => {

@@ -496,7 +496,9 @@ describe('useChatLogicHook stream cleanup', () => {
       result.current.items.some(item => item.element_bid === 'ask-element-1'),
     ).toBe(false);
     expect(
-      result.current.items.some(item => item.element_bid === 'answer-element-1'),
+      result.current.items.some(
+        item => item.element_bid === 'answer-element-1',
+      ),
     ).toBe(false);
   });
 
