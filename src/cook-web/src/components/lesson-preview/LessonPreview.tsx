@@ -273,6 +273,11 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                     margin: !idx ? '0' : '40px 0 0 0',
                   }}
                 >
+                  {/* Sandbox iframe dynamic height (lesson preview):
+                   * ContentBlock uses ContentRender internally, which supports:
+                   * - sandboxMinAspectRatio: min aspect ratio (w/h), default 16/9
+                   * - sandboxMaxAspectRatio: max aspect ratio (w/h), default 4/3
+                   * To customize, pass these props through ContentBlock or use ContentRender directly. */}
                   <ContentBlock
                     item={item}
                     mobileStyle={false}

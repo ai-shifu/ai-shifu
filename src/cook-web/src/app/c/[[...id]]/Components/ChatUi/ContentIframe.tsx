@@ -35,6 +35,8 @@ const ContentIframe = memo(
             );
           }
 
+          // Listen mode uses blackboard mode — minAspectRatio/maxAspectRatio only apply to content mode.
+          // To add dynamic height in reading mode, see ContentBlock.tsx for usage examples.
           const iframeNode = (
             <IframeSandbox
               key={'iframe' + index}

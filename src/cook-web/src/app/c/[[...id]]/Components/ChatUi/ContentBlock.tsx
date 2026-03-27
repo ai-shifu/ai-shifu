@@ -85,6 +85,13 @@ const ContentBlock = memo(
         className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
         {...(mobileStyle ? longPressEvent : {})}
       >
+        {/* Sandbox iframe dynamic height in reading mode:
+         * - sandboxMinAspectRatio: min aspect ratio (w/h), default 16/9. Height >= width / ratio.
+         * - sandboxMaxAspectRatio: max aspect ratio (w/h), default 4/3. Height <= width / ratio.
+         * - Set both to the same value to lock a fixed aspect ratio, e.g. 16/9.
+         * - Content between min and max displays at its natural height (no scrollbar).
+         * - Content exceeding max is capped, and the iframe scrolls internally.
+         * Example: sandboxMinAspectRatio={16/9} sandboxMaxAspectRatio={4/3} */}
         <ContentRender
           enableTypewriter={false}
           content={item.content || ''}
