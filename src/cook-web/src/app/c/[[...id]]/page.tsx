@@ -2,12 +2,12 @@
 
 import styles from './page.module.scss';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import clsx from 'clsx';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 
 import {
   calcFrameLayout,
@@ -28,7 +28,7 @@ import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { useLessonTree } from './hooks/useLessonTree';
 import { updateWxcode } from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
-import { buildLoginRedirectPath } from '@/c-utils/urlUtils';
+import { buildLoginRedirectPath, getLessonIdFromQuery } from '@/c-utils/urlUtils';
 
 import { Skeleton } from '@/components/ui/Skeleton';
 import { AppContext } from './Components/AppContext';
@@ -150,6 +150,8 @@ export default function ChatPage() {
    */
   let courseId = '';
   const params = useParams();
+  const searchParams = useSearchParams();
+  const urlLessonId = getLessonIdFromQuery(searchParams);
   if (params?.id?.[0]) {
     courseId = params.id[0];
   }
@@ -225,10 +227,26 @@ export default function ChatPage() {
   }, [selectedLessonId, updateLessonId]);
 
   const loadData = useCallback(async () => {
-    await loadTree(chapterId, lessonId);
-  }, [chapterId, lessonId, loadTree]);
+    await loadTree(chapterId, lessonId || urlLessonId);
+  }, [chapterId, lessonId, loadTree, urlLessonId]);
 
   const [loadedChapterId, setLoadedChapterId] = useState<string | null>(null);
+  const appliedUrlLessonIdRef = useRef('');
+
+  useEffect(() => {
+    if (!urlLessonId) {
+      return;
+    }
+    if (appliedUrlLessonIdRef.current === urlLessonId) {
+      return;
+    }
+    if (lessonId !== urlLessonId) {
+      updateLessonId(urlLessonId);
+      setLoadedChapterId(null);
+    }
+    appliedUrlLessonIdRef.current = urlLessonId;
+  }, [lessonId, updateLessonId, urlLessonId]);
+
   useEffect(() => {
     if (initialized && loadedChapterId !== chapterId) {
       loadData();
