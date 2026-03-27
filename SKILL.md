@@ -5,6 +5,8 @@
 - When chat SSE switches from block-level payloads to element-level payloads, use `element_bid` as the stable render key for each chat item.
 - Preserve the original `generated_block_bid` on a separate source field so refresh, TTS, and other backend actions can still target the server-side block.
 - When history records and live SSE share the same element schema, keep one conversion path so both sources produce the same `contentList` structure.
+- 当追问流返回 `type=element` 且 `element_type=answer` 时，`AskBlock` 需要按答案流更新教师消息，而不是只监听 `type=content`，否则会出现追问问题已发送但回答气泡为空的问题。
+- 当同一个追问答案在 SSE 中以相同 `element_bid` 多次回传（增量渲染快照）时，前端应按 `element_bid` 覆盖更新同一条回答消息，而不是持续拼接，避免同一答案被重复展示。
 
 ## Module Augmentation Guardrails
 
@@ -67,3 +69,8 @@
 - 当听课模式存在音频播放或播放序列进行中时，课后反馈弹窗应先进入 pending 状态，待播放空闲后再延迟约 1.2 秒开放提示。
 - 当用户主动关闭课后反馈弹窗后，应按 `outlineBid` 记录免打扰缓存，同一课节内不要再次自动弹窗。
 - 当课后反馈交互已包含有效评分（1-5）时，视为已反馈状态，不再自动弹窗，只保留默认值回填能力。
+
+## Docker 构建 npm 源兜底
+
+- 当项目依赖包含预发布版本（如 `beta`）且构建环境默认使用镜像源时，Dockerfile 中要显式设置 `registry=https://registry.npmjs.org/`，避免镜像同步延迟导致 404。
+- 建议在 `builder` 与 `runner` 阶段都提供 `ARG NPM_REGISTRY` 并执行 `npm config set registry ${NPM_REGISTRY}`，确保安装行为在多阶段构建中一致。
