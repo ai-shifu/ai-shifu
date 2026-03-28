@@ -41,7 +41,7 @@ from flaskr.service.learn.listen_element_history import (
 )
 from flaskr.service.learn.listen_element_payloads import (
     _audio_segment_payload,
-    _deserialize_payload,
+    _deserialize_payload as _deserialize_payload_impl,
     _make_audio_payload,
     _mark_last_audio_segment_final,
     _payload_from_stream_element,
@@ -49,6 +49,13 @@ from flaskr.service.learn.listen_element_payloads import (
     _prepare_audio_segments_for_element,
     _sanitize_audio_segments_for_storage,
     _serialize_payload,
+)
+from flaskr.service.learn.listen_element_queries import (
+    _load_interaction_user_input,
+    _load_latest_active_element_row,
+    find_follow_up_element_rows as _find_follow_up_element_rows,
+    find_latest_answer_element_row as _find_latest_answer_element_row,
+    find_latest_ask_element_row as _find_latest_ask_element_row,
 )
 from flaskr.service.learn.listen_element_rows import (
     _element_from_row,
@@ -61,6 +68,7 @@ from flaskr.service.learn.listen_element_types import (
     _default_is_renderable,
     _default_is_speakable,
     _element_type_code,
+    _element_type_for_visual_kind as _element_type_for_visual_kind_impl,
     _new_element_bid,
     _normalized_is_speakable,
     _role_value_to_name,
@@ -81,104 +89,15 @@ from flaskr.service.learn.type_state_machine import TypeInput, TypeStateMachine
 
 ELEMENT_TYPE_CODES = _ELEMENT_TYPE_CODES
 LEGACY_ELEMENT_TYPE_MAP = _LEGACY_ELEMENT_TYPE_MAP
+_deserialize_payload = _deserialize_payload_impl
+_element_type_for_visual_kind = _element_type_for_visual_kind_impl
+find_follow_up_element_rows = _find_follow_up_element_rows
+find_latest_answer_element_row = _find_latest_answer_element_row
+find_latest_ask_element_row = _find_latest_ask_element_row
 
 
 def _mdflow_new_stream_is_new(element_type: ElementType) -> bool:
     return element_type != ElementType.DIFF
-
-
-def _load_latest_active_element_row(
-    element_bid: str,
-) -> LearnGeneratedElement | None:
-    if not element_bid:
-        return None
-    return (
-        LearnGeneratedElement.query.filter(
-            LearnGeneratedElement.event_type == "element",
-            LearnGeneratedElement.element_bid == element_bid,
-            LearnGeneratedElement.deleted == 0,
-            LearnGeneratedElement.status == 1,
-        )
-        .order_by(
-            LearnGeneratedElement.sequence_number.desc(),
-            LearnGeneratedElement.run_event_seq.desc(),
-            LearnGeneratedElement.id.desc(),
-        )
-        .first()
-    )
-
-
-def find_latest_ask_element_row(
-    progress_record_bid: str,
-    anchor_element_bid: str,
-) -> LearnGeneratedElement | None:
-    rows = find_follow_up_element_rows(progress_record_bid, anchor_element_bid)
-    for row in reversed(rows):
-        if str(row.element_type or "") == ElementType.ASK.value:
-            return row
-    return None
-
-
-def find_follow_up_element_rows(
-    progress_record_bid: str,
-    anchor_element_bid: str,
-) -> list[LearnGeneratedElement]:
-    if not progress_record_bid or not anchor_element_bid:
-        return []
-    rows = (
-        LearnGeneratedElement.query.filter(
-            LearnGeneratedElement.progress_record_bid == progress_record_bid,
-            LearnGeneratedElement.event_type == "element",
-            LearnGeneratedElement.element_type.in_(
-                [ElementType.ASK.value, ElementType.ANSWER.value]
-            ),
-            LearnGeneratedElement.deleted == 0,
-            LearnGeneratedElement.status == 1,
-        )
-        .order_by(
-            LearnGeneratedElement.sequence_number.asc(),
-            LearnGeneratedElement.run_event_seq.asc(),
-            LearnGeneratedElement.id.asc(),
-        )
-        .all()
-    )
-    matched_rows: list[LearnGeneratedElement] = []
-    for row in rows:
-        payload = _deserialize_payload(row.payload or "")
-        if (payload.anchor_element_bid or "") == anchor_element_bid:
-            matched_rows.append(row)
-    return matched_rows
-
-
-def find_latest_answer_element_row(
-    progress_record_bid: str,
-    anchor_element_bid: str,
-) -> LearnGeneratedElement | None:
-    if not progress_record_bid or not anchor_element_bid:
-        return None
-    rows = find_follow_up_element_rows(progress_record_bid, anchor_element_bid)
-    for row in reversed(rows):
-        if str(row.element_type or "") == ElementType.ANSWER.value:
-            return row
-    return None
-
-
-def _load_interaction_user_input(generated_block_bid: str) -> str:
-    if not generated_block_bid:
-        return ""
-
-    interaction_block = (
-        LearnGeneratedBlock.query.filter(
-            LearnGeneratedBlock.generated_block_bid == generated_block_bid,
-            LearnGeneratedBlock.deleted == 0,
-            LearnGeneratedBlock.status == 1,
-        )
-        .order_by(LearnGeneratedBlock.id.desc())
-        .first()
-    )
-    if interaction_block is None:
-        return ""
-    return str(interaction_block.generated_content or "")
 
 
 @dataclass
@@ -661,47 +580,7 @@ class ListenElementRunAdapter:
             run_event_seq=seq,
         )
 
-    def _non_element_message(
-        self,
-        *,
-        event_type: str,
-        content: str
-        | VariableUpdateDTO
-        | OutlineItemUpdateDTO
-        | AudioSegmentDTO
-        | AudioCompleteDTO,
-        generated_block_bid: str = "",
-        is_terminal: bool | None = None,
-    ) -> RunElementSSEMessageDTO:
-        seq = self._next_seq()
-        serialized_text = (
-            content
-            if isinstance(content, str)
-            else json.dumps(content.__json__(), ensure_ascii=False)
-        )
-        meta = self._load_block_meta(generated_block_bid)
-        self._insert_row(
-            generated_block_bid=generated_block_bid,
-            element_index=max(self._max_element_index, 0),
-            event_type=event_type,
-            role=meta.role,
-            is_navigable=0,
-            is_final=1,
-            content_text=serialized_text,
-            payload=None,
-            run_event_seq=seq,
-        )
-        return RunElementSSEMessageDTO(
-            type=event_type,
-            event_type=event_type,
-            generated_block_bid=generated_block_bid or None,
-            run_session_bid=self.run_session_bid,
-            run_event_seq=seq,
-            is_terminal=is_terminal,
-            content=content,
-        )
-
-    def _stream_non_element_message(
+    def _persisted_non_element_message(
         self,
         *,
         stored_event_type: str,
@@ -740,6 +619,47 @@ class ListenElementRunAdapter:
             run_event_seq=seq,
             is_terminal=is_terminal,
             content=content,
+        )
+
+    def _non_element_message(
+        self,
+        *,
+        event_type: str,
+        content: str
+        | VariableUpdateDTO
+        | OutlineItemUpdateDTO
+        | AudioSegmentDTO
+        | AudioCompleteDTO,
+        generated_block_bid: str = "",
+        is_terminal: bool | None = None,
+    ) -> RunElementSSEMessageDTO:
+        return self._persisted_non_element_message(
+            stored_event_type=event_type,
+            emitted_event_type=event_type,
+            content=content,
+            generated_block_bid=generated_block_bid,
+            is_terminal=is_terminal,
+        )
+
+    def _stream_non_element_message(
+        self,
+        *,
+        stored_event_type: str,
+        emitted_event_type: str,
+        content: str
+        | VariableUpdateDTO
+        | OutlineItemUpdateDTO
+        | AudioSegmentDTO
+        | AudioCompleteDTO,
+        generated_block_bid: str = "",
+        is_terminal: bool | None = None,
+    ) -> RunElementSSEMessageDTO:
+        return self._persisted_non_element_message(
+            stored_event_type=stored_event_type,
+            emitted_event_type=emitted_event_type,
+            content=content,
+            generated_block_bid=generated_block_bid,
+            is_terminal=is_terminal,
         )
 
     def make_ephemeral_message(
