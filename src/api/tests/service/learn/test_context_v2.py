@@ -26,6 +26,7 @@ if not hasattr(dao, "redis_client"):
 from flaskr.service.learn.context_v2 import (
     BlockType as PreviewBlockType,
     MdflowContextV2,
+    RUNLLMProvider,
     RunScriptContextV2,
     RunScriptPreviewContextV2,
 )
@@ -45,6 +46,7 @@ from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
 )
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDCONTENT_VALUE,
@@ -852,6 +854,53 @@ class PreviewResolveVariablesTests(unittest.TestCase):
 
         self.assertEqual(variables.get("sys_user_language"), "fr-FR")
         mock_fetch.assert_not_called()
+
+
+class PreviewRunLlmLoggingTests(unittest.TestCase):
+    def test_complete_logs_full_preview_output(self):
+        app = Flask("preview-run-llm-logging")
+        provider = RUNLLMProvider(
+            app=app,
+            llm_settings=types.SimpleNamespace(model="gpt-test", temperature=0.6),
+            trace=object(),
+            trace_args={
+                "user_id": "user-1",
+                "metadata": {
+                    "shifu_bid": "shifu-1",
+                    "outline_bid": "outline-1",
+                    "session_id": "session-1",
+                    "scene": "lesson_preview",
+                },
+            },
+            usage_context=types.SimpleNamespace(),
+            usage_scene=BILL_USAGE_SCENE_PREVIEW,
+        )
+
+        with (
+            patch.object(app.logger, "info") as mock_info,
+            patch(
+                "flaskr.service.learn.context_v2.chat_llm",
+                return_value=iter(
+                    [
+                        types.SimpleNamespace(result="First line\n"),
+                        types.SimpleNamespace(result="Second line"),
+                    ]
+                ),
+            ),
+        ):
+            output = provider.complete(messages=[{"role": "user", "content": "hello"}])
+
+        self.assertEqual(output, "First line\nSecond line")
+        mock_info.assert_any_call(
+            "preview llm output | shifu_bid=%s | outline_bid=%s | session_id=%s | scene=%s | model=%s | temperature=%s | output=%s",
+            "shifu-1",
+            "outline-1",
+            "session-1",
+            "lesson_preview",
+            "gpt-test",
+            0.6,
+            "First line\nSecond line",
+        )
 
 
 class PreviewElementizationTests(unittest.TestCase):

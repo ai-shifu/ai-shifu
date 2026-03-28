@@ -214,6 +214,31 @@ class RUNLLMProvider(LLMProvider):
         self.usage_context = usage_context
         self.usage_scene = usage_scene
 
+    def _log_preview_output(
+        self,
+        *,
+        model: str,
+        temperature: float | None,
+        output: str,
+    ) -> None:
+        if self.usage_scene != BILL_USAGE_SCENE_PREVIEW:
+            return
+
+        metadata = self.trace_args.get("metadata") or {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+
+        self.app.logger.info(
+            "preview llm output | shifu_bid=%s | outline_bid=%s | session_id=%s | scene=%s | model=%s | temperature=%s | output=%s",
+            metadata.get("shifu_bid", ""),
+            metadata.get("outline_bid", ""),
+            metadata.get("session_id", ""),
+            metadata.get("scene", ""),
+            model,
+            temperature,
+            output,
+        )
+
     def complete(
         self,
         messages: list[dict[str, str]],
@@ -256,7 +281,13 @@ class RUNLLMProvider(LLMProvider):
         for response in res:
             if response.result:
                 content_parts.append(response.result)
-        return "".join(content_parts)
+        output = "".join(content_parts)
+        self._log_preview_output(
+            model=actual_model,
+            temperature=actual_temperature,
+            output=output,
+        )
+        return output
 
     def stream(
         self,
