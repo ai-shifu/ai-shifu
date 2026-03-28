@@ -22,7 +22,6 @@ from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     AudioSegmentDTO,
     AudioCompleteDTO,
-    ElementType,
 )
 from flaskr.service.shifu.models import (
     DraftShifu,
@@ -83,6 +82,9 @@ from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.lesson_feedback import (
     build_lesson_feedback_interaction_md,
     is_lesson_feedback_interaction,
+)
+from flaskr.service.learn.listen_element_matching import (
+    get_speakable_text_elements,
 )
 from flaskr.service.learn.legacy_record_builder import (
     LegacyGeneratedBlockRecord,
@@ -1061,9 +1063,7 @@ def stream_generated_block_audio(
             )
             speakable_segments = [
                 str(element.content_text or "")
-                for element in final_elements
-                if getattr(element, "element_type", None) == ElementType.TEXT
-                and (element.content_text or "").strip()
+                for element in get_speakable_text_elements(final_elements)
             ]
             if not speakable_segments:
                 raise_error_with_args(

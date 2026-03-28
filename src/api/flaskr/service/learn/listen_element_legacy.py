@@ -27,6 +27,9 @@ from flaskr.service.learn.listen_element_factory import (
 from flaskr.service.learn.listen_element_history import (
     get_final_elements_for_generated_block,
 )
+from flaskr.service.learn.listen_element_matching import (
+    get_speakable_text_elements,
+)
 from flaskr.service.learn.listen_element_payloads import _make_audio_payload
 from flaskr.service.learn.listen_element_rows import _serialize_element_row
 from flaskr.service.learn.listen_element_types import (
@@ -155,11 +158,7 @@ def build_listen_elements_from_legacy_record(
                     generated_block_bid=record.generated_block_bid,
                 )
         if persisted_final_elements:
-            text_elements = [
-                element
-                for element in persisted_final_elements
-                if element.element_type == ElementType.TEXT
-            ]
+            text_elements = get_speakable_text_elements(persisted_final_elements)
             can_bind_audio_to_persisted = True
             for position, audio_payload in audio_by_position.items():
                 if position < 0 or position >= len(text_elements):
