@@ -599,7 +599,9 @@ export function usePreviewChat() {
       const previousStreamingElementBid = currentStreamingElementBidRef.current;
 
       setTrackedContentList(prev => {
-        let nextList = prev.filter(item => item.generated_block_bid !== 'loading');
+        let nextList = prev.filter(
+          item => item.generated_block_bid !== 'loading',
+        );
         if (
           previousStreamingElementBid &&
           previousStreamingElementBid !== itemBid
