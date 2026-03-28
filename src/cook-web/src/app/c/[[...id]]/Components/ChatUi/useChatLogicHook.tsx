@@ -444,6 +444,43 @@ function useChatLogicHook({
     ],
   );
 
+  const finalizeElementOutputInList = useCallback(
+    (items: ChatContentItem[], completedElementBid: string) => {
+      if (!completedElementBid) {
+        return items;
+      }
+
+      const targetIndex = items.findIndex(
+        item => item.element_bid === completedElementBid,
+      );
+      if (targetIndex < 0) {
+        return items;
+      }
+
+      const nextItems = [...items];
+      const targetItem = nextItems[targetIndex];
+
+      if (
+        mobileStyle &&
+        !isListenMode &&
+        targetItem.type === ChatContentItemType.CONTENT &&
+        !targetItem.content?.includes(`<custom-button-after-content>`)
+      ) {
+        nextItems[targetIndex] = {
+          ...targetItem,
+          content: appendCustomButtonAfterContent(
+            targetItem.content,
+            getAskButtonMarkup(),
+          ),
+          isHistory: true, // Prevent AskButton from triggering typewriter
+        };
+      }
+
+      return finalizeLikeStatusByParent(nextItems, completedElementBid);
+    },
+    [finalizeLikeStatusByParent, getAskButtonMarkup, isListenMode, mobileStyle],
+  );
+
   const resolveRecordUserInput = useCallback(
     (record?: Pick<StudyRecordItem, 'user_input' | 'payload'> | null) => {
       if (!record) {
@@ -1193,7 +1230,21 @@ function useChatLogicHook({
                 return;
               }
 
+              const previousStreamingElementBid = currentBlockIdRef.current;
+              if (
+                previousStreamingElementBid &&
+                previousStreamingElementBid !== itemBid
+              ) {
+                setTrackedContentList(prevState =>
+                  finalizeElementOutputInList(
+                    prevState,
+                    previousStreamingElementBid,
+                  ),
+                );
+              }
+
               currentBlockIdRef.current = itemBid;
+              currentContentRef.current = '';
               setCurrentStreamingElementBid(itemBid);
 
               const nextItem = buildElementContentItem(elementRecord, {
@@ -1245,8 +1296,21 @@ function useChatLogicHook({
                   ? (response.content as { element_type?: ElementType })
                       .element_type
                   : undefined;
+              const previousStreamingElementBid = currentBlockIdRef.current;
+              if (
+                previousStreamingElementBid &&
+                previousStreamingElementBid !== nid
+              ) {
+                setTrackedContentList(prevState =>
+                  finalizeElementOutputInList(
+                    prevState,
+                    previousStreamingElementBid,
+                  ),
+                );
+              }
               if (nid) {
                 currentBlockIdRef.current = nid;
+                currentContentRef.current = '';
                 setCurrentStreamingElementBid(nid);
               }
               setTrackedContentList((prev: ChatContentItem[]) => {
@@ -1360,30 +1424,7 @@ function useChatLogicHook({
                 let updatedList = [...prev].filter(
                   item => item.element_bid !== 'loading',
                 );
-                // Find the last CONTENT type item and append AskButton to its content
-                // Set isHistory=true to prevent triggering typewriter effect for AskButton
-                if (mobileStyle && !isListenMode) {
-                  for (let i = updatedList.length - 1; i >= 0; i--) {
-                    if (
-                      updatedList[i].type === ChatContentItemType.CONTENT &&
-                      !updatedList[i].content?.includes(
-                        `<custom-button-after-content>`,
-                      )
-                    ) {
-                      updatedList[i] = {
-                        ...updatedList[i],
-                        content: appendCustomButtonAfterContent(
-                          updatedList[i].content,
-                          getAskButtonMarkup(),
-                        ),
-                        isHistory: true, // Prevent AskButton from triggering typewriter
-                      };
-                      break;
-                    }
-                  }
-                }
-
-                updatedList = finalizeLikeStatusByParent(
+                updatedList = finalizeElementOutputInList(
                   updatedList,
                   completedElementBid,
                 );
@@ -1403,6 +1444,7 @@ function useChatLogicHook({
                 return updatedList;
               });
               currentBlockIdRef.current = null;
+              currentContentRef.current = '';
             } else if (response.type === SSE_OUTPUT_TYPE.VARIABLE_UPDATE) {
               if (response.content.variable_name === 'sys_user_nickname') {
                 updateUserInfo({
@@ -1497,7 +1539,14 @@ function useChatLogicHook({
           clearLoadingPlaceholder();
           isStreamingRef.current = false;
           sseRef.current = null;
+          const completedElementBid = currentBlockIdRef.current || '';
+          if (completedElementBid) {
+            setTrackedContentList(prevState =>
+              finalizeElementOutputInList(prevState, completedElementBid),
+            );
+          }
           currentBlockIdRef.current = null;
+          currentContentRef.current = '';
           setCurrentStreamingElementBid('');
         },
       );
@@ -1519,7 +1568,14 @@ function useChatLogicHook({
             clearLoadingPlaceholder();
             isStreamingRef.current = false;
             sseRef.current = null;
+            const completedElementBid = currentBlockIdRef.current || '';
+            if (completedElementBid) {
+              setTrackedContentList(prevState =>
+                finalizeElementOutputInList(prevState, completedElementBid),
+              );
+            }
             currentBlockIdRef.current = null;
+            currentContentRef.current = '';
             setCurrentStreamingElementBid('');
           }
         }
@@ -1541,11 +1597,13 @@ function useChatLogicHook({
       trackTrailProgress,
       allowTtsStreaming,
       ensureContentItem,
+      finalizeElementOutputInList,
       getAskButtonMarkup,
-      finalizeLikeStatusByParent,
       isAskOrAnswerElementType,
       isLessonFeedbackContent,
+      isListenMode,
       matchItemBid,
+      mobileStyle,
       openLessonFeedbackPopup,
       removeLikeStatusByParent,
       resolveAskAnchorElementBid,
