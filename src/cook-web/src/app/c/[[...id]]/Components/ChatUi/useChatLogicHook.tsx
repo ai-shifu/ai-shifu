@@ -1328,7 +1328,7 @@ function useChatLogicHook({
                 const hitIndex = prev.findIndex(
                   item => item.element_bid === nid,
                 );
-                let nextList =
+                const nextList =
                   hitIndex >= 0
                     ? prev.map((item, index) =>
                         index === hitIndex
