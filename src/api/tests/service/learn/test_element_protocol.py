@@ -2440,3 +2440,225 @@ class TestElementChangeTypeSemantics:
             ]
             assert final_text_event.is_final is True
             assert all(item.is_speakable is True for item in text_events)
+
+    def test_fallback_text_patch_keeps_bound_audio_during_in_progress_history(
+        self, adapter_app
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.const import ROLE_TEACHER
+        from flaskr.service.learn.learn_dtos import (
+            AudioCompleteDTO,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.listen_elements import (
+            ListenElementRunAdapter,
+            get_listen_element_record,
+        )
+        from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+        from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+        from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
+
+        user_bid = "user-fallback-audio-retain"
+        shifu_bid = "shifu-fallback-audio-retain"
+        outline_bid = "outline-fallback-audio-retain"
+        progress_bid = "progress-fallback-audio-retain"
+        generated_block_bid = "generated-fallback-audio-retain"
+
+        with adapter_app.app_context():
+            progress = LearnProgressRecord(
+                progress_record_bid=progress_bid,
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+                user_bid=user_bid,
+                status=LEARN_STATUS_IN_PROGRESS,
+                block_position=0,
+            )
+            block = LearnGeneratedBlock(
+                generated_block_bid=generated_block_bid,
+                progress_record_bid=progress_bid,
+                user_bid=user_bid,
+                block_bid="block-fallback-audio-retain",
+                outline_item_bid=outline_bid,
+                shifu_bid=shifu_bid,
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                role=ROLE_TEACHER,
+                generated_content="",
+                position=0,
+                block_content_conf="",
+                status=1,
+            )
+            db.session.add_all([progress, block])
+            db.session.commit()
+
+            adapter = ListenElementRunAdapter(
+                adapter_app,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                user_bid=user_bid,
+            )
+            streamed = list(
+                adapter.process(
+                    [
+                        RunMarkdownFlowDTO(
+                            outline_bid=outline_bid,
+                            generated_block_bid=generated_block_bid,
+                            type=GeneratedType.CONTENT,
+                            content="Hello",
+                        ),
+                        RunMarkdownFlowDTO(
+                            outline_bid=outline_bid,
+                            generated_block_bid=generated_block_bid,
+                            type=GeneratedType.AUDIO_COMPLETE,
+                            content=AudioCompleteDTO(
+                                audio_url="https://example.com/fallback-retain.mp3",
+                                audio_bid="fallback-retain-audio",
+                                duration_ms=480,
+                                position=0,
+                            ),
+                        ),
+                        RunMarkdownFlowDTO(
+                            outline_bid=outline_bid,
+                            generated_block_bid=generated_block_bid,
+                            type=GeneratedType.CONTENT,
+                            content=" world",
+                        ),
+                    ]
+                )
+            )
+
+            latest_live_element = streamed[-1].content
+            history_record = get_listen_element_record(
+                adapter_app,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+            )
+
+        assert (
+            latest_live_element.audio_url == "https://example.com/fallback-retain.mp3"
+        )
+        assert latest_live_element.payload is not None
+        assert latest_live_element.payload.audio is not None
+        assert latest_live_element.payload.audio.audio_bid == "fallback-retain-audio"
+        assert latest_live_element.content_text == "Hello world"
+
+        assert len(history_record.elements) == 1
+        history_element = history_record.elements[0]
+        assert history_element.is_speakable is True
+        assert history_element.audio_url == "https://example.com/fallback-retain.mp3"
+        assert history_element.payload is not None
+        assert history_element.payload.audio is not None
+        assert history_element.payload.audio.audio_bid == "fallback-retain-audio"
+        assert history_element.content_text == "Hello world"
+
+    def test_stream_text_patch_keeps_bound_audio_during_in_progress_history(
+        self, adapter_app
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.const import ROLE_TEACHER
+        from flaskr.service.learn.learn_dtos import (
+            AudioCompleteDTO,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.listen_elements import (
+            ListenElementRunAdapter,
+            get_listen_element_record,
+        )
+        from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+        from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+        from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
+
+        user_bid = "user-stream-audio-retain"
+        shifu_bid = "shifu-stream-audio-retain"
+        outline_bid = "outline-stream-audio-retain"
+        progress_bid = "progress-stream-audio-retain"
+        generated_block_bid = "generated-stream-audio-retain"
+
+        with adapter_app.app_context():
+            progress = LearnProgressRecord(
+                progress_record_bid=progress_bid,
+                shifu_bid=shifu_bid,
+                outline_item_bid=outline_bid,
+                user_bid=user_bid,
+                status=LEARN_STATUS_IN_PROGRESS,
+                block_position=0,
+            )
+            block = LearnGeneratedBlock(
+                generated_block_bid=generated_block_bid,
+                progress_record_bid=progress_bid,
+                user_bid=user_bid,
+                block_bid="block-stream-audio-retain",
+                outline_item_bid=outline_bid,
+                shifu_bid=shifu_bid,
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                role=ROLE_TEACHER,
+                generated_content="",
+                position=0,
+                block_content_conf="",
+                status=1,
+            )
+            db.session.add_all([progress, block])
+            db.session.commit()
+
+            adapter = ListenElementRunAdapter(
+                adapter_app,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                user_bid=user_bid,
+            )
+            streamed = list(
+                adapter.process(
+                    [
+                        RunMarkdownFlowDTO(
+                            outline_bid=outline_bid,
+                            generated_block_bid=generated_block_bid,
+                            type=GeneratedType.CONTENT,
+                            content="Hello ",
+                        ).set_mdflow_stream_parts([("Hello ", "text", 0)]),
+                        RunMarkdownFlowDTO(
+                            outline_bid=outline_bid,
+                            generated_block_bid=generated_block_bid,
+                            type=GeneratedType.AUDIO_COMPLETE,
+                            content=AudioCompleteDTO(
+                                audio_url="https://example.com/stream-retain.mp3",
+                                audio_bid="stream-retain-audio",
+                                duration_ms=520,
+                                position=0,
+                            ),
+                        ),
+                        RunMarkdownFlowDTO(
+                            outline_bid=outline_bid,
+                            generated_block_bid=generated_block_bid,
+                            type=GeneratedType.CONTENT,
+                            content="world",
+                        ).set_mdflow_stream_parts([("world", "text", 0)]),
+                    ]
+                )
+            )
+
+            latest_live_element = streamed[-1].content
+            history_record = get_listen_element_record(
+                adapter_app,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+            )
+
+        assert latest_live_element.audio_url == "https://example.com/stream-retain.mp3"
+        assert latest_live_element.payload is not None
+        assert latest_live_element.payload.audio is not None
+        assert latest_live_element.payload.audio.audio_bid == "stream-retain-audio"
+        assert latest_live_element.content_text == "Hello world"
+
+        assert len(history_record.elements) == 1
+        history_element = history_record.elements[0]
+        assert history_element.is_speakable is True
+        assert history_element.audio_url == "https://example.com/stream-retain.mp3"
+        assert history_element.payload is not None
+        assert history_element.payload.audio is not None
+        assert history_element.payload.audio.audio_bid == "stream-retain-audio"
+        assert history_element.content_text == "Hello world"

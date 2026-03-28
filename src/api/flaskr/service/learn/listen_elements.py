@@ -1740,6 +1740,10 @@ class ListenElementRunAdapter:
         if not state.fallback_element_bid:
             state.fallback_element_bid = _new_element_bid(self.app)
             self._max_element_index += 1
+        audio, audio_segments = self._resolve_stream_audio_for_element_bid(
+            state,
+            state.fallback_element_bid,
+        )
         return ElementDTO(
             event_type="element",
             element_bid=state.fallback_element_bid,
@@ -1754,8 +1758,13 @@ class ListenElementRunAdapter:
             is_navigable=1,
             is_final=False,
             is_speakable=_default_is_speakable(ElementType.TEXT, state.raw_content),
+            audio_url=audio.audio_url if audio is not None else "",
+            audio_segments=_prepare_audio_segments_for_element(
+                audio_segments,
+                is_final=False,
+            ),
             content_text=state.raw_content,
-            payload=ElementPayloadDTO(audio=None, previous_visuals=[]),
+            payload=ElementPayloadDTO(audio=audio, previous_visuals=[]),
         )
 
     def _retire_fallback_element(
@@ -2015,6 +2024,18 @@ class ListenElementRunAdapter:
                 state.audio_segments_by_position.get(position, []),
             )
 
+        if state.fallback_element_bid and state.fallback_element_bid == element_bid:
+            default_audio_position = _pick_default_audio_position(
+                state.audio_by_position,
+                state.audio_segments_by_position,
+            )
+            if default_audio_position is None:
+                return None, []
+            return (
+                state.audio_by_position.get(default_audio_position),
+                state.audio_segments_by_position.get(default_audio_position, []),
+            )
+
         if len(state.stream_elements) != 1:
             return None, []
         lone_stream_state = next(iter(state.stream_elements.values()))
@@ -2127,6 +2148,13 @@ class ListenElementRunAdapter:
                     and previous_active_key != active_key
                 ):
                     yield self._make_inter_element_done_message(generated_block_bid)
+            if pending_audio is None and pending_audio_segments is None:
+                pending_audio, pending_audio_segments = (
+                    self._resolve_stream_audio_for_element_bid(
+                        state,
+                        stream_state.element_bid,
+                    )
+                )
             state.last_stream_element_key = active_key
             yield self._build_stream_element_message(
                 state=state,
