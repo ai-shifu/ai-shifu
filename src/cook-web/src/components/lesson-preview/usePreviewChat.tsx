@@ -201,18 +201,25 @@ const normalizeAudioSegmentData = (
   if (!payload) {
     return null;
   }
-  const segmentIndex = readNumberField(payload, ['segment_index', 'segmentIndex']);
+  const segmentIndex = readNumberField(payload, [
+    'segment_index',
+    'segmentIndex',
+  ]);
   const audioData = readStringField(payload, ['audio_data', 'audioData']);
   if (segmentIndex === null || !audioData) {
     return null;
   }
 
-  const durationMs = readNumberField(payload, ['duration_ms', 'durationMs']) ?? 0;
+  const durationMs =
+    readNumberField(payload, ['duration_ms', 'durationMs']) ?? 0;
   const isFinal = readBooleanField(payload, ['is_final', 'isFinal']) ?? false;
   const position = readNumberField(payload, ['position']);
   const elementId = readStringField(payload, ['element_id', 'elementId']);
   const slideId = readStringField(payload, ['slide_id', 'slideId']);
-  const avContractValue = readPayloadField(payload, ['av_contract', 'avContract']);
+  const avContractValue = readPayloadField(payload, [
+    'av_contract',
+    'avContract',
+  ]);
 
   return {
     segment_index: segmentIndex,
@@ -238,10 +245,14 @@ const normalizeAudioCompleteData = (
   }
   const audioUrl = readStringField(payload, ['audio_url', 'audioUrl']) || '';
   const audioBid = readStringField(payload, ['audio_bid', 'audioBid']) || '';
-  const durationMs = readNumberField(payload, ['duration_ms', 'durationMs']) ?? 0;
+  const durationMs =
+    readNumberField(payload, ['duration_ms', 'durationMs']) ?? 0;
   const position = readNumberField(payload, ['position']);
   const slideId = readStringField(payload, ['slide_id', 'slideId']);
-  const avContractValue = readPayloadField(payload, ['av_contract', 'avContract']);
+  const avContractValue = readPayloadField(payload, [
+    'av_contract',
+    'avContract',
+  ]);
 
   return {
     audio_url: audioUrl,
@@ -329,7 +340,10 @@ const resolvePreviewItemBid = (
 };
 
 const isPreviewActionableItem = (
-  item?: Pick<ChatContentItem, 'type' | 'generated_block_bid' | 'element_bid'> | null,
+  item?: Pick<
+    ChatContentItem,
+    'type' | 'generated_block_bid' | 'element_bid'
+  > | null,
 ): boolean => {
   const resolvedBid = resolvePreviewItemBid(item);
   if (!resolvedBid || resolvedBid === 'loading') {
@@ -740,7 +754,9 @@ export function usePreviewChat() {
         );
         let completedElementBid = '';
         const hasIncomingItem = nextList.some(
-          item => item.element_bid === itemBid || item.generated_block_bid === itemBid,
+          item =>
+            item.element_bid === itemBid ||
+            item.generated_block_bid === itemBid,
         );
 
         if (
@@ -759,8 +775,10 @@ export function usePreviewChat() {
         }
 
         if (!completedElementBid && !hasIncomingItem) {
-          const latestActionableItem = resolveLatestPreviewActionableItem(nextList);
-          const latestActionableBid = resolvePreviewItemBid(latestActionableItem);
+          const latestActionableItem =
+            resolveLatestPreviewActionableItem(nextList);
+          const latestActionableBid =
+            resolvePreviewItemBid(latestActionableItem);
           if (latestActionableBid && latestActionableBid !== itemBid) {
             completedElementBid = latestActionableBid;
           }
@@ -985,9 +1003,8 @@ export function usePreviewChat() {
             const latestActionableItem =
               resolveLatestPreviewActionableItem(updatedList);
 
-            const latestActionableBid = resolvePreviewItemBid(
-              latestActionableItem,
-            );
+            const latestActionableBid =
+              resolvePreviewItemBid(latestActionableItem);
             if (latestActionableBid) {
               updatedList = appendLikeStatusIfMissing(
                 updatedList,
