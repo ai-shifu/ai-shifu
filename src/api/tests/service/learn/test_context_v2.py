@@ -35,14 +35,21 @@ from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     PlaygroundPreviewRequest,
 )
-from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
+from flaskr.service.learn.models import (
+    LearnGeneratedBlock,
+    LearnGeneratedElement,
+    LearnProgressRecord,
+)
 from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
 )
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDCONTENT_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
+)
 from flaskr.util import generate_id
 
 
@@ -527,6 +534,143 @@ class StreamTtsGateTests(unittest.TestCase):
         assert outputs[0][0] == "idle"
         assert outputs[-1] == ("item", "chunk-1")
         assert idle_ticks
+
+
+class ReloadFromElementBidTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = Flask("reload-from-element-bid")
+        cls.app.config.update(
+            SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+            SQLALCHEMY_BINDS={
+                "ai_shifu_saas": "sqlite:///:memory:",
+                "ai_shifu_admin": "sqlite:///:memory:",
+            },
+            SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        )
+        dao.db.init_app(cls.app)
+        with cls.app.app_context():
+            dao.db.create_all()
+
+    def setUp(self):
+        self.app = self.__class__.app
+        self.ctx = _make_context()
+        self.ctx.app = self.app
+        self.ctx._user_info = types.SimpleNamespace(user_id="user-1")
+        self.ctx._input_type = "normal"
+        self.ctx._can_continue = True
+        self.ctx.run = lambda _app: iter(())
+        with self.app.app_context():
+            LearnGeneratedElement.query.delete()
+            LearnGeneratedBlock.query.delete()
+            LearnProgressRecord.query.delete()
+            dao.db.session.commit()
+
+    def test_reload_element_bid_realigns_progress_to_source_block(self):
+        with self.app.app_context():
+            progress = LearnProgressRecord(
+                progress_record_bid="progress-1",
+                shifu_bid="shifu-1",
+                outline_item_bid="outline-1",
+                user_bid="user-1",
+                status=LEARN_STATUS_COMPLETED,
+                block_position=5,
+            )
+            dao.db.session.add(progress)
+
+            interaction_block = LearnGeneratedBlock(
+                generated_block_bid="generated-interaction-1",
+                progress_record_bid=progress.progress_record_bid,
+                user_bid=progress.user_bid,
+                block_bid="",
+                outline_item_bid=progress.outline_item_bid,
+                shifu_bid=progress.shifu_bid,
+                type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                role=1,
+                generated_content="selected value",
+                position=2,
+                block_content_conf="?[%{{nickname}} Alice | Bob]",
+                status=1,
+            )
+            later_block = LearnGeneratedBlock(
+                generated_block_bid="generated-content-2",
+                progress_record_bid=progress.progress_record_bid,
+                user_bid=progress.user_bid,
+                block_bid="",
+                outline_item_bid=progress.outline_item_bid,
+                shifu_bid=progress.shifu_bid,
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                role=1,
+                generated_content="later content",
+                position=3,
+                block_content_conf="later content",
+                status=1,
+            )
+            dao.db.session.add(interaction_block)
+            dao.db.session.add(later_block)
+            dao.db.session.add(
+                LearnGeneratedElement(
+                    element_bid="interaction-element-1",
+                    progress_record_bid=progress.progress_record_bid,
+                    user_bid=progress.user_bid,
+                    generated_block_bid=interaction_block.generated_block_bid,
+                    outline_item_bid=progress.outline_item_bid,
+                    shifu_bid=progress.shifu_bid,
+                    run_session_bid="run-1",
+                    run_event_seq=1,
+                    role="teacher",
+                    element_index=4,
+                    element_type=ElementType.INTERACTION.value,
+                    element_type_code=205,
+                    change_type="render",
+                    content_text="?[%{{nickname}} Alice | Bob]",
+                    payload="{}",
+                    status=1,
+                )
+            )
+            dao.db.session.add(
+                LearnGeneratedElement(
+                    element_bid="later-element-1",
+                    progress_record_bid=progress.progress_record_bid,
+                    user_bid=progress.user_bid,
+                    generated_block_bid=later_block.generated_block_bid,
+                    outline_item_bid=progress.outline_item_bid,
+                    shifu_bid=progress.shifu_bid,
+                    run_session_bid="run-1",
+                    run_event_seq=2,
+                    role="teacher",
+                    element_index=5,
+                    element_type=ElementType.TEXT.value,
+                    element_type_code=213,
+                    change_type="render",
+                    content_text="later content",
+                    payload="{}",
+                    status=1,
+                )
+            )
+            dao.db.session.commit()
+
+            list(
+                self.ctx.reload(
+                    self.app,
+                    "interaction-element-1",
+                    reload_element_bid="interaction-element-1",
+                )
+            )
+
+            dao.db.session.refresh(progress)
+            dao.db.session.refresh(interaction_block)
+            dao.db.session.refresh(later_block)
+            later_element = LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.element_bid == "later-element-1"
+            ).first()
+
+            self.assertEqual(progress.block_position, 2)
+            self.assertEqual(progress.status, LEARN_STATUS_IN_PROGRESS)
+            self.assertEqual(interaction_block.status, 1)
+            self.assertEqual(later_block.status, 0)
+            self.assertIsNotNone(later_element)
+            self.assertEqual(later_element.status, 0)
 
 
 class StreamTtsTeardownTests(unittest.TestCase):

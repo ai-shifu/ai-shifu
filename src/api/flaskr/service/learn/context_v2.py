@@ -3219,20 +3219,26 @@ class RunScriptContextV2:
         reload_element_bid: str = None,
     ):
         with app.app_context():
-            # For ask scenarios, prefer element_bid to resolve anchor
             anchor_element = None
-            if self._input_type == "ask" and reload_element_bid:
+            anchor_generated_block_bid = ""
+            if reload_element_bid:
                 anchor_element = LearnGeneratedElement.query.filter(
                     LearnGeneratedElement.element_bid == reload_element_bid,
                     LearnGeneratedElement.deleted == 0,
+                    LearnGeneratedElement.status == 1,
                 ).first()
                 if anchor_element:
-                    self._anchor_element_bid = reload_element_bid
-                    # Derive block_bid from element for compatibility
-                    if not reload_generated_block_bid:
-                        reload_generated_block_bid = (
-                            anchor_element.generated_block_bid or ""
-                        )
+                    anchor_generated_block_bid = (
+                        anchor_element.generated_block_bid or ""
+                    )
+                    if self._input_type == "ask":
+                        self._anchor_element_bid = reload_element_bid
+
+            # Frontend element-protocol flows may still pass element_bid through
+            # reload_generated_block_bid. Always prefer the persisted source block
+            # resolved from reload_element_bid when it is available.
+            if anchor_generated_block_bid:
+                reload_generated_block_bid = anchor_generated_block_bid
 
             generated_block: LearnGeneratedBlock = None
             if reload_generated_block_bid:
