@@ -111,6 +111,61 @@ from flaskr.common.shifu_context import (
 context_local = threading.local()
 
 
+def _normalize_stream_number(value: Any) -> int | None:
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _iter_llm_result_content_parts(
+    llm_result: Any,
+) -> Generator[tuple[str, str, int | None], None, None]:
+    if llm_result is None:
+        return
+
+    formatted_elements = getattr(llm_result, "formatted_elements", None)
+    if isinstance(formatted_elements, list) and formatted_elements:
+        emitted_formatted = False
+        for item in formatted_elements:
+            item_content = getattr(item, "content", None)
+            if item_content is None and isinstance(item, dict):
+                item_content = item.get("content")
+            item_content = str(item_content or "")
+            if not item_content:
+                continue
+
+            stream_type = getattr(item, "type", None)
+            if stream_type is None and isinstance(item, dict):
+                stream_type = item.get("type")
+            stream_number = getattr(item, "number", None)
+            if stream_number is None and isinstance(item, dict):
+                stream_number = item.get("number")
+
+            emitted_formatted = True
+            yield (
+                item_content,
+                str(stream_type or ""),
+                _normalize_stream_number(stream_number),
+            )
+
+        if emitted_formatted:
+            return
+
+    if hasattr(llm_result, "content"):
+        content = str(getattr(llm_result, "content", "") or "")
+    else:
+        content = str(llm_result or "")
+    if not content:
+        return
+
+    yield (
+        content,
+        str(getattr(llm_result, "type", "") or ""),
+        _normalize_stream_number(getattr(llm_result, "number", None)),
+    )
+
+
 class RunType(Enum):
     INPUT = "input"
     OUTPUT = "output"
@@ -764,17 +819,18 @@ class RunScriptPreviewContextV2:
 
         if is_interaction_block:
             if is_user_input_validation:
-                if content.strip():
-                    return [
-                        self._make_preview_content_event(
-                            outline_bid=outline_bid,
-                            generated_block_bid=generated_block_bid,
-                            content=content,
-                            stream_type=str(getattr(llm_result, "type", "") or ""),
-                            stream_number=getattr(llm_result, "number", None),
-                        )
-                    ]
-                return []
+                return [
+                    self._make_preview_content_event(
+                        outline_bid=outline_bid,
+                        generated_block_bid=generated_block_bid,
+                        content=item_content,
+                        stream_type=stream_type,
+                        stream_number=stream_number,
+                    )
+                    for item_content, stream_type, stream_number in (
+                        _iter_llm_result_content_parts(llm_result)
+                    )
+                ]
 
             rendered_content = content or getattr(current_block, "content", "")
             return [
@@ -786,45 +842,16 @@ class RunScriptPreviewContextV2:
                 )
             ]
 
-        formatted_elements = getattr(llm_result, "formatted_elements", None)
-        if isinstance(formatted_elements, list) and formatted_elements:
-            events: list[RunMarkdownFlowDTO] = []
-            for item in formatted_elements:
-                item_content = getattr(item, "content", None)
-                if item_content is None and isinstance(item, dict):
-                    item_content = item.get("content")
-                item_content = str(item_content or "")
-                if not item_content:
-                    continue
-
-                stream_type = getattr(item, "type", None)
-                if stream_type is None and isinstance(item, dict):
-                    stream_type = item.get("type")
-                stream_number = getattr(item, "number", None)
-                if stream_number is None and isinstance(item, dict):
-                    stream_number = item.get("number")
-                events.append(
-                    self._make_preview_content_event(
-                        outline_bid=outline_bid,
-                        generated_block_bid=generated_block_bid,
-                        content=item_content,
-                        stream_type=str(stream_type or ""),
-                        stream_number=stream_number,
-                    )
-                )
-            if events:
-                return events
-
-        if not content:
-            return []
-
         return [
             self._make_preview_content_event(
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
-                content=content,
-                stream_type=str(getattr(llm_result, "type", "") or ""),
-                stream_number=getattr(llm_result, "number", None),
+                content=item_content,
+                stream_type=stream_type,
+                stream_number=stream_number,
+            )
+            for item_content, stream_type, stream_number in (
+                _iter_llm_result_content_parts(llm_result)
             )
         ]
 
@@ -3017,95 +3044,31 @@ class RunScriptContextV2:
                             if source == "idle":
                                 yield payload
                                 continue
-                            llm_result = payload
-                            chunk_content = str(
-                                getattr(llm_result, "content", "") or ""
-                            )
-                            if not chunk_content:
-                                continue
-                            stream_element_type = str(
-                                getattr(llm_result, "type", "") or ""
-                            )
-                            stream_element_number = getattr(llm_result, "number", None)
-                            if not stream_element_type or stream_element_number is None:
-                                continue
-                            try:
-                                normalized_number = int(stream_element_number)
-                            except (TypeError, ValueError):
-                                continue
-                            yield from _process_stream_chunk(
+                            for (
                                 chunk_content,
-                                stream_element_type=stream_element_type,
-                                stream_element_number=normalized_number,
-                            )
+                                stream_element_type,
+                                normalized_number,
+                            ) in _iter_llm_result_content_parts(payload):
+                                if not stream_element_type or normalized_number is None:
+                                    continue
+                                yield from _process_stream_chunk(
+                                    chunk_content,
+                                    stream_element_type=stream_element_type,
+                                    stream_element_number=normalized_number,
+                                )
                     else:
                         # markdown-flow still returns a single LLMResult for some
                         # STREAM edge cases, such as preserved content.
-                        formatted_elements = getattr(
-                            stream_result, "formatted_elements", None
-                        )
-                        if isinstance(formatted_elements, list) and formatted_elements:
-                            for item in formatted_elements:
-                                chunk_content = getattr(item, "content", None)
-                                if chunk_content is None and isinstance(item, dict):
-                                    chunk_content = item.get("content")
-                                chunk_content = str(chunk_content or "")
-                                if not chunk_content:
-                                    continue
-
-                                stream_element_type = getattr(item, "type", None)
-                                if stream_element_type is None and isinstance(
-                                    item, dict
-                                ):
-                                    stream_element_type = item.get("type")
-                                stream_element_type = (
-                                    str(stream_element_type or "") or None
-                                )
-
-                                stream_element_number = getattr(item, "number", None)
-                                if stream_element_number is None and isinstance(
-                                    item, dict
-                                ):
-                                    stream_element_number = item.get("number")
-                                try:
-                                    normalized_number = (
-                                        int(stream_element_number)
-                                        if stream_element_number is not None
-                                        else None
-                                    )
-                                except (TypeError, ValueError):
-                                    normalized_number = None
-
-                                yield from _process_stream_chunk(
-                                    chunk_content,
-                                    stream_element_type=stream_element_type,
-                                    stream_element_number=normalized_number,
-                                )
-                        else:
-                            chunk_content = str(
-                                getattr(stream_result, "content", "") or ""
+                        for (
+                            chunk_content,
+                            stream_element_type,
+                            normalized_number,
+                        ) in _iter_llm_result_content_parts(stream_result):
+                            yield from _process_stream_chunk(
+                                chunk_content,
+                                stream_element_type=stream_element_type or None,
+                                stream_element_number=normalized_number,
                             )
-                            stream_element_type = (
-                                str(getattr(stream_result, "type", "") or "") or None
-                            )
-                            stream_element_number = getattr(
-                                stream_result, "number", None
-                            )
-                            try:
-                                normalized_number = (
-                                    int(stream_element_number)
-                                    if stream_element_number is not None
-                                    else None
-                                )
-                            except (TypeError, ValueError):
-                                normalized_number = None
-
-                            if chunk_content:
-                                yield from _process_stream_chunk(
-                                    chunk_content,
-                                    stream_element_type=stream_element_type,
-                                    stream_element_number=normalized_number,
-                                )
                 except BaseException as exc:
                     stream_exc = exc
                     raise
