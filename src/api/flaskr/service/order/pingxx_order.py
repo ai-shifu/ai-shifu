@@ -38,16 +38,6 @@ def create_pingxx_order(
     return order
 
 
-def retrieve_pingxx_order(app: Flask, charge_id):
-    app.logger.info("retrieve pingxx order,charge_id:{}".format(charge_id))
-    provider = _get_provider()
-    order = provider.retrieve_charge(charge_id=charge_id, app=app)
-
-    # pingpp.wxpub_oauth.get_openid('YOUR_AUTH_CODE')
-    app.logger.info("retrieve pingxx order done")
-    return order
-
-
 def _get_provider() -> PingxxProvider:
     provider = get_payment_provider("pingxx")
     if not isinstance(provider, PingxxProvider):

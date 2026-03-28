@@ -77,23 +77,6 @@ class HistoryItem(BaseModel, Generic[T]):
         return cls.model_validate_json(json)
 
 
-class HistoryInfo(BaseModel):
-    """
-    History info
-    will be saved to database as json
-    format:
-    {
-        "bid": "bid",
-        "id": "id",
-    }
-    bid: business id (outline_bid, block_bid, shifu_bid)
-    id: id
-    """
-
-    bid: str
-    id: int
-
-
 def _get_latest_draft_log(shifu_bid: str, for_update: bool = False):
     query = LogDraftStruct.query.filter_by(
         shifu_bid=shifu_bid,
@@ -235,11 +218,6 @@ def get_shifu_draft_meta(
         return _build_draft_meta(latest)
 
 
-def get_shifu_draft_log(app: Flask, shifu_bid: str, for_update: bool = False):
-    with app.app_context():
-        return _get_latest_draft_log(shifu_bid, for_update=for_update)
-
-
 def get_shifu_history(app, shifu_bid: str) -> HistoryItem:
     """
     Get shifu history
@@ -304,40 +282,6 @@ def save_shifu_history(app: Flask, user_id: str, shifu_bid: str, id: int):
     """
     history = get_shifu_history(app, shifu_bid)
     history.id = id
-    __save_shifu_history(app, user_id, shifu_bid, history)
-
-
-def save_blocks_history(
-    app: Flask,
-    user_id: str,
-    shifu_bid: str,
-    outline_bid: str,
-    block_infos: List[HistoryInfo],
-):
-    """
-    Save blocks history
-    Args:
-        app: Flask application instance
-        user_id: User ID
-        shifu_bid: Shifu bid
-        outline_bid: Outline bid
-        block_infos: Block infos
-    """
-    history = get_shifu_history(app, shifu_bid)
-    q = queue.Queue()
-    q.put(history)
-    while not q.empty():
-        item = q.get()
-        if item.bid == outline_bid:
-            item.children = [
-                HistoryItem(
-                    bid=block_info.bid, id=block_info.id, type="block", children=[]
-                )
-                for block_info in block_infos
-            ]
-            break
-        for child in item.children:
-            q.put(child)
     __save_shifu_history(app, user_id, shifu_bid, history)
 
 
@@ -443,33 +387,6 @@ def save_new_outline_history(
     )
 
 
-def save_new_block_history(
-    app: Flask,
-    user_id: str,
-    shifu_bid: str,
-    block_bid: str,
-    id: int,
-    parent_bid: str,
-    index: int = 0,
-):
-    """
-    Save new block history
-    Args:
-        app: Flask application instance
-        user_id: User ID
-        shifu_bid: Shifu bid
-        block_bid: Block bid
-        id: Block id
-        parent_bid: Parent bid
-        index: Block index
-    Returns:
-        None
-    """
-    __save_new_item_history(
-        app, user_id, shifu_bid, block_bid, id, parent_bid, "block", index
-    )
-
-
 def save_outline_history(
     app: Flask,
     user_id: str,
@@ -517,20 +434,6 @@ def delete_outline_history(app: Flask, user_id: str, shifu_bid: str, outline_bid
         None
     """
     __delete_item_history(app, user_id, shifu_bid, outline_bid)
-
-
-def delete_block_history(app: Flask, user_id: str, shifu_bid: str, block_bid: str):
-    """
-    Delete block history
-    Args:
-        app: Flask application instance
-        user_id: User ID
-        shifu_bid: Shifu bid
-        block_bid: Block bid
-    Returns:
-        None
-    """
-    __delete_item_history(app, user_id, shifu_bid, block_bid)
 
 
 def save_outline_tree_history(
