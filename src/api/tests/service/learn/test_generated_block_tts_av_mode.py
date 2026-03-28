@@ -254,3 +254,163 @@ class TestGeneratedBlockListenTtsElementFirst:
             )
             assert [r.position for r in records] == [0, 1]
             assert all(r.oss_url for r in records)
+
+    def test_stream_generated_block_audio_listen_keeps_short_text_positions(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+
+        user_bid = "user-short-1"
+        shifu_bid = "shifu-short-1"
+        generated_block_bid = "gen-short-1"
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            block = self.LearnGeneratedBlock(
+                generated_block_bid=generated_block_bid,
+                progress_record_bid="progress-short-1",
+                user_bid=user_bid,
+                block_bid="block-short-1",
+                outline_item_bid="outline-short-1",
+                shifu_bid=shifu_bid,
+                type=1,
+                role=1,
+                generated_content="A\n\nSecond page.",
+                position=0,
+                block_content_conf="",
+                status=1,
+            )
+            db.session.add(block)
+            db.session.add_all(
+                [
+                    self.LearnGeneratedElement(
+                        element_bid="el-short-text-1",
+                        progress_record_bid="progress-short-1",
+                        user_bid=user_bid,
+                        generated_block_bid=generated_block_bid,
+                        outline_item_bid="outline-short-1",
+                        shifu_bid=shifu_bid,
+                        run_session_bid="run-short-1",
+                        run_event_seq=1,
+                        event_type="element",
+                        role="teacher",
+                        element_index=0,
+                        element_type="text",
+                        change_type="render",
+                        is_renderable=0,
+                        is_new=1,
+                        is_marker=0,
+                        sequence_number=1,
+                        is_speakable=1,
+                        is_navigable=1,
+                        is_final=1,
+                        content_text="A",
+                        payload="",
+                        status=1,
+                        deleted=0,
+                    ),
+                    self.LearnGeneratedElement(
+                        element_bid="el-short-text-2",
+                        progress_record_bid="progress-short-1",
+                        user_bid=user_bid,
+                        generated_block_bid=generated_block_bid,
+                        outline_item_bid="outline-short-1",
+                        shifu_bid=shifu_bid,
+                        run_session_bid="run-short-1",
+                        run_event_seq=2,
+                        event_type="element",
+                        role="teacher",
+                        element_index=1,
+                        element_type="text",
+                        change_type="render",
+                        is_renderable=0,
+                        is_new=1,
+                        is_marker=0,
+                        sequence_number=2,
+                        is_speakable=1,
+                        is_navigable=1,
+                        is_final=1,
+                        content_text="Second page.",
+                        payload="",
+                        status=1,
+                        deleted=0,
+                    ),
+                ]
+            )
+            db.session.commit()
+
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs._resolve_shifu_tts_settings",
+            lambda *_args, **_kwargs: (
+                "minimax",
+                "test-model",
+                type(
+                    "Voice",
+                    (),
+                    {
+                        "voice_id": "voice",
+                        "speed": 1.0,
+                        "pitch": 0,
+                        "emotion": "",
+                        "volume": 1.0,
+                    },
+                )(),
+                type("Audio", (), {"format": "mp3", "sample_rate": 24000})(),
+            ),
+        )
+
+        synthesized_texts = []
+
+        def _fake_yield_tts_segments(*, text, **_kwargs):
+            synthesized_texts.append(text)
+            yield (0, b"fake-audio", 123, text, 1, 1)
+
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs._yield_tts_segments",
+            _fake_yield_tts_segments,
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.concat_audio_best_effort",
+            lambda parts: b"".join(parts),
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.get_audio_duration_ms",
+            lambda *_args, **_kwargs: 1000,
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.upload_audio_to_oss",
+            lambda _app, _audio_bytes, audio_bid: (
+                f"https://example.com/{audio_bid}.mp3",
+                "test-bucket",
+            ),
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.record_tts_usage",
+            lambda *_args, **_kwargs: None,
+        )
+
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+                listen=True,
+            )
+        )
+
+        complete_positions = [
+            event.content.position
+            for event in events
+            if event.type == GeneratedType.AUDIO_COMPLETE
+        ]
+
+        assert complete_positions == [0, 1]
+        assert synthesized_texts == ["A", "Second page."]

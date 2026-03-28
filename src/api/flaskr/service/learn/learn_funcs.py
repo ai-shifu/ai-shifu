@@ -1139,7 +1139,7 @@ def stream_generated_block_audio(
                         continue
 
                     cleaned_segment = preprocess_for_tts(speakable_text or "")
-                    if not cleaned_segment or len(cleaned_segment.strip()) < 2:
+                    if not cleaned_segment or not cleaned_segment.strip():
                         continue
 
                     audio_bid = uuid.uuid4().hex

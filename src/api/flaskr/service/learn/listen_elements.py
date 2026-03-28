@@ -13,6 +13,7 @@ from flaskr.service.learn.learn_dtos import (
 )
 from flaskr.service.learn.learn_funcs import get_learn_record
 from flaskr.service.learn.listen_element_history import (
+    get_final_elements_for_generated_block as _get_final_elements_for_generated_block,
     get_listen_element_record as _get_listen_element_record,
 )
 from flaskr.service.learn.listen_element_legacy import (
@@ -76,6 +77,7 @@ backfill_learn_generated_elements_batch = _backfill_learn_generated_elements_bat
 backfill_learn_generated_elements_for_progress = (
     _backfill_learn_generated_elements_for_progress
 )
+get_final_elements_for_generated_block = _get_final_elements_for_generated_block
 
 
 class ListenElementRunAdapter(
