@@ -66,6 +66,7 @@ def _stream_sse_response(
     close_log: str,
     error_log: str,
     error_event_factory=None,
+    terminal_event_factory=None,
 ) -> Response:
     def event_stream():
         try:
@@ -79,6 +80,8 @@ def _stream_sse_response(
             if error_event_factory is None:
                 raise
             yield _to_sse_data_line(error_event_factory(exc))
+            if terminal_event_factory is not None:
+                yield _to_sse_data_line(terminal_event_factory())
 
     return Response(
         stream_with_context(event_stream()),
@@ -443,8 +446,15 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                 type="error",
                 event_type="error",
                 generated_block_bid=generate_id(app),
-                is_terminal=True,
+                is_terminal=False,
                 content=str(exc),
+            ),
+            terminal_event_factory=lambda: RunElementSSEMessageDTO(
+                type="done",
+                event_type="done",
+                generated_block_bid=None,
+                is_terminal=True,
+                content="",
             ),
         )
 
