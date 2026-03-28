@@ -986,9 +986,7 @@ export function usePreviewChat() {
                 : item,
             ),
           );
-        } else if (
-          responseType === PREVIEW_SSE_OUTPUT_TYPE.TEXT_END
-        ) {
+        } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.TEXT_END) {
           currentContentIdRef.current = null;
           currentContentRef.current = '';
           currentStreamingElementBidRef.current = null;
