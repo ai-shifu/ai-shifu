@@ -101,6 +101,46 @@ def _resolve_stream_audio_for_element_bid(
     )
 
 
+def _resolve_audio_target_element_bid_for_stream_number(
+    state: Any,
+    stream_element_number: int,
+    stream_element_type: str | None = None,
+) -> str | None:
+    try:
+        normalized_number = int(stream_element_number)
+    except (TypeError, ValueError):
+        return None
+    normalized_type = str(stream_element_type or "").strip().lower()
+
+    active_key = state.active_stream_element_key_by_number.get(normalized_number)
+    if active_key is not None:
+        active_state = state.stream_elements.get(active_key)
+        if (
+            active_state is not None
+            and _stream_element_accepts_audio_target(active_state.element_type)
+            and (
+                not normalized_type
+                or active_state.stream_type == normalized_type
+                or active_state.element_type.value == normalized_type
+            )
+        ):
+            return active_state.element_bid
+
+    for stream_state in state.stream_elements.values():
+        if stream_state.number != normalized_number:
+            continue
+        if not _stream_element_accepts_audio_target(stream_state.element_type):
+            continue
+        if normalized_type and stream_state.stream_type not in (
+            normalized_type,
+            stream_state.element_type.value,
+        ):
+            continue
+        return stream_state.element_bid
+
+    return None
+
+
 def _resolve_audio_target_element_bid(
     state: Any,
     position: int,

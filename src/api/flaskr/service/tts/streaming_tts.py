@@ -133,6 +133,8 @@ class StreamingTTSProcessor:
         max_segment_chars: int = 300,
         tts_provider: str = "",
         tts_model: str = "",
+        stream_element_number: int | None = None,
+        stream_element_type: str | None = None,
         av_contract: Optional[Dict[str, Any]] = None,
         usage_scene: int = BILL_USAGE_SCENE_PROD,
     ):
@@ -146,6 +148,11 @@ class StreamingTTSProcessor:
         self.max_segment_chars = max_segment_chars
         self.tts_provider = tts_provider
         self.tts_model = tts_model
+        self.stream_element_number = (
+            int(stream_element_number) if stream_element_number is not None else None
+        )
+        normalized_stream_element_type = str(stream_element_type or "").strip().lower()
+        self.stream_element_type = normalized_stream_element_type or None
         self.av_contract = av_contract
 
         # Audio settings - use provider-specific defaults
@@ -463,6 +470,8 @@ class StreamingTTSProcessor:
                         duration_ms=segment.duration_ms,
                         is_final=False,
                         position=self.position,
+                        stream_element_number=self.stream_element_number,
+                        stream_element_type=self.stream_element_type,
                         av_contract=self.av_contract,
                     ),
                 )
@@ -624,6 +633,8 @@ class StreamingTTSProcessor:
                     audio_bid=self._audio_bid,
                     duration_ms=final_duration_ms,
                     position=self.position,
+                    stream_element_number=self.stream_element_number,
+                    stream_element_type=self.stream_element_type,
                     av_contract=self.av_contract,
                 ),
             )

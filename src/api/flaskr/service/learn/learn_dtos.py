@@ -315,6 +315,14 @@ class AudioSegmentDTO(BaseModel):
     position: int = Field(
         default=0, description="Audio position within the block (0-based)"
     )
+    stream_element_number: int | None = Field(
+        default=None,
+        description="Target mdflow stream element number when audio is bound directly",
+    )
+    stream_element_type: str | None = Field(
+        default=None,
+        description="Target mdflow stream element type when audio is bound directly",
+    )
     av_contract: Dict[str, Any] | None = Field(
         default=None, description="AV boundary contract metadata"
     )
@@ -332,10 +340,14 @@ class AudioSegmentDTO(BaseModel):
         duration_ms: int = 0,
         is_final: bool = False,
         position: int = 0,
+        stream_element_number: int | None = None,
+        stream_element_type: str | None = None,
         av_contract: Dict[str, Any] | None = None,
     ):
         super().__init__(
             position=position,
+            stream_element_number=stream_element_number,
+            stream_element_type=stream_element_type,
             av_contract=av_contract,
             segment_index=segment_index,
             audio_data=audio_data,
@@ -351,6 +363,10 @@ class AudioSegmentDTO(BaseModel):
             "duration_ms": self.duration_ms,
             "is_final": self.is_final,
         }
+        if self.stream_element_number is not None:
+            ret["stream_element_number"] = int(self.stream_element_number)
+        if self.stream_element_type is not None:
+            ret["stream_element_type"] = self.stream_element_type
         if self.av_contract is not None:
             ret["av_contract"] = self.av_contract
         return ret
@@ -362,6 +378,14 @@ class AudioCompleteDTO(BaseModel):
 
     position: int = Field(
         default=0, description="Audio position within the block (0-based)"
+    )
+    stream_element_number: int | None = Field(
+        default=None,
+        description="Target mdflow stream element number when audio is bound directly",
+    )
+    stream_element_type: str | None = Field(
+        default=None,
+        description="Target mdflow stream element type when audio is bound directly",
     )
     av_contract: Dict[str, Any] | None = Field(
         default=None, description="AV boundary contract metadata"
@@ -376,10 +400,14 @@ class AudioCompleteDTO(BaseModel):
         audio_bid: str,
         duration_ms: int,
         position: int = 0,
+        stream_element_number: int | None = None,
+        stream_element_type: str | None = None,
         av_contract: Dict[str, Any] | None = None,
     ):
         super().__init__(
             position=position,
+            stream_element_number=stream_element_number,
+            stream_element_type=stream_element_type,
             av_contract=av_contract,
             audio_url=audio_url,
             audio_bid=audio_bid,
@@ -393,6 +421,10 @@ class AudioCompleteDTO(BaseModel):
             "audio_bid": self.audio_bid,
             "duration_ms": self.duration_ms,
         }
+        if self.stream_element_number is not None:
+            ret["stream_element_number"] = int(self.stream_element_number)
+        if self.stream_element_type is not None:
+            ret["stream_element_type"] = self.stream_element_type
         if self.av_contract is not None:
             ret["av_contract"] = self.av_contract
         return ret
@@ -594,6 +626,18 @@ class ElementDTO(BaseModel):
         for field_name in self._PATCH_FIELDS:
             setattr(self, field_name, getattr(patch, field_name))
 
+    def _audio_segments_for_output(self) -> list[dict[str, Any]]:
+        segments: list[dict[str, Any]] = []
+        for item in self.audio_segments or []:
+            if not isinstance(item, dict):
+                continue
+            segments.append(dict(item))
+        if not self.is_final:
+            return segments
+        for item in segments:
+            item["is_final"] = True
+        return segments
+
     def __json__(self):
         ret = {
             "event_type": self.event_type,
@@ -609,7 +653,7 @@ class ElementDTO(BaseModel):
             "sequence_number": int(self.sequence_number or 0),
             "is_speakable": self.is_speakable,
             "audio_url": self.audio_url or "",
-            "audio_segments": self.audio_segments,
+            "audio_segments": self._audio_segments_for_output(),
             "is_navigable": int(self.is_navigable or 0),
             "is_final": bool(self.is_final),
             "content": self.content or "",

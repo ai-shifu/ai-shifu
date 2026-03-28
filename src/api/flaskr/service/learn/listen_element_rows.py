@@ -200,6 +200,16 @@ def _deserialize_event_content(
             duration_ms=int(payload.get("duration_ms", 0) or 0),
             is_final=_normalize_bool(payload.get("is_final", False)),
             position=int(payload.get("position", 0) or 0),
+            stream_element_number=(
+                int(payload.get("stream_element_number", 0) or 0)
+                if payload.get("stream_element_number") is not None
+                else None
+            ),
+            stream_element_type=(
+                str(payload.get("stream_element_type", "") or "")
+                if payload.get("stream_element_type") is not None
+                else None
+            ),
             av_contract=payload.get("av_contract"),
         )
 
@@ -211,6 +221,16 @@ def _deserialize_event_content(
             audio_bid=str(payload.get("audio_bid", "") or ""),
             duration_ms=int(payload.get("duration_ms", 0) or 0),
             position=int(payload.get("position", 0) or 0),
+            stream_element_number=(
+                int(payload.get("stream_element_number", 0) or 0)
+                if payload.get("stream_element_number") is not None
+                else None
+            ),
+            stream_element_type=(
+                str(payload.get("stream_element_type", "") or "")
+                if payload.get("stream_element_type") is not None
+                else None
+            ),
             av_contract=payload.get("av_contract"),
         )
 

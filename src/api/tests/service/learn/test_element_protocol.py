@@ -156,6 +156,43 @@ class TestElementDTONewFields:
         assert "audio_url" in keys
         assert "audio_segments" in keys
 
+    def test_final_json_marks_all_audio_segments_final(self):
+        dto = self._make_dto(
+            is_final=True,
+            audio_url="https://example.com/audio.mp3",
+            audio_segments=[
+                {"position": 0, "segment_index": 0, "is_final": False},
+                {"position": 0, "segment_index": 1, "is_final": True},
+            ],
+        )
+
+        result = dto.__json__()
+
+        assert [segment["is_final"] for segment in result["audio_segments"]] == [
+            True,
+            True,
+        ]
+        assert [segment["is_final"] for segment in dto.audio_segments] == [
+            False,
+            True,
+        ]
+
+    def test_non_final_json_preserves_audio_segment_flags(self):
+        dto = self._make_dto(
+            is_final=False,
+            audio_segments=[
+                {"position": 0, "segment_index": 0, "is_final": False},
+                {"position": 0, "segment_index": 1, "is_final": True},
+            ],
+        )
+
+        result = dto.__json__()
+
+        assert [segment["is_final"] for segment in result["audio_segments"]] == [
+            False,
+            True,
+        ]
+
 
 class TestRunMarkdownFlowDTO:
     def test_private_mdflow_stream_parts_do_not_leak_into_json(self):

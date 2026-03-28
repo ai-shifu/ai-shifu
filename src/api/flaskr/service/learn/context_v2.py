@@ -1253,15 +1253,18 @@ class RunScriptContextV2:
         return (not self._preview_mode) and bool(getattr(self, "_listen", False))
 
     def _try_create_tts_processor(
-        self, generated_block_bid: str, *, shifu_bid: str = ""
+        self,
+        generated_block_bid: str,
+        *,
+        shifu_bid: str = "",
+        position: int = 0,
+        stream_element_number: int | None = None,
+        stream_element_type: str | None = None,
     ):
-        """Create AVStreamingTTSProcessor if TTS is configured, else return None.
-
-        Shared by normal content flow and ask response flow.
-        """
+        """Create StreamingTTSProcessor if TTS is configured, else return None."""
         try:
             from flaskr.common.config import get_config
-            from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
+            from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
             from flaskr.service.tts.validation import validate_tts_settings_strict
 
             effective_shifu_bid = shifu_bid or self._outline_item_info.shifu_bid
@@ -1303,13 +1306,14 @@ class RunScriptContextV2:
             max_segment_chars = get_config("TTS_MAX_SEGMENT_CHARS")
             if not max_segment_chars:
                 max_segment_chars = 300
-            return AVStreamingTTSProcessor(
+            return StreamingTTSProcessor(
                 app=self.app,
                 generated_block_bid=generated_block_bid,
                 outline_bid=self._outline_item_info.bid,
                 progress_record_bid=self._current_attend.progress_record_bid,
                 user_bid=self._user_info.user_id,
                 shifu_bid=effective_shifu_bid,
+                position=int(position or 0),
                 voice_id=validated.voice_id,
                 speed=validated.speed,
                 pitch=validated.pitch,
@@ -1317,7 +1321,8 @@ class RunScriptContextV2:
                 max_segment_chars=int(max_segment_chars),
                 tts_provider=validated.provider,
                 tts_model=validated.model,
-                element_index_offset=self._element_index_cursor,
+                stream_element_number=stream_element_number,
+                stream_element_type=stream_element_type,
             )
         except Exception as exc:
             self.app.logger.warning(
@@ -2891,17 +2896,13 @@ class RunScriptContextV2:
                 _persist_generated_block_for_events(generated_block)
                 generated_content = ""
                 tts_processor = None
-                content_cache_parts = []
+                tts_enabled = bool(self._should_stream_tts())
+                current_tts_stream_key: tuple[str, int] | None = None
+                next_tts_position = 0
 
                 # Direct synchronous stream processing (markdown-flow 0.2.27+)
                 app.logger.info(f"process_stream: {run_script_info.block_position}")
                 app.logger.info(f"variables: {user_profile}")
-
-                if self._should_stream_tts():
-                    tts_processor = self._try_create_tts_processor(
-                        generated_block.generated_block_bid,
-                        shifu_bid=run_script_info.attend.shifu_bid,
-                    )
 
                 def _build_content_event(
                     chunk_text: str,
@@ -2920,101 +2921,77 @@ class RunScriptContextV2:
                         )
                     return event
 
-                def _append_content_cache_part(
-                    chunk_text: str,
+                def _normalize_tts_stream_key(
                     stream_element_type: str | None = None,
                     stream_element_number: int | None = None,
-                ) -> None:
-                    nonlocal content_cache_parts
-                    if not chunk_text:
-                        return
-                    if (
-                        content_cache_parts
-                        and content_cache_parts[-1]["stream_element_type"]
-                        == stream_element_type
-                        and content_cache_parts[-1]["stream_element_number"]
-                        == stream_element_number
-                    ):
-                        content_cache_parts[-1]["content"] += chunk_text
-                        return
-                    content_cache_parts.append(
-                        {
-                            "content": chunk_text,
-                            "stream_element_type": stream_element_type,
-                            "stream_element_number": stream_element_number,
-                        }
-                    )
+                ) -> tuple[str, int] | None:
+                    normalized_type = (stream_element_type or "").strip().lower()
+                    if normalized_type != "text" or stream_element_number is None:
+                        return None
+                    return normalized_type, int(stream_element_number)
 
-                def _flush_content_cache(*, keep_tail: int = 0):
-                    nonlocal content_cache_parts
-                    total_length = sum(
-                        len(part.get("content", "")) for part in content_cache_parts
+                def _switch_tts_processor(
+                    stream_element_type: str | None = None,
+                    stream_element_number: int | None = None,
+                ):
+                    nonlocal \
+                        tts_processor, \
+                        tts_enabled, \
+                        current_tts_stream_key, \
+                        next_tts_position
+                    next_key = _normalize_tts_stream_key(
+                        stream_element_type=stream_element_type,
+                        stream_element_number=stream_element_number,
                     )
-                    if total_length <= 0:
+                    if current_tts_stream_key == next_key:
                         return
-                    if keep_tail > 0 and total_length <= keep_tail:
-                        # Keep the whole cache for next chunk to avoid breaking
-                        # partial visual markers like `<svg` / `<div`.
-                        return
-                    flush_length = total_length - max(keep_tail, 0)
-                    next_parts = []
-                    for part in content_cache_parts:
-                        part_content = str(part.get("content", "") or "")
-                        if not part_content:
-                            continue
-                        if flush_length <= 0:
-                            next_parts.append(part)
-                            continue
-                        if len(part_content) <= flush_length:
-                            yield _build_content_event(
-                                part_content,
-                                stream_element_type=part.get("stream_element_type"),
-                                stream_element_number=part.get("stream_element_number"),
-                            )
-                            flush_length -= len(part_content)
-                            continue
-                        emit_content = part_content[:flush_length]
-                        keep_content = part_content[flush_length:]
-                        if emit_content:
-                            yield _build_content_event(
-                                emit_content,
-                                stream_element_type=part.get("stream_element_type"),
-                                stream_element_number=part.get("stream_element_number"),
-                            )
-                        next_parts.append(
-                            {
-                                **part,
-                                "content": keep_content,
-                            }
+                    if tts_processor:
+                        yield from self._finalize_stream_tts_processor(
+                            tts_processor,
+                            log_prefix="Finalize streaming TTS failed",
                         )
-                        flush_length = 0
-                    content_cache_parts = next_parts
+                        tts_processor = None
+                        current_tts_stream_key = None
+                    if not tts_enabled or next_key is None:
+                        return
+                    tts_processor = self._try_create_tts_processor(
+                        generated_block.generated_block_bid,
+                        shifu_bid=run_script_info.attend.shifu_bid,
+                        position=next_tts_position,
+                        stream_element_number=stream_element_number,
+                        stream_element_type=stream_element_type,
+                    )
+                    if not tts_processor:
+                        return
+                    current_tts_stream_key = next_key
+                    next_tts_position += 1
 
                 def _process_stream_chunk(
                     chunk_content: str,
                     stream_element_type: str | None = None,
                     stream_element_number: int | None = None,
                 ):
-                    nonlocal generated_content, tts_processor, content_cache_parts
+                    nonlocal \
+                        generated_content, \
+                        tts_processor, \
+                        tts_enabled, \
+                        current_tts_stream_key
                     if not chunk_content:
                         return
                     generated_content += chunk_content
-                    if not tts_processor:
-                        yield _build_content_event(
-                            chunk_content,
-                            stream_element_type=stream_element_type,
-                            stream_element_number=stream_element_number,
-                        )
-                        return
-
-                    # Cache content and flush on visual boundaries to avoid splitting markers.
-                    _append_content_cache_part(
+                    yield from _switch_tts_processor(
+                        stream_element_type=stream_element_type,
+                        stream_element_number=stream_element_number,
+                    )
+                    yield _build_content_event(
                         chunk_content,
                         stream_element_type=stream_element_type,
                         stream_element_number=stream_element_number,
                     )
+                    if not tts_processor or current_tts_stream_key is None:
+                        return
                     try:
-                        other_events = list(tts_processor.process_chunk(chunk_content))
+                        yield from tts_processor.process_chunk(chunk_content)
                     except Exception as exc:
                         app.logger.warning(
                             "Streaming TTS failed; disable for this block: %s",
@@ -3022,25 +2999,11 @@ class RunScriptContextV2:
                             exc_info=True,
                         )
                         tts_processor = None
-                        yield from _flush_content_cache()
-                        return
-
-                    has_pending_visual_boundary = bool(
-                        getattr(tts_processor, "has_pending_visual_boundary", False)
-                    )
-                    # Stream-through policy:
-                    # 1) boundary pending -> flush immediately,
-                    # 2) otherwise keep only a tiny guard tail to avoid emitting
-                    #    split visual markers (e.g. `<sv`, `<di`) too early.
-                    if has_pending_visual_boundary:
-                        yield from _flush_content_cache()
-                    else:
-                        yield from _flush_content_cache(keep_tail=12)
-
-                    yield from other_events
+                        current_tts_stream_key = None
+                        tts_enabled = False
 
                 def _drain_tts_ready_events():
-                    nonlocal tts_processor
+                    nonlocal tts_processor, current_tts_stream_key, tts_enabled
                     if not tts_processor:
                         return
                     try:
@@ -3052,6 +3015,8 @@ class RunScriptContextV2:
                             exc_info=True,
                         )
                         tts_processor = None
+                        current_tts_stream_key = None
+                        tts_enabled = False
 
                 stream_exc: BaseException | None = None
                 try:
@@ -3074,7 +3039,7 @@ class RunScriptContextV2:
                         ) in self._iter_stream_result_with_idle_callback(
                             stream_result,
                             idle_callback=_drain_tts_ready_events
-                            if tts_processor
+                            if tts_enabled
                             else None,
                             idle_poll_interval=idle_poll_interval,
                         ):
@@ -3110,17 +3075,13 @@ class RunScriptContextV2:
                     stream_exc = exc
                     raise
                 finally:
-                    pending_flush = (
-                        _flush_content_cache if content_cache_parts else None
-                    )
                     yield from self._teardown_stream_tts_state(
                         tts_processor=tts_processor,
-                        flush_content_cache=pending_flush,
                         log_prefix="Finalize streaming TTS failed",
                         skip_emit=isinstance(stream_exc, GeneratorExit),
                     )
-                    content_cache_parts = []
                     tts_processor = None
+                    current_tts_stream_key = None
 
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,

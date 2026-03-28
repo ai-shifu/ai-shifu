@@ -16,6 +16,7 @@ from flaskr.service.learn.learn_dtos import (
     RunMarkdownFlowDTO,
 )
 from flaskr.service.learn.listen_element_audio_binding import (
+    _resolve_audio_target_element_bid_for_stream_number,
     _resolve_audio_target_element_bid,
     _resolve_pending_audio_for_stream_element,
     _resolve_stream_audio_for_element_bid,
@@ -503,7 +504,16 @@ class ListenElementRunStreamMixin:
             if not self._state_machine.is_terminated:
                 self._state_machine.feed(TypeInput.AUDIO_COMPLETE)
             return
-        target_element_bid = _resolve_audio_target_element_bid(state, position)
+        target_element_bid = None
+        stream_element_number = getattr(content, "stream_element_number", None)
+        if stream_element_number is not None:
+            target_element_bid = _resolve_audio_target_element_bid_for_stream_number(
+                state,
+                stream_element_number,
+                getattr(content, "stream_element_type", None),
+            )
+        if target_element_bid is None:
+            target_element_bid = _resolve_audio_target_element_bid(state, position)
         if target_element_bid:
             state.audio_target_element_bid_by_position[position] = target_element_bid
         if target_element_bid and content.audio_url:
@@ -552,7 +562,18 @@ class ListenElementRunStreamMixin:
                 if not self._state_machine.is_terminated:
                     self._state_machine.feed(TypeInput.AUDIO_SEGMENT)
                 return
-            target_element_bid = _resolve_audio_target_element_bid(state, position)
+            target_element_bid = None
+            stream_element_number = getattr(content, "stream_element_number", None)
+            if stream_element_number is not None:
+                target_element_bid = (
+                    _resolve_audio_target_element_bid_for_stream_number(
+                        state,
+                        stream_element_number,
+                        getattr(content, "stream_element_type", None),
+                    )
+                )
+            if target_element_bid is None:
+                target_element_bid = _resolve_audio_target_element_bid(state, position)
             if target_element_bid:
                 state.audio_target_element_bid_by_position[position] = (
                     target_element_bid
