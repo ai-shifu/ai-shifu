@@ -15,6 +15,7 @@ description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用
 - 移动端阅读模式下，`interaction` 的追问按钮样式应与正文 `custom-button-after-content` 的追问按钮保持一致；PC 端维持原有桌面样式。
 - 当追问操作栏挂在 `interaction` 元素后方时，需要移除操作栏顶部额外间距（如 `padding-top`），避免与交互块之间出现空白断层。
 - 当需求要求“按接口顺序直接展示内容与追问”时，不要额外引入 `readyElementBids`、`onTypeFinished` 等前端渲染门禁。
+- SSE 流里 `ELEMENT/CONTENT` 阶段只更新当前元素本体，不要提前插入 `LIKE_STATUS`；追问入口统一在 `TEXT_END` 后补齐，避免按钮先于流式正文出现。
 - 交互块触发 `onSend` 且需要截断后续内容时，必须保留该交互块关联的辅助行（`LIKE_STATUS` / `ASK`），避免进入思考中后追问入口消失。
 - 后台调试/预览链路中收到 `interaction` 时，也要为该 `interaction` 本身补齐 `LIKE_STATUS`，否则追问按钮不会渲染。
 - 重生成判定不能直接依赖“列表最后一项”；应忽略 `LIKE_STATUS`/`ASK` 等辅助行，按“最后可操作元素”判断，避免点击末尾交互块误弹重生成确认框。

@@ -404,6 +404,46 @@ function useChatLogicHook({
     [],
   );
 
+  const finalizeLikeStatusByParent = useCallback(
+    (items: ChatContentItem[], parentElementBid: string) => {
+      if (!parentElementBid) {
+        return items;
+      }
+
+      const targetItem = items.find(
+        item => item.element_bid === parentElementBid,
+      );
+      if (!targetItem) {
+        return items;
+      }
+
+      const elementType =
+        typeof targetItem.element_type === 'string'
+          ? targetItem.element_type
+          : undefined;
+      const shouldAttachLikeStatus = shouldAttachLikeStatusByElement({
+        elementBid: parentElementBid,
+        elementType,
+        content: targetItem.content,
+      });
+
+      if (!shouldAttachLikeStatus) {
+        return removeLikeStatusByParent(items, parentElementBid);
+      }
+
+      return upsertLikeStatusByParent(items, {
+        parentElementBid,
+        likeStatus: targetItem.like_status,
+        insertAfterElementBid: parentElementBid,
+      });
+    },
+    [
+      removeLikeStatusByParent,
+      shouldAttachLikeStatusByElement,
+      upsertLikeStatusByParent,
+    ],
+  );
+
   const resolveRecordUserInput = useCallback(
     (record?: Pick<StudyRecordItem, 'user_input' | 'payload'> | null) => {
       if (!record) {
@@ -1002,7 +1042,7 @@ function useChatLogicHook({
       // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
       isInitHistoryRef.current = false;
-      // currentBlockIdRef.current = 'loading';
+      currentBlockIdRef.current = null;
       setCurrentStreamingElementBid('');
       currentContentRef.current = '';
       // setLastInteractionBlock(null);
@@ -1184,21 +1224,7 @@ function useChatLogicHook({
                   nextList = [...prevState, nextItem];
                 }
 
-                const shouldAttachLikeStatus = shouldAttachLikeStatusByElement({
-                  elementBid: itemBid,
-                  elementType: elementRecord.element_type,
-                  content: nextItem.content,
-                });
-
-                if (shouldAttachLikeStatus) {
-                  return upsertLikeStatusByParent(nextList, {
-                    parentElementBid: itemBid,
-                    likeStatus: nextItem.like_status,
-                    insertAfterElementBid: itemBid,
-                  });
-                }
-
-                return removeLikeStatusByParent(nextList, itemBid);
+                return nextList;
               });
 
               if (pendingSlidesRef.current[itemBid]) {
@@ -1219,11 +1245,17 @@ function useChatLogicHook({
                   ? (response.content as { element_type?: ElementType })
                       .element_type
                   : undefined;
+              if (nid) {
+                currentBlockIdRef.current = nid;
+                setCurrentStreamingElementBid(nid);
+              }
               setTrackedContentList((prev: ChatContentItem[]) => {
                 // Use markdown-flow-ui default rendering for all interactions
                 const interactionBlock: ChatContentItem = {
                   element_bid: nid,
                   content: response.content,
+                  element_type:
+                    interactionElementType || ELEMENT_TYPE.INTERACTION,
                   customRenderBar: () => null,
                   user_input: '',
                   readonly: false,
@@ -1241,24 +1273,10 @@ function useChatLogicHook({
                       )
                     : [...prev, interactionBlock];
 
-                const shouldAttachLikeStatus = shouldAttachLikeStatusByElement({
-                  elementBid: nid,
-                  elementType: interactionElementType,
-                  content: interactionBlock.content,
-                });
-
-                if (
-                  !shouldAttachLikeStatus ||
-                  isLessonFeedbackInteraction ||
-                  !nid
-                ) {
+                if (isLessonFeedbackInteraction && nid) {
                   return removeLikeStatusByParent(nextList, nid);
                 }
 
-                nextList = upsertLikeStatusByParent(nextList, {
-                  parentElementBid: nid,
-                  insertAfterElementBid: nid,
-                });
                 return nextList;
               });
               if (isLessonFeedbackInteraction && nid) {
@@ -1335,9 +1353,11 @@ function useChatLogicHook({
               // response.type === SSE_OUTPUT_TYPE.BREAK ||
               response.type === SSE_OUTPUT_TYPE.TEXT_END
             ) {
+              const completedElementBid =
+                currentBlockIdRef.current || blockId || '';
               setCurrentStreamingElementBid('');
               setTrackedContentList((prev: ChatContentItem[]) => {
-                const updatedList = [...prev].filter(
+                let updatedList = [...prev].filter(
                   item => item.element_bid !== 'loading',
                 );
                 // Find the last CONTENT type item and append AskButton to its content
@@ -1363,6 +1383,11 @@ function useChatLogicHook({
                   }
                 }
 
+                updatedList = finalizeLikeStatusByParent(
+                  updatedList,
+                  completedElementBid,
+                );
+
                 const lastRenderableItem = [...updatedList]
                   .reverse()
                   .find(item => item.type !== ChatContentItemType.LIKE_STATUS);
@@ -1377,6 +1402,7 @@ function useChatLogicHook({
                 }
                 return updatedList;
               });
+              currentBlockIdRef.current = null;
             } else if (response.type === SSE_OUTPUT_TYPE.VARIABLE_UPDATE) {
               if (response.content.variable_name === 'sys_user_nickname') {
                 updateUserInfo({
@@ -1471,6 +1497,7 @@ function useChatLogicHook({
           clearLoadingPlaceholder();
           isStreamingRef.current = false;
           sseRef.current = null;
+          currentBlockIdRef.current = null;
           setCurrentStreamingElementBid('');
         },
       );
@@ -1492,6 +1519,7 @@ function useChatLogicHook({
             clearLoadingPlaceholder();
             isStreamingRef.current = false;
             sseRef.current = null;
+            currentBlockIdRef.current = null;
             setCurrentStreamingElementBid('');
           }
         }
@@ -1514,6 +1542,7 @@ function useChatLogicHook({
       allowTtsStreaming,
       ensureContentItem,
       getAskButtonMarkup,
+      finalizeLikeStatusByParent,
       isAskOrAnswerElementType,
       isLessonFeedbackContent,
       matchItemBid,
@@ -1521,10 +1550,7 @@ function useChatLogicHook({
       removeLikeStatusByParent,
       resolveAskAnchorElementBid,
       resolveElementItemBid,
-      resolveRecordElementType,
-      shouldAttachLikeStatusByElement,
       upsertAskMessageByParent,
-      upsertLikeStatusByParent,
       upsertListenSlide,
       updateUserInfo,
     ],
