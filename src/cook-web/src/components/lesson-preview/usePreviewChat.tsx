@@ -233,6 +233,7 @@ export function usePreviewChat() {
   const [contentList, setContentList] = useState<ChatContentItem[]>([]);
   const currentContentRef = useRef<string>('');
   const currentContentIdRef = useRef<string | null>(null);
+  const currentStreamingElementBidRef = useRef<string | null>(null);
   const sseParams = useRef<StartPreviewParams>({});
   const sseRef = useRef<any>(null);
   const ttsSseRef = useRef<Record<string, any>>({});
@@ -473,6 +474,7 @@ export function usePreviewChat() {
     }
     closeAllTtsStreams();
     isStreamingRef.current = false;
+    currentStreamingElementBidRef.current = null;
     setIsLoading(false);
   }, [closeAllTtsStreams]);
 
@@ -482,6 +484,7 @@ export function usePreviewChat() {
     setError(null);
     currentContentRef.current = '';
     currentContentIdRef.current = null;
+    currentStreamingElementBidRef.current = null;
     autoSubmittedBlocksRef.current.clear();
     setVariablesSnapshot({});
   }, [stopPreview, setTrackedContentList]);
@@ -593,11 +596,27 @@ export function usePreviewChat() {
       const nextItemType = isInteractionElement
         ? ChatContentItemType.INTERACTION
         : ChatContentItemType.CONTENT;
+      const previousStreamingElementBid = currentStreamingElementBidRef.current;
 
       setTrackedContentList(prev => {
-        const nextList = prev.filter(
-          item => item.generated_block_bid !== 'loading',
-        );
+        let nextList = prev.filter(item => item.generated_block_bid !== 'loading');
+        if (
+          previousStreamingElementBid &&
+          previousStreamingElementBid !== itemBid
+        ) {
+          const previousItem = nextList.find(
+            item =>
+              item.element_bid === previousStreamingElementBid ||
+              item.generated_block_bid === previousStreamingElementBid,
+          );
+          if (previousItem?.type === ChatContentItemType.CONTENT) {
+            nextList = appendLikeStatusIfMissing(
+              nextList,
+              previousStreamingElementBid,
+            );
+          }
+        }
+
         const contentToRender =
           elementType === ELEMENT_TYPE.HTML
             ? elementContent
@@ -651,12 +670,18 @@ export function usePreviewChat() {
 
         return [...nextList, nextItem];
       });
+      currentStreamingElementBidRef.current = itemBid;
 
       if (isInteractionElement) {
         tryAutoSubmitInteractionRef.current(itemBid, elementContent);
       }
     },
-    [buildAutoSendParams, parseInteractionBlock, setTrackedContentList],
+    [
+      appendLikeStatusIfMissing,
+      buildAutoSendParams,
+      parseInteractionBlock,
+      setTrackedContentList,
+    ],
   );
 
   const handlePayload = useCallback(
@@ -803,6 +828,7 @@ export function usePreviewChat() {
             if (terminalFlag === true) {
               currentContentIdRef.current = null;
               currentContentRef.current = '';
+              currentStreamingElementBidRef.current = null;
               stopPreview();
               setTrackedContentList((prev: ChatContentItem[]) => {
                 const updatedList = [...prev].filter(
@@ -822,6 +848,7 @@ export function usePreviewChat() {
 
           currentContentIdRef.current = null;
           currentContentRef.current = '';
+          currentStreamingElementBidRef.current = null;
           stopPreview();
           setTrackedContentList((prev: ChatContentItem[]) => {
             const updatedList = [...prev].filter(
@@ -1001,6 +1028,7 @@ export function usePreviewChat() {
       isStreamingRef.current = true;
       currentContentRef.current = '';
       currentContentIdRef.current = null;
+      currentStreamingElementBidRef.current = null;
 
       try {
         const tokenValue = useUserStore.getState().getToken();
@@ -1040,6 +1068,23 @@ export function usePreviewChat() {
         });
         source.addEventListener('error', err => {
           console.error('[preview sse error]', err);
+          const currentElementBid = currentStreamingElementBidRef.current;
+          if (currentElementBid) {
+            setTrackedContentList(prev => {
+              const nextList = prev.filter(
+                item => item.generated_block_bid !== 'loading',
+              );
+              const currentElementItem = nextList.find(
+                item =>
+                  item.element_bid === currentElementBid ||
+                  item.generated_block_bid === currentElementBid,
+              );
+              if (currentElementItem?.type !== ChatContentItemType.CONTENT) {
+                return nextList;
+              }
+              return appendLikeStatusIfMissing(nextList, currentElementBid);
+            });
+          }
           setError('Preview stream error');
           stopPreview();
         });
@@ -1052,7 +1097,13 @@ export function usePreviewChat() {
         setIsLoading(false);
       }
     },
-    [handlePayload, resolveBaseUrl, setTrackedContentList, stopPreview],
+    [
+      appendLikeStatusIfMissing,
+      handlePayload,
+      resolveBaseUrl,
+      setTrackedContentList,
+      stopPreview,
+    ],
   );
 
   const updateContentListWithUserOperate = useCallback(
