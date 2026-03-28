@@ -10,7 +10,14 @@ import {
   ChatContentItem,
   ChatContentItemType,
 } from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
-import { LIKE_STATUS } from '@/c-api/studyV2';
+import {
+  ELEMENT_TYPE,
+  LIKE_STATUS,
+  type AudioCompleteData,
+  type AudioSegmentData,
+  type ElementType,
+  type StudyRecordItem,
+} from '@/c-api/studyV2';
 import { getStringEnv } from '@/c-utils/envUtils';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import {
@@ -27,7 +34,6 @@ import { useShifu, useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
 import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
-import type { AudioCompleteData, AudioSegmentData } from '@/c-api/studyV2';
 import { normalizeLegacyBlockCompatList } from '@/app/c/[[...id]]/Components/ChatUi/chatUiUtils';
 
 interface InteractionParseResult {
@@ -51,13 +57,137 @@ interface StartPreviewParams {
 }
 
 enum PREVIEW_SSE_OUTPUT_TYPE {
+  ELEMENT = 'element',
   INTERACTION = 'interaction',
   CONTENT = 'content',
+  DONE = 'done',
   TEXT_END = 'text_end',
   ERROR = 'error',
   AUDIO_SEGMENT = 'audio_segment',
   AUDIO_COMPLETE = 'audio_complete',
 }
+
+type PreviewSseResponseData = {
+  type?: string;
+  event_type?: string;
+  content?: unknown;
+  data?: unknown;
+  generated_block_bid?: unknown;
+  is_terminal?: unknown;
+};
+
+const parseObjectPayload = <T extends Record<string, unknown>>(
+  input: unknown,
+): T | null => {
+  if (input && typeof input === 'object') {
+    return input as T;
+  }
+  if (typeof input !== 'string') {
+    return null;
+  }
+  const normalized = input.trim();
+  if (!normalized) {
+    return null;
+  }
+  const startsAsJsonObject =
+    normalized.startsWith('{') || normalized.startsWith('[');
+  if (!startsAsJsonObject) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(normalized);
+    if (parsed && typeof parsed === 'object') {
+      return parsed as T;
+    }
+  } catch (error) {
+    console.warn('Failed to parse preview payload object:', error);
+  }
+  return null;
+};
+
+const resolveResponsePayload = (
+  response: PreviewSseResponseData,
+): Record<string, unknown> | null => {
+  return (
+    parseObjectPayload<Record<string, unknown>>(response.content) ||
+    parseObjectPayload<Record<string, unknown>>(response.data)
+  );
+};
+
+const resolveResponseStringPayload = (
+  response: PreviewSseResponseData,
+): string => {
+  const contentPayload =
+    typeof response.content === 'string' ? response.content : '';
+  if (contentPayload) {
+    return contentPayload;
+  }
+  const dataPayload =
+    typeof response.data === 'string' ? response.data : undefined;
+  if (dataPayload) {
+    return dataPayload;
+  }
+  const objectPayload = resolveResponsePayload(response);
+  const mdflow =
+    objectPayload && typeof objectPayload.mdflow === 'string'
+      ? objectPayload.mdflow
+      : '';
+  return mdflow || '';
+};
+
+const resolveElementPayload = (
+  response: PreviewSseResponseData,
+): Partial<StudyRecordItem> | null => {
+  return resolveResponsePayload(response) as Partial<StudyRecordItem> | null;
+};
+
+const resolveElementBid = (
+  elementRecord: Partial<StudyRecordItem> | null,
+  response: PreviewSseResponseData,
+): string => {
+  if (!elementRecord) {
+    return '';
+  }
+  if (typeof elementRecord.target_element_bid === 'string') {
+    return elementRecord.target_element_bid;
+  }
+  if (typeof elementRecord.element_bid === 'string') {
+    return elementRecord.element_bid;
+  }
+  if (typeof elementRecord.generated_block_bid === 'string') {
+    return elementRecord.generated_block_bid;
+  }
+  if (typeof response.generated_block_bid === 'string') {
+    return response.generated_block_bid;
+  }
+  return '';
+};
+
+const resolveElementType = (
+  elementRecord: Partial<StudyRecordItem> | null,
+): ElementType | null => {
+  if (!elementRecord) {
+    return null;
+  }
+  const rawElementType = elementRecord.element_type;
+  if (typeof rawElementType !== 'string') {
+    return null;
+  }
+  return rawElementType.toLowerCase() as ElementType;
+};
+
+const resolveTerminalFlag = (
+  response: PreviewSseResponseData,
+): boolean | null => {
+  if (typeof response.is_terminal === 'boolean') {
+    return response.is_terminal;
+  }
+  const contentPayload = resolveResponsePayload(response);
+  if (contentPayload && typeof contentPayload.is_terminal === 'boolean') {
+    return contentPayload.is_terminal;
+  }
+  return null;
+};
 
 const buildVariablesSnapshot = (
   variables?: Record<string, unknown>,
@@ -405,23 +535,167 @@ export function usePreviewChat() {
     [],
   );
 
+  const buildLikeStatusItem = useCallback(
+    (parentBlockBid: string): ChatContentItem => ({
+      element_bid: `${parentBlockBid}-feedback`,
+      parent_element_bid: parentBlockBid,
+      parent_block_bid: parentBlockBid,
+      generated_block_bid: `${parentBlockBid}-feedback`,
+      like_status: LIKE_STATUS.NONE,
+      type: ChatContentItemType.LIKE_STATUS,
+    }),
+    [],
+  );
+
+  const appendLikeStatusIfMissing = useCallback(
+    (list: ChatContentItem[], parentBlockBid: string): ChatContentItem[] => {
+      if (!parentBlockBid) {
+        return list;
+      }
+      const hasLikeStatus = list.some(
+        item =>
+          item.type === ChatContentItemType.LIKE_STATUS &&
+          (item.parent_block_bid === parentBlockBid ||
+            item.parent_element_bid === parentBlockBid),
+      );
+      if (hasLikeStatus) {
+        return list;
+      }
+      return [...list, buildLikeStatusItem(parentBlockBid)];
+    },
+    [buildLikeStatusItem],
+  );
+
+  const upsertElementPreviewItem = useCallback(
+    (response: PreviewSseResponseData) => {
+      const elementRecord = resolveElementPayload(response);
+      const itemBid = resolveElementBid(elementRecord, response);
+      if (!itemBid) {
+        return;
+      }
+
+      const elementType = resolveElementType(elementRecord);
+      const elementContent =
+        typeof elementRecord?.content === 'string' ? elementRecord.content : '';
+      const isInteractionElement = elementType === ELEMENT_TYPE.INTERACTION;
+      const interactionInfo = isInteractionElement
+        ? parseInteractionBlock(elementContent)
+        : null;
+      const variableName = interactionInfo?.variableName;
+      const currentVariables = (sseParams.current.variables ||
+        {}) as PreviewVariablesMap;
+      const rawValue =
+        variableName && currentVariables ? currentVariables[variableName] : '';
+      const autoParams =
+        rawValue && interactionInfo
+          ? buildAutoSendParams(interactionInfo, rawValue)
+          : null;
+      const nextItemType = isInteractionElement
+        ? ChatContentItemType.INTERACTION
+        : ChatContentItemType.CONTENT;
+
+      setTrackedContentList(prev => {
+        const nextList = prev.filter(item => item.generated_block_bid !== 'loading');
+        const contentToRender =
+          elementType === ELEMENT_TYPE.HTML
+            ? elementContent
+            : maskIncompleteMermaidBlock(elementContent);
+
+        const nextItem: ChatContentItem = {
+          element_bid: itemBid,
+          generated_block_bid: itemBid,
+          content: contentToRender,
+          readonly: false,
+          type: nextItemType,
+          element_type: elementType || undefined,
+          sequence_number:
+            typeof elementRecord?.sequence_number === 'number'
+              ? elementRecord.sequence_number
+              : undefined,
+          is_marker:
+            typeof elementRecord?.is_marker === 'boolean'
+              ? elementRecord.is_marker
+              : undefined,
+          is_new:
+            typeof elementRecord?.is_new === 'boolean'
+              ? elementRecord.is_new
+              : undefined,
+          is_renderable:
+            typeof elementRecord?.is_renderable === 'boolean'
+              ? elementRecord.is_renderable
+              : undefined,
+          is_speakable:
+            typeof elementRecord?.is_speakable === 'boolean'
+              ? elementRecord.is_speakable
+              : undefined,
+          user_input: autoParams
+            ? resolveInteractionSubmission(autoParams).userInput
+            : '',
+        };
+
+        const hitIndex = nextList.findIndex(item => item.element_bid === itemBid);
+        if (hitIndex > -1) {
+          const updatedList = [...nextList];
+          const previousItem = updatedList[hitIndex];
+          updatedList[hitIndex] = {
+            ...previousItem,
+            ...nextItem,
+            user_input: nextItem.user_input || previousItem.user_input || '',
+          };
+          return updatedList;
+        }
+
+        return [...nextList, nextItem];
+      });
+
+      if (isInteractionElement) {
+        tryAutoSubmitInteractionRef.current(itemBid, elementContent);
+      }
+    },
+    [
+      buildAutoSendParams,
+      parseInteractionBlock,
+      setTrackedContentList,
+    ],
+  );
+
   const handlePayload = useCallback(
     (payload: string) => {
       try {
-        const response = JSON.parse(payload);
-        const blockId = String(response.generated_block_bid ?? '');
+        const normalizedPayload = payload.replace(/^data:\s*/, '').trim();
+        if (!normalizedPayload) {
+          return;
+        }
+        const response = JSON.parse(normalizedPayload) as PreviewSseResponseData;
+        const responseType =
+          typeof response.type === 'string'
+            ? response.type
+            : typeof response.event_type === 'string'
+              ? response.event_type
+              : '';
+        const payloadObject = resolveResponsePayload(response);
+        const blockId =
+          (typeof response.generated_block_bid === 'string'
+            ? response.generated_block_bid
+            : '') ||
+          (payloadObject && typeof payloadObject.generated_block_bid === 'string'
+            ? payloadObject.generated_block_bid
+            : '');
         console.log('response', response);
         if (
-          response.type === PREVIEW_SSE_OUTPUT_TYPE.INTERACTION ||
-          response.type === PREVIEW_SSE_OUTPUT_TYPE.CONTENT
+          responseType === PREVIEW_SSE_OUTPUT_TYPE.ELEMENT ||
+          responseType === PREVIEW_SSE_OUTPUT_TYPE.INTERACTION ||
+          responseType === PREVIEW_SSE_OUTPUT_TYPE.CONTENT
         ) {
           setTrackedContentList(prev =>
             prev.filter(item => item.generated_block_bid !== 'loading'),
           );
         }
 
-        if (response.type === PREVIEW_SSE_OUTPUT_TYPE.INTERACTION) {
-          const interactionContent = response.data?.mdflow ?? '';
+        if (responseType === PREVIEW_SSE_OUTPUT_TYPE.ELEMENT) {
+          upsertElementPreviewItem(response);
+        } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.INTERACTION) {
+          const interactionContent = resolveResponseStringPayload(response);
           const interactionInfo = parseInteractionBlock(interactionContent);
           const variableName = interactionInfo?.variableName;
           const currentVariables = (sseParams.current.variables ||
@@ -436,39 +710,13 @@ export function usePreviewChat() {
               : null;
 
           setTrackedContentList((prev: ChatContentItem[]) => {
-            const buildLikeStatusItem = (
-              parentBlockBid: string,
-            ): ChatContentItem => ({
-              element_bid: `${parentBlockBid}-feedback`,
-              parent_element_bid: parentBlockBid,
-              parent_block_bid: parentBlockBid,
-              generated_block_bid: `${parentBlockBid}-feedback`,
-              like_status: LIKE_STATUS.NONE,
-              type: ChatContentItemType.LIKE_STATUS,
-            });
-
-            const appendLikeStatusIfMissing = (
-              list: ChatContentItem[],
-              parentBlockBid: string,
-            ): ChatContentItem[] => {
-              if (!parentBlockBid) {
-                return list;
-              }
-              const hasLikeStatus = list.some(
-                item =>
-                  item.type === ChatContentItemType.LIKE_STATUS &&
-                  (item.parent_block_bid === parentBlockBid ||
-                    item.parent_element_bid === parentBlockBid),
-              );
-              if (hasLikeStatus) {
-                return list;
-              }
-              return [...list, buildLikeStatusItem(parentBlockBid)];
-            };
-
+            const currentBlockBid = blockId || currentContentIdRef.current || '';
+            if (!currentBlockBid) {
+              return prev;
+            }
             const interactionBlock: ChatContentItem = {
-              element_bid: blockId,
-              generated_block_bid: blockId,
+              element_bid: currentBlockBid,
+              generated_block_bid: currentBlockBid,
               content: interactionContent,
               readonly: false,
               user_input: autoParams
@@ -476,8 +724,12 @@ export function usePreviewChat() {
                 : '',
               type: ChatContentItemType.INTERACTION,
             };
-            const lastContent = prev[prev.length - 1];
-            let nextList = prev;
+            const nextListWithoutLoading = prev.filter(
+              item => item.generated_block_bid !== 'loading',
+            );
+            const lastContent =
+              nextListWithoutLoading[nextListWithoutLoading.length - 1];
+            let nextList = nextListWithoutLoading;
 
             if (
               lastContent &&
@@ -490,17 +742,39 @@ export function usePreviewChat() {
               }
             }
 
+            const hitIndex = nextList.findIndex(
+              item =>
+                item.generated_block_bid === currentBlockBid ||
+                item.element_bid === currentBlockBid,
+            );
+            if (hitIndex > -1) {
+              const updatedList = [...nextList];
+              updatedList[hitIndex] = {
+                ...updatedList[hitIndex],
+                ...interactionBlock,
+                user_input:
+                  interactionBlock.user_input || updatedList[hitIndex].user_input,
+              };
+              return appendLikeStatusIfMissing(updatedList, currentBlockBid);
+            }
+
             nextList = [...nextList, interactionBlock];
-            return appendLikeStatusIfMissing(nextList, blockId);
+            return appendLikeStatusIfMissing(nextList, currentBlockBid);
           });
-          tryAutoSubmitInteractionRef.current(blockId, interactionContent);
-        } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.CONTENT) {
-          const contentId = ensureContentItem(blockId);
-          const prevText = currentContentRef.current || '';
-          const delta = fixMarkdownStream(
-            prevText,
-            response.data?.mdflow || '',
+          const interactionBlockBid = blockId || currentContentIdRef.current || '';
+          if (interactionBlockBid) {
+            tryAutoSubmitInteractionRef.current(
+              interactionBlockBid,
+              interactionContent,
+            );
+          }
+        } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.CONTENT) {
+          const markdownPayload = resolveResponseStringPayload(response);
+          const contentId = ensureContentItem(
+            blockId || currentContentIdRef.current || 'preview-content',
           );
+          const prevText = currentContentRef.current || '';
+          const delta = fixMarkdownStream(prevText, markdownPayload || '');
           const nextText = prevText + delta;
           currentContentRef.current = nextText;
           const displayText = maskIncompleteMermaidBlock(nextText);
@@ -511,7 +785,35 @@ export function usePreviewChat() {
                 : item,
             ),
           );
-        } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.TEXT_END) {
+        } else if (
+          responseType === PREVIEW_SSE_OUTPUT_TYPE.DONE ||
+          responseType === PREVIEW_SSE_OUTPUT_TYPE.TEXT_END
+        ) {
+          const terminalFlag = resolveTerminalFlag(response);
+          if (responseType === PREVIEW_SSE_OUTPUT_TYPE.DONE) {
+            if (terminalFlag === false) {
+              return;
+            }
+            if (terminalFlag === true) {
+              currentContentIdRef.current = null;
+              currentContentRef.current = '';
+              stopPreview();
+              setTrackedContentList((prev: ChatContentItem[]) => {
+                const updatedList = [...prev].filter(
+                  item => item.generated_block_bid !== 'loading',
+                );
+                const lastItem = updatedList[updatedList.length - 1];
+                const gid =
+                  lastItem?.generated_block_bid || lastItem?.element_bid || '';
+                if (lastItem && lastItem.type === ChatContentItemType.CONTENT) {
+                  return appendLikeStatusIfMissing(updatedList, gid);
+                }
+                return updatedList;
+              });
+              return;
+            }
+          }
+
           currentContentIdRef.current = null;
           currentContentRef.current = '';
           stopPreview();
@@ -550,16 +852,19 @@ export function usePreviewChat() {
             }
             return updatedList;
           });
-        } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.ERROR) {
+        } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.ERROR) {
+          const errorMessage =
+            resolveResponseStringPayload(response) || t('module.preview.llmError');
           toast({
             title: t('module.preview.llmError'),
-            description: response.data,
+            description: errorMessage,
             variant: 'destructive',
           });
-          setError(response.data);
+          setError(errorMessage);
           stopPreview();
-        } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
-          const audioSegment = response.data as AudioSegmentData;
+        } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+          const audioSegment = (resolveResponsePayload(response) ||
+            {}) as AudioSegmentData;
           if (blockId) {
             setTrackedContentList(prevState =>
               upsertAudioSegment(
@@ -570,8 +875,9 @@ export function usePreviewChat() {
               ),
             );
           }
-        } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
-          const audioComplete = response.data as AudioCompleteData;
+        } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+          const audioComplete = (resolveResponsePayload(response) ||
+            {}) as AudioCompleteData;
           const normalizedAudioComplete = {
             ...audioComplete,
             audio_url: audioComplete.audio_url || undefined,
@@ -592,12 +898,15 @@ export function usePreviewChat() {
       }
     },
     [
+      appendLikeStatusIfMissing,
       buildAutoSendParams,
       ensureAudioItem,
       ensureContentItem,
       parseInteractionBlock,
       setTrackedContentList,
       stopPreview,
+      t,
+      upsertElementPreviewItem,
     ],
   );
 
