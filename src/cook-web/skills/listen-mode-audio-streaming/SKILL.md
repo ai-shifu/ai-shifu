@@ -22,6 +22,7 @@ description: 当处理听课模式的流式音频、buffering、TTS 请求门禁
 7. `listen-mode` 映射 `elementList` 时显式透传 `isAudioStreaming`。
 8. 统一分发层处理 `type/error` 或 `event_type/error`，立即弹出 destructive toast。
 9. 音频播放 icon 的可见性需受 `is_speakable` 控制：当 `is_speakable === false` 时不展示播放按钮。
+10. 处理 `audio_segment/audio_complete` 时禁止直接把 `Record<string, unknown>` 断言为目标类型，必须先做字段级归一化再写入 `upsertAudioSegment/upsertAudioComplete`。
 
 ## 备注
 

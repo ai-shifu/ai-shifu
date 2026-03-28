@@ -5,11 +5,8 @@ import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-f
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import { ELEMENT_TYPE } from '@/c-api/studyV2';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
-import {
-  type OnSendContentParams,
-  Slide,
-  type Element as SlideElement,
-} from 'markdown-flow-ui/renderer';
+import { type OnSendContentParams } from 'markdown-flow-ui/renderer';
+import { Slide, type Element as SlideElement } from 'markdown-flow-ui/slide';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import { resolveListenSlideAudioSource } from './listenModeUtils';
 import './ListenModeRenderer.scss';

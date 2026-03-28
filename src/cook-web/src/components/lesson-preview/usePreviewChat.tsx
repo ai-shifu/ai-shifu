@@ -73,7 +73,6 @@ type PreviewSseResponseData = {
   content?: unknown;
   data?: unknown;
   generated_block_bid?: unknown;
-  is_terminal?: unknown;
 };
 
 const parseObjectPayload = <T extends Record<string, unknown>>(
@@ -135,6 +134,128 @@ const resolveResponseStringPayload = (
   return mdflow || '';
 };
 
+const readPayloadField = (
+  payload: Record<string, unknown>,
+  keys: string[],
+): unknown => {
+  for (const key of keys) {
+    if (key in payload) {
+      return payload[key];
+    }
+  }
+  return undefined;
+};
+
+const readNumberField = (
+  payload: Record<string, unknown>,
+  keys: string[],
+): number | null => {
+  const value = readPayloadField(payload, keys);
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsedValue = Number(value);
+    if (Number.isFinite(parsedValue)) {
+      return parsedValue;
+    }
+  }
+  return null;
+};
+
+const readStringField = (
+  payload: Record<string, unknown>,
+  keys: string[],
+): string | null => {
+  const value = readPayloadField(payload, keys);
+  return typeof value === 'string' ? value : null;
+};
+
+const readBooleanField = (
+  payload: Record<string, unknown>,
+  keys: string[],
+): boolean | null => {
+  const value = readPayloadField(payload, keys);
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.toLowerCase();
+    if (normalized === 'true') {
+      return true;
+    }
+    if (normalized === 'false') {
+      return false;
+    }
+  }
+  return null;
+};
+
+const normalizeAudioSegmentData = (
+  payloadLike: unknown,
+): AudioSegmentData | null => {
+  const payload = parseObjectPayload<Record<string, unknown>>(payloadLike);
+  if (!payload) {
+    return null;
+  }
+  const segmentIndex = readNumberField(payload, ['segment_index', 'segmentIndex']);
+  const audioData = readStringField(payload, ['audio_data', 'audioData']);
+  if (segmentIndex === null || !audioData) {
+    return null;
+  }
+
+  const durationMs = readNumberField(payload, ['duration_ms', 'durationMs']) ?? 0;
+  const isFinal = readBooleanField(payload, ['is_final', 'isFinal']) ?? false;
+  const position = readNumberField(payload, ['position']);
+  const elementId = readStringField(payload, ['element_id', 'elementId']);
+  const slideId = readStringField(payload, ['slide_id', 'slideId']);
+  const avContractValue = readPayloadField(payload, ['av_contract', 'avContract']);
+
+  return {
+    segment_index: segmentIndex,
+    audio_data: audioData,
+    duration_ms: durationMs,
+    is_final: isFinal,
+    position: position ?? undefined,
+    element_id: elementId ?? undefined,
+    slide_id: slideId ?? undefined,
+    av_contract:
+      avContractValue && typeof avContractValue === 'object'
+        ? (avContractValue as Record<string, any>)
+        : null,
+  };
+};
+
+const normalizeAudioCompleteData = (
+  payloadLike: unknown,
+): AudioCompleteData | null => {
+  const payload = parseObjectPayload<Record<string, unknown>>(payloadLike);
+  if (!payload) {
+    return null;
+  }
+  const audioUrl = readStringField(payload, ['audio_url', 'audioUrl']) || '';
+  const audioBid = readStringField(payload, ['audio_bid', 'audioBid']) || '';
+  const durationMs = readNumberField(payload, ['duration_ms', 'durationMs']) ?? 0;
+  const position = readNumberField(payload, ['position']);
+  const slideId = readStringField(payload, ['slide_id', 'slideId']);
+  const avContractValue = readPayloadField(payload, ['av_contract', 'avContract']);
+
+  return {
+    audio_url: audioUrl,
+    audio_bid: audioBid,
+    duration_ms: durationMs,
+    position: position ?? undefined,
+    slide_id: slideId ?? undefined,
+    av_contract:
+      avContractValue && typeof avContractValue === 'object'
+        ? (avContractValue as Record<string, any>)
+        : null,
+  };
+};
+
 const resolveElementPayload = (
   response: PreviewSseResponseData,
 ): Partial<StudyRecordItem> | null => {
@@ -176,19 +297,6 @@ const resolveElementType = (
   return rawElementType.toLowerCase() as ElementType;
 };
 
-const resolveTerminalFlag = (
-  response: PreviewSseResponseData,
-): boolean | null => {
-  if (typeof response.is_terminal === 'boolean') {
-    return response.is_terminal;
-  }
-  const contentPayload = resolveResponsePayload(response);
-  if (contentPayload && typeof contentPayload.is_terminal === 'boolean') {
-    return contentPayload.is_terminal;
-  }
-  return null;
-};
-
 const buildVariablesSnapshot = (
   variables?: Record<string, unknown>,
 ): PreviewVariablesMap => {
@@ -209,6 +317,34 @@ const buildVariablesSnapshot = (
     }
     return acc;
   }, {});
+};
+
+const resolvePreviewItemBid = (
+  item?: Pick<ChatContentItem, 'generated_block_bid' | 'element_bid'> | null,
+): string => {
+  if (!item) {
+    return '';
+  }
+  return item.generated_block_bid || item.element_bid || '';
+};
+
+const isPreviewActionableItem = (
+  item?: Pick<ChatContentItem, 'type' | 'generated_block_bid' | 'element_bid'> | null,
+): boolean => {
+  const resolvedBid = resolvePreviewItemBid(item);
+  if (!resolvedBid || resolvedBid === 'loading') {
+    return false;
+  }
+  return (
+    item?.type === ChatContentItemType.CONTENT ||
+    item?.type === ChatContentItemType.INTERACTION
+  );
+};
+
+const resolveLatestPreviewActionableItem = (
+  items: ChatContentItem[],
+): ChatContentItem | undefined => {
+  return [...items].reverse().find(item => isPreviewActionableItem(item));
 };
 
 export function usePreviewChat() {
@@ -602,6 +738,11 @@ export function usePreviewChat() {
         let nextList = prev.filter(
           item => item.generated_block_bid !== 'loading',
         );
+        let completedElementBid = '';
+        const hasIncomingItem = nextList.some(
+          item => item.element_bid === itemBid || item.generated_block_bid === itemBid,
+        );
+
         if (
           previousStreamingElementBid &&
           previousStreamingElementBid !== itemBid
@@ -611,12 +752,22 @@ export function usePreviewChat() {
               item.element_bid === previousStreamingElementBid ||
               item.generated_block_bid === previousStreamingElementBid,
           );
-          if (previousItem?.type === ChatContentItemType.CONTENT) {
-            nextList = appendLikeStatusIfMissing(
-              nextList,
-              previousStreamingElementBid,
-            );
+          const previousItemBid = resolvePreviewItemBid(previousItem);
+          if (isPreviewActionableItem(previousItem) && previousItemBid) {
+            completedElementBid = previousItemBid;
           }
+        }
+
+        if (!completedElementBid && !hasIncomingItem) {
+          const latestActionableItem = resolveLatestPreviewActionableItem(nextList);
+          const latestActionableBid = resolvePreviewItemBid(latestActionableItem);
+          if (latestActionableBid && latestActionableBid !== itemBid) {
+            completedElementBid = latestActionableBid;
+          }
+        }
+
+        if (completedElementBid) {
+          nextList = appendLikeStatusIfMissing(nextList, completedElementBid);
         }
 
         const contentToRender =
@@ -822,54 +973,29 @@ export function usePreviewChat() {
           responseType === PREVIEW_SSE_OUTPUT_TYPE.DONE ||
           responseType === PREVIEW_SSE_OUTPUT_TYPE.TEXT_END
         ) {
-          const terminalFlag = resolveTerminalFlag(response);
-          if (responseType === PREVIEW_SSE_OUTPUT_TYPE.DONE) {
-            if (terminalFlag === false) {
-              return;
-            }
-            if (terminalFlag === true) {
-              currentContentIdRef.current = null;
-              currentContentRef.current = '';
-              currentStreamingElementBidRef.current = null;
-              stopPreview();
-              setTrackedContentList((prev: ChatContentItem[]) => {
-                const updatedList = [...prev].filter(
-                  item => item.generated_block_bid !== 'loading',
-                );
-                const lastItem = updatedList[updatedList.length - 1];
-                const gid =
-                  lastItem?.generated_block_bid || lastItem?.element_bid || '';
-                if (lastItem && lastItem.type === ChatContentItemType.CONTENT) {
-                  return appendLikeStatusIfMissing(updatedList, gid);
-                }
-                return updatedList;
-              });
-              return;
-            }
-          }
-
           currentContentIdRef.current = null;
           currentContentRef.current = '';
           currentStreamingElementBidRef.current = null;
           stopPreview();
           setTrackedContentList((prev: ChatContentItem[]) => {
-            const updatedList = [...prev].filter(
+            let updatedList = [...prev].filter(
               item => item.generated_block_bid !== 'loading',
             );
 
-            // Add interaction blocks - use captured value instead of ref
-            const lastItem = updatedList[updatedList.length - 1];
-            const gid = lastItem?.generated_block_bid || '';
-            if (lastItem && lastItem.type === ChatContentItemType.CONTENT) {
-              updatedList.push({
-                element_bid: '',
-                parent_element_bid: gid,
-                parent_block_bid: gid,
-                generated_block_bid: '',
-                content: '',
-                like_status: LIKE_STATUS.NONE,
-                type: ChatContentItemType.LIKE_STATUS,
-              });
+            const latestActionableItem =
+              resolveLatestPreviewActionableItem(updatedList);
+
+            const latestActionableBid = resolvePreviewItemBid(
+              latestActionableItem,
+            );
+            if (latestActionableBid) {
+              updatedList = appendLikeStatusIfMissing(
+                updatedList,
+                latestActionableBid,
+              );
+            }
+
+            if (latestActionableItem?.type === ChatContentItemType.CONTENT) {
               const nextIndex = (sseParams.current?.block_index || 0) + 1;
               const totalBlocks = sseParams.current?.max_block_count;
               if (
@@ -881,8 +1007,6 @@ export function usePreviewChat() {
                   ...sseParams.current,
                   block_index: nextIndex,
                 });
-              } else {
-                stopPreview();
               }
             }
             return updatedList;
@@ -899,9 +1023,10 @@ export function usePreviewChat() {
           setError(errorMessage);
           stopPreview();
         } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
-          const audioSegment = (resolveResponsePayload(response) ||
-            {}) as AudioSegmentData;
-          if (blockId) {
+          const audioSegment = normalizeAudioSegmentData(
+            resolveResponsePayload(response),
+          );
+          if (blockId && audioSegment) {
             setTrackedContentList(prevState =>
               upsertAudioSegment(
                 prevState,
@@ -912,8 +1037,12 @@ export function usePreviewChat() {
             );
           }
         } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
-          const audioComplete = (resolveResponsePayload(response) ||
-            {}) as AudioCompleteData;
+          const audioComplete = normalizeAudioCompleteData(
+            resolveResponsePayload(response),
+          );
+          if (!audioComplete) {
+            return;
+          }
           const normalizedAudioComplete = {
             ...audioComplete,
             audio_url: audioComplete.audio_url || undefined,
@@ -1081,10 +1210,14 @@ export function usePreviewChat() {
                   item.element_bid === currentElementBid ||
                   item.generated_block_bid === currentElementBid,
               );
-              if (currentElementItem?.type !== ChatContentItemType.CONTENT) {
+              if (!isPreviewActionableItem(currentElementItem)) {
                 return nextList;
               }
-              return appendLikeStatusIfMissing(nextList, currentElementBid);
+              const currentItemBid = resolvePreviewItemBid(currentElementItem);
+              if (!currentItemBid) {
+                return nextList;
+              }
+              return appendLikeStatusIfMissing(nextList, currentItemBid);
             });
           }
           setError('Preview stream error');
@@ -1505,11 +1638,15 @@ export function usePreviewChat() {
             const response = JSON.parse(payload);
             if (response?.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
               const audioPayload = response.content ?? response.data;
+              const audioSegment = normalizeAudioSegmentData(audioPayload);
+              if (!audioSegment) {
+                return;
+              }
               setTrackedContentList(prevState =>
                 upsertAudioSegment(
                   prevState,
                   blockId,
-                  audioPayload as AudioSegmentData,
+                  audioSegment,
                   ensureAudioItem,
                 ),
               );
@@ -1518,7 +1655,10 @@ export function usePreviewChat() {
 
             if (response?.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
               const audioPayload = response.content ?? response.data;
-              const audioComplete = audioPayload as AudioCompleteData;
+              const audioComplete = normalizeAudioCompleteData(audioPayload);
+              if (!audioComplete) {
+                return;
+              }
               const normalizedAudioComplete = {
                 ...audioComplete,
                 audio_url: audioComplete.audio_url || undefined,

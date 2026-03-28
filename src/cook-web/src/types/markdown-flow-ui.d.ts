@@ -12,7 +12,9 @@ declare module 'markdown-flow-ui/renderer' {
   interface MarkdownFlowProps {
     interactionDefaultValueOptions?: InteractionDefaultValueOptions;
   }
+}
 
+declare module 'markdown-flow-ui/slide' {
   interface SlideProps {
     interactionDefaultValueOptions?: InteractionDefaultValueOptions;
   }
