@@ -778,6 +778,47 @@ class PreviewElementizationTests(unittest.TestCase):
         self.assertEqual(messages[-1].type, GeneratedType.DONE.value)
         self.assertTrue(messages[-1].is_terminal)
 
+    def test_preview_content_uses_formatted_elements_when_top_level_content_empty(self):
+        app = Flask("preview-content-formatted-elements")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        adapter = PreviewElementRunAdapter(
+            app,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            user_bid="user-1",
+            run_session_bid="preview-session-3",
+        )
+        content_chunks: list[str] = []
+
+        messages = list(
+            adapter.process(
+                preview_ctx._iter_preview_generated_events(
+                    result=types.SimpleNamespace(
+                        content="",
+                        formatted_elements=[
+                            types.SimpleNamespace(
+                                content="Visual caption",
+                                type="text",
+                                number=0,
+                            )
+                        ],
+                    ),
+                    outline_bid="outline-1",
+                    block_index=0,
+                    current_block=types.SimpleNamespace(block_type="content"),
+                    is_user_input_validation=False,
+                    content_chunks=content_chunks,
+                )
+            )
+        )
+
+        element_messages = [item for item in messages if item.type == "element"]
+        self.assertGreaterEqual(len(element_messages), 2)
+        self.assertEqual(content_chunks, ["Visual caption"])
+        self.assertEqual(element_messages[0].content.content_text, "Visual caption")
+        self.assertEqual(messages[-1].type, GeneratedType.DONE.value)
+        self.assertTrue(messages[-1].is_terminal)
+
     def test_preview_interaction_stream_emits_interaction_element_and_done(self):
         app = Flask("preview-interaction-stream")
         preview_ctx = RunScriptPreviewContextV2(app)

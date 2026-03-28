@@ -786,9 +786,6 @@ class RunScriptPreviewContextV2:
                 )
             ]
 
-        if not content:
-            return []
-
         formatted_elements = getattr(llm_result, "formatted_elements", None)
         if isinstance(formatted_elements, list) and formatted_elements:
             events: list[RunMarkdownFlowDTO] = []
@@ -817,6 +814,9 @@ class RunScriptPreviewContextV2:
                 )
             if events:
                 return events
+
+        if not content:
+            return []
 
         return [
             self._make_preview_content_event(
