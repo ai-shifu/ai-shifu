@@ -200,13 +200,6 @@ def _find_html_block_end_with_complete(raw: str, start_index: int) -> tuple[int,
         cursor = match.end()
 
 
-def _find_svg_block_end(raw: str, start_index: int) -> int:
-    close = AV_SVG_CLOSE.search(raw, start_index)
-    if not close:
-        return len(raw)
-    return close.end()
-
-
 def _rewind_fixed_marker_start(raw: str, start_index: int) -> int:
     """
     If `raw` contains a MarkdownFlow fixed marker prefix on the same line as a
@@ -247,27 +240,6 @@ def _extend_fixed_marker_end(raw: str, end_index: int) -> int:
     if FIXED_MARKER_TAIL.match(tail) and ("=" in tail or "!" in tail):
         return len(raw) if nl == -1 else nl + 1
     return end_index
-
-
-def _find_iframe_block_end(raw: str, start_index: int) -> int:
-    close = AV_IFRAME_CLOSE.search(raw, start_index)
-    if not close:
-        return len(raw)
-    return _extend_fixed_marker_end(raw, close.end())
-
-
-def _find_video_block_end(raw: str, start_index: int) -> int:
-    close = AV_VIDEO_CLOSE.search(raw, start_index)
-    if not close:
-        return len(raw)
-    return close.end()
-
-
-def _find_table_block_end(raw: str, start_index: int) -> int:
-    close = AV_TABLE_CLOSE.search(raw, start_index)
-    if not close:
-        return len(raw)
-    return close.end()
 
 
 def _find_markdown_table_block(

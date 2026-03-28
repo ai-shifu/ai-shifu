@@ -248,12 +248,3 @@ def get_all_provider_configs() -> dict:
     return {
         "providers": providers,
     }
-
-
-# Backward compatibility: expose Minimax-specific functions
-def call_minimax_tts(*args, **kwargs):
-    """Deprecated: Use get_tts_provider('minimax').synthesize() instead."""
-    from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
-
-    provider = MinimaxTTSProvider()
-    return provider._call_api(*args, **kwargs)

@@ -70,7 +70,3 @@ def raise_error_with_args(error_name, **kwargs):
         _(error_name).format(**kwargs),
         ERROR_CODE.get(error_name, ERROR_CODE["server.common.unknownError"]),
     )
-
-
-def reg_error_code(error_name, error_code):
-    ERROR_CODE[error_name] = error_code

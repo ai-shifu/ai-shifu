@@ -1327,22 +1327,6 @@ def success_buy_record(app: Flask, record_id: str):
         return None
 
 
-def query_raw_buy_record(app: Flask, user_id, course_id) -> Order:
-    """
-    Query raw buy record
-    """
-    with app.app_context():
-        buy_record = Order.query.filter(
-            Order.shifu_bid == course_id,
-            Order.user_bid == user_id,
-            Order.status != ORDER_STATUS_TIMEOUT,
-            Order.deleted == 0,
-        ).first()
-        if buy_record:
-            return buy_record
-        return None
-
-
 class DiscountInfo:
     discount_value: str
     items: list[PayItemDto]
