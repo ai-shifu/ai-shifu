@@ -18,4 +18,3 @@ description: 当 cook-web 执行 npm run build 出现 SyntaxError Unexpected tok
 3. 如果 shell 初始化脚本切到了旧 Node，先切到项目要求版本再重新执行 `npm run build`。
 4. 构建失败时只抓第一个 `Error` 作为阻断点，不把 `Warning` 当作失败原因。
 5. 若阻断点是 ESLint `Error`，做最小改动修复；保留调试日志，不删除 `console.log`。
-
