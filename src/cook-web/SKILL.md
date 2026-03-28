@@ -20,6 +20,7 @@
 - `skills/chat-element-streaming/SKILL.md`
 - `skills/chat-actionbar-ask-placement/SKILL.md`
 - `skills/listen-mode-audio-streaming/SKILL.md`
+- `skills/next-build-node-runtime/SKILL.md`
 - `skills/lesson-feedback-popup-timing/SKILL.md`
 - `skills/module-augmentation-guardrails/SKILL.md`
 - `skills/hook-contract-refactor-safety/SKILL.md`
