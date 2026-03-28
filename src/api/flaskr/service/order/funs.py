@@ -53,38 +53,6 @@ from flaskr.service.shifu.utils import get_shifu_creator_bid
 
 
 @register_schema_to_swagger
-class AICourseLessonAttendDTO:
-    """
-    AICourseLessonAttendDTO
-    """
-
-    attend_id: str
-    lesson_id: str
-    course_id: str
-    user_id: str
-    status: int
-    index: int
-
-    def __init__(self, attend_id, lesson_id, course_id, user_id, status, index):
-        self.attend_id = attend_id
-        self.lesson_id = lesson_id
-        self.course_id = course_id
-        self.user_id = user_id
-        self.status = status
-        self.index = index
-
-    def __json__(self):
-        return {
-            "attend_id": self.attend_id,
-            "lesson_id": self.lesson_id,
-            "course_id": self.course_id,
-            "user_id": self.user_id,
-            "status": self.status,
-            "index": self.index,
-        }
-
-
-@register_schema_to_swagger
 class PayItemDto:
     """
     PayItemDto
