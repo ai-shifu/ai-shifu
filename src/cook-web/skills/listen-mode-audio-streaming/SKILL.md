@@ -21,6 +21,7 @@ description: 当处理听课模式的流式音频、buffering、TTS 请求门禁
 6. 仅允许点击播放按钮时触发 `generated-blocks/:id/tts`，禁止 `onStepChange` 自动补拉。
 7. `listen-mode` 映射 `elementList` 时显式透传 `isAudioStreaming`。
 8. 统一分发层处理 `type/error` 或 `event_type/error`，立即弹出 destructive toast。
+9. 音频播放 icon 的可见性需受 `is_speakable` 控制：当 `is_speakable === false` 时不展示播放按钮。
 
 ## 备注
 

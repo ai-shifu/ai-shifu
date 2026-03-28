@@ -223,6 +223,9 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                 const parentContentItem = parentBlockBid
                   ? itemByGeneratedBid.get(parentBlockBid)
                   : undefined;
+                // Hide preview audio action when backend marks this element as non-speakable.
+                const shouldRenderAudioAction =
+                  parentContentItem?.is_speakable !== false;
                 const parentPrimaryTrack = getAudioTrackByPosition(
                   parentContentItem?.audioTracks ?? [],
                 );
@@ -240,7 +243,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                       disableAskButton
                       disableInteractionButtons
                       extraActions={
-                        onRequestAudioForBlock ? (
+                        onRequestAudioForBlock && shouldRenderAudioAction ? (
                           <AudioPlayer
                             audioUrl={parentPrimaryTrack?.audioUrl}
                             streamingSegments={
