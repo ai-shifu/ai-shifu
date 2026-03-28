@@ -880,7 +880,6 @@ export function usePreviewChat() {
           typeof payloadObject.generated_block_bid === 'string'
             ? payloadObject.generated_block_bid
             : '');
-        console.log('response', response);
         if (
           responseType === PREVIEW_SSE_OUTPUT_TYPE.ELEMENT ||
           responseType === PREVIEW_SSE_OUTPUT_TYPE.INTERACTION ||
@@ -1207,6 +1206,7 @@ export function usePreviewChat() {
         );
         source.addEventListener('message', event => {
           const raw = event?.data;
+          console.log('[preview sse message]', raw)
           if (!raw) return;
           const payload = String(raw).trim();
           if (payload) {
