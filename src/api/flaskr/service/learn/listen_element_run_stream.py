@@ -58,6 +58,45 @@ from flaskr.service.learn.type_state_machine import TypeInput
 
 
 class ListenElementRunStreamMixin:
+    def _make_retire_element_message(
+        self,
+        *,
+        generated_block_bid: str,
+        element_bid: str,
+        element_index: int,
+        role: str,
+        element_type: ElementType,
+    ) -> RunElementSSEMessageDTO:
+        seq = self._next_seq()
+        fixed_is_new = _mdflow_new_stream_is_new(element_type)
+        retire_element = ElementDTO(
+            event_type="element",
+            element_bid=element_bid,
+            generated_block_bid=generated_block_bid,
+            element_index=element_index,
+            role=role,
+            element_type=element_type,
+            element_type_code=_element_type_code(element_type),
+            change_type=_change_type_for_element(element_type),
+            target_element_bid=None if fixed_is_new else element_bid,
+            is_new=fixed_is_new,
+            is_marker=_default_is_marker(element_type),
+            is_renderable=False,
+            is_navigable=0,
+            is_final=True,
+            content_text="",
+            run_session_bid=self.run_session_bid,
+            run_event_seq=seq,
+        )
+        return RunElementSSEMessageDTO(
+            type="element",
+            event_type="element",
+            generated_block_bid=generated_block_bid or None,
+            run_session_bid=self.run_session_bid,
+            run_event_seq=seq,
+            content=retire_element,
+        )
+
     def _formatted_parts_from_event(
         self, event: RunMarkdownFlowDTO
     ) -> list[tuple[str, str, int]]:
@@ -116,33 +155,12 @@ class ListenElementRunStreamMixin:
         if not emit_notification:
             return
         meta = self._load_block_meta(state.generated_block_bid)
-        seq = self._next_seq()
-        retire_element = ElementDTO(
-            event_type="element",
-            element_bid=state.fallback_element_bid,
+        yield self._make_retire_element_message(
             generated_block_bid=state.generated_block_bid,
+            element_bid=state.fallback_element_bid,
             element_index=max(self._max_element_index, 0),
             role=meta.role,
             element_type=ElementType.TEXT,
-            element_type_code=_element_type_code(ElementType.TEXT),
-            change_type=_change_type_for_element(ElementType.TEXT),
-            target_element_bid=None,
-            is_new=True,
-            is_marker=False,
-            is_renderable=False,
-            is_navigable=0,
-            is_final=True,
-            content_text="",
-            run_session_bid=self.run_session_bid,
-            run_event_seq=seq,
-        )
-        yield RunElementSSEMessageDTO(
-            type="element",
-            event_type="element",
-            generated_block_bid=state.generated_block_bid or None,
-            run_session_bid=self.run_session_bid,
-            run_event_seq=seq,
-            content=retire_element,
         )
 
     def _build_audio_patch_element(
@@ -391,34 +409,12 @@ class ListenElementRunStreamMixin:
             return
         meta = self._load_block_meta(state.generated_block_bid)
         for stream_state in state.stream_elements.values():
-            seq = self._next_seq()
-            fixed_is_new = _mdflow_new_stream_is_new(stream_state.element_type)
-            retire_element = ElementDTO(
-                event_type="element",
-                element_bid=stream_state.element_bid,
+            yield self._make_retire_element_message(
                 generated_block_bid=state.generated_block_bid,
+                element_bid=stream_state.element_bid,
                 element_index=stream_state.element_index,
                 role=meta.role,
                 element_type=stream_state.element_type,
-                element_type_code=_element_type_code(stream_state.element_type),
-                change_type=_change_type_for_element(stream_state.element_type),
-                target_element_bid=None if fixed_is_new else stream_state.element_bid,
-                is_new=fixed_is_new,
-                is_marker=_default_is_marker(stream_state.element_type),
-                is_renderable=False,
-                is_navigable=0,
-                is_final=True,
-                content_text="",
-                run_session_bid=self.run_session_bid,
-                run_event_seq=seq,
-            )
-            yield RunElementSSEMessageDTO(
-                type="element",
-                event_type="element",
-                generated_block_bid=state.generated_block_bid or None,
-                run_session_bid=self.run_session_bid,
-                run_event_seq=seq,
-                content=retire_element,
             )
 
     def _finalize_stream_elements(

@@ -154,7 +154,7 @@ class ListenElementRunPersistenceMixin:
             content=element,
         )
 
-    def _persist_element(self, element: ElementDTO) -> None:
+    def _prepare_runtime_element(self, element: ElementDTO) -> str:
         seq = self._next_seq()
         if element.element_type in {ElementType.ASK, ElementType.ANSWER}:
             element.is_new = bool(element.is_new)
@@ -172,13 +172,16 @@ class ListenElementRunPersistenceMixin:
             if not element.is_new and element.target_element_bid
             else element.element_bid
         )
+        return (
+            element.target_element_bid
+            if not element.is_new and element.target_element_bid
+            else element.element_bid
+        )
+
+    def _persist_element(self, element: ElementDTO) -> None:
+        base_element_bid = self._prepare_runtime_element(element)
         replace_same_element_bid = bool(element.is_new and element.element_bid)
         if (not element.is_new) or replace_same_element_bid:
-            base_element_bid = (
-                element.target_element_bid
-                if not element.is_new and element.target_element_bid
-                else element.element_bid
-            )
             (
                 LearnGeneratedElement.query.filter(
                     LearnGeneratedElement.run_session_bid == self.run_session_bid,
@@ -217,7 +220,31 @@ class ListenElementRunPersistenceMixin:
             is_final=element.is_final,
             content_text=element.content_text,
             payload=element.payload,
+            run_event_seq=element.run_event_seq,
+        )
+
+    def _build_non_element_message(
+        self,
+        *,
+        emitted_event_type: str,
+        content: str
+        | VariableUpdateDTO
+        | OutlineItemUpdateDTO
+        | AudioSegmentDTO
+        | AudioCompleteDTO,
+        generated_block_bid: str = "",
+        is_terminal: bool | None = None,
+        run_event_seq: int | None = None,
+    ) -> RunElementSSEMessageDTO:
+        seq = self._next_seq() if run_event_seq is None else run_event_seq
+        return RunElementSSEMessageDTO(
+            type=emitted_event_type,
+            event_type=emitted_event_type,
+            generated_block_bid=generated_block_bid or None,
+            run_session_bid=self.run_session_bid,
             run_event_seq=seq,
+            is_terminal=is_terminal,
+            content=content,
         )
 
     def _persisted_non_element_message(
@@ -251,14 +278,12 @@ class ListenElementRunPersistenceMixin:
             payload=None,
             run_event_seq=seq,
         )
-        return RunElementSSEMessageDTO(
-            type=emitted_event_type,
-            event_type=emitted_event_type,
-            generated_block_bid=generated_block_bid or None,
-            run_session_bid=self.run_session_bid,
-            run_event_seq=seq,
-            is_terminal=is_terminal,
+        return self._build_non_element_message(
+            emitted_event_type=emitted_event_type,
             content=content,
+            generated_block_bid=generated_block_bid,
+            is_terminal=is_terminal,
+            run_event_seq=seq,
         )
 
     def _non_element_message(

@@ -25,6 +25,9 @@ from flaskr.service.learn.listen_element_types import (
 
 
 class ListenElementRunSidecarMixin:
+    def _new_interaction_element_bid(self) -> str:
+        return _new_element_bid(self.app)
+
     def _resolve_ask_element_bid_for_block(
         self,
         generated_block_bid: str,
@@ -248,18 +251,27 @@ class ListenElementRunSidecarMixin:
             audio_segments=audio_segments,
         )
 
-    def _handle_interaction(
-        self, event: RunMarkdownFlowDTO
-    ) -> Generator[RunElementSSEMessageDTO, None, None]:
-        generated_block_bid = event.generated_block_bid or ""
+    def _interaction_content_and_payload(
+        self, event: RunMarkdownFlowDTO, generated_block_bid: str
+    ) -> tuple[str, ElementPayloadDTO]:
         interaction_user_input = _load_interaction_user_input(generated_block_bid)
         payload = ElementPayloadDTO(audio=None, previous_visuals=[])
         if interaction_user_input:
             payload.user_input = interaction_user_input
+        return str(event.content or ""), payload
+
+    def _handle_interaction(
+        self, event: RunMarkdownFlowDTO
+    ) -> Generator[RunElementSSEMessageDTO, None, None]:
+        generated_block_bid = event.generated_block_bid or ""
+        content_text, payload = self._interaction_content_and_payload(
+            event,
+            generated_block_bid,
+        )
         self._max_element_index += 1
         element = ElementDTO(
             event_type="element",
-            element_bid=_new_element_bid(self.app),
+            element_bid=self._new_interaction_element_bid(),
             generated_block_bid=generated_block_bid,
             element_index=max(self._max_element_index, 0),
             role="ui",
@@ -270,7 +282,7 @@ class ListenElementRunSidecarMixin:
             is_marker=True,
             is_navigable=0,
             is_final=True,
-            content_text=str(event.content or ""),
+            content_text=content_text,
             payload=payload,
         )
         yield self._element_message(element)
