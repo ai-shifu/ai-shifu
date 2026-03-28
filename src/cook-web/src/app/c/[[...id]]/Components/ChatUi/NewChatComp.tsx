@@ -97,7 +97,14 @@ export const NewChatComponents = ({
   // });
 
   const [showScrollDown, setShowScrollDown] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useState(false);
   const listenTtsToastShownRef = useRef(false);
+  const listenFeedbackReadyTimerRef = useRef<number | null>(null);
+  const [listenPlaybackState, setListenPlaybackState] = useState({
+    isAudioPlaying: false,
+    isAudioSequenceActive: false,
+  });
+  const [isListenFeedbackReady, setIsListenFeedbackReady] = useState(false);
 
   const scrollToBottom = useCallback(() => {
     chatBoxBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -142,6 +149,7 @@ export const NewChatComponents = ({
       }
 
       const shouldShow = containers.some(container => !isNearBottom(container));
+      setIsAtBottom(!shouldShow);
       setShowScrollDown(shouldShow);
     });
   }, [isNearBottom, mobileStyle]);
@@ -165,6 +173,9 @@ export const NewChatComponents = ({
   const isListenModeActive = isListenMode && isListenModeAvailable;
   const shouldShowAudioAction = previewMode || isListenModeActive;
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
+  const isListenPlaybackBusy =
+    listenPlaybackState.isAudioPlaying ||
+    listenPlaybackState.isAudioSequenceActive;
 
   const onPayModalOpen = useCallback(() => {
     openPayModal();
@@ -253,6 +264,8 @@ export const NewChatComponents = ({
     updateSelectedLesson,
     getNextLessonId,
     scrollToLesson,
+    shouldPromptLessonFeedback:
+      isAtBottom && (!isListenModeActive || isListenFeedbackReady),
     // scrollToBottom,
     showOutputInProgressToast,
     onPayModalOpen,
@@ -264,6 +277,39 @@ export const NewChatComponents = ({
     }
     onListenPlayerVisibilityChange?.(false);
   }, [isListenModeActive, isLoading, onListenPlayerVisibilityChange]);
+
+  useEffect(() => {
+    setIsAtBottom(false);
+  }, [lessonId]);
+
+  useEffect(() => {
+    if (listenFeedbackReadyTimerRef.current !== null) {
+      window.clearTimeout(listenFeedbackReadyTimerRef.current);
+      listenFeedbackReadyTimerRef.current = null;
+    }
+
+    if (!isListenModeActive) {
+      setIsListenFeedbackReady(true);
+      return;
+    }
+
+    if (isLoading || isListenPlaybackBusy) {
+      setIsListenFeedbackReady(false);
+      return;
+    }
+
+    listenFeedbackReadyTimerRef.current = window.setTimeout(() => {
+      setIsListenFeedbackReady(true);
+      listenFeedbackReadyTimerRef.current = null;
+    }, 1200);
+
+    return () => {
+      if (listenFeedbackReadyTimerRef.current !== null) {
+        window.clearTimeout(listenFeedbackReadyTimerRef.current);
+        listenFeedbackReadyTimerRef.current = null;
+      }
+    };
+  }, [isListenModeActive, isLoading, isListenPlaybackBusy, lessonId]);
 
   const listenModeItems = useMemo(() => {
     if (!isListenModeActive || !mobileStyle) {
@@ -596,6 +642,7 @@ export const NewChatComponents = ({
               onRequestAudioForBlock={requestAudioForBlock}
               onSend={memoizedOnSend}
               onPlayerVisibilityChange={onListenPlayerVisibilityChange}
+              onPlaybackStateChange={setListenPlaybackState}
             />
           )
         ) : (

@@ -481,7 +481,11 @@ export const ShifuProvider = ({
     setProfileItemDefinations(list);
   };
 
-  const remapOutlineTree = (items: any): Outline[] => {
+  const remapOutlineTree = (
+    items: any,
+    parentBid = '',
+    depth = 0,
+  ): Outline[] => {
     return items.map((item: any) => {
       return {
         id: item.bid,
@@ -489,10 +493,29 @@ export const ShifuProvider = ({
         is_hidden: item.is_hidden,
         name: item.name,
         bid: item.bid,
+        depth,
+        parent_bid: item.parent_bid ?? parentBid,
         position: item.position,
-        children: remapOutlineTree(item.children),
+        children: remapOutlineTree(item.children || [], item.bid, depth + 1),
       };
     });
+  };
+
+  const findOutlineByBid = (
+    nodes: Outline[],
+    targetBid: string,
+  ): Outline | null => {
+    for (const node of nodes) {
+      if (node.bid === targetBid) {
+        return node;
+      }
+      const foundNode = findOutlineByBid(node.children || [], targetBid);
+      if (foundNode) {
+        return foundNode;
+      }
+    }
+
+    return null;
   };
 
   const loadMdflow = async (outlineId: string, shifuId: string) => {
@@ -657,9 +680,10 @@ export const ShifuProvider = ({
 
   const loadChapters = async (
     shifuId: string,
-    options?: { autoSelectFirstLesson?: boolean },
+    options?: { autoSelectFirstLesson?: boolean; preferredLessonBid?: string },
   ) => {
     const autoSelectFirstLesson = options?.autoSelectFirstLesson ?? true;
+    const preferredLessonBid = options?.preferredLessonBid?.trim() || '';
     try {
       setIsLoading(true);
       setError(null);
@@ -669,17 +693,21 @@ export const ShifuProvider = ({
       ]);
       setCurrentShifu(normalizeShifuDetail(shifuInfo) as Shifu | null);
       const list = remapOutlineTree(chaptersData);
-      if (autoSelectFirstLesson && list.length > 0) {
+      const preferredLessonNode = preferredLessonBid
+        ? findOutlineByBid(list, preferredLessonBid)
+        : null;
+
+      if (preferredLessonNode && (preferredLessonNode.depth || 0) > 0) {
+        internalSetCurrentNode(preferredLessonNode);
+        await loadMdflow(preferredLessonNode.bid, shifuId);
+      } else if (autoSelectFirstLesson && list.length > 0) {
         // Find the first lesson to select by default
         const firstLesson = list.find(
           chapter => chapter.children && chapter.children.length > 0,
         )?.children?.[0];
 
         if (firstLesson) {
-          internalSetCurrentNode({
-            ...firstLesson,
-            depth: 1,
-          });
+          internalSetCurrentNode(firstLesson);
           await loadMdflow(firstLesson.bid, shifuId);
           // await loadBlocks(firstLesson.bid, shifuId);
         }
