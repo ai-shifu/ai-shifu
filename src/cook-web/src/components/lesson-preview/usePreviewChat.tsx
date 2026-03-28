@@ -595,7 +595,9 @@ export function usePreviewChat() {
         : ChatContentItemType.CONTENT;
 
       setTrackedContentList(prev => {
-        const nextList = prev.filter(item => item.generated_block_bid !== 'loading');
+        const nextList = prev.filter(
+          item => item.generated_block_bid !== 'loading',
+        );
         const contentToRender =
           elementType === ELEMENT_TYPE.HTML
             ? elementContent
@@ -633,7 +635,9 @@ export function usePreviewChat() {
             : '',
         };
 
-        const hitIndex = nextList.findIndex(item => item.element_bid === itemBid);
+        const hitIndex = nextList.findIndex(
+          item => item.element_bid === itemBid,
+        );
         if (hitIndex > -1) {
           const updatedList = [...nextList];
           const previousItem = updatedList[hitIndex];
@@ -652,11 +656,7 @@ export function usePreviewChat() {
         tryAutoSubmitInteractionRef.current(itemBid, elementContent);
       }
     },
-    [
-      buildAutoSendParams,
-      parseInteractionBlock,
-      setTrackedContentList,
-    ],
+    [buildAutoSendParams, parseInteractionBlock, setTrackedContentList],
   );
 
   const handlePayload = useCallback(
@@ -666,7 +666,9 @@ export function usePreviewChat() {
         if (!normalizedPayload) {
           return;
         }
-        const response = JSON.parse(normalizedPayload) as PreviewSseResponseData;
+        const response = JSON.parse(
+          normalizedPayload,
+        ) as PreviewSseResponseData;
         const responseType =
           typeof response.type === 'string'
             ? response.type
@@ -678,7 +680,8 @@ export function usePreviewChat() {
           (typeof response.generated_block_bid === 'string'
             ? response.generated_block_bid
             : '') ||
-          (payloadObject && typeof payloadObject.generated_block_bid === 'string'
+          (payloadObject &&
+          typeof payloadObject.generated_block_bid === 'string'
             ? payloadObject.generated_block_bid
             : '');
         console.log('response', response);
@@ -710,7 +713,8 @@ export function usePreviewChat() {
               : null;
 
           setTrackedContentList((prev: ChatContentItem[]) => {
-            const currentBlockBid = blockId || currentContentIdRef.current || '';
+            const currentBlockBid =
+              blockId || currentContentIdRef.current || '';
             if (!currentBlockBid) {
               return prev;
             }
@@ -753,7 +757,8 @@ export function usePreviewChat() {
                 ...updatedList[hitIndex],
                 ...interactionBlock,
                 user_input:
-                  interactionBlock.user_input || updatedList[hitIndex].user_input,
+                  interactionBlock.user_input ||
+                  updatedList[hitIndex].user_input,
               };
               return appendLikeStatusIfMissing(updatedList, currentBlockBid);
             }
@@ -761,7 +766,8 @@ export function usePreviewChat() {
             nextList = [...nextList, interactionBlock];
             return appendLikeStatusIfMissing(nextList, currentBlockBid);
           });
-          const interactionBlockBid = blockId || currentContentIdRef.current || '';
+          const interactionBlockBid =
+            blockId || currentContentIdRef.current || '';
           if (interactionBlockBid) {
             tryAutoSubmitInteractionRef.current(
               interactionBlockBid,
@@ -854,7 +860,8 @@ export function usePreviewChat() {
           });
         } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.ERROR) {
           const errorMessage =
-            resolveResponseStringPayload(response) || t('module.preview.llmError');
+            resolveResponseStringPayload(response) ||
+            t('module.preview.llmError');
           toast({
             title: t('module.preview.llmError'),
             description: errorMessage,
