@@ -968,6 +968,11 @@ class PreviewElementizationTests(unittest.TestCase):
         self.assertFalse(element_messages[0].content.is_final)
         self.assertEqual(element_messages[-1].content.element_type, ElementType.TEXT)
         self.assertTrue(element_messages[-1].content.is_final)
+        done_messages = [
+            item for item in messages if item.type == GeneratedType.DONE.value
+        ]
+        self.assertEqual(len(done_messages), 2)
+        self.assertFalse(done_messages[0].is_terminal)
         self.assertEqual(messages[-1].type, GeneratedType.DONE.value)
         self.assertTrue(messages[-1].is_terminal)
 
@@ -1009,6 +1014,11 @@ class PreviewElementizationTests(unittest.TestCase):
         self.assertGreaterEqual(len(element_messages), 2)
         self.assertEqual(content_chunks, ["Visual caption"])
         self.assertEqual(element_messages[0].content.content_text, "Visual caption")
+        done_messages = [
+            item for item in messages if item.type == GeneratedType.DONE.value
+        ]
+        self.assertEqual(len(done_messages), 2)
+        self.assertFalse(done_messages[0].is_terminal)
         self.assertEqual(messages[-1].type, GeneratedType.DONE.value)
         self.assertTrue(messages[-1].is_terminal)
 
@@ -1055,6 +1065,11 @@ class PreviewElementizationTests(unittest.TestCase):
         self.assertGreaterEqual(len(element_messages), 2)
         self.assertEqual(content_chunks, ["Validation error"])
         self.assertEqual(element_messages[0].content.content_text, "Validation error")
+        done_messages = [
+            item for item in messages if item.type == GeneratedType.DONE.value
+        ]
+        self.assertEqual(len(done_messages), 2)
+        self.assertFalse(done_messages[0].is_terminal)
         self.assertEqual(messages[-1].type, GeneratedType.DONE.value)
         self.assertTrue(messages[-1].is_terminal)
 
@@ -1093,6 +1108,11 @@ class PreviewElementizationTests(unittest.TestCase):
         self.assertEqual(interaction.role, "ui")
         self.assertEqual(interaction.content_text, "Please choose one")
         self.assertEqual(content_chunks, [])
+        done_messages = [
+            item for item in messages if item.type == GeneratedType.DONE.value
+        ]
+        self.assertEqual(len(done_messages), 2)
+        self.assertFalse(done_messages[0].is_terminal)
         self.assertEqual(messages[-1].type, GeneratedType.DONE.value)
         self.assertTrue(messages[-1].is_terminal)
 

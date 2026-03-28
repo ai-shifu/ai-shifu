@@ -819,6 +819,12 @@ class RunScriptPreviewContextV2:
         yield RunMarkdownFlowDTO(
             outline_bid=outline_bid,
             generated_block_bid=generated_block_bid,
+            type=GeneratedType.BREAK,
+            content="",
+        )
+        yield RunMarkdownFlowDTO(
+            outline_bid=outline_bid,
+            generated_block_bid=generated_block_bid,
             type=GeneratedType.DONE,
             content="",
         )
