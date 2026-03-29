@@ -42,19 +42,19 @@ def require_api_key(f):
 
 def _extract_params():
     """Extract and validate common request parameters."""
-    payload = request.get_json(silent=True) or {}
-    phone = str(payload.get("phone", "")).strip()
+    payload = request.get_json(silent=True) or request.form.to_dict() or {}
     course_id = str(payload.get("course_id", "")).strip()
-    contact_type = str(payload.get("contact_type", "phone")).strip().lower()
+    auth_id = str(payload.get("auth_id", "")).strip()
+    auth_type = str(payload.get("auth_type", "phone")).strip().lower()
 
-    if not phone:
-        raise_param_error("phone")
     if not course_id:
         raise_param_error("course_id")
-    if contact_type not in ("phone", "email"):
-        raise_param_error("contact_type")
+    if not auth_id:
+        raise_param_error("auth_id")
+    if auth_type not in ("phone", "email"):
+        raise_param_error("auth_type")
 
-    return phone, course_id, contact_type
+    return auth_id, course_id, auth_type
 
 
 def register_open_api_handler(app: Flask, path_prefix: str) -> Flask:
@@ -62,10 +62,10 @@ def register_open_api_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     @require_api_key
     def open_api_query():
-        phone, course_id, contact_type = _extract_params()
+        auth_id, course_id, auth_type = _extract_params()
         owner_bid = request.open_api_user_bid
         result = open_api_query_authorization(
-            app, owner_bid, phone, course_id, contact_type
+            app, owner_bid, auth_id, course_id, auth_type
         )
         return make_common_response(result)
 
@@ -73,10 +73,10 @@ def register_open_api_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     @require_api_key
     def open_api_grant():
-        phone, course_id, contact_type = _extract_params()
+        auth_id, course_id, auth_type = _extract_params()
         owner_bid = request.open_api_user_bid
         result = open_api_grant_authorization(
-            app, owner_bid, phone, course_id, contact_type
+            app, owner_bid, auth_id, course_id, auth_type
         )
         return make_common_response(result)
 
@@ -84,10 +84,10 @@ def register_open_api_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     @require_api_key
     def open_api_revoke():
-        phone, course_id, contact_type = _extract_params()
+        auth_id, course_id, auth_type = _extract_params()
         owner_bid = request.open_api_user_bid
         result = open_api_revoke_authorization(
-            app, owner_bid, phone, course_id, contact_type
+            app, owner_bid, auth_id, course_id, auth_type
         )
         return make_common_response(result)
 

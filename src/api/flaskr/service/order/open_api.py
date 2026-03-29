@@ -30,18 +30,16 @@ def verify_course_ownership(app: Flask, owner_bid: str, course_id: str) -> None:
 def open_api_query_authorization(
     app: Flask,
     owner_bid: str,
-    phone: str,
+    auth_id: str,
     course_id: str,
-    contact_type: str = "phone",
+    auth_type: str = "phone",
 ) -> Dict[str, Any]:
     """Check if a user (by phone/email) has active authorization for a course."""
     with app.app_context():
         verify_course_ownership(app, owner_bid, course_id)
-        normalized = normalize_contact_identifier(phone, contact_type)
+        normalized = normalize_contact_identifier(auth_id, auth_type)
 
-        aggregate = load_user_aggregate_by_identifier(
-            normalized, providers=[contact_type]
-        )
+        aggregate = load_user_aggregate_by_identifier(normalized, providers=[auth_type])
         if not aggregate:
             return {"authorized": False, "order_bid": None}
 
@@ -64,9 +62,9 @@ def open_api_query_authorization(
 def open_api_grant_authorization(
     app: Flask,
     owner_bid: str,
-    phone: str,
+    auth_id: str,
     course_id: str,
-    contact_type: str = "phone",
+    auth_type: str = "phone",
 ) -> Dict[str, Any]:
     """Grant course authorization (create manual order).
 
@@ -77,10 +75,8 @@ def open_api_grant_authorization(
     with app.app_context():
         verify_course_ownership(app, owner_bid, course_id)
 
-        normalized = normalize_contact_identifier(phone, contact_type)
-        aggregate = load_user_aggregate_by_identifier(
-            normalized, providers=[contact_type]
-        )
+        normalized = normalize_contact_identifier(auth_id, auth_type)
+        aggregate = load_user_aggregate_by_identifier(normalized, providers=[auth_type])
         if aggregate:
             existing_order = (
                 Order.query.filter(
@@ -96,7 +92,7 @@ def open_api_grant_authorization(
                 return {"order_bid": existing_order.order_bid}
 
         result = import_activation_order(
-            app, phone, course_id, contact_type=contact_type
+            app, auth_id, course_id, contact_type=auth_type
         )
         return result
 
@@ -104,18 +100,16 @@ def open_api_grant_authorization(
 def open_api_revoke_authorization(
     app: Flask,
     owner_bid: str,
-    phone: str,
+    auth_id: str,
     course_id: str,
-    contact_type: str = "phone",
+    auth_type: str = "phone",
 ) -> Dict[str, Any]:
     """Revoke course authorization by setting order status to REFUND (503)."""
     with app.app_context():
         verify_course_ownership(app, owner_bid, course_id)
-        normalized = normalize_contact_identifier(phone, contact_type)
+        normalized = normalize_contact_identifier(auth_id, auth_type)
 
-        aggregate = load_user_aggregate_by_identifier(
-            normalized, providers=[contact_type]
-        )
+        aggregate = load_user_aggregate_by_identifier(normalized, providers=[auth_type])
         if not aggregate:
             raise_error("server.openapi.noActiveAuthorization")
 
