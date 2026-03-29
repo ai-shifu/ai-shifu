@@ -139,10 +139,9 @@ const resolveResponseStringPayload = (
 const resolveDoneIsTerminal = (
   response: PreviewSseResponseData,
 ): boolean | null => {
-  const topLevelFlag = readBooleanField(
-    response as Record<string, unknown>,
-    ['is_terminal'],
-  );
+  const topLevelFlag = readBooleanField(response as Record<string, unknown>, [
+    'is_terminal',
+  ]);
   if (topLevelFlag !== null) {
     return topLevelFlag;
   }
@@ -750,8 +749,7 @@ export function usePreviewChat() {
           item => item.generated_block_bid !== 'loading',
         );
         latestActionableItem = resolveLatestPreviewActionableItem(updatedList);
-        const latestActionableBid =
-          resolvePreviewItemBid(latestActionableItem);
+        const latestActionableBid = resolvePreviewItemBid(latestActionableItem);
         if (latestActionableBid) {
           updatedList = appendLikeStatusIfMissing(
             updatedList,
@@ -1255,9 +1253,8 @@ export function usePreviewChat() {
             doneTerminalStateRef.current !== true &&
             latestActionableItem?.type !== ChatContentItemType.INTERACTION;
           if (shouldContinuePreview) {
-            const didContinue = continuePreviewFromLatestStateRef.current(
-              latestActionableItem,
-            );
+            const didContinue =
+              continuePreviewFromLatestStateRef.current(latestActionableItem);
             if (didContinue) {
               return;
             }
@@ -1276,12 +1273,7 @@ export function usePreviewChat() {
         setIsLoading(false);
       }
     },
-    [
-      finalizePreviewItems,
-      handlePayload,
-      resolveBaseUrl,
-      stopPreview,
-    ],
+    [finalizePreviewItems, handlePayload, resolveBaseUrl, stopPreview],
   );
 
   const continuePreviewFromLatestState = useCallback(
