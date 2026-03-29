@@ -31,6 +31,7 @@ from flaskr.service.learn.listen_element_payloads import (
     _payload_from_stream_element,
     _pick_default_audio_position,
     _prepare_audio_segments_for_element,
+    _upsert_audio_segment_payload,
 )
 from flaskr.service.learn.listen_element_run_state import (
     BlockState,
@@ -551,8 +552,9 @@ class ListenElementRunStreamMixin:
                     position=position,
                 )
             segment_data = _audio_segment_payload(content)
-            state.audio_segments_by_position.setdefault(position, []).append(
-                segment_data
+            state.audio_segments_by_position[position] = _upsert_audio_segment_payload(
+                state.audio_segments_by_position.get(position, []),
+                segment_data,
             )
             ask_element_bid = self._resolve_ask_element_bid_for_block(
                 generated_block_bid,

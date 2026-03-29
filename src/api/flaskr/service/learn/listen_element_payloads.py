@@ -97,6 +97,57 @@ def _audio_segment_payload(audio_segment: AudioSegmentDTO) -> dict[str, Any]:
     }
 
 
+def _upsert_audio_segment_payload(
+    audio_segments: list[dict[str, Any]] | None,
+    incoming_segment: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    normalized = _clone_audio_segments(audio_segments)
+    if not isinstance(incoming_segment, dict):
+        return normalized
+
+    incoming_position = int(incoming_segment.get("position", 0) or 0)
+    incoming_index = int(incoming_segment.get("segment_index", 0) or 0)
+    incoming_audio_data = str(incoming_segment.get("audio_data", "") or "")
+    incoming_duration_ms = int(incoming_segment.get("duration_ms", 0) or 0)
+    incoming_is_final = bool(incoming_segment.get("is_final", False))
+
+    for idx, existing in enumerate(normalized):
+        existing_position = int(existing.get("position", 0) or 0)
+        existing_index = int(existing.get("segment_index", 0) or 0)
+        if existing_position != incoming_position or existing_index != incoming_index:
+            continue
+
+        merged = dict(existing)
+        merged["position"] = incoming_position
+        merged["segment_index"] = incoming_index
+        merged["audio_data"] = incoming_audio_data or str(
+            existing.get("audio_data", "") or ""
+        )
+        merged["duration_ms"] = int(
+            incoming_duration_ms or existing.get("duration_ms", 0) or 0
+        )
+        merged["is_final"] = bool(existing.get("is_final", False) or incoming_is_final)
+        normalized[idx] = merged
+        return normalized
+
+    normalized.append(
+        {
+            "position": incoming_position,
+            "segment_index": incoming_index,
+            "audio_data": incoming_audio_data,
+            "duration_ms": incoming_duration_ms,
+            "is_final": incoming_is_final,
+        }
+    )
+    normalized.sort(
+        key=lambda item: (
+            int(item.get("position", 0) or 0),
+            int(item.get("segment_index", 0) or 0),
+        )
+    )
+    return normalized
+
+
 def _clone_audio_segments(
     audio_segments: list[dict[str, Any]] | None,
 ) -> list[dict[str, Any]]:

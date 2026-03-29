@@ -3855,6 +3855,171 @@ def test_html_only_stream_does_not_absorb_audio_without_av_contract(app):
         assert all(row.audio_url == "" for row in persisted_html_rows)
 
 
+def test_duplicate_audio_segment_events_are_deduplicated_in_run_state(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.learn_dtos import (
+        AudioCompleteDTO,
+        AudioSegmentDTO,
+        ElementType,
+        GeneratedType,
+        RunMarkdownFlowDTO,
+    )
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.models import (
+        LearnGeneratedBlock,
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+
+    user_bid = "user-dup-audio-segment"
+    shifu_bid = "shifu-dup-audio-segment"
+    outline_bid = "outline-dup-audio-segment"
+    progress_bid = "progress-dup-audio-segment"
+    generated_block_bid = "generated-dup-audio-segment"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        block = LearnGeneratedBlock(
+            generated_block_bid=generated_block_bid,
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            block_bid="block-dup-audio-segment",
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            type=0,
+            role=ROLE_TEACHER,
+            generated_content="",
+            position=0,
+            block_content_conf="",
+            status=1,
+        )
+        db.session.add_all([progress, block])
+        db.session.commit()
+
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+        )
+
+        duplicate_segment = AudioSegmentDTO(
+            position=0,
+            stream_element_number=1,
+            stream_element_type="text",
+            segment_index=0,
+            audio_data="segment-0",
+            duration_ms=180,
+            is_final=False,
+        )
+
+        events = [
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content="Narration\n",
+            ).set_mdflow_stream_parts([("Narration\n", "text", 1)]),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_SEGMENT,
+                content=duplicate_segment,
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_SEGMENT,
+                content=AudioSegmentDTO(
+                    position=0,
+                    stream_element_number=1,
+                    stream_element_type="text",
+                    segment_index=0,
+                    audio_data="segment-0",
+                    duration_ms=180,
+                    is_final=False,
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.AUDIO_COMPLETE,
+                content=AudioCompleteDTO(
+                    audio_url="https://example.com/segment-0.mp3",
+                    audio_bid="audio-segment-0",
+                    duration_ms=180,
+                    position=0,
+                    stream_element_number=1,
+                    stream_element_type="text",
+                ),
+            ),
+            RunMarkdownFlowDTO(
+                outline_bid=outline_bid,
+                generated_block_bid=generated_block_bid,
+                type=GeneratedType.BREAK,
+                content="",
+            ),
+        ]
+
+        streamed = list(adapter.process(events))
+        element_events = [item.content for item in streamed if item.type == "element"]
+        text_final = next(
+            item
+            for item in element_events
+            if item.element_type == ElementType.TEXT and item.is_final is True
+        )
+
+        assert text_final.audio_segments == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "segment-0",
+                "duration_ms": 180,
+                "is_final": True,
+            }
+        ]
+
+        persisted_row = (
+            LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.generated_block_bid == generated_block_bid,
+                LearnGeneratedElement.event_type == "element",
+                LearnGeneratedElement.element_type == ElementType.TEXT.value,
+                LearnGeneratedElement.deleted == 0,
+                LearnGeneratedElement.status == 1,
+                LearnGeneratedElement.is_final == 1,
+            )
+            .order_by(LearnGeneratedElement.run_event_seq.desc())
+            .first()
+        )
+
+        assert persisted_row is not None
+        assert json.loads(persisted_row.audio_segments) == [
+            {
+                "position": 0,
+                "segment_index": 0,
+                "audio_data": "",
+                "duration_ms": 180,
+                "is_final": True,
+            }
+        ]
+
+
 def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(app):
     _require_app(app)
 
