@@ -1,4 +1,4 @@
-"""Open API service functions for external partner course authorization."""
+"""Open API service functions for external partner course enrollment."""
 
 from __future__ import annotations
 
@@ -27,21 +27,23 @@ def verify_course_ownership(app: Flask, owner_bid: str, course_id: str) -> None:
         raise_error("server.openapi.courseOwnershipRequired")
 
 
-def open_api_query_authorization(
+def open_api_query_enrollment(
     app: Flask,
     owner_bid: str,
-    auth_id: str,
+    enroll_id: str,
     course_id: str,
-    auth_type: str = "phone",
+    enroll_id_type: str = "phone",
 ) -> Dict[str, Any]:
-    """Check if a user (by phone/email) has active authorization for a course."""
+    """Check if a user (by phone/email) has active enrollment for a course."""
     with app.app_context():
         verify_course_ownership(app, owner_bid, course_id)
-        normalized = normalize_contact_identifier(auth_id, auth_type)
+        normalized = normalize_contact_identifier(enroll_id, enroll_id_type)
 
-        aggregate = load_user_aggregate_by_identifier(normalized, providers=[auth_type])
+        aggregate = load_user_aggregate_by_identifier(
+            normalized, providers=[enroll_id_type]
+        )
         if not aggregate:
-            return {"authorized": False, "order_bid": None}
+            return {"enrolled": False, "order_bid": None}
 
         order = (
             Order.query.filter(
@@ -55,28 +57,30 @@ def open_api_query_authorization(
         )
 
         if order:
-            return {"authorized": True, "order_bid": order.order_bid}
-        return {"authorized": False, "order_bid": None}
+            return {"enrolled": True, "order_bid": order.order_bid}
+        return {"enrolled": False, "order_bid": None}
 
 
-def open_api_grant_authorization(
+def open_api_grant_enrollment(
     app: Flask,
     owner_bid: str,
-    auth_id: str,
+    enroll_id: str,
     course_id: str,
-    auth_type: str = "phone",
+    enroll_id_type: str = "phone",
 ) -> Dict[str, Any]:
-    """Grant course authorization (create manual order).
+    """Grant course enrollment (create manual order).
 
-    If the user already has an active authorization the existing order is
+    If the user already has an active enrollment the existing order is
     returned without creating a duplicate.  If the user does not yet exist,
     a new account is created via import_activation_order.
     """
     with app.app_context():
         verify_course_ownership(app, owner_bid, course_id)
 
-        normalized = normalize_contact_identifier(auth_id, auth_type)
-        aggregate = load_user_aggregate_by_identifier(normalized, providers=[auth_type])
+        normalized = normalize_contact_identifier(enroll_id, enroll_id_type)
+        aggregate = load_user_aggregate_by_identifier(
+            normalized, providers=[enroll_id_type]
+        )
         if aggregate:
             existing_order = (
                 Order.query.filter(
@@ -92,24 +96,26 @@ def open_api_grant_authorization(
                 return {"order_bid": existing_order.order_bid}
 
         result = import_activation_order(
-            app, auth_id, course_id, contact_type=auth_type
+            app, enroll_id, course_id, contact_type=enroll_id_type
         )
         return result
 
 
-def open_api_revoke_authorization(
+def open_api_revoke_enrollment(
     app: Flask,
     owner_bid: str,
-    auth_id: str,
+    enroll_id: str,
     course_id: str,
-    auth_type: str = "phone",
+    enroll_id_type: str = "phone",
 ) -> Dict[str, Any]:
-    """Revoke course authorization by setting order status to REFUND (503)."""
+    """Revoke course enrollment by setting order status to REFUND (503)."""
     with app.app_context():
         verify_course_ownership(app, owner_bid, course_id)
-        normalized = normalize_contact_identifier(auth_id, auth_type)
+        normalized = normalize_contact_identifier(enroll_id, enroll_id_type)
 
-        aggregate = load_user_aggregate_by_identifier(normalized, providers=[auth_type])
+        aggregate = load_user_aggregate_by_identifier(
+            normalized, providers=[enroll_id_type]
+        )
         if not aggregate:
             raise_error("server.openapi.noActiveAuthorization")
 
