@@ -1,0 +1,8 @@
+{
+  "__namespace__": "server.openapi",
+  "__flat__": {
+    "courseOwnershipRequired": "只能管理自己创建的课程授权",
+    "invalidApiKey": "无效的 API Key 或用户 ID",
+    "noActiveAuthorization": "未找到该用户和课程的有效授权"
+  }
+}

@@ -155,6 +155,13 @@ class UserInfo(db.Model):
         comment="Creator flag: 0=regular user, 1=creator",
         index=True,
     )
+    api_key = Column(
+        String(64),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Open API key for external partner integration",
+    )
     deleted = Column(
         SmallInteger,
         nullable=False,

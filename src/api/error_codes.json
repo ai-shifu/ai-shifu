@@ -71,5 +71,9 @@
   "server.api.alibabaCloudNotConfigured": 9001,
   "server.scenario.noPermission": 9002,
 
-  "server.shifu.noPermission": 401
+  "server.shifu.noPermission": 401,
+
+  "server.openapi.invalidApiKey": 10001,
+  "server.openapi.noActiveAuthorization": 10002,
+  "server.openapi.courseOwnershipRequired": 10003
 }
