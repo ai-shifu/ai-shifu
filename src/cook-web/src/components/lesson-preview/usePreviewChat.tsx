@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { SSE } from 'sse.js';
 import { v4 as uuidv4 } from 'uuid';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
@@ -73,6 +74,7 @@ type PreviewSseResponseData = {
   content?: unknown;
   data?: unknown;
   generated_block_bid?: unknown;
+  is_terminal?: unknown;
 };
 
 const parseObjectPayload = <T extends Record<string, unknown>>(
@@ -132,6 +134,23 @@ const resolveResponseStringPayload = (
       ? objectPayload.mdflow
       : '';
   return mdflow || '';
+};
+
+const resolveDoneIsTerminal = (
+  response: PreviewSseResponseData,
+): boolean | null => {
+  const topLevelFlag = readBooleanField(
+    response as Record<string, unknown>,
+    ['is_terminal'],
+  );
+  if (topLevelFlag !== null) {
+    return topLevelFlag;
+  }
+  const payloadObject = resolveResponsePayload(response);
+  if (!payloadObject) {
+    return null;
+  }
+  return readBooleanField(payloadObject, ['is_terminal']);
 };
 
 const readPayloadField = (
@@ -388,6 +407,7 @@ export function usePreviewChat() {
   const sseRef = useRef<any>(null);
   const ttsSseRef = useRef<Record<string, any>>({});
   const isStreamingRef = useRef(false);
+  const doneTerminalStateRef = useRef<boolean | null>(null);
   const [variablesSnapshot, setVariablesSnapshot] =
     useState<PreviewVariablesMap>({});
   const interactionParserRef = useRef(createInteractionParser());
@@ -395,6 +415,9 @@ export function usePreviewChat() {
   const tryAutoSubmitInteractionRef = useRef<
     (blockId: string, content?: string | null) => void
   >(() => {});
+  const continuePreviewFromLatestStateRef = useRef<
+    (latestActionableItem?: ChatContentItem) => boolean
+  >(() => false);
   const resolveLatestMdflow = useCallback(() => {
     const latest = getCurrentMdflow?.();
     if (typeof latest === 'string') {
@@ -719,6 +742,28 @@ export function usePreviewChat() {
     [buildLikeStatusItem],
   );
 
+  const finalizePreviewItems = useCallback(() => {
+    let latestActionableItem: ChatContentItem | undefined;
+    flushSync(() => {
+      setTrackedContentList((prev: ChatContentItem[]) => {
+        let updatedList = [...prev].filter(
+          item => item.generated_block_bid !== 'loading',
+        );
+        latestActionableItem = resolveLatestPreviewActionableItem(updatedList);
+        const latestActionableBid =
+          resolvePreviewItemBid(latestActionableItem);
+        if (latestActionableBid) {
+          updatedList = appendLikeStatusIfMissing(
+            updatedList,
+            latestActionableBid,
+          );
+        }
+        return updatedList;
+      });
+    });
+    return latestActionableItem;
+  }, [appendLikeStatusIfMissing, setTrackedContentList]);
+
   const upsertElementPreviewItem = useCallback(
     (response: PreviewSseResponseData) => {
       const elementRecord = resolveElementPayload(response);
@@ -986,44 +1031,31 @@ export function usePreviewChat() {
                 : item,
             ),
           );
-        } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.TEXT_END) {
+        } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.DONE) {
+          const doneIsTerminal = resolveDoneIsTerminal(response);
+          const latestActionableItem = finalizePreviewItems();
+          const shouldContinuePreview =
+            latestActionableItem?.type !== ChatContentItemType.INTERACTION &&
+            (doneIsTerminal === false || doneIsTerminal === null);
+          doneTerminalStateRef.current = doneIsTerminal;
           currentContentIdRef.current = null;
           currentContentRef.current = '';
           currentStreamingElementBidRef.current = null;
           stopPreview();
-          setTrackedContentList((prev: ChatContentItem[]) => {
-            let updatedList = [...prev].filter(
-              item => item.generated_block_bid !== 'loading',
-            );
-
-            const latestActionableItem =
-              resolveLatestPreviewActionableItem(updatedList);
-
-            const latestActionableBid =
-              resolvePreviewItemBid(latestActionableItem);
-            if (latestActionableBid) {
-              updatedList = appendLikeStatusIfMissing(
-                updatedList,
-                latestActionableBid,
-              );
-            }
-
-            if (latestActionableItem?.type === ChatContentItemType.CONTENT) {
-              const nextIndex = (sseParams.current?.block_index || 0) + 1;
-              const totalBlocks = sseParams.current?.max_block_count;
-              if (
-                typeof totalBlocks !== 'number' ||
-                totalBlocks < 0 ||
-                nextIndex < totalBlocks
-              ) {
-                startPreview({
-                  ...sseParams.current,
-                  block_index: nextIndex,
-                });
-              }
-            }
-            return updatedList;
-          });
+          if (shouldContinuePreview) {
+            continuePreviewFromLatestStateRef.current(latestActionableItem);
+          }
+        } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.TEXT_END) {
+          const latestActionableItem = finalizePreviewItems();
+          const shouldContinuePreview =
+            latestActionableItem?.type !== ChatContentItemType.INTERACTION;
+          currentContentIdRef.current = null;
+          currentContentRef.current = '';
+          currentStreamingElementBidRef.current = null;
+          stopPreview();
+          if (shouldContinuePreview) {
+            continuePreviewFromLatestStateRef.current(latestActionableItem);
+          }
         } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.ERROR) {
           const errorMessage =
             resolveResponseStringPayload(response) ||
@@ -1080,6 +1112,7 @@ export function usePreviewChat() {
       buildAutoSendParams,
       ensureAudioItem,
       ensureContentItem,
+      finalizePreviewItems,
       parseInteractionBlock,
       setTrackedContentList,
       stopPreview,
@@ -1153,6 +1186,7 @@ export function usePreviewChat() {
       }
 
       stopPreview();
+      doneTerminalStateRef.current = null;
       const resolvedBaseUrl = await resolveBaseUrl();
       if (!resolvedBaseUrl) {
         setError('Missing API base URL');
@@ -1212,27 +1246,23 @@ export function usePreviewChat() {
           }
         });
         source.addEventListener('error', err => {
+          if (sseRef.current !== source) {
+            return;
+          }
           console.error('[preview sse error]', err);
-          const currentElementBid = currentStreamingElementBidRef.current;
-          if (currentElementBid) {
-            setTrackedContentList(prev => {
-              const nextList = prev.filter(
-                item => item.generated_block_bid !== 'loading',
-              );
-              const currentElementItem = nextList.find(
-                item =>
-                  item.element_bid === currentElementBid ||
-                  item.generated_block_bid === currentElementBid,
-              );
-              if (!isPreviewActionableItem(currentElementItem)) {
-                return nextList;
-              }
-              const currentItemBid = resolvePreviewItemBid(currentElementItem);
-              if (!currentItemBid) {
-                return nextList;
-              }
-              return appendLikeStatusIfMissing(nextList, currentItemBid);
-            });
+          const latestActionableItem = finalizePreviewItems();
+          const shouldContinuePreview =
+            doneTerminalStateRef.current !== true &&
+            latestActionableItem?.type !== ChatContentItemType.INTERACTION;
+          if (shouldContinuePreview) {
+            const didContinue = continuePreviewFromLatestStateRef.current(
+              latestActionableItem,
+            );
+            if (didContinue) {
+              return;
+            }
+            stopPreview();
+            return;
           }
           setError('Preview stream error');
           stopPreview();
@@ -1247,13 +1277,39 @@ export function usePreviewChat() {
       }
     },
     [
-      appendLikeStatusIfMissing,
+      finalizePreviewItems,
       handlePayload,
       resolveBaseUrl,
-      setTrackedContentList,
       stopPreview,
     ],
   );
+
+  const continuePreviewFromLatestState = useCallback(
+    (latestActionableItem?: ChatContentItem) => {
+      if (latestActionableItem?.type === ChatContentItemType.INTERACTION) {
+        return false;
+      }
+      const nextIndex = (sseParams.current?.block_index || 0) + 1;
+      const totalBlocks = sseParams.current?.max_block_count;
+      if (
+        typeof totalBlocks === 'number' &&
+        totalBlocks >= 0 &&
+        nextIndex >= totalBlocks
+      ) {
+        return false;
+      }
+      startPreview({
+        ...sseParams.current,
+        block_index: nextIndex,
+      });
+      return true;
+    },
+    [startPreview],
+  );
+
+  useEffect(() => {
+    continuePreviewFromLatestStateRef.current = continuePreviewFromLatestState;
+  }, [continuePreviewFromLatestState]);
 
   const updateContentListWithUserOperate = useCallback(
     (
