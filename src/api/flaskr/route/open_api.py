@@ -1,5 +1,6 @@
 """Open API routes for external partner course enrollment management."""
 
+import hmac
 from functools import wraps
 
 from flask import Flask, request
@@ -26,12 +27,9 @@ def require_api_key(f):
             raise_error("server.openapi.invalidApiKey")
 
         user = UserInfo.query.filter(
-            UserInfo.user_bid == user_uid,
-            UserInfo.api_key == api_key,
-            UserInfo.deleted == 0,
+            UserInfo.user_bid == user_uid, UserInfo.deleted == 0
         ).first()
-
-        if not user:
+        if not user or not hmac.compare_digest(user.api_key, api_key):
             raise_error("server.openapi.invalidApiKey")
 
         request.open_api_user_bid = user_uid

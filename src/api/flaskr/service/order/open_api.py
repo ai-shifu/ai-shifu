@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from flask import Flask
 
@@ -27,6 +27,20 @@ def verify_course_ownership(app: Flask, owner_bid: str, course_id: str) -> None:
         raise_error("server.openapi.courseOwnershipRequired")
 
 
+def _find_active_enrollment(user_bid: str, course_id: str) -> Optional[Order]:
+    """Find the latest active enrollment order for a user and course."""
+    return (
+        Order.query.filter(
+            Order.user_bid == user_bid,
+            Order.shifu_bid == course_id,
+            Order.status == ORDER_STATUS_SUCCESS,
+            Order.deleted == 0,
+        )
+        .order_by(Order.id.desc())
+        .first()
+    )
+
+
 def open_api_query_enrollment(
     app: Flask,
     owner_bid: str,
@@ -45,17 +59,7 @@ def open_api_query_enrollment(
         if not aggregate:
             return {"enrolled": False, "order_bid": None}
 
-        order = (
-            Order.query.filter(
-                Order.user_bid == aggregate.user_bid,
-                Order.shifu_bid == course_id,
-                Order.status == ORDER_STATUS_SUCCESS,
-                Order.deleted == 0,
-            )
-            .order_by(Order.id.desc())
-            .first()
-        )
-
+        order = _find_active_enrollment(aggregate.user_bid, course_id)
         if order:
             return {"enrolled": True, "order_bid": order.order_bid}
         return {"enrolled": False, "order_bid": None}
@@ -82,16 +86,7 @@ def open_api_grant_enrollment(
             normalized, providers=[enroll_id_type]
         )
         if aggregate:
-            existing_order = (
-                Order.query.filter(
-                    Order.user_bid == aggregate.user_bid,
-                    Order.shifu_bid == course_id,
-                    Order.status == ORDER_STATUS_SUCCESS,
-                    Order.deleted == 0,
-                )
-                .order_by(Order.id.desc())
-                .first()
-            )
+            existing_order = _find_active_enrollment(aggregate.user_bid, course_id)
             if existing_order:
                 return {"order_bid": existing_order.order_bid}
 
@@ -119,17 +114,7 @@ def open_api_revoke_enrollment(
         if not aggregate:
             raise_error("server.openapi.noActiveAuthorization")
 
-        order = (
-            Order.query.filter(
-                Order.user_bid == aggregate.user_bid,
-                Order.shifu_bid == course_id,
-                Order.status == ORDER_STATUS_SUCCESS,
-                Order.deleted == 0,
-            )
-            .order_by(Order.id.desc())
-            .first()
-        )
-
+        order = _find_active_enrollment(aggregate.user_bid, course_id)
         if not order:
             raise_error("server.openapi.noActiveAuthorization")
 
