@@ -23,6 +23,8 @@ description: 当处理听课模式的流式音频、buffering、TTS 请求门禁
 8. 统一分发层处理 `type/error` 或 `event_type/error`，立即弹出 destructive toast。
 9. 音频播放 icon 的可见性需受 `is_speakable` 控制：当 `is_speakable === false` 时不展示播放按钮。
 10. 处理 `audio_segment/audio_complete` 时禁止直接把 `Record<string, unknown>` 断言为目标类型，必须先做字段级归一化再写入 `upsertAudioSegment/upsertAudioComplete`。
+11. 用 Storybook 或 `markdown-flow-ui` 回放 `测试数据.json` 排查时，`elementList` 的组装路径必须和 `ai-shifu` 听课模式保持同构，禁止额外做 story 专用的音频归属重排补偿。
+12. 听课模式组装 `elementList` 时，若内容本身是 `<iframe data-tag="video" ...></iframe>` 形式的视频 iframe，即使后端 `element_type` 仍是通用类型，也要优先把 slide element 的 `type` 推断为 `video`。
 
 ## 备注
 

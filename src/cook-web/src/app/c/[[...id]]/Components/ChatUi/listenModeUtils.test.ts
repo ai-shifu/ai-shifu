@@ -1,6 +1,7 @@
 import type { ChatContentItem } from './useChatLogicHook';
 import {
   canRequestListenModeTtsForItem,
+  resolveListenSlideElementType,
   resolveListenSlideAudioSource,
   resolveListenModeTtsReadyElementBids,
 } from './listenModeUtils';
@@ -143,5 +144,17 @@ describe('listenModeUtils', () => {
     expect(resolved.audioUrl).toBe('https://legacy.example.com/audio.mp3');
     expect(resolved.audioSegments?.length).toBe(1);
     expect(resolved.audioSegments?.[0]?.audio_data).toBe('legacy-segment');
+  });
+
+  it('maps markdown video iframe content to video slide type', () => {
+    expect(
+      resolveListenSlideElementType(
+        createContentItem({
+          element_type: 'html',
+          content:
+            '<iframe data-tag="video" data-title="哔哩哔哩视频" data-url="春节的由来_哔哩哔哩_bilibili" class="w-full aspect-video rounded-lg border-0" src="https://player.bilibili.com/player.html?bvid=BV1x84y187yS&amp;autoplay=0" allowfullscreen="" allow="autoplay; encrypted-media"></iframe>',
+        }),
+      ),
+    ).toBe('video');
   });
 });

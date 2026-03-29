@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
-import { ELEMENT_TYPE } from '@/c-api/studyV2';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
 import { type OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { Slide, type Element as SlideElement } from 'markdown-flow-ui/slide';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
-import { resolveListenSlideAudioSource } from './listenModeUtils';
+import {
+  resolveListenSlideAudioSource,
+  resolveListenSlideElementType,
+} from './listenModeUtils';
 import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
 
@@ -58,17 +60,6 @@ const createEmptyStateElement = (
   page: 0,
 });
 
-const resolveContentElementType = (item: ChatContentItem) => {
-  // `element_type` comes from backend `ElementType` (e.g. text/tables/code).
-  // `ChatContentItemType.CONTENT` is a different "content item kind" enum,
-  // so we should not compare them directly.
-  if (item.element_type) {
-    return item.element_type;
-  }
-
-  return ELEMENT_TYPE.TEXT;
-};
-
 const buildSlideElementList = ({
   items,
   sectionTitle,
@@ -94,11 +85,11 @@ const buildSlideElementList = ({
     if (item.type === ChatContentItemType.CONTENT) {
       const { audioSegments, audioUrl, isAudioStreaming } =
         resolveListenSlideAudioSource(item);
-      const contentType = resolveContentElementType(item);
+      const contentType = resolveListenSlideElementType(item);
 
       if (!hasResolvedFirstContentType) {
         hasResolvedFirstContentType = true;
-        hasLeadingTextContentElement = contentType === ELEMENT_TYPE.TEXT;
+        hasLeadingTextContentElement = contentType === 'text';
       }
 
       sequenceNumber += 1;

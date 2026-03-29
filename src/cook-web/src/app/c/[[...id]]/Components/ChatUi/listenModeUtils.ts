@@ -8,6 +8,9 @@ import {
   type AudioTrack,
 } from '@/c-utils/audio-utils';
 
+const MARKDOWN_VIDEO_IFRAME_PATTERN =
+  /<iframe\b[^>]*\bdata-tag\s*=\s*(["'])video\1[^>]*>[\s\S]*?<\/iframe>/i;
+
 export const sortByPosition = <T extends { position?: number }>(
   list: T[] = [],
 ) =>
@@ -76,6 +79,24 @@ export const resolveListenSlideAudioSource = (
         ? item.isAudioStreaming
         : legacyAudioSegments.some(segment => !segment.is_final),
   };
+};
+
+export const resolveListenSlideElementType = (
+  item: Pick<ChatContentItem, 'content' | 'element_type'>,
+) => {
+  const normalizedContent = item.content?.trim() ?? '';
+
+  // Prefer the explicit video iframe signature so slide rendering can
+  // route embedded videos through the dedicated `video` element type.
+  if (MARKDOWN_VIDEO_IFRAME_PATTERN.test(normalizedContent)) {
+    return 'video';
+  }
+
+  if (item.element_type) {
+    return item.element_type;
+  }
+
+  return 'text';
 };
 
 export const canRequestListenModeTtsForItem = (
