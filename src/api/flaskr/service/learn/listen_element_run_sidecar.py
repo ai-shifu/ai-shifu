@@ -96,7 +96,6 @@ class ListenElementRunSidecarMixin:
             payload=self._build_follow_up_payload(
                 anchor_element_bid=anchor_element_bid,
                 base_payload=base_payload,
-                audio=None,
             ),
         )
 

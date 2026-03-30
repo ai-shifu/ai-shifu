@@ -613,10 +613,8 @@ def test_records_merge_follow_up_history_after_anchor_element(app):
 
     from flaskr.dao import db
     from flaskr.service.learn.learn_dtos import ElementPayloadDTO
-    from flaskr.service.learn.listen_elements import (
-        _serialize_payload,
-        get_listen_element_record,
-    )
+    from flaskr.service.learn.listen_element_payloads import _serialize_payload
+    from flaskr.service.learn.listen_elements import get_listen_element_record
     from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
@@ -1347,11 +1345,11 @@ class TestElementPayloadAsks:
         assert serialized["asks"] == []
 
     def test_payload_asks_deserialization(self):
-        from flaskr.service.learn.listen_elements import (
+        from flaskr.service.learn.learn_dtos import ElementPayloadDTO
+        from flaskr.service.learn.listen_element_payloads import (
             _deserialize_payload,
             _serialize_payload,
         )
-        from flaskr.service.learn.learn_dtos import ElementPayloadDTO
 
         asks = [
             {"role": "student", "content": "question"},
@@ -1363,14 +1361,14 @@ class TestElementPayloadAsks:
         assert restored.asks == asks
 
     def test_payload_asks_deserialization_missing(self):
-        from flaskr.service.learn.listen_elements import _deserialize_payload
+        from flaskr.service.learn.listen_element_payloads import _deserialize_payload
 
         raw = '{"audio": null, "previous_visuals": []}'
         restored = _deserialize_payload(raw)
         assert restored.asks is None
 
     def test_payload_asks_deserialization_invalid_type(self):
-        from flaskr.service.learn.listen_elements import _deserialize_payload
+        from flaskr.service.learn.listen_element_payloads import _deserialize_payload
 
         raw = '{"audio": null, "previous_visuals": [], "asks": "not_a_list"}'
         restored = _deserialize_payload(raw)
@@ -1427,8 +1425,8 @@ class TestAskContextLoading:
     def test_load_context_from_follow_up_elements(self):
         import types
         from flaskr.service.learn.handle_input_ask import _load_ask_context
-        from flaskr.service.learn.listen_elements import _serialize_payload
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
 
         payload = ElementPayloadDTO()
         anchor = types.SimpleNamespace(
@@ -1463,8 +1461,8 @@ class TestAskContextLoading:
     def test_load_context_fallback_to_legacy_payload_asks(self):
         import types
         from flaskr.service.learn.handle_input_ask import _load_ask_context
-        from flaskr.service.learn.listen_elements import _serialize_payload
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
 
         asks = [
             {"role": "student", "content": "q1"},
@@ -1491,8 +1489,8 @@ class TestAskContextLoading:
     def test_load_context_fallback_to_none(self):
         import types
         from flaskr.service.learn.handle_input_ask import _load_ask_context
-        from flaskr.service.learn.listen_elements import _serialize_payload
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
 
         payload = ElementPayloadDTO()
         anchor = types.SimpleNamespace(
@@ -1510,8 +1508,8 @@ class TestAskContextLoading:
     def test_load_context_truncation(self):
         import types
         from flaskr.service.learn.handle_input_ask import _load_ask_context
-        from flaskr.service.learn.listen_elements import _serialize_payload
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
 
         follow_up_elements = [
             types.SimpleNamespace(
@@ -1539,10 +1537,8 @@ class TestHandleAskAdapter:
 
     def test_handle_ask_creates_standalone_question_element(self, adapter_app):
         import json
-        from flaskr.service.learn.listen_elements import (
-            ListenElementRunAdapter,
-            _serialize_payload,
-        )
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             GeneratedType,
             RunMarkdownFlowDTO,
@@ -1603,10 +1599,8 @@ class TestHandleAskAdapter:
 
     def test_process_ask_persists_without_streaming(self, adapter_app):
         import json
-        from flaskr.service.learn.listen_elements import (
-            ListenElementRunAdapter,
-            _serialize_payload,
-        )
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             GeneratedType,
             RunMarkdownFlowDTO,
@@ -1673,10 +1667,8 @@ class TestHandleAskAdapter:
             assert payload["anchor_element_bid"] == "anchor_elem_2"
 
     def test_handle_ask_sets_anchor_bid_state(self, adapter_app):
-        from flaskr.service.learn.listen_elements import (
-            ListenElementRunAdapter,
-            _serialize_payload,
-        )
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             GeneratedType,
             RunMarkdownFlowDTO,
@@ -1727,10 +1719,8 @@ class TestHandleAskAdapter:
 
     def test_process_creates_standalone_answer_element(self, adapter_app):
         import json
-        from flaskr.service.learn.listen_elements import (
-            ListenElementRunAdapter,
-            _serialize_payload,
-        )
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             ElementPayloadDTO,
             ElementType,
@@ -1836,10 +1826,8 @@ class TestHandleAskAdapter:
             assert "asks" not in payload
 
     def test_answer_audio_events_do_not_attach_audio(self, adapter_app):
-        from flaskr.service.learn.listen_elements import (
-            ListenElementRunAdapter,
-            _serialize_payload,
-        )
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             AudioSegmentDTO,
