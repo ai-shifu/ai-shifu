@@ -140,19 +140,9 @@ class ListenElementRunStreamMixin:
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         if not state.fallback_element_bid:
             return
-        (
-            LearnGeneratedElement.query.filter(
-                LearnGeneratedElement.run_session_bid == self.run_session_bid,
-                LearnGeneratedElement.generated_block_bid == state.generated_block_bid,
-                LearnGeneratedElement.element_bid == state.fallback_element_bid,
-                LearnGeneratedElement.deleted == 0,
-                LearnGeneratedElement.status == 1,
-            ).update(
-                {
-                    "status": 0,
-                },
-                synchronize_session=False,
-            )
+        self._deactivate_active_element_rows(
+            generated_block_bid=state.generated_block_bid,
+            element_bids=[state.fallback_element_bid],
         )
         if not emit_notification:
             return
@@ -389,23 +379,9 @@ class ListenElementRunStreamMixin:
         if not state.stream_elements:
             return
         target_bids = [item.element_bid for item in state.stream_elements.values()]
-        (
-            LearnGeneratedElement.query.filter(
-                LearnGeneratedElement.run_session_bid == self.run_session_bid,
-                LearnGeneratedElement.generated_block_bid == state.generated_block_bid,
-                LearnGeneratedElement.deleted == 0,
-                LearnGeneratedElement.status == 1,
-                LearnGeneratedElement.event_type == "element",
-                (
-                    LearnGeneratedElement.element_bid.in_(target_bids)
-                    | LearnGeneratedElement.target_element_bid.in_(target_bids)
-                ),
-            ).update(
-                {
-                    "status": 0,
-                },
-                synchronize_session=False,
-            )
+        self._deactivate_active_element_rows(
+            generated_block_bid=state.generated_block_bid,
+            element_bids=target_bids,
         )
         if not emit_notification:
             return
