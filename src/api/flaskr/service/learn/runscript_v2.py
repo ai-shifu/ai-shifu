@@ -133,11 +133,13 @@ def run_script_inner(
     preview_mode: bool = False,
     stop_event: threading.Event | None = None,
     element_adapter: ListenElementRunAdapter | None = None,
+    manage_app_context: bool = True,
 ) -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
     """
     Core function for running course scripts
     """
-    with app.app_context():
+
+    def _run() -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
         try:
             user_info = load_user_aggregate(user_bid)
             if not user_info:
@@ -239,6 +241,16 @@ def run_script_inner(
         except GeneratorExit:
             db.session.rollback()
             app.logger.info("GeneratorExit")
+        except Exception:
+            db.session.rollback()
+            raise
+
+    if manage_app_context:
+        with app.app_context():
+            yield from _run()
+        return
+
+    yield from _run()
 
 
 def fmt(o):
@@ -341,20 +353,6 @@ def run_script(
         parent_language = get_current_language()
         # Capture shifu context so background thread can reuse it (may be provided by caller)
         parent_shifu_context = shifu_context_snapshot or get_shifu_context_snapshot()
-        res = run_script_inner(
-            app=app,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            input=input,
-            input_type=input_type,
-            reload_generated_block_bid=reload_generated_block_bid,
-            reload_element_bid=reload_element_bid,
-            listen=listen,
-            preview_mode=preview_mode,
-            stop_event=stop_event,
-            element_adapter=element_adapter,
-        )
 
         def producer():
             # Propagate logging thread-local context into this background thread
@@ -368,27 +366,45 @@ def run_script(
             set_language(parent_language)
             # Propagate shifu context into this background thread
             apply_shifu_context_snapshot(parent_shifu_context)
-            try:
-                for item in res:
+            # Keep the producer thread as the sole owner of the app context for
+            # the streaming generator to avoid cross-thread context teardown.
+            with app.app_context():
+                res = run_script_inner(
+                    app=app,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_bid=outline_bid,
+                    input=input,
+                    input_type=input_type,
+                    reload_generated_block_bid=reload_generated_block_bid,
+                    reload_element_bid=reload_element_bid,
+                    listen=listen,
+                    preview_mode=preview_mode,
+                    stop_event=stop_event,
+                    element_adapter=element_adapter,
+                    manage_app_context=False,
+                )
+                try:
+                    for item in res:
+                        if stop_event.is_set():
+                            break
+                        if isinstance(item, RunMarkdownFlowDTO):
+                            for converted_item in element_adapter.process([item]):
+                                output_queue.put(("data", converted_item))
+                            continue
+                        output_queue.put(("data", item))
+                except Exception as exc:
                     if stop_event.is_set():
-                        break
-                    if isinstance(item, RunMarkdownFlowDTO):
-                        for converted_item in element_adapter.process([item]):
-                            output_queue.put(("data", converted_item))
-                        continue
-                    output_queue.put(("data", item))
-            except Exception as exc:
-                if stop_event.is_set():
-                    app.logger.info(
-                        "run_script producer stopped due to client disconnect: %s",
-                        type(exc).__name__,
-                    )
-                    return
-                output_queue.put(("error", exc))
-            finally:
-                with contextlib.suppress(Exception):
-                    res.close()
-                output_queue.put(("done", None))
+                        app.logger.info(
+                            "run_script producer stopped due to client disconnect: %s",
+                            type(exc).__name__,
+                        )
+                        return
+                    output_queue.put(("error", exc))
+                finally:
+                    with contextlib.suppress(Exception):
+                        res.close()
+                    output_queue.put(("done", None))
 
         producer_thread = threading.Thread(
             target=producer, name="run_script_stream_producer", daemon=True

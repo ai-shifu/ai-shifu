@@ -1,7 +1,8 @@
 import json
 from types import SimpleNamespace
 
-from flask import Flask
+import pytest
+from flask import Flask, has_app_context
 
 from flaskr.service.learn import runscript_v2
 from flaskr.service.learn.learn_dtos import (
@@ -167,6 +168,46 @@ def test_run_script_retries_lock_then_streams(monkeypatch):
         assert events[0]["content"] == "hello"
         assert events[-1]["type"] == "done"
         assert events[-1]["is_terminal"] is True
+
+
+def test_run_script_producer_owns_app_context(monkeypatch):
+    app = _make_test_app()
+    _patch_fake_element_adapter(monkeypatch)
+    with app.app_context():
+        lock = FakeLock([True])
+        cache = FakeCacheProvider(lock)
+        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+        observed = {"has_app_context": None, "manage_app_context": None}
+
+        def fake_run_script_inner(**_kwargs):
+            observed["has_app_context"] = has_app_context()
+            observed["manage_app_context"] = _kwargs.get("manage_app_context")
+            yield RunMarkdownFlowDTO(
+                outline_bid="outline-1",
+                generated_block_bid="generated-1",
+                type=GeneratedType.CONTENT,
+                content="hello",
+            )
+
+        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+
+        chunks = list(
+            runscript_v2.run_script(
+                app=app,
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                user_bid="user-1",
+                input={"input": ["x"]},
+                input_type="normal",
+            )
+        )
+        events = _parse_sse_events(chunks)
+
+        assert observed == {
+            "has_app_context": True,
+            "manage_app_context": False,
+        }
+        assert [event["type"] for event in events] == ["element", "done"]
 
 
 def test_run_script_read_mode_keeps_interaction_after_block_break(monkeypatch):
@@ -387,6 +428,89 @@ def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeyp
         GeneratedType.CONTENT,
         GeneratedType.BREAK,
     ]
+
+
+def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch):
+    app = Flask(__name__)
+    session_spy = SimpleNamespace(commit=lambda: None, rollback=lambda: None)
+    rollback_calls = []
+    commit_calls = []
+
+    def _commit():
+        commit_calls.append("commit")
+
+    def _rollback():
+        rollback_calls.append("rollback")
+
+    session_spy.commit = _commit
+    session_spy.rollback = _rollback
+
+    monkeypatch.setattr(runscript_v2, "db", SimpleNamespace(session=session_spy))
+    monkeypatch.setattr(
+        runscript_v2,
+        "load_user_aggregate",
+        lambda _user_bid: SimpleNamespace(user_id="user-1"),
+    )
+
+    outline_item_info = SimpleNamespace(
+        bid="outline-1",
+        shifu_bid="shifu-1",
+        title="Lesson",
+        __json__=lambda: {"bid": "outline-1"},
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "get_outline_item_dto",
+        lambda *_args, **_kwargs: outline_item_info,
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "get_shifu_dto",
+        lambda *_args, **_kwargs: SimpleNamespace(bid="shifu-1", price=0),
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "get_shifu_struct",
+        lambda *_args, **_kwargs: object(),
+    )
+
+    class FakeRunScriptContext:
+        def __init__(self, **_kwargs):
+            self._has_next = True
+
+        def set_input(self, *_args, **_kwargs):
+            return None
+
+        def reload(self, *_args, **_kwargs):
+            return []
+
+        def has_next(self):
+            if self._has_next:
+                self._has_next = False
+                return True
+            return False
+
+        def run(self, _app):
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        list(
+            runscript_v2.run_script_inner(
+                app=app,
+                user_bid="user-1",
+                shifu_bid="shifu-1",
+                outline_bid="outline-1",
+                input={"input": ["x"]},
+                input_type="normal",
+            )
+        )
+
+    assert str(exc_info.value) == "boom"
+
+    assert rollback_calls == ["rollback"]
+    assert commit_calls == []
 
 
 def test_run_script_listen_keeps_interaction_after_block_done(monkeypatch):
