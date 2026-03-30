@@ -36,11 +36,6 @@ def clear_shifu_context() -> None:
             delattr(_context_local, attr)
 
 
-def get_shifu_bid() -> Optional[str]:
-    """Get current shifu business identifier from context."""
-    return getattr(_context_local, "shifu_bid", None)
-
-
 def get_shifu_creator_bid() -> Optional[str]:
     """Get current shifu creator user business identifier from context."""
     return getattr(_context_local, "shifu_creator_bid", None)

@@ -170,51 +170,6 @@ def _strip_incomplete_blocks(text: str) -> tuple[str, bool]:
     return text, had_incomplete
 
 
-def has_incomplete_block(text: str) -> bool:
-    """
-    Check if text contains an incomplete block that should not be processed yet.
-
-    This is important for streaming TTS where content arrives in chunks.
-    We should wait for complete blocks before processing.
-
-    Args:
-        text: Text buffer to check
-
-    Returns:
-        True if there's an incomplete block that needs more content
-    """
-    if not text:
-        return False
-
-    # Check for incomplete code blocks (``` without closing ```)
-    # Count occurrences - if odd number, block is incomplete
-    code_block_count = text.count("```")
-    if code_block_count % 2 == 1:
-        return True
-
-    # Check for incomplete SVG (tolerant of partial opening tags in streaming)
-    lower = text.lower()
-    last_svg_open = lower.rfind("<svg")
-    if last_svg_open != -1 and lower.find("</svg>", last_svg_open) == -1:
-        return True
-
-    # Check for incomplete mermaid (inside code blocks, but might be streaming)
-    # If we see ```mermaid but buffer has odd ``` count, it's incomplete
-    if "```mermaid" in text.lower() and code_block_count % 2 == 1:
-        return True
-
-    # Check for incomplete markdown image token `![alt](url`
-    image_start = text.rfind("![")
-    if image_start != -1:
-        image_open = text.find("](", image_start + 2)
-        if image_open == -1:
-            return True
-        if text.find(")", image_open + 2) == -1:
-            return True
-
-    return False
-
-
 def preprocess_for_tts(text: str) -> str:
     """
     Remove code blocks and markdown formatting not suitable for TTS.

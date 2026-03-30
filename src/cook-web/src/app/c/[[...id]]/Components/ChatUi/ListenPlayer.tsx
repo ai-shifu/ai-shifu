@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import styles from './ListenPlayer.module.scss';
 import { cn } from '@/lib/utils';
+import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import type { ChatContentItem } from './useChatLogicHook';
 import {
   ContentRender,
@@ -77,7 +78,7 @@ const ListenPlayer = ({
   const interactionHintText = t('module.chat.listenInteractionHint');
 
   useEffect(() => {
-    const nextBid = effectiveInteraction?.generated_block_bid ?? null;
+    const nextBid = effectiveInteraction?.element_bid ?? null;
     if (!nextBid) {
       lastInteractionBidRef.current = null;
       setIsInteractionOpen(false);
@@ -99,13 +100,13 @@ const ListenPlayer = ({
 
   const _onSend = useCallback(
     (content: OnSendContentParams) => {
-      if (!effectiveInteraction?.generated_block_bid) {
+      if (!effectiveInteraction?.element_bid) {
         return;
       }
       setIsInteractionOpen(false);
-      onSend?.(content, effectiveInteraction.generated_block_bid);
+      onSend?.(content, effectiveInteraction.element_bid);
     },
-    [effectiveInteraction?.generated_block_bid, onSend],
+    [effectiveInteraction?.element_bid, onSend],
   );
 
   const stopOverlayPropagation = useCallback(
@@ -153,10 +154,9 @@ const ListenPlayer = ({
                 enableTypewriter={false}
                 content={effectiveInteraction.content || ''}
                 customRenderBar={effectiveInteraction.customRenderBar}
-                defaultButtonText={effectiveInteraction.defaultButtonText}
-                defaultInputText={effectiveInteraction.defaultInputText}
-                defaultSelectedValues={
-                  effectiveInteraction.defaultSelectedValues
+                userInput={effectiveInteraction.user_input}
+                interactionDefaultValueOptions={
+                  lessonFeedbackInteractionDefaultValueOptions
                 }
                 confirmButtonText={t('module.renderUi.core.confirm')}
                 copyButtonText={t('module.renderUi.core.copyCode')}

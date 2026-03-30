@@ -9,7 +9,7 @@ def _require_app(app):
         pytest.skip("App fixture disabled")
 
 
-def test_get_learn_record_includes_slides_and_audio_slide_ids(app):
+def test_get_learn_record_omits_legacy_fields_and_keeps_audio_positions(app):
     _require_app(app)
 
     from flaskr.dao import db
@@ -91,25 +91,18 @@ def test_get_learn_record_includes_slides_and_audio_slide_ids(app):
             preview_mode=False,
         )
 
-    assert result.slides is not None
-    assert len(result.slides) == 2
-    assert [slide.slide_index for slide in result.slides] == [0, 1]
-    assert result.slides[0].segment_type == "markdown"
-    assert result.slides[0].segment_content.startswith("Before")
-    assert result.slides[1].visual_kind == "svg"
-
     assert len(result.records) == 1
     record = result.records[0]
+    payload = result.__json__()
+    assert "slides" not in payload
+    assert not hasattr(record, "av_contract")
     assert record.audio_url is None
     assert record.audios is not None
     assert [audio.position for audio in record.audios] == [0, 1]
-
-    slide_ids = {slide.slide_id for slide in result.slides}
-    assert all(audio.slide_id for audio in record.audios)
-    assert all(audio.slide_id in slide_ids for audio in record.audios)
+    assert all("slide_id" not in audio.__json__() for audio in record.audios)
 
 
-def test_get_learn_record_includes_slides_for_answer_blocks(app):
+def test_get_learn_record_omits_legacy_fields_for_answer_blocks(app):
     _require_app(app)
 
     from flaskr.dao import db
@@ -191,8 +184,8 @@ def test_get_learn_record_includes_slides_for_answer_blocks(app):
             preview_mode=False,
         )
 
-    assert result.slides is not None
-    assert len(result.slides) == 2
     assert len(result.records) == 1
+    assert "slides" not in result.__json__()
+    assert not hasattr(result.records[0], "av_contract")
     assert result.records[0].audios is not None
-    assert all(audio.slide_id for audio in result.records[0].audios)
+    assert all("slide_id" not in audio.__json__() for audio in result.records[0].audios)

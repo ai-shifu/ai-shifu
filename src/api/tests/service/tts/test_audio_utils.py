@@ -38,12 +38,23 @@ class _FakeAudioSegment:
         return _FakeSegment(duration)
 
 
-def test_concat_audio_mp3_caps_crossfade_for_short_segments(monkeypatch):
+def test_concat_audio_mp3_does_not_crossfade_by_default(monkeypatch):
     _FakeSegment.append_crossfades.clear()
     monkeypatch.setattr(audio_utils, "AudioSegment", _FakeAudioSegment, raising=False)
     monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
 
     output = audio_utils.concat_audio_mp3([b"100", b"2", b"80"])
+
+    assert _FakeSegment.append_crossfades == [0, 0]
+    assert output == b"duration=182"
+
+
+def test_concat_audio_mp3_caps_explicit_crossfade_for_short_segments(monkeypatch):
+    _FakeSegment.append_crossfades.clear()
+    monkeypatch.setattr(audio_utils, "AudioSegment", _FakeAudioSegment, raising=False)
+    monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
+
+    output = audio_utils.concat_audio_mp3([b"100", b"2", b"80"], crossfade_ms=50)
 
     assert _FakeSegment.append_crossfades == [2, 50]
     assert output == b"duration=130"

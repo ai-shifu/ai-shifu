@@ -11,9 +11,7 @@ import uuid
 from flaskr.service.learn.learn_dtos import (
     LearnShifuInfoDTO,
     LearnOutlineItemInfoDTO,
-    LearnRecordDTO,
     LearnStatus,
-    GeneratedBlockDTO,
     BlockType,
     LikeStatus,
     LearnOutlineItemsWithBannerInfoDTO,
@@ -46,7 +44,6 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.service.tts.pipeline import (
     split_text_for_tts,
-    build_av_segmentation_contract,
 )
 from flaskr.api.tts import (
     get_default_audio_settings,
@@ -81,29 +78,19 @@ from flaskr.service.order.consts import (
 )
 import queue
 from flaskr.dao import db
-from flaskr.service.shifu.consts import (
-    BLOCK_TYPE_MDASK_VALUE,
-    BLOCK_TYPE_MDCONTENT_VALUE,
-    BLOCK_TYPE_MDINTERACTION_VALUE,
-    BLOCK_TYPE_MDERRORMESSAGE_VALUE,
-    BLOCK_TYPE_MDANSWER_VALUE,
-    BLOCK_TYPE_CONTENT_VALUE,
-    BLOCK_TYPE_BUTTON_VALUE,
-    BLOCK_TYPE_INPUT_VALUE,
-    BLOCK_TYPE_OPTIONS_VALUE,
-    BLOCK_TYPE_GOTO_VALUE,
-    BLOCK_TYPE_PAYMENT_VALUE,
-    BLOCK_TYPE_LOGIN_VALUE,
-    BLOCK_TYPE_BREAK_VALUE,
-    BLOCK_TYPE_PHONE_VALUE,
-    BLOCK_TYPE_CHECKCODE_VALUE,
-)
-from flaskr.service.learn.const import ROLE_TEACHER, CONTEXT_INTERACTION_NEXT
+from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.lesson_feedback import (
     build_lesson_feedback_interaction_md,
     is_lesson_feedback_interaction,
 )
-from flaskr.service.learn.listen_slide_builder import build_listen_slides_for_block
+from flaskr.service.learn.listen_element_matching import (
+    get_speakable_text_elements,
+)
+from flaskr.service.learn.legacy_record_builder import (
+    LegacyGeneratedBlockRecord,
+    LegacyLearnRecord,
+    build_legacy_record_for_progress,
+)
 from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_TRIAL,
     UNIT_TYPE_VALUE_NORMAL,
@@ -360,7 +347,7 @@ def get_outline_item_tree(
 
 def get_learn_record(
     app: Flask, shifu_bid: str, outline_bid: str, user_bid: str, preview_mode: bool
-) -> LearnRecordDTO:
+) -> LegacyLearnRecord:
     with app.app_context():
         is_paid = preview_mode
         if not is_paid:
@@ -383,159 +370,20 @@ def get_learn_record(
             LearnProgressRecord.status != LEARN_STATUS_RESET,
         ).first()
         if not progress_record:
-            return LearnRecordDTO(
+            return LegacyLearnRecord(
                 records=[],
-                interaction="",
             )
         app.logger.info(f"progress_record: {progress_record.progress_record_bid}")
-        generated_blocks: list[LearnGeneratedBlock] = (
-            LearnGeneratedBlock.query.filter(
-                LearnGeneratedBlock.user_bid == user_bid,
-                LearnGeneratedBlock.shifu_bid == shifu_bid,
-                LearnGeneratedBlock.progress_record_bid
-                == progress_record.progress_record_bid,
-                LearnGeneratedBlock.outline_item_bid == outline_bid,
-                LearnGeneratedBlock.deleted == 0,
-                LearnGeneratedBlock.status == 1,
-            )
-            .order_by(LearnGeneratedBlock.position.asc(), LearnGeneratedBlock.id.asc())
-            .all()
-        )
-
-        # Get audio records for generated blocks (no joins; compose in Python).
-        generated_block_bids = [b.generated_block_bid for b in generated_blocks]
-        audios_map: dict[str, list[AudioCompleteDTO]] = {}
-        if generated_block_bids:
-            audio_records = (
-                LearnGeneratedAudio.query.filter(
-                    LearnGeneratedAudio.generated_block_bid.in_(generated_block_bids),
-                    LearnGeneratedAudio.status == AUDIO_STATUS_COMPLETED,
-                    LearnGeneratedAudio.deleted == 0,
-                )
-                .order_by(
-                    LearnGeneratedAudio.generated_block_bid.asc(),
-                    LearnGeneratedAudio.position.asc(),
-                    LearnGeneratedAudio.id.asc(),
-                )
-                .all()
-            )
-            for audio in audio_records:
-                position = int(getattr(audio, "position", 0) or 0)
-                audios_map.setdefault(audio.generated_block_bid, []).append(
-                    AudioCompleteDTO(
-                        audio_url=audio.oss_url or "",
-                        audio_bid=audio.audio_bid or "",
-                        duration_ms=int(audio.duration_ms or 0),
-                        position=position,
-                    )
-                )
-
-        records: list[GeneratedBlockDTO] = []
-        slides = []
-        next_slide_index = 0
-        interaction = ""
-        BLOCK_TYPE_MAP = {
-            BLOCK_TYPE_MDCONTENT_VALUE: BlockType.CONTENT,
-            BLOCK_TYPE_MDINTERACTION_VALUE: BlockType.INTERACTION,
-            BLOCK_TYPE_MDERRORMESSAGE_VALUE: BlockType.ERROR_MESSAGE,
-            BLOCK_TYPE_MDASK_VALUE: BlockType.ASK,
-            BLOCK_TYPE_MDANSWER_VALUE: BlockType.ANSWER,
-            BLOCK_TYPE_CONTENT_VALUE: BlockType.CONTENT,
-            BLOCK_TYPE_BUTTON_VALUE: BlockType.INTERACTION,
-            BLOCK_TYPE_INPUT_VALUE: BlockType.INTERACTION,
-            BLOCK_TYPE_OPTIONS_VALUE: BlockType.INTERACTION,
-            BLOCK_TYPE_GOTO_VALUE: BlockType.INTERACTION,
-            BLOCK_TYPE_PAYMENT_VALUE: BlockType.INTERACTION,
-            BLOCK_TYPE_LOGIN_VALUE: BlockType.INTERACTION,
-            BLOCK_TYPE_BREAK_VALUE: BlockType.INTERACTION,
-            BLOCK_TYPE_PHONE_VALUE: BlockType.INTERACTION,
-            BLOCK_TYPE_CHECKCODE_VALUE: BlockType.INTERACTION,
-        }
-        LIKE_STATUS_MAP = {
-            1: LikeStatus.LIKE,
-            -1: LikeStatus.DISLIKE,
-            0: LikeStatus.NONE,
-        }
-        for generated_block in generated_blocks:
-            block_type = BLOCK_TYPE_MAP.get(generated_block.type, BlockType.CONTENT)
-            if block_type == BlockType.ASK and generated_block.role == ROLE_TEACHER:
-                block_type = BlockType.ANSWER
-
-            # For interaction blocks, use block_content_conf (already translated during OUTPUT)
-            # For other blocks, use generated_content
-            if block_type in (
-                BlockType.CONTENT,
-                BlockType.ERROR_MESSAGE,
-                BlockType.ASK,
-                BlockType.ANSWER,
-            ):
-                content = generated_block.generated_content
-            else:
-                # INTERACTION and other types use block_content_conf
-                content = generated_block.block_content_conf
-
-            block_audios = audios_map.get(generated_block.generated_block_bid) or []
-            av_contract = (
-                build_av_segmentation_contract(
-                    content or "", generated_block.generated_block_bid
-                )
-                if block_type
-                in {
-                    BlockType.CONTENT,
-                    BlockType.ASK,
-                    BlockType.ANSWER,
-                }
-                and (content or "").strip()
-                else None
-            )
-
-            audio_position_to_slide_id: dict[int, str] = {}
-            if av_contract is not None:
-                block_slides, audio_position_to_slide_id = (
-                    build_listen_slides_for_block(
-                        raw_content=content or "",
-                        generated_block_bid=generated_block.generated_block_bid,
-                        av_contract=av_contract,
-                        slide_index_offset=next_slide_index,
-                    )
-                )
-                if block_slides:
-                    slides.extend(block_slides)
-                    next_slide_index = int(block_slides[-1].slide_index or 0) + 1
-
-            if block_audios and audio_position_to_slide_id:
-                enriched_block_audios: list[AudioCompleteDTO] = []
-                for audio in block_audios:
-                    audio_position = int(getattr(audio, "position", 0) or 0)
-                    mapped_slide_id = audio_position_to_slide_id.get(audio_position)
-                    if not mapped_slide_id:
-                        enriched_block_audios.append(audio)
-                        continue
-                    enriched_block_audios.append(
-                        AudioCompleteDTO(
-                            audio_url=audio.audio_url,
-                            audio_bid=audio.audio_bid,
-                            duration_ms=int(audio.duration_ms or 0),
-                            position=audio_position,
-                            slide_id=mapped_slide_id,
-                            av_contract=getattr(audio, "av_contract", None),
-                        )
-                    )
-                block_audios = enriched_block_audios
-
-            record = GeneratedBlockDTO(
-                generated_block.generated_block_bid,
-                content,
-                LIKE_STATUS_MAP.get(generated_block.liked, LikeStatus.NONE),
-                block_type,
-                generated_block.generated_content
-                if block_type == BlockType.INTERACTION
-                else "",
-                audio_url=block_audios[0].audio_url if len(block_audios) == 1 else None,
-                audios=block_audios or None,
-                av_contract=av_contract,
-            )
-            records.append(record)
+        records = build_legacy_record_for_progress(
+            progress_record,
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            include_like_status=True,
+            dedupe_blocks_by_bid=False,
+            dedupe_audio_by_block_position=False,
+            skip_empty_content=False,
+        ).records
         if len(records) > 0:
             last_record = records[-1]
             if last_record.block_type == BlockType.INTERACTION:
@@ -635,12 +483,12 @@ def get_learn_record(
                     ensure_ascii=False,
                 )
             feedback_content = build_lesson_feedback_interaction_md()
-            feedback_record = GeneratedBlockDTO(
-                generate_id(app),
-                feedback_content,
-                LikeStatus.NONE,
-                BlockType.INTERACTION,
-                feedback_generated_content,
+            feedback_record = LegacyGeneratedBlockRecord(
+                generated_block_bid=generate_id(app),
+                content=feedback_content,
+                like_status=LikeStatus.NONE,
+                block_type=BlockType.INTERACTION,
+                user_input=feedback_generated_content,
             )
             next_button_index = next(
                 (
@@ -665,18 +513,16 @@ def get_learn_record(
             button_label = _("server.learn.nextChapterButton")
             fallback_content = f"?[{button_label}//{CONTEXT_INTERACTION_NEXT}]"
             records.append(
-                GeneratedBlockDTO(
-                    generate_id(app),
-                    fallback_content,
-                    LikeStatus.NONE,
-                    BlockType.INTERACTION,
-                    "",
+                LegacyGeneratedBlockRecord(
+                    generated_block_bid=generate_id(app),
+                    content=fallback_content,
+                    like_status=LikeStatus.NONE,
+                    block_type=BlockType.INTERACTION,
+                    user_input="",
                 )
             )
-        return LearnRecordDTO(
+        return LegacyLearnRecord(
             records=records,
-            interaction=interaction,
-            slides=slides or None,
         )
 
 
@@ -1206,15 +1052,23 @@ def stream_generated_block_audio(
 
         raw_text = generated_block.generated_content or ""
         if listen:
-            av_contract = build_av_segmentation_contract(raw_text, generated_block_bid)
+            from flaskr.service.learn.listen_elements import (
+                get_final_elements_for_generated_block,
+            )
+
+            final_elements = get_final_elements_for_generated_block(
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+            )
             speakable_segments = [
-                segment.get("text", "")
-                for segment in av_contract.get("speakable_segments", [])
+                str(element.content_text or "")
+                for element in get_speakable_text_elements(final_elements)
             ]
             if not speakable_segments:
                 raise_error_with_args(
                     "server.common.paramsError",
-                    param_message="No speakable text available for TTS synthesis",
+                    param_message="No speakable text elements available for TTS synthesis",
                 )
 
             expected_segment_count = len(speakable_segments)
@@ -1259,7 +1113,6 @@ def stream_generated_block_audio(
                         audio_bid=record.audio_bid,
                         duration_ms=int(record.duration_ms or 0),
                         position=pos,
-                        av_contract=av_contract,
                     )
                 return
 
@@ -1282,12 +1135,11 @@ def stream_generated_block_audio(
                             audio_bid=record.audio_bid,
                             duration_ms=int(record.duration_ms or 0),
                             position=position,
-                            av_contract=av_contract,
                         )
                         continue
 
                     cleaned_segment = preprocess_for_tts(speakable_text or "")
-                    if not cleaned_segment or len(cleaned_segment.strip()) < 2:
+                    if not cleaned_segment or not cleaned_segment.strip():
                         continue
 
                     audio_bid = uuid.uuid4().hex
@@ -1319,7 +1171,6 @@ def stream_generated_block_audio(
                         audio_parts=audio_parts,
                         stats=stats,
                         position=position,
-                        av_contract=av_contract,
                     )
                     segment_count = int(stats.get("segment_count", 0))
                     total_word_count = int(stats.get("total_word_count", 0))
@@ -1362,7 +1213,6 @@ def stream_generated_block_audio(
                         audio_bid=audio_bid,
                         duration_ms=int(duration_ms or 0),
                         position=position,
-                        av_contract=av_contract,
                     )
 
             yield from _yield_with_tts_error_mapping(

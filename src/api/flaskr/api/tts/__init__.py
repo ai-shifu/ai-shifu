@@ -10,10 +10,9 @@ This module provides integration with multiple Text-to-Speech providers:
 The provider can be selected per-Shifu configuration.
 """
 
-import base64
 import logging
 import os
-from typing import Optional, Tuple
+from typing import Optional
 
 from flaskr.common.config import get_config
 from flaskr.common.log import AppLoggerProxy
@@ -169,38 +168,6 @@ def synthesize_text(
     )
 
 
-def synthesize_text_to_base64(
-    text: str,
-    voice_settings: Optional[VoiceSettings] = None,
-    audio_settings: Optional[AudioSettings] = None,
-    model: Optional[str] = None,
-    provider_name: str = "",
-) -> Tuple[str, int]:
-    """
-    Synthesize text to speech and return base64 encoded audio.
-
-    Args:
-        text: Text to synthesize
-        voice_settings: Voice settings (optional)
-        audio_settings: Audio settings (optional)
-        model: TTS model name (optional)
-        provider_name: Provider name (optional)
-
-    Returns:
-        Tuple of (base64_audio_data, duration_ms)
-    """
-    result = synthesize_text(
-        text=text,
-        voice_settings=voice_settings,
-        audio_settings=audio_settings,
-        model=model,
-        provider_name=provider_name,
-    )
-
-    base64_data = base64.b64encode(result.audio_data).decode("utf-8")
-    return base64_data, result.duration_ms
-
-
 def is_tts_configured(provider_name: str = "") -> bool:
     """
     Check if TTS is properly configured.
@@ -248,12 +215,3 @@ def get_all_provider_configs() -> dict:
     return {
         "providers": providers,
     }
-
-
-# Backward compatibility: expose Minimax-specific functions
-def call_minimax_tts(*args, **kwargs):
-    """Deprecated: Use get_tts_provider('minimax').synthesize() instead."""
-    from flaskr.api.tts.minimax_provider import MinimaxTTSProvider
-
-    provider = MinimaxTTSProvider()
-    return provider._call_api(*args, **kwargs)

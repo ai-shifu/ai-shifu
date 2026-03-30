@@ -6,6 +6,7 @@ export interface AudioSegment {
   durationMs: number;
   isFinal: boolean;
   position?: number;
+  elementId?: string;
   slideId?: string;
   avContract?: Record<string, any> | null;
 }
@@ -21,7 +22,7 @@ export interface AudioTrack {
 }
 
 export interface AudioItem {
-  generated_block_bid: string;
+  element_bid: string;
   audioSegments?: AudioSegment[];
   audioTracks?: AudioTrack[];
   audioUrl?: string;
@@ -29,23 +30,17 @@ export interface AudioItem {
   audioDurationMs?: number;
 }
 
-type EnsureItem<T> = (items: T[], blockId: string) => T[];
+type EnsureItem<T> = (items: T[], elementBid: string) => T[];
 type SegmentKeyParams = {
   segmentIndex: number;
   position?: number | null;
+  elementId?: string | null;
 };
 
 const DEFAULT_AUDIO_POSITION = 0;
 
 const normalizeAudioPosition = (position?: number | null) =>
   Number(position ?? DEFAULT_AUDIO_POSITION);
-
-const logAudioUtilsDebug = (event: string, payload?: Record<string, any>) => {
-  // if (process.env.NODE_ENV === 'production') {
-  return;
-  // }
-  console.log(`[listen-audio-debug] ${event}`, payload ?? {});
-};
 
 export const sortAudioTracksByPosition = <T extends { position?: number }>(
   tracks: T[] = [],
@@ -94,10 +89,15 @@ export const hasAudioContentInTracks = (
 ) => tracks.some(track => hasAudioContentInTrack(track));
 
 export const buildAudioSegmentUniqueKey = (
-  blockId: string,
+  elementBid: string,
   params: SegmentKeyParams,
 ) =>
-  `${blockId}:${normalizeAudioPosition(params.position)}:${params.segmentIndex}`;
+  [
+    elementBid,
+    params.elementId ?? '',
+    normalizeAudioPosition(params.position),
+    params.segmentIndex,
+  ].join(':');
 
 export interface AudioSegmentPayload {
   segment_index?: number;
@@ -109,6 +109,8 @@ export interface AudioSegmentPayload {
   is_final?: boolean;
   isFinal?: boolean;
   position?: number;
+  element_id?: string;
+  elementId?: string;
   slide_id?: string;
   slideId?: string;
   av_contract?: Record<string, any> | null;
@@ -131,6 +133,7 @@ export const normalizeAudioSegmentPayload = (
     durationMs: payload.duration_ms ?? payload.durationMs ?? 0,
     isFinal: payload.is_final ?? payload.isFinal ?? false,
     position: payload.position,
+    elementId: payload.element_id ?? payload.elementId,
     slideId: payload.slide_id ?? payload.slideId,
     avContract: payload.av_contract ?? payload.avContract ?? null,
   };
@@ -142,9 +145,47 @@ const toAudioSegment = (segment: AudioSegmentData): AudioSegment => ({
   durationMs: segment.duration_ms,
   isFinal: segment.is_final,
   position: normalizeAudioPosition(segment.position),
+  elementId: segment.element_id,
   slideId: segment.slide_id,
   avContract: segment.av_contract ?? null,
 });
+
+export const toAudioSegmentData = (
+  segment: AudioSegment,
+): AudioSegmentData => ({
+  segment_index: segment.segmentIndex,
+  audio_data: segment.audioData,
+  duration_ms: segment.durationMs,
+  is_final: segment.isFinal,
+  position: normalizeAudioPosition(segment.position),
+  element_id: segment.elementId,
+  slide_id: segment.slideId,
+  av_contract: segment.avContract ?? null,
+});
+
+export const getAudioSegmentDataListFromTracks = (
+  tracks: AudioTrack[] = [],
+): AudioSegmentData[] =>
+  sortAudioTracksByPosition(tracks).flatMap(track =>
+    sortAudioSegmentsByIndex(track.audioSegments ?? []).map(toAudioSegmentData),
+  );
+
+export const mergeAudioSegmentDataList = (
+  elementBid: string,
+  segments: AudioSegmentData[] = [],
+): AudioSegmentData[] => {
+  const mergedSegments = segments.reduce<AudioSegment[]>((result, segment) => {
+    const normalizedSegment = normalizeAudioSegmentPayload(segment);
+
+    if (!normalizedSegment) {
+      return result;
+    }
+
+    return mergeAudioSegmentByUniqueKey(elementBid, result, normalizedSegment);
+  }, []);
+
+  return mergedSegments.map(toAudioSegmentData);
+};
 
 export const mergeAudioSegmentByUniqueKey = (
   blockId: string,
@@ -152,18 +193,25 @@ export const mergeAudioSegmentByUniqueKey = (
   incoming: AudioSegment,
 ): AudioSegment[] => {
   const incomingKey = buildAudioSegmentUniqueKey(blockId, incoming);
-  const isDuplicated = segments.some(
+  const duplicatedIndex = segments.findIndex(
     segment => buildAudioSegmentUniqueKey(blockId, segment) === incomingKey,
   );
-  if (isDuplicated) {
-    logAudioUtilsDebug('audio-utils-segment-deduped', {
-      blockId,
-      dedupeKey: incomingKey,
-      segmentIndex: incoming.segmentIndex,
-      position: normalizeAudioPosition(incoming.position),
-      existingSegments: segments.length,
-    });
-    return segments;
+  if (duplicatedIndex >= 0) {
+    const duplicatedSegment = segments[duplicatedIndex];
+    const mergedDuplicatedSegment: AudioSegment = {
+      ...duplicatedSegment,
+      ...incoming,
+      // Promote final-state segments to avoid waiting forever after playback.
+      isFinal: Boolean(duplicatedSegment?.isFinal || incoming.isFinal),
+      position: normalizeAudioPosition(
+        incoming.position ?? duplicatedSegment?.position,
+      ),
+      audioData: incoming.audioData || duplicatedSegment?.audioData || '',
+      durationMs: incoming.durationMs ?? duplicatedSegment?.durationMs ?? 0,
+    };
+    const nextSegments = [...segments];
+    nextSegments[duplicatedIndex] = mergedDuplicatedSegment;
+    return sortAudioSegmentsByIndex(nextSegments);
   }
   return sortAudioSegmentsByIndex([...segments, incoming]);
 };
@@ -291,21 +339,21 @@ const upsertAudioTrackComplete = (
 
 export const upsertAudioSegment = <T extends AudioItem>(
   items: T[],
-  blockId: string,
+  elementBid: string,
   segment: AudioSegmentData,
   ensureItem?: EnsureItem<T>,
 ): T[] => {
-  const nextItems = ensureItem ? ensureItem(items, blockId) : items;
+  const nextItems = ensureItem ? ensureItem(items, elementBid) : items;
   const mappedSegment = toAudioSegment(segment);
 
   return nextItems.map(item => {
-    if (item.generated_block_bid !== blockId) {
+    if (item.element_bid !== elementBid) {
       return item;
     }
 
     const existingTracks = item.audioTracks ?? [];
     const updatedTracks = upsertAudioTrackSegment(
-      blockId,
+      elementBid,
       existingTracks,
       mappedSegment,
     );
@@ -314,16 +362,6 @@ export const upsertAudioSegment = <T extends AudioItem>(
     );
 
     const hasNoChanges = updatedTracks === existingTracks;
-    logAudioUtilsDebug('audio-utils-upsert-segment', {
-      blockId,
-      segmentIndex: mappedSegment.segmentIndex,
-      dedupeKey: buildAudioSegmentUniqueKey(blockId, mappedSegment),
-      position: normalizeAudioPosition(mappedSegment.position),
-      existingTracks: item.audioTracks?.length ?? 0,
-      mergedTracks: updatedTracks.length,
-      hasNoChanges,
-      isFinal: mappedSegment.isFinal,
-    });
     if (hasNoChanges) {
       return item;
     }
@@ -338,14 +376,14 @@ export const upsertAudioSegment = <T extends AudioItem>(
 
 export const upsertAudioComplete = <T extends AudioItem>(
   items: T[],
-  blockId: string,
+  elementBid: string,
   complete: Partial<AudioCompleteData>,
   ensureItem?: EnsureItem<T>,
 ): T[] => {
-  const nextItems = ensureItem ? ensureItem(items, blockId) : items;
+  const nextItems = ensureItem ? ensureItem(items, elementBid) : items;
 
   return nextItems.map(item => {
-    if (item.generated_block_bid !== blockId) {
+    if (item.element_bid !== elementBid) {
       return item;
     }
 
@@ -363,14 +401,6 @@ export const upsertAudioComplete = <T extends AudioItem>(
       item.audioUrl === targetTrack?.audioUrl &&
       item.audioDurationMs === targetTrack?.durationMs &&
       Boolean(item.isAudioStreaming) === Boolean(nextIsAudioStreaming);
-    logAudioUtilsDebug('audio-utils-upsert-complete', {
-      blockId,
-      position,
-      hasAudioUrl: Boolean(targetTrack?.audioUrl),
-      durationMs: targetTrack?.durationMs ?? 0,
-      trackCount: nextTracks.length,
-      hasNoChanges,
-    });
     if (hasNoChanges) {
       return item;
     }
