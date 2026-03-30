@@ -16,6 +16,8 @@ permissions:
 jobs:
   prepare:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
@@ -27,6 +29,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+          persist-credentials: false
           token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Set up Git user
@@ -511,7 +514,7 @@ jobs:
 
       - name: Create GitHub Release Draft
         if: env.ACT != 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.6.1
         with:
           token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           tag_name: ${{ steps.version.outputs.tag }}
@@ -550,7 +553,7 @@ jobs:
       - name: Create PR with version changes
         id: cpr
         if: env.ACT != 'true'
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           commit-message: "chore: flow version to ${{ steps.version.outputs.tag }}"
