@@ -386,24 +386,6 @@ class TestShifuService:
 - Refactor: `refactor/description`
 - Documentation: `docs/description`
 
-### Design-First Workflow For Complex Work
-
-For complex projects, cross-module changes, protocol changes, schema changes, or work that spans multiple commits:
-
-1. Create or update a design document first.
-2. Generate `tasks.md` from that design document.
-3. Execute implementation work from `tasks.md`, updating task status as work progresses.
-
-Rules:
-
-- `tasks.md` must reference the source design document near the top of the file.
-- `tasks.md` must use Markdown checkboxes only: `- [ ]` for incomplete and `- [x]` for completed.
-- Each task item must be minimized to the smallest reviewable unit.
-- Each task item should be atomic and suitable for a single commit when practical.
-- Do not mix design decisions and implementation progress in the same checklist item.
-- If the design document changes materially, update `tasks.md` to stay aligned with the latest design.
-- If `tasks.md` already exists and contains incomplete items, the agent should proceed through those items in order, complete the work, update task status, and make atomic commits without waiting for additional user confirmation.
-
 ### Pull Request Checklist
 
 - [ ] Code follows project conventions
