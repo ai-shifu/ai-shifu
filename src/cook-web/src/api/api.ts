@@ -76,8 +76,6 @@ const api = {
 
   getProfile: 'GET /user/get_profile',
   getProfileItemDefinitions: 'GET /profiles/get-profile-item-definitions',
-  getProfileItemOptionList:
-    'GET /profiles/get-profile-item-definition-option-list',
   addProfileItem: 'POST /profiles/add-profile-item-quick',
   getUserInfo: 'GET /user/info',
   updateUserInfo: 'POST /user/update_info',
