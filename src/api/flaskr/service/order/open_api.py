@@ -1,4 +1,4 @@
-"""Open API service functions for external partner course enrollment."""
+"""Open API service functions for external partner course order management."""
 
 from __future__ import annotations
 
@@ -18,21 +18,21 @@ from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.user.repository import load_user_aggregate_by_identifier
 
 
-def verify_course_ownership(app: Flask, owner_bid: str, course_id: str) -> None:
+def verify_course_ownership(app: Flask, owner_bid: str, shifu_bid: str) -> None:
     """Verify that the API key owner is the creator of the specified course."""
-    creator_bid = get_shifu_creator_bid(app, course_id)
+    creator_bid = get_shifu_creator_bid(app, shifu_bid)
     if not creator_bid:
         raise_error("server.shifu.courseNotFound")
     if creator_bid != owner_bid:
         raise_error("server.openapi.courseOwnershipRequired")
 
 
-def _find_active_enrollment(user_bid: str, course_id: str) -> Optional[Order]:
-    """Find the latest active enrollment order for a user and course."""
+def _find_active_order(user_bid: str, shifu_bid: str) -> Optional[Order]:
+    """Find the latest active order for a user and course."""
     return (
         Order.query.filter(
             Order.user_bid == user_bid,
-            Order.shifu_bid == course_id,
+            Order.shifu_bid == shifu_bid,
             Order.status == ORDER_STATUS_SUCCESS,
             Order.deleted == 0,
         )
@@ -41,80 +41,80 @@ def _find_active_enrollment(user_bid: str, course_id: str) -> Optional[Order]:
     )
 
 
-def open_api_query_enrollment(
+def open_api_query_order(
     app: Flask,
     owner_bid: str,
-    enroll_id: str,
-    course_id: str,
-    enroll_id_type: str = "phone",
+    shifu_bid: str,
+    user_identify: str,
+    user_identify_type: str = "phone",
 ) -> Dict[str, Any]:
-    """Check if a user (by phone/email) has active enrollment for a course."""
+    """Check if a user (by phone/email) has active order for a course."""
     with app.app_context():
-        verify_course_ownership(app, owner_bid, course_id)
-        normalized = normalize_contact_identifier(enroll_id, enroll_id_type)
+        verify_course_ownership(app, owner_bid, shifu_bid)
+        normalized = normalize_contact_identifier(user_identify, user_identify_type)
 
         aggregate = load_user_aggregate_by_identifier(
-            normalized, providers=[enroll_id_type]
+            normalized, providers=[user_identify_type]
         )
         if not aggregate:
-            return {"enrolled": False, "order_bid": None}
+            return {"authorized": False, "order_bid": None}
 
-        order = _find_active_enrollment(aggregate.user_bid, course_id)
+        order = _find_active_order(aggregate.user_bid, shifu_bid)
         if order:
-            return {"enrolled": True, "order_bid": order.order_bid}
-        return {"enrolled": False, "order_bid": None}
+            return {"authorized": True, "order_bid": order.order_bid}
+        return {"authorized": False, "order_bid": None}
 
 
-def open_api_grant_enrollment(
+def open_api_grant_order(
     app: Flask,
     owner_bid: str,
-    enroll_id: str,
-    course_id: str,
-    enroll_id_type: str = "phone",
+    shifu_bid: str,
+    user_identify: str,
+    user_identify_type: str = "phone",
 ) -> Dict[str, Any]:
-    """Grant course enrollment (create manual order).
+    """Grant course access (create manual order).
 
-    If the user already has an active enrollment the existing order is
+    If the user already has an active order the existing order is
     returned without creating a duplicate.  If the user does not yet exist,
     a new account is created via import_activation_order.
     """
     with app.app_context():
-        verify_course_ownership(app, owner_bid, course_id)
+        verify_course_ownership(app, owner_bid, shifu_bid)
 
-        normalized = normalize_contact_identifier(enroll_id, enroll_id_type)
+        normalized = normalize_contact_identifier(user_identify, user_identify_type)
         aggregate = load_user_aggregate_by_identifier(
-            normalized, providers=[enroll_id_type]
+            normalized, providers=[user_identify_type]
         )
         if aggregate:
-            existing_order = _find_active_enrollment(aggregate.user_bid, course_id)
+            existing_order = _find_active_order(aggregate.user_bid, shifu_bid)
             if existing_order:
                 return {"order_bid": existing_order.order_bid}
 
         result = import_activation_order(
-            app, enroll_id, course_id, contact_type=enroll_id_type
+            app, user_identify, shifu_bid, contact_type=user_identify_type
         )
         return result
 
 
-def open_api_revoke_enrollment(
+def open_api_revoke_order(
     app: Flask,
     owner_bid: str,
-    enroll_id: str,
-    course_id: str,
-    enroll_id_type: str = "phone",
+    shifu_bid: str,
+    user_identify: str,
+    user_identify_type: str = "phone",
 ) -> Dict[str, Any]:
-    """Revoke course enrollment by setting order status to REFUND (503)."""
+    """Revoke course access by setting order status to REFUND (503)."""
     with app.app_context():
-        verify_course_ownership(app, owner_bid, course_id)
-        normalized = normalize_contact_identifier(enroll_id, enroll_id_type)
+        verify_course_ownership(app, owner_bid, shifu_bid)
+        normalized = normalize_contact_identifier(user_identify, user_identify_type)
 
         aggregate = load_user_aggregate_by_identifier(
-            normalized, providers=[enroll_id_type]
+            normalized, providers=[user_identify_type]
         )
         if not aggregate:
             raise_error("server.openapi.noActiveAuthorization")
 
-        order = _find_active_enrollment(aggregate.user_bid, course_id)
+        order = _find_active_order(aggregate.user_bid, shifu_bid)
         if not order:
             raise_error("server.openapi.noActiveAuthorization")
 
