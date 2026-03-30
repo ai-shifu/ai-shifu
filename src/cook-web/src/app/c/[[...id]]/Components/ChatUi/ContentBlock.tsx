@@ -10,7 +10,7 @@ import {
   getAudioTrackByPosition,
   hasAudioContentInTrack,
 } from '@/c-utils/audio-utils';
-import { LESSON_FEEDBACK_INTERACTION_MARKER } from '@/c-api/studyV2';
+import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
 
 interface ContentBlockProps {
   item: ChatContentItem;
@@ -26,6 +26,7 @@ interface ContentBlockProps {
   onAudioPlayStateChange?: (blockBid: string, isPlaying: boolean) => void;
   onAudioEnded?: (blockBid: string) => void;
   showAudioAction?: boolean;
+  onTypeFinished?: (blockBid: string) => void;
 }
 
 const ContentBlock = memo(
@@ -43,6 +44,7 @@ const ContentBlock = memo(
     onAudioPlayStateChange,
     onAudioEnded,
     showAudioAction = true,
+    onTypeFinished,
   }: ContentBlockProps) => {
     const handleClick = useCallback(() => {
       onClickCustomButtonAfterContent?.(blockBid);
@@ -68,13 +70,16 @@ const ContentBlock = memo(
       },
       [onSend, blockBid],
     );
+    const handleTypeFinished = useCallback(() => {
+      onTypeFinished?.(blockBid);
+    }, [blockBid, onTypeFinished]);
 
     const primaryTrack = getAudioTrackByPosition(item.audioTracks ?? []);
     const hasAudioContent = Boolean(hasAudioContentInTrack(primaryTrack));
     const shouldShowAudioAction = Boolean(showAudioAction);
     const isLessonFeedbackInteraction =
       item.type === ChatContentItemType.INTERACTION &&
-      Boolean(item.content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER));
+      isLessonFeedbackInteractionContent(item.content);
 
     if (isLessonFeedbackInteraction) {
       return null;
@@ -98,6 +103,7 @@ const ContentBlock = memo(
           copyButtonText={copyButtonText}
           copiedButtonText={copiedButtonText}
           onSend={_onSend}
+          onTypeFinished={handleTypeFinished}
         />
         {mobileStyle && hasAudioContent && shouldShowAudioAction ? (
           <div className='mt-2 flex justify-end'>

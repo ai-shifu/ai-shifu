@@ -5,6 +5,7 @@ from .user import register_user_handler
 from .dicts import register_dict_handler
 from .order import register_order_handler
 from .callback import register_callback_handler
+from .open_api import register_open_api_handler
 
 
 def register_route(app):
@@ -16,4 +17,5 @@ def register_route(app):
     app = register_dict_handler(app, prefix + "/dict")
     app = register_order_handler(app, prefix + "/order")
     app = register_callback_handler(app, prefix + "/callback")
+    app = register_open_api_handler(app, prefix + "/open-api/v1")
     return app

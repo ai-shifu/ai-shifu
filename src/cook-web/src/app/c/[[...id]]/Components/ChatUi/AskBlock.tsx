@@ -29,6 +29,7 @@ export interface AskMessage {
   type: typeof BLOCK_TYPE.ASK | typeof BLOCK_TYPE.ANSWER;
   content: string;
   isStreaming?: boolean;
+  element_bid?: string;
 }
 
 export interface AskBlockProps {
@@ -71,6 +72,7 @@ export default function AskBlock({
   const [inputValue, setInputValue] = useState('');
   const sseRef = useRef<any>(null);
   const currentContentRef = useRef<string>('');
+  const currentAnswerElementBidRef = useRef<string>('');
   const isStreamingRef = useRef(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMobileDialog, setShowMobileDialog] = useState(askList.length > 0);
@@ -82,6 +84,66 @@ export default function AskBlock({
       title: t('module.chat.outputInProgress'),
     });
   }, [t]);
+
+  const finalizeStreamingMessage = useCallback(() => {
+    isStreamingRef.current = false;
+    setDisplayList(prev => {
+      const newList = [...prev];
+      const lastIndex = newList.length - 1;
+      if (lastIndex >= 0 && newList[lastIndex].type === BLOCK_TYPE.ANSWER) {
+        newList[lastIndex] = {
+          ...newList[lastIndex],
+          isStreaming: false,
+        };
+      }
+      return newList;
+    });
+  }, []);
+
+  const updateStreamingAnswerMessage = useCallback((incomingText: string) => {
+    const prevText = currentContentRef.current || '';
+    const delta = fixMarkdownStream(prevText, incomingText || '');
+    const nextText = prevText + delta;
+    currentContentRef.current = nextText;
+
+    setDisplayList(prev => {
+      const newList = [...prev];
+      const lastIndex = newList.length - 1;
+      if (lastIndex >= 0 && newList[lastIndex].type === BLOCK_TYPE.ANSWER) {
+        newList[lastIndex] = {
+          ...newList[lastIndex],
+          content: nextText,
+          isStreaming: true,
+        };
+      }
+      return newList;
+    });
+  }, []);
+
+  const replaceStreamingAnswerMessage = useCallback(
+    (incomingText: string, answerElementBid = '') => {
+      const nextText = incomingText || '';
+      currentContentRef.current = nextText;
+      if (answerElementBid) {
+        currentAnswerElementBidRef.current = answerElementBid;
+      }
+
+      setDisplayList(prev => {
+        const newList = [...prev];
+        const lastIndex = newList.length - 1;
+        if (lastIndex >= 0 && newList[lastIndex].type === BLOCK_TYPE.ANSWER) {
+          newList[lastIndex] = {
+            ...newList[lastIndex],
+            content: nextText,
+            isStreaming: true,
+            element_bid: answerElementBid || newList[lastIndex].element_bid,
+          };
+        }
+        return newList;
+      });
+    },
+    [],
+  );
 
   const handleSendCustomQuestion = useCallback(async () => {
     const question = inputValue.trim();
@@ -121,11 +183,13 @@ export default function AskBlock({
         type: BLOCK_TYPE.ANSWER,
         content: '',
         isStreaming: true,
+        element_bid: '',
       },
     ]);
 
     // Reset the streaming content buffer
     currentContentRef.current = '';
+    currentAnswerElementBidRef.current = '';
     isStreamingRef.current = true;
 
     // Initiate the SSE request
@@ -136,7 +200,8 @@ export default function AskBlock({
       {
         input: question,
         input_type: SSE_INPUT_TYPE.ASK,
-        reload_generated_block_bid: generated_block_bid,
+        reload_generated_block_bid: element_bid,
+        reload_element_bid: element_bid,
         listen: false,
       },
       async response => {
@@ -144,68 +209,61 @@ export default function AskBlock({
           if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
             return;
           }
-          if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
-            // Streaming content
-            const prevText = currentContentRef.current || '';
-            const delta = fixMarkdownStream(prevText, response.content || '');
-            const nextText = prevText + delta;
-            currentContentRef.current = nextText;
 
-            // Update the content of the last teacher message
-            setDisplayList(prev => {
-              const newList = [...prev];
-              const lastIndex = newList.length - 1;
-              if (
-                lastIndex >= 0 &&
-                newList[lastIndex].type === BLOCK_TYPE.ANSWER
-              ) {
-                newList[lastIndex] = {
-                  ...newList[lastIndex],
-                  content: nextText,
-                  isStreaming: true,
-                };
-              }
-              return newList;
-            });
-          } else {
-            // Streaming finished
-            isStreamingRef.current = false;
-            setDisplayList(prev => {
-              const newList = [...prev];
-              const lastIndex = newList.length - 1;
-              if (
-                lastIndex >= 0 &&
-                newList[lastIndex].type === BLOCK_TYPE.ANSWER
-              ) {
-                newList[lastIndex] = {
-                  ...newList[lastIndex],
-                  isStreaming: false,
-                };
-              }
-              return newList;
-            });
+          if (response.type === SSE_OUTPUT_TYPE.ERROR) {
+            finalizeStreamingMessage();
             sseRef.current?.close();
+            return;
+          }
+
+          if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
+            updateStreamingAnswerMessage(response.content || '');
+            return;
+          }
+
+          if (response.type === SSE_OUTPUT_TYPE.ELEMENT) {
+            const elementRecord =
+              response.content && typeof response.content === 'object'
+                ? response.content
+                : null;
+            const elementType =
+              typeof elementRecord?.element_type === 'string'
+                ? elementRecord.element_type
+                : '';
+            if (elementType === BLOCK_TYPE.ANSWER) {
+              const answerElementBid =
+                typeof elementRecord?.target_element_bid === 'string' &&
+                elementRecord.target_element_bid
+                  ? elementRecord.target_element_bid
+                  : typeof elementRecord?.element_bid === 'string'
+                    ? elementRecord.element_bid
+                    : '';
+              const answerText =
+                typeof elementRecord?.content === 'string'
+                  ? elementRecord.content
+                  : '';
+              replaceStreamingAnswerMessage(answerText, answerElementBid);
+              return;
+            }
+          }
+
+          if (
+            response.type === SSE_OUTPUT_TYPE.BREAK ||
+            response.type === SSE_OUTPUT_TYPE.TEXT_END
+          ) {
+            finalizeStreamingMessage();
+            sseRef.current?.close();
+            return;
           }
         } catch {
-          isStreamingRef.current = false;
+          finalizeStreamingMessage();
         }
       },
     );
 
     // Add error and close listeners to ensure the state resets
     source.addEventListener('error', () => {
-      isStreamingRef.current = false;
-      setDisplayList(prev => {
-        const newList = [...prev];
-        const lastIndex = newList.length - 1;
-        if (lastIndex >= 0 && newList[lastIndex].type === BLOCK_TYPE.ANSWER) {
-          newList[lastIndex] = {
-            ...newList[lastIndex],
-            isStreaming: false,
-          };
-        }
-        return newList;
-      });
+      finalizeStreamingMessage();
     });
 
     source.addEventListener('readystatechange', () => {
@@ -213,18 +271,7 @@ export default function AskBlock({
       if (source.readyState === 1) {
         isStreamingRef.current = true;
       } else if (source.readyState === 2) {
-        isStreamingRef.current = false;
-        setDisplayList(prev => {
-          const newList = [...prev];
-          const lastIndex = newList.length - 1;
-          if (lastIndex >= 0 && newList[lastIndex].type === BLOCK_TYPE.ANSWER) {
-            newList[lastIndex] = {
-              ...newList[lastIndex],
-              isStreaming: false,
-            };
-          }
-          return newList;
-        });
+        finalizeStreamingMessage();
       }
     });
 
@@ -236,6 +283,9 @@ export default function AskBlock({
     generated_block_bid,
     inputValue,
     showOutputInProgressToast,
+    finalizeStreamingMessage,
+    replaceStreamingAnswerMessage,
+    updateStreamingAnswerMessage,
   ]);
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {

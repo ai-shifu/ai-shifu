@@ -47,6 +47,7 @@ export type LearningPermission =
 // run sse output type
 export const SSE_OUTPUT_TYPE = {
   CONTENT: 'content',
+  ERROR: 'error',
   BREAK: 'break',
   ASK: 'ask',
   TEXT_END: 'done',
@@ -76,12 +77,20 @@ export const LESSON_FEEDBACK_VARIABLE_NAME =
 export const LESSON_FEEDBACK_INTERACTION_MARKER =
   `%{{${LESSON_FEEDBACK_VARIABLE_NAME}}}` as const;
 
+export interface StudyRecordPayload {
+  audio?: unknown;
+  previous_visuals?: unknown[];
+  user_input?: string;
+  [key: string]: unknown;
+}
+
 export interface StudyRecordItem {
   block_type: BlockType;
   content: string;
   generated_block_bid: string;
   like_status?: LikeStatus;
   user_input?: string;
+  payload?: StudyRecordPayload;
   isHistory?: boolean;
   audio_url?: string;
   audios?: AudioCompleteData[];
@@ -148,6 +157,7 @@ export interface AudioSegmentData {
   duration_ms: number;
   is_final: boolean;
   position?: number;
+  element_id?: string;
   slide_id?: string;
   av_contract?: Record<string, any> | null;
 }
@@ -182,6 +192,17 @@ export interface StreamGeneratedBlockAudioParams {
   onError?: (error: unknown) => void;
 }
 
+const getListenFlagFromPageUrl = (): boolean => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const listenParam = new URLSearchParams(window.location.search).get('listen');
+  return (
+    typeof listenParam === 'string' && listenParam.toLowerCase() === 'true'
+  );
+};
+
 export const getRunMessage = (
   shifu_bid: string,
   outline_bid: string,
@@ -196,6 +217,7 @@ export const getRunMessage = (
 ) => {
   const token = useUserStore.getState().getToken();
   const payload = { ...body };
+  payload.listen = getListenFlagFromPageUrl();
 
   const baseURL = getResolvedBaseURL();
 
