@@ -78,7 +78,7 @@ class TestElementType:
 
     def test_element_type_codes_complete(self):
         from flaskr.service.learn.learn_dtos import ElementType
-        from flaskr.service.learn.listen_elements import ELEMENT_TYPE_CODES
+        from flaskr.service.learn.listen_element_types import ELEMENT_TYPE_CODES
 
         # Every non-legacy type must have a code
         for et in ElementType:
@@ -88,7 +88,7 @@ class TestElementType:
 
     def test_legacy_mapping(self):
         from flaskr.service.learn.learn_dtos import ElementType
-        from flaskr.service.learn.listen_elements import LEGACY_ELEMENT_TYPE_MAP
+        from flaskr.service.learn.listen_element_types import LEGACY_ELEMENT_TYPE_MAP
 
         assert LEGACY_ELEMENT_TYPE_MAP[ElementType._SANDBOX] == ElementType.HTML
         assert LEGACY_ELEMENT_TYPE_MAP[ElementType._PICTURE] == ElementType.IMG
@@ -383,7 +383,9 @@ class TestTypeStateMachine:
 class TestVisualKindMapping:
     def test_known_mappings(self):
         from flaskr.service.learn.learn_dtos import ElementType
-        from flaskr.service.learn.listen_elements import _element_type_for_visual_kind
+        from flaskr.service.learn.listen_element_types import (
+            _element_type_for_visual_kind,
+        )
 
         assert _element_type_for_visual_kind("video") == ElementType.HTML
         assert _element_type_for_visual_kind("img") == ElementType.IMG
@@ -401,7 +403,9 @@ class TestVisualKindMapping:
 
     def test_unknown_defaults_to_text(self):
         from flaskr.service.learn.learn_dtos import ElementType
-        from flaskr.service.learn.listen_elements import _element_type_for_visual_kind
+        from flaskr.service.learn.listen_element_types import (
+            _element_type_for_visual_kind,
+        )
 
         assert _element_type_for_visual_kind("unknown") == ElementType.TEXT
         assert _element_type_for_visual_kind("") == ElementType.TEXT
@@ -1223,7 +1227,7 @@ def test_backfill_populates_sequence_number_and_audio_url(app):
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
-    from flaskr.service.learn.listen_elements import (
+    from flaskr.service.learn.listen_element_legacy import (
         backfill_learn_generated_elements_for_progress,
     )
     from flaskr.service.learn.models import (
