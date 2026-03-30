@@ -80,39 +80,6 @@ def _format_percentage(numerator: int, denominator: int) -> str:
     return _format_money((Decimal(numerator) * Decimal("100")) / Decimal(denominator))
 
 
-def _resolve_optional_datetime_range(
-    start_date: Optional[str],
-    end_date: Optional[str],
-) -> Tuple[Optional[datetime], Optional[datetime]]:
-    def _parse(raw: Optional[str]) -> Optional[date]:
-        if raw is None:
-            return None
-        text = str(raw).strip()
-        if not text:
-            return None
-        try:
-            return date.fromisoformat(text)
-        except ValueError:
-            raise_param_error(f"invalid date: {text}")
-
-    parsed_start = _parse(start_date)
-    parsed_end = _parse(end_date)
-    if parsed_start is None and parsed_end is None:
-        return None, None
-    resolved_end = parsed_end or date.today()
-    resolved_start = parsed_start or (resolved_end - timedelta(days=13))
-    if resolved_start > resolved_end:
-        raise_param_error("start_date must be <= end_date")
-    if (resolved_end - resolved_start).days + 1 > 366:
-        raise_param_error("date range too large (max 366 days)")
-    start_dt = datetime.combine(resolved_start, datetime.min.time())
-    end_dt_exclusive = datetime.combine(
-        resolved_end + timedelta(days=1),
-        datetime.min.time(),
-    )
-    return start_dt, end_dt_exclusive
-
-
 def _load_demo_shifu_bids() -> Set[str]:
     demo_bids: Set[str] = set(_LEGACY_DEMO_SHIFU_BIDS)
     for key in ("DEMO_SHIFU_BID", "DEMO_EN_SHIFU_BID"):
@@ -513,15 +480,38 @@ def build_dashboard_entry(
     page_size: int = 20,
     timezone_name: Optional[str] = None,
 ) -> DashboardEntryDTO:
+    def _parse_optional_date(raw: Optional[str]) -> Optional[date]:
+        if raw is None:
+            return None
+        text = str(raw).strip()
+        if not text:
+            return None
+        try:
+            return date.fromisoformat(text)
+        except ValueError:
+            raise_param_error(f"invalid date: {text}")
+
     with app.app_context():
         safe_page_index = max(int(page_index or 1), 1)
         safe_page_size = max(int(page_size or 20), 1)
         safe_page_size = min(safe_page_size, 100)
 
-        start_dt, end_dt_exclusive = _resolve_optional_datetime_range(
-            start_date,
-            end_date,
-        )
+        parsed_start = _parse_optional_date(start_date)
+        parsed_end = _parse_optional_date(end_date)
+        if parsed_start is None and parsed_end is None:
+            start_dt, end_dt_exclusive = None, None
+        else:
+            resolved_end = parsed_end or date.today()
+            resolved_start = parsed_start or (resolved_end - timedelta(days=13))
+            if resolved_start > resolved_end:
+                raise_param_error("start_date must be <= end_date")
+            if (resolved_end - resolved_start).days + 1 > 366:
+                raise_param_error("date range too large (max 366 days)")
+            start_dt = datetime.combine(resolved_start, datetime.min.time())
+            end_dt_exclusive = datetime.combine(
+                resolved_end + timedelta(days=1),
+                datetime.min.time(),
+            )
 
         courses = _load_dashboard_entry_courses(user_id, keyword=keyword)
         total = len(courses)
