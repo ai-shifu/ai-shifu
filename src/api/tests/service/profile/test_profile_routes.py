@@ -113,3 +113,63 @@ class TestProfileRoutes:
         assert called["parent_id"] == "shifu_1"
         assert called["profile_keys"] == ["k1"]
         assert called["hidden"] is True
+
+    def test_save_profile_item_only_supports_text_type(self, monkeypatch, test_client):
+        self._mock_request_user(monkeypatch)
+
+        resp = test_client.post(
+            "/api/profiles/save-profile-item",
+            json={
+                "parent_id": "shifu_1",
+                "profile_key": "nickname",
+                "profile_type": "option",
+            },
+        )
+        payload = resp.get_json(force=True)
+
+        assert resp.status_code == 200
+        assert payload["code"] != 0
+
+    def test_save_profile_item_passes_only_active_fields(
+        self, monkeypatch, test_client
+    ):
+        called = {}
+
+        def fake_save(_app_ctx, profile_id, parent_id, user_id, key):
+            called["profile_id"] = profile_id
+            called["parent_id"] = parent_id
+            called["user_id"] = user_id
+            called["key"] = key
+            return {
+                "profile_key": key,
+                "profile_scope": "user",
+                "profile_type": "text",
+                "profile_id": profile_id or "pid",
+            }
+
+        monkeypatch.setattr(
+            "flaskr.service.profile.routes.save_profile_item", fake_save
+        )
+        self._mock_request_user(monkeypatch)
+
+        resp = test_client.post(
+            "/api/profiles/save-profile-item",
+            json={
+                "profile_id": "profile_1",
+                "parent_id": "shifu_1",
+                "profile_key": "nickname",
+                "profile_type": "text",
+                "profile_remark": "ignored",
+                "profile_items": [{"name": "A", "value": "a"}],
+            },
+        )
+        payload = resp.get_json(force=True)
+
+        assert resp.status_code == 200
+        assert payload["code"] == 0
+        assert called == {
+            "profile_id": "profile_1",
+            "parent_id": "shifu_1",
+            "user_id": "test-user",
+            "key": "nickname",
+        }

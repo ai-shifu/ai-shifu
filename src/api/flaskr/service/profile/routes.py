@@ -3,7 +3,6 @@ from flaskr.route.common import make_common_response
 from flaskr.service.profile.profile_manage import (
     get_profile_item_definition_list,
     add_profile_item_quick,
-    get_profile_item_definition_option_list,
     save_profile_item,
     delete_profile_item,
     update_profile_item_hidden_state,
@@ -12,10 +11,6 @@ from flaskr.service.profile.profile_manage import (
 )
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.common import raise_error
-from flaskr.service.profile.models import (
-    PROFILE_TYPE_VLUES,
-)
-from flaskr.service.profile.dtos import ProfileValueDto
 
 
 @inject
@@ -36,10 +31,10 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
                 parent_id,current pass the scenario_id
           - name: type
             in: query
-            required: true
+            required: false
             type: string
             description: |
-                type,current pass the text or option or all
+                type,current pass text or all; both return the same variable list
         description: |
             Get profile item defination
         responses:
@@ -63,44 +58,6 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
         type = request.args.get("type", "all")
         return make_common_response(
             get_profile_item_definition_list(app, parent_id=parent_id, type=type)
-        )
-
-    @app.route(
-        f"{path_prefix}/get-profile-item-definition-option-list", methods=["GET"]
-    )
-    def get_profile_item_definition_option_list_api():
-        """
-        Get profile item defination option list
-        ---
-        tags:
-          - profiles
-        parameters:
-          - name: parent_id
-            in: query
-            required: true
-            type: string
-        description: |
-            Get profile item defination option list
-        responses:
-          200:
-            description: A list of profile item defination option
-            content:
-              application/json:
-                schema:
-                  type: object
-                  properties:
-                    code:
-                      type: integer
-                    message:
-                      type: string
-                    data:
-                      type: array
-                      items:
-                        $ref: '#/components/schemas/ProfileValueDto'
-        """
-        parent_id = request.args.get("parent_id")
-        return make_common_response(
-            get_profile_item_definition_option_list(app, parent_id=parent_id)
         )
 
     @app.route(f"{path_prefix}/hide-unused-profile-items", methods=["POST"])
@@ -257,7 +214,7 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
             in: body
             required: true
             description: |
-                body,current pass the profile_id and parent_id and profile_key and profile_type and profile_remark and profile_items
+                body,current pass the profile_id and parent_id and profile_key
             schema:
               type: object
               properties:
@@ -281,17 +238,7 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
                   type: string
                   required: true
                   description: |
-                    profile_type,current pass one of the profile_type in ['text', 'option']
-                profile_remark:
-                  type: string
-                  description: |
-                    profile_remark,current pass the profile_remark
-                profile_items:
-                  type: array
-                  items:
-                    $ref: '#/components/schemas/ProfileValueDto'
-                    description: |
-                      profile_items, required when profile_type is 'option'
+                    profile_type,current pass 'text'
         description: |
             Save profile item
         responses:
@@ -314,20 +261,8 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
         profile_type = request.get_json().get("profile_type", None)
         if not profile_type:
             raise_error("server.profile.profileTypeRequired")
-        if profile_type not in PROFILE_TYPE_VLUES.keys():
+        if profile_type != "text":
             raise_error("server.profile.profileTypeInvalid")
-        profile_type = PROFILE_TYPE_VLUES[profile_type]
-
-        profile_remark = request.get_json().get("profile_remark", None)
-        profile_items = request.get_json().get("profile_items", None)
-        profile_items_list = []
-        if profile_items:
-            for item in profile_items:
-                profile_items_list.append(
-                    ProfileValueDto(
-                        value=item.get("value", None), name=item.get("name", None)
-                    )
-                )
         return make_common_response(
             save_profile_item(
                 app,
@@ -335,9 +270,6 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
                 parent_id=parent_id,
                 user_id=user_id,
                 key=profile_key,
-                type=profile_type,
-                remark=profile_remark,
-                items=profile_items_list,
             )
         )
 
