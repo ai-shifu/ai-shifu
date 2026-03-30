@@ -431,13 +431,9 @@ class ListenElementRunStreamMixin:
         if ask_element_bid:
             state = self._ensure_block_state(generated_block_bid)
             state.raw_content += str(event.content or "")
-            audio = state.audio_by_position.get(0)
-            audio_segments = state.audio_segments_by_position.get(0, [])
             answer_element = self._build_answer_element_from_state(
                 generated_block_bid,
                 is_final=False,
-                audio=audio,
-                audio_segments=audio_segments,
             )
             if answer_element is not None:
                 yield self._element_message(answer_element)
