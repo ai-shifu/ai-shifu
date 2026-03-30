@@ -20,6 +20,7 @@ import {
   type StudyRecordItem,
 } from '@/c-api/studyV2';
 import { getStringEnv } from '@/c-utils/envUtils';
+import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import {
   fixMarkdownStream,
   maskIncompleteMermaidBlock,
@@ -960,9 +961,9 @@ export function usePreviewChat() {
               generated_block_bid: currentBlockBid,
               content: interactionContent,
               readonly: false,
-              defaultButtonText: autoParams?.buttonText || '',
-              defaultInputText: autoParams?.inputText || '',
-              defaultSelectedValues: autoParams?.selectedValues,
+              user_input: autoParams
+                ? resolveInteractionSubmission(autoParams).userInput
+                : '',
               type: ChatContentItemType.INTERACTION,
             };
             const nextListWithoutLoading = prev.filter(
@@ -1324,9 +1325,7 @@ export function usePreviewChat() {
         newList[needChangeItemIndex] = {
           ...newList[needChangeItemIndex],
           readonly: false,
-          defaultButtonText: params.buttonText || '',
-          defaultInputText: params.inputText || '',
-          defaultSelectedValues: params.selectedValues,
+          user_input: resolveInteractionSubmission(params).userInput,
         };
         const trailingRows = newList.slice(needChangeItemIndex + 1);
         const preservedHelperRows = trailingRows.filter(
@@ -1356,9 +1355,7 @@ export function usePreviewChat() {
             ? {
                 ...item,
                 readonly: false,
-                defaultButtonText: params.buttonText || '',
-                defaultInputText: params.inputText || '',
-                defaultSelectedValues: params.selectedValues,
+                user_input: resolveInteractionSubmission(params).userInput,
               }
             : item,
         ),
@@ -1439,17 +1436,7 @@ export function usePreviewChat() {
         prefillInteractionBlock(blockBid, content);
       }
 
-      let values: string[] = [];
-      if (content.selectedValues && content.selectedValues.length > 0) {
-        values = [...content.selectedValues];
-        if (inputText) {
-          values.push(inputText);
-        }
-      } else if (inputText) {
-        values = [inputText];
-      } else if (buttonText) {
-        values = [buttonText];
-      }
+      const { values } = resolveInteractionSubmission(content);
 
       if (!values.length) {
         return false;

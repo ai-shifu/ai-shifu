@@ -30,8 +30,8 @@ export interface InteractionBlockProps {
   disabled?: boolean;
   size?: Size;
   className?: string;
-  onToggleAskExpanded?: (generated_block_bid: string) => void;
-  onRefresh?: (generated_block_bid: string) => void;
+  onToggleAskExpanded?: (element_bid: string) => void;
+  onRefresh?: (element_bid: string) => void;
   disableAskButton?: boolean;
   disableInteractionButtons?: boolean;
   showGenerateBtn?: boolean;
@@ -76,7 +76,7 @@ export default function InteractionBlock({
   );
 
   const handleChangeAskPanel = () => {
-    onToggleAskExpanded?.(generated_block_bid);
+    onToggleAskExpanded?.(element_bid);
   };
 
   const handleRefreshClick = () => {
@@ -86,7 +86,7 @@ export default function InteractionBlock({
 
   const handleConfirmRegenerate = () => {
     setShowRegenerateDialog(false);
-    onRefresh?.(generated_block_bid);
+    onRefresh?.(element_bid);
   };
 
   const canHover = !(disabled || readonly);

@@ -386,7 +386,7 @@ export const NewChatComponents = ({
       if (item.isHistory) {
         continue;
       }
-      const blockBid = item.generated_block_bid;
+      const blockBid = item.element_bid;
       if (!blockBid || blockBid === 'loading') {
         continue;
       }
@@ -406,10 +406,9 @@ export const NewChatComponents = ({
   const mobileInteractionPrimaryTrack = useMemo(
     () =>
       getAudioTrackByPosition(
-        itemByGeneratedBid.get(mobileInteraction.generatedBlockBid)
-          ?.audioTracks ?? [],
+        itemByGeneratedBid.get(mobileInteraction.elementBid)?.audioTracks ?? [],
       ),
-    [itemByGeneratedBid, mobileInteraction.generatedBlockBid],
+    [itemByGeneratedBid, mobileInteraction.elementBid],
   );
 
   // Memoize onSend to prevent new function references
@@ -441,7 +440,7 @@ export const NewChatComponents = ({
       const rect = target.getBoundingClientRect();
       // Use requestAnimationFrame to avoid blocking rendering
       requestAnimationFrame(() => {
-        setLongPressedBlockBid(currentBlock.generated_block_bid);
+        setLongPressedBlockBid(currentBlock.element_bid);
         setMobileInteraction({
           open: true,
           position: {
@@ -647,7 +646,7 @@ export const NewChatComponents = ({
               <Loader2 className='animate-spin size-6 text-primary' />
             </div>
           ) : (
-            <ListenModeRenderer
+            <ListenModeSlideRenderer
               items={listenModeItems}
               mobileStyle={mobileStyle}
               chatRef={chatRef as React.RefObject<HTMLDivElement>}
@@ -665,8 +664,9 @@ export const NewChatComponents = ({
             className={cn(
               containerClassName,
               'listen-reveal-wrapper',
-              mobileStyle ? 'mobile' : '',
-              'bg-[var(--color-4)]',
+              mobileStyle
+                ? 'mobile bg-white'
+                : 'bg-[var(--color-slide-desktop-bg)]',
             )}
           />
         )
@@ -710,7 +710,7 @@ export const NewChatComponents = ({
                         shifu_bid={shifuBid}
                         outline_bid={lessonId}
                         preview_mode={previewMode}
-                        generated_block_bid={item.parent_block_bid || ''}
+                        element_bid={item.parent_element_bid || ''}
                         onToggleAskExpanded={toggleAskExpanded}
                         askList={(item.ask_list || []) as any[]}
                       />
@@ -823,7 +823,7 @@ export const NewChatComponents = ({
                     <ContentBlock
                       item={item}
                       mobileStyle={mobileStyle}
-                      blockBid={item.generated_block_bid}
+                      blockBid={item.element_bid}
                       confirmButtonText={confirmButtonText}
                       copyButtonText={copyButtonText}
                       copiedButtonText={copiedButtonText}
@@ -831,7 +831,7 @@ export const NewChatComponents = ({
                       onSend={memoizedOnSend}
                       onLongPress={handleLongPress}
                       autoPlayAudio={
-                        autoPlayTargetBlockBid === item.generated_block_bid
+                        autoPlayTargetBlockBid === item.element_bid
                       }
                       showAudioAction={shouldShowAudioAction}
                       onAudioPlayStateChange={handleAudioPlayStateChange}
@@ -852,7 +852,7 @@ export const NewChatComponents = ({
         (mobileStyle && portalTarget
           ? createPortal(scrollButton, portalTarget)
           : scrollButton)}
-      {mobileStyle && mobileInteraction?.generatedBlockBid && (
+      {mobileStyle && mobileInteraction?.elementBid && (
         <InteractionBlockM
           open={mobileInteraction.open}
           onOpenChange={open => {
@@ -870,8 +870,8 @@ export const NewChatComponents = ({
           streamingSegments={mobileInteractionPrimaryTrack?.audioSegments}
           isStreaming={Boolean(mobileInteractionPrimaryTrack?.isAudioStreaming)}
           onRequestAudio={
-            !previewMode && mobileInteraction.generatedBlockBid
-              ? () => requestAudioForBlock(mobileInteraction.generatedBlockBid)
+            !previewMode && mobileInteraction.elementBid
+              ? () => requestAudioForBlock(mobileInteraction.elementBid)
               : undefined
           }
           showAudioAction={shouldShowAudioAction}

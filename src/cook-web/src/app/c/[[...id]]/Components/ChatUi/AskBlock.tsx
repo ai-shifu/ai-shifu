@@ -6,6 +6,7 @@ import React, {
   useEffect,
 } from 'react';
 import { cn } from '@/lib/utils';
+import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { useTranslation } from 'react-i18next';
 import { Maximize2, Minimize2, X } from 'lucide-react';
 import { ContentRender, MarkdownFlowInput } from 'markdown-flow-ui/renderer';
@@ -39,8 +40,8 @@ export interface AskBlockProps {
   shifu_bid: string;
   outline_bid: string;
   preview_mode?: boolean;
-  generated_block_bid: string;
-  onToggleAskExpanded?: (generated_block_bid: string) => void;
+  element_bid: string;
+  onToggleAskExpanded?: (element_bid: string) => void;
 }
 
 /**
@@ -54,7 +55,7 @@ export default function AskBlock({
   shifu_bid,
   outline_bid,
   preview_mode = false,
-  generated_block_bid,
+  element_bid,
   onToggleAskExpanded,
 }: AskBlockProps) {
   const { t } = useTranslation();
@@ -280,7 +281,7 @@ export default function AskBlock({
     shifu_bid,
     outline_bid,
     preview_mode,
-    generated_block_bid,
+    element_bid,
     inputValue,
     showOutputInProgressToast,
     finalizeStreamingMessage,
@@ -354,8 +355,8 @@ export default function AskBlock({
   const handleClose = useCallback(() => {
     setIsFullscreen(false);
     // onClose?.();
-    onToggleAskExpanded?.(generated_block_bid);
-  }, [onToggleAskExpanded, generated_block_bid]);
+    onToggleAskExpanded?.(element_bid);
+  }, [onToggleAskExpanded, element_bid]);
 
   const handleToggleFullscreen = useCallback(() => {
     setIsFullscreen(prev => !prev);
@@ -395,9 +396,9 @@ export default function AskBlock({
       if (index !== 0 || expanded || !mobileStyle) {
         return;
       }
-      onToggleAskExpanded?.(generated_block_bid);
+      onToggleAskExpanded?.(element_bid);
     },
-    [onToggleAskExpanded, generated_block_bid, expanded, mobileStyle],
+    [onToggleAskExpanded, element_bid, expanded, mobileStyle],
   );
 
   const renderMessages = ({
@@ -451,8 +452,10 @@ export default function AskBlock({
                       : () => null
                   }
                   onSend={() => {}}
-                  defaultButtonText={''}
-                  defaultInputText={''}
+                  userInput={''}
+                  interactionDefaultValueOptions={
+                    lessonFeedbackInteractionDefaultValueOptions
+                  }
                   enableTypewriter={false}
                   typingSpeed={20}
                   readonly={true}

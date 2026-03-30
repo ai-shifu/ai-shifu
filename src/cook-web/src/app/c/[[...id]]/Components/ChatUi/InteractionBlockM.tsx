@@ -25,7 +25,7 @@ export interface InteractionBlockMProps {
   element_bid: string;
   readonly?: boolean;
   disabled?: boolean;
-  onRefresh?: (generatedBlockBid: string) => void;
+  onRefresh?: (elementBid: string) => void;
   audioUrl?: string;
   streamingSegments?: AudioSegment[];
   isStreaming?: boolean;
@@ -73,7 +73,7 @@ export default function InteractionBlockM({
 
   const handleConfirmRegenerate = () => {
     setShowRegenerateDialog(false);
-    onRefresh?.(generated_block_bid);
+    onRefresh?.(element_bid);
   };
 
   void shifu_bid;
