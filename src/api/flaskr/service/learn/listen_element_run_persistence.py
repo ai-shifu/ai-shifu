@@ -77,6 +77,75 @@ class ListenElementRunPersistenceMixin:
             self._block_states[generated_block_bid] = state
         return state
 
+    def _find_active_element_row_ids(
+        self,
+        *,
+        generated_block_bid: str,
+        element_bids: list[str],
+    ) -> list[int]:
+        normalized_bids = sorted({str(bid) for bid in element_bids if bid})
+        if not normalized_bids:
+            return []
+
+        base_filters = [
+            LearnGeneratedElement.run_session_bid == self.run_session_bid,
+            LearnGeneratedElement.generated_block_bid == (generated_block_bid or ""),
+            LearnGeneratedElement.event_type == "element",
+            LearnGeneratedElement.deleted == 0,
+            LearnGeneratedElement.status == 1,
+        ]
+        row_ids: set[int] = set()
+        lookup_columns = (
+            LearnGeneratedElement.element_bid,
+            LearnGeneratedElement.target_element_bid,
+        )
+
+        for lookup_column in lookup_columns:
+            lookup_filter = (
+                lookup_column == normalized_bids[0]
+                if len(normalized_bids) == 1
+                else lookup_column.in_(normalized_bids)
+            )
+            matched_rows = (
+                LearnGeneratedElement.query.with_entities(LearnGeneratedElement.id)
+                .filter(*base_filters, lookup_filter)
+                .order_by(LearnGeneratedElement.id.asc())
+                .all()
+            )
+            row_ids.update(
+                int(row_id) for (row_id,) in matched_rows if row_id is not None
+            )
+
+        return sorted(row_ids)
+
+    def _deactivate_active_element_rows(
+        self,
+        *,
+        generated_block_bid: str,
+        element_bids: list[str],
+    ) -> None:
+        row_ids = self._find_active_element_row_ids(
+            generated_block_bid=generated_block_bid,
+            element_bids=element_bids,
+        )
+        if not row_ids:
+            return
+
+        # Update rows in primary-key order so concurrent transactions retire the
+        # same historical rows in a deterministic sequence.
+        for row_id in row_ids:
+            LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.id == row_id,
+                LearnGeneratedElement.deleted == 0,
+                LearnGeneratedElement.status == 1,
+            ).update(
+                {
+                    "status": 0,
+                },
+                synchronize_session=False,
+            )
+        db.session.flush()
+
     def _insert_row(
         self,
         *,
@@ -182,24 +251,10 @@ class ListenElementRunPersistenceMixin:
         base_element_bid = self._prepare_runtime_element(element)
         replace_same_element_bid = bool(element.is_new and element.element_bid)
         if (not element.is_new) or replace_same_element_bid:
-            (
-                LearnGeneratedElement.query.filter(
-                    LearnGeneratedElement.run_session_bid == self.run_session_bid,
-                    LearnGeneratedElement.generated_block_bid
-                    == (element.generated_block_bid or ""),
-                    LearnGeneratedElement.event_type == "element",
-                    LearnGeneratedElement.deleted == 0,
-                    LearnGeneratedElement.status == 1,
-                    (LearnGeneratedElement.element_bid == base_element_bid)
-                    | (LearnGeneratedElement.target_element_bid == base_element_bid),
-                ).update(
-                    {
-                        "status": 0,
-                    },
-                    synchronize_session=False,
-                )
+            self._deactivate_active_element_rows(
+                generated_block_bid=element.generated_block_bid,
+                element_bids=[base_element_bid],
             )
-            db.session.flush()
         self._insert_row(
             generated_block_bid=element.generated_block_bid,
             element_index=element.element_index,
