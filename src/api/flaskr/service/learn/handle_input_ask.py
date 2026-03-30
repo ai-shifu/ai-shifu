@@ -43,10 +43,8 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.service.learn.models import LearnGeneratedElement
-from flaskr.service.learn.listen_elements import (
-    _deserialize_payload,
-    find_follow_up_element_rows,
-)
+from flaskr.service.learn.listen_element_payloads import _deserialize_payload
+from flaskr.service.learn.listen_element_queries import find_follow_up_element_rows
 
 check_text_with_llm_response = None
 LLMSettings = None

@@ -22,11 +22,6 @@ from flaskr.service.learn.listen_element_payloads import (
     _deserialize_payload as _deserialize_payload_impl,
     _serialize_payload as _serialize_payload_impl,
 )
-from flaskr.service.learn.listen_element_queries import (
-    find_follow_up_element_rows as _find_follow_up_element_rows,
-    find_latest_answer_element_row as _find_latest_answer_element_row,
-    find_latest_ask_element_row as _find_latest_ask_element_row,
-)
 from flaskr.service.learn.listen_element_run_persistence import (
     ListenElementRunPersistenceMixin,
 )
@@ -57,9 +52,6 @@ _change_type_for_element = _change_type_for_element_impl
 _default_is_marker = _default_is_marker_impl
 _element_type_code = _element_type_code_impl
 _mdflow_new_stream_is_new = _mdflow_new_stream_is_new_impl
-find_follow_up_element_rows = _find_follow_up_element_rows
-find_latest_answer_element_row = _find_latest_answer_element_row
-find_latest_ask_element_row = _find_latest_ask_element_row
 
 
 class ListenElementRunAdapter(
