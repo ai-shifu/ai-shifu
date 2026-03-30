@@ -8,18 +8,13 @@ class _DummyValue:
         self.variable_bid = variable_bid
 
 
-def test_get_latest_variable_value_prefers_key_match_over_variable_bid_match():
+def test_get_latest_variable_value_prefers_key_match_over_non_matching_variable_bid():
     values = [
         _DummyValue(key="k1", shifu_bid="s1", variable_bid="v-other"),
         _DummyValue(key="k-other", shifu_bid="s1", variable_bid="v1"),
     ]
 
-    hit = _get_latest_variable_value(
-        values,
-        variable_key="k1",
-        shifu_bid="s1",
-        variable_bid="v1",
-    )
+    hit = _get_latest_variable_value(values, variable_key="k1", shifu_bid="s1")
     assert hit is values[0]
 
 
@@ -42,16 +37,11 @@ def test_get_latest_variable_value_falls_back_to_global_key_when_shifu_missing()
     assert hit is values[0]
 
 
-def test_get_latest_variable_value_global_key_beats_global_variable_bid():
+def test_get_latest_variable_value_global_key_beats_global_variable_bid_value():
     values = [
         _DummyValue(key="k1", shifu_bid="", variable_bid="v-other"),
         _DummyValue(key="k-other", shifu_bid="", variable_bid="v1"),
     ]
 
-    hit = _get_latest_variable_value(
-        values,
-        variable_key="k1",
-        shifu_bid="s1",
-        variable_bid="v1",
-    )
+    hit = _get_latest_variable_value(values, variable_key="k1", shifu_bid="s1")
     assert hit is values[0]

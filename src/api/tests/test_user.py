@@ -1,7 +1,11 @@
 from flaskr.dao import db
 from flaskr.service.profile.funcs import get_user_profiles
 from flaskr.service.profile.models import Variable, VariableValue
-from flaskr.service.user.common import get_user_info, update_user_info
+from flaskr.service.user.common import update_user_info
+from flaskr.service.user.repository import (
+    build_user_info_from_aggregate,
+    load_user_aggregate,
+)
 from flaskr.service.user.models import UserInfo
 
 
@@ -88,7 +92,9 @@ def test_update_user_info_updates_both_name_and_language_profiles(app):
         db.session.add(user)
         db.session.commit()
 
-        auth_user = get_user_info(app, "user-profile-3")
+        aggregate = load_user_aggregate("user-profile-3")
+        assert aggregate is not None
+        auth_user = build_user_info_from_aggregate(aggregate)
         update_user_info(app, auth_user, name="After", language="zh-CN")
 
         stored = (

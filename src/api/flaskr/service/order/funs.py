@@ -1407,9 +1407,7 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                 campaign_applications = query_promo_campaign_applications(
                     app, record_id, recaul_discount
                 )
-                discount_records = query_discount_record(
-                    app, record_id, recaul_discount
-                )
+                discount_records = query_discount_record(record_id)
                 discount_info = calculate_discount_value(
                     app,
                     buy_record.payable_price,
