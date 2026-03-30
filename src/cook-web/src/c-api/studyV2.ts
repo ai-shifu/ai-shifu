@@ -4,6 +4,23 @@ import { v4 } from 'uuid';
 import { getResolvedBaseURL } from '@/c-utils/envUtils';
 import { useUserStore } from '@/store/useUserStore';
 
+export const ELEMENT_TYPE = {
+  INTERACTION: 'interaction',
+  HTML: 'html',
+  TEXT: 'text',
+  TABLES: 'tables',
+  CODE: 'code',
+  LATEX: 'latex',
+  MD_IMG: 'md_img',
+  MERMAID: 'mermaid',
+  TITLE: 'title',
+  SVG: 'svg',
+  DIFF: 'diff',
+  IMG: 'img',
+} as const;
+
+export type ElementType = (typeof ELEMENT_TYPE)[keyof typeof ELEMENT_TYPE];
+
 // ===== Constants  Types for shared literals =====
 // record history block type
 export const BLOCK_TYPE = {
@@ -46,7 +63,9 @@ export type LearningPermission =
 
 // run sse output type
 export const SSE_OUTPUT_TYPE = {
+  ELEMENT: 'element',
   CONTENT: 'content',
+  ERROR: 'error',
   BREAK: 'break',
   ASK: 'ask',
   TEXT_END: 'done',
@@ -76,22 +95,36 @@ export const LESSON_FEEDBACK_VARIABLE_NAME =
 export const LESSON_FEEDBACK_INTERACTION_MARKER =
   `%{{${LESSON_FEEDBACK_VARIABLE_NAME}}}` as const;
 
-export interface StudyRecordItem {
-  block_type: BlockType;
-  content: string;
-  generated_block_bid: string;
-  like_status?: LikeStatus;
+export interface StudyRecordPayload {
+  audio?: unknown;
+  previous_visuals?: unknown[];
   user_input?: string;
+  [key: string]: unknown;
+}
+
+export interface StudyRecordItem {
+  element_type: ElementType;
+  element_bid: string;
+  element_index?: number;
+  sequence_number?: number;
+  target_element_bid?: string;
+  change_type?: string;
+  content: string;
+  is_marker: boolean;
+  is_new: boolean;
+  is_renderable: boolean;
+  is_speakable: boolean;
+  like_status?: LikeStatus;
+  generated_block_bid?: string;
+  user_input?: string;
+  payload?: StudyRecordPayload;
   isHistory?: boolean;
   audio_url?: string;
-  audios?: AudioCompleteData[];
-  av_contract?: Record<string, any> | null;
+  audio_segments?: AudioSegmentData[];
 }
 
 export interface LessonStudyRecords {
-  mdflow: string;
-  records: StudyRecordItem[];
-  slides?: ListenSlideData[];
+  elements: StudyRecordItem[];
 }
 
 export interface GetLessonStudyRecordParams {
@@ -148,6 +181,7 @@ export interface AudioSegmentData {
   duration_ms: number;
   is_final: boolean;
   position?: number;
+  element_id?: string;
   slide_id?: string;
   av_contract?: Record<string, any> | null;
 }
@@ -163,7 +197,9 @@ export interface AudioCompleteData {
 
 export interface ListenSlideData {
   slide_id: string;
-  generated_block_bid: string;
+  element_bid?: string;
+  target_element_bid?: string;
+  generated_block_bid?: string;
   slide_index: number;
   audio_position: number;
   visual_kind: string;
@@ -182,6 +218,17 @@ export interface StreamGeneratedBlockAudioParams {
   onError?: (error: unknown) => void;
 }
 
+const getListenFlagFromPageUrl = (): boolean => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const listenParam = new URLSearchParams(window.location.search).get('listen');
+  return (
+    typeof listenParam === 'string' && listenParam.toLowerCase() === 'true'
+  );
+};
+
 export const getRunMessage = (
   shifu_bid: string,
   outline_bid: string,
@@ -196,6 +243,7 @@ export const getRunMessage = (
 ) => {
   const token = useUserStore.getState().getToken();
   const payload = { ...body };
+  payload.listen = getListenFlagFromPageUrl();
 
   const baseURL = getResolvedBaseURL();
 
@@ -323,7 +371,7 @@ export const getLessonStudyRecord = async ({
     .catch(error => {
       // when error, return empty records, go run api
       return {
-        records: [],
+        elements: [],
       };
     });
 };

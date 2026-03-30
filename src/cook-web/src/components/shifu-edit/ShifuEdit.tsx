@@ -1278,6 +1278,7 @@ const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
                   }
                   actionType={hideRestoreActionType}
                   actionDisabled={hideRestoreActionDisabled}
+                  showGenerateBtn={false}
                 />
               </div>
             </div>

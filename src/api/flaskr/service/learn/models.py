@@ -182,6 +182,219 @@ class LearnGeneratedBlock(db.Model):
     )
 
 
+class LearnGeneratedElement(db.Model):
+    """Listen-mode generated element snapshots and events."""
+
+    __tablename__ = "learn_generated_elements"
+    __table_args__ = {"comment": "Listen-mode generated elements"}
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    element_bid = Column(
+        String(64),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Element business identifier",
+    )
+    progress_record_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Learn progress record business identifier",
+        index=True,
+    )
+    user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="User business identifier",
+        index=True,
+    )
+    generated_block_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Source generated block business identifier",
+        index=True,
+    )
+    outline_item_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Outline business identifier",
+        index=True,
+    )
+    shifu_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Shifu business identifier",
+        index=True,
+    )
+    run_session_bid = Column(
+        String(64),
+        nullable=False,
+        default="",
+        comment="Run session business identifier",
+        index=True,
+    )
+    run_event_seq = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Run event sequence within the session",
+        index=True,
+    )
+    event_type = Column(
+        String(32),
+        nullable=False,
+        default="element",
+        comment="Event type: element/break/done/error/audio_segment/audio_complete/variable_update/outline_item_update",
+        index=True,
+    )
+    role = Column(
+        String(16),
+        nullable=False,
+        default="teacher",
+        comment="Element role: teacher/student/ui",
+    )
+    element_index = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Listen-mode navigation index",
+        index=True,
+    )
+    element_type = Column(
+        String(32),
+        nullable=False,
+        default="",
+        comment="Element type: html/svg/diff/img/interaction/ask/answer/tables/code/latex/md_img/mermaid/title/text",
+        index=True,
+    )
+    element_type_code = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Element type numeric code",
+    )
+    change_type = Column(
+        String(16),
+        nullable=False,
+        default="",
+        comment="Change type: render/diff",
+    )
+    target_element_bid = Column(
+        String(64),
+        nullable=False,
+        default="",
+        comment="Diff target element business identifier",
+        index=True,
+    )
+    is_renderable = Column(
+        SmallInteger,
+        nullable=False,
+        default=1,
+        comment="Renderable flag: 1=renderable, 0=non-renderable",
+        index=True,
+    )
+    is_new = Column(
+        SmallInteger,
+        nullable=False,
+        default=1,
+        comment="New element flag: 1=creates new element, 0=patches existing via target_element_bid",
+        index=True,
+    )
+    is_marker = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Marker flag: 1=forward/backward navigation anchor, 0=normal",
+        index=True,
+    )
+    sequence_number = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Element generation sequence within the run session (strictly increasing)",
+        index=True,
+    )
+    is_speakable = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Speakable flag: 1=needs TTS synthesis, 0=silent",
+        index=True,
+    )
+    audio_url = Column(
+        String(512),
+        nullable=False,
+        default="",
+        comment="Complete audio URL; empty until audio is finalized",
+    )
+    audio_segments = Column(
+        Text,
+        nullable=False,
+        default="[]",
+        comment="Audio segment trail as JSON array",
+    )
+    is_navigable = Column(
+        SmallInteger,
+        nullable=False,
+        default=1,
+        comment="Navigation flag: 1=navigable, 0=non-navigable",
+        index=True,
+    )
+    is_final = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Final snapshot flag: 1=final, 0=partial",
+        index=True,
+    )
+    content_text = Column(
+        Text,
+        nullable=False,
+        default="",
+        comment="Element textual content snapshot",
+    )
+    payload = Column(
+        Text,
+        nullable=False,
+        default="",
+        comment="Element payload JSON",
+    )
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Deletion flag: 0=active, 1=deleted",
+        index=True,
+    )
+    status = Column(
+        Integer,
+        nullable=False,
+        default=1,
+        comment="Record status: 1=active, 0=history",
+        index=True,
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        comment="Creation timestamp",
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now(),
+        comment="Last update timestamp",
+    )
+
+
 class LearnLessonFeedback(db.Model):
     """Lesson feedback record (one effective record per user + lesson)."""
 

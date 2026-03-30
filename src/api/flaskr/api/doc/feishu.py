@@ -206,20 +206,6 @@ def list_records(
     return r.json()
 
 
-""" list all tables of an app
-"""
-
-
-def list_tables(app: Flask, app_token: str):
-    token = get_tenant_token(app)
-    url = "https://open.feishu.cn/open-apis/bitable/v1/apps/{app_token}/tables".format(
-        app_token=app_token
-    )
-    headers = {"Content-Type": "application/json", "Authorization": "Bearer " + token}
-    r = requests.get(url, headers=headers)
-    return r.json()
-
-
 def send_notify(app: Flask, title, msgs):
     url = get_config("FEISHU_NOTIFY_URL", None)
     if not url:

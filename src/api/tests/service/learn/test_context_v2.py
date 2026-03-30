@@ -1,4 +1,5 @@
 import asyncio
+import time
 import types
 import unittest
 from unittest.mock import patch
@@ -23,15 +24,34 @@ if not hasattr(dao, "redis_client"):
     dao.redis_client = None
 
 from flaskr.service.learn.context_v2 import (
+    BlockType as PreviewBlockType,
     MdflowContextV2,
+    RUNLLMProvider,
     RunScriptContextV2,
     RunScriptPreviewContextV2,
 )
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
-from flaskr.service.learn.learn_dtos import GeneratedType, PlaygroundPreviewRequest
-from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
-from flaskr.service.order.consts import LEARN_STATUS_COMPLETED
-from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
+from flaskr.service.learn.learn_dtos import (
+    ElementType,
+    GeneratedType,
+    PlaygroundPreviewRequest,
+)
+from flaskr.service.learn.models import (
+    LearnGeneratedBlock,
+    LearnGeneratedElement,
+    LearnProgressRecord,
+)
+from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
+from flaskr.service.order.consts import (
+    LEARN_STATUS_COMPLETED,
+    LEARN_STATUS_IN_PROGRESS,
+)
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDCONTENT_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
+)
 from flaskr.util import generate_id
 
 
@@ -271,6 +291,127 @@ class CompletionTailInteractionTests(unittest.TestCase):
         self.assertEqual(events, ["next-event"])
 
 
+class RuntimeOutlineBlockCountTests(unittest.TestCase):
+    def test_get_next_outline_item_uses_runtime_block_count_for_leaf_outline(self):
+        ctx = _make_context()
+        ctx.app = Flask("runtime-outline-block-count-tests")
+        ctx._preview_mode = False
+
+        class _Column:
+            def in_(self, _values):
+                return self
+
+            def __eq__(self, _other):
+                return self
+
+        class _OutlineModel:
+            outline_item_bid = _Column()
+            hidden = _Column()
+            title = _Column()
+            deleted = _Column()
+
+        class _FakeQuery:
+            def filter(self, *_args, **_kwargs):
+                return self
+
+            def all(self):
+                return [("outline-1", False, "Outline 1")]
+
+        class _FakeMarkdownFlow:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def get_all_blocks(self):
+                return [object(), object()]
+
+        outline_item = HistoryItem(
+            bid="outline-1",
+            id=1,
+            type="outline",
+            children=[],
+            child_count=1,
+        )
+        ctx._struct = HistoryItem(
+            bid="shifu-1",
+            id=10,
+            type="shifu",
+            children=[outline_item],
+        )
+        ctx._current_outline_item = outline_item
+        ctx._current_attend = types.SimpleNamespace(
+            block_position=1,
+            status=LEARN_STATUS_IN_PROGRESS,
+        )
+        ctx._outline_model = _OutlineModel
+
+        with (
+            patch.object(dao.db.session, "query", return_value=_FakeQuery()),
+            patch(
+                "flaskr.service.learn.context_v2.get_outline_item_dto_with_mdflow",
+                return_value=types.SimpleNamespace(mdflow="doc"),
+            ) as get_outline_item_mock,
+            patch(
+                "flaskr.service.learn.context_v2.MarkdownFlow",
+                _FakeMarkdownFlow,
+            ),
+        ):
+            self.assertEqual(ctx._get_next_outline_item(), [])
+
+        self.assertEqual(
+            get_outline_item_mock.call_args.kwargs.get("outline_item_id"),
+            1,
+        )
+
+    def test_get_run_script_info_uses_outline_row_id_from_struct(self):
+        ctx = _make_context()
+        ctx.app = Flask("runtime-outline-row-id-tests")
+        ctx._preview_mode = False
+        ctx._current_outline_item = HistoryItem(
+            bid="outline-1",
+            id=42,
+            type="outline",
+            children=[],
+            child_count=2,
+        )
+        ctx._struct = HistoryItem(
+            bid="shifu-1",
+            id=1,
+            type="shifu",
+            children=[ctx._current_outline_item],
+        )
+
+        attend = types.SimpleNamespace(outline_item_bid="outline-1", block_position=0)
+
+        class _FakeMarkdownFlow:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def get_all_blocks(self):
+                return [object(), object()]
+
+        with (
+            patch(
+                "flaskr.service.learn.context_v2.get_outline_item_dto_with_mdflow",
+                return_value=types.SimpleNamespace(
+                    mdflow="doc",
+                    outline_bid="outline-1",
+                    title="Outline 1",
+                ),
+            ) as get_outline_item_mock,
+            patch(
+                "flaskr.service.learn.context_v2.MarkdownFlow",
+                _FakeMarkdownFlow,
+            ),
+        ):
+            run_info = ctx._get_run_script_info(attend)
+
+        self.assertIsNotNone(run_info)
+        self.assertEqual(
+            get_outline_item_mock.call_args.kwargs.get("outline_item_id"),
+            42,
+        )
+
+
 class ExceptionGateFeedbackTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -367,6 +508,248 @@ class StreamTtsGateTests(unittest.TestCase):
         ctx._preview_mode = True
         ctx._listen = True
         self.assertFalse(ctx._should_stream_tts())
+
+    def test_iter_stream_result_with_idle_callback_drains_while_waiting(self):
+        app = Flask("stream-tts-idle-drain")
+        ctx = _make_context()
+        ctx.app = app
+
+        idle_ticks: list[int] = []
+
+        def delayed_stream():
+            time.sleep(0.05)
+            yield "chunk-1"
+
+        def on_idle():
+            idle_ticks.append(len(idle_ticks))
+            yield f"idle-{len(idle_ticks)}"
+
+        with app.app_context():
+            outputs = list(
+                ctx._iter_stream_result_with_idle_callback(
+                    delayed_stream(),
+                    idle_callback=on_idle,
+                    idle_poll_interval=0.01,
+                )
+            )
+
+        assert outputs[0][0] == "idle"
+        assert outputs[-1] == ("item", "chunk-1")
+        assert idle_ticks
+
+
+class ReloadFromElementBidTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = Flask("reload-from-element-bid")
+        cls.app.config.update(
+            SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+            SQLALCHEMY_BINDS={
+                "ai_shifu_saas": "sqlite:///:memory:",
+                "ai_shifu_admin": "sqlite:///:memory:",
+            },
+            SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        )
+        dao.db.init_app(cls.app)
+        with cls.app.app_context():
+            dao.db.create_all()
+
+    def setUp(self):
+        self.app = self.__class__.app
+        self.ctx = _make_context()
+        self.ctx.app = self.app
+        self.ctx._user_info = types.SimpleNamespace(user_id="user-1")
+        self.ctx._input_type = "normal"
+        self.ctx._can_continue = True
+        self.ctx.run = lambda _app: iter(())
+        with self.app.app_context():
+            LearnGeneratedElement.query.delete()
+            LearnGeneratedBlock.query.delete()
+            LearnProgressRecord.query.delete()
+            dao.db.session.commit()
+
+    def test_reload_element_bid_realigns_progress_to_source_block(self):
+        with self.app.app_context():
+            progress = LearnProgressRecord(
+                progress_record_bid="progress-1",
+                shifu_bid="shifu-1",
+                outline_item_bid="outline-1",
+                user_bid="user-1",
+                status=LEARN_STATUS_COMPLETED,
+                block_position=5,
+            )
+            dao.db.session.add(progress)
+
+            interaction_block = LearnGeneratedBlock(
+                generated_block_bid="generated-interaction-1",
+                progress_record_bid=progress.progress_record_bid,
+                user_bid=progress.user_bid,
+                block_bid="",
+                outline_item_bid=progress.outline_item_bid,
+                shifu_bid=progress.shifu_bid,
+                type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                role=1,
+                generated_content="selected value",
+                position=2,
+                block_content_conf="?[%{{nickname}} Alice | Bob]",
+                status=1,
+            )
+            later_block = LearnGeneratedBlock(
+                generated_block_bid="generated-content-2",
+                progress_record_bid=progress.progress_record_bid,
+                user_bid=progress.user_bid,
+                block_bid="",
+                outline_item_bid=progress.outline_item_bid,
+                shifu_bid=progress.shifu_bid,
+                type=BLOCK_TYPE_MDCONTENT_VALUE,
+                role=1,
+                generated_content="later content",
+                position=3,
+                block_content_conf="later content",
+                status=1,
+            )
+            dao.db.session.add(interaction_block)
+            dao.db.session.add(later_block)
+            dao.db.session.add(
+                LearnGeneratedElement(
+                    element_bid="interaction-element-1",
+                    progress_record_bid=progress.progress_record_bid,
+                    user_bid=progress.user_bid,
+                    generated_block_bid=interaction_block.generated_block_bid,
+                    outline_item_bid=progress.outline_item_bid,
+                    shifu_bid=progress.shifu_bid,
+                    run_session_bid="run-1",
+                    run_event_seq=1,
+                    role="teacher",
+                    element_index=4,
+                    element_type=ElementType.INTERACTION.value,
+                    element_type_code=205,
+                    change_type="render",
+                    content_text="?[%{{nickname}} Alice | Bob]",
+                    payload="{}",
+                    status=1,
+                )
+            )
+            dao.db.session.add(
+                LearnGeneratedElement(
+                    element_bid="later-element-1",
+                    progress_record_bid=progress.progress_record_bid,
+                    user_bid=progress.user_bid,
+                    generated_block_bid=later_block.generated_block_bid,
+                    outline_item_bid=progress.outline_item_bid,
+                    shifu_bid=progress.shifu_bid,
+                    run_session_bid="run-1",
+                    run_event_seq=2,
+                    role="teacher",
+                    element_index=5,
+                    element_type=ElementType.TEXT.value,
+                    element_type_code=213,
+                    change_type="render",
+                    content_text="later content",
+                    payload="{}",
+                    status=1,
+                )
+            )
+            dao.db.session.commit()
+
+            list(
+                self.ctx.reload(
+                    self.app,
+                    "interaction-element-1",
+                    reload_element_bid="interaction-element-1",
+                )
+            )
+
+            dao.db.session.refresh(progress)
+            dao.db.session.refresh(interaction_block)
+            dao.db.session.refresh(later_block)
+            later_element = LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.element_bid == "later-element-1"
+            ).first()
+
+            self.assertEqual(progress.block_position, 2)
+            self.assertEqual(progress.status, LEARN_STATUS_IN_PROGRESS)
+            self.assertEqual(interaction_block.status, 1)
+            self.assertEqual(later_block.status, 0)
+            self.assertIsNotNone(later_element)
+            self.assertEqual(later_element.status, 0)
+
+
+class StreamTtsTeardownTests(unittest.TestCase):
+    def test_teardown_flushes_content_then_finalizes_tts(self):
+        app = Flask("stream-tts-teardown")
+        ctx = _make_context()
+        ctx.app = app
+        ctx._element_index_cursor = 2
+
+        class _FakeProcessor:
+            next_element_index = 5
+
+            def __init__(self):
+                self.finalize_calls = []
+
+            def finalize(self, *, commit=True):
+                self.finalize_calls.append(commit)
+                yield "audio-complete"
+
+        flush_calls: list[str] = []
+        processor = _FakeProcessor()
+
+        def _flush_content_cache():
+            flush_calls.append("flush")
+            yield "content-flush"
+
+        with app.app_context():
+            events = list(
+                ctx._teardown_stream_tts_state(
+                    tts_processor=processor,
+                    flush_content_cache=_flush_content_cache,
+                    log_prefix="test finalize",
+                )
+            )
+
+        self.assertEqual(events, ["content-flush", "audio-complete"])
+        self.assertEqual(flush_calls, ["flush"])
+        self.assertEqual(processor.finalize_calls, [False])
+        self.assertEqual(ctx._element_index_cursor, 5)
+
+    def test_teardown_skips_emit_on_generator_exit(self):
+        app = Flask("stream-tts-teardown-generator-exit")
+        ctx = _make_context()
+        ctx.app = app
+        ctx._element_index_cursor = 1
+
+        class _FakeProcessor:
+            next_element_index = 9
+
+            def __init__(self):
+                self.finalize_calls = 0
+
+            def finalize(self, *, commit=True):
+                self.finalize_calls += 1
+                yield "audio-complete"
+
+        flush_calls: list[str] = []
+        processor = _FakeProcessor()
+
+        def _flush_content_cache():
+            flush_calls.append("flush")
+            yield "content-flush"
+
+        with app.app_context():
+            events = list(
+                ctx._teardown_stream_tts_state(
+                    tts_processor=processor,
+                    flush_content_cache=_flush_content_cache,
+                    log_prefix="test finalize",
+                    skip_emit=True,
+                )
+            )
+
+        self.assertEqual(events, [])
+        self.assertEqual(flush_calls, [])
+        self.assertEqual(processor.finalize_calls, 0)
+        self.assertEqual(ctx._element_index_cursor, 1)
 
 
 class MdflowContextCompatibilityTests(unittest.TestCase):
@@ -471,6 +854,267 @@ class PreviewResolveVariablesTests(unittest.TestCase):
 
         self.assertEqual(variables.get("sys_user_language"), "fr-FR")
         mock_fetch.assert_not_called()
+
+
+class PreviewRunLlmLoggingTests(unittest.TestCase):
+    def test_complete_logs_full_preview_output(self):
+        app = Flask("preview-run-llm-logging")
+        provider = RUNLLMProvider(
+            app=app,
+            llm_settings=types.SimpleNamespace(model="gpt-test", temperature=0.6),
+            trace=object(),
+            trace_args={
+                "user_id": "user-1",
+                "metadata": {
+                    "shifu_bid": "shifu-1",
+                    "outline_bid": "outline-1",
+                    "session_id": "session-1",
+                    "scene": "lesson_preview",
+                },
+            },
+            usage_context=types.SimpleNamespace(),
+            usage_scene=BILL_USAGE_SCENE_PREVIEW,
+        )
+
+        with (
+            patch.object(app.logger, "info") as mock_info,
+            patch(
+                "flaskr.service.learn.context_v2.chat_llm",
+                return_value=iter(
+                    [
+                        types.SimpleNamespace(result="First line\n"),
+                        types.SimpleNamespace(result="Second line"),
+                    ]
+                ),
+            ),
+        ):
+            output = provider.complete(messages=[{"role": "user", "content": "hello"}])
+
+        self.assertEqual(output, "First line\nSecond line")
+        mock_info.assert_any_call(
+            "preview llm output | shifu_bid=%s | outline_bid=%s | session_id=%s | scene=%s | model=%s | temperature=%s | output=%s",
+            "shifu-1",
+            "outline-1",
+            "session-1",
+            "lesson_preview",
+            "gpt-test",
+            0.6,
+            "First line\nSecond line",
+        )
+
+
+class PreviewElementizationTests(unittest.TestCase):
+    def test_preview_content_events_preserve_stream_parts(self):
+        app = Flask("preview-content-events")
+        preview_ctx = RunScriptPreviewContextV2(app)
+
+        events = preview_ctx._preview_events_from_result(
+            llm_result=types.SimpleNamespace(
+                content="Hello preview",
+                type="text",
+                number=0,
+            ),
+            outline_bid="outline-1",
+            generated_block_bid="0",
+            current_block=types.SimpleNamespace(block_type="content"),
+            is_user_input_validation=False,
+        )
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].type, GeneratedType.CONTENT)
+        self.assertEqual(
+            events[0].get_mdflow_stream_parts(),
+            [("Hello preview", "text", 0)],
+        )
+
+    def test_preview_content_stream_emits_element_and_done(self):
+        app = Flask("preview-content-stream")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        adapter = PreviewElementRunAdapter(
+            app,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            user_bid="user-1",
+            run_session_bid="preview-session-1",
+        )
+        content_chunks: list[str] = []
+
+        messages = list(
+            adapter.process(
+                preview_ctx._iter_preview_generated_events(
+                    result=(
+                        chunk
+                        for chunk in [
+                            types.SimpleNamespace(
+                                content="Hello preview",
+                                type="text",
+                                number=0,
+                            )
+                        ]
+                    ),
+                    outline_bid="outline-1",
+                    block_index=0,
+                    current_block=types.SimpleNamespace(block_type="content"),
+                    is_user_input_validation=False,
+                    content_chunks=content_chunks,
+                )
+            )
+        )
+
+        element_messages = [item for item in messages if item.type == "element"]
+        self.assertGreaterEqual(len(element_messages), 2)
+        self.assertEqual(content_chunks, ["Hello preview"])
+        self.assertEqual(element_messages[0].content.element_type, ElementType.TEXT)
+        self.assertFalse(element_messages[0].content.is_final)
+        self.assertEqual(element_messages[-1].content.element_type, ElementType.TEXT)
+        self.assertTrue(element_messages[-1].content.is_final)
+        done_messages = [
+            item for item in messages if item.type == GeneratedType.DONE.value
+        ]
+        self.assertEqual(len(done_messages), 2)
+        self.assertFalse(done_messages[0].is_terminal)
+        self.assertEqual(messages[-1].type, GeneratedType.DONE.value)
+        self.assertTrue(messages[-1].is_terminal)
+
+    def test_preview_content_uses_formatted_elements_when_top_level_content_empty(self):
+        app = Flask("preview-content-formatted-elements")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        adapter = PreviewElementRunAdapter(
+            app,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            user_bid="user-1",
+            run_session_bid="preview-session-3",
+        )
+        content_chunks: list[str] = []
+
+        messages = list(
+            adapter.process(
+                preview_ctx._iter_preview_generated_events(
+                    result=types.SimpleNamespace(
+                        content="",
+                        formatted_elements=[
+                            types.SimpleNamespace(
+                                content="Visual caption",
+                                type="text",
+                                number=0,
+                            )
+                        ],
+                    ),
+                    outline_bid="outline-1",
+                    block_index=0,
+                    current_block=types.SimpleNamespace(block_type="content"),
+                    is_user_input_validation=False,
+                    content_chunks=content_chunks,
+                )
+            )
+        )
+
+        element_messages = [item for item in messages if item.type == "element"]
+        self.assertGreaterEqual(len(element_messages), 2)
+        self.assertEqual(content_chunks, ["Visual caption"])
+        self.assertEqual(element_messages[0].content.content_text, "Visual caption")
+        done_messages = [
+            item for item in messages if item.type == GeneratedType.DONE.value
+        ]
+        self.assertEqual(len(done_messages), 2)
+        self.assertFalse(done_messages[0].is_terminal)
+        self.assertEqual(messages[-1].type, GeneratedType.DONE.value)
+        self.assertTrue(messages[-1].is_terminal)
+
+    def test_preview_interaction_validation_uses_formatted_elements_when_content_empty(
+        self,
+    ):
+        app = Flask("preview-interaction-validation-formatted-elements")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        adapter = PreviewElementRunAdapter(
+            app,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            user_bid="user-1",
+            run_session_bid="preview-session-4",
+        )
+        content_chunks: list[str] = []
+
+        messages = list(
+            adapter.process(
+                preview_ctx._iter_preview_generated_events(
+                    result=types.SimpleNamespace(
+                        content="",
+                        formatted_elements=[
+                            types.SimpleNamespace(
+                                content="Validation error",
+                                type="text",
+                                number=0,
+                            )
+                        ],
+                    ),
+                    outline_bid="outline-1",
+                    block_index=2,
+                    current_block=types.SimpleNamespace(
+                        block_type=PreviewBlockType.INTERACTION,
+                        content="? [A//a]",
+                    ),
+                    is_user_input_validation=True,
+                    content_chunks=content_chunks,
+                )
+            )
+        )
+
+        element_messages = [item for item in messages if item.type == "element"]
+        self.assertGreaterEqual(len(element_messages), 2)
+        self.assertEqual(content_chunks, ["Validation error"])
+        self.assertEqual(element_messages[0].content.content_text, "Validation error")
+        done_messages = [
+            item for item in messages if item.type == GeneratedType.DONE.value
+        ]
+        self.assertEqual(len(done_messages), 2)
+        self.assertFalse(done_messages[0].is_terminal)
+        self.assertEqual(messages[-1].type, GeneratedType.DONE.value)
+        self.assertTrue(messages[-1].is_terminal)
+
+    def test_preview_interaction_stream_emits_interaction_element_and_done(self):
+        app = Flask("preview-interaction-stream")
+        preview_ctx = RunScriptPreviewContextV2(app)
+        adapter = PreviewElementRunAdapter(
+            app,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            user_bid="user-1",
+            run_session_bid="preview-session-2",
+        )
+        content_chunks: list[str] = []
+
+        messages = list(
+            adapter.process(
+                preview_ctx._iter_preview_generated_events(
+                    result=types.SimpleNamespace(content="Please choose one"),
+                    outline_bid="outline-1",
+                    block_index=2,
+                    current_block=types.SimpleNamespace(
+                        block_type=PreviewBlockType.INTERACTION,
+                        content="? [A//a]",
+                    ),
+                    is_user_input_validation=False,
+                    content_chunks=content_chunks,
+                )
+            )
+        )
+
+        element_messages = [item for item in messages if item.type == "element"]
+        self.assertEqual(len(element_messages), 1)
+        interaction = element_messages[0].content
+        self.assertEqual(interaction.element_type, ElementType.INTERACTION)
+        self.assertEqual(interaction.role, "ui")
+        self.assertEqual(interaction.content_text, "Please choose one")
+        self.assertEqual(content_chunks, [])
+        done_messages = [
+            item for item in messages if item.type == GeneratedType.DONE.value
+        ]
+        self.assertEqual(len(done_messages), 2)
+        self.assertFalse(done_messages[0].is_terminal)
+        self.assertEqual(messages[-1].type, GeneratedType.DONE.value)
+        self.assertTrue(messages[-1].is_terminal)
 
 
 if __name__ == "__main__":

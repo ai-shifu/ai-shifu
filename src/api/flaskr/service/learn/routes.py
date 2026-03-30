@@ -11,13 +11,13 @@ from flaskr.service.common.models import raise_param_error
 from flaskr.service.learn.learn_funcs import (
     get_shifu_info,
     get_outline_item_tree,
-    get_learn_record,
     handle_reaction,
     reset_learn_record,
     get_generated_content,
     stream_generated_block_audio,
     stream_preview_tts_audio,
 )
+from flaskr.service.learn.listen_elements import get_listen_element_record
 from flaskr.service.learn.lesson_feedback import (
     submit_lesson_feedback,
     list_lesson_feedbacks,
@@ -28,7 +28,7 @@ from flaskr.service.common import raise_error
 from flaskr.service.learn.runscript_v2 import run_script, get_run_status
 from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
 from flaskr.service.learn.context_v2 import RunScriptPreviewContextV2
-from flaskr.service.learn.learn_dtos import PreviewSSEMessage, PreviewSSEMessageType
+from flaskr.service.learn.learn_dtos import RunElementSSEMessageDTO
 from flaskr.util import generate_id
 from flaskr.common.shifu_context import with_shifu_context, get_shifu_context_snapshot
 
@@ -66,6 +66,7 @@ def _stream_sse_response(
     close_log: str,
     error_log: str,
     error_event_factory=None,
+    terminal_event_factory=None,
 ) -> Response:
     def event_stream():
         try:
@@ -79,6 +80,8 @@ def _stream_sse_response(
             if error_event_factory is None:
                 raise
             yield _to_sse_data_line(error_event_factory(exc))
+            if terminal_event_factory is not None:
+                yield _to_sse_data_line(terminal_event_factory())
 
     return Response(
         stream_with_context(event_stream()),
@@ -247,7 +250,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     listen:
                         type: boolean
                         required: false
-                        description: Whether to enable streaming TTS during learning (default: false)
+                        description: Whether to enable segmented listen-mode TTS during learning (default: false)
                     reload_generated_block_bid:
                         type: string
                         required: false
@@ -261,13 +264,14 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                 content:
                     text/event-stream:
                         schema:
-                            $ref: "#/components/schemas/RunMarkdownFlowDTO"
+                            $ref: "#/components/schemas/RunElementSSEMessageDTO"
         """
         user_bid = request.user.user_id
         payload = request.get_json() or {}
         input = payload.get("input", None)
         input_type = payload.get("input_type", None)
         reload_generated_block_bid = payload.get("reload_generated_block_bid", None)
+        reload_element_bid = payload.get("reload_element_bid", None)
         listen_raw = payload.get("listen", False)
         if isinstance(listen_raw, str):
             listen = listen_raw.strip().lower() == "true"
@@ -291,6 +295,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     input=input,
                     input_type=input_type,
                     reload_generated_block_bid=reload_generated_block_bid,
+                    reload_element_bid=reload_element_bid,
                     listen=listen,
                     preview_mode=preview_mode,
                     shifu_context_snapshot=shifu_context_snapshot,
@@ -379,7 +384,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     text/event-stream:
                         schema:
                             type: string
-                            example: 'data: {"type":"content","data":{"mdflow":"..."}}'
+                            example: 'data: {"type":"element","event_type":"element","content":{"element_type":"text","content":"..."}}'
         """
         payload = request.get_json(silent=True) or {}
         normalized_user_input = payload.get("user_input")
@@ -437,10 +442,19 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             ),
             close_log="client closed preview stream early",
             error_log="preview outline block failed",
-            error_event_factory=lambda exc: PreviewSSEMessage(
+            error_event_factory=lambda exc: RunElementSSEMessageDTO(
+                type="error",
+                event_type="error",
                 generated_block_bid=generate_id(app),
-                type=PreviewSSEMessageType.ERROR,
-                data=str(exc),
+                is_terminal=False,
+                content=str(exc),
+            ),
+            terminal_event_factory=lambda: RunElementSSEMessageDTO(
+                type="done",
+                event_type="done",
+                generated_block_bid=None,
+                is_terminal=True,
+                content="",
             ),
         )
 
@@ -501,6 +515,13 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             - name: outline_bid
               type: string
               required: true
+            - name: preview_mode
+              type: boolean
+              required: false
+            - name: include_non_navigable
+              type: boolean
+              required: false
+              description: include persisted non-navigable events replay
         responses:
             200:
                 description: get learn records of the outline success
@@ -515,17 +536,28 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                                     type: string
                                     description: message
                                 data:
-                                    $ref: "#/components/schemas/LearnRecordDTO"
+                                    $ref: "#/components/schemas/LearnElementRecordDTO"
 
         """
         preview_mode = request.args.get("preview_mode", "False")
+        include_non_navigable = request.args.get("include_non_navigable", "False")
         app.logger.info(
-            f"get learn record, shifu_bid: {shifu_bid}, outline_bid: {outline_bid}, preview_mode: {preview_mode}"
+            f"get learn element record, shifu_bid: {shifu_bid}, outline_bid: {outline_bid}, preview_mode: {preview_mode}"
         )
         preview_mode = True if preview_mode.lower() == "true" else False
+        include_non_navigable = (
+            True if include_non_navigable.lower() == "true" else False
+        )
         user_bid = request.user.user_id
         return make_common_response(
-            get_learn_record(app, shifu_bid, outline_bid, user_bid, preview_mode)
+            get_listen_element_record(
+                app,
+                shifu_bid,
+                outline_bid,
+                user_bid,
+                preview_mode,
+                include_non_navigable=include_non_navigable,
+            )
         )
 
     @app.route(
@@ -803,7 +835,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     text/event-stream:
                         schema:
                             type: string
-                            example: 'data: {"type":"audio_segment","content":{"segment_index":0,"audio_data":"...","duration_ms":123,"is_final":false}}'
+                            example: 'data: {"type":"element","content":{"event_type":"element","element_bid":"el_demo_patch","is_new":false,"target_element_bid":"el_demo","audio_segments":[{"segment_index":0,"audio_data":"...","duration_ms":123,"is_final":false}]}}'
         """
         user_bid = request.user.user_id
         preview_mode = request.args.get("preview_mode", "False")

@@ -49,6 +49,8 @@ from flaskr.service.tts.patterns import (
     AV_IFRAME_CLOSE,
     AV_IFRAME_OPEN,
     AV_IMG_TAG,
+    AV_IMG_TAG_START,
+    AV_LATEX_BLOCK,
     AV_MD_IMAGE,
     AV_MD_IMAGE_START,
     AV_MD_TABLE_ROW,
@@ -62,7 +64,10 @@ from flaskr.service.tts.patterns import (
     FIXED_MARKER_TAIL,
     TAG_NAME_EXTRACT,
 )
+
 from flaskr.util.uuid import generate_id
+
+_AV_LATEX_BLOCK = AV_LATEX_BLOCK
 
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
@@ -195,13 +200,6 @@ def _find_html_block_end_with_complete(raw: str, start_index: int) -> tuple[int,
         cursor = match.end()
 
 
-def _find_svg_block_end(raw: str, start_index: int) -> int:
-    close = AV_SVG_CLOSE.search(raw, start_index)
-    if not close:
-        return len(raw)
-    return close.end()
-
-
 def _rewind_fixed_marker_start(raw: str, start_index: int) -> int:
     """
     If `raw` contains a MarkdownFlow fixed marker prefix on the same line as a
@@ -242,27 +240,6 @@ def _extend_fixed_marker_end(raw: str, end_index: int) -> int:
     if FIXED_MARKER_TAIL.match(tail) and ("=" in tail or "!" in tail):
         return len(raw) if nl == -1 else nl + 1
     return end_index
-
-
-def _find_iframe_block_end(raw: str, start_index: int) -> int:
-    close = AV_IFRAME_CLOSE.search(raw, start_index)
-    if not close:
-        return len(raw)
-    return _extend_fixed_marker_end(raw, close.end())
-
-
-def _find_video_block_end(raw: str, start_index: int) -> int:
-    close = AV_VIDEO_CLOSE.search(raw, start_index)
-    if not close:
-        return len(raw)
-    return close.end()
-
-
-def _find_table_block_end(raw: str, start_index: int) -> int:
-    close = AV_TABLE_CLOSE.search(raw, start_index)
-    if not close:
-        return len(raw)
-    return close.end()
 
 
 def _find_markdown_table_block(
@@ -354,10 +331,20 @@ def _find_next_av_boundary(
     fence_start = raw.find("```")
     if fence_start != -1:
         fence_close = raw.find("```", fence_start + 3)
+        # Determine the fenced code block kind from the language tag
+        fence_kind = "fence"
+        lang_line_end = raw.find("\n", fence_start + 3)
+        if lang_line_end == -1:
+            lang_line_end = len(raw)
+        lang_tag = raw[fence_start + 3 : lang_line_end].strip().lower()
+        if lang_tag == "mermaid":
+            fence_kind = "mermaid"
+        elif lang_tag == "diff":
+            fence_kind = "diff"
         if fence_close == -1:
-            candidates.append(("fence", fence_start, len(raw), False))
+            candidates.append((fence_kind, fence_start, len(raw), False))
         else:
-            candidates.append(("fence", fence_start, fence_close + 3, True))
+            candidates.append((fence_kind, fence_start, fence_close + 3, True))
 
     _append_open_close_boundary_candidate(
         candidates=candidates,
@@ -397,6 +384,13 @@ def _find_next_av_boundary(
     img_match = _find_first_match_outside_fence(raw, AV_IMG_TAG, fence_ranges)
     if img_match is not None:
         candidates.append(("img", img_match.start(), img_match.end(), True))
+    else:
+        img_start = _find_first_match_outside_fence(raw, AV_IMG_TAG_START, fence_ranges)
+        if img_start is not None:
+            start = img_start.start()
+            close = raw.find(">", start)
+            if close == -1:
+                candidates.append(("img", start, len(raw), False))
 
     md_img_match = _find_first_match_outside_fence(raw, AV_MD_IMAGE, fence_ranges)
     if md_img_match is not None:
@@ -427,6 +421,11 @@ def _find_next_av_boundary(
             raw, sandbox_start
         )
         candidates.append(("sandbox", sandbox_start, sandbox_end, sandbox_complete))
+
+    # LaTeX block formulas: $$...$$
+    latex_match = _find_first_match_outside_fence(raw, _AV_LATEX_BLOCK, fence_ranges)
+    if latex_match is not None:
+        candidates.append(("latex", latex_match.start(), latex_match.end(), True))
 
     if not candidates:
         return None

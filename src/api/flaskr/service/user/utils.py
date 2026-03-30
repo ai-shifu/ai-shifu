@@ -23,13 +23,6 @@ from flaskr.service.user.token_store import token_store
 from flaskr.util import generate_id
 
 
-def get_user_openid(user):
-    if hasattr(user, "user_open_id"):
-        return user.user_open_id
-    else:
-        return ""
-
-
 def _normalize_language_code(language_code: str) -> str:
     """Normalize legacy or inconsistent language codes into a canonical form."""
     if not language_code:

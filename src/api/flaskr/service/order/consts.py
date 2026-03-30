@@ -41,17 +41,3 @@ LEARN_STATUS_TYPES = {
     _("server.order.learnStatusBranch"): LEARN_STATUS_BRANCH,
     _("server.order.learnStatusReset"): LEARN_STATUS_RESET,
 }
-
-
-def get_learn_status_values():
-    return {
-        LEARN_STATUS_NOT_STARTED: _("server.order.learnStatusNotStarted"),
-        LEARN_STATUS_IN_PROGRESS: _("server.order.learnStatusInProgress"),
-        LEARN_STATUS_COMPLETED: _("server.order.learnStatusCompleted"),
-        LEARN_STATUS_REFUND: _("server.order.learnStatusRefund"),
-        LEARN_STATUS_LOCKED: _("server.order.learnStatusLocked"),
-        LEARN_STATUS_UNAVAILABLE: _("server.order.learnStatusUnavailable"),
-        LEARN_STATUS_BRANCH: _("server.order.learnStatusBranch"),
-        LEARN_STATUS_RESET: _("server.order.learnStatusReset"),
-        LEARN_STATUS_NOT_EXIST: _("server.order.learnStatusLocked"),
-    }

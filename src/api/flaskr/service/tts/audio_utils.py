@@ -11,7 +11,10 @@ from typing import List, Sequence
 from flaskr.common.log import AppLoggerProxy
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
-DEFAULT_CROSSFADE_MS = 50
+# Sentence-level TTS segments should concatenate without overlap by default.
+# Crossfading sentence boundaries can clip or duplicate phonemes, which is
+# especially noticeable in Chinese playback.
+DEFAULT_CROSSFADE_MS = 0
 
 # Try to import pydub, which wraps ffmpeg
 try:
@@ -28,13 +31,19 @@ def is_audio_processing_available() -> bool:
     return PYDUB_AVAILABLE
 
 
-def concat_audio_mp3(segments: List[bytes], output_format: str = "mp3") -> bytes:
+def concat_audio_mp3(
+    segments: List[bytes],
+    output_format: str = "mp3",
+    crossfade_ms: int = DEFAULT_CROSSFADE_MS,
+) -> bytes:
     """
     Concatenate multiple MP3 audio segments into a single audio file.
 
     Args:
         segments: List of audio data bytes (MP3 format)
         output_format: Output format (default: mp3)
+        crossfade_ms: Overlap to apply between adjacent segments. Defaults to 0
+            for TTS so sentence boundaries remain intact.
 
     Returns:
         Concatenated audio data as bytes
@@ -69,10 +78,15 @@ def concat_audio_mp3(segments: List[bytes], output_format: str = "mp3") -> bytes
             if combined is None:
                 combined = segment
             else:
-                # Keep crossfade short enough for both segments to avoid pydub errors.
-                crossfade_ms = min(DEFAULT_CROSSFADE_MS, len(combined), len(segment))
-                if crossfade_ms > 0:
-                    combined = combined.append(segment, crossfade=crossfade_ms)
+                # Keep crossfade short enough for both segments to avoid pydub
+                # errors when callers explicitly opt into overlap.
+                safe_crossfade_ms = min(
+                    max(int(crossfade_ms or 0), 0),
+                    len(combined),
+                    len(segment),
+                )
+                if safe_crossfade_ms > 0:
+                    combined = combined.append(segment, crossfade=safe_crossfade_ms)
                 else:
                     combined = combined.append(segment)
 

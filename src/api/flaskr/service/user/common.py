@@ -160,20 +160,6 @@ def get_user_info(app: Flask, user_id: str) -> UserInfo:
         return _load_user_info(app, user_id)
 
 
-def get_sms_code_info(app: Flask, user_id: str, resend: bool):
-    with app.app_context():
-        phone = redis.get(app.config["REDIS_KEY_PREFIX_PHONE"] + user_id)
-        if phone is None:
-            aggregate = load_user_aggregate(user_id)
-            phone = aggregate.mobile if aggregate else ""
-        else:
-            phone = str(phone, encoding="utf-8")
-        ttl = redis.ttl(app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + phone)
-        if ttl < 0:
-            ttl = 0
-        return {"expire_in": ttl, "phone": phone}
-
-
 def send_sms_code_without_check(app: Flask, user_info: object, phone: str):
     user_bid = getattr(user_info, "user_id", None) or getattr(
         user_info, "user_bid", None

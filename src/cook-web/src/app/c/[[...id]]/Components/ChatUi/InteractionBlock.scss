@@ -10,6 +10,10 @@
     }
   }
 }
+
+.interaction-block--no-padding-top {
+  padding-top: 0;
+}
 .ask-button {
   background: #55575e;
   color: rgba(255, 255, 255, var(--tw-text-opacity, 1));
@@ -28,6 +32,23 @@
 
   &:disabled {
     cursor: not-allowed;
+  }
+}
+
+.ask-button--content {
+  background: var(--primary);
+  width: 58px;
+  height: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+
+  &:not(:disabled):hover {
+    background: var(--primary);
+    opacity: 0.92;
   }
 }
 
