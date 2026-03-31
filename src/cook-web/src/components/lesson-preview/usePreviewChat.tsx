@@ -762,6 +762,17 @@ export function usePreviewChat() {
     return latestActionableItem;
   }, [appendLikeStatusIfMissing, setTrackedContentList]);
 
+  const stopPreviewAndContinueIfNeeded = useCallback(
+    (latestActionableItem?: ChatContentItem) => {
+      stopPreview();
+      if (latestActionableItem?.type === ChatContentItemType.INTERACTION) {
+        return false;
+      }
+      return continuePreviewFromLatestStateRef.current(latestActionableItem);
+    },
+    [stopPreview],
+  );
+
   const upsertElementPreviewItem = useCallback(
     (response: PreviewSseResponseData) => {
       const elementRecord = resolveElementPayload(response);
@@ -1032,28 +1043,19 @@ export function usePreviewChat() {
         } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.DONE) {
           const doneIsTerminal = resolveDoneIsTerminal(response);
           const latestActionableItem = finalizePreviewItems();
-          const shouldContinuePreview =
-            latestActionableItem?.type !== ChatContentItemType.INTERACTION &&
-            (doneIsTerminal === false || doneIsTerminal === null);
           doneTerminalStateRef.current = doneIsTerminal;
           currentContentIdRef.current = null;
           currentContentRef.current = '';
           currentStreamingElementBidRef.current = null;
-          stopPreview();
-          if (shouldContinuePreview) {
-            continuePreviewFromLatestStateRef.current(latestActionableItem);
+          if (doneIsTerminal === true) {
+            stopPreviewAndContinueIfNeeded(latestActionableItem);
           }
         } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.TEXT_END) {
           const latestActionableItem = finalizePreviewItems();
-          const shouldContinuePreview =
-            latestActionableItem?.type !== ChatContentItemType.INTERACTION;
           currentContentIdRef.current = null;
           currentContentRef.current = '';
           currentStreamingElementBidRef.current = null;
-          stopPreview();
-          if (shouldContinuePreview) {
-            continuePreviewFromLatestStateRef.current(latestActionableItem);
-          }
+          stopPreviewAndContinueIfNeeded(latestActionableItem);
         } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.ERROR) {
           const errorMessage =
             resolveResponseStringPayload(response) ||
@@ -1249,6 +1251,8 @@ export function usePreviewChat() {
           }
           console.error('[preview sse error]', err);
           const latestActionableItem = finalizePreviewItems();
+          const hasReceivedNonTerminalDone =
+            doneTerminalStateRef.current === false;
           const shouldContinuePreview =
             doneTerminalStateRef.current !== true &&
             latestActionableItem?.type !== ChatContentItemType.INTERACTION;
@@ -1259,6 +1263,10 @@ export function usePreviewChat() {
               return;
             }
             stopPreview();
+            return;
+          }
+          if (hasReceivedNonTerminalDone) {
+            stopPreviewAndContinueIfNeeded(latestActionableItem);
             return;
           }
           setError('Preview stream error');
@@ -1273,7 +1281,13 @@ export function usePreviewChat() {
         setIsLoading(false);
       }
     },
-    [finalizePreviewItems, handlePayload, resolveBaseUrl, stopPreview],
+    [
+      finalizePreviewItems,
+      handlePayload,
+      resolveBaseUrl,
+      stopPreview,
+      stopPreviewAndContinueIfNeeded,
+    ],
   );
 
   const continuePreviewFromLatestState = useCallback(
