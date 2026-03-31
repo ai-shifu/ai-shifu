@@ -1251,7 +1251,8 @@ export function usePreviewChat() {
           }
           console.error('[preview sse error]', err);
           const latestActionableItem = finalizePreviewItems();
-          const hasReceivedNonTerminalDone = doneTerminalStateRef.current === false;
+          const hasReceivedNonTerminalDone =
+            doneTerminalStateRef.current === false;
           const shouldContinuePreview =
             doneTerminalStateRef.current !== true &&
             latestActionableItem?.type !== ChatContentItemType.INTERACTION;
