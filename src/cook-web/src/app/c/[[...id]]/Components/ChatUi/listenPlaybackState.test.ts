@@ -51,6 +51,39 @@ describe('listenPlaybackState', () => {
     expect(previousSequenceKey).not.toBe(nextSequenceKey);
   });
 
+  it('distinguishes id-less marker sequences by fallback identity', () => {
+    const previousSequenceKey = buildListenMarkerSequenceKey([
+      {
+        type: 'text',
+        sequence_number: 1,
+        page: 0,
+        content: 'First outline marker',
+      } as any,
+      {
+        type: 'text',
+        sequence_number: 2,
+        page: 1,
+        content: 'Second outline marker',
+      } as any,
+    ]);
+    const nextSequenceKey = buildListenMarkerSequenceKey([
+      {
+        type: 'text',
+        sequence_number: 1,
+        page: 0,
+        content: 'Replacement marker',
+      } as any,
+      {
+        type: 'text',
+        sequence_number: 2,
+        page: 1,
+        content: 'Second outline marker',
+      } as any,
+    ]);
+
+    expect(previousSequenceKey).not.toBe(nextSequenceKey);
+  });
+
   it('preserves the current step while only the marker count changes', () => {
     const nextState = reconcileListenPlaybackStepCount(buildPlaybackState(), 4);
 

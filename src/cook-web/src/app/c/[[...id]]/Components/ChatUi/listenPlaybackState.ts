@@ -15,7 +15,10 @@ export type ListenPlaybackState = {
   isAudioWaiting: boolean;
 };
 
-export const getListenMarkerIdentityKey = (element?: SlideElement) => {
+export const getListenMarkerIdentityKey = (
+  element?: SlideElement,
+  fallbackIdentity?: string | number,
+) => {
   const listenElement = element as ListenStepElement | undefined;
 
   if (!listenElement) {
@@ -25,13 +28,22 @@ export const getListenMarkerIdentityKey = (element?: SlideElement) => {
   return [
     listenElement.type,
     listenElement.sequence_number,
-    listenElement.blockBid ?? '',
+    listenElement.blockBid ?? String(fallbackIdentity ?? ''),
     listenElement.page ?? '',
   ].join(':');
 };
 
 export const buildListenMarkerSequenceKey = (elements: SlideElement[]) =>
-  elements.map(getListenMarkerIdentityKey).join('|');
+  elements
+    .map((element, index) =>
+      getListenMarkerIdentityKey(
+        element,
+        typeof element.content === 'string' && element.content
+          ? `${index}:${element.content}`
+          : index,
+      ),
+    )
+    .join('|');
 
 export const reconcileListenPlaybackStepCount = (
   state: ListenPlaybackState,
