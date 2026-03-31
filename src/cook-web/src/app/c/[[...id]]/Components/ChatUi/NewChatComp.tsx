@@ -172,11 +172,15 @@ export const NewChatComponents = ({
   const courseTtsEnabled = useCourseStore(state => state.courseTtsEnabled);
   const isListenModeAvailable = courseTtsEnabled !== false;
   const isListenModeActive = isListenMode && isListenModeAvailable;
+  const promptContextKey = `${lessonId}:${isListenModeActive ? 'listen' : 'read'}`;
+  const [settledPromptContextKey, setSettledPromptContextKey] =
+    useState(promptContextKey);
   const shouldShowAudioAction = previewMode || isListenModeActive;
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   const isListenPlaybackBusy =
     listenPlaybackState.isAudioPlaying ||
     listenPlaybackState.isAudioSequenceActive;
+  const isPromptContextSettled = settledPromptContextKey === promptContextKey;
 
   const onPayModalOpen = useCallback(() => {
     openPayModal();
@@ -266,7 +270,8 @@ export const NewChatComponents = ({
     getNextLessonId,
     scrollToLesson,
     shouldPromptLessonFeedback:
-      isAtBottom && (!isListenModeActive || isListenFeedbackReady),
+      isPromptContextSettled &&
+      (isListenModeActive ? isListenFeedbackReady : isAtBottom),
     // scrollToBottom,
     showOutputInProgressToast,
     onPayModalOpen,
@@ -281,7 +286,12 @@ export const NewChatComponents = ({
 
   useEffect(() => {
     setIsAtBottom(false);
-  }, [lessonId]);
+    setShowScrollDown(false);
+  }, [isListenModeActive, lessonId]);
+
+  useEffect(() => {
+    setSettledPromptContextKey(promptContextKey);
+  }, [promptContextKey]);
 
   useEffect(() => {
     if (listenFeedbackReadyTimerRef.current !== null) {
@@ -602,7 +612,7 @@ export const NewChatComponents = ({
       });
       resizeObserver.disconnect();
     };
-  }, [checkScroll, items, mobileStyle]); // Added items as dependency to re-bind if structure changes significantly
+  }, [checkScroll, isListenModeActive, items, mobileStyle]);
 
   useEffect(() => {
     if (mobileStyle) {
@@ -631,9 +641,6 @@ export const NewChatComponents = ({
     </button>
   );
 
-  // useEffect(() => {
-  //   console.log('isLoading', isLoading);
-  // }, [isLoading]);
   return (
     <div
       className={containerClassName}
