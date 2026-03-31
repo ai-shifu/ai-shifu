@@ -21,7 +21,6 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_TIMEOUT,
     ORDER_STATUS_VALUES,
 )
-from flaskr.service.order.query_discount import query_discount_record
 from flaskr.service.promo.consts import COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT
 from flaskr.service.promo.funcs import (
     apply_promo_campaigns,
@@ -50,38 +49,6 @@ import pytz
 from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
 from flaskr.common.shifu_context import set_shifu_context
 from flaskr.service.shifu.utils import get_shifu_creator_bid
-
-
-@register_schema_to_swagger
-class AICourseLessonAttendDTO:
-    """
-    AICourseLessonAttendDTO
-    """
-
-    attend_id: str
-    lesson_id: str
-    course_id: str
-    user_id: str
-    status: int
-    index: int
-
-    def __init__(self, attend_id, lesson_id, course_id, user_id, status, index):
-        self.attend_id = attend_id
-        self.lesson_id = lesson_id
-        self.course_id = course_id
-        self.user_id = user_id
-        self.status = status
-        self.index = index
-
-    def __json__(self):
-        return {
-            "attend_id": self.attend_id,
-            "lesson_id": self.lesson_id,
-            "course_id": self.course_id,
-            "user_id": self.user_id,
-            "status": self.status,
-            "index": self.index,
-        }
 
 
 @register_schema_to_swagger
@@ -1450,22 +1417,6 @@ def success_buy_record(app: Flask, record_id: str):
         return None
 
 
-def query_raw_buy_record(app: Flask, user_id, course_id) -> Order:
-    """
-    Query raw buy record
-    """
-    with app.app_context():
-        buy_record = Order.query.filter(
-            Order.shifu_bid == course_id,
-            Order.user_bid == user_id,
-            Order.status != ORDER_STATUS_TIMEOUT,
-            Order.deleted == 0,
-        ).first()
-        if buy_record:
-            return buy_record
-        return None
-
-
 class DiscountInfo:
     discount_value: str
     items: list[PayItemDto]
@@ -1546,9 +1497,9 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                 campaign_applications = query_promo_campaign_applications(
                     app, record_id, recaul_discount
                 )
-                discount_records = query_discount_record(
-                    app, record_id, recaul_discount
-                )
+                discount_records = CouponUsageModel.query.filter(
+                    CouponUsageModel.order_bid == record_id
+                ).all()
                 discount_info = calculate_discount_value(
                     app,
                     buy_record.payable_price,

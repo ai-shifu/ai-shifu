@@ -141,23 +141,6 @@ def cleanup_outline_history_versions(
     )
 
 
-def _cleanup_outline_history_versions(
-    app: Flask,
-    shifu_bid: str,
-    outline_bid: str,
-    keep_versions: int = LESSON_HISTORY_MAX_VERSIONS,
-    keep_days: int = LESSON_HISTORY_MAX_DAYS,
-) -> None:
-    """Backward-compatible alias for tests and internal callers."""
-    cleanup_outline_history_versions(
-        app,
-        shifu_bid,
-        outline_bid,
-        keep_versions=keep_versions,
-        keep_days=keep_days,
-    )
-
-
 def save_shifu_mdflow(
     app: Flask,
     user_id: str,

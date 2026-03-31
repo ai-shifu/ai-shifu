@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, Optional, Set
+from typing import Dict, Set
 
 from flask import Flask
 
@@ -83,29 +83,3 @@ def get_user_shifu_permissions(app: Flask, user_id: str) -> Dict[str, Set[str]]:
             )
 
         return permission_map
-
-
-def get_user_shifu_bids(
-    app: Flask, user_id: str, permission: Optional[str] = None
-) -> list[str]:
-    """Return shifu bids where the user has any (or specific) permission."""
-    permission_map = get_user_shifu_permissions(app, user_id)
-    if not permission:
-        return list(permission_map.keys())
-    return [
-        shifu_bid
-        for shifu_bid, permissions in permission_map.items()
-        if permission in permissions
-    ]
-
-
-def has_shifu_permission(
-    permission_map: Dict[str, Set[str]],
-    shifu_bid: str,
-    permission: str,
-) -> bool:
-    """Check if the provided permission map grants a specific permission for a shifu."""
-    if not shifu_bid:
-        return False
-    permissions = permission_map.get(shifu_bid, set())
-    return permission in permissions

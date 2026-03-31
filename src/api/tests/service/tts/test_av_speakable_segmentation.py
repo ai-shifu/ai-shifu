@@ -41,6 +41,15 @@ def test_split_av_speakable_segments_splits_img_tag(app):
     assert split_av_speakable_segments(text) == ["Hello", "world."]
 
 
+def test_split_av_speakable_segments_keeps_markdown_headers_in_speakable_text(app):
+    _require_app(app)
+
+    from flaskr.service.tts.pipeline import split_av_speakable_segments
+
+    text = "## Why this matters\n\nThe explanation continues."
+    assert split_av_speakable_segments(text) == [text]
+
+
 def test_split_av_speakable_segments_splits_markdown_image(app):
     _require_app(app)
 

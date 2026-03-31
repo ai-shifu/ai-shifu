@@ -98,7 +98,12 @@ const extractVariableNames = (text?: string | null) => {
   return Array.from(collected);
 };
 
-const ScriptEditor = ({ id }: { id: string }) => {
+type ScriptEditorProps = {
+  id: string;
+  initialLessonId?: string;
+};
+
+const ScriptEditor = ({ id, initialLessonId = '' }: ScriptEditorProps) => {
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
   const profile = useUserStore(state => state.userInfo);
@@ -307,9 +312,11 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
     actions.loadModels();
     if (id) {
-      actions.loadChapters(id);
+      actions.loadChapters(id, {
+        preferredLessonBid: initialLessonId || undefined,
+      });
     }
-  }, [id, isGuest, isInitialized]);
+  }, [id, initialLessonId, isGuest, isInitialized]);
 
   useEffect(() => {
     if (!currentShifu?.bid) {
@@ -1271,6 +1278,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   }
                   actionType={hideRestoreActionType}
                   actionDisabled={hideRestoreActionDisabled}
+                  showGenerateBtn={false}
                 />
               </div>
             </div>

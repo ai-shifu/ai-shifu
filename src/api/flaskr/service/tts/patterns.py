@@ -39,6 +39,7 @@ AV_IFRAME_OPEN = re.compile(r"<iframe\b", re.IGNORECASE)
 AV_VIDEO_OPEN = re.compile(r"<video\b", re.IGNORECASE)
 AV_TABLE_OPEN = re.compile(r"<table\b", re.IGNORECASE)
 AV_IMG_TAG = re.compile(r"<img\b[^>]*?>", re.IGNORECASE)
+AV_IMG_TAG_START = re.compile(r"<img\b", re.IGNORECASE)
 
 # Close patterns
 AV_SVG_CLOSE = re.compile(r"</svg>", re.IGNORECASE)
@@ -50,6 +51,9 @@ AV_TABLE_CLOSE = re.compile(r"</table>", re.IGNORECASE)
 AV_MD_IMAGE = re.compile(r"!\[[^\]]*\]\([^\)\n]*\)", re.IGNORECASE)
 AV_MD_IMAGE_START = re.compile(r"!\[")
 AV_MD_TABLE_ROW = re.compile(r"^\s*\|.+\|\s*$", re.MULTILINE)
+
+# LaTeX block formulas: $$...$$ (block-level, not inline $...$)
+AV_LATEX_BLOCK = re.compile(r"\$\$[\s\S]+?\$\$")
 
 # Sandbox / HTML block detection
 AV_SANDBOX_START = re.compile(

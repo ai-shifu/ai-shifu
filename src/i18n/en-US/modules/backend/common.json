@@ -4,7 +4,6 @@
     "backgroundNotAllowed": "Oops, illegal background.",
     "nicknameNotAllowed": "Oops, illegal nickname.",
     "paramsError": "Params Error {param_message}",
-    "startTimeNotAllowed": "Start time cannot be later than end time",
     "unknownError": "Unknown Error"
   }
 }

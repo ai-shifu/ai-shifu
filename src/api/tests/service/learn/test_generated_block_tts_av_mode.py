@@ -1,141 +1,416 @@
-import pytest
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+
+import flaskr.dao as dao
+
+if dao.db is None:
+    _test_app = Flask("test-generated-block-tts-av-mode")
+    _test_app.config.update(
+        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+    )
+    _db = SQLAlchemy()
+    _db.init_app(_test_app)
+    dao.db = _db
+
+if not hasattr(dao, "redis_client"):
+    dao.redis_client = None
 
 
-def _require_app(app):
-    if app is None:
-        pytest.skip("App fixture disabled")
-
-
-def test_stream_generated_block_audio_listen_persists_positions(app, monkeypatch):
-    _require_app(app)
-
-    from flaskr.dao import db
-    from flaskr.service.learn.learn_dtos import GeneratedType
-    from flaskr.service.learn.learn_funcs import stream_generated_block_audio
-    from flaskr.service.learn.models import LearnGeneratedBlock
-    from flaskr.service.tts.models import LearnGeneratedAudio
-
-    user_bid = "user-1"
-    shifu_bid = "shifu-1"
-    generated_block_bid = "gen-1"
-
-    with app.app_context():
-        db.session.query(LearnGeneratedAudio).delete()
-        db.session.query(LearnGeneratedBlock).delete()
-        db.session.commit()
-
-        block = LearnGeneratedBlock(
-            generated_block_bid=generated_block_bid,
-            progress_record_bid="progress-1",
-            user_bid=user_bid,
-            block_bid="block-1",
-            outline_item_bid="outline-1",
-            shifu_bid=shifu_bid,
-            type=1,
-            role=1,
-            generated_content="First.\n\n<svg><text>v</text></svg>\n\nSecond.",
-            position=0,
-            block_content_conf="",
-            status=1,
+class TestGeneratedBlockListenTtsElementFirst:
+    @classmethod
+    def setup_class(cls):
+        cls.app = Flask("generated-block-listen-tts")
+        cls.app.config.update(
+            SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+            SQLALCHEMY_BINDS={
+                "ai_shifu_saas": "sqlite:///:memory:",
+                "ai_shifu_admin": "sqlite:///:memory:",
+            },
+            SQLALCHEMY_TRACK_MODIFICATIONS=False,
         )
-        db.session.add(block)
-        db.session.commit()
+        dao.db.init_app(cls.app)
 
-    monkeypatch.setattr(
-        "flaskr.service.learn.learn_funcs._resolve_shifu_tts_settings",
-        lambda *_args, **_kwargs: (
-            "minimax",
-            "test-model",
-            type(
-                "Voice",
-                (),
-                {
-                    "voice_id": "voice",
-                    "speed": 1.0,
-                    "pitch": 0,
-                    "emotion": "",
-                    "volume": 1.0,
-                },
-            )(),
-            type("Audio", (), {"format": "mp3", "sample_rate": 24000})(),
-        ),
-    )
-
-    def _fake_yield_tts_segments(*, text, **_kwargs):
-        # Yield one provider-safe segment per speakable segment.
-        yield (0, b"fake-audio", 123, text, 1, 1)
-
-    monkeypatch.setattr(
-        "flaskr.service.learn.learn_funcs._yield_tts_segments",
-        _fake_yield_tts_segments,
-    )
-    monkeypatch.setattr(
-        "flaskr.service.learn.learn_funcs.concat_audio_best_effort",
-        lambda parts: b"".join(parts),
-    )
-    monkeypatch.setattr(
-        "flaskr.service.learn.learn_funcs.get_audio_duration_ms",
-        lambda *_args, **_kwargs: 1000,
-    )
-
-    def _fake_upload(_app, _audio_bytes, audio_bid):
-        return (f"https://example.com/{audio_bid}.mp3", "test-bucket")
-
-    monkeypatch.setattr(
-        "flaskr.service.learn.learn_funcs.upload_audio_to_oss",
-        _fake_upload,
-    )
-    monkeypatch.setattr(
-        "flaskr.service.learn.learn_funcs.record_tts_usage",
-        lambda *_args, **_kwargs: None,
-    )
-
-    events = list(
-        stream_generated_block_audio(
-            app,
-            shifu_bid=shifu_bid,
-            generated_block_bid=generated_block_bid,
-            user_bid=user_bid,
-            preview_mode=False,
-            listen=True,
+        from flaskr.service.learn.models import (
+            LearnGeneratedBlock,
+            LearnGeneratedElement,
         )
-    )
+        from flaskr.service.tts.models import LearnGeneratedAudio
 
-    complete_positions = [
-        event.content.position
-        for event in events
-        if event.type == GeneratedType.AUDIO_COMPLETE
-    ]
-    complete_contracts = [
-        event.content.av_contract
-        for event in events
-        if event.type == GeneratedType.AUDIO_COMPLETE
-    ]
-    segment_positions = [
-        event.content.position
-        for event in events
-        if event.type == GeneratedType.AUDIO_SEGMENT
-    ]
+        cls.LearnGeneratedBlock = LearnGeneratedBlock
+        cls.LearnGeneratedElement = LearnGeneratedElement
+        cls.LearnGeneratedAudio = LearnGeneratedAudio
 
-    assert complete_positions == [0, 1]
-    assert segment_positions == [0, 1]
-    assert all(contract for contract in complete_contracts)
-    assert complete_contracts[0]["visual_boundaries"][0]["kind"] == "svg"
-    assert [s["position"] for s in complete_contracts[0]["speakable_segments"]] == [
-        0,
-        1,
-    ]
+        with cls.app.app_context():
+            dao.db.create_all()
 
-    with app.app_context():
-        records = (
-            LearnGeneratedAudio.query.filter(
-                LearnGeneratedAudio.generated_block_bid == generated_block_bid,
-                LearnGeneratedAudio.user_bid == user_bid,
-                LearnGeneratedAudio.shifu_bid == shifu_bid,
-                LearnGeneratedAudio.deleted == 0,
+    def test_stream_generated_block_audio_listen_uses_text_elements_only(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+
+        user_bid = "user-1"
+        shifu_bid = "shifu-1"
+        generated_block_bid = "gen-1"
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            block = self.LearnGeneratedBlock(
+                generated_block_bid=generated_block_bid,
+                progress_record_bid="progress-1",
+                user_bid=user_bid,
+                block_bid="block-1",
+                outline_item_bid="outline-1",
+                shifu_bid=shifu_bid,
+                type=1,
+                role=1,
+                generated_content="First.\n\n<svg><text>v</text></svg>\n\nSecond.",
+                position=0,
+                block_content_conf="",
+                status=1,
             )
-            .order_by(LearnGeneratedAudio.position.asc())
-            .all()
+            db.session.add(block)
+            db.session.add_all(
+                [
+                    self.LearnGeneratedElement(
+                        element_bid="el-text-1",
+                        progress_record_bid="progress-1",
+                        user_bid=user_bid,
+                        generated_block_bid=generated_block_bid,
+                        outline_item_bid="outline-1",
+                        shifu_bid=shifu_bid,
+                        run_session_bid="run-1",
+                        run_event_seq=1,
+                        event_type="element",
+                        role="teacher",
+                        element_index=0,
+                        element_type="text",
+                        change_type="render",
+                        is_renderable=0,
+                        is_new=1,
+                        is_marker=0,
+                        sequence_number=1,
+                        is_speakable=1,
+                        is_navigable=1,
+                        is_final=1,
+                        content_text="First.",
+                        payload="",
+                        status=1,
+                        deleted=0,
+                    ),
+                    self.LearnGeneratedElement(
+                        element_bid="el-html-1",
+                        progress_record_bid="progress-1",
+                        user_bid=user_bid,
+                        generated_block_bid=generated_block_bid,
+                        outline_item_bid="outline-1",
+                        shifu_bid=shifu_bid,
+                        run_session_bid="run-1",
+                        run_event_seq=2,
+                        event_type="element",
+                        role="teacher",
+                        element_index=1,
+                        element_type="html",
+                        change_type="render",
+                        is_renderable=1,
+                        is_new=1,
+                        is_marker=0,
+                        sequence_number=2,
+                        is_speakable=0,
+                        is_navigable=1,
+                        is_final=1,
+                        content_text="",
+                        payload="",
+                        status=1,
+                        deleted=0,
+                    ),
+                    self.LearnGeneratedElement(
+                        element_bid="el-text-2",
+                        progress_record_bid="progress-1",
+                        user_bid=user_bid,
+                        generated_block_bid=generated_block_bid,
+                        outline_item_bid="outline-1",
+                        shifu_bid=shifu_bid,
+                        run_session_bid="run-1",
+                        run_event_seq=3,
+                        event_type="element",
+                        role="teacher",
+                        element_index=2,
+                        element_type="text",
+                        change_type="render",
+                        is_renderable=0,
+                        is_new=1,
+                        is_marker=0,
+                        sequence_number=3,
+                        is_speakable=1,
+                        is_navigable=1,
+                        is_final=1,
+                        content_text="Second.",
+                        payload="",
+                        status=1,
+                        deleted=0,
+                    ),
+                ]
+            )
+            db.session.commit()
+
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs._resolve_shifu_tts_settings",
+            lambda *_args, **_kwargs: (
+                "minimax",
+                "test-model",
+                type(
+                    "Voice",
+                    (),
+                    {
+                        "voice_id": "voice",
+                        "speed": 1.0,
+                        "pitch": 0,
+                        "emotion": "",
+                        "volume": 1.0,
+                    },
+                )(),
+                type("Audio", (), {"format": "mp3", "sample_rate": 24000})(),
+            ),
         )
-        assert [r.position for r in records] == [0, 1]
-        assert all(r.oss_url for r in records)
+
+        synthesized_texts = []
+
+        def _fake_yield_tts_segments(*, text, **_kwargs):
+            synthesized_texts.append(text)
+            yield (0, b"fake-audio", 123, text, 1, 1)
+
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs._yield_tts_segments",
+            _fake_yield_tts_segments,
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.concat_audio_best_effort",
+            lambda parts: b"".join(parts),
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.get_audio_duration_ms",
+            lambda *_args, **_kwargs: 1000,
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.upload_audio_to_oss",
+            lambda _app, _audio_bytes, audio_bid: (
+                f"https://example.com/{audio_bid}.mp3",
+                "test-bucket",
+            ),
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.record_tts_usage",
+            lambda *_args, **_kwargs: None,
+        )
+
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+                listen=True,
+            )
+        )
+
+        complete_positions = [
+            event.content.position
+            for event in events
+            if event.type == GeneratedType.AUDIO_COMPLETE
+        ]
+        segment_positions = [
+            event.content.position
+            for event in events
+            if event.type == GeneratedType.AUDIO_SEGMENT
+        ]
+
+        assert complete_positions == [0, 1]
+        assert segment_positions == [0, 1]
+        assert synthesized_texts == ["First.", "Second."]
+        assert all(
+            event.content.av_contract is None
+            for event in events
+            if event.type == GeneratedType.AUDIO_COMPLETE
+        )
+
+        with self.app.app_context():
+            records = (
+                self.LearnGeneratedAudio.query.filter(
+                    self.LearnGeneratedAudio.generated_block_bid == generated_block_bid,
+                    self.LearnGeneratedAudio.user_bid == user_bid,
+                    self.LearnGeneratedAudio.shifu_bid == shifu_bid,
+                    self.LearnGeneratedAudio.deleted == 0,
+                )
+                .order_by(self.LearnGeneratedAudio.position.asc())
+                .all()
+            )
+            assert [r.position for r in records] == [0, 1]
+            assert all(r.oss_url for r in records)
+
+    def test_stream_generated_block_audio_listen_keeps_short_text_positions(
+        self, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn.learn_dtos import GeneratedType
+        from flaskr.service.learn.learn_funcs import stream_generated_block_audio
+
+        user_bid = "user-short-1"
+        shifu_bid = "shifu-short-1"
+        generated_block_bid = "gen-short-1"
+
+        with self.app.app_context():
+            db.session.query(self.LearnGeneratedAudio).delete()
+            db.session.query(self.LearnGeneratedElement).delete()
+            db.session.query(self.LearnGeneratedBlock).delete()
+            db.session.commit()
+
+            block = self.LearnGeneratedBlock(
+                generated_block_bid=generated_block_bid,
+                progress_record_bid="progress-short-1",
+                user_bid=user_bid,
+                block_bid="block-short-1",
+                outline_item_bid="outline-short-1",
+                shifu_bid=shifu_bid,
+                type=1,
+                role=1,
+                generated_content="A\n\nSecond page.",
+                position=0,
+                block_content_conf="",
+                status=1,
+            )
+            db.session.add(block)
+            db.session.add_all(
+                [
+                    self.LearnGeneratedElement(
+                        element_bid="el-short-text-1",
+                        progress_record_bid="progress-short-1",
+                        user_bid=user_bid,
+                        generated_block_bid=generated_block_bid,
+                        outline_item_bid="outline-short-1",
+                        shifu_bid=shifu_bid,
+                        run_session_bid="run-short-1",
+                        run_event_seq=1,
+                        event_type="element",
+                        role="teacher",
+                        element_index=0,
+                        element_type="text",
+                        change_type="render",
+                        is_renderable=0,
+                        is_new=1,
+                        is_marker=0,
+                        sequence_number=1,
+                        is_speakable=1,
+                        is_navigable=1,
+                        is_final=1,
+                        content_text="A",
+                        payload="",
+                        status=1,
+                        deleted=0,
+                    ),
+                    self.LearnGeneratedElement(
+                        element_bid="el-short-text-2",
+                        progress_record_bid="progress-short-1",
+                        user_bid=user_bid,
+                        generated_block_bid=generated_block_bid,
+                        outline_item_bid="outline-short-1",
+                        shifu_bid=shifu_bid,
+                        run_session_bid="run-short-1",
+                        run_event_seq=2,
+                        event_type="element",
+                        role="teacher",
+                        element_index=1,
+                        element_type="text",
+                        change_type="render",
+                        is_renderable=0,
+                        is_new=1,
+                        is_marker=0,
+                        sequence_number=2,
+                        is_speakable=1,
+                        is_navigable=1,
+                        is_final=1,
+                        content_text="Second page.",
+                        payload="",
+                        status=1,
+                        deleted=0,
+                    ),
+                ]
+            )
+            db.session.commit()
+
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs._resolve_shifu_tts_settings",
+            lambda *_args, **_kwargs: (
+                "minimax",
+                "test-model",
+                type(
+                    "Voice",
+                    (),
+                    {
+                        "voice_id": "voice",
+                        "speed": 1.0,
+                        "pitch": 0,
+                        "emotion": "",
+                        "volume": 1.0,
+                    },
+                )(),
+                type("Audio", (), {"format": "mp3", "sample_rate": 24000})(),
+            ),
+        )
+
+        synthesized_texts = []
+
+        def _fake_yield_tts_segments(*, text, **_kwargs):
+            synthesized_texts.append(text)
+            yield (0, b"fake-audio", 123, text, 1, 1)
+
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs._yield_tts_segments",
+            _fake_yield_tts_segments,
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.concat_audio_best_effort",
+            lambda parts: b"".join(parts),
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.get_audio_duration_ms",
+            lambda *_args, **_kwargs: 1000,
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.upload_audio_to_oss",
+            lambda _app, _audio_bytes, audio_bid: (
+                f"https://example.com/{audio_bid}.mp3",
+                "test-bucket",
+            ),
+        )
+        monkeypatch.setattr(
+            "flaskr.service.learn.learn_funcs.record_tts_usage",
+            lambda *_args, **_kwargs: None,
+        )
+
+        events = list(
+            stream_generated_block_audio(
+                self.app,
+                shifu_bid=shifu_bid,
+                generated_block_bid=generated_block_bid,
+                user_bid=user_bid,
+                preview_mode=False,
+                listen=True,
+            )
+        )
+
+        complete_positions = [
+            event.content.position
+            for event in events
+            if event.type == GeneratedType.AUDIO_COMPLETE
+        ]
+
+        assert complete_positions == [0, 1]
+        assert synthesized_texts == ["A", "Second page."]

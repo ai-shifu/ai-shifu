@@ -1,33 +1,30 @@
 from __future__ import annotations
 
-import uuid
+from dataclasses import dataclass, field
 from typing import Any
 
-from flaskr.service.learn.learn_dtos import NewSlideDTO
+from flask import Flask
+
+from flaskr.util.uuid import generate_id
+from flaskr.service.learn.listen_source_span_utils import (
+    normalize_source_span,
+    slice_source_by_span,
+)
 
 
-def _normalize_source_span(raw: Any) -> list[int]:
-    if not isinstance(raw, list) or len(raw) < 2:
-        return []
-    try:
-        start = int(raw[0])
-        end = int(raw[1])
-    except (TypeError, ValueError):
-        return []
-    if start < 0 or end < 0:
-        return []
-    if end < start:
-        return []
-    return [start, end]
+@dataclass
+class VisualSegment:
+    """Lightweight internal segment produced from av_contract boundaries."""
 
-
-def _slice_segment_content(raw_content: str, source_span: list[int]) -> str:
-    if not source_span:
-        return ""
-    start, end = source_span
-    if start >= len(raw_content) or end <= start:
-        return ""
-    return raw_content[start : min(end, len(raw_content))]
+    segment_id: str
+    generated_block_bid: str
+    element_index: int
+    audio_position: int = 0
+    visual_kind: str = ""
+    segment_type: str = ""
+    segment_content: str = ""
+    source_span: list[int] = field(default_factory=list)
+    is_placeholder: bool = False
 
 
 def _segment_type_for_visual_kind(visual_kind: str, is_placeholder: bool) -> str:
@@ -38,19 +35,20 @@ def _segment_type_for_visual_kind(visual_kind: str, is_placeholder: bool) -> str
     return "markdown"
 
 
-def build_listen_slides_for_block(
+def build_visual_segments_for_block(
     *,
+    app: Flask,
     raw_content: str,
     generated_block_bid: str,
     av_contract: dict[str, Any] | None,
-    slide_index_offset: int = 0,
-) -> tuple[list[NewSlideDTO], dict[int, str]]:
+    element_index_offset: int = 0,
+) -> tuple[list[VisualSegment], dict[int, str]]:
     """
-    Build listen-mode slides for one generated block (no persistence).
+    Build visual segments for one generated block from its av_contract.
 
     Returns:
-    - slides: ordered slide DTOs for this block
-    - audio_position_to_slide_id: mapping for speakable segment positions
+    - segments: ordered visual segments for this block
+    - audio_position_to_segment_id: mapping for speakable segment positions
     """
     contract = av_contract or {}
     visual_boundaries_raw = contract.get("visual_boundaries") or []
@@ -64,7 +62,7 @@ def build_listen_slides_for_block(
             position = int(boundary.get("position", 0))
         except (TypeError, ValueError):
             continue
-        source_span = _normalize_source_span(boundary.get("source_span"))
+        source_span = normalize_source_span(boundary.get("source_span"))
         visual_boundaries.append(
             {
                 "position": position,
@@ -83,7 +81,7 @@ def build_listen_slides_for_block(
             position = int(segment.get("position", 0))
         except (TypeError, ValueError):
             continue
-        source_span = _normalize_source_span(segment.get("source_span"))
+        source_span = normalize_source_span(segment.get("source_span"))
         speakable_segments.append(
             {
                 "position": position,
@@ -96,12 +94,12 @@ def build_listen_slides_for_block(
     if not speakable_segments:
         return [], {}
 
-    slides: list[NewSlideDTO] = []
-    audio_position_to_slide_id: dict[int, str] = {}
-    slide_id_by_key: dict[str, str] = {}
-    next_slide_index = int(slide_index_offset or 0)
+    segments: list[VisualSegment] = []
+    audio_position_to_segment_id: dict[int, str] = {}
+    segment_id_by_key: dict[str, str] = {}
+    next_element_index = int(element_index_offset or 0)
 
-    def ensure_slide(
+    def ensure_segment(
         *,
         key: str,
         visual_kind: str,
@@ -109,21 +107,21 @@ def build_listen_slides_for_block(
         is_placeholder: bool,
         audio_position: int,
     ) -> str:
-        nonlocal next_slide_index
-        existing = slide_id_by_key.get(key)
+        nonlocal next_element_index
+        existing = segment_id_by_key.get(key)
         if existing:
             return existing
-        slide_id = uuid.uuid4().hex
+        segment_id = generate_id(app)
         segment_type = _segment_type_for_visual_kind(visual_kind, is_placeholder)
         segment_content = (
             ""
             if is_placeholder
-            else _slice_segment_content(raw_content or "", source_span)
+            else slice_source_by_span(raw_content or "", source_span)
         )
-        slide = NewSlideDTO(
-            slide_id=slide_id,
+        seg = VisualSegment(
+            segment_id=segment_id,
             generated_block_bid=generated_block_bid,
-            slide_index=next_slide_index,
+            element_index=next_element_index,
             audio_position=audio_position,
             visual_kind=visual_kind or ("placeholder" if is_placeholder else ""),
             segment_type=segment_type,
@@ -131,10 +129,10 @@ def build_listen_slides_for_block(
             source_span=source_span,
             is_placeholder=is_placeholder,
         )
-        slides.append(slide)
-        slide_id_by_key[key] = slide_id
-        next_slide_index += 1
-        return slide_id
+        segments.append(seg)
+        segment_id_by_key[key] = segment_id
+        next_element_index += 1
+        return segment_id
 
     for segment in speakable_segments:
         position = int(segment["position"])
@@ -155,9 +153,9 @@ def build_listen_slides_for_block(
 
         if preceding_boundary is not None:
             boundary_pos = int(preceding_boundary["position"])
-            slide_key = f"boundary:{boundary_pos}"
-            slide_id = ensure_slide(
-                key=slide_key,
+            seg_key = f"boundary:{boundary_pos}"
+            segment_id = ensure_segment(
+                key=seg_key,
                 visual_kind=str(preceding_boundary["kind"] or ""),
                 source_span=list(preceding_boundary["source_span"] or []),
                 is_placeholder=False,
@@ -165,16 +163,15 @@ def build_listen_slides_for_block(
             )
         else:
             # Narration before the first visual (or no visual at all).
-            # Create a unique text slide for each audio position to ensure proper navigation.
-            slide_key = f"text:{position}"
-            slide_id = ensure_slide(
-                key=slide_key,
+            seg_key = f"text:{position}"
+            segment_id = ensure_segment(
+                key=seg_key,
                 visual_kind="",
                 source_span=list(segment["source_span"] or []),
                 is_placeholder=False,
                 audio_position=position,
             )
 
-        audio_position_to_slide_id[position] = slide_id
+        audio_position_to_segment_id[position] = segment_id
 
-    return slides, audio_position_to_slide_id
+    return segments, audio_position_to_segment_id

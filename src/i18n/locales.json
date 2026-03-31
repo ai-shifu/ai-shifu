@@ -53,6 +53,7 @@
     "server.learn",
     "server.llm",
     "server.metering",
+    "server.openapi",
     "server.order",
     "server.outline",
     "server.pay",

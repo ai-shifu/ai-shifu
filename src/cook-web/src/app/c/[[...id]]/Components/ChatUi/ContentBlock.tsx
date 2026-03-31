@@ -1,7 +1,7 @@
 import { memo, useCallback } from 'react';
 import { useLongPress } from 'react-use';
-import { isEqual } from 'lodash';
 import { ContentRender } from 'markdown-flow-ui/renderer';
+import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { cn } from '@/lib/utils';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
@@ -10,7 +10,7 @@ import {
   getAudioTrackByPosition,
   hasAudioContentInTrack,
 } from '@/c-utils/audio-utils';
-import { LESSON_FEEDBACK_INTERACTION_MARKER } from '@/c-api/studyV2';
+import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
 
 interface ContentBlockProps {
   item: ChatContentItem;
@@ -26,6 +26,7 @@ interface ContentBlockProps {
   onAudioPlayStateChange?: (blockBid: string, isPlaying: boolean) => void;
   onAudioEnded?: (blockBid: string) => void;
   showAudioAction?: boolean;
+  onTypeFinished?: (blockBid: string) => void;
 }
 
 const ContentBlock = memo(
@@ -43,6 +44,7 @@ const ContentBlock = memo(
     onAudioPlayStateChange,
     onAudioEnded,
     showAudioAction = true,
+    onTypeFinished,
   }: ContentBlockProps) => {
     const handleClick = useCallback(() => {
       onClickCustomButtonAfterContent?.(blockBid);
@@ -68,13 +70,16 @@ const ContentBlock = memo(
       },
       [onSend, blockBid],
     );
+    const handleTypeFinished = useCallback(() => {
+      onTypeFinished?.(blockBid);
+    }, [blockBid, onTypeFinished]);
 
     const primaryTrack = getAudioTrackByPosition(item.audioTracks ?? []);
     const hasAudioContent = Boolean(hasAudioContentInTrack(primaryTrack));
     const shouldShowAudioAction = Boolean(showAudioAction);
     const isLessonFeedbackInteraction =
       item.type === ChatContentItemType.INTERACTION &&
-      Boolean(item.content?.includes(LESSON_FEEDBACK_INTERACTION_MARKER));
+      isLessonFeedbackInteractionContent(item.content);
 
     if (isLessonFeedbackInteraction) {
       return null;
@@ -90,14 +95,16 @@ const ContentBlock = memo(
           content={item.content || ''}
           onClickCustomButtonAfterContent={handleClick}
           customRenderBar={item.customRenderBar}
-          defaultButtonText={item.defaultButtonText}
-          defaultInputText={item.defaultInputText}
-          defaultSelectedValues={item.defaultSelectedValues}
+          userInput={item.user_input}
+          interactionDefaultValueOptions={
+            lessonFeedbackInteractionDefaultValueOptions
+          }
           readonly={item.readonly}
           confirmButtonText={confirmButtonText}
           copyButtonText={copyButtonText}
           copiedButtonText={copiedButtonText}
           onSend={_onSend}
+          onTypeFinished={handleTypeFinished}
         />
         {mobileStyle && hasAudioContent && shouldShowAudioAction ? (
           <div className='mt-2 flex justify-end'>
@@ -128,12 +135,7 @@ const ContentBlock = memo(
     );
     // Only re-render when content, layout, or i18n-driven button texts actually change
     return (
-      prevProps.item.defaultButtonText === nextProps.item.defaultButtonText &&
-      prevProps.item.defaultInputText === nextProps.item.defaultInputText &&
-      isEqual(
-        prevProps.item.defaultSelectedValues,
-        nextProps.item.defaultSelectedValues,
-      ) &&
+      prevProps.item.user_input === nextProps.item.user_input &&
       prevProps.item.readonly === nextProps.item.readonly &&
       prevProps.item.content === nextProps.item.content &&
       prevProps.mobileStyle === nextProps.mobileStyle &&

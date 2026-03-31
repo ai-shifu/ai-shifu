@@ -1,9 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { ThumbsUp, ThumbsDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { LikeStatus } from '@/c-api/studyV2';
-import { postGeneratedContentAction, LIKE_STATUS } from '@/c-api/studyV2';
+import React, { useMemo, useState } from 'react';
 import { RefreshCcw } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import Image from 'next/image';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
@@ -22,77 +19,49 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+
 type Size = 'sm' | 'md' | 'lg';
+type AskButtonVariant = 'default' | 'content';
 
 export interface InteractionBlockProps {
   shifu_bid: string;
-  generated_block_bid: string;
-  like_status?: LikeStatus | null; // initial status
+  element_bid: string;
   readonly?: boolean;
   disabled?: boolean;
   size?: Size;
   className?: string;
-  onToggleAskExpanded?: (generated_block_bid: string) => void;
-  onRefresh?: (generated_block_bid: string) => void;
+  onToggleAskExpanded?: (element_bid: string) => void;
+  onRefresh?: (element_bid: string) => void;
   disableAskButton?: boolean;
   disableInteractionButtons?: boolean;
+  showGenerateBtn?: boolean;
   extraActions?: React.ReactNode;
+  askButtonVariant?: AskButtonVariant;
 }
 
 /**
  * InteractionBlock
- * Self-contained like/dislike icon buttons with internal state.
+ * Shared action bar for ask, regenerate, and extra actions.
  */
 export default function InteractionBlock({
   shifu_bid,
-  generated_block_bid,
-  like_status = LIKE_STATUS.NONE,
+  element_bid,
   readonly = false,
   disabled = false,
   disableAskButton = false,
   disableInteractionButtons = false,
+  showGenerateBtn = false,
   className,
   onRefresh,
   onToggleAskExpanded,
   extraActions,
+  askButtonVariant = 'default',
 }: InteractionBlockProps) {
   const { t } = useTranslation();
-  const [status, setStatus] = useState<LikeStatus>(
-    (like_status as LikeStatus) ?? LIKE_STATUS.NONE,
-  );
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
-
-  const isLike = status === LIKE_STATUS.LIKE;
-  const isDislike = status === LIKE_STATUS.DISLIKE;
-
-  const likeBtnStyle = useMemo(
-    () => ({
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: 22,
-      height: 22,
-      padding: 3,
-      borderRadius: 4,
-      transition: 'background-color 0.2s ease',
-      cursor: disabled || disableInteractionButtons ? 'not-allowed' : 'pointer',
-    }),
-    [disabled, disableInteractionButtons],
-  );
-
-  const dislikeBtnStyle = useMemo(
-    () => ({
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: 22,
-      height: 22,
-      padding: 3,
-      borderRadius: 4,
-      transition: 'background-color 0.2s ease',
-      cursor: disabled || disableInteractionButtons ? 'not-allowed' : 'pointer',
-    }),
-    [disabled, disableInteractionButtons],
+  const shouldShowAskButton = !disableAskButton;
+  const hasVisibleActions = Boolean(
+    shouldShowAskButton || showGenerateBtn || extraActions,
   );
 
   const refreshBtnStyle = useMemo(
@@ -110,37 +79,8 @@ export default function InteractionBlock({
     [disabled],
   );
 
-  const send = (action: LikeStatus) => {
-    postGeneratedContentAction({
-      shifu_bid,
-      generated_block_bid,
-      action,
-    }).catch(() => {
-      // errors handled by request layer toast; ignore here
-    });
-  };
-
-  const onLike = () => {
-    if (disabled || readonly) return;
-    setStatus(prev => {
-      const next: LikeStatus =
-        prev === LIKE_STATUS.LIKE ? LIKE_STATUS.NONE : LIKE_STATUS.LIKE;
-      send(next);
-      return next;
-    });
-  };
-  const onDislike = () => {
-    if (disabled || readonly) return;
-    setStatus(prev => {
-      const next: LikeStatus =
-        prev === LIKE_STATUS.DISLIKE ? LIKE_STATUS.NONE : LIKE_STATUS.DISLIKE;
-      send(next);
-      return next;
-    });
-  };
-
   const handleChangeAskPanel = () => {
-    onToggleAskExpanded?.(generated_block_bid);
+    onToggleAskExpanded?.(element_bid);
   };
 
   const handleRefreshClick = () => {
@@ -150,172 +90,113 @@ export default function InteractionBlock({
 
   const handleConfirmRegenerate = () => {
     setShowRegenerateDialog(false);
-    onRefresh?.(generated_block_bid);
+    onRefresh?.(element_bid);
   };
 
   const canHover = !(disabled || readonly);
+  void shifu_bid;
+  void disableInteractionButtons;
+
+  if (!hasVisibleActions) {
+    return null;
+  }
 
   return (
     <div className={cn(['interaction-block'], className)}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <button
-          onClick={handleChangeAskPanel}
-          type='button'
-          className={cn(
-            'ask-button',
-            'inline-flex items-center justify-center',
-            'text-white font-medium',
-            'transition-colors',
-            'disabled:opacity-50 disabled:cursor-not-allowed',
-          )}
-          disabled={disabled || readonly || disableAskButton}
-        >
-          <Image
-            src={AskIcon.src}
-            alt='ask'
-            width={14}
-            height={14}
-          />
-          <span>{t('module.chat.ask')}</span>
-        </button>
-        <button
-          type='button'
-          aria-label='Refresh'
-          aria-pressed={false}
-          style={refreshBtnStyle}
-          disabled={disabled || readonly}
-          onClick={handleRefreshClick}
-          className={cn('interaction-icon-btn', canHover && 'group')}
-        >
-          <TooltipProvider delayDuration={150}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <RefreshCcw
-                  size={16}
-                  className={cn(
-                    'text-[#55575E]',
-                    'w-4',
-                    'h-4',
-                    'transition-colors',
-                    'duration-200',
-                  )}
-                />
-              </TooltipTrigger>
-              <TooltipContent
-                side='top'
-                className='bg-black text-white border-none'
-              >
-                {t('module.chat.regenerate')}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </button>
+        {shouldShowAskButton ? (
+          <button
+            onClick={handleChangeAskPanel}
+            type='button'
+            className={cn(
+              'ask-button',
+              askButtonVariant === 'content' && 'ask-button--content',
+              'inline-flex items-center justify-center',
+              'text-white font-medium',
+              'transition-colors',
+              'disabled:opacity-50 disabled:cursor-not-allowed',
+            )}
+            disabled={disabled || readonly}
+          >
+            <Image
+              src={AskIcon.src}
+              alt='ask'
+              width={14}
+              height={14}
+            />
+            <span>{t('module.chat.ask')}</span>
+          </button>
+        ) : null}
+        {showGenerateBtn ? (
+          <button
+            type='button'
+            aria-label='Refresh'
+            aria-pressed={false}
+            style={refreshBtnStyle}
+            disabled={disabled || readonly}
+            onClick={handleRefreshClick}
+            className={cn('interaction-icon-btn', canHover && 'group')}
+          >
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <RefreshCcw
+                    size={16}
+                    className={cn(
+                      'text-[#55575E]',
+                      'w-4',
+                      'h-4',
+                      'transition-colors',
+                      'duration-200',
+                    )}
+                  />
+                </TooltipTrigger>
+                <TooltipContent
+                  side='top'
+                  className='bg-black text-white border-none'
+                >
+                  {t('module.chat.regenerate')}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </button>
+        ) : null}
         {extraActions}
-        <button
-          type='button'
-          aria-label='Like'
-          aria-pressed={isLike}
-          disabled={disabled || readonly || disableInteractionButtons}
-          onClick={onLike}
-          title='Like'
-          style={likeBtnStyle}
-          className={cn('interaction-icon-btn', canHover && 'group')}
-        >
-          <TooltipProvider delayDuration={150}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <ThumbsUp
-                  size={16}
-                  strokeWidth={2}
-                  stroke='currentColor'
-                  fill={isLike ? 'currentColor' : 'none'}
-                  absoluteStrokeWidth={isLike}
-                  className={cn(
-                    'w-4',
-                    'h-4',
-                    'transition-colors',
-                    'duration-200',
-                    'text-[#55575E]',
-                  )}
-                />
-              </TooltipTrigger>
-              <TooltipContent
-                side='top'
-                className='bg-black text-white border-none'
-              >
-                {t('module.chat.like')}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </button>
-        <button
-          type='button'
-          aria-label='Dislike'
-          aria-pressed={isDislike}
-          disabled={disabled || readonly || disableInteractionButtons}
-          onClick={onDislike}
-          title='Dislike'
-          style={dislikeBtnStyle}
-          className={cn('interaction-icon-btn', canHover && 'group')}
-        >
-          <TooltipProvider delayDuration={150}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <ThumbsDown
-                  size={16}
-                  absoluteStrokeWidth={isDislike}
-                  strokeWidth={2}
-                  stroke='currentColor'
-                  fill={isDislike ? 'currentColor' : 'none'}
-                  className={cn(
-                    'w-4',
-                    'h-4',
-                    'transition-colors',
-                    'duration-200',
-                    'text-[#55575E]',
-                  )}
-                />
-              </TooltipTrigger>
-              <TooltipContent
-                side='top'
-                className='bg-black text-white border-none'
-              >
-                {t('module.chat.dislike')}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </button>
       </div>
 
-      <Dialog
-        open={showRegenerateDialog}
-        onOpenChange={setShowRegenerateDialog}
-      >
-        <DialogContent className='sm:max-w-md'>
-          <DialogHeader>
-            <DialogTitle>{t('module.chat.regenerateConfirmTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('module.chat.regenerateConfirmDescription')}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className='flex gap-2 sm:gap-2'>
-            <button
-              type='button'
-              onClick={() => setShowRegenerateDialog(false)}
-              className='px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50'
-            >
-              {t('common.core.cancel')}
-            </button>
-            <button
-              type='button'
-              onClick={handleConfirmRegenerate}
-              className='px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-lighter'
-            >
-              {t('common.core.ok')}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {showGenerateBtn ? (
+        <Dialog
+          open={showRegenerateDialog}
+          onOpenChange={setShowRegenerateDialog}
+        >
+          <DialogContent className='sm:max-w-md'>
+            <DialogHeader>
+              <DialogTitle>
+                {t('module.chat.regenerateConfirmTitle')}
+              </DialogTitle>
+              <DialogDescription>
+                {t('module.chat.regenerateConfirmDescription')}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className='flex gap-2 sm:gap-2'>
+              <button
+                type='button'
+                onClick={() => setShowRegenerateDialog(false)}
+                className='px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50'
+              >
+                {t('common.core.cancel')}
+              </button>
+              <button
+                type='button'
+                onClick={handleConfirmRegenerate}
+                className='px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-lighter'
+              >
+                {t('common.core.ok')}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </div>
   );
 }

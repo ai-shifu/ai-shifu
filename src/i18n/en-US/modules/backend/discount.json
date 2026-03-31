@@ -3,7 +3,6 @@
   "__flat__": {
     "discountAlreadyExpired": "The voucher code is invalid.",
     "discountAlreadyUsed": "The voucher code has been used.",
-    "discountCountNotZero": "The voucher code count must be greater than 0.",
     "discountLimitExceeded": "The voucher code limit exceeded.",
     "discountNotApply": "The voucher code does not apply to this course.",
     "discountNotFound": "The voucher code does not exist.",

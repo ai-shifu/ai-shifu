@@ -15,7 +15,6 @@ from flaskr.service.user.repository import (
 )
 from ...i18n import _
 import datetime
-import uuid
 from ..check_risk.funcs import add_risk_control_result
 from flaskr.api.check import (
     check_text,
@@ -25,77 +24,32 @@ from flaskr.api.check import (
 from flaskr.util.uuid import generate_id
 from flaskr.service.common import raise_error
 from flaskr.service.profile.profile_manage import get_profile_item_definition_list
-from flaskr.service.profile.models import (
-    PROFILE_TYPE_INPUT_TEXT,
-)
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.user.dtos import UserProfileLabelDTO, UserProfileLabelItemDTO
 
 logger = logging.getLogger(__name__)
-
-_LANGUAGE_BASE_DISPLAY = {
-    "en": "English",
-    "zh": "简体中文",
-    "es": "Español",
-    "fr": "Français",
-    "de": "Deutsch",
-    "ja": "日本語",
-    "ko": "한국어",
-    "ru": "Русский",
-    "it": "Italiano",
-    "pt": "Português",
-    "ar": "العربية",
-    "hi": "हिंदी",
-    "vi": "Tiếng Việt",
-    "th": "ไทย",
-    "id": "Bahasa Indonesia",
-    "ms": "Bahasa Melayu",
-    "tr": "Türkçe",
-    "pl": "Polski",
-}
-
-_LANGUAGE_SPECIFIC_DISPLAY = {
-    "zh-TW": "繁体中文",
-    "zh-HK": "繁体中文",
-    "zh-MO": "繁体中文",
-    "zh-Hant": "繁体中文",
-}
-
-_DEFAULT_LANGUAGE_DISPLAY = "English"
 
 
 def _get_latest_variable_value(
     values: list[VariableValue],
     variable_key: str,
     shifu_bid: str,
-    variable_bid: Optional[str] = None,
 ) -> Optional[VariableValue]:
     """
     Return the newest variable value row from a pre-fetched, id-desc sorted
     collection.
 
+    Matching is by key only (not variable_bid) so the newest row for the
+    logical profile field wins even if the underlying Variable definition was
+    recreated and now has a different variable_bid.
+
     Precedence:
-    1) shifu scope + variable_bid (when provided)
-    2) shifu scope + key
-    3) global/system scope + variable_bid (when provided)
-    4) global/system scope + key
+    1) shifu scope (shifu_bid) - newest record matching key
+    2) global/system scope (empty shifu_bid) - newest record matching key
     """
     target_shifu = shifu_bid or ""
 
     def _pick(scope_shifu_bid: str) -> Optional[VariableValue]:
-        if variable_bid:
-            by_bid = next(
-                (
-                    item
-                    for item in values
-                    if item.shifu_bid == scope_shifu_bid
-                    and item.variable_bid == variable_bid
-                ),
-                None,
-            )
-            if by_bid:
-                return by_bid
-
         return next(
             (
                 item
@@ -113,48 +67,6 @@ def _get_latest_variable_value(
         return _pick("")
 
     return None
-
-
-def _fetch_latest_variable_value(
-    user_bid: str,
-    variable_key: str,
-    shifu_bid: str,
-    variable_bid: Optional[str] = None,
-) -> Optional[VariableValue]:
-    """
-    Fetch the newest variable value row for a user.
-
-    Tries variable_bid first (when provided) and falls back to variable_key.
-    """
-    target_shifu = shifu_bid or ""
-    try:
-        if variable_bid:
-            profile = (
-                VariableValue.query.filter(
-                    VariableValue.user_bid == user_bid,
-                    VariableValue.shifu_bid == target_shifu,
-                    VariableValue.variable_bid == variable_bid,
-                    VariableValue.deleted == 0,
-                )
-                .order_by(VariableValue.id.desc())
-                .first()
-            )
-            if profile:
-                return profile
-
-        return (
-            VariableValue.query.filter(
-                VariableValue.user_bid == user_bid,
-                VariableValue.shifu_bid == target_shifu,
-                VariableValue.key == variable_key,
-                VariableValue.deleted == 0,
-            )
-            .order_by(VariableValue.id.desc())
-            .first()
-        )
-    except Exception as exc:  # pragma: no cover - mixed migration envs
-        logger.warning("Failed to fetch var_variable_values: %s", exc)
-        return None
 
 
 def _ensure_user_aggregate(user_id: str) -> Optional[UserAggregate]:
@@ -221,18 +133,6 @@ def _current_core_value(aggregate: Optional[UserAggregate], mapping: str):
     return None
 
 
-def _language_display_value(language_code: str) -> str:
-    """Return a human readable representation for a language code."""
-    if not language_code:
-        return _DEFAULT_LANGUAGE_DISPLAY
-
-    if language_code in _LANGUAGE_SPECIFIC_DISPLAY:
-        return _LANGUAGE_SPECIFIC_DISPLAY[language_code]
-
-    base_code = language_code.split("-")[0]
-    return _LANGUAGE_BASE_DISPLAY.get(base_code, language_code)
-
-
 def check_text_content(
     app: Flask,
     user_id: str,
@@ -256,23 +156,7 @@ def check_text_content(
     return True
 
 
-class UserProfileDTO:
-    def __init__(self, user_id, profile_key, profile_value, profile_type):
-        self.user_id = user_id
-        self.profile_key = profile_key
-        self.profile_value = profile_value
-        self.profile_type = profile_type
-
-    def __json__(self):
-        return {
-            "user_id": self.user_id,
-            "profile_key": self.profile_key,
-            "profile_value": self.profile_value,
-            "profile_type": self.profile_type,
-        }
-
-
-def get_profile_labels(course_id: str = None):
+def get_profile_labels():
     # language = get_current_language()
     return {
         "sys_user_nickname": {
@@ -321,66 +205,6 @@ def get_profile_labels(course_id: str = None):
     }
 
 
-def get_user_profile_by_user_id(
-    app: Flask, user_id: str, profile_key: str
-) -> UserProfileDTO:
-    user_profile = _fetch_latest_variable_value(
-        user_bid=user_id,
-        variable_key=profile_key,
-        shifu_bid="",
-    )
-    if user_profile:
-        return UserProfileDTO(
-            user_profile.user_bid,
-            user_profile.key,
-            user_profile.value,
-            PROFILE_TYPE_INPUT_TEXT,
-        )
-    return None
-
-
-def save_user_profile(
-    user_id: str, profile_key: str, profile_value: str, profile_type: int
-):
-    PROFILES_LABLES = get_profile_labels()
-    existing_profile = _fetch_latest_variable_value(
-        user_bid=user_id,
-        variable_key=profile_key,
-        shifu_bid="",
-    )
-    aggregate = _ensure_user_aggregate(user_id)
-    user_profile = existing_profile
-    if not existing_profile or existing_profile.value != profile_value:
-        user_profile = VariableValue(
-            variable_value_bid=uuid.uuid4().hex,
-            user_bid=user_id,
-            shifu_bid="",
-            variable_bid="",
-            key=profile_key,
-            value=profile_value or "",
-            deleted=0,
-        )
-        db.session.add(user_profile)
-    if profile_key in PROFILES_LABLES:
-        profile_lable = PROFILES_LABLES[profile_key]
-        if profile_lable.get("mapping"):
-            if profile_lable.get("items_mapping"):
-                profile_value = profile_lable["items_mapping"].get(
-                    profile_value, profile_value
-                )
-            normalized = _apply_core_mapping(
-                user_id, profile_lable["mapping"], profile_value
-            )
-            _update_aggregate_field(aggregate, profile_lable["mapping"], normalized)
-    db.session.flush()
-    return UserProfileDTO(
-        user_profile.user_bid,
-        user_profile.key,
-        user_profile.value,
-        PROFILE_TYPE_INPUT_TEXT,
-    )
-
-
 def save_user_profiles(
     app: Flask, user_id: str, course_id: str, profiles: list[ProfileToSave]
 ) -> bool:
@@ -420,7 +244,6 @@ def save_user_profiles(
             user_values,
             variable_key=profile.key,
             shifu_bid=target_shifu,
-            variable_bid=variable_bid or None,
         )
         if not latest_value or latest_value.value != profile.value:
             user_value = VariableValue(
@@ -498,7 +321,6 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
                 user_values,
                 variable_key=profile_item.profile_key,
                 shifu_bid=target_shifu,
-                variable_bid=(profile_item.profile_id or None),
             )
             if user_values
             else None
@@ -631,7 +453,6 @@ def get_user_profile_labels(
                     user_values,
                     variable_key=profile_key,
                     shifu_bid="",
-                    variable_bid=profile_item.profile_id or None,
                 )
         else:
             app.logger.info("profile_item not found:{}".format(profile_key))
@@ -664,7 +485,7 @@ def update_user_profile_with_lable(
     course_id: str = None,
 ):
     app.logger.info("update user profile with lable:{}".format(course_id))
-    PROFILES_LABLES = get_profile_labels(course_id)
+    PROFILES_LABLES = get_profile_labels()
     if isinstance(profiles, UserProfileLabelDTO):
         profiles = profiles.profiles or []
     elif isinstance(profiles, UserProfileLabelItemDTO):
@@ -765,7 +586,6 @@ def update_user_profile_with_lable(
                 user_values,
                 variable_key=key,
                 shifu_bid=target_shifu,
-                variable_bid=(profile_item.profile_id if profile_item else None),
             )
             if latest_value is None or latest_value.value != profile_value:
                 variable_bid = profile_item.profile_id if profile_item else ""

@@ -69,7 +69,7 @@
     "confirmDescription": "{mobiles}, import {count} mobile numbers. Proceed?",
     "confirmTitle": "Confirm mobile import",
     "courseLabel": "Course",
-    "coursePlaceholder": "Select a course",
+    "coursePlaceholder": "Select a published course",
     "courseRequired": "Course is required",
     "description": "Create a zero-amount order and activate the course.",
     "emailConfirmDescription": "{mobiles}, import {count} emails. Proceed?",

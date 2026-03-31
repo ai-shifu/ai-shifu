@@ -2,6 +2,24 @@ export const parseUrlParams = () => {
   return getQueryParams(window.location.href);
 };
 
+type QueryParamReader = {
+  get: (key: string) => string | null;
+};
+
+export const getTrimmedQueryParam = (
+  params: QueryParamReader | null | undefined,
+  key: string,
+) => {
+  const value = params?.get(key);
+  return value ? value.trim() : '';
+};
+
+export const getLessonIdFromQuery = (
+  params: QueryParamReader | null | undefined,
+) => {
+  return getTrimmedQueryParam(params, 'lessonid');
+};
+
 export function getQueryParams(url) {
   const params = {};
   const queryString = url.split('?')[1];

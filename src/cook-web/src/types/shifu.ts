@@ -194,7 +194,10 @@ export interface ShifuActions {
   loadShifu: (shifuId: string, options?: { silent?: boolean }) => Promise<void>;
   loadChapters: (
     shifuId: string,
-    options?: { autoSelectFirstLesson?: boolean },
+    options?: {
+      autoSelectFirstLesson?: boolean;
+      preferredLessonBid?: string;
+    },
   ) => Promise<void>;
   createChapter: (chapter: Omit<Outline, 'chapter_id'>) => Promise<void>;
   setChapters: (chapters: Outline[]) => void;
