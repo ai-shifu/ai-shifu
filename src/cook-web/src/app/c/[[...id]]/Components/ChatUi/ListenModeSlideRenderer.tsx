@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
 import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
 import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
+import { SYS_INTERACTION_TYPE } from '@/c-api/studyV2';
 import { type OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { Slide, type Element as SlideElement } from 'markdown-flow-ui/slide';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
@@ -71,14 +72,27 @@ const hasBlockingListenInteraction = (element?: SlideElement) => {
 
   const interactionElement = element as ListenSlideElement | undefined;
   const hasUserInput = Boolean(interactionElement?.user_input?.trim());
+  const interactionContent =
+    typeof interactionElement?.content === 'string'
+      ? interactionElement.content
+      : '';
+  const isSystemInteraction = Object.values(SYS_INTERACTION_TYPE).some(
+    interactionType => interactionContent.includes(interactionType),
+  );
 
-  return !Boolean(interactionElement?.readonly) && !hasUserInput;
+  return (
+    !Boolean(interactionElement?.readonly) &&
+    !hasUserInput &&
+    !isLessonFeedbackInteractionContent(interactionContent) &&
+    !isSystemInteraction
+  );
 };
 
 const getListenPlaybackSequenceActive = ({
   currentStepIndex,
   totalStepCount,
   currentStepHasAudio,
+  currentStepHasBlockingInteraction,
   hasCompletedCurrentStepAudio,
   isAudioPlaying,
   isAudioWaiting,
@@ -95,6 +109,7 @@ const getListenPlaybackSequenceActive = ({
   return (
     hasFutureSteps ||
     hasPendingCurrentStepAudio ||
+    currentStepHasBlockingInteraction ||
     isAudioPlaying ||
     isAudioWaiting
   );
@@ -348,6 +363,32 @@ const ListenModeSlideRenderer = ({
     () => elementList.filter(element => Boolean(element.is_marker)).length,
     [elementList],
   );
+  const markerStepList = useMemo(
+    () => elementList.filter(element => Boolean(element.is_marker)),
+    [elementList],
+  );
+  const currentMarkerStepElement = useMemo(() => {
+    if (playbackState.currentStepIndex < 0) {
+      return undefined;
+    }
+
+    return markerStepList[playbackState.currentStepIndex];
+  }, [markerStepList, playbackState.currentStepIndex]);
+  const currentMarkerStepKey = useMemo(() => {
+    if (!currentMarkerStepElement) {
+      return '';
+    }
+
+    return [
+      currentMarkerStepElement.type,
+      currentMarkerStepElement.sequence_number,
+      currentMarkerStepElement.blockBid,
+      typeof currentMarkerStepElement.content === 'string'
+        ? currentMarkerStepElement.content
+        : '',
+    ].join(':');
+  }, [currentMarkerStepElement]);
+  const previousMarkerStepKeyRef = useRef('');
 
   const shouldRenderEmptyPpt =
     !isLoading &&
@@ -527,27 +568,10 @@ const ListenModeSlideRenderer = ({
 
   const handleStepChange = useCallback(
     (element: SlideElement | undefined, index: number) => {
-      const currentStepHasAudio = hasListenStepAudio(element);
-      const currentStepHasBlockingInteraction =
-        hasBlockingListenInteraction(element);
-
       setPlaybackState(prevState => {
-        const isSameStep = prevState.currentStepIndex === index;
-        const nextStepCount = markerStepCount;
-        const nextHasCompletedCurrentStepAudio = currentStepHasAudio
-          ? isSameStep
-            ? prevState.hasCompletedCurrentStepAudio
-            : false
-          : true;
-
         if (
           prevState.currentStepIndex === index &&
-          prevState.totalStepCount === nextStepCount &&
-          prevState.currentStepHasAudio === currentStepHasAudio &&
-          prevState.currentStepHasBlockingInteraction ===
-            currentStepHasBlockingInteraction &&
-          prevState.hasCompletedCurrentStepAudio ===
-            nextHasCompletedCurrentStepAudio
+          prevState.totalStepCount === markerStepCount
         ) {
           return prevState;
         }
@@ -555,15 +579,49 @@ const ListenModeSlideRenderer = ({
         return {
           ...prevState,
           currentStepIndex: index,
-          totalStepCount: nextStepCount,
-          currentStepHasAudio,
-          currentStepHasBlockingInteraction,
-          hasCompletedCurrentStepAudio: nextHasCompletedCurrentStepAudio,
+          totalStepCount: markerStepCount,
         };
       });
     },
     [markerStepCount],
   );
+
+  useEffect(() => {
+    const currentStepHasAudio = hasListenStepAudio(currentMarkerStepElement);
+    const currentStepHasBlockingInteraction = hasBlockingListenInteraction(
+      currentMarkerStepElement,
+    );
+    const isSameMarkerStep =
+      previousMarkerStepKeyRef.current === currentMarkerStepKey;
+
+    setPlaybackState(prevState => {
+      const nextHasCompletedCurrentStepAudio = currentStepHasAudio
+        ? isSameMarkerStep
+          ? prevState.hasCompletedCurrentStepAudio
+          : false
+        : true;
+
+      if (
+        prevState.totalStepCount === markerStepCount &&
+        prevState.currentStepHasAudio === currentStepHasAudio &&
+        prevState.currentStepHasBlockingInteraction ===
+          currentStepHasBlockingInteraction &&
+        prevState.hasCompletedCurrentStepAudio ===
+          nextHasCompletedCurrentStepAudio
+      ) {
+        return prevState;
+      }
+
+      return {
+        ...prevState,
+        totalStepCount: markerStepCount,
+        currentStepHasAudio,
+        currentStepHasBlockingInteraction,
+        hasCompletedCurrentStepAudio: nextHasCompletedCurrentStepAudio,
+      };
+    });
+    previousMarkerStepKeyRef.current = currentMarkerStepKey;
+  }, [currentMarkerStepElement, currentMarkerStepKey, markerStepCount]);
 
   useEffect(() => {
     onPlaybackStateChange?.({
