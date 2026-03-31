@@ -69,3 +69,29 @@ export const reconcileListenPlaybackStepCount = (
     currentStepIndex: nextStepIndex,
   };
 };
+
+export const resolveCurrentStepAudioCompletion = ({
+  previousStepHasAudio,
+  nextStepHasAudio,
+  previousCompleted,
+  isSameMarkerStep,
+}: {
+  previousStepHasAudio: boolean;
+  nextStepHasAudio: boolean;
+  previousCompleted: boolean;
+  isSameMarkerStep: boolean;
+}) => {
+  if (!nextStepHasAudio) {
+    return true;
+  }
+
+  if (!isSameMarkerStep) {
+    return false;
+  }
+
+  if (!previousStepHasAudio) {
+    return false;
+  }
+
+  return previousCompleted;
+};

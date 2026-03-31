@@ -16,6 +16,7 @@ import {
   buildListenMarkerSequenceKey,
   getListenMarkerIdentityKey,
   reconcileListenPlaybackStepCount,
+  resolveCurrentStepAudioCompletion,
   type ListenPlaybackState,
 } from './listenPlaybackState';
 import './ListenModeRenderer.scss';
@@ -597,11 +598,13 @@ const ListenModeSlideRenderer = ({
       previousMarkerStepKeyRef.current === currentMarkerStepKey;
 
     setPlaybackState(prevState => {
-      const nextHasCompletedCurrentStepAudio = currentStepHasAudio
-        ? isSameMarkerStep
-          ? prevState.hasCompletedCurrentStepAudio
-          : false
-        : true;
+      const nextHasCompletedCurrentStepAudio =
+        resolveCurrentStepAudioCompletion({
+          previousStepHasAudio: prevState.currentStepHasAudio,
+          nextStepHasAudio: currentStepHasAudio,
+          previousCompleted: prevState.hasCompletedCurrentStepAudio,
+          isSameMarkerStep,
+        });
 
       if (
         prevState.totalStepCount === markerStepCount &&

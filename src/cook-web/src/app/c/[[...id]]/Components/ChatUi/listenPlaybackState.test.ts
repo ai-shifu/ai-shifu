@@ -1,6 +1,7 @@
 import {
   buildListenMarkerSequenceKey,
   reconcileListenPlaybackStepCount,
+  resolveCurrentStepAudioCompletion,
   type ListenPlaybackState,
 } from './listenPlaybackState';
 
@@ -110,5 +111,27 @@ describe('listenPlaybackState', () => {
 
     expect(nextState.currentStepIndex).toBe(-1);
     expect(nextState.totalStepCount).toBe(3);
+  });
+
+  it('resets completed audio when a marker gains audio after initially having none', () => {
+    const nextCompletedState = resolveCurrentStepAudioCompletion({
+      previousStepHasAudio: false,
+      nextStepHasAudio: true,
+      previousCompleted: true,
+      isSameMarkerStep: true,
+    });
+
+    expect(nextCompletedState).toBe(false);
+  });
+
+  it('preserves completed audio only when the same marker keeps the same audio presence', () => {
+    const nextCompletedState = resolveCurrentStepAudioCompletion({
+      previousStepHasAudio: true,
+      nextStepHasAudio: true,
+      previousCompleted: true,
+      isSameMarkerStep: true,
+    });
+
+    expect(nextCompletedState).toBe(true);
   });
 });
