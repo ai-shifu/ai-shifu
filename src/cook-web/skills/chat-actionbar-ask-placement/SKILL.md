@@ -14,6 +14,7 @@ description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用
 - 移动端不能把 `LIKE_STATUS` 一刀切隐藏；至少要为 `interaction` 元素保留追问入口，保证与 PC 的追问能力一致。
 - 移动端阅读模式下，`interaction` 的追问按钮样式应与正文 `custom-button-after-content` 的追问按钮保持一致；PC 端维持原有桌面样式。
 - 当追问操作栏挂在 `interaction` 元素后方时，需要移除操作栏顶部额外间距（如 `padding-top`），避免与交互块之间出现空白断层。
+- 当需求要求 PC 学习页的追问入口贴到内容区最右侧时，只调整真实学习页的 `LIKE_STATUS` 外层对齐；调试/预览页保持左对齐，避免两种场景布局一起漂移。
 - 当需求要求“按接口顺序直接展示内容与追问”时，不要额外引入 `readyElementBids`、`onTypeFinished` 等前端渲染门禁。
 - SSE 流里 `ELEMENT/CONTENT` 阶段只更新当前元素本体，不要提前插入 `LIKE_STATUS`；追问入口统一在 `TEXT_END` 后补齐，避免按钮先于流式正文出现。
 - 若后端未必为每个 `element` 都补 `TEXT_END`，前端可在“下一个 `element` 开始”或“当前流关闭”时，把上一个活动 `element` 视为隐式完成并补齐追问入口。
