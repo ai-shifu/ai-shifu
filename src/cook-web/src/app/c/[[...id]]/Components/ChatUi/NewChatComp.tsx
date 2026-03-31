@@ -749,7 +749,6 @@ export const NewChatComponents = ({
                       key={`like-${parentKey}`}
                       className={cn(
                         !mobileStyle &&
-                          !previewMode &&
                           'flex justify-end',
                       )}
                       style={{
