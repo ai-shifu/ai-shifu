@@ -80,52 +80,6 @@ def _format_percentage(numerator: int, denominator: int) -> str:
     return _format_money((Decimal(numerator) * Decimal("100")) / Decimal(denominator))
 
 
-def _parse_iso_date(raw: Optional[str]) -> Optional[date]:
-    if raw is None:
-        return None
-    text = str(raw).strip()
-    if not text:
-        return None
-    try:
-        return date.fromisoformat(text)
-    except ValueError:
-        raise_param_error(f"invalid date: {text}")
-
-
-def _resolve_date_range(
-    start_date: Optional[date],
-    end_date: Optional[date],
-    *,
-    default_days: int = 14,
-    max_days: int = 366,
-) -> Tuple[date, date]:
-    today = date.today()
-    resolved_end = end_date or today
-    resolved_start = start_date or (resolved_end - timedelta(days=default_days - 1))
-    if resolved_start > resolved_end:
-        raise_param_error("start_date must be <= end_date")
-    if (resolved_end - resolved_start).days + 1 > max_days:
-        raise_param_error(f"date range too large (max {max_days} days)")
-    return resolved_start, resolved_end
-
-
-def _resolve_optional_datetime_range(
-    start_date: Optional[str],
-    end_date: Optional[str],
-) -> Tuple[Optional[datetime], Optional[datetime]]:
-    parsed_start = _parse_iso_date(start_date)
-    parsed_end = _parse_iso_date(end_date)
-    if parsed_start is None and parsed_end is None:
-        return None, None
-    resolved_start, resolved_end = _resolve_date_range(parsed_start, parsed_end)
-    start_dt = datetime.combine(resolved_start, datetime.min.time())
-    end_dt_exclusive = datetime.combine(
-        resolved_end + timedelta(days=1),
-        datetime.min.time(),
-    )
-    return start_dt, end_dt_exclusive
-
-
 def _load_demo_shifu_bids() -> Set[str]:
     demo_bids: Set[str] = set(_LEGACY_DEMO_SHIFU_BIDS)
     for key in ("DEMO_SHIFU_BID", "DEMO_EN_SHIFU_BID"):
@@ -526,15 +480,38 @@ def build_dashboard_entry(
     page_size: int = 20,
     timezone_name: Optional[str] = None,
 ) -> DashboardEntryDTO:
+    def _parse_optional_date(raw: Optional[str]) -> Optional[date]:
+        if raw is None:
+            return None
+        text = str(raw).strip()
+        if not text:
+            return None
+        try:
+            return date.fromisoformat(text)
+        except ValueError:
+            raise_param_error(f"invalid date: {text}")
+
     with app.app_context():
         safe_page_index = max(int(page_index or 1), 1)
         safe_page_size = max(int(page_size or 20), 1)
         safe_page_size = min(safe_page_size, 100)
 
-        start_dt, end_dt_exclusive = _resolve_optional_datetime_range(
-            start_date,
-            end_date,
-        )
+        parsed_start = _parse_optional_date(start_date)
+        parsed_end = _parse_optional_date(end_date)
+        if parsed_start is None and parsed_end is None:
+            start_dt, end_dt_exclusive = None, None
+        else:
+            resolved_end = parsed_end or date.today()
+            resolved_start = parsed_start or (resolved_end - timedelta(days=13))
+            if resolved_start > resolved_end:
+                raise_param_error("start_date must be <= end_date")
+            if (resolved_end - resolved_start).days + 1 > 366:
+                raise_param_error("date range too large (max 366 days)")
+            start_dt = datetime.combine(resolved_start, datetime.min.time())
+            end_dt_exclusive = datetime.combine(
+                resolved_end + timedelta(days=1),
+                datetime.min.time(),
+            )
 
         courses = _load_dashboard_entry_courses(user_id, keyword=keyword)
         total = len(courses)

@@ -4519,7 +4519,7 @@ def test_backfill_learn_generated_elements_for_progress_persists_clean_elements(
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
-    from flaskr.service.learn.listen_elements import (
+    from flaskr.service.learn.listen_element_legacy import (
         backfill_learn_generated_elements_for_progress,
     )
     from flaskr.service.learn.models import (
@@ -4704,7 +4704,7 @@ def test_backfill_learn_generated_elements_for_progress_overwrite_replaces_activ
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
-    from flaskr.service.learn.listen_elements import (
+    from flaskr.service.learn.listen_element_legacy import (
         backfill_learn_generated_elements_for_progress,
     )
     from flaskr.service.learn.models import (

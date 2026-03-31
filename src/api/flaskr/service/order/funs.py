@@ -21,7 +21,6 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_TIMEOUT,
     ORDER_STATUS_VALUES,
 )
-from flaskr.service.order.query_discount import query_discount_record
 from flaskr.service.promo.consts import COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT
 from flaskr.service.promo.funcs import (
     apply_promo_campaigns,
@@ -1407,9 +1406,9 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                 campaign_applications = query_promo_campaign_applications(
                     app, record_id, recaul_discount
                 )
-                discount_records = query_discount_record(
-                    app, record_id, recaul_discount
-                )
+                discount_records = CouponUsageModel.query.filter(
+                    CouponUsageModel.order_bid == record_id
+                ).all()
                 discount_info = calculate_discount_value(
                     app,
                     buy_record.payable_price,

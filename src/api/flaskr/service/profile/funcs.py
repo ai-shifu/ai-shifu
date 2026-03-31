@@ -34,7 +34,6 @@ def _get_latest_variable_value(
     values: list[VariableValue],
     variable_key: str,
     shifu_bid: str,
-    variable_bid: Optional[str] = None,
 ) -> Optional[VariableValue]:
     """
     Return the newest variable value row from a pre-fetched, id-desc sorted
@@ -43,9 +42,6 @@ def _get_latest_variable_value(
     Matching is by key only (not variable_bid) so the newest row for the
     logical profile field wins even if the underlying Variable definition was
     recreated and now has a different variable_bid.
-
-    The ``variable_bid`` parameter is accepted for backward compatibility only
-    and is intentionally ignored by the matching logic.
 
     Precedence:
     1) shifu scope (shifu_bid) - newest record matching key
@@ -160,7 +156,7 @@ def check_text_content(
     return True
 
 
-def get_profile_labels(course_id: str = None):
+def get_profile_labels():
     # language = get_current_language()
     return {
         "sys_user_nickname": {
@@ -248,7 +244,6 @@ def save_user_profiles(
             user_values,
             variable_key=profile.key,
             shifu_bid=target_shifu,
-            variable_bid=variable_bid or None,
         )
         if not latest_value or latest_value.value != profile.value:
             user_value = VariableValue(
@@ -326,7 +321,6 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
                 user_values,
                 variable_key=profile_item.profile_key,
                 shifu_bid=target_shifu,
-                variable_bid=(profile_item.profile_id or None),
             )
             if user_values
             else None
@@ -459,7 +453,6 @@ def get_user_profile_labels(
                     user_values,
                     variable_key=profile_key,
                     shifu_bid="",
-                    variable_bid=profile_item.profile_id or None,
                 )
         else:
             app.logger.info("profile_item not found:{}".format(profile_key))
@@ -492,7 +485,7 @@ def update_user_profile_with_lable(
     course_id: str = None,
 ):
     app.logger.info("update user profile with lable:{}".format(course_id))
-    PROFILES_LABLES = get_profile_labels(course_id)
+    PROFILES_LABLES = get_profile_labels()
     if isinstance(profiles, UserProfileLabelDTO):
         profiles = profiles.profiles or []
     elif isinstance(profiles, UserProfileLabelItemDTO):
@@ -593,7 +586,6 @@ def update_user_profile_with_lable(
                 user_values,
                 variable_key=key,
                 shifu_bid=target_shifu,
-                variable_bid=(profile_item.profile_id if profile_item else None),
             )
             if latest_value is None or latest_value.value != profile_value:
                 variable_bid = profile_item.profile_id if profile_item else ""

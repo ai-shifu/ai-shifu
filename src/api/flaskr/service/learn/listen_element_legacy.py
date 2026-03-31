@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from flask import Flask
@@ -66,41 +66,6 @@ class LearnElementsBackfillStats:
     skipped_existing: bool = False
     dry_run: bool = False
     error: str = ""
-
-    def as_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-
-@dataclass
-class LearnElementsBackfillBatchResult:
-    scanned_progress_records: int = 0
-    processed_progress_records: int = 0
-    skipped_existing_progress_records: int = 0
-    failed_progress_records: int = 0
-    inserted_rows: int = 0
-    overwritten_rows: int = 0
-    duplicate_blocks_skipped: int = 0
-    duplicate_audios_skipped: int = 0
-    orphan_audios_skipped: int = 0
-    skipped_empty_blocks: int = 0
-    results: list[LearnElementsBackfillStats] = field(default_factory=list)
-
-    def add(self, result: LearnElementsBackfillStats) -> None:
-        self.results.append(result)
-        self.scanned_progress_records += 1
-        self.inserted_rows += result.inserted_rows
-        self.overwritten_rows += result.overwritten_rows
-        self.duplicate_blocks_skipped += result.duplicate_blocks_skipped
-        self.duplicate_audios_skipped += result.duplicate_audios_skipped
-        self.orphan_audios_skipped += result.orphan_audios_skipped
-        self.skipped_empty_blocks += result.skipped_empty_blocks
-        if result.error:
-            self.failed_progress_records += 1
-            return
-        if result.skipped_existing:
-            self.skipped_existing_progress_records += 1
-        else:
-            self.processed_progress_records += 1
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -341,78 +306,3 @@ def backfill_learn_generated_elements_for_progress(
         stats.as_dict(),
     )
     return stats
-
-
-def backfill_learn_generated_elements_batch(
-    app: Flask,
-    *,
-    progress_record_bids: list[str] | None = None,
-    after_id: int = 0,
-    limit: int = 100,
-    overwrite: bool = False,
-    dry_run: bool = False,
-) -> LearnElementsBackfillBatchResult:
-    batch_result = LearnElementsBackfillBatchResult()
-
-    if progress_record_bids:
-        progress_records = (
-            LearnProgressRecord.query.filter(
-                LearnProgressRecord.progress_record_bid.in_(progress_record_bids),
-                LearnProgressRecord.deleted == 0,
-            )
-            .order_by(LearnProgressRecord.id.asc())
-            .all()
-        )
-        existing_bids = {
-            progress_record.progress_record_bid for progress_record in progress_records
-        }
-        missing_bids = [
-            progress_record_bid
-            for progress_record_bid in progress_record_bids
-            if progress_record_bid not in existing_bids
-        ]
-        for missing_bid in missing_bids:
-            batch_result.add(
-                LearnElementsBackfillStats(
-                    progress_record_bid=missing_bid,
-                    error=f"progress record not found: {missing_bid}",
-                    dry_run=dry_run,
-                )
-            )
-    else:
-        progress_records = (
-            LearnProgressRecord.query.filter(
-                LearnProgressRecord.deleted == 0,
-                LearnProgressRecord.id > int(after_id or 0),
-            )
-            .order_by(LearnProgressRecord.id.asc())
-            .limit(max(int(limit or 0), 0))
-            .all()
-        )
-
-    for progress_record in progress_records:
-        try:
-            result = backfill_learn_generated_elements_for_progress(
-                app,
-                progress_record.progress_record_bid,
-                overwrite=overwrite,
-                dry_run=dry_run,
-            )
-        except Exception as exc:
-            db.session.rollback()
-            app.logger.exception(
-                "Learn element backfill failed for progress %s",
-                progress_record.progress_record_bid,
-            )
-            result = LearnElementsBackfillStats(
-                progress_record_bid=progress_record.progress_record_bid or "",
-                progress_record_id=int(progress_record.id or 0),
-                shifu_bid=progress_record.shifu_bid or "",
-                outline_item_bid=progress_record.outline_item_bid or "",
-                user_bid=progress_record.user_bid or "",
-                dry_run=dry_run,
-                error=str(exc),
-            )
-        batch_result.add(result)
-
-    return batch_result

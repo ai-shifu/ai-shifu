@@ -12,10 +12,8 @@ from flaskr.service.learn.learn_dtos import (
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.listen_elements import (
-    BlockMeta,
-    ListenElementRunAdapter,
-)
+from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+from flaskr.service.learn.listen_element_run_state import BlockMeta
 
 
 class PreviewElementRunAdapter(ListenElementRunAdapter):

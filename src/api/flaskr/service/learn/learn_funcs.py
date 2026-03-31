@@ -1052,7 +1052,7 @@ def stream_generated_block_audio(
 
         raw_text = generated_block.generated_content or ""
         if listen:
-            from flaskr.service.learn.listen_elements import (
+            from flaskr.service.learn.listen_element_history import (
                 get_final_elements_for_generated_block,
             )
 
