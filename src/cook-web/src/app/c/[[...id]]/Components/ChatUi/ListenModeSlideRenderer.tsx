@@ -12,6 +12,12 @@ import {
   resolveListenSlideAudioSource,
   resolveListenSlideElementType,
 } from './listenModeUtils';
+import {
+  buildListenMarkerSequenceKey,
+  getListenMarkerIdentityKey,
+  reconcileListenPlaybackStepCount,
+  type ListenPlaybackState,
+} from './listenPlaybackState';
 import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
 
@@ -20,16 +26,6 @@ type ListenSlideElement = SlideElement & {
   page?: number;
   is_audio_streaming?: boolean;
   isAudioStreaming?: boolean;
-};
-
-type ListenPlaybackState = {
-  currentStepIndex: number;
-  totalStepCount: number;
-  currentStepHasAudio: boolean;
-  currentStepHasBlockingInteraction: boolean;
-  hasCompletedCurrentStepAudio: boolean;
-  isAudioPlaying: boolean;
-  isAudioWaiting: boolean;
 };
 
 interface ListenModeSlideRendererProps {
@@ -367,6 +363,10 @@ const ListenModeSlideRenderer = ({
     () => elementList.filter(element => Boolean(element.is_marker)),
     [elementList],
   );
+  const markerSequenceKey = useMemo(
+    () => buildListenMarkerSequenceKey(markerStepList),
+    [markerStepList],
+  );
   const currentMarkerStepElement = useMemo(() => {
     if (playbackState.currentStepIndex < 0) {
       return undefined;
@@ -375,15 +375,17 @@ const ListenModeSlideRenderer = ({
     return markerStepList[playbackState.currentStepIndex];
   }, [markerStepList, playbackState.currentStepIndex]);
   const currentMarkerStepKey = useMemo(() => {
-    if (!currentMarkerStepElement) {
+    const markerIdentityKey = getListenMarkerIdentityKey(
+      currentMarkerStepElement,
+    );
+
+    if (!markerIdentityKey) {
       return '';
     }
 
     return [
-      currentMarkerStepElement.type,
-      currentMarkerStepElement.sequence_number,
-      currentMarkerStepElement.blockBid,
-      typeof currentMarkerStepElement.content === 'string'
+      markerIdentityKey,
+      typeof currentMarkerStepElement?.content === 'string'
         ? currentMarkerStepElement.content
         : '',
     ].join(':');
@@ -631,6 +633,7 @@ const ListenModeSlideRenderer = ({
   }, [onPlaybackStateChange, playbackState]);
 
   useEffect(() => {
+    previousMarkerStepKeyRef.current = '';
     setPlaybackState({
       currentStepIndex: -1,
       totalStepCount: markerStepCount,
@@ -640,7 +643,13 @@ const ListenModeSlideRenderer = ({
       isAudioPlaying: false,
       isAudioWaiting: false,
     });
-  }, [lessonId, markerStepCount]);
+  }, [lessonId, markerSequenceKey]);
+
+  useEffect(() => {
+    setPlaybackState(prevState =>
+      reconcileListenPlaybackStepCount(prevState, markerStepCount),
+    );
+  }, [markerStepCount]);
 
   useEffect(
     () => () => {
