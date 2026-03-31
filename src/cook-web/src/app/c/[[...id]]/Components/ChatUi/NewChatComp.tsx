@@ -290,6 +290,7 @@ export const NewChatComponents = ({
   }, [isListenModeActive, lessonId]);
 
   useEffect(() => {
+    setIsListenFeedbackReady(false);
     setSettledPromptContextKey(promptContextKey);
   }, [promptContextKey]);
 
