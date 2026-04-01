@@ -10,9 +10,9 @@ complex topic in `tasks.md` at a time.
 ## Required Structure
 
 - Active implementation topics:
-  `docs/<topic>.md` and `/tasks.md`
+  `docs/<topic>.md` and `tasks.md`
 - Completed topics:
-  `docs/<topic>.md` remains required, and `tasks.md` should be deleted after
+  `docs/<topic>.md` remains required, and `tasks.md` must be deleted after
   the checklist is fully complete
 
 ## Rules
