@@ -205,6 +205,10 @@
   gap: 12px;
 }
 
+.mobileContentHidden {
+  display: none;
+}
+
 .mobileMessageList {
   flex-direction: column;
   gap: 12px;
@@ -270,5 +274,14 @@
   > button :global(.lucide-send) {
     width: 18px !important;
     height: 18px !important;
+  }
+}
+
+.askBlock {
+  &:global(.listen-slide-ask-block) {
+    margin-top: 0 !important;
+    padding: 28px 24px !important;
+    background: #fff !important;
+    border-radius: 24px;
   }
 }

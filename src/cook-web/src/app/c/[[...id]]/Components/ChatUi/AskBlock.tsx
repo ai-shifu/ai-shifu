@@ -30,7 +30,6 @@ export interface AskMessage {
   type: typeof BLOCK_TYPE.ASK | typeof BLOCK_TYPE.ANSWER;
   content: string;
   isStreaming?: boolean;
-  element_bid?: string;
 }
 
 export interface AskBlockProps {
@@ -73,78 +72,22 @@ export default function AskBlock({
   const [inputValue, setInputValue] = useState('');
   const sseRef = useRef<any>(null);
   const currentContentRef = useRef<string>('');
-  const currentAnswerElementBidRef = useRef<string>('');
   const isStreamingRef = useRef(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMobileDialog, setShowMobileDialog] = useState(askList.length > 0);
   const mobileContentRef = useRef<HTMLDivElement | null>(null);
   const inputWrapperRef = useRef<HTMLDivElement | null>(null);
+  const isSlideAskBlock = className?.includes('listen-slide-ask-block');
   const expanded = isExpanded ?? (!mobileStyle && askList.length > 0);
+  const shouldForceSlideMobileDialog =
+    Boolean(isSlideAskBlock) && mobileStyle && expanded;
+  const shouldShowMobileDialog =
+    showMobileDialog || shouldForceSlideMobileDialog;
   const showOutputInProgressToast = useCallback(() => {
     toast({
       title: t('module.chat.outputInProgress'),
     });
   }, [t]);
-
-  const finalizeStreamingMessage = useCallback(() => {
-    isStreamingRef.current = false;
-    setDisplayList(prev => {
-      const newList = [...prev];
-      const lastIndex = newList.length - 1;
-      if (lastIndex >= 0 && newList[lastIndex].type === BLOCK_TYPE.ANSWER) {
-        newList[lastIndex] = {
-          ...newList[lastIndex],
-          isStreaming: false,
-        };
-      }
-      return newList;
-    });
-  }, []);
-
-  const updateStreamingAnswerMessage = useCallback((incomingText: string) => {
-    const prevText = currentContentRef.current || '';
-    const delta = fixMarkdownStream(prevText, incomingText || '');
-    const nextText = prevText + delta;
-    currentContentRef.current = nextText;
-
-    setDisplayList(prev => {
-      const newList = [...prev];
-      const lastIndex = newList.length - 1;
-      if (lastIndex >= 0 && newList[lastIndex].type === BLOCK_TYPE.ANSWER) {
-        newList[lastIndex] = {
-          ...newList[lastIndex],
-          content: nextText,
-          isStreaming: true,
-        };
-      }
-      return newList;
-    });
-  }, []);
-
-  const replaceStreamingAnswerMessage = useCallback(
-    (incomingText: string, answerElementBid = '') => {
-      const nextText = incomingText || '';
-      currentContentRef.current = nextText;
-      if (answerElementBid) {
-        currentAnswerElementBidRef.current = answerElementBid;
-      }
-
-      setDisplayList(prev => {
-        const newList = [...prev];
-        const lastIndex = newList.length - 1;
-        if (lastIndex >= 0 && newList[lastIndex].type === BLOCK_TYPE.ANSWER) {
-          newList[lastIndex] = {
-            ...newList[lastIndex],
-            content: nextText,
-            isStreaming: true,
-            element_bid: answerElementBid || newList[lastIndex].element_bid,
-          };
-        }
-        return newList;
-      });
-    },
-    [],
-  );
 
   const handleSendCustomQuestion = useCallback(async () => {
     const question = inputValue.trim();
@@ -184,13 +127,11 @@ export default function AskBlock({
         type: BLOCK_TYPE.ANSWER,
         content: '',
         isStreaming: true,
-        element_bid: '',
       },
     ]);
 
     // Reset the streaming content buffer
     currentContentRef.current = '';
-    currentAnswerElementBidRef.current = '';
     isStreamingRef.current = true;
 
     // Initiate the SSE request
@@ -210,61 +151,68 @@ export default function AskBlock({
           if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
             return;
           }
-
-          if (response.type === SSE_OUTPUT_TYPE.ERROR) {
-            finalizeStreamingMessage();
-            sseRef.current?.close();
-            return;
-          }
-
           if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
-            updateStreamingAnswerMessage(response.content || '');
-            return;
-          }
+            // Streaming content
+            const prevText = currentContentRef.current || '';
+            const delta = fixMarkdownStream(prevText, response.content || '');
+            const nextText = prevText + delta;
+            currentContentRef.current = nextText;
 
-          if (response.type === SSE_OUTPUT_TYPE.ELEMENT) {
-            const elementRecord =
-              response.content && typeof response.content === 'object'
-                ? response.content
-                : null;
-            const elementType =
-              typeof elementRecord?.element_type === 'string'
-                ? elementRecord.element_type
-                : '';
-            if (elementType === BLOCK_TYPE.ANSWER) {
-              const answerElementBid =
-                typeof elementRecord?.target_element_bid === 'string' &&
-                elementRecord.target_element_bid
-                  ? elementRecord.target_element_bid
-                  : typeof elementRecord?.element_bid === 'string'
-                    ? elementRecord.element_bid
-                    : '';
-              const answerText =
-                typeof elementRecord?.content === 'string'
-                  ? elementRecord.content
-                  : '';
-              replaceStreamingAnswerMessage(answerText, answerElementBid);
-              return;
-            }
-          }
-
-          if (
-            response.type === SSE_OUTPUT_TYPE.BREAK ||
-            response.type === SSE_OUTPUT_TYPE.TEXT_END
-          ) {
-            finalizeStreamingMessage();
+            // Update the content of the last teacher message
+            setDisplayList(prev => {
+              const newList = [...prev];
+              const lastIndex = newList.length - 1;
+              if (
+                lastIndex >= 0 &&
+                newList[lastIndex].type === BLOCK_TYPE.ANSWER
+              ) {
+                newList[lastIndex] = {
+                  ...newList[lastIndex],
+                  content: nextText,
+                  isStreaming: true,
+                };
+              }
+              return newList;
+            });
+          } else {
+            // Streaming finished
+            isStreamingRef.current = false;
+            setDisplayList(prev => {
+              const newList = [...prev];
+              const lastIndex = newList.length - 1;
+              if (
+                lastIndex >= 0 &&
+                newList[lastIndex].type === BLOCK_TYPE.ANSWER
+              ) {
+                newList[lastIndex] = {
+                  ...newList[lastIndex],
+                  isStreaming: false,
+                };
+              }
+              return newList;
+            });
             sseRef.current?.close();
-            return;
           }
         } catch {
-          finalizeStreamingMessage();
+          isStreamingRef.current = false;
         }
       },
     );
 
     // Add error and close listeners to ensure the state resets
     source.addEventListener('error', () => {
-      finalizeStreamingMessage();
+      isStreamingRef.current = false;
+      setDisplayList(prev => {
+        const newList = [...prev];
+        const lastIndex = newList.length - 1;
+        if (lastIndex >= 0 && newList[lastIndex].type === BLOCK_TYPE.ANSWER) {
+          newList[lastIndex] = {
+            ...newList[lastIndex],
+            isStreaming: false,
+          };
+        }
+        return newList;
+      });
     });
 
     source.addEventListener('readystatechange', () => {
@@ -272,7 +220,18 @@ export default function AskBlock({
       if (source.readyState === 1) {
         isStreamingRef.current = true;
       } else if (source.readyState === 2) {
-        finalizeStreamingMessage();
+        isStreamingRef.current = false;
+        setDisplayList(prev => {
+          const newList = [...prev];
+          const lastIndex = newList.length - 1;
+          if (lastIndex >= 0 && newList[lastIndex].type === BLOCK_TYPE.ANSWER) {
+            newList[lastIndex] = {
+              ...newList[lastIndex],
+              isStreaming: false,
+            };
+          }
+          return newList;
+        });
       }
     });
 
@@ -284,9 +243,6 @@ export default function AskBlock({
     element_bid,
     inputValue,
     showOutputInProgressToast,
-    finalizeStreamingMessage,
-    replaceStreamingAnswerMessage,
-    updateStreamingAnswerMessage,
   ]);
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -297,6 +253,7 @@ export default function AskBlock({
 
   // Decide which messages to display
   const messagesToShow = expanded ? displayList : displayList.slice(0, 1);
+  const hasAskAnswerMessages = messagesToShow.length > 0;
 
   useEffect(() => {
     if (!expanded) {
@@ -334,7 +291,7 @@ export default function AskBlock({
   }, [mobileStyle, expanded]);
 
   useEffect(() => {
-    if (!mobileStyle || !showMobileDialog || !expanded) {
+    if (!mobileStyle || !shouldShowMobileDialog || !expanded) {
       return;
     }
 
@@ -350,7 +307,7 @@ export default function AskBlock({
     return () => {
       cancelAnimationFrame(rafId);
     };
-  }, [mobileStyle, showMobileDialog, expanded, messagesToShow.length]);
+  }, [mobileStyle, shouldShowMobileDialog, expanded, messagesToShow.length]);
 
   const handleClose = useCallback(() => {
     setIsFullscreen(false);
@@ -494,7 +451,11 @@ export default function AskBlock({
     );
   };
 
-  if (mobileStyle && showMobileDialog && messagesToShow.length > 0) {
+  if (
+    mobileStyle &&
+    shouldShowMobileDialog &&
+    (messagesToShow.length > 0 || shouldForceSlideMobileDialog)
+  ) {
     return (
       <div className={cn(styles.askBlock, className, styles.mobile)}>
         {!expanded && renderMessages()}
@@ -543,7 +504,10 @@ export default function AskBlock({
                 </div>
               </div>
               <div
-                className={styles.mobileContent}
+                className={cn(
+                  styles.mobileContent,
+                  !hasAskAnswerMessages && styles.mobileContentHidden,
+                )}
                 ref={mobileContentRef}
               >
                 {renderMessages({
@@ -565,10 +529,14 @@ export default function AskBlock({
         className,
         mobileStyle ? styles.mobile : '',
       )}
-      style={{
-        marginTop: expanded || messagesToShow.length > 0 ? '8px' : '0',
-        padding: expanded || messagesToShow.length > 0 ? '16px' : '0',
-      }}
+      style={
+        isSlideAskBlock
+          ? undefined
+          : {
+              marginTop: expanded || messagesToShow.length > 0 ? '8px' : '0',
+              padding: expanded || messagesToShow.length > 0 ? '16px' : '0',
+            }
+      }
     >
       {renderMessages()}
       {renderInput()}

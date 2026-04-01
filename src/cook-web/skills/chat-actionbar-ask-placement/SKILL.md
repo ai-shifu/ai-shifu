@@ -24,6 +24,7 @@ description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用
 - 重生成判定不能直接依赖“列表最后一项”；应忽略 `LIKE_STATUS`/`ASK` 等辅助行，按“最后可操作元素”判断，避免点击末尾交互块误弹重生成确认框。
 - 预览链路里 `updateContentListWithUserOperate` 在截断列表时，也要保留当前 `interaction` 关联的 `LIKE_STATUS/ASK`（按 `parent_block_bid/parent_element_bid` 匹配），避免选择后追问入口消失。
 - interaction 提交值组装时要去重并保序（如 `selectedValues + buttonText` 同值场景），避免变量被写成 `ENFJ,ENFJ` 这类重复值。
+- Slide 播放器里的追问入口若通过 `playerCustomActions` 注入，桌面端要和播放器 notes 浮层互斥，移动端则单独提供悬浮入口并复用 `AskBlock` 的弹层展示。
 
 ## 工作流
 
@@ -33,6 +34,7 @@ description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用
 4. 对 `sys_lesson_feedback_score` 这类隐藏正文的 interaction，同步隐藏操作栏。
 5. 为 `ContentRender/IframeSandbox` 增加渲染完成回调并向上透传到 `ChatUi`。
 6. `onTypeFinished` 要覆盖普通 markdown 与 `sandbox/iframe` 两条渲染路径。
+7. 给 slide 场景接追问时，优先复用现有 `ask_list`/`parent_element_bid` 映射，不要再额外复制一套问答状态。
 
 ## 备注
 

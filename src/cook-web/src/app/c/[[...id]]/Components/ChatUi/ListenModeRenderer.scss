@@ -116,12 +116,131 @@
   height: 100%;
   min-height: 0;
   flex-direction: column;
+  position: relative;
 }
 
 .listen-slide-root {
   min-height: 0;
   flex: 1 1 auto;
   background: var(--color-slide-desktop-bg);
+}
+
+.listen-slide-mobile-ask-entry {
+  position: absolute;
+  right: 0px;
+  bottom: 140px;
+  z-index: 3;
+}
+
+.listen-slide-mobile-ask-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 28px;
+  gap: 4px;
+  border: none;
+  border-radius: 24px 0 0 24px;
+  background: var(--primary);
+  color: var(--base-primary-foreground, #fff);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+
+  img {
+    width: 16px !important;
+    height: 16px !important;
+  }
+}
+
+.slide-ask-overlay {
+  --slide-player-bottom-offset: 24px;
+  --slide-player-height: 80px;
+  --slide-interaction-gap: 16px;
+  position: absolute;
+  left: 50%;
+  z-index: 4;
+  width: min(664px, calc(100vw - 48px));
+  transform: translateX(-50%);
+}
+
+.slide-ask-overlay--with-player {
+  bottom: calc(
+    var(--slide-player-bottom-offset) + var(--slide-player-height) +
+      var(--slide-interaction-gap)
+  );
+}
+
+.slide-ask-overlay--standalone {
+  bottom: 24px;
+}
+
+.slide-player__ask-card {
+  position: relative;
+  overflow: visible;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--background);
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+
+.slide-player__ask-body {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.slide-player__ask-arrow {
+  position: absolute;
+  left: 50%;
+  right: auto;
+  bottom: -9px;
+  width: 24px;
+  height: 12px;
+  transform: translateX(-50%);
+}
+
+.listen-reveal-wrapper:not(.mobile) .slide-player__ask-arrow {
+  left: 430px;
+}
+
+.slide-player__ask-arrow::before,
+.slide-player__ask-arrow::after {
+  position: absolute;
+  left: 0;
+  width: 0;
+  height: 0;
+  content: '';
+}
+
+.slide-player__ask-arrow::before {
+  bottom: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-top: 12px solid var(--background);
+}
+
+.slide-player__ask-arrow::after {
+  bottom: 1px;
+  left: 1px;
+  border-left: 11px solid transparent;
+  border-right: 11px solid transparent;
+  border-top: 11px solid var(--background);
+}
+
+@media (max-width: 640px) {
+  .slide-ask-overlay {
+    --slide-player-bottom-offset: 0px;
+  }
+
+  .slide-player__ask-arrow {
+    left: auto;
+    right: calc(((100% + 48px - 40px) / 8) + 20px - 28px);
+    transform: none;
+  }
 }
 
 .listen-reveal-wrapper.mobile {
@@ -188,10 +307,10 @@
     box-shadow: none !important;
   }
 
-  .listen-slide-root .slide-interaction-overlay--with-player {
+  .listen-slide-root .slide-ask-overlay--with-player {
   }
 
-  .listen-slide-root .slide-interaction-overlay--standalone {
+  .listen-slide-root .slide-ask-overlay--standalone {
     bottom: 52px;
   }
 }
