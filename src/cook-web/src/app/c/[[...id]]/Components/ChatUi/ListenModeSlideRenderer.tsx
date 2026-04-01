@@ -664,6 +664,8 @@ const ListenModeSlideRenderer = ({
     [onPlaybackStateChange],
   );
 
+  console.log('elementlist', elementList);
+
   return (
     <div
       className={cn(
