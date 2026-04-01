@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Generator
+from typing import Generator
 
 from flaskr.service.learn.learn_dtos import (
-    ElementAudioDTO,
     ElementChangeType,
     ElementDTO,
     ElementPayloadDTO,
@@ -11,7 +10,6 @@ from flaskr.service.learn.learn_dtos import (
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.listen_element_payloads import _pick_default_audio_position
 from flaskr.service.learn.listen_element_queries import (
     _load_interaction_user_input,
     _load_latest_active_element_row,
@@ -55,10 +53,9 @@ class ListenElementRunSidecarMixin:
         anchor_element_bid: str,
         ask_element_bid: str | None = None,
         base_payload: ElementPayloadDTO | None = None,
-        audio: ElementAudioDTO | None = None,
     ) -> ElementPayloadDTO:
         payload = base_payload or ElementPayloadDTO()
-        payload.audio = audio
+        payload.audio = None
         payload.previous_visuals = []
         payload.anchor_element_bid = anchor_element_bid
         payload.ask_element_bid = ask_element_bid
@@ -99,7 +96,6 @@ class ListenElementRunSidecarMixin:
             payload=self._build_follow_up_payload(
                 anchor_element_bid=anchor_element_bid,
                 base_payload=base_payload,
-                audio=None,
             ),
         )
 
@@ -114,11 +110,8 @@ class ListenElementRunSidecarMixin:
         element_index: int,
         is_new: bool,
         is_final: bool,
-        audio: ElementAudioDTO | None = None,
-        audio_segments: list[dict[str, Any]] | None = None,
         base_payload: ElementPayloadDTO | None = None,
     ) -> ElementDTO:
-        del audio, audio_segments
         return ElementDTO(
             event_type="element",
             element_bid=answer_element_bid,
@@ -142,7 +135,6 @@ class ListenElementRunSidecarMixin:
                 anchor_element_bid=anchor_element_bid,
                 ask_element_bid=ask_element_bid,
                 base_payload=base_payload,
-                audio=None,
             ),
         )
 
@@ -155,8 +147,6 @@ class ListenElementRunSidecarMixin:
         ask_element_bid: str,
         content_text: str,
         is_final: bool,
-        audio: ElementAudioDTO | None = None,
-        audio_segments: list[dict[str, Any]] | None = None,
     ) -> ElementDTO | None:
         snapshot = self._load_latest_element_snapshot(answer_element_bid)
         if snapshot is None:
@@ -173,8 +163,6 @@ class ListenElementRunSidecarMixin:
             element_index=snapshot.element_index,
             is_new=False,
             is_final=is_final,
-            audio=audio,
-            audio_segments=audio_segments,
             base_payload=snapshot.payload,
         )
 
@@ -192,8 +180,6 @@ class ListenElementRunSidecarMixin:
         generated_block_bid: str,
         *,
         is_final: bool,
-        audio: ElementAudioDTO | None = None,
-        audio_segments: list[dict[str, Any]] | None = None,
     ) -> ElementDTO | None:
         ask_element_bid = self._resolve_ask_element_bid_for_block(
             generated_block_bid,
@@ -234,8 +220,6 @@ class ListenElementRunSidecarMixin:
                 element_index=ask_snapshot.element_index,
                 is_new=True,
                 is_final=is_final,
-                audio=audio,
-                audio_segments=audio_segments,
                 base_payload=None,
             )
 
@@ -247,8 +231,6 @@ class ListenElementRunSidecarMixin:
             ask_element_bid=ask_element_bid,
             content_text=state.raw_content if state is not None else "",
             is_final=is_final,
-            audio=audio,
-            audio_segments=audio_segments,
         )
 
     def _interaction_content_and_payload(
@@ -327,28 +309,9 @@ class ListenElementRunSidecarMixin:
     def _finalize_answer_element(
         self, generated_block_bid: str
     ) -> RunElementSSEMessageDTO | None:
-        state = self._block_states.get(generated_block_bid)
-        default_audio_position = (
-            _pick_default_audio_position(
-                state.audio_by_position,
-                state.audio_segments_by_position,
-            )
-            if state is not None
-            else None
-        )
         answer_element = self._build_answer_element_from_state(
             generated_block_bid,
             is_final=True,
-            audio=(
-                state.audio_by_position.get(default_audio_position)
-                if state is not None and default_audio_position is not None
-                else None
-            ),
-            audio_segments=(
-                state.audio_segments_by_position.get(default_audio_position, [])
-                if state is not None and default_audio_position is not None
-                else []
-            ),
         )
         if answer_element is None:
             return None

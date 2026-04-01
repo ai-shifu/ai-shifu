@@ -59,6 +59,10 @@ export default function InteractionBlock({
 }: InteractionBlockProps) {
   const { t } = useTranslation();
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
+  const shouldShowAskButton = !disableAskButton;
+  const hasVisibleActions = Boolean(
+    shouldShowAskButton || showGenerateBtn || extraActions,
+  );
 
   const refreshBtnStyle = useMemo(
     () => ({
@@ -93,30 +97,36 @@ export default function InteractionBlock({
   void shifu_bid;
   void disableInteractionButtons;
 
+  if (!hasVisibleActions) {
+    return null;
+  }
+
   return (
     <div className={cn(['interaction-block'], className)}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <button
-          onClick={handleChangeAskPanel}
-          type='button'
-          className={cn(
-            'ask-button',
-            askButtonVariant === 'content' && 'ask-button--content',
-            'inline-flex items-center justify-center',
-            'text-white font-medium',
-            'transition-colors',
-            'disabled:opacity-50 disabled:cursor-not-allowed',
-          )}
-          disabled={disabled || readonly || disableAskButton}
-        >
-          <Image
-            src={AskIcon.src}
-            alt='ask'
-            width={14}
-            height={14}
-          />
-          <span>{t('module.chat.ask')}</span>
-        </button>
+        {shouldShowAskButton ? (
+          <button
+            onClick={handleChangeAskPanel}
+            type='button'
+            className={cn(
+              'ask-button',
+              askButtonVariant === 'content' && 'ask-button--content',
+              'inline-flex items-center justify-center',
+              'text-white font-medium',
+              'transition-colors',
+              'disabled:opacity-50 disabled:cursor-not-allowed',
+            )}
+            disabled={disabled || readonly}
+          >
+            <Image
+              src={AskIcon.src}
+              alt='ask'
+              width={14}
+              height={14}
+            />
+            <span>{t('module.chat.ask')}</span>
+          </button>
+        ) : null}
         {showGenerateBtn ? (
           <button
             type='button'

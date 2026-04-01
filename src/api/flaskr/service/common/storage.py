@@ -114,16 +114,11 @@ def _coerce_to_binary_stream(file_content: Any) -> io.BufferedReader:
 
 
 def _upload_to_local(
-    app: Flask,
     *,
     file_content: Any,
     object_key: str,
-    content_type: str,
     profile: str,
 ) -> StorageUploadResult:
-    _unused_app = app
-    _unused_content_type = content_type
-
     resolved_profile = _normalize_profile(profile)
     resolved_key = _normalize_object_key(object_key)
 
@@ -193,9 +188,7 @@ def upload_to_storage(
         )
 
     return _upload_to_local(
-        app,
         file_content=file_content,
         object_key=object_key,
-        content_type=content_type,
         profile=resolved_profile,
     )

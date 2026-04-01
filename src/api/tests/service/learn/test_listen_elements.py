@@ -1616,6 +1616,153 @@ def test_listen_element_adapter_retires_fallback_once_visual_element_arrives(app
         assert fallback_element_bid not in active_element_bids
 
 
+def test_listen_element_adapter_retires_matching_active_rows_by_primary_key(app):
+    _require_app(app)
+
+    from flaskr.dao import db
+    from flaskr.service.learn.learn_dtos import (
+        ElementChangeType,
+        ElementDTO,
+        ElementType,
+    )
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.models import LearnGeneratedElement
+
+    user_bid = "user-listen-retire-active-rows"
+    shifu_bid = "shifu-listen-retire-active-rows"
+    outline_bid = "outline-listen-retire-active-rows"
+    generated_block_bid = "generated-listen-retire-active-rows"
+    base_element_bid = "element-base"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        db.session.commit()
+
+        adapter = ListenElementRunAdapter(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+        )
+
+        rows = [
+            LearnGeneratedElement(
+                element_bid=base_element_bid,
+                progress_record_bid="",
+                user_bid=user_bid,
+                generated_block_bid=generated_block_bid,
+                outline_item_bid=outline_bid,
+                shifu_bid=shifu_bid,
+                run_session_bid=adapter.run_session_bid,
+                run_event_seq=1,
+                event_type="element",
+                role="teacher",
+                element_index=0,
+                element_type=ElementType.TEXT.value,
+                element_type_code=0,
+                change_type=ElementChangeType.RENDER.value,
+                target_element_bid="",
+                is_navigable=1,
+                is_final=0,
+                content_text="base",
+                payload=json.dumps({"audio": None, "previous_visuals": []}),
+                status=1,
+            ),
+            LearnGeneratedElement(
+                element_bid="legacy-patch",
+                progress_record_bid="",
+                user_bid=user_bid,
+                generated_block_bid=generated_block_bid,
+                outline_item_bid=outline_bid,
+                shifu_bid=shifu_bid,
+                run_session_bid=adapter.run_session_bid,
+                run_event_seq=2,
+                event_type="element",
+                role="teacher",
+                element_index=0,
+                element_type=ElementType.TEXT.value,
+                element_type_code=0,
+                change_type=ElementChangeType.RENDER.value,
+                target_element_bid=base_element_bid,
+                is_navigable=1,
+                is_final=0,
+                content_text="legacy patch",
+                payload=json.dumps({"audio": None, "previous_visuals": []}),
+                status=1,
+            ),
+            LearnGeneratedElement(
+                element_bid="other-element",
+                progress_record_bid="",
+                user_bid=user_bid,
+                generated_block_bid=generated_block_bid,
+                outline_item_bid=outline_bid,
+                shifu_bid=shifu_bid,
+                run_session_bid=adapter.run_session_bid,
+                run_event_seq=3,
+                event_type="element",
+                role="teacher",
+                element_index=1,
+                element_type=ElementType.TEXT.value,
+                element_type_code=0,
+                change_type=ElementChangeType.RENDER.value,
+                target_element_bid="",
+                is_navigable=1,
+                is_final=0,
+                content_text="other",
+                payload=json.dumps({"audio": None, "previous_visuals": []}),
+                status=1,
+            ),
+        ]
+        db.session.add_all(rows)
+        db.session.commit()
+
+        adapter._persist_element(
+            ElementDTO(
+                event_type="element",
+                element_bid=base_element_bid,
+                generated_block_bid=generated_block_bid,
+                element_index=0,
+                role="teacher",
+                element_type=ElementType.TEXT,
+                element_type_code=0,
+                change_type=ElementChangeType.RENDER,
+                is_renderable=True,
+                is_new=False,
+                is_marker=False,
+                is_navigable=1,
+                is_final=False,
+                content="updated",
+                payload=None,
+            )
+        )
+
+        persisted_rows = (
+            LearnGeneratedElement.query.filter(
+                LearnGeneratedElement.run_session_bid == adapter.run_session_bid,
+                LearnGeneratedElement.generated_block_bid == generated_block_bid,
+                LearnGeneratedElement.deleted == 0,
+            )
+            .order_by(LearnGeneratedElement.id.asc())
+            .all()
+        )
+
+    assert len(persisted_rows) == 4
+
+    status_by_identity = {
+        (row.element_bid, row.target_element_bid or ""): row.status
+        for row in persisted_rows
+    }
+    assert status_by_identity[(base_element_bid, "")] == 0
+    assert status_by_identity[("legacy-patch", base_element_bid)] == 0
+    assert status_by_identity[("other-element", "")] == 1
+    assert status_by_identity[(base_element_bid, base_element_bid)] == 1
+
+    latest_row = persisted_rows[-1]
+    assert latest_row.element_bid == base_element_bid
+    assert latest_row.target_element_bid == base_element_bid
+    assert latest_row.content_text == "updated"
+
+
 def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(app):
     _require_app(app)
 
@@ -4372,7 +4519,7 @@ def test_backfill_learn_generated_elements_for_progress_persists_clean_elements(
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
-    from flaskr.service.learn.listen_elements import (
+    from flaskr.service.learn.listen_element_legacy import (
         backfill_learn_generated_elements_for_progress,
     )
     from flaskr.service.learn.models import (
@@ -4557,7 +4704,7 @@ def test_backfill_learn_generated_elements_for_progress_overwrite_replaces_activ
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
-    from flaskr.service.learn.listen_elements import (
+    from flaskr.service.learn.listen_element_legacy import (
         backfill_learn_generated_elements_for_progress,
     )
     from flaskr.service.learn.models import (

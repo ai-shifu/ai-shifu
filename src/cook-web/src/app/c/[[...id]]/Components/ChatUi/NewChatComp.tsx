@@ -755,6 +755,7 @@ export const NewChatComponents = ({
                   return (
                     <div
                       key={`like-${parentKey}`}
+                      className={cn(!mobileStyle && 'flex justify-end')}
                       style={{
                         margin: '0 auto',
                         maxWidth: mobileStyle ? '100%' : '1000px',

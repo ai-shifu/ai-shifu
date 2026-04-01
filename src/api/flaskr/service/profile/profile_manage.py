@@ -15,12 +15,10 @@ from .dtos import (
     ColorSetting,
     DEFAULT_COLOR_SETTINGS,
     ProfileItemDefinition,
-    ProfileValueDto,
 )
 from .models import (
     CONST_PROFILE_SCOPE_SYSTEM,
     CONST_PROFILE_SCOPE_USER,
-    CONST_PROFILE_TYPE_OPTION,
     Variable,
 )
 
@@ -125,10 +123,7 @@ def get_unused_profile_keys(app: Flask, shifu_bid: str) -> list[str]:
 def get_profile_item_definition_list(
     app: Flask, parent_id: str, type: str = "all"
 ) -> list[ProfileItemDefinition]:
-    # Option/enum variables are no longer supported after refactor.
-    if type == CONST_PROFILE_TYPE_OPTION:
-        return []
-
+    _ = type  # Kept for backward compatibility with existing callers.
     normalized_parent_id = parent_id or ""
     with app.app_context():
         definitions = (
@@ -222,13 +217,6 @@ def get_profile_variable_usage(app: Flask, parent_id: str) -> dict:
     }
 
 
-def get_profile_item_definition_option_list(
-    app: Flask, parent_id: str
-) -> list[ProfileValueDto]:
-    # Option/enum variables are no longer supported after refactor.
-    return []
-
-
 def add_profile_item_quick(app: Flask, parent_id: str, key: str, user_id: str):
     with app.app_context():
         if not parent_id:
@@ -273,19 +261,9 @@ def save_profile_item(
     parent_id: str,
     user_id: str,
     key: str,
-    type: int,
-    show_type: int = 0,
-    remark: str = "",
-    profile_prompt: str = None,
-    profile_prompt_model: str = None,
-    profile_prompt_model_args: str = None,
-    items: list[ProfileValueDto] = None,
 ):
     """
     Save (create/update) a custom variable definition.
-
-    The definition table only stores key and is_hidden. Other legacy fields are
-    accepted for compatibility but ignored.
     """
 
     with app.app_context():

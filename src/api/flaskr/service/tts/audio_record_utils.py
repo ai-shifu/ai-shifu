@@ -9,15 +9,6 @@ from flaskr.service.tts.models import (
 )
 
 
-def build_voice_settings_payload(voice_settings: Any) -> dict[str, Any]:
-    return {
-        "speed": getattr(voice_settings, "speed", 1.0),
-        "pitch": getattr(voice_settings, "pitch", 0),
-        "emotion": getattr(voice_settings, "emotion", ""),
-        "volume": getattr(voice_settings, "volume", 1.0),
-    }
-
-
 def build_completed_audio_record(
     *,
     audio_bid: str,
@@ -53,7 +44,12 @@ def build_completed_audio_record(
         audio_format=audio_format or "mp3",
         sample_rate=int(sample_rate or 24000),
         voice_id=getattr(voice_settings, "voice_id", "") or "",
-        voice_settings=build_voice_settings_payload(voice_settings),
+        voice_settings={
+            "speed": getattr(voice_settings, "speed", 1.0),
+            "pitch": getattr(voice_settings, "pitch", 0),
+            "emotion": getattr(voice_settings, "emotion", ""),
+            "volume": getattr(voice_settings, "volume", 1.0),
+        },
         model=tts_model or "",
         text_length=int(text_length or 0),
         segment_count=int(segment_count or 0),

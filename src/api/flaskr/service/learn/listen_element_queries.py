@@ -57,30 +57,6 @@ def find_follow_up_element_rows(
     return matched_rows
 
 
-def find_latest_ask_element_row(
-    progress_record_bid: str,
-    anchor_element_bid: str,
-) -> LearnGeneratedElement | None:
-    rows = find_follow_up_element_rows(progress_record_bid, anchor_element_bid)
-    for row in reversed(rows):
-        if str(row.element_type or "") == ElementType.ASK.value:
-            return row
-    return None
-
-
-def find_latest_answer_element_row(
-    progress_record_bid: str,
-    anchor_element_bid: str,
-) -> LearnGeneratedElement | None:
-    if not progress_record_bid or not anchor_element_bid:
-        return None
-    rows = find_follow_up_element_rows(progress_record_bid, anchor_element_bid)
-    for row in reversed(rows):
-        if str(row.element_type or "") == ElementType.ANSWER.value:
-            return row
-    return None
-
-
 def _load_interaction_user_input(generated_block_bid: str) -> str:
     if not generated_block_bid:
         return ""
