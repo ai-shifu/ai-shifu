@@ -9,8 +9,10 @@ from flaskr.service.learn.learn_dtos import (
     ElementAudioDTO,
     ElementPayloadDTO,
     ElementType,
+    SubtitleCueDTO,
     ElementVisualDTO,
 )
+from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 from flaskr.service.learn.listen_element_types import _visual_type_for_element
 
 
@@ -45,11 +47,16 @@ def _deserialize_payload(raw_payload: str) -> ElementPayloadDTO:
     audio_dict = payload_dict.get("audio")
     audio = None
     if isinstance(audio_dict, dict):
+        subtitle_cues = [
+            SubtitleCueDTO(**cue)
+            for cue in normalize_subtitle_cues(audio_dict.get("subtitle_cues"))
+        ]
         audio = ElementAudioDTO(
             audio_url=str(audio_dict.get("audio_url", "") or ""),
             audio_bid=str(audio_dict.get("audio_bid", "") or ""),
             duration_ms=int(audio_dict.get("duration_ms", 0) or 0),
             position=int(audio_dict.get("position", 0) or 0),
+            subtitle_cues=subtitle_cues,
         )
     visuals = []
     for item in payload_dict.get("previous_visuals") or []:
@@ -243,4 +250,5 @@ def _make_audio_payload(audio: AudioCompleteDTO) -> ElementAudioDTO:
         audio_bid=audio.audio_bid or "",
         duration_ms=int(audio.duration_ms or 0),
         position=int(getattr(audio, "position", 0) or 0),
+        subtitle_cues=list(getattr(audio, "subtitle_cues", []) or []),
     )

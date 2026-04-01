@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from flaskr.dao import db
+from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 from flaskr.service.tts.models import (
     AUDIO_STATUS_COMPLETED,
     LearnGeneratedAudio,
@@ -25,6 +26,7 @@ def build_completed_audio_record(
     tts_model: str,
     text_length: int,
     segment_count: int,
+    subtitle_cues: list[dict[str, Any]] | None = None,
     position: int = 0,
     audio_format: str = "mp3",
     sample_rate: int = 24000,
@@ -53,6 +55,7 @@ def build_completed_audio_record(
         model=tts_model or "",
         text_length=int(text_length or 0),
         segment_count=int(segment_count or 0),
+        subtitle_cues=normalize_subtitle_cues(subtitle_cues),
         status=AUDIO_STATUS_COMPLETED,
     )
 

@@ -60,6 +60,10 @@ from flaskr.service.tts.audio_record_utils import (
     build_completed_audio_record,
     save_audio_record,
 )
+from flaskr.service.tts.subtitle_utils import (
+    append_subtitle_cue,
+    normalize_subtitle_cues,
+)
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.service.tts.validation import validate_tts_settings_strict
 from flaskr.service.common import raise_error, raise_error_with_args
@@ -749,6 +753,7 @@ def _finalize_tts_stream_audio(
     app: Flask,
     *,
     audio_parts: list[bytes],
+    subtitle_cues: list[dict] | None,
     audio_bid: str,
     audio_settings,
     voice_settings,
@@ -789,6 +794,7 @@ def _finalize_tts_stream_audio(
             tts_model=tts_model or "",
             text_length=len(cleaned_text or ""),
             segment_count=segment_count,
+            subtitle_cues=subtitle_cues,
         )
         save_audio_record(audio_record, commit=True)
 
@@ -920,6 +926,7 @@ def _build_audio_complete_message(
     duration_ms: int,
     position: int | None = None,
     av_contract: dict | None = None,
+    subtitle_cues: list[dict] | None = None,
 ) -> RunMarkdownFlowDTO:
     content_kwargs = {
         "audio_url": audio_url or "",
@@ -930,6 +937,8 @@ def _build_audio_complete_message(
         content_kwargs["position"] = position
     if av_contract is not None:
         content_kwargs["av_contract"] = av_contract
+    if subtitle_cues:
+        content_kwargs["subtitle_cues"] = normalize_subtitle_cues(subtitle_cues)
 
     return RunMarkdownFlowDTO(
         outline_bid=outline_bid or "",
@@ -937,6 +946,14 @@ def _build_audio_complete_message(
         type=GeneratedType.AUDIO_COMPLETE,
         content=AudioCompleteDTO(**content_kwargs),
     )
+
+
+def _subtitle_cues_from_audio_record(
+    audio_record: LearnGeneratedAudio | None,
+) -> list[dict]:
+    if audio_record is None:
+        return []
+    return normalize_subtitle_cues(getattr(audio_record, "subtitle_cues", None))
 
 
 def _yield_stream_tts_audio_segments(
@@ -953,6 +970,7 @@ def _yield_stream_tts_audio_segments(
     outline_bid: str,
     generated_block_bid: str,
     audio_parts: list[bytes],
+    subtitle_cues: list[dict],
     stats: dict,
     position: int | None = None,
     av_contract: dict | None = None,
@@ -972,6 +990,13 @@ def _yield_stream_tts_audio_segments(
         audio_settings=audio_settings,
     ):
         audio_parts.append(audio_data)
+        append_subtitle_cue(
+            subtitle_cues,
+            text=segment_text,
+            duration_ms=int(duration_ms or 0),
+            segment_index=index,
+            position=int(position or 0),
+        )
         stats["segment_count"] = int(stats.get("segment_count", 0)) + 1
         stats["total_word_count"] = int(stats.get("total_word_count", 0)) + int(
             word_count or 0
@@ -1039,6 +1064,7 @@ def stream_generated_block_audio(
                     audio_url=existing_audio.oss_url,
                     audio_bid=existing_audio.audio_bid,
                     duration_ms=existing_audio.duration_ms or 0,
+                    subtitle_cues=_subtitle_cues_from_audio_record(existing_audio),
                 )
                 return
 
@@ -1113,6 +1139,7 @@ def stream_generated_block_audio(
                         audio_bid=record.audio_bid,
                         duration_ms=int(record.duration_ms or 0),
                         position=pos,
+                        subtitle_cues=_subtitle_cues_from_audio_record(record),
                     )
                 return
 
@@ -1135,6 +1162,7 @@ def stream_generated_block_audio(
                             audio_bid=record.audio_bid,
                             duration_ms=int(record.duration_ms or 0),
                             position=position,
+                            subtitle_cues=_subtitle_cues_from_audio_record(record),
                         )
                         continue
 
@@ -1155,6 +1183,7 @@ def stream_generated_block_audio(
                     parent_usage_bid = generate_id(app)
                     stats = {"segment_count": 0, "total_word_count": 0}
                     audio_parts: list[bytes] = []
+                    subtitle_cues: list[dict] = []
 
                     yield from _yield_stream_tts_audio_segments(
                         app=app,
@@ -1169,6 +1198,7 @@ def stream_generated_block_audio(
                         outline_bid=generated_block.outline_item_bid or "",
                         generated_block_bid=generated_block_bid,
                         audio_parts=audio_parts,
+                        subtitle_cues=subtitle_cues,
                         stats=stats,
                         position=position,
                     )
@@ -1178,6 +1208,7 @@ def stream_generated_block_audio(
                     oss_url, duration_ms = _finalize_tts_stream_audio(
                         app,
                         audio_parts=audio_parts,
+                        subtitle_cues=subtitle_cues,
                         audio_bid=audio_bid,
                         audio_settings=audio_settings,
                         voice_settings=voice_settings,
@@ -1213,6 +1244,7 @@ def stream_generated_block_audio(
                         audio_bid=audio_bid,
                         duration_ms=int(duration_ms or 0),
                         position=position,
+                        subtitle_cues=subtitle_cues,
                     )
 
             yield from _yield_with_tts_error_mapping(
@@ -1250,6 +1282,7 @@ def stream_generated_block_audio(
         )
         stats = {"segment_count": 0, "total_word_count": 0}
         audio_parts: list[bytes] = []
+        subtitle_cues: list[dict] = []
 
         def _generate_single_audio():
             yield from _yield_stream_tts_audio_segments(
@@ -1265,6 +1298,7 @@ def stream_generated_block_audio(
                 outline_bid=generated_block.outline_item_bid or "",
                 generated_block_bid=generated_block_bid,
                 audio_parts=audio_parts,
+                subtitle_cues=subtitle_cues,
                 stats=stats,
             )
             segment_count = int(stats.get("segment_count", 0))
@@ -1273,6 +1307,7 @@ def stream_generated_block_audio(
             oss_url, duration_ms = _finalize_tts_stream_audio(
                 app,
                 audio_parts=audio_parts,
+                subtitle_cues=subtitle_cues,
                 audio_bid=audio_bid,
                 audio_settings=audio_settings,
                 voice_settings=voice_settings,
@@ -1306,6 +1341,7 @@ def stream_generated_block_audio(
                 audio_url=oss_url,
                 audio_bid=audio_bid,
                 duration_ms=int(duration_ms or 0),
+                subtitle_cues=subtitle_cues,
             )
 
         yield from _yield_with_tts_error_mapping(
@@ -1356,6 +1392,7 @@ def stream_preview_tts_audio(
         )
         stats = {"segment_count": 0, "total_word_count": 0}
         audio_parts: list[bytes] = []
+        subtitle_cues: list[dict] = []
 
         def _generate_preview_audio():
             yield from _yield_stream_tts_audio_segments(
@@ -1371,6 +1408,7 @@ def stream_preview_tts_audio(
                 outline_bid="",
                 generated_block_bid="",
                 audio_parts=audio_parts,
+                subtitle_cues=subtitle_cues,
                 stats=stats,
             )
             segment_count = int(stats.get("segment_count", 0))
@@ -1379,6 +1417,7 @@ def stream_preview_tts_audio(
             oss_url, duration_ms = _finalize_tts_stream_audio(
                 app,
                 audio_parts=audio_parts,
+                subtitle_cues=subtitle_cues,
                 audio_bid=audio_bid,
                 audio_settings=audio_settings,
                 voice_settings=voice_settings,
@@ -1408,6 +1447,7 @@ def stream_preview_tts_audio(
                 audio_url=oss_url,
                 audio_bid=audio_bid,
                 duration_ms=int(duration_ms or 0),
+                subtitle_cues=subtitle_cues,
             )
 
         yield from _yield_with_tts_error_mapping(
