@@ -71,6 +71,8 @@ import {
 
 interface LessonFeedbackPopupState {
   open: boolean;
+  outlineBid: string;
+  modeKey: 'listen' | 'read' | '';
   elementBid: string;
   defaultScoreText: string;
   defaultCommentText: string;
@@ -246,6 +248,8 @@ function useChatLogicHook({
   const [lessonFeedbackPopupState, setLessonFeedbackPopupState] =
     useState<LessonFeedbackPopupState>({
       open: false,
+      outlineBid: '',
+      modeKey: '',
       elementBid: '',
       defaultScoreText: '',
       defaultCommentText: '',
@@ -823,6 +827,8 @@ function useChatLogicHook({
   const resetLessonFeedbackPopup = useCallback(() => {
     setLessonFeedbackPopupState({
       open: false,
+      outlineBid: '',
+      modeKey: '',
       elementBid: '',
       defaultScoreText: '',
       defaultCommentText: '',
@@ -830,10 +836,28 @@ function useChatLogicHook({
     });
   }, []);
 
+  useEffect(() => {
+    resetLessonFeedbackPopup();
+  }, [outlineBid, resetLessonFeedbackPopup]);
+
+  useEffect(() => {
+    setLessonFeedbackPopupState(prev => {
+      if (!prev.open || prev.outlineBid !== outlineBid) {
+        return prev;
+      }
+      return {
+        ...prev,
+        open: false,
+      };
+    });
+  }, [isListenMode, outlineBid]);
+
   const dismissLessonFeedbackPopup = useCallback(() => {
     markLessonFeedbackPopupDismissed(outlineBid);
     setLessonFeedbackPopupState({
       open: false,
+      outlineBid: '',
+      modeKey: '',
       elementBid: '',
       defaultScoreText: '',
       defaultCommentText: '',
@@ -847,6 +871,7 @@ function useChatLogicHook({
       defaultScoreText?: string;
       defaultCommentText?: string;
       readonly?: boolean;
+      deferOpen?: boolean;
     }) => {
       if (!interaction.elementBid) {
         return;
@@ -858,18 +883,25 @@ function useChatLogicHook({
         return;
       }
       setLessonFeedbackPopupState({
-        open: shouldPromptLessonFeedback,
+        open: !interaction.deferOpen && shouldPromptLessonFeedback,
+        outlineBid,
+        modeKey: isListenMode ? 'listen' : 'read',
         elementBid: interaction.elementBid,
         defaultScoreText: interaction.defaultScoreText || '',
         defaultCommentText: interaction.defaultCommentText || '',
         readonly: Boolean(interaction.readonly),
       });
     },
-    [outlineBid, parseLessonFeedbackScore, shouldPromptLessonFeedback],
+    [
+      isListenMode,
+      outlineBid,
+      parseLessonFeedbackScore,
+      shouldPromptLessonFeedback,
+    ],
   );
 
   useEffect(() => {
-    if (!shouldPromptLessonFeedback) {
+    if (isLoading || !shouldPromptLessonFeedback) {
       return;
     }
     setLessonFeedbackPopupState(prev => {
@@ -882,9 +914,10 @@ function useChatLogicHook({
       return {
         ...prev,
         open: true,
+        modeKey: isListenMode ? 'listen' : 'read',
       };
     });
-  }, [outlineBid, shouldPromptLessonFeedback]);
+  }, [isLoading, isListenMode, outlineBid, shouldPromptLessonFeedback]);
 
   const getLessonFeedbackDefaults = useCallback(
     (raw?: string | null) => {
@@ -1752,6 +1785,7 @@ function useChatLogicHook({
             defaultScoreText: feedbackDefaults.scoreText,
             defaultCommentText: feedbackDefaults.commentText,
             readonly: latestFeedbackInteraction.readonly,
+            deferOpen: true,
           });
         }
         // setIsTypeFinished(true);
@@ -1787,7 +1821,6 @@ function useChatLogicHook({
       console.warn('refreshData error:', error);
     } finally {
       setIsLoading(false);
-      // console.log('listen-refresh-end', { lessonId, outlineBid });
     }
   }, [
     chapterId,
@@ -2545,6 +2578,10 @@ function useChatLogicHook({
     },
     lessonFeedbackPopup: {
       open:
+        shouldPromptLessonFeedback &&
+        lessonFeedbackPopupState.outlineBid === outlineBid &&
+        lessonFeedbackPopupState.modeKey ===
+          (isListenMode ? 'listen' : 'read') &&
         lessonFeedbackPopupState.open &&
         Boolean(lessonFeedbackPopupState.elementBid),
       elementBid: lessonFeedbackPopupState.elementBid,

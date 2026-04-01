@@ -339,7 +339,7 @@ describe('useChatLogicHook stream cleanup', () => {
     expect(result.current.lessonFeedbackPopup.elementBid).toBe('feedback-1');
   });
 
-  it('keeps lesson feedback popup visible after it has opened', async () => {
+  it('hides lesson feedback popup when prompting becomes disallowed', async () => {
     const { result, rerender } = renderHook(
       ({ shouldPromptLessonFeedback }) =>
         useChatLogicHook({
@@ -370,7 +370,131 @@ describe('useChatLogicHook stream cleanup', () => {
 
     rerender({ shouldPromptLessonFeedback: false });
 
-    expect(result.current.lessonFeedbackPopup.open).toBe(true);
+    expect(result.current.lessonFeedbackPopup.open).toBe(false);
+    expect(result.current.lessonFeedbackPopup.elementBid).toBe('feedback-1');
+  });
+
+  it('closes lesson feedback popup when switching lessons', async () => {
+    const { result, rerender } = renderHook(
+      ({ outlineBid }) =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          outlineBid,
+          lessonId: outlineBid,
+          shouldPromptLessonFeedback: true,
+        }),
+      {
+        wrapper,
+        initialProps: {
+          outlineBid: 'lesson-1',
+        },
+      },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'feedback-1',
+        type: SSE_OUTPUT_TYPE.INTERACTION,
+        content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+      });
+    });
+
+    await waitFor(() =>
+      expect(result.current.lessonFeedbackPopup.open).toBe(true),
+    );
+
+    rerender({ outlineBid: 'lesson-2' });
+
+    expect(result.current.lessonFeedbackPopup.open).toBe(false);
+    expect(result.current.lessonFeedbackPopup.elementBid).toBe('');
+  });
+
+  it('closes lesson feedback popup when switching learning modes before prompting is allowed again', async () => {
+    const { result, rerender } = renderHook(
+      ({ isListenMode, shouldPromptLessonFeedback }) =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          isListenMode,
+          shouldPromptLessonFeedback,
+        }),
+      {
+        wrapper,
+        initialProps: {
+          isListenMode: false,
+          shouldPromptLessonFeedback: true,
+        },
+      },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'feedback-1',
+        type: SSE_OUTPUT_TYPE.INTERACTION,
+        content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+      });
+    });
+
+    await waitFor(() =>
+      expect(result.current.lessonFeedbackPopup.open).toBe(true),
+    );
+
+    rerender({ isListenMode: true, shouldPromptLessonFeedback: false });
+
+    expect(result.current.lessonFeedbackPopup.open).toBe(false);
+    expect(result.current.lessonFeedbackPopup.elementBid).toBe('feedback-1');
+  });
+
+  it('reopens pending lesson feedback after switching modes once prompting is allowed again', async () => {
+    const { result, rerender } = renderHook(
+      ({ isListenMode, shouldPromptLessonFeedback }) =>
+        useChatLogicHook({
+          ...buildBaseParams(),
+          isListenMode,
+          shouldPromptLessonFeedback,
+        }),
+      {
+        wrapper,
+        initialProps: {
+          isListenMode: true,
+          shouldPromptLessonFeedback: true,
+        },
+      },
+    );
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    await act(async () => {
+      await activeRun?.onMessage({
+        generated_block_bid: 'feedback-1',
+        type: SSE_OUTPUT_TYPE.INTERACTION,
+        content: '%{{sys_lesson_feedback_score}}1|2|3|4|5|...comment',
+      });
+    });
+
+    await waitFor(() =>
+      expect(result.current.lessonFeedbackPopup.open).toBe(true),
+    );
+
+    rerender({
+      isListenMode: false,
+      shouldPromptLessonFeedback: false,
+    });
+
+    expect(result.current.lessonFeedbackPopup.open).toBe(false);
+    expect(result.current.lessonFeedbackPopup.elementBid).toBe('feedback-1');
+
+    rerender({
+      isListenMode: false,
+      shouldPromptLessonFeedback: true,
+    });
+
+    await waitFor(() =>
+      expect(result.current.lessonFeedbackPopup.open).toBe(true),
+    );
   });
 
   it('does not auto-open lesson feedback popup for an already rated lesson', async () => {
