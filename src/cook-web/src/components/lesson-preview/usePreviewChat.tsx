@@ -36,6 +36,11 @@ import { toast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
 import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
 import { normalizeLegacyBlockCompatList } from '@/app/c/[[...id]]/Components/ChatUi/chatUiUtils';
+import {
+  buildPreviewInteractionUserInput,
+  resolvePreviewGeneratedBlockBid,
+  resolvePreviewRequestBlockIndex,
+} from './preview-submission';
 
 interface InteractionParseResult {
   variableName?: string;
@@ -417,6 +422,7 @@ export function usePreviewChat() {
   const continuePreviewFromLatestStateRef = useRef<
     (latestActionableItem?: ChatContentItem) => boolean
   >(() => false);
+  const submittedInteractionBlockBidRef = useRef<string | null>(null);
   const resolveLatestMdflow = useCallback(() => {
     const latest = getCurrentMdflow?.();
     if (typeof latest === 'string') {
@@ -657,6 +663,7 @@ export function usePreviewChat() {
     currentContentRef.current = '';
     currentContentIdRef.current = null;
     currentStreamingElementBidRef.current = null;
+    submittedInteractionBlockBidRef.current = null;
     autoSubmittedBlocksRef.current.clear();
     setVariablesSnapshot({});
   }, [stopPreview, setTrackedContentList]);
@@ -762,15 +769,33 @@ export function usePreviewChat() {
     return latestActionableItem;
   }, [appendLikeStatusIfMissing, setTrackedContentList]);
 
+  const shouldContinueFromLatestActionableItem = useCallback(
+    (latestActionableItem?: ChatContentItem) => {
+      if (latestActionableItem?.type !== ChatContentItemType.INTERACTION) {
+        return true;
+      }
+      const submittedInteractionBlockBid =
+        submittedInteractionBlockBidRef.current;
+      return Boolean(
+        submittedInteractionBlockBid &&
+        resolvePreviewItemBid(latestActionableItem) ===
+          submittedInteractionBlockBid,
+      );
+    },
+    [],
+  );
+
   const stopPreviewAndContinueIfNeeded = useCallback(
     (latestActionableItem?: ChatContentItem) => {
+      const shouldContinue =
+        shouldContinueFromLatestActionableItem(latestActionableItem);
       stopPreview();
-      if (latestActionableItem?.type === ChatContentItemType.INTERACTION) {
+      if (!shouldContinue) {
         return false;
       }
       return continuePreviewFromLatestStateRef.current(latestActionableItem);
     },
-    [stopPreview],
+    [shouldContinueFromLatestActionableItem, stopPreview],
   );
 
   const upsertElementPreviewItem = useCallback(
@@ -782,6 +807,11 @@ export function usePreviewChat() {
       }
 
       const elementType = resolveElementType(elementRecord);
+      const generatedBlockBid = resolvePreviewGeneratedBlockBid({
+        elementGeneratedBlockBid: elementRecord?.generated_block_bid,
+        responseGeneratedBlockBid: response.generated_block_bid,
+        fallbackBid: itemBid,
+      });
       const elementContent =
         typeof elementRecord?.content === 'string' ? elementRecord.content : '';
       const isInteractionElement = elementType === ELEMENT_TYPE.INTERACTION;
@@ -849,7 +879,7 @@ export function usePreviewChat() {
 
         const nextItem: ChatContentItem = {
           element_bid: itemBid,
-          generated_block_bid: itemBid,
+          generated_block_bid: generatedBlockBid,
           content: contentToRender,
           readonly: false,
           type: nextItemType,
@@ -1114,6 +1144,7 @@ export function usePreviewChat() {
       ensureContentItem,
       finalizePreviewItems,
       parseInteractionBlock,
+      stopPreviewAndContinueIfNeeded,
       setTrackedContentList,
       stopPreview,
       t,
@@ -1170,6 +1201,9 @@ export function usePreviewChat() {
       } = mergedParams;
       sseParams.current = mergedParams;
       setVariablesSnapshot(buildVariablesSnapshot(finalVariables));
+      submittedInteractionBlockBidRef.current = normalizedUserInput
+        ? `${finalBlockIndex}`
+        : null;
 
       if (!finalShifuBid || !finalOutlineBid) {
         setError('Invalid preview params');
@@ -1253,20 +1287,22 @@ export function usePreviewChat() {
           const latestActionableItem = finalizePreviewItems();
           const hasReceivedNonTerminalDone =
             doneTerminalStateRef.current === false;
-          const shouldContinuePreview =
-            doneTerminalStateRef.current !== true &&
+          if (hasReceivedNonTerminalDone) {
+            stopPreviewAndContinueIfNeeded(latestActionableItem);
+            return;
+          }
+          // Treat abrupt stream closure as success only for non-interaction blocks.
+          // Interaction submissions must receive the block-level done marker first.
+          const shouldContinuePreviewOnAbruptClose =
+            doneTerminalStateRef.current === null &&
             latestActionableItem?.type !== ChatContentItemType.INTERACTION;
-          if (shouldContinuePreview) {
+          if (shouldContinuePreviewOnAbruptClose) {
             const didContinue =
               continuePreviewFromLatestStateRef.current(latestActionableItem);
             if (didContinue) {
               return;
             }
             stopPreview();
-            return;
-          }
-          if (hasReceivedNonTerminalDone) {
-            stopPreviewAndContinueIfNeeded(latestActionableItem);
             return;
           }
           setError('Preview stream error');
@@ -1285,6 +1321,7 @@ export function usePreviewChat() {
       finalizePreviewItems,
       handlePayload,
       resolveBaseUrl,
+      setTrackedContentList,
       stopPreview,
       stopPreviewAndContinueIfNeeded,
     ],
@@ -1292,7 +1329,7 @@ export function usePreviewChat() {
 
   const continuePreviewFromLatestState = useCallback(
     (latestActionableItem?: ChatContentItem) => {
-      if (latestActionableItem?.type === ChatContentItemType.INTERACTION) {
+      if (!shouldContinueFromLatestActionableItem(latestActionableItem)) {
         return false;
       }
       const nextIndex = (sseParams.current?.block_index || 0) + 1;
@@ -1310,7 +1347,7 @@ export function usePreviewChat() {
       });
       return true;
     },
-    [startPreview],
+    [shouldContinueFromLatestActionableItem, startPreview],
   );
 
   useEffect(() => {
@@ -1413,7 +1450,7 @@ export function usePreviewChat() {
         return false;
       }
 
-      const { variableName, buttonText, inputText } = content;
+      const { variableName } = content;
       const normalizedVariableName =
         typeof variableName === 'string' ? variableName : '';
       const hasVariableName = Boolean(normalizedVariableName);
@@ -1472,9 +1509,12 @@ export function usePreviewChat() {
         );
       }
 
-      const userInputPayload = hasVariableName
-        ? { [normalizedVariableName]: values }
-        : undefined;
+      const requestVariables: PreviewVariablesMap =
+        (sseParams.current.variables as PreviewVariablesMap) || {};
+      const userInputPayload = buildPreviewInteractionUserInput(
+        normalizedVariableName,
+        values,
+      );
 
       const needReGenerate = isReGenerate && needChangeItemIndex !== -1;
       if (needReGenerate) {
@@ -1489,9 +1529,11 @@ export function usePreviewChat() {
 
       const nextParams: StartPreviewParams = {
         ...sseParams.current,
-        block_index: needReGenerate
-          ? (Number(newList[needChangeItemIndex].generated_block_bid) || 0) + 1
-          : (sseParams.current.block_index || 0) + 1,
+        block_index: resolvePreviewRequestBlockIndex(
+          blockBid,
+          sseParams.current.block_index ?? 0,
+        ),
+        variables: requestVariables,
       };
       if (userInputPayload) {
         nextParams.user_input = userInputPayload;
@@ -1528,10 +1570,10 @@ export function usePreviewChat() {
         return;
       }
 
-      const parsedBlockIndex = Number.parseInt(generatedBlockBid, 10);
-      const nextBlockIndex = Number.isNaN(parsedBlockIndex)
-        ? needChangeItemIndex
-        : parsedBlockIndex;
+      const nextBlockIndex = resolvePreviewRequestBlockIndex(
+        generatedBlockBid,
+        needChangeItemIndex,
+      );
 
       const removedBlockIds = originalList
         .slice(needChangeItemIndex)
@@ -1589,7 +1631,10 @@ export function usePreviewChat() {
       autoSubmittedBlocksRef.current.add(blockId);
       const delay = parsedInfo?.isMultiSelect ? 1000 : 600;
       setTimeout(() => {
-        performSend(sendParams, blockId, { skipStreamCheck: true });
+        performSend(sendParams, blockId, {
+          skipStreamCheck: true,
+          skipConfirm: true,
+        });
       }, delay);
     },
     [buildAutoSendParams, parseInteractionBlock, performSend],
