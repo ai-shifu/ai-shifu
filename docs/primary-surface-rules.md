@@ -74,4 +74,4 @@ baseline handbook.
 
 - `python scripts/generate_ai_collab_docs.py`
 - `python scripts/check_ai_collab_docs.py`
-- `pre-commit run --files .github/AGENTS.md docker/AGENTS.md scripts/AGENTS.md docs/primary-surface-rules/design.md docs/primary-surface-rules/tasks.md docs/engineering-baseline.md scripts/generate_ai_collab_docs.py scripts/check_ai_collab_docs.py .cursor/rules/*.mdc .github/instructions/*.instructions.md .github/CLAUDE.md docker/CLAUDE.md scripts/CLAUDE.md`
+- `pre-commit run --files .github/AGENTS.md docker/AGENTS.md scripts/AGENTS.md docs/primary-surface-rules.md docs/engineering-baseline.md scripts/generate_ai_collab_docs.py scripts/check_ai_collab_docs.py .cursor/rules/*.mdc .github/instructions/*.instructions.md .github/CLAUDE.md docker/CLAUDE.md scripts/CLAUDE.md`

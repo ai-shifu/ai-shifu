@@ -33,6 +33,9 @@ MANUAL_AGENT_MARKERS = {
         "Use English for code, comments, commit subjects, and instruction files.",
         "Do not hardcode user-facing strings, secrets, or environment-specific URLs",
         "Before implementing a complex design or cross-module architecture change",
+        "docs/<topic>.md",
+        "repository-root `tasks.md`",
+        "deleting `tasks.md` is required",
         "When a task changes shared contracts or AI collaboration guidance",
         "Run the smallest relevant verification first",
     ),
@@ -79,7 +82,9 @@ MANUAL_RULES = {
         "# Claude Rule: Testing And Commit",
         "docs/engineering-baseline.md",
         "English-only code-facing text",
-        "docs/<topic>/design.md",
+        "docs/<topic>.md",
+        "repository-root `tasks.md`",
+        "deleting `tasks.md` is required",
         "python scripts/check_ai_collab_docs.py",
     ),
     ROOT / ".claude" / "rules" / "global" / "skills-routing.md": (
@@ -122,9 +127,10 @@ BASELINE_HEADINGS = (
 )
 
 README_MARKERS = (
-    "docs/<topic>/design.md",
-    "docs/<topic>/tasks.md",
+    "docs/<topic>.md",
+    "repository-root `tasks.md`",
     "docs/engineering-baseline.md",
+    "deleting `tasks.md` is required",
     "- [ ]",
     "- [x]",
 )

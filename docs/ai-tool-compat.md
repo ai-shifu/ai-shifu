@@ -27,7 +27,7 @@ system.
   Cursor-specific files during this step.
 - Replacing the existing `AGENTS.md` hierarchy with Cursor or Copilot-native
   files.
-- Creating a root-level `tasks.md`.
+- Creating a persistent backlog in root `tasks.md`.
 
 ## Design Decisions
 
@@ -66,7 +66,8 @@ system.
 
 1. Extend the generator to emit Cursor and Copilot compatibility files.
 2. Extend the validator to check the new generated file types.
-3. Add this design doc and a sibling `tasks.md`.
+3. Add this design doc and, while implementation is active, use root
+   `tasks.md`.
 4. Generate files, run validation, and run focused `pre-commit`.
 
 ## Acceptance Criteria

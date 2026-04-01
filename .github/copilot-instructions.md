@@ -19,11 +19,16 @@
 - Maximize reuse of existing abstractions and avoid creating a second helper,
   request path, or state model when the current one can be extended cleanly.
 
-- For complex design work, create `docs/<topic>/design.md` first and track
-  implementation in `docs/<topic>/tasks.md`.
+- For complex design work, create `docs/<topic>.md` first and track
+  implementation in repository-root `tasks.md`.
 
 - When `tasks.md` exists, follow it, keep it current, and update it before
   moving to the next completed item.
+
+- Keep only one active complex topic in `tasks.md` at a time.
+
+- Once all checklist items are complete and the topic no longer needs active
+  execution tracking, deleting `tasks.md` is required.
 
 - Before each commit, review the affected `AGENTS.md` and `CLAUDE.md` files
   and update stale docs in the same change.

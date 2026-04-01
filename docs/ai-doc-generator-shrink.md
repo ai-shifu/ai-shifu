@@ -65,8 +65,9 @@ large root `AGENTS.md`.
   structure checks.
 - Hand-maintained core docs must exist, include the expected anchor headings,
   and link to `docs/engineering-baseline.md` where appropriate.
-- `docs/README.md` should remain valid for the design-doc/tasks workflow while
-  allowing evergreen docs such as `docs/engineering-baseline.md`.
+- `docs/README.md` should remain valid for the flat design-doc plus root
+  `tasks.md` workflow while allowing evergreen docs such as
+  `docs/engineering-baseline.md`.
 
 ## Compatibility
 

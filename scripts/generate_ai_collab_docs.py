@@ -106,15 +106,20 @@ ROOT_SPEC = DocSpec(
         "and Copilot compatibility files aligned when shared guidance changes "
         "or becomes stale.",
         "Before implementing a complex design or cross-module architecture "
-        "change, create a design doc under `docs/` and a paired `tasks.md` "
-        "checklist under the same `docs/` topic folder. The checklist must use "
-        "`- [ ]` and `- [x]` markers and reference the design doc explicitly.",
-        "When a topic already has `tasks.md`, execute the work against that "
-        "checklist, keep its completion state current, and treat it as the "
-        "visible source of truth for implementation progress.",
+        "change, create the design doc at `docs/<topic>.md` and track the "
+        "active checklist in repository-root `tasks.md`. The checklist must "
+        "use `- [ ]` and `- [x]` markers and reference the design doc "
+        "explicitly.",
+        "When `tasks.md` exists, execute the work against that checklist, keep "
+        "its completion state current, and treat it as the visible source of "
+        "truth for the current complex topic on the branch.",
+        "One branch should track only one active complex topic in `tasks.md` "
+        "at a time.",
         "After completing one `tasks.md` item, update `tasks.md` immediately and "
         "make one atomic commit for that completed item before moving on to the "
         "next checklist item.",
+        "Once every `tasks.md` item is complete and the topic no longer needs "
+        "active execution tracking, deleting `tasks.md` is required.",
         "Run the smallest relevant verification first, then widen to shared "
         "checks when a change crosses API boundaries, shared DTOs, i18n files, "
         "or common frontend libraries.",
@@ -136,11 +141,16 @@ ROOT_SPEC = DocSpec(
         "Do not create a commit that changes implementation contracts while "
         "leaving the affected `AGENTS.md` or `CLAUDE.md` guidance outdated.",
         "Do not start a complex design implementation without a design doc in "
-        "`docs/` and a linked `tasks.md` checklist that tracks done and pending "
-        "work.",
+        "`docs/<topic>.md` and a linked repository-root `tasks.md` checklist "
+        "that tracks done and pending work.",
         "Do not complete `tasks.md` work without updating the checklist, and do "
         "not batch multiple completed checklist items into one non-atomic "
         "commit.",
+        "Do not delete `tasks.md` while any checklist item is still pending or "
+        "while it is still the active execution tracker for the topic.",
+        "Do not start a new complex design topic while repository-root "
+        "`tasks.md` still tracks another topic unless you intentionally "
+        "replace that checklist.",
         "Do not hardcode user-facing strings, secrets, or environment-specific "
         "URLs in code or docs. Route text through i18n and credentials through "
         "the existing configuration layers.",
@@ -1647,11 +1657,17 @@ def build_documents() -> dict[Path, str]:
                 "nearest tests before making code changes.",
                 "Reuse existing abstractions wherever practical instead of building "
                 "parallel helpers, request paths, stores, or provider layers.",
-                "For complex design work, create `docs/<topic>/design.md` before "
-                "implementation and track execution in `docs/<topic>/tasks.md`.",
+                "For complex design work, create `docs/<topic>.md` before "
+                "implementation and track execution in repository-root "
+                "`tasks.md`.",
                 "When `tasks.md` exists, follow it as the visible execution plan, "
-                "update it as progress changes, and keep one completed checklist "
-                "item per atomic commit.",
+                "update it as progress changes, and keep one completed "
+                "checklist item per atomic commit while the work remains "
+                "active.",
+                "One branch should track only one active complex topic in "
+                "`tasks.md` at a time.",
+                "Once all checklist items are complete and active tracking is "
+                "no longer needed, deleting `tasks.md` is required.",
                 "Before committing, review the touched `AGENTS.md` and `CLAUDE.md` "
                 "files and update any stale guidance in the same change.",
             ),
@@ -1661,11 +1677,15 @@ def build_documents() -> dict[Path, str]:
             "Cursor Rule: Docs Design Workflow",
             "Documentation workflow for design docs and task checklists",
             (
-                "Use `docs/<topic>/design.md` for the design and "
-                "`docs/<topic>/tasks.md` for execution tracking.",
+                "Use `docs/<topic>.md` for the design and repository-root "
+                "`tasks.md` for active execution tracking.",
                 "Reference the design doc explicitly at the top of `tasks.md`.",
                 "Use `- [ ]` and `- [x]` in `tasks.md`, and keep the checklist "
                 "current as work progresses.",
+                "Keep only one active complex topic in `tasks.md` at a time.",
+                "Once every checklist item is complete and the topic no longer "
+                "needs active execution tracking, deleting `tasks.md` is "
+                "required.",
                 "If a design changes implementation expectations, update the "
                 "nearest `AGENTS.md`, `CLAUDE.md`, and compatibility instruction "
                 "files when they become stale.",
@@ -1793,10 +1813,14 @@ def build_documents() -> dict[Path, str]:
                 "Maximize reuse of existing abstractions and avoid creating a "
                 "second helper, request path, or state model when the current one "
                 "can be extended cleanly.",
-                "For complex design work, create `docs/<topic>/design.md` first and "
-                "track implementation in `docs/<topic>/tasks.md`.",
+                "For complex design work, create `docs/<topic>.md` first and "
+                "track implementation in repository-root `tasks.md`.",
                 "When `tasks.md` exists, follow it, keep it current, and update it "
                 "before moving to the next completed item.",
+                "Keep only one active complex topic in `tasks.md` at a time.",
+                "Once all checklist items are complete and the topic no longer "
+                "needs active execution tracking, deleting `tasks.md` is "
+                "required.",
                 "Before each commit, review the affected `AGENTS.md` and "
                 "`CLAUDE.md` files and update stale docs in the same change.",
             ),
@@ -1880,16 +1904,20 @@ def build_documents() -> dict[Path, str]:
         / "instructions"
         / "docs.instructions.md": render_copilot_path_instructions(
             "Copilot Instructions: Docs Workflow",
-            "docs/**/*.md",
+            "docs/**/*.md,tasks.md",
             (
-                "For complex design work, use `docs/<topic>/design.md` and "
-                "`docs/<topic>/tasks.md` instead of a root-level task file.",
+                "For complex design work, use `docs/<topic>.md` and "
+                "repository-root `tasks.md`.",
                 "Treat `docs/engineering-baseline.md` as an evergreen repository "
                 "reference, not as a topic-scoped design doc.",
                 "Reference the design doc from `tasks.md` and use markdown "
                 "checkboxes to track progress.",
                 "When `tasks.md` exists, update it as work progresses and keep it "
                 "aligned with the actual implementation state.",
+                "Keep only one active complex topic in `tasks.md` at a time.",
+                "Once every checklist item is complete and the topic no longer "
+                "needs active execution tracking, deleting `tasks.md` is "
+                "required.",
                 "If docs change implementation expectations, update the nearest "
                 "AI instruction files when they become stale.",
             ),

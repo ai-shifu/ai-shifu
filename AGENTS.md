@@ -48,9 +48,15 @@ override it, and use `CLAUDE.md` as a thin Claude-specific wrapper.
   routing docs aligned when shared guidance changes or becomes stale.
 
 - Before implementing a complex design or cross-module architecture change,
-  create a design doc under `docs/` and a paired `tasks.md` checklist under
-  the same `docs/` topic folder. Execute the work from that checklist and keep
-  it current as the visible source of truth for progress.
+  create the design doc at `docs/<topic>.md` and track the active checklist
+  in repository-root `tasks.md`.
+
+- Keep repository-root `tasks.md` current while implementation is active. Use
+  it as the single active execution source for the current complex topic on
+  the branch.
+
+- Once every checklist item is complete and the topic no longer needs active
+  execution tracking, deleting `tasks.md` is required.
 
 - When a task changes shared contracts or AI collaboration guidance, update the
   touched `AGENTS.md`, `CLAUDE.md`, and generated Cursor or Copilot mirrors in
@@ -79,8 +85,15 @@ override it, and use `CLAUDE.md` as a thin Claude-specific wrapper.
   the affected `AGENTS.md`, `CLAUDE.md`, or compatibility instructions
   outdated.
 
-- Do not start a complex design implementation without a design doc in `docs/`
-  and a linked `tasks.md` checklist that tracks done and pending work.
+- Do not start a complex design implementation without a design doc at
+  `docs/<topic>.md` and a linked repository-root `tasks.md` checklist that
+  tracks done and pending work.
+
+- Do not delete `tasks.md` while any checklist item is still pending or while
+  it is still the active execution tracker for the topic.
+
+- Do not start a new complex design topic while repository-root `tasks.md`
+  still tracks another topic unless you intentionally replace that checklist.
 
 - Do not place long troubleshooting runbooks in `AGENTS.md`. Use `SKILL.md`
   for repeatable workflows that need step-by-step guidance.

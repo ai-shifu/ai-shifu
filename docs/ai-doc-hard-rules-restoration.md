@@ -8,7 +8,7 @@ main instruction surfaces without discarding the new layered AI-doc structure.
 The repository will keep:
 
 - layered `AGENTS.md` and `CLAUDE.md` inheritance
-- `docs/<topic>/design.md` plus `tasks.md` workflow
+- `docs/<topic>.md` plus an active root `tasks.md` workflow
 - `docs/engineering-baseline.md` as the complete engineering handbook
 
 The repository will change:
@@ -80,4 +80,4 @@ The repository will change:
 
 - `python scripts/generate_ai_collab_docs.py`
 - `python scripts/check_ai_collab_docs.py`
-- `pre-commit run --files AGENTS.md src/api/AGENTS.md src/cook-web/AGENTS.md docs/ai-doc-hard-rules-restoration/design.md docs/ai-doc-hard-rules-restoration/tasks.md docs/engineering-baseline.md scripts/generate_ai_collab_docs.py scripts/check_ai_collab_docs.py .claude/rules/global/testing-and-commit.md .claude/rules/backend/python-api.md .claude/rules/frontend/cook-web.md .cursor/rules/repository-ai-collab.mdc src/api/.cursor/rules/backend-api.mdc src/cook-web/.cursor/rules/cook-web.mdc .github/copilot-instructions.md .github/instructions/ai-instructions.instructions.md .github/instructions/backend.instructions.md .github/instructions/frontend.instructions.md`
+- `pre-commit run --files AGENTS.md src/api/AGENTS.md src/cook-web/AGENTS.md docs/ai-doc-hard-rules-restoration.md docs/engineering-baseline.md scripts/generate_ai_collab_docs.py scripts/check_ai_collab_docs.py .claude/rules/global/testing-and-commit.md .claude/rules/backend/python-api.md .claude/rules/frontend/cook-web.md .cursor/rules/repository-ai-collab.mdc src/api/.cursor/rules/backend-api.mdc src/cook-web/.cursor/rules/cook-web.mdc .github/copilot-instructions.md .github/instructions/ai-instructions.instructions.md .github/instructions/backend.instructions.md .github/instructions/frontend.instructions.md`

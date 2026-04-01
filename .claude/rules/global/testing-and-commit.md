@@ -21,9 +21,9 @@ duplicating the shared repository guidance already stored in `AGENTS.md`.
   the touched areas; if the implementation change makes them inaccurate,
   update those docs in the same commit.
 
-- For complex design work, create `docs/<topic>/design.md` before
-  implementation and track execution in `docs/<topic>/tasks.md` with markdown
-  checkboxes that explicitly link back to the design document.
+- For complex design work, create `docs/<topic>.md` before implementation and
+  track execution in repository-root `tasks.md` with markdown checkboxes that
+  explicitly link back to the design document.
 
 - When `tasks.md` exists, follow its checklist order unless you first update
   the checklist to reflect a deliberate reprioritization.
@@ -31,6 +31,12 @@ duplicating the shared repository guidance already stored in `AGENTS.md`.
 - After completing each checklist item, update `tasks.md` and make one atomic
   commit for that item instead of bundling multiple finished tasks into a
   single commit.
+
+- One branch should track only one active complex topic in `tasks.md` at a
+  time.
+
+- Once all checklist items are complete and the topic no longer needs active
+  execution tracking, deleting `tasks.md` is required.
 
 - When Claude is asked for a commit-sized change, run the smallest relevant
   verification first and widen only when shared contracts are affected.
