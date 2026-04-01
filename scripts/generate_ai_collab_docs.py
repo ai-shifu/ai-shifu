@@ -1628,6 +1628,9 @@ def build_documents() -> dict[Path, str]:
         ROOT / "CLAUDE.md": render_claude("Claude Entry"),
         ROOT / "src" / "api" / "CLAUDE.md": render_claude("Backend Claude Entry"),
         ROOT / "src" / "cook-web" / "CLAUDE.md": render_claude("Cook Web Claude Entry"),
+        ROOT / ".github" / "CLAUDE.md": render_claude("GitHub Claude Entry"),
+        ROOT / "docker" / "CLAUDE.md": render_claude("Docker Claude Entry"),
+        ROOT / "scripts" / "CLAUDE.md": render_claude("Scripts Claude Entry"),
         ROOT / ".cursor" / "rules" / "repository-ai-collab.mdc": render_cursor_rule(
             "Cursor Rule: Repository AI Collaboration",
             "Repository-wide AI collaboration defaults shared across the codebase",
@@ -1668,6 +1671,59 @@ def build_documents() -> dict[Path, str]:
                 "files when they become stale.",
             ),
             always_apply=False,
+        ),
+        ROOT / ".cursor" / "rules" / "github-workflows.mdc": render_cursor_rule(
+            "Cursor Rule: GitHub Workflows",
+            "Rules for GitHub Actions workflows and release automation",
+            (
+                "Inspect the affected workflow triggers, path filters, and "
+                "downstream jobs before changing GitHub automation behavior.",
+                "Keep secrets, tokens, registry credentials, and toggles in "
+                "GitHub Actions secrets or vars instead of hardcoding them in "
+                "workflow YAML.",
+                "Preserve release and image-tag semantics across "
+                "`prepare-release.yml`, `build-latest.yml`, and "
+                "`build-on-release.yml` instead of changing one workflow in "
+                "isolation.",
+                "Keep workflow trigger scope narrow and review backend, frontend, "
+                "Docker, or scripts path filters when automation ownership moves.",
+            ),
+            always_apply=False,
+            globs=(".github/workflows/**",),
+        ),
+        ROOT / ".cursor" / "rules" / "docker-ops.mdc": render_cursor_rule(
+            "Cursor Rule: Docker",
+            "Rules for Docker compose files, helper scripts, and env examples",
+            (
+                "Treat `docker-compose.dev.yml`, `docker-compose.latest.yml`, and "
+                "`docker-compose.yml` as distinct local-dev, freshest-published, "
+                "and pinned-release surfaces.",
+                "Keep secrets and environment-specific credentials out of compose "
+                "files and helper scripts.",
+                "Preserve image names, tags, env-file expectations, and boot order "
+                "unless the release or app configuration model also changes.",
+                "Validate touched compose files with `docker compose ... config` "
+                "and cross-check release-facing image behavior against GitHub "
+                "build and release workflows.",
+            ),
+            always_apply=False,
+            globs=("docker/**",),
+        ),
+        ROOT / ".cursor" / "rules" / "scripts-maintenance.mdc": render_cursor_rule(
+            "Cursor Rule: Scripts",
+            "Rules for repo maintenance, generation, and validation scripts",
+            (
+                "Inspect the current script ownership, call sites, and sibling "
+                "checker or generator scripts before changing script behavior.",
+                "Keep script inputs, outputs, and file ownership explicit, "
+                "repo-relative, and predictable for both local runs and CI.",
+                "Prefer idempotent behavior for maintenance and generation "
+                "scripts that may be rerun by multiple contributors or jobs.",
+                "Keep generator and checker pairs aligned when generated artifacts "
+                "or validation expectations move.",
+            ),
+            always_apply=False,
+            globs=("scripts/**",),
         ),
         ROOT
         / "src"
@@ -1752,7 +1808,9 @@ def build_documents() -> dict[Path, str]:
             "Copilot Instructions: AI Collaboration Files",
             (
                 "AGENTS.md,CLAUDE.md,SKILL.md,.claude/**/*.md,.cursor/rules/**/*.mdc,"
-                ".github/copilot-instructions.md,.github/instructions/**/*.instructions.md,"
+                ".github/AGENTS.md,.github/CLAUDE.md,.github/copilot-instructions.md,"
+                ".github/instructions/**/*.instructions.md,docker/AGENTS.md,"
+                "docker/CLAUDE.md,scripts/AGENTS.md,scripts/CLAUDE.md,"
                 "src/api/**/AGENTS.md,src/api/**/CLAUDE.md,src/api/SKILL.md,"
                 "src/api/skills/**/*.md,src/cook-web/**/AGENTS.md,"
                 "src/cook-web/**/CLAUDE.md,src/cook-web/SKILL.md"
@@ -1834,6 +1892,60 @@ def build_documents() -> dict[Path, str]:
                 "aligned with the actual implementation state.",
                 "If docs change implementation expectations, update the nearest "
                 "AI instruction files when they become stale.",
+            ),
+        ),
+        ROOT
+        / ".github"
+        / "instructions"
+        / "docker.instructions.md": render_copilot_path_instructions(
+            "Copilot Instructions: Docker",
+            "docker/**/*.yml,docker/**/*.yaml,docker/**/*.sh,docker/**/*.conf,docker/.env.example.full",
+            (
+                "Inspect the touched compose files, helper scripts, and release "
+                "expectations together before changing Docker behavior.",
+                "Keep `docker-compose.dev.yml`, `docker-compose.latest.yml`, and "
+                "`docker-compose.yml` semantically distinct.",
+                "Do not bake secrets or environment-specific credentials into "
+                "compose files or helper scripts.",
+                "Validate touched compose files with `docker compose ... config` "
+                "and cross-check release-facing image references against GitHub "
+                "build and release workflows.",
+            ),
+        ),
+        ROOT
+        / ".github"
+        / "instructions"
+        / "scripts.instructions.md": render_copilot_path_instructions(
+            "Copilot Instructions: Scripts",
+            "scripts/**/*.py,scripts/**/*.js,scripts/**/*.md",
+            (
+                "Inspect the script ownership, call sites, and sibling generators "
+                "or checkers before changing script behavior.",
+                "Keep script inputs, outputs, and file ownership explicit and "
+                "repo-relative for both local runs and CI.",
+                "Prefer idempotent behavior for maintenance and generation "
+                "scripts that may be rerun repeatedly.",
+                "Keep generator and checker pairs aligned when generated "
+                "artifacts or validation expectations change.",
+            ),
+        ),
+        ROOT
+        / ".github"
+        / "instructions"
+        / "workflows.instructions.md": render_copilot_path_instructions(
+            "Copilot Instructions: GitHub Workflows",
+            ".github/workflows/**/*.yml,.github/workflows/**/*.yaml",
+            (
+                "Inspect workflow triggers, path filters, and downstream jobs "
+                "before changing automation behavior.",
+                "Keep secrets, tokens, registry credentials, and toggles in "
+                "GitHub Actions settings instead of inline in YAML.",
+                "Preserve release and image-tag semantics across "
+                "`prepare-release.yml`, `build-latest.yml`, and "
+                "`build-on-release.yml`.",
+                "Do not widen workflow trigger scope casually; review backend, "
+                "frontend, Docker, and scripts path ownership together when "
+                "automation boundaries move.",
             ),
         ),
     }

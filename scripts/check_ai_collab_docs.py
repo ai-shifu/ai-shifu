@@ -23,6 +23,9 @@ MANUAL_AGENTS = {
     ROOT / "AGENTS.md": "docs/engineering-baseline.md",
     ROOT / "src" / "api" / "AGENTS.md": "../../docs/engineering-baseline.md",
     ROOT / "src" / "cook-web" / "AGENTS.md": "../../docs/engineering-baseline.md",
+    ROOT / ".github" / "AGENTS.md": "../docs/engineering-baseline.md",
+    ROOT / "docker" / "AGENTS.md": "../docs/engineering-baseline.md",
+    ROOT / "scripts" / "AGENTS.md": "../docs/engineering-baseline.md",
 }
 
 MANUAL_AGENT_MARKERS = {
@@ -47,6 +50,27 @@ MANUAL_AGENT_MARKERS = {
         "Keep Next.js route-entry conventions directly visible in new code",
         "shared i18n JSON namespaces under",
         "Legacy `c-*` directories remain active compatibility surfaces.",
+    ),
+    ROOT / ".github" / "AGENTS.md": (
+        ".github/workflows/",
+        "Preserve workflow trigger intent",
+        "GitHub Actions secrets or vars",
+        "prepare-release.yml",
+        "build-on-release.yml",
+    ),
+    ROOT / "docker" / "AGENTS.md": (
+        "docker-compose.dev.yml",
+        "docker-compose.latest.yml",
+        "docker-compose.yml",
+        "Do not bake secrets",
+        "docker/.env.example.full",
+    ),
+    ROOT / "scripts" / "AGENTS.md": (
+        "idempotent behavior",
+        "Do not silently rewrite tracked files",
+        "generator and checker pairs aligned",
+        "English-only",
+        "python scripts/check_ai_collab_docs.py",
     ),
 }
 
@@ -89,6 +113,7 @@ BASELINE_HEADINGS = (
     "## API Contract Baseline",
     "## Testing Expectations",
     "## Development Workflow",
+    "## CI/CD And Release Workflow",
     "## Performance Guidelines",
     "## Environment Configuration",
     "## Internationalization Rules",

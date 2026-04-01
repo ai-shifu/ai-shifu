@@ -21,7 +21,7 @@ details behind those rules.
 | Check code quality | `pre-commit run -a` | Root directory |
 | Start all services (Docker) | `docker compose -f docker-compose.latest.yml up -d` | `cd docker` |
 | Start Docker dev stack (build local latest) | `./dev_in_docker.sh` | `cd docker` |
-| Build Cook Web image (includes i18n) | `./build-cook-web.sh` | `cd docker` |
+| Build Cook Web dev image | `docker build ../src/cook-web -t ai-shifu-cook-web-dev -f ../src/cook-web/Dockerfile_DEV` | `cd docker` |
 
 ### Essential Environment Variables
 
@@ -318,6 +318,46 @@ src/api/tests/
 3. Deploy to staging
 4. Run smoke tests
 5. Deploy to production
+
+## CI/CD And Release Workflow
+
+### Workflow Inventory
+
+- `backend-tests.yml`: runs backend tests for `src/api/**` changes and on
+  direct pushes to `main`.
+- `contract-tests.yml`: runs contract tests for backend-facing changes.
+- `prettier-check.yml`: checks Cook Web formatting for frontend changes.
+- `translations-check.yml`: validates translation parity, key usage, and
+  locale metadata on PRs, selected branches, and a schedule.
+- `prepare-release.yml`: manually prepares a release draft from a requested
+  `vX.Y.Z` version and updates versioned project files.
+- `build-latest.yml`: builds the freshest published Docker images from `main`
+  and can also be triggered manually.
+- `build-on-release.yml`: builds and pushes release-tagged Docker images when
+  a GitHub release is published.
+
+### Release Path
+
+1. Start with `prepare-release.yml` and provide a version that starts with
+   `v`, such as `v1.5.0`.
+2. Verify the generated version updates, release draft content, and tag
+   expectations before publishing the GitHub release.
+3. Publishing the release triggers `build-on-release.yml`, which validates the
+   tag, skips drafts or prereleases, and builds the release-tagged images.
+4. `main` continues to drive `build-latest.yml`, so `:latest` images and
+   release-tagged images must remain semantically aligned.
+5. After image publication, smoke-check the pinned or latest Docker compose
+   startup path, backend boot, and the primary frontend entry path before
+   treating the release as ready.
+
+### Release And Automation Rules
+
+- Keep GitHub Actions secrets and vars responsible for registry credentials,
+  push toggles, and release-specific configuration.
+- Preserve workflow path filters and trigger intent unless the automation
+  surface itself is changing deliberately.
+- When changing image names, tags, or release semantics, review the GitHub
+  workflows and `docker-compose*.yml` files together in the same task.
 
 ## Performance Guidelines
 
