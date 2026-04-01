@@ -35,11 +35,15 @@ compatibility surface.
 
 - Use the shared request stack in `src/cook-web/src/lib/request.ts` and
   `src/cook-web/src/lib/api.ts` instead of adding ad-hoc `fetch` logic in
-  pages or components.
+  pages or components, and preserve the unified business-code handling path.
 
 - Keep App Router behavior, business-code handling, i18n routing, naming, and
   request-contract changes aligned with
   [docs/engineering-baseline.md](../../docs/engineering-baseline.md).
+
+- Keep Next.js route-entry conventions directly visible in new code:
+  `page.tsx`, `layout.tsx`, and `route.ts` own route entry behavior while
+  reusable logic belongs in components, hooks, stores, or `lib/`.
 
 - Route all user-facing text through shared i18n JSON namespaces under
   `src/i18n/`, and keep the frontend language surface limited to `en-US` and

@@ -12,11 +12,13 @@ applyTo: "src/cook-web/**/*.ts,src/cook-web/**/*.tsx,src/cook-web/**/*.js,src/co
 - Use `docs/engineering-baseline.md` for frontend-wide engineering conventions
   such as request flow, naming, i18n, and testing.
 
-- Extend the existing request stack, stores, hooks, and `c-*` compatibility
-  layers instead of creating parallel implementations.
+- Extend `src/cook-web/src/lib/request.ts`, `src/cook-web/src/lib/api.ts`,
+  existing stores, hooks, and `c-*` compatibility layers instead of creating
+  parallel implementations or ad-hoc component fetch logic.
 
 - Keep user-facing strings in shared i18n JSON under `src/i18n/` and preserve
   the unified business-code handling path.
 
-- Treat legacy `c-*` directories as active compatibility surfaces until a
+- Keep route-entry behavior in `page.tsx`, `layout.tsx`, and `route.ts`, and
+  treat legacy `c-*` directories as active compatibility surfaces until a
   deliberate migration removes them.

@@ -13,11 +13,13 @@ applyTo: "src/api/**/*.py,src/api/**/*.md,src/i18n/**/*.json"
   such as model layout, response envelopes, migrations, configuration, and
   i18n workflow.
 
-- Reuse shared response envelopes, provider wrappers, and configuration
-  helpers before creating new abstractions.
+- Reuse the shared response envelope with `code`, `message`, and `data`,
+  provider wrappers, and configuration helpers before creating new
+  abstractions.
 
 - Keep backend translations in shared JSON namespaces under `src/i18n/`, not
   in ad-hoc Python translation modules.
 
-- Generate new migrations instead of editing applied ones when schema changes
-  are required.
+- Generate new migrations instead of editing applied ones, do not add hard
+  business-key foreign-key constraints, and keep OpenAI-compatible providers
+  behind LiteLLM and shared helpers.

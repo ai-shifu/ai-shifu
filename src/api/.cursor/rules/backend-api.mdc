@@ -15,11 +15,13 @@ alwaysApply: false
   such as model layout, response envelopes, migrations, configuration, and
   i18n workflow.
 
-- Reuse response envelopes, provider wrappers, configuration helpers, and
-  existing backend service modules before adding new abstractions.
+- Reuse the shared API response envelope with `code`, `message`, and `data`,
+  provider wrappers, configuration helpers, and existing backend service
+  modules before adding new abstractions.
 
 - Keep shared translations in `src/i18n/` and use backend helpers instead of
   inventing per-service translation or error patterns.
 
 - Generate and review new Alembic migrations instead of editing applied
-  revisions when schema changes are required.
+  revisions, do not add hard business-key foreign-key constraints, and keep
+  OpenAI-compatible providers behind the LiteLLM and shared helper layers.

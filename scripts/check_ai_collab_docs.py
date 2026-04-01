@@ -25,10 +25,38 @@ MANUAL_AGENTS = {
     ROOT / "src" / "cook-web" / "AGENTS.md": "../../docs/engineering-baseline.md",
 }
 
+MANUAL_AGENT_MARKERS = {
+    ROOT / "AGENTS.md": (
+        "Use English for code, comments, commit subjects, and instruction files.",
+        "Do not hardcode user-facing strings, secrets, or environment-specific URLs",
+        "Before implementing a complex design or cross-module architecture change",
+        "When a task changes shared contracts or AI collaboration guidance",
+        "Run the smallest relevant verification first",
+    ),
+    ROOT / "src" / "api" / "AGENTS.md": (
+        "Use the shared API response envelope with `code`, `message`, and `data`",
+        "Do not edit applied migration files.",
+        "Do not add hard database foreign-key constraints",
+        "src/api/flaskr/common/config.py",
+        "Do not bypass the LiteLLM wrapper",
+        "namespaces under `src/i18n/`",
+    ),
+    ROOT / "src" / "cook-web" / "AGENTS.md": (
+        "src/cook-web/src/lib/request.ts` and",
+        "preserve the unified business-code handling path",
+        "Keep Next.js route-entry conventions directly visible in new code",
+        "shared i18n JSON namespaces under",
+        "Legacy `c-*` directories remain active compatibility surfaces.",
+    ),
+}
+
 MANUAL_RULES = {
     ROOT / ".claude" / "rules" / "global" / "testing-and-commit.md": (
         "# Claude Rule: Testing And Commit",
         "docs/engineering-baseline.md",
+        "English-only code-facing text",
+        "docs/<topic>/design.md",
+        "python scripts/check_ai_collab_docs.py",
     ),
     ROOT / ".claude" / "rules" / "global" / "skills-routing.md": (
         "# Claude Rule: Skills Routing",
@@ -37,10 +65,18 @@ MANUAL_RULES = {
     ROOT / ".claude" / "rules" / "backend" / "python-api.md": (
         "# Claude Rule: Backend Python API",
         "docs/engineering-baseline.md",
+        "shared API response envelope with `code`, `message`, and `data`",
+        "LiteLLM",
+        "new Alembic migrations",
+        "`src/i18n/`",
     ),
     ROOT / ".claude" / "rules" / "frontend" / "cook-web.md": (
         "# Claude Rule: Cook Web Frontend",
         "docs/engineering-baseline.md",
+        "src/cook-web/src/lib/request.ts",
+        "unified business-code handling",
+        "`src/i18n/`",
+        "`c-*` directories as active compatibility surfaces",
     ),
 }
 
@@ -162,6 +198,9 @@ def check_manual_agents(errors: list[str]) -> None:
             )
         if baseline_link not in text:
             errors.append(f"Missing engineering baseline link in {path}")
+        for marker in MANUAL_AGENT_MARKERS[path]:
+            if marker not in text:
+                errors.append(f"Missing marker '{marker}' in {path}")
 
         check_ordered_markers(
             path, text, tuple(f"## {heading}" for heading in REQUIRED_HEADINGS), errors

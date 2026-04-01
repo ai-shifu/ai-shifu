@@ -41,6 +41,10 @@ modules, Alembic migrations, backend configuration, and shared backend tests.
   workflow, and environment changes aligned with
   [docs/engineering-baseline.md](../../docs/engineering-baseline.md).
 
+- Use the shared API response envelope with `code`, `message`, and `data`, and
+  reuse the registered backend error-code paths instead of inventing
+  per-service response shapes.
+
 - Register new or changed environment variables in
   `src/api/flaskr/common/config.py`, then regenerate
   `docker/.env.example.full` with `python scripts/generate_env_examples.py`.

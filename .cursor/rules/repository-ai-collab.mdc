@@ -11,6 +11,10 @@ alwaysApply: true
 - Read the nearest `AGENTS.md` and `CLAUDE.md` files first. Treat them as the
   primary shared instruction source for this repository.
 
+- Keep the repository hard rules visible in those primary docs: English-only
+  code-facing text, no hardcoded user-facing strings or secrets, and
+  shared-contract doc updates in the same change.
+
 - Use `docs/engineering-baseline.md` for the stable engineering handbook
   covering architecture, API conventions, testing, naming, and environment
   workflow.

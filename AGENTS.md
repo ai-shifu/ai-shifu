@@ -12,7 +12,8 @@ override it, and use `CLAUDE.md` as a thin Claude-specific wrapper.
 
 - Shared engineering conventions live in the
   [engineering baseline](docs/engineering-baseline.md). Keep this file focused
-  on AI execution behavior, not the full engineering handbook.
+  on AI execution behavior and hard-rule entry points, while the baseline keeps
+  the full engineering handbook and examples.
 
 - Keep shared rules here only when both Codex and Claude should follow them.
   Move subsystem details into [src/api/AGENTS.md](src/api/AGENTS.md),
@@ -35,6 +36,9 @@ override it, and use `CLAUDE.md` as a thin Claude-specific wrapper.
   layers, and established patterns. Extend the current implementation before
   creating a new abstraction.
 
+- Use English for code, comments, commit subjects, and instruction files.
+  User-facing text still belongs in shared i18n JSON under `src/i18n/`.
+
 - Use [docs/engineering-baseline.md](docs/engineering-baseline.md) for
   repository-wide engineering conventions such as architecture, testing,
   naming, i18n, API contracts, migrations, and environment workflow.
@@ -47,6 +51,10 @@ override it, and use `CLAUDE.md` as a thin Claude-specific wrapper.
   create a design doc under `docs/` and a paired `tasks.md` checklist under
   the same `docs/` topic folder. Execute the work from that checklist and keep
   it current as the visible source of truth for progress.
+
+- When a task changes shared contracts or AI collaboration guidance, update the
+  touched `AGENTS.md`, `CLAUDE.md`, and generated Cursor or Copilot mirrors in
+  the same change so the primary instruction surfaces stay aligned.
 
 - Run the smallest relevant verification first, then widen to shared checks
   when a change crosses API boundaries, shared DTOs, i18n files, or common
@@ -63,16 +71,16 @@ override it, and use `CLAUDE.md` as a thin Claude-specific wrapper.
 - Do not build a new helper, abstraction, or code path when an existing one
   can be reused or extended cleanly.
 
+- Do not hardcode user-facing strings, secrets, or environment-specific URLs
+  in code or docs. Route text through i18n and credentials through the
+  existing configuration layers.
+
 - Do not create a commit that changes implementation contracts while leaving
   the affected `AGENTS.md`, `CLAUDE.md`, or compatibility instructions
   outdated.
 
 - Do not start a complex design implementation without a design doc in `docs/`
   and a linked `tasks.md` checklist that tracks done and pending work.
-
-- Do not hardcode user-facing strings, secrets, or environment-specific URLs
-  in code or docs. Route text through i18n and credentials through the
-  existing configuration layers.
 
 - Do not place long troubleshooting runbooks in `AGENTS.md`. Use `SKILL.md`
   for repeatable workflows that need step-by-step guidance.

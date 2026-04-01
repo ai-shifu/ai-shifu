@@ -10,6 +10,10 @@ duplicating the shared repository guidance already stored in `AGENTS.md`.
   abstractions where possible instead of building a parallel solution from
   scratch.
 
+- Keep the repository hard rules visible in the primary manual docs:
+  English-only code-facing text, no hardcoded user-facing strings or secrets,
+  and shared-contract doc updates in the same change.
+
 - Use `docs/engineering-baseline.md` for the stable engineering handbook, and
   use the layered `AGENTS.md` files for AI execution rules.
 

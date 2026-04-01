@@ -5,6 +5,10 @@
 - Read the nearest `AGENTS.md` and `CLAUDE.md` files before making changes;
   they are the primary repository instructions.
 
+- Keep the repository hard rules visible in those primary docs: English-only
+  code-facing text, no hardcoded user-facing strings or secrets, and
+  shared-contract doc updates in the same change.
+
 - Use `docs/engineering-baseline.md` for the stable engineering handbook
   instead of duplicating architecture, naming, testing, or environment
   conventions in every AI doc.

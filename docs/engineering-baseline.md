@@ -3,8 +3,9 @@
 This document is the canonical engineering baseline for the repository.
 Repository-wide architecture notes, API norms, database conventions, testing
 expectations, workflow rules, naming rules, and troubleshooting guidance live
-here. The layered `AGENTS.md` files should link here instead of duplicating
-the full handbook.
+here. The layered `AGENTS.md` files remain the hard-rule entry points, and
+this handbook carries the expanded rationale, examples, and troubleshooting
+details behind those rules.
 
 ## Quick Start
 

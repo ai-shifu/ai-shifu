@@ -9,6 +9,9 @@ applyTo: "AGENTS.md,CLAUDE.md,SKILL.md,.claude/**/*.md,.cursor/rules/**/*.mdc,.g
 - Treat `AGENTS.md` and `CLAUDE.md` as the source of truth; keep derived
   Cursor and Copilot instruction files aligned with them.
 
+- When shared hard rules move, update the entry-point docs and the generated
+  mirrors in the same change.
+
 - If one instruction surface changes behavior or expectations, update the
   parallel instruction files in the same change.
 

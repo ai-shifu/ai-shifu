@@ -1634,6 +1634,9 @@ def build_documents() -> dict[Path, str]:
             (
                 "Read the nearest `AGENTS.md` and `CLAUDE.md` files first. Treat "
                 "them as the primary shared instruction source for this repository.",
+                "Keep the repository hard rules visible in those primary docs: "
+                "English-only code-facing text, no hardcoded user-facing strings "
+                "or secrets, and shared-contract doc updates in the same change.",
                 "Use `docs/engineering-baseline.md` for the stable engineering "
                 "handbook covering architecture, API conventions, testing, naming, "
                 "and environment workflow.",
@@ -1680,13 +1683,16 @@ def build_documents() -> dict[Path, str]:
                 "Use `docs/engineering-baseline.md` for backend-wide engineering "
                 "conventions such as model layout, response envelopes, migrations, "
                 "configuration, and i18n workflow.",
-                "Reuse response envelopes, provider wrappers, configuration "
+                "Reuse the shared API response envelope with `code`, `message`, "
+                "and `data`, provider wrappers, configuration "
                 "helpers, and existing backend service modules before adding new "
                 "abstractions.",
                 "Keep shared translations in `src/i18n/` and use backend helpers "
                 "instead of inventing per-service translation or error patterns.",
                 "Generate and review new Alembic migrations instead of editing "
-                "applied revisions when schema changes are required.",
+                "applied revisions, do not add hard business-key foreign-key "
+                "constraints, and keep OpenAI-compatible providers behind the "
+                "LiteLLM and shared helper layers.",
             ),
             always_apply=False,
         ),
@@ -1703,13 +1709,15 @@ def build_documents() -> dict[Path, str]:
                 "lib path before changing frontend behavior.",
                 "Use `docs/engineering-baseline.md` for frontend-wide engineering "
                 "conventions such as request flow, naming, i18n, and testing.",
-                "Extend the shared request stack, current stores, hooks, and "
+                "Extend `src/cook-web/src/lib/request.ts`, "
+                "`src/cook-web/src/lib/api.ts`, current stores, hooks, and "
                 "compatibility layers instead of creating a second implementation "
-                "path.",
+                "path or ad-hoc component fetch logic.",
                 "Keep user-facing strings in shared i18n JSON under `src/i18n/` "
                 "and preserve the unified request/business-code handling flow.",
-                "Treat legacy `c-*` directories as active compatibility surfaces "
-                "until a planned migration removes them.",
+                "Keep route-entry behavior in `page.tsx`, `layout.tsx`, and "
+                "`route.ts`, and treat legacy `c-*` directories as active "
+                "compatibility surfaces until a planned migration removes them.",
             ),
             always_apply=False,
         ),
@@ -1718,6 +1726,9 @@ def build_documents() -> dict[Path, str]:
             (
                 "Read the nearest `AGENTS.md` and `CLAUDE.md` files before making "
                 "changes; they are the primary repository instructions.",
+                "Keep the repository hard rules visible in those primary docs: "
+                "English-only code-facing text, no hardcoded user-facing strings "
+                "or secrets, and shared-contract doc updates in the same change.",
                 "Use `docs/engineering-baseline.md` for the stable engineering "
                 "handbook instead of duplicating architecture, naming, testing, "
                 "or environment conventions in every AI doc.",
@@ -1749,6 +1760,8 @@ def build_documents() -> dict[Path, str]:
             (
                 "Treat `AGENTS.md` and `CLAUDE.md` as the source of truth; keep "
                 "derived Cursor and Copilot instruction files aligned with them.",
+                "When shared hard rules move, update the entry-point docs and the "
+                "generated mirrors in the same change.",
                 "If one instruction surface changes behavior or expectations, "
                 "update the parallel instruction files in the same change.",
                 "Run `python scripts/generate_ai_collab_docs.py` and "
@@ -1768,12 +1781,14 @@ def build_documents() -> dict[Path, str]:
                 "Use `docs/engineering-baseline.md` for backend-wide engineering "
                 "conventions such as model layout, response envelopes, migrations, "
                 "configuration, and i18n workflow.",
-                "Reuse shared response envelopes, provider wrappers, and "
+                "Reuse the shared response envelope with `code`, `message`, and "
+                "`data`, provider wrappers, and "
                 "configuration helpers before creating new abstractions.",
                 "Keep backend translations in shared JSON namespaces under "
                 "`src/i18n/`, not in ad-hoc Python translation modules.",
-                "Generate new migrations instead of editing applied ones when "
-                "schema changes are required.",
+                "Generate new migrations instead of editing applied ones, do not "
+                "add hard business-key foreign-key constraints, and keep "
+                "OpenAI-compatible providers behind LiteLLM and shared helpers.",
             ),
         ),
         ROOT
@@ -1791,12 +1806,15 @@ def build_documents() -> dict[Path, str]:
                 "path before changing frontend behavior.",
                 "Use `docs/engineering-baseline.md` for frontend-wide engineering "
                 "conventions such as request flow, naming, i18n, and testing.",
-                "Extend the existing request stack, stores, hooks, and `c-*` "
-                "compatibility layers instead of creating parallel implementations.",
+                "Extend `src/cook-web/src/lib/request.ts`, "
+                "`src/cook-web/src/lib/api.ts`, existing stores, hooks, and `c-*` "
+                "compatibility layers instead of creating parallel "
+                "implementations or ad-hoc component fetch logic.",
                 "Keep user-facing strings in shared i18n JSON under `src/i18n/` "
                 "and preserve the unified business-code handling path.",
-                "Treat legacy `c-*` directories as active compatibility surfaces "
-                "until a deliberate migration removes them.",
+                "Keep route-entry behavior in `page.tsx`, `layout.tsx`, and "
+                "`route.ts`, and treat legacy `c-*` directories as active "
+                "compatibility surfaces until a deliberate migration removes them.",
             ),
         ),
         ROOT

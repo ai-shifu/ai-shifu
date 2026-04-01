@@ -10,6 +10,14 @@ rooted in Flask services, migrations, or backend scripts.
 - Keep backend changes aligned with `src/api/AGENTS.md` and the backend
   sections of `docs/engineering-baseline.md`.
 
+- Reuse the shared API response envelope with `code`, `message`, and `data`,
+  keep translations in `src/i18n/`, and keep provider integration behind the
+  LiteLLM and shared helper layers.
+
+- Generate and review new Alembic migrations instead of editing applied
+  revisions, and do not add hard database foreign-key constraints for
+  business-key relationships unless the architecture changes deliberately.
+
 - Reach for backend skills when work touches shifu authoring, user auth flows,
   or the MDF proxy boundary.
 
