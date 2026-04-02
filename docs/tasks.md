@@ -11,6 +11,7 @@
 - [x] 统一 LLM `input/cache/output` 与 TTS `按次/按字数` 的扣分口径。
 - [x] 将库表分层为 `v1 核心表` 与 `v1.1 扩展表`。
 - [x] 将设计文档重写为表格化字段定义，并统一字段编码规范。
+- [x] 将 billing 文档编码体系调整为“复用共享码 + billing 专属 `7100+` 段位”。
 - [x] 将现有代码改造边界补充进设计文档。
 - [x] 将 Celery 作为 v1 基础设施接入方案补充进设计文档。
 
@@ -26,6 +27,7 @@
 ### 现有代码改造
 
 - [ ] 明确并落地 `service/order/payment_providers` 在 billing 域的复用边界，不复用旧 `order_*` 表。
+- [ ] 新增 `service/billing/consts.py`，统一承载 billing 专属 `7100+` 编码。
 - [ ] 扩展 `payment_providers/base.py` 支持 billing recurring/subscription/webhook 统一接口。
 - [ ] 调整 metering 的 `debug/preview` billable 逻辑，移除常量层硬编码 non-billable 判定。
 - [ ] 在 learn/preview/debug 入口接入 creator admission service。
@@ -44,6 +46,7 @@
 - [ ] 实现统一的 billing payment orchestration，并在 adapter 层封装 Stripe/Pingxx 差异。
 - [ ] 实现 subscription checkout、cancel、resume 和退款流程。
 - [ ] 实现 topup checkout 与到账流程。
+- [ ] 实现 `GET /billing/orders`、`GET /billing/orders/{billing_order_bid}`、`POST /billing/orders/{billing_order_bid}/sync` 三个 creator 侧接口。
 - [ ] 实现 `billing_provider_events` 去重、重放和原始事件审计。
 - [ ] 实现订阅生命周期推进，包括开通、升级、续费、宽限期、取消和降级排期。
 - [ ] 确认国内支付通道 recurring capability，并对不支持能力返回 `unsupported`。
@@ -55,6 +58,7 @@
 - [ ] 实现 TTS `按次` 与 `按字数` 两种计费模式。
 - [ ] 实现 `production`、`preview`、`debug` 三场景的 creator 归属解析。
 - [ ] 实现账本不可变写入和钱包乐观锁更新。
+- [ ] 为 `billing_ledger_entries` 增加 `idempotency_key` 字段与唯一约束。
 - [ ] 实现余额不足、订阅失效的前置拦截。
 - [ ] 实现结算幂等 key 和 replay 安全，避免重复扣分。
 
@@ -71,15 +75,25 @@
 
 ### 前端与管理端
 
-- [ ] 实现 creator Billing Center 的基础页面。
+- [ ] 在 `src/cook-web/src/app/admin/layout.tsx` 增加 Billing 菜单入口。
+- [ ] 新增 `src/cook-web/src/app/admin/billing/page.tsx`，实现单路由 Billing Center。
+- [ ] 在 Billing Center 中实现 `Overview`、`Ledger`、`Orders` 三个 tab。
+- [ ] 在 `src/cook-web/src/api/api.ts` 中增加 billing 前后台接口定义。
+- [ ] 新增 `src/cook-web/src/types/billing.ts`，定义 billing 前端类型。
+- [ ] 新增 `src/cook-web/src/components/billing/` 组件目录，拆分 overview、catalog、ledger、orders、checkout、detail sheet 组件。
 - [ ] 实现套餐/充值包目录、购买流程、订阅卡片和钱包余额展示。
-- [ ] 实现账本、订单、取消订阅和恢复订阅交互。
+- [ ] 实现账本、creator 侧订单、取消订阅和恢复订阅交互。
+- [ ] 为 `BillingOrderDetailSheet` 接入 `GET /billing/orders/{billing_order_bid}`。
+- [ ] 新增 Stripe billing result 页，并接入 `sync/detail` 接口后回跳 `/admin/billing`。
+- [ ] 将 `billing_alerts` 渲染改为基于 `code/severity/message_key/message_params` 的结构化展示。
 - [ ] 实现 admin 侧订阅、订单、账本调整和异常处理页面。
+- [ ] 增加 `module.billing.*` i18n keys，并补齐状态码到文案的映射。
 
 ### 测试与上线
 
 - [ ] 增加支付、订阅生命周期、webhook 幂等和退款测试。
 - [ ] 增加结算、余额计算、积分消耗顺序和三场景扣分测试。
+- [ ] 增加 billing 常量静态校验，确保不与 `user/promo/profile/shifu/metering` 常量撞码，并且 `usage_type/usage_scene` 直接复用 metering。
 - [ ] 增加 `CELERY_TASK_ALWAYS_EAGER=1` 下的任务集成测试与调度回归测试。
 - [ ] 增加旧 `/order` 学员购课流程回归测试。
 - [ ] 编写 rollout、migration、backfill、监控告警和回滚 runbook。
@@ -90,6 +104,7 @@
 
 - [ ] 新增 `billing_entitlements` 和 `billing_domain_bindings`。
 - [ ] 实现创作者维度的权益快照和运行时解析逻辑。
+- [ ] 实现 `max_concurrency`、priority class 和 runtime admission enforcement。
 - [ ] 实现自定义域名绑定、校验、停用和 host 解析逻辑。
 - [ ] 扩展 runtime config，返回 entitlement、branding 和 domain 结果。
 
@@ -103,8 +118,10 @@
 
 ### 前端与管理端扩展
 
+- [ ] 在 `/admin/billing` 增加 `Entitlements`、`Domains`、`Reports` 三个扩展 tab。
 - [ ] 实现品牌配置与域名设置页面。
 - [ ] 实现分析等级、支持等级、优先级和并发能力的展示。
+- [ ] 实现 usage 日汇总和 ledger 日汇总报表视图。
 - [ ] 实现 admin 侧域名审核、权益查看和报表页面。
 
 ### 测试与上线扩展

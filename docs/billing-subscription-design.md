@@ -56,7 +56,20 @@ v1.1 再补充下列扩展能力：
 
 ### 2.2 通用编码
 
-#### 2.2.1 `usage_scene`
+#### 2.2.1 编码来源规则
+
+- `usage_type` 与 `usage_scene` 直接复用 `src/api/flaskr/service/metering/consts.py` 中的现有常量，billing 域不重新分配数字
+- billing 专属状态、类型、metric、rounding mode 统一放到 `7100-7799` 段位
+- `service/billing/consts.py` 应作为 billing 专属编码的唯一来源，其他模块只引用，不复制数字
+
+#### 2.2.2 `usage_type`
+
+| 编码 | 含义 |
+| --- | --- |
+| `1101` | `LLM` |
+| `1102` | `TTS` |
+
+#### 2.2.3 `usage_scene`
 
 | 编码 | 含义 |
 | --- | --- |
@@ -64,18 +77,18 @@ v1.1 再补充下列扩展能力：
 | `1202` | `preview` |
 | `1203` | `production` |
 
-#### 2.2.2 `billing_metric`
+#### 2.2.4 `billing_metric`
 
 | 编码 | 含义 |
 | --- | --- |
-| `1301` | `llm_input_tokens` |
-| `1302` | `llm_cache_tokens` |
-| `1303` | `llm_output_tokens` |
-| `1304` | `tts_request_count` |
-| `1305` | `tts_output_chars` |
-| `1306` | `tts_input_chars`，保留给后续特殊 provider 合同 |
+| `7101` | `llm_input_tokens` |
+| `7102` | `llm_cache_tokens` |
+| `7103` | `llm_output_tokens` |
+| `7104` | `tts_request_count` |
+| `7105` | `tts_output_chars` |
+| `7106` | `tts_input_chars`，保留给后续特殊 provider 合同 |
 
-#### 2.2.3 类型与存储约定
+#### 2.2.5 类型与存储约定
 
 - 所有业务 ID 统一使用 `String(36)`，命名为 `*_bid`
 - 所有状态、类型、场景、metric 字段统一使用 `SmallInteger` 编码，不在库里直接存英文状态串
@@ -94,20 +107,20 @@ v1.1 再补充下列扩展能力：
 | --- | --- | --- | --- | --- | --- |
 | `product_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing product business identifier` | 商品业务 ID |
 | `product_code` | `String(64)` | `not null, default="", unique=True` | 稳定编码，用于配置和对外联调 | `Billing product code` | 商品稳定编码 |
-| `product_type` | `SmallInteger` | `not null, index=True` | `2101=plan; 2102=topup; 2103=grant; 2104=custom` | `Billing product type code` | 商品类型编码 |
-| `billing_mode` | `SmallInteger` | `not null` | `2201=recurring; 2202=one_time; 2203=manual` | `Billing mode code` | 计费模式编码 |
-| `billing_interval` | `SmallInteger` | `not null, default=0` | `2211=none; 2212=month; 2213=year` | `Billing interval code` | 套餐周期编码 |
+| `product_type` | `SmallInteger` | `not null, index=True` | `7111=plan; 7112=topup; 7113=grant; 7114=custom` | `Billing product type code` | 商品类型编码 |
+| `billing_mode` | `SmallInteger` | `not null` | `7121=recurring; 7122=one_time; 7123=manual` | `Billing mode code` | 计费模式编码 |
+| `billing_interval` | `SmallInteger` | `not null, default=0` | `7131=none; 7132=month; 7133=year` | `Billing interval code` | 套餐周期编码 |
 | `billing_interval_count` | `Integer` | `not null, default=0` | 周期倍数，月套餐常见为 `1` | `Billing interval count` | 周期倍数 |
 | `display_name_i18n_key` | `String(128)` | `not null, default=""` | i18n key | `Display name i18n key` | 展示名称翻译 key |
 | `description_i18n_key` | `String(128)` | `not null, default=""` | i18n key | `Description i18n key` | 描述翻译 key |
 | `currency` | `String(16)` | `not null, default="CNY"` | ISO 4217，例如 `CNY`/`USD` | `Currency code` | 货币编码 |
 | `price_amount` | `BIGINT` | `not null, default=0` | 最小货币单位 | `Product price amount` | 商品价格 |
 | `credit_amount` | `BIGINT` | `not null, default=0` | 发放积分数量 | `Credit amount` | 商品附带积分数 |
-| `allocation_interval` | `SmallInteger` | `not null, default=2231` | `2231=per_cycle; 2232=one_time; 2233=manual` | `Credit allocation interval code` | 积分发放节奏 |
+| `allocation_interval` | `SmallInteger` | `not null, default=7141` | `7141=per_cycle; 7142=one_time; 7143=manual` | `Credit allocation interval code` | 积分发放节奏 |
 | `auto_renew_enabled` | `SmallInteger` | `not null, default=0` | `0=no; 1=yes` | `Auto renew enabled flag` | 是否允许自动续费 |
 | `entitlement_payload` | `JSON` | `nullable=True` | v1 可留空，v1.1 用于权益扩展 | `Entitlement payload` | 权益扩展载荷 |
 | `metadata` | `JSON` | `nullable=True` | 自定义展示、运营标记等 | `Billing product metadata` | 商品扩展元数据 |
-| `status` | `SmallInteger` | `not null, default=1501, index=True` | `1501=active; 1502=inactive` | `Billing product status code` | 商品状态 |
+| `status` | `SmallInteger` | `not null, default=7151, index=True` | `7151=active; 7152=inactive` | `Billing product status code` | 商品状态 |
 | `sort_order` | `Integer` | `not null, default=0` | 列表排序，越小越靠前 | `Sort order` | 排序值 |
 
 主键 / 唯一索引 / 关键索引：
@@ -137,7 +150,7 @@ v1.1 再补充下列扩展能力：
 | `subscription_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing subscription business identifier` | 订阅业务 ID |
 | `creator_bid` | `String(36)` | `not null, default="", index=True` | 订阅所属创作者 | `Creator business identifier` | 创作者业务 ID |
 | `product_bid` | `String(36)` | `not null, default="", index=True` | 必须引用 `product_type=plan` | `Current billing product business identifier` | 当前套餐商品 ID |
-| `status` | `SmallInteger` | `not null, default=2301, index=True` | `2301=draft; 2302=active; 2303=past_due; 2304=paused; 2305=cancel_scheduled; 2306=canceled; 2307=expired` | `Billing subscription status code` | 订阅状态 |
+| `status` | `SmallInteger` | `not null, default=7201, index=True` | `7201=draft; 7202=active; 7203=past_due; 7204=paused; 7205=cancel_scheduled; 7206=canceled; 7207=expired` | `Billing subscription status code` | 订阅状态 |
 | `billing_provider` | `String(32)` | `not null, default="", index=True` | `stripe` / `pingxx` | `Billing provider name` | 支付 provider |
 | `provider_subscription_id` | `String(255)` | `not null, default=""` | provider 订阅 ID | `Provider subscription identifier` | provider 订阅号 |
 | `provider_customer_id` | `String(255)` | `not null, default=""` | provider 客户 ID | `Provider customer identifier` | provider 客户号 |
@@ -176,7 +189,7 @@ v1.1 再补充下列扩展能力：
 | --- | --- | --- | --- | --- | --- |
 | `billing_order_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing order business identifier` | 支付动作单业务 ID |
 | `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
-| `order_type` | `SmallInteger` | `not null, index=True` | `2401=subscription_start; 2402=subscription_upgrade; 2403=subscription_renewal; 2404=topup; 2405=manual; 2406=refund` | `Billing order type code` | 支付动作类型 |
+| `order_type` | `SmallInteger` | `not null, index=True` | `7301=subscription_start; 7302=subscription_upgrade; 7303=subscription_renewal; 7304=topup; 7305=manual; 7306=refund` | `Billing order type code` | 支付动作类型 |
 | `product_bid` | `String(36)` | `not null, default="", index=True` | 对应商品 ID | `Billing product business identifier` | 商品业务 ID |
 | `subscription_bid` | `String(36)` | `not null, default="", index=True` | 套餐场景必填；topup 可留空字符串 | `Billing subscription business identifier` | 关联订阅 ID |
 | `currency` | `String(16)` | `not null, default="CNY"` | ISO 4217 | `Currency code` | 货币编码 |
@@ -185,7 +198,7 @@ v1.1 再补充下列扩展能力：
 | `payment_provider` | `String(32)` | `not null, default="", index=True` | `stripe` / `pingxx` | `Payment provider name` | 支付 provider |
 | `channel` | `String(64)` | `not null, default=""` | provider 内部支付渠道 | `Payment channel` | 支付渠道 |
 | `provider_reference_id` | `String(255)` | `not null, default="", index=True` | 通用 provider 引用，如 checkout/session/charge/invoice | `Provider reference identifier` | provider 参考 ID |
-| `status` | `SmallInteger` | `not null, default=2501, index=True` | `2501=init; 2502=pending; 2503=paid; 2504=failed; 2505=refunded; 2506=canceled; 2507=timeout` | `Billing order status code` | 支付状态 |
+| `status` | `SmallInteger` | `not null, default=7311, index=True` | `7311=init; 7312=pending; 7313=paid; 7314=failed; 7315=refunded; 7316=canceled; 7317=timeout` | `Billing order status code` | 支付状态 |
 | `paid_at` | `DateTime` | `nullable=True` | 支付成功时间 | `Paid timestamp` | 支付成功时间 |
 | `failed_at` | `DateTime` | `nullable=True` | 支付失败时间 | `Failed timestamp` | 支付失败时间 |
 | `refunded_at` | `DateTime` | `nullable=True` | 退款完成时间 | `Refunded timestamp` | 退款时间 |
@@ -224,7 +237,7 @@ v1.1 再补充下列扩展能力：
 | `provider_event_id` | `String(255)` | `not null, default=""` | provider 原始事件 ID | `Provider event identifier` | provider 事件 ID |
 | `provider_reference_id` | `String(255)` | `not null, default="", index=True` | checkout/charge/invoice/subscription 等引用 | `Provider reference identifier` | provider 参考 ID |
 | `event_type` | `String(64)` | `not null, default="", index=True` | 直接存 provider 事件名 | `Provider event type` | provider 事件类型 |
-| `status` | `SmallInteger` | `not null, default=2601, index=True` | `2601=received; 2602=processed; 2603=ignored; 2604=failed` | `Provider event status code` | 事件处理状态 |
+| `status` | `SmallInteger` | `not null, default=7321, index=True` | `7321=received; 7322=processed; 7323=ignored; 7324=failed` | `Provider event status code` | 事件处理状态 |
 | `payload` | `JSON` | `nullable=True` | 原始 webhook / sync 响应体 | `Provider event payload` | provider 原始载荷 |
 | `error_code` | `String(255)` | `not null, default=""` | 内部或 provider 错误码 | `Event error code` | 事件错误码 |
 | `error_message` | `String(255)` | `not null, default=""` | 处理失败信息 | `Event error message` | 事件错误信息 |
@@ -285,9 +298,10 @@ v1.1 再补充下列扩展能力：
 | `ledger_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing ledger business identifier` | 账本业务 ID |
 | `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
 | `wallet_bid` | `String(36)` | `not null, default="", index=True` | 归属钱包 | `Billing wallet business identifier` | 钱包业务 ID |
-| `entry_type` | `SmallInteger` | `not null, index=True` | `2701=grant; 2702=consume; 2703=refund; 2704=expire; 2705=adjustment; 2706=hold; 2707=release` | `Billing ledger entry type code` | 账本分录类型 |
-| `source_type` | `SmallInteger` | `not null, index=True` | `2801=subscription; 2802=topup; 2803=gift; 2804=usage; 2805=refund; 2806=manual` | `Billing ledger source type code` | 分录来源类型 |
+| `entry_type` | `SmallInteger` | `not null, index=True` | `7401=grant; 7402=consume; 7403=refund; 7404=expire; 7405=adjustment; 7406=hold; 7407=release` | `Billing ledger entry type code` | 账本分录类型 |
+| `source_type` | `SmallInteger` | `not null, index=True` | `7411=subscription; 7412=topup; 7413=gift; 7414=usage; 7415=refund; 7416=manual` | `Billing ledger source type code` | 分录来源类型 |
 | `source_bid` | `String(36)` | `not null, default="", index=True` | 对应业务单号，如 order/subscription/usage | `Ledger source business identifier` | 来源业务 ID |
+| `idempotency_key` | `String(128)` | `not null, default="", index=True` | 统一幂等键；usage 扣分需带 metric 维度 | `Ledger idempotency key` | 分录幂等键 |
 | `amount` | `BIGINT` | `not null, default=0` | 正数增加可用余额，负数减少可用余额 | `Ledger amount` | 分录金额 |
 | `balance_after` | `BIGINT` | `not null, default=0` | 写入后可用余额快照 | `Balance after entry` | 分录后余额 |
 | `expires_at` | `DateTime` | `nullable=True, index=True` | 仅 grant 类分录会有到期时间 | `Entry expiration timestamp` | 积分到期时间 |
@@ -298,7 +312,7 @@ v1.1 再补充下列扩展能力：
 
 - 主键：`id`
 - 关键索引：`ledger_bid`、`creator_bid + created_at`、`source_type + source_bid`
-- 建议唯一约束：`source_type + source_bid + entry_type` 由业务侧按幂等 key 控制，避免重复入账
+- 建议唯一约束：`creator_bid + idempotency_key`，由业务侧生成稳定幂等 key，避免重复入账
 
 与其他表关系：
 
@@ -308,6 +322,8 @@ v1.1 再补充下列扩展能力：
 本表职责与边界：
 
 - 所有发放、扣减、退款、过期、人工调整都必须落账
+- usage 扣分分录的 `idempotency_key` 应为 `usage_bid + billing_metric + entry_type`
+- 非 usage 分录由业务侧生成稳定幂等键，如 `billing_order_bid + entry_type`
 - `metadata.metric_breakdown[]` 用于保存 LLM 三维或 TTS metric 的细分扣分来源
 
 ### 3.7 `billing_usage_rates`
@@ -321,13 +337,13 @@ v1.1 再补充下列扩展能力：
 | `provider` | `String(32)` | `not null, default="", index=True` | provider 名称，可允许 `*` 作为 wildcard | `Provider name` | provider |
 | `model` | `String(100)` | `not null, default="", index=True` | model 名称，可允许 `*` 作为 wildcard | `Provider model` | 模型名 |
 | `usage_scene` | `SmallInteger` | `not null, index=True` | `1201=debug; 1202=preview; 1203=production` | `Usage scene code` | 场景编码 |
-| `billing_metric` | `SmallInteger` | `not null, index=True` | `1301=llm_input_tokens; 1302=llm_cache_tokens; 1303=llm_output_tokens; 1304=tts_request_count; 1305=tts_output_chars; 1306=tts_input_chars` | `Billing metric code` | 计费 metric |
+| `billing_metric` | `SmallInteger` | `not null, index=True` | `7101=llm_input_tokens; 7102=llm_cache_tokens; 7103=llm_output_tokens; 7104=tts_request_count; 7105=tts_output_chars; 7106=tts_input_chars` | `Billing metric code` | 计费 metric |
 | `unit_size` | `Integer` | `not null, default=1` | 计费单位分母，如 `1000 tokens` | `Billing unit size` | 费率分母 |
 | `credits_per_unit` | `BIGINT` | `not null, default=0` | 每个计费单位对应积分 | `Credits per unit` | 单位积分消耗 |
-| `rounding_mode` | `SmallInteger` | `not null, default=1401` | `1401=ceil; 1402=floor; 1403=round` | `Rounding mode code` | 取整模式 |
+| `rounding_mode` | `SmallInteger` | `not null, default=7421` | `7421=ceil; 7422=floor; 7423=round` | `Rounding mode code` | 取整模式 |
 | `effective_from` | `DateTime` | `not null, index=True` | 生效开始时间 | `Effective from timestamp` | 生效开始时间 |
 | `effective_to` | `DateTime` | `nullable=True, index=True` | 生效结束时间 | `Effective to timestamp` | 生效结束时间 |
-| `status` | `SmallInteger` | `not null, default=1501, index=True` | `1501=active; 1502=inactive` | `Billing usage rate status code` | 费率状态 |
+| `status` | `SmallInteger` | `not null, default=7151, index=True` | `7151=active; 7152=inactive` | `Billing usage rate status code` | 费率状态 |
 
 主键 / 唯一索引 / 关键索引：
 
@@ -341,8 +357,8 @@ v1.1 再补充下列扩展能力：
 
 本表职责与边界：
 
-- LLM 默认要求同一 provider/model/scene 至少配置三条 metric：`1301/1302/1303`
-- TTS 默认只启用一种主 metric：`1304` 或 `1305`
+- LLM 默认要求同一 provider/model/scene 至少配置三条 metric：`7101/7102/7103`
+- TTS 默认只启用一种主 metric：`7104` 或 `7105`
 - 如果找不到精确 model，可按 `model="*"` 或 `provider="*"` fallback
 
 ### 3.8 `billing_renewal_events`
@@ -354,9 +370,9 @@ v1.1 再补充下列扩展能力：
 | `renewal_event_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing renewal event business identifier` | 续费事件业务 ID |
 | `subscription_bid` | `String(36)` | `not null, default="", index=True` | 关联订阅 | `Billing subscription business identifier` | 订阅业务 ID |
 | `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
-| `event_type` | `SmallInteger` | `not null, index=True` | `2901=renewal; 2902=retry; 2903=cancel_effective; 2904=downgrade_effective; 2905=expire; 2906=reconcile` | `Renewal event type code` | 排期事件类型 |
+| `event_type` | `SmallInteger` | `not null, index=True` | `7501=renewal; 7502=retry; 7503=cancel_effective; 7504=downgrade_effective; 7505=expire; 7506=reconcile` | `Renewal event type code` | 排期事件类型 |
 | `scheduled_at` | `DateTime` | `not null, index=True` | 计划执行时间 | `Scheduled timestamp` | 计划执行时间 |
-| `status` | `SmallInteger` | `not null, default=3001, index=True` | `3001=pending; 3002=processing; 3003=succeeded; 3004=failed; 3005=canceled` | `Renewal event status code` | 排期执行状态 |
+| `status` | `SmallInteger` | `not null, default=7511, index=True` | `7511=pending; 7512=processing; 7513=succeeded; 7514=failed; 7515=canceled` | `Renewal event status code` | 排期执行状态 |
 | `attempt_count` | `Integer` | `not null, default=0` | 已尝试次数 | `Attempt count` | 执行尝试次数 |
 | `last_error` | `String(255)` | `not null, default=""` | 最近错误摘要 | `Last error message` | 最近错误 |
 | `payload` | `JSON` | `nullable=True` | 事件上下文、重试参数、排期快照 | `Renewal event payload` | 排期扩展载荷 |
@@ -387,14 +403,14 @@ v1.1 再补充下列扩展能力：
 | --- | --- | --- | --- | --- | --- |
 | `entitlement_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing entitlement business identifier` | 权益业务 ID |
 | `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
-| `source_type` | `SmallInteger` | `not null, index=True` | `2801=subscription; 2802=topup; 2803=gift; 2806=manual` | `Entitlement source type code` | 权益来源类型 |
+| `source_type` | `SmallInteger` | `not null, index=True` | `7411=subscription; 7412=topup; 7413=gift; 7416=manual` | `Entitlement source type code` | 权益来源类型 |
 | `source_bid` | `String(36)` | `not null, default="", index=True` | 来源业务单号 | `Entitlement source business identifier` | 权益来源业务 ID |
 | `branding_enabled` | `SmallInteger` | `not null, default=0` | `0=no; 1=yes` | `Branding enabled flag` | 是否启用品牌定制 |
 | `custom_domain_enabled` | `SmallInteger` | `not null, default=0` | `0=no; 1=yes` | `Custom domain enabled flag` | 是否支持自定义域名 |
-| `priority_class` | `SmallInteger` | `not null, default=3401` | `3401=standard; 3402=priority; 3403=vip` | `Priority class code` | 队列优先级档位 |
+| `priority_class` | `SmallInteger` | `not null, default=7701` | `7701=standard; 7702=priority; 7703=vip` | `Priority class code` | 队列优先级档位 |
 | `max_concurrency` | `Integer` | `not null, default=1` | 允许并发上限 | `Max concurrency` | 并发上限 |
-| `analytics_tier` | `SmallInteger` | `not null, default=3501` | `3501=basic; 3502=advanced; 3503=enterprise` | `Analytics tier code` | 分析能力等级 |
-| `support_tier` | `SmallInteger` | `not null, default=3601` | `3601=self_serve; 3602=business_hours; 3603=priority` | `Support tier code` | 支持等级 |
+| `analytics_tier` | `SmallInteger` | `not null, default=7711` | `7711=basic; 7712=advanced; 7713=enterprise` | `Analytics tier code` | 分析能力等级 |
+| `support_tier` | `SmallInteger` | `not null, default=7721` | `7721=self_serve; 7722=business_hours; 7723=priority` | `Support tier code` | 支持等级 |
 | `feature_payload` | `JSON` | `nullable=True` | 细粒度 feature 开关 | `Entitlement feature payload` | 权益扩展载荷 |
 | `effective_from` | `DateTime` | `not null, index=True` | 生效开始 | `Effective from timestamp` | 生效开始时间 |
 | `effective_to` | `DateTime` | `nullable=True, index=True` | 生效结束 | `Effective to timestamp` | 生效结束时间 |
@@ -422,11 +438,11 @@ v1.1 再补充下列扩展能力：
 | `domain_binding_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing domain binding business identifier` | 域名绑定业务 ID |
 | `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
 | `host` | `String(255)` | `not null, default="", unique=True` | 绑定域名 | `Custom domain host` | 自定义域名 |
-| `status` | `SmallInteger` | `not null, default=3101, index=True` | `3101=pending; 3102=verified; 3103=failed; 3104=disabled` | `Domain binding status code` | 域名绑定状态 |
-| `verification_method` | `SmallInteger` | `not null, default=3201` | `3201=dns_txt; 3202=cname; 3203=file` | `Verification method code` | 域名校验方式 |
+| `status` | `SmallInteger` | `not null, default=7601, index=True` | `7601=pending; 7602=verified; 7603=failed; 7604=disabled` | `Domain binding status code` | 域名绑定状态 |
+| `verification_method` | `SmallInteger` | `not null, default=7611` | `7611=dns_txt; 7612=cname; 7613=file` | `Verification method code` | 域名校验方式 |
 | `verification_token` | `String(255)` | `not null, default=""` | 校验 token | `Verification token` | 校验 token |
 | `last_verified_at` | `DateTime` | `nullable=True` | 最近一次校验成功时间 | `Last verified timestamp` | 最近校验时间 |
-| `ssl_status` | `SmallInteger` | `not null, default=3301` | `3301=not_requested; 3302=provisioning; 3303=active; 3304=failed` | `SSL status code` | 证书状态 |
+| `ssl_status` | `SmallInteger` | `not null, default=7621` | `7621=not_requested; 7622=provisioning; 7623=active; 7624=failed` | `SSL status code` | 证书状态 |
 | `metadata` | `JSON` | `nullable=True` | 证书 provider、DNS 检查结果等 | `Domain binding metadata` | 域名扩展元数据 |
 
 主键 / 唯一索引 / 关键索引：
@@ -458,7 +474,7 @@ v1.1 再补充下列扩展能力：
 | `usage_type` | `SmallInteger` | `not null, index=True` | `1101=LLM; 1102=TTS` | `Usage type code` | usage 类型 |
 | `provider` | `String(32)` | `not null, default="", index=True` | provider | `Provider name` | provider |
 | `model` | `String(100)` | `not null, default="", index=True` | model | `Provider model` | 模型 |
-| `billing_metric` | `SmallInteger` | `not null, index=True` | 见 `1301-1306` | `Billing metric code` | 计费 metric |
+| `billing_metric` | `SmallInteger` | `not null, index=True` | 见 `7101-7106` | `Billing metric code` | 计费 metric |
 | `raw_amount` | `BIGINT` | `not null, default=0` | 原始用量汇总 | `Raw amount` | 原始用量 |
 | `record_count` | `BIGINT` | `not null, default=0` | usage 记录数 | `Record count` | 记录条数 |
 | `consumed_credits` | `BIGINT` | `not null, default=0` | 当天扣除积分汇总 | `Consumed credits` | 消耗积分 |
@@ -488,8 +504,8 @@ v1.1 再补充下列扩展能力：
 | `daily_ledger_summary_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Daily ledger summary business identifier` | 账本日摘要业务 ID |
 | `stat_date` | `String(10)` | `not null, default="", index=True` | `YYYY-MM-DD` | `Statistic date` | 统计日期 |
 | `creator_bid` | `String(36)` | `not null, default="", index=True` | 创作者维度 | `Creator business identifier` | 创作者业务 ID |
-| `entry_type` | `SmallInteger` | `not null, index=True` | `2701=grant; 2702=consume; 2703=refund; 2704=expire; 2705=adjustment; 2706=hold; 2707=release` | `Billing ledger entry type code` | 分录类型 |
-| `source_type` | `SmallInteger` | `not null, index=True` | `2801=subscription; 2802=topup; 2803=gift; 2804=usage; 2805=refund; 2806=manual` | `Billing ledger source type code` | 来源类型 |
+| `entry_type` | `SmallInteger` | `not null, index=True` | `7401=grant; 7402=consume; 7403=refund; 7404=expire; 7405=adjustment; 7406=hold; 7407=release` | `Billing ledger entry type code` | 分录类型 |
+| `source_type` | `SmallInteger` | `not null, index=True` | `7411=subscription; 7412=topup; 7413=gift; 7414=usage; 7415=refund; 7416=manual` | `Billing ledger source type code` | 来源类型 |
 | `amount` | `BIGINT` | `not null, default=0` | 当天同类分录金额汇总 | `Ledger amount total` | 汇总金额 |
 | `entry_count` | `BIGINT` | `not null, default=0` | 当天同类分录条数 | `Ledger entry count` | 分录条数 |
 | `window_started_at` | `DateTime` | `not null` | 聚合窗口开始 | `Window start timestamp` | 聚合窗口开始时间 |
@@ -580,9 +596,9 @@ v1 需要新增的改造点：
 - admission 至少校验：
   - creator 钱包余额
   - creator 订阅状态
-  - 套餐并发上限
 - admission 拒绝后，不进入新的 billable LLM/TTS 调用
 - usage 落库成功后，由 settlement 消费 `bill_usage` 并写入 `billing_ledger_entries`
+- v1 不承诺 creator 并发隔离；并发限制与 priority 统一放到 v1.1 的 entitlement/runtime enforcement
 
 ### 5.4 Runtime Config 与前端边界
 
@@ -717,12 +733,12 @@ v1 需要新增：
 
 - 学员正式学习 `production`、作者 `preview`、作者 `debug` 统一扣课程所属创作者积分
 - LLM 一条 usage 默认按三条费率结算：
-  - `1301=llm_input_tokens`
-  - `1302=llm_cache_tokens`
-  - `1303=llm_output_tokens`
+  - `7101=llm_input_tokens`
+  - `7102=llm_cache_tokens`
+  - `7103=llm_output_tokens`
 - TTS 一条 usage 默认只命中一种主费率：
-  - `1304=tts_request_count`
-  - 或 `1305=tts_output_chars`
+  - `7104=tts_request_count`
+  - 或 `7105=tts_output_chars`
 - 结算真相源为：
   - 原始 usage：`bill_usage`
   - 积分真相：`billing_ledger_entries`
@@ -785,6 +801,154 @@ interface BillingPaymentProviderAdapter {
 }
 ```
 
+### 7.5 前端实现方案
+
+当前前端的已知事实：
+
+- App Router 入口集中在 `src/cook-web/src/app/`
+- 接口定义集中在 `src/cook-web/src/api/api.ts`
+- 请求封装集中在 `src/cook-web/src/lib/request.ts`
+- 运行时配置通过 `src/cook-web/src/lib/initializeEnvData.ts` 写入 `envStore`
+- 管理端统一布局在 `src/cook-web/src/app/admin/layout.tsx`
+- 现有订单管理页已经使用 `Table + Sheet + 本地状态/搜索参数` 的管理端交互模式
+
+v1 前端不新建全局 billing store，默认采用：
+
+- 读接口：SWR
+- 写接口：统一 `api` 方法 + 成功后 `mutate`
+- 页面局部状态：`useState`
+- 公共类型：新增 `src/cook-web/src/types/billing.ts`
+
+#### 7.5.1 v1 路由与页面结构
+
+v1 采用单路由 Billing Center，避免一开始拆太多子页面。
+
+- 新增 `src/cook-web/src/app/admin/billing/page.tsx`
+- 在 `src/cook-web/src/app/admin/layout.tsx` 侧边栏新增 `Billing` 菜单
+- Billing Center 使用 `Tabs` 拆成三个视图：
+  - `Overview`
+  - `Ledger`
+  - `Orders`
+
+页面职责：
+
+- `Overview`
+  - 读取 `GET /billing/overview`
+  - 展示当前订阅、钱包余额、低余额/续费异常告警
+  - 展示套餐目录和充值包目录
+  - 承载升级、续费恢复、取消自动续费、购买充值包入口
+- `Ledger`
+  - 读取 `GET /billing/ledger`
+  - 展示积分流水、来源类型、余额变化、时间筛选
+- `Orders`
+  - 读取 `GET /billing/orders`
+  - 展示支付单、状态、provider、金额、失败信息
+  - 通过 `GET /billing/orders/{billing_order_bid}` 打开详情抽屉
+
+#### 7.5.2 v1 组件拆分
+
+建议新增 `src/cook-web/src/components/billing/`，至少包含：
+
+- `BillingAlertsBanner.tsx`
+- `BillingOverviewCard.tsx`
+- `BillingSubscriptionCard.tsx`
+- `BillingCatalogCards.tsx`
+- `BillingLedgerTable.tsx`
+- `BillingOrdersTable.tsx`
+- `BillingCheckoutDialog.tsx`
+- `BillingOrderDetailSheet.tsx`
+
+组件约束：
+
+- 表格、抽屉、对话框统一复用现有 `ui` 组件
+- 详情查看沿用现有订单页的 `Sheet` 交互，不使用新窗口跳转
+- 购买动作统一在 dialog 中确认，再调用 checkout API
+
+#### 7.5.3 API 接入与前端类型
+
+需要在 `src/cook-web/src/api/api.ts` 增加：
+
+- `getBillingCatalog`
+- `getBillingOverview`
+- `getBillingLedger`
+- `getBillingOrders`
+- `getBillingOrderDetail`
+- `syncBillingOrder`
+- `checkoutBillingSubscription`
+- `cancelBillingSubscription`
+- `resumeBillingSubscription`
+- `checkoutBillingTopup`
+- `getAdminBillingSubscriptions`
+- `getAdminBillingOrders`
+- `adjustAdminBillingLedger`
+
+需要在 `src/cook-web/src/types/billing.ts` 定义：
+
+- `BillingPlan`
+- `BillingTopupProduct`
+- `BillingSubscription`
+- `BillingLedgerItem`
+- `BillingOrderSummary`
+- `BillingOrderDetail`
+- `CreatorBillingOverview`
+- `BillingCheckoutPayload`
+
+前端数据获取策略：
+
+- `getBillingCatalog` 和 `getBillingOverview` 在 `Overview` tab 首屏并行请求
+- `getBillingLedger` 和 `getBillingOrders` 在对应 tab 激活时懒加载
+- 写操作成功后只刷新受影响的 SWR key，不全页硬刷新
+
+#### 7.5.4 Stripe 支付回跳
+
+当前现有 Stripe 回跳页 `src/cook-web/src/app/payment/stripe/result/page.tsx` 是学员购课专用，成功后会跳到课程页，不适合 creator billing 直接复用。
+
+v1 前端方案：
+
+- 新增 `src/cook-web/src/app/payment/stripe/billing-result/page.tsx`
+- billing checkout 的 `success_url` / `cancel_url` 指向新的 billing result 页
+- billing result 页职责：
+  - 从 query 读取 `billing_order_bid` / `session_id`
+  - 先调用 `POST /billing/orders/{billing_order_bid}/sync`
+  - 再读取 `GET /billing/orders/{billing_order_bid}` 或 `GET /billing/overview` 刷新状态
+  - 成功后跳回 `/admin/billing`
+  - 待支付或失败时展示明确状态和重试入口
+
+#### 7.5.5 v1.1 前端扩展
+
+v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
+
+- `Entitlements`
+- `Domains`
+- `Reports`
+
+页面职责：
+
+- `Entitlements`
+  - 展示当前权益快照、并发等级、优先级、分析等级、支持等级
+- `Domains`
+  - 展示域名绑定状态、校验 token、最近校验时间、证书状态
+  - 发起域名绑定和重试校验
+- `Reports`
+  - 展示 usage 日汇总和 ledger 日汇总
+
+#### 7.5.6 i18n 与状态展示
+
+前端新增文案统一使用 `module.billing.*` 命名空间，至少覆盖：
+
+- 页面标题和 tab 标题
+- 订阅状态文案
+- 支付状态文案
+- 账本类型和来源类型文案
+- 低余额、续费失败、宽限期结束提示
+- checkout、cancel、resume、topup 的确认文案
+
+状态展示约束：
+
+- 前端不要直接展示数值码，统一映射为 i18n 文案
+- API 返回如已带 `*_key`，前端优先用 key 渲染；否则按本地 code map fallback
+- `billing_alerts` 优先使用 `message_key + message_params` 渲染，不直接消费后端拼接文案
+
 ## 8. 公共 API 与类型
 
 ### 8.1 v1 核心 API
@@ -792,6 +956,9 @@ interface BillingPaymentProviderAdapter {
 - `GET /billing/catalog`
 - `GET /billing/overview`
 - `GET /billing/ledger`
+- `GET /billing/orders`
+- `GET /billing/orders/{billing_order_bid}`
+- `POST /billing/orders/{billing_order_bid}/sync`
 - `POST /billing/subscriptions/checkout`
 - `POST /billing/subscriptions/cancel`
 - `POST /billing/subscriptions/resume`
@@ -805,11 +972,15 @@ interface BillingPaymentProviderAdapter {
 核心接口说明：
 
 - `GET /billing/catalog`：读取 `billing_products`，输出 `plans[]` 与 `topups[]`
-- `GET /billing/overview`：v1 只返回 `wallet`、`subscription`、`billing_alerts`
+- `GET /billing/overview`：v1 只返回 `wallet`、`subscription`、`billing_alerts`，告警允许实时计算返回
 - `GET /billing/ledger`：按时间倒序分页返回账本流水
+- `GET /billing/orders`：creator 自助查看自己的 billing 订单列表
+- `GET /billing/orders/{billing_order_bid}`：creator 查看单笔 billing 订单详情
+- `POST /billing/orders/{billing_order_bid}/sync`：按 `billing_order_bid` 和 provider reference 主动同步支付状态
 - `POST /billing/subscriptions/checkout`：新开订阅、升级补差或恢复订阅
 - `POST /billing/topups/checkout`：发起一次性充值支付
 - `POST /billing/webhooks/stripe` / `POST /billing/webhooks/pingxx`：负责 `billing_provider_events` 幂等、`billing_orders` 状态推进、`billing_subscriptions` 推进和账本发放/扣回
+- `GET /admin/billing/orders`：后台运营侧查询 creator billing 订单
 - `POST /admin/billing/ledger/adjust`：后台人工调整积分，必须写入 `billing_ledger_entries`
 
 ### 8.2 v1.1 扩展 API
@@ -831,6 +1002,8 @@ interface BillingPaymentProviderAdapter {
 - `BillingPlan` 和 `BillingTopupProduct` 是 `billing_products` 的展示层投影，不是底层独立表
 - v1 的 `CreatorBillingOverview` 只返回钱包、订阅和告警
 - `entitlements`、`branding`、`domains` 属于 v1.1 扩展输出
+- `usage_type` / `usage_scene` 的数值来源于 `metering.consts`
+- billing 相关状态、类型、metric 的数值来源于未来的 `service/billing/consts.py`
 
 ```ts
 type BillingPlan = {
@@ -878,6 +1051,7 @@ type BillingLedgerItem = {
   entry_type: 'grant' | 'consume' | 'refund' | 'expire' | 'adjustment' | 'hold' | 'release';
   source_type: 'subscription' | 'topup' | 'gift' | 'usage' | 'refund' | 'manual';
   source_bid: string;
+  idempotency_key: string;
   amount: number;
   balance_after: number;
   expires_at: string | null;
@@ -909,8 +1083,12 @@ type CreatorBillingOverview = {
   };
   subscription: BillingSubscription | null;
   billing_alerts: Array<{
-    type: string;
-    message: string;
+    code: string;
+    severity: 'info' | 'warning' | 'error';
+    message_key: string;
+    message_params?: Record<string, string | number>;
+    action_type?: 'checkout_topup' | 'resume_subscription' | 'open_orders';
+    action_payload?: Record<string, string | number>;
   }>;
 };
 
