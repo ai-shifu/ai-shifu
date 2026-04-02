@@ -178,7 +178,7 @@
 
 .slide-player__ask-card {
   position: relative;
-  overflow: visible;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 24px;
   background: var(--background);
@@ -188,9 +188,13 @@
 }
 
 .slide-player__ask-body {
-  max-height: 240px;
+  max-height: min(480px, calc(100dvh - 240px));
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0;
+  border-radius: inherit;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .slide-player__ask-arrow {

@@ -1152,8 +1152,8 @@ const ListenModeSlideRenderer = ({
                   shifu_bid={shifuBid}
                 />
               </div>
-              <div className='slide-player__ask-arrow' />
             </div>
+            <div className='slide-player__ask-arrow' />
           </div>
         ) : null}
         <Slide
