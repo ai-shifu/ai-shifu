@@ -41,6 +41,7 @@ export interface AskBlockProps {
   outline_bid: string;
   preview_mode?: boolean;
   element_bid: string;
+  onAskListChange?: (askList: AskMessage[], element_bid: string) => void;
   onToggleAskExpanded?: (element_bid: string) => void;
 }
 
@@ -56,6 +57,7 @@ export default function AskBlock({
   outline_bid,
   preview_mode = false,
   element_bid,
+  onAskListChange,
   onToggleAskExpanded,
 }: AskBlockProps) {
   const { t } = useTranslation();
@@ -65,8 +67,8 @@ export default function AskBlock({
   const courseAvatar = useCourseStore(state => state.courseAvatar);
   const [displayList, setDisplayList] = useState<AskMessage[]>(() => {
     return askList.map(item => ({
+      ...item,
       content: item.content || '',
-      type: item.type,
     }));
   });
 
@@ -305,6 +307,10 @@ export default function AskBlock({
   // Decide which messages to display
   const messagesToShow = expanded ? displayList : displayList.slice(0, 1);
   const hasAskAnswerMessages = messagesToShow.length > 0;
+
+  useEffect(() => {
+    onAskListChange?.(displayList, element_bid);
+  }, [displayList, element_bid, onAskListChange]);
 
   useEffect(() => {
     if (!expanded) {
