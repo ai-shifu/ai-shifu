@@ -794,6 +794,16 @@ const ListenModeSlideRenderer = ({
   );
 
   const handlePlayerCustomActionClose = useCallback(() => {
+    setPlayerCustomActionState(prevState => {
+      if (!prevState.isActive) {
+        return prevState;
+      }
+
+      return {
+        ...prevState,
+        isActive: false,
+      };
+    });
     playerCustomActionSetActiveRef.current(false);
   }, []);
 
