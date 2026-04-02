@@ -1,882 +1,904 @@
-# Creator Billing And Subscription Design
+# Billing 设计文档
 
-## 1. Overview
+更新日期：2026-04-02
 
-AI-Shifu currently monetizes at the **course order** level: a learner buys one course, pays once, and receives access to that course. The new billing model introduces a **creator-scoped billing domain** where a creator account purchases subscription plans and top-up packages, consumes credits as production workloads run, and receives paid entitlements such as branding, custom domains, queue priority, concurrency limits, and analytics depth.
+## 1. 文档目标
 
-This document defines the v1 implementation for:
+### 1.1 v1 核心计费目标
 
-- Creator-scoped subscription plans
-- One-off top-up packages
-- Credit wallets and ledger accounting
-- Dual-channel auto-renewal
-- Creator entitlements for branding, domains, priority, concurrency, analytics, and support tier
+v1 只解决最小可上线的 creator billing 闭环：
+
+- 创作者购买套餐和充值包
+- 套餐自动续费
+- 学员 `production`、作者 `preview`、作者 `debug` 三类场景统一扣创作者积分
+- LLM 按 `input/cache/output` 三维扣分
+- TTS 同时支持 `按次` 和 `按字数` 两种费率模型
+- 支付、订阅、钱包、账本、费率、续费排期形成完整真相源
 
-### 1.1 Fixed Product Decisions
+### 1.2 v1.1 扩展目标
 
-The design assumes the following choices are already accepted:
+v1.1 再补充下列扩展能力：
 
-| Topic | Decision |
-|-------|----------|
-| Billing owner | Creator account |
-| Product scope | Subscription plans + one-off top-ups + gift credits |
-| Renewal mode | Auto-renewal for both Stripe and domestic recurring payment channel |
-| Entitlement scope | Credits + branding + domain + priority + concurrency + analytics + support tier |
-| Legacy course orders | Preserved unchanged |
+- 创作者权益快照
+- 自定义域名绑定
+- 按天 usage/ledger 报表聚合
+- 基于权益的 branding、domain、analytics、priority、concurrency 扩展输出
 
-### 1.2 Goals
+### 1.3 本文冻结的关键决策
 
-- Introduce a dedicated billing domain without breaking legacy learner course purchase flow.
-- Meter creator production usage and convert it into billable credits.
-- Support monthly and yearly plans, plus top-up packages and trial or gift credits.
-- Support auto-renewal, renewal retries, cancellation scheduling, downgrade scheduling, and billing reconciliation.
-- Make paid entitlements creator-scoped and available to runtime resolution.
-- Provide creator-facing and admin-facing billing UIs.
+- 计费主体固定为 `creator_bid`
+- 课程学习、预览、调试的 LLM/TTS 消耗都由课程所属创作者承担
+- 商品目录统一使用 `billing_products` 单表，API 仍按 `plans[]` / `topups[]` 投影
+- 支付持久化统一使用 `billing_orders` + `billing_provider_events`
+- 钱包快照与账本真相源分离：`billing_wallets` 只做余额快照，`billing_ledger_entries` 才是不可变真相源
+- `bill_usage + billing_ledger_entries` 是结算真相源；日报表只是报表层聚合，不参与扣费真相判断
+- 旧的学员购课 `/order` 流程继续保留，不与 creator billing 混表
 
-### 1.3 Non-Goals
+## 2. 字段类型与编码约定
 
-- Replacing the existing learner course purchase flow under `/order`
-- Migrating legacy course orders into the new billing tables
-- Delivering enterprise custom billing logic beyond storing custom-plan placeholders
-- Implementing a full tenant model beyond creator-scoped ownership
+### 2.1 公共基础字段
 
-## 2. Current State Analysis
+除非特别说明，以下字段适用于所有 billing 表。
 
-### 2.1 Existing Course Order Flow
+| 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
+| --- | --- | --- | --- | --- | --- |
+| `id` | `BIGINT` | `primary_key=True, autoincrement=True` | 自增主键 | `Primary key` | 物理主键 |
+| `deleted` | `SmallInteger` | `not null, default=0, index=True` | `0=active; 1=deleted` | `Deletion flag` | 软删标记 |
+| `created_at` | `DateTime` | `not null, default=func.now()` | 创建时写入 | `Creation timestamp` | 创建时间 |
+| `updated_at` | `DateTime` | `not null, default=func.now(), onupdate=func.now()` | 更新时刷新 | `Last update timestamp` | 更新时间 |
+
+如果某张表会被后台管理端直接维护，可按仓库现有 Cook 规范额外补充：
+
+| 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
+| --- | --- | --- | --- | --- | --- |
+| `created_user_bid` | `String(36)` | `not null, default="", index=True` | 管理端写入人 | `Creator user business identifier` | 创建人业务 ID |
+| `updated_user_bid` | `String(36)` | `not null, default="", index=True` | 管理端更新人 | `Last updater user business identifier` | 更新人业务 ID |
+
+### 2.2 通用编码
+
+#### 2.2.1 `usage_scene`
+
+| 编码 | 含义 |
+| --- | --- |
+| `1201` | `debug` |
+| `1202` | `preview` |
+| `1203` | `production` |
+
+#### 2.2.2 `billing_metric`
 
-The current payment implementation is course-centric:
+| 编码 | 含义 |
+| --- | --- |
+| `1301` | `llm_input_tokens` |
+| `1302` | `llm_cache_tokens` |
+| `1303` | `llm_output_tokens` |
+| `1304` | `tts_request_count` |
+| `1305` | `tts_output_chars` |
+| `1306` | `tts_input_chars`，保留给后续特殊 provider 合同 |
 
-- Core models: [src/api/flaskr/service/order/models.py](/Users/geyunfei/dev/yfge/ai_shifu_web_conf/src/api/flaskr/service/order/models.py)
-- Core routes: [src/api/flaskr/route/order.py](/Users/geyunfei/dev/yfge/ai_shifu_web_conf/src/api/flaskr/route/order.py)
-- Core service flow: [src/api/flaskr/service/order/funs.py](/Users/geyunfei/dev/yfge/ai_shifu_web_conf/src/api/flaskr/service/order/funs.py)
+#### 2.2.3 类型与存储约定
 
-Important characteristics:
+- 所有业务 ID 统一使用 `String(36)`，命名为 `*_bid`
+- 所有状态、类型、场景、metric 字段统一使用 `SmallInteger` 编码，不在库里直接存英文状态串
+- 金额统一使用 `BIGINT` 保存最小货币单位，例如分
+- 积分统一使用 `BIGINT`
+- provider、model、reference id 等短文本按现有仓库风格使用 `String(32/64/100/255)`
+- 扩展载荷优先 `JSON`，仅在 provider 原始对象体积或兼容性要求下退回 `Text`
+
+## 3. v1 核心表
+
+### 3.1 `billing_products`
+
+角色：目录真相源；不是账务真相源；不是报表表。
+
+| 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
+| --- | --- | --- | --- | --- | --- |
+| `product_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing product business identifier` | 商品业务 ID |
+| `product_code` | `String(64)` | `not null, default="", unique=True` | 稳定编码，用于配置和对外联调 | `Billing product code` | 商品稳定编码 |
+| `product_type` | `SmallInteger` | `not null, index=True` | `2101=plan; 2102=topup; 2103=grant; 2104=custom` | `Billing product type code` | 商品类型编码 |
+| `billing_mode` | `SmallInteger` | `not null` | `2201=recurring; 2202=one_time; 2203=manual` | `Billing mode code` | 计费模式编码 |
+| `billing_interval` | `SmallInteger` | `not null, default=0` | `2211=none; 2212=month; 2213=year` | `Billing interval code` | 套餐周期编码 |
+| `billing_interval_count` | `Integer` | `not null, default=0` | 周期倍数，月套餐常见为 `1` | `Billing interval count` | 周期倍数 |
+| `display_name_i18n_key` | `String(128)` | `not null, default=""` | i18n key | `Display name i18n key` | 展示名称翻译 key |
+| `description_i18n_key` | `String(128)` | `not null, default=""` | i18n key | `Description i18n key` | 描述翻译 key |
+| `currency` | `String(16)` | `not null, default="CNY"` | ISO 4217，例如 `CNY`/`USD` | `Currency code` | 货币编码 |
+| `price_amount` | `BIGINT` | `not null, default=0` | 最小货币单位 | `Product price amount` | 商品价格 |
+| `credit_amount` | `BIGINT` | `not null, default=0` | 发放积分数量 | `Credit amount` | 商品附带积分数 |
+| `allocation_interval` | `SmallInteger` | `not null, default=2231` | `2231=per_cycle; 2232=one_time; 2233=manual` | `Credit allocation interval code` | 积分发放节奏 |
+| `auto_renew_enabled` | `SmallInteger` | `not null, default=0` | `0=no; 1=yes` | `Auto renew enabled flag` | 是否允许自动续费 |
+| `entitlement_payload` | `JSON` | `nullable=True` | v1 可留空，v1.1 用于权益扩展 | `Entitlement payload` | 权益扩展载荷 |
+| `metadata` | `JSON` | `nullable=True` | 自定义展示、运营标记等 | `Billing product metadata` | 商品扩展元数据 |
+| `status` | `SmallInteger` | `not null, default=1501, index=True` | `1501=active; 1502=inactive` | `Billing product status code` | 商品状态 |
+| `sort_order` | `Integer` | `not null, default=0` | 列表排序，越小越靠前 | `Sort order` | 排序值 |
+
+主键 / 唯一索引 / 关键索引：
+
+- 主键：`id`
+- 唯一索引：`product_code`
+- 关键索引：`product_bid`、`product_type + status`
+
+与其他表关系：
+
+- `billing_subscriptions.product_bid`
+- `billing_subscriptions.next_product_bid`
+- `billing_orders.product_bid`
+
+本表职责与边界：
+
+- 统一承载套餐、充值包、赠送包、定制包目录
+- `product_type=plan` 才允许进入订阅流程
+- `product_type=topup` 必须是一次性支付，不创建 subscription
+
+### 3.2 `billing_subscriptions`
+
+角色：订阅真相源；不是账本真相源；不是报表表。
+
+| 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
+| --- | --- | --- | --- | --- | --- |
+| `subscription_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing subscription business identifier` | 订阅业务 ID |
+| `creator_bid` | `String(36)` | `not null, default="", index=True` | 订阅所属创作者 | `Creator business identifier` | 创作者业务 ID |
+| `product_bid` | `String(36)` | `not null, default="", index=True` | 必须引用 `product_type=plan` | `Current billing product business identifier` | 当前套餐商品 ID |
+| `status` | `SmallInteger` | `not null, default=2301, index=True` | `2301=draft; 2302=active; 2303=past_due; 2304=paused; 2305=cancel_scheduled; 2306=canceled; 2307=expired` | `Billing subscription status code` | 订阅状态 |
+| `billing_provider` | `String(32)` | `not null, default="", index=True` | `stripe` / `pingxx` | `Billing provider name` | 支付 provider |
+| `provider_subscription_id` | `String(255)` | `not null, default=""` | provider 订阅 ID | `Provider subscription identifier` | provider 订阅号 |
+| `provider_customer_id` | `String(255)` | `not null, default=""` | provider 客户 ID | `Provider customer identifier` | provider 客户号 |
+| `billing_anchor_at` | `DateTime` | `nullable=True` | 账期锚点 | `Billing anchor timestamp` | 账期锚点时间 |
+| `current_period_start_at` | `DateTime` | `nullable=True` | 当前周期开始 | `Current period start timestamp` | 当前周期开始时间 |
+| `current_period_end_at` | `DateTime` | `nullable=True` | 当前周期结束 | `Current period end timestamp` | 当前周期结束时间 |
+| `grace_period_end_at` | `DateTime` | `nullable=True` | 宽限期结束 | `Grace period end timestamp` | 宽限期结束时间 |
+| `cancel_at_period_end` | `SmallInteger` | `not null, default=0` | `0=no; 1=yes` | `Cancel at period end flag` | 是否周期结束后取消 |
+| `next_product_bid` | `String(36)` | `not null, default="", index=True` | 仅用于降级或续费切换目标套餐 | `Next billing product business identifier` | 下周期套餐 ID |
+| `last_renewed_at` | `DateTime` | `nullable=True` | 最近一次续费成功时间 | `Last renewed timestamp` | 最近续费成功时间 |
+| `last_failed_at` | `DateTime` | `nullable=True` | 最近一次续费失败时间 | `Last failed timestamp` | 最近失败时间 |
+| `metadata` | `JSON` | `nullable=True` | provider 辅助字段、迁移兼容标记 | `Billing subscription metadata` | 订阅扩展元数据 |
+
+主键 / 唯一索引 / 关键索引：
+
+- 主键：`id`
+- 建议唯一索引：`creator_bid + status in active-like set` 由业务约束保证同一创作者仅一个活跃主订阅
+- 关键索引：`subscription_bid`、`creator_bid + status`
+
+与其他表关系：
+
+- 引用 `billing_products.product_bid`
+- 被 `billing_orders.subscription_bid`、`billing_renewal_events.subscription_bid` 关联
+
+本表职责与边界：
+
+- 只表示套餐订阅合同，不表示一次性充值
+- `cancel_scheduled` 表示当前周期仍有效，但未来不再自动续费
+- `next_product_bid` 只用于未来生效的套餐切换，不立即替换 `product_bid`
+
+### 3.3 `billing_orders`
+
+角色：支付动作真相源；不是 webhook 真相源；不是报表表。
+
+| 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
+| --- | --- | --- | --- | --- | --- |
+| `billing_order_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing order business identifier` | 支付动作单业务 ID |
+| `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
+| `order_type` | `SmallInteger` | `not null, index=True` | `2401=subscription_start; 2402=subscription_upgrade; 2403=subscription_renewal; 2404=topup; 2405=manual; 2406=refund` | `Billing order type code` | 支付动作类型 |
+| `product_bid` | `String(36)` | `not null, default="", index=True` | 对应商品 ID | `Billing product business identifier` | 商品业务 ID |
+| `subscription_bid` | `String(36)` | `not null, default="", index=True` | 套餐场景必填；topup 可留空字符串 | `Billing subscription business identifier` | 关联订阅 ID |
+| `currency` | `String(16)` | `not null, default="CNY"` | ISO 4217 | `Currency code` | 货币编码 |
+| `payable_amount` | `BIGINT` | `not null, default=0` | 应付金额，最小货币单位 | `Payable amount` | 应付金额 |
+| `paid_amount` | `BIGINT` | `not null, default=0` | 实付金额，最小货币单位 | `Paid amount` | 实付金额 |
+| `payment_provider` | `String(32)` | `not null, default="", index=True` | `stripe` / `pingxx` | `Payment provider name` | 支付 provider |
+| `channel` | `String(64)` | `not null, default=""` | provider 内部支付渠道 | `Payment channel` | 支付渠道 |
+| `provider_reference_id` | `String(255)` | `not null, default="", index=True` | 通用 provider 引用，如 checkout/session/charge/invoice | `Provider reference identifier` | provider 参考 ID |
+| `status` | `SmallInteger` | `not null, default=2501, index=True` | `2501=init; 2502=pending; 2503=paid; 2504=failed; 2505=refunded; 2506=canceled; 2507=timeout` | `Billing order status code` | 支付状态 |
+| `paid_at` | `DateTime` | `nullable=True` | 支付成功时间 | `Paid timestamp` | 支付成功时间 |
+| `failed_at` | `DateTime` | `nullable=True` | 支付失败时间 | `Failed timestamp` | 支付失败时间 |
+| `refunded_at` | `DateTime` | `nullable=True` | 退款完成时间 | `Refunded timestamp` | 退款时间 |
+| `failure_code` | `String(255)` | `not null, default=""` | provider 错误码 | `Failure code` | 失败码 |
+| `failure_message` | `String(255)` | `not null, default=""` | provider 错误信息 | `Failure message` | 失败信息 |
+| `metadata` | `JSON` | `nullable=True` | provider 原始关键引用、return url、补偿标记 | `Billing order metadata` | 支付动作扩展元数据 |
+
+主键 / 唯一索引 / 关键索引：
+
+- 主键：`id`
+- 关键索引：`billing_order_bid`、`creator_bid + status`、`provider_reference_id`
+
+与其他表关系：
+
+- 关联 `billing_products.product_bid`
+- 关联 `billing_subscriptions.subscription_bid`
+- 被 `billing_provider_events.billing_order_bid` 和 `billing_ledger_entries.source_bid` 使用
+
+本表职责与边界：
+
+- 一次 checkout、一笔续费、一笔 topup、一笔退款，各自对应一条 `billing_orders`
+- v1 不引入 `payment_attempts` 子表；支付重试通过创建新的 `billing_orders` 完成
+- `billing_orders` 记录的是业务支付状态，不负责 webhook 幂等
+
+### 3.4 `billing_provider_events`
+
+角色：provider 事件审计与幂等真相源；不是订单真相源；不是报表表。
+
+| 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
+| --- | --- | --- | --- | --- | --- |
+| `provider_event_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing provider event business identifier` | provider 事件业务 ID |
+| `billing_order_bid` | `String(36)` | `not null, default="", index=True` | 关联支付动作单 | `Billing order business identifier` | 关联支付动作单 ID |
+| `subscription_bid` | `String(36)` | `not null, default="", index=True` | 订阅事件可回填 | `Billing subscription business identifier` | 关联订阅 ID |
+| `creator_bid` | `String(36)` | `not null, default="", index=True` | 创作者维度索引 | `Creator business identifier` | 创作者业务 ID |
+| `payment_provider` | `String(32)` | `not null, default="", index=True` | `stripe` / `pingxx` | `Payment provider name` | 支付 provider |
+| `provider_event_id` | `String(255)` | `not null, default=""` | provider 原始事件 ID | `Provider event identifier` | provider 事件 ID |
+| `provider_reference_id` | `String(255)` | `not null, default="", index=True` | checkout/charge/invoice/subscription 等引用 | `Provider reference identifier` | provider 参考 ID |
+| `event_type` | `String(64)` | `not null, default="", index=True` | 直接存 provider 事件名 | `Provider event type` | provider 事件类型 |
+| `status` | `SmallInteger` | `not null, default=2601, index=True` | `2601=received; 2602=processed; 2603=ignored; 2604=failed` | `Provider event status code` | 事件处理状态 |
+| `payload` | `JSON` | `nullable=True` | 原始 webhook / sync 响应体 | `Provider event payload` | provider 原始载荷 |
+| `error_code` | `String(255)` | `not null, default=""` | 内部或 provider 错误码 | `Event error code` | 事件错误码 |
+| `error_message` | `String(255)` | `not null, default=""` | 处理失败信息 | `Event error message` | 事件错误信息 |
+| `processed_at` | `DateTime` | `nullable=True` | 成功或失败处理结束时间 | `Processed timestamp` | 处理完成时间 |
+
+主键 / 唯一索引 / 关键索引：
+
+- 主键：`id`
+- 唯一索引：`payment_provider + provider_event_id`
+- 关键索引：`provider_reference_id`、`billing_order_bid`
+
+与其他表关系：
+
+- 关联 `billing_orders.billing_order_bid`
+- 关联 `billing_subscriptions.subscription_bid`
+
+本表职责与边界：
+
+- 负责 webhook 去重、重放、审计
+- 该表不决定支付是否成功，支付真相仍以 `billing_orders.status` 为准
+
+### 3.5 `billing_wallets`
+
+角色：余额快照；不是扣费真相源；不是报表表。
 
-- `order_orders` binds an order to `user_bid` and `shifu_bid`.
-- Payment success unlocks a course, not a creator account capability.
-- Stripe and Ping++ are wired as one-time payment providers.
-- The order model does not contain subscription periods, billing anchors, wallet balances, or creator entitlements.
+| 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
+| --- | --- | --- | --- | --- | --- |
+| `wallet_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing wallet business identifier` | 钱包业务 ID |
+| `creator_bid` | `String(36)` | `not null, default="", unique=True` | 一创作者一钱包 | `Creator business identifier` | 创作者业务 ID |
+| `available_credits` | `BIGINT` | `not null, default=0` | 当前可用积分 | `Available credits` | 可用积分 |
+| `reserved_credits` | `BIGINT` | `not null, default=0` | hold 后冻结积分 | `Reserved credits` | 冻结积分 |
+| `lifetime_granted_credits` | `BIGINT` | `not null, default=0` | 累计发放积分 | `Lifetime granted credits` | 累计发放积分 |
+| `lifetime_consumed_credits` | `BIGINT` | `not null, default=0` | 累计消耗积分 | `Lifetime consumed credits` | 累计消耗积分 |
+| `last_settled_usage_id` | `BIGINT` | `not null, default=0, index=True` | 最近结算到的 `bill_usage.id` | `Last settled usage record id` | 最近已结算 usage 主键 |
+| `version` | `Integer` | `not null, default=0` | 乐观锁版本号 | `Wallet version` | 钱包版本号 |
+
+主键 / 唯一索引 / 关键索引：
+
+- 主键：`id`
+- 唯一索引：`creator_bid`
+- 关键索引：`wallet_bid`、`last_settled_usage_id`
+
+与其他表关系：
+
+- 被 `billing_ledger_entries.wallet_bid` 关联
+
+本表职责与边界：
+
+- 仅做余额快照和快速读模型
+- 钱包数值必须由账本结果推导和更新，禁止直接手改余额
+
+### 3.6 `billing_ledger_entries`
 
-This flow must remain unchanged and isolated from the new billing implementation.
+角色：积分账本真相源；不是快照；不是报表表。
 
-### 2.2 Existing Usage Metering
+| 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
+| --- | --- | --- | --- | --- | --- |
+| `ledger_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing ledger business identifier` | 账本业务 ID |
+| `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
+| `wallet_bid` | `String(36)` | `not null, default="", index=True` | 归属钱包 | `Billing wallet business identifier` | 钱包业务 ID |
+| `entry_type` | `SmallInteger` | `not null, index=True` | `2701=grant; 2702=consume; 2703=refund; 2704=expire; 2705=adjustment; 2706=hold; 2707=release` | `Billing ledger entry type code` | 账本分录类型 |
+| `source_type` | `SmallInteger` | `not null, index=True` | `2801=subscription; 2802=topup; 2803=gift; 2804=usage; 2805=refund; 2806=manual` | `Billing ledger source type code` | 分录来源类型 |
+| `source_bid` | `String(36)` | `not null, default="", index=True` | 对应业务单号，如 order/subscription/usage | `Ledger source business identifier` | 来源业务 ID |
+| `amount` | `BIGINT` | `not null, default=0` | 正数增加可用余额，负数减少可用余额 | `Ledger amount` | 分录金额 |
+| `balance_after` | `BIGINT` | `not null, default=0` | 写入后可用余额快照 | `Balance after entry` | 分录后余额 |
+| `expires_at` | `DateTime` | `nullable=True, index=True` | 仅 grant 类分录会有到期时间 | `Entry expiration timestamp` | 积分到期时间 |
+| `consumable_from` | `DateTime` | `nullable=True` | 仅需延迟可用时使用 | `Consumable from timestamp` | 开始可消费时间 |
+| `metadata` | `JSON` | `nullable=True` | 必须支持 `usage_bid`、`usage_scene`、`provider`、`model`、`metric_breakdown[]` | `Billing ledger metadata` | 分录元数据 |
+
+主键 / 唯一索引 / 关键索引：
+
+- 主键：`id`
+- 关键索引：`ledger_bid`、`creator_bid + created_at`、`source_type + source_bid`
+- 建议唯一约束：`source_type + source_bid + entry_type` 由业务侧按幂等 key 控制，避免重复入账
+
+与其他表关系：
+
+- 关联 `billing_wallets.wallet_bid`
+- `source_bid` 可对应 `billing_orders`、`billing_subscriptions` 或 `bill_usage.usage_bid`
+
+本表职责与边界：
 
-Usage is already recorded at the infrastructure level:
+- 所有发放、扣减、退款、过期、人工调整都必须落账
+- `metadata.metric_breakdown[]` 用于保存 LLM 三维或 TTS metric 的细分扣分来源
 
-- Model: [src/api/flaskr/service/metering/models.py](/Users/geyunfei/dev/yfge/ai_shifu_web_conf/src/api/flaskr/service/metering/models.py)
-- Recorder: [src/api/flaskr/service/metering/recorder.py](/Users/geyunfei/dev/yfge/ai_shifu_web_conf/src/api/flaskr/service/metering/recorder.py)
-- Summary route: [src/api/flaskr/service/metering/routes.py](/Users/geyunfei/dev/yfge/ai_shifu_web_conf/src/api/flaskr/service/metering/routes.py)
+### 3.7 `billing_usage_rates`
 
-Important characteristics:
+角色：费率真相源；不是账本；不是报表表。
 
-- `bill_usage` is a raw fact table for LLM and TTS consumption.
-- It stores `user_bid`, `shifu_bid`, provider, model, usage totals, scene, and billable flag.
-- It does not store creator ownership, credit conversion, ledger entries, or wallet balance.
-- It already distinguishes production vs non-billable scenes, which can be reused for settlement rules.
+| 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
+| --- | --- | --- | --- | --- | --- |
+| `rate_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing usage rate business identifier` | 费率业务 ID |
+| `usage_type` | `SmallInteger` | `not null, index=True` | `1101=LLM; 1102=TTS` | `Usage type code` | usage 类型 |
+| `provider` | `String(32)` | `not null, default="", index=True` | provider 名称，可允许 `*` 作为 wildcard | `Provider name` | provider |
+| `model` | `String(100)` | `not null, default="", index=True` | model 名称，可允许 `*` 作为 wildcard | `Provider model` | 模型名 |
+| `usage_scene` | `SmallInteger` | `not null, index=True` | `1201=debug; 1202=preview; 1203=production` | `Usage scene code` | 场景编码 |
+| `billing_metric` | `SmallInteger` | `not null, index=True` | `1301=llm_input_tokens; 1302=llm_cache_tokens; 1303=llm_output_tokens; 1304=tts_request_count; 1305=tts_output_chars; 1306=tts_input_chars` | `Billing metric code` | 计费 metric |
+| `unit_size` | `Integer` | `not null, default=1` | 计费单位分母，如 `1000 tokens` | `Billing unit size` | 费率分母 |
+| `credits_per_unit` | `BIGINT` | `not null, default=0` | 每个计费单位对应积分 | `Credits per unit` | 单位积分消耗 |
+| `rounding_mode` | `SmallInteger` | `not null, default=1401` | `1401=ceil; 1402=floor; 1403=round` | `Rounding mode code` | 取整模式 |
+| `effective_from` | `DateTime` | `not null, index=True` | 生效开始时间 | `Effective from timestamp` | 生效开始时间 |
+| `effective_to` | `DateTime` | `nullable=True, index=True` | 生效结束时间 | `Effective to timestamp` | 生效结束时间 |
+| `status` | `SmallInteger` | `not null, default=1501, index=True` | `1501=active; 1502=inactive` | `Billing usage rate status code` | 费率状态 |
+
+主键 / 唯一索引 / 关键索引：
 
-This table should remain the source of truth for raw billable usage. Creator credits must be computed in a new billing layer.
+- 主键：`id`
+- 关键索引：`usage_type + provider + model + usage_scene + billing_metric + effective_from`
 
-### 2.3 Existing Runtime Config
+与其他表关系：
 
-Current runtime branding and configuration are global:
+- 结算时与 `bill_usage` 联合匹配
+- 结算结果写入 `billing_ledger_entries`
 
-- Runtime config route: [src/api/flaskr/route/config.py](/Users/geyunfei/dev/yfge/ai_shifu_web_conf/src/api/flaskr/route/config.py)
-- Config storage: [src/api/flaskr/service/config/models.py](/Users/geyunfei/dev/yfge/ai_shifu_web_conf/src/api/flaskr/service/config/models.py)
-- Config access: [src/api/flaskr/service/config/funcs.py](/Users/geyunfei/dev/yfge/ai_shifu_web_conf/src/api/flaskr/service/config/funcs.py)
+本表职责与边界：
 
-Important characteristics:
+- LLM 默认要求同一 provider/model/scene 至少配置三条 metric：`1301/1302/1303`
+- TTS 默认只启用一种主 metric：`1304` 或 `1305`
+- 如果找不到精确 model，可按 `model="*"` 或 `provider="*"` fallback
 
-- Branding values such as `logoWideUrl`, `logoSquareUrl`, `faviconUrl`, and `homeUrl` are returned globally.
-- There is no creator-specific runtime resolution based on request host or creator ownership.
-- `sys_configs` can store additive configuration, but cannot represent creator-specific resolved runtime state on its own.
+### 3.8 `billing_renewal_events`
 
-This must evolve into creator-aware resolution so paid branding and domain entitlements become effective at request time.
+角色：续费排期真相源；不是支付真相源；不是报表表。
 
-### 2.4 Existing Payment Integrations
+| 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
+| --- | --- | --- | --- | --- | --- |
+| `renewal_event_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing renewal event business identifier` | 续费事件业务 ID |
+| `subscription_bid` | `String(36)` | `not null, default="", index=True` | 关联订阅 | `Billing subscription business identifier` | 订阅业务 ID |
+| `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
+| `event_type` | `SmallInteger` | `not null, index=True` | `2901=renewal; 2902=retry; 2903=cancel_effective; 2904=downgrade_effective; 2905=expire; 2906=reconcile` | `Renewal event type code` | 排期事件类型 |
+| `scheduled_at` | `DateTime` | `not null, index=True` | 计划执行时间 | `Scheduled timestamp` | 计划执行时间 |
+| `status` | `SmallInteger` | `not null, default=3001, index=True` | `3001=pending; 3002=processing; 3003=succeeded; 3004=failed; 3005=canceled` | `Renewal event status code` | 排期执行状态 |
+| `attempt_count` | `Integer` | `not null, default=0` | 已尝试次数 | `Attempt count` | 执行尝试次数 |
+| `last_error` | `String(255)` | `not null, default=""` | 最近错误摘要 | `Last error message` | 最近错误 |
+| `payload` | `JSON` | `nullable=True` | 事件上下文、重试参数、排期快照 | `Renewal event payload` | 排期扩展载荷 |
+| `processed_at` | `DateTime` | `nullable=True` | 最后一次完成处理时间 | `Processed timestamp` | 处理完成时间 |
 
-Available payment integrations:
+主键 / 唯一索引 / 关键索引：
+
+- 主键：`id`
+- 关键索引：`subscription_bid + event_type + scheduled_at`、`status + scheduled_at`
 
-- Stripe provider: [src/api/flaskr/service/order/payment_providers/stripe.py](/Users/geyunfei/dev/yfge/ai_shifu_web_conf/src/api/flaskr/service/order/payment_providers/stripe.py)
-- Ping++ provider: [src/api/flaskr/service/order/payment_providers/pingxx.py](/Users/geyunfei/dev/yfge/ai_shifu_web_conf/src/api/flaskr/service/order/payment_providers/pingxx.py)
+与其他表关系：
 
-Important characteristics:
+- 关联 `billing_subscriptions.subscription_bid`
+- 成功执行后通常会生成新的 `billing_orders`
 
-- Stripe currently supports checkout session, payment intent, webhook verification, and refunds for one-time payments.
-- Ping++ currently supports one-time charge creation only.
-- There is no subscription, invoice, mandate, recurring deduction, or renewal reconciliation flow.
+本表职责与边界：
 
-V1 must add a normalized recurring billing layer above provider-specific implementations.
+- 负责续费、失败重试、周期结束取消、未来降级和 reconcile 排期
+- Worker 必须依赖 `status` 做幂等抢占，不允许同一排期被并发重复执行
 
-### 2.5 Existing Runtime Execution Controls
+## 4. v1.1 扩展表
 
-The repository uses local thread pools and in-process queues for some workloads, but it does not contain a unified business task scheduler with creator-level priority classes or concurrency controls.
+### 4.1 `billing_entitlements`
 
-Implication:
+角色：权益快照；不是账本真相源；不是报表表；v1.1 才引入。
 
-- “Priority queue” and “concurrency boost” are not just billing flags.
-- V1 must add a lightweight execution-control layer that can enforce creator-specific limits and priority classes for billable production work.
+| 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
+| --- | --- | --- | --- | --- | --- |
+| `entitlement_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing entitlement business identifier` | 权益业务 ID |
+| `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
+| `source_type` | `SmallInteger` | `not null, index=True` | `2801=subscription; 2802=topup; 2803=gift; 2806=manual` | `Entitlement source type code` | 权益来源类型 |
+| `source_bid` | `String(36)` | `not null, default="", index=True` | 来源业务单号 | `Entitlement source business identifier` | 权益来源业务 ID |
+| `branding_enabled` | `SmallInteger` | `not null, default=0` | `0=no; 1=yes` | `Branding enabled flag` | 是否启用品牌定制 |
+| `custom_domain_enabled` | `SmallInteger` | `not null, default=0` | `0=no; 1=yes` | `Custom domain enabled flag` | 是否支持自定义域名 |
+| `priority_class` | `SmallInteger` | `not null, default=3401` | `3401=standard; 3402=priority; 3403=vip` | `Priority class code` | 队列优先级档位 |
+| `max_concurrency` | `Integer` | `not null, default=1` | 允许并发上限 | `Max concurrency` | 并发上限 |
+| `analytics_tier` | `SmallInteger` | `not null, default=3501` | `3501=basic; 3502=advanced; 3503=enterprise` | `Analytics tier code` | 分析能力等级 |
+| `support_tier` | `SmallInteger` | `not null, default=3601` | `3601=self_serve; 3602=business_hours; 3603=priority` | `Support tier code` | 支持等级 |
+| `feature_payload` | `JSON` | `nullable=True` | 细粒度 feature 开关 | `Entitlement feature payload` | 权益扩展载荷 |
+| `effective_from` | `DateTime` | `not null, index=True` | 生效开始 | `Effective from timestamp` | 生效开始时间 |
+| `effective_to` | `DateTime` | `nullable=True, index=True` | 生效结束 | `Effective to timestamp` | 生效结束时间 |
 
-## 3. Product And Business Rules
+主键 / 唯一索引 / 关键索引：
 
-### 3.1 Catalog
+- 主键：`id`
+- 关键索引：`creator_bid + effective_to`、`source_type + source_bid`
 
-V1 product catalog includes:
+与其他表关系：
 
-| Product Type | Code | Billing Cadence | Purpose |
-|-------------|------|-----------------|---------|
-| Trial credit | `trial_15d` | One-time | New creator onboarding |
-| Monthly light | `monthly_light` | Monthly recurring | Low-volume creator usage |
-| Monthly pro | `monthly_pro` | Monthly recurring | Higher monthly usage |
-| Yearly growth 5k | `yearly_growth_5000` | Yearly recurring | Annual commitment with 5,000 credits per year |
-| Yearly growth 10k | `yearly_growth_10000` | Yearly recurring | Annual commitment with 10,000 credits per year |
-| Yearly growth 22k | `yearly_growth_22000` | Yearly recurring | Annual commitment with 22,000 credits per year |
-| Custom enterprise | `custom_enterprise` | Manual | Sales-managed |
-| Top-up package | `topup_*` | One-time | Additional credits without changing base plan |
-| Gift credits | `gift_*` | Manual | Promotions or operator grant |
+- 来源于 `billing_products` 的 entitlement payload 或后台人工调整
 
-### 3.2 Credit Sources
+本表职责与边界：
 
-Credits can come from three source families:
+- 只在 v1.1 引入
+- 如果 v1 只做计费闭环，可直接由套餐商品推导默认权益而不落这张表
 
-| Source Family | Examples | Expiry Policy | Refresh Policy | Carry Over |
-|--------------|----------|---------------|----------------|------------|
-| Subscription allocation | Monthly plan, yearly plan periodic refresh | Expires at end of allocation window | Refreshed at cycle boundary | No |
-| Top-up credits | Recharge package | No expiry while subscription stays active | None | Yes |
-| Gift credits | Trial, campaign grant | Has explicit expiry timestamp | None | No automatic refresh |
+### 4.2 `billing_domain_bindings`
 
-### 3.3 Burn Priority
+角色：域名绑定真相源；不是账务真相源；不是报表表；v1.1 才引入。
 
-Credits are burned in the following deterministic order:
+| 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
+| --- | --- | --- | --- | --- | --- |
+| `domain_binding_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Billing domain binding business identifier` | 域名绑定业务 ID |
+| `creator_bid` | `String(36)` | `not null, default="", index=True` | 所属创作者 | `Creator business identifier` | 创作者业务 ID |
+| `host` | `String(255)` | `not null, default="", unique=True` | 绑定域名 | `Custom domain host` | 自定义域名 |
+| `status` | `SmallInteger` | `not null, default=3101, index=True` | `3101=pending; 3102=verified; 3103=failed; 3104=disabled` | `Domain binding status code` | 域名绑定状态 |
+| `verification_method` | `SmallInteger` | `not null, default=3201` | `3201=dns_txt; 3202=cname; 3203=file` | `Verification method code` | 域名校验方式 |
+| `verification_token` | `String(255)` | `not null, default=""` | 校验 token | `Verification token` | 校验 token |
+| `last_verified_at` | `DateTime` | `nullable=True` | 最近一次校验成功时间 | `Last verified timestamp` | 最近校验时间 |
+| `ssl_status` | `SmallInteger` | `not null, default=3301` | `3301=not_requested; 3302=provisioning; 3303=active; 3304=failed` | `SSL status code` | 证书状态 |
+| `metadata` | `JSON` | `nullable=True` | 证书 provider、DNS 检查结果等 | `Domain binding metadata` | 域名扩展元数据 |
 
-1. Subscription allocation credits with the earliest `expires_at`
-2. Gift credits with the earliest `expires_at`
-3. Top-up credits without expiry, oldest first by `created_at`
+主键 / 唯一索引 / 关键索引：
 
-Rationale:
+- 主键：`id`
+- 唯一索引：`host`
+- 关键索引：`creator_bid + status`
 
-- Subscription allocations are intentionally periodic and non-carrying.
-- Gift credits are promotional and should not outlive purchased credits.
-- Top-up credits are durable reserve balance.
+与其他表关系：
 
-### 3.4 Billable Usage Rules
+- 与 `billing_entitlements` 联动，只有启用自定义域名权益的 creator 才允许生效
 
-Usage-to-credit settlement only applies when all conditions below are true:
+本表职责与边界：
 
-- `bill_usage.billable = 1`
-- `bill_usage.usage_scene = production`
-- The record is linked to a published course owned by a creator
-- The record has not already been settled into the billing ledger
+- 只在 v1.1 引入
+- v1 阶段不应让主链路依赖它
 
-Non-production scenes remain recorded in `bill_usage` but do not consume credits in v1.
+### 4.3 `billing_daily_usage_metrics`
 
-### 3.5 Credit Conversion Policy
+角色：usage 日报表聚合；只用于报表；v1.1 才引入。
 
-Credit conversion is driven by a rate table, not hard-coded logic. Each rate is keyed by:
+| 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
+| --- | --- | --- | --- | --- | --- |
+| `daily_usage_metric_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Daily usage metric business identifier` | usage 日聚合业务 ID |
+| `stat_date` | `String(10)` | `not null, default="", index=True` | `YYYY-MM-DD` | `Statistic date` | 统计日期 |
+| `creator_bid` | `String(36)` | `not null, default="", index=True` | 创作者维度 | `Creator business identifier` | 创作者业务 ID |
+| `shifu_bid` | `String(36)` | `not null, default="", index=True` | 课程维度 | `Shifu business identifier` | 师傅业务 ID |
+| `usage_scene` | `SmallInteger` | `not null, index=True` | `1201=debug; 1202=preview; 1203=production` | `Usage scene code` | 使用场景 |
+| `usage_type` | `SmallInteger` | `not null, index=True` | `1101=LLM; 1102=TTS` | `Usage type code` | usage 类型 |
+| `provider` | `String(32)` | `not null, default="", index=True` | provider | `Provider name` | provider |
+| `model` | `String(100)` | `not null, default="", index=True` | model | `Provider model` | 模型 |
+| `billing_metric` | `SmallInteger` | `not null, index=True` | 见 `1301-1306` | `Billing metric code` | 计费 metric |
+| `raw_amount` | `BIGINT` | `not null, default=0` | 原始用量汇总 | `Raw amount` | 原始用量 |
+| `record_count` | `BIGINT` | `not null, default=0` | usage 记录数 | `Record count` | 记录条数 |
+| `consumed_credits` | `BIGINT` | `not null, default=0` | 当天扣除积分汇总 | `Consumed credits` | 消耗积分 |
+| `window_started_at` | `DateTime` | `not null` | 聚合窗口开始 | `Window start timestamp` | 聚合窗口开始时间 |
+| `window_ended_at` | `DateTime` | `not null` | 聚合窗口结束 | `Window end timestamp` | 聚合窗口结束时间 |
 
-- `usage_type`
-- `provider`
-- `model`
-- `usage_scene`
-- `effective_from`
+主键 / 唯一索引 / 关键索引：
 
-The settlement formula is:
+- 主键：`id`
+- 建议唯一索引：`stat_date + creator_bid + shifu_bid + usage_scene + usage_type + provider + model + billing_metric`
 
-`credits_consumed = ceil((usage_amount / unit_size) * credits_per_unit)`
+与其他表关系：
 
-Where:
+- 从 `bill_usage` 和 `billing_ledger_entries` 增量汇总而来
 
-- `usage_amount` is `total` for LLM and TTS by default
-- `unit_size` and `credits_per_unit` come from `billing_usage_rates`
-- Override fields in `extra` may be supported later for special pricing
+本表职责与边界：
 
-### 3.6 Subscription Lifecycle
+- 只用于 dashboard、运营分析和快查
+- 如与账本不一致，以账本和原始 usage 为准并触发 rebuild
 
-Normalized subscription states:
+### 4.4 `billing_daily_ledger_summary`
 
-| State | Meaning |
-|-------|---------|
-| `draft` | Checkout initialized but not yet activated |
-| `active` | Subscription valid and allowed to renew |
-| `past_due` | Renewal attempted but payment failed; grace period active |
-| `paused` | Renewals paused by system or admin |
-| `cancel_scheduled` | Auto-renew disabled; current paid period continues |
-| `canceled` | Subscription ended and will not renew |
-| `expired` | Subscription ended without renewal |
+角色：账本日报表聚合；只用于报表；v1.1 才引入。
 
-### 3.7 Renewal And Grace Period
+| 字段名 | SQL/ORM 类型 | 约束/默认值/索引 | 状态/类型说明 | DB Comment(English) | 说明(中文) |
+| --- | --- | --- | --- | --- | --- |
+| `daily_ledger_summary_bid` | `String(36)` | `not null, default="", index=True` | 业务 ID | `Daily ledger summary business identifier` | 账本日摘要业务 ID |
+| `stat_date` | `String(10)` | `not null, default="", index=True` | `YYYY-MM-DD` | `Statistic date` | 统计日期 |
+| `creator_bid` | `String(36)` | `not null, default="", index=True` | 创作者维度 | `Creator business identifier` | 创作者业务 ID |
+| `entry_type` | `SmallInteger` | `not null, index=True` | `2701=grant; 2702=consume; 2703=refund; 2704=expire; 2705=adjustment; 2706=hold; 2707=release` | `Billing ledger entry type code` | 分录类型 |
+| `source_type` | `SmallInteger` | `not null, index=True` | `2801=subscription; 2802=topup; 2803=gift; 2804=usage; 2805=refund; 2806=manual` | `Billing ledger source type code` | 来源类型 |
+| `amount` | `BIGINT` | `not null, default=0` | 当天同类分录金额汇总 | `Ledger amount total` | 汇总金额 |
+| `entry_count` | `BIGINT` | `not null, default=0` | 当天同类分录条数 | `Ledger entry count` | 分录条数 |
+| `window_started_at` | `DateTime` | `not null` | 聚合窗口开始 | `Window start timestamp` | 聚合窗口开始时间 |
+| `window_ended_at` | `DateTime` | `not null` | 聚合窗口结束 | `Window end timestamp` | 聚合窗口结束时间 |
 
-Renewal rules:
+主键 / 唯一索引 / 关键索引：
 
-- Monthly plans renew every month on the billing anchor day.
-- Yearly plans renew every 12 months on the billing anchor day.
-- A renewal attempt is triggered automatically at the anchor timestamp.
-- On failed renewal, the subscription enters `past_due`.
-- Grace period duration is 7 days from the failed renewal attempt.
-- During grace period:
-  - Existing top-up balance remains usable.
-  - No new subscription allocation is granted.
-  - Auto-renew retry jobs keep running.
-- If payment still fails after grace period, subscription becomes `expired`.
-- Top-up credits become unusable when no active or past-due subscription exists.
+- 主键：`id`
+- 建议唯一索引：`stat_date + creator_bid + entry_type + source_type`
 
-### 3.8 Upgrade, Downgrade, Cancellation, And Refund Rules
+与其他表关系：
 
-Upgrade:
+- 从 `billing_ledger_entries` 增量汇总而来
 
-- Monthly-to-higher-monthly upgrade takes effect immediately.
-- Yearly-to-higher-yearly upgrade takes effect immediately.
-- Immediate upgrade creates a proration order for the remaining time in the current billing period.
-- New plan entitlements activate immediately after payment success.
-- For subscription allocations, the current allocation window is recomputed by difference:
-  - `new_allocation_for_current_window = target_window_allocation - already_granted_current_window_allocation`
-  - If negative, grant zero.
+本表职责与边界：
 
-Downgrade:
+- 只用于后台统计和账务报表
+- 如与明细账本不一致，以 `billing_ledger_entries` 为准
 
-- Downgrade is always scheduled, not immediate.
-- Current plan remains active until current paid period ends.
-- Next renewal uses the downgraded plan if not canceled before renewal.
+## 5. 现有代码改造清单
 
-Cancellation:
+### 5.1 支付与订单域
 
-- Cancellation disables future auto-renewal only.
-- Current paid period remains active.
-- Creator keeps access to remaining subscription allocations and top-up credits until period end.
-- Once the subscription becomes `canceled` or `expired`, top-up credits remain stored but unusable until a subscription is resumed or purchased again.
+当前支付主流程位于 `src/api/flaskr/service/order/funs.py`，特点是：
 
-Refund:
+- 面向学员购课，而不是 creator billing
+- 通过 `order_orders`、`order_pingxx_orders`、`order_stripe_orders` 三张旧表落库
+- Pingxx 和 Stripe 已有 shared adapter 抽象，但持久化仍是 provider-specific
 
-- Full refund is supported only for operator action or provider-side failure cases approved by policy.
-- Refunding a plan order creates a reversing ledger entry for any unused subscription allocation in the current window.
-- Refunding top-up orders creates a reversing ledger entry for unused top-up credits.
-- Consumed credits are never refunded as cash automatically.
+v1 的改造要求：
 
-## 4. Proposed Architecture
+- 旧 `/order` API 和旧订单表全部保留，不做迁移或重构
+- 新 billing 不复用 `order_*` 表，只复用并扩展 `service/order/payment_providers/` 的 adapter 层
+- billing 侧新增独立 `service/billing/` 代码层：
+  - `models.py`
+  - `consts.py`
+  - `catalog.py`
+  - `subscription.py`
+  - `settlement.py`
+  - `admission.py`
+  - `routes.py`
+  - `tasks.py`
+  - `reconcile.py`
+  - `renewal.py`
 
-### 4.1 New Backend Module
+旧 `order` 域明确不改的范围：
 
-Add a dedicated billing module:
+- `order_orders`
+- `order_pingxx_orders`
+- `order_stripe_orders`
+- 旧购课 admin 页面
+- 旧学员购课退款逻辑
 
-`src/api/flaskr/service/billing/`
+### 5.2 Metering 与结算入口
 
-Recommended file layout:
+当前 metering 代码位于：
 
-| File | Responsibility |
-|------|----------------|
-| `models.py` | Billing tables |
-| `consts.py` | State, source, and entitlement constants |
-| `dtos.py` | API DTOs |
-| `catalog.py` | Catalog loading and response assembly |
-| `wallet.py` | Wallet and balance calculation |
-| `ledger.py` | Ledger write and query helpers |
-| `subscriptions.py` | Subscription lifecycle operations |
-| `orders.py` | Billing order initialization and payment attempt creation |
-| `entitlements.py` | Creator entitlement resolution |
-| `runtime.py` | Creator-aware runtime config assembly |
-| `settlement.py` | `bill_usage` to credit-ledger settlement |
-| `renewal_jobs.py` | Renewal, retry, reconciliation jobs |
-| `domain_binding.py` | Custom-domain binding and verification |
-| `routes.py` | Public billing APIs |
-| `admin_routes.py` | Admin billing APIs |
-| `payment_providers/` | Recurring payment provider adapters |
+- `src/api/flaskr/service/metering/consts.py`
+- `src/api/flaskr/service/metering/recorder.py`
+- `src/api/flaskr/service/metering/models.py`
 
-### 4.2 Ownership Model
+当前已存在的事实：
 
-All billing records are owned by `creator_bid`. Resolver path:
+- LLM/TTS usage 已经会落到 `bill_usage`
+- `debug` 和 `preview` 在常量层被放进 `BILL_USAGE_SCENE_NON_BILLABLE`
+- `record_llm_usage` / `record_tts_usage` 会根据 `usage_scene` 自动推导 `billable`
 
-1. Determine `shifu_bid` from workload context.
-2. Resolve creator via existing shifu ownership helpers.
-3. Use `creator_bid` as the wallet and entitlement key.
+必须改造的点：
 
-No billing state is stored on learner user accounts.
+- 把 “`debug` / `preview` 一律 non-billable” 从 metering 常量中移除
+- 改成 `production`、`preview`、`debug` 三种 scene 都允许计费
+- 是否真正扣费不再由 metering 常量决定，而由 billing service 的 admission / settlement 规则决定
+- `record_llm_usage` / `record_tts_usage` 继续只负责原始 usage 落库，不直接承担 creator 账务逻辑
+- 结算层新增 `creator ownership resolver`，把 `shifu_bid -> creator_bid` 固化给 billing settlement 使用
 
-### 4.3 Separation From Legacy Orders
-
-Legacy `/order` continues to operate independently for learner purchases. New billing tables never reuse `order_orders`, `order_pingxx_orders`, or `order_stripe_orders`.
-
-Reasons:
-
-- Different owner model: creator vs learner
-- Different business object: subscription or top-up vs course purchase
-- Different lifecycle: recurring vs one-time
-- Different entitlement effects: global creator capabilities vs one-course access
+### 5.3 Learn / Preview / Debug 入口改造
 
-## 5. Data Model
+当前学习与预览链路已经会写 usage，包括：
 
-All new tables are additive. Column order should follow project conventions.
-
-### 5.1 `billing_plans`
-
-Stores subscription catalog entries.
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `id` | BIGINT PK | Internal id |
-| `plan_bid` | VARCHAR(36) | Business id |
-| `plan_code` | VARCHAR(64) | Stable code such as `monthly_light` |
-| `name_i18n_key` | VARCHAR(128) | Display name key |
-| `description_i18n_key` | VARCHAR(128) | Description key |
-| `billing_interval` | VARCHAR(16) | `month`, `year`, `manual` |
-| `billing_interval_count` | INT | Usually 1 or 12 |
-| `currency` | VARCHAR(16) | Default `CNY` or `USD` |
-| `price_amount` | BIGINT | Minor units |
-| `credit_allocation` | INT | Credits granted per allocation window |
-| `allocation_interval` | VARCHAR(16) | `month`, `year` |
-| `auto_renew_enabled` | SMALLINT | Catalog-level support |
-| `status` | SMALLINT | Active or inactive |
-| `entitlement_payload` | JSON | Branding/domain/priority/concurrency/analytics/support |
-| `sort_order` | INT | Display order |
-| `deleted` | SMALLINT | Soft delete |
-| `created_at` | DATETIME | Timestamp |
-| `updated_at` | DATETIME | Timestamp |
-
-### 5.2 `billing_topup_products`
-
-Stores one-off recharge packages.
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `id` | BIGINT PK | Internal id |
-| `topup_bid` | VARCHAR(36) | Business id |
-| `topup_code` | VARCHAR(64) | Stable code |
-| `name_i18n_key` | VARCHAR(128) | Display key |
-| `description_i18n_key` | VARCHAR(128) | Description key |
-| `currency` | VARCHAR(16) | Currency |
-| `price_amount` | BIGINT | Minor units |
-| `credit_amount` | INT | Granted credits |
-| `status` | SMALLINT | Active or inactive |
-| `sort_order` | INT | Display order |
-| `deleted` | SMALLINT | Soft delete |
-| `created_at` | DATETIME | Timestamp |
-| `updated_at` | DATETIME | Timestamp |
-
-### 5.3 `billing_subscriptions`
-
-Stores creator subscription contracts.
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `id` | BIGINT PK | Internal id |
-| `subscription_bid` | VARCHAR(36) | Business id |
-| `creator_bid` | VARCHAR(36) | Owner |
-| `plan_bid` | VARCHAR(36) | Current plan |
-| `status` | VARCHAR(32) | Normalized state |
-| `billing_provider` | VARCHAR(32) | `stripe`, `pingxx`, or alternate domestic adapter |
-| `provider_subscription_id` | VARCHAR(255) | External recurring object id |
-| `provider_customer_id` | VARCHAR(255) | External customer or payer id |
-| `billing_anchor_at` | DATETIME | Renewal anchor |
-| `current_period_start_at` | DATETIME | Current period start |
-| `current_period_end_at` | DATETIME | Current period end |
-| `grace_period_end_at` | DATETIME | Retry limit |
-| `cancel_at_period_end` | SMALLINT | Scheduled cancellation flag |
-| `next_plan_bid` | VARCHAR(36) | Scheduled downgrade or plan swap |
-| `last_renewed_at` | DATETIME | Last success |
-| `last_failed_at` | DATETIME | Last failure |
-| `metadata` | JSON | Provider and lifecycle metadata |
-| `deleted` | SMALLINT | Soft delete |
-| `created_at` | DATETIME | Timestamp |
-| `updated_at` | DATETIME | Timestamp |
-
-### 5.4 `billing_wallets`
-
-Stores creator balance summary for fast reads.
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `id` | BIGINT PK | Internal id |
-| `wallet_bid` | VARCHAR(36) | Business id |
-| `creator_bid` | VARCHAR(36) | Owner |
-| `available_credits` | INT | Spendable credits |
-| `reserved_credits` | INT | Optional for future task reservation |
-| `lifetime_granted_credits` | BIGINT | Audit summary |
-| `lifetime_consumed_credits` | BIGINT | Audit summary |
-| `last_settled_usage_id` | BIGINT | Cursor for settlement job |
-| `version` | BIGINT | Optimistic concurrency control |
-| `deleted` | SMALLINT | Soft delete |
-| `created_at` | DATETIME | Timestamp |
-| `updated_at` | DATETIME | Timestamp |
-
-### 5.5 `billing_ledger_entries`
-
-Immutable source of truth for credit movements.
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `id` | BIGINT PK | Internal id |
-| `ledger_bid` | VARCHAR(36) | Business id |
-| `creator_bid` | VARCHAR(36) | Owner |
-| `wallet_bid` | VARCHAR(36) | Wallet |
-| `entry_type` | VARCHAR(32) | `grant`, `consume`, `refund`, `expire`, `adjustment`, `hold`, `release` |
-| `source_type` | VARCHAR(32) | `subscription`, `topup`, `gift`, `usage`, `refund`, `manual` |
-| `source_bid` | VARCHAR(36) | Link to source object |
-| `amount` | INT | Signed credit delta |
-| `balance_after` | INT | Running balance after write |
-| `expires_at` | DATETIME | Source expiry |
-| `consumable_from` | DATETIME | Usually immediate |
-| `metadata` | JSON | Provider/model/usage details |
-| `deleted` | SMALLINT | Soft delete |
-| `created_at` | DATETIME | Timestamp |
-
-### 5.6 `billing_orders`
-
-Stores checkout objects for plans and top-ups.
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `id` | BIGINT PK | Internal id |
-| `billing_order_bid` | VARCHAR(36) | Business id |
-| `creator_bid` | VARCHAR(36) | Owner |
-| `order_type` | VARCHAR(32) | `subscription_start`, `subscription_upgrade`, `subscription_renewal`, `topup`, `manual` |
-| `product_bid` | VARCHAR(36) | Plan or top-up id |
-| `subscription_bid` | VARCHAR(36) | Nullable for top-ups |
-| `currency` | VARCHAR(16) | Currency |
-| `payable_amount` | BIGINT | Minor units |
-| `paid_amount` | BIGINT | Minor units |
-| `payment_provider` | VARCHAR(32) | Provider |
-| `status` | VARCHAR(32) | `init`, `pending`, `paid`, `failed`, `refunded`, `canceled`, `timeout` |
-| `metadata` | JSON | Checkout details |
-| `deleted` | SMALLINT | Soft delete |
-| `created_at` | DATETIME | Timestamp |
-| `updated_at` | DATETIME | Timestamp |
-
-### 5.7 `billing_payment_attempts`
-
-Tracks every provider interaction.
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `id` | BIGINT PK | Internal id |
-| `attempt_bid` | VARCHAR(36) | Business id |
-| `billing_order_bid` | VARCHAR(36) | Parent order |
-| `creator_bid` | VARCHAR(36) | Owner |
-| `payment_provider` | VARCHAR(32) | Provider |
-| `provider_reference_id` | VARCHAR(255) | Checkout, invoice, charge, mandate, or payment id |
-| `provider_event_id` | VARCHAR(255) | Webhook event id |
-| `attempt_type` | VARCHAR(32) | `checkout`, `renewal`, `retry`, `refund`, `reconcile` |
-| `status` | VARCHAR(32) | `pending`, `succeeded`, `failed`, `canceled`, `refunded` |
-| `request_payload` | JSON | Normalized request |
-| `response_payload` | JSON | Normalized response |
-| `error_code` | VARCHAR(128) | Provider error |
-| `error_message` | TEXT | Error message |
-| `processed_at` | DATETIME | Completion timestamp |
-| `deleted` | SMALLINT | Soft delete |
-| `created_at` | DATETIME | Timestamp |
-| `updated_at` | DATETIME | Timestamp |
-
-### 5.8 `billing_entitlements`
-
-Stores currently effective creator entitlements.
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `id` | BIGINT PK | Internal id |
-| `entitlement_bid` | VARCHAR(36) | Business id |
-| `creator_bid` | VARCHAR(36) | Owner |
-| `source_type` | VARCHAR(32) | `subscription`, `manual`, `custom_plan` |
-| `source_bid` | VARCHAR(36) | Source object |
-| `branding_enabled` | SMALLINT | Logo and favicon override |
-| `custom_domain_enabled` | SMALLINT | Domain binding |
-| `priority_class` | INT | Higher number is higher scheduling priority |
-| `max_concurrency` | INT | Maximum concurrent billable jobs |
-| `analytics_tier` | VARCHAR(32) | `basic`, `deep`, `enterprise` |
-| `support_tier` | VARCHAR(32) | `standard`, `priority`, `dedicated` |
-| `feature_payload` | JSON | Future feature flags |
-| `effective_from` | DATETIME | Start |
-| `effective_to` | DATETIME | End |
-| `deleted` | SMALLINT | Soft delete |
-| `created_at` | DATETIME | Timestamp |
-| `updated_at` | DATETIME | Timestamp |
-
-### 5.9 `billing_domain_bindings`
-
-Stores creator custom-domain mapping.
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `id` | BIGINT PK | Internal id |
-| `domain_binding_bid` | VARCHAR(36) | Business id |
-| `creator_bid` | VARCHAR(36) | Owner |
-| `host` | VARCHAR(255) | Fully qualified host |
-| `status` | VARCHAR(32) | `pending_verification`, `active`, `disabled`, `failed` |
-| `verification_method` | VARCHAR(32) | `dns_txt`, `cname`, `manual` |
-| `verification_token` | VARCHAR(255) | Proof token |
-| `last_verified_at` | DATETIME | Verification time |
-| `ssl_status` | VARCHAR(32) | `pending`, `active`, `failed` |
-| `metadata` | JSON | Provider and DNS notes |
-| `deleted` | SMALLINT | Soft delete |
-| `created_at` | DATETIME | Timestamp |
-| `updated_at` | DATETIME | Timestamp |
-
-### 5.10 `billing_usage_rates`
-
-Stores credit pricing rules.
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `id` | BIGINT PK | Internal id |
-| `rate_bid` | VARCHAR(36) | Business id |
-| `usage_type` | SMALLINT | Mirrors metering type |
-| `provider` | VARCHAR(64) | Provider name |
-| `model` | VARCHAR(128) | Model name or wildcard |
-| `usage_scene` | SMALLINT | Typically production |
-| `unit_size` | INT | Token or char block |
-| `credits_per_unit` | DECIMAL | Credit price per unit |
-| `rounding_mode` | VARCHAR(16) | `ceil`, `floor`, `round` |
-| `effective_from` | DATETIME | Start |
-| `effective_to` | DATETIME | End |
-| `status` | SMALLINT | Active or inactive |
-| `deleted` | SMALLINT | Soft delete |
-| `created_at` | DATETIME | Timestamp |
-| `updated_at` | DATETIME | Timestamp |
-
-### 5.11 `billing_renewal_events`
-
-Stores scheduled and processed renewal operations.
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `id` | BIGINT PK | Internal id |
-| `renewal_event_bid` | VARCHAR(36) | Business id |
-| `subscription_bid` | VARCHAR(36) | Subscription |
-| `creator_bid` | VARCHAR(36) | Owner |
-| `event_type` | VARCHAR(32) | `renewal`, `retry`, `expire`, `cancel_finalize`, `downgrade_apply`, `reconcile` |
-| `scheduled_at` | DATETIME | Target time |
-| `status` | VARCHAR(32) | `pending`, `processing`, `done`, `failed`, `canceled` |
-| `attempt_count` | INT | Retry count |
-| `last_error` | TEXT | Error details |
-| `payload` | JSON | Event context |
-| `processed_at` | DATETIME | Completion time |
-| `deleted` | SMALLINT | Soft delete |
-| `created_at` | DATETIME | Timestamp |
-| `updated_at` | DATETIME | Timestamp |
-
-## 6. Public API Design
-
-All billing APIs are additive and do not modify the legacy `/order` endpoints.
-
-### 6.1 `GET /billing/catalog`
-
-Returns all active plans and top-up products visible to the current creator.
-
-Response:
-
-```json
-{
-  "plans": [
-    {
-      "plan_bid": "plan_monthly_light",
-      "plan_code": "monthly_light",
-      "display_name": "Monthly Light",
-      "description": "For partial curriculum design and limited learner delivery",
-      "billing_interval": "month",
-      "billing_interval_count": 1,
-      "currency": "CNY",
-      "price_amount": 990,
-      "credit_allocation": 5,
-      "auto_renew_enabled": true,
-      "entitlements": {
-        "branding_enabled": false,
-        "custom_domain_enabled": false,
-        "priority_class": 1,
-        "max_concurrency": 1,
-        "analytics_tier": "basic",
-        "support_tier": "standard"
-      }
-    }
-  ],
-  "topups": [
-    {
-      "topup_bid": "topup_1000",
-      "topup_code": "topup_1000",
-      "display_name": "1,000 Credit Pack",
-      "description": "Adds durable credits to the creator wallet",
-      "currency": "CNY",
-      "price_amount": 100000,
-      "credit_amount": 1000
-    }
-  ]
+- learn 正式学习链路
+- preview block 链路
+- preview tts 链路
+- debug 场景下的模型和语音调用
+
+v1 需要新增的改造点：
+
+- 在 learn / preview / debug 的 billable 动作入口前增加 `admission service`
+- admission 至少校验：
+  - creator 钱包余额
+  - creator 订阅状态
+  - 套餐并发上限
+- admission 拒绝后，不进入新的 billable LLM/TTS 调用
+- usage 落库成功后，由 settlement 消费 `bill_usage` 并写入 `billing_ledger_entries`
+
+### 5.4 Runtime Config 与前端边界
+
+当前 runtime config 位于 `src/api/flaskr/route/config.py`，输出全局：
+
+- `logoWideUrl`
+- `logoSquareUrl`
+- `faviconUrl`
+- `homeUrl`
+
+边界约束：
+
+- v1 不改全局 `/api/config` 为 creator-scoped
+- v1 前端只新增 Billing Center，不要求接管全站 branding 输出
+- v1.1 再扩展 entitlement / branding / domain 相关返回
+
+### 5.5 现有后台线程模式替换
+
+当前仓库存在 ad-hoc 线程后台模式，例如 `src/api/flaskr/service/shifu/shifu_publish_funcs.py` 的 `threading.Thread(...)`。
+
+v1 约束：
+
+- billing 新增异步任务不允许继续沿用这种线程模式
+- 续费、重试、对账、结算 replay、低余额提醒统一走 Celery
+- 旧业务暂不强制迁移到 Celery，但 billing 域从第一版开始必须统一
+
+## 6. Celery 接入与基础设施
+
+### 6.1 接入目标
+
+Celery 是 billing v1 必做基础设施，原因是 billing 至少需要：
+
+- 周期续费
+- 失败重试
+- provider 补偿同步
+- settlement replay / reconcile
+- 低余额提醒
+
+这些任务不应继续塞进同步请求尾部，也不应使用 ad-hoc 线程执行。
+
+### 6.2 Flask App Factory 集成
+
+Celery 应复用 `src/api/app.py` 的 `create_app()` 作为唯一 Flask 配置入口。
+
+建议新增：
+
+- `src/api/flaskr/common/celery_app.py`
+- `src/api/flaskr/service/billing/tasks.py`
+
+集成要求：
+
+- Celery worker 启动时通过 app factory 创建 Flask app
+- task 执行时自动进入 `app.app_context()`
+- Flask 配置和 Celery 配置统一从 `common/config.py` 读取
+
+### 6.3 Celery 配置
+
+v1 需要补充以下环境变量和配置项：
+
+| 配置项 | 用途 |
+| --- | --- |
+| `CELERY_BROKER_URL` | Redis broker 地址 |
+| `CELERY_RESULT_BACKEND` | 结果后端，默认可与 broker 同源 Redis |
+| `CELERY_TASK_ALWAYS_EAGER` | 测试环境同步执行任务 |
+| `BILLING_RENEWAL_CRON` | 续费排期调度表达式 |
+| `BILLING_RECONCILE_CRON` | provider reconcile 调度表达式 |
+| `BILLING_LOW_BALANCE_CRON` | 低余额扫描调度表达式 |
+| `BILLING_DAILY_AGGREGATE_CRON` | 日汇总调度表达式，v1.1 才启用 |
+
+### 6.4 Worker / Beat 分工
+
+- `celery-worker`
+  - 执行 renewal、retry、reconcile、settlement replay、low balance alert
+  - v1.1 再执行 domain verify、daily aggregate、rebuild
+- `celery-beat`
+  - 只负责调度任务
+  - 不承载业务逻辑
+
+### 6.5 v1 必做 Tasks
+
+| Task Name | 作用 | 最小 payload |
+| --- | --- | --- |
+| `billing.run_renewal_event` | 执行一次续费排期事件 | `renewal_event_bid`, `subscription_bid`, `creator_bid` |
+| `billing.retry_failed_renewal` | 对失败续费进行重试 | `renewal_event_bid`, `billing_order_bid`, `provider_reference_id` |
+| `billing.reconcile_provider_reference` | 对账或补偿同步 provider 状态 | `payment_provider`, `provider_reference_id`, `billing_order_bid` |
+| `billing.replay_usage_settlement` | 重放 usage 结算 | `creator_bid`, `usage_bid` 或 `usage_id_start/usage_id_end` |
+| `billing.send_low_balance_alert` | 扫描并通知低余额 creator | `creator_bid` 或批量扫描窗口 |
+
+### 6.6 v1.1 扩展 Tasks
+
+| Task Name | 作用 | 最小 payload |
+| --- | --- | --- |
+| `billing.aggregate_daily_usage_metrics` | 生成 usage 日聚合 | `stat_date`, `creator_bid` 可选 |
+| `billing.aggregate_daily_ledger_summary` | 生成 ledger 日聚合 | `stat_date`, `creator_bid` 可选 |
+| `billing.rebuild_daily_aggregates` | 重建日报表 | `creator_bid`, `shifu_bid`, `date_from`, `date_to` |
+| `billing.verify_domain_binding` | 域名校验与状态刷新 | `domain_binding_bid`, `creator_bid` |
+
+### 6.7 Docker 与本地开发
+
+当前 `docker-compose.yml`、`docker-compose.latest.yml`、`docker-compose.dev.yml` 都没有 Redis/Celery 服务。
+
+v1 需要新增：
+
+- `redis`
+- `celery-worker`
+- `celery-beat`
+
+接入要求：
+
+- API 服务继续只负责 HTTP 请求
+- worker / beat 独立容器运行
+- 本地开发命令中要明确如果只启动 Flask 而不启动 worker / beat，billing 的异步链路不可用
+
+### 6.8 CLI 与运维辅助
+
+- 保留 Flask CLI 作为 backfill / rebuild / manual replay 的入口
+- 在线周期调度和在线执行交给 Celery
+- 不再把周期扫描任务写进 HTTP route、`threading.Thread` 或 gunicorn worker 内部
+
+## 7. 结算、支付与接口
+
+### 7.1 支付与订阅
+
+- `GET /billing/catalog` 读取 `billing_products`，但 API 返回仍按 `plans[]` / `topups[]` 投影
+- `POST /billing/subscriptions/checkout` 只能购买 `product_type=plan`
+- `POST /billing/topups/checkout` 只能购买 `product_type=topup`
+- `billing_orders` 是统一支付动作单；Stripe/Pingxx 业务编排一致，差异只放在 shared provider adapter
+- `billing_provider_events` 负责 webhook 去重和重放，不单独引入 `payment_attempts`
+- 自动续费和失败重试由 `billing_renewal_events` 驱动，成功后生成新的 `billing_orders`
+
+### 7.2 扣分与结算
+
+- 学员正式学习 `production`、作者 `preview`、作者 `debug` 统一扣课程所属创作者积分
+- LLM 一条 usage 默认按三条费率结算：
+  - `1301=llm_input_tokens`
+  - `1302=llm_cache_tokens`
+  - `1303=llm_output_tokens`
+- TTS 一条 usage 默认只命中一种主费率：
+  - `1304=tts_request_count`
+  - 或 `1305=tts_output_chars`
+- 结算真相源为：
+  - 原始 usage：`bill_usage`
+  - 积分真相：`billing_ledger_entries`
+  - 余额快照：`billing_wallets`
+- 结算幂等 key 应以 `bill_usage.usage_bid + billing_metric` 为核心，避免重复扣分
+
+### 7.3 现有接口如何改造
+
+- 旧 `/order` 保持不变，只说明“不复用其表结构”
+- 新 `/billing` 接口继续独立
+- `/billing/webhooks/stripe`、`/billing/webhooks/pingxx` 统一通过 shared provider adapter 解析，再更新 billing 域状态
+- `/api/config` 在 v1 继续保持全局配置输出，不承载 creator-scoped branding
+
+### 7.4 内部支付接口契约
+
+```ts
+interface BillingPaymentProviderAdapter {
+  create_checkout(input: {
+    billing_order_bid: string;
+    creator_bid: string;
+    product_bid: string;
+    payment_provider: string;
+    channel: string;
+    success_url?: string;
+    cancel_url?: string;
+  }): Promise<ProviderCheckoutResult>;
+
+  create_recurring_subscription(input: {
+    billing_order_bid: string;
+    creator_bid: string;
+    subscription_bid: string;
+    product_bid: string;
+  }): Promise<ProviderSubscriptionResult>;
+
+  cancel_subscription(input: {
+    subscription_bid: string;
+    provider_subscription_id: string;
+  }): Promise<ProviderSubscriptionResult>;
+
+  resume_subscription(input: {
+    subscription_bid: string;
+    provider_subscription_id: string;
+  }): Promise<ProviderSubscriptionResult>;
+
+  refund_payment(input: {
+    billing_order_bid: string;
+    provider_reference_id: string;
+    amount?: number;
+  }): Promise<ProviderRefundResult>;
+
+  verify_webhook(input: {
+    headers: Record<string, string>;
+    raw_body: string;
+  }): Promise<VerifiedProviderEvent>;
+
+  sync_reference(input: {
+    provider_reference_id: string;
+    reference_type: string;
+  }): Promise<ProviderSyncResult>;
 }
 ```
 
-### 6.2 `GET /billing/overview`
+## 8. 公共 API 与类型
 
-Returns the creator’s current subscription, wallet, entitlement summary, and renewal state.
+### 8.1 v1 核心 API
 
-Response:
+- `GET /billing/catalog`
+- `GET /billing/overview`
+- `GET /billing/ledger`
+- `POST /billing/subscriptions/checkout`
+- `POST /billing/subscriptions/cancel`
+- `POST /billing/subscriptions/resume`
+- `POST /billing/topups/checkout`
+- `POST /billing/webhooks/stripe`
+- `POST /billing/webhooks/pingxx`
+- `GET /admin/billing/subscriptions`
+- `GET /admin/billing/orders`
+- `POST /admin/billing/ledger/adjust`
 
-```json
-{
-  "creator_bid": "creator_123",
-  "wallet": {
-    "available_credits": 1280,
-    "reserved_credits": 0,
-    "lifetime_granted_credits": 5400,
-    "lifetime_consumed_credits": 4120
-  },
-  "subscription": {
-    "subscription_bid": "sub_123",
-    "status": "active",
-    "plan_bid": "plan_yearly_growth_5000",
-    "plan_code": "yearly_growth_5000",
-    "billing_provider": "stripe",
-    "billing_anchor_at": "2026-04-01T00:00:00Z",
-    "current_period_start_at": "2026-03-01T00:00:00Z",
-    "current_period_end_at": "2026-04-01T00:00:00Z",
-    "cancel_at_period_end": false,
-    "next_plan_bid": ""
-  },
-  "entitlements": {
-    "branding_enabled": true,
-    "custom_domain_enabled": true,
-    "priority_class": 3,
-    "max_concurrency": 8,
-    "analytics_tier": "deep",
-    "support_tier": "priority"
-  },
-  "billing_alerts": [
-    {
-      "type": "low_balance",
-      "message": "Wallet balance is below 20 percent of monthly baseline."
-    }
-  ]
-}
-```
+核心接口说明：
 
-### 6.3 `GET /billing/ledger`
+- `GET /billing/catalog`：读取 `billing_products`，输出 `plans[]` 与 `topups[]`
+- `GET /billing/overview`：v1 只返回 `wallet`、`subscription`、`billing_alerts`
+- `GET /billing/ledger`：按时间倒序分页返回账本流水
+- `POST /billing/subscriptions/checkout`：新开订阅、升级补差或恢复订阅
+- `POST /billing/topups/checkout`：发起一次性充值支付
+- `POST /billing/webhooks/stripe` / `POST /billing/webhooks/pingxx`：负责 `billing_provider_events` 幂等、`billing_orders` 状态推进、`billing_subscriptions` 推进和账本发放/扣回
+- `POST /admin/billing/ledger/adjust`：后台人工调整积分，必须写入 `billing_ledger_entries`
 
-Query params:
+### 8.2 v1.1 扩展 API
 
-- `page`
-- `page_size`
-- `entry_type`
-- `source_type`
-- `start_time`
-- `end_time`
+- `POST /admin/billing/domains/bind`
+- `GET /admin/billing/domain-bindings`
+- `GET /billing/entitlements`
 
-Returns paginated ledger entries ordered by `created_at desc`.
+扩展接口说明：
 
-### 6.4 `POST /billing/subscriptions/checkout`
+- `POST /admin/billing/domains/bind`：发起域名绑定和校验
+- `GET /admin/billing/domain-bindings`：查看 creator 维度域名状态
+- `GET /billing/entitlements`：读取 v1.1 扩展权益快照
 
-Creates a billing order and payment initiation for:
+### 8.3 DTO 投影
 
-- New subscription
-- Immediate upgrade proration
-- Resume from expired status
+说明：
 
-Request:
-
-```json
-{
-  "plan_bid": "plan_monthly_pro",
-  "payment_provider": "stripe",
-  "channel": "stripe:subscription",
-  "success_url": "https://cook.example.com/billing/result",
-  "cancel_url": "https://cook.example.com/billing"
-}
-```
-
-Response:
-
-```json
-{
-  "billing_order_bid": "border_123",
-  "subscription_bid": "sub_123",
-  "payment_provider": "stripe",
-  "checkout_mode": "subscription",
-  "provider_reference_id": "cs_test_123",
-  "checkout_url": "https://checkout.stripe.com/...",
-  "status": "pending"
-}
-```
-
-### 6.5 `POST /billing/subscriptions/cancel`
-
-Request:
-
-```json
-{
-  "subscription_bid": "sub_123"
-}
-```
-
-Behavior:
-
-- Sets `cancel_at_period_end = 1`
-- Leaves current paid period active
-- Preserves entitlements until current period end
-
-### 6.6 `POST /billing/subscriptions/resume`
-
-Request:
-
-```json
-{
-  "subscription_bid": "sub_123"
-}
-```
-
-Behavior:
-
-- Clears scheduled cancellation when the provider supports reactivation
-- If provider-side reactivation is not possible, creates a fresh recurring checkout
-
-### 6.7 `POST /billing/topups/checkout`
-
-Request:
-
-```json
-{
-  "topup_bid": "topup_1000",
-  "payment_provider": "pingxx",
-  "channel": "pingxx:alipay_qr",
-  "success_url": "https://cook.example.com/billing/result"
-}
-```
-
-Behavior:
-
-- Creates a one-time billing order
-- On payment success, grants top-up credits into the wallet ledger
-
-### 6.8 `POST /billing/webhooks/stripe`
-
-Responsibilities:
-
-- Verify signature
-- Deduplicate by provider event id
-- Handle subscription lifecycle events
-- Handle invoice paid and invoice failed events
-- Handle cancellation and refund events
-- Update billing order, subscription, payment attempt, and ledger state atomically
-
-Supported event families:
-
-- `checkout.session.completed`
-- `customer.subscription.created`
-- `customer.subscription.updated`
-- `customer.subscription.deleted`
-- `invoice.paid`
-- `invoice.payment_failed`
-- `charge.refunded`
-
-### 6.9 `POST /billing/webhooks/pingxx`
-
-Responsibilities:
-
-- Verify provider signature
-- Deduplicate by provider event id
-- Handle recurring deduction success or failure
-- Handle one-time top-up payment success
-- Handle refund or closure events
-
-Note:
-
-- The exact upstream recurring capability depends on provider confirmation.
-- Internally, the endpoint still writes the same normalized `billing_payment_attempts` and `billing_subscriptions` states as Stripe.
-
-### 6.10 `GET /admin/billing/subscriptions`
-
-Query params:
-
-- `creator_bid`
-- `status`
-- `plan_code`
-- `provider`
-- `page`
-- `page_size`
-
-Returns admin subscription list with current state, current period, next plan, grace period, and renewal failures.
-
-### 6.11 `GET /admin/billing/orders`
-
-Query params:
-
-- `creator_bid`
-- `status`
-- `order_type`
-- `provider`
-- `start_time`
-- `end_time`
-- `page`
-- `page_size`
-
-Returns billing order and payment-attempt summary for admin operations.
-
-### 6.12 `POST /admin/billing/ledger/adjust`
-
-Request:
-
-```json
-{
-  "creator_bid": "creator_123",
-  "amount": 500,
-  "reason": "manual promotional grant",
-  "source_type": "manual",
-  "expires_at": "2026-06-30T23:59:59Z"
-}
-```
-
-Behavior:
-
-- Creates a signed ledger entry
-- Updates wallet summary using optimistic locking
-- Requires admin audit logging
-
-### 6.13 `POST /admin/billing/domains/bind`
-
-Request:
-
-```json
-{
-  "creator_bid": "creator_123",
-  "host": "learn.example.com",
-  "verification_method": "dns_txt"
-}
-```
-
-Behavior:
-
-- Creates or updates a domain binding
-- Generates verification token
-- Returns DNS instructions and current status
-
-## 7. DTO And Type Shapes
-
-### 7.1 `BillingPlan`
+- `BillingPlan` 和 `BillingTopupProduct` 是 `billing_products` 的展示层投影，不是底层独立表
+- v1 的 `CreatorBillingOverview` 只返回钱包、订阅和告警
+- `entitlements`、`branding`、`domains` 属于 v1.1 扩展输出
 
 ```ts
 type BillingPlan = {
-  plan_bid: string;
-  plan_code: string;
+  product_bid: string;
+  product_code: string;
+  product_type: 'plan';
   display_name: string;
   description: string;
-  billing_interval: 'month' | 'year' | 'manual';
+  billing_interval: 'month' | 'year';
   billing_interval_count: number;
   currency: string;
   price_amount: number;
-  credit_allocation: number;
+  credit_amount: number;
   auto_renew_enabled: boolean;
-  entitlements: BillingEntitlements;
 };
-```
 
-### 7.2 `BillingTopupProduct`
-
-```ts
 type BillingTopupProduct = {
-  topup_bid: string;
-  topup_code: string;
+  product_bid: string;
+  product_code: string;
+  product_type: 'topup';
   display_name: string;
   description: string;
   currency: string;
   price_amount: number;
   credit_amount: number;
 };
-```
 
-### 7.3 `CreatorBillingOverview`
+type BillingSubscription = {
+  subscription_bid: string;
+  product_bid: string;
+  product_code: string;
+  status: 'draft' | 'active' | 'past_due' | 'paused' | 'cancel_scheduled' | 'canceled' | 'expired';
+  billing_provider: string;
+  current_period_start_at: string | null;
+  current_period_end_at: string | null;
+  grace_period_end_at: string | null;
+  cancel_at_period_end: boolean;
+  next_product_bid: string | null;
+  last_renewed_at: string | null;
+  last_failed_at: string | null;
+};
 
-```ts
+type BillingLedgerItem = {
+  ledger_bid: string;
+  entry_type: 'grant' | 'consume' | 'refund' | 'expire' | 'adjustment' | 'hold' | 'release';
+  source_type: 'subscription' | 'topup' | 'gift' | 'usage' | 'refund' | 'manual';
+  source_bid: string;
+  amount: number;
+  balance_after: number;
+  expires_at: string | null;
+  consumable_from: string | null;
+  metadata: {
+    usage_bid?: string;
+    usage_scene?: 'debug' | 'preview' | 'production';
+    provider?: string;
+    model?: string;
+    metric_breakdown?: Array<{
+      billing_metric: 'llm_input_tokens' | 'llm_cache_tokens' | 'llm_output_tokens' | 'tts_request_count' | 'tts_output_chars' | 'tts_input_chars';
+      raw_amount: number;
+      unit_size: number;
+      credits_per_unit: number;
+      rounding_mode: 'ceil' | 'floor' | 'round';
+      consumed_credits: number;
+    }>;
+  };
+  created_at: string;
+};
+
 type CreatorBillingOverview = {
   creator_bid: string;
   wallet: {
@@ -886,384 +908,52 @@ type CreatorBillingOverview = {
     lifetime_consumed_credits: number;
   };
   subscription: BillingSubscription | null;
-  entitlements: BillingEntitlements;
-  branding: CreatorBrandingConfig | null;
   billing_alerts: Array<{
     type: string;
     message: string;
   }>;
 };
-```
 
-### 7.4 `BillingSubscription`
-
-```ts
-type BillingSubscription = {
-  subscription_bid: string;
-  status: 'draft' | 'active' | 'past_due' | 'paused' | 'cancel_scheduled' | 'canceled' | 'expired';
-  plan_bid: string;
-  plan_code: string;
-  billing_provider: string;
-  provider_subscription_id: string;
-  billing_anchor_at: string;
-  current_period_start_at: string;
-  current_period_end_at: string;
-  grace_period_end_at: string;
-  cancel_at_period_end: boolean;
-  next_plan_bid: string;
-  last_renewed_at: string;
-  last_failed_at: string;
-};
-```
-
-### 7.5 `BillingLedgerItem`
-
-```ts
-type BillingLedgerItem = {
-  ledger_bid: string;
-  entry_type: 'grant' | 'consume' | 'refund' | 'expire' | 'adjustment' | 'hold' | 'release';
-  source_type: 'subscription' | 'topup' | 'gift' | 'usage' | 'refund' | 'manual';
-  source_bid: string;
-  amount: number;
-  balance_after: number;
-  expires_at: string;
-  consumable_from: string;
-  metadata: Record<string, any>;
-  created_at: string;
-};
-```
-
-### 7.6 `BillingEntitlements`
-
-```ts
 type BillingEntitlements = {
   branding_enabled: boolean;
   custom_domain_enabled: boolean;
-  priority_class: number;
+  priority_class: 'standard' | 'priority' | 'vip';
   max_concurrency: number;
-  analytics_tier: 'basic' | 'deep' | 'enterprise';
-  support_tier: 'standard' | 'priority' | 'dedicated';
-  feature_payload?: Record<string, any>;
+  analytics_tier: 'basic' | 'advanced' | 'enterprise';
+  support_tier: 'self_serve' | 'business_hours' | 'priority';
 };
-```
 
-### 7.7 `CreatorBrandingConfig`
-
-```ts
 type CreatorBrandingConfig = {
-  creator_bid: string;
-  logo_wide_url: string;
-  logo_square_url: string;
-  favicon_url: string;
-  home_url: string;
-  active_domain_host: string;
+  logo_wide_url: string | null;
+  logo_square_url: string | null;
+  favicon_url: string | null;
+  home_url: string | null;
 };
 ```
 
-## 8. Backend Design Details
-
-### 8.1 Checkout Flow
-
-Subscription checkout:
-
-1. Load catalog item by `plan_bid`
-2. Resolve creator wallet and existing subscription
-3. Determine operation type:
-   - new subscription
-   - immediate upgrade
-   - resume
-4. Create `billing_orders`
-5. Create `billing_payment_attempts`
-6. Initiate provider recurring checkout
-7. Return checkout payload
-
-Top-up checkout:
-
-1. Load top-up product
-2. Confirm creator has an active or past-due subscription
-3. Create `billing_orders`
-4. Create `billing_payment_attempts`
-5. Initiate one-time provider payment
-6. On payment success, grant credits into wallet ledger
-
-### 8.2 Settlement Flow
-
-Settlement job runs periodically:
-
-1. Load creators with active or past-due subscriptions
-2. For each creator, resolve owned published `shifu_bid` list
-3. Fetch unsettled `bill_usage` records for those shifus where `billable=1` and scene is production
-4. Resolve `billing_usage_rates`
-5. Convert usage into credit deltas
-6. Write `billing_ledger_entries` with `entry_type=consume`
-7. Update `billing_wallets.available_credits`
-8. Persist settlement cursor or linkage metadata to prevent double settlement
-
-Double-settlement prevention:
-
-- Add settlement metadata into `bill_usage.extra`
-- Or add a separate settlement mapping table in a later iteration if the existing JSON field proves insufficient
-
-V1 decision:
-
-- Use `bill_usage.extra.billing_ledger_bid` and `bill_usage.extra.settled_at` markers to avoid introducing an extra mapping table
-
-### 8.3 Balance Gating
-
-Before a production billable action starts:
-
-1. Resolve creator by `shifu_bid`
-2. Load current `billing_wallets`
-3. Load current `billing_subscriptions`
-4. Confirm subscription state is `active` or `past_due`
-5. Confirm `available_credits > 0`
-6. Confirm creator concurrency is below entitlement limit
-7. Admit workload into execution control layer
-
-If any check fails:
-
-- Reject the workload before expensive provider calls
-- Return billing-specific error codes and i18n messages
-
-### 8.4 Recurring Payment Abstraction
-
-Add new provider adapter interfaces under `service/billing/payment_providers`.
-
-Required methods:
-
-- `create_subscription_checkout()`
-- `resume_subscription()`
-- `cancel_subscription()`
-- `sync_subscription_state()`
-- `handle_webhook()`
-- `refund_order()`
-
-Stripe implementation:
-
-- Uses Stripe customer, subscription, invoice, and webhook primitives
-- Supports checkout for recurring plan start and immediate upgrade proration
-
-Domestic recurring implementation:
-
-- Uses provider recurring signing and deduction primitives if supported
-- If Ping++ does not expose required recurring support, add a new domestic provider adapter without changing the normalized internal API
-
-### 8.5 Renewal Jobs
-
-Required recurring jobs:
-
-- `grant_subscription_allocation_job`
-- `subscription_renewal_trigger_job`
-- `subscription_retry_job`
-- `subscription_expire_job`
-- `scheduled_downgrade_apply_job`
-- `billing_reconciliation_job`
-- `domain_verification_job`
-
-Execution model:
-
-- Store scheduled units in `billing_renewal_events`
-- Drive execution with a background runner that scans due events
-- Mark each event atomically through `pending -> processing -> done/failed`
-
-### 8.6 Admin And Audit
-
-Admin billing adjustments must:
-
-- Record operator id
-- Record reason
-- Write immutable ledger entry
-- Never mutate prior ledger rows
-
-Provider event handling must:
-
-- Deduplicate by provider event id
-- Store full normalized request and response payloads
-- Allow replay-safe processing
-
-## 9. Entitlements And Runtime
-
-### 9.1 Creator-Scoped Branding
-
-Current runtime config returns global branding. V1 changes:
-
-1. Resolve request host or active creator context
-2. Load creator entitlements and domain binding
-3. Return creator-scoped branding values if enabled
-4. Fall back to global config otherwise
-
-New runtime fields:
-
-- `billingEntitlements`
-- `brandingConfig`
-- `domainBinding`
-- `creatorBillingStatus`
-
-### 9.2 Domain Resolution
-
-Request resolution order:
-
-1. If request host matches an active `billing_domain_bindings.host`, use that creator
-2. Else if explicit creator context is already known from authenticated admin path, use that creator
-3. Else return global defaults
-
-### 9.3 Priority And Concurrency Enforcement
-
-V1 minimum viable execution control:
-
-- Introduce a creator-aware admission service
-- Track in-flight billable jobs by `creator_bid`
-- Reject or defer jobs exceeding `max_concurrency`
-- Sort queued jobs by `priority_class`, then `created_at`
-
-This can be implemented first in-process, but the code must isolate the interface so a later external queue can replace it.
-
-### 9.4 Analytics Entitlements
-
-Analytics depth controls:
-
-- Whether creator can access basic usage summary only
-- Whether creator can access detailed billing ledger and deep consumption breakdown
-- Whether creator can access export or enterprise-only metrics later
-
-### 9.5 Support Tier
-
-Support tier is stored in billing entitlements but enforced operationally outside core request path. V1 only exposes and stores it.
-
-## 10. Frontend Design
-
-### 10.1 Creator Billing Center
-
-Add a creator-facing billing area in Cook Web containing:
-
-- Catalog page for plans and top-ups
-- Current subscription card
-- Wallet balance card
-- Credit ledger table
-- Billing orders and invoices table
-- Cancel or resume subscription actions
-- Domain binding form
-- Branding asset management form
-
-Recommended frontend paths:
-
-- `/admin/billing`
-- `/admin/billing/ledger`
-- `/admin/billing/orders`
-- `/admin/billing/domains`
-
-### 10.2 Runtime Bootstrap Changes
-
-Extend runtime initialization to load creator-scoped billing fields alongside existing config:
-
-- Entitlements
-- Branding override
-- Domain binding state
-- Active billing warnings
-
-### 10.3 Admin Billing Operations
-
-Add admin views for:
-
-- Subscription list
-- Billing order list
-- Renewal failure queue
-- Manual credit adjustments
-- Domain verification status
-
-## 11. Migration And Rollout
-
-### 11.1 Database Rollout
-
-Rollout sequence:
-
-1. Add new billing tables
-2. Seed catalog and usage rates
-3. Add runtime config additions
-4. Deploy billing APIs and admin tooling
-5. Deploy creator-facing UI
-6. Enable creator billing for selected creators
-7. Enable production settlement
-
-### 11.2 Seed And Config Support
-
-Use `sys_configs` for:
-
-- Feature flags
-- Default catalog visibility
-- Low-balance threshold
-- Grace period length
-- Global fallback branding values
-
-Do not store creator-specific mutable billing state in `sys_configs`.
-
-### 11.3 Backfill
-
-No legacy course orders are migrated into the new billing domain.
-
-Optional backfills:
-
-- Seed wallets for invited pilot creators
-- Seed gift or trial credits
-- Seed catalog and pricing rules
-
-### 11.4 Safety Guards
-
-- Keep all new routes additive
-- Do not change existing `/order` request or response shapes
-- Put settlement job behind a feature flag initially
-- Allow operator-only manual correction via admin ledger adjustment
-
-## 12. Risks And Dependencies
-
-### 12.1 Domestic Recurring Billing Capability
-
-This is the largest external dependency. The current domestic provider path does not prove recurring support in code. Implementation must confirm provider capabilities before coding production flow.
-
-Mitigation:
-
-- Keep provider contract normalized
-- Implement Stripe recurring first
-- Gate domestic recurring rollout behind provider capability validation
-
-### 12.2 Queue And Concurrency Infrastructure
-
-Current repository does not have a dedicated business task queue. Entitlement enforcement therefore requires new admission and scheduling code.
-
-Mitigation:
-
-- Implement a minimal creator-aware execution control layer in v1
-- Keep the interface abstract enough for later queue infrastructure replacement
-
-### 12.3 Domain Binding And SSL Automation
-
-Custom-domain binding requires DNS verification and likely SSL provisioning outside the current codebase.
-
-Mitigation:
-
-- V1 stores bindings and verification tokens
-- Automated SSL activation can be phased after domain ownership validation if infrastructure is not yet available
-
-### 12.4 Billing Consistency
-
-Wallet drift can occur if webhook processing, settlement, or manual adjustments are not idempotent.
-
-Mitigation:
-
-- Immutable ledger
-- Optimistic locking on wallet summary
-- Provider event deduplication
-- Reconciliation jobs
-
-## 13. Implementation Summary
-
-The recommended implementation path is:
-
-1. Add billing schema and catalog
-2. Add wallet and ledger core
-3. Add recurring payment abstraction
-4. Add creator-scoped entitlement resolution
-5. Add settlement from `bill_usage`
-6. Add creator and admin billing UIs
-7. Add execution gating for credits, priority, and concurrency
-8. Roll out behind feature flags while preserving legacy course order flow
+## 9. 测试与上线关注点
+
+### 9.1 v1 必测
+
+- 套餐购买、充值包购买、自动续费、失败重试、取消自动续费、恢复订阅
+- `production` / `preview` / `debug` 三场景 creator 归属是否正确
+- LLM `input/cache/output` 三维扣分是否准确
+- TTS `按次` 与 `按字数` 两种 metric 是否准确
+- webhook 幂等、replay、防重复发放或重复扣分
+- 钱包快照与账本明细的一致性
+- 旧 `/order` 学员购课流程是否未被破坏
+- `CELERY_TASK_ALWAYS_EAGER=1` 时 billing 集成测试可同步执行
+- worker 不运行时，系统能输出明确告警或降级行为，而不是静默漏任务
+
+### 9.2 v1.1 必测
+
+- 权益快照是否随套餐变化正确生效
+- 自定义域名绑定、校验、停用流程
+- usage 日报表和 ledger 日报表是否可 rebuild 且能对齐真相源
+
+### 9.3 主要风险
+
+- 国内通道是否支持真实 recurring；若不支持，必须显式返回 `unsupported`
+- provider webhook 乱序或重复回调导致的状态覆盖问题
+- 费率 wildcard fallback 配置错误导致的错误扣分
+- 报表层聚合与真相源不一致时的 rebuild 成本
