@@ -17,6 +17,10 @@ declare module 'markdown-flow-ui/renderer' {
 }
 
 declare module 'markdown-flow-ui/slide' {
+  interface Element {
+    ask_list?: unknown[];
+  }
+
   interface SlideProps {
     interactionDefaultValueOptions?: InteractionDefaultValueOptions;
     playerCustomActions?: ReactNode;

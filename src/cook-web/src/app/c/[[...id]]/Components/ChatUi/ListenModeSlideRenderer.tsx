@@ -31,6 +31,7 @@ type ListenSlideElement = SlideElement & {
   page?: number;
   is_audio_streaming?: boolean;
   isAudioStreaming?: boolean;
+  ask_list?: AskMessage[];
 };
 
 interface ListenModeSlideRendererProps {
@@ -56,6 +57,70 @@ type ResolveRenderSequence = (params: {
   itemType: 'content' | 'interaction';
   fallbackSequence: number;
 }) => number;
+
+const resolveAskAnchorElementBid = (item: ChatContentItem) => {
+  const directAnchorElementBid =
+    typeof (item as ChatContentItem & { anchor_element_bid?: string })
+      .anchor_element_bid === 'string'
+      ? (
+          item as ChatContentItem & {
+            anchor_element_bid?: string;
+          }
+        ).anchor_element_bid || ''
+      : '';
+
+  if (directAnchorElementBid) {
+    return directAnchorElementBid;
+  }
+
+  if (Array.isArray(item.ask_list)) {
+    const matchedAskMessage = item.ask_list.find(askMessage => {
+      const anchorElementBid = (
+        askMessage as ChatContentItem & {
+          anchor_element_bid?: string;
+        }
+      ).anchor_element_bid;
+
+      return typeof anchorElementBid === 'string' && Boolean(anchorElementBid);
+    });
+
+    if (matchedAskMessage) {
+      return (
+        (
+          matchedAskMessage as ChatContentItem & {
+            anchor_element_bid?: string;
+          }
+        ).anchor_element_bid || ''
+      );
+    }
+  }
+
+  return item.parent_element_bid || '';
+};
+
+const buildAskListByAnchorElementBid = (items: ChatContentItem[]) => {
+  const askMapping = new Map<string, AskMessage[]>();
+
+  items.forEach(item => {
+    const askList = Array.isArray(item.ask_list)
+      ? (item.ask_list as AskMessage[])
+      : [];
+
+    if (!askList.length) {
+      return;
+    }
+
+    const anchorElementBid = resolveAskAnchorElementBid(item);
+
+    if (!anchorElementBid) {
+      return;
+    }
+
+    askMapping.set(anchorElementBid, askList);
+  });
+
+  return askMapping;
+};
 
 const hasListenStepAudio = (element?: SlideElement) => {
   const listenElement = element as ListenSlideElement | undefined;
@@ -137,6 +202,7 @@ const createEmptyStateElement = (
 
 const buildSlideElementList = ({
   items,
+  askListByAnchorElementBid,
   sectionTitle,
   interactionInputMap,
   lastInteractionBid,
@@ -144,6 +210,7 @@ const buildSlideElementList = ({
   resolveRenderSequence,
 }: {
   items: ChatContentItem[];
+  askListByAnchorElementBid: Map<string, AskMessage[]>;
   sectionTitle?: string;
   interactionInputMap: Record<string, string>;
   lastInteractionBid: string | null;
@@ -161,6 +228,7 @@ const buildSlideElementList = ({
       const { audioSegments, audioUrl, isAudioStreaming } =
         resolveListenSlideAudioSource(item);
       const contentType = resolveListenSlideElementType(item);
+      const askList = askListByAnchorElementBid.get(item.element_bid);
 
       if (!hasResolvedFirstContentType) {
         hasResolvedFirstContentType = true;
@@ -185,6 +253,7 @@ const buildSlideElementList = ({
         is_audio_streaming: isAudioStreaming,
         isAudioStreaming,
         audio_segments: audioSegments,
+        ask_list: askList,
         blockBid: item.element_bid,
         page: pageCursor,
       });
@@ -206,6 +275,7 @@ const buildSlideElementList = ({
       interactionInputMap[item.element_bid] ?? item.user_input ?? '';
     const isLatestEditable =
       lastItemIsInteraction && item.element_bid === lastInteractionBid;
+    const askList = askListByAnchorElementBid.get(item.element_bid);
 
     sequenceNumber += 1;
     elementList.push({
@@ -222,6 +292,7 @@ const buildSlideElementList = ({
       blockBid: item.element_bid,
       page: Math.max(pageCursor - 1, 0),
       user_input: currentUserInput,
+      ask_list: askList,
       readonly:
         Boolean(item.readonly) ||
         Boolean(currentUserInput) ||
@@ -286,6 +357,10 @@ const ListenModeSlideRenderer = ({
   const slideShellRef = useRef<HTMLDivElement | null>(null);
   const { lastInteractionBid, lastItemIsInteraction, firstContentItem } =
     useListenContentData(items);
+  const askListByAnchorElementBid = useMemo(
+    () => buildAskListByAnchorElementBid(items),
+    [items],
+  );
 
   const elementList = useMemo(() => {
     const sequenceMap = renderSequenceByStreamKeyRef.current;
@@ -348,6 +423,7 @@ const ListenModeSlideRenderer = ({
 
     const nextElementList = buildSlideElementList({
       items,
+      askListByAnchorElementBid,
       sectionTitle,
       interactionInputMap,
       lastInteractionBid,
@@ -364,6 +440,7 @@ const ListenModeSlideRenderer = ({
 
     return nextElementList;
   }, [
+    askListByAnchorElementBid,
     interactionInputMap,
     items,
     lastInteractionBid,
@@ -412,25 +489,20 @@ const ListenModeSlideRenderer = ({
     elementList.length === 1 &&
     elementList[0]?.blockBid === 'empty-ppt';
 
-  const askListByParentElementBid = useMemo(() => {
-    const askMapping = new Map<string, ChatContentItem['ask_list']>();
-    items.forEach(item => {
-      if (item.type !== ChatContentItemType.ASK || !item.parent_element_bid) {
-        return;
-      }
-      askMapping.set(item.parent_element_bid, item.ask_list ?? []);
-    });
-    return askMapping;
-  }, [items]);
-
   const fallbackAskElementBid = firstContentItem?.element_bid ?? '';
   const resolvedAskElementBid = currentStepBlockBid || fallbackAskElementBid;
   const currentAskList = useMemo<AskMessage[]>(
-    () =>
-      (resolvedAskElementBid
-        ? askListByParentElementBid.get(resolvedAskElementBid) ?? []
-        : []) as AskMessage[],
-    [askListByParentElementBid, resolvedAskElementBid],
+    () => {
+      if (!resolvedAskElementBid) {
+        return [];
+      }
+
+      return (
+        elementList.find(element => element.blockBid === resolvedAskElementBid)
+          ?.ask_list ?? []
+      ) as AskMessage[];
+    },
+    [elementList, resolvedAskElementBid],
   );
 
   const handleInteractionSend = useCallback(
