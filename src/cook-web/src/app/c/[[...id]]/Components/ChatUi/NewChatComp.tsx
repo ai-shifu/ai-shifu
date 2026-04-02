@@ -773,6 +773,7 @@ export const NewChatComponents = ({
                             : undefined
                         }
                         readonly={item.readonly}
+                        disableAskButton={isInteractionFollowUp}
                         onRefresh={onRefresh}
                         onToggleAskExpanded={toggleAskExpanded}
                         askButtonVariant={
