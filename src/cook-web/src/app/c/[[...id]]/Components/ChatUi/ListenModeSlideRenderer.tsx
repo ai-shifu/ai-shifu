@@ -62,21 +62,22 @@ type ResolveRenderSequence = (params: {
   fallbackSequence: number;
 }) => number;
 
-type DesktopAskActionState = {
+type PlayerCustomActionState = {
   currentElement?: ListenSlideElement;
   isActive: boolean;
 };
 
-type DesktopAskActionContextSnapshot = DesktopAskActionState & {
+type PlayerCustomActionContextSnapshot = PlayerCustomActionState & {
   setActive: (active: boolean) => void;
 };
 
 interface ListenSlideAskPlayerActionProps {
-  actionRef: React.MutableRefObject<HTMLButtonElement | null>;
+  actionRef?: React.MutableRefObject<HTMLButtonElement | null>;
   context: SlidePlayerCustomActionContext;
   label: string;
   onBeforeOpen: () => void;
-  onContextChange: (snapshot: DesktopAskActionContextSnapshot) => void;
+  onContextChange: (snapshot: PlayerCustomActionContextSnapshot) => void;
+  renderButton?: boolean;
 }
 
 const ListenSlideAskPlayerAction = memo(
@@ -86,6 +87,7 @@ const ListenSlideAskPlayerAction = memo(
     label,
     onBeforeOpen,
     onContextChange,
+    renderButton = true,
   }: ListenSlideAskPlayerActionProps) => {
     const { currentElement, isActive, setActive, toggleActive } = context;
 
@@ -104,6 +106,10 @@ const ListenSlideAskPlayerAction = memo(
 
       toggleActive();
     }, [isActive, onBeforeOpen, toggleActive]);
+
+    if (!renderButton) {
+      return null;
+    }
 
     return (
       <button
@@ -444,15 +450,14 @@ const ListenModeSlideRenderer = ({
   });
   const [isMobileAskOpen, setIsMobileAskOpen] = useState(false);
   const [isPlayerVisible, setIsPlayerVisible] = useState(true);
-  const [currentStepBlockBid, setCurrentStepBlockBid] = useState('');
-  const [desktopAskActionState, setDesktopAskActionState] =
-    useState<DesktopAskActionState>({
+  const [playerCustomActionState, setPlayerCustomActionState] =
+    useState<PlayerCustomActionState>({
       currentElement: undefined,
       isActive: false,
     });
   const mobileAskActionRef = useRef<HTMLButtonElement | null>(null);
   const desktopAskActionRef = useRef<HTMLButtonElement | null>(null);
-  const desktopAskActionSetActiveRef = useRef<(active: boolean) => void>(
+  const playerCustomActionSetActiveRef = useRef<(active: boolean) => void>(
     () => {},
   );
   const customAskOverlayRef = useRef<HTMLDivElement | null>(null);
@@ -585,6 +590,7 @@ const ListenModeSlideRenderer = ({
     ].join(':');
   }, [currentMarkerStepElement]);
   const previousMarkerStepKeyRef = useRef('');
+  const previousPlayerCustomActionActiveRef = useRef(false);
 
   const shouldRenderEmptyPpt =
     !isLoading &&
@@ -592,34 +598,24 @@ const ListenModeSlideRenderer = ({
     elementList[0]?.blockBid === 'empty-ppt';
 
   const fallbackAskElementBid = firstContentItem?.element_bid ?? '';
-  const resolvedAskElementBid = currentStepBlockBid || fallbackAskElementBid;
-  const desktopAskElementBid = useMemo(() => {
-    const blockBid = desktopAskActionState.currentElement?.blockBid;
+  const playerCustomAskElementBid = useMemo(() => {
+    const blockBid = playerCustomActionState.currentElement?.blockBid;
 
     if (blockBid && blockBid !== 'empty-ppt') {
       return blockBid;
     }
 
     return fallbackAskElementBid;
-  }, [desktopAskActionState.currentElement, fallbackAskElementBid]);
-  const currentAskList = useMemo<AskMessage[]>(() => {
-    if (!resolvedAskElementBid) {
+  }, [fallbackAskElementBid, playerCustomActionState.currentElement]);
+  const playerCustomAskList = useMemo<AskMessage[]>(() => {
+    if (!playerCustomAskElementBid) {
       return [];
     }
 
     return (elementList.find(
-      element => element.blockBid === resolvedAskElementBid,
+      element => element.blockBid === playerCustomAskElementBid,
     )?.ask_list ?? []) as AskMessage[];
-  }, [elementList, resolvedAskElementBid]);
-  const desktopAskList = useMemo<AskMessage[]>(() => {
-    if (!desktopAskElementBid) {
-      return [];
-    }
-
-    return (elementList.find(
-      element => element.blockBid === desktopAskElementBid,
-    )?.ask_list ?? []) as AskMessage[];
-  }, [desktopAskElementBid, elementList]);
+  }, [elementList, playerCustomAskElementBid]);
 
   const handleInteractionSend = useCallback(
     (content: OnSendContentParams, element?: SlideElement) => {
@@ -667,27 +663,30 @@ const ListenModeSlideRenderer = ({
   }, []);
 
   const handleMobileAskToggle = useCallback(() => {
-    setIsMobileAskOpen(prevOpen => {
-      const nextOpen = !prevOpen;
-      if (nextOpen) {
-        closeInteractionOverlayIfOpen();
-      }
-      return nextOpen;
-    });
-  }, [closeInteractionOverlayIfOpen]);
+    if (playerCustomActionState.isActive) {
+      setIsMobileAskOpen(false);
+      playerCustomActionSetActiveRef.current(false);
+      return;
+    }
+
+    closeInteractionOverlayIfOpen();
+    setIsMobileAskOpen(true);
+    playerCustomActionSetActiveRef.current(true);
+  }, [closeInteractionOverlayIfOpen, playerCustomActionState.isActive]);
 
   const handleMobileAskClose = useCallback(() => {
     setIsMobileAskOpen(false);
+    playerCustomActionSetActiveRef.current(false);
   }, []);
 
-  const handleDesktopAskActionContextChange = useCallback(
+  const handlePlayerCustomActionContextChange = useCallback(
     ({
       currentElement,
       isActive,
       setActive,
-    }: DesktopAskActionContextSnapshot) => {
-      desktopAskActionSetActiveRef.current = setActive;
-      setDesktopAskActionState(prevState => {
+    }: PlayerCustomActionContextSnapshot) => {
+      playerCustomActionSetActiveRef.current = setActive;
+      setPlayerCustomActionState(prevState => {
         if (
           prevState.currentElement === currentElement &&
           prevState.isActive === isActive
@@ -704,8 +703,8 @@ const ListenModeSlideRenderer = ({
     [],
   );
 
-  const handleDesktopAskClose = useCallback(() => {
-    desktopAskActionSetActiveRef.current(false);
+  const handlePlayerCustomActionClose = useCallback(() => {
+    playerCustomActionSetActiveRef.current(false);
   }, []);
 
   const handlePlayerVisibilityChange = useCallback(
@@ -861,12 +860,7 @@ const ListenModeSlideRenderer = ({
   }, [chatRef, syncMediaPlaybackState]);
 
   const handleStepChange = useCallback(
-    (element: SlideElement | undefined, index: number) => {
-      const blockBid = (element as ListenSlideElement | undefined)?.blockBid;
-      if (blockBid && blockBid !== 'empty-ppt') {
-        setCurrentStepBlockBid(blockBid);
-      }
-
+    (_element: SlideElement | undefined, index: number) => {
       setPlaybackState(prevState => {
         if (
           prevState.currentStepIndex === index &&
@@ -897,8 +891,25 @@ const ListenModeSlideRenderer = ({
       return;
     }
 
-    handleDesktopAskClose();
-  }, [handleDesktopAskClose, mobileStyle]);
+    handlePlayerCustomActionClose();
+  }, [handlePlayerCustomActionClose, mobileStyle]);
+
+  useEffect(() => {
+    if (!mobileStyle) {
+      previousPlayerCustomActionActiveRef.current =
+        playerCustomActionState.isActive;
+      return;
+    }
+
+    const wasActive = previousPlayerCustomActionActiveRef.current;
+
+    if (wasActive && !playerCustomActionState.isActive) {
+      setIsMobileAskOpen(false);
+    }
+
+    previousPlayerCustomActionActiveRef.current =
+      playerCustomActionState.isActive;
+  }, [mobileStyle, playerCustomActionState.isActive]);
 
   useEffect(() => {
     if (!mobileStyle || !isMobileAskOpen) {
@@ -920,7 +931,7 @@ const ListenModeSlideRenderer = ({
         return;
       }
 
-      setIsMobileAskOpen(false);
+      handleMobileAskClose();
     };
 
     window.addEventListener('pointerdown', handleWindowPointerDown);
@@ -928,10 +939,10 @@ const ListenModeSlideRenderer = ({
     return () => {
       window.removeEventListener('pointerdown', handleWindowPointerDown);
     };
-  }, [isMobileAskOpen, mobileStyle]);
+  }, [handleMobileAskClose, isMobileAskOpen, mobileStyle]);
 
   useEffect(() => {
-    if (mobileStyle || !desktopAskActionState.isActive) {
+    if (mobileStyle || !playerCustomActionState.isActive) {
       return;
     }
 
@@ -950,7 +961,7 @@ const ListenModeSlideRenderer = ({
         return;
       }
 
-      handleDesktopAskClose();
+      handlePlayerCustomActionClose();
     };
 
     window.addEventListener('pointerdown', handleWindowPointerDown);
@@ -958,7 +969,11 @@ const ListenModeSlideRenderer = ({
     return () => {
       window.removeEventListener('pointerdown', handleWindowPointerDown);
     };
-  }, [desktopAskActionState.isActive, handleDesktopAskClose, mobileStyle]);
+  }, [
+    handlePlayerCustomActionClose,
+    mobileStyle,
+    playerCustomActionState.isActive,
+  ]);
 
   useEffect(() => {
     const currentStepHasAudio = hasListenStepAudio(currentMarkerStepElement);
@@ -1038,14 +1053,20 @@ const ListenModeSlideRenderer = ({
   const playerCustomActions = useCallback(
     (context: SlidePlayerCustomActionContext) => (
       <ListenSlideAskPlayerAction
-        actionRef={desktopAskActionRef}
+        actionRef={mobileStyle ? undefined : desktopAskActionRef}
         context={context}
         label={t('module.chat.ask')}
         onBeforeOpen={closeInteractionOverlayIfOpen}
-        onContextChange={handleDesktopAskActionContextChange}
+        onContextChange={handlePlayerCustomActionContextChange}
+        renderButton={!mobileStyle}
       />
     ),
-    [closeInteractionOverlayIfOpen, handleDesktopAskActionContextChange, t],
+    [
+      closeInteractionOverlayIfOpen,
+      handlePlayerCustomActionContextChange,
+      mobileStyle,
+      t,
+    ],
   );
 
   const shouldRenderMobileAskEntry = mobileStyle && !shouldRenderEmptyPpt;
@@ -1067,7 +1088,10 @@ const ListenModeSlideRenderer = ({
         {shouldRenderMobileAskEntry ? (
           <button
             type='button'
-            className='listen-slide-mobile-ask-entry listen-slide-mobile-ask-button'
+            className={cn(
+              'listen-slide-mobile-ask-entry listen-slide-mobile-ask-button',
+            )}
+            aria-pressed={playerCustomActionState.isActive}
             onClick={handleMobileAskToggle}
             ref={mobileAskActionRef}
           >
@@ -1087,9 +1111,9 @@ const ListenModeSlideRenderer = ({
               ref={customAskOverlayRef}
             >
               <AskBlock
-                askList={currentAskList}
+                askList={playerCustomAskList}
                 className='listen-slide-ask-block'
-                element_bid={resolvedAskElementBid}
+                element_bid={playerCustomAskElementBid}
                 isExpanded={true}
                 onToggleAskExpanded={handleMobileAskClose}
                 outline_bid={lessonId}
@@ -1099,7 +1123,7 @@ const ListenModeSlideRenderer = ({
             </div>
           ) : null
         ) : null}
-        {desktopAskActionState.isActive &&
+        {playerCustomActionState.isActive &&
         !mobileStyle &&
         !shouldRenderEmptyPpt ? (
           <div
@@ -1114,11 +1138,11 @@ const ListenModeSlideRenderer = ({
             <div className='slide-player__ask-card'>
               <div className='slide-player__ask-body'>
                 <AskBlock
-                  askList={desktopAskList}
+                  askList={playerCustomAskList}
                   className='listen-slide-ask-block'
-                  element_bid={desktopAskElementBid}
+                  element_bid={playerCustomAskElementBid}
                   isExpanded={true}
-                  onToggleAskExpanded={handleDesktopAskClose}
+                  onToggleAskExpanded={handlePlayerCustomActionClose}
                   outline_bid={lessonId}
                   preview_mode={previewMode}
                   shifu_bid={shifuBid}
@@ -1147,7 +1171,7 @@ const ListenModeSlideRenderer = ({
           onSend={handleInteractionSend}
           playerClassName={mobileStyle ? 'listen-slide-player-mobile' : ''}
           playerCustomActionPauseOnActive={true}
-          playerCustomActions={mobileStyle ? undefined : playerCustomActions}
+          playerCustomActions={playerCustomActions}
           showPlayer={!shouldRenderEmptyPpt}
         />
       </div>
