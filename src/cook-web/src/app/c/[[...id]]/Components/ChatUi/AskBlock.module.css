@@ -256,3 +256,6 @@
   background: #fff !important;
   border-radius: 24px;
 }
+.askBlock:global(.listen-slide-ask-block):not(.mobile) .userMessage {
+  background-color: var(--base-muted, #f5f5f5);
+}

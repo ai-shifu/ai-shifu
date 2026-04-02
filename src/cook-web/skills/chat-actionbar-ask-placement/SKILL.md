@@ -26,6 +26,7 @@ description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用
 - interaction 提交值组装时要去重并保序（如 `selectedValues + buttonText` 同值场景），避免变量被写成 `ENFJ,ENFJ` 这类重复值。
 - Slide 播放器里的追问入口若通过 `playerCustomActions` 注入，桌面端要和播放器 notes 浮层互斥，移动端则单独提供悬浮入口并复用 `AskBlock` 的弹层展示。
 - 当 `LIKE_STATUS` 挂在 `interaction` 元素后方时，如需求要求去掉追问入口，优先通过 `disableAskButton` 关闭按钮，仅保留必要的重生成或音频动作，避免影响正文块后的追问能力。
+- `listen-slide-ask-block` 这类听课模式专用追问容器需要局部覆写气泡视觉时，优先在容器作用域内覆盖 `.userMessage`，避免改到普通聊天页或移动端追问弹层。
 
 ## 工作流
 

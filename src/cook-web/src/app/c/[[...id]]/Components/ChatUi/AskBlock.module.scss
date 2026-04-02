@@ -283,5 +283,11 @@
     padding: 28px 24px !important;
     background: #fff !important;
     border-radius: 24px;
+
+    &:not(.mobile) {
+      .userMessage {
+        background-color: var(--base-muted, #f5f5f5);
+      }
+    }
   }
 }
