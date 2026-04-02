@@ -24,7 +24,7 @@ import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import InteractionBlock from './InteractionBlock';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import type { ChatContentItem } from './useChatLogicHook';
-import AskBlock from './AskBlock';
+import AskBlock, { type AskMessage } from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
 import ListenModeSlideRenderer from './ListenModeSlideRenderer';
@@ -250,6 +250,7 @@ export const NewChatComponents = ({
     onSend,
     onRefresh,
     toggleAskExpanded,
+    syncAskListByParentElement,
     reGenerateConfirm,
     requestAudioForBlock,
     lessonFeedbackPopup,
@@ -571,6 +572,33 @@ export const NewChatComponents = ({
     [toggleAskExpanded],
   );
 
+  const handleListenModeAskListChange = useCallback(
+    (askList: AskMessage[], anchorElementBid: string) => {
+      if (!anchorElementBid) {
+        return;
+      }
+
+      syncAskListByParentElement(
+        anchorElementBid,
+        askList.map((message, index) => {
+          const fallbackElementBid = `${message.type}-${anchorElementBid}-${index}`;
+
+          return {
+            element_bid: message.element_bid || fallbackElementBid,
+            generated_block_bid: message.element_bid || fallbackElementBid,
+            parent_element_bid: anchorElementBid,
+            type: message.type,
+            content: message.content || '',
+          };
+        }),
+        {
+          expand: true,
+        },
+      );
+    },
+    [syncAskListByParentElement],
+  );
+
   useEffect(() => {
     const container = chatRef.current;
     const parentContainer = container?.parentElement;
@@ -665,6 +693,7 @@ export const NewChatComponents = ({
               previewMode={previewMode}
               lessonStatus={lessonStatus}
               onSend={memoizedOnSend}
+              onAskListChange={handleListenModeAskListChange}
               onPlayerVisibilityChange={onListenPlayerVisibilityChange}
               onPlaybackStateChange={setListenPlaybackState}
             />

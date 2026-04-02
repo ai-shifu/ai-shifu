@@ -49,6 +49,7 @@ interface ListenModeSlideRendererProps {
   previewMode?: boolean;
   lessonStatus?: string;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
+  onAskListChange?: (askList: AskMessage[], anchorElementBid: string) => void;
   onPlayerVisibilityChange?: (visible: boolean) => void;
   onPlaybackStateChange?: (state: {
     isAudioPlaying: boolean;
@@ -463,6 +464,7 @@ const ListenModeSlideRenderer = ({
   shifuBid = '',
   previewMode = false,
   onSend,
+  onAskListChange,
   onPlayerVisibilityChange,
   onPlaybackStateChange,
 }: ListenModeSlideRendererProps) => {
@@ -711,8 +713,10 @@ const ListenModeSlideRenderer = ({
           [anchorElementBid]: askList,
         };
       });
+
+      onAskListChange?.(askList, anchorElementBid);
     },
-    [],
+    [onAskListChange],
   );
 
   const closeInteractionOverlayIfOpen = useCallback(() => {
