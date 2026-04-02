@@ -109,6 +109,7 @@ export default function AskBlock({
   const mobileContentRef = useRef<HTMLDivElement | null>(null);
   const inputWrapperRef = useRef<HTMLDivElement | null>(null);
   const isSlideAskBlock = className?.includes('listen-slide-ask-block');
+  const isDesktopSlideAskBlock = Boolean(isSlideAskBlock) && !mobileStyle;
   const expanded = isExpanded ?? (!mobileStyle && askList.length > 0);
   const shouldForceSlideMobileDialog =
     Boolean(isSlideAskBlock) && mobileStyle && expanded;
@@ -403,6 +404,25 @@ export default function AskBlock({
     };
   }, [mobileStyle, shouldShowMobileDialog, expanded, messagesToShow.length]);
 
+  useEffect(() => {
+    if (!isDesktopSlideAskBlock || !expanded) {
+      return;
+    }
+
+    const container = mobileContentRef.current;
+    if (!container) {
+      return;
+    }
+
+    const rafId = requestAnimationFrame(() => {
+      container.scrollTop = container.scrollHeight;
+    });
+
+    return () => {
+      cancelAnimationFrame(rafId);
+    };
+  }, [expanded, isDesktopSlideAskBlock, messagesToShow.length]);
+
   const handleClose = useCallback(() => {
     setIsFullscreen(false);
     // onClose?.();
@@ -612,6 +632,43 @@ export default function AskBlock({
             </div>
           </>
         )}
+      </div>
+    );
+  }
+
+  if (isDesktopSlideAskBlock && expanded) {
+    return (
+      <div
+        className={cn(
+          styles.askBlock,
+          className,
+          styles.desktopSlidePanel,
+          !hasAskAnswerMessages && styles.desktopSlidePanelEmpty,
+        )}
+      >
+        <div className={styles.desktopSlideHeader}>
+          <div className={styles.desktopSlideTitle}>{t('module.chat.ask')}</div>
+          <button
+            type='button'
+            className={styles.desktopSlideActionButton}
+            onClick={handleClose}
+            aria-label='Close'
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div
+          className={cn(
+            styles.desktopSlideContent,
+            !hasAskAnswerMessages && styles.desktopSlideContentHidden,
+          )}
+          ref={mobileContentRef}
+        >
+          {renderMessages({
+            extraClass: styles.desktopSlideMessageList,
+          })}
+        </div>
+        {renderInput(styles.desktopSlideInput)}
       </div>
     );
   }
