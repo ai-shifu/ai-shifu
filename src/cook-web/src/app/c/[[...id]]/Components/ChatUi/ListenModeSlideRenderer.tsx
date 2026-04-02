@@ -646,16 +646,24 @@ const ListenModeSlideRenderer = ({
     elementList[0]?.blockBid === 'empty-ppt';
 
   const fallbackAskElementBid = firstContentItem?.element_bid ?? '';
-  const resolvedAskElementBid = currentStepBlockBid || fallbackAskElementBid;
-  const playerCustomAskElementBid = useMemo(() => {
+  const currentPlayerElementBid = useMemo(() => {
     const blockBid = playerCustomActionState.currentElement?.blockBid;
 
     if (blockBid && blockBid !== 'empty-ppt') {
       return blockBid;
     }
 
+    return '';
+  }, [playerCustomActionState.currentElement]);
+  const resolvedAskElementBid =
+    currentPlayerElementBid || currentStepBlockBid || fallbackAskElementBid;
+  const playerCustomAskElementBid = useMemo(() => {
+    if (currentPlayerElementBid) {
+      return currentPlayerElementBid;
+    }
+
     return fallbackAskElementBid;
-  }, [fallbackAskElementBid, playerCustomActionState.currentElement]);
+  }, [currentPlayerElementBid, fallbackAskElementBid]);
   const playerCustomAskList = useMemo<AskMessage[]>(() => {
     if (!playerCustomAskElementBid) {
       return [];
@@ -1124,8 +1132,15 @@ const ListenModeSlideRenderer = ({
   const playerCustomActions = useCallback(
     (context: SlidePlayerCustomActionContext) => {
       if (mobileStyle) {
-        playerCustomActionSetActiveRef.current = context.setActive;
-        return null;
+        return (
+          <ListenSlideAskPlayerAction
+            context={context}
+            label={t('module.chat.ask')}
+            onBeforeOpen={closeInteractionOverlayIfOpen}
+            onContextChange={handlePlayerCustomActionContextChange}
+            renderButton={false}
+          />
+        );
       }
 
       return (

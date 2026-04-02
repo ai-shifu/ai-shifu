@@ -305,6 +305,7 @@
     width: 100%;
     min-height: 80px;
     height: 80px;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     border-radius: 0 !important;
     border-left: 0 !important;
     border-right: 0 !important;

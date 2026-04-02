@@ -45,6 +45,36 @@ export interface AskBlockProps {
   onToggleAskExpanded?: (element_bid: string) => void;
 }
 
+const normalizeAskMessageList = (askList: AskMessage[] = []) =>
+  askList.map(item => ({
+    ...item,
+    content: item.content || '',
+  }));
+
+const areAskMessageListsEqual = (
+  previousList: AskMessage[] = [],
+  nextList: AskMessage[] = [],
+) => {
+  if (previousList === nextList) {
+    return true;
+  }
+
+  if (previousList.length !== nextList.length) {
+    return false;
+  }
+
+  return previousList.every((item, index) => {
+    const nextItem = nextList[index];
+
+    return (
+      item.type === nextItem?.type &&
+      item.content === nextItem?.content &&
+      item.element_bid === nextItem?.element_bid &&
+      item.isStreaming === nextItem?.isStreaming
+    );
+  });
+};
+
 /**
  * AskBlock
  * Follow-up area component that contains the Q&A list and custom input box with streaming support
@@ -65,12 +95,9 @@ export default function AskBlock({
   const copiedButtonText = t('module.renderUi.core.copied');
   const { mobileStyle } = useContext(AppContext);
   const courseAvatar = useCourseStore(state => state.courseAvatar);
-  const [displayList, setDisplayList] = useState<AskMessage[]>(() => {
-    return askList.map(item => ({
-      ...item,
-      content: item.content || '',
-    }));
-  });
+  const [displayList, setDisplayList] = useState<AskMessage[]>(() =>
+    normalizeAskMessageList(askList),
+  );
 
   const [inputValue, setInputValue] = useState('');
   const sseRef = useRef<any>(null);
@@ -311,6 +338,16 @@ export default function AskBlock({
   useEffect(() => {
     onAskListChange?.(displayList, element_bid);
   }, [displayList, element_bid, onAskListChange]);
+
+  useEffect(() => {
+    const normalizedAskList = normalizeAskMessageList(askList);
+
+    setDisplayList(previousList =>
+      areAskMessageListsEqual(previousList, normalizedAskList)
+        ? previousList
+        : normalizedAskList,
+    );
+  }, [askList, element_bid]);
 
   useEffect(() => {
     if (!expanded) {
