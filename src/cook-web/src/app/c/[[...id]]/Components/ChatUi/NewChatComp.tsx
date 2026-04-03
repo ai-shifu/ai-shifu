@@ -24,7 +24,8 @@ import useExclusiveAudio from '@/hooks/useExclusiveAudio';
 import InteractionBlock from './InteractionBlock';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import type { ChatContentItem } from './useChatLogicHook';
-import AskBlock, { type AskMessage } from './AskBlock';
+import AskBlock from './AskBlock';
+import type { AskMessage } from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
 import ListenModeSlideRenderer from './ListenModeSlideRenderer';
@@ -45,6 +46,107 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { useSystemStore } from '@/c-store/useSystemStore';
+import { buildAskListByAnchorElementBid } from './askState';
+import { useAskStateStore } from './useAskStateStore';
+
+const buildReadModeItemsWithAskState = ({
+  items,
+  askListByAnchorElementBid,
+  mobileStyle,
+}: {
+  items: ChatContentItem[];
+  askListByAnchorElementBid: Record<string, AskMessage[]>;
+  mobileStyle: boolean;
+}) => {
+  const existingAskAnchorSet = new Set<string>();
+  const likeStatusAnchorSet = new Set<string>();
+
+  items.forEach(item => {
+    if (item.type === ChatContentItemType.ASK && item.parent_element_bid) {
+      existingAskAnchorSet.add(item.parent_element_bid);
+    }
+
+    if (
+      item.type === ChatContentItemType.LIKE_STATUS &&
+      item.parent_element_bid
+    ) {
+      likeStatusAnchorSet.add(item.parent_element_bid);
+    }
+  });
+
+  const insertedAskAnchorSet = new Set<string>();
+  const nextItems: ChatContentItem[] = [];
+
+  items.forEach(item => {
+    if (item.type === ChatContentItemType.ASK) {
+      const anchorElementBid = item.parent_element_bid || '';
+      const storedAskList = anchorElementBid
+        ? askListByAnchorElementBid[anchorElementBid]
+        : undefined;
+
+      nextItems.push(
+        storedAskList
+          ? ({
+              ...item,
+              ask_list: storedAskList as ChatContentItem[],
+            } satisfies ChatContentItem)
+          : item,
+      );
+
+      if (anchorElementBid) {
+        insertedAskAnchorSet.add(anchorElementBid);
+      }
+
+      return;
+    }
+
+    nextItems.push(item);
+
+    const anchorElementBid =
+      item.type === ChatContentItemType.LIKE_STATUS
+        ? item.parent_element_bid || ''
+        : item.element_bid || '';
+
+    if (
+      !anchorElementBid ||
+      existingAskAnchorSet.has(anchorElementBid) ||
+      insertedAskAnchorSet.has(anchorElementBid)
+    ) {
+      return;
+    }
+
+    const storedAskList = askListByAnchorElementBid[anchorElementBid];
+
+    if (!storedAskList?.length) {
+      return;
+    }
+
+    const shouldInsertAfterCurrent =
+      item.type === ChatContentItemType.LIKE_STATUS ||
+      (!likeStatusAnchorSet.has(anchorElementBid) &&
+        (item.type === ChatContentItemType.CONTENT ||
+          item.type === ChatContentItemType.INTERACTION));
+
+    if (!shouldInsertAfterCurrent) {
+      return;
+    }
+
+    nextItems.push({
+      element_bid: '',
+      parent_element_bid: anchorElementBid,
+      type: ChatContentItemType.ASK,
+      content: '',
+      isAskExpanded: !mobileStyle,
+      ask_list: storedAskList as ChatContentItem[],
+      readonly: false,
+      customRenderBar: () => null,
+      user_input: '',
+    });
+    insertedAskAnchorSet.add(anchorElementBid);
+  });
+
+  return nextItems;
+};
 
 export const NewChatComponents = ({
   className,
@@ -181,6 +283,12 @@ export const NewChatComponents = ({
     listenPlaybackState.isAudioPlaying ||
     listenPlaybackState.isAudioSequenceActive;
   const isPromptContextSettled = settledPromptContextKey === promptContextKey;
+  const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
+  const hydrateAskListMap = useAskStateStore(state => state.hydrateAskListMap);
+  const lessonScopeKey = useAskStateStore(state => state.lessonScopeKey);
+  const storedAskListByAnchorElementBid = useAskStateStore(
+    state => state.askListByAnchorElementBid,
+  );
 
   const onPayModalOpen = useCallback(() => {
     openPayModal();
@@ -250,7 +358,6 @@ export const NewChatComponents = ({
     onSend,
     onRefresh,
     toggleAskExpanded,
-    syncAskListByParentElement,
     reGenerateConfirm,
     requestAudioForBlock,
     lessonFeedbackPopup,
@@ -277,6 +384,32 @@ export const NewChatComponents = ({
     showOutputInProgressToast,
     onPayModalOpen,
   });
+
+  const baseAskListByAnchorElementBid = useMemo(
+    () => buildAskListByAnchorElementBid(items),
+    [items],
+  );
+  const scopedAskListByAnchorElementBid = useMemo(
+    () => (lessonScopeKey === lessonId ? storedAskListByAnchorElementBid : {}),
+    [lessonId, lessonScopeKey, storedAskListByAnchorElementBid],
+  );
+  const readModeItems = useMemo(
+    () =>
+      buildReadModeItemsWithAskState({
+        items,
+        askListByAnchorElementBid: scopedAskListByAnchorElementBid,
+        mobileStyle,
+      }),
+    [items, mobileStyle, scopedAskListByAnchorElementBid],
+  );
+
+  useEffect(() => {
+    ensureLessonScope(lessonId);
+  }, [ensureLessonScope, lessonId]);
+
+  useEffect(() => {
+    hydrateAskListMap(baseAskListByAnchorElementBid);
+  }, [baseAskListByAnchorElementBid, hydrateAskListMap]);
 
   useEffect(() => {
     if (isListenModeActive && !isLoading) {
@@ -572,57 +705,6 @@ export const NewChatComponents = ({
     [toggleAskExpanded],
   );
 
-  const handleListenModeAskListChange = useCallback(
-    (askList: AskMessage[], anchorElementBid: string) => {
-      if (!anchorElementBid) {
-        return;
-      }
-
-      syncAskListByParentElement(
-        anchorElementBid,
-        askList.map((message, index) => {
-          const fallbackElementBid = `${message.type}-${anchorElementBid}-${index}`;
-
-          return {
-            element_bid: message.element_bid || fallbackElementBid,
-            generated_block_bid: message.element_bid || fallbackElementBid,
-            parent_element_bid: anchorElementBid,
-            type: message.type,
-            content: message.content || '',
-          };
-        }),
-        {
-          expand: true,
-        },
-      );
-    },
-    [syncAskListByParentElement],
-  );
-
-  const handleReadModeAskListChange = useCallback(
-    (askList: AskMessage[], anchorElementBid: string) => {
-      if (!anchorElementBid) {
-        return;
-      }
-
-      syncAskListByParentElement(
-        anchorElementBid,
-        askList.map((message, index) => {
-          const fallbackElementBid = `${message.type}-${anchorElementBid}-${index}`;
-
-          return {
-            element_bid: message.element_bid || fallbackElementBid,
-            generated_block_bid: message.element_bid || fallbackElementBid,
-            parent_element_bid: anchorElementBid,
-            type: message.type,
-            content: message.content || '',
-          };
-        }),
-      );
-    },
-    [syncAskListByParentElement],
-  );
-
   useEffect(() => {
     const container = chatRef.current;
     const parentContainer = container?.parentElement;
@@ -717,7 +799,6 @@ export const NewChatComponents = ({
               previewMode={previewMode}
               lessonStatus={lessonStatus}
               onSend={memoizedOnSend}
-              onAskListChange={handleListenModeAskListChange}
               onPlayerVisibilityChange={onListenPlayerVisibilityChange}
               onPlaybackStateChange={setListenPlaybackState}
             />
@@ -753,7 +834,7 @@ export const NewChatComponents = ({
             ) : isLoading ? (
               <></>
             ) : (
-              items.map((item, idx) => {
+              readModeItems.map((item, idx) => {
                 const isLongPressed = longPressedBlockBid === item.element_bid;
                 const baseKey = item.element_bid || `${item.type}-${idx}`;
                 const parentKey = item.parent_element_bid || baseKey;
@@ -774,7 +855,6 @@ export const NewChatComponents = ({
                         outline_bid={lessonId}
                         preview_mode={previewMode}
                         element_bid={item.parent_element_bid || ''}
-                        onAskListChange={handleReadModeAskListChange}
                         onToggleAskExpanded={toggleAskExpanded}
                         askList={(item.ask_list || []) as any[]}
                       />

@@ -29,6 +29,8 @@ import type { AskMessage } from './AskBlock';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
+import { buildAskListByAnchorElementBid } from './askState';
+import { useAskStateStore } from './useAskStateStore';
 
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
@@ -49,7 +51,6 @@ interface ListenModeSlideRendererProps {
   previewMode?: boolean;
   lessonStatus?: string;
   onSend?: (content: OnSendContentParams, blockBid: string) => void;
-  onAskListChange?: (askList: AskMessage[], anchorElementBid: string) => void;
   onPlayerVisibilityChange?: (visible: boolean) => void;
   onPlaybackStateChange?: (state: {
     isAudioPlaying: boolean;
@@ -62,8 +63,6 @@ type ResolveRenderSequence = (params: {
   itemType: 'content' | 'interaction';
   fallbackSequence: number;
 }) => number;
-
-type AskListOverrideMap = Record<string, AskMessage[]>;
 
 type PlayerCustomActionState = {
   currentElement?: ListenSlideElement;
@@ -166,106 +165,6 @@ const ListenSlideAskPlayerAction = memo(
 );
 
 ListenSlideAskPlayerAction.displayName = 'ListenSlideAskPlayerAction';
-
-const resolveAskAnchorElementBid = (item: ChatContentItem) => {
-  const directAnchorElementBid =
-    typeof (item as ChatContentItem & { anchor_element_bid?: string })
-      .anchor_element_bid === 'string'
-      ? (
-          item as ChatContentItem & {
-            anchor_element_bid?: string;
-          }
-        ).anchor_element_bid || ''
-      : '';
-
-  if (directAnchorElementBid) {
-    return directAnchorElementBid;
-  }
-
-  if (Array.isArray(item.ask_list)) {
-    const matchedAskMessage = item.ask_list.find(askMessage => {
-      const anchorElementBid = (
-        askMessage as ChatContentItem & {
-          anchor_element_bid?: string;
-        }
-      ).anchor_element_bid;
-
-      return typeof anchorElementBid === 'string' && Boolean(anchorElementBid);
-    });
-
-    if (matchedAskMessage) {
-      return (
-        (
-          matchedAskMessage as ChatContentItem & {
-            anchor_element_bid?: string;
-          }
-        ).anchor_element_bid || ''
-      );
-    }
-  }
-
-  return item.parent_element_bid || '';
-};
-
-const buildAskListByAnchorElementBid = (items: ChatContentItem[]) => {
-  const askMapping = new Map<string, AskMessage[]>();
-
-  items.forEach(item => {
-    const askList = Array.isArray(item.ask_list)
-      ? (item.ask_list as AskMessage[])
-      : [];
-
-    if (!askList.length) {
-      return;
-    }
-
-    const anchorElementBid = resolveAskAnchorElementBid(item);
-
-    if (!anchorElementBid) {
-      return;
-    }
-
-    askMapping.set(anchorElementBid, askList);
-  });
-
-  return askMapping;
-};
-
-const mergeAskListByAnchorElementBid = ({
-  baseMap,
-  overrideMap,
-}: {
-  baseMap: Map<string, AskMessage[]>;
-  overrideMap: AskListOverrideMap;
-}) => {
-  const nextMap = new Map(baseMap);
-
-  Object.entries(overrideMap).forEach(([anchorElementBid, askList]) => {
-    if (!anchorElementBid) {
-      return;
-    }
-
-    nextMap.set(anchorElementBid, askList);
-  });
-
-  return nextMap;
-};
-
-const areAskMessageListsEqual = (
-  previousAskList: AskMessage[] = [],
-  nextAskList: AskMessage[] = [],
-) =>
-  previousAskList.length === nextAskList.length &&
-  previousAskList.every((message, index) => {
-    const nextMessage = nextAskList[index];
-
-    return (
-      message.type === nextMessage?.type &&
-      message.content === nextMessage?.content &&
-      Boolean(message.isStreaming) === Boolean(nextMessage?.isStreaming) &&
-      (message.element_bid || '') === (nextMessage?.element_bid || '')
-    );
-  });
 
 const hasListenStepAudio = (element?: SlideElement) => {
   const listenElement = element as ListenSlideElement | undefined;
@@ -471,7 +370,6 @@ const ListenModeSlideRenderer = ({
   shifuBid = '',
   previewMode = false,
   onSend,
-  onAskListChange,
   onPlayerVisibilityChange,
   onPlaybackStateChange,
 }: ListenModeSlideRendererProps) => {
@@ -498,10 +396,6 @@ const ListenModeSlideRenderer = ({
   const [isMobileAskOpen, setIsMobileAskOpen] = useState(false);
   const [isPlayerVisible, setIsPlayerVisible] = useState(true);
   const [currentStepBlockBid, setCurrentStepBlockBid] = useState('');
-  const [
-    askListOverrideByAnchorElementBid,
-    setAskListOverrideByAnchorElementBid,
-  ] = useState<AskListOverrideMap>({});
   const [playerCustomActionState, setPlayerCustomActionState] =
     useState<PlayerCustomActionState>({
       currentElement: undefined,
@@ -514,16 +408,48 @@ const ListenModeSlideRenderer = ({
   );
   const customAskOverlayRef = useRef<HTMLDivElement | null>(null);
   const slideShellRef = useRef<HTMLDivElement | null>(null);
+  const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
+  const hydrateAskListMap = useAskStateStore(state => state.hydrateAskListMap);
+  const lessonScopeKey = useAskStateStore(state => state.lessonScopeKey);
+  const storedAskListByAnchorElementBid = useAskStateStore(
+    state => state.askListByAnchorElementBid,
+  );
   const { lastInteractionBid, lastItemIsInteraction, firstContentItem } =
     useListenContentData(items);
-  const askListByAnchorElementBid = useMemo(
-    () =>
-      mergeAskListByAnchorElementBid({
-        baseMap: buildAskListByAnchorElementBid(items),
-        overrideMap: askListOverrideByAnchorElementBid,
-      }),
-    [askListOverrideByAnchorElementBid, items],
+  const baseAskListByAnchorElementBid = useMemo(
+    () => buildAskListByAnchorElementBid(items),
+    [items],
   );
+  const askListByAnchorElementBid = useMemo(() => {
+    const nextMap = new Map(baseAskListByAnchorElementBid);
+    const scopedStoredAskListByAnchorElementBid =
+      lessonScopeKey === lessonId ? storedAskListByAnchorElementBid : {};
+
+    Object.entries(scopedStoredAskListByAnchorElementBid).forEach(
+      ([anchorElementBid, askList]) => {
+        if (!anchorElementBid) {
+          return;
+        }
+
+        nextMap.set(anchorElementBid, askList);
+      },
+    );
+
+    return nextMap;
+  }, [
+    baseAskListByAnchorElementBid,
+    lessonId,
+    lessonScopeKey,
+    storedAskListByAnchorElementBid,
+  ]);
+
+  useEffect(() => {
+    ensureLessonScope(lessonId);
+  }, [ensureLessonScope, lessonId]);
+
+  useEffect(() => {
+    hydrateAskListMap(baseAskListByAnchorElementBid);
+  }, [baseAskListByAnchorElementBid, hydrateAskListMap]);
 
   const elementList = useMemo(() => {
     const sequenceMap = renderSequenceByStreamKeyRef.current;
@@ -726,30 +652,6 @@ const ListenModeSlideRenderer = ({
       onSend?.(content, blockBid);
     },
     [onSend],
-  );
-
-  const handleAskListChange = useCallback(
-    (askList: AskMessage[], anchorElementBid: string) => {
-      if (!anchorElementBid) {
-        return;
-      }
-
-      setAskListOverrideByAnchorElementBid(previousMap => {
-        const previousAskList = previousMap[anchorElementBid] ?? [];
-
-        if (areAskMessageListsEqual(previousAskList, askList)) {
-          return previousMap;
-        }
-
-        return {
-          ...previousMap,
-          [anchorElementBid]: askList,
-        };
-      });
-
-      onAskListChange?.(askList, anchorElementBid);
-    },
-    [onAskListChange],
   );
 
   const closeInteractionOverlayIfOpen = useCallback(() => {
@@ -1168,7 +1070,6 @@ const ListenModeSlideRenderer = ({
 
   useEffect(() => {
     previousMarkerStepKeyRef.current = '';
-    setAskListOverrideByAnchorElementBid({});
     setPlaybackState({
       currentStepIndex: -1,
       totalStepCount: markerStepCount,
@@ -1280,7 +1181,6 @@ const ListenModeSlideRenderer = ({
                 className='listen-slide-ask-block'
                 element_bid={resolvedAskElementBid}
                 isExpanded={true}
-                onAskListChange={handleAskListChange}
                 onToggleAskExpanded={handleMobileAskClose}
                 outline_bid={lessonId}
                 preview_mode={previewMode}
@@ -1308,7 +1208,6 @@ const ListenModeSlideRenderer = ({
                   className='listen-slide-ask-block'
                   element_bid={playerCustomAskElementBid}
                   isExpanded={true}
-                  onAskListChange={handleAskListChange}
                   onToggleAskExpanded={handlePlayerCustomActionClose}
                   outline_bid={lessonId}
                   preview_mode={previewMode}

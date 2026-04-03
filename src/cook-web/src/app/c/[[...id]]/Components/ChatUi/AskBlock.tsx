@@ -26,12 +26,13 @@ import ShifuIcon from '@/c-assets/newchat/light/icon_shifu.svg';
 import { BLOCK_TYPE } from '@/c-api/studyV2';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { useCourseStore } from '@/c-store/useCourseStore';
-export interface AskMessage {
-  type: typeof BLOCK_TYPE.ASK | typeof BLOCK_TYPE.ANSWER;
-  content: string;
-  isStreaming?: boolean;
-  element_bid?: string;
-}
+import {
+  EMPTY_ASK_MESSAGE_LIST,
+  normalizeAskMessageList,
+  type AskMessage,
+} from './askState';
+import { useAskStateStore } from './useAskStateStore';
+export type { AskMessage } from './askState';
 
 export interface AskBlockProps {
   askList?: AskMessage[];
@@ -41,39 +42,8 @@ export interface AskBlockProps {
   outline_bid: string;
   preview_mode?: boolean;
   element_bid: string;
-  onAskListChange?: (askList: AskMessage[], element_bid: string) => void;
   onToggleAskExpanded?: (element_bid: string) => void;
 }
-
-const normalizeAskMessageList = (askList: AskMessage[] = []) =>
-  askList.map(item => ({
-    ...item,
-    content: item.content || '',
-  }));
-
-const areAskMessageListsEqual = (
-  previousList: AskMessage[] = [],
-  nextList: AskMessage[] = [],
-) => {
-  if (previousList === nextList) {
-    return true;
-  }
-
-  if (previousList.length !== nextList.length) {
-    return false;
-  }
-
-  return previousList.every((item, index) => {
-    const nextItem = nextList[index];
-
-    return (
-      item.type === nextItem?.type &&
-      item.content === nextItem?.content &&
-      item.element_bid === nextItem?.element_bid &&
-      item.isStreaming === nextItem?.isStreaming
-    );
-  });
-};
 
 /**
  * AskBlock
@@ -87,7 +57,6 @@ export default function AskBlock({
   outline_bid,
   preview_mode = false,
   element_bid,
-  onAskListChange,
   onToggleAskExpanded,
 }: AskBlockProps) {
   const { t } = useTranslation();
@@ -95,9 +64,22 @@ export default function AskBlock({
   const copiedButtonText = t('module.renderUi.core.copied');
   const { mobileStyle } = useContext(AppContext);
   const courseAvatar = useCourseStore(state => state.courseAvatar);
-  const [displayList, setDisplayList] = useState<AskMessage[]>(() =>
-    normalizeAskMessageList(askList),
+  const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
+  const hydrateAskList = useAskStateStore(state => state.hydrateAskList);
+  const setAskList = useAskStateStore(state => state.setAskList);
+  const lessonScopeKey = useAskStateStore(state => state.lessonScopeKey);
+  const scopedAskListByAnchorElementBid = useAskStateStore(
+    state => state.askListByAnchorElementBid,
   );
+  const storedAskList =
+    lessonScopeKey === outline_bid
+      ? (scopedAskListByAnchorElementBid[element_bid] ?? EMPTY_ASK_MESSAGE_LIST)
+      : EMPTY_ASK_MESSAGE_LIST;
+  const displayList =
+    storedAskList.length || !askList.length
+      ? storedAskList
+      : normalizeAskMessageList(askList);
+  const hasDisplayMessages = displayList.length > 0;
 
   const [inputValue, setInputValue] = useState('');
   const sseRef = useRef<any>(null);
@@ -105,12 +87,12 @@ export default function AskBlock({
   const currentAnswerElementBidRef = useRef<string>('');
   const isStreamingRef = useRef(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showMobileDialog, setShowMobileDialog] = useState(askList.length > 0);
+  const [showMobileDialog, setShowMobileDialog] = useState(hasDisplayMessages);
   const mobileContentRef = useRef<HTMLDivElement | null>(null);
   const inputWrapperRef = useRef<HTMLDivElement | null>(null);
   const isSlideAskBlock = className?.includes('listen-slide-ask-block');
   const isDesktopSlideAskBlock = Boolean(isSlideAskBlock) && !mobileStyle;
-  const expanded = isExpanded ?? (!mobileStyle && askList.length > 0);
+  const expanded = isExpanded ?? (!mobileStyle && hasDisplayMessages);
   const shouldForceSlideMobileDialog =
     Boolean(isSlideAskBlock) && mobileStyle && expanded;
   const shouldShowMobileDialog =
@@ -123,7 +105,7 @@ export default function AskBlock({
 
   const finalizeStreamingMessage = useCallback(() => {
     isStreamingRef.current = false;
-    setDisplayList(prev => {
+    setAskList(element_bid, prev => {
       const newList = [...prev];
       const lastIndex = newList.length - 1;
       if (lastIndex >= 0 && newList[lastIndex].type === BLOCK_TYPE.ANSWER) {
@@ -134,27 +116,30 @@ export default function AskBlock({
       }
       return newList;
     });
-  }, []);
+  }, [element_bid, setAskList]);
 
-  const updateStreamingAnswerMessage = useCallback((incomingText: string) => {
-    const prevText = currentContentRef.current || '';
-    const delta = fixMarkdownStream(prevText, incomingText || '');
-    const nextText = prevText + delta;
-    currentContentRef.current = nextText;
+  const updateStreamingAnswerMessage = useCallback(
+    (incomingText: string) => {
+      const prevText = currentContentRef.current || '';
+      const delta = fixMarkdownStream(prevText, incomingText || '');
+      const nextText = prevText + delta;
+      currentContentRef.current = nextText;
 
-    setDisplayList(prev => {
-      const newList = [...prev];
-      const lastIndex = newList.length - 1;
-      if (lastIndex >= 0 && newList[lastIndex].type === BLOCK_TYPE.ANSWER) {
-        newList[lastIndex] = {
-          ...newList[lastIndex],
-          content: nextText,
-          isStreaming: true,
-        };
-      }
-      return newList;
-    });
-  }, []);
+      setAskList(element_bid, prev => {
+        const newList = [...prev];
+        const lastIndex = newList.length - 1;
+        if (lastIndex >= 0 && newList[lastIndex].type === BLOCK_TYPE.ANSWER) {
+          newList[lastIndex] = {
+            ...newList[lastIndex],
+            content: nextText,
+            isStreaming: true,
+          };
+        }
+        return newList;
+      });
+    },
+    [element_bid, setAskList],
+  );
 
   const replaceStreamingAnswerMessage = useCallback(
     (incomingText: string, answerElementBid = '') => {
@@ -164,7 +149,7 @@ export default function AskBlock({
         currentAnswerElementBidRef.current = answerElementBid;
       }
 
-      setDisplayList(prev => {
+      setAskList(element_bid, prev => {
         const newList = [...prev];
         const lastIndex = newList.length - 1;
         if (lastIndex >= 0 && newList[lastIndex].type === BLOCK_TYPE.ANSWER) {
@@ -178,7 +163,7 @@ export default function AskBlock({
         return newList;
       });
     },
-    [],
+    [element_bid, setAskList],
   );
 
   const handleSendCustomQuestion = useCallback(async () => {
@@ -202,7 +187,7 @@ export default function AskBlock({
     setShowMobileDialog(true);
 
     // Append the new question as a user message at the end
-    setDisplayList(prev => [
+    setAskList(element_bid, prev => [
       ...prev,
       {
         type: BLOCK_TYPE.ASK,
@@ -213,7 +198,7 @@ export default function AskBlock({
     setInputValue('');
 
     // Add an empty teacher reply placeholder to receive streaming content
-    setDisplayList(prev => [
+    setAskList(element_bid, prev => [
       ...prev,
       {
         type: BLOCK_TYPE.ANSWER,
@@ -323,6 +308,7 @@ export default function AskBlock({
     showOutputInProgressToast,
     finalizeStreamingMessage,
     replaceStreamingAnswerMessage,
+    setAskList,
     updateStreamingAnswerMessage,
   ]);
   const handleInputChange = useCallback(
@@ -337,18 +323,12 @@ export default function AskBlock({
   const hasAskAnswerMessages = messagesToShow.length > 0;
 
   useEffect(() => {
-    onAskListChange?.(displayList, element_bid);
-  }, [displayList, element_bid, onAskListChange]);
+    ensureLessonScope(outline_bid);
+  }, [ensureLessonScope, outline_bid]);
 
   useEffect(() => {
-    const normalizedAskList = normalizeAskMessageList(askList);
-
-    setDisplayList(previousList =>
-      areAskMessageListsEqual(previousList, normalizedAskList)
-        ? previousList
-        : normalizedAskList,
-    );
-  }, [askList, element_bid]);
+    hydrateAskList(element_bid, askList);
+  }, [askList, element_bid, hydrateAskList]);
 
   useEffect(() => {
     if (!expanded) {
@@ -363,10 +343,10 @@ export default function AskBlock({
   }, []);
 
   useEffect(() => {
-    if (askList.length > 0) {
+    if (hasDisplayMessages) {
       setShowMobileDialog(true);
     }
-  }, [askList.length]);
+  }, [hasDisplayMessages]);
 
   useEffect(() => {
     if (!mobileStyle || !expanded) {
