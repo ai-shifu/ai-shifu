@@ -102,6 +102,29 @@ export default function AskBlock({
       title: t('module.chat.outputInProgress'),
     });
   }, [t]);
+  const dismissAskInputFocus = useCallback(() => {
+    if (!mobileStyle || typeof document === 'undefined') {
+      return;
+    }
+
+    const focusable =
+      inputWrapperRef.current?.querySelector<
+        HTMLTextAreaElement | HTMLInputElement | HTMLElement
+      >('textarea, input, [contenteditable="true"]') ?? null;
+    const activeElement = document.activeElement as HTMLElement | null;
+    const shouldBlurActiveElement =
+      Boolean(activeElement) &&
+      inputWrapperRef.current?.contains(activeElement);
+
+    requestAnimationFrame(() => {
+      if (shouldBlurActiveElement) {
+        activeElement?.blur();
+        return;
+      }
+
+      focusable?.blur();
+    });
+  }, [mobileStyle]);
 
   const finalizeStreamingMessage = useCallback(() => {
     isStreamingRef.current = false;
@@ -196,6 +219,7 @@ export default function AskBlock({
     ]);
 
     setInputValue('');
+    dismissAskInputFocus();
 
     // Add an empty teacher reply placeholder to receive streaming content
     setAskList(element_bid, prev => [
@@ -305,6 +329,7 @@ export default function AskBlock({
     preview_mode,
     element_bid,
     inputValue,
+    dismissAskInputFocus,
     showOutputInProgressToast,
     finalizeStreamingMessage,
     replaceStreamingAnswerMessage,
