@@ -51,7 +51,14 @@ from flaskr.service.learn.models import (
 )
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from langfuse.client import StatefulTraceClient
-from ...api.langfuse import langfuse_client as langfuse, MockClient
+from ...api.langfuse import (
+    MockClient,
+    create_trace_with_root_span,
+    finalize_langfuse_trace,
+    get_langfuse_client,
+    normalize_langfuse_input_value,
+    normalize_langfuse_output_value,
+)
 from flaskr.service.common import raise_error, raise_error_with_args
 from flaskr.service.order.consts import (
     LEARN_STATUS_RESET,
@@ -95,6 +102,7 @@ from flaskr.service.learn.check_text import check_text_with_llm_response
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_generation_name,
+    build_langfuse_span_name,
     build_langfuse_trace_name,
 )
 from flaskr.service.learn.utils_v2 import init_generated_block
@@ -194,6 +202,7 @@ class RUNLLMProvider(LLMProvider):
     app: Flask
     llm_settings: LLMSettings
     trace: StatefulTraceClient
+    parent_observation: Any
     trace_args: dict
     usage_context: UsageContext
     usage_scene: int
@@ -203,6 +212,7 @@ class RUNLLMProvider(LLMProvider):
         app: Flask,
         llm_settings: LLMSettings,
         trace: StatefulTraceClient,
+        parent_observation: Any,
         trace_args: dict,
         usage_context: UsageContext,
         usage_scene: int,
@@ -210,6 +220,7 @@ class RUNLLMProvider(LLMProvider):
         self.app = app
         self.llm_settings = llm_settings
         self.trace = trace
+        self.parent_observation = parent_observation
         self.trace_args = trace_args
         self.usage_context = usage_context
         self.usage_scene = usage_scene
@@ -267,7 +278,7 @@ class RUNLLMProvider(LLMProvider):
         res = chat_llm(
             self.app,
             self.trace_args.get("user_id", ""),
-            self.trace,
+            self.parent_observation,
             messages=messages,
             model=actual_model,
             stream=False,
@@ -325,7 +336,7 @@ class RUNLLMProvider(LLMProvider):
         res = chat_llm(
             self.app,
             self.trace_args["user_id"],
-            self.trace,
+            self.parent_observation,
             model=actual_model,
             messages=messages,
             stream=True,
@@ -611,6 +622,7 @@ class RunScriptPreviewContextV2:
         trace_scene = "lesson_preview"
         trace_args = {
             "user_id": user_bid,
+            "session_id": session_id,
             "name": build_langfuse_trace_name(chapter_title, trace_scene),
             "metadata": {
                 "shifu_bid": shifu_bid,
@@ -620,7 +632,17 @@ class RunScriptPreviewContextV2:
                 "chapter_title": chapter_title,
             },
         }
-        trace = langfuse.trace(**trace_args)
+        trace, root_span = create_trace_with_root_span(
+            client=get_langfuse_client(),
+            trace_payload=trace_args,
+            root_span_payload={
+                "name": build_langfuse_span_name(
+                    chapter_title,
+                    trace_scene,
+                    "root",
+                ),
+            },
+        )
         usage_context = UsageContext(
             user_bid=user_bid,
             shifu_bid=shifu_bid,
@@ -631,6 +653,7 @@ class RunScriptPreviewContextV2:
             self.app,
             LLMSettings(model=model, temperature=temperature),
             trace,
+            root_span,
             trace_args,
             usage_context,
             BILL_USAGE_SCENE_PREVIEW,
@@ -649,6 +672,9 @@ class RunScriptPreviewContextV2:
         if restore_language:
             set_language(preview_language)
 
+        content_chunks: list[str] = []
+        langfuse_output_chunks: list[str] = []
+        preview_trace_input: str | None = None
         try:
             final_payload = preview_request.model_dump()
             final_payload["content"] = document
@@ -690,8 +716,18 @@ class RunScriptPreviewContextV2:
 
             block_index = preview_request.block_index
             current_block = mdflow_context.get_block(block_index)
+            current_block_content = ""
+            if current_block:
+                current_block_content = (
+                    replace_variables_in_text(
+                        current_block.content or "", resolved_variables
+                    )
+                    or ""
+                )
+            preview_trace_input = normalize_langfuse_input_value(
+                preview_request.user_input
+            ) or normalize_langfuse_input_value(current_block_content)
             is_user_input_validation = bool(preview_request.user_input)
-            content_chunks: list[str] = []
 
             mode = ProcessMode.STREAM
             user_input = preview_request.user_input
@@ -726,17 +762,9 @@ class RunScriptPreviewContextV2:
                     current_block=current_block,
                     is_user_input_validation=is_user_input_validation,
                     content_chunks=content_chunks,
+                    langfuse_output_chunks=langfuse_output_chunks,
                 )
             )
-
-            current_block_content = ""
-            if current_block:
-                current_block_content = (
-                    replace_variables_in_text(
-                        current_block.content or "", resolved_variables
-                    )
-                    or ""
-                )
             self._update_preview_context(
                 context_store,
                 document,
@@ -744,8 +772,20 @@ class RunScriptPreviewContextV2:
                 content_chunks,
                 current_block_content,
             )
-            trace.update(**trace_args)
         finally:
+            finalize_langfuse_trace(
+                trace=trace,
+                root_span=root_span,
+                trace_payload={
+                    **trace_args,
+                    "input": preview_trace_input,
+                    "output": "".join(langfuse_output_chunks).strip() or None,
+                },
+                root_span_payload={
+                    "input": preview_trace_input,
+                    "output": "".join(langfuse_output_chunks).strip() or None,
+                },
+            )
             if restore_language:
                 set_language(original_language)
 
@@ -796,6 +836,7 @@ class RunScriptPreviewContextV2:
         current_block,
         is_user_input_validation: bool,
         content_chunks: list[str],
+        langfuse_output_chunks: list[str],
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         generated_block_bid = str(block_index)
         emitted_interaction = False
@@ -808,6 +849,10 @@ class RunScriptPreviewContextV2:
                 current_block=current_block,
                 is_user_input_validation=is_user_input_validation,
             ):
+                if event.type in (GeneratedType.CONTENT, GeneratedType.INTERACTION):
+                    event_content = normalize_langfuse_output_value(event.content)
+                    if event_content:
+                        langfuse_output_chunks.append(event_content)
                 if event.type == GeneratedType.CONTENT:
                     content_chunks.append(str(event.content or ""))
                 yield event
@@ -1176,6 +1221,7 @@ class RunScriptContextV2:
     _trace_args: dict
     _shifu_info: ShifuInfoDto
     _trace: Union[StatefulTraceClient, MockClient]
+    _trace_root_span: Any
     _input_type: str
     _input: str
     _can_continue: bool
@@ -1207,6 +1253,7 @@ class RunScriptContextV2:
         self._run_type = RunType.INPUT
         self._can_continue = True
         self._element_index_cursor = 0
+        self._langfuse_output_chunks: list[str] = []
 
         if preview_mode:
             self._outline_model = DraftOutlineItem
@@ -1230,7 +1277,6 @@ class RunScriptContextV2:
         chapter_title = self._outline_item_info.title
         trace_scene = "lesson_preview_runtime" if preview_mode else "lesson_runtime"
         self._trace_args["user_id"] = user_info.user_id
-        self._trace_args["input"] = ""
         self._trace_args["name"] = build_langfuse_trace_name(chapter_title, trace_scene)
         self._trace_args["metadata"] = {
             "scene": trace_scene,
@@ -1239,8 +1285,17 @@ class RunScriptContextV2:
             "shifu_bid": self._outline_item_info.shifu_bid,
             "preview_mode": int(bool(preview_mode)),
         }
-        self._trace = langfuse.trace(**self._trace_args)
-        self._trace_args["output"] = ""
+        self._trace, self._trace_root_span = create_trace_with_root_span(
+            client=get_langfuse_client(),
+            trace_payload=self._trace_args,
+            root_span_payload={
+                "name": build_langfuse_span_name(
+                    chapter_title,
+                    trace_scene,
+                    "root",
+                ),
+            },
+        )
         context_local.current_context = self
 
     @staticmethod
@@ -1248,6 +1303,29 @@ class RunScriptContextV2:
         if not hasattr(context_local, "current_context"):
             return None
         return context_local.current_context
+
+    def append_langfuse_output(self, value: Any) -> None:
+        if not hasattr(self, "_langfuse_output_chunks"):
+            self._langfuse_output_chunks = []
+        text = normalize_langfuse_output_value(value)
+        if not text:
+            return
+        self._langfuse_output_chunks.append(text)
+
+    def _finalize_langfuse_trace(self) -> None:
+        output_chunks = getattr(self, "_langfuse_output_chunks", [])
+        finalize_langfuse_trace(
+            trace=self._trace,
+            root_span=getattr(self, "_trace_root_span", None),
+            trace_payload={
+                **self._trace_args,
+                "output": "".join(output_chunks) or None,
+            },
+            root_span_payload={
+                "input": self._trace_args.get("input"),
+                "output": "".join(output_chunks) or None,
+            },
+        )
 
     def _should_stream_tts(self) -> bool:
         return (not self._preview_mode) and bool(getattr(self, "_listen", False))
@@ -1833,6 +1911,7 @@ class RunScriptContextV2:
         generated_block.block_content_conf = button_md
         db.session.add(generated_block)
         db.session.flush()
+        self.append_langfuse_output(button_md)
         yield RunMarkdownFlowDTO(
             outline_bid=progress_record.outline_item_bid,
             generated_block_bid=generated_block.generated_block_bid,
@@ -1885,6 +1964,7 @@ class RunScriptContextV2:
         generated_block.block_content_conf = feedback_md
         db.session.add(generated_block)
         db.session.flush()
+        self.append_langfuse_output(feedback_md)
         yield RunMarkdownFlowDTO(
             outline_bid=progress_record.outline_item_bid,
             generated_block_bid=generated_block.generated_block_bid,
@@ -1984,6 +2064,7 @@ class RunScriptContextV2:
         generated_block.generated_content = ""
         db.session.add(generated_block)
         db.session.flush()
+        self.append_langfuse_output(content)
         yield RunMarkdownFlowDTO(
             outline_bid=outline_bid,
             generated_block_bid=generated_block.generated_block_bid,
@@ -2041,7 +2122,7 @@ class RunScriptContextV2:
                    - dict: new format from markdown-flow 0.2.27+ (e.g., {"lang": ["Python"]})
             input_type: Input type
         """
-        self._trace_args["input"] = input
+        self._trace_args["input"] = normalize_langfuse_input_value(input)
         self._trace_args["input_type"] = input_type
         self._input_type = input_type
         self._input = input
@@ -2208,6 +2289,7 @@ class RunScriptContextV2:
                 self._preview_mode,
                 self._last_position,
                 anchor_element_bid=getattr(self, "_anchor_element_bid", ""),
+                parent_observation=self._trace_root_span,
             )
 
             if self._should_stream_tts():
@@ -2285,6 +2367,7 @@ class RunScriptContextV2:
                 app,
                 llm_settings,
                 self._trace,
+                self._trace_root_span,
                 self._trace_args,
                 usage_context,
                 usage_scene,
@@ -2415,6 +2498,7 @@ class RunScriptContextV2:
                             generated_block.block_content_conf = interaction_content
                             generated_block.generated_content = ""
                             _persist_generated_block_for_events(generated_block)
+                            self.append_langfuse_output(interaction_content)
                             yield RunMarkdownFlowDTO(
                                 outline_bid=run_script_info.outline_bid,
                                 generated_block_bid=generated_block.generated_block_bid,
@@ -2466,6 +2550,7 @@ class RunScriptContextV2:
                             generated_block.block_content_conf = interaction_content
                             generated_block.generated_content = ""
                             _persist_generated_block_for_events(generated_block)
+                            self.append_langfuse_output(interaction_content)
                             yield RunMarkdownFlowDTO(
                                 outline_bid=run_script_info.outline_bid,
                                 generated_block_bid=generated_block.generated_block_bid,
@@ -2508,6 +2593,7 @@ class RunScriptContextV2:
                 generated_block.generated_content = ""
                 generated_block.role = ROLE_TEACHER
                 _persist_generated_block_for_events(generated_block)
+                self.append_langfuse_output(rendered_content)
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
@@ -2572,7 +2658,7 @@ class RunScriptContextV2:
                 user_info=self._user_info,
                 log_script=generated_block,
                 input=generated_block.generated_content,  # Use converted string value
-                span=self._trace,
+                span=self._trace_root_span,
                 outline_item_bid=self._outline_item_info.bid,
                 shifu_bid=self._outline_item_info.shifu_bid,
                 block_position=run_script_info.block_position,
@@ -2589,6 +2675,7 @@ class RunScriptContextV2:
                 if i is not None and i != "":
                     self.app.logger.info(f"check_text_with_llm_response: {i}")
                     has_content = True
+                    self.append_langfuse_output(i)
                     yield RunMarkdownFlowDTO(
                         outline_bid=run_script_info.outline_bid,
                         generated_block_bid=generated_block.generated_block_bid,
@@ -2623,6 +2710,7 @@ class RunScriptContextV2:
                 generated_block.generated_content = ""
                 generated_block.generated_block_bid = generate_id(app)
                 _persist_generated_block_for_events(generated_block)
+                self.append_langfuse_output(rendered_content)
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
@@ -2725,6 +2813,7 @@ class RunScriptContextV2:
                     if not chunk_str:
                         continue
                     content += chunk_str
+                    self.append_langfuse_output(chunk_str)
                     yield RunMarkdownFlowDTO(
                         outline_bid=run_script_info.outline_bid,
                         generated_block_bid=generated_block.generated_block_bid,
@@ -2773,6 +2862,7 @@ class RunScriptContextV2:
                 # Keep generated_content empty, will be filled with user input later
                 generated_block.generated_content = ""
                 _persist_generated_block_for_events(generated_block)
+                self.append_langfuse_output(rendered_content)
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
@@ -2846,6 +2936,7 @@ class RunScriptContextV2:
                 # Keep generated_content empty, will be filled with user input later
                 generated_block.generated_content = ""
                 _persist_generated_block_for_events(generated_block)
+                self.append_langfuse_output(rendered_content)
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
@@ -2979,6 +3070,7 @@ class RunScriptContextV2:
                     if not chunk_content:
                         return
                     generated_content += chunk_content
+                    self.append_langfuse_output(chunk_content)
                     yield from _switch_tts_processor(
                         stream_element_type=stream_element_type,
                         stream_element_number=stream_element_number,
@@ -3114,7 +3206,6 @@ class RunScriptContextV2:
             )
             self._can_continue = False
             db.session.flush()
-        self._trace.update(**self._trace_args)
 
     def run(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
         try:

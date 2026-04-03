@@ -79,14 +79,31 @@ class _DummySpan:
     def __init__(self):
         self.output = ""
         self.generations = []
+        self.updated = {}
+        self.span_calls = []
+        self.last_span = None
+        self.end_kwargs = {}
+        self.events = []
 
     def generation(self, **kwargs):
         generation = _DummyGeneration(**kwargs)
         self.generations.append(generation)
         return generation
 
-    def end(self, output=None):
+    def span(self, **kwargs):
+        self.span_calls.append(kwargs)
+        self.last_span = _DummySpan()
+        return self.last_span
+
+    def update(self, **kwargs):
+        self.updated = kwargs
+
+    def event(self, **kwargs):
+        self.events.append(kwargs)
+
+    def end(self, output=None, **kwargs):
         self.output = output or ""
+        self.end_kwargs = {"output": output, **kwargs}
 
 
 class _DummyTrace:
@@ -111,12 +128,28 @@ class _LLMChunk:
 class _Context:
     def __init__(self):
         self._shifu_info = types.SimpleNamespace(use_learner_language=0)
+        self.langfuse_outputs = []
 
     def get_system_prompt(self, _outline_bid: str):
         return "COURSE_PROMPT"
 
+    def append_langfuse_output(self, value: str):
+        self.langfuse_outputs.append(value)
+
 
 def _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config):
+    class _DummyLLMSettings:
+        def __init__(self, model, temperature):
+            self.model = model
+            self.temperature = temperature
+
+    class _DummyAskProviderRuntime:
+        def __init__(self, llm_stream_factory=None):
+            self.llm_stream_factory = llm_stream_factory
+
+    class _DummyAskProviderTimeoutError(AskProviderError):
+        pass
+
     monkeypatch.setattr(
         module,
         "get_follow_up_info_v2",
@@ -141,6 +174,14 @@ def _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config):
         module,
         "get_fmt_prompt",
         lambda *_args, **_kwargs: "COURSE_PROMPT",
+    )
+    monkeypatch.setattr(module, "LLMSettings", _DummyLLMSettings)
+    monkeypatch.setattr(module, "AskProviderRuntime", _DummyAskProviderRuntime)
+    monkeypatch.setattr(module, "AskProviderError", AskProviderError)
+    monkeypatch.setattr(
+        module,
+        "AskProviderTimeoutError",
+        _DummyAskProviderTimeoutError,
     )
     monkeypatch.setattr(module.db.session, "add", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(module.db.session, "flush", lambda *_args, **_kwargs: None)
@@ -499,3 +540,99 @@ def test_guardrail_uses_answer_block_bid(app, monkeypatch):
     # ASK event should still be emitted before guardrail
     ask_events = [e for e in events if e.type == GeneratedType.ASK]
     assert len(ask_events) == 1
+
+
+def test_handle_input_ask_nests_follow_up_span_under_parent_observation(
+    app, monkeypatch
+):
+    from flaskr.service.learn import handle_input_ask as module
+
+    ask_provider_config = {
+        "provider": "coze",
+        "mode": "provider_then_llm",
+        "config": {"bot_id": "bot-1"},
+    }
+    _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config)
+    monkeypatch.setattr(
+        module,
+        "stream_ask_provider_response",
+        lambda **_kwargs: iter([types.SimpleNamespace(content="provider-answer")]),
+    )
+    monkeypatch.setattr(module, "chat_llm", lambda *_args, **_kwargs: iter([]))
+
+    context = _Context()
+    trace = _DummyTrace()
+    root_span = _DummySpan()
+
+    events = list(
+        module.handle_input_ask(
+            app=app,
+            context=context,
+            user_info=types.SimpleNamespace(user_id="user-1"),
+            attend_id="attend-1",
+            input="hello",
+            outline_item_info=types.SimpleNamespace(
+                shifu_bid="shifu-1",
+                bid="outline-1",
+                title="Outline",
+                position=1,
+            ),
+            trace_args={},
+            trace=trace,
+            parent_observation=root_span,
+        )
+    )
+
+    contents = _collect_content_chunks(events)
+    assert contents == ["provider-answer"]
+    assert trace.last_span is None
+    assert len(root_span.span_calls) == 1
+    assert root_span.last_span is not None
+    assert len(root_span.last_span.generations) == 1
+    assert root_span.last_span.generations[0].kwargs["model"] == "coze"
+    assert trace.updated["input"] == "hello"
+    assert root_span.updated["output"] == "provider-answer"
+    assert trace.updated["output"] == "provider-answer"
+    assert context.langfuse_outputs == ["provider-answer"]
+
+
+def test_handle_input_ask_guardrail_finalizes_trace_and_root_span(app, monkeypatch):
+    from flaskr.service.learn import handle_input_ask as module
+
+    ask_provider_config = {"provider": "llm", "mode": "provider_then_llm", "config": {}}
+    _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config)
+    monkeypatch.setattr(
+        module,
+        "check_text_with_llm_response",
+        lambda *_args, **_kwargs: ["guardrail response"],
+    )
+
+    context = _Context()
+    trace = _DummyTrace()
+    root_span = _DummySpan()
+
+    list(
+        module.handle_input_ask(
+            app=app,
+            context=context,
+            user_info=types.SimpleNamespace(user_id="user-1"),
+            attend_id="attend-1",
+            input="blocked",
+            outline_item_info=types.SimpleNamespace(
+                shifu_bid="s1",
+                bid="o1",
+                title="T",
+                position=1,
+            ),
+            trace_args={},
+            trace=trace,
+            parent_observation=root_span,
+        )
+    )
+
+    assert root_span.last_span is not None
+    assert root_span.last_span.output == "guardrail response"
+    assert trace.updated["input"] == "blocked"
+    assert root_span.updated["output"] == "guardrail response"
+    assert trace.updated["output"] == "guardrail response"
+    assert context.langfuse_outputs == ["guardrail response"]

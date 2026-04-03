@@ -64,7 +64,11 @@ from flaskr.service.shifu.shifu_import_export_funcs import export_shifu
 from flaskr.common.shifu_context import with_shifu_context
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_config
-from flaskr.api.langfuse import langfuse_client
+from flaskr.api.langfuse import (
+    create_trace_with_root_span,
+    finalize_langfuse_trace,
+    get_langfuse_client,
+)
 from flaskr.dao import db
 from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.service.shifu.utils import get_shifu_creator_bid
@@ -2135,20 +2139,26 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         )
         preview_scene = "ask_provider_preview"
         preview_title = "ask_provider_preview"
-        preview_trace = langfuse_client.trace(
-            user_id=preview_user_id,
-            name=build_langfuse_trace_name(preview_title, preview_scene),
-            metadata={
-                "scene": preview_scene,
-                "requested_provider": requested_provider,
-                "mode": mode,
+        preview_trace, preview_span = create_trace_with_root_span(
+            client=get_langfuse_client(),
+            trace_payload={
+                "user_id": preview_user_id,
+                "input": query,
+                "name": build_langfuse_trace_name(preview_title, preview_scene),
+                "metadata": {
+                    "scene": preview_scene,
+                    "requested_provider": requested_provider,
+                    "mode": mode,
+                },
             },
-        )
-        preview_span = preview_trace.span(
-            name=build_langfuse_span_name(
-                preview_title, preview_scene, "ask_provider_preview"
-            ),
-            input=query,
+            root_span_payload={
+                "name": build_langfuse_span_name(
+                    preview_title,
+                    preview_scene,
+                    "ask_provider_preview",
+                ),
+                "input": query,
+            },
         )
 
         def _build_llm_runtime() -> AskProviderRuntime:
@@ -2240,8 +2250,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             )
         finally:
             preview_output = answer or provider_error
-            preview_span.end(output=preview_output)
-            preview_trace.update(output=preview_output)
+            finalize_langfuse_trace(
+                trace=preview_trace,
+                root_span=preview_span,
+                trace_payload={"output": preview_output},
+                root_span_payload={"output": preview_output},
+            )
 
     @app.route(path_prefix + "/tts/config", methods=["GET"])
     @bypass_token_validation
