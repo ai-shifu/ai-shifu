@@ -599,6 +599,30 @@ export const NewChatComponents = ({
     [syncAskListByParentElement],
   );
 
+  const handleReadModeAskListChange = useCallback(
+    (askList: AskMessage[], anchorElementBid: string) => {
+      if (!anchorElementBid) {
+        return;
+      }
+
+      syncAskListByParentElement(
+        anchorElementBid,
+        askList.map((message, index) => {
+          const fallbackElementBid = `${message.type}-${anchorElementBid}-${index}`;
+
+          return {
+            element_bid: message.element_bid || fallbackElementBid,
+            generated_block_bid: message.element_bid || fallbackElementBid,
+            parent_element_bid: anchorElementBid,
+            type: message.type,
+            content: message.content || '',
+          };
+        }),
+      );
+    },
+    [syncAskListByParentElement],
+  );
+
   useEffect(() => {
     const container = chatRef.current;
     const parentContainer = container?.parentElement;
@@ -750,6 +774,7 @@ export const NewChatComponents = ({
                         outline_bid={lessonId}
                         preview_mode={previewMode}
                         element_bid={item.parent_element_bid || ''}
+                        onAskListChange={handleReadModeAskListChange}
                         onToggleAskExpanded={toggleAskExpanded}
                         askList={(item.ask_list || []) as any[]}
                       />
