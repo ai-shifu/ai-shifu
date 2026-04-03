@@ -154,6 +154,13 @@
   }
 }
 
+.listen-slide-mobile-ask-button--disabled,
+.listen-slide-mobile-ask-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+  box-shadow: none;
+}
+
 .slide-ask-overlay {
   --slide-player-bottom-offset: 24px;
   --slide-player-height: 80px;
@@ -320,8 +327,7 @@
   }
 }
 
-
-.slide-player__interaction-arrow{
+.slide-player__interaction-arrow {
   left: auto !important;
   right: 139px !important;
 }

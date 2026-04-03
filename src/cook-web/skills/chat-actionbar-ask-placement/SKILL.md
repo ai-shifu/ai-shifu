@@ -33,6 +33,7 @@ description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用
 - 若移动端通过 `playerCustomActions` 挂一个“只桥接 context、不实际渲染按钮”的隐藏节点，`Slide` 仍可能把它计入 mobile control count，导致播放器底部按钮列数从 4 变成 5；此时要么从组件层避免占位，要么在业务侧局部把移动端 controls 的列数强制修正回预期值。
 - 若听课模式 PC 端的追问浮层需要与移动端追问弹层保持一致，优先让 `listen-slide-ask-block` 在桌面端也走“标题栏 + 独立滚动消息区 + 底部固定输入区”的面板结构，并把 ask/answer 气泡样式收敛到该作用域，避免影响普通阅读模式的 `AskBlock`。
 - 听课模式桌面端关闭追问浮层时，不能只依赖 `Slide` 侧的 `setActive(false)` 回推状态；若 player 已隐藏或上下文更新延迟，业务层也要同步把本地 `playerCustomActionState.isActive` 置为 `false`，避免只暂停音频但浮层不收起。
+- 听课模式下若 `playerCustomActions` 命中的 `currentElement` 是 `interaction`，则追问入口在 PC 和移动端都应禁用，并在切入交互块时主动关闭已展开的追问浮层；交互块不允许追问。
 - 当 `LIKE_STATUS` 挂在 `interaction` 元素后方时，如需求要求去掉追问入口，优先通过 `disableAskButton` 关闭按钮，仅保留必要的重生成或音频动作，避免影响正文块后的追问能力。
 - `listen-slide-ask-block` 这类听课模式专用追问容器需要局部覆写气泡视觉时，优先在容器作用域内覆盖 `.userMessage`，避免改到普通聊天页或移动端追问弹层。
 - 当听课模式的 `elementList` 需要感知追问时，优先把 `ask_list` 直接挂到对应 `element` 上；锚点匹配优先取 `anchor_element_bid`，缺失时再回退到归一化后的 `parent_element_bid`。

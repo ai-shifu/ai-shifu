@@ -80,6 +80,7 @@ interface ListenSlideAskPlayerActionProps {
   label: string;
   onBeforeOpen: () => void;
   onContextChange: (snapshot: PlayerCustomActionContextSnapshot) => void;
+  disabled?: boolean;
   renderButton?: boolean;
 }
 
@@ -90,6 +91,7 @@ const ListenSlideAskPlayerAction = memo(
     label,
     onBeforeOpen,
     onContextChange,
+    disabled = false,
     renderButton = true,
   }: ListenSlideAskPlayerActionProps) => {
     const { currentElement, isActive, setActive, toggleActive } = context;
@@ -103,12 +105,16 @@ const ListenSlideAskPlayerAction = memo(
     }, [currentElement, isActive, onContextChange, setActive]);
 
     const handleClick = useCallback(() => {
+      if (disabled) {
+        return;
+      }
+
       if (!isActive) {
         onBeforeOpen();
       }
 
       toggleActive();
-    }, [isActive, onBeforeOpen, toggleActive]);
+    }, [disabled, isActive, onBeforeOpen, toggleActive]);
 
     if (!renderButton) {
       return null;
@@ -125,6 +131,7 @@ const ListenSlideAskPlayerAction = memo(
         onClick={handleClick}
         ref={actionRef}
         type='button'
+        disabled={disabled}
       >
         <svg
           xmlns='http://www.w3.org/2000/svg'
@@ -682,6 +689,24 @@ const ListenModeSlideRenderer = ({
       element => element.blockBid === resolvedAskElementBid,
     )?.ask_list ?? []) as AskMessage[];
   }, [elementList, resolvedAskElementBid]);
+  const currentAskTargetElement = useMemo(() => {
+    if (playerCustomActionState.currentElement) {
+      return playerCustomActionState.currentElement;
+    }
+
+    if (!resolvedAskElementBid) {
+      return undefined;
+    }
+
+    return elementList.find(
+      element => element.blockBid === resolvedAskElementBid,
+    );
+  }, [
+    elementList,
+    playerCustomActionState.currentElement,
+    resolvedAskElementBid,
+  ]);
+  const isAskActionDisabled = currentAskTargetElement?.type === 'interaction';
 
   const handleInteractionSend = useCallback(
     (content: OnSendContentParams, element?: SlideElement) => {
@@ -753,6 +778,10 @@ const ListenModeSlideRenderer = ({
   }, []);
 
   const handleMobileAskToggle = useCallback(() => {
+    if (isAskActionDisabled) {
+      return;
+    }
+
     if (isMobileAskOpen) {
       setIsMobileAskOpen(false);
       playerCustomActionSetActiveRef.current(false);
@@ -762,7 +791,7 @@ const ListenModeSlideRenderer = ({
     closeInteractionOverlayIfOpen();
     setIsMobileAskOpen(true);
     playerCustomActionSetActiveRef.current(true);
-  }, [closeInteractionOverlayIfOpen, isMobileAskOpen]);
+  }, [closeInteractionOverlayIfOpen, isAskActionDisabled, isMobileAskOpen]);
 
   const handleMobileAskClose = useCallback(() => {
     setIsMobileAskOpen(false);
@@ -806,6 +835,34 @@ const ListenModeSlideRenderer = ({
     });
     playerCustomActionSetActiveRef.current(false);
   }, []);
+
+  useEffect(() => {
+    if (!isAskActionDisabled) {
+      return;
+    }
+
+    if (mobileStyle) {
+      if (!isMobileAskOpen) {
+        return;
+      }
+
+      handleMobileAskClose();
+      return;
+    }
+
+    if (!playerCustomActionState.isActive) {
+      return;
+    }
+
+    handlePlayerCustomActionClose();
+  }, [
+    handleMobileAskClose,
+    handlePlayerCustomActionClose,
+    isAskActionDisabled,
+    isMobileAskOpen,
+    mobileStyle,
+    playerCustomActionState.isActive,
+  ]);
 
   const handlePlayerVisibilityChange = useCallback(
     (visible: boolean) => {
@@ -1148,6 +1205,7 @@ const ListenModeSlideRenderer = ({
             label={t('module.chat.ask')}
             onBeforeOpen={closeInteractionOverlayIfOpen}
             onContextChange={handlePlayerCustomActionContextChange}
+            disabled={isAskActionDisabled}
             renderButton={false}
           />
         );
@@ -1160,12 +1218,14 @@ const ListenModeSlideRenderer = ({
           label={t('module.chat.ask')}
           onBeforeOpen={closeInteractionOverlayIfOpen}
           onContextChange={handlePlayerCustomActionContextChange}
+          disabled={isAskActionDisabled}
         />
       );
     },
     [
       closeInteractionOverlayIfOpen,
       handlePlayerCustomActionContextChange,
+      isAskActionDisabled,
       mobileStyle,
       t,
     ],
@@ -1192,8 +1252,11 @@ const ListenModeSlideRenderer = ({
             type='button'
             className={cn(
               'listen-slide-mobile-ask-entry listen-slide-mobile-ask-button',
+              isAskActionDisabled && 'listen-slide-mobile-ask-button--disabled',
             )}
             aria-pressed={isMobileAskOpen}
+            aria-disabled={isAskActionDisabled}
+            disabled={isAskActionDisabled}
             onClick={handleMobileAskToggle}
             ref={mobileAskActionRef}
           >
