@@ -513,6 +513,109 @@ def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch):
     assert commit_calls == []
 
 
+def test_run_script_inner_finalizes_langfuse_after_loop(monkeypatch):
+    app = Flask(__name__)
+    commit_calls = []
+
+    monkeypatch.setattr(
+        runscript_v2,
+        "db",
+        SimpleNamespace(
+            session=SimpleNamespace(
+                commit=lambda: commit_calls.append("commit"),
+                rollback=lambda: None,
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "load_user_aggregate",
+        lambda _user_bid: SimpleNamespace(user_id="user-1"),
+    )
+
+    outline_item_info = SimpleNamespace(
+        bid="outline-1",
+        shifu_bid="shifu-1",
+        title="Lesson",
+        __json__=lambda: {"bid": "outline-1"},
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "get_outline_item_dto",
+        lambda *_args, **_kwargs: outline_item_info,
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "get_shifu_dto",
+        lambda *_args, **_kwargs: SimpleNamespace(bid="shifu-1", price=0),
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "get_shifu_struct",
+        lambda *_args, **_kwargs: object(),
+    )
+
+    class FakeRunScriptContext:
+        last_instance = None
+
+        def __init__(self, **_kwargs):
+            self._has_next = True
+            self.finalize_calls = 0
+            FakeRunScriptContext.last_instance = self
+
+        def set_input(self, *_args, **_kwargs):
+            return None
+
+        def reload(self, *_args, **_kwargs):
+            return []
+
+        def has_next(self):
+            if self._has_next:
+                self._has_next = False
+                return True
+            return False
+
+        def run(self, _app):
+            return [
+                RunMarkdownFlowDTO(
+                    outline_bid="outline-1",
+                    generated_block_bid="generated-1",
+                    type=GeneratedType.CONTENT,
+                    content="hello",
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="outline-1",
+                    generated_block_bid="generated-1",
+                    type=GeneratedType.BREAK,
+                    content="",
+                ),
+            ]
+
+        def _finalize_langfuse_trace(self):
+            self.finalize_calls += 1
+
+    monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
+
+    events = list(
+        runscript_v2.run_script_inner(
+            app=app,
+            user_bid="user-1",
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            input="hello",
+            input_type="text",
+        )
+    )
+
+    assert [event.type for event in events] == [
+        GeneratedType.CONTENT,
+        GeneratedType.BREAK,
+    ]
+    assert FakeRunScriptContext.last_instance is not None
+    assert FakeRunScriptContext.last_instance.finalize_calls == 1
+    assert commit_calls == ["commit"]
+
+
 def test_run_script_listen_keeps_interaction_after_block_done(monkeypatch):
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)

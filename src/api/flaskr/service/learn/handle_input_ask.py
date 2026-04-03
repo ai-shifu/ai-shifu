@@ -1,5 +1,11 @@
-from typing import Generator
+from typing import Any, Generator
+
 from flask import Flask
+from flaskr.api.langfuse import (
+    normalize_langfuse_input_value,
+    update_langfuse_observation,
+    update_langfuse_trace,
+)
 from flaskr.i18n import _
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 
@@ -241,6 +247,35 @@ def _run_guardrail(
     return chunks
 
 
+def _append_context_langfuse_output(context: Any, value: str) -> None:
+    append_output = getattr(context, "append_langfuse_output", None)
+    if callable(append_output) and value:
+        append_output(value)
+
+
+def _finalize_ask_trace(
+    *,
+    context: Any,
+    trace: StatefulTraceClient,
+    parent_observation: Any | None,
+    span: Any,
+    trace_args: dict,
+    response_text: str,
+) -> None:
+    output = response_text or None
+    _append_context_langfuse_output(context, response_text)
+    span.end(output=output)
+    if parent_observation is not None and parent_observation is not trace:
+        update_langfuse_observation(parent_observation, output=output)
+    update_langfuse_trace(
+        trace,
+        payload={
+            **trace_args,
+            "output": output,
+        },
+    )
+
+
 @extensible_generic
 def handle_input_ask(
     app: Flask,
@@ -254,6 +289,7 @@ def handle_input_ask(
     is_preview: bool = False,
     last_position: int = -1,
     anchor_element_bid: str = "",
+    parent_observation: Any | None = None,
 ) -> Generator[str, None, None]:
     """
     Main function to handle user Q&A input
@@ -286,7 +322,11 @@ def handle_input_ask(
 
     llm_messages = []  # Conversation messages for built-in LLM ask.
     provider_messages = []  # Conversation messages for external ask providers.
-    input = input.replace("{", "{{").replace(
+    raw_input = input
+    normalized_trace_input = normalize_langfuse_input_value(raw_input)
+    if normalized_trace_input and not trace_args.get("input"):
+        trace_args["input"] = normalized_trace_input
+    input = raw_input.replace("{", "{{").replace(
         "}", "}}"
     )  # Escape braces to avoid formatting conflicts
     system_prompt_template = context.get_system_prompt(outline_item_info.bid)
@@ -410,7 +450,8 @@ def handle_input_ask(
     )
 
     # Create trace span
-    span = trace.span(
+    span_parent = parent_observation or trace
+    span = span_parent.span(
         name=build_langfuse_span_name(chapter_title, ask_scene, "user_follow_up"),
         input=input,
     )
@@ -454,6 +495,14 @@ def handle_input_ask(
             content=input,
         )
         answer_block.generated_content = guardrail_text
+        _finalize_ask_trace(
+            context=context,
+            trace=trace,
+            parent_observation=parent_observation,
+            span=span,
+            trace_args=trace_args,
+            response_text=guardrail_text,
+        )
         db.session.flush()
         return
 
@@ -617,9 +666,14 @@ def handle_input_ask(
     answer_block.generated_content = response_text
 
     # End trace span
-    span.end(output=response_text)
-    trace_args["output"] = trace_args["output"] + "\r\n" + response_text
-    trace.update(**trace_args)
+    _finalize_ask_trace(
+        context=context,
+        trace=trace,
+        parent_observation=parent_observation,
+        span=span,
+        trace_args=trace_args,
+        response_text=response_text,
+    )
     db.session.flush()
 
     # Return end marker
