@@ -172,6 +172,10 @@
   transform: translateX(-50%);
 }
 
+.listen-reveal-wrapper:not(.mobile) .slide-interaction-overlay {
+  --slide-player-notes-arrow-offset: 168px;
+}
+
 .slide-ask-overlay--with-player {
   bottom: calc(
     var(--slide-player-bottom-offset) + var(--slide-player-height) +
