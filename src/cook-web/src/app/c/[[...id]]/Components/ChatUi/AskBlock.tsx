@@ -395,14 +395,24 @@ export default function AskBlock({
       return;
     }
 
-    const rafId = requestAnimationFrame(() => {
+    const syncScrollToBottom = () => {
       container.scrollTop = container.scrollHeight;
+    };
+    const rafId = requestAnimationFrame(syncScrollToBottom);
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(syncScrollToBottom);
+    });
+
+    resizeObserver.observe(container);
+    Array.from(container.children).forEach(child => {
+      resizeObserver.observe(child);
     });
 
     return () => {
+      resizeObserver.disconnect();
       cancelAnimationFrame(rafId);
     };
-  }, [mobileStyle, shouldShowMobileDialog, expanded, messagesToShow.length]);
+  }, [mobileStyle, shouldShowMobileDialog, expanded, messagesToShow]);
 
   useEffect(() => {
     if (!isDesktopSlideAskBlock || !expanded) {
@@ -414,14 +424,24 @@ export default function AskBlock({
       return;
     }
 
-    const rafId = requestAnimationFrame(() => {
+    const syncScrollToBottom = () => {
       container.scrollTop = container.scrollHeight;
+    };
+    const rafId = requestAnimationFrame(syncScrollToBottom);
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(syncScrollToBottom);
+    });
+
+    resizeObserver.observe(container);
+    Array.from(container.children).forEach(child => {
+      resizeObserver.observe(child);
     });
 
     return () => {
+      resizeObserver.disconnect();
       cancelAnimationFrame(rafId);
     };
-  }, [expanded, isDesktopSlideAskBlock, messagesToShow.length]);
+  }, [expanded, isDesktopSlideAskBlock, messagesToShow]);
 
   const handleClose = useCallback(() => {
     setIsFullscreen(false);

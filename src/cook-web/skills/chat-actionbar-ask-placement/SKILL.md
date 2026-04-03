@@ -35,6 +35,7 @@ description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用
 - 听课模式桌面端关闭追问浮层时，不能只依赖 `Slide` 侧的 `setActive(false)` 回推状态；若 player 已隐藏或上下文更新延迟，业务层也要同步把本地 `playerCustomActionState.isActive` 置为 `false`，避免只暂停音频但浮层不收起。
 - 听课模式下若 `playerCustomActions` 命中的 `currentElement` 是 `interaction`，则追问入口在 PC 和移动端都应禁用，并在切入交互块时主动关闭已展开的追问浮层；交互块不允许追问。
 - 若 `markdown-flow-ui` 在组件节点（如 `.slide-interaction-overlay`）内部重新声明了 CSS 变量，`ai-shifu` 侧仅在 `:root` 覆盖不会生效；需要在相同或更内层的业务作用域选择器上重新声明该变量。
+- 追问面板若支持 SSE 流式回答，自动滚底不能只依赖消息条数变化；同一条 answer 在流式追加、Markdown 重排导致内容区高度变化时，也要通过 `ResizeObserver` 或等价机制持续滚到底部。
 - 当 `LIKE_STATUS` 挂在 `interaction` 元素后方时，如需求要求去掉追问入口，优先通过 `disableAskButton` 关闭按钮，仅保留必要的重生成或音频动作，避免影响正文块后的追问能力。
 - `listen-slide-ask-block` 这类听课模式专用追问容器需要局部覆写气泡视觉时，优先在容器作用域内覆盖 `.userMessage`，避免改到普通聊天页或移动端追问弹层。
 - 当听课模式的 `elementList` 需要感知追问时，优先把 `ask_list` 直接挂到对应 `element` 上；锚点匹配优先取 `anchor_element_bid`，缺失时再回退到归一化后的 `parent_element_bid`。
