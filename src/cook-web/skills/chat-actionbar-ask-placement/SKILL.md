@@ -24,6 +24,23 @@ description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用
 - 重生成判定不能直接依赖“列表最后一项”；应忽略 `LIKE_STATUS`/`ASK` 等辅助行，按“最后可操作元素”判断，避免点击末尾交互块误弹重生成确认框。
 - 预览链路里 `updateContentListWithUserOperate` 在截断列表时，也要保留当前 `interaction` 关联的 `LIKE_STATUS/ASK`（按 `parent_block_bid/parent_element_bid` 匹配），避免选择后追问入口消失。
 - interaction 提交值组装时要去重并保序（如 `selectedValues + buttonText` 同值场景），避免变量被写成 `ENFJ,ENFJ` 这类重复值。
+- Slide 播放器里的追问入口若通过 `playerCustomActions` 注入，桌面端要和播放器 notes 浮层互斥，移动端则单独提供悬浮入口并复用 `AskBlock` 的弹层展示。
+- 听课模式桌面端若 `markdown-flow-ui/slide` 已支持函数式 `playerCustomActions`，优先直接消费 `currentElement / isActive / toggleActive / setActive` 上下文，不要在 `ai-shifu` 里再额外维护一套追问按钮高亮、展开收起和暂停播放状态；只保留浮层渲染与 outside click 关闭这类业务层收口。
+- 听课模式移动端若追问按钮仍需放在 player 外部，也应继续透传 `playerCustomActions`，在播放器内部只做上下文桥接、不渲染实际按钮；外部按钮只负责位置与样式，点击后调用同一套 active 状态，确保自动暂停、当前元素命中和关闭行为与桌面端一致。
+- 听课模式里的 `AskBlock` 若在前端本地先拿到新追问/新回答，父层也要同步维护一份按锚点 `element_bid` 索引的 `ask_list` 覆盖表，并并回 `elementList`；不要只让 `AskBlock` 自己持有本地状态，否则调试时会看到对应 slide element 的 `ask_list` 仍是 `undefined`。
+- 听课模式里的追问若需要在切回阅读模式后继续展示，不能只同步 `ListenModeSlideRenderer` 的本地 `ask_list` 覆盖；还要把同一份 ask history 写回 `useChatLogicHook` 的 `items`，按 `parent_element_bid` 更新或补建 `ASK` block，并保留用户已主动展开的状态。
+- `AskBlock` 若内部维护了 `displayList` 一类本地展示态，就不能只在初次挂载时用 `askList` 初始化；当 `askList` 或锚点 `element_bid` 变化时，必须把新的追问列表同步回本地状态，否则控制台里已经有 `ask_list`，浮层里仍会显示空列表。
+- 若移动端通过 `playerCustomActions` 挂一个“只桥接 context、不实际渲染按钮”的隐藏节点，`Slide` 仍可能把它计入 mobile control count，导致播放器底部按钮列数从 4 变成 5；此时要么从组件层避免占位，要么在业务侧局部把移动端 controls 的列数强制修正回预期值。
+- 若听课模式 PC 端的追问浮层需要与移动端追问弹层保持一致，优先让 `listen-slide-ask-block` 在桌面端也走“标题栏 + 独立滚动消息区 + 底部固定输入区”的面板结构，并把 ask/answer 气泡样式收敛到该作用域，避免影响普通阅读模式的 `AskBlock`。
+- 听课模式桌面端关闭追问浮层时，不能只依赖 `Slide` 侧的 `setActive(false)` 回推状态；若 player 已隐藏或上下文更新延迟，业务层也要同步把本地 `playerCustomActionState.isActive` 置为 `false`，避免只暂停音频但浮层不收起。
+- 听课模式下若 `playerCustomActions` 命中的 `currentElement` 是 `interaction`，则追问入口在 PC 和移动端都应禁用，并在切入交互块时主动关闭已展开的追问浮层；交互块不允许追问。
+- 若 `markdown-flow-ui` 在组件节点（如 `.slide-interaction-overlay`）内部重新声明了 CSS 变量，`ai-shifu` 侧仅在 `:root` 覆盖不会生效；需要在相同或更内层的业务作用域选择器上重新声明该变量。
+- 追问面板若支持 SSE 流式回答，自动滚底不能只依赖消息条数变化；同一条 answer 在流式追加、Markdown 重排导致内容区高度变化时，也要通过 `ResizeObserver` 或等价机制持续滚到底部。
+- 追问消息本身应以全局 zustand store 作为唯一 source of truth，按课时 `lessonScopeKey + anchor element_bid` 归档；`AskBlock`、阅读模式和听课模式都只消费同一份 store，`props.askList` 仅用于首次 hydrate，避免局部 state、父层 override 和 items 回填互相覆盖而打断 SSE token 流。
+- 阅读模式若要展示 store 中已有、但 `items` 里尚未落地成 `ASK` block 的追问，应在渲染层按锚点补一个派生 `ASK` 容器，而不是把流式中的 `ask_list` 实时回写到 `useChatLogicHook.items`；这样既能跨模式保留追问展示，又不会因为父层列表更新把正在输出的追问闪掉。
+- 当 `LIKE_STATUS` 挂在 `interaction` 元素后方时，如需求要求去掉追问入口，优先通过 `disableAskButton` 关闭按钮，仅保留必要的重生成或音频动作，避免影响正文块后的追问能力。
+- `listen-slide-ask-block` 这类听课模式专用追问容器需要局部覆写气泡视觉时，优先在容器作用域内覆盖 `.userMessage`，避免改到普通聊天页或移动端追问弹层。
+- 当听课模式的 `elementList` 需要感知追问时，优先把 `ask_list` 直接挂到对应 `element` 上；锚点匹配优先取 `anchor_element_bid`，缺失时再回退到归一化后的 `parent_element_bid`。
 
 ## 工作流
 
@@ -33,6 +50,7 @@ description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用
 4. 对 `sys_lesson_feedback_score` 这类隐藏正文的 interaction，同步隐藏操作栏。
 5. 为 `ContentRender/IframeSandbox` 增加渲染完成回调并向上透传到 `ChatUi`。
 6. `onTypeFinished` 要覆盖普通 markdown 与 `sandbox/iframe` 两条渲染路径。
+7. 给 slide 场景接追问时，优先复用现有 `ask_list`/`parent_element_bid` 映射，不要再额外复制一套问答状态。
 
 ## 备注
 
