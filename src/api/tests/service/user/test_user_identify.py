@@ -26,6 +26,8 @@ def test_phone_flow_sets_user_identify(app):
         entity = UserEntity.query.filter_by(user_bid=token.userInfo.user_id).first()
         assert entity is not None
         assert entity.user_identify == phone
+        assert entity.is_creator == 1
+        assert entity.is_operator == 1
 
 
 def test_email_flow_sets_user_identify(app):

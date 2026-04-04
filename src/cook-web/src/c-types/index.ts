@@ -20,6 +20,7 @@ export interface UserInfo {
   phone?: string;
   language?: string;
   is_creator?: boolean;
+  is_operator?: boolean;
   [key: string]: any;
 }
 

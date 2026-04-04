@@ -190,8 +190,9 @@ def init_first_course(app: Flask, user_id: str) -> None:
         db.session.flush()
         return
 
-    # Always grant admin/creator to the first verified user
-    mark_user_roles(user_id, is_creator=True)
+    # Bootstrap the first verified account so self-hosted deployments are
+    # manageable without extra manual role assignment.
+    mark_user_roles(user_id, is_creator=True, is_operator=True)
 
     ShifuModel: Union[PublishedShifu, DraftShifu] = PublishedShifu
     # Assign demo shifu only when there is exactly one published course
