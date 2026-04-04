@@ -8,6 +8,8 @@ Covers:
 - audio_segments accumulation
 """
 
+import types
+
 import pytest
 
 
@@ -33,6 +35,155 @@ def adapter_app():
         yield app
         dao.db.session.remove()
         dao.db.drop_all()
+
+
+class _FollowUpDummyGeneration:
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+        self.end_kwargs = {}
+
+    def end(self, **kwargs):
+        self.end_kwargs = kwargs
+
+
+class _FollowUpDummySpan:
+    def __init__(self):
+        self.generations = []
+        self.updated = {}
+        self.output = ""
+
+    def generation(self, **kwargs):
+        generation = _FollowUpDummyGeneration(**kwargs)
+        self.generations.append(generation)
+        return generation
+
+    def span(self, **_kwargs):
+        return _FollowUpDummySpan()
+
+    def update(self, **kwargs):
+        self.updated = kwargs
+
+    def event(self, **_kwargs):
+        return None
+
+    def end(self, output=None, **kwargs):
+        self.output = output or ""
+        self.end_kwargs = {"output": output, **kwargs}
+
+
+class _FollowUpDummyTrace:
+    def __init__(self):
+        self.updated = {}
+
+    def span(self, **_kwargs):
+        return _FollowUpDummySpan()
+
+    def update(self, **kwargs):
+        self.updated = kwargs
+
+
+class _FollowUpContext:
+    def __init__(self):
+        self._shifu_info = types.SimpleNamespace(use_learner_language=0)
+        self.langfuse_outputs = []
+
+    def get_system_prompt(self, _outline_bid: str):
+        return "COURSE_PROMPT"
+
+    def append_langfuse_output(self, value: str):
+        self.langfuse_outputs.append(value)
+
+
+class _FollowUpInfo:
+    def __init__(self, ask_provider_config):
+        self.ask_prompt = "ASK_PROMPT::{shifu_system_message}"
+        self.ask_model = "gpt-test"
+        self.model_args = {"temperature": 0.2}
+        self.ask_provider_config = ask_provider_config
+
+    def __json__(self):
+        return {
+            "ask_model": self.ask_model,
+            "ask_provider_config": self.ask_provider_config,
+        }
+
+
+def _setup_handle_input_ask_test_doubles(
+    monkeypatch,
+    module,
+    ask_provider_config,
+    *,
+    patch_generated_blocks: bool = True,
+):
+    from flaskr.service.learn.ask_provider_adapters import AskProviderError
+
+    class _DummyLLMSettings:
+        def __init__(self, model, temperature):
+            self.model = model
+            self.temperature = temperature
+
+    class _DummyAskProviderRuntime:
+        def __init__(self, llm_stream_factory=None):
+            self.llm_stream_factory = llm_stream_factory
+
+    class _DummyAskProviderTimeoutError(AskProviderError):
+        pass
+
+    monkeypatch.setattr(
+        module,
+        "get_follow_up_info_v2",
+        lambda *_args, **_kwargs: _FollowUpInfo(ask_provider_config),
+    )
+    monkeypatch.setattr(
+        module,
+        "check_text_with_llm_response",
+        lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(module, "_", lambda key: key)
+    monkeypatch.setattr(
+        module,
+        "get_effective_ask_provider_config",
+        lambda config: config,
+    )
+    monkeypatch.setattr(
+        module,
+        "get_fmt_prompt",
+        lambda *_args, **_kwargs: "COURSE_PROMPT",
+    )
+    monkeypatch.setattr(module, "LLMSettings", _DummyLLMSettings)
+    monkeypatch.setattr(module, "AskProviderRuntime", _DummyAskProviderRuntime)
+    monkeypatch.setattr(module, "AskProviderError", AskProviderError)
+    monkeypatch.setattr(
+        module,
+        "AskProviderTimeoutError",
+        _DummyAskProviderTimeoutError,
+    )
+    monkeypatch.setattr(
+        module,
+        "stream_provider_with_langfuse",
+        lambda provider_stream, **_kwargs: provider_stream,
+    )
+    if patch_generated_blocks:
+        monkeypatch.setattr(module.db.session, "add", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(
+            module.db.session,
+            "flush",
+            lambda *_args, **_kwargs: None,
+        )
+
+        call_counter = {"index": 0}
+
+        def _fake_init_generated_block(*_args, **_kwargs):
+            call_counter["index"] += 1
+            return types.SimpleNamespace(
+                generated_block_bid=f"gb-{call_counter['index']}",
+                generated_content="",
+                role="",
+                type=0,
+                position=-1,
+            )
+
+        monkeypatch.setattr(module, "init_generated_block", _fake_init_generated_block)
 
 
 # ---------------------------------------------------------------------------
@@ -2043,6 +2194,247 @@ class TestHandleAskAdapter:
             assert final_answer.audio_segments == []
             assert final_answer.payload is not None
             assert final_answer.payload.audio is None
+
+    def test_handle_input_ask_provider_stream_returns_answer_element(
+        self, adapter_app, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn import handle_input_ask as module
+        from flaskr.service.learn.learn_dtos import (
+            ElementPayloadDTO,
+            ElementType,
+            GeneratedType,
+        )
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+        from flaskr.service.learn.models import LearnGeneratedElement
+
+        ask_provider_config = {
+            "provider": "coze",
+            "mode": "provider_then_llm",
+            "config": {"bot_id": "bot-1"},
+        }
+
+        with adapter_app.app_context():
+            _setup_handle_input_ask_test_doubles(
+                monkeypatch,
+                module,
+                ask_provider_config,
+                patch_generated_blocks=False,
+            )
+            monkeypatch.setattr(
+                module,
+                "stream_ask_provider_response",
+                lambda **_kwargs: iter(
+                    [types.SimpleNamespace(content="provider-answer")]
+                ),
+            )
+            monkeypatch.setattr(module, "chat_llm", lambda *_args, **_kwargs: iter([]))
+
+            anchor = LearnGeneratedElement(
+                element_bid="anchor_elem_handle_stream",
+                progress_record_bid="pr1",
+                user_bid="u1",
+                generated_block_bid="gb_anchor",
+                outline_item_bid="o1",
+                shifu_bid="s1",
+                run_session_bid="rs1",
+                run_event_seq=1,
+                event_type="element",
+                role="teacher",
+                element_index=0,
+                element_type="text",
+                element_type_code=0,
+                change_type="render",
+                is_final=1,
+                content_text="anchor content",
+                payload=_serialize_payload(ElementPayloadDTO()),
+                deleted=0,
+                status=1,
+            )
+            db.session.add(anchor)
+            db.session.flush()
+
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+            events = list(
+                module.handle_input_ask(
+                    app=adapter_app,
+                    context=_FollowUpContext(),
+                    user_info=types.SimpleNamespace(user_id="u1"),
+                    attend_id="pr1",
+                    input="hello",
+                    outline_item_info=types.SimpleNamespace(
+                        shifu_bid="s1", bid="o1", title="Outline", position=1
+                    ),
+                    trace_args={"output": ""},
+                    trace=_FollowUpDummyTrace(),
+                    anchor_element_bid="anchor_elem_handle_stream",
+                )
+            )
+
+            ask_events = [event for event in events if event.type == GeneratedType.ASK]
+            content_events = [
+                event for event in events if event.type == GeneratedType.CONTENT
+            ]
+            assert len(ask_events) == 1
+            assert len(content_events) == 1
+            assert (
+                ask_events[0].generated_block_bid
+                == content_events[0].generated_block_bid
+            )
+            answer_block_bid = ask_events[0].generated_block_bid
+
+            streamed = list(adapter.process(events))
+            answer_messages = [
+                message.content
+                for message in streamed
+                if message.type == "element"
+                and message.content.element_type == ElementType.ANSWER
+            ]
+            assert answer_messages
+            assert answer_messages[-1].content_text == "provider-answer"
+
+            answer_row = (
+                LearnGeneratedElement.query.filter(
+                    LearnGeneratedElement.generated_block_bid == answer_block_bid,
+                    LearnGeneratedElement.element_type == "answer",
+                    LearnGeneratedElement.status == 1,
+                )
+                .order_by(
+                    LearnGeneratedElement.run_event_seq.desc(),
+                    LearnGeneratedElement.id.desc(),
+                )
+                .first()
+            )
+            assert answer_row is not None
+            assert answer_row.content_text == "provider-answer"
+
+    def test_handle_input_ask_provider_only_error_returns_answer_element(
+        self, adapter_app, monkeypatch
+    ):
+        from flaskr.dao import db
+        from flaskr.service.learn import handle_input_ask as module
+        from flaskr.service.learn.ask_provider_adapters import AskProviderError
+        from flaskr.service.learn.learn_dtos import (
+            ElementPayloadDTO,
+            ElementType,
+            GeneratedType,
+        )
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+        from flaskr.service.learn.models import LearnGeneratedElement
+
+        ask_provider_config = {
+            "provider": "dify",
+            "mode": "provider_only",
+            "config": {},
+        }
+
+        with adapter_app.app_context():
+            _setup_handle_input_ask_test_doubles(
+                monkeypatch,
+                module,
+                ask_provider_config,
+                patch_generated_blocks=False,
+            )
+
+            def _raise_provider_error(**_kwargs):
+                if False:
+                    yield None
+                raise AskProviderError("provider failed")
+
+            monkeypatch.setattr(
+                module,
+                "stream_ask_provider_response",
+                _raise_provider_error,
+            )
+            monkeypatch.setattr(module, "chat_llm", lambda *_args, **_kwargs: iter([]))
+
+            anchor = LearnGeneratedElement(
+                element_bid="anchor_elem_handle_error",
+                progress_record_bid="pr1",
+                user_bid="u1",
+                generated_block_bid="gb_anchor",
+                outline_item_bid="o1",
+                shifu_bid="s1",
+                run_session_bid="rs1",
+                run_event_seq=1,
+                event_type="element",
+                role="teacher",
+                element_index=0,
+                element_type="text",
+                element_type_code=0,
+                change_type="render",
+                is_final=1,
+                content_text="anchor content",
+                payload=_serialize_payload(ElementPayloadDTO()),
+                deleted=0,
+                status=1,
+            )
+            db.session.add(anchor)
+            db.session.flush()
+
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+            events = list(
+                module.handle_input_ask(
+                    app=adapter_app,
+                    context=_FollowUpContext(),
+                    user_info=types.SimpleNamespace(user_id="u1"),
+                    attend_id="pr1",
+                    input="hello",
+                    outline_item_info=types.SimpleNamespace(
+                        shifu_bid="s1", bid="o1", title="Outline", position=1
+                    ),
+                    trace_args={"output": ""},
+                    trace=_FollowUpDummyTrace(),
+                    anchor_element_bid="anchor_elem_handle_error",
+                )
+            )
+
+            ask_events = [event for event in events if event.type == GeneratedType.ASK]
+            content_events = [
+                event for event in events if event.type == GeneratedType.CONTENT
+            ]
+            assert len(ask_events) == 1
+            assert len(content_events) == 1
+            assert (
+                ask_events[0].generated_block_bid
+                == content_events[0].generated_block_bid
+            )
+            assert content_events[0].content == "server.learn.askProviderUnavailable"
+            answer_block_bid = ask_events[0].generated_block_bid
+
+            streamed = list(adapter.process(events))
+            answer_messages = [
+                message.content
+                for message in streamed
+                if message.type == "element"
+                and message.content.element_type == ElementType.ANSWER
+            ]
+            assert answer_messages
+            assert (
+                answer_messages[-1].content_text
+                == "server.learn.askProviderUnavailable"
+            )
+
+            answer_row = (
+                LearnGeneratedElement.query.filter(
+                    LearnGeneratedElement.generated_block_bid == answer_block_bid,
+                    LearnGeneratedElement.element_type == "answer",
+                    LearnGeneratedElement.status == 1,
+                )
+                .order_by(
+                    LearnGeneratedElement.run_event_seq.desc(),
+                    LearnGeneratedElement.id.desc(),
+                )
+                .first()
+            )
+            assert answer_row is not None
+            assert answer_row.content_text == "server.learn.askProviderUnavailable"
 
 
 class TestRunMarkdownFlowDTOAnchorBid:
