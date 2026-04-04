@@ -205,8 +205,9 @@ def init_first_course(app: Flask, user_id: str) -> None:
     # Ensure pending state changes are visible to subsequent queries
     db.session.flush()
 
-    # Count users who are actually verified/registered or above.
-    # Support both legacy (0..3) and new (1101..1104) state ranges.
+    # Count only verified users for the bootstrap check.
+    # Support both legacy verified states (1..3) and canonical verified states
+    # (1102..1104), while intentionally excluding unregistered states.
     verified_states = [
         1,
         2,
