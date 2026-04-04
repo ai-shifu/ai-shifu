@@ -1271,6 +1271,7 @@ export function usePreviewChat() {
         );
         source.addEventListener('message', event => {
           const raw = event?.data;
+          console.log('[preview sse message]', raw);
           if (!raw) return;
           const payload = String(raw).trim();
           if (payload) {

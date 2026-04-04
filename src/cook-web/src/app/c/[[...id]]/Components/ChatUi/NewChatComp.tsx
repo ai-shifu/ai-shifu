@@ -25,7 +25,6 @@ import InteractionBlock from './InteractionBlock';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import type { ChatContentItem } from './useChatLogicHook';
 import AskBlock from './AskBlock';
-import type { AskMessage } from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
 import ListenModeSlideRenderer from './ListenModeSlideRenderer';
@@ -46,107 +45,6 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { useSystemStore } from '@/c-store/useSystemStore';
-import { buildAskListByAnchorElementBid } from './askState';
-import { useAskStateStore } from './useAskStateStore';
-
-const buildReadModeItemsWithAskState = ({
-  items,
-  askListByAnchorElementBid,
-  mobileStyle,
-}: {
-  items: ChatContentItem[];
-  askListByAnchorElementBid: Record<string, AskMessage[]>;
-  mobileStyle: boolean;
-}) => {
-  const existingAskAnchorSet = new Set<string>();
-  const likeStatusAnchorSet = new Set<string>();
-
-  items.forEach(item => {
-    if (item.type === ChatContentItemType.ASK && item.parent_element_bid) {
-      existingAskAnchorSet.add(item.parent_element_bid);
-    }
-
-    if (
-      item.type === ChatContentItemType.LIKE_STATUS &&
-      item.parent_element_bid
-    ) {
-      likeStatusAnchorSet.add(item.parent_element_bid);
-    }
-  });
-
-  const insertedAskAnchorSet = new Set<string>();
-  const nextItems: ChatContentItem[] = [];
-
-  items.forEach(item => {
-    if (item.type === ChatContentItemType.ASK) {
-      const anchorElementBid = item.parent_element_bid || '';
-      const storedAskList = anchorElementBid
-        ? askListByAnchorElementBid[anchorElementBid]
-        : undefined;
-
-      nextItems.push(
-        storedAskList
-          ? ({
-              ...item,
-              ask_list: storedAskList as ChatContentItem[],
-            } satisfies ChatContentItem)
-          : item,
-      );
-
-      if (anchorElementBid) {
-        insertedAskAnchorSet.add(anchorElementBid);
-      }
-
-      return;
-    }
-
-    nextItems.push(item);
-
-    const anchorElementBid =
-      item.type === ChatContentItemType.LIKE_STATUS
-        ? item.parent_element_bid || ''
-        : item.element_bid || '';
-
-    if (
-      !anchorElementBid ||
-      existingAskAnchorSet.has(anchorElementBid) ||
-      insertedAskAnchorSet.has(anchorElementBid)
-    ) {
-      return;
-    }
-
-    const storedAskList = askListByAnchorElementBid[anchorElementBid];
-
-    if (!storedAskList?.length) {
-      return;
-    }
-
-    const shouldInsertAfterCurrent =
-      item.type === ChatContentItemType.LIKE_STATUS ||
-      (!likeStatusAnchorSet.has(anchorElementBid) &&
-        (item.type === ChatContentItemType.CONTENT ||
-          item.type === ChatContentItemType.INTERACTION));
-
-    if (!shouldInsertAfterCurrent) {
-      return;
-    }
-
-    nextItems.push({
-      element_bid: '',
-      parent_element_bid: anchorElementBid,
-      type: ChatContentItemType.ASK,
-      content: '',
-      isAskExpanded: !mobileStyle,
-      ask_list: storedAskList as ChatContentItem[],
-      readonly: false,
-      customRenderBar: () => null,
-      user_input: '',
-    });
-    insertedAskAnchorSet.add(anchorElementBid);
-  });
-
-  return nextItems;
-};
 
 export const NewChatComponents = ({
   className,
@@ -283,12 +181,6 @@ export const NewChatComponents = ({
     listenPlaybackState.isAudioPlaying ||
     listenPlaybackState.isAudioSequenceActive;
   const isPromptContextSettled = settledPromptContextKey === promptContextKey;
-  const ensureLessonScope = useAskStateStore(state => state.ensureLessonScope);
-  const hydrateAskListMap = useAskStateStore(state => state.hydrateAskListMap);
-  const lessonScopeKey = useAskStateStore(state => state.lessonScopeKey);
-  const storedAskListByAnchorElementBid = useAskStateStore(
-    state => state.askListByAnchorElementBid,
-  );
 
   const onPayModalOpen = useCallback(() => {
     openPayModal();
@@ -384,32 +276,6 @@ export const NewChatComponents = ({
     showOutputInProgressToast,
     onPayModalOpen,
   });
-
-  const baseAskListByAnchorElementBid = useMemo(
-    () => buildAskListByAnchorElementBid(items),
-    [items],
-  );
-  const scopedAskListByAnchorElementBid = useMemo(
-    () => (lessonScopeKey === lessonId ? storedAskListByAnchorElementBid : {}),
-    [lessonId, lessonScopeKey, storedAskListByAnchorElementBid],
-  );
-  const readModeItems = useMemo(
-    () =>
-      buildReadModeItemsWithAskState({
-        items,
-        askListByAnchorElementBid: scopedAskListByAnchorElementBid,
-        mobileStyle,
-      }),
-    [items, mobileStyle, scopedAskListByAnchorElementBid],
-  );
-
-  useEffect(() => {
-    ensureLessonScope(lessonId);
-  }, [ensureLessonScope, lessonId]);
-
-  useEffect(() => {
-    hydrateAskListMap(baseAskListByAnchorElementBid);
-  }, [baseAskListByAnchorElementBid, hydrateAskListMap]);
 
   useEffect(() => {
     if (isListenModeActive && !isLoading) {
@@ -795,8 +661,6 @@ export const NewChatComponents = ({
               isLoading={isLoading}
               sectionTitle={lessonTitle}
               lessonId={lessonId}
-              shifuBid={shifuBid}
-              previewMode={previewMode}
               lessonStatus={lessonStatus}
               onSend={memoizedOnSend}
               onPlayerVisibilityChange={onListenPlayerVisibilityChange}
@@ -834,7 +698,7 @@ export const NewChatComponents = ({
             ) : isLoading ? (
               <></>
             ) : (
-              readModeItems.map((item, idx) => {
+              items.map((item, idx) => {
                 const isLongPressed = longPressedBlockBid === item.element_bid;
                 const baseKey = item.element_bid || `${item.type}-${idx}`;
                 const parentKey = item.parent_element_bid || baseKey;
@@ -907,7 +771,6 @@ export const NewChatComponents = ({
                             : undefined
                         }
                         readonly={item.readonly}
-                        disableAskButton={isInteractionFollowUp}
                         onRefresh={onRefresh}
                         onToggleAskExpanded={toggleAskExpanded}
                         askButtonVariant={
