@@ -1825,6 +1825,122 @@ class TestHandleAskAdapter:
             assert payload["ask_element_bid"] == ask_row.element_bid
             assert "asks" not in payload
 
+    def test_process_creates_answer_element_for_patched_anchor_bid(self, adapter_app):
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+        from flaskr.service.learn.learn_dtos import (
+            ElementPayloadDTO,
+            ElementType,
+            GeneratedType,
+            RunMarkdownFlowDTO,
+        )
+        from flaskr.service.learn.models import LearnGeneratedElement
+        from flaskr.dao import db
+
+        with adapter_app.app_context():
+            adapter = ListenElementRunAdapter(
+                adapter_app, shifu_bid="s1", outline_bid="o1", user_bid="u1"
+            )
+
+            retired_anchor = LearnGeneratedElement(
+                element_bid="anchor_elem_stable",
+                progress_record_bid="pr1",
+                user_bid="u1",
+                generated_block_bid="gb_anchor",
+                outline_item_bid="o1",
+                shifu_bid="s1",
+                run_session_bid="rs1",
+                run_event_seq=1,
+                event_type="element",
+                role="teacher",
+                element_index=0,
+                element_type="text",
+                element_type_code=0,
+                change_type="render",
+                is_new=1,
+                is_final=0,
+                content_text="anchor draft",
+                payload=_serialize_payload(ElementPayloadDTO()),
+                deleted=0,
+                status=0,
+            )
+            active_anchor_patch = LearnGeneratedElement(
+                element_bid="anchor_elem_active",
+                progress_record_bid="pr1",
+                user_bid="u1",
+                generated_block_bid="gb_anchor",
+                outline_item_bid="o1",
+                shifu_bid="s1",
+                run_session_bid="rs1",
+                run_event_seq=2,
+                event_type="element",
+                role="teacher",
+                element_index=0,
+                element_type="text",
+                element_type_code=0,
+                change_type="render",
+                target_element_bid="anchor_elem_stable",
+                is_new=0,
+                is_final=1,
+                content_text="anchor final",
+                payload=_serialize_payload(ElementPayloadDTO()),
+                deleted=0,
+                status=1,
+            )
+            db.session.add(retired_anchor)
+            db.session.add(active_anchor_patch)
+            db.session.flush()
+
+            events = [
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="ask_gb_split",
+                    type=GeneratedType.ASK,
+                    content="question",
+                    anchor_element_bid="anchor_elem_stable",
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="answer_gb_split",
+                    type=GeneratedType.CONTENT,
+                    content="answer",
+                ),
+                RunMarkdownFlowDTO(
+                    outline_bid="o1",
+                    generated_block_bid="answer_gb_split",
+                    type=GeneratedType.BREAK,
+                    content="",
+                ),
+            ]
+
+            streamed = list(adapter.process(events))
+            answer_messages = [
+                message.content
+                for message in streamed
+                if message.type == "element"
+                and message.content.element_type == ElementType.ANSWER
+            ]
+
+            assert answer_messages
+            final_answer = answer_messages[-1]
+            assert final_answer.content_text == "answer"
+            assert final_answer.payload.anchor_element_bid == "anchor_elem_stable"
+
+            answer_row = (
+                LearnGeneratedElement.query.filter(
+                    LearnGeneratedElement.generated_block_bid == "answer_gb_split",
+                    LearnGeneratedElement.element_type == "answer",
+                    LearnGeneratedElement.status == 1,
+                )
+                .order_by(
+                    LearnGeneratedElement.run_event_seq.desc(),
+                    LearnGeneratedElement.id.desc(),
+                )
+                .first()
+            )
+            assert answer_row is not None
+            assert answer_row.content_text == "answer"
+
     def test_answer_audio_events_do_not_attach_audio(self, adapter_app):
         from flaskr.service.learn.listen_element_payloads import _serialize_payload
         from flaskr.service.learn.listen_elements import ListenElementRunAdapter

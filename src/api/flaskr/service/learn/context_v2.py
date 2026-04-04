@@ -108,6 +108,7 @@ from flaskr.service.learn.langfuse_naming import (
 from flaskr.service.learn.utils_v2 import init_generated_block
 from flaskr.service.learn.lesson_feedback import build_lesson_feedback_interaction_md
 from flaskr.service.learn.exceptions import PaidException
+from flaskr.service.learn.listen_element_queries import _load_latest_active_element_row
 from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
 from flaskr.i18n import _, get_current_language, set_language
 from flaskr.service.user.exceptions import UserNotLoginException
@@ -3311,11 +3312,7 @@ class RunScriptContextV2:
             anchor_element = None
             anchor_generated_block_bid = ""
             if reload_element_bid:
-                anchor_element = LearnGeneratedElement.query.filter(
-                    LearnGeneratedElement.element_bid == reload_element_bid,
-                    LearnGeneratedElement.deleted == 0,
-                    LearnGeneratedElement.status == 1,
-                ).first()
+                anchor_element = _load_latest_active_element_row(reload_element_bid)
                 if anchor_element:
                     anchor_generated_block_bid = (
                         anchor_element.generated_block_bid or ""
