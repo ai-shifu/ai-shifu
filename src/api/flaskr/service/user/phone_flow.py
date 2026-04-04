@@ -253,8 +253,9 @@ def init_first_course(app: Flask, user_id: str) -> None:
             # Persist creator on the published record
             course.created_user_bid = user_id
             # Also persist creator on the corresponding draft (used by permission checks)
-            draft = ShifuModel.query.filter(
-                ShifuModel.shifu_bid == course.shifu_bid
+            draft = DraftShifu.query.filter(
+                DraftShifu.deleted == 0,
+                DraftShifu.shifu_bid == course.shifu_bid,
             ).first()
             if draft:
                 draft.created_user_bid = user_id
