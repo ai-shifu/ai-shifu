@@ -1134,7 +1134,7 @@ const ListenModeSlideRenderer = ({
 
   const shouldRenderMobileAskEntry = mobileStyle && !shouldRenderEmptyPpt;
 
-  console.log('elementlist', elementList);
+  // console.log('elementlist', elementList);
 
   return (
     <div
