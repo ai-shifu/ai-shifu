@@ -6,6 +6,20 @@ class _FakeRedis:
         return 1
 
 
+def _reset_user_auth_tables():
+    from flaskr.dao import db
+    from flaskr.service.user.models import (
+        AuthCredential,
+        UserInfo as UserEntity,
+        UserToken as UserTokenModel,
+    )
+
+    UserTokenModel.query.delete()
+    AuthCredential.query.delete()
+    UserEntity.query.delete()
+    db.session.commit()
+
+
 def test_phone_flow_sets_user_identify(app):
     import flaskr.service.user.phone_flow as phone_flow
     from flaskr.service.user.models import UserInfo as UserEntity
@@ -17,17 +31,21 @@ def test_phone_flow_sets_user_identify(app):
         # Monkeypatch redis in module scope
         phone_flow.redis = _FakeRedis()
 
-        phone = "15500001111"
-        token, created, _ctx = phone_flow.verify_phone_code(
-            app, user_id=None, phone=phone, code="9999"
-        )
+        _reset_user_auth_tables()
+        try:
+            phone = "15500001111"
+            token, created, _ctx = phone_flow.verify_phone_code(
+                app, user_id=None, phone=phone, code="9999"
+            )
 
-        # Verify persisted identifier on entity
-        entity = UserEntity.query.filter_by(user_bid=token.userInfo.user_id).first()
-        assert entity is not None
-        assert entity.user_identify == phone
-        assert entity.is_creator == 1
-        assert entity.is_operator == 1
+            # Verify persisted identifier on entity
+            entity = UserEntity.query.filter_by(user_bid=token.userInfo.user_id).first()
+            assert entity is not None
+            assert entity.user_identify == phone
+            assert entity.is_creator == 1
+            assert entity.is_operator == 1
+        finally:
+            _reset_user_auth_tables()
 
 
 def test_email_flow_sets_user_identify(app):
@@ -38,14 +56,18 @@ def test_email_flow_sets_user_identify(app):
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
         email_flow.redis = _FakeRedis()
 
-        raw_email = "TestUser@Example.com"
-        token, created, _ctx = email_flow.verify_email_code(
-            app, user_id=None, email=raw_email, code="9999"
-        )
+        _reset_user_auth_tables()
+        try:
+            raw_email = "TestUser@Example.com"
+            token, created, _ctx = email_flow.verify_email_code(
+                app, user_id=None, email=raw_email, code="9999"
+            )
 
-        entity = UserEntity.query.filter_by(user_bid=token.userInfo.user_id).first()
-        assert entity is not None
-        assert entity.user_identify == raw_email.lower()
+            entity = UserEntity.query.filter_by(user_bid=token.userInfo.user_id).first()
+            assert entity is not None
+            assert entity.user_identify == raw_email.lower()
+        finally:
+            _reset_user_auth_tables()
 
 
 def test_phone_flow_verifies_code_from_db_when_cache_missing(app):

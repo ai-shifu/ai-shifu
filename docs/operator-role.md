@@ -25,10 +25,10 @@ manual database edits.
 
 ## Non-Goals
 
-- No full RBAC redesign in this change.
-- No change to course owner semantics.
-- No automatic operator promotion for every `/admin` login.
-- No rewrite of existing creator-only routes to operator-only routes unless a
+- Full RBAC redesign is out of scope for this change.
+- This change does not alter course owner semantics.
+- We will not automatically promote every `/admin` login to operator.
+- Existing creator-only routes stay as they are unless a
   route is explicitly meant for operator access.
 
 ## Existing Model
@@ -111,9 +111,9 @@ surfaces.
 
 ## Compatibility
 
-- Existing creator checks continue to work because `is_creator` stays intact.
-- Existing course owner and shared permission checks stay unchanged.
-- Existing `/admin` creator flows continue to function as before.
+- Creator checks continue to work because `is_creator` stays intact.
+- Course owner and shared permission checks stay unchanged.
+- `/admin` creator flows continue to function as before.
 - New operator behavior is additive and low-risk.
 
 ## Verification

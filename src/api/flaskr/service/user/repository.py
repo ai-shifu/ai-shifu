@@ -241,7 +241,7 @@ def _build_user_aggregate(
         updated_at=entity.updated_at,
         credentials=summaries,
         is_creator=bool(entity.is_creator),
-        is_operator=bool(getattr(entity, "is_operator", 0)),
+        is_operator=bool(entity.is_operator),
     )
     return aggregate
 

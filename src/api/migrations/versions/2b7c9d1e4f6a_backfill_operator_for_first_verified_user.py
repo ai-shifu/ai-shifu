@@ -16,6 +16,9 @@ branch_labels = None
 depends_on = None
 
 
+# VERIFIED_STATES includes both legacy public state codes (1/2/3) and the
+# canonical stored codes (1102/1103/1104) so upgraded historical rows are
+# still recognized before all records are normalized.
 VERIFIED_STATES = (1, 2, 3, 1102, 1103, 1104)
 
 

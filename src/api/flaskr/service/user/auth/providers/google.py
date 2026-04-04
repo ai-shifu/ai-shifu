@@ -260,7 +260,10 @@ class GoogleAuthProvider(AuthProvider):
                 )
                 if entity:
                     updates: Dict[str, Any] = {"identify": email}
-                    if email_verified:
+                    if email_verified and aggregate.state in (
+                        USER_STATE_UNREGISTERED,
+                        0,
+                    ):
                         updates["state"] = USER_STATE_REGISTERED
                     display_name = profile.get("name")
                     if display_name:

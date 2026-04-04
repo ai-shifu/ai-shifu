@@ -41,11 +41,45 @@ from flaskr.service.user.repository import (
 )
 
 FIX_CHECK_CODE = None
+BOOTSTRAP_LOCK_NAME = "user_first_verified_bootstrap"
 
 
 def configure_fix_check_code(value: Optional[str]) -> None:
     global FIX_CHECK_CODE
     FIX_CHECK_CODE = value
+
+
+def _acquire_bootstrap_lock(app: Flask, timeout_seconds: int = 5) -> Optional[bool]:
+    bind = db.session.get_bind()
+    dialect_name = getattr(getattr(bind, "dialect", None), "name", "")
+    if dialect_name != "mysql":
+        return None
+
+    lock_value = db.session.execute(
+        text("SELECT GET_LOCK(:name, :timeout_seconds)"),
+        {
+            "name": BOOTSTRAP_LOCK_NAME,
+            "timeout_seconds": timeout_seconds,
+        },
+    ).scalar()
+    acquired = bool(lock_value)
+    if not acquired:
+        app.logger.warning(
+            "init_first_course skip bootstrap: failed to acquire named lock %s",
+            BOOTSTRAP_LOCK_NAME,
+        )
+    return acquired
+
+
+def _release_bootstrap_lock() -> None:
+    bind = db.session.get_bind()
+    dialect_name = getattr(getattr(bind, "dialect", None), "name", "")
+    if dialect_name != "mysql":
+        return
+    db.session.execute(
+        text("SELECT RELEASE_LOCK(:name)"),
+        {"name": BOOTSTRAP_LOCK_NAME},
+    )
 
 
 def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
@@ -181,44 +215,53 @@ def init_first_course(app: Flask, user_id: str) -> None:
         USER_STATE_TRAIL,
         USER_STATE_PAID,
     ]
-    user_count = (
-        UserEntity.query.filter(UserEntity.deleted == 0)
-        .filter(UserEntity.state.in_(verified_states))
-        .count()
-    )
-    if user_count != 1:
-        db.session.flush()
+    lock_acquired = _acquire_bootstrap_lock(app)
+    if lock_acquired is False:
         return
+    try:
+        verified_users = (
+            UserEntity.query.filter(UserEntity.deleted == 0)
+            .filter(UserEntity.state.in_(verified_states))
+            .order_by(UserEntity.created_at.asc(), UserEntity.id.asc())
+            .limit(2)
+            .all()
+        )
+        if len(verified_users) != 1 or verified_users[0].user_bid != user_id:
+            db.session.flush()
+            return
 
-    # Bootstrap the first verified account so self-hosted deployments are
-    # manageable without extra manual role assignment.
-    mark_user_roles(user_id, is_creator=True, is_operator=True)
+        # Bootstrap the first verified account so self-hosted deployments are
+        # manageable without extra manual role assignment.
+        mark_user_roles(user_id, is_creator=True, is_operator=True)
 
-    ShifuModel: Union[PublishedShifu, DraftShifu] = PublishedShifu
-    # Assign demo shifu only when there is exactly one published course
-    course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()
-    if course_count == 0:
-        course_count = DraftShifu.query.filter(DraftShifu.deleted == 0).count()
-        ShifuModel = DraftShifu
-    if course_count != 1:
+        ShifuModel: Union[PublishedShifu, DraftShifu] = PublishedShifu
+        # Assign demo shifu only when there is exactly one published course
+        course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()
+        if course_count == 0:
+            course_count = DraftShifu.query.filter(DraftShifu.deleted == 0).count()
+            ShifuModel = DraftShifu
+        if course_count != 1:
+            db.session.flush()
+            return
+
+        course = (
+            ShifuModel.query.filter(ShifuModel.deleted == 0)
+            .order_by(ShifuModel.id.asc())
+            .first()
+        )
+        if course:
+            # Persist creator on the published record
+            course.created_user_bid = user_id
+            # Also persist creator on the corresponding draft (used by permission checks)
+            draft = ShifuModel.query.filter(
+                ShifuModel.shifu_bid == course.shifu_bid
+            ).first()
+            if draft:
+                draft.created_user_bid = user_id
         db.session.flush()
-        return
-
-    course = (
-        ShifuModel.query.filter(ShifuModel.deleted == 0)
-        .order_by(ShifuModel.id.asc())
-        .first()
-    )
-    if course:
-        # Persist creator on the published record
-        course.created_user_bid = user_id
-        # Also persist creator on the corresponding draft (used by permission checks)
-        draft = ShifuModel.query.filter(
-            ShifuModel.shifu_bid == course.shifu_bid
-        ).first()
-        if draft:
-            draft.created_user_bid = user_id
-    db.session.flush()
+    finally:
+        if lock_acquired:
+            _release_bootstrap_lock()
 
 
 def verify_phone_code(
