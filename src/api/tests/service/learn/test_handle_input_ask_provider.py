@@ -506,6 +506,37 @@ def test_ask_event_emitted(app, monkeypatch):
     assert ask_events[0].anchor_element_bid == "elem_anchor_123"
 
 
+def test_ask_event_uses_answer_block_bid(app, monkeypatch):
+    """ASK and answer CONTENT events should share the answer block bid."""
+    from flaskr.service.learn import handle_input_ask as module
+
+    _setup_llm_only_patches(monkeypatch, module, ["reply"])
+
+    events = list(
+        module.handle_input_ask(
+            app=app,
+            context=_Context(),
+            user_info=types.SimpleNamespace(user_id="user-1"),
+            attend_id="attend-1",
+            input="my question",
+            outline_item_info=types.SimpleNamespace(
+                shifu_bid="s1", bid="o1", title="T", position=1
+            ),
+            trace_args={"output": ""},
+            trace=_DummyTrace(),
+            anchor_element_bid="elem_anchor_123",
+        )
+    )
+
+    ask_events = [e for e in events if e.type == GeneratedType.ASK]
+    content_events = [e for e in events if e.type == GeneratedType.CONTENT]
+
+    assert len(ask_events) == 1
+    assert len(content_events) == 1
+    assert ask_events[0].generated_block_bid == "gb-2"
+    assert content_events[0].generated_block_bid == "gb-2"
+
+
 def test_guardrail_uses_answer_block_bid(app, monkeypatch):
     """When guardrail triggers, CONTENT events should still use answer block bid."""
     from flaskr.service.learn import handle_input_ask as module
