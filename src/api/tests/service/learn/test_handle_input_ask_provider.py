@@ -538,8 +538,8 @@ def test_ask_event_emitted(app, monkeypatch):
     assert ask_events[0].anchor_element_bid == "elem_anchor_123"
 
 
-def test_follow_up_events_use_answer_block_bid(app, monkeypatch):
-    """ASK and teacher events share the answer block bid for follow-up answers."""
+def test_ask_event_uses_ask_block_bid(app, monkeypatch):
+    """ASK uses ask block bid while teacher content stays on answer block bid."""
     from flaskr.service.learn import handle_input_ask as module
 
     _setup_llm_only_patches(monkeypatch, module, ["reply"])
@@ -565,7 +565,7 @@ def test_follow_up_events_use_answer_block_bid(app, monkeypatch):
 
     assert len(ask_events) == 1
     assert len(content_events) == 1
-    assert ask_events[0].generated_block_bid == "gb-2"
+    assert ask_events[0].generated_block_bid == "gb-1"
     assert content_events[0].generated_block_bid == "gb-2"
 
 
