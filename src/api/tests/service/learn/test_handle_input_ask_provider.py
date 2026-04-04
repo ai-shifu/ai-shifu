@@ -255,8 +255,16 @@ def test_handle_input_ask_provider_only_returns_provider_error_without_llm(
     )
 
     contents = _collect_content_chunks(events)
+    ask_events = [e for e in events if e.type == GeneratedType.ASK]
     assert contents == ["server.learn.askProviderUnavailable"]
     assert llm_call_counter["count"] == 0
+    assert len(ask_events) == 1
+    assert ask_events[0].generated_block_bid == "gb-2"
+    assert all(
+        event.generated_block_bid == "gb-2"
+        for event in events
+        if event.type in {GeneratedType.ASK, GeneratedType.CONTENT, GeneratedType.BREAK}
+    )
     assert events[-1].type == GeneratedType.BREAK
     assert len(dummy_trace.last_span.generations) == 1
     generation = dummy_trace.last_span.generations[0]
@@ -321,8 +329,16 @@ def test_handle_input_ask_provider_then_llm_falls_back_to_llm(app, monkeypatch):
     )
 
     contents = _collect_content_chunks(events)
+    ask_events = [e for e in events if e.type == GeneratedType.ASK]
     assert "llm-fallback-answer" in contents
     assert llm_call_counter["count"] == 1
+    assert len(ask_events) == 1
+    assert ask_events[0].generated_block_bid == "gb-2"
+    assert all(
+        event.generated_block_bid == "gb-2"
+        for event in events
+        if event.type in {GeneratedType.ASK, GeneratedType.CONTENT, GeneratedType.BREAK}
+    )
     assert events[-1].type == GeneratedType.BREAK
 
 
@@ -374,8 +390,16 @@ def test_handle_input_ask_provider_response_skips_llm(app, monkeypatch):
     )
 
     contents = _collect_content_chunks(events)
+    ask_events = [e for e in events if e.type == GeneratedType.ASK]
     assert contents == ["provider-", "answer"]
     assert llm_call_counter["count"] == 0
+    assert len(ask_events) == 1
+    assert ask_events[0].generated_block_bid == "gb-2"
+    assert all(
+        event.generated_block_bid == "gb-2"
+        for event in events
+        if event.type in {GeneratedType.ASK, GeneratedType.CONTENT, GeneratedType.BREAK}
+    )
     assert events[-1].type == GeneratedType.BREAK
     assert len(dummy_trace.last_span.generations) == 1
     generation = dummy_trace.last_span.generations[0]
@@ -428,7 +452,15 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
     )
 
     contents = _collect_content_chunks(events)
+    ask_events = [e for e in events if e.type == GeneratedType.ASK]
     assert contents == ["provider-answer"]
+    assert len(ask_events) == 1
+    assert ask_events[0].generated_block_bid == "gb-2"
+    assert all(
+        event.generated_block_bid == "gb-2"
+        for event in events
+        if event.type in {GeneratedType.ASK, GeneratedType.CONTENT, GeneratedType.BREAK}
+    )
     assert captured["messages"] == [
         {"role": "system", "content": "COURSE_PROMPT"},
         {"role": "user", "content": "hello"},
@@ -506,8 +538,8 @@ def test_ask_event_emitted(app, monkeypatch):
     assert ask_events[0].anchor_element_bid == "elem_anchor_123"
 
 
-def test_ask_event_uses_ask_block_bid(app, monkeypatch):
-    """ASK uses ask block bid while teacher content stays on answer block bid."""
+def test_follow_up_events_use_answer_block_bid(app, monkeypatch):
+    """ASK and teacher events share the answer block bid for follow-up answers."""
     from flaskr.service.learn import handle_input_ask as module
 
     _setup_llm_only_patches(monkeypatch, module, ["reply"])
@@ -533,7 +565,7 @@ def test_ask_event_uses_ask_block_bid(app, monkeypatch):
 
     assert len(ask_events) == 1
     assert len(content_events) == 1
-    assert ask_events[0].generated_block_bid == "gb-1"
+    assert ask_events[0].generated_block_bid == "gb-2"
     assert content_events[0].generated_block_bid == "gb-2"
 
 
@@ -571,6 +603,7 @@ def test_guardrail_uses_answer_block_bid(app, monkeypatch):
     # ASK event should still be emitted before guardrail
     ask_events = [e for e in events if e.type == GeneratedType.ASK]
     assert len(ask_events) == 1
+    assert ask_events[0].generated_block_bid == "gb-2"
 
 
 def test_handle_input_ask_nests_follow_up_span_under_parent_observation(

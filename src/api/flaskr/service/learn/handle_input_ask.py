@@ -48,9 +48,11 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PROD,
 )
 from flaskr.common.i18n_utils import get_markdownflow_output_language
-from flaskr.service.learn.models import LearnGeneratedElement
 from flaskr.service.learn.listen_element_payloads import _deserialize_payload
-from flaskr.service.learn.listen_element_queries import find_follow_up_element_rows
+from flaskr.service.learn.listen_element_queries import (
+    _load_latest_active_element_row,
+    find_follow_up_element_rows,
+)
 
 check_text_with_llm_response = None
 LLMSettings = None
@@ -356,10 +358,7 @@ def handle_input_ask(
     anchor_element = None
     follow_up_elements = []
     if anchor_element_bid:
-        anchor_element = LearnGeneratedElement.query.filter(
-            LearnGeneratedElement.element_bid == anchor_element_bid,
-            LearnGeneratedElement.deleted == 0,
-        ).first()
+        anchor_element = _load_latest_active_element_row(anchor_element_bid)
         if anchor_element is not None:
             follow_up_elements = find_follow_up_element_rows(
                 attend_id,
@@ -443,7 +442,7 @@ def handle_input_ask(
     # Emit internal ASK event for listen adapter
     yield RunMarkdownFlowDTO(
         outline_bid=outline_item_info.bid,
-        generated_block_bid=ask_block.generated_block_bid,
+        generated_block_bid=answer_block.generated_block_bid,
         type=GeneratedType.ASK,
         content=input,
         anchor_element_bid=anchor_element_bid,
