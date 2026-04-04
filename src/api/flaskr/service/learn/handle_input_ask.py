@@ -440,12 +440,10 @@ def handle_input_ask(
     )
     db.session.flush()
 
-    # Emit internal ASK event for listen adapter.
-    # The ASK/CONTENT/BREAK follow-up sidecar events must share the answer block bid,
-    # otherwise the listen element adapter will fall back to a plain text element.
+    # Emit internal ASK event for listen adapter
     yield RunMarkdownFlowDTO(
         outline_bid=outline_item_info.bid,
-        generated_block_bid=answer_block.generated_block_bid,
+        generated_block_bid=ask_block.generated_block_bid,
         type=GeneratedType.ASK,
         content=input,
         anchor_element_bid=anchor_element_bid,
